@@ -41,6 +41,12 @@ const config: ExpoConfig = {
       // is iOS 17+. Below that the cutout path degrades to the server fallback.
       LSMinimumSystemVersion: '17.0',
 
+      // The app only ever uses HTTPS, which is exempt standard encryption.
+      // Declaring it here stops App Store Connect asking the export-compliance
+      // question on every single upload — and, more usefully, stops a build
+      // sitting in "Missing Compliance" instead of reaching TestFlight.
+      ITSAppUsesNonExemptEncryption: false,
+
       // iOS 27 SDK turned the long-standing "no UIScene lifecycle" runtime
       // warning into a hard crash on launch
       // (`UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`).
