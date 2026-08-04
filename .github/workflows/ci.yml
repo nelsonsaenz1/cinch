@@ -52,9 +52,17 @@ jobs:
       # Edge Functions are excluded from tsconfig.json — they run on Deno, with
       # different globals and different module resolution — so this is the only
       # thing that typechecks them at all.
+      #
+      # --node-modules-dir=auto is required because the repo root has a
+      # package.json (the Expo app). Deno walks up, finds it, switches to Node
+      # resolution, and then refuses to resolve the `npm:` specifiers without a
+      # node_modules directory. The flag is passed here rather than written into
+      # each function's deno.json deliberately: Supabase's Edge Runtime resolves
+      # `npm:` itself, so changing the committed config would alter how these
+      # deploy in order to fix a CI-only problem.
       - name: Typecheck Edge Functions
         run: |
           for fn in supabase/functions/*/index.ts; do
             echo "checking $fn"
-            deno check --allow-import "$fn"
+            deno check --allow-import --node-modules-dir=auto "$fn"
           done
