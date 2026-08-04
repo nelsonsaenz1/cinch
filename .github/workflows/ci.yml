@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch cancels the first. Nothing here needs the
+# older run's result, and the bundle step is slow enough to be worth it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # The styling engine is the core IP and is pure, deterministic arithmetic
+      # over a fixed fixture closet — so it is exactly the thing that can break
+      # silently. A colour-harmony regression produces outfits that are merely
+      # a bit worse, which no crash and no type error will ever catch.
+      - name: Styling engine smoke test
+        run: npm run smoke:styling
+
+      # Catches the failure typecheck cannot: a module that resolves at compile
+      # time but blows up when Metro actually bundles it for the device.
+      - name: Bundle for iOS
+        run: npx expo export --platform ios --output-dir /tmp/export
+
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Edge Functions are excluded from tsconfig.json — they run on Deno, with
+      # different globals and different module resolution — so this is the only
+      # thing that typechecks them at all.
+      - name: Typecheck Edge Functions
+        run: |
+          for fn in supabase/functions/*/index.ts; do
+            echo "checking $fn"
+            deno check --allow-import "$fn"
+          done
