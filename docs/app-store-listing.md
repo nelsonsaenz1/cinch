@@ -156,8 +156,9 @@ Connect asking on every single upload.
 
 ```
 SIGNING IN
-Cinch uses Sign in with Apple only. Please sign in with any Apple ID — no demo
-account is needed and no invite code is required.
+Sign in with Apple, or with any email address. Please use any Apple ID — no demo
+account is needed and no invite code is required. The email option sends a
+sign-in link that opens the app back up via the cinch:// scheme.
 
 IMPORTANT — SEEDING A CLOSET
 Cinch styles you from clothes you own, so a brand-new account starts empty and

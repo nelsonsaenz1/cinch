@@ -1,4 +1,8 @@
+import { Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold } from '@expo-google-fonts/archivo';
+import { BodoniModa_400Regular, BodoniModa_600SemiBold } from '@expo-google-fonts/bodoni-moda';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 import {
   DarkTheme,
   DefaultTheme,
@@ -12,10 +16,16 @@ import { useEffect } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
 import { useSession } from '@/features/auth/use-session';
 import { queryClient } from '@/lib/query-client';
 
 import '@/global.css';
+
+// Hold the splash until the fonts are in memory. Without this the first frame
+// paints in the system fallback and then reflows once Bodoni and Archivo load —
+// a visible jolt on the very first screen a new user ever sees.
+void SplashScreen.preventAutoHideAsync();
 
 /**
  * The routing gate.
@@ -26,6 +36,10 @@ import '@/global.css';
  * stack after the user signs in.
  */
 function AuthGate({ children }: { children: React.ReactNode }) {
+  // Completes a magic-link sign-in when the link opens the app, including the
+  // cold-start case where no URL event ever fires.
+  useDeepLinkAuth();
+
   const session = useSession();
   const segments = useSegments();
   const router = useRouter();
@@ -59,6 +73,22 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
+
+  const [fontsLoaded, fontError] = useFonts({
+    BodoniModa_400Regular,
+    BodoniModa_600SemiBold,
+    Archivo_400Regular,
+    Archivo_500Medium,
+    Archivo_600SemiBold,
+  });
+
+  useEffect(() => {
+    // Hide on error too. A missing font is a downgrade; a splash screen that
+    // never goes away is a bricked app.
+    if (fontsLoaded || fontError) void SplashScreen.hideAsync();
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

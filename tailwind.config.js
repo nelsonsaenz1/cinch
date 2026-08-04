@@ -38,11 +38,21 @@ module.exports = {
         critical: '#B3261E',
       },
       fontFamily: {
-        // Editorial display for headers, set tight.
-        display: ['Georgia', 'Times New Roman', 'serif'],
-        body: ['System', 'ui-sans-serif', 'sans-serif'],
-        // Tabular numerals for every stat (wear count, cost-per-wear).
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        // React Native does NOT synthesise weights for custom fonts: setting
+        // fontWeight on a loaded family is silently ignored, and you get the
+        // regular cut back. Every weight therefore has to be its own family
+        // name, which is why these are named by weight rather than by role.
+        //
+        // Bodoni Moda — the didone is the fashion-magazine letterform. Used
+        // large only; its hairlines break up below about 28px.
+        display: ['BodoniModa_600SemiBold'],
+        'display-regular': ['BodoniModa_400Regular'],
+        // Archivo — condensed grotesque with true tabular figures, legible at
+        // small sizes. Reads like a garment care label.
+        body: ['Archivo_400Regular'],
+        medium: ['Archivo_500Medium'],
+        semibold: ['Archivo_600SemiBold'],
+        mono: ['Archivo_500Medium'],
       },
       fontSize: {
         display: ['40px', { lineHeight: '42px', letterSpacing: '-1.2px' }],
