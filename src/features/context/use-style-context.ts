@@ -3,6 +3,7 @@ import * as Calendar from 'expo-calendar';
 import * as Location from 'expo-location';
 import { useCallback, useMemo, useState } from 'react';
 
+import { useSession } from '@/features/auth/use-session';
 import type { EventContext, StyleContext } from '@/lib/styling';
 
 import { fetchWeather } from './weather';
@@ -114,8 +115,21 @@ export function useStyleContext({
   const [calendarEnabled, setCalendarEnabled] = useState(false);
 
   // --- Location ------------------------------------------------------------
+  //
+  // Gated on being signed in, and this guard is load-bearing rather than
+  // defensive. `AuthGate` redirects to the sign-in screen from inside an
+  // effect, so expo-router mounts `(tabs)` — and therefore Today — for a beat
+  // before the redirect runs. Without this, the very first thing a brand-new
+  // user saw was iOS asking for their location on top of the sign-in screen,
+  // before they had any idea what the app was.
+  //
+  // That is the permission prompt people decline reflexively, and iOS only
+  // offers it once.
+  const session = useSession();
+
   const location = useQuery({
     queryKey: ['location'],
+    enabled: Boolean(session.userId),
     staleTime: 30 * 60_000,
     queryFn: async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -150,7 +164,7 @@ export function useStyleContext({
   // --- Weather -------------------------------------------------------------
   const weather = useQuery({
     queryKey: ['weather', coords.latitude.toFixed(2), coords.longitude.toFixed(2)],
-    enabled: !location.isLoading,
+    enabled: Boolean(session.userId) && !location.isLoading,
     // Forecasts do not move fast enough to justify refetching on every focus.
     staleTime: 30 * 60_000,
     retry: 1,
