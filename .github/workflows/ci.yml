@@ -64,8 +64,12 @@ jobs:
       # committed deno.json exactly matching what Supabase actually deploys.
       - name: Typecheck Edge Functions
         run: |
+          # --node-modules-dir=none forces resolution from Deno's own global
+          # cache. Without it a cold runner insists on a node_modules directory
+          # that this job has no reason to create, since nothing here is a Node
+          # project — and it is what Supabase's Edge Runtime does anyway.
           cp -R supabase/functions "$RUNNER_TEMP/fn-check"
           for fn in "$RUNNER_TEMP"/fn-check/*/index.ts; do
             echo "checking $(basename "$(dirname "$fn")")"
-            deno check --allow-import "$fn"
+            deno check --allow-import --node-modules-dir=none "$fn"
           done
