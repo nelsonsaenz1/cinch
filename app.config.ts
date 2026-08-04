@@ -37,9 +37,10 @@ const config: ExpoConfig = {
     // App Store requirement once any social login ships.
     usesAppleSignIn: true,
     infoPlist: {
-      // Apple Vision subject lifting (VNGenerateForegroundInstanceMaskRequest)
-      // is iOS 17+. Below that the cutout path degrades to the server fallback.
-      LSMinimumSystemVersion: '17.0',
+      // NOTE: `LSMinimumSystemVersion` used to sit here, intending to require
+      // iOS 17. It is a macOS key and iOS ignores it entirely — the real
+      // minimum comes from IPHONEOS_DEPLOYMENT_TARGET, which was still 16.4.
+      // It is now set for real via expo-build-properties below.
 
       // The app only ever uses HTTPS, which is exempt standard encryption.
       // Declaring it here stops App Store Connect asking the export-compliance
@@ -174,6 +175,25 @@ const config: ExpoConfig = {
     'expo-router',
     'expo-apple-authentication',
     'expo-sqlite',
+    [
+      'expo-build-properties',
+      {
+        ios: {
+          /**
+           * The oldest iOS that can install Cinch — NOT a statement about how
+           * current the app is. The app compiles against the iOS 26 SDK and
+           * runs on everything above this floor; raising the floor would only
+           * remove customers.
+           *
+           * 17.0 because Apple Vision subject lifting
+           * (VNGenerateForegroundInstanceMaskRequest), which powers garment
+           * background removal, does not exist below it. That is the one
+           * feature with a hard OS requirement, so it sets the number.
+           */
+          deploymentTarget: '17.0',
+        },
+      },
+    ],
     // `npx expo install --fix` asks for this explicitly. Config plugins only
     // apply what they are listed here — autolinking wires up the native module
     // either way, but the plugin's build-time configuration is skipped unless
