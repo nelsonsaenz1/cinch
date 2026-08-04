@@ -174,6 +174,11 @@ const config: ExpoConfig = {
     'expo-router',
     'expo-apple-authentication',
     'expo-sqlite',
+    // `npx expo install --fix` asks for this explicitly. Config plugins only
+    // apply what they are listed here — autolinking wires up the native module
+    // either way, but the plugin's build-time configuration is skipped unless
+    // the package is named. Affects prebuild only; Expo Go is unchanged.
+    'expo-image',
     [
       'expo-splash-screen',
       {
