@@ -1,4 +1,7 @@
 import { withSupabase } from 'npm:@supabase/server@^1';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
+
+import type { Database } from '../_shared/database.types.ts';
 
 import { completeStructured, OpenRouterError } from '../_shared/openrouter.ts';
 import {
@@ -113,18 +116,26 @@ export default {
         return Response.json({ error: 'candidates is required.' }, { status: 400 });
       }
 
-      const userId = ctx.userClaims?.sub as string | undefined;
+      // `withSupabase` returns an untyped client, so every query result widens to
+      // `never` and column names stop being checked at all. Casting once here
+      // restores that — the generated Database types live beside this file
+      // because Supabase bundles only supabase/functions/ on deploy, and
+      // `npm run gen:types` regenerates both copies together so they cannot drift.
+      const db = ctx.supabase as unknown as SupabaseClient<Database>;
+      const admin = ctx.supabaseAdmin as unknown as SupabaseClient<Database>;
+
+      const userId = (ctx.userClaims as { sub?: string } | undefined)?.sub;
       if (!userId) return Response.json({ error: 'Not signed in.' }, { status: 401 });
 
       // ── AI processing consent, server-side. Same reasoning as tag-item: the
       //    rule is about what actually leaves the device. ─────────────────────
-      const { data: profile } = await ctx.supabase
+      const { data: profile } = await db
         .from('profiles')
         .select('ai_consent_version')
         .eq('user_id', userId)
         .single();
 
-      const { data: requiredVersion } = await ctx.supabaseAdmin.rpc('current_ai_consent_version');
+      const { data: requiredVersion } = await admin.rpc('current_ai_consent_version');
 
       if (!profile?.ai_consent_version || profile.ai_consent_version < (requiredVersion ?? 1)) {
         return Response.json(
@@ -133,7 +144,7 @@ export default {
         );
       }
 
-      const { data: config } = await ctx.supabaseAdmin
+      const { data: config } = await admin
         .from('ai_config')
         .select('model_id, params, max_tokens, enabled, provider')
         .eq('workload', 'outfit_generation')
@@ -195,7 +206,7 @@ export default {
         }
       }
 
-      await ctx.supabaseAdmin.from('ai_calls').insert({
+      await admin.from('ai_calls').insert({
         user_id: userId,
         workload: 'outfit_generation',
         provider: config.provider,

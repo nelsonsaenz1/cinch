@@ -1,4 +1,7 @@
 import { withSupabase } from 'npm:@supabase/server@^1';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
+
+import type { Database } from '../_shared/database.types.ts';
 
 import {
   completeStructured,
@@ -55,7 +58,15 @@ export default {
         return Response.json({ error: 'itemId is required.' }, { status: 400 });
       }
 
-      const userId = ctx.userClaims?.sub as string | undefined;
+      // `withSupabase` returns an untyped client, so every query result widens to
+      // `never` and column names stop being checked at all. Casting once here
+      // restores that — the generated Database types live beside this file
+      // because Supabase bundles only supabase/functions/ on deploy, and
+      // `npm run gen:types` regenerates both copies together so they cannot drift.
+      const db = ctx.supabase as unknown as SupabaseClient<Database>;
+      const admin = ctx.supabaseAdmin as unknown as SupabaseClient<Database>;
+
+      const userId = (ctx.userClaims as { sub?: string } | undefined)?.sub;
       if (!userId) {
         return Response.json({ error: 'Not signed in.' }, { status: 401 });
       }
@@ -63,13 +74,13 @@ export default {
       // ── AI processing consent (App Store Guideline 5.1.2(i)) ──────────────
       // Checked server-side, not client-side. A client-side gate is trivially
       // bypassed, and the rule is about what actually leaves the device.
-      const { data: profile } = await ctx.supabase
+      const { data: profile } = await db
         .from('profiles')
         .select('ai_consent_version')
         .eq('user_id', userId)
         .single();
 
-      const { data: requiredVersion } = await ctx.supabaseAdmin.rpc(
+      const { data: requiredVersion } = await admin.rpc(
         'current_ai_consent_version',
       );
 
@@ -80,9 +91,9 @@ export default {
         );
       }
 
-      // ── Load the item. `ctx.supabase` is RLS-scoped to the caller, so this
+      // ── Load the item. `db` is RLS-scoped to the caller, so this
       //    also proves ownership without a manual user_id check. ─────────────
-      const { data: item, error: itemError } = await ctx.supabase
+      const { data: item, error: itemError } = await db
         .from('items')
         .select('id, image_path, status')
         .eq('id', itemId)
@@ -96,7 +107,7 @@ export default {
       }
 
       // ── Model config, read at call time so a model swap is a DB update ────
-      const { data: config } = await ctx.supabaseAdmin
+      const { data: config } = await admin
         .from('ai_config')
         .select('model_id, params, max_tokens, enabled, provider')
         .eq('workload', 'tagging')
@@ -108,7 +119,7 @@ export default {
 
       // ── Signed URL for the image. The bucket is private, so the model needs a
       //    time-limited URL rather than a public one. ─────────────────────────
-      const { data: signed, error: signError } = await ctx.supabaseAdmin.storage
+      const { data: signed, error: signError } = await admin.storage
         .from(BUCKET)
         .createSignedUrl(item.image_path, SIGNED_URL_TTL_SECONDS);
 
@@ -162,7 +173,7 @@ export default {
 
       // ── Accounting. Written for both success and failure — a failed call still
       //    costs latency and sometimes tokens, and hiding that skews the model. ─
-      await ctx.supabaseAdmin.from('ai_calls').insert({
+      await admin.from('ai_calls').insert({
         user_id: userId,
         workload: 'tagging',
         provider: config.provider,
@@ -178,7 +189,7 @@ export default {
 
       // ── Failure: keep the item, badge it for review. Never lose an upload. ──
       if (!tags) {
-        await ctx.supabase
+        await db
           .from('items')
           .update({ status: 'needs_review' })
           .eq('id', itemId);
@@ -190,7 +201,7 @@ export default {
       }
 
       // ── Success ────────────────────────────────────────────────────────────
-      const { error: updateError } = await ctx.supabase
+      const { error: updateError } = await db
         .from('items')
         .update({
           category: tags.category,

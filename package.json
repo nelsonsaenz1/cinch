@@ -58,7 +58,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "smoke:styling": "esbuild scripts/styling-smoke.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/styling-smoke.mjs --log-level=error && node node_modules/.cache/styling-smoke.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "gen:types": "supabase gen types typescript --linked > src/types/database.ts && supabase gen types typescript --linked > supabase/functions/_shared/database.types.ts"
   },
   "private": true
 }
