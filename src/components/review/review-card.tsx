@@ -17,7 +17,7 @@ import Animated, {
 import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
 import type { Item, ItemCategory } from '@/schemas/item';
-import { motion, useTheme } from '@/theme/tokens';
+import { motion, spring, useTheme } from '@/theme/tokens';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 /**
@@ -110,7 +110,7 @@ export function ReviewCard({
         translateX.value = withTiming(-SCREEN_WIDTH * 1.4, { duration: motion.duration.slow });
         runOnJS(commit)(); // Same handler — parent decides how to interpret.
       } else {
-        translateX.value = withSpring(0, motion.spring);
+        translateX.value = withSpring(0, spring.interactive);
       }
     });
 

@@ -103,7 +103,7 @@ export function ReactionBar({
         }}
         hitSlop={10}
         style={{ minHeight: MIN_TAP_TARGET - 12, minWidth: MIN_TAP_TARGET - 12 }}
-        className="items-center justify-center rounded-full border border-hairline px-4 active:opacity-60 dark:border-hairline-dark">
+        className="items-center justify-center rounded-md border border-rule px-4 active:opacity-60 dark:border-rule-dark">
         <SymbolView name="heart" size={17} tintColor={theme.ink} resizeMode="scaleAspectFit" />
       </Pressable>
 
@@ -117,7 +117,7 @@ export function ReactionBar({
         }}
         hitSlop={10}
         style={{ minHeight: MIN_TAP_TARGET - 12, minWidth: MIN_TAP_TARGET - 12 }}
-        className="items-center justify-center rounded-full border border-hairline px-4 active:opacity-60 dark:border-hairline-dark">
+        className="items-center justify-center rounded-md border border-rule px-4 active:opacity-60 dark:border-rule-dark">
         <SymbolView name="xmark" size={15} tintColor={theme.muted} resizeMode="scaleAspectFit" />
       </Pressable>
     </View>

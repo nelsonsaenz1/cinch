@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 660">
+  <g fill="#141310">
+    <ellipse cx="566" cy="330" rx="130" ry="20" opacity="0.045"/>
+    <ellipse cx="566" cy="328" rx="100" ry="14" opacity="0.05"/>
+  </g>
+  <!-- ══ Cream crew knit, folded ══ -->
+  <g transform="rotate(3 565 210)">
+    <path fill="#efe6d2" d="
+      M 455 122
+      C 468 106 500 98 565 98
+      C 630 98 662 106 675 122
+      L 686 298
+      C 687 314 677 324 661 324
+      L 469 324
+      C 453 324 443 314 444 298
+      Z"/>
+    <!-- crew collar: a full ribbed ring, clearly a sweater's neck -->
+    <path fill="#e0d4b8" d="M 519 104 C 528 92 602 92 611 104 C 606 122 596 130 565 130 C 534 130 524 122 519 104 Z"/>
+    <path fill="#efe6d2" d="M 531 104 C 540 96 590 96 599 104 C 594 115 586 120 565 120 C 544 120 536 115 531 104 Z"/>
+    <!-- set-in shoulder seams -->
+    <path stroke="#dbcfb2" stroke-width="3" fill="none" opacity="0.9" d="M 478 112 C 490 132 494 160 494 188"/>
+    <path stroke="#dbcfb2" stroke-width="3" fill="none" opacity="0.9" d="M 652 112 C 640 132 636 160 636 188"/>
+    <!-- fold shadow across the middle -->
+    <path fill="#141310" opacity="0.05" d="M 449 214 L 682 214 L 682 226 L 449 226 Z"/>
+    <!-- rib hem with tick marks -->
+    <path fill="#e4d8bd" d="M 446 296 L 685 296 L 686 298 C 687 314 677 324 661 324 L 469 324 C 453 324 443 314 444 298 Z"/>
+    <g stroke="#d5c8aa" stroke-width="2" opacity="0.75">
+      <path d="M 482 300 L 481 320"/><path d="M 512 300 L 511 320"/>
+      <path d="M 542 300 L 541 320"/><path d="M 572 300 L 571 320"/>
+      <path d="M 602 300 L 601 320"/><path d="M 632 300 L 631 320"/>
+    </g>
+  </g>
+</svg>

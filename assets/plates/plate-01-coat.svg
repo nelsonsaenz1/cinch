@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 660">
+  <g fill="#141310">
+    <ellipse cx="258" cy="600" rx="180" ry="26" opacity="0.045"/>
+    <ellipse cx="258" cy="598" rx="140" ry="18" opacity="0.05"/>
+  </g>
+  <!-- ══ Navy overcoat ══ -->
+  <g transform="rotate(-4 250 340)">
+    <path fill="#1f2a44" d="
+      M 250 116
+      C 236 116 222 120 213 127
+      L 152 142
+      C 138 146 129 156 126 170
+      L 84 418
+      C 82 432 85 443 93 447
+      L 146 461
+      C 155 463 161 457 163 447
+      L 186 300
+      C 183 304 181 310 181 316
+      L 172 598
+      L 330 598
+      L 322 316
+      C 322 310 320 304 317 300
+      L 340 447
+      C 342 457 348 463 357 461
+      L 410 447
+      C 418 443 421 432 419 418
+      L 377 170
+      C 374 156 365 146 351 142
+      L 290 127
+      C 281 120 267 116 250 116
+      Z"/>
+    <!-- lapel facings, with a notch -->
+    <path fill="#182138" d="M 251 150 L 213 160 L 222 176 L 214 184 C 222 216 234 240 251 258 Z"/>
+    <path fill="#1a2440" d="M 251 150 L 289 160 L 280 176 L 288 184 C 280 216 268 240 251 258 Z"/>
+    <!-- collar -->
+    <path fill="#141c30" d="M 220 132 C 230 120 272 120 282 132 L 289 160 C 264 148 238 148 213 160 Z"/>
+    <!-- placket -->
+    <path stroke="#141c30" stroke-width="3" opacity="0.55" fill="none" d="M 251 258 L 247 598"/>
+    <!-- buttons -->
+    <g fill="#0f1626">
+      <circle cx="263" cy="336" r="6"/>
+      <circle cx="261" cy="424" r="6"/>
+      <circle cx="259" cy="512" r="6"/>
+    </g>
+    <!-- sleeve seam hints -->
+    <path stroke="#141c30" stroke-width="2.5" opacity="0.4" fill="none" d="M 186 300 L 163 447"/>
+    <path stroke="#141c30" stroke-width="2.5" opacity="0.4" fill="none" d="M 317 300 L 340 447"/>
+  </g>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 660">
+  <g fill="#141310">
+    <ellipse cx="884" cy="196" rx="120" ry="22" opacity="0.04"/>
+  </g>
+  <!-- ══ Burgundy scarf, flat drape with hanging ends ══ -->
+  <g transform="rotate(-3 900 150)">
+    <!-- main drape: two soft folds -->
+    <path stroke="#5e2233" stroke-width="42" stroke-linecap="round" fill="none"
+      d="M 796 118 C 856 92 936 92 980 116"/>
+    <path stroke="#54202e" stroke-width="42" stroke-linecap="round" fill="none"
+      d="M 800 160 C 860 136 940 134 984 158"/>
+    <!-- hanging end, over the folds -->
+    <path stroke="#5e2233" stroke-width="40" stroke-linecap="butt" fill="none"
+      d="M 964 128 C 976 160 980 196 976 234"/>
+    <!-- twist highlight -->
+    <path stroke="#4a1a28" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.4"
+      d="M 812 112 C 866 90 934 90 972 110"/>
+    <!-- fringe on the hanging end -->
+    <g stroke="#5e2233" stroke-width="5" stroke-linecap="round">
+      <path d="M 962 252 L 958 274"/>
+      <path d="M 972 254 L 970 276"/>
+      <path d="M 982 252 L 984 274"/>
+      <path d="M 991 248 L 995 268"/>
+    </g>
+  </g>
+</svg>

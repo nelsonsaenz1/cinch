@@ -11,7 +11,7 @@
  * which is the point.
  */
 
-import { FACES, minLineHeight, type FaceName } from '../src/theme/font-metrics';
+import { FACES, capTrim, minLineHeight, type FaceName } from '../src/theme/font-metrics';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const tw = require('../tailwind.config.js');
@@ -21,11 +21,15 @@ const FACE_OF: Record<string, FaceName> = {
   wordmark: 'bodoni',
   display: 'bodoni',
   title: 'bodoni',
+  plate: 'bodoni',
   figure: 'archivo',
   heading: 'archivo',
   body: 'archivo',
+  callout: 'archivo',
   label: 'archivo',
   caption: 'archivo',
+  eyebrow: 'archivo',
+  colophon: 'archivo',
 };
 
 const sizes = tw.theme.extend.fontSize as Record<string, [string, { lineHeight: string }]>;
@@ -61,8 +65,26 @@ for (const [token, [sizeRaw, meta]] of Object.entries(sizes)) {
   );
 }
 
+console.log('\n=== Cap trim: box collapses to exactly the cap height ===\n');
+for (const token of ['wordmark', 'display', 'title', 'plate']) {
+  const [sizeRaw, meta] = sizes[token]!;
+  const size = px(sizeRaw);
+  const lh = px(meta.lineHeight);
+  const t = capTrim('bodoni', size, lh);
+  const laidOut = lh + t.marginTop + t.marginBottom;
+  const cap = Math.round(size * FACES.bodoni.capHeight);
+  // Rounding each margin separately can land 1px off the rounded cap height;
+  // anything beyond that means the trim math is broken.
+  const ok = Math.abs(laidOut - cap) <= 1;
+  if (!ok) failures++;
+  console.log(
+    `${token.padEnd(11)} lh ${String(lh).padStart(3)}  trim ${t.marginTop}/${t.marginBottom}` +
+      `  -> ${laidOut}px laid out vs cap ${cap}px  ${ok ? 'ok' : 'BROKEN'}`,
+  );
+}
+
 if (failures > 0) {
-  console.error(`\n${failures} token(s) will clip. Use leading() in tailwind.config.js.\n`);
+  console.error(`\n${failures} failure(s). Use leading()/capTrim() from font-metrics.\n`);
   process.exit(1);
 }
-console.log('\nAll tokens clear their floor.\n');
+console.log('\nAll tokens clear their floor; all trims land on the cap height.\n');

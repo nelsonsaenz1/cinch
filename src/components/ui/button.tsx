@@ -6,16 +6,19 @@ import { MIN_TAP_TARGET } from '@/theme/tokens';
 
 type Variant = 'primary' | 'secondary' | 'ghost';
 
+// The accent is SPENT, not sprayed: it lives on the primary action and nowhere
+// else. Secondary buttons are outlined with the structural rule colour, like
+// everything else in the plate grammar; ghost actions are quiet ink.
 const container: Record<Variant, string> = {
   primary: 'bg-accent dark:bg-accent-dark',
-  secondary: 'bg-tray dark:bg-tray-dark border border-hairline dark:border-hairline-dark',
+  secondary: 'bg-transparent border border-rule dark:border-rule-dark',
   ghost: 'bg-transparent',
 };
 
 const label: Record<Variant, string> = {
   primary: 'text-canvas dark:text-canvas',
   secondary: 'text-ink dark:text-ink-dark',
-  ghost: 'text-accent dark:text-accent-dark',
+  ghost: 'text-muted dark:text-muted-dark',
 };
 
 export type ButtonProps = Omit<PressableProps, 'children' | 'style'> & {
@@ -61,7 +64,8 @@ export function Button({
       // callback form that plain RN Pressable accepts does not apply here.
       // The `active:` variant is NativeWind's equivalent and maps to pressed.
       className={[
-        'flex-row items-center justify-center rounded-chip px-5 active:opacity-70',
+        // rounded-md, not a capsule: pills belong to the glass chrome layer.
+        'flex-row items-center justify-center rounded-md px-5 active:opacity-70',
         container[variant],
         isDisabled ? 'opacity-40' : '',
         className,

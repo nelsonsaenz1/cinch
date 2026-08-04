@@ -28,12 +28,12 @@
 // and that is the whole reason this bug existed. A 1.2 leading that is perfectly
 // safe for a grotesque clips a didone badly.
 
-/** @type {Record<string, {leading: number, capHeight: number}>} */
+/** @type {Record<string, {ascent: number, descent: number, leading: number, capHeight: number}>} */
 const FACES = {
-  // 1.125 + 0.400 + 0
-  bodoni: { leading: 1.525, capHeight: 0.75 },
-  // 0.878 + 0.210 + 0
-  archivo: { leading: 1.088, capHeight: 0.686 },
+  // unitsPerEm 2000, hhea asc 2250 / desc -800 / gap 0, sCapHeight 1500
+  bodoni: { ascent: 1.125, descent: 0.4, leading: 1.525, capHeight: 0.75 },
+  // unitsPerEm 1000, hhea asc 878 / desc -210 / gap 0, sCapHeight 686
+  archivo: { ascent: 0.878, descent: 0.21, leading: 1.088, capHeight: 0.686 },
 };
 
 /**
@@ -74,4 +74,29 @@ function tracking(fontSize, ratio) {
   return Number((fontSize * ratio).toFixed(2));
 }
 
-module.exports = { FACES, minLineHeight, leading, tracking };
+/**
+ * Negative margins that collapse a line box down to its CAP HEIGHT.
+ *
+ * `leading()` guarantees the glyphs are never clipped, but it does not give an
+ * editorially tight measure: a 64px Bodoni sits inside a 98px box, so a rule
+ * drawn 12px under the text reads as 35px under it. Every attempt to fix that by
+ * lowering `lineHeight` is the clipping bug again.
+ *
+ * The fix is the one print and web typographers use — trim the box to the cap
+ * height with negative margins, leaving the glyph box itself untouched. This is
+ * Capsize's cap-trim, ported to React Native.
+ *
+ *   bodoni 64 / lh 98  ->  marginTop -24, marginBottom -26  ->  48pt laid out
+ *                          which is exactly 0.75 x 64, the cap height.
+ */
+function capTrim(face, fontSize, lineHeight) {
+  const m = FACES[face];
+  if (!m) throw new Error(`Unknown face "${face}"`);
+  const half = (lineHeight - fontSize * m.leading) / 2; // leftover leading, split
+  return {
+    marginTop: -Math.round(half + fontSize * (m.ascent - m.capHeight)),
+    marginBottom: -Math.round(half + fontSize * m.descent),
+  };
+}
+
+module.exports = { FACES, minLineHeight, leading, tracking, capTrim };

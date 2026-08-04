@@ -5,10 +5,11 @@ import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { OutfitCard } from '@/components/today/outfit-card';
+import { Plate } from '@/components/today/plate';
 import type { ReactionValue } from '@/components/today/reaction-bar';
 import { WeatherStrip } from '@/components/today/weather-strip';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
@@ -25,6 +26,31 @@ import { useTheme } from '@/theme/tokens';
 
 /** Stable identity for a candidate: the exact set of garments in it. */
 const idOf = (items: { id: string }[]) => items.map((g) => g.id).join('.');
+
+/**
+ * The page header, set like a magazine folio: the date as a tracked eyebrow,
+ * the section name in the didone, and a structural rule closing the masthead.
+ */
+function Masthead() {
+  const now = new Date();
+  const dateLine = `${now.toLocaleDateString('en-US', { weekday: 'long' })} · ${now.getDate()} ${now
+    .toLocaleDateString('en-US', { month: 'short' })
+    .toUpperCase()} ${now.getFullYear()}`;
+
+  return (
+    <View className="px-gutter pt-2" style={{ paddingBottom: 20 }}>
+      <Text variant="eyebrow">{dateLine}</Text>
+      <View style={{ marginTop: 12 }}>
+        <Text variant="display" trim accessibilityRole="header">
+          Today
+        </Text>
+      </View>
+      <View style={{ marginTop: 14 }}>
+        <Rule />
+      </View>
+    </View>
+  );
+}
 
 /**
  * Today — the home tab and the app's activation moment.
@@ -69,6 +95,10 @@ export default function TodayScreen() {
   });
 
   const shown = outfits.outfits;
+
+  // What the looks are for — the user's own words first, else the day's first
+  // calendar event. Printed in each plate's eyebrow.
+  const occasion = committedNote || context.events[0]?.title || null;
 
   // Sign every garment image in one request rather than one per card.
   const { resolve } = useSignedUrls(
@@ -137,9 +167,7 @@ export default function TodayScreen() {
     const remaining = Math.max(0, MIN_CLOSET_FOR_OUTFITS - items.length);
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
-        <View className="px-gutter pb-2 pt-2">
-          <Text variant="display">Today</Text>
-        </View>
+        <Masthead />
         <EmptyState
           symbol="sparkles"
           title={items.length === 0 ? 'Your first outfit is close' : 'Almost there'}
@@ -169,9 +197,7 @@ export default function TodayScreen() {
             tintColor={theme.muted}
           />
         }>
-        <View className="px-gutter pb-4 pt-2">
-          <Text variant="display">Today</Text>
-        </View>
+        <Masthead />
 
         <WeatherStrip
           weather={context.weather}
@@ -201,7 +227,7 @@ export default function TodayScreen() {
             placeholder="What's on today?"
             placeholderTextColor={theme.muted}
             accessibilityLabel="Describe your plans today"
-            className="flex-1 rounded-chip border border-hairline px-3 py-2 text-ink dark:border-hairline-dark dark:text-ink-dark"
+            className="flex-1 rounded-md border border-rule px-3 py-2 font-body text-callout text-ink dark:border-rule-dark dark:text-ink-dark"
           />
         </View>
 
@@ -218,9 +244,12 @@ export default function TodayScreen() {
             shown.map((outfit, i) => {
               const key = idOf(outfit.candidate.items);
               return (
-                <OutfitCard
+                <Plate
                   key={key}
                   outfit={outfit}
+                  index={i}
+                  occasion={occasion}
+                  colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
                   resolveImage={resolve}
                   reacted={reactions[key] ?? null}
                   worn={wornIds.has(key)}

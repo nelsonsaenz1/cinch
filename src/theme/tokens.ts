@@ -21,6 +21,8 @@ export type ThemeColors = {
   ink: string;
   muted: string;
   hairline: string;
+  /** Structural rules of the plate grammar — ink at 18%, works over canvas and tray. */
+  rule: string;
   accent: string;
   positive: string;
   warning: string;
@@ -37,6 +39,7 @@ const palette: Record<ColorSchemeName, ThemeColors> = {
     ink: '#141310',
     muted: '#6B665C',
     hairline: '#E3E0D8',
+    rule: 'rgba(20,19,16,0.18)',
     accent: '#1B3BFF',
     positive: '#2E7D4F',
     warning: '#B4741F',
@@ -49,6 +52,7 @@ const palette: Record<ColorSchemeName, ThemeColors> = {
     ink: '#FAF9F6',
     muted: '#9C968A',
     hairline: '#33302A',
+    rule: 'rgba(250,249,246,0.20)',
     accent: '#5C74FF',
     positive: '#4CAF7D',
     warning: '#D9932F',
@@ -67,16 +71,47 @@ export function getColors(scheme: ColorSchemeName): ThemeColors {
 }
 
 /**
- * Motion. Outfit cards assemble with a stagger, and a swapped garment flies in
- * on its own rather than re-rendering the whole card, so these need to be
- * shared constants rather than magic numbers scattered across components.
+ * Motion — transcribed from Apple, not invented.
+ *
+ * Reanimated 4's `duration` + `dampingRatio` spring is numerically isomorphic
+ * to SwiftUI's `spring(duration:bounce:)` with dampingRatio = 1 - bounce, so
+ * these are SwiftUI's own presets. The previous config was one `.bouncy`-class
+ * spring (ζ ≈ 0.707) applied to everything — WWDC23's guidance is the
+ * opposite: "When you're not sure, use a spring with bounce 0."
+ *
+ * `bouncy` is used EXACTLY ONCE in the app: the final garment landing in a
+ * plate assembly. That scarcity is what makes the one bounce feel like an
+ * event instead of a texture.
  */
+export const spring = {
+  /** SwiftUI .smooth — the default. Plates, sheets, screen content. */
+  smooth: { duration: 500, dampingRatio: 1.0 },
+  /** SwiftUI .snappy — buttons, chips, selection. */
+  snappy: { duration: 450, dampingRatio: 0.85 },
+  /** SwiftUI .bouncy — the single plate-landing moment. Nothing else. */
+  bouncy: { duration: 500, dampingRatio: 0.7 },
+  /** Gesture release, drag snap-back. */
+  interactive: { duration: 150, dampingRatio: 0.86 },
+} as const;
+
+/**
+ * Non-spatial properties only — opacity, colour. A spring on opacity reads as
+ * a rendering glitch; ease-out-quint reads as print settling onto paper.
+ */
+export const fadeEasing = [0.22, 1, 0.36, 1] as const;
+
 export const motion = {
-  spring: { damping: 18, stiffness: 180, mass: 0.9 },
-  springSoft: { damping: 22, stiffness: 120, mass: 1 },
   stagger: 60,
   duration: { fast: 140, base: 220, slow: 380 },
 } as const;
+
+/**
+ * Apple's concentric corner rule: an inner radius is the outer radius minus
+ * the inset between them. Use this instead of typing a smaller number that
+ * "looks about right" — mismatched curvature is one of the quiet tells of a
+ * non-native app.
+ */
+export const concentric = (outer: number, inset: number) => Math.max(outer - inset, 0);
 
 /** Accessibility floor. 44pt is the Apple minimum, not a target. */
 export const MIN_TAP_TARGET = 44;

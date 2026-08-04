@@ -1,0 +1,186 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 660">
+  <!--
+    PLATE 01 — the welcome flat-lay.
+
+    Five garments in the styling engine's own wardrobe neutrals, drawn as
+    paper-cutout silhouettes and laid out like a lookbook still life:
+    navy overcoat, cream crew knit, camel trousers, burgundy scarf,
+    charcoal derbies.
+
+    Rendered by expo-image (native SVG support) inside the tray container, so
+    the palette here must match src/lib/color exactly:
+      navy #1f2a44 · camel #b58f5f · cream #efe6d2 · burgundy #5e2233 · charcoal #36393d
+
+    Kept to flat fills, simple opacity and stroked paths only — no filters,
+    no gradients — so the file renders identically in expo-image and any
+    preview rasterizer.
+  -->
+
+  <!-- ══ Contact shadows (stacked ellipses, no blur filters) ══ -->
+  <g fill="#141310">
+    <ellipse cx="258" cy="600" rx="180" ry="26" opacity="0.045"/>
+    <ellipse cx="258" cy="598" rx="140" ry="18" opacity="0.05"/>
+    <ellipse cx="566" cy="330" rx="130" ry="20" opacity="0.045"/>
+    <ellipse cx="566" cy="328" rx="100" ry="14" opacity="0.05"/>
+    <ellipse cx="742" cy="596" rx="90" ry="20" opacity="0.045"/>
+    <ellipse cx="742" cy="594" rx="66" ry="13" opacity="0.05"/>
+    <ellipse cx="872" cy="606" rx="120" ry="20" opacity="0.05"/>
+    <ellipse cx="884" cy="196" rx="120" ry="22" opacity="0.04"/>
+  </g>
+
+  <!-- ══ Navy overcoat ══ -->
+  <g transform="rotate(-4 250 340)">
+    <path fill="#1f2a44" d="
+      M 250 116
+      C 236 116 222 120 213 127
+      L 152 142
+      C 138 146 129 156 126 170
+      L 84 418
+      C 82 432 85 443 93 447
+      L 146 461
+      C 155 463 161 457 163 447
+      L 186 300
+      C 183 304 181 310 181 316
+      L 172 598
+      L 330 598
+      L 322 316
+      C 322 310 320 304 317 300
+      L 340 447
+      C 342 457 348 463 357 461
+      L 410 447
+      C 418 443 421 432 419 418
+      L 377 170
+      C 374 156 365 146 351 142
+      L 290 127
+      C 281 120 267 116 250 116
+      Z"/>
+    <!-- lapel facings, with a notch -->
+    <path fill="#182138" d="M 251 150 L 213 160 L 222 176 L 214 184 C 222 216 234 240 251 258 Z"/>
+    <path fill="#1a2440" d="M 251 150 L 289 160 L 280 176 L 288 184 C 280 216 268 240 251 258 Z"/>
+    <!-- collar -->
+    <path fill="#141c30" d="M 220 132 C 230 120 272 120 282 132 L 289 160 C 264 148 238 148 213 160 Z"/>
+    <!-- placket -->
+    <path stroke="#141c30" stroke-width="3" opacity="0.55" fill="none" d="M 251 258 L 247 598"/>
+    <!-- buttons -->
+    <g fill="#0f1626">
+      <circle cx="263" cy="336" r="6"/>
+      <circle cx="261" cy="424" r="6"/>
+      <circle cx="259" cy="512" r="6"/>
+    </g>
+    <!-- sleeve seam hints -->
+    <path stroke="#141c30" stroke-width="2.5" opacity="0.4" fill="none" d="M 186 300 L 163 447"/>
+    <path stroke="#141c30" stroke-width="2.5" opacity="0.4" fill="none" d="M 317 300 L 340 447"/>
+  </g>
+
+  <!-- ══ Cream crew knit, folded ══ -->
+  <g transform="rotate(3 565 210)">
+    <path fill="#efe6d2" d="
+      M 455 122
+      C 468 106 500 98 565 98
+      C 630 98 662 106 675 122
+      L 686 298
+      C 687 314 677 324 661 324
+      L 469 324
+      C 453 324 443 314 444 298
+      Z"/>
+    <!-- crew collar: a full ribbed ring, clearly a sweater's neck -->
+    <path fill="#e0d4b8" d="M 519 104 C 528 92 602 92 611 104 C 606 122 596 130 565 130 C 534 130 524 122 519 104 Z"/>
+    <path fill="#efe6d2" d="M 531 104 C 540 96 590 96 599 104 C 594 115 586 120 565 120 C 544 120 536 115 531 104 Z"/>
+    <!-- set-in shoulder seams -->
+    <path stroke="#dbcfb2" stroke-width="3" fill="none" opacity="0.9" d="M 478 112 C 490 132 494 160 494 188"/>
+    <path stroke="#dbcfb2" stroke-width="3" fill="none" opacity="0.9" d="M 652 112 C 640 132 636 160 636 188"/>
+    <!-- fold shadow across the middle -->
+    <path fill="#141310" opacity="0.05" d="M 449 214 L 682 214 L 682 226 L 449 226 Z"/>
+    <!-- rib hem with tick marks -->
+    <path fill="#e4d8bd" d="M 446 296 L 685 296 L 686 298 C 687 314 677 324 661 324 L 469 324 C 453 324 443 314 444 298 Z"/>
+    <g stroke="#d5c8aa" stroke-width="2" opacity="0.75">
+      <path d="M 482 300 L 481 320"/><path d="M 512 300 L 511 320"/>
+      <path d="M 542 300 L 541 320"/><path d="M 572 300 L 571 320"/>
+      <path d="M 602 300 L 601 320"/><path d="M 632 300 L 631 320"/>
+    </g>
+  </g>
+
+  <!-- ══ Camel trousers, folded lengthwise, gentle knee break ══ -->
+  <g transform="rotate(7 756 420)">
+    <path fill="#b58f5f" d="
+      M 692 246
+      L 838 246
+      L 834 278
+      C 836 296 836 322 832 356
+      C 826 408 816 456 802 498
+      C 792 528 782 556 772 576
+      L 700 576
+      C 698 540 696 500 696 458
+      C 694 400 690 330 688 278
+      Z"/>
+    <!-- waistband -->
+    <path fill="#a07a4c" d="M 692 246 L 838 246 L 834 278 L 688 278 Z"/>
+    <circle cx="764" cy="262" r="5" fill="#8a6840"/>
+    <!-- belt loops -->
+    <g fill="#a07a4c">
+      <path d="M 700 246 L 712 246 L 711 278 L 699 278 Z"/>
+      <path d="M 820 246 L 832 246 L 830 278 L 818 278 Z"/>
+    </g>
+    <!-- front crease, breaking at the knee -->
+    <path stroke="#96703f" stroke-width="3" opacity="0.55" fill="none"
+      d="M 768 282 C 770 340 764 420 748 480 C 740 512 732 548 728 576"/>
+    <!-- side-seam shadow -->
+    <path fill="#141310" opacity="0.05" d="M 688 278 C 690 330 694 400 696 458 C 696 500 698 540 700 576 L 716 576 C 712 540 710 500 709 458 C 707 400 704 330 703 278 Z"/>
+    <!-- cuffed hem -->
+    <path fill="#a07a4c" d="M 700 576 L 770 576 L 774 560 L 698 560 Z"/>
+  </g>
+
+  <!-- ══ Burgundy scarf, flat drape with hanging ends ══ -->
+  <g transform="rotate(-3 900 150)">
+    <!-- main drape: two soft folds -->
+    <path stroke="#5e2233" stroke-width="42" stroke-linecap="round" fill="none"
+      d="M 796 118 C 856 92 936 92 980 116"/>
+    <path stroke="#54202e" stroke-width="42" stroke-linecap="round" fill="none"
+      d="M 800 160 C 860 136 940 134 984 158"/>
+    <!-- hanging end, over the folds -->
+    <path stroke="#5e2233" stroke-width="40" stroke-linecap="butt" fill="none"
+      d="M 964 128 C 976 160 980 196 976 234"/>
+    <!-- twist highlight -->
+    <path stroke="#4a1a28" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.4"
+      d="M 812 112 C 866 90 934 90 972 110"/>
+    <!-- fringe on the hanging end -->
+    <g stroke="#5e2233" stroke-width="5" stroke-linecap="round">
+      <path d="M 962 252 L 958 274"/>
+      <path d="M 972 254 L 970 276"/>
+      <path d="M 982 252 L 984 274"/>
+      <path d="M 991 248 L 995 268"/>
+    </g>
+  </g>
+
+  <!-- ══ Charcoal derbies, top view ══ -->
+  <g transform="rotate(-10 850 520)">
+    <path fill="#36393d" d="
+      M 850 408
+      C 872 410 880 434 879 480
+      C 878 528 872 572 862 594
+      C 856 606 844 608 836 600
+      C 824 584 818 540 818 492
+      C 818 444 828 410 850 408 Z"/>
+    <path fill="#26282c" opacity="0.7" d="M 838 448 C 852 444 864 448 872 456 L 870 470 C 860 462 848 460 840 462 Z"/>
+    <g stroke="#efe6d2" stroke-width="3.4" opacity="0.4">
+      <path d="M 838 486 L 866 482"/>
+      <path d="M 838 502 L 866 498"/>
+      <path d="M 838 518 L 864 514"/>
+    </g>
+  </g>
+  <g transform="rotate(-2 936 528)">
+    <path fill="#36393d" d="
+      M 936 416
+      C 958 418 966 442 965 488
+      C 964 536 958 580 948 602
+      C 942 614 930 616 922 608
+      C 910 592 904 548 904 500
+      C 904 452 914 418 936 416 Z"/>
+    <path fill="#26282c" opacity="0.7" d="M 924 456 C 938 452 950 456 958 464 L 956 478 C 946 470 934 468 926 470 Z"/>
+    <g stroke="#efe6d2" stroke-width="3.4" opacity="0.4">
+      <path d="M 924 494 L 952 490"/>
+      <path d="M 924 510 L 952 506"/>
+      <path d="M 924 526 L 950 522"/>
+    </g>
+  </g>
+</svg>

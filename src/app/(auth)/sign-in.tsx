@@ -1,6 +1,6 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -10,33 +10,72 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeOut,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GarmentRail } from '@/components/auth/garment-rail';
+import { PlateHero } from '@/components/brand/plate-hero';
 import { Text } from '@/components/ui/text';
 import { sendEmailLink, signInWithApple } from '@/features/auth/actions';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, fadeEasing, useTheme } from '@/theme/tokens';
 
 const PRIVACY_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy';
 const TERMS_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/support';
 
-/** Entrance rhythm. The rail lands first, then the words, then the choices. */
-const BEAT = { rail: 0, wordmark: 420, tagline: 540, actions: 680 };
+/**
+ * Entrance rhythm: the masthead sets itself like a page of print — wordmark,
+ * rule, eyebrow, tagline — then the plate assembles, then the choices arrive.
+ */
+const BEAT = { wordmark: 0, rule: 160, eyebrow: 260, tagline: 340, plate: 160, actions: 900 };
 
 type Mode = 'choose' | 'email' | 'sent';
 
+/** A 1px rule that draws itself left to right, like a pen stroke. */
+function DrawnRule({ delay }: { delay: number }) {
+  const reduced = useReducedMotion();
+  const progress = useSharedValue(reduced ? 1 : 0);
+
+  useEffect(() => {
+    if (reduced) return;
+    progress.value = withDelay(
+      delay,
+      withTiming(1, { duration: 420, easing: Easing.bezier(...fadeEasing) }),
+    );
+  }, [delay, progress, reduced]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scaleX: progress.value }],
+  }));
+
+  return (
+    <View className="w-full overflow-hidden">
+      <Animated.View
+        className="bg-rule dark:bg-rule-dark"
+        style={[{ height: 1, transformOrigin: 'left' }, style]}
+      />
+    </View>
+  );
+}
+
 /**
- * The one screen a signed-out user ever sees.
+ * The one screen a signed-out user ever sees, set as the cover of a lookbook:
+ * everything hard-left at the gutter, structure drawn with real rules, and the
+ * plate teaching the product's visual grammar before any UI copy does.
  *
- * Sign in with Apple leads because it is genuinely the least friction — no
- * password, no inbox round trip — and because the App Store requires it once
- * any other social login is offered (Guideline 4.8).
- *
- * Email is the second path deliberately, rather than a third-party button. A
- * link to an inbox works for Gmail, Yahoo, Outlook and every work address
- * without binding the product to one company's OAuth or adding another
- * processor to the privacy policy.
+ * Sign in with Apple leads because it is genuinely the least friction — and
+ * because the App Store requires it once any other social login is offered
+ * (Guideline 4.8). Email is the second path deliberately: a link to an inbox
+ * covers Gmail, Yahoo, Outlook and every work address without binding the
+ * product to one company's OAuth.
  */
 export default function SignInScreen() {
   const theme = useTheme();
@@ -83,39 +122,52 @@ export default function SignInScreen() {
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {/* Uneven spacers, not justify-center. Mathematically centred content
-            always reads slightly low; the optical centre sits a little above. */}
-        <View style={{ flex: 0.7 }} />
-
-        <View className="px-8">
-          <Animated.View entering={FadeIn.delay(BEAT.rail).duration(500)} className="mb-8">
-            <GarmentRail />
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(BEAT.wordmark).duration(650)}>
-            <Text variant="wordmark" accessibilityRole="header" className="text-center">
+        {/* ── Masthead. Hard-left at the gutter; never centred. ── */}
+        <View className="px-gutter" style={{ paddingTop: 24 }}>
+          <Animated.View entering={FadeInDown.delay(BEAT.wordmark).duration(600)}>
+            <Text variant="wordmark" trim accessibilityRole="header">
               Cinch
             </Text>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(BEAT.tagline).duration(650)}>
+          <View style={{ marginTop: 14 }}>
+            <DrawnRule delay={BEAT.rule} />
+          </View>
+
+          <Animated.View entering={FadeIn.delay(BEAT.eyebrow).duration(500)}>
+            <Text variant="eyebrow" style={{ marginTop: 10 }}>
+              Nº 01 — The Morning Edit
+            </Text>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(BEAT.tagline).duration(600)}>
             <Text
               variant="body"
-              className="mx-auto mt-4 text-center text-muted dark:text-muted-dark"
-              // Measure chosen so the two lines come out near-even (26 and 24
-              // characters). "that works with" was cut: it added length without
-              // adding meaning, and it forced a lopsided 37/24 break.
-              style={{ maxWidth: 272 }}>
+              className="text-muted dark:text-muted-dark"
+              // Measure tuned for a near-even two-line break:
+              // "A personal stylist for the" / "clothes you already own."
+              style={{ marginTop: 12, maxWidth: 230 }}>
               A personal stylist for the clothes you already own.
             </Text>
           </Animated.View>
         </View>
 
-        <View style={{ flex: 0.5 }} />
+        {/* ── Plate 01, optically centred in the space the masthead and the
+               choices leave over — not pinned under the tagline, which strands
+               a court of dead canvas above the buttons. ── */}
+        <View className="flex-1 justify-center">
+          <Animated.View
+            entering={FadeIn.delay(BEAT.plate).duration(400)}
+            className="px-gutter"
+            style={{ paddingBottom: 16 }}>
+            <PlateHero />
+          </Animated.View>
+        </View>
 
+        {/* ── Choices ── */}
         <Animated.View
-          entering={FadeInDown.delay(BEAT.actions).duration(700)}
-          className="px-8 pb-6">
+          entering={FadeInDown.delay(BEAT.actions).duration(650)}
+          className="px-gutter pb-6">
           {mode === 'choose' ? (
             <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(140)}>
               {Platform.OS === 'ios' ? (
@@ -126,8 +178,10 @@ export default function SignInScreen() {
                       ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
                       : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
                   }
-                  cornerRadius={999}
-                  style={{ height: 54, width: '100%' }}
+                  // 12, not a capsule: pills belong to the glass chrome layer.
+                  // Content-layer controls are rectangles, like the plates.
+                  cornerRadius={12}
+                  style={{ height: 52, width: '100%' }}
                   onPress={onApple}
                 />
               ) : null}
@@ -138,9 +192,9 @@ export default function SignInScreen() {
                   setTimeout(() => emailRef.current?.focus(), 260);
                 }}
                 accessibilityRole="button"
-                style={{ minHeight: MIN_TAP_TARGET }}
-                className="mt-3 items-center justify-center active:opacity-60">
-                <Text variant="body" className="font-medium text-ink dark:text-ink-dark">
+                style={{ height: 52 }}
+                className="mt-3 items-center justify-center rounded-md border border-rule active:opacity-60 dark:border-rule-dark">
+                <Text variant="callout" className="font-medium">
                   Continue with email
                 </Text>
               </Pressable>
@@ -159,32 +213,29 @@ export default function SignInScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   spellCheck={false}
-                  // `emailAddress` is the setting that scopes AutoFill to email:
-                  // it offers addresses from the user's contact card and nothing
-                  // else. Two things summon the generic Passwords / Credit Cards /
-                  // Addresses key instead, and neither is present here — using
-                  // `username` (which is *defined* as "this is a login field"),
-                  // or mounting a `secureTextEntry` sibling on the same screen,
-                  // which makes iOS classify the whole screen as a login form.
-                  // If a password field is ever added, put it on its own route.
-                  //
-                  // `autoComplete` is Android-only in React Native's iOS path
-                  // (it is passed as undefined), so it cannot conflict here; it
-                  // is kept for when Android ships.
+                  // `emailAddress` scopes iOS AutoFill to email addresses from
+                  // the user's own contact card — nothing else. The generic
+                  // Passwords / Credit Cards / Addresses key is summoned by
+                  // textContentType="username" (defined as "login field") or by
+                  // a secureTextEntry sibling on the same screen; neither exists
+                  // here, and if a password field is ever added it goes on its
+                  // own route. `autoComplete` is inert on iOS when
+                  // textContentType is set (RN passes it to Android only) and is
+                  // kept for the Android build.
                   autoComplete="email"
                   textContentType="emailAddress"
                   returnKeyType="go"
                   accessibilityLabel="Email address"
-                  style={{ height: 54 }}
-                  className="flex-1 rounded-chip border border-hairline px-5 font-body text-body text-ink dark:border-hairline-dark dark:text-ink-dark"
+                  style={{ height: 52 }}
+                  className="flex-1 rounded-md border border-rule px-4 font-body text-callout text-ink dark:border-rule-dark dark:text-ink-dark"
                 />
                 <Pressable
                   onPress={() => void onSendEmail()}
                   disabled={busy || !email.trim()}
                   accessibilityRole="button"
                   accessibilityLabel="Send sign-in link"
-                  style={{ height: 54, width: 54 }}
-                  className={`items-center justify-center rounded-full ${
+                  style={{ height: 52, width: 52 }}
+                  className={`items-center justify-center rounded-md ${
                     email.trim() && !busy ? 'bg-ink dark:bg-ink-dark' : 'bg-tray dark:bg-tray-dark'
                   }`}>
                   <SymbolView
@@ -200,25 +251,25 @@ export default function SignInScreen() {
                 onPress={() => setMode('choose')}
                 accessibilityRole="button"
                 style={{ minHeight: MIN_TAP_TARGET }}
-                className="mt-2 items-center justify-center active:opacity-60">
+                className="mt-2 items-start justify-center active:opacity-60">
                 <Text variant="label">Back</Text>
               </Pressable>
             </Animated.View>
           ) : (
-            <Animated.View entering={FadeIn.duration(300)} className="items-center">
-              <SymbolView
-                name="envelope"
-                size={24}
-                tintColor={theme.accent}
-                resizeMode="scaleAspectFit"
-              />
-              <Text variant="heading" className="mt-3 text-center">
-                Check your email
-              </Text>
+            <Animated.View entering={FadeIn.duration(300)}>
+              <View className="flex-row items-center gap-2">
+                <SymbolView
+                  name="envelope"
+                  size={20}
+                  tintColor={theme.ink}
+                  resizeMode="scaleAspectFit"
+                />
+                <Text variant="heading">Check your email</Text>
+              </View>
               <Text
-                variant="body"
-                className="mt-1.5 text-center text-muted dark:text-muted-dark"
-                style={{ maxWidth: 300 }}>
+                variant="callout"
+                className="mt-1.5 text-muted dark:text-muted-dark"
+                style={{ maxWidth: 320 }}>
                 We sent a sign-in link to {email.trim().toLowerCase()}. Open it on this
                 device and you are in.
               </Text>
@@ -226,13 +277,13 @@ export default function SignInScreen() {
                 onPress={() => setMode('email')}
                 accessibilityRole="button"
                 style={{ minHeight: MIN_TAP_TARGET }}
-                className="mt-3 items-center justify-center active:opacity-60">
+                className="mt-2 items-start justify-center active:opacity-60">
                 <Text variant="label">Use a different address</Text>
               </Pressable>
             </Animated.View>
           )}
 
-          <View className="mt-6 flex-row flex-wrap items-center justify-center">
+          <View className="mt-5 flex-row flex-wrap items-center">
             <Text variant="caption">By continuing you agree to our </Text>
             <Pressable onPress={() => void Linking.openURL(TERMS_URL)} hitSlop={8}>
               <Text variant="caption" className="underline">

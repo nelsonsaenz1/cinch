@@ -49,6 +49,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
     const inAuthGroup = segments[0] === '(auth)';
 
+    // Design fixture routes stay reachable signed-out in development builds.
+    if (__DEV__ && segments[0]?.startsWith('dev-')) return;
+
     if (!session.userId && !inAuthGroup) {
       router.replace('/(auth)/sign-in');
     } else if (session.userId && inAuthGroup) {

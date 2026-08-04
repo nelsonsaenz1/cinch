@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 660">
+  <g fill="#141310">
+    <ellipse cx="742" cy="596" rx="90" ry="20" opacity="0.045"/>
+    <ellipse cx="742" cy="594" rx="66" ry="13" opacity="0.05"/>
+  </g>
+  <!-- ══ Camel trousers, folded lengthwise, gentle knee break ══ -->
+  <g transform="rotate(7 756 420)">
+    <path fill="#b58f5f" d="
+      M 692 246
+      L 838 246
+      L 834 278
+      C 836 296 836 322 832 356
+      C 826 408 816 456 802 498
+      C 792 528 782 556 772 576
+      L 700 576
+      C 698 540 696 500 696 458
+      C 694 400 690 330 688 278
+      Z"/>
+    <!-- waistband -->
+    <path fill="#a07a4c" d="M 692 246 L 838 246 L 834 278 L 688 278 Z"/>
+    <circle cx="764" cy="262" r="5" fill="#8a6840"/>
+    <!-- belt loops -->
+    <g fill="#a07a4c">
+      <path d="M 700 246 L 712 246 L 711 278 L 699 278 Z"/>
+      <path d="M 820 246 L 832 246 L 830 278 L 818 278 Z"/>
+    </g>
+    <!-- front crease, breaking at the knee -->
+    <path stroke="#96703f" stroke-width="3" opacity="0.55" fill="none"
+      d="M 768 282 C 770 340 764 420 748 480 C 740 512 732 548 728 576"/>
+    <!-- side-seam shadow -->
+    <path fill="#141310" opacity="0.05" d="M 688 278 C 690 330 694 400 696 458 C 696 500 698 540 700 576 L 716 576 C 712 540 710 500 709 458 C 707 400 704 330 703 278 Z"/>
+    <!-- cuffed hem -->
+    <path fill="#a07a4c" d="M 700 576 L 770 576 L 774 560 L 698 560 Z"/>
+  </g>
+</svg>

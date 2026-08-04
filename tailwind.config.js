@@ -30,6 +30,11 @@ module.exports = {
         ink: { DEFAULT: '#141310', dark: '#FAF9F6' },
         muted: { DEFAULT: '#6B665C', dark: '#9C968A' },
         hairline: { DEFAULT: '#E3E0D8', dark: '#33302A' },
+        // The lookbook's structural rules. `hairline` at 1.25:1 is a whisper —
+        // right for a divider between list rows, too faint to carry the plate
+        // grammar. `rule` is ink at 18%, so it composites correctly over both
+        // canvas and tray without needing a second token.
+        rule: { DEFAULT: 'rgba(20,19,16,0.18)', dark: 'rgba(250,249,246,0.20)' },
 
         // The one accent
         accent: { DEFAULT: '#1B3BFF', dark: '#5C74FF' },
@@ -65,37 +70,69 @@ module.exports = {
       // Line heights are COMPUTED, never typed by hand. `leading()` takes the
       // ratio we want and clamps it up to the font's own line box, because
       // anything below that floor gets silently clipped at the top by CoreText.
-      // See src/theme/font-metrics.js — and note how far apart the two families
-      // sit: the didone needs 1.525, the grotesque only 1.088, so a single
-      // "tight display leading" number cannot serve both.
+      // See src/theme/font-metrics.js — the didone needs 1.525, the grotesque
+      // only 1.088, so one "tight display leading" number cannot serve both.
+      // scripts/typography-smoke.ts asserts every token clears its floor.
       //
-      // scripts/typography-smoke.ts asserts every one of these clears its floor.
-      // Tracking is computed too, at -0.015em for display sizes — Apple's own
-      // tracking for New York at 72pt. Absolute px tracking does not survive a
-      // change of size; see tracking() in font-metrics.js.
+      // Tracking follows Apple's published optical curves, not taste: Bodoni
+      // uses the New York table (24 -> -0.26 ... 72 -> -1.09, interpolated),
+      // the only Apple spec for a serif display face. Archivo uses the SF Pro
+      // curve up to 20pt and holds at -0.40 above it — SF's positive tracking
+      // at large sizes is specific to SF's design and reads like a template on
+      // a narrower grotesque. RN letterSpacing is absolute points, never em.
       fontSize: {
-        // Bodoni Moda
-        wordmark: [`62px`, { lineHeight: `${leading('bodoni', 62, 1.06)}px`, letterSpacing: `${tracking(62, -0.015)}px` }],
-        display: [`40px`, { lineHeight: `${leading('bodoni', 40, 1.05)}px`, letterSpacing: `${tracking(40, -0.015)}px` }],
-        title: [`28px`, { lineHeight: `${leading('bodoni', 28, 1.14)}px`, letterSpacing: `${tracking(28, -0.015)}px` }],
+        // ── Bodoni Moda. Display only — never below 24px (didone dazzle:
+        //    the heavy stems dominate and the hairlines vanish).
+        wordmark: [`64px`, { lineHeight: `${leading('bodoni', 64, 1.05)}px`, letterSpacing: '-0.95px' }],
+        display: [`40px`, { lineHeight: `${leading('bodoni', 40, 1.05)}px`, letterSpacing: '-0.55px' }],
+        title: [`28px`, { lineHeight: `${leading('bodoni', 28, 1.1)}px`, letterSpacing: '-0.33px' }],
+        // The plate title — the didone at its smallest legal size.
+        plate: [`24px`, { lineHeight: `${leading('bodoni', 24, 1.1)}px`, letterSpacing: '-0.26px' }],
 
-        // Archivo
-        // `figure` is title-sized but grotesque — the big tabular numbers on
-        // Profile and the item detail screen. It exists so those numbers do not
-        // inherit the didone's very tall line box and blow the rhythm apart.
-        figure: [`28px`, { lineHeight: `${leading('archivo', 28, 1.14)}px`, letterSpacing: `${tracking(28, -0.02)}px` }],
-        heading: [`20px`, { lineHeight: `${leading('archivo', 20, 1.25)}px`, letterSpacing: `${tracking(20, -0.015)}px` }],
-        body: [`16px`, { lineHeight: `${leading('archivo', 16, 1.5)}px` }],
-        label: [`13px`, { lineHeight: `${leading('archivo', 13, 1.31)}px`, letterSpacing: `${tracking(13, 0.015)}px` }],
-        caption: [`11px`, { lineHeight: `${leading('archivo', 11, 1.27)}px`, letterSpacing: `${tracking(11, 0.04)}px` }],
+        // ── Archivo
+        // `figure` is title-sized but grotesque — big tabular numbers on
+        // Profile and item detail, kept out of the didone's tall line box.
+        figure: [`28px`, { lineHeight: `${leading('archivo', 28, 1.14)}px`, letterSpacing: '-0.4px' }],
+        heading: [`20px`, { lineHeight: `${leading('archivo', 20, 1.25)}px`, letterSpacing: '-0.45px' }],
+        // 17, not 16: Apple's iOS Body is 17pt, and every native control label
+        // on screen sits at 17 — 16 reads a half-step small next to them.
+        body: [`17px`, { lineHeight: `${leading('archivo', 17, 1.5)}px`, letterSpacing: '-0.43px' }],
+        callout: [`16px`, { lineHeight: `${leading('archivo', 16, 1.5)}px`, letterSpacing: '-0.31px' }],
+        label: [`13px`, { lineHeight: `${leading('archivo', 13, 1.38)}px`, letterSpacing: '-0.08px' }],
+        caption: [`11px`, { lineHeight: `${leading('archivo', 11, 1.27)}px`, letterSpacing: '0.06px' }],
+        // The tracked-out grotesque eyebrow — the fashion-magazine signature.
+        eyebrow: [`11px`, { lineHeight: `${leading('archivo', 11, 1.27)}px`, letterSpacing: '1.1px' }],
+        // The data line under a plate. Tabular figures, wide tracking.
+        colophon: [`10px`, { lineHeight: '14px', letterSpacing: '0.9px' }],
       },
+      // Concentric, per the HIG: inner = outer - inset, anchored at the plate
+      // (a visible container), not the device bezel. `full` capsules belong to
+      // the glass chrome layer only — content-layer controls are `md`;
+      // SSENSE / Mytheresa / Vestiaire all use rectangles, and the pill is a
+      // consumer-app signature.
       borderRadius: {
-        card: '18px',
-        chip: '999px',
-        sheet: '28px',
+        xs: '2px',
+        sm: '4px',
+        DEFAULT: '8px', // plate inner: 20 - 12 padding
+        md: '12px', // buttons, fields, chips
+        lg: '16px',
+        plate: '20px', // outfit plate, item card
+        sheet: '38px', // half sheets, iOS 26 inset
+        full: '9999px', // GLASS CHROME ONLY
+        // Transitional aliases; retire as screens are rewritten.
+        card: '20px',
+        chip: '12px',
       },
       spacing: {
-        gutter: '20px',
+        hair: '1px',
+        gutter: '20px', // page margin — the measure
+        rhythm: '8px', // vertical baseline unit
+        section: '28px', // between plates
+        // HIG Accessibility, verbatim: "about 12 points of padding around
+        // elements that include a bezel. For elements without a bezel, about
+        // 24 points."
+        bezel: '12px',
+        bare: '24px',
         // Minimum tap target. Accessibility requirement, not a suggestion.
         tap: '44px',
       },
