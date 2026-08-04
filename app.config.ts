@@ -97,6 +97,31 @@ const config: ExpoConfig = {
         recordAudioAndroid: false,
       },
     ],
+    [
+      'expo-location',
+      {
+        // When-in-use only, and the string says what the location is actually
+        // for. "Cinch would like to use your location" is the kind of generic
+        // wording the automated 5.1.1 pass rejects.
+        locationWhenInUsePermission:
+          'Cinch uses your location to get the local forecast, so it can suggest outfits that suit the weather where you are.',
+        // Explicitly off. A wardrobe app has no defensible reason to track
+        // location in the background, and requesting it invites a
+        // justification we could not give.
+        isAndroidBackgroundLocationEnabled: false,
+        isIosBackgroundLocationEnabled: false,
+      },
+    ],
+    [
+      'expo-calendar',
+      {
+        calendarPermission:
+          'Cinch reads today’s events so it can suggest one outfit that works across everything on your schedule.',
+        // Reminders are a separate permission from calendars and nothing here
+        // reads them, so the key stays undeclared.
+        remindersPermission: false,
+      },
+    ],
   ],
 
   experiments: {

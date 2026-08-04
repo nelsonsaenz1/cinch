@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import {
   explain,
@@ -15,7 +16,7 @@ import type { StyleProfile } from './queries';
 /** How many candidates go up for re-ranking. */
 const SHORTLIST = 12;
 
-export type StylingStatus = 'ai' | 'offline' | 'consent_required';
+export type StylingStatus = 'ai' | 'enhancing' | 'offline' | 'consent_required';
 
 export type StyledOutfit = {
   candidate: OutfitCandidate;
@@ -26,25 +27,21 @@ export type StyledOutfit = {
   source: 'ai' | 'engine';
 };
 
-export type OutfitsResult = {
-  outfits: StyledOutfit[];
-  /** Everything the engine shortlisted — the learner's comparison baseline. */
-  shortlist: OutfitCandidate[];
-  status: StylingStatus;
-};
-
 const candidateId = (c: OutfitCandidate) => c.items.map((g) => g.id).join('.');
 
 /**
- * Local-first fallback.
+ * Local-first outfits.
  *
- * Never a silent mock. The caller surfaces `status: 'offline'` in the UI, but
- * the outfits themselves are entirely real — chosen by the same scorer that
- * would have produced the shortlist for the model. Only the prose is different,
- * and it is honest prose derived from the actual scoring notes rather than
- * invented.
+ * Never a silent mock. The caller surfaces the offline state in the UI, but the
+ * outfits themselves are entirely real — chosen by the same scorer that would
+ * have produced the shortlist for the model. Only the prose differs, and it is
+ * honest prose derived from the actual scoring notes rather than invented.
  */
-function fromEngine(candidates: OutfitCandidate[], wardrobe: Garment[], ctx: StyleContext): StyledOutfit[] {
+function fromEngine(
+  candidates: OutfitCandidate[],
+  wardrobe: Garment[],
+  ctx: StyleContext,
+): StyledOutfit[] {
   return candidates.map((candidate) => {
     const swap = suggestSwap(candidate.items, wardrobe, ctx.events);
     return {
@@ -63,20 +60,21 @@ function fromEngine(candidates: OutfitCandidate[], wardrobe: Garment[], ctx: Sty
 }
 
 /**
- * Today's outfits.
+ * Today's outfits, in two stages that are deliberately NOT awaited together.
  *
- * Two stages, and the split is the whole architecture:
+ *   1. The beam search runs locally over the whole closet, synchronously, in
+ *      about ten milliseconds. Its results are returned on the very first
+ *      render. This works offline, costs nothing, and is why outfit generation
+ *      can stay unmetered on the free tier.
  *
- *   1. The beam search runs locally over the entire closet and ranks every
- *      valid combination. This is fast, free, deterministic, and works with no
- *      network — which is what lets outfit generation stay available on the
- *      free tier instead of being metered.
+ *   2. A background request sends the top dozen to the model, which re-ranks on
+ *      taste and writes the reasoning. When it lands — fifteen to twenty
+ *      seconds later — its names and prose replace the engine's.
  *
- *   2. The top dozen go to the model, which re-ranks on taste and writes the
- *      reasoning. Because it sees a shortlist rather than a closet, the prompt
- *      is a few hundred tokens instead of tens of thousands.
- *
- * If stage 2 fails for any reason, stage 1's results stand.
+ * Running these inside one query function was the obvious first shape and the
+ * wrong one: it made the screen wait twenty seconds to show outfits that were
+ * already computed. Splitting them is the entire reason the architecture is
+ * local-first, so the split has to exist here and not just in the diagram.
  */
 export function useOutfits({
   wardrobe,
@@ -91,97 +89,109 @@ export function useOutfits({
   count?: number;
   enabled?: boolean;
 }) {
-  return useQuery({
-    // `now` is deliberately excluded from the key — it changes every render and
-    // would make this uncacheable. The date is what actually matters.
-    queryKey: [
-      'outfits',
-      wardrobe.length,
-      context.weather?.feelsLikeC,
-      context.events.map((e) => e.id).join(','),
-      context.note,
-      profile.feedbackCount,
-      count,
-    ],
-    enabled: enabled && wardrobe.length > 0,
+  // --- Stage 1: instant, local, synchronous -------------------------------
+  const shortlist = useMemo(() => {
+    if (!enabled || !wardrobe.length) return [];
+    return generateOutfits(wardrobe, context, {
+      weights: profile.weights,
+      affinities: profile.affinities,
+      count: SHORTLIST,
+      diversity: 0.45,
+    });
+  }, [enabled, wardrobe, context, profile.weights, profile.affinities]);
+
+  const base = useMemo(
+    () => fromEngine(shortlist.slice(0, count), wardrobe, context),
+    [shortlist, count, wardrobe, context],
+  );
+
+  // --- Stage 2: background enhancement ------------------------------------
+  const ai = useQuery({
+    // Keyed on the actual candidate set, so an unchanged shortlist is a cache
+    // hit even when the wardrobe array identity changes on refetch.
+    queryKey: ['outfit-rerank', shortlist.map(candidateId), context.note, count],
+    enabled: enabled && shortlist.length > 0,
     staleTime: 15 * 60_000,
-    queryFn: async (): Promise<OutfitsResult> => {
-      const shortlist = generateOutfits(wardrobe, context, {
-        weights: profile.weights,
-        affinities: profile.affinities,
-        count: SHORTLIST,
-        diversity: 0.45,
+    // One shot. A failure here costs the user nothing — they already have
+    // outfits — and retrying a 20-second call twice is worse than not.
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('generate-outfits', {
+        body: {
+          count,
+          candidates: shortlist.map((c) => ({
+            id: candidateId(c),
+            score: c.score,
+            notes: Object.values(c.notes).filter(Boolean),
+            items: c.items.map((g) => ({
+              slot: g.slot,
+              name: g.subcategory ?? g.category,
+              color: g.colors[0]?.name ?? '',
+              formality: g.formality,
+            })),
+          })),
+          context: {
+            weather: context.weather,
+            events: context.events.map((e) => ({
+              title: e.title,
+              startsAt: `${String(Math.floor(e.startsAt / 60)).padStart(2, '0')}:${String(e.startsAt % 60).padStart(2, '0')}`,
+              formality: e.formality,
+            })),
+            note: context.note,
+          },
+          styleSummary: profile.summary,
+        },
       });
 
-      if (!shortlist.length) return { outfits: [], shortlist, status: 'offline' };
-
-      const top = shortlist.slice(0, count);
-
-      try {
-        const { data, error } = await supabase.functions.invoke('generate-outfits', {
-          body: {
-            count,
-            candidates: shortlist.map((c) => ({
-              id: candidateId(c),
-              score: c.score,
-              notes: Object.values(c.notes).filter(Boolean),
-              items: c.items.map((g) => ({
-                slot: g.slot,
-                name: g.subcategory ?? g.category,
-                color: g.colors[0]?.name ?? '',
-                formality: g.formality,
-              })),
-            })),
-            context: {
-              weather: context.weather,
-              events: context.events.map((e) => ({
-                title: e.title,
-                startsAt: `${String(Math.floor(e.startsAt / 60)).padStart(2, '0')}:${String(e.startsAt % 60).padStart(2, '0')}`,
-                formality: e.formality,
-              })),
-              note: context.note,
-            },
-            styleSummary: profile.summary,
-          },
-        });
-
-        if (error) throw error;
-
-        if (data?.error === 'ai_consent_required') {
-          return { outfits: fromEngine(top, wardrobe, context), shortlist, status: 'consent_required' };
-        }
-        if (!data?.ok || !Array.isArray(data.picks)) {
-          return { outfits: fromEngine(top, wardrobe, context), shortlist, status: 'offline' };
-        }
-
-        const byId = new Map(shortlist.map((c) => [candidateId(c), c]));
-        const outfits: StyledOutfit[] = [];
-
-        for (const pick of data.picks as {
-          candidateId: string;
-          name: string;
-          reasoning: string;
-          swapNote: string | null;
-        }[]) {
-          const candidate = byId.get(pick.candidateId);
-          if (!candidate) continue; // already filtered server-side; belt and braces
-          outfits.push({
-            candidate,
-            name: pick.name,
-            reasoning: pick.reasoning,
-            swapNote: pick.swapNote,
-            source: 'ai',
-          });
-        }
-
-        return outfits.length
-          ? { outfits, shortlist, status: 'ai' }
-          : { outfits: fromEngine(top, wardrobe, context), shortlist, status: 'offline' };
-      } catch {
-        // Network down, function cold, rate limited — all the same to the user,
-        // and all still produce real outfits.
-        return { outfits: fromEngine(top, wardrobe, context), shortlist, status: 'offline' };
-      }
+      if (error) throw error;
+      return data as {
+        ok?: boolean;
+        error?: string;
+        picks?: { candidateId: string; name: string; reasoning: string; swapNote: string | null }[];
+      };
     },
   });
+
+  // --- Merge ---------------------------------------------------------------
+  const { outfits, status } = useMemo(() => {
+    if (ai.data?.error === 'ai_consent_required') {
+      return { outfits: base, status: 'consent_required' as StylingStatus };
+    }
+    if (ai.isError) return { outfits: base, status: 'offline' as StylingStatus };
+    if (!ai.data?.ok || !ai.data.picks?.length) {
+      return {
+        outfits: base,
+        status: (ai.isFetching ? 'enhancing' : 'offline') as StylingStatus,
+      };
+    }
+
+    const byId = new Map(shortlist.map((c) => [candidateId(c), c]));
+    const merged: StyledOutfit[] = [];
+    for (const pick of ai.data.picks) {
+      const candidate = byId.get(pick.candidateId);
+      // Already filtered server-side; belt and braces against a fabricated id.
+      if (!candidate) continue;
+      merged.push({
+        candidate,
+        name: pick.name,
+        reasoning: pick.reasoning,
+        swapNote: pick.swapNote,
+        source: 'ai',
+      });
+    }
+
+    return merged.length
+      ? { outfits: merged, status: 'ai' as StylingStatus }
+      : { outfits: base, status: 'offline' as StylingStatus };
+  }, [ai.data, ai.isError, ai.isFetching, base, shortlist]);
+
+  return {
+    outfits,
+    /** Everything the engine shortlisted — the learner's comparison baseline. */
+    shortlist,
+    status,
+    /** True while the model is still working; outfits are already on screen. */
+    isEnhancing: ai.isFetching,
+    refetch: ai.refetch,
+  };
 }
