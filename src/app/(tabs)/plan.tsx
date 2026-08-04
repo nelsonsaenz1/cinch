@@ -239,7 +239,7 @@ export default function PlanScreen() {
               <View className="pt-6">
                 <View className="mx-gutter mb-6 rounded-card border border-hairline p-5 dark:border-hairline-dark">
                   <Text variant="caption">Pack</Text>
-                  <Text variant="stat" className="mt-2 text-title">
+                  <Text variant="stat" className="mt-2 text-figure">
                     {packing.items.length} pieces
                   </Text>
                   <Text variant="label" className="mt-1">

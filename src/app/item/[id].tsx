@@ -45,19 +45,19 @@ export default function ItemDetailScreen() {
 
         <View className="mt-6 flex-row justify-between rounded-card border border-hairline p-5 dark:border-hairline-dark">
           <View>
-            <Text variant="stat" className="text-title">
+            <Text variant="stat" className="text-figure">
               {item.wearCount}
             </Text>
             <Text variant="label">Wears</Text>
           </View>
           <View>
-            <Text variant="stat" className="text-title">
+            <Text variant="stat" className="text-figure">
               {cpw !== null ? `$${cpw.toFixed(2)}` : '—'}
             </Text>
             <Text variant="label">Cost / wear</Text>
           </View>
           <View>
-            <Text variant="stat" className="text-title">
+            <Text variant="stat" className="text-figure">
               {item.purchasePrice !== null ? `$${item.purchasePrice.toFixed(0)}` : '—'}
             </Text>
             <Text variant="label">Paid</Text>

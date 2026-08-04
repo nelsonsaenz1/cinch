@@ -1,6 +1,14 @@
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 
-type Variant = 'display' | 'title' | 'heading' | 'body' | 'label' | 'caption' | 'stat';
+type Variant =
+  | 'wordmark'
+  | 'display'
+  | 'title'
+  | 'heading'
+  | 'body'
+  | 'label'
+  | 'caption'
+  | 'stat';
 
 /**
  * Weight is expressed as a font FAMILY, never as `font-semibold`.
@@ -9,11 +17,17 @@ type Variant = 'display' | 'title' | 'heading' | 'body' | 'label' | 'caption' | 
  * `fontWeight` to a loaded family is silently ignored and you get the regular
  * cut back — which reads as "the design just isn't landing" rather than as a
  * bug, so it is worth stating plainly here.
+ *
+ * Never hand-write a `lineHeight` on top of these. The sizes carry line heights
+ * computed from the real font metrics; a tighter override clips the tops of the
+ * glyphs. See src/theme/font-metrics.js.
  */
 const variants: Record<Variant, string> = {
   // Bodoni Moda. Large sizes only — its hairlines break up below ~28px.
+  wordmark: 'font-display text-wordmark text-ink dark:text-ink-dark',
   display: 'font-display text-display text-ink dark:text-ink-dark',
-  title: 'font-display text-title text-ink dark:text-ink-dark',
+  // Deliberately `font-title`, not `font-display`: a coarser optical master.
+  title: 'font-title text-title text-ink dark:text-ink-dark',
   heading: 'font-semibold text-heading text-ink dark:text-ink-dark',
   body: 'font-body text-body text-ink dark:text-ink-dark',
   label: 'font-medium text-label text-muted dark:text-muted-dark',
@@ -27,7 +41,7 @@ export type TextProps = RNTextProps & {
 };
 
 export function Text({ variant = 'body', className = '', style, ...rest }: TextProps) {
-  const isDisplay = variant === 'display' || variant === 'title';
+  const isDisplay = variant === 'wordmark' || variant === 'display' || variant === 'title';
 
   return (
     <RNText

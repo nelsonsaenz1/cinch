@@ -64,7 +64,8 @@
     "lint": "expo lint",
     "smoke:styling": "esbuild scripts/styling-smoke.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/styling-smoke.mjs --log-level=error && node node_modules/.cache/styling-smoke.mjs",
     "typecheck": "tsc --noEmit",
-    "gen:types": "supabase gen types typescript --linked > src/types/database.ts && supabase gen types typescript --linked > supabase/functions/_shared/database.types.ts"
+    "gen:types": "supabase gen types typescript --linked > src/types/database.ts && supabase gen types typescript --linked > supabase/functions/_shared/database.types.ts",
+    "smoke:type": "esbuild scripts/typography-smoke.ts --bundle --platform=node --format=cjs --outfile=node_modules/.cache/typography-smoke.cjs --log-level=error && node node_modules/.cache/typography-smoke.cjs"
   },
   "private": true
 }

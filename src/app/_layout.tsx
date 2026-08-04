@@ -77,6 +77,24 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     BodoniModa_400Regular,
     BodoniModa_600SemiBold,
+    // Bodoni Moda is a variable font with an `opsz` (optical size) axis running
+    // 6–96, and React Native cannot set variable axes on iOS — a variable TTF
+    // renders only its default instance. The @expo-google-fonts static cuts are
+    // all instanced at the axis default, opsz=11, which is the CAPTION master.
+    // Rendering it at 62px gave the wordmark a 3.35-device-pixel hairline: thick,
+    // muddy, and with none of the stroke contrast that is the entire reason to
+    // set a didone large.
+    //
+    // This cut is instanced at opsz=24 (see scripts/build-fonts.sh). Measured
+    // hairlines on the O, at 62px on a @3x screen:
+    //
+    //     opsz=11  3.35 device px   what we were shipping — no contrast
+    //     opsz=24  1.58 device px   crisp on both @2x and @3x
+    //     opsz=96  0.37 device px   true display master, but sub-pixel: drops out
+    //
+    // opsz≈point-size is the print rule; on screen it has to be biased coarser or
+    // the hairline falls below one device pixel and renders as grey mush.
+    BodoniModa_Display: require('@/assets/fonts/BodoniModa_Display.ttf'),
     Archivo_400Regular,
     Archivo_500Medium,
     Archivo_600SemiBold,

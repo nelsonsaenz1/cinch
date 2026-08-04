@@ -93,11 +93,7 @@ export default function SignInScreen() {
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(BEAT.wordmark).duration(650)}>
-            <Text
-              variant="display"
-              accessibilityRole="header"
-              className="text-center"
-              style={{ fontSize: 62, lineHeight: 66, letterSpacing: -1.5 }}>
+            <Text variant="wordmark" accessibilityRole="header" className="text-center">
               Cinch
             </Text>
           </Animated.View>
@@ -109,7 +105,7 @@ export default function SignInScreen() {
               // Measure chosen so the two lines come out near-even (26 and 24
               // characters). "that works with" was cut: it added length without
               // adding meaning, and it forced a lopsided 37/24 break.
-              style={{ maxWidth: 272, lineHeight: 25 }}>
+              style={{ maxWidth: 272 }}>
               A personal stylist for the clothes you already own.
             </Text>
           </Animated.View>
@@ -162,6 +158,19 @@ export default function SignInScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  spellCheck={false}
+                  // `emailAddress` is the setting that scopes AutoFill to email:
+                  // it offers addresses from the user's contact card and nothing
+                  // else. Two things summon the generic Passwords / Credit Cards /
+                  // Addresses key instead, and neither is present here — using
+                  // `username` (which is *defined* as "this is a login field"),
+                  // or mounting a `secureTextEntry` sibling on the same screen,
+                  // which makes iOS classify the whole screen as a login form.
+                  // If a password field is ever added, put it on its own route.
+                  //
+                  // `autoComplete` is Android-only in React Native's iOS path
+                  // (it is passed as undefined), so it cannot conflict here; it
+                  // is kept for when Android ships.
                   autoComplete="email"
                   textContentType="emailAddress"
                   returnKeyType="go"

@@ -101,19 +101,19 @@ export default function ProfileScreen() {
             <Text variant="caption">Wardrobe</Text>
             <View className="mt-3 flex-row justify-between">
               <View>
-                <Text variant="stat" className="text-title">
+                <Text variant="stat" className="text-figure">
                   {stats.pieces}
                 </Text>
                 <Text variant="label">Pieces</Text>
               </View>
               <View>
-                <Text variant="stat" className="text-title">
+                <Text variant="stat" className="text-figure">
                   {stats.wears}
                 </Text>
                 <Text variant="label">Total wears</Text>
               </View>
               <View>
-                <Text variant="stat" className="text-title">
+                <Text variant="stat" className="text-figure">
                   {stats.neverWorn}
                 </Text>
                 <Text variant="label">Never worn</Text>
