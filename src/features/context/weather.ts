@@ -33,9 +33,16 @@ export async function fetchWeather(
   longitude: number,
   signal?: AbortSignal,
 ): Promise<WeatherContext> {
+  // Two decimals — about 1.1 km. Weather does not vary meaningfully below that,
+  // so sending more would be precision leaked to a third party for nothing.
+  //
+  // It is also the difference between declaring Precise Location and Coarse
+  // Location in the privacy manifest: Apple's threshold for "precise" is three
+  // or more decimal places. Rounding here is the honest way to qualify for the
+  // weaker claim, rather than the other way round.
   const params = new URLSearchParams({
-    latitude: latitude.toFixed(4),
-    longitude: longitude.toFixed(4),
+    latitude: latitude.toFixed(2),
+    longitude: longitude.toFixed(2),
     current: 'temperature_2m,apparent_temperature,precipitation,wind_speed_10m',
     daily:
       'temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_probability_max',
