@@ -32,7 +32,7 @@ export LC_ALL=en_US.UTF-8
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 
 # ---------------------------------------------------------------------------
-step "1/6  Point the system at Xcode 26 (this is the part that needs sudo)"
+step "1/7  Point the system at Xcode 26 (this is the part that needs sudo)"
 
 if [ "$(readlink /var/db/xcode_select_link 2>/dev/null)" = "$XCODE" ]; then
   echo "    Already correct — skipping."
@@ -44,11 +44,11 @@ fi
 
 # The daemon caches its runtime list at launch, so it has to be restarted before
 # it will notice the iOS 26.5 runtime. launchd brings it straight back up.
-step "2/6  Restart CoreSimulator so it re-reads the runtime list"
+step "2/7  Restart CoreSimulator so it re-reads the runtime list"
 killall -9 com.apple.CoreSimulator.CoreSimulatorService 2>/dev/null || true
 sleep 5
 
-step "3/6  Confirm the iOS 26 runtime is visible"
+step "3/7  Confirm the iOS 26 runtime is visible"
 if ! xcrun simctl list runtimes | grep -q "iOS 26"; then
   echo "    iOS 26 runtime still not registered. Downloading (~8 GB)..."
   xcodebuild -downloadPlatform iOS
@@ -64,7 +64,7 @@ if [ -z "$RUNTIME" ]; then
   exit 1
 fi
 
-step "4/6  Boot a simulator on $RUNTIME"
+step "4/7  Boot a simulator on $RUNTIME"
 UDID=$(xcrun simctl list devices | grep "$DEVICE_NAME" | grep -oE "[0-9A-F-]{36}" | head -1 || true)
 if [ -z "$UDID" ]; then
   UDID=$(xcrun simctl create "$DEVICE_NAME" "iPhone 17 Pro" "$RUNTIME")
@@ -74,8 +74,17 @@ xcrun simctl boot "$UDID" 2>/dev/null || true
 open -a Simulator 2>/dev/null || true
 echo "    Booted $UDID"
 
-step "5/6  Build (Release, so the JS bundles in and no Metro server is needed)"
+step "5/7  Regenerate the native project from app.config.ts"
 cd "$PROJECT_ROOT"
+# Not optional, and easy to skip by mistake. `ios/` is generated and gitignored,
+# so it does not track changes to app.config.ts on its own — adding a plugin
+# (expo-location, expo-calendar) without re-running this produces a build with
+# neither the pod nor the Info.plist purpose string. The app then crashes the
+# first time it asks for that permission, at runtime, with nothing at build time
+# to warn you. Prebuild is idempotent and runs pod install itself.
+npx expo prebuild --platform ios | tail -4
+
+step "6/7  Build (Release, so the JS bundles in and no Metro server is needed)"
 xcodebuild \
   -workspace ios/Cinch.xcworkspace \
   -scheme Cinch \
@@ -92,7 +101,7 @@ if [ ! -d "$APP" ] || [ -z "$(ls -A "$APP")" ]; then
   exit 1
 fi
 
-step "6/6  Install and launch"
+step "7/7  Install and launch"
 xcrun simctl install "$UDID" "$APP"
 xcrun simctl launch "$UDID" "$BUNDLE_ID"
 
