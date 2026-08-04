@@ -53,16 +53,19 @@ jobs:
       # different globals and different module resolution — so this is the only
       # thing that typechecks them at all.
       #
-      # --node-modules-dir=auto is required because the repo root has a
-      # package.json (the Expo app). Deno walks up, finds it, switches to Node
-      # resolution, and then refuses to resolve the `npm:` specifiers without a
-      # node_modules directory. The flag is passed here rather than written into
-      # each function's deno.json deliberately: Supabase's Edge Runtime resolves
-      # `npm:` itself, so changing the committed config would alter how these
-      # deploy in order to fix a CI-only problem.
+      # Copied out of the repo first, which is the whole trick.
+      #
+      # Deno walks up from the file being checked, finds the Expo app's root
+      # package.json, and concludes the whole repo is a Node project. It then
+      # either demands a node_modules directory or — with --node-modules-dir=auto
+      # — tries to install react-native, tailwind and every other app dependency
+      # just to typecheck a Deno function. Moving the tree somewhere with no
+      # package.json above it removes the ambiguity at the source, and leaves the
+      # committed deno.json exactly matching what Supabase actually deploys.
       - name: Typecheck Edge Functions
         run: |
-          for fn in supabase/functions/*/index.ts; do
-            echo "checking $fn"
-            deno check --allow-import --node-modules-dir=auto "$fn"
+          cp -R supabase/functions "$RUNNER_TEMP/fn-check"
+          for fn in "$RUNNER_TEMP"/fn-check/*/index.ts; do
+            echo "checking $(basename "$(dirname "$fn")")"
+            deno check --allow-import "$fn"
           done
