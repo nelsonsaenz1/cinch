@@ -2,7 +2,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Plate } from '@/components/today/plate';
@@ -30,8 +37,14 @@ const idOf = (items: { id: string }[]) => items.map((g) => g.id).join('.');
 /**
  * The page header, set like a magazine folio: the date as a tracked eyebrow,
  * the section name in the didone, and a structural rule closing the masthead.
+ *
+ * The trailing icons are the only doors to Stylist and Profile — both lost
+ * their tabs in the three-tab restructure. Muted, monochrome: they are
+ * chrome, and accent never goes on chrome.
  */
 function Masthead() {
+  const router = useRouter();
+  const theme = useTheme();
   const now = new Date();
   const dateLine = `${now.toLocaleDateString('en-US', { weekday: 'long' })} · ${now.getDate()} ${now
     .toLocaleDateString('en-US', { month: 'short' })
@@ -39,7 +52,38 @@ function Masthead() {
 
   return (
     <View className="px-gutter pt-2" style={{ paddingBottom: 20 }}>
-      <Text variant="eyebrow">{dateLine}</Text>
+      <View className="flex-row items-center justify-between">
+        <Text variant="eyebrow">{dateLine}</Text>
+        <View className="flex-row">
+          <Pressable
+            // navigate, not push: a fast double-tap must not stack two sheets.
+            onPress={() => router.navigate('/stylist')}
+            accessibilityRole="button"
+            accessibilityLabel="Ask the stylist"
+            hitSlop={8}
+            className="h-tap w-tap items-center justify-center active:opacity-60">
+            <SymbolView
+              name="bubble.left.and.text.bubble.right"
+              size={20}
+              tintColor={theme.muted}
+              resizeMode="scaleAspectFit"
+            />
+          </Pressable>
+          <Pressable
+            onPress={() => router.navigate('/profile')}
+            accessibilityRole="button"
+            accessibilityLabel="Profile"
+            hitSlop={8}
+            className="h-tap w-tap items-center justify-center active:opacity-60">
+            <SymbolView
+              name="person.crop.circle"
+              size={20}
+              tintColor={theme.muted}
+              resizeMode="scaleAspectFit"
+            />
+          </Pressable>
+        </View>
+      </View>
       <View style={{ marginTop: 12 }}>
         <Text variant="display" trim accessibilityRole="header">
           Today

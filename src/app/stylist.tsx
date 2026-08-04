@@ -24,7 +24,11 @@ import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
- * Stylist — conversational styling.
+ * Stylist — conversational styling, presented as a sheet off Today.
+ *
+ * Deliberately not a tab: a chat tab is the generic-AI tell, and it duplicates
+ * Today's job. As a sheet at 0.75 detent the conversation is an aside laid
+ * over the day's edit, not a destination competing with it.
  *
  * The model never receives the closet. Each question is parsed on-device into a
  * styling context, the beam search assembles real outfits for it, and only a
@@ -71,9 +75,11 @@ export default function StylistScreen() {
 
   if (!wardrobe.isLoading && !canGenerate(items)) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
-        <View className="px-gutter pb-2 pt-2">
-          <Text variant="display">Stylist</Text>
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
+        <View className="px-gutter pb-2 pt-5">
+          <Text variant="display" trim accessibilityRole="header">
+            Stylist
+          </Text>
         </View>
         <EmptyState
           symbol="bubble.left.and.bubble.right"
@@ -87,13 +93,15 @@ export default function StylistScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}>
-        <View className="px-gutter pb-3 pt-2">
-          <Text variant="display">Stylist</Text>
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* pt-5 clears the native sheet grabber. */}
+        <View className="px-gutter pb-3 pt-5">
+          <Text variant="display" trim accessibilityRole="header">
+            Stylist
+          </Text>
         </View>
 
         <ScrollView
@@ -117,7 +125,7 @@ export default function StylistScreen() {
                     onPress={() => submit(prompt)}
                     accessibilityRole="button"
                     style={{ minHeight: MIN_TAP_TARGET }}
-                    className="justify-center rounded-card border border-hairline px-4 py-3 active:opacity-60 dark:border-hairline-dark">
+                    className="justify-center rounded-md border border-hairline px-4 py-3 active:opacity-60 dark:border-hairline-dark">
                     <Text variant="body">{prompt}</Text>
                   </Pressable>
                 ))}
@@ -129,7 +137,12 @@ export default function StylistScreen() {
                 key={message.id}
                 message={message}
                 resolveImage={resolve}
-                onPressOutfit={() => router.push('/')}
+                // Today is directly beneath the sheet — dismiss, don't push.
+                // The canGoBack guard covers exotic cold-start states where
+                // the sheet is somehow the only route.
+                onPressOutfit={() =>
+                  router.canGoBack() ? router.back() : router.replace('/(tabs)')
+                }
               />
             ))
           )}
@@ -155,7 +168,7 @@ export default function StylistScreen() {
             blurOnSubmit
             accessibilityLabel="Ask the stylist"
             style={{ maxHeight: 110 }}
-            className="flex-1 rounded-card border border-hairline px-3.5 py-2.5 text-ink dark:border-hairline-dark dark:text-ink-dark"
+            className="flex-1 rounded-md border border-hairline px-3.5 py-2.5 text-ink dark:border-hairline-dark dark:text-ink-dark"
           />
           <Pressable
             onPress={() => submit(draft)}
@@ -163,7 +176,9 @@ export default function StylistScreen() {
             accessibilityRole="button"
             accessibilityLabel="Send"
             style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}
-            className={`items-center justify-center rounded-full ${
+            // rounded-md, not a capsule — capsules are reserved for glass
+            // chrome, and this button is content.
+            className={`items-center justify-center rounded-md ${
               draft.trim() && !isSending
                 ? 'bg-accent dark:bg-accent-dark'
                 : 'bg-tray dark:bg-tray-dark'

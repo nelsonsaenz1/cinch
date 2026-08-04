@@ -17,7 +17,8 @@ const PRIVACY_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privac
 const SUPPORT_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/support';
 
 /**
- * Profile, analytics, settings.
+ * Profile, analytics, settings — a modal off Today's masthead avatar, not a
+ * tab. Settings do not deserve one of three permanent slots on the glass bar.
  *
  * In-app account deletion lives here. It is a hard App Store requirement
  * (Guideline 5.1.1(v)): an app that can create an account must let you delete
@@ -92,8 +93,10 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
       <ScrollView contentContainerClassName="pb-24">
-        <View className="px-gutter pb-6 pt-2">
-          <Text variant="display">Profile</Text>
+        <View className="px-gutter pb-6 pt-6">
+          <Text variant="display" trim accessibilityRole="header">
+            Profile
+          </Text>
         </View>
 
         <View className="px-gutter">

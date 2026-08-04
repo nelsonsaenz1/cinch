@@ -199,6 +199,8 @@ const config: ExpoConfig = {
     // either way, but the plugin's build-time configuration is skipped unless
     // the package is named. Affects prebuild only; Expo Go is unchanged.
     'expo-image',
+    // Same rationale — `npx expo install expo-sharing` asked for this.
+    'expo-sharing',
     [
       'expo-splash-screen',
       {

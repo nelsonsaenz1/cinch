@@ -1,8 +1,7 @@
-import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useMemo } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -11,12 +10,15 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
+import { PlateCard } from '@/components/share/plate-card';
+import { outfitCostPerWear } from '@/components/today/cost-per-wear';
+import { GarmentCell } from '@/components/today/garment-cell';
 import { ReactionBar, type ReactionValue } from '@/components/today/reaction-bar';
 import { Button } from '@/components/ui/button';
 import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
+import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
 import type { StyledOutfit } from '@/features/styling/use-outfits';
-import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
 import { spring, useTheme } from '@/theme/tokens';
 
@@ -30,23 +32,6 @@ export type PlateColophon = {
   city?: string | null;
   feelsLikeC?: number | null;
 };
-
-/**
- * Blended cost-per-wear for the look: the sum of each piece's own cost per
- * wear. "What does wearing this outfit today actually cost me" — the number
- * no competitor can print, because they don't track it.
- */
-function outfitCostPerWear(items: Garment[]): number | null {
-  let sum = 0;
-  let counted = 0;
-  for (const g of items) {
-    if (g.purchasePrice != null && g.wearCount > 0) {
-      sum += g.purchasePrice / g.wearCount;
-      counted++;
-    }
-  }
-  return counted > 0 ? sum : null;
-}
 
 /**
  * Two colophon rows: circumstances on the first, the look's own facts on the
@@ -164,6 +149,31 @@ export function Plate({
   const theme = useTheme();
   const reduced = useReducedMotion();
 
+  // The share flow: long-press mounts the 360×640 card off-screen, the card
+  // reports ready, view-shot captures it, the system sheet opens. The card
+  // unmounts when the sheet closes — it never stays resident.
+  const [shareMounted, setShareMounted] = useState(false);
+  const shareView = useRef<View>(null);
+
+  const handleShare = useCallback(() => {
+    if (shareMounted) return;
+    // Rigid is the "snap" of the haptics vocabulary — the shutter.
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
+    setShareMounted(true);
+  }, [shareMounted]);
+
+  const handleCardReady = useCallback(() => {
+    void sharePlate(shareView)
+      .catch((err) => {
+        // The user felt the shutter haptic; going silent after it reads as a
+        // dead button. The error notification haptic is the honest answer —
+        // there is no toast layer to say more.
+        console.warn('[share] capture failed', err);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      })
+      .finally(() => setShareMounted(false));
+  }, []);
+
   const pieces = useMemo(
     () =>
       [...outfit.candidate.items].sort(
@@ -183,6 +193,12 @@ export function Plate({
 
   return (
     <View className="mb-section px-gutter">
+      {/* Long-press the plate → the 1080×1920 artifact. No share chrome on the
+          page itself; a lookbook plate doesn't carry buttons. */}
+      <Pressable
+        onLongPress={handleShare}
+        delayLongPress={350}
+        accessibilityHint="Long press to share this plate as an image">
       {/* ── Eyebrow ── */}
       <View className="mb-2 flex-row items-baseline justify-between">
         <Text variant="eyebrow">
@@ -215,60 +231,15 @@ export function Plate({
         className="flex-row gap-1.5 overflow-hidden rounded-plate bg-tray p-3 dark:bg-tray-dark"
         accessibilityLabel={`Outfit: ${a11y}`}
         style={{ height: 236 }}>
-        {pieces.map((g, i) => {
-          const uri = resolveImage(g.cutoutPath, g.thumbPath);
-          return (
-            <View
-              key={g.id}
-              style={{ flexGrow: g.visualWeight, flexShrink: 1, flexBasis: 0 }}>
-              <Landing index={i} count={pieces.length} still={reduced} withHaptic={index === 0}>
-                {uri ? (
-                  <Image
-                    source={uri}
-                    contentFit="contain"
-                    transition={200}
-                    cachePolicy="memory-disk"
-                    style={{ width: '100%', height: '100%' }}
-                    accessibilityIgnoresInvertColors
-                  />
-                ) : (
-                  // No cutout yet — background removal needs a native module
-                  // that cannot run in the Simulator, so this path is the norm
-                  // right now. The garment's real colour is honest: it is the
-                  // value the palette rules actually scored. Text flips using
-                  // OKLCH lightness — the perceptual space is exactly for this.
-                  <View
-                    // concentric(20, 12) = 8
-                    className="h-full w-full items-center justify-center overflow-hidden rounded px-1"
-                    style={{
-                      backgroundColor: g.colors[0]
-                        ? oklchToHex(g.colors[0].oklch)
-                        : theme.tray,
-                    }}>
-                    <Text
-                      variant="caption"
-                      numberOfLines={g.visualWeight < 0.6 ? 1 : 2}
-                      className="text-center"
-                      style={{
-                        color:
-                          (g.colors[0]?.oklch.L ?? 1) < 0.55 ? '#FFFFFFCC' : '#141310AA',
-                        // A narrow column cannot fit a word horizontally, and
-                        // mid-word wrapping ("sca / rf") is worse than turning
-                        // the label sideways — which is also exactly what a
-                        // woven garment label does in a seam.
-                        ...(g.visualWeight < 0.6
-                          ? { transform: [{ rotate: '90deg' }], width: 120 }
-                          : null),
-                      }}>
-                      {g.subcategory ?? g.category}
-                    </Text>
-                  </View>
-                )}
-              </Landing>
-            </View>
-          );
-        })}
+        {pieces.map((g, i) => (
+          <View key={g.id} style={{ flexGrow: g.visualWeight, flexShrink: 1, flexBasis: 0 }}>
+            <Landing index={i} count={pieces.length} still={reduced} withHaptic={index === 0}>
+              <GarmentCell garment={g} uri={resolveImage(g.cutoutPath, g.thumbPath)} />
+            </Landing>
+          </View>
+        ))}
       </View>
+      </Pressable>
 
       {/* ── Title, rule, colophon ── */}
       <View style={{ marginTop: 16 }}>
@@ -316,6 +287,23 @@ export function Plate({
           haptic
         />
       </View>
+
+      {shareMounted ? (
+        // Mounted far off-screen, never visible. `collapsable={false}` keeps
+        // the view in the native hierarchy so view-shot has a layer to render.
+        <View
+          ref={shareView}
+          collapsable={false}
+          style={{ position: 'absolute', left: -9999, top: 0, width: CARD_W, height: CARD_H }}>
+          <PlateCard
+            outfit={outfit}
+            occasion={occasion}
+            colophon={colophon}
+            resolveImage={resolveImage}
+            onReady={handleCardReady}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }

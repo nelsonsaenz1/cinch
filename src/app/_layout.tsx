@@ -16,6 +16,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { PaperGrain } from '@/components/ui/paper';
 import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
 import { useSession } from '@/features/auth/use-session';
 import { queryClient } from '@/lib/query-client';
@@ -26,6 +27,16 @@ import '@/global.css';
 // paints in the system fallback and then reflows once Bodoni and Archivo load —
 // a visible jolt on the very first screen a new user ever sees.
 void SplashScreen.preventAutoHideAsync();
+
+/**
+ * Anchor the root stack on the tabs. Without this, a cold-start deep link to
+ * cinch://stylist or cinch://profile builds a stack containing ONLY that
+ * route — the stylist sheet has no Today beneath it and nothing to pop back
+ * to, and the profile modal cannot be dismissed at all. With the anchor the
+ * link produces [(tabs), stylist], which is also what the sheet's 0.75 detent
+ * is designed over.
+ */
+export const unstable_settings = { anchor: '(tabs)' };
 
 /**
  * The routing gate.
@@ -52,9 +63,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     // Design fixture routes stay reachable signed-out in development builds.
     if (__DEV__ && segments[0]?.startsWith('dev-')) return;
 
+    // `replace` only swaps the FOCUSED route. If the session ends while the
+    // profile modal or stylist sheet is up, replacing in place would leave the
+    // signed-in (tabs) subtree alive underneath the sign-in screen — and the
+    // next sign-in would stack a second (tabs) on top of the first. Unwind to
+    // the stack root first so replace always operates at depth 1.
     if (!session.userId && !inAuthGroup) {
+      if (router.canDismiss()) router.dismissAll();
       router.replace('/(auth)/sign-in');
     } else if (session.userId && inAuthGroup) {
+      if (router.canDismiss()) router.dismissAll();
       router.replace('/(tabs)');
     }
   }, [session, segments, router]);
@@ -134,10 +152,33 @@ export default function RootLayout() {
                 name="review"
                 options={{ presentation: 'fullScreenModal', headerShown: false }}
               />
+              {/* Stylist is a sheet off Today, not a tab — a chat tab is the
+                  generic-AI tell, and it duplicates Today's job. It OPENS at
+                  0.75 so Today stays visible behind it — the conversation is
+                  an aside on the page — but a long chat can be dragged to
+                  full height. 38 is the `sheet` radius token. */}
+              <Stack.Screen
+                name="stylist"
+                options={{
+                  presentation: 'formSheet',
+                  sheetAllowedDetents: [0.75, 1],
+                  sheetGrabberVisible: true,
+                  sheetCornerRadius: 38,
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="profile"
+                options={{ presentation: 'modal', headerShown: false }}
+              />
             </Stack>
           </AuthGate>
         </ThemeProvider>
       </QueryClientProvider>
+      {/* The grain covers the base app only. Natively-presented modals sit in
+          their own view controllers above this view — which is correct: the
+          camera feed and the stylist sheet are not paper. */}
+      <PaperGrain />
     </GestureHandlerRootView>
   );
 }

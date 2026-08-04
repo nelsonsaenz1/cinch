@@ -1,4 +1,4 @@
-import { useColorScheme } from 'react-native';
+import { DynamicColorIOS, Platform, useColorScheme, type ColorValue } from 'react-native';
 
 /**
  * The single source of truth for colour values needed in *JavaScript* —
@@ -68,6 +68,20 @@ export function useTheme(): ThemeColors & { scheme: ColorSchemeName } {
 /** Non-hook access, for module-scope config that cannot call hooks. */
 export function getColors(scheme: ColorSchemeName): ThemeColors {
   return palette[scheme];
+}
+
+/**
+ * A colour that iOS resolves natively per appearance — for surfaces JS never
+ * re-renders, above all the Liquid Glass tab bar. Expo's own docs warn that a
+ * plain hex there causes a visible flicker when dark mode flips, because the
+ * native bar repaints before React does. `DynamicColorIOS` hands both values
+ * to UIKit up front.
+ */
+export function dynamic(key: keyof ThemeColors): ColorValue {
+  if (Platform.OS === 'ios') {
+    return DynamicColorIOS({ light: palette.light[key], dark: palette.dark[key] });
+  }
+  return palette.light[key];
 }
 
 /**
