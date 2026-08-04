@@ -46,3 +46,6 @@ example
 # which embeds the database connection string — never commit it.
 supabase/.temp/
 supabase/.branches/
+
+# Vercel
+.vercel

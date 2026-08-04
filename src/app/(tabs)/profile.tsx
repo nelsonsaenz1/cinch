@@ -9,8 +9,12 @@ import { useDeleteAccount } from '@/features/auth/use-delete-account';
 import { useCloset } from '@/features/closet/queries';
 import { useStyleProfile } from '@/features/styling/queries';
 
-const PRIVACY_URL = 'https://cinch.app/privacy';
-const SUPPORT_URL = 'https://cinch.app/support';
+// Live on Vercel. These exact URLs also go into App Store Connect, and Apple's
+// reviewers must be able to open them without signing in — Vercel's deployment
+// protection was on by default and had to be turned off for that reason.
+// Swap both if a custom domain is ever pointed at the project.
+const PRIVACY_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy';
+const SUPPORT_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/support';
 
 /**
  * Profile, analytics, settings.
