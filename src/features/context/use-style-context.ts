@@ -196,6 +196,9 @@ export function useStyleContext({
   return {
     context,
     cityLabel: coords.label || FALLBACK.label,
+    // Exposed for the week planner and packing list, which fetch their own
+    // multi-day forecasts rather than reusing today's single reading.
+    coords: { latitude: coords.latitude, longitude: coords.longitude },
     usingFallbackLocation: !coords.precise,
     weatherLoading: weather.isLoading,
     weatherFailed: weather.isError,

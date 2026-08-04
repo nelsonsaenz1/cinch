@@ -70,6 +70,12 @@ Cinch judges colour the way a stylist does. It knows navy and camel work, that c
 IT LEARNS YOU
 Like an outfit, skip it, or say why it is wrong — too formal, not your colours, worn too recently. Cinch adjusts from the very first reaction, and shows you in plain English what it thinks it has learned, so you can tell it when it is wrong.
 
+PACK WITHOUT OVERPACKING
+Tell Cinch where you are going and for how long. It reads the forecast at your destination and works out the smallest set of clothes that still gives you a different outfit every day — from what you already own.
+
+ASK IT ANYTHING
+"Dinner at 7, drinks after?" "What am I missing?" The stylist answers using only your real clothes, and tells you honestly when you do not own the right thing rather than inventing something.
+
 WORKS WITHOUT SIGNAL
 Outfit building runs entirely on your iPhone. On a plane, in a basement, or with no bars at all, Cinch still dresses you.
 
@@ -193,7 +199,8 @@ Planned set, in order:
 2. **Multi-event** — the swap note visible: *"At 22:00, drop the camel merino sweater"*
 3. **Closet** — the grid full of cutouts
 4. **Review deck** — a garment mid-swipe with AI tags
-5. **Taste profile** — what the engine has learned, in plain English
+5. **Stylist** — a chat turn with recommended outfits inline
+6. **Plan** — the packing list, "5 pieces covers 5 days"
 
 **Blocked until the app runs on a device.** Screenshot 3 in particular needs
 real background-removed cutouts, which require the native Vision module and

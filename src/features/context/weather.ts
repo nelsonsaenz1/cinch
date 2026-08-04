@@ -77,6 +77,83 @@ export async function fetchWeather(
   };
 }
 
+/**
+ * A multi-day forecast, one WeatherContext per day.
+ *
+ * Used by the week planner and the packing list. Daily rows have no "current"
+ * reading, so apparent-temperature max and min are averaged to stand in for
+ * feels-like — closer to what a whole day feels like than either extreme, and
+ * the swing is preserved separately for the layering rule.
+ */
+export async function fetchForecast(
+  latitude: number,
+  longitude: number,
+  days: number,
+  signal?: AbortSignal,
+): Promise<WeatherContext[]> {
+  const params = new URLSearchParams({
+    latitude: latitude.toFixed(2),
+    longitude: longitude.toFixed(2),
+    daily:
+      'temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_probability_max,wind_speed_10m_max',
+    temperature_unit: 'celsius',
+    wind_speed_unit: 'kmh',
+    timezone: 'auto',
+    // Open-Meteo caps the free forecast at 16 days.
+    forecast_days: String(Math.min(Math.max(days, 1), 16)),
+  });
+
+  const res = await fetch(`${ENDPOINT}?${params}`, { signal });
+  if (!res.ok) throw new Error(`Forecast request failed: ${res.status}`);
+
+  const json = (await res.json()) as OpenMeteoResponse & {
+    daily?: { wind_speed_10m_max?: number[] };
+  };
+  const d = json.daily;
+  if (!d?.temperature_2m_max?.length) return [];
+
+  return d.temperature_2m_max.map((_, i) => {
+    const highC = d.apparent_temperature_max?.[i] ?? d.temperature_2m_max![i]!;
+    const lowC = d.apparent_temperature_min?.[i] ?? d.temperature_2m_min?.[i] ?? highC;
+    return {
+      feelsLikeC: (highC + lowC) / 2,
+      highC,
+      lowC,
+      precipitationChance: (d.precipitation_probability_max?.[i] ?? 0) / 100,
+      windKph: d.wind_speed_10m_max?.[i] ?? 0,
+      swing: highC - lowC >= 8,
+    };
+  });
+}
+
+export type Place = { name: string; country: string; latitude: number; longitude: number };
+
+/**
+ * Place lookup for packing. Open-Meteo's geocoding API, same provider as the
+ * forecast — no key, and no second vendor to name in the privacy policy.
+ */
+export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+
+  const res = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=en&format=json`,
+    { signal },
+  );
+  if (!res.ok) return [];
+
+  const json = (await res.json()) as {
+    results?: { name: string; country?: string; latitude: number; longitude: number }[];
+  };
+
+  return (json.results ?? []).map((r) => ({
+    name: r.name,
+    country: r.country ?? '',
+    latitude: r.latitude,
+    longitude: r.longitude,
+  }));
+}
+
 /** Whole degrees in the user's unit. Nobody dresses to a tenth of a degree. */
 export function formatTemp(celsius: number, units: 'C' | 'F'): string {
   const value = units === 'F' ? (celsius * 9) / 5 + 32 : celsius;
