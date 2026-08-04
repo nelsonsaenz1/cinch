@@ -15,6 +15,15 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "nativewind-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    // Edge Functions run on Deno, not React Native — different globals
+    // (`Deno`), different module resolution (`npm:` and `.ts` specifiers).
+    // They are typechecked by `deno check` via `npm run check:functions`,
+    // not by this config.
+    "supabase/functions"
   ]
 }

@@ -1,0 +1,102 @@
+import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
+import { memo } from 'react';
+import { Pressable, View } from 'react-native';
+
+import { Text } from '@/components/ui/text';
+import { type Item, costPerWear } from '@/schemas/item';
+import { useTheme } from '@/theme/tokens';
+
+export type ItemCardProps = {
+  item: Item;
+  onPress?: (item: Item) => void;
+};
+
+/**
+ * A single garment in the closet grid.
+ *
+ * Cutouts sit on a neutral warm tray so nothing tints the garment — the tray
+ * colour is the one surface in the app that must never carry the accent.
+ */
+function ItemCardComponent({ item, onPress }: ItemCardProps) {
+  const theme = useTheme();
+  const cpw = costPerWear(item);
+  const needsReview = item.status === 'needs_review';
+  const swatch = item.colors[0]?.hex;
+
+  // VoiceOver: a grid of garment cutouts is meaningless to a screen reader
+  // without this. Build the sentence a person would actually say.
+  const a11yLabel = [
+    item.subcategory ?? item.category,
+    item.colors[0]?.name,
+    item.brand,
+    item.wearCount > 0 ? `worn ${item.wearCount} times` : 'never worn',
+    needsReview ? 'needs review' : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      onPress={() => onPress?.(item)}
+      className="w-1/2 p-1.5 active:opacity-80">
+      <View className="aspect-[3/4] w-full overflow-hidden rounded-card bg-tray dark:bg-tray-dark">
+        {item.thumbPath || item.cutoutPath ? (
+          <Image
+            source={item.thumbPath ?? item.cutoutPath}
+            contentFit="contain"
+            transition={180}
+            cachePolicy="memory-disk"
+            style={{ flex: 1 }}
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          // No cutout yet. This is the default in the Simulator, where subject
+          // lifting cannot run — so it has to look considered, not broken.
+          <View className="flex-1 items-center justify-center">
+            <SymbolView
+              name={needsReview ? 'exclamationmark.triangle' : 'tshirt'}
+              size={26}
+              tintColor={needsReview ? theme.warning : theme.hairline}
+              resizeMode="scaleAspectFit"
+            />
+          </View>
+        )}
+
+        {needsReview ? (
+          <View className="absolute left-2 top-2 rounded-chip bg-warning px-2 py-0.5">
+            <Text variant="caption" className="text-canvas dark:text-canvas">
+              Needs review
+            </Text>
+          </View>
+        ) : null}
+
+        {swatch ? (
+          <View
+            className="absolute bottom-2 right-2 h-3.5 w-3.5 rounded-full border border-canvas/60"
+            style={{ backgroundColor: swatch }}
+          />
+        ) : null}
+      </View>
+
+      <View className="mt-2 px-0.5">
+        <Text variant="body" numberOfLines={1} className="font-medium">
+          {item.subcategory ?? 'Untagged item'}
+        </Text>
+        <Text variant="label" numberOfLines={1} className="mt-0.5">
+          {cpw !== null
+            ? `$${cpw.toFixed(2)} / wear`
+            : item.wearCount === 0
+              ? 'Never worn'
+              : `Worn ${item.wearCount}×`}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+// The grid can hold hundreds of these; re-rendering them all on a filter change
+// is the difference between smooth and janky.
+export const ItemCard = memo(ItemCardComponent);

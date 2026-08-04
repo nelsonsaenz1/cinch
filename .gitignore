@@ -41,3 +41,8 @@ example
 # generated native folders
 /ios
 /android
+
+# Supabase CLI local state. `.temp/` holds the linked project's pooler URL,
+# which embeds the database connection string — never commit it.
+supabase/.temp/
+supabase/.branches/
