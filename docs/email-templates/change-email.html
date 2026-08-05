@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Confirm your new Cinch address</title>
+  </head>
+  <!--
+    Cinch — Change Email Address
+
+    Paste into Supabase Dashboard → Authentication → Email Templates →
+    "Change Email Address".
+
+    Subject line:  Confirm your new Cinch address
+
+    This one is easy to skip because nothing in the app links to it — but
+    Supabase sends it whenever an account's email changes, and an unstyled
+    default here is the single most alarming email a user can receive from you.
+    An address change is exactly the shape of an account takeover, so the copy
+    names BOTH addresses and says plainly what to do if it was not them.
+
+    {{ .Email }}    the current address
+    {{ .NewEmail }} the address being moved to
+    Both are Supabase-provided. Do not hand-write them.
+  -->
+  <body style="margin:0; padding:0; background:#F2F0EA; color:#1C1A16;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
+      Confirm the new address on your Cinch account. If this was not you, do not tap.
+    </div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#F2F0EA;">
+      <tr>
+        <td align="center" style="padding:40px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                 style="max-width:520px; background:#FBFAF6; border:1px solid rgba(28,26,22,0.12); border-radius:20px;">
+            <tr>
+              <td style="padding:40px 36px 36px 36px;">
+
+                <div style="font-family:'Instrument Serif',Georgia,'Times New Roman',serif; font-size:44px; line-height:1; letter-spacing:-0.5px; color:#1C1A16;">
+                  Cinch
+                </div>
+
+                <div style="height:1px; background:rgba(28,26,22,0.12); margin:18px 0 12px 0; font-size:0; line-height:0;">&nbsp;</div>
+
+                <div style="font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:11px; line-height:1.4; letter-spacing:1.6px; text-transform:uppercase; color:#6B665C;">
+                  Account security
+                </div>
+
+                <h1 style="margin:26px 0 10px 0; font-family:'Instrument Serif',Georgia,'Times New Roman',serif; font-size:30px; line-height:1.15; font-weight:400; color:#1C1A16;">
+                  Confirm your new address.
+                </h1>
+
+                <p style="margin:0 0 22px 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:16px; line-height:1.6; color:#6B665C;">
+                  Someone asked to move this Cinch account to a new email address.
+                  Confirm below and your sign-in links will start arriving there instead.
+                </p>
+
+                <!-- The two addresses, set as a small ledger. This is the part that
+                     lets a real user spot a takeover attempt in one glance. -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                       style="margin:0 0 26px 0; border-top:1px solid rgba(28,26,22,0.12); border-bottom:1px solid rgba(28,26,22,0.12);">
+                  <tr>
+                    <td style="padding:14px 0 6px 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:#8A857A;">
+                      Current
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 0 12px 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:15px; line-height:1.4; color:#1C1A16; word-break:break-all;">
+                      {{ .Email }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 0 6px 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; color:#8A857A;">
+                      New
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 0 14px 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:15px; line-height:1.4; color:#6E2B2B; word-break:break-all;">
+                      {{ .NewEmail }}
+                    </td>
+                  </tr>
+                </table>
+
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td bgcolor="#1C1A16" style="border-radius:12px;">
+                      <a href="{{ .ConfirmationURL }}"
+                         style="display:inline-block; padding:15px 26px; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:15px; line-height:1; font-weight:600; color:#FBFAF6; text-decoration:none; border-radius:12px;">
+                        Confirm the change
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="margin:26px 0 0 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:13px; line-height:1.55; color:#6B665C;">
+                  If the button does not work, copy this address into your browser:<br>
+                  <span style="color:#6E2B2B; word-break:break-all;">{{ .ConfirmationURL }}</span>
+                </p>
+
+                <div style="height:1px; background:rgba(28,26,22,0.12); margin:28px 0 16px 0; font-size:0; line-height:0;">&nbsp;</div>
+
+                <p style="margin:0 0 6px 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:13px; line-height:1.55; color:#6B665C;">
+                  <strong style="color:#8A2E28;">Did not ask for this?</strong>
+                  Do not tap the button. Nothing changes until someone does. Your
+                  closet stays where it is, and the request expires on its own.
+                </p>
+
+                <p style="margin:18px 0 0 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:11px; line-height:1.5; letter-spacing:1.2px; text-transform:uppercase; color:#8A857A;">
+                  Cinch · Outfits from clothes you already own
+                </p>
+
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
