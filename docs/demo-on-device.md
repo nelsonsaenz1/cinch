@@ -23,8 +23,14 @@ rebuild to renew. Needs the iPhone paired with this Mac.
 ### Fastest route: one manual step, then one command
 
 1. **Sign in to Xcode** (this cannot be scripted — it needs your password/2FA):
-   `Xcode → Settings… → Accounts → "+" → Apple ID → sign in`
-2. `scripts/install-device.sh`
+   `Xcode → Settings… → Accounts → "+" → Apple ID → sign in`, then open the
+   project, pick the Cinch target → Signing & Capabilities → **Team** → your
+   `(Personal Team)`. That is what makes Xcode mint the signing certificate.
+2. **Enable Developer Mode on the iPhone** — iOS 16+ blocks development builds
+   without it: `Settings → Privacy & Security → Developer Mode → on`. The phone
+   restarts; unlock it and confirm. (The row only appears once a Mac has tried
+   to install to the phone.)
+3. `scripts/install-device.sh`
 
 That script finds your signing team and the paired iPhone, switches the project
 to free-team signing, builds Release (JS embedded, so the app runs with no Mac

@@ -60,6 +60,26 @@ if [ -z "$DEVICE" ]; then
 fi
 say "Device: $DEVICE"
 
+# ---- 2b. Developer Mode ------------------------------------------------------
+# iOS 16+ refuses to run a development build until Developer Mode is on, and the
+# failure only surfaces after a full build otherwise. Check first.
+if xcrun devicectl device info details --device "$DEVICE" 2>&1 | grep -qi "developerModeStatus.*disabled"; then
+  cat <<'MSG'
+
+Developer Mode is OFF on the iPhone. iOS will not run a development build until
+it is enabled, and the phone restarts when you turn it on.
+
+  On the phone:  Settings → Privacy & Security → Developer Mode → on
+                 Confirm the restart, then unlock and tap "Turn On" again.
+
+(The Developer Mode row only appears after a Mac has tried to install to the
+phone — which has now happened, so it will be there.)
+
+Then run this script again.
+MSG
+  exit 1
+fi
+
 # ---- 3. Free-team signing can't carry Sign in with Apple ---------------------
 if grep -q "com.apple.developer.applesignin" ios/Cinch/Cinch.entitlements 2>/dev/null; then
   say "Switching to free-team signing (removes the Sign in with Apple entitlement)"
