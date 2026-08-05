@@ -1,0 +1,295 @@
+import { createClient } from 'npm:@supabase/supabase-js@^2';
+
+import type { Database } from '../_shared/database.types.ts';
+
+/**
+ * superwall-webhook — the one path by which `subscriptions.plan` ever changes.
+ *
+ * `20260805160000_membership_tiers.sql` left exactly this seam: the table has no
+ * insert/update/delete policy at all, so the plan column is unreachable from any
+ * client and only the service role can move it. This function is the service
+ * role. If it is wrong, users are on the wrong tier; if it is spoofable, anyone
+ * can grant themselves Pro.
+ *
+ * ── Why not `withSupabase({ auth: 'user' })` like every other function here ──
+ *
+ * The other four are called by the app with a user's JWT. This one is called by
+ * Superwall, which has no Supabase session and never will. Its authentication is
+ * the Svix signature below, not a bearer token — so the function takes the
+ * service-role key directly and verifies the signature itself. That also means
+ * `verify_jwt` must be OFF for this function (see supabase/config.toml); with it
+ * on, the platform rejects Superwall at the door and the signature check never
+ * runs.
+ *
+ * ── What the payload does and does not contain ──────────────────────────────
+ *
+ * Superwall's webhook carries NO entitlements array. It reports a `productId`
+ * and an event `type`, and the mapping from product to plan is ours to own —
+ * which is why PRODUCT_PLANS below is the authority and has to stay in step with
+ * the products configured in the Superwall dashboard.
+ */
+
+// ---------------------------------------------------------------------------
+// Product -> plan
+// ---------------------------------------------------------------------------
+
+/**
+ * The only products that grant anything, and what they grant.
+ *
+ * An unknown product id is treated as an error rather than as "free": a typo
+ * here, or a product added in the dashboard and forgotten here, would otherwise
+ * silently downgrade a paying customer at their next renewal. Loud is better.
+ */
+const PRODUCT_PLANS: Record<string, 'standard' | 'pro'> = {
+  'cinch.standard.monthly': 'standard',
+  'cinch.standard.annual': 'standard',
+  'cinch.pro.monthly': 'pro',
+  'cinch.pro.annual': 'pro',
+};
+
+/**
+ * Events that mean "this user is entitled right now".
+ *
+ * `product_change` is here because Superwall sends it with the NEW productId, so
+ * it is handled by the same lookup as a fresh purchase.
+ */
+const GRANTING = new Set(['initial_purchase', 'renewal', 'uncancellation', 'product_change']);
+
+/**
+ * Events that mean "this user is no longer entitled".
+ *
+ * `cancellation` is deliberately NOT in this set, and it is the easiest mistake
+ * to make in this file. Cancelling turns off auto-renew; the user keeps what
+ * they paid for until `expirationAt`. Revoking on cancellation takes away time
+ * somebody has already bought. `expiration` is the event that actually ends it.
+ *
+ * `billing_issue` is also absent: Apple retries a failed charge for days, and
+ * the subscription is in a grace period throughout. Downgrading on the first
+ * failed charge punishes an expired card. If the retries fail, `expiration`
+ * arrives on its own.
+ */
+const REVOKING = new Set(['expiration', 'subscription_paused']);
+
+// ---------------------------------------------------------------------------
+// Signature verification
+// ---------------------------------------------------------------------------
+
+/** Svix rejects anything older than this; replaying a captured request fails. */
+const TOLERANCE_MS = 5 * 60 * 1000;
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/**
+ * Verify a Svix-signed request.
+ *
+ * The signed content is `id.timestamp.body` and the key is the base64 half of
+ * the `whsec_` secret. `body` must be the EXACT bytes received — parsing to JSON
+ * and re-stringifying changes key order and whitespace and invalidates a
+ * signature that was perfectly good, which is the classic way this check fails
+ * in a framework that helpfully parses bodies for you.
+ */
+async function verifySignature(
+  rawBody: string,
+  headers: Headers,
+  secret: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const id = headers.get('svix-id');
+  const timestamp = headers.get('svix-timestamp');
+  const signature = headers.get('svix-signature');
+
+  if (!id || !timestamp || !signature) return { ok: false, reason: 'Missing svix headers.' };
+
+  const sentAt = Number(timestamp) * 1000;
+  if (!Number.isFinite(sentAt)) return { ok: false, reason: 'Unparseable svix-timestamp.' };
+  if (Math.abs(Date.now() - sentAt) > TOLERANCE_MS) {
+    return { ok: false, reason: 'Timestamp outside tolerance.' };
+  }
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    // The secret is `whsec_<base64>`; only the base64 half is the key material.
+    Uint8Array.from(atob(secret.replace(/^whsec_/, '')), (c) => c.charCodeAt(0)),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+
+  const mac = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(`${id}.${timestamp}.${rawBody}`),
+  );
+  const expected = btoa(String.fromCharCode(...new Uint8Array(mac)));
+
+  // The header carries a space-separated list of `v1,<sig>` — plural because a
+  // secret being rotated signs with both the old and the new key for a window.
+  // Any one matching is a pass.
+  const passed = signature
+    .split(' ')
+    .map((part) => part.split(',')[1] ?? '')
+    .some((candidate) => constantTimeEqual(candidate, expected));
+
+  return passed ? { ok: true } : { ok: false, reason: 'Signature mismatch.' };
+}
+
+// ---------------------------------------------------------------------------
+// Handler
+// ---------------------------------------------------------------------------
+
+interface SuperwallEvent {
+  type?: string;
+  data?: {
+    productId?: string;
+    originalAppUserId?: string;
+    expirationAt?: number;
+    periodType?: string;
+    originalTransactionId?: string;
+  };
+}
+
+export default {
+  async fetch(req: Request): Promise<Response> {
+    if (req.method !== 'POST') {
+      return Response.json({ error: 'Method not allowed.' }, { status: 405 });
+    }
+
+    const secret = Deno.env.get('SUPERWALL_WEBHOOK_SECRET');
+    if (!secret) {
+      // Fail closed. An unset secret must never degrade into "accept anything" —
+      // that is a self-service Pro tier for whoever finds the URL.
+      console.error('SUPERWALL_WEBHOOK_SECRET is unset; refusing every delivery.');
+      return Response.json({ error: 'Not configured.' }, { status: 500 });
+    }
+
+    const rawBody = await req.text();
+    const verified = await verifySignature(rawBody, req.headers, secret);
+    if (!verified.ok) {
+      console.warn('Rejected Superwall webhook:', verified.reason);
+      return Response.json({ error: 'Invalid signature.' }, { status: 401 });
+    }
+
+    let event: SuperwallEvent;
+    try {
+      event = JSON.parse(rawBody);
+    } catch {
+      return Response.json({ error: 'Malformed JSON.' }, { status: 400 });
+    }
+
+    const type = event.type;
+    const data = event.data ?? {};
+    const userId = data.originalAppUserId;
+
+    if (!type || !userId) {
+      return Response.json({ error: 'Missing type or originalAppUserId.' }, { status: 400 });
+    }
+
+    // A purchase that happened before `identify()` landed is attributed to
+    // Superwall's anonymous alias, which maps to no Supabase user. Retrying will
+    // never fix that, so this returns 200 — a 4xx would have Svix redeliver for
+    // days against a payload that cannot succeed. It is logged at error level
+    // with the transaction id because it is a real paying customer with no
+    // entitlement, and somebody has to reconcile it by hand.
+    if (userId.startsWith('$SuperwallAlias:')) {
+      console.error(
+        `Superwall ${type} for an unidentified alias — no plan written. ` +
+          `originalTransactionId=${data.originalTransactionId ?? 'unknown'}`,
+      );
+      return Response.json({ ok: true, applied: false, reason: 'unidentified_alias' });
+    }
+
+    // Events outside both sets are real and expected — `cancellation` and
+    // `billing_issue` most of all — and deliberately change nothing. See the
+    // comments on REVOKING.
+    const granting = GRANTING.has(type);
+    const revoking = REVOKING.has(type);
+    if (!granting && !revoking) {
+      return Response.json({ ok: true, applied: false, reason: 'no_state_change' });
+    }
+
+    let plan: 'free' | 'standard' | 'pro' = 'free';
+    if (granting) {
+      const mapped = data.productId ? PRODUCT_PLANS[data.productId] : undefined;
+      if (!mapped) {
+        // 422, not 200: this one IS worth retrying, because the fix is to add
+        // the product here and redeploy, after which redelivery succeeds.
+        console.error(`Unmapped Superwall productId: ${data.productId ?? 'missing'}`);
+        return Response.json({ error: 'Unknown product.' }, { status: 422 });
+      }
+      plan = mapped;
+    }
+
+    const periodEnd = data.expirationAt ? new Date(data.expirationAt).toISOString() : null;
+
+    const admin = createClient<Database>(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { persistSession: false } },
+    );
+
+    // ── Out-of-order delivery ─────────────────────────────────────────────
+    //
+    // Svix guarantees delivery, not order. A `renewal` and the `expiration` of
+    // the period it replaced can arrive backwards, and applying them in receipt
+    // order would downgrade a user who just renewed. `expirationAt` is the
+    // authority on recency, so an event describing a period that ends no later
+    // than the one already stored is stale and dropped.
+    //
+    // Revocations with no `expirationAt` are applied unconditionally —
+    // `subscription_paused` has no end date and must not be ignorable.
+    const { data: current, error: readError } = await admin
+      .from('subscriptions')
+      .select('current_period_end')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (readError) {
+      // 500 so Svix retries — a transient database error should not lose a
+      // purchase.
+      console.error('Could not read subscription:', readError.message);
+      return Response.json({ error: 'Read failed.' }, { status: 500 });
+    }
+
+    if (periodEnd && current?.current_period_end && periodEnd <= current.current_period_end) {
+      return Response.json({ ok: true, applied: false, reason: 'stale_event' });
+    }
+
+    // UPSERT, not update. An `.update()` against a missing row is not an error
+    // in PostgREST — zero rows, `error` null — so a purchase by a user whose
+    // subscriptions row never got created (a failed signup trigger, an id
+    // Superwall knows that this database does not) would return 200, Svix
+    // would mark it delivered, and the payment would be silently dropped. This
+    // is the one path by which anyone becomes a paying customer; it must
+    // either land or fail loudly enough to be redelivered.
+    //
+    // `.select()` so the write proves itself: an upsert that touched nothing
+    // comes back empty and is treated as the failure it is.
+    const { data: written, error: writeError } = await admin
+      .from('subscriptions')
+      .upsert(
+        {
+          user_id: userId,
+          plan,
+          current_period_end: periodEnd,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' },
+      )
+      .select('user_id');
+
+    if (writeError || !written?.length) {
+      console.error('Could not write subscription:', writeError?.message ?? 'no row written');
+      return Response.json({ error: 'Write failed.' }, { status: 500 });
+    }
+
+    // Note for the operator: `effective_plan()` reports `pro` for the whole
+    // 14-day trial window regardless of what is written here, so a Standard
+    // purchase made mid-trial takes visible effect on day 15. Correct, but
+    // surprising the first time you watch a webhook land and nothing change.
+    return Response.json({ ok: true, applied: true, plan, periodType: data.periodType ?? null });
+  },
+};

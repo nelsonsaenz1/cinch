@@ -91,14 +91,26 @@ export function parseIntent(question: string): Intent {
   };
 }
 
-/** Fold the parsed intent into a context the beam search can rank against. */
-export function contextForQuestion(base: StyleContext, question: string): StyleContext {
+/**
+ * Fold the parsed intent into a context the beam search can rank against.
+ *
+ * `known` is what the questionnaire already established by tap. It wins over
+ * the keyword pass, and not as a tie-break: the composed sentence is generated
+ * from those very answers, so re-deriving them from it is a lossy round trip
+ * that can only disagree with the truth. A tapped "Black tie" must rank as a 5
+ * even if the sentence it produced happens to say "evening".
+ */
+export function contextForQuestion(
+  base: StyleContext,
+  question: string,
+  known?: { targetFormality: number | null; targetOccasion: string | null },
+): StyleContext {
   const intent = parseIntent(question);
   return {
     ...base,
     note: question,
-    targetFormality: intent.targetFormality,
-    targetOccasion: intent.targetOccasion,
+    targetFormality: known?.targetFormality ?? intent.targetFormality,
+    targetOccasion: known?.targetOccasion ?? intent.targetOccasion,
     season: intent.season ?? base.season,
     // A question about a trip or another season should not be scored against
     // today's forecast — that is how "what do I pack for Rome in July" comes
@@ -167,11 +179,3 @@ export function closetDigest(wardrobe: Garment[]): string {
 
   return lines.join('\n');
 }
-
-/** Openers offered on an empty chat, chosen to show what the engine can do. */
-export const SUGGESTED_PROMPTS = [
-  'Dinner at 7, drinks after — one outfit for both?',
-  'What can I wear to the office that I have not worn recently?',
-  'Something for a first date this weekend',
-  'What am I missing from my closet?',
-];

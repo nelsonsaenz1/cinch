@@ -1,5 +1,6 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
+import { useTrialExpiredPlacement } from '@/features/billing/use-trial-expired';
 import { dynamic } from '@/theme/tokens';
 
 /**
@@ -24,6 +25,11 @@ import { dynamic } from '@/theme/tokens';
  * when dark mode flips.
  */
 export default function TabsLayout() {
+  // "Your trial ended" — fires at most once per lapse, on entering the main
+  // app. Here rather than the root layout because this subtree only mounts
+  // signed-in: the welcome screen must never open with a paywall.
+  useTrialExpiredPlacement();
+
   return (
     <NativeTabs
       tintColor={dynamic('ink')}

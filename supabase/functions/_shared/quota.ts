@@ -1,121 +1,159 @@
 /**
- * Per-account daily ceilings for paid AI work.
+ * Per-plan ceilings for paid AI work.
  *
  * Every AI endpoint requires a signed-in user and, until this file existed,
  * nothing else — so one account with a script could loop `tag-item` and spend
  * the whole OpenRouter budget before anybody noticed. Authentication is not a
  * billing control: it says who is spending, not how much.
  *
- * The limits live here rather than in each function so that "what does one
- * account cost us per day, worst case" is a single readable number rather than
- * something you reconstruct from three files.
+ * The limits themselves live in `plans.ts`, which is the single place they are
+ * written down. This file is only the enforcement: resolve the caller's plan,
+ * look up the allowance, and consume one unit atomically.
  *
- * The counter itself is `claim_ai_quota` in migration 20260804200000, which
- * increments and decides in one statement so two concurrent calls cannot both
- * see the last unit. It runs under the service role only — the function takes a
- * user id as an argument, so a client able to call it could spend someone
- * else's allowance.
+ * WHY THE PLAN IS READ HERE AND NOT PASSED IN
+ * A plan handed up from the client is a plan the client can choose. The lookup
+ * runs under the service role against `effective_plan()`, which also folds in
+ * the trial, so a caller cannot upgrade itself by lying and cannot lose its
+ * trial by forgetting to mention it.
+ *
+ * Consumption is not refunded when the provider call then fails: a failed call
+ * still costs latency and sometimes tokens, and a refund path would hand an
+ * attacker a free retry loop by deliberately provoking failures. The ceilings
+ * in `plans.ts` are set above the advertised allowance precisely to absorb that.
  */
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from './database.types.ts';
+import { allowanceFor, type AiQuotaKind, type Plan, type QuotaPeriod } from './plans.ts';
+
+export type { AiQuotaKind };
 
 /**
- * Numbers chosen from what the feature actually does in a day, not from a
- * budget target — a limit nobody legitimately reaches is the only kind that
- * costs nothing and still caps abuse.
+ * Seconds until the current period rolls over.
  *
- *   tagging (vision, one call per photograph)
- *     Bulk import is the real workload: a person photographs their wardrobe
- *     once, in one sitting. A large tracked closet is a few hundred garments,
- *     so 400 covers a complete import plus re-tags in the same day. This is
- *     deliberately far above the other two: it is per-photo, and hitting it
- *     during onboarding would look like the app is broken.
+ * Must agree with `claim_ai_quota`, which truncates `now() at time zone 'utc'`
+ * to the period. A Retry-After computed against a different boundary is worse
+ * than none: the client waits, retries, and gets the same 429.
  *
- *   outfit_generation (re-rank of an on-device shortlist)
- *     The home screen re-ranks when the shortlist, note or weather changes,
- *     and the client caches for 15 minutes with retry disabled. Even a user
- *     opening the app hourly and fiddling with the note lands well under 80.
- *
- *   stylist_chat (one call per message sent)
- *     A styling conversation is a handful of turns. 60 messages in one day is
- *     already an unusual amount of typing, and this workload carries the
- *     largest prompt (digest + shortlist + history) of the three.
- *
- * Consumption is not refunded when the provider call then fails: a failed call
- * still costs us latency and sometimes tokens, and a refund path would hand an
- * attacker a free retry loop by deliberately provoking failures.
+ * Weeks are ISO weeks — Postgres `date_trunc('week', …)` starts on Monday.
  */
-export const AI_DAILY_LIMITS = {
-  tagging: 400,
-  outfit_generation: 80,
-  stylist_chat: 60,
-} as const;
-
-export type AiQuotaKind = keyof typeof AI_DAILY_LIMITS;
-
-/** Seconds until the counter's day rolls over. */
-function secondsUntilReset(): number {
-  // `claim_ai_quota` keys on `current_date`, which is the database's date, and
-  // Supabase databases run in UTC. Computing the same boundary here keeps
-  // Retry-After honest rather than a made-up round number.
+function secondsUntilReset(period: QuotaPeriod): number {
   const now = new Date();
-  const midnightUtc = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate() + 1,
-  );
-  return Math.max(1, Math.ceil((midnightUtc - now.getTime()) / 1000));
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const d = now.getUTCDate();
+
+  let next: number;
+  if (period === 'day') {
+    next = Date.UTC(y, m, d + 1);
+  } else if (period === 'month') {
+    next = Date.UTC(y, m + 1, 1);
+  } else {
+    // Days until next Monday. getUTCDay(): 0 = Sunday.
+    const dow = now.getUTCDay();
+    next = Date.UTC(y, m, d + ((8 - (dow === 0 ? 7 : dow)) % 7 || 7));
+  }
+  return Math.max(1, Math.ceil((next - now.getTime()) / 1000));
 }
 
 /**
- * Consume one unit of `kind` for `userId`.
+ * The plan this user is entitled to right now, trial included.
  *
- * Returns a ready `Response` when the caller must stop — 429 over the limit,
- * 503 when the quota table itself cannot be reached — and `null` when the
+ * Falls back to 'free' when the lookup fails. That is the least-privilege
+ * answer, and the alternative — failing the request outright — would take
+ * tagging down for everyone whenever the subscriptions table hiccuped. A paid
+ * user briefly treated as free is a support ticket; a broken import is a
+ * refund.
+ */
+async function resolvePlan(
+  admin: SupabaseClient<Database>,
+  userId: string,
+): Promise<Plan> {
+  const { data, error } = await admin.rpc('effective_plan', { p_user_id: userId });
+  if (error || !data) return 'free';
+  return data as Plan;
+}
+
+/**
+ * Consume one unit of `kind` for `userId`, against their plan's allowance.
+ *
+ * Returns a ready `Response` when the caller must stop, and `null` when the
  * provider call may proceed.
  *
- * Failing closed on an unreachable counter is deliberate. The alternative
- * fails open, which means the one dependency whose job is to bound spending
- * disappears exactly when the database is unhealthy.
+ *   402  the plan does not include this at all (free tier, stylist). The client
+ *        shows an upgrade, not a clock — "try again tomorrow" would never come
+ *        true, and telling someone to wait for something that will not arrive
+ *        is the kind of small lie that costs a subscription.
+ *   429  the plan includes it and this period's allowance is spent.
+ *   503  the counter itself is unreachable.
+ *
+ * Failing closed on an unreachable counter is deliberate: the alternative fails
+ * open, which removes the one dependency whose job is to bound spending exactly
+ * when the database is unhealthy.
  */
 export async function enforceAiQuota(
   admin: SupabaseClient<Database>,
   userId: string,
   kind: AiQuotaKind,
 ): Promise<Response | null> {
-  const limit = AI_DAILY_LIMITS[kind];
+  const plan = await resolvePlan(admin, userId);
+  const { limit, period } = allowanceFor(plan, kind);
 
   const { data, error } = await admin.rpc('claim_ai_quota', {
     p_user_id: userId,
     p_kind: kind,
-    p_daily_limit: limit,
+    p_limit: limit,
+    p_period: period,
   });
 
   if (error) {
     return Response.json(
       {
         error: 'quota_unavailable',
-        message: 'We could not check your daily allowance. Please try again shortly.',
+        message: 'We could not check your allowance. Please try again shortly.',
       },
       { status: 503, headers: { 'Retry-After': '30' } },
     );
   }
 
-  const decision = (data ?? {}) as { allowed?: boolean; used?: number; limit?: number };
+  const decision = (data ?? {}) as {
+    allowed?: boolean;
+    used?: number;
+    limit?: number;
+    reason?: string;
+  };
 
   if (decision.allowed === true) return null;
 
-  const retryAfter = secondsUntilReset();
+  if (decision.reason === 'plan_excluded') {
+    return Response.json(
+      {
+        error: 'plan_upgrade_required',
+        kind,
+        plan,
+        message: 'The stylist is part of Standard and Pro.',
+      },
+      { status: 402 },
+    );
+  }
+
+  const retryAfter = secondsUntilReset(period);
   return Response.json(
     {
       error: 'ai_quota_exceeded',
       kind,
+      plan,
+      period,
       used: decision.used ?? limit,
       limit: decision.limit ?? limit,
       retryAfterSeconds: retryAfter,
-      message: "You have used today's styling allowance. It resets at midnight UTC.",
+      message:
+        period === 'day'
+          ? "You have used today's styling allowance."
+          : period === 'week'
+            ? "You have used this week's styling allowance."
+            : "You have used this month's styling allowance.",
     },
     { status: 429, headers: { 'Retry-After': String(retryAfter) } },
   );
