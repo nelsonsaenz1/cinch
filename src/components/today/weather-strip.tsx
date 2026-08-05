@@ -29,6 +29,7 @@ export function WeatherStrip({
   city,
   units = 'F',
   usingFallbackLocation,
+  onEnableLocation,
   onConnectCalendar,
   calendarEnabled,
 }: {
@@ -37,6 +38,7 @@ export function WeatherStrip({
   city: string;
   units?: 'C' | 'F';
   usingFallbackLocation?: boolean;
+  onEnableLocation?: () => void;
   onConnectCalendar?: () => void;
   calendarEnabled?: boolean;
 }) {
@@ -47,11 +49,33 @@ export function WeatherStrip({
       {weather ? (
         <Text variant="label" numberOfLines={2}>
           Feels {formatTemp(weather.feelsLikeC, units)} · {describeWeather(weather, units)}
-          {usingFallbackLocation ? ` · ${city} (location off)` : ''}
+          {usingFallbackLocation ? ` · ${city}` : ` · ${city}`}
         </Text>
       ) : (
         <Text variant="label">Weather unavailable — styling on your closet alone.</Text>
       )}
+
+      {/* Location off is a dead end otherwise: iOS only ever asks once, so
+          without a way back the forecast is silently someone else's city
+          forever. Says which city it fell back to, and offers the fix. */}
+      {usingFallbackLocation && onEnableLocation ? (
+        <Pressable
+          onPress={onEnableLocation}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`Using ${city}. Turn on location to use where you are.`}
+          className="mt-2 flex-row items-center gap-1.5 active:opacity-60">
+          <SymbolView
+            name="location.slash"
+            size={13}
+            tintColor={theme.accentWarm}
+            resizeMode="scaleAspectFit"
+          />
+          <Text variant="label" style={{ color: theme.accentWarm }}>
+            Using {city} — turn on location for where you are
+          </Text>
+        </Pressable>
+      ) : null}
 
       {events.length > 0 ? (
         <View className="mt-2 flex-row flex-wrap items-center gap-x-2 gap-y-1">

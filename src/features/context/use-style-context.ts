@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Calendar from 'expo-calendar';
 import * as Location from 'expo-location';
 import { useCallback, useMemo, useState } from 'react';
+import { Linking } from 'react-native';
 
 import { useSession } from '@/features/auth/use-session';
 import type { EventContext, StyleContext } from '@/lib/styling';
@@ -113,6 +114,7 @@ export function useStyleContext({
   targetOccasion?: string | null;
 } = {}) {
   const [calendarEnabled, setCalendarEnabled] = useState(false);
+  const qc = useQueryClient();
 
   // --- Location ------------------------------------------------------------
   //
@@ -207,6 +209,36 @@ export function useStyleContext({
     // a dependency of itself.
   }, [weather.data, events.data, note, targetOccasion, colorSeason, coords.latitude]);
 
+  /**
+   * Turn location on from inside the app.
+   *
+   * iOS asks for a permission exactly once. After that a plain
+   * `requestForegroundPermissionsAsync()` resolves `denied` immediately without
+   * showing anything, so a "turn on location" control wired straight to it
+   * looks broken. Branch on the current status instead: prompt while it is
+   * still undetermined, and send the user to Settings once the system will no
+   * longer ask. Either way the location query is invalidated so a granted
+   * permission takes effect without a relaunch.
+   */
+  const requestLocation = useCallback(async () => {
+    const current = await Location.getForegroundPermissionsAsync();
+
+    if (current.status === 'granted') {
+      await qc.invalidateQueries({ queryKey: ['location'] });
+      return;
+    }
+
+    if (current.canAskAgain) {
+      const next = await Location.requestForegroundPermissionsAsync();
+      if (next.status === 'granted') {
+        await qc.invalidateQueries({ queryKey: ['location'] });
+      }
+      return;
+    }
+
+    await Linking.openSettings();
+  }, [qc]);
+
   return {
     context,
     cityLabel: coords.label || FALLBACK.label,
@@ -219,5 +251,6 @@ export function useStyleContext({
     calendarEnabled,
     eventsLoading: events.isLoading,
     requestCalendar,
+    requestLocation,
   };
 }

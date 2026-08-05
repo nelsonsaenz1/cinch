@@ -30,7 +30,12 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 /** Stable identity for a candidate: the exact set of garments in it. */
 const idOf = (items: { id: string }[]) => items.map((g) => g.id).join('.');
 
-/** The masthead date line — "Tue 5 Aug · London": weekday, day, month, place. */
+/**
+ * The masthead date line — "Tue 5 Aug · Denver": weekday, day, month, place.
+ * The place is the reverse-geocoded city from the device's own position, never
+ * a constant; it reads as the fallback city only when location is off, and the
+ * strip below says so and offers to turn it on.
+ */
 function dayLine(city: string) {
   const now = new Date();
   const weekday = now.toLocaleDateString('en-US', { weekday: 'short' });
@@ -195,7 +200,15 @@ export default function TodayScreen() {
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
 
-  const { context, cityLabel, usingFallbackLocation, calendarEnabled, requestCalendar, weatherFailed } =
+  const {
+    context,
+    cityLabel,
+    usingFallbackLocation,
+    calendarEnabled,
+    requestCalendar,
+    requestLocation,
+    weatherFailed,
+  } =
     useStyleContext({ note: committedNote || null });
 
   const items = useMemo(() => wardrobe.data ?? [], [wardrobe.data]);
@@ -414,6 +427,7 @@ export default function TodayScreen() {
           events={context.events}
           city={cityLabel}
           usingFallbackLocation={usingFallbackLocation}
+          onEnableLocation={() => void requestLocation()}
           calendarEnabled={calendarEnabled}
           onConnectCalendar={() => void requestCalendar()}
         />

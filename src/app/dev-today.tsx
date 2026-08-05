@@ -41,7 +41,7 @@ export default function DevTodayScreen() {
         <View className="px-gutter pt-2" style={{ paddingBottom: 18 }}>
           <View className="flex-row items-start justify-between gap-3">
             <View className="flex-1">
-              <Text variant="eyebrow">Tue 5 Aug · London</Text>
+              <Text variant="eyebrow">Tue 5 Aug · Denver</Text>
               <View style={{ marginTop: 6 }}>
                 <Text variant="display" trim accessibilityRole="header">
                   Good morning
@@ -95,7 +95,7 @@ export default function DevTodayScreen() {
             outfit={FIXTURE_OUTFIT}
             index={0}
             occasion="dinner at 7"
-            colophon={{ city: 'London', feelsLikeC: 12 }}
+            colophon={{ city: 'Denver', feelsLikeC: 12 }}
             resolveImage={() => undefined}
             onWear={() => {}}
             onReact={() => {}}
@@ -112,7 +112,7 @@ export default function DevTodayScreen() {
         <StateLabel className="mt-10">02b · new user · empty closet</StateLabel>
 
         <View className="px-gutter pt-2">
-          <Text variant="eyebrow">Tue 5 Aug · London</Text>
+          <Text variant="eyebrow">Tue 5 Aug · Denver</Text>
           <View style={{ marginTop: 6 }}>
             <Text variant="display" trim>
               Today
@@ -185,7 +185,7 @@ export default function DevTodayScreen() {
             outfit={FIXTURE_OUTFIT}
             index={0}
             occasion="dinner at 7"
-            colophon={{ city: 'London', feelsLikeC: 12 }}
+            colophon={{ city: 'Denver', feelsLikeC: 12 }}
             resolveImage={() => undefined}
             onWear={() => {}}
             onReact={() => {}}
