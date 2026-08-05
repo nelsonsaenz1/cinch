@@ -14,13 +14,13 @@ import { PlateCard } from '@/components/share/plate-card';
 import { outfitCostPerWear } from '@/components/today/cost-per-wear';
 import { GarmentCell } from '@/components/today/garment-cell';
 import { ReactionBar, type ReactionValue } from '@/components/today/reaction-bar';
-import { Button } from '@/components/ui/button';
-import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
+import { formatTemp } from '@/features/context/weather';
 import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
 import type { StyledOutfit } from '@/features/styling/use-outfits';
+import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
-import { spring, useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
 
 /** Order pieces the way a flat-lay reads: outer layers, then core, then feet. */
 const LAYOUT_ORDER: Garment['slot'][] = [
@@ -33,37 +33,28 @@ export type PlateColophon = {
   feelsLikeC?: number | null;
 };
 
+/** The tiny label the design prints under each garment in the flat-lay. */
+const labelFor = (g: Garment) => g.subcategory ?? g.category;
+
 /**
- * Two colophon rows: circumstances on the first, the look's own facts on the
- * second. One line truncates on any real outfit — a date, a city, four colour
- * names and a price do not fit 353 points at 10px.
+ * The look's palette, as the swatch dots the footer prints — the real garment
+ * colours the engine actually scored, deduplicated and limited to the pieces
+ * that carry the outfit (a belt does not claim a colour slot from the coat).
  */
-function colophonLines(items: Garment[], extra: PlateColophon): [string, string | null] {
-  const where: string[] = [];
-  const now = new Date();
-  where.push(
-    `${now.getDate()} ${now.toLocaleDateString('en-US', { month: 'short' })} ${now.getFullYear()}`,
-  );
-  if (extra.city) where.push(extra.city);
-  if (extra.feelsLikeC != null) where.push(`Feels ${Math.round(extra.feelsLikeC)}°`);
-
-  const what: string[] = [];
-  // The palette, in the engine's own colour vocabulary — substantial pieces
-  // only, so a belt does not claim a colour slot from the coat.
-  const names = [
-    ...new Set(
-      items
-        .filter((g) => g.visualWeight >= 0.1)
-        .map((g) => g.colors[0]?.name)
-        .filter((n): n is string => Boolean(n)),
-    ),
-  ].slice(0, 4);
-  if (names.length > 1) what.push(names.join(' / '));
-
-  const cpw = outfitCostPerWear(items);
-  if (cpw != null) what.push(`$${cpw.toFixed(2)} / wear`);
-
-  return [where.join(' · '), what.length ? what.join(' · ') : null];
+function paletteDots(pieces: Garment[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const g of pieces) {
+    if (g.visualWeight < 0.1) continue;
+    const c = g.colors[0];
+    if (!c) continue;
+    const hex = oklchToHex(c.oklch);
+    if (seen.has(hex)) continue;
+    seen.add(hex);
+    out.push(hex);
+    if (out.length >= 5) break;
+  }
+  return out;
 }
 
 /** One garment landing into the flat-lay. */
@@ -110,13 +101,63 @@ function Landing({
 }
 
 /**
- * A numbered plate from the day's edit — the app's signature component.
+ * The "I wore this" action. Not a `Button`: the design's worn state is an ink
+ * FILL, and the shared button has no ink variant — so this is a small inline
+ * pill in the same grammar as the reaction pills beside it. Light label colour
+ * is set inline (a `text-*` class does not reliably win over the variant's).
+ */
+function WearButton({
+  worn,
+  wearing,
+  onPress,
+}: {
+  worn: boolean;
+  wearing: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={worn ? 'Worn today' : 'Mark as worn today'}
+      accessibilityState={{ selected: worn, disabled: wearing, busy: wearing }}
+      disabled={wearing}
+      onPress={() => {
+        void Haptics.selectionAsync().catch(() => {});
+        onPress();
+      }}
+      style={{ minHeight: MIN_TAP_TARGET - 4 }}
+      className={[
+        'flex-none items-center justify-center rounded-md px-4 active:opacity-70',
+        worn ? 'bg-ink' : 'border border-rule',
+        wearing ? 'opacity-40' : '',
+      ].join(' ')}>
+      {wearing ? (
+        <ActivityIndicator size="small" color={theme.muted} />
+      ) : (
+        <Text
+          variant="label"
+          className="font-medium"
+          style={{ color: worn ? theme.canvas : theme.ink }}
+          numberOfLines={1}>
+          {worn ? 'Worn today' : 'I wore this'}
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
+/**
+ * A plate from the day's edit — the app's signature component, set as the
+ * design's white outfit card.
  *
- * The grammar, top to bottom: tracked eyebrow, the flat-lay on its tray, the
- * outfit's didone title, a structural rule, and a colophon printing the exact
- * data the engine reasoned about — date, city, feels-like, the palette in the
- * engine's own colour names, and what wearing the look costs per wear. The
- * colophon line is the product: no competitor computes it, so none can print it.
+ * The grammar, top to bottom: the outfit's didone name with the feels-like it
+ * was chosen against as a colophon; the model's reasoning; the flat-lay, each
+ * garment flexed by how much of the look it occupies and labelled beneath; then
+ * a footer printing the palette in the engine's own colours and the look's cost
+ * per wear — the number no competitor computes, so none can print it — and the
+ * love / not-for-me / worn actions.
  */
 export function Plate({
   outfit,
@@ -186,106 +227,117 @@ export function Plate({
     .map((g) => `${g.colors[0]?.name ?? ''} ${g.subcategory ?? g.category}`.trim())
     .join(', ');
 
-  const [legendWhere, legendWhat] = useMemo(
-    () => colophonLines(pieces, colophon),
-    [pieces, colophon],
-  );
+  const dots = useMemo(() => paletteDots(pieces), [pieces]);
+  const cpw = useMemo(() => outfitCostPerWear(pieces), [pieces]);
+  // The feels-like the look was chosen against, printed top-right like a
+  // colophon. Dropped entirely when weather is unavailable rather than faked.
+  const temp = colophon.feelsLikeC != null ? formatTemp(colophon.feelsLikeC, 'F') : null;
 
   return (
     <View className="mb-section px-gutter">
-      {/* Long-press the plate → the 1080×1920 artifact. No share chrome on the
-          page itself; a lookbook plate doesn't carry buttons. */}
-      <Pressable
-        onLongPress={handleShare}
-        delayLongPress={350}
-        accessibilityHint="Long press to share this plate as an image">
-      {/* ── Eyebrow ── */}
-      <View className="mb-2 flex-row items-baseline justify-between">
-        <Text variant="eyebrow">
-          {`Plate 0${index + 1}`}
-          {occasion ? ` — ${occasion}` : ''}
-        </Text>
-        {outfit.source === 'engine' ? (
-          enhancing ? (
-            <View className="flex-row items-center gap-1.5">
-              <ActivityIndicator size="small" color={theme.muted} />
-              <Text variant="colophon">Styling</Text>
-            </View>
-          ) : (
-            <View className="flex-row items-center gap-1">
-              <SymbolView
-                name="bolt.slash"
-                size={10}
-                tintColor={theme.muted}
-                resizeMode="scaleAspectFit"
-              />
-              <Text variant="colophon">Offline</Text>
-            </View>
-          )
-        ) : null}
-      </View>
-
-      {/* ── The flat-lay. Each garment flexed by how much of the look it
-             occupies, so a coat anchors and a belt does not compete. ── */}
-      <View
-        className="flex-row gap-1.5 overflow-hidden rounded-plate bg-tray p-3 dark:bg-tray-dark"
-        accessibilityLabel={`Outfit: ${a11y}`}
-        style={{ height: 236 }}>
-        {pieces.map((g, i) => (
-          <View key={g.id} style={{ flexGrow: g.visualWeight, flexShrink: 1, flexBasis: 0 }}>
-            <Landing index={i} count={pieces.length} still={reduced} withHaptic={index === 0}>
-              <GarmentCell garment={g} uri={resolveImage(g.cutoutPath, g.thumbPath)} />
-            </Landing>
+      <View className="rounded-plate border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
+        {/* Long-press the visual → the 1080×1920 artifact. The share target is
+            the card's editorial half only; the action pills below stay tappable
+            and a lookbook plate carries no share chrome of its own. */}
+        <Pressable
+          onLongPress={handleShare}
+          delayLongPress={350}
+          accessibilityHint="Long press to share this plate as an image">
+          {/* ── Header: the outfit's name, and what it was dressed for ── */}
+          <View className="flex-row items-baseline justify-between gap-3">
+            <Text variant="plate" numberOfLines={1} className="flex-1">
+              {outfit.name}
+            </Text>
+            {outfit.source === 'engine' && enhancing ? (
+              <View className="flex-row items-center gap-1.5">
+                <ActivityIndicator size="small" color={theme.muted} />
+                <Text variant="colophon">Styling</Text>
+              </View>
+            ) : temp ? (
+              <Text variant="colophon">Feels {temp}</Text>
+            ) : null}
           </View>
-        ))}
-      </View>
-      </Pressable>
 
-      {/* ── Title, rule, colophon ── */}
-      <View style={{ marginTop: 16 }}>
-        <Text variant="plate" trim numberOfLines={1}>
-          {outfit.name}
-        </Text>
-      </View>
-      <View style={{ marginTop: 12 }}>
-        <Rule />
-      </View>
-      <Text variant="colophon" style={{ marginTop: 8 }} numberOfLines={1}>
-        {legendWhere}
-      </Text>
-      {legendWhat ? (
-        <Text variant="colophon" style={{ marginTop: 3 }} numberOfLines={1}>
-          {legendWhat}
-        </Text>
-      ) : null}
+          {outfit.reasoning ? (
+            <Text variant="callout" className="mt-2 text-muted dark:text-muted-dark">
+              {outfit.reasoning}
+            </Text>
+          ) : null}
 
-      <Text variant="callout" className="mt-2 text-muted dark:text-muted-dark">
-        {outfit.reasoning}
-      </Text>
+          {/* ── The flat-lay. Each garment flexed by how much of the look it
+                 occupies, so a coat anchors and a belt does not compete, with
+                 the engine's own name for the piece printed beneath. ── */}
+          <View
+            className="mt-4 flex-row gap-1.5"
+            accessibilityLabel={`Outfit: ${a11y}`}>
+            {pieces.map((g, i) => (
+              <View key={g.id} style={{ flexGrow: g.visualWeight, flexShrink: 1, flexBasis: 0 }}>
+                <Landing index={i} count={pieces.length} still={reduced} withHaptic={index === 0}>
+                  <View
+                    className="overflow-hidden rounded border border-hairline dark:border-hairline-dark"
+                    style={{ height: 132 }}>
+                    <GarmentCell garment={g} uri={resolveImage(g.cutoutPath, g.thumbPath)} />
+                  </View>
+                </Landing>
+                <Text
+                  variant="caption"
+                  numberOfLines={1}
+                  className="mt-1.5 text-center">
+                  {labelFor(g)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </Pressable>
 
-      {outfit.swapNote ? (
-        <View className="mt-3 flex-row gap-2 rounded-md border border-hairline p-3 dark:border-hairline-dark">
-          <SymbolView
-            name="arrow.triangle.2.circlepath"
-            size={14}
-            tintColor={theme.muted}
-            resizeMode="scaleAspectFit"
-          />
-          <Text variant="label" className="flex-1 text-ink dark:text-ink-dark">
-            {outfit.swapNote}
-          </Text>
+        {outfit.swapNote ? (
+          <View className="mt-3 flex-row gap-2 rounded-md border border-hairline p-3 dark:border-hairline-dark">
+            <SymbolView
+              name="arrow.triangle.2.circlepath"
+              size={14}
+              tintColor={theme.muted}
+              resizeMode="scaleAspectFit"
+            />
+            <Text variant="label" className="flex-1 text-ink dark:text-ink-dark">
+              {outfit.swapNote}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* ── Footer: the palette in the engine's own colours, and the number
+               no competitor tracks — what wearing the look costs per wear. ── */}
+        <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3 dark:border-rule-dark">
+          <View className="flex-1 flex-row items-center gap-2">
+            <Text variant="eyebrow">Palette</Text>
+            <View className="flex-row items-center gap-1.5">
+              {dots.map((hex, i) => (
+                <View
+                  key={`${hex}-${i}`}
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: 7,
+                    backgroundColor: hex,
+                    borderWidth: 1,
+                    borderColor: theme.rule,
+                  }}
+                />
+              ))}
+            </View>
+          </View>
+          {cpw != null ? (
+            <View className="flex-row items-baseline gap-1">
+              <Text variant="stat">${cpw.toFixed(2)}</Text>
+              <Text variant="colophon">/ wear</Text>
+            </View>
+          ) : null}
         </View>
-      ) : null}
 
-      <View className="mt-3 flex-row items-center justify-between">
-        <ReactionBar onReact={onReact} reacted={reacted} disabled={wearing} />
-        <Button
-          title={worn ? 'Worn today' : 'Wear it'}
-          variant={worn ? 'ghost' : 'secondary'}
-          onPress={onWear}
-          loading={wearing}
-          haptic
-        />
+        {/* ── The three actions, as the design sets them: love, pass, worn. ── */}
+        <View className="mt-3.5 flex-row items-start gap-2">
+          <ReactionBar onReact={onReact} reacted={reacted} disabled={wearing} />
+          <WearButton worn={Boolean(worn)} wearing={Boolean(wearing)} onPress={onWear} />
+        </View>
       </View>
 
       {shareMounted ? (

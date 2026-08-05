@@ -24,6 +24,31 @@ import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
+ * The sheet's header: a small oxblood-tinted mark, the serif name, and the
+ * promise that keeps the feature trustworthy — stated plainly, every time.
+ * `pt-5` clears the native sheet grabber; the hairline hands off to the
+ * message list the way a card's rule hands off to its body.
+ */
+function StylistHeader() {
+  const theme = useTheme();
+  return (
+    <View className="flex-row items-center gap-3 border-b border-hairline px-gutter pb-3 pt-5 dark:border-hairline-dark">
+      <View className="h-9 w-9 items-center justify-center rounded-full bg-accent-light">
+        <SymbolView name="sparkles" size={15} tintColor={theme.accent} resizeMode="scaleAspectFit" />
+      </View>
+      <View>
+        <Text variant="plate" trim accessibilityRole="header">
+          Stylist
+        </Text>
+        <Text variant="caption" className="mt-0.5 text-faint dark:text-faint-dark">
+          Only your clothes — nothing invented
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/**
  * Stylist — conversational styling, presented as a sheet off Today.
  *
  * Deliberately not a tab: a chat tab is the generic-AI tell, and it duplicates
@@ -76,11 +101,7 @@ export default function StylistScreen() {
   if (!wardrobe.isLoading && !canGenerate(items)) {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
-        <View className="px-gutter pb-2 pt-5">
-          <Text variant="display" trim accessibilityRole="header">
-            Stylist
-          </Text>
-        </View>
+        <StylistHeader />
         <EmptyState
           symbol="bubble.left.and.bubble.right"
           title="Ask for anything"
@@ -97,12 +118,7 @@ export default function StylistScreen() {
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {/* pt-5 clears the native sheet grabber. */}
-        <View className="px-gutter pb-3 pt-5">
-          <Text variant="display" trim accessibilityRole="header">
-            Stylist
-          </Text>
-        </View>
+        <StylistHeader />
 
         <ScrollView
           ref={scrollRef}
@@ -161,14 +177,14 @@ export default function StylistScreen() {
             value={draft}
             onChangeText={setDraft}
             onSubmitEditing={() => submit(draft)}
-            placeholder="What are you doing today?"
+            placeholder="Ask about your clothes…"
             placeholderTextColor={theme.muted}
             multiline
             returnKeyType="send"
             blurOnSubmit
             accessibilityLabel="Ask the stylist"
             style={{ maxHeight: 110 }}
-            className="flex-1 rounded-md border border-hairline px-3.5 py-2.5 text-ink dark:border-hairline-dark dark:text-ink-dark"
+            className="flex-1 rounded-full border border-rule bg-surface px-4 py-2.5 text-ink dark:border-rule-dark dark:bg-surface-dark dark:text-ink-dark"
           />
           <Pressable
             onPress={() => submit(draft)}
@@ -176,11 +192,9 @@ export default function StylistScreen() {
             accessibilityRole="button"
             accessibilityLabel="Send"
             style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}
-            // rounded-md, not a capsule — capsules are reserved for glass
-            // chrome, and this button is content.
-            className={`items-center justify-center rounded-md ${
+            className={`items-center justify-center rounded-full ${
               draft.trim() && !isSending
-                ? 'bg-accent dark:bg-accent-dark'
+                ? 'bg-ink dark:bg-ink-dark'
                 : 'bg-tray dark:bg-tray-dark'
             }`}>
             <SymbolView

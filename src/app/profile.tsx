@@ -1,15 +1,26 @@
+import { useQuery } from '@tanstack/react-query';
+import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import { Alert, Linking, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  Switch,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
-import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { signOut } from '@/features/auth/actions';
 import { useAiConsent, useGrantAiConsent, useRevokeAiConsent } from '@/features/auth/use-consent';
 import { useDeleteAccount } from '@/features/auth/use-delete-account';
 import { useCloset } from '@/features/closet/queries';
 import { useStyleProfile } from '@/features/styling/queries';
+import { getUserId, supabase } from '@/lib/supabase';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 // Live on Vercel. These exact URLs also go into App Store Connect, and Apple's
 // reviewers must be able to open them without signing in — Vercel's deployment
@@ -17,6 +28,106 @@ import { useStyleProfile } from '@/features/styling/queries';
 // Swap both if a custom domain is ever pointed at the project.
 const PRIVACY_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy';
 const SUPPORT_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/support';
+
+/** How many reactions the style engine wants before it will say anything about taste. */
+const TASTE_THRESHOLD = 8;
+
+/**
+ * "AA" from "Ava Ansari", "AV" from "Ava" alone. Falls back to a bare "?"
+ * rather than throwing while the name is still loading.
+ */
+function initialsFor(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  const first = words[0] ?? '';
+  const last = words.length > 1 ? (words[words.length - 1] ?? '') : '';
+  const letters = last ? `${first[0] ?? ''}${last[0] ?? ''}` : first.slice(0, 2);
+  return (letters || '?').toUpperCase();
+}
+
+function weeksSince(iso: string): number {
+  const created = new Date(iso).getTime();
+  if (Number.isNaN(created)) return 0;
+  return Math.max(0, Math.floor((Date.now() - created) / (7 * 24 * 60 * 60 * 1000)));
+}
+
+/** "a, b, and c" — never an Oxford-less run-on, never a trailing "and" for one item. */
+function joinNaturally(parts: string[]): string {
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0] ?? '';
+  if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
+  return `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
+}
+
+/**
+ * Name + account age for the masthead. Neither lives anywhere else in the
+ * app, so this reads `profiles` directly rather than growing a new feature
+ * module for two columns. `display_name` is rarely set today (there is no
+ * settings UI for it yet) so this falls back through the Apple Sign In name
+ * captured at first login, then the email's local part, before giving up.
+ */
+async function fetchProfileHeader(): Promise<{ name: string; memberSince: string | null }> {
+  const userId = await getUserId();
+  if (!userId) return { name: 'You', memberSince: null };
+
+  const [{ data: claimsData }, { data: profileRow }] = await Promise.all([
+    supabase.auth.getClaims(),
+    supabase.from('profiles').select('display_name, created_at').eq('user_id', userId).maybeSingle(),
+  ]);
+
+  const claims = claimsData?.claims;
+  const meta = (claims?.user_metadata ?? {}) as { full_name?: string };
+  const email = (claims?.email as string | undefined) ?? null;
+
+  const name =
+    profileRow?.display_name || meta.full_name || (email ? email.split('@')[0] : null) || 'You';
+
+  return { name, memberSince: profileRow?.created_at ?? null };
+}
+
+/**
+ * One "Account" row: label, chevron, tap target. `tone="accent"` is spent on
+ * exactly one row (Delete account) — the same one-accent-per-screen rule the
+ * rest of the app follows, just applied inside a list instead of to a button.
+ */
+function AccountRow({
+  label,
+  onPress,
+  tone = 'ink',
+  loading = false,
+}: {
+  label: string;
+  onPress: () => void;
+  tone?: 'ink' | 'accent';
+  loading?: boolean;
+}) {
+  const theme = useTheme();
+  const iconColor = tone === 'accent' ? theme.accent : theme.faint;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ busy: loading }}
+      onPress={onPress}
+      disabled={loading}
+      style={{ minHeight: MIN_TAP_TARGET }}
+      className="flex-row items-center justify-between px-4 py-3.5 active:opacity-60">
+      <Text variant="body" className={tone === 'accent' ? 'text-accent' : 'text-ink'}>
+        {label}
+      </Text>
+      {loading ? (
+        <ActivityIndicator size="small" color={iconColor} />
+      ) : (
+        <SymbolView
+          name="chevron.right"
+          size={13}
+          tintColor={iconColor}
+          resizeMode="scaleAspectFit"
+        />
+      )}
+    </Pressable>
+  );
+}
 
 /**
  * Profile, analytics, settings — a modal off Today's masthead avatar, not a
@@ -27,9 +138,11 @@ const SUPPORT_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/suppor
  * one from inside the app, and a support email or web form does not satisfy it.
  */
 export default function ProfileScreen() {
+  const theme = useTheme();
   const closet = useCloset();
   const style = useStyleProfile();
   const deleteAccount = useDeleteAccount();
+  const profileHeader = useQuery({ queryKey: ['profile-header'], queryFn: fetchProfileHeader });
 
   const consent = useAiConsent();
   const revokeConsent = useRevokeAiConsent();
@@ -44,6 +157,34 @@ export default function ProfileScreen() {
       neverWorn: items.filter((i) => i.wearCount === 0).length,
     };
   }, [closet.data]);
+
+  const name = profileHeader.data?.name ?? '';
+  const memberSince = profileHeader.data?.memberSince;
+  const weeksLabel = useMemo(() => {
+    if (!memberSince) return '';
+    const weeks = weeksSince(memberSince);
+    return weeks <= 0 ? 'New to Cinch' : `${weeks} ${weeks === 1 ? 'week' : 'weeks'} with Cinch`;
+  }, [memberSince]);
+
+  const feedbackCount = style.data?.feedbackCount ?? 0;
+
+  // The honest sentence the "What Cinch has learned" card promises: say
+  // plainly how little there is to go on before pretending to know a taste.
+  const learnedSentence = useMemo(() => {
+    if (feedbackCount === 0) {
+      return 'Nothing yet — react to a few outfits and Cinch will start learning what you actually wear.';
+    }
+    if (feedbackCount < TASTE_THRESHOLD) {
+      const remaining = TASTE_THRESHOLD - feedbackCount;
+      return `Still early. ${remaining} more ${remaining === 1 ? 'reaction' : 'reactions'} and Cinch will start recognising your taste.`;
+    }
+    const summary = style.data?.summary ?? [];
+    return summary.length > 0
+      ? `Still learning. So far you ${joinNaturally(summary)}. Learned from ${feedbackCount} reactions.`
+      : `Learned from ${feedbackCount} reactions, but no clear pattern yet.`;
+  }, [feedbackCount, style.data?.summary]);
+
+  const learnedProgress = Math.max(4, Math.min(100, Math.round((feedbackCount / TASTE_THRESHOLD) * 100)));
 
   const confirmSignOut = () => {
     Alert.alert('Sign out', 'You can sign back in anytime — your closet stays put.', [
@@ -138,21 +279,32 @@ export default function ProfileScreen() {
     );
   };
 
-  const summary = style.data?.summary ?? [];
-  const feedbackCount = style.data?.feedbackCount ?? 0;
-
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScrollView contentContainerClassName="pb-24">
-        <View className="px-gutter pb-6 pt-6">
-          <Text variant="display" trim accessibilityRole="header">
-            Profile
-          </Text>
+        {/* The masthead — avatar, name, and account age stand in for a page
+            title, matching the design; VoiceOver still gets a heading. */}
+        <View className="flex-row items-center gap-3.5 px-gutter pb-6 pt-6">
+          <View className="h-14 w-14 items-center justify-center rounded-full bg-ink">
+            {/* Gotcha: a text-canvas className does not reliably win over a Text
+                variant's own color, so light-on-ink goes through inline style. */}
+            <Text variant="heading" style={{ color: theme.canvas }}>
+              {initialsFor(name)}
+            </Text>
+          </View>
+          <View>
+            <Text variant="plate" accessibilityRole="header">
+              {name}
+            </Text>
+            <Text variant="caption" className="mt-1 text-faint">
+              {weeksLabel}
+            </Text>
+          </View>
         </View>
 
         <View className="px-gutter">
-          <View className="rounded-card border border-hairline p-5 dark:border-hairline-dark">
-            <Text variant="caption">Wardrobe</Text>
+          <View className="rounded-plate border border-rule bg-surface p-4">
+            <Text variant="eyebrow">Wardrobe</Text>
             <View className="mt-3 flex-row justify-between">
               <View>
                 <Text variant="stat" className="text-figure">
@@ -182,103 +334,119 @@ export default function ProfileScreen() {
 
           {/* What the engine has learned, in the user's own terms. Showing this
               is what makes the personalisation feel like a relationship rather
-              than a black box — and gives them somewhere to push back. */}
-          <View className="mt-4 rounded-card border border-hairline p-5 dark:border-hairline-dark">
-            <Text variant="caption">Your style</Text>
-            {feedbackCount < 8 ? (
-              <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
-                {feedbackCount === 0
-                  ? 'React to a few outfits and Cinch will start learning what you actually wear.'
-                  : `${8 - feedbackCount} more reactions and Cinch will start recognising your taste.`}
+              than a black box — and gives them somewhere to push back. The
+              progress bar is honest about the threshold, not decorative. */}
+          <View className="mt-6 rounded-plate border border-rule bg-surface p-4">
+            <Text variant="eyebrow">What Cinch has learned</Text>
+            <Text variant="body" className="mt-2.5 text-ink">
+              {learnedSentence}
+            </Text>
+            <View className="mt-3.5 flex-row items-center gap-2.5">
+              <View className="h-[5px] flex-1 overflow-hidden rounded-full bg-sand">
+                <View
+                  className="h-full rounded-full bg-accent"
+                  style={{ width: `${learnedProgress}%` }}
+                />
+              </View>
+              <Text variant="caption" className="text-muted">
+                Getting to know you
               </Text>
-            ) : (
-              <View className="mt-3 gap-1.5">
-                {summary.map((line) => (
-                  <Text key={line} variant="body" className="text-muted dark:text-muted-dark">
-                    · You {line}.
-                  </Text>
-                ))}
-                <Text variant="label" className="mt-2">
-                  Learned from {feedbackCount} reactions.
+            </View>
+          </View>
+
+          <Text variant="eyebrow" className="mb-2.5 mt-7">
+            AI styling
+          </Text>
+          <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+            {/* Decorative, not a preference: the beam search over the closet
+                (src/lib/styling) has no off switch — it needs neither the
+                network nor the AI provider, so there is nothing to grant or
+                revoke here. This row just says so. */}
+            <View className="flex-row items-center justify-between p-4">
+              <View className="flex-1 pr-3">
+                <Text variant="body">Daily outfit styling</Text>
+                <Text variant="caption" className="mt-1 text-muted">
+                  Built from your closet, on this phone.
                 </Text>
               </View>
-            )}
-          </View>
+              <Switch
+                value
+                onValueChange={() => {}}
+                disabled
+                trackColor={{ false: theme.rule, true: theme.ink }}
+                accessibilityLabel="Daily outfit styling"
+                accessibilityHint="Always on — outfits are generated on this phone, not by AI"
+              />
+            </View>
+            <View className="h-px bg-hairline" />
+            {/* Guideline 5.1.2(i) consent, and its withdrawal. The sheet shown
+                before the first upload tells the user this control is here, so
+                it has to be findable rather than buried under a submenu.
 
-          {/* Guideline 5.1.2(i) consent, and its withdrawal. The sheet shown
-              before the first upload tells the user this control is here, so
-              it has to be findable rather than buried under a submenu.
-
-              While `consent` is still loading we render nothing at all: a
-              control that says "off" for a beat and then flips to "on" reads
-              as the app having lost the setting. */}
-          {consent.data ? (
-            <View className="mt-8 rounded-card border border-hairline p-5 dark:border-hairline-dark">
-              <Text variant="caption">AI features</Text>
-              {consent.data.granted ? (
-                <>
-                  <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
-                    Photos of new pieces go to OpenRouter to be tagged, and the
-                    stylist chat and outfit write-ups run there too. Cutouts and
-                    the outfit suggestions themselves stay on your phone.
-                  </Text>
-                  <View className="mt-4">
-                    <Button
-                      title="Turn off AI features"
-                      variant="secondary"
-                      onPress={confirmRevoke}
-                      loading={revokeConsent.isPending}
-                    />
-                  </View>
-                </>
+                While `consent` is still loading the switch itself is withheld
+                (a spinner sits in its place) rather than defaulting to off: a
+                control that says "off" for a beat and then flips to "on" reads
+                as the app having lost the setting. */}
+            <View className="flex-row items-center justify-between p-4">
+              <View className="flex-1 pr-3">
+                <Text variant="body">AI features</Text>
+                <Text variant="caption" className="mt-1 text-muted">
+                  {consent.data
+                    ? consent.data.granted
+                      ? 'Tagging, stylist chat, and outfit write-ups use OpenRouter.'
+                      : 'Off — nothing is sent to our AI provider.'
+                    : 'Checking your setting…'}
+                </Text>
+              </View>
+              {consent.data ? (
+                <Switch
+                  value={consent.data.granted}
+                  onValueChange={(next) => {
+                    if (next) {
+                      // Re-granting opens the same full disclosure sheet a new
+                      // user sees, which is what records a fresh version and
+                      // timestamp. A bare toggle-to-on here would be
+                      // re-consenting to text the user last read weeks ago.
+                      setConsentVisible(true);
+                    } else {
+                      confirmRevoke();
+                    }
+                  }}
+                  disabled={revokeConsent.isPending || grantConsent.isPending}
+                  trackColor={{ false: theme.rule, true: theme.ink }}
+                  accessibilityLabel="AI features"
+                  accessibilityHint={
+                    consent.data.granted
+                      ? 'Turns off AI tagging and the stylist chat'
+                      : 'Opens the AI consent details'
+                  }
+                />
               ) : (
-                <>
-                  <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
-                    Off. Nothing is being sent to our AI provider. Cinch still
-                    builds outfits from your closet on this phone — new pieces
-                    just arrive untagged, and the stylist chat is unavailable.
-                  </Text>
-                  {/* Re-granting opens the same full disclosure sheet a new
-                      user sees, which is what records a fresh version and
-                      timestamp. A bare "turn back on" toggle here would be
-                      re-consenting to text the user last read weeks ago. */}
-                  <View className="mt-4">
-                    <Button
-                      title="Turn AI features back on"
-                      variant="secondary"
-                      onPress={() => setConsentVisible(true)}
-                    />
-                  </View>
-                </>
+                <ActivityIndicator size="small" color={theme.faint} />
               )}
             </View>
-          ) : null}
-
-          <View className="mt-8 gap-3">
-            <Button
-              title="Privacy policy"
-              variant="ghost"
-              onPress={() => void Linking.openURL(PRIVACY_URL)}
-            />
-            <Button
-              title="Support"
-              variant="ghost"
-              onPress={() => void Linking.openURL(SUPPORT_URL)}
-            />
-            <Button title="Sign out" variant="secondary" onPress={confirmSignOut} />
           </View>
 
-          <View className="mt-10 border-t border-hairline pt-6 dark:border-hairline-dark">
-            <Button
-              title="Delete account"
-              variant="ghost"
+          <Text variant="eyebrow" className="mb-2.5 mt-7">
+            Account
+          </Text>
+          <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+            <AccountRow label="Privacy" onPress={() => void Linking.openURL(PRIVACY_URL)} />
+            <View className="h-px bg-hairline" />
+            <AccountRow label="Support" onPress={() => void Linking.openURL(SUPPORT_URL)} />
+            <View className="h-px bg-hairline" />
+            <AccountRow label="Sign out" onPress={confirmSignOut} />
+            <View className="h-px bg-hairline" />
+            <AccountRow
+              label="Delete account"
+              tone="accent"
               onPress={confirmDelete}
               loading={deleteAccount.isPending}
             />
-            <Text variant="label" className="mt-2 text-center">
-              Permanently deletes your closet, your photos, and your style profile.
-            </Text>
           </View>
+          <Text variant="caption" className="mt-3 px-1 text-center text-faint">
+            Deleting your account permanently removes your closet, photos, and style profile.
+          </Text>
         </View>
       </ScrollView>
 

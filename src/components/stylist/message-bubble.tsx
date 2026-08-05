@@ -11,6 +11,11 @@ const LAYOUT_ORDER: Garment['slot'][] = [
   'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
 ];
 
+// Corners of a chat bubble — generous everywhere except the corner nearest the
+// speaker's own edge, which squares off to point at who's talking (the tail).
+const STYLIST_BUBBLE = 'rounded-tl-plate rounded-tr-plate rounded-br-plate rounded-bl-sm';
+const USER_BUBBLE = 'rounded-tl-plate rounded-tr-plate rounded-bl-plate rounded-br-sm';
+
 /**
  * A recommended outfit inside a chat turn.
  *
@@ -95,8 +100,13 @@ export function MessageBubble({
   if (isUser) {
     return (
       <View className="mb-5 items-end px-gutter">
-        <View className="max-w-[85%] rounded-card bg-ink px-4 py-2.5 dark:bg-tray-dark">
-          <Text variant="body" className="text-canvas dark:text-ink-dark">
+        <View className={`max-w-[85%] bg-ink px-4 py-2.5 dark:bg-ink-dark ${USER_BUBBLE}`}>
+          {/* NativeWind can't reliably override a Text variant's built-in ink
+              colour once another text-* class (the variant's own text-body)
+              is present, so canvas-on-ink goes through the theme facade
+              instead of a `text-canvas` className — see repo gotcha on
+              light-on-dark tiles. */}
+          <Text variant="body" style={{ color: theme.canvas }}>
             {message.text}
           </Text>
         </View>
@@ -107,17 +117,21 @@ export function MessageBubble({
   return (
     <View className="mb-6 px-gutter">
       {message.pending ? (
-        <View className="flex-row items-center gap-2 py-1">
+        <View
+          className={`max-w-[85%] flex-row items-center gap-2 self-start bg-tray px-4 py-3 dark:bg-tray-dark ${STYLIST_BUBBLE}`}>
           <ActivityIndicator size="small" color={theme.muted} />
           <Text variant="label">Looking through your closet…</Text>
         </View>
       ) : (
         <>
-          <Text
-            variant="body"
-            className={message.failed ? 'text-muted dark:text-muted-dark' : ''}>
-            {message.text}
-          </Text>
+          <View
+            className={`max-w-[85%] self-start bg-tray px-4 py-2.5 dark:bg-tray-dark ${STYLIST_BUBBLE}`}>
+            <Text
+              variant="body"
+              className={message.failed ? 'text-muted dark:text-muted-dark' : ''}>
+              {message.text}
+            </Text>
+          </View>
 
           {message.outfits.map((outfit, i) => (
             <OutfitStrip

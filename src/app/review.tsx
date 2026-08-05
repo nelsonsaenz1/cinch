@@ -146,21 +146,43 @@ export default function ReviewScreen() {
   }
 
   const done = deck.length === 0;
-  const remaining = deck.length;
+  const total = items.length;
+  // 0-based position of the card currently on top of the stack — items ahead
+  // of it have already been confirmed or skipped this sitting.
+  const current = total - deck.length;
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
-      <View className="flex-row items-center justify-between px-gutter pt-2">
-        <View>
-          <Text variant="heading">Review tags</Text>
-          {!done ? (
-            <Text variant="label" className="mt-0.5">
-              {remaining} left
-            </Text>
-          ) : null}
-        </View>
+      {/*
+        The deck is a fullScreenModal with no native header, so this ghost
+        "Close"/"Done" stays as the only way out — dropping it would trap
+        anyone who wants to finish reviewing later. It sits in its own slim
+        row so it doesn't compete with the colophon progress line below.
+      */}
+      <View className="flex-row items-center justify-end px-gutter pt-2">
         <Button title={done ? 'Done' : 'Close'} variant="ghost" onPress={() => router.back()} />
       </View>
+
+      {!done ? (
+        <View className="flex-row items-center justify-between px-gutter pb-1 pt-1">
+          <Text variant="colophon">
+            Review · {Math.min(current + 1, total)} of {total}
+          </Text>
+          {/* Segmented progress — one pill per item, the current step in the
+              accent, the rest in sand. `maxWidth` keeps a handful of pills at
+              their full size while letting a long batch compress instead of
+              overflowing the row. */}
+          <View className="flex-row items-center gap-1">
+            {Array.from({ length: total }).map((_, i) => (
+              <View
+                key={i}
+                className={`h-1 rounded-full ${i === current ? 'bg-accent dark:bg-accent-dark' : 'bg-sand dark:bg-sand-dark'}`}
+                style={{ flex: 1, maxWidth: 16 }}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       {/*
         A failed confirm is the one error on this screen the user can act on, so

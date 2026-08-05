@@ -175,7 +175,17 @@ export default function ClosetScreen() {
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
       {closet.isLoading ? (
-        <ClosetGridSkeleton />
+        // The masthead swaps down to just the title while loading — the search,
+        // stat strip and chips have nothing to act on yet, but the design keeps
+        // the "Closet" title standing above the spinner so the page doesn't jump.
+        <>
+          <View style={{ paddingHorizontal: GUTTER }} className="pt-2">
+            <Text variant="display" trim accessibilityRole="header">
+              Closet
+            </Text>
+          </View>
+          <ClosetGridSkeleton />
+        </>
       ) : (
         <>
           {masthead}

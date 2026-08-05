@@ -65,6 +65,18 @@ export default function PlanScreen() {
   const planned = usePlannedWeek(startOfToday(), WEEK_DAYS);
   const planOutfit = usePlanOutfit();
 
+  // "5–11 Aug" for the header — real dates, computed once per render rather
+  // than stored, since it is derived purely from today's date.
+  const weekRangeLabel = useMemo(() => {
+    const start = startOfToday();
+    const end = new Date(start);
+    end.setDate(start.getDate() + WEEK_DAYS - 1);
+    const month = (d: Date) => d.toLocaleDateString(undefined, { month: 'short' });
+    return start.getMonth() === end.getMonth()
+      ? `${start.getDate()}–${end.getDate()} ${month(start)}`
+      : `${start.getDate()} ${month(start)} – ${end.getDate()} ${month(end)}`;
+  }, []);
+
   // Anything already committed to a day this week is out of the running for the
   // others. Without this the planner happily suggests Tuesday's jacket again on
   // Thursday, having no idea Tuesday was ever decided — the query was being
@@ -161,10 +173,16 @@ export default function PlanScreen() {
             </View>
           ) : (
             <>
-              <Text variant="label" className="mb-4 px-gutter">
-                Seven days in {cityLabel}, no piece repeated within two days.
+              <View className="mb-1 flex-row items-baseline justify-between px-gutter">
+                <Text variant="title">This week</Text>
+                <Text variant="label">
+                  {cityLabel} · {weekRangeLabel}
+                </Text>
+              </View>
+              <Text variant="label" className="mb-5 px-gutter text-accent dark:text-accent-dark">
+                No piece worn more than twice
               </Text>
-              {weekDays.map((day) => {
+              {weekDays.map((day, i) => {
                 const key = dateKey(day.date);
                 return (
                   <DayRow
@@ -173,6 +191,7 @@ export default function PlanScreen() {
                     resolveImage={resolve}
                     planned={Boolean(planned.data?.[key]?.length)}
                     planning={planOutfit.isPending}
+                    isLast={i === weekDays.length - 1}
                     onPlan={() =>
                       day.outfit &&
                       planOutfit.mutate({ candidate: day.outfit, date: day.date })
@@ -270,8 +289,13 @@ export default function PlanScreen() {
                 <Text variant="label" className="mb-4 px-gutter">
                   How it works out, day by day
                 </Text>
-                {packing.days.map((day) => (
-                  <DayRow key={dateKey(day.date)} day={day} resolveImage={resolve} />
+                {packing.days.map((day, i) => (
+                  <DayRow
+                    key={dateKey(day.date)}
+                    day={day}
+                    resolveImage={resolve}
+                    isLast={i === packing.days.length - 1}
+                  />
                 ))}
               </View>
             ) : null}

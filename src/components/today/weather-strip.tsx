@@ -1,19 +1,10 @@
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { SymbolView } from 'expo-symbols';
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { describeWeather, formatTemp } from '@/features/context/weather';
 import type { EventContext, WeatherContext } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
-
-const symbolFor = (w: WeatherContext): SFSymbol => {
-  if (w.precipitationChance >= 0.5) return 'cloud.rain';
-  if (w.precipitationChance >= 0.25) return 'cloud.sun';
-  if (w.windKph >= 25) return 'wind';
-  if (w.feelsLikeC >= 24) return 'sun.max';
-  if (w.feelsLikeC <= 4) return 'snowflake';
-  return 'cloud.sun';
-};
 
 const clockLabel = (minutes: number) => {
   const h = Math.floor(minutes / 60);
@@ -24,11 +15,13 @@ const clockLabel = (minutes: number) => {
 };
 
 /**
- * The context header: what it feels like outside and what the day holds.
+ * The context line under the masthead: what it feels like outside and what the
+ * day holds, set as the design's quiet single line rather than a stat block.
  *
  * Leads with apparent temperature rather than the actual reading, because that
  * is the number the outfits were actually chosen against — showing one figure
- * and reasoning from another is how a suggestion stops making sense.
+ * and reasoning from another is how a suggestion stops making sense. It stays
+ * labelled "Feels" for exactly that reason.
  */
 export function WeatherStrip({
   weather,
@@ -50,34 +43,18 @@ export function WeatherStrip({
   const theme = useTheme();
 
   return (
-    <View className="px-gutter">
+    <View className="mt-2 px-gutter">
       {weather ? (
-        <View className="flex-row items-center gap-3">
-          <SymbolView
-            name={symbolFor(weather)}
-            size={26}
-            tintColor={theme.ink}
-            resizeMode="scaleAspectFit"
-          />
-          <View className="flex-1">
-            <View className="flex-row items-baseline gap-2">
-              <Text variant="stat" className="text-2xl">
-                {formatTemp(weather.feelsLikeC, units)}
-              </Text>
-              <Text variant="label">feels like</Text>
-            </View>
-            <Text variant="label" numberOfLines={1}>
-              {city}
-              {usingFallbackLocation ? ' (location off)' : ''} · {describeWeather(weather, units)}
-            </Text>
-          </View>
-        </View>
+        <Text variant="label" numberOfLines={2}>
+          Feels {formatTemp(weather.feelsLikeC, units)} · {describeWeather(weather, units)}
+          {usingFallbackLocation ? ` · ${city} (location off)` : ''}
+        </Text>
       ) : (
         <Text variant="label">Weather unavailable — styling on your closet alone.</Text>
       )}
 
       {events.length > 0 ? (
-        <View className="mt-3 flex-row flex-wrap items-center gap-x-2 gap-y-1">
+        <View className="mt-2 flex-row flex-wrap items-center gap-x-2 gap-y-1">
           {events.slice(0, 4).map((e, i) => (
             <View key={e.id} className="flex-row items-center gap-2">
               {i > 0 ? <Text variant="label">·</Text> : null}
@@ -88,7 +65,7 @@ export function WeatherStrip({
           ))}
         </View>
       ) : calendarEnabled ? (
-        <Text variant="label" className="mt-3">
+        <Text variant="label" className="mt-2">
           Nothing on your calendar today.
         </Text>
       ) : onConnectCalendar ? (
@@ -98,14 +75,14 @@ export function WeatherStrip({
           onPress={onConnectCalendar}
           hitSlop={8}
           accessibilityRole="button"
-          className="mt-3 flex-row items-center gap-1.5 active:opacity-60">
+          className="mt-2 flex-row items-center gap-1.5 active:opacity-60">
           <SymbolView
             name="calendar"
             size={13}
-            tintColor={theme.accent}
+            tintColor={theme.accentWarm}
             resizeMode="scaleAspectFit"
           />
-          <Text variant="label" className="text-accent dark:text-accent-dark">
+          <Text variant="label" style={{ color: theme.accentWarm }}>
             Use today&rsquo;s plans to sharpen these
           </Text>
         </Pressable>

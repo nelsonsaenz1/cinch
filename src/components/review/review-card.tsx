@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
-import { useCallback } from 'react';
-import { Dimensions, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Dimensions, Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
 import { occasion, type Item, type ItemCategory } from '@/schemas/item';
-import { motion, spring, useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 /**
@@ -51,8 +51,8 @@ export type ReviewCardProps = {
   /** Ordinal from the top; 0 = active, 1 = peeking underneath, 2+ = hidden. */
   depth: number;
   /**
-   * Right swipe, or the Confirm button. The parent persists `user_verified`
-   * along with whatever corrections the user made.
+   * Right swipe, or the "Looks right" button. The parent persists
+   * `user_verified` along with whatever corrections the user made.
    */
   onConfirm: () => void;
   /**
@@ -82,6 +82,12 @@ export function ReviewCard({
   const theme = useTheme();
   const translateX = useSharedValue(0);
 
+  // Which row's chip picker is open, if any. Only one at a time — this is a
+  // "tap to correct" affordance, not a form. Category and occasions are the
+  // only two fields the review pipeline can actually patch (see
+  // `useVerifyItem`), so Colours and Details below render as plain read-outs.
+  const [openEditor, setOpenEditor] = useState<'category' | 'occasions' | null>(null);
+
   const fireHaptic = useCallback(() => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {
       /* haptics no-op silently in Low Power Mode etc.; the swipe animation is
@@ -96,6 +102,14 @@ export function ReviewCard({
   const skip = useCallback(() => {
     onSkip();
   }, [onSkip]);
+
+  const confirmFromButton = useCallback(() => {
+    // The swipe path gets the heavier "success" notification haptic; a tap on
+    // the button gets the lighter selection tick the shared Button gives
+    // every other tap — this control just isn't built from Button (see below).
+    void Haptics.selectionAsync().catch(() => {});
+    confirm();
+  }, [confirm]);
 
   const pan = Gesture.Pan()
     .enabled(isTop)
@@ -156,6 +170,22 @@ export function ReviewCard({
 
   const needsReview = item.status === 'needs_review';
 
+  const categoryLabel = CATEGORY_OPTIONS.find((c) => c.key === category)?.label ?? 'Uncategorised';
+  const categoryValue = item.subcategory ? `${categoryLabel} · ${item.subcategory}` : categoryLabel;
+
+  const colours = item.colors.slice(0, 3);
+  const coloursValue = colours.length > 0 ? colours.map((c) => c.name).join(' · ') : 'Not detected';
+
+  // "Details" has no field of its own in the schema — it's a best-effort
+  // summary of what the tagger already wrote down, material first.
+  const detailsParts = [item.material, item.pattern && item.pattern !== 'none' ? item.pattern : null].filter(
+    (p): p is string => Boolean(p),
+  );
+  const detailsValue =
+    detailsParts.length > 0 ? detailsParts.join(' · ') : (item.description ?? 'No extra details');
+
+  const occasionsValue = occasions.length > 0 ? occasions.join(' · ') : 'Add occasions';
+
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
@@ -183,82 +213,126 @@ export function ReviewCard({
         accessibilityElementsHidden={!isTop}
         importantForAccessibility={isTop ? 'yes' : 'no-hide-descendants'}>
         <View className="flex-1 overflow-hidden rounded-card bg-surface dark:bg-surface-dark">
-          {/* Photo */}
-          <View className="aspect-square w-full items-center justify-center bg-tray dark:bg-tray-dark">
-            {item.thumbPath || item.cutoutPath || item.imagePath ? (
-              <Image
-                source={item.thumbPath ?? item.cutoutPath ?? item.imagePath}
-                contentFit="contain"
-                transition={180}
-                style={{ width: '100%', height: '100%' }}
-                accessibilityIgnoresInvertColors
-              />
-            ) : (
-              <SymbolView
-                name={needsReview ? 'exclamationmark.triangle' : 'tshirt'}
-                size={44}
-                tintColor={needsReview ? theme.warning : theme.hairline}
-                resizeMode="scaleAspectFit"
-              />
-            )}
-
-            {/* Drag intent — visible only while the card is being dragged. */}
-            <Animated.View
-              style={acceptOverlay}
-              className="absolute right-4 top-4 rounded-chip bg-positive px-3 py-1"
-              pointerEvents="none">
-              <Text variant="label" className="text-canvas dark:text-canvas">
-                Confirm
-              </Text>
-            </Animated.View>
-            <Animated.View
-              style={skipOverlay}
-              className="absolute left-4 top-4 rounded-chip bg-muted px-3 py-1"
-              pointerEvents="none">
-              <Text variant="label" className="text-canvas dark:text-canvas">
-                Skip
-              </Text>
-            </Animated.View>
-          </View>
-
-          {/* Attribute editing */}
-          <View className="flex-1 p-4">
-            <Text variant="title" numberOfLines={1}>
-              {item.subcategory ?? 'Untagged'}
+          <View className="flex-1 p-5">
+            <Text variant="title" trim>
+              Is this right?
             </Text>
-            {item.description ? (
-              <Text variant="label" numberOfLines={2} className="mt-1">
-                {item.description}
-              </Text>
-            ) : null}
-
-            <Text variant="caption" className="mb-2 mt-4">
-              Category
+            <Text variant="label" className="mb-4 mt-1.5 text-faint dark:text-faint-dark">
+              My best guess — correct anything that&rsquo;s off.
             </Text>
-            <View className="flex-row flex-wrap gap-1.5">
-              {CATEGORY_OPTIONS.map((c) => (
-                <Chip
-                  key={c.key}
-                  label={c.label}
-                  selected={category === c.key}
-                  onPress={() => onEditCategory(c.key)}
+
+            {/* Cleaned-up photo */}
+            <View className="mb-4 h-44 w-full items-center justify-center overflow-hidden rounded-plate bg-tray dark:bg-tray-dark">
+              {item.thumbPath || item.cutoutPath || item.imagePath ? (
+                <Image
+                  source={item.thumbPath ?? item.cutoutPath ?? item.imagePath}
+                  contentFit="contain"
+                  transition={180}
+                  style={{ width: '100%', height: '100%' }}
+                  accessibilityIgnoresInvertColors
                 />
-              ))}
+              ) : (
+                <SymbolView
+                  name={needsReview ? 'exclamationmark.triangle' : 'tshirt'}
+                  size={40}
+                  tintColor={needsReview ? theme.warning : theme.hairline}
+                  resizeMode="scaleAspectFit"
+                />
+              )}
+
+              {/* Drag intent — visible only while the card is being dragged. */}
+              <Animated.View
+                style={acceptOverlay}
+                className="absolute right-3 top-3 rounded-chip bg-positive px-3 py-1"
+                pointerEvents="none">
+                <Text variant="label" className="text-canvas dark:text-canvas">
+                  Confirm
+                </Text>
+              </Animated.View>
+              <Animated.View
+                style={skipOverlay}
+                className="absolute left-3 top-3 rounded-chip bg-muted px-3 py-1"
+                pointerEvents="none">
+                <Text variant="label" className="text-canvas dark:text-canvas">
+                  Skip
+                </Text>
+              </Animated.View>
             </View>
 
-            <Text variant="caption" className="mb-2 mt-4">
-              Wear it for
-            </Text>
-            <View className="flex-row flex-wrap gap-1.5">
-              {OCCASION_OPTIONS.map((o) => (
-                <Chip
-                  key={o}
-                  label={o}
-                  selected={occasions.includes(o)}
-                  onPress={() => onToggleOccasion(o)}
-                />
-              ))}
-            </View>
+            {/* Category / Colours / Details / Wear it for — a colophon label,
+                the value beneath it, and (where the field is genuinely
+                editable) an accent "Edit" that reveals the same chip picker
+                the old always-open grid used. */}
+            <ReviewRow
+              label="Category"
+              editable
+              expanded={openEditor === 'category'}
+              onToggleEdit={() => setOpenEditor((cur) => (cur === 'category' ? null : 'category'))}
+              expandedContent={
+                <>
+                  {CATEGORY_OPTIONS.map((c) => (
+                    <Chip
+                      key={c.key}
+                      label={c.label}
+                      selected={category === c.key}
+                      onPress={() => {
+                        onEditCategory(c.key);
+                        setOpenEditor(null);
+                      }}
+                    />
+                  ))}
+                </>
+              }>
+              <Text variant="callout" numberOfLines={1}>
+                {categoryValue}
+              </Text>
+            </ReviewRow>
+
+            <ReviewRow label="Colours">
+              <View className="flex-row items-center gap-2">
+                {colours.map((c, i) =>
+                  c.hex ? (
+                    <View
+                      key={`${c.name}-${i}`}
+                      className="h-[18px] w-[18px] rounded-full border border-rule dark:border-rule-dark"
+                      style={{ backgroundColor: c.hex }}
+                    />
+                  ) : null,
+                )}
+                <Text variant="callout" numberOfLines={1} className="shrink">
+                  {coloursValue}
+                </Text>
+              </View>
+            </ReviewRow>
+
+            <ReviewRow label="Details">
+              <Text variant="callout" numberOfLines={2}>
+                {detailsValue}
+              </Text>
+            </ReviewRow>
+
+            <ReviewRow
+              label="Wear it for"
+              isLast
+              editable
+              expanded={openEditor === 'occasions'}
+              onToggleEdit={() => setOpenEditor((cur) => (cur === 'occasions' ? null : 'occasions'))}
+              expandedContent={
+                <>
+                  {OCCASION_OPTIONS.map((o) => (
+                    <Chip
+                      key={o}
+                      label={o}
+                      selected={occasions.includes(o)}
+                      onPress={() => onToggleOccasion(o)}
+                    />
+                  ))}
+                </>
+              }>
+              <Text variant="callout" numberOfLines={1}>
+                {occasionsValue}
+              </Text>
+            </ReviewRow>
 
             {/*
               The swipe is the fast path, not the only path. A pan gesture is
@@ -267,26 +341,88 @@ export function ReviewCard({
               Hints spell out the consequence because "Skip" alone does not say
               whether the item comes back.
             */}
-            <View className="mt-auto flex-row gap-2 pt-4">
+            <View className="mt-auto flex-row items-center gap-2.5 pt-5">
               <Button
                 title="Skip"
                 variant="secondary"
-                className="flex-1"
                 onPress={skip}
                 accessibilityHint="Leaves the tags unconfirmed. This item returns next time you review."
               />
-              <Button
-                title="Confirm"
-                variant="primary"
-                className="flex-1"
-                haptic
-                onPress={confirm}
+              {/*
+                Not the shared Button: its "primary" variant is the oxblood
+                accent, and this screen already spends that accent on the
+                "Edit" affordances above. The one confirming action here is
+                ink-filled instead — the "ink-selected" treatment the design
+                system reserves for exactly this case, hand-built rather than
+                repurposing a component whose whole job is guarding the accent.
+              */}
+              <Pressable
+                accessibilityRole="button"
                 accessibilityHint="Marks these tags as correct and removes the item from the review queue."
-              />
+                onPress={confirmFromButton}
+                hitSlop={{ top: 4, bottom: 4 }}
+                style={{ minHeight: MIN_TAP_TARGET }}
+                className="flex-1 flex-row items-center justify-center rounded-md bg-ink px-5 active:opacity-70 dark:bg-ink-dark">
+                <Text variant="body" className="font-semibold text-canvas dark:text-canvas">
+                  Looks right
+                </Text>
+              </Pressable>
             </View>
           </View>
         </View>
       </Animated.View>
     </GestureDetector>
+  );
+}
+
+/**
+ * One Category/Colours/Details/Wear-it-for row: a tracked colophon label, the
+ * value beneath it, a hairline under all but the last row, and — only where
+ * `onToggleEdit` is supplied — an accent "Edit" that reveals `expandedContent`
+ * (a chip grid) in place. Colours and Details have no backing edit callback,
+ * so they render as plain read-outs rather than a live "Edit" link that would
+ * do nothing when tapped.
+ */
+function ReviewRow({
+  label,
+  children,
+  editable = false,
+  expanded = false,
+  onToggleEdit,
+  expandedContent,
+  isLast = false,
+}: {
+  label: string;
+  children: React.ReactNode;
+  editable?: boolean;
+  expanded?: boolean;
+  onToggleEdit?: () => void;
+  expandedContent?: React.ReactNode;
+  isLast?: boolean;
+}) {
+  return (
+    <View className={isLast ? '' : 'mb-3 border-b border-hairline pb-3 dark:border-hairline-dark'}>
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-3">
+          <Text variant="colophon">{label}</Text>
+          <View className="mt-1">{children}</View>
+        </View>
+        {editable ? (
+          <Pressable
+            onPress={onToggleEdit}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ expanded }}
+            accessibilityLabel={`Edit ${label.toLowerCase()}`}>
+            <Text variant="label" className="text-accent dark:text-accent-dark">
+              {expanded ? 'Done' : 'Edit'}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {editable && expanded ? (
+        <View className="mt-3 flex-row flex-wrap gap-1.5">{expandedContent}</View>
+      ) : null}
+    </View>
   );
 }

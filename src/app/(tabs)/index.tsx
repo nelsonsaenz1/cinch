@@ -186,7 +186,7 @@ export default function TodayScreen() {
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
 
-  const { context, cityLabel, usingFallbackLocation, calendarEnabled, requestCalendar } =
+  const { context, cityLabel, usingFallbackLocation, calendarEnabled, requestCalendar, weatherFailed } =
     useStyleContext({ note: committedNote || null });
 
   const items = useMemo(() => wardrobe.data ?? [], [wardrobe.data]);
@@ -216,8 +216,15 @@ export default function TodayScreen() {
 
   const shown = outfits.outfits;
 
+  // Offline, honestly sourced. There is no NetInfo/onlineManager in this app,
+  // so the truest network signal on this screen is the weather fetch failing:
+  // when it errors (after its retry) the device could not reach the forecast,
+  // and the outfits on screen are the local engine's set built from the
+  // persisted closet — exactly "this morning's set". Never a faked flag.
+  const offline = weatherFailed && shown.length > 0;
+
   // What the looks are for — the user's own words first, else the day's first
-  // calendar event. Printed in each plate's eyebrow.
+  // calendar event. Carried into each plate's share artifact.
   const occasion = committedNote || context.events[0]?.title || null;
 
   // Sign every garment image in one request rather than one per card.
@@ -347,6 +354,19 @@ export default function TodayScreen() {
         }>
         <Masthead />
 
+        {/* Offline, said plainly and once. Dark ink banner so it reads as a
+            state of the whole screen, not a per-card warning. */}
+        {offline ? (
+          <View className="mx-gutter flex-row items-center gap-2.5 rounded-md bg-ink px-3.5 py-2.5">
+            <View
+              style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.accentWarm }}
+            />
+            <Text variant="label" className="flex-1 font-medium" style={{ color: theme.canvas }}>
+              Offline — showing this morning&rsquo;s set. Weather and plans may have moved on.
+            </Text>
+          </View>
+        ) : null}
+
         <WeatherStrip
           weather={context.weather}
           events={context.events}
@@ -356,14 +376,16 @@ export default function TodayScreen() {
           onConnectCalendar={() => void requestCalendar()}
         />
 
-        {/* The multi-event differentiator, reachable without the calendar.
+        {/* The plans note, set as the design's tray pill with a leading "+".
+            The multi-event differentiator, reachable without the calendar:
             "dinner at 7 then drinks after" is the exact sentence the engine is
-            built for, and typing it must not require a permission grant. */}
-        <View className="mt-4 flex-row items-center gap-2 px-gutter">
+            built for, and typing it must not require a permission grant. Clay,
+            not oxblood — the one spent accent stays reserved for a loved look. */}
+        <View className="mx-gutter mt-4 flex-row items-center gap-2 rounded-md bg-tray px-3.5 py-2.5 dark:bg-tray-dark">
           <SymbolView
-            name="text.bubble"
+            name="plus"
             size={15}
-            tintColor={theme.muted}
+            tintColor={theme.accentWarm}
             resizeMode="scaleAspectFit"
           />
           <TextInput
@@ -372,14 +394,16 @@ export default function TodayScreen() {
             onSubmitEditing={() => setCommittedNote(note.trim())}
             onBlur={() => setCommittedNote(note.trim())}
             returnKeyType="done"
-            placeholder="What's on today?"
-            placeholderTextColor={theme.muted}
+            placeholder="What's on today? Tell Cinch"
+            placeholderTextColor={theme.faint}
             accessibilityLabel="Describe your plans today"
-            className="flex-1 rounded-md border border-rule px-3 py-2 font-body text-callout text-ink dark:border-rule-dark dark:text-ink-dark"
+            className="flex-1 font-body text-callout text-ink dark:text-ink-dark"
           />
         </View>
 
-        <View className="mt-6">
+        {/* Offline dims the set: it is real, but it is this morning's, and the
+            reduced weight says so without hiding it. */}
+        <View className="mt-6" style={offline ? { opacity: 0.62 } : undefined}>
           {shown.length === 0 ? (
             <NothingWorks onRetry={refresh} />
           ) : (
@@ -404,6 +428,14 @@ export default function TodayScreen() {
             })
           )}
         </View>
+
+        {/* The reactions still register offline; they just cannot reach the
+            learner until the connection does. Say so, centred, under the set. */}
+        {offline ? (
+          <Text variant="caption" className="mt-4 px-gutter text-center">
+            Reactions will sync once you&rsquo;re back online.
+          </Text>
+        ) : null}
 
         {/* Say plainly how much it has actually learned. Implying a rich taste
             model after two taps is a promise the engine cannot keep. */}

@@ -44,6 +44,60 @@ export type ReactionStatus = 'pending' | 'saved' | 'failed';
 
 export type ReactionValue = { liked: boolean; reason?: string; status?: ReactionStatus };
 
+/**
+ * One pill in the reaction row. Unselected it is outlined in the structural
+ * rule colour like the rest of the plate grammar; selected it FILLS — oxblood
+ * for a love, ink for a pass — the two states the design leans on to say what
+ * the user chose. Filled labels take their colour inline (`theme.canvas`), not
+ * a className: a `text-*` colour does not reliably beat the variant's own on a
+ * dark tile.
+ */
+function ReactionPill({
+  label,
+  tone,
+  selected,
+  disabled,
+  onPress,
+  accessibilityLabel,
+}: {
+  label: string;
+  /** Which fill the pill wears once it is the recorded choice. */
+  tone: 'accent' | 'ink';
+  selected: boolean;
+  disabled?: boolean;
+  onPress?: () => void;
+  accessibilityLabel: string;
+}) {
+  const theme = useTheme();
+
+  const color = selected ? theme.canvas : tone === 'accent' ? theme.ink : theme.muted;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ selected, disabled: Boolean(disabled) }}
+      disabled={disabled}
+      onPress={onPress}
+      style={{ minHeight: MIN_TAP_TARGET - 4 }}
+      className={[
+        'flex-1 items-center justify-center rounded-md px-3 active:opacity-70',
+        selected ? (tone === 'accent' ? 'bg-accent' : 'bg-ink') : 'border border-rule',
+        disabled && !selected ? 'opacity-40' : '',
+      ].join(' ')}>
+      <Text variant="label" className="font-medium" style={{ color }} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/**
+ * The plate's reaction row: love it, or not — and if not, which of the six
+ * things was wrong. Two selection pills at rest, a reason chooser after a pass,
+ * and the recorded choice held as a filled pill with an honest status line
+ * underneath (saving, saved, or a tap-to-retry when the write never landed).
+ */
 export function ReactionBar({
   onReact,
   reacted,
@@ -71,38 +125,44 @@ export function ReactionBar({
     // user chose, reason and all.
     if (status === 'failed') {
       return (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Reaction not saved. Tap to try again."
-          onPress={() => {
-            tap(Haptics.ImpactFeedbackStyle.Light);
-            onReact({ liked: reacted.liked, reason: reacted.reason });
-          }}
-          hitSlop={10}
-          style={{ minHeight: MIN_TAP_TARGET - 12 }}
-          className="flex-row items-center gap-2 py-1 active:opacity-60">
-          <SymbolView
-            name="arrow.clockwise"
-            size={15}
-            tintColor={theme.muted}
-            resizeMode="scaleAspectFit"
-          />
-          <Text variant="label" className="text-critical">
-            Could not save that — tap to try again
-          </Text>
-        </Pressable>
+        <View className="flex-1">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reaction not saved. Tap to try again."
+            onPress={() => {
+              tap(Haptics.ImpactFeedbackStyle.Light);
+              onReact({ liked: reacted.liked, reason: reacted.reason });
+            }}
+            style={{ minHeight: MIN_TAP_TARGET - 4 }}
+            className="flex-row items-center justify-center gap-2 rounded-md border border-rule px-3 active:opacity-70">
+            <SymbolView
+              name="arrow.clockwise"
+              size={14}
+              tintColor={theme.critical}
+              resizeMode="scaleAspectFit"
+            />
+            <Text variant="label" className="font-medium" style={{ color: theme.critical }}>
+              Couldn&rsquo;t save — retry
+            </Text>
+          </Pressable>
+        </View>
       );
     }
 
     return (
-      <View className="flex-row items-center gap-2 py-1">
-        <SymbolView
-          name={reacted.liked ? 'heart.fill' : 'hand.thumbsdown.fill'}
-          size={15}
-          tintColor={reacted.liked && status === 'saved' ? theme.accent : theme.muted}
-          resizeMode="scaleAspectFit"
-        />
-        <Text variant="label">
+      <View className="flex-1">
+        <View className="flex-row">
+          <ReactionPill
+            label={reacted.liked ? 'Love it' : 'Not for me'}
+            tone={reacted.liked ? 'accent' : 'ink'}
+            selected
+            disabled
+            accessibilityLabel={
+              reacted.liked ? 'You loved this outfit' : 'You passed on this outfit'
+            }
+          />
+        </View>
+        <Text variant="caption" className="mt-1.5">
           {status === 'pending'
             ? 'Saving…'
             : reacted.liked
@@ -115,7 +175,7 @@ export function ReactionBar({
 
   if (askingWhy) {
     return (
-      <View className="gap-2 py-1">
+      <View className="flex-1 gap-2">
         <Text variant="label">What was wrong with it?</Text>
         <View className="flex-row flex-wrap gap-2">
           {DISLIKE_REASONS.map((r) => (
@@ -141,34 +201,29 @@ export function ReactionBar({
   }
 
   return (
-    <View className="flex-row items-center gap-3 py-1">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Like this outfit"
+    <View className="flex-1 flex-row gap-2">
+      <ReactionPill
+        label="Love it"
+        tone="accent"
+        selected={false}
         disabled={disabled}
+        accessibilityLabel="Love this outfit"
         onPress={() => {
           tap(Haptics.ImpactFeedbackStyle.Medium);
           onReact({ liked: true });
         }}
-        hitSlop={10}
-        style={{ minHeight: MIN_TAP_TARGET - 12, minWidth: MIN_TAP_TARGET - 12 }}
-        className="items-center justify-center rounded-md border border-rule px-4 active:opacity-60 dark:border-rule-dark">
-        <SymbolView name="heart" size={17} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-      </Pressable>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Not this outfit"
+      />
+      <ReactionPill
+        label="Not for me"
+        tone="ink"
+        selected={false}
         disabled={disabled}
+        accessibilityLabel="Not for me"
         onPress={() => {
           tap(Haptics.ImpactFeedbackStyle.Light);
           setAskingWhy(true);
         }}
-        hitSlop={10}
-        style={{ minHeight: MIN_TAP_TARGET - 12, minWidth: MIN_TAP_TARGET - 12 }}
-        className="items-center justify-center rounded-md border border-rule px-4 active:opacity-60 dark:border-rule-dark">
-        <SymbolView name="xmark" size={15} tintColor={theme.muted} resizeMode="scaleAspectFit" />
-      </Pressable>
+      />
     </View>
   );
 }
