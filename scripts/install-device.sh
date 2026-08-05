@@ -63,17 +63,27 @@ say "Device: $DEVICE"
 # ---- 2b. Developer Mode ------------------------------------------------------
 # iOS 16+ refuses to run a development build until Developer Mode is on, and the
 # failure only surfaces after a full build otherwise. Check first.
-if xcrun devicectl device info details --device "$DEVICE" 2>&1 | grep -qi "developerModeStatus.*disabled"; then
+# devicectl prints "Developer Mode Status: Disabled" (and errors outright when
+# it cannot talk to the device because of it) — match both.
+DEV_INFO=$(xcrun devicectl device info details --device "$DEVICE" 2>&1 || true)
+if printf '%s' "$DEV_INFO" | grep -qiE "developer mode status: *disabled|Developer Mode is disabled"; then
   cat <<'MSG'
 
 Developer Mode is OFF on the iPhone. iOS will not run a development build until
 it is enabled, and the phone restarts when you turn it on.
 
-  On the phone:  Settings → Privacy & Security → Developer Mode → on
-                 Confirm the restart, then unlock and tap "Turn On" again.
+  1. Settings → Privacy & Security → Developer Mode → toggle ON
+  2. Tap Restart when asked
+  3. AFTER the phone reboots, UNLOCK it — an alert appears:
+       "Turn on Developer Mode?"  → tap "Turn On" → enter your passcode
 
-(The Developer Mode row only appears after a Mac has tried to install to the
-phone — which has now happened, so it will be there.)
+Step 3 is the one that gets missed. The toggle looks enabled before the
+restart, but Developer Mode is not actually active until you confirm on the
+alert after rebooting. Verify with:
+
+  xcrun devicectl device info details --device DEVICE | grep -i "developer mode"
+
+It must read "Enabled".
 
 Then run this script again.
 MSG
