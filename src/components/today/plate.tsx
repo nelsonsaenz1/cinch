@@ -1,9 +1,17 @@
+import {
+  Canvas,
+  Group,
+  Image as SkiaImage,
+  Shadow,
+  useImage,
+} from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useDerivedValue,
   useReducedMotion,
   useSharedValue,
   withDelay,
@@ -12,7 +20,14 @@ import Animated, {
 
 import { PlateCard } from '@/components/share/plate-card';
 import { outfitCostPerWear } from '@/components/today/cost-per-wear';
-import { GarmentCell } from '@/components/today/garment-cell';
+import {
+  GarmentCell,
+  STACK_ASPECT,
+  platePathOf,
+  stackLayout,
+  stackRegime,
+  type StackedPiece,
+} from '@/components/today/garment-cell';
 import { ReactionBar, type ReactionValue } from '@/components/today/reaction-bar';
 import { Text } from '@/components/ui/text';
 import { formatTemp } from '@/features/context/weather';
@@ -22,7 +37,7 @@ import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
 import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
 
-/** Order pieces the way a flat-lay reads: outer layers, then core, then feet. */
+/** Order pieces the way a look is read aloud: outer layers, then core, then feet. */
 const LAYOUT_ORDER: Garment['slot'][] = [
   'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
 ];
@@ -33,8 +48,24 @@ export type PlateColophon = {
   feelsLikeC?: number | null;
 };
 
-/** The tiny label the design prints under each garment in the flat-lay. */
+/** The tiny label the design prints under the stack for each garment. */
 const labelFor = (g: Garment) => g.subcategory ?? g.category;
+
+/** Concentric with the tile's own corner: soft enough to be a photograph, not a chip. */
+const TILE_RADIUS = 10;
+
+/**
+ * The warm contact shadow, one definition for both regimes.
+ *
+ * On a plate it is derived from the cutout's ALPHA by Skia, so a coat casts a
+ * coat-shaped shadow and the piece sits on the paper instead of floating. On a
+ * tile iOS derives it from the rounded rect. Same offset and softness either
+ * way, so switching regimes does not change the light.
+ */
+const CONTACT = { dx: 0, dy: 5, blur: 11, color: 'rgba(28,26,22,0.16)' } as const;
+
+/** The stagger, in ms — piece n lands 60ms after piece n-1. */
+const landingDelay = (index: number) => 120 + index * 60;
 
 /**
  * The look's palette, as the swatch dots the footer prints — the real garment
@@ -57,18 +88,18 @@ function paletteDots(pieces: Garment[]): string[] {
   return out;
 }
 
-/** One garment landing into the flat-lay. */
+/** One garment landing into the stack. */
 function Landing({
   index,
   count,
   still,
-  withHaptic,
+  style,
   children,
 }: {
   index: number;
   count: number;
   still: boolean;
-  withHaptic: boolean;
+  style?: ViewStyle;
   children: React.ReactNode;
 }) {
   const progress = useSharedValue(still ? 1 : 0);
@@ -77,19 +108,13 @@ function Landing({
     if (still) return;
     const last = index === count - 1;
     progress.value = withDelay(
-      120 + index * 60,
+      landingDelay(index),
       // The final garment landing is the app's one bouncy moment.
       withSpring(1, last ? spring.bouncy : spring.smooth),
     );
-    if (last && withHaptic) {
-      const t = setTimeout(() => {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
-      }, 120 + index * 60 + 200);
-      return () => clearTimeout(t);
-    }
-  }, [count, index, progress, still, withHaptic]);
+  }, [count, index, progress, still]);
 
-  const style = useAnimatedStyle(() => ({
+  const animated = useAnimatedStyle(() => ({
     opacity: Math.min(progress.value * 1.6, 1),
     transform: [
       { translateY: (1 - progress.value) * 18 },
@@ -97,7 +122,161 @@ function Landing({
     ],
   }));
 
-  return <Animated.View style={[{ flex: 1 }, style]}>{children}</Animated.View>;
+  return <Animated.View style={[style, animated]}>{children}</Animated.View>;
+}
+
+/**
+ * One plated garment inside the stack's canvas.
+ *
+ * The entrance is driven by shared values read straight by Skia, so the landing
+ * runs on the UI thread exactly as the tile regime's Reanimated wrapper does —
+ * no bridge hop per frame, and the two regimes are the same motion.
+ */
+function PlateLayer({
+  piece,
+  uri,
+  index,
+  count,
+  still,
+}: {
+  piece: StackedPiece;
+  uri?: string;
+  index: number;
+  count: number;
+  still: boolean;
+}) {
+  const image = useImage(uri);
+  const progress = useSharedValue(still ? 1 : 0);
+
+  useEffect(() => {
+    if (still) return;
+    const last = index === count - 1;
+    progress.value = withDelay(
+      landingDelay(index),
+      withSpring(1, last ? spring.bouncy : spring.smooth),
+    );
+  }, [count, index, progress, still]);
+
+  const opacity = useDerivedValue(() => Math.min(progress.value * 1.6, 1));
+  const transform = useDerivedValue(() => [
+    { translateY: (1 - progress.value) * 18 },
+    { scale: 0.96 + progress.value * 0.04 },
+  ]);
+  const origin = { x: piece.x + piece.size / 2, y: piece.y + piece.size / 2 };
+
+  return (
+    <Group opacity={opacity} transform={transform} origin={origin}>
+      {/* `contain` on a square image in a square box is a no-op scale — which
+          is the point: the pipeline already normalized these against each
+          other, and fit must not second-guess it. */}
+      <SkiaImage
+        image={image}
+        x={piece.x}
+        y={piece.y}
+        width={piece.size}
+        height={piece.size}
+        fit="contain">
+        <Shadow dx={CONTACT.dx} dy={CONTACT.dy} blur={CONTACT.blur} color={CONTACT.color} />
+      </SkiaImage>
+    </Group>
+  );
+}
+
+/**
+ * The stack — the outfit as a dressed figure rather than a row of parts.
+ *
+ * The box's height comes from `aspectRatio`, so the card reserves its space on
+ * the first pass and nothing jumps when the width is measured; the measurement
+ * only decides where inside that box each garment goes.
+ */
+function GarmentStack({
+  pieces,
+  resolveImage,
+  still,
+  withHaptic,
+  label,
+}: {
+  pieces: Garment[];
+  resolveImage: (...paths: (string | null | undefined)[]) => string | undefined;
+  still: boolean;
+  /** Only the day's first card earns the landing haptic. */
+  withHaptic: boolean;
+  label: string;
+}) {
+  const theme = useTheme();
+  const [width, setWidth] = useState(0);
+
+  const regime = useMemo(() => stackRegime(pieces, resolveImage), [pieces, resolveImage]);
+  const layout = useMemo(
+    () => (width > 0 ? stackLayout(pieces, width, regime) : []),
+    [pieces, regime, width],
+  );
+
+  useEffect(() => {
+    if (still || !withHaptic || pieces.length === 0) return;
+    // Fired for the LAST piece to land, mid-spring — the moment the look reads
+    // as assembled. Lives here rather than in the layer so the plate regime,
+    // where every layer is a Skia node and not a React Native view, still gets it.
+    const t = setTimeout(() => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
+    }, landingDelay(pieces.length - 1) + 200);
+    return () => clearTimeout(t);
+  }, [pieces.length, still, withHaptic]);
+
+  return (
+    <View
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+      style={{ width: '100%', aspectRatio: 1 / STACK_ASPECT }}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={label}>
+      {regime === 'plate' ? (
+        <Canvas style={StyleSheet.absoluteFill}>
+          {layout.map((piece, i) => (
+            <PlateLayer
+              key={piece.garment.id}
+              piece={piece}
+              uri={resolveImage(platePathOf(piece.garment))}
+              index={i}
+              count={layout.length}
+              still={still}
+            />
+          ))}
+        </Canvas>
+      ) : (
+        layout.map((piece, i) => (
+          <Landing
+            key={piece.garment.id}
+            index={i}
+            count={layout.length}
+            still={still}
+            style={{
+              position: 'absolute',
+              left: piece.x,
+              top: piece.y,
+              width: piece.size,
+              height: piece.size,
+              // Shadow and clip cannot share a view on iOS — a rounded rect that
+              // clips its children also clips its own shadow away — so the
+              // shadow is out here and the corner is on the layer below.
+              shadowColor: '#1C1A16',
+              shadowOpacity: 0.16,
+              shadowRadius: CONTACT.blur,
+              shadowOffset: { width: CONTACT.dx, height: CONTACT.dy },
+            }}>
+            <View
+              className="h-full w-full overflow-hidden border border-hairline dark:border-hairline-dark"
+              style={{ borderRadius: TILE_RADIUS, backgroundColor: theme.tray }}>
+              <GarmentCell
+                garment={piece.garment}
+                uri={resolveImage(piece.garment.cutoutPath, piece.garment.thumbPath)}
+              />
+            </View>
+          </Landing>
+        ))
+      )}
+    </View>
+  );
 }
 
 /**
@@ -153,11 +332,11 @@ function WearButton({
  * design's white outfit card.
  *
  * The card, top to bottom: the outfit's serif name with the feels-like it
- * was chosen against as a colophon; the model's reasoning; the flat-lay, each
- * garment flexed by how much of the look it occupies and labelled beneath; then
- * a footer printing the palette in the engine's own colours and the look's cost
- * per wear — the number no competitor computes, so none can print it — and the
- * love / not-for-me / worn actions.
+ * was chosen against as a colophon; the model's reasoning; the stack, the look
+ * composed body-ordered with the pieces named beneath it in one credit line;
+ * then a footer printing the palette in the engine's own colours and the look's
+ * cost per wear — the number no competitor computes, so none can print it —
+ * and the love / not-for-me / worn actions.
  */
 export function Plate({
   outfit,
@@ -188,7 +367,7 @@ export function Plate({
   /** The model is still working. Distinct from having given up on it. */
   enhancing?: boolean;
   /**
-   * The offline cut of the card: name, flat-lay, and a footer saying the look
+   * The offline cut of the card: name, stack, and a footer saying the look
    * came off disk, with its cost per wear. Everything the network paid for —
    * the model's reasoning, the feels-like it was scored against — and every
    * action that needs the network — love, not-for-me, worn — is dropped rather
@@ -273,30 +452,25 @@ export function Plate({
             </Text>
           ) : null}
 
-          {/* ── The flat-lay. Each garment flexed by how much of the look it
-                 occupies, so a coat anchors and a belt does not compete, with
-                 the engine's own name for the piece printed beneath. ── */}
-          <View
-            className="mt-4 flex-row gap-1.5"
-            accessibilityLabel={`Outfit: ${a11y}`}>
-            {pieces.map((g, i) => (
-              <View key={g.id} style={{ flexGrow: g.visualWeight, flexShrink: 1, flexBasis: 0 }}>
-                <Landing index={i} count={pieces.length} still={reduced} withHaptic={index === 0}>
-                  <View
-                    className="overflow-hidden rounded border border-hairline dark:border-hairline-dark"
-                    style={{ height: 132 }}>
-                    <GarmentCell garment={g} uri={resolveImage(g.cutoutPath, g.thumbPath)} />
-                  </View>
-                </Landing>
-                <Text
-                  variant="caption"
-                  numberOfLines={1}
-                  className="mt-1.5 text-center">
-                  {labelFor(g)}
-                </Text>
-              </View>
-            ))}
+          {/* ── The stack: the look composed body-ordered, the same geometry the
+                 share poster prints. ── */}
+          <View className="mt-4">
+            <GarmentStack
+              pieces={pieces}
+              resolveImage={resolveImage}
+              still={reduced}
+              withHaptic={index === 0}
+              label={`Outfit: ${a11y}`}
+            />
           </View>
+
+          {/* ── The credit line. The row of per-cell captions the flat-lay used
+                 to carry has nowhere to sit under overlapping pieces, so the
+                 engine's own name for each garment is set once, in order, the
+                 way a lookbook credits a shot. ── */}
+          <Text variant="caption" numberOfLines={2} className="mt-3">
+            {pieces.map(labelFor).join('  ·  ')}
+          </Text>
         </Pressable>
 
         {!offline && outfit.swapNote ? (

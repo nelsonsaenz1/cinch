@@ -133,8 +133,8 @@ export default function PlanScreen() {
 
   // Sign every image both modes could render, in one request.
   const { resolve } = useSignedUrls([
-    ...weekDays.flatMap((d) => d.outfit?.items.flatMap((g) => [g.cutoutPath, g.thumbPath]) ?? []),
-    ...(packing?.items.flatMap((i) => [i.garment.cutoutPath, i.garment.thumbPath]) ?? []),
+    ...weekDays.flatMap((d) => d.outfit?.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath]) ?? []),
+    ...(packing?.items.flatMap((i) => [i.garment.platePath, i.garment.cutoutPath, i.garment.thumbPath]) ?? []),
   ]);
 
   if (!wardrobe.isLoading && !canGenerate(items)) {

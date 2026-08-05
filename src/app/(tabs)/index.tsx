@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -21,6 +21,8 @@ import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { startTagSweeper } from '@/features/ingest/upload-queue';
+import { Placement } from '@/features/billing/placements';
+import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits } from '@/features/styling/use-outfits';
@@ -322,6 +324,7 @@ export default function TodayScreen() {
     profile,
     enabled: canGenerate(items),
   });
+  const { refetch: refetchRerank } = outfits;
 
   const shown = outfits.outfits;
 
@@ -338,11 +341,14 @@ export default function TodayScreen() {
 
   // Sign every garment image in one request rather than one per card.
   const { resolve } = useSignedUrls(
-    shown.flatMap((o) => o.candidate.items.flatMap((g) => [g.cutoutPath, g.thumbPath])),
+    shown.flatMap((o) => o.candidate.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath])),
   );
 
   const react = useReactToOutfit();
   const wear = useWearOutfit();
+  const gate = useGate();
+  // True only between an explicit pull-to-refresh and the next re-rank result.
+  const userAskedRef = useRef(false);
 
   const handleReact = useCallback(
     (index: number, value: ReactionValue) => {
@@ -396,10 +402,31 @@ export default function TodayScreen() {
   );
 
   const refresh = useCallback(() => {
+    // Marks the NEXT re-rank failure as user-asked-for. The background re-rank
+    // degrades silently by design — its quota refusal must never interrupt
+    // someone who merely opened the tab — but a pull-to-refresh is an explicit
+    // request for a fresh outfit, and refusing that one deserves an answer.
+    userAskedRef.current = true;
     void qc.invalidateQueries({ queryKey: ['wardrobe'] });
     void qc.invalidateQueries({ queryKey: ['weather'] });
-    void qc.invalidateQueries({ queryKey: ['outfits'] });
-  }, [qc]);
+    // `refetch`, not an invalidation: the re-rank's key is content-derived
+    // (['outfit-rerank', shortlist…]), so with an unchanged shortlist no key
+    // ever goes stale and an invalidation of a guessed name is a no-op. This
+    // is the hook's own handle for exactly this moment.
+    void refetchRerank();
+  }, [qc, refetchRerank]);
+
+  useEffect(() => {
+    if (!outfits.aiError || !userAskedRef.current) return;
+    userAskedRef.current = false;
+    void classifyDenial(outfits.aiError).then((denial) => {
+      // Only a refusal opens the paywall. An offline refresh stays what it
+      // already is on this screen: outfits styled on the phone, no drama.
+      // No onGranted retry — the local outfits are already up, and the next
+      // refresh after an upgrade re-ranks naturally.
+      if (denial) void gate.present(Placement.GenerateOutfitOverLimit);
+    });
+  }, [outfits.aiError, gate]);
 
   // --- States --------------------------------------------------------------
 

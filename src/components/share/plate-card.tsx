@@ -1,9 +1,18 @@
+import { Image } from 'expo-image';
 import { useEffect, useMemo } from 'react';
 import { Text as RNText, View } from 'react-native';
 
 import { outfitCostPerWear } from '@/components/today/cost-per-wear';
-import { GarmentCell } from '@/components/today/garment-cell';
+import {
+  GarmentCell,
+  STACK_ASPECT,
+  platePathOf,
+  stackLayout,
+  stackRegime,
+  type StackedPiece,
+} from '@/components/today/garment-cell';
 import type { PlateColophon } from '@/components/today/plate';
+import { stableImageSource } from '@/features/closet/use-image-urls';
 import type { StyledOutfit } from '@/features/styling/use-outfits';
 import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
@@ -49,7 +58,6 @@ const z = (mockPx: number) => Math.round((mockPx * CARD_W) / 340);
 
 const X = z(26); // the mock's 26px side margin
 const MEASURE = CARD_W - X * 2;
-const GAP = z(8); // grid gutter
 
 /**
  * The card's geometry is fixed print layout — it must not scale with the
@@ -125,14 +133,61 @@ function paletteDots(pieces: Garment[]): string[] {
   return out;
 }
 
-/** One garment tile in the grid. */
-function Tile({ garment, uri }: { garment: Garment; uri?: string }) {
+/**
+ * One garment in the poster's stack.
+ *
+ * WHY PLAIN VIEWS AND NOT SKIA. The in-app plate composes the plate regime in
+ * a Skia canvas, for the alpha-derived shadow. This card is not rendered to a
+ * screen — it is rendered off-screen and captured by react-native-view-shot,
+ * and a Skia surface is a Metal layer whose contents a UIView snapshot cannot
+ * be relied on to include. A poster that exports blank is a worse failure than
+ * a poster whose shadow is a rounded rect, and the share sheet is the app's
+ * best advertisement. So the poster draws the same rectangles with the same
+ * `contain` fit using ordinary views: geometry identical by construction (both
+ * call `stackLayout`), light very nearly so (iOS derives a shadow from a
+ * transparent PNG's alpha too — it is Skia's blur curve that differs, not the
+ * shape).
+ */
+function StackLayer({ piece, uri, plated }: { piece: StackedPiece; uri?: string; plated: boolean }) {
+  const { garment } = piece;
   const hex = garment.colors[0] ? oklchToHex(garment.colors[0].oklch) : null;
+  const box = {
+    position: 'absolute' as const,
+    left: piece.x,
+    top: piece.y,
+    width: piece.size,
+    height: piece.size,
+  };
+
+  if (plated) {
+    return (
+      <View
+        style={{
+          ...box,
+          shadowColor: '#000000',
+          shadowOpacity: 0.45,
+          shadowRadius: z(10),
+          shadowOffset: { width: 0, height: z(5) },
+        }}>
+        <Image
+          source={stableImageSource(uri)}
+          contentFit="contain"
+          // No fade: view-shot would otherwise capture the garment mid-
+          // transition, at partial opacity.
+          transition={0}
+          cachePolicy="memory-disk"
+          style={{ width: '100%', height: '100%' }}
+          accessibilityIgnoresInvertColors
+        />
+      </View>
+    );
+  }
+
   return (
     <View
       style={{
-        flex: 1,
-        borderRadius: z(6),
+        ...box,
+        borderRadius: z(8),
         overflow: 'hidden',
         // A cutout is transparent, so it needs a ground that is not the
         // garment's own colour or the photograph disappears into it.
@@ -146,10 +201,11 @@ function Tile({ garment, uri }: { garment: Garment; uri?: string }) {
 /**
  * The exportable poster — 360 × 640 logical, captured at 1080 × 1920.
  *
- * Top to bottom, exactly the handoff's frame 10: masthead (wordmark + date),
- * eyebrow, the big serif title with its italic second line, a 2 × 2 grid of
- * garments filling the middle, then a footer that prints the two numbers no
- * competitor has — the palette and the cost per wear — over a hairline.
+ * Top to bottom, the handoff's frame 10: masthead (wordmark + date), eyebrow,
+ * the big serif title with its italic second line, the STACK filling the middle
+ * — the same body-ordered composition the in-app plate draws, on this card's
+ * fixed measure — then a footer that prints the two numbers no competitor has,
+ * the palette and the cost per wear, over a hairline.
  */
 export function PlateCard({
   outfit,
@@ -176,13 +232,13 @@ export function PlateCard({
     [outfit.candidate.items],
   );
 
-  /** Rows of two. Four pieces is the common look and gives the mock's 2 × 2. */
-  const rows = useMemo(() => {
-    const shown = pieces.slice(0, 6);
-    const out: Garment[][] = [];
-    for (let i = 0; i < shown.length; i += 2) out.push(shown.slice(i, i + 2));
-    return out;
-  }, [pieces]);
+  /**
+   * The stack, on the poster's fixed measure. Same table, same regime rule,
+   * same rectangles as the in-app plate — this is what makes the artifact the
+   * picture the user was looking at when they long-pressed it.
+   */
+  const regime = useMemo(() => stackRegime(pieces, resolveImage), [pieces, resolveImage]);
+  const layout = useMemo(() => stackLayout(pieces, MEASURE, regime), [pieces, regime]);
 
   const [head, tail] = useMemo(() => titleLines(outfit.name), [outfit.name]);
   const dots = useMemo(() => paletteDots(pieces), [pieces]);
@@ -198,7 +254,7 @@ export function PlateCard({
     [],
   );
 
-  const hasImages = pieces.some((g) => resolveImage(g.cutoutPath, g.thumbPath));
+  const hasImages = pieces.some((g) => resolveImage(platePathOf(g), g.cutoutPath, g.thumbPath));
 
   useEffect(() => {
     if (!onReady) return;
@@ -208,6 +264,9 @@ export function PlateCard({
     // plate is shareable its images were already on screen and cached.
     const t = setTimeout(onReady, hasImages ? 350 : 80);
     return () => clearTimeout(t);
+    // Deps empty on purpose — onReady must fire once per mount, not again on
+    // prop changes, and listing it would retrigger the capture timer whenever
+    // the parent re-renders with a fresh closure.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -238,7 +297,9 @@ export function PlateCard({
         <RNText {...PRINT} style={label(z(9), 0.24)}>
           Today&apos;s outfit
         </RNText>
-        <RNText {...PRINT} numberOfLines={3} style={[serif(z(40)), trim(z(40), z(8))]}>
+        {/* Two lines, not three: the stack below is sized against a fixed type
+            budget, and a third line would push it into the footer. */}
+        <RNText {...PRINT} numberOfLines={2} style={[serif(z(40)), trim(z(40), z(8))]}>
           {head}
           {tail ? (
             <RNText
@@ -251,22 +312,33 @@ export function PlateCard({
         </RNText>
       </View>
 
-      {/* ── The garments, filling whatever height the type leaves ── */}
+      {/* ── The stack, centred in whatever height the type leaves ── */}
       <View
         style={{
           flex: 1,
           paddingHorizontal: X,
           paddingTop: z(16),
           paddingBottom: z(8),
-          gap: GAP,
+          alignItems: 'center',
+          justifyContent: 'center',
         }}>
-        {rows.map((row) => (
-          <View key={row[0].id} style={{ flex: 1, flexDirection: 'row', gap: GAP }}>
-            {row.map((g) => (
-              <Tile key={g.id} garment={g} uri={resolveImage(g.cutoutPath, g.thumbPath)} />
-            ))}
-          </View>
-        ))}
+        {/* The box is the full measure, and the type above it is bounded (the
+            title takes two lines at most) precisely so this fits without ever
+            being measured — the capture must not wait on a layout pass. */}
+        <View style={{ width: MEASURE, height: MEASURE * STACK_ASPECT }}>
+          {layout.map((piece) => (
+            <StackLayer
+              key={piece.garment.id}
+              piece={piece}
+              plated={regime === 'plate'}
+              uri={
+                regime === 'plate'
+                  ? resolveImage(platePathOf(piece.garment))
+                  : resolveImage(piece.garment.cutoutPath, piece.garment.thumbPath)
+              }
+            />
+          ))}
+        </View>
       </View>
 
       {/* ── Footer: the two facts, then the line that explains the product ── */}

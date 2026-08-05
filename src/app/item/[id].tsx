@@ -1,16 +1,19 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { formatPrice, parsePrice } from '@/components/review/review-card';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
+import { useVerifyItem } from '@/features/closet/mutations';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls, stableImageSource } from '@/features/closet/use-image-urls';
 import { costPerWear, type Item } from '@/schemas/item';
-import { useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /** "Oct 2023" from an ISO date, for the owned-since line. */
 function monthYear(iso: string | null): string | null {
@@ -48,6 +51,12 @@ export default function ItemDetailScreen() {
   const { resolve } = useSignedUrls([item?.cutoutPath, item?.thumbPath]);
   const imageUri = resolve(item?.cutoutPath, item?.thumbPath);
 
+  // The price field, open only while it is being edited. `null` is closed —
+  // one piece of state rather than a boolean and a string that can disagree.
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const save = useVerifyItem();
+
   if (closet.isLoading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
@@ -67,6 +76,31 @@ export default function ItemDetailScreen() {
 
   const ownedSince = monthYear(item.purchaseDate ?? item.createdAt);
   const colours = item.colors.slice(0, 4);
+
+  /**
+   * A price the user has typed but never worn is not a cost per wear — it is
+   * the whole price, and printing "$240 / wear" the day something arrives is
+   * technically true and reads like an accusation. The maths in
+   * `costPerWear` is untouched (it returns null here, correctly); this is the
+   * one display case that says what it means instead.
+   */
+  const neverWorn = item.purchasePrice !== null && item.wearCount === 0;
+
+  const commitPrice = async () => {
+    if (draft === null) return;
+    const next = parsePrice(draft);
+    setDraft(null);
+    if (next === item.purchasePrice) return;
+    setSaveFailed(false);
+    try {
+      // `verify: false` — saying what a coat cost is not confirming that the
+      // tagger read its colours right, and must not pull it out of the review
+      // queue the user has not been through yet.
+      await save.mutateAsync({ id: item.id, patch: { purchasePrice: next }, verify: false });
+    } catch {
+      setSaveFailed(true);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
@@ -117,21 +151,95 @@ export default function ItemDetailScreen() {
           <View className="flex-row">
             <StatBox value={`${item.wearCount}×`} label="Worn" edge="rb" />
             <StatBox
-              value={item.purchasePrice !== null ? `$${item.purchasePrice.toFixed(0)}` : '—'}
+              value={item.purchasePrice !== null ? formatPrice(item.purchasePrice) : '—'}
               label="Paid"
               edge="b"
             />
           </View>
           <View className="flex-row">
             <StatBox
-              value={cpw !== null ? `$${cpw.toFixed(2)}` : '—'}
-              label="Cost per wear"
+              value={
+                neverWorn
+                  ? formatPrice(item.purchasePrice as number)
+                  : cpw !== null
+                    ? `$${cpw.toFixed(2)}`
+                    : '—'
+              }
+              label={neverWorn ? 'Not worn yet' : 'Cost per wear'}
               edge="r"
               invert
             />
             <StatBox value={sinceLastWorn(item)} label="Since last worn" />
           </View>
         </View>
+
+        {/* The price edit — the screen's one oxblood, spent here because this
+            is the field that turns the hero tile from a dash into the number
+            the whole product is about. Quiet: a line of text until it is
+            tapped, never a form sitting open. */}
+        {draft === null ? (
+          <View className="mt-3 flex-row items-center justify-between gap-3">
+            <Text variant="label" className="flex-1 text-faint dark:text-faint-dark">
+              {item.purchasePrice !== null
+                ? `Paid ${formatPrice(item.purchasePrice)}`
+                : 'Cost per wear needs what you paid.'}
+            </Text>
+            <Pressable
+              onPress={() =>
+                setDraft(item.purchasePrice !== null ? String(item.purchasePrice) : '')
+              }
+              accessibilityRole="button"
+              accessibilityLabel={
+                item.purchasePrice !== null ? 'Edit what you paid' : 'Add what you paid'
+              }
+              hitSlop={8}
+              style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+              className="active:opacity-60">
+              <Text variant="label" className="text-accent dark:text-accent-dark">
+                {item.purchasePrice !== null ? 'Edit' : 'Add price'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View className="mt-3 flex-row items-center gap-2">
+            <View
+              className="flex-1 flex-row items-center rounded-md border border-rule px-3 dark:border-rule-dark"
+              style={{ minHeight: MIN_TAP_TARGET }}>
+              <Text variant="callout" className="text-faint dark:text-faint-dark">
+                $
+              </Text>
+              <TextInput
+                value={draft}
+                onChangeText={setDraft}
+                keyboardType="decimal-pad"
+                inputMode="decimal"
+                autoFocus
+                placeholder="0"
+                placeholderTextColor={theme.faint}
+                accessibilityLabel="Price paid, in dollars"
+                returnKeyType="done"
+                onSubmitEditing={() => void commitPrice()}
+                className="ml-1 flex-1 font-body text-callout"
+                style={{ minHeight: MIN_TAP_TARGET, color: theme.ink }}
+              />
+            </View>
+            <Button
+              title="Save"
+              variant="secondary"
+              loading={save.isPending}
+              onPress={() => void commitPrice()}
+            />
+          </View>
+        )}
+
+        {saveFailed ? (
+          <Text
+            variant="label"
+            accessibilityLiveRegion="polite"
+            className="mt-2 text-critical dark:text-critical">
+            That didn&rsquo;t save. Check your connection and try again.
+          </Text>
+        ) : null}
 
         {item.description ? (
           <Text variant="body" className="mt-5 text-muted dark:text-muted-dark">

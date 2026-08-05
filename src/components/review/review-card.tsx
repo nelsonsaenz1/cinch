@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useState } from 'react';
-import { Dimensions, Pressable, View } from 'react-native';
+import { Dimensions, Pressable, TextInput, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
@@ -42,6 +42,27 @@ const CATEGORY_OPTIONS: { key: ItemCategory; label: string }[] = [
   { key: 'other', label: 'Other' },
 ];
 
+/**
+ * What the user typed, as a number the database can hold.
+ *
+ * Blank is null — "I don't know what this cost" — and never 0: a zero is a
+ * garment that appears free, which would quietly poison every cost-per-wear
+ * figure it touches. Anything unparseable is treated as blank rather than
+ * guessed at. Exported because the item screen edits the same field and must
+ * agree with this card to the letter.
+ */
+export function parsePrice(text: string): number | null {
+  const cleaned = text.replace(/[^0-9.]/g, '');
+  if (cleaned === '' || cleaned === '.') return null;
+  const value = Number(cleaned);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+/** How a price is printed back: whole dollars when it is one, cents when not. */
+export function formatPrice(value: number): string {
+  return Number.isInteger(value) ? `$${value}` : `$${value.toFixed(2)}`;
+}
+
 export type ReviewCardProps = {
   item: Item;
   /** True for the visible card. Cards below the top render smaller and inert. */
@@ -70,8 +91,15 @@ export type ReviewCardProps = {
    * this card) does not have to change shape.
    */
   occasions: string[];
+  /**
+   * What the garment cost, as edited in this sitting. Null means the user has
+   * not said — which is the honest default, and the reason cost per wear reads
+   * as a dash until they do.
+   */
+  price: number | null;
   onEditCategory: (next: ItemCategory) => void;
   onToggleOccasion: (occasion: string) => void;
+  onEditPrice: (next: number | null) => void;
 };
 
 export function ReviewCard({
@@ -81,17 +109,27 @@ export function ReviewCard({
   onConfirm,
   onSkip,
   category,
+  price,
   onEditCategory,
+  onEditPrice,
 }: ReviewCardProps) {
   const theme = useTheme();
   const translateX = useSharedValue(0);
 
-  // Which row's chip picker is open, if any. Only one at a time — this is a
-  // "tap to correct" affordance, not a form. Category is the only field this
-  // card can actually patch (see `useVerifyItem`), so Colours and Details
-  // below render as plain read-outs — Edit label shown for visual parity with
-  // the handoff, but not wired to a picker.
-  const [openEditor, setOpenEditor] = useState<'category' | null>(null);
+  // Which row's editor is open, if any. Only one at a time — this is a "tap to
+  // correct" affordance, not a form. Category and Price are the two fields this
+  // card can actually patch (see `useVerifyItem`), so Colours and Details below
+  // render as plain read-outs — Edit label shown for visual parity with the
+  // handoff, but not wired to an editor.
+  const [openEditor, setOpenEditor] = useState<'category' | 'price' | null>(null);
+
+  /**
+   * The raw text of the price field. Kept beside the parsed number the parent
+   * holds because a half-typed "12." is a valid thing to be looking at and not
+   * a valid thing to store — the card owns the keystrokes, the parent owns the
+   * value.
+   */
+  const [priceDraft, setPriceDraft] = useState(() => (price != null ? String(price) : ''));
 
   const fireHaptic = useCallback(() => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {
@@ -309,9 +347,52 @@ export function ReviewCard({
               </View>
             </ReviewRow>
 
-            <ReviewRow label="Details" editable isLast>
+            <ReviewRow label="Details" editable>
               <Text variant="callout" numberOfLines={2}>
                 {detailsValue}
+              </Text>
+            </ReviewRow>
+
+            {/* Price — the one field on this card the tagger cannot guess, and
+                the one that unlocks cost per wear. Optional, and it stays
+                optional: skipping it costs the user nothing but the number. */}
+            <ReviewRow
+              label="Price"
+              editable
+              isLast
+              expanded={openEditor === 'price'}
+              onToggleEdit={() => setOpenEditor((cur) => (cur === 'price' ? null : 'price'))}
+              expandedContent={
+                <View
+                  className="w-full flex-row items-center rounded-md border border-rule px-3 dark:border-rule-dark"
+                  style={{ minHeight: MIN_TAP_TARGET }}>
+                  <Text variant="callout" className="text-faint dark:text-faint-dark">
+                    $
+                  </Text>
+                  <TextInput
+                    value={priceDraft}
+                    onChangeText={(next) => {
+                      setPriceDraft(next);
+                      onEditPrice(parsePrice(next));
+                    }}
+                    // Decimal pad, not numeric: there is no return key to lose
+                    // (the row's own Done closes it) and no reason to offer
+                    // anything but digits and a point.
+                    keyboardType="decimal-pad"
+                    inputMode="decimal"
+                    autoFocus
+                    placeholder="0"
+                    placeholderTextColor={theme.faint}
+                    accessibilityLabel="Price paid, in dollars"
+                    returnKeyType="done"
+                    onSubmitEditing={() => setOpenEditor(null)}
+                    className="ml-1 flex-1 font-body text-callout text-ink"
+                    style={{ minHeight: MIN_TAP_TARGET, color: theme.ink }}
+                  />
+                </View>
+              }>
+              <Text variant="callout" numberOfLines={1}>
+                {price != null ? formatPrice(price) : 'Add it for cost per wear'}
               </Text>
             </ReviewRow>
 
@@ -360,14 +441,15 @@ export function ReviewCard({
 }
 
 /**
- * One Category/Colours/Details row: a tracked colophon label, the value
+ * One Category/Colours/Details/Price row: a tracked colophon label, the value
  * beneath it, a hairline under all but the last row, and — when `editable`
  * is set — an accent "Edit" affordance matching the handoff. Where
- * `onToggleEdit` is also supplied (Category), that affordance is a real
- * control that reveals `expandedContent` (a chip grid) in place. Colours and
- * Details have no backing edit callback — the review pipeline can only patch
- * category (see `useVerifyItem`) — so their "Edit" renders as plain text: the
- * same look as the handoff, without pretending a tap does something it can't.
+ * `onToggleEdit` is also supplied (Category, Price), that affordance is a real
+ * control that reveals `expandedContent` — a chip grid, or a field — in place.
+ * Colours and Details have no backing edit callback — the review pipeline can
+ * patch only category and price (see `useVerifyItem`) — so their "Edit" renders
+ * as plain text: the same look as the handoff, without pretending a tap does
+ * something it can't.
  */
 function ReviewRow({
   label,

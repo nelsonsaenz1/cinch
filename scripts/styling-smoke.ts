@@ -85,6 +85,7 @@ const g = (
   purchasePrice: null,
   thumbPath: null,
   cutoutPath: null,
+    platePath: null,
   ...extra,
 });
 
