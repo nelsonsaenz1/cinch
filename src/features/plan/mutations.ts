@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 
+import { track } from '@/lib/posthog';
 import { createOperationIds, runCommand } from '@/lib/commands';
 import { dateKey } from '@/lib/date';
 import type { OutfitCandidate } from '@/lib/styling';
@@ -103,6 +104,8 @@ export function usePlanOutfit() {
     },
 
     onSuccess: () => {
+      // The date and note are user data; the event is the fact alone.
+      track('outfit_planned');
       void qc.invalidateQueries({ queryKey: ['planned-week'] });
     },
   });

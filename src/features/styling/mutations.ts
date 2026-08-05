@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 
 import { createOperationIds, runCommand } from '@/lib/commands';
+import { track } from '@/lib/posthog';
 import {
   describeWeights,
   meanFeatures,
@@ -99,7 +100,10 @@ export function useReactToOutfit() {
       return { weights, affinities, summary, applied };
     },
 
-    onSuccess: (next) => {
+    onSuccess: (next, vars) => {
+      // Boolean and source only. The candidate's items, reason text and
+      // feature vector are user data and stay out of analytics.
+      track('outfit_reacted', { liked: vars.liked, source: vars.source ?? 'today' });
       if (!next.applied) {
         // Refetch rather than merge: the authoritative profile already contains
         // the other reaction's learning, and this one's event is on record to be
@@ -187,6 +191,7 @@ export function useWearOutfit() {
     },
 
     onSuccess: () => {
+      track('outfit_worn');
       void qc.invalidateQueries({ queryKey: ['wardrobe'] });
       void qc.invalidateQueries({ queryKey: ['closet'] });
     },

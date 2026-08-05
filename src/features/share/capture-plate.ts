@@ -5,6 +5,8 @@ import type { RefObject } from 'react';
 import { PixelRatio, type View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
+import { track } from '@/lib/posthog';
+
 /**
  * The share card is authored on a fixed 360 × 640 logical canvas — 9:16, the
  * Stories/TikTok frame. Every coordinate in plate-card.tsx assumes it.
@@ -36,6 +38,10 @@ export async function sharePlate(ref: RefObject<View | null>): Promise<string> {
   });
 
   if (await Sharing.isAvailableAsync()) {
+    // Fired when the sheet OPENS. iOS resolves shareAsync on dismissal without
+    // saying whether anything was sent, so "shared" here means "reached the
+    // share sheet" — the honest maximum the platform reports.
+    track('outfit_shared');
     await Sharing.shareAsync(uri, { UTI: 'public.png', mimeType: 'image/png' });
     await maybeRequestReview();
   }

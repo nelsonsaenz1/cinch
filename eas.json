@@ -23,6 +23,13 @@
       "channel": "preview",
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_POSTHOG_PROJECT_TOKEN": "phc_zxFUpYHe3YxZF5KCViyj6q2vKL6xb5HGHi7io98a3CwJ",
+        "EXPO_PUBLIC_POSTHOG_HOST": "https://us.i.posthog.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dugizuswuebrmcmvinmi.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_P-m5AyqQSi19mFWq--6nfw_UES1ECxZ",
+        "EXPO_PUBLIC_SUPERWALL_API_KEY_IOS": "pk_CPhqGhB3IX5sU3ayNmhRD"
       }
     },
     "production": {
@@ -30,6 +37,13 @@
       "autoIncrement": true,
       "ios": {
         "resourceClass": "m-medium"
+      },
+      "env": {
+        "EXPO_PUBLIC_POSTHOG_PROJECT_TOKEN": "phc_zxFUpYHe3YxZF5KCViyj6q2vKL6xb5HGHi7io98a3CwJ",
+        "EXPO_PUBLIC_POSTHOG_HOST": "https://us.i.posthog.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dugizuswuebrmcmvinmi.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_P-m5AyqQSi19mFWq--6nfw_UES1ECxZ",
+        "EXPO_PUBLIC_SUPERWALL_API_KEY_IOS": "pk_CPhqGhB3IX5sU3ayNmhRD"
       }
     }
   },

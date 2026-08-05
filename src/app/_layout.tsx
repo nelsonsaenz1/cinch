@@ -20,6 +20,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
 import { useSession } from '@/features/auth/use-session';
+import { Superwall } from '@/features/billing/superwall';
+import { Analytics, identifyUser, useScreenTracking } from '@/lib/posthog';
 import {
   persistBuster,
   persistMaxAge,
@@ -76,6 +78,31 @@ function usePersistedCachePurge() {
 }
 
 /**
+ * Bind analytics identity to the auth state.
+ *
+ * `INITIAL_SESSION` IS handled here, unlike the cache purge above, and the
+ * difference is the point: a returning user's cold start must identify as that
+ * user, or every session until their next explicit sign-in is attributed to a
+ * fresh anonymous id and retention reads as churn. `TOKEN_REFRESHED` stays
+ * ignored — same person, newer token.
+ *
+ * Only the Supabase UUID is sent. No email, no name — see the header of
+ * lib/posthog.tsx for why that line is load-bearing for App Review, not taste.
+ */
+function useAnalyticsIdentity() {
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+        if (session?.user.id) identifyUser(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        identifyUser(null);
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+}
+
+/**
  * The routing gate.
  *
  * `useSegments` returns the current URL as an array — e.g. `['(tabs)', 'closet']`
@@ -91,6 +118,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const session = useSession();
   const segments = useSegments();
   const router = useRouter();
+
+  // Manual screen views — expo-router hides its NavigationContainer, so the
+  // SDK's own screen autocapture cannot see route names here. The joined
+  // segments are stable route identifiers ('(tabs)/closet'), never params.
+  useScreenTracking(segments.join('/') || 'index');
 
   useEffect(() => {
     if (session.loading) return;
@@ -153,6 +185,7 @@ export default function RootLayout() {
   const isDark = scheme === 'dark';
 
   usePersistedCachePurge();
+  useAnalyticsIdentity();
 
   const [fontsLoaded, fontError] = useFonts({
     // The display face — the whole app is set in one weight of one serif. Only
@@ -205,39 +238,56 @@ export default function RootLayout() {
         */}
         <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
           <StatusBar style={isDark ? 'light' : 'dark'} />
-          <AuthGate>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen
-                name="capture"
-                options={{ presentation: 'modal', headerShown: false }}
-              />
-              <Stack.Screen
-                name="review"
-                options={{ presentation: 'fullScreenModal', headerShown: false }}
-              />
-              {/* Stylist is a sheet off Today, not a tab — a chat tab is the
-                  generic-AI tell, and it duplicates Today's job. It OPENS at
-                  0.75 so Today stays visible behind it — the conversation is
-                  an aside on the page — but a long chat can be dragged to
-                  full height. 38 is the `sheet` radius token. */}
-              <Stack.Screen
-                name="stylist"
-                options={{
-                  presentation: 'formSheet',
-                  sheetAllowedDetents: [0.75, 1],
-                  sheetGrabberVisible: true,
-                  sheetCornerRadius: 38,
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="profile"
-                options={{ presentation: 'modal', headerShown: false }}
-              />
-            </Stack>
-          </AuthGate>
+          {/*
+            Inside the query provider, because the identity binding reads
+            `useSession` — which subscribes to the query client to purge caches
+            on a change of user. Outside `AuthGate`, so the SDK configures and
+            fetches paywall assignments while the session is still hydrating
+            rather than after the first screen has painted.
+          */}
+          {/*
+            Analytics wraps Superwall, not the reverse: the provider only adds
+            lifecycle/screen autocapture, and paywall screens are screens too —
+            a paywall impression that never reaches analytics is a funnel with a
+            hole at its most important step.
+          */}
+          <Analytics>
+            <Superwall>
+              <AuthGate>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen
+                  name="capture"
+                  options={{ presentation: 'modal', headerShown: false }}
+                />
+                <Stack.Screen
+                  name="review"
+                  options={{ presentation: 'fullScreenModal', headerShown: false }}
+                />
+                {/* Stylist is a sheet off Today, not a tab — a chat tab is the
+                    generic-AI tell, and it duplicates Today's job. It OPENS at
+                    0.75 so Today stays visible behind it — the conversation is
+                    an aside on the page — but a long chat can be dragged to
+                    full height. 38 is the `sheet` radius token. */}
+                <Stack.Screen
+                  name="stylist"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [0.75, 1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="profile"
+                  options={{ presentation: 'modal', headerShown: false }}
+                />
+              </Stack>
+              </AuthGate>
+            </Superwall>
+          </Analytics>
         </ThemeProvider>
       </PersistQueryClientProvider>
     </GestureHandlerRootView>

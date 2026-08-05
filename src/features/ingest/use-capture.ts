@@ -2,6 +2,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useCallback } from 'react';
 import { Alert, Linking } from 'react-native';
 
+import { track } from '@/lib/posthog';
+
 import { useQueueStore } from './queue-store';
 import { drainQueue } from './upload-queue';
 
@@ -57,6 +59,8 @@ export function useCapture() {
 
     if (result.canceled || !result.assets?.length) return 0;
 
+    // Count and source only — never asset ids or file paths.
+    track('clothes_import_selected', { source: 'library', count: result.assets.length });
     enqueue(toJobs(result.assets));
     void drainQueue();
     return result.assets.length;
@@ -91,6 +95,7 @@ export function useCapture() {
 
     if (result.canceled || !result.assets?.length) return 0;
 
+    track('clothes_import_selected', { source: 'camera', count: result.assets.length });
     enqueue(toJobs(result.assets));
     void drainQueue();
     return result.assets.length;

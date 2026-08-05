@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { track } from '@/lib/posthog';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
@@ -29,7 +30,7 @@ export default function ReviewScreen() {
   // refetch that reorders or shortens the queue cannot hand one item's
   // corrections to another.
   const [edits, setEdits] = useState<
-    Record<string, { category: ItemCategory; occasions: string[] }>
+    Record<string, { category: ItemCategory; occasions: string[]; price: number | null }>
   >({});
 
   /**
@@ -88,8 +89,11 @@ export default function ReviewScreen() {
       if (!edit) return undefined;
       const changed =
         edit.category !== item.category ||
+        edit.price !== item.purchasePrice ||
         JSON.stringify(edit.occasions) !== JSON.stringify(item.occasions);
-      return changed ? { category: edit.category, occasions: edit.occasions } : undefined;
+      return changed
+        ? { category: edit.category, occasions: edit.occasions, purchasePrice: edit.price }
+        : undefined;
     },
     [edits],
   );
@@ -104,8 +108,17 @@ export default function ReviewScreen() {
       // network. The write is still awaited — if it fails the card comes back.
       resolve(item.id);
 
+      // Snapshot once, before the await: `edits` can change while the write is
+      // in flight, and the analytics flag must describe the patch that was
+      // actually sent, not whatever the deck looks like afterwards.
+      const patch = patchFor(item);
+
       try {
-        await verify.mutateAsync({ id: item.id, patch: patchFor(item) });
+        await verify.mutateAsync({ id: item.id, patch });
+        // After the write, so a failed confirm never counts. Whether the user
+        // corrected the AI (patch present) is the one property worth having —
+        // it is the tagging model's error rate as experienced by real users.
+        track('garment_reviewed', { corrected: patch !== undefined });
       } catch (err) {
         // Never let a failed write look like a successful confirm. Put the item
         // back in the deck and say so, because the alternative is an item that
@@ -238,6 +251,7 @@ export default function ReviewScreen() {
               const edit = edits[item.id] ?? {
                 category: item.category,
                 occasions: item.occasions,
+                price: item.purchasePrice,
               };
               return (
                 <ReviewCard
@@ -251,6 +265,10 @@ export default function ReviewScreen() {
                   depth={offset}
                   category={edit.category}
                   occasions={edit.occasions}
+                  price={edit.price}
+                  onEditPrice={(next) =>
+                    setEdits((prev) => ({ ...prev, [item.id]: { ...edit, price: next } }))
+                  }
                   onEditCategory={(next) =>
                     setEdits((prev) => ({
                       ...prev,
