@@ -1,7 +1,8 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
+import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -47,6 +48,36 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const emailRef = useRef<TextInput>(null);
+
+  /**
+   * Whether Sign in with Apple can actually run in THIS build.
+   *
+   * `Platform.OS === 'ios'` is not enough. The capability needs the
+   * `com.apple.developer.applesignin` entitlement, which a free Apple personal
+   * team is not allowed to sign — so a device build made for a personal team
+   * (see scripts/free-signing.sh) ships without it, and tapping the button
+   * would throw. Ask the framework instead of assuming, and simply do not
+   * offer the option when it cannot work.
+   */
+  const builtWithAppleSignIn =
+    (Constants.expoConfig?.extra as { appleSignInEnabled?: boolean } | undefined)
+      ?.appleSignInEnabled !== false;
+
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    if (!builtWithAppleSignIn) return; // free-team build: the capability is absent
+    let cancelled = false;
+    void AppleAuthentication.isAvailableAsync()
+      .then((ok) => {
+        if (!cancelled) setAppleAvailable(ok);
+      })
+      .catch(() => {
+        if (!cancelled) setAppleAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [builtWithAppleSignIn]);
 
   // Dark-page palette. `canvas`/`ink`/`faint` come from the design tokens; the
   // warm tans have no token because they only ever appear on this one dark
@@ -173,7 +204,7 @@ export default function SignInScreen() {
                     exactly AppleAuthenticationButton's WHITE style — so the zip
                     is satisfied without shipping a custom control, which
                     Guideline 4.8 / the Sign in with Apple HIG do not permit. */}
-                {Platform.OS === 'ios' ? (
+                {appleAvailable ? (
                   <AppleAuthentication.AppleAuthenticationButton
                     buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
                     buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
@@ -197,7 +228,7 @@ export default function SignInScreen() {
                     borderRadius: 30,
                     borderWidth: 1,
                     borderColor: hairlineOnInk,
-                    marginTop: Platform.OS === 'ios' ? 10 : 0,
+                    marginTop: appleAvailable ? 10 : 0,
                   }}
                   className="w-full items-center justify-center active:opacity-60">
                   <Text variant="callout" className="font-medium" style={{ color: cream }}>

@@ -18,6 +18,20 @@ import type { ExpoConfig } from 'expo/config';
  *  - NSLocationAlwaysAndWhenInUseUsageDescription must never appear, and `location`
  *    must never enter UIBackgroundModes. Both invite a justification we cannot meet.
  */
+/**
+ * Free-team signing.
+ *
+ * A free Apple personal team may not sign the Sign in with Apple capability,
+ * so a build meant for one has to drop it (scripts/free-signing.sh strips the
+ * entitlement from the generated project). This flag keeps the JS in step: the
+ * welcome screen hides the Apple button when the build cannot honour it, so a
+ * demo build offers the email link only instead of a button that throws.
+ *
+ * Defaults to the full, paid-account behaviour — set CINCH_FREE_SIGNING=1 only
+ * for a local personal-team build.
+ */
+const FREE_SIGNING = process.env.CINCH_FREE_SIGNING === '1';
+
 const config: ExpoConfig = {
   name: 'Cinch',
   slug: 'cinch',
@@ -38,7 +52,7 @@ const config: ExpoConfig = {
     supportsTablet: false,
     // Required for expo-apple-authentication; Sign in with Apple is an
     // App Store requirement once any social login ships.
-    usesAppleSignIn: true,
+    usesAppleSignIn: !FREE_SIGNING,
     infoPlist: {
       // NOTE: `LSMinimumSystemVersion` used to sit here, intending to require
       // iOS 17. It is a macOS key and iOS ignores it entirely — the real
@@ -293,6 +307,13 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
+  },
+
+  extra: {
+    // Read at runtime by the welcome screen. `isAvailableAsync()` only reports
+    // whether the OS supports Sign in with Apple, not whether THIS build holds
+    // the entitlement — so the build-time answer has to be carried across too.
+    appleSignInEnabled: !FREE_SIGNING,
   },
 };
 
