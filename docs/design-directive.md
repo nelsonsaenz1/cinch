@@ -60,9 +60,26 @@ Light mode is the primary design target. Every screen must also work in dark mod
 **Semantic** — used sparingly, never decoratively.
 `positive #1A8754` · `warning #D4850A` · `critical #C0392B`
 
+**Garment neutrals** — the wardrobe's own colours, used for illustrated clothing and nothing else. These are content, not chrome, and are the one place the palette above does not govern.
+
+`navy #1f2a44` · `cream #efe6d2` · `camel #b58f5f` · `burgundy #5e2233` · `charcoal #36393d`
+
 **Two colour rules that are not negotiable:**
 1. **The accent is spent, not sprayed.** At most one accent-filled element per screen — the primary action. Everything else is ink, muted, or rule. A second accent element means one of them is not primary.
 2. **The accent never goes on chrome.** Tab bars, navigation icons, and toolbars are monochrome ink/muted. Colour belongs to content.
+
+**The complete palette is above. There are no other colours.**
+
+The system these tokens derive from carries five more that Cinch deliberately does **not** use. They are listed so you recognise them as excluded rather than missing, and do not reintroduce them:
+
+| Source token | Value | Why it is not here |
+|---|---|---|
+| `accent-teal` | `#2E7D7D` | A third hue. Two accents are already one more than most screens need. |
+| `text-secondary` / `text-tertiary` | `rgba(0,0,0,0.80)` / `rgba(0,0,0,0.70)` | Cinch has one step down from ink — `muted`. Three tiers of grey text is a hierarchy nobody can perceive. |
+| `border` / `border-strong` | `rgba(0,0,0,0.08)` / `rgba(0,0,0,0.15)` | Replaced by `hairline` (a whisper between list rows) and `rule` (the structural lookbook line). The distinction is editorial, not weight-based. |
+| status backgrounds | `#E8F5EE` `#FFF3E0` `#FDECEA` | Tinted alert panels belong to a dashboard. Cinch states a problem in words on paper. |
+
+If a design seems to need a colour that is not in the tables above, the answer is type, weight, or space — not a new hue.
 
 ### 2.2 Typography
 
