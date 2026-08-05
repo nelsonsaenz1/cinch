@@ -35,7 +35,6 @@ export const itemStatus = z.enum([
   'needs_review',
   'verified',
 ]);
-export type ItemStatus = z.infer<typeof itemStatus>;
 
 /**
  * The vocabularies the tagger is constrained to (`SEASONS` / `OCCASIONS` in
@@ -58,7 +57,6 @@ export const occasion = z.enum([
 
 /** The fit and print vocabularies are real Postgres enums — see `src/types/database.ts`. */
 export const garmentFit = z.enum(['fitted', 'regular', 'relaxed', 'oversized']);
-export type GarmentFit = z.infer<typeof garmentFit>;
 
 export const patternScale = z.enum(['none', 'micro', 'small', 'medium', 'large']);
 export type PatternScale = z.infer<typeof patternScale>;
@@ -86,6 +84,12 @@ export const item = z.object({
   userId: z.string().uuid(),
   imagePath: z.string().nullable(),
   cutoutPath: z.string().nullable(),
+  /**
+   * The plate-ready render: the cutout scale-normalized onto a fixed square
+   * canvas at ingest, so stacked garments share a scale. Null until the
+   * native pipeline has produced one — display falls back cutout → thumb.
+   */
+  platePath: z.string().nullable(),
   thumbPath: z.string().nullable(),
   status: itemStatus,
   category: itemCategory,

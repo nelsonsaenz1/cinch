@@ -18,7 +18,7 @@
  *    resolve through the table below.
  */
 
-import { hexToOklch, type Oklch } from './oklch';
+import { deltaE, hexToOklch, type Oklch } from './oklch';
 
 export type HueFamily =
   | 'red'
@@ -267,6 +267,57 @@ export function resolveColorName(name: string): Oklch | null {
     }
   }
   return null;
+}
+
+/**
+ * The table above, pre-converted, minus the metallics. Built once on first use:
+ * the reverse lookup runs a few times per imported garment and re-parsing 130
+ * hex strings each time is pure waste during a 60-photo import.
+ */
+let namedOklch: { name: string; value: Oklch }[] | null = null;
+
+function namedTable() {
+  if (namedOklch) return namedOklch;
+  namedOklch = [];
+  for (const [name, hex] of Object.entries(NAMED)) {
+    // Metallics are excluded on purpose. Pixels cannot tell bronze from brown
+    // or silver from light grey — the difference is specular behaviour, not
+    // colour — and `isMetallicName` feeds a real scoring rule, so a name
+    // guessed from a sample would make ordinary brown boots pair like jewellery.
+    if (isMetallicName(name)) continue;
+    const value = hexToOklch(hex);
+    if (value) namedOklch.push({ name, value });
+  }
+  return namedOklch;
+}
+
+/**
+ * The reverse of `resolveColorName`: a measured hex to the nearest wardrobe name.
+ *
+ * Needed because colour now arrives from two directions. The tagger supplies
+ * names without values; on-device pixel sampling supplies values without names.
+ * Both have to end up in the same `colors` column, and a swatch with no name is
+ * unspeakable — the review deck, the stylist and every empty state say "navy
+ * blazer", not "#1f2a44 blazer".
+ *
+ * Nearest in OKLab, so "nearest" means what a person would say it means. Ties go
+ * to whichever name is listed first in the table, which is why the curated
+ * spellings ("grey", "olive green") appear above their aliases.
+ */
+export function nearestColorName(hex: string): string | null {
+  const target = hexToOklch(hex);
+  if (!target) return null;
+
+  let best: string | null = null;
+  let bestDistance = Infinity;
+  for (const entry of namedTable()) {
+    const distance = deltaE(target, entry.value);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = entry.name;
+    }
+  }
+  return best;
 }
 
 /**

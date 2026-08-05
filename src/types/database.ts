@@ -135,20 +135,23 @@ export type Database = {
       ai_usage_counters: {
         Row: {
           calls: number
-          day: string
           kind: string
+          period: string
+          period_start: string
           user_id: string
         }
         Insert: {
           calls?: number
-          day?: string
           kind: string
+          period?: string
+          period_start?: string
           user_id: string
         }
         Update: {
           calls?: number
-          day?: string
           kind?: string
+          period?: string
+          period_start?: string
           user_id?: string
         }
         Relationships: []
@@ -372,6 +375,7 @@ export type Database = {
           occasions: string[]
           pattern: string | null
           pattern_scale: Database["public"]["Enums"]["pattern_scale"] | null
+          plate_path: string | null
           purchase_date: string | null
           purchase_price: number | null
           sale_note: string | null
@@ -410,6 +414,7 @@ export type Database = {
           occasions?: string[]
           pattern?: string | null
           pattern_scale?: Database["public"]["Enums"]["pattern_scale"] | null
+          plate_path?: string | null
           purchase_date?: string | null
           purchase_price?: number | null
           sale_note?: string | null
@@ -448,6 +453,7 @@ export type Database = {
           occasions?: string[]
           pattern?: string | null
           pattern_scale?: Database["public"]["Enums"]["pattern_scale"] | null
+          plate_path?: string | null
           purchase_date?: string | null
           purchase_price?: number | null
           sale_note?: string | null
@@ -908,6 +914,30 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          current_period_end: string | null
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          trial_ends_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          current_period_end?: string | null
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          trial_ends_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          current_period_end?: string | null
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          trial_ends_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tag_corrections: {
         Row: {
           corrected: Json
@@ -1266,7 +1296,12 @@ export type Database = {
         Returns: Json
       }
       claim_ai_quota: {
-        Args: { p_daily_limit: number; p_kind: string; p_user_id: string }
+        Args: {
+          p_kind: string
+          p_limit: number
+          p_period: string
+          p_user_id: string
+        }
         Returns: Json
       }
       claim_command: {
@@ -1277,6 +1312,14 @@ export type Database = {
         }[]
       }
       current_ai_consent_version: { Args: never; Returns: number }
+      effective_plan: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Enums"]["subscription_plan"]
+      }
+      item_limit_for_plan: {
+        Args: { p_plan: Database["public"]["Enums"]["subscription_plan"] }
+        Returns: number
+      }
       log_outfit_wear: { Args: { p_outfit_id: string }; Returns: undefined }
       plan_outfit_tx: {
         Args: {
@@ -1302,7 +1345,11 @@ export type Database = {
       }
     }
     Enums: {
-      ai_workload: "tagging" | "outfit_generation" | "stylist_chat"
+      ai_workload:
+        | "tagging"
+        | "outfit_generation"
+        | "stylist_chat"
+        | "garment_search"
       feedback_action: "accepted" | "rejected" | "edited" | "worn"
       garment_fit: "fitted" | "regular" | "relaxed" | "oversized"
       item_category:
@@ -1325,6 +1372,7 @@ export type Database = {
       outfit_source: "ai" | "user"
       pattern_scale: "none" | "micro" | "small" | "medium" | "large"
       profile_visibility: "private" | "public"
+      subscription_plan: "free" | "standard" | "pro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1455,7 +1503,12 @@ export const Constants = {
   },
   public: {
     Enums: {
-      ai_workload: ["tagging", "outfit_generation", "stylist_chat"],
+      ai_workload: [
+        "tagging",
+        "outfit_generation",
+        "stylist_chat",
+        "garment_search",
+      ],
       feedback_action: ["accepted", "rejected", "edited", "worn"],
       garment_fit: ["fitted", "regular", "relaxed", "oversized"],
       item_category: [
@@ -1480,6 +1533,7 @@ export const Constants = {
       outfit_source: ["ai", "user"],
       pattern_scale: ["none", "micro", "small", "medium", "large"],
       profile_visibility: ["private", "public"],
+      subscription_plan: ["free", "standard", "pro"],
     },
   },
 } as const

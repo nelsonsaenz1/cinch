@@ -144,6 +144,7 @@ export function toGarment(item: ItemRow): Garment {
     purchasePrice: item.purchase_price === null ? null : Number(item.purchase_price),
     thumbPath: item.thumb_path,
     cutoutPath: item.cutout_path,
+    platePath: item.plate_path ?? null,
   };
 }
 

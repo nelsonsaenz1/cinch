@@ -55,6 +55,8 @@ export type Garment = {
   purchasePrice: number | null;
   thumbPath: string | null;
   cutoutPath: string | null;
+  /** Scale-normalized plate render; null until the ingest pipeline made one. */
+  platePath: string | null;
 };
 
 export type WeatherContext = {
