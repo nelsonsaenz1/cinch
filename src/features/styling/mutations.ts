@@ -10,6 +10,7 @@ import {
   type FeatureVector,
   type OutfitCandidate,
 } from '@/lib/styling';
+import { posthog } from '@/lib/posthog';
 import { getUserId, supabase } from '@/lib/supabase';
 
 import type { StyleProfile } from './queries';
@@ -96,6 +97,12 @@ export function useReactToOutfit() {
       // refused. `applied: false` means someone beat us to it, so the local
       // vector is stale and must not be written into the cache.
       const applied = (data as { applied?: boolean } | null)?.applied !== false;
+      posthog?.capture('outfit_reacted', {
+        reaction: liked ? 'liked' : 'disliked',
+        source,
+        feedback_applied: applied,
+        item_count: candidate.items.length,
+      });
       return { weights, affinities, summary, applied };
     },
 
@@ -183,6 +190,7 @@ export function useWearOutfit() {
       });
 
       opIds.settle(actionKey);
+      posthog?.capture('outfit_worn', { item_count: itemIds.length, source: 'ai' });
       return outfitId;
     },
 

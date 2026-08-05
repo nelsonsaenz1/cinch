@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef, useState } from 'react';
 
 import { generateOutfits, type Garment, type OutfitCandidate, type StyleContext } from '@/lib/styling';
+import { posthog } from '@/lib/posthog';
 import { getUserId, supabase } from '@/lib/supabase';
 
 import type { StyleProfile } from '../styling/queries';
@@ -223,6 +224,10 @@ export function useChat({
           text: result.reply,
           followUp: result.followUp,
           outfitItemIds: result.outfits.map((o) => o.items.map((g) => g.id)),
+        });
+        posthog?.capture('stylist_question_answered', {
+          suggested_outfit_count: result.outfits.length,
+          has_follow_up: Boolean(result.followUp),
         });
       } catch (err) {
         const consent = err instanceof Error && err.message === 'ai_consent_required';

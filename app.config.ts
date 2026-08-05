@@ -314,6 +314,9 @@ const config: ExpoConfig = {
     // whether the OS supports Sign in with Apple, not whether THIS build holds
     // the entitlement — so the build-time answer has to be carried across too.
     appleSignInEnabled: !FREE_SIGNING,
+    // Public PostHog client configuration, embedded into Expo builds.
+    posthogProjectToken: process.env.EXPO_PUBLIC_POSTHOG_PROJECT_TOKEN,
+    posthogHost: process.env.EXPO_PUBLIC_POSTHOG_HOST,
   },
 };
 
