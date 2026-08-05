@@ -37,7 +37,7 @@ export function GarmentCell({
       <View
         style={{
           flex: 1,
-          shadowColor: '#141310',
+          shadowColor: '#0A2633',
           shadowOpacity: 0.08,
           shadowRadius: 8,
           shadowOffset: { width: 0, height: 4 },
@@ -66,7 +66,7 @@ export function GarmentCell({
         backgroundColor: garment.colors[0]
           ? oklchToHex(garment.colors[0].oklch)
           : paper
-            ? '#F2F0EA'
+            ? '#F5F0E8'
             : theme.tray,
       }}>
       <Text
@@ -75,7 +75,7 @@ export function GarmentCell({
         className="text-center"
         maxFontSizeMultiplier={paper ? 1 : undefined}
         style={{
-          color: (garment.colors[0]?.oklch.L ?? 1) < 0.55 ? '#FFFFFFCC' : '#141310AA',
+          color: (garment.colors[0]?.oklch.L ?? 1) < 0.55 ? '#FFFFFFCC' : '#0A2633AA',
           // A narrow column cannot fit a word horizontally, and mid-word
           // wrapping ("sca / rf") is worse than turning the label sideways —
           // which is also exactly what a woven garment label does in a seam.

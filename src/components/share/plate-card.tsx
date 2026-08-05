@@ -21,11 +21,11 @@ const LAYOUT_ORDER: Garment['slot'][] = [
  * the phone's appearance mid-capture.
  */
 const PAPER = {
-  canvas: '#FAF9F6',
-  tray: '#F2F0EA',
-  ink: '#141310',
+  canvas: '#FBF8F5',
+  tray: '#F5F0E8',
+  ink: '#0A2633',
   muted: '#6B665C',
-  rule: 'rgba(20,19,16,0.18)',
+  rule: 'rgba(10,38,51,0.18)',
 };
 
 const X = 32;

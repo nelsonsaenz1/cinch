@@ -19,30 +19,45 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Surfaces
-        canvas: { DEFAULT: '#FAF9F6', dark: '#141310' },
-        surface: { DEFAULT: '#FFFFFF', dark: '#1E1C18' },
+        // Surfaces — warm paper, cool ink.
+        canvas: { DEFAULT: '#FBF8F5', dark: '#061B24' },
+        surface: { DEFAULT: '#FFFFFF', dark: '#0A2633' },
         // Cutouts are photographed against this, so it must stay neutral-warm
         // and never tint the garment.
-        tray: { DEFAULT: '#F2F0EA', dark: '#26241F' },
+        tray: { DEFAULT: '#F5F0E8', dark: '#123243' },
+        // The deepest sand, for a tile that needs to sit BACK from the tray
+        // without becoming a border.
+        sand: { DEFAULT: '#EDE7DB', dark: '#1B4254' },
 
-        // Type
-        ink: { DEFAULT: '#141310', dark: '#FAF9F6' },
-        muted: { DEFAULT: '#6B665C', dark: '#9C968A' },
-        hairline: { DEFAULT: '#E3E0D8', dark: '#33302A' },
-        // The lookbook's structural rules. `hairline` at 1.25:1 is a whisper —
-        // right for a divider between list rows, too faint to carry the plate
-        // grammar. `rule` is ink at 18%, so it composites correctly over both
-        // canvas and tray without needing a second token.
-        rule: { DEFAULT: 'rgba(20,19,16,0.18)', dark: 'rgba(250,249,246,0.20)' },
+        // Type. Ink is a deep slate-navy rather than a true black: against warm
+        // paper a neutral black reads slightly green, and the navy keeps the
+        // page from going cold while still clearing 15:1 on canvas.
+        ink: { DEFAULT: '#0A2633', dark: '#FBF8F5' },
+        muted: { DEFAULT: '#6B665C', dark: '#93A5AF' },
+        hairline: { DEFAULT: '#EDE7DB', dark: '#1B4254' },
+        // The lookbook's structural rules. `hairline` is a whisper — right for
+        // a divider between list rows, too faint to carry the plate grammar.
+        // `rule` is ink at 18%, so it composites correctly over both canvas and
+        // tray without needing a second token.
+        rule: { DEFAULT: 'rgba(10,38,51,0.18)', dark: 'rgba(251,248,245,0.20)' },
 
-        // The one accent
-        accent: { DEFAULT: '#1B3BFF', dark: '#5C74FF' },
+        // The accent. Still SPENT rather than sprayed — one primary action per
+        // screen — but it is now a considered blue that belongs to the paper
+        // instead of the electric indigo that fought it.
+        accent: {
+          DEFAULT: '#2A6F97',
+          hover: '#1E5A7D',
+          light: '#E8F1F7',
+          dark: '#7FB3D3',
+        },
+        // The second accent. Tan, for the places where blue would be read as a
+        // hyperlink — data highlights, the warm half of a two-tone chart.
+        'accent-warm': { DEFAULT: '#C4976C', hover: '#B08558', dark: '#D6AE88' },
 
         // Semantic — used sparingly; never as decoration
-        positive: '#2E7D4F',
-        warning: '#B4741F',
-        critical: '#B3261E',
+        positive: '#1A8754',
+        warning: '#D4850A',
+        critical: '#C0392B',
       },
       fontFamily: {
         // React Native does NOT synthesise weights for custom fonts: setting

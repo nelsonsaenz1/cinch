@@ -24,6 +24,8 @@ export type ThemeColors = {
   /** Structural rules of the plate grammar — ink at 18%, works over canvas and tray. */
   rule: string;
   accent: string;
+  /** The second accent. Warm tan — used where blue would read as a link. */
+  accentWarm: string;
   positive: string;
   warning: string;
   critical: string;
@@ -33,29 +35,31 @@ export type ColorSchemeName = 'light' | 'dark';
 
 const palette: Record<ColorSchemeName, ThemeColors> = {
   light: {
-    canvas: '#FAF9F6',
+    canvas: '#FBF8F5',
     surface: '#FFFFFF',
-    tray: '#F2F0EA',
-    ink: '#141310',
+    tray: '#F5F0E8',
+    ink: '#0A2633',
     muted: '#6B665C',
-    hairline: '#E3E0D8',
-    rule: 'rgba(20,19,16,0.18)',
-    accent: '#1B3BFF',
-    positive: '#2E7D4F',
-    warning: '#B4741F',
-    critical: '#B3261E',
+    hairline: '#EDE7DB',
+    rule: 'rgba(10,38,51,0.18)',
+    accent: '#2A6F97',
+    accentWarm: '#C4976C',
+    positive: '#1A8754',
+    warning: '#D4850A',
+    critical: '#C0392B',
   },
   dark: {
-    canvas: '#141310',
-    surface: '#1E1C18',
-    tray: '#26241F',
-    ink: '#FAF9F6',
-    muted: '#9C968A',
-    hairline: '#33302A',
-    rule: 'rgba(250,249,246,0.20)',
-    accent: '#5C74FF',
+    canvas: '#061B24',
+    surface: '#0A2633',
+    tray: '#123243',
+    ink: '#FBF8F5',
+    muted: '#93A5AF',
+    hairline: '#1B4254',
+    rule: 'rgba(251,248,245,0.20)',
+    accent: '#7FB3D3',
+    accentWarm: '#D6AE88',
     positive: '#4CAF7D',
-    warning: '#D9932F',
+    warning: '#E8A33D',
     critical: '#E5675E',
   },
 };

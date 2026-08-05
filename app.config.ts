@@ -164,7 +164,7 @@ const config: ExpoConfig = {
     package: 'com.nelsonsaenz.cinch',
     predictiveBackGestureEnabled: false,
     adaptiveIcon: {
-      backgroundColor: '#FAF9F6',
+      backgroundColor: '#FBF8F5',
       foregroundImage: './assets/images/android-icon-foreground.png',
       backgroundImage: './assets/images/android-icon-background.png',
       monochromeImage: './assets/images/android-icon-monochrome.png',
@@ -204,7 +204,7 @@ const config: ExpoConfig = {
     [
       'expo-splash-screen',
       {
-        backgroundColor: '#FAF9F6',
+        backgroundColor: '#FBF8F5',
         image: './assets/images/splash-icon.png',
         imageWidth: 76,
       },

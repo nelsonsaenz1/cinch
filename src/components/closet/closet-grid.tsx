@@ -10,6 +10,12 @@ export type ClosetGridProps = {
   /** Storage paths → signed URLs; the grid prefers the thumb, falls back to the cutout. */
   resolveImage?: (...paths: (string | null | undefined)[]) => string | undefined;
   ListEmptyComponent?: React.ComponentType | React.ReactElement | null;
+  // The category board and the stat board ride INSIDE the list rather than
+  // sitting in a ScrollView around it. Nesting a virtualised list in a scroll
+  // view defeats the virtualisation entirely — every cell mounts at once — and
+  // a closet is the one screen here that can reach hundreds of items.
+  ListHeaderComponent?: React.ComponentType | React.ReactElement | null;
+  ListFooterComponent?: React.ComponentType | React.ReactElement | null;
 };
 
 /**
@@ -17,7 +23,14 @@ export type ClosetGridProps = {
  * New-Architecture rewrite that measures automatically, so `estimatedItemSize`
  * and friends from v1 tutorials are gone, not merely optional.
  */
-export function ClosetGrid({ items, onItemPress, resolveImage, ListEmptyComponent }: ClosetGridProps) {
+export function ClosetGrid({
+  items,
+  onItemPress,
+  resolveImage,
+  ListEmptyComponent,
+  ListHeaderComponent,
+  ListFooterComponent,
+}: ClosetGridProps) {
   return (
     <FlashList
       data={items}
@@ -31,6 +44,8 @@ export function ClosetGrid({ items, onItemPress, resolveImage, ListEmptyComponen
         />
       )}
       ListEmptyComponent={ListEmptyComponent}
+      ListHeaderComponent={ListHeaderComponent}
+      ListFooterComponent={ListFooterComponent}
       // Plain style, deliberately: FlashList is not wrapped by NativeWind, so a
       // contentContainerClassName here is silently dropped — no gutter, no
       // bottom padding, and nothing errors. 20 = spacing.gutter, 96 = pb-24.
