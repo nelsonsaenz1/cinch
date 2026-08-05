@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useRef, useState } from 'react';
+import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,17 +17,28 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
-import { SUGGESTED_PROMPTS } from '@/features/stylist/intent';
-import { useChat } from '@/features/stylist/use-chat';
+import { formatTemp } from '@/features/context/weather';
+import { greeting, QUICK_STARTS } from '@/features/stylist/opening';
+import type { ComposedAsk, EntryKey } from '@/features/stylist/questionnaire';
+import { useChat, type ChatMessage } from '@/features/stylist/use-chat';
+import { useQuestionnaire } from '@/features/stylist/use-questionnaire';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
+import { track } from '@/lib/posthog';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+
+/** Temperatures elsewhere in the app default to Fahrenheit; match them. */
+const UNITS = 'F' as const;
 
 /**
  * The sheet's header: a small oxblood-tinted mark, the serif name, and the
  * promise that keeps the feature trustworthy — stated plainly, every time.
  * `pt-5` clears the native sheet grabber; the hairline hands off to the
  * message list the way a card's rule hands off to its body.
+ *
+ * This mark is the screen's single accent. Everything below it — the opening
+ * chips, the questionnaire answers — is drawn in hairline and ink, which is
+ * what lets one small red circle still read as the app's voice speaking.
  */
 function StylistHeader() {
   const theme = useTheme();
@@ -49,6 +60,49 @@ function StylistHeader() {
 }
 
 /**
+ * A tappable answer.
+ *
+ * Its own component rather than the shared `Chip` for one reason: `Chip` buys
+ * its 44pt target with `hitSlop`, which is right for a single row of filters
+ * and wrong here, where answers wrap onto two or three lines and neighbouring
+ * slop regions would overlap into each other. This one is 44pt of real
+ * geometry, so a wrapped grid of them stays honest about what was tapped.
+ */
+function AnswerChip({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{ minHeight: MIN_TAP_TARGET }}
+      className="justify-center rounded-chip border border-rule px-4 active:opacity-60 dark:border-rule-dark">
+      <Text variant="body">{label}</Text>
+    </Pressable>
+  );
+}
+
+/** A full-width opening door. Wider than an answer because it is a decision. */
+function StartRow({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{ minHeight: MIN_TAP_TARGET }}
+      className="justify-center rounded-md border border-hairline px-4 py-3 active:opacity-60 dark:border-hairline-dark">
+      <Text variant="body">{label}</Text>
+    </Pressable>
+  );
+}
+
+/** A scripted turn rendered through the real bubble, so it is indistinguishable. */
+const scriptTurn = (id: string, role: ChatMessage['role'], text: string): ChatMessage => ({
+  id,
+  role,
+  text,
+  outfits: [],
+  followUp: null,
+});
+
+/**
  * Stylist — conversational styling, presented as a sheet off Today.
  *
  * Deliberately not a tab: a chat tab is the generic-AI tell, and it duplicates
@@ -60,12 +114,26 @@ function StylistHeader() {
  * shortlist plus a digest goes up. That is what stops the stylist recommending
  * a coat the user does not own — the failure mode that would make the whole
  * feature untrustworthy.
+ *
+ * OPENING WITH A QUESTION, NOT A BOX. An empty text field asks the person to
+ * name what they want, which is the job they opened the stylist to hand over.
+ * So the sheet opens with a greeting that already knows the hour and the
+ * forecast, four doors, and — behind them — a scripted questionnaire that runs
+ * entirely on device. Three or four taps, no model call between them, and the
+ * one request that does go up carries a brief instead of a shrug. Typing is
+ * still there, at every step, for the people who already know.
  */
 export default function StylistScreen() {
   const router = useRouter();
   const theme = useTheme();
   const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
   const [draft, setDraft] = useState('');
+
+  // Fixed at mount. The sheet is opened, used and dismissed inside a few
+  // minutes, and a greeting that re-reads the clock mid-conversation would
+  // silently rewrite what the stylist already said.
+  const [openedAt] = useState(() => new Date());
 
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
@@ -81,22 +149,73 @@ export default function StylistScreen() {
 
   const { messages, ask, isSending } = useChat({ wardrobe: items, context, profile });
 
-  const { resolve } = useSignedUrls(
-    messages.flatMap((m) =>
-      m.outfits.flatMap((o) => o.items.flatMap((g) => [g.cutoutPath, g.thumbPath])),
-    ),
-  );
+  const scrollSoon = useCallback(() => {
+    // Let the new bubble mount before scrolling to it.
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+  }, []);
 
   const submit = useCallback(
     (text: string) => {
       if (!text.trim() || isSending) return;
       setDraft('');
       void ask(text);
-      // Let the new bubble mount before scrolling to it.
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+      scrollSoon();
     },
-    [ask, isSending],
+    [ask, isSending, scrollSoon],
   );
+
+  /**
+   * A finished flow becomes one request.
+   *
+   * The taps produced both a sentence and a brief; the sentence is what the
+   * person sees as their own message and what the on-device parser reads, the
+   * brief is what the model is told. `intent` carries the formality and
+   * occasion straight from the tapped option so the beam search never has to
+   * re-derive by keyword what was already stated outright.
+   */
+  const onComplete = useCallback(
+    (composed: ComposedAsk, entry: EntryKey) => {
+      if (composed.brief) {
+        // Counts and fixed enums only — never the composed sentence, which is
+        // as close to user content as anything the person types.
+        track('stylist_questionnaire_completed', {
+          steps: composed.steps,
+          mood: composed.brief.mood ?? 'none',
+          entry,
+        });
+      }
+      void ask(composed.message, { brief: composed.brief, intent: composed.intent });
+      scrollSoon();
+    },
+    [ask, scrollSoon],
+  );
+
+  const questionnaire = useQuestionnaire({
+    wardrobe: items,
+    weather: context.weather,
+    temperature: context.weather ? formatTemp(context.weather.feelsLikeC, UNITS) : null,
+    onComplete,
+  });
+
+  /** Abandon the flow and hand the person the keyboard they asked for. */
+  const { cancel: cancelQuestionnaire } = questionnaire;
+  const escapeToTyping = useCallback(() => {
+    cancelQuestionnaire();
+    inputRef.current?.focus();
+  }, [cancelQuestionnaire]);
+
+  const hello = useMemo(
+    () => greeting({ now: openedAt, weather: context.weather, units: UNITS }),
+    [openedAt, context.weather],
+  );
+
+  const { resolve } = useSignedUrls(
+    messages.flatMap((m) =>
+      m.outfits.flatMap((o) => o.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath])),
+    ),
+  );
+
+  const showOpening = messages.length === 0 && !questionnaire.active;
 
   if (!wardrobe.isLoading && !canGenerate(items)) {
     return (
@@ -126,45 +245,99 @@ export default function StylistScreen() {
           contentContainerClassName="pb-4"
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
-          {messages.length === 0 ? (
-            <View className="px-gutter pt-4">
-              <Text variant="body" className="text-muted dark:text-muted-dark">
-                Ask about anything you have on. The stylist answers using only the
-                clothes in your closet — and will tell you when you do not own the
-                right thing.
+          {showOpening ? (
+            <View className="px-gutter pt-6">
+              <Text variant="title" trim>
+                {hello.salutation}
+              </Text>
+              <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                {hello.line}
               </Text>
 
-              <View className="mt-6 gap-2">
-                {SUGGESTED_PROMPTS.map((prompt) => (
-                  <Pressable
-                    key={prompt}
-                    onPress={() => submit(prompt)}
-                    accessibilityRole="button"
-                    style={{ minHeight: MIN_TAP_TARGET }}
-                    className="justify-center rounded-md border border-hairline px-4 py-3 active:opacity-60 dark:border-hairline-dark">
-                    <Text variant="body">{prompt}</Text>
-                  </Pressable>
+              <View className="mt-7 gap-2">
+                {QUICK_STARTS.map((start) => (
+                  <StartRow
+                    key={start.key}
+                    label={start.label}
+                    onPress={() => questionnaire.start(start.key)}
+                  />
                 ))}
               </View>
+
+              <Text variant="caption" className="mt-5">
+                Or just say it — the stylist answers with clothes you own, and says so when
+                you do not own the right thing.
+              </Text>
             </View>
-          ) : (
-            messages.map((message) => (
+          ) : null}
+
+          {messages.map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              resolveImage={resolve}
+              // Today is directly beneath the sheet — dismiss, don't push.
+              // The canGoBack guard covers exotic cold-start states where
+              // the sheet is somehow the only route.
+              onPressOutfit={() =>
+                router.canGoBack() ? router.back() : router.replace('/(tabs)')
+              }
+            />
+          ))}
+
+          {/* Answered steps, replayed through the same bubble the model's turns
+              use. They are session-only — the composed question is what gets
+              persisted, because that is the thing that still makes sense read
+              back a week later. */}
+          {questionnaire.transcript.map((turn) => (
+            <Fragment key={turn.key}>
               <MessageBubble
-                key={message.id}
-                message={message}
+                message={scriptTurn(`q-${turn.key}`, 'assistant', turn.question)}
                 resolveImage={resolve}
-                // Today is directly beneath the sheet — dismiss, don't push.
-                // The canGoBack guard covers exotic cold-start states where
-                // the sheet is somehow the only route.
-                onPressOutfit={() =>
-                  router.canGoBack() ? router.back() : router.replace('/(tabs)')
-                }
               />
-            ))
-          )}
+              <MessageBubble
+                message={scriptTurn(`a-${turn.key}`, 'user', turn.answer)}
+                resolveImage={resolve}
+              />
+            </Fragment>
+          ))}
+
+          {questionnaire.step ? (
+            <View>
+              <MessageBubble
+                message={scriptTurn('q-current', 'assistant', questionnaire.step.question)}
+                resolveImage={resolve}
+              />
+
+              <View className="flex-row flex-wrap gap-2 px-gutter">
+                {questionnaire.step.options.map((option) => (
+                  <AnswerChip
+                    key={option.key}
+                    label={option.label}
+                    onPress={() => questionnaire.answer(option.key)}
+                  />
+                ))}
+              </View>
+
+              <View className="mt-4 flex-row items-center justify-between px-gutter">
+                <Text variant="eyebrow">
+                  {questionnaire.position} of {questionnaire.total}
+                </Text>
+                <Pressable
+                  onPress={escapeToTyping}
+                  accessibilityRole="button"
+                  accessibilityHint="Closes the questions and opens the keyboard"
+                  hitSlop={12}>
+                  <Text variant="label" className="underline">
+                    I&rsquo;ll just type
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
         </ScrollView>
 
-        {messages.length > 0 ? (
+        {messages.length > 0 && !questionnaire.active ? (
           <View className="flex-row flex-wrap gap-2 px-gutter pb-2">
             <Chip label="Something warmer" onPress={() => submit('Something warmer')} />
             <Chip label="Dressier" onPress={() => submit('A bit dressier')} />
@@ -174,10 +347,13 @@ export default function StylistScreen() {
 
         <View className="flex-row items-end gap-2 border-t border-hairline px-gutter pb-2 pt-3 dark:border-hairline-dark">
           <TextInput
+            ref={inputRef}
             value={draft}
             onChangeText={setDraft}
             onSubmitEditing={() => submit(draft)}
-            placeholder="Ask about your clothes…"
+            // The placeholder does the job a feature tour would: it shows the
+            // one question nothing else on the market can answer.
+            placeholder="Dinner at 7, drinks after…"
             placeholderTextColor={theme.muted}
             multiline
             returnKeyType="send"
