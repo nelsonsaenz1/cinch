@@ -149,14 +149,10 @@ export default function ProfileScreen() {
   const grantConsent = useGrantAiConsent();
   const [consentVisible, setConsentVisible] = useState(false);
 
-  const stats = useMemo(() => {
-    const items = closet.data ?? [];
-    return {
-      pieces: items.length,
-      wears: items.reduce((sum, i) => sum + i.wearCount, 0),
-      neverWorn: items.filter((i) => i.wearCount === 0).length,
-    };
-  }, [closet.data]);
+  // Only used for the exact count named in the delete-account warning below —
+  // the zip's Profile screen has no wardrobe stats card, so nothing else here
+  // reads from the closet.
+  const pieceCount = closet.data?.length ?? 0;
 
   const name = profileHeader.data?.name ?? '';
   const memberSince = profileHeader.data?.memberSince;
@@ -204,8 +200,8 @@ export default function ProfileScreen() {
   const confirmDelete = () => {
     Alert.alert(
       'Delete account',
-      `This permanently deletes your ${stats.pieces} ${
-        stats.pieces === 1 ? 'piece' : 'pieces'
+      `This permanently deletes your ${pieceCount} ${
+        pieceCount === 1 ? 'piece' : 'pieces'
       }, every photo you uploaded, your outfit history, and everything Cinch has learned about your style.\n\nThis cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -303,40 +299,11 @@ export default function ProfileScreen() {
         </View>
 
         <View className="px-gutter">
-          <View className="rounded-plate border border-rule bg-surface p-4">
-            <Text variant="eyebrow">Wardrobe</Text>
-            <View className="mt-3 flex-row justify-between">
-              <View>
-                <Text variant="stat" className="text-figure">
-                  {stats.pieces}
-                </Text>
-                <Text variant="label">Pieces</Text>
-              </View>
-              <View>
-                <Text variant="stat" className="text-figure">
-                  {stats.wears}
-                </Text>
-                <Text variant="label">Total wears</Text>
-              </View>
-              <View>
-                <Text variant="stat" className="text-figure">
-                  {stats.neverWorn}
-                </Text>
-                <Text variant="label">Never worn</Text>
-              </View>
-            </View>
-            {stats.pieces === 0 ? (
-              <Text variant="label" className="mt-4">
-                Live stats land once you add your first pieces.
-              </Text>
-            ) : null}
-          </View>
-
           {/* What the engine has learned, in the user's own terms. Showing this
               is what makes the personalisation feel like a relationship rather
               than a black box — and gives them somewhere to push back. The
               progress bar is honest about the threshold, not decorative. */}
-          <View className="mt-6 rounded-plate border border-rule bg-surface p-4">
+          <View className="rounded-plate border border-rule bg-surface p-4">
             <Text variant="eyebrow">What Cinch has learned</Text>
             <Text variant="body" className="mt-2.5 text-ink">
               {learnedSentence}
@@ -348,7 +315,15 @@ export default function ProfileScreen() {
                   style={{ width: `${learnedProgress}%` }}
                 />
               </View>
-              <Text variant="caption" className="text-muted">
+              {/* Serif, per the zip — the one caption on this screen set in
+                  Instrument Serif rather than Helvetica. Same gotcha as the
+                  avatar initials above: a className font override is not
+                  guaranteed to beat the variant's own family, so this goes
+                  through inline style instead. */}
+              <Text
+                variant="caption"
+                className="text-muted"
+                style={{ fontFamily: 'InstrumentSerif_400Regular' }}>
                 Getting to know you
               </Text>
             </View>

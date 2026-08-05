@@ -152,7 +152,7 @@ function WearButton({
  * A plate from the day's edit — the app's signature component, set as the
  * design's white outfit card.
  *
- * The grammar, top to bottom: the outfit's didone name with the feels-like it
+ * The card, top to bottom: the outfit's serif name with the feels-like it
  * was chosen against as a colophon; the model's reasoning; the flat-lay, each
  * garment flexed by how much of the look it occupies and labelled beneath; then
  * a footer printing the palette in the engine's own colours and the look's cost
@@ -238,7 +238,7 @@ export function Plate({
       <View className="rounded-plate border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
         {/* Long-press the visual → the 1080×1920 artifact. The share target is
             the card's editorial half only; the action pills below stay tappable
-            and a lookbook plate carries no share chrome of its own. */}
+            and the card carries no share chrome of its own. */}
         <Pressable
           onLongPress={handleShare}
           delayLongPress={350}

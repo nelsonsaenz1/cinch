@@ -13,7 +13,7 @@ import { fadeEasing } from '@/theme/tokens';
 
 /**
  * The 1px structural rule of the plate grammar. `hairline` is for quiet row
- * dividers; this is the printed line that carries the lookbook's structure.
+ * dividers; this is the printed line that carries the page's structure.
  */
 export function Rule({ className = '' }: { className?: string }) {
   return <View className={`h-hair w-full bg-rule dark:bg-rule-dark ${className}`} />;

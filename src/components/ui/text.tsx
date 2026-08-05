@@ -57,7 +57,7 @@ const variants: Record<Variant, string> = {
  *
  * Instrument Serif carries a tall 1.30 line box, so a 64px setting sits inside
  * an 84px box. Untrimmed, a rule placed 12px below the text *looks* far below
- * it, and the lookbook's tight plate grammar is impossible. `trim` collapses
+ * it, and the tight editorial measure is impossible. `trim` collapses
  * the box to the cap height with negative margins, leaving the glyph box intact.
  * Opt in per use; flowing body text never wants it.
  */

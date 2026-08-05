@@ -42,7 +42,7 @@ export default function PlanScreen() {
 
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
-  const { context, coords, cityLabel } = useStyleContext();
+  const { context, coords } = useStyleContext();
 
   // Memoised: a bare `?? []` is a new array identity every render, which
   // re-plans the whole week on any unrelated state change.
@@ -175,8 +175,8 @@ export default function PlanScreen() {
             <>
               <View className="mb-1 flex-row items-baseline justify-between px-gutter">
                 <Text variant="title">This week</Text>
-                <Text variant="label">
-                  {cityLabel} · {weekRangeLabel}
+                <Text variant="label" className="text-faint dark:text-faint-dark">
+                  {weekRangeLabel}
                 </Text>
               </View>
               <Text variant="label" className="mb-5 px-gutter text-accent dark:text-accent-dark">

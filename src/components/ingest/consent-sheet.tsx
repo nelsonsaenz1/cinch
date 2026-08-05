@@ -1,18 +1,27 @@
-import { Modal, ScrollView, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { ActivityIndicator, Modal, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { useTheme } from '@/theme/tokens';
 
 /**
- * The AI processing consent interaction required by Guideline 5.1.2(i).
+ * The first-run AI-processing consent moment — Apple Guideline 5.1.2(i).
  *
- * Copy principles, because this is a compliance surface and a trust surface at
- * once: say what leaves the device, say what does not, name the recipient, and
- * do not bury any of it. The "stays on your phone" line is genuinely true —
- * background removal runs on-device via Apple Vision — and it is worth saying
- * plainly rather than hiding behind a policy link.
+ * Matches the handoff's frame 07b: a plain, honest disclosure of exactly what
+ * Cinch does with a photo before it does it. The three lines ARE the disclosure
+ * — what it does (cleans up, identifies) and what it will never do (sell, share,
+ * advertise) — stated plainly rather than buried behind a policy link. Consent
+ * is also enforced server-side on every Edge Function call; this is the "ask
+ * first" half.
  */
+const PROMISES = [
+  'Cleans up the photo — removes the background',
+  'Identifies the garment, its colours and category',
+  'Never sold, never shared, never used to advertise',
+];
+
 export function ConsentSheet({
   visible,
   onAccept,
@@ -24,55 +33,58 @@ export function ConsentSheet({
   onDecline: () => void;
   busy?: boolean;
 }) {
+  const theme = useTheme();
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
         <ScrollView contentContainerClassName="px-8 pb-8 pt-10">
-          <Text variant="eyebrow" className="mb-3 text-accent dark:text-accent-dark">
+          <Text variant="title" trim>
             Before Cinch looks
           </Text>
-          <Text variant="title">Cinch uses AI to tag your clothes</Text>
-
-          <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
-            To build your closet, photos of your clothes are sent to our AI
-            provider, OpenRouter, which identifies what each piece is — the
-            category, colours, how formal it is, and what weather it suits.
+          <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+            To turn your photos into a wardrobe, Cinch processes each image. Here&apos;s exactly what
+            that means.
           </Text>
 
-          <View className="mt-6 rounded-card border border-hairline p-5 dark:border-hairline-dark">
-            <Text variant="caption" className="mb-3">
-              What gets sent
-            </Text>
-            <Text variant="body">
-              Photos of individual clothing items, and later the weather and
-              plans you ask about.
-            </Text>
-
-            <Text variant="caption" className="mb-3 mt-6">
-              What stays on your phone
-            </Text>
-            <Text variant="body">
-              Cutting the background out of your photos happens entirely on your
-              device. Your photo library is never read — you choose exactly which
-              pictures to share, one at a time.
-            </Text>
+          <View className="mt-7 gap-4">
+            {PROMISES.map((line) => (
+              <View key={line} className="flex-row items-center gap-3">
+                <View className="h-7 w-7 items-center justify-center rounded-full bg-accent-light">
+                  <SymbolView name="sparkle" size={14} tintColor={theme.accent} resizeMode="scaleAspectFit" />
+                </View>
+                <Text variant="callout" className="flex-1">
+                  {line}
+                </Text>
+              </View>
+            ))}
           </View>
 
-          {/* This promise is kept in Profile → "AI features" → Turn off, which
-              nulls the consent record the Edge Functions check on every call.
-              The second sentence used to say withdrawal turned off "outfit
-              suggestions", which was not true: outfits are built by the
-              on-device engine and keep working without any AI at all. Only the
-              naming and the reasoning prose come from the model. */}
-          <Text variant="label" className="mt-6">
-            You can withdraw this at any time in Profile. Your closet stays, and
-            Cinch keeps putting outfits together on your phone — what stops is
-            tagging new pieces, the stylist chat, and having the AI rewrite the
-            suggestions.
+          {/* Withdrawal is real: Profile → "AI features" → Turn off nulls the
+              consent record the Edge Functions check. The closet and the
+              on-device outfit engine keep working without any AI at all. */}
+          <Text variant="label" className="mt-7 text-muted dark:text-muted-dark">
+            You can turn AI features off anytime in Profile. Your closet stays, and Cinch keeps
+            putting outfits together on your phone — what stops is tagging new pieces and the
+            stylist.
           </Text>
 
-          <View className="mt-8 gap-3">
-            <Button title="Continue" onPress={onAccept} loading={busy} haptic />
+          <View className="mt-8 gap-2">
+            {/* Ink primary, per the zip — the accent is spent elsewhere. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Allow processing"
+              onPress={onAccept}
+              disabled={busy}
+              className="h-14 items-center justify-center rounded-plate bg-ink active:opacity-90 dark:bg-ink-dark">
+              {busy ? (
+                <ActivityIndicator color={theme.canvas} />
+              ) : (
+                <Text variant="callout" className="font-semibold" style={{ color: theme.canvas }}>
+                  Allow processing
+                </Text>
+              )}
+            </Pressable>
             <Button title="Not now" variant="ghost" onPress={onDecline} />
           </View>
         </ScrollView>

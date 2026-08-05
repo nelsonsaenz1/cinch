@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -12,62 +13,74 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PlateHero } from '@/components/brand/plate-hero';
 import { Plate } from '@/components/today/plate';
 import type { ReactionValue } from '@/components/today/reaction-bar';
 import { WeatherStrip } from '@/components/today/weather-strip';
-import { Button } from '@/components/ui/button';
 import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { startTagSweeper } from '@/features/ingest/upload-queue';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
-import {
-  canGenerate,
-  MIN_CLOSET_FOR_OUTFITS,
-  useStyleProfile,
-  useWardrobe,
-} from '@/features/styling/queries';
+import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits } from '@/features/styling/use-outfits';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
-import { useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /** Stable identity for a candidate: the exact set of garments in it. */
 const idOf = (items: { id: string }[]) => items.map((g) => g.id).join('.');
 
+/** The masthead date line — "Tue 5 Aug · London": weekday, day, month, place. */
+function dayLine(city: string) {
+  const now = new Date();
+  const weekday = now.toLocaleDateString('en-US', { weekday: 'short' });
+  const month = now.toLocaleDateString('en-US', { month: 'short' });
+  return `${weekday} ${now.getDate()} ${month} · ${city}`;
+}
+
+/** A greeting that is honest about the hour, not always "morning". */
+function greetingForNow() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
 /**
- * The page header, set like a magazine folio: the date as a tracked eyebrow,
- * the section name in the didone, and a structural rule closing the masthead.
+ * The page header: the day and place as a tracked eyebrow, a serif greeting,
+ * and the structural rule closing the masthead.
  *
- * The trailing icons are the only doors to Stylist and Profile — both lost
- * their tabs in the three-tab restructure. Muted, monochrome: they are
- * chrome, and accent never goes on chrome.
+ * The trailing chips are the only doors to Stylist and Profile — both lost
+ * their tabs in the three-tab restructure. The stylist is the app's sparkle
+ * (the same oxblood mark the stylist screen carries); the profile is the ink
+ * avatar well.
  */
-function Masthead() {
+function Masthead({ city }: { city: string }) {
   const router = useRouter();
   const theme = useTheme();
-  const now = new Date();
-  const dateLine = `${now.toLocaleDateString('en-US', { weekday: 'long' })} · ${now.getDate()} ${now
-    .toLocaleDateString('en-US', { month: 'short' })
-    .toUpperCase()} ${now.getFullYear()}`;
 
   return (
-    <View className="px-gutter pt-2" style={{ paddingBottom: 20 }}>
-      <View className="flex-row items-center justify-between">
-        <Text variant="eyebrow">{dateLine}</Text>
-        <View className="flex-row">
+    <View className="px-gutter pt-2" style={{ paddingBottom: 18 }}>
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1">
+          <Text variant="eyebrow">{dayLine(city)}</Text>
+          <View style={{ marginTop: 6 }}>
+            <Text variant="display" trim accessibilityRole="header">
+              {greetingForNow()}
+            </Text>
+          </View>
+        </View>
+        <View className="flex-row gap-2" style={{ marginTop: 2 }}>
           <Pressable
             // navigate, not push: a fast double-tap must not stack two sheets.
             onPress={() => router.navigate('/stylist')}
             accessibilityRole="button"
             accessibilityLabel="Ask the stylist"
             hitSlop={8}
-            className="h-tap w-tap items-center justify-center active:opacity-60">
+            style={{ width: 34, height: 34 }}
+            className="items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
             <SymbolView
-              name="bubble.left.and.text.bubble.right"
-              size={20}
-              tintColor={theme.muted}
+              name="sparkles"
+              size={16}
+              tintColor={theme.accent}
               resizeMode="scaleAspectFit"
             />
           </Pressable>
@@ -76,20 +89,16 @@ function Masthead() {
             accessibilityRole="button"
             accessibilityLabel="Profile"
             hitSlop={8}
-            className="h-tap w-tap items-center justify-center active:opacity-60">
+            style={{ width: 34, height: 34 }}
+            className="items-center justify-center rounded-full bg-ink active:opacity-60 dark:bg-ink-dark">
             <SymbolView
-              name="person.crop.circle"
-              size={20}
-              tintColor={theme.muted}
+              name="person.fill"
+              size={15}
+              tintColor={theme.canvas}
               resizeMode="scaleAspectFit"
             />
           </Pressable>
         </View>
-      </View>
-      <View style={{ marginTop: 12 }}>
-        <Text variant="display" trim accessibilityRole="header">
-          Today
-        </Text>
       </View>
       <View style={{ marginTop: 14 }}>
         <Rule />
@@ -305,35 +314,68 @@ export default function TodayScreen() {
   }
 
   if (!canGenerate(items)) {
-    const remaining = Math.max(0, MIN_CLOSET_FOR_OUTFITS - items.length);
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
-        {/* Not the generic icon-in-a-circle empty state: the first thing a new
-            user sees on Today is a real plate — the same flat-lay that sold
-            them on the welcome screen — so the promise and the product look
-            identical. Its scarf landing is this screen's one bouncy moment. */}
-        <ScrollView contentContainerClassName="pb-10">
-          <Masthead />
-          <View className="px-gutter">
-            <PlateHero />
-            <View style={{ marginTop: 28 }}>
-              <Text variant="title" trim>
-                {items.length === 0 ? 'Your first outfit is close' : 'Almost there'}
-              </Text>
-            </View>
-            <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
-              {items.length === 0
-                ? 'Add about ten pieces and Cinch starts styling you every morning — weather, plans, and everything already in your closet.'
-                : `${remaining || 'A few'} more ${remaining === 1 ? 'piece' : 'pieces'} and Cinch can start building outfits. It needs at least a top, a bottom, and something for your feet.`}
+        {/* The masthead reduces to the date and the section name: a brand-new
+            user has no morning to greet yet, and no stylist to ask. */}
+        <View className="px-gutter pt-2">
+          <Text variant="eyebrow">{dayLine(cityLabel)}</Text>
+          <View style={{ marginTop: 6 }}>
+            <Text variant="display" trim accessibilityRole="header">
+              Today
             </Text>
-            <Button
-              title="Add clothes"
-              onPress={() => router.push('/capture')}
-              haptic
-              className="mt-8 self-stretch"
-            />
           </View>
-        </ScrollView>
+        </View>
+
+        {/* Not the old flat-lay hero, which promised a look the closet cannot
+            yet produce. An honest empty tray instead: Cinch cannot style a
+            wardrobe it has never seen, and it says exactly that. */}
+        <View className="flex-1 items-center justify-center px-gutter" style={{ paddingBottom: 48 }}>
+          <View
+            className="items-center justify-end bg-tray dark:bg-tray-dark"
+            style={{
+              width: 132,
+              height: 152,
+              borderRadius: 8,
+              borderWidth: 1.5,
+              borderColor: theme.rule,
+              borderStyle: 'dashed',
+              paddingBottom: 12,
+            }}>
+            <Text variant="colophon">Nothing to style yet</Text>
+          </View>
+
+          <View style={{ marginTop: 26 }}>
+            <Text variant="title" className="text-center">
+              I can&apos;t style{'\n'}what I can&apos;t see
+            </Text>
+          </View>
+
+          <Text
+            variant="body"
+            className="mt-3 text-center text-muted dark:text-muted-dark"
+            style={{ maxWidth: 264 }}>
+            Photograph your wardrobe once and I&apos;ll build outfits from your real clothes each
+            morning. No shopping, ever.
+          </Text>
+
+          {/* Ink, not oxblood: the one spent accent is reserved for a loved
+              look, and the shared Button has no ink variant — so this is an
+              inline pill in the plate grammar, its label lit inline. */}
+          <Pressable
+            onPress={() => {
+              void Haptics.selectionAsync().catch(() => {});
+              router.push('/capture');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Add your clothes"
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="mt-7 flex-row items-center justify-center rounded-md bg-ink px-6 active:opacity-70 dark:bg-ink-dark">
+            <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+              Add your clothes
+            </Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
@@ -352,7 +394,7 @@ export default function TodayScreen() {
             tintColor={theme.muted}
           />
         }>
-        <Masthead />
+        <Masthead city={cityLabel} />
 
         {/* Offline, said plainly and once. Dark ink banner so it reads as a
             state of the whole screen, not a per-card warning. */}

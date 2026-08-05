@@ -18,7 +18,6 @@ import { useEffect } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { PaperGrain } from '@/components/ui/paper';
 import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
 import { useSession } from '@/features/auth/use-session';
 import {
@@ -34,7 +33,7 @@ import { supabase } from '@/lib/supabase';
 import '@/global.css';
 
 // Hold the splash until the fonts are in memory. Without this the first frame
-// paints in the system fallback and then reflows once Bodoni and Archivo load —
+// paints in the system fallback and then reflows once the serif loads —
 // a visible jolt on the very first screen a new user ever sees.
 void SplashScreen.preventAutoHideAsync();
 
@@ -147,8 +146,8 @@ export default function RootLayout() {
     // The display face — the whole app is set in one weight of one serif. Only
     // the serif is loaded here; the grotesque half of the system is Helvetica
     // Neue, an iOS system face that needs no bundling. Instrument Serif is a
-    // single optical master (no `opsz` axis), so unlike the didone it needed no
-    // instanced cut — the stock TTF is the display cut.
+    // single optical master (no `opsz` axis), so it needs no instanced cut —
+    // the stock TTF is the display cut.
     InstrumentSerif_400Regular,
     // The italic is a real cut, not a slant: React Native does not synthesise
     // italics for a loaded family, so the emphasis words ("already own.") need
@@ -229,10 +228,6 @@ export default function RootLayout() {
           </AuthGate>
         </ThemeProvider>
       </PersistQueryClientProvider>
-      {/* The grain covers the base app only. Natively-presented modals sit in
-          their own view controllers above this view — which is correct: the
-          camera feed and the stylist sheet are not paper. */}
-      <PaperGrain />
     </GestureHandlerRootView>
   );
 }

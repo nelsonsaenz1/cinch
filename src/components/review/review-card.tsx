@@ -17,7 +17,7 @@ import Animated, {
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
-import { occasion, type Item, type ItemCategory } from '@/schemas/item';
+import type { Item, ItemCategory } from '@/schemas/item';
 import { MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -28,7 +28,9 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
 
 const CATEGORY_OPTIONS: { key: ItemCategory; label: string }[] = [
-  { key: 'top', label: 'Top' },
+  // "Tops", plural, matches the handoff's exact "Tops · Knitwear" (Frame 08)
+  // and the plural convention the closet's own category filter already uses.
+  { key: 'top', label: 'Tops' },
   { key: 'bottom', label: 'Bottom' },
   { key: 'outerwear', label: 'Outerwear' },
   { key: 'footwear', label: 'Shoes' },
@@ -39,10 +41,6 @@ const CATEGORY_OPTIONS: { key: ItemCategory; label: string }[] = [
   { key: 'jewelry', label: 'Jewelry' },
   { key: 'other', label: 'Other' },
 ];
-
-// Taken from the schema rather than retyped, so the chips on offer here cannot
-// drift away from the vocabulary the tagger is constrained to.
-const OCCASION_OPTIONS: readonly string[] = occasion.options;
 
 export type ReviewCardProps = {
   item: Item;
@@ -63,6 +61,14 @@ export type ReviewCardProps = {
    */
   onSkip: () => void;
   category: ItemCategory;
+  /**
+   * Still accepted (and still supplied by the parent's edit state), but the
+   * handoff's review card surfaces only Category / Colours / Details — no
+   * "wear it for" row — so this card does not render an occasions editor.
+   * Kept on the prop type rather than deleted so the parent's patch logic
+   * (which can send an occasions correction if one is ever made upstream of
+   * this card) does not have to change shape.
+   */
   occasions: string[];
   onEditCategory: (next: ItemCategory) => void;
   onToggleOccasion: (occasion: string) => void;
@@ -75,18 +81,17 @@ export function ReviewCard({
   onConfirm,
   onSkip,
   category,
-  occasions,
   onEditCategory,
-  onToggleOccasion,
 }: ReviewCardProps) {
   const theme = useTheme();
   const translateX = useSharedValue(0);
 
   // Which row's chip picker is open, if any. Only one at a time — this is a
-  // "tap to correct" affordance, not a form. Category and occasions are the
-  // only two fields the review pipeline can actually patch (see
-  // `useVerifyItem`), so Colours and Details below render as plain read-outs.
-  const [openEditor, setOpenEditor] = useState<'category' | 'occasions' | null>(null);
+  // "tap to correct" affordance, not a form. Category is the only field this
+  // card can actually patch (see `useVerifyItem`), so Colours and Details
+  // below render as plain read-outs — Edit label shown for visual parity with
+  // the handoff, but not wired to a picker.
+  const [openEditor, setOpenEditor] = useState<'category' | null>(null);
 
   const fireHaptic = useCallback(() => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {
@@ -184,8 +189,6 @@ export function ReviewCard({
   const detailsValue =
     detailsParts.length > 0 ? detailsParts.join(' · ') : (item.description ?? 'No extra details');
 
-  const occasionsValue = occasions.length > 0 ? occasions.join(' · ') : 'Add occasions';
-
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
@@ -259,10 +262,11 @@ export function ReviewCard({
               </Animated.View>
             </View>
 
-            {/* Category / Colours / Details / Wear it for — a colophon label,
-                the value beneath it, and (where the field is genuinely
-                editable) an accent "Edit" that reveals the same chip picker
-                the old always-open grid used. */}
+            {/* Category / Colours / Details — a colophon label, the value
+                beneath it, an accent "Edit" affordance, and a hairline
+                divider between rows. Only Category's Edit opens a picker;
+                Colours and Details show the same affordance for visual
+                parity with the handoff but have nothing to patch yet. */}
             <ReviewRow
               label="Category"
               editable
@@ -288,7 +292,7 @@ export function ReviewCard({
               </Text>
             </ReviewRow>
 
-            <ReviewRow label="Colours">
+            <ReviewRow label="Colours" editable>
               <View className="flex-row items-center gap-2">
                 {colours.map((c, i) =>
                   c.hex ? (
@@ -305,32 +309,9 @@ export function ReviewCard({
               </View>
             </ReviewRow>
 
-            <ReviewRow label="Details">
+            <ReviewRow label="Details" editable isLast>
               <Text variant="callout" numberOfLines={2}>
                 {detailsValue}
-              </Text>
-            </ReviewRow>
-
-            <ReviewRow
-              label="Wear it for"
-              isLast
-              editable
-              expanded={openEditor === 'occasions'}
-              onToggleEdit={() => setOpenEditor((cur) => (cur === 'occasions' ? null : 'occasions'))}
-              expandedContent={
-                <>
-                  {OCCASION_OPTIONS.map((o) => (
-                    <Chip
-                      key={o}
-                      label={o}
-                      selected={occasions.includes(o)}
-                      onPress={() => onToggleOccasion(o)}
-                    />
-                  ))}
-                </>
-              }>
-              <Text variant="callout" numberOfLines={1}>
-                {occasionsValue}
               </Text>
             </ReviewRow>
 
@@ -341,7 +322,7 @@ export function ReviewCard({
               Hints spell out the consequence because "Skip" alone does not say
               whether the item comes back.
             */}
-            <View className="mt-auto flex-row items-center gap-2.5 pt-5">
+            <View className="mt-auto flex-row items-center gap-2.5 border-t border-hairline pt-4 dark:border-hairline-dark">
               <Button
                 title="Skip"
                 variant="secondary"
@@ -363,7 +344,10 @@ export function ReviewCard({
                 hitSlop={{ top: 4, bottom: 4 }}
                 style={{ minHeight: MIN_TAP_TARGET }}
                 className="flex-1 flex-row items-center justify-center rounded-md bg-ink px-5 active:opacity-70 dark:bg-ink-dark">
-                <Text variant="body" className="font-semibold text-canvas dark:text-canvas">
+                {/* Inline style, not `text-canvas`: the className loses to the
+                    variant's own `text-ink` and the label vanishes on the ink
+                    fill. Same trap as the item-detail hero tile. */}
+                <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
                   Looks right
                 </Text>
               </Pressable>
@@ -376,12 +360,14 @@ export function ReviewCard({
 }
 
 /**
- * One Category/Colours/Details/Wear-it-for row: a tracked colophon label, the
- * value beneath it, a hairline under all but the last row, and — only where
- * `onToggleEdit` is supplied — an accent "Edit" that reveals `expandedContent`
- * (a chip grid) in place. Colours and Details have no backing edit callback,
- * so they render as plain read-outs rather than a live "Edit" link that would
- * do nothing when tapped.
+ * One Category/Colours/Details row: a tracked colophon label, the value
+ * beneath it, a hairline under all but the last row, and — when `editable`
+ * is set — an accent "Edit" affordance matching the handoff. Where
+ * `onToggleEdit` is also supplied (Category), that affordance is a real
+ * control that reveals `expandedContent` (a chip grid) in place. Colours and
+ * Details have no backing edit callback — the review pipeline can only patch
+ * category (see `useVerifyItem`) — so their "Edit" renders as plain text: the
+ * same look as the handoff, without pretending a tap does something it can't.
  */
 function ReviewRow({
   label,
@@ -407,7 +393,7 @@ function ReviewRow({
           <Text variant="colophon">{label}</Text>
           <View className="mt-1">{children}</View>
         </View>
-        {editable ? (
+        {editable && onToggleEdit ? (
           <Pressable
             onPress={onToggleEdit}
             hitSlop={8}
@@ -418,9 +404,13 @@ function ReviewRow({
               {expanded ? 'Done' : 'Edit'}
             </Text>
           </Pressable>
+        ) : editable ? (
+          <Text variant="label" className="text-accent dark:text-accent-dark">
+            Edit
+          </Text>
         ) : null}
       </View>
-      {editable && expanded ? (
+      {editable && onToggleEdit && expanded ? (
         <View className="mt-3 flex-row flex-wrap gap-1.5">{expandedContent}</View>
       ) : null}
     </View>

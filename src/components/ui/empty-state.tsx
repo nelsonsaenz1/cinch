@@ -20,7 +20,7 @@ export type EmptyStateProps = {
 };
 
 /**
- * Set like everything else in the book: hard-left on the gutter, one didone
+ * Set like everything else: hard-left on the gutter, one serif
  * line, body, action. The old version was the centred-circle-badge pattern —
  * a named AI-slop tell the design brief exists to escape. The symbol stays,
  * but as a small glyph above the title, not an illustration pretending to be

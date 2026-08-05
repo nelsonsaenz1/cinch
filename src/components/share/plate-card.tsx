@@ -42,7 +42,7 @@ const PRINT = { allowFontScaling: false } as const;
 /**
  * The display serif — Instrument Serif, the app's one display face. A single
  * optical master, so nothing special is needed at small sizes the way the
- * didone once demanded.
+ * old display face once demanded.
  */
 const serif = (size: number, track: number) => ({
   fontFamily: 'InstrumentSerif_400Regular',
@@ -72,7 +72,7 @@ function Rule({ y }: { y: number }) {
 
 /**
  * Three colophon rows: circumstances, palette, economics. The data no
- * competitor computes, printed like a lookbook legend.
+ * competitor computes, printed like a legend.
  */
 function legend(
   items: Garment[],
@@ -172,7 +172,7 @@ export function PlateCard({
       <Rule y={112} />
       <View style={{ position: 'absolute', left: X, top: 122, width: MEASURE }}>
         <RNText {...PRINT} style={grotesk(11, 14, 1.1)}>
-          The Morning Edit
+          Today&apos;s outfit
         </RNText>
       </View>
 

@@ -184,7 +184,7 @@ export default function CaptureScreen() {
                   : `Processing ${Math.min(doneCount + 1, total)} of ${total}`}
               </Text>
               {!allDone ? (
-                <Text variant="caption">{`${active} to go`}</Text>
+                <Text variant="caption" style={{ color: theme.faint }}>{`${active} to go`}</Text>
               ) : failedCount > 0 ? (
                 <Text variant="caption" style={{ color: theme.critical }}>
                   {`${failedCount} couldn't be added`}

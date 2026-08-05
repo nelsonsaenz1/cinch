@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { ActivityIndicator, Pressable, type PressableProps, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
-import { MIN_TAP_TARGET } from '@/theme/tokens';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 type Variant = 'primary' | 'secondary' | 'ghost';
 
@@ -15,10 +15,19 @@ const container: Record<Variant, string> = {
   ghost: 'bg-transparent',
 };
 
-const label: Record<Variant, string> = {
-  primary: 'text-canvas dark:text-canvas',
-  secondary: 'text-ink dark:text-ink-dark',
-  ghost: 'text-muted dark:text-muted-dark',
+/**
+ * Label colour is applied as an inline STYLE, not a className.
+ *
+ * `<Text variant="body">` already carries `text-ink`, and NativeWind gives no
+ * guaranteed precedence between two `text-*` utilities on one element — so a
+ * `text-canvas` class here lost, and every primary button rendered ink-on-
+ * oxblood: legible enough to survive review, wrong everywhere it shipped. An
+ * inline style always wins. `labelKey` names the theme colour per variant.
+ */
+const labelKey: Record<Variant, 'canvas' | 'ink' | 'muted'> = {
+  primary: 'canvas',
+  secondary: 'ink',
+  ghost: 'muted',
 };
 
 export type ButtonProps = Omit<PressableProps, 'children' | 'style'> & {
@@ -44,6 +53,7 @@ export function Button({
   className = '',
   ...rest
 }: ButtonProps) {
+  const theme = useTheme();
   const isDisabled = disabled || loading;
 
   return (
@@ -72,10 +82,10 @@ export function Button({
       ].join(' ')}
       {...rest}>
       {loading ? (
-        <ActivityIndicator size="small" />
+        <ActivityIndicator size="small" color={theme[labelKey[variant]]} />
       ) : (
         <View className="flex-row items-center gap-2">
-          <Text variant="body" className={`font-semibold ${label[variant]}`}>
+          <Text variant="body" className="font-semibold" style={{ color: theme[labelKey[variant]] }}>
             {title}
           </Text>
         </View>

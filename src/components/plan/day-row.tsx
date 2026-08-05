@@ -100,15 +100,15 @@ export function DayRow({
         <Text variant="stat">{day.date.toLocaleDateString(undefined, { weekday: 'short' })}</Text>
         {day.weather ? (
           <View className="mt-0.5 flex-row items-center gap-1">
+            <Text variant="caption" className="text-faint dark:text-faint-dark">
+              {formatTemp(day.weather.feelsLikeC, units)}
+            </Text>
             <SymbolView
               name={weatherSymbol(day.weather)}
               size={10}
               tintColor={theme.faint}
               resizeMode="scaleAspectFit"
             />
-            <Text variant="caption" className="text-faint dark:text-faint-dark">
-              {formatTemp(day.weather.feelsLikeC, units)}
-            </Text>
           </View>
         ) : null}
       </View>
@@ -147,7 +147,10 @@ export function DayRow({
               {name}
             </Text>
             {reasoning ? (
-              <Text variant="caption" numberOfLines={1}>
+              <Text
+                variant="caption"
+                numberOfLines={1}
+                className="text-faint dark:text-faint-dark">
                 {reasoning}
               </Text>
             ) : null}
