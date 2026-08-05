@@ -32,7 +32,7 @@ export default function TabsLayout() {
       // UIKit's cool system gray while the icons above them are the warm
       // muted — two grays on one chrome. (The brief asks for +1.10 tracking
       // here too; NativeTabsLabelStyle has no letterSpacing, so the labels
-      // ride without it — noted in docs/design-direction.md.)
+      // ride without it — noted in docs/design-directive.md.)
       labelStyle={{
         default: { fontFamily: 'HelveticaNeue-Medium', fontSize: 11, color: dynamic('muted') },
         selected: { fontFamily: 'HelveticaNeue-Medium', fontSize: 11, color: dynamic('ink') },

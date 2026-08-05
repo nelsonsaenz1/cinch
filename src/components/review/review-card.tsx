@@ -248,7 +248,7 @@ export function ReviewCard({
                 style={acceptOverlay}
                 className="absolute right-3 top-3 rounded-chip bg-positive px-3 py-1"
                 pointerEvents="none">
-                <Text variant="label" className="text-canvas dark:text-canvas">
+                <Text variant="label" style={{ color: theme.canvas }}>
                   Confirm
                 </Text>
               </Animated.View>
@@ -256,7 +256,7 @@ export function ReviewCard({
                 style={skipOverlay}
                 className="absolute left-3 top-3 rounded-chip bg-muted px-3 py-1"
                 pointerEvents="none">
-                <Text variant="label" className="text-canvas dark:text-canvas">
+                <Text variant="label" style={{ color: theme.canvas }}>
                   Skip
                 </Text>
               </Animated.View>

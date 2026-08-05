@@ -60,15 +60,6 @@ export function ConsentSheet({
             ))}
           </View>
 
-          {/* Withdrawal is real: Profile → "AI features" → Turn off nulls the
-              consent record the Edge Functions check. The closet and the
-              on-device outfit engine keep working without any AI at all. */}
-          <Text variant="label" className="mt-7 text-muted dark:text-muted-dark">
-            You can turn AI features off anytime in Profile. Your closet stays, and Cinch keeps
-            putting outfits together on your phone — what stops is tagging new pieces and the
-            stylist.
-          </Text>
-
           <View className="mt-8 gap-2">
             {/* Ink primary, per the zip — the accent is spent elsewhere. */}
             <Pressable
@@ -87,6 +78,14 @@ export function ConsentSheet({
             </Pressable>
             <Button title="Not now" variant="ghost" onPress={onDecline} />
           </View>
+
+          {/* Below the buttons and centred, per the zip. Withdrawal is real:
+              Profile → "AI features" → Turn off nulls the consent record the
+              Edge Functions check, and the closet plus the on-device outfit
+              engine keep working without any AI at all. */}
+          <Text variant="label" className="mt-3 text-center text-muted dark:text-muted-dark">
+            You can turn AI features off anytime in Profile.
+          </Text>
         </ScrollView>
       </SafeAreaView>
     </Modal>

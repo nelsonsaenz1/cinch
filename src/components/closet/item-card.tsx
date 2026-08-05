@@ -25,7 +25,6 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
   const theme = useTheme();
   const cpw = costPerWear(item);
   const needsReview = item.status === 'needs_review';
-  const swatch = item.colors[0]?.hex;
 
   // VoiceOver: a grid of garment cutouts is meaningless to a screen reader
   // without this. Build the sentence a person would actually say.
@@ -77,24 +76,18 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
             — is the whole "get more from what you own" pitch made visible. */}
         {needsReview ? (
           <View className="absolute left-2 top-2 rounded-sm bg-warning px-2 py-0.5">
-            <Text variant="caption" className="text-canvas dark:text-canvas">
+            <Text variant="caption" style={{ color: theme.canvas }}>
               Needs review
             </Text>
           </View>
         ) : neverWorn ? (
           <View className="absolute left-2 top-2 rounded-sm bg-accent px-2 py-0.5">
-            <Text variant="colophon" className="text-canvas dark:text-canvas">
+            <Text variant="colophon" style={{ color: theme.canvas }}>
               Never worn
             </Text>
           </View>
         ) : null}
 
-        {swatch ? (
-          <View
-            className="absolute bottom-2 right-2 h-3.5 w-3.5 rounded-full border border-canvas/60"
-            style={{ backgroundColor: swatch }}
-          />
-        ) : null}
       </View>
 
       <View className="mt-2 px-0.5">

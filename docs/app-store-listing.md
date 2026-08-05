@@ -14,12 +14,13 @@ limits. Paste as-is; the limits are noted so edits stay legal.
 | Bundle ID | `com.nelsonsaenz.cinch` | — |
 | SKU | `cinch-ios-001` | — |
 | Primary category | Lifestyle | — |
-| Secondary category | Shopping | — |
+| Secondary category | Utilities | — |
 | Price | Free | — |
 
-**Why Lifestyle and not Shopping as primary:** the app does not sell anything at
-launch. Listing a non-commerce app under Shopping invites a reviewer to look for
-a store that is not there.
+**Why neither category is Shopping:** the app does not sell anything, and there
+is no shopping surface in it at all — no store, no wishlist, no product feed.
+Listing a non-commerce app under Shopping invites a reviewer to look for a store
+that is not there. Revisit only if a shopping integration actually ships.
 
 ---
 

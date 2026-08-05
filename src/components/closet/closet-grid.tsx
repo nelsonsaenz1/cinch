@@ -10,10 +10,9 @@ export type ClosetGridProps = {
   /** Storage paths → signed URLs; the grid prefers the thumb, falls back to the cutout. */
   resolveImage?: (...paths: (string | null | undefined)[]) => string | undefined;
   ListEmptyComponent?: React.ComponentType | React.ReactElement | null;
-  // The category board and the stat board ride INSIDE the list rather than
-  // sitting in a ScrollView around it. Nesting a virtualised list in a scroll
-  // view defeats the virtualisation entirely — every cell mounts at once — and
-  // a closet is the one screen here that can reach hundreds of items.
+  // Kept for callers that want to ride content inside the list. The closet's
+  // own masthead deliberately sits OUTSIDE it (see (tabs)/closet.tsx): a
+  // controlled TextInput in a list header loses focus on every keystroke.
   ListHeaderComponent?: React.ComponentType | React.ReactElement | null;
   ListFooterComponent?: React.ComponentType | React.ReactElement | null;
 };

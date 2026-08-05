@@ -3,13 +3,29 @@ import { useCallback, useRef } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { FIXTURE_OUTFIT } from '@/components/dev/fixtures';
+import { FIXTURE_ITEMS, FIXTURE_OUTFIT } from '@/components/dev/fixtures';
 import { PlateCard } from '@/components/share/plate-card';
 import { Text } from '@/components/ui/text';
 import { sharePlate } from '@/features/share/capture-plate';
 
 /**
- * DEV ONLY — the 360×640 share card rendered on-screen at cinch://dev-share,
+ * The same look with every price stripped — the honest state of the footer
+ * when the closet has no purchase data. Cost per wear prints a dash; nothing
+ * is invented, and the frame does not reflow.
+ */
+const FIXTURE_NO_PRICE = {
+  name: 'Soft Monday',
+  reasoning: '',
+  swapNote: null,
+  source: 'engine' as const,
+  candidate: {
+    items: FIXTURE_ITEMS.map((g) => ({ ...g, purchasePrice: null })),
+    score: 0.81,
+  },
+} as never;
+
+/**
+ * DEV ONLY — the 360×640 share poster rendered on-screen at cinch://dev-share,
  * so the artifact can be reviewed and screenshotted without opening the share
  * sheet. What appears here is exactly what view-shot captures.
  *
@@ -39,7 +55,8 @@ export default function DevShareScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
-      <ScrollView contentContainerClassName="items-center py-6">
+      <ScrollView contentContainerClassName="items-center gap-6 py-6">
+        <Text variant="eyebrow">Poster — with price data</Text>
         {/* Border outside the ref so the review chrome never enters the capture. */}
         <View className="border border-rule dark:border-rule-dark">
           <View ref={cardRef} collapsable={false}>
@@ -51,6 +68,11 @@ export default function DevShareScreen() {
               onReady={share === '1' ? handleReady : undefined}
             />
           </View>
+        </View>
+
+        <Text variant="eyebrow">Poster — no price data</Text>
+        <View className="border border-rule dark:border-rule-dark">
+          <PlateCard outfit={FIXTURE_NO_PRICE} resolveImage={() => undefined} />
         </View>
       </ScrollView>
     </SafeAreaView>

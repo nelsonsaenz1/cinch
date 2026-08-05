@@ -171,9 +171,10 @@ export function Plate({
   wearing,
   worn,
   enhancing,
+  offline = false,
 }: {
   outfit: StyledOutfit;
-  /** Position in today's edit, for the plate number. */
+  /** Position in the day's set — only the first card gets the landing haptic. */
   index: number;
   /** What the look is for — the user's note or the day's first event. */
   occasion?: string | null;
@@ -186,6 +187,14 @@ export function Plate({
   worn?: boolean;
   /** The model is still working. Distinct from having given up on it. */
   enhancing?: boolean;
+  /**
+   * The offline cut of the card: name, flat-lay, and a footer saying the look
+   * came off disk, with its cost per wear. Everything the network paid for —
+   * the model's reasoning, the feels-like it was scored against — and every
+   * action that needs the network — love, not-for-me, worn — is dropped rather
+   * than shown dead. Default false: every online caller is unchanged.
+   */
+  offline?: boolean;
 }) {
   const theme = useTheme();
   const reduced = useReducedMotion();
@@ -248,7 +257,7 @@ export function Plate({
             <Text variant="plate" numberOfLines={1} className="flex-1">
               {outfit.name}
             </Text>
-            {outfit.source === 'engine' && enhancing ? (
+            {offline ? null : outfit.source === 'engine' && enhancing ? (
               <View className="flex-row items-center gap-1.5">
                 <ActivityIndicator size="small" color={theme.muted} />
                 <Text variant="colophon">Styling</Text>
@@ -258,7 +267,7 @@ export function Plate({
             ) : null}
           </View>
 
-          {outfit.reasoning ? (
+          {!offline && outfit.reasoning ? (
             <Text variant="callout" className="mt-2 text-muted dark:text-muted-dark">
               {outfit.reasoning}
             </Text>
@@ -290,7 +299,7 @@ export function Plate({
           </View>
         </Pressable>
 
-        {outfit.swapNote ? (
+        {!offline && outfit.swapNote ? (
           <View className="mt-3 flex-row gap-2 rounded-md border border-hairline p-3 dark:border-hairline-dark">
             <SymbolView
               name="arrow.triangle.2.circlepath"
@@ -304,40 +313,58 @@ export function Plate({
           </View>
         ) : null}
 
-        {/* ── Footer: the palette in the engine's own colours, and the number
-               no competitor tracks — what wearing the look costs per wear. ── */}
-        <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3 dark:border-rule-dark">
-          <View className="flex-1 flex-row items-center gap-2">
-            <Text variant="eyebrow">Palette</Text>
-            <View className="flex-row items-center gap-1.5">
-              {dots.map((hex, i) => (
-                <View
-                  key={`${hex}-${i}`}
-                  style={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: 7,
-                    backgroundColor: hex,
-                    borderWidth: 1,
-                    borderColor: theme.rule,
-                  }}
-                />
-              ))}
-            </View>
+        {offline ? (
+          /* ── Offline footer: where the look came from, and what it costs to
+                wear. No palette row — the swatches are a styling argument, and
+                offline the card is a record, not an argument. ── */
+          <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3 dark:border-rule-dark">
+            <Text variant="callout" className="text-muted dark:text-muted-dark">
+              Saved for offline
+            </Text>
+            {cpw != null ? (
+              <Text variant="stat" accessibilityLabel={`$${cpw.toFixed(2)} per wear`}>
+                ${cpw.toFixed(2)}
+              </Text>
+            ) : null}
           </View>
-          {cpw != null ? (
-            <View className="flex-row items-baseline gap-1">
-              <Text variant="stat">${cpw.toFixed(2)}</Text>
-              <Text variant="colophon">/ wear</Text>
+        ) : (
+          <>
+            {/* ── Footer: the palette in the engine's own colours, and the number
+                   no competitor tracks — what wearing the look costs per wear. ── */}
+            <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3 dark:border-rule-dark">
+              <View className="flex-1 flex-row items-center gap-2">
+                <Text variant="eyebrow">Palette</Text>
+                <View className="flex-row items-center gap-1.5">
+                  {dots.map((hex, i) => (
+                    <View
+                      key={`${hex}-${i}`}
+                      style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 7,
+                        backgroundColor: hex,
+                        borderWidth: 1,
+                        borderColor: theme.rule,
+                      }}
+                    />
+                  ))}
+                </View>
+              </View>
+              {cpw != null ? (
+                <View className="flex-row items-baseline gap-1">
+                  <Text variant="stat">${cpw.toFixed(2)}</Text>
+                  <Text variant="colophon">/ wear</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
-        </View>
 
-        {/* ── The three actions, as the design sets them: love, pass, worn. ── */}
-        <View className="mt-3.5 flex-row items-start gap-2">
-          <ReactionBar onReact={onReact} reacted={reacted} disabled={wearing} />
-          <WearButton worn={Boolean(worn)} wearing={Boolean(wearing)} onPress={onWear} />
-        </View>
+            {/* ── The three actions, as the design sets them: love, pass, worn. ── */}
+            <View className="mt-3.5 flex-row items-start gap-2">
+              <ReactionBar onReact={onReact} reacted={reacted} disabled={wearing} />
+              <WearButton worn={Boolean(worn)} wearing={Boolean(wearing)} onPress={onWear} />
+            </View>
+          </>
+        )}
       </View>
 
       {shareMounted ? (

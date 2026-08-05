@@ -1,7 +1,7 @@
 import { Pressable } from 'react-native';
 
 import { Text } from '@/components/ui/text';
-import { MIN_TAP_TARGET } from '@/theme/tokens';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 export type ChipProps = {
   label: string;
@@ -18,6 +18,8 @@ export type ChipProps = {
  * form field.
  */
 export function Chip({ label, selected = false, onPress, count, accessibilityHint }: ChipProps) {
+  const theme = useTheme();
+
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : 'text'}
@@ -33,17 +35,18 @@ export function Chip({ label, selected = false, onPress, count, accessibilityHin
           ? 'border-accent bg-accent dark:border-accent-dark dark:bg-accent-dark'
           : 'border-hairline bg-transparent dark:border-hairline-dark',
       ].join(' ')}>
-      <Text
-        variant="label"
-        className={selected ? 'text-canvas dark:text-canvas' : 'text-ink dark:text-ink-dark'}>
+      {/* Inline style, not a className: `variant="label"` already carries
+          `text-muted`, and NativeWind gives no guaranteed precedence between
+          two `text-*` utilities on one element — so a `text-canvas` class here
+          lost and the selected chip read muted-on-accent. */}
+      <Text variant="label" style={{ color: selected ? theme.canvas : theme.ink }}>
         {label}
       </Text>
       {count !== undefined ? (
         <Text
           variant="stat"
-          className={`ml-1.5 text-label ${
-            selected ? 'text-canvas/70 dark:text-canvas/70' : 'text-muted dark:text-muted-dark'
-          }`}>
+          className="ml-1.5 text-label"
+          style={{ color: selected ? `${theme.canvas}B3` : theme.muted }}>
           {count}
         </Text>
       ) : null}

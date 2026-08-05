@@ -49,7 +49,7 @@ export function WeatherStrip({
       {weather ? (
         <Text variant="label" numberOfLines={2}>
           Feels {formatTemp(weather.feelsLikeC, units)} · {describeWeather(weather, units)}
-          {usingFallbackLocation ? ` · ${city}` : ` · ${city}`}
+          {` · ${city}`}
         </Text>
       ) : (
         <Text variant="label">Weather unavailable — styling on your closet alone.</Text>

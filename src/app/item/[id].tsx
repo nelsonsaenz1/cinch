@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -69,11 +70,21 @@ export default function ItemDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
-      {/* Back, with the category named in the middle like the design's header. */}
+      {/* Circular back, category centred — the design's header. There is no
+          "⋯" overflow: nothing in the app can delete or archive an item yet
+          (useVerifyItem is the only item mutation), and a menu that opens onto
+          nothing is worse than no menu. Add it when there are real actions. */}
       <View className="flex-row items-center justify-between px-gutter pt-2">
-        <Button title="Back" variant="ghost" onPress={() => router.back()} />
-        <Text variant="colophon">{item.subcategory ? item.category : ''}</Text>
-        <View style={{ width: 56 }} />
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          hitSlop={8}
+          className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
+          <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
+        </Pressable>
+        <Text variant="colophon">{item.category}</Text>
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView contentContainerClassName="px-gutter pb-24">

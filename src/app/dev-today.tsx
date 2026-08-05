@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FIXTURE_OUTFIT } from '@/components/dev/fixtures';
 import { Plate } from '@/components/today/plate';
-import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -38,13 +37,16 @@ export default function DevTodayScreen() {
         {/* ── 02a · a normal day ─────────────────────────────────────────── */}
         <StateLabel>02a · a normal day</StateLabel>
 
-        <View className="px-gutter pt-2" style={{ paddingBottom: 18 }}>
+        {/* No rule under the masthead: the greeting, the weather line and the
+            plans pill are one block. The name is appended only when the account
+            actually carries one — mocked here as an Apple Sign In user. */}
+        <View className="px-gutter pt-2">
           <View className="flex-row items-start justify-between gap-3">
             <View className="flex-1">
               <Text variant="eyebrow">Tue 5 Aug · Denver</Text>
               <View style={{ marginTop: 6 }}>
                 <Text variant="display" trim accessibilityRole="header">
-                  Good morning
+                  Good morning, Mara
                 </Text>
               </View>
             </View>
@@ -70,9 +72,6 @@ export default function DevTodayScreen() {
                 />
               </View>
             </View>
-          </View>
-          <View style={{ marginTop: 14 }}>
-            <Rule />
           </View>
         </View>
 
@@ -160,17 +159,23 @@ export default function DevTodayScreen() {
           </Pressable>
         </View>
 
-        {/* ── 02d · offline ──────────────────────────────────────────────── */}
+        {/* ── 02d · offline ──────────────────────────────────────────────────
+             Its own composition, not the normal screen dimmed: banner first,
+             above the masthead; the masthead reduced to when the app last
+             reached the server; and the plate reduced to name, flat-lay and a
+             "saved for offline" footer, with no reasoning, palette or actions.
+             The synced time is real on the live screen — the closet query's
+             own `dataUpdatedAt` — and mocked here. */}
         <StateLabel className="mt-10">02d · offline</StateLabel>
 
-        <View className="mx-gutter flex-row items-center gap-2.5 rounded-md bg-ink px-3.5 py-2.5">
+        <View className="mx-gutter mt-1.5 flex-row items-center gap-2.5 rounded-md bg-ink px-3.5 py-2.5">
           <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.accentWarm }} />
           <Text variant="label" className="flex-1 font-medium" style={{ color: theme.canvas }}>
             Offline — showing this morning&rsquo;s set. Weather and plans may have moved on.
           </Text>
         </View>
 
-        <View className="px-gutter pt-3">
+        <View className="px-gutter" style={{ marginTop: 10, paddingTop: 8 }}>
           <Text variant="eyebrow">Last synced 8:12am</Text>
           <View style={{ marginTop: 6 }}>
             <Text variant="display" trim>
@@ -179,22 +184,24 @@ export default function DevTodayScreen() {
           </View>
         </View>
 
-        {/* Offline dims the set: it is real, but it is this morning's. */}
-        <View className="mt-4" style={{ opacity: 0.62 }}>
+        {/* Dimmed as one block: the set is real, but it is this morning's, and
+            so is the note under it. */}
+        <View className="mt-5" style={{ opacity: 0.62 }}>
           <Plate
             outfit={FIXTURE_OUTFIT}
             index={0}
             occasion="dinner at 7"
             colophon={{ city: 'Denver', feelsLikeC: 12 }}
             resolveImage={() => undefined}
+            offline
             onWear={() => {}}
             onReact={() => {}}
           />
-        </View>
 
-        <Text variant="caption" className="mt-4 px-gutter text-center">
-          Reactions will sync once you&rsquo;re back online.
-        </Text>
+          <Text variant="caption" className="px-gutter text-center">
+            Reactions will sync once you&rsquo;re back online.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

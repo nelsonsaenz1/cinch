@@ -153,7 +153,7 @@ export function seasonFit(color: Oklch, season: Season | null | undefined): numb
 /**
  * Infer a season from a small set of colours the user says they look good in.
  *
- * Used by the onboarding quiz, which asks the user to pick flattering shades
+ * Available for a future colour-season prompt; no screen calls it yet, which asks the user to pick flattering shades
  * rather than to self-diagnose an undertone — people are unreliable at the
  * latter and perfectly good at the former.
  */

@@ -5,8 +5,6 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ClosetGrid } from '@/components/closet/closet-grid';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Rule } from '@/components/ui/rule';
 import { ClosetGridSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useCloset } from '@/features/closet/queries';
@@ -158,17 +156,15 @@ export default function ClosetScreen() {
               }`}>
               <Text
                 variant="label"
-                className={
-                  selected ? 'text-canvas dark:text-canvas' : 'text-muted dark:text-muted-dark'
-                }>
+                // Inline, not a className: the variant's own text-muted and a
+                // text-canvas class have no guaranteed precedence.
+                style={{ color: selected ? theme.canvas : theme.muted }}>
                 {c.label}
               </Text>
             </Pressable>
           );
         })}
       </ScrollView>
-
-      <Rule />
     </View>
   );
 
@@ -194,34 +190,76 @@ export default function ClosetScreen() {
             onItemPress={(item) => router.push({ pathname: '/item/[id]', params: { id: item.id } })}
             resolveImage={resolve}
             ListEmptyComponent={
-              <View className="h-96">
-                <EmptyState
-                  symbol="tshirt"
-                  title={
-                    query
-                      ? 'Nothing matches'
-                      : category === 'all'
-                        ? 'An empty rail'
-                        : 'Nothing in this drawer'
-                  }
-                  body={
-                    query
-                      ? 'No pieces match that search. Try a colour, a brand, or the kind of garment.'
-                      : category === 'all'
-                        ? 'Add a few pieces and this fills with your real wardrobe — worn counts, cost-per-wear, the lot.'
-                        : 'No pieces in this category yet. Tap All to see the whole closet.'
-                  }
-                  actionTitle={category === 'all' && !query ? 'Add clothes' : undefined}
-                  onAction={
-                    category === 'all' && !query ? () => router.push('/capture') : undefined
-                  }
-                />
-              </View>
+              <EmptyCloset
+                query={query}
+                category={category}
+                onAdd={() => router.push('/capture')}
+              />
             }
           />
         </>
       )}
     </SafeAreaView>
+  );
+}
+
+/**
+ * The empty rail — the design's 03c.
+ *
+ * Centred, not hard-left like the shared `EmptyState`, and the placeholder is
+ * three dashed garment rails rather than an icon: the shape of what is missing
+ * says "hang something here" far better than a t-shirt glyph. The same dashed
+ * grammar the empty Today uses, so the two read as one app.
+ */
+function EmptyCloset({
+  query,
+  category,
+  onAdd,
+}: {
+  query: string;
+  category: ItemCategory | 'all';
+  onAdd: () => void;
+}) {
+  const wholeCloset = category === 'all' && !query;
+
+  const title = query ? 'Nothing matches' : wholeCloset ? 'An empty rail' : 'Nothing in this drawer';
+  const body = query
+    ? 'No pieces match that search. Try a colour, a brand, or the kind of garment.'
+    : wholeCloset
+      ? 'Add a few pieces and this fills with your real wardrobe — worn counts, cost-per-wear, the lot.'
+      : 'No pieces in this category yet. Tap All to see the whole closet.';
+
+  return (
+    <View className="items-center px-8 pt-16">
+      <View className="flex-row gap-2">
+        {[0, 1, 2].map((i) => (
+          <View
+            key={i}
+            style={{ width: 52, height: 74 }}
+            className="rounded-md border border-dashed border-rule bg-tray dark:border-rule-dark dark:bg-tray-dark"
+          />
+        ))}
+      </View>
+
+      <Text variant="title" className="mt-7 text-center">
+        {title}
+      </Text>
+      <Text variant="body" className="mt-3 max-w-[260px] text-center text-muted dark:text-muted-dark">
+        {body}
+      </Text>
+
+      {wholeCloset ? (
+        <Pressable
+          onPress={onAdd}
+          accessibilityRole="button"
+          accessibilityLabel="Add clothes"
+          className="mt-6 h-12 items-center justify-center rounded-md bg-ink px-7 active:opacity-90 dark:bg-ink-dark">
+          <Text variant="callout" className="font-semibold" style={{ color: '#FBFAF6' }}>
+            Add clothes
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 

@@ -5,6 +5,7 @@ import { outfitCostPerWear } from '@/components/today/cost-per-wear';
 import { GarmentCell } from '@/components/today/garment-cell';
 import type { PlateColophon } from '@/components/today/plate';
 import type { StyledOutfit } from '@/features/styling/use-outfits';
+import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
 import { CARD_H, CARD_W } from '@/features/share/capture-plate';
 import { capTrim, leading, tracking } from '@/theme/font-metrics';
@@ -15,120 +16,154 @@ const LAYOUT_ORDER: Garment['slot'][] = [
 ];
 
 /**
- * The share card is a printed page, and print has no dark mode — it renders
- * on the paper palette regardless of the app's scheme. Values mirror
- * tailwind.config.js light; they are inlined so the card cannot drift with
- * the phone's appearance mid-capture.
+ * The poster is INK — it is the one dark surface the product prints, and it is
+ * dark on purpose: a Stories frame is viewed against a black phone, and a cream
+ * card blows out next to it. It is also a CAPTURED IMAGE, so it must not read
+ * the app's colour scheme at all; every value here is a literal, and nothing in
+ * this file may call `useTheme()`.
  */
-const PAPER = {
-  canvas: '#FBFAF6',
-  tray: '#F0ECE3',
-  ink: '#1C1A16',
-  muted: '#6B665C',
-  rule: 'rgba(28,26,22,0.12)',
+const INK = {
+  ground: '#1C1A16',
+  cream: '#F3F0E9',
+  /** Small tracked labels — masthead date, eyebrow, footer captions. */
+  tan: '#B7A99A',
+  /** The italic second line of the outfit title. */
+  rose: '#D8B7A6',
+  /** The closing line, quietest thing on the card. */
+  faint: '#8A8578',
+  /** Footer rule, cream at 20%. */
+  rule: 'rgba(243,240,233,0.2)',
+  /** Edge on a swatch dot, so a near-black colour still reads as a disc. */
+  dotEdge: 'rgba(255,255,255,0.15)',
+  /** Ground under a cutout photograph — lifted just off the card. */
+  tile: '#26231E',
 };
 
-const X = 32;
-const MEASURE = CARD_W - X * 2; // 296
+/**
+ * The handoff authors this frame at 340 × 604; the capture canvas is 360 × 640.
+ * Same 9:16 proportion, so every measurement in the mock maps through one
+ * scale factor rather than being re-guessed. `z()` is that factor — the numbers
+ * passed to it are literally the mock's pixels.
+ */
+const z = (mockPx: number) => Math.round((mockPx * CARD_W) / 340);
+
+const X = z(26); // the mock's 26px side margin
+const MEASURE = CARD_W - X * 2;
+const GAP = z(8); // grid gutter
 
 /**
  * The card's geometry is fixed print layout — it must not scale with the
- * phone's Dynamic Type setting, or the colophon rows (14pt apart, zero slack)
- * overlap in the exported PNG. The in-app plate scales; the artifact is set
- * type.
+ * phone's Dynamic Type setting, or the footer's two columns collide in the
+ * exported PNG. The in-app plate scales; the artifact is set type.
  */
 const PRINT = { allowFontScaling: false } as const;
 
 /**
- * The display serif — Instrument Serif, the app's one display face. A single
- * optical master, so nothing special is needed at small sizes the way the
- * old display face once demanded.
+ * The display serif — Instrument Serif, the app's one display face. Its line
+ * box floors at 1.30, so the mock's 1.0 leading clamps up; the optical tightness
+ * comes back from `capTrim`, never from a hand-written lineHeight.
  */
-const serif = (size: number, track: number) => ({
+const serif = (size: number, color: string = INK.cream) => ({
   fontFamily: 'InstrumentSerif_400Regular',
   fontSize: size,
-  lineHeight: leading('instrument', size, 1.08),
-  letterSpacing: tracking(size, track),
-  color: PAPER.ink,
+  lineHeight: leading('instrument', size, 1.0),
+  letterSpacing: tracking(size, -0.012),
+  color,
 });
 
-const grotesk = (size: number, lineHeight: number, track: number) => ({
+/**
+ * Cap-trim for a serif line, with `space` added back on top. The mock's
+ * margins are measured from the CAP, so the trim's negative margin and the
+ * mock's gap have to be summed — overriding `marginTop` would silently throw
+ * the trim away and drop the line by a third of its size.
+ */
+const trim = (size: number, space = 0) => {
+  const t = capTrim('instrument', size, leading('instrument', size, 1.0));
+  return { ...t, marginTop: t.marginTop + space };
+};
+
+/** The tracked caps the mock sets in Helvetica 600. */
+const label = (size: number, track: number, color: string = INK.tan) => ({
   fontFamily: 'HelveticaNeue-Medium',
   fontSize: size,
-  lineHeight,
-  letterSpacing: track,
-  color: PAPER.muted,
+  lineHeight: leading('helvetica', size, 1.2),
+  letterSpacing: tracking(size, track),
+  color,
   textTransform: 'uppercase' as const,
   fontVariant: ['tabular-nums' as const],
 });
 
-function Rule({ y }: { y: number }) {
+/**
+ * The outfit's name, broken the way the mock breaks it: everything but the last
+ * word on line one, the last word alone on line two and set in the warm italic.
+ * A one-word name keeps its single roman line rather than inventing an orphan.
+ */
+function titleLines(name: string): [string, string | null] {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return [name.trim(), null];
+  return [words.slice(0, -1).join(' '), words[words.length - 1]];
+}
+
+/**
+ * The look's palette as the footer prints it — the real garment colours the
+ * engine scored, deduplicated, and limited to the pieces that carry the outfit
+ * (a belt does not claim a swatch from the coat).
+ */
+function paletteDots(pieces: Garment[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const g of pieces) {
+    if (g.visualWeight < 0.1) continue;
+    const c = g.colors[0];
+    if (!c) continue;
+    const hex = oklchToHex(c.oklch);
+    if (seen.has(hex)) continue;
+    seen.add(hex);
+    out.push(hex);
+    if (out.length >= 3) break; // the mock prints three
+  }
+  return out;
+}
+
+/** One garment tile in the grid. */
+function Tile({ garment, uri }: { garment: Garment; uri?: string }) {
+  const hex = garment.colors[0] ? oklchToHex(garment.colors[0].oklch) : null;
   return (
     <View
-      style={{ position: 'absolute', left: X, top: y, width: MEASURE, height: 1, backgroundColor: PAPER.rule }}
-    />
+      style={{
+        flex: 1,
+        borderRadius: z(6),
+        overflow: 'hidden',
+        // A cutout is transparent, so it needs a ground that is not the
+        // garment's own colour or the photograph disappears into it.
+        backgroundColor: uri ? INK.tile : (hex ?? INK.tile),
+      }}>
+      {uri ? <GarmentCell garment={garment} uri={uri} paper /> : null}
+    </View>
   );
 }
 
 /**
- * Three colophon rows: circumstances, palette, economics. The data no
- * competitor computes, printed like a legend.
- */
-function legend(
-  items: Garment[],
-  extra: PlateColophon,
-  occasion: string | null | undefined,
-): [string, string | null, string | null] {
-  const now = new Date();
-  const where = [
-    `${now.getDate()} ${now.toLocaleDateString('en-US', { month: 'short' })} ${now.getFullYear()}`,
-    extra.city ?? null,
-    extra.feelsLikeC != null ? `Feels ${Math.round(extra.feelsLikeC)}°` : null,
-    occasion ?? null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-
-  const names = [
-    ...new Set(
-      items
-        .filter((g) => g.visualWeight >= 0.1)
-        .map((g) => g.colors[0]?.name)
-        .filter((n): n is string => Boolean(n)),
-    ),
-  ].slice(0, 5);
-
-  const cpw = outfitCostPerWear(items);
-  const wears = items.reduce((sum, g) => sum + g.wearCount, 0);
-  const economics = [
-    cpw != null ? `$${cpw.toFixed(2)} / wear` : null,
-    `${items.length} pieces`,
-    wears > 0 ? `${wears} wears logged` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-
-  return [where, names.length > 1 ? names.join(' / ') : null, economics || null];
-}
-
-/**
- * The exportable plate — 360 × 640 logical, captured at 1080 × 1920.
+ * The exportable poster — 360 × 640 logical, captured at 1080 × 1920.
  *
- * Same grammar as the in-app plate, recomposed for the Stories frame:
- * masthead, rule, eyebrow, flat-lay, title, rule, colophon, bottom mark.
- * Everything of substance sits inside y = 83…557, the band Instagram's own
- * chrome doesn't cover.
+ * Top to bottom, exactly the handoff's frame 10: masthead (wordmark + date),
+ * eyebrow, the big serif title with its italic second line, a 2 × 2 grid of
+ * garments filling the middle, then a footer that prints the two numbers no
+ * competitor has — the palette and the cost per wear — over a hairline.
  */
 export function PlateCard({
   outfit,
-  occasion,
-  colophon,
   resolveImage,
   onReady,
 }: {
   outfit: StyledOutfit;
+  /**
+   * Circumstances the in-app plate prints in its colophon. The poster does not
+   * print them — the handoff's frame carries only the look and its economics —
+   * but the props stay on the contract so callers need not special-case it.
+   */
   occasion?: string | null;
-  colophon: PlateColophon;
+  colophon?: PlateColophon;
   resolveImage: (...paths: (string | null | undefined)[]) => string | undefined;
   /** Fired once the card is safe to capture. */
   onReady?: () => void;
@@ -141,9 +176,26 @@ export function PlateCard({
     [outfit.candidate.items],
   );
 
-  const [where, palette, economics] = useMemo(
-    () => legend(pieces, colophon, occasion),
-    [pieces, colophon, occasion],
+  /** Rows of two. Four pieces is the common look and gives the mock's 2 × 2. */
+  const rows = useMemo(() => {
+    const shown = pieces.slice(0, 6);
+    const out: Garment[][] = [];
+    for (let i = 0; i < shown.length; i += 2) out.push(shown.slice(i, i + 2));
+    return out;
+  }, [pieces]);
+
+  const [head, tail] = useMemo(() => titleLines(outfit.name), [outfit.name]);
+  const dots = useMemo(() => paletteDots(pieces), [pieces]);
+  const cpw = useMemo(() => outfitCostPerWear(pieces), [pieces]);
+
+  const date = useMemo(
+    () =>
+      new Date().toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      }),
+    [],
   );
 
   const hasImages = pieces.some((g) => resolveImage(g.cutoutPath, g.thumbPath));
@@ -160,78 +212,114 @@ export function PlateCard({
   }, []);
 
   return (
-    <View style={{ width: CARD_W, height: CARD_H, backgroundColor: PAPER.canvas }}>
-      {/* Masthead */}
-      <View style={{ position: 'absolute', left: X, top: 90, width: MEASURE }}>
-        <RNText
-          {...PRINT}
-          style={[serif(28, -0.012), capTrim('instrument', 28, leading('instrument', 28, 1.08))]}>
+    <View style={{ width: CARD_W, height: CARD_H, backgroundColor: INK.ground }}>
+      {/* ── Masthead: the wordmark, and the day this look was worn ── */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: X,
+          // The mock measures its 24px to the line BOX; the wordmark is
+          // cap-trimmed, so the ascender slack the trim took off is added back
+          // here — otherwise the whole card rides 6px high against the edge.
+          paddingTop: z(24) - trim(z(22)).marginTop,
+        }}>
+        <RNText {...PRINT} style={[serif(z(22)), trim(z(22))]}>
           Cinch
         </RNText>
-      </View>
-      <Rule y={112} />
-      <View style={{ position: 'absolute', left: X, top: 122, width: MEASURE }}>
-        <RNText {...PRINT} style={grotesk(11, 14, 1.1)}>
-          Today&apos;s outfit
+        <RNText {...PRINT} style={label(z(9), 0.24)}>
+          {date}
         </RNText>
       </View>
 
-      {/* Flat-lay */}
+      {/* ── The look's name, the largest thing on the card ── */}
+      <View style={{ paddingHorizontal: X, paddingTop: z(16), paddingBottom: z(6) }}>
+        <RNText {...PRINT} style={label(z(9), 0.24)}>
+          Today&apos;s outfit
+        </RNText>
+        <RNText {...PRINT} numberOfLines={3} style={[serif(z(40)), trim(z(40), z(8))]}>
+          {head}
+          {tail ? (
+            <RNText
+              {...PRINT}
+              style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: INK.rose }}>
+              {'\n'}
+              {tail}
+            </RNText>
+          ) : null}
+        </RNText>
+      </View>
+
+      {/* ── The garments, filling whatever height the type leaves ── */}
       <View
         style={{
-          position: 'absolute',
-          left: X,
-          top: 160,
-          width: MEASURE,
-          height: 197,
-          borderRadius: 20,
-          backgroundColor: PAPER.tray,
-          padding: 12,
-          flexDirection: 'row',
-          gap: 6,
-          overflow: 'hidden',
+          flex: 1,
+          paddingHorizontal: X,
+          paddingTop: z(16),
+          paddingBottom: z(8),
+          gap: GAP,
         }}>
-        {pieces.map((g) => (
-          <View key={g.id} style={{ flexGrow: g.visualWeight, flexShrink: 1, flexBasis: 0 }}>
-            <GarmentCell garment={g} uri={resolveImage(g.cutoutPath, g.thumbPath)} paper />
+        {rows.map((row) => (
+          <View key={row[0].id} style={{ flex: 1, flexDirection: 'row', gap: GAP }}>
+            {row.map((g) => (
+              <Tile key={g.id} garment={g} uri={resolveImage(g.cutoutPath, g.thumbPath)} />
+            ))}
           </View>
         ))}
       </View>
 
-      {/* Title, rule, colophon */}
-      <View style={{ position: 'absolute', left: X, top: 380, width: MEASURE }}>
+      {/* ── Footer: the two facts, then the line that explains the product ── */}
+      <View style={{ paddingHorizontal: X, paddingTop: z(6), paddingBottom: z(24) }}>
+        <View style={{ height: 1, width: MEASURE, backgroundColor: INK.rule }} />
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            paddingTop: z(16),
+          }}>
+          <View>
+            <RNText {...PRINT} style={label(z(8), 0.18)}>
+              Palette
+            </RNText>
+            <View style={{ flexDirection: 'row', gap: z(6), marginTop: z(7) }}>
+              {dots.map((hex) => (
+                <View
+                  key={hex}
+                  style={{
+                    width: z(16),
+                    height: z(16),
+                    borderRadius: z(16) / 2,
+                    backgroundColor: hex,
+                    borderWidth: 1,
+                    borderColor: INK.dotEdge,
+                  }}
+                />
+              ))}
+            </View>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <RNText {...PRINT} style={label(z(8), 0.18)}>
+              Cost per wear
+            </RNText>
+            {/* Honest when there is no price data: a dash, never a made-up
+                figure. The label stays so the frame does not reflow. */}
+            <RNText {...PRINT} style={[serif(z(26)), trim(z(26), z(3))]}>
+              {cpw != null ? `$${cpw.toFixed(2)}` : '—'}
+            </RNText>
+          </View>
+        </View>
         <RNText
           {...PRINT}
-          numberOfLines={1}
-          style={[serif(24, -0.011), capTrim('instrument', 24, leading('instrument', 24, 1.08))]}>
-          {outfit.name}
-        </RNText>
-      </View>
-      <Rule y={404} />
-      {/* One flowing block, not a fixed y per row — when the palette row drops
-          out (monochrome look), the rows below close up instead of leaving a
-          14px hole in the legend. */}
-      <View style={{ position: 'absolute', left: X, top: 414, width: MEASURE }}>
-        <RNText {...PRINT} numberOfLines={1} style={grotesk(10, 14, 0.9)}>
-          {where}
-        </RNText>
-        {palette ? (
-          <RNText {...PRINT} numberOfLines={1} style={grotesk(10, 14, 0.9)}>
-            {palette}
-          </RNText>
-        ) : null}
-        {economics ? (
-          <RNText {...PRINT} numberOfLines={1} style={grotesk(10, 14, 0.9)}>
-            {economics}
-          </RNText>
-        ) : null}
-      </View>
-
-      {/* Bottom mark — the only centred element on the card: it's a colophon,
-          not copy. Kept above Instagram's bottom chrome band. */}
-      <View style={{ position: 'absolute', left: 0, right: 0, top: 517, alignItems: 'center' }}>
-        <RNText {...PRINT} style={[grotesk(11, 14, 1.1), { textTransform: 'none' }]}>
-          CINCH · cinch.app
+          style={{
+            fontFamily: 'HelveticaNeue',
+            fontSize: z(11),
+            lineHeight: leading('helvetica', z(11), 1.4),
+            color: INK.faint,
+            marginTop: z(16),
+          }}>
+          Styled by Cinch — from clothes I already own.
         </RNText>
       </View>
     </View>

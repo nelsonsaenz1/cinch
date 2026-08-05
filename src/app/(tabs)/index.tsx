@@ -25,6 +25,7 @@ import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits } from '@/features/styling/use-outfits';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
+import { supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /** Stable identity for a candidate: the exact set of garments in it. */
@@ -43,33 +44,99 @@ function dayLine(city: string) {
   return `${weekday} ${now.getDate()} ${month} · ${city}`;
 }
 
-/** A greeting that is honest about the hour, not always "morning". */
-function greetingForNow() {
-  const h = new Date().getHours();
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+/**
+ * "Last synced 8:12am" — when the app last actually reached the server.
+ *
+ * The timestamp is the closet query's own `dataUpdatedAt`: the moment its last
+ * *successful* fetch landed, carried across cold starts by the persister. It is
+ * never a render clock and never a guess, so it stays truthful on a device that
+ * has been offline for a day — which is why it names the weekday once the sync
+ * is no longer today's. With no successful fetch ever recorded there is no time
+ * to print, and the line simply doesn't claim one.
+ */
+function syncedLine(updatedAt: number): string {
+  if (!updatedAt) return 'Last synced';
+
+  const at = new Date(updatedAt);
+  const time = at
+    .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    .replace(/\s/g, '')
+    .toLowerCase();
+
+  const sameDay = at.toDateString() === new Date().toDateString();
+  return sameDay
+    ? `Last synced ${time}`
+    : `Last synced ${at.toLocaleDateString('en-US', { weekday: 'short' })} ${time}`;
 }
 
 /**
- * The page header: the day and place as a tracked eyebrow, a serif greeting,
- * and the structural rule closing the masthead.
+ * A greeting that is honest about the hour, not always "morning", and about who
+ * it is greeting — the name is appended only when the account actually carries
+ * one. An invented "Mara" is worse than no name at all.
+ */
+function greetingForNow(name?: string | null) {
+  const h = new Date().getHours();
+  const greeting = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  return name ? `${greeting}, ${name}` : greeting;
+}
+
+/**
+ * The first name on the account, or null.
+ *
+ * Read from the session already persisted in storage — the same object the auth
+ * gate is holding — so this costs no request. `full_name` is what Apple Sign In
+ * writes at first login; accounts created any other way usually have nothing
+ * here, and then the greeting simply stays impersonal rather than guessing at a
+ * name from an email address.
+ */
+function useFirstName(): string | null {
+  const [name, setName] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const meta = (data.session?.user.user_metadata ?? {}) as {
+          full_name?: string;
+          name?: string;
+        };
+        const first = (meta.full_name ?? meta.name ?? '').trim().split(/\s+/)[0] ?? '';
+        setName(first || null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return name;
+}
+
+/**
+ * The page header: the day and place as a tracked eyebrow, and a serif greeting.
+ *
+ * No rule under it. The design sets the greeting, the weather line and the
+ * plans pill as one unbroken block; a hairline here cuts the day in half.
  *
  * The trailing chips are the only doors to Stylist and Profile — both lost
  * their tabs in the three-tab restructure. The stylist is the app's sparkle
  * (the same oxblood mark the stylist screen carries); the profile is the ink
  * avatar well.
  */
-function Masthead({ city }: { city: string }) {
+function Masthead({ city, name }: { city: string; name?: string | null }) {
   const router = useRouter();
   const theme = useTheme();
 
   return (
-    <View className="px-gutter pt-2" style={{ paddingBottom: 18 }}>
+    <View className="px-gutter pt-2">
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
           <Text variant="eyebrow">{dayLine(city)}</Text>
           <View style={{ marginTop: 6 }}>
             <Text variant="display" trim accessibilityRole="header">
-              {greetingForNow()}
+              {greetingForNow(name)}
             </Text>
           </View>
         </View>
@@ -105,8 +172,26 @@ function Masthead({ city }: { city: string }) {
           </Pressable>
         </View>
       </View>
-      <View style={{ marginTop: 14 }}>
-        <Rule />
+    </View>
+  );
+}
+
+/**
+ * The reduced masthead: the eyebrow and the section name, nothing else.
+ *
+ * Shared by the two states that have no morning to greet — a brand-new user
+ * with no closet, and a day the engine could not dress. Both are moments where
+ * a cheerful "Good afternoon, Mara" over bad news reads as a machine that has
+ * not noticed.
+ */
+function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
+  return (
+    <View className="px-gutter pt-2">
+      <Text variant="eyebrow">{eyebrow}</Text>
+      <View style={{ marginTop: 6 }}>
+        <Text variant="display" trim accessibilityRole="header">
+          Today
+        </Text>
       </View>
     </View>
   );
@@ -187,6 +272,8 @@ export default function TodayScreen() {
   const [committedNote, setCommittedNote] = useState('');
   const [reactions, setReactions] = useState<Record<string, ReactionValue>>({});
   const [wornIds, setWornIds] = useState<Set<string>>(new Set());
+
+  const firstName = useFirstName();
 
   // Items whose photos uploaded but whose tagging never completed are re-driven
   // from here. Today is the first screen behind the auth gate, so it is the
@@ -331,14 +418,7 @@ export default function TodayScreen() {
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
         {/* The masthead reduces to the date and the section name: a brand-new
             user has no morning to greet yet, and no stylist to ask. */}
-        <View className="px-gutter pt-2">
-          <Text variant="eyebrow">{dayLine(cityLabel)}</Text>
-          <View style={{ marginTop: 6 }}>
-            <Text variant="display" trim accessibilityRole="header">
-              Today
-            </Text>
-          </View>
-        </View>
+        <ReducedMasthead eyebrow={dayLine(cityLabel)} />
 
         {/* Not the old flat-lay hero, which promised a look the closet cannot
             yet produce. An honest empty tray instead: Cinch cannot style a
@@ -393,7 +473,71 @@ export default function TodayScreen() {
     );
   }
 
+  // Offline is not the normal screen dimmed — it is its own composition, and
+  // the order says why. The banner comes first, above everything, because the
+  // staleness qualifies the entire page; the masthead drops to when the app
+  // last reached the server, since there is no fresh morning to greet and no
+  // stylist to ask; and every plate loses the parts the network paid for.
+  if (offline) {
+    return (
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+        <ScrollView
+          contentContainerClassName="pb-10"
+          refreshControl={
+            <RefreshControl
+              refreshing={outfits.isEnhancing}
+              onRefresh={refresh}
+              tintColor={theme.muted}
+            />
+          }>
+          {/* Said plainly and once, in ink, so it reads as a state of the whole
+              screen rather than a per-card warning. */}
+          <View className="mx-gutter mt-1.5 flex-row items-center gap-2.5 rounded-md bg-ink px-3.5 py-2.5">
+            <View
+              style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.accentWarm }}
+            />
+            <Text variant="label" className="flex-1 font-medium" style={{ color: theme.canvas }}>
+              Offline — showing this morning&rsquo;s set. Weather and plans may have moved on.
+            </Text>
+          </View>
+
+          <View style={{ marginTop: 10 }}>
+            <ReducedMasthead eyebrow={syncedLine(wardrobe.dataUpdatedAt)} />
+          </View>
+
+          {/* Dimmed as one block: the set is real, but it is this morning's,
+              and so is the note under it. */}
+          <View className="mt-5" style={{ opacity: 0.62 }}>
+            {shown.map((outfit, i) => (
+              <Plate
+                key={idOf(outfit.candidate.items)}
+                outfit={outfit}
+                index={i}
+                occasion={occasion}
+                colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
+                resolveImage={resolve}
+                offline
+                onWear={() => handleWear(i)}
+                onReact={(value) => handleReact(i, value)}
+              />
+            ))}
+
+            {/* The reactions are gone from the card because they cannot reach
+                the learner. Say what happens instead. */}
+            <Text variant="caption" className="px-gutter text-center">
+              Reactions will sync once you&rsquo;re back online.
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   const feedbackCount = profile.feedbackCount;
+  // The day the engine could not dress. Like the empty closet, it drops the
+  // greeting and the plans pill: the card below carries the only three things
+  // that would change the answer.
+  const nothingWorks = shown.length === 0;
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
@@ -407,20 +551,11 @@ export default function TodayScreen() {
             tintColor={theme.muted}
           />
         }>
-        <Masthead city={cityLabel} />
-
-        {/* Offline, said plainly and once. Dark ink banner so it reads as a
-            state of the whole screen, not a per-card warning. */}
-        {offline ? (
-          <View className="mx-gutter flex-row items-center gap-2.5 rounded-md bg-ink px-3.5 py-2.5">
-            <View
-              style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.accentWarm }}
-            />
-            <Text variant="label" className="flex-1 font-medium" style={{ color: theme.canvas }}>
-              Offline — showing this morning&rsquo;s set. Weather and plans may have moved on.
-            </Text>
-          </View>
-        ) : null}
+        {nothingWorks ? (
+          <ReducedMasthead eyebrow={dayLine(cityLabel)} />
+        ) : (
+          <Masthead city={cityLabel} name={firstName} />
+        )}
 
         <WeatherStrip
           weather={context.weather}
@@ -437,30 +572,30 @@ export default function TodayScreen() {
             "dinner at 7 then drinks after" is the exact sentence the engine is
             built for, and typing it must not require a permission grant. Clay,
             not oxblood — the one spent accent stays reserved for a loved look. */}
-        <View className="mx-gutter mt-4 flex-row items-center gap-2 rounded-md bg-tray px-3.5 py-2.5 dark:bg-tray-dark">
-          <SymbolView
-            name="plus"
-            size={15}
-            tintColor={theme.accentWarm}
-            resizeMode="scaleAspectFit"
-          />
-          <TextInput
-            value={note}
-            onChangeText={setNote}
-            onSubmitEditing={() => setCommittedNote(note.trim())}
-            onBlur={() => setCommittedNote(note.trim())}
-            returnKeyType="done"
-            placeholder="What's on today? Tell Cinch"
-            placeholderTextColor={theme.faint}
-            accessibilityLabel="Describe your plans today"
-            className="flex-1 font-body text-callout text-ink dark:text-ink-dark"
-          />
-        </View>
+        {nothingWorks ? null : (
+          <View className="mx-gutter mt-4 flex-row items-center gap-2 rounded-md bg-tray px-3.5 py-2.5 dark:bg-tray-dark">
+            <SymbolView
+              name="plus"
+              size={15}
+              tintColor={theme.accentWarm}
+              resizeMode="scaleAspectFit"
+            />
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              onSubmitEditing={() => setCommittedNote(note.trim())}
+              onBlur={() => setCommittedNote(note.trim())}
+              returnKeyType="done"
+              placeholder="What's on today? Tell Cinch"
+              placeholderTextColor={theme.faint}
+              accessibilityLabel="Describe your plans today"
+              className="flex-1 font-body text-callout text-ink dark:text-ink-dark"
+            />
+          </View>
+        )}
 
-        {/* Offline dims the set: it is real, but it is this morning's, and the
-            reduced weight says so without hiding it. */}
-        <View className="mt-6" style={offline ? { opacity: 0.62 } : undefined}>
-          {shown.length === 0 ? (
+        <View className="mt-6">
+          {nothingWorks ? (
             <NothingWorks onRetry={refresh} />
           ) : (
             shown.map((outfit, i) => {
@@ -484,14 +619,6 @@ export default function TodayScreen() {
             })
           )}
         </View>
-
-        {/* The reactions still register offline; they just cannot reach the
-            learner until the connection does. Say so, centred, under the set. */}
-        {offline ? (
-          <Text variant="caption" className="mt-4 px-gutter text-center">
-            Reactions will sync once you&rsquo;re back online.
-          </Text>
-        ) : null}
 
         {/* Say plainly how much it has actually learned. Implying a rich taste
             model after two taps is a promise the engine cannot keep. */}

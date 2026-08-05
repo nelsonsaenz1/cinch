@@ -97,8 +97,20 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    // Design fixture routes stay reachable signed-out in development builds.
-    if (__DEV__ && segments[0]?.startsWith('dev-')) return;
+    // Design fixture routes.
+    //
+    // Expo Router registers every file under src/app/, so the dev- screens ship
+    // in the production bundle whether or not anything links to them — and each
+    // one presents hard-coded outfits, wear counts and cost-per-wear as if they
+    // were the user's own. In a release build a deep link to cinch://dev-today
+    // would therefore show a signed-in user convincing fake data about their own
+    // wardrobe. Reachable in development, bounced to the app in production.
+    if (segments[0]?.startsWith('dev-')) {
+      if (__DEV__) return;
+      if (router.canDismiss()) router.dismissAll();
+      router.replace(session.userId ? '/(tabs)' : '/(auth)/sign-in');
+      return;
+    }
 
     // The magic-link callback is the one route a signed-OUT user is supposed to
     // be sitting on: it is where the PKCE code is exchanged, so by definition

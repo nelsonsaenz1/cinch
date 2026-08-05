@@ -87,7 +87,7 @@ export function Text({ variant = 'body', className = '', trim = false, style, ..
       className={`${variants[variant]} ${className}`}
       style={[
         // Tabular figures stop wear counts, temperatures and prices from
-        // jittering as digits change. Archivo ships them; this turns them on.
+        // jittering as digits change. Helvetica Neue ships them; this turns them on.
         variant === 'stat' || variant === 'colophon' ? { fontVariant: ['tabular-nums'] } : null,
         trim ? TRIMS[variant] : null,
         style,
