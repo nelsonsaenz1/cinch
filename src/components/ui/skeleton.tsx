@@ -33,7 +33,7 @@ const BAND_WIDTH = 60;
  * without pulling in a gradient library: two flat tones plus a Reanimated
  * `left` tween cover the same ground.
  */
-export function Skeleton({ className = '', style, ...rest }: SkeletonProps) {
+function Skeleton({ className = '', style, ...rest }: SkeletonProps) {
   const sweep = useSharedValue(0);
 
   useEffect(() => {

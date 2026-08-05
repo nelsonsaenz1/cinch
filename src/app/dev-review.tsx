@@ -24,6 +24,7 @@ const MOCK_ITEM: Item = {
   userId: 'dev-user',
   imagePath: null,
   cutoutPath: null,
+  platePath: null,
   thumbPath: null,
   status: 'needs_review',
   category: 'top',
@@ -62,6 +63,7 @@ export default function DevReviewScreen() {
 
   const [category, setCategory] = useState<ItemCategory>(MOCK_ITEM.category);
   const [occasions, setOccasions] = useState<string[]>(MOCK_ITEM.occasions);
+  const [price, setPrice] = useState<number | null>(MOCK_ITEM.purchasePrice);
 
   const item = useMemo<Item>(() => ({ ...MOCK_ITEM, thumbPath: knitUri }), [knitUri]);
 
@@ -93,6 +95,8 @@ export default function DevReviewScreen() {
           depth={0}
           category={category}
           occasions={occasions}
+          price={price}
+          onEditPrice={setPrice}
           onEditCategory={setCategory}
           onToggleOccasion={(occ) =>
             setOccasions((prev) => (prev.includes(occ) ? prev.filter((o) => o !== occ) : [...prev, occ]))

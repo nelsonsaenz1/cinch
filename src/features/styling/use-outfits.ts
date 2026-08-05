@@ -193,5 +193,12 @@ export function useOutfits({
     /** True while the model is still working; outfits are already on screen. */
     isEnhancing: ai.isFetching,
     refetch: ai.refetch,
+    /**
+     * The re-rank's failure, when it failed. Exposed for exactly one consumer:
+     * Today's pull-to-refresh, which uses it to tell a quota refusal apart
+     * from an outage. The silent background degradation stays silent — this
+     * hook still never throws and `outfits` is always populated.
+     */
+    aiError: ai.error,
   };
 }

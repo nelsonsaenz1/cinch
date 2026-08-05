@@ -66,10 +66,12 @@ const DATA_KEY_NAME = 'cinch.session-data-key.v1';
  *
  * These are resolved through try/catch `require` on purpose: Metro treats a
  * require inside a try block as an optional dependency and will not fail the
- * bundle when the package is absent. Neither package is in package.json yet, so
- * today both resolve to null and sessions stay in plaintext exactly as before —
- * see the warning in `resolveEncryptionBackend`. Adding the two packages is all
- * that is needed to switch encryption on; no further code change.
+ * bundle when the package is absent. Both packages ARE in package.json
+ * (expo-secure-store, react-native-quick-crypto), so in every real build both
+ * resolve and sessions are encrypted at rest. The null branch is not dead,
+ * though: it is what keeps a build with either package stripped (a broken
+ * install, a future platform without them) bootable in degraded plaintext mode
+ * with the warning in `resolveEncryptionBackend`, instead of unable to start.
  */
 type SecureStoreModule = {
   getItemAsync(key: string, options?: object): Promise<string | null>;

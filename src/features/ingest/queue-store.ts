@@ -117,7 +117,3 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 export function selectActiveCount(jobs: UploadJob[]) {
   return jobs.filter((j) => j.stage !== 'done' && j.stage !== 'failed').length;
 }
-
-export function selectFailed(jobs: UploadJob[]) {
-  return jobs.filter((j) => j.stage === 'failed');
-}

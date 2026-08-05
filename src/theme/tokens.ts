@@ -64,10 +64,6 @@ export function useTheme(): ThemeColors & { scheme: ColorSchemeName } {
   return { ...palette[scheme], scheme };
 }
 
-/** Non-hook access, for module-scope config that cannot call hooks. */
-export function getColors(scheme: ColorSchemeName): ThemeColors {
-  return palette[scheme];
-}
 
 /**
  * A colour that iOS resolves natively per appearance — for surfaces JS never
@@ -107,11 +103,6 @@ export const spring = {
   interactive: { duration: 150, dampingRatio: 0.86 },
 } as const;
 
-/**
- * Non-spatial properties only — opacity, colour. A spring on opacity reads as
- * a rendering glitch; ease-out-quint reads as print settling onto paper.
- */
-export const fadeEasing = [0.22, 1, 0.36, 1] as const;
 
 export const motion = {
   stagger: 60,

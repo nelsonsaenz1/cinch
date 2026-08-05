@@ -80,6 +80,7 @@ function garment(
     purchasePrice: null,
     thumbPath: null,
     cutoutPath: null,
+    platePath: null,
   };
 }
 

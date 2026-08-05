@@ -150,25 +150,3 @@ export function seasonFit(color: Oklch, season: Season | null | undefined): numb
   return warmFit * 0.45 + valueFit * 0.28 + chromaFit * 0.27;
 }
 
-/**
- * Infer a season from a small set of colours the user says they look good in.
- *
- * Available for a future colour-season prompt; no screen calls it yet, which asks the user to pick flattering shades
- * rather than to self-diagnose an undertone — people are unreliable at the
- * latter and perfectly good at the former.
- */
-export function inferSeason(flattering: Oklch[]): Season | null {
-  if (flattering.length < 3) return null;
-
-  let best: Season | null = null;
-  let bestScore = -Infinity;
-
-  for (const key of Object.keys(SEASONS) as Season[]) {
-    const total = flattering.reduce((sum, c) => sum + seasonFit(c, key), 0);
-    if (total > bestScore) {
-      bestScore = total;
-      best = key;
-    }
-  }
-  return best;
-}

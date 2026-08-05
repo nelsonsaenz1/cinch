@@ -15,6 +15,8 @@ export type ClosetGridProps = {
   // controlled TextInput in a list header loses focus on every keystroke.
   ListHeaderComponent?: React.ComponentType | React.ReactElement | null;
   ListFooterComponent?: React.ComponentType | React.ReactElement | null;
+  /** Passed straight to FlashList — pull-to-refresh for the closet. */
+  refreshControl?: React.ReactElement<import('react-native').RefreshControlProps>;
 };
 
 /**
@@ -29,6 +31,7 @@ export function ClosetGrid({
   ListEmptyComponent,
   ListHeaderComponent,
   ListFooterComponent,
+  refreshControl,
 }: ClosetGridProps) {
   return (
     <FlashList
@@ -50,6 +53,7 @@ export function ClosetGrid({
       // bottom padding, and nothing errors. 20 = spacing.gutter, 96 = pb-24.
       contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 96 }}
       ItemSeparatorComponent={() => <View className="h-1" />}
+      refreshControl={refreshControl}
       showsVerticalScrollIndicator={false}
     />
   );

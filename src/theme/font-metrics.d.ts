@@ -1,4 +1,4 @@
-export type FaceName = 'instrument' | 'helvetica' | 'bodoni' | 'archivo';
+export type FaceName = 'instrument' | 'helvetica';
 
 export declare const FACES: Record<
   FaceName,

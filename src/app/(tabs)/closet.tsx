@@ -1,7 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ClosetGrid } from '@/components/closet/closet-grid';
@@ -189,6 +189,12 @@ export default function ClosetScreen() {
             items={visible}
             onItemPress={(item) => router.push({ pathname: '/item/[id]', params: { id: item.id } })}
             resolveImage={resolve}
+            // The grid's only refetch affordance. The ingest queue invalidates
+            // on its own when an import settles; this is for everything else —
+            // an edit on another device, a delete that raced the cache.
+            refreshControl={
+              <RefreshControl refreshing={closet.isRefetching} onRefresh={() => void closet.refetch()} />
+            }
             ListEmptyComponent={
               <EmptyCloset
                 query={query}

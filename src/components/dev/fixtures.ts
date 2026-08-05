@@ -31,6 +31,7 @@ const g = (
     warmth: 5,
     formality: 3,
     cutoutPath: null,
+  platePath: null,
     thumbPath: null,
   }) as unknown as Garment;
 

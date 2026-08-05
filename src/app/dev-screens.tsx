@@ -10,6 +10,14 @@ import { useTheme } from '@/theme/tokens';
 /** Throwaway preview — item-detail stat grid + the "nothing works" card. */
 export default function DevScreens() {
   const theme = useTheme();
+  if (!__DEV__) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+        <Text variant="label">Not available.</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
       <ScrollView contentContainerClassName="px-gutter pb-16">

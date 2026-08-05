@@ -47,9 +47,7 @@ const FACES = {
 
   // ── Retired, kept defined so no stray reference throws during a rewrite ─────
   // unitsPerEm 2000, hhea asc 2250 / desc -800 / gap 0, sCapHeight 1500
-  bodoni: { ascent: 1.125, descent: 0.4, leading: 1.525, capHeight: 0.75 },
   // unitsPerEm 1000, hhea asc 878 / desc -210 / gap 0, sCapHeight 686
-  archivo: { ascent: 0.878, descent: 0.21, leading: 1.088, capHeight: 0.686 },
 };
 
 /**
@@ -102,8 +100,8 @@ function tracking(fontSize, ratio) {
  * height with negative margins, leaving the glyph box itself untouched. This is
  * Capsize's cap-trim, ported to React Native.
  *
- *   bodoni 64 / lh 98  ->  marginTop -24, marginBottom -26  ->  48pt laid out
- *                          which is exactly 0.75 x 64, the cap height.
+ *   instrument 64 / lh 83 ->  cap-trimmed so the laid-out box is exactly
+ *                          0.72 x 64, the cap height.
  */
 function capTrim(face, fontSize, lineHeight) {
   const m = FACES[face];

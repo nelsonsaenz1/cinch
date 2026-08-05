@@ -3,11 +3,30 @@ import { File } from 'expo-file-system';
 import { AppState } from 'react-native';
 
 import { CURRENT_CONSENT_VERSION } from '@/features/auth/use-consent';
-import { backgroundRemover } from '@/lib/bg-removal';
+import { backgroundRemover, type Swatch } from '@/lib/bg-removal';
+import { nearestColorName } from '@/lib/color';
 import { prepareForUpload, prepareThumbnail } from '@/lib/image';
+import { track } from '@/lib/posthog';
+import { queryClient } from '@/lib/query-client';
 import { supabase, getUserId } from '@/lib/supabase';
 
 import { useQueueStore, type UploadJob } from './queue-store';
+
+/**
+ * Tell the query layer a garment has landed.
+ *
+ * This module is the only writer that adds items outside a React component, so
+ * it has to reach the query client directly — it is a module singleton, no hook
+ * needed. Without this, the closet keeps its 5-minute-stale cache and the path
+ * "import → open Closet" shows a grid missing everything just uploaded, at the
+ * exact moment a new user is judging whether the app works.
+ */
+function invalidateAfterItemSettled(): void {
+  void queryClient.invalidateQueries({ queryKey: ['closet'] });
+  void queryClient.invalidateQueries({ queryKey: ['wardrobe'] });
+  void queryClient.invalidateQueries({ queryKey: ['review-queue'] });
+  void queryClient.invalidateQueries({ queryKey: ['closet-count'] });
+}
 
 /**
  * The ingestion pipeline.
@@ -153,6 +172,121 @@ async function uploadObject(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Cutout, plate and colour
+// ---------------------------------------------------------------------------
+
+/** `items.colors`, as this file writes it. */
+type MeasuredColor = { name: string; hex: string; weight: number };
+
+/** Everything one native Vision pass produced for a job. All of it optional. */
+type CutoutArtifacts = {
+  cutoutUri: string | null;
+  plateUri: string | null;
+  colors: MeasuredColor[] | null;
+  analysis: { version: number; source: string; swatches: Swatch[] } | null;
+};
+
+const NO_CUTOUT: CutoutArtifacts = {
+  cutoutUri: null,
+  plateUri: null,
+  colors: null,
+  analysis: null,
+};
+
+/**
+ * Lift the garment, render its plate, and measure its colours.
+ *
+ * Run against the ORIGINAL photo rather than the downscaled upload. Two reasons:
+ * the native pass decodes at its own bounded resolution anyway, so there is no
+ * memory argument for feeding it a re-encoded JPEG; and the one retry it is
+ * allowed re-decodes at 1536px, which only buys anything if there is real detail
+ * left to decode.
+ *
+ * Every outcome is reported, including the boring ones — `cutout_result` is how
+ * we find out whether a server-side matting fallback is worth paying for, and a
+ * denominator made only of failures would answer the wrong question.
+ */
+async function runCutout(sourceUri: string): Promise<CutoutArtifacts> {
+  try {
+    if (!(await backgroundRemover.isSupported())) {
+      track('cutout_result', { outcome: 'unsupported-device', subjectCount: 0 });
+      return NO_CUTOUT;
+    }
+
+    const result = await backgroundRemover.remove(sourceUri);
+
+    if (!result.ok) {
+      track('cutout_result', { outcome: result.reason, subjectCount: 0 });
+      return NO_CUTOUT;
+    }
+
+    track('cutout_result', { outcome: 'ok', subjectCount: result.subjects.length });
+
+    // The largest-area subject, not the first one Vision happened to emit.
+    // Vision's index order means nothing; on hanger shots and flat-lays the
+    // garment is essentially always the biggest thing lifted.
+    const subject = result.subjects[0];
+
+    // A measured hex with no name is unusable downstream — every surface in the
+    // app speaks in colour names — so an unresolvable swatch is dropped rather
+    // than written half-formed.
+    const colors = result.colors.flatMap((swatch): MeasuredColor[] => {
+      const name = nearestColorName(swatch.hex);
+      return name ? [{ name, hex: swatch.hex, weight: swatch.share }] : [];
+    });
+
+    return {
+      cutoutUri: subject?.uri ?? null,
+      plateUri: result.plate?.uri ?? null,
+      colors: colors.length > 0 ? colors : null,
+      // The full histogram, kept unrounded. Normalization and clustering will
+      // both be re-tuned, and having the measurement on the row means that is a
+      // re-derivation rather than a re-import.
+      analysis:
+        result.colors.length > 0
+          ? { version: 1, source: 'vision-oklab-median-cut', swatches: result.colors }
+          : null,
+    };
+  } catch {
+    // A cutout must NEVER fail an import. The garment is the point; the
+    // transparent version of it is a nicety. `remove()` already converts its own
+    // failures into results, so reaching here means something outside it broke.
+    track('cutout_result', { outcome: 'failed', subjectCount: 0 });
+    return NO_CUTOUT;
+  }
+}
+
+/**
+ * Put the measured colours back on the row after tagging.
+ *
+ * `tag-item` overwrites `colors` with the model's name-only entries, and says so
+ * itself: hex "is extracted on-device from the actual pixels ... and enriched
+ * client-side". This is that enrichment. It has to run AFTER the tag, not only
+ * before it, because the Edge Function's update lands on top of whatever the
+ * upload wrote — measured hex would otherwise be destroyed on every item that
+ * tags successfully, which is to say on almost all of them.
+ *
+ * The tradeoff taken here is that the model's richer wording ("washed indigo")
+ * is replaced by the nearest table name ("denim"). A true merge needs the
+ * tagger's names read back, which is a round trip per item during a 60-photo
+ * import; a correct value beats a prettier label until that is measured to matter.
+ *
+ * Never fatal. A row with name-only colours is the status quo, not a broken item.
+ *
+ * NOT wired into `sweepPendingTags` yet. Items tagged by a later sweep keep the
+ * model's names and lose their hex, and recovering it there means reading
+ * `color_analysis` back off the row — which is exactly why the full histogram is
+ * stored rather than only the three winners.
+ */
+async function reapplyMeasuredColors(itemId: string, colors: MeasuredColor[]): Promise<void> {
+  try {
+    await supabase.from('items').update({ colors }).eq('id', itemId);
+  } catch {
+    // The garment is saved and tagged. Colour is the part that can wait.
+  }
+}
+
 async function processJob(job: UploadJob): Promise<void> {
   const { update } = useQueueStore.getState();
 
@@ -164,17 +298,12 @@ async function processJob(job: UploadJob): Promise<void> {
   const prepared = await prepareForUpload(job.localUri, job.width, job.height);
   const thumb = await prepareThumbnail(job.localUri, job.width, job.height);
 
-  // 2. Cutout. A failure here is expected and non-fatal — an unliftable photo
+  // 2. Cutout, plate render and colour measurement — one native Vision pass.
+  //    A failure here is expected and non-fatal — an unliftable photo
   //    (patterned background, sheer fabric, white-on-white) still becomes a
   //    perfectly usable item, just without a transparent cutout.
   update(job.id, { stage: 'cutout' });
-  let cutoutUri: string | null = null;
-  if (await backgroundRemover.isSupported()) {
-    const result = await backgroundRemover.remove(prepared.uri);
-    if (result.ok && result.subjects.length > 0) {
-      cutoutUri = result.subjects[0].uri;
-    }
-  }
+  const cutout = await runCutout(job.localUri);
 
   // 3. Create the row first, so the Storage paths can be keyed by item id and
   //    an interrupted upload leaves a resumable record rather than orphans.
@@ -200,14 +329,22 @@ async function processJob(job: UploadJob): Promise<void> {
   const base = `${userId}/${itemId}`;
 
   await uploadObject(prepared.uri, `${base}/original.jpg`, 'image/jpeg', (p) =>
-    update(job.id, { progress: p * 0.6 }),
+    update(job.id, { progress: p * 0.5 }),
   );
   await uploadObject(thumb.uri, `${base}/thumb.jpg`, 'image/jpeg', (p) =>
-    update(job.id, { progress: 0.6 + p * 0.2 }),
+    update(job.id, { progress: 0.5 + p * 0.2 }),
   );
-  if (cutoutUri) {
-    await uploadObject(cutoutUri, `${base}/cutout.png`, 'image/png', (p) =>
-      update(job.id, { progress: 0.8 + p * 0.2 }),
+  // The cutout and the plate are separate objects on purpose: the plate's
+  // normalization will be re-tuned, and re-rendering from the stored cutout is
+  // free where re-lifting from the original is a Vision pass per item.
+  if (cutout.cutoutUri) {
+    await uploadObject(cutout.cutoutUri, `${base}/cutout.png`, 'image/png', (p) =>
+      update(job.id, { progress: 0.7 + p * 0.15 }),
+    );
+  }
+  if (cutout.plateUri) {
+    await uploadObject(cutout.plateUri, `${base}/plate.png`, 'image/png', (p) =>
+      update(job.id, { progress: 0.85 + p * 0.15 }),
     );
   }
 
@@ -216,7 +353,13 @@ async function processJob(job: UploadJob): Promise<void> {
     .update({
       image_path: `${base}/original.jpg`,
       thumb_path: `${base}/thumb.jpg`,
-      cutout_path: cutoutUri ? `${base}/cutout.png` : null,
+      cutout_path: cutout.cutoutUri ? `${base}/cutout.png` : null,
+      plate_path: cutout.plateUri ? `${base}/plate.png` : null,
+      // Written here as well as after tagging, because an item that never gets
+      // tagged (consent withdrawn, model outage) should still carry its real
+      // colours rather than none at all.
+      ...(cutout.colors ? { colors: cutout.colors } : {}),
+      ...(cutout.analysis ? { color_analysis: cutout.analysis } : {}),
       status: 'pending_tag',
     })
     .eq('id', itemId);
@@ -232,7 +375,15 @@ async function processJob(job: UploadJob): Promise<void> {
   const outcome = await requestTag(itemId);
 
   if (outcome.kind === 'settled') {
+    // Before the invalidation, so the closet's refetch already sees real hex
+    // rather than showing model-named swatches for a beat and then swapping.
+    if (cutout.colors) await reapplyMeasuredColors(itemId, cutout.colors);
+
     update(job.id, { stage: 'done' });
+    invalidateAfterItemSettled();
+    // After the durable write, so a crash between tag and track loses the
+    // event rather than fabricating one for an item that never landed.
+    track('clothes_import_completed', { path: 'queue' });
     return;
   }
 
@@ -376,6 +527,8 @@ export async function sweepPendingTags(): Promise<void> {
 
       if (outcome.kind === 'settled') {
         settleJobsForItem(row.id, { stage: 'done', error: undefined });
+        invalidateAfterItemSettled();
+        track('clothes_import_completed', { path: 'sweep' });
         continue;
       }
 

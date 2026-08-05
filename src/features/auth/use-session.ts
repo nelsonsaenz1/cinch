@@ -28,10 +28,19 @@ export function useSession(): SessionState {
     // Prime the state from whatever is already persisted in AsyncStorage,
     // so the initial render doesn't flash the sign-in screen for a user who
     // was already signed in on a previous launch.
-    void supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return;
-      setState({ loading: false, userId: data.session?.user.id ?? null });
-    });
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setState({ loading: false, userId: data.session?.user.id ?? null });
+      })
+      .catch(() => {
+        // A rejection here (the encrypted-storage adapter can throw on a
+        // Keychain failure) must still clear `loading`, or AuthGate spins
+        // forever with no error and no way out. Treat it as signed out — the
+        // next successful auth event corrects it.
+        if (!cancelled) setState({ loading: false, userId: null });
+      });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       setState({ loading: false, userId: session?.user.id ?? null });

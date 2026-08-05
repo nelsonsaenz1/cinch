@@ -104,9 +104,41 @@ MSG
 fi
 
 # ---- 3. Free-team signing can't carry Sign in with Apple ---------------------
+# Only a PERSONAL team needs the entitlement stripped — and on a paid team,
+# stripping it is actively wrong: the build ships without Sign in with Apple
+# and free-signing.sh writes CINCH_FREE_SIGNING=1 into .env.local, which then
+# hides the Apple button in every local build until someone notices. Detect the
+# team type from the same provisioning profile the team id came from; a
+# personal team's TeamName always ends in "(Personal Team)".
 if grep -q "com.apple.developer.applesignin" ios/Cinch/Cinch.entitlements 2>/dev/null; then
-  say "Switching to free-team signing (removes the Sign in with Apple entitlement)"
-  scripts/free-signing.sh on
+  TEAM_NAME=""
+  for prof in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision \
+              ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision; do
+    [ -f "$prof" ] || continue
+    security cms -D -i "$prof" 2>/dev/null > /tmp/.cinch-prof.plist || continue
+    CAND_ID=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' /tmp/.cinch-prof.plist 2>/dev/null || true)
+    if [ "$CAND_ID" = "$TEAM" ]; then
+      TEAM_NAME=$(/usr/libexec/PlistBuddy -c 'Print :TeamName' /tmp/.cinch-prof.plist 2>/dev/null || true)
+      break
+    fi
+  done
+  rm -f /tmp/.cinch-prof.plist
+
+  case "$TEAM_NAME" in
+    *"(Personal Team)")
+      say "Personal team detected — switching to free-team signing (removes Sign in with Apple)"
+      scripts/free-signing.sh on
+      ;;
+    "")
+      echo "Could not determine whether team $TEAM is a personal team." >&2
+      echo "Refusing to strip the Sign in with Apple entitlement blind." >&2
+      echo "If this IS a free personal team, run: scripts/free-signing.sh on  — then re-run." >&2
+      exit 1
+      ;;
+    *)
+      say "Paid team ($TEAM_NAME) — keeping Sign in with Apple; nothing to strip"
+      ;;
+  esac
 fi
 
 # ---- 4. Build ----------------------------------------------------------------

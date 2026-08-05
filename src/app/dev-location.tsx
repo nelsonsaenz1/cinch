@@ -56,6 +56,14 @@ export default function DevLocationScreen() {
 
   const d = probe.data;
 
+  if (!__DEV__) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+        <Text variant="label">Not available.</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScrollView contentContainerClassName="px-gutter pb-16">
