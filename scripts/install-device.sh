@@ -25,8 +25,21 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 # ---- 1. Signing team ---------------------------------------------------------
 TEAM="${CINCH_TEAM_ID:-}"
 if [ -z "$TEAM" ]; then
-  # "Apple Development: Name (XXXXXXXXXX)" — the trailing parenthesised value is
-  # the team ID for a personal team.
+  # Prefer the team on an existing provisioning profile. The parenthesised value
+  # in a certificate name is the cert's own OU, which for a PERSONAL team is a
+  # DIFFERENT string from the team the profile is issued under — passing the
+  # cert's value to xcodebuild fails with "No Account for Team", which is
+  # exactly what happened here.
+  for prof in ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision \
+              ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision; do
+    [ -f "$prof" ] || continue
+    security cms -D -i "$prof" 2>/dev/null > /tmp/.cinch-prof.plist || continue
+    CAND=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' /tmp/.cinch-prof.plist 2>/dev/null || true)
+    if [ -n "$CAND" ]; then TEAM="$CAND"; break; fi
+  done
+  rm -f /tmp/.cinch-prof.plist
+fi
+if [ -z "$TEAM" ]; then
   TEAM=$(security find-identity -v -p codesigning 2>/dev/null \
     | sed -n 's/.*"Apple Development: .*(\([A-Z0-9]\{10\}\))".*/\1/p' | head -1)
 fi
