@@ -17,7 +17,6 @@ import { Plate } from '@/components/today/plate';
 import type { ReactionValue } from '@/components/today/reaction-bar';
 import { WeatherStrip } from '@/components/today/weather-strip';
 import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
 import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -94,6 +93,63 @@ function Masthead() {
       </View>
       <View style={{ marginTop: 14 }}>
         <Rule />
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The honest "nothing works" state. Not an apology and not a generic empty
+ * icon: the design's whole point here is that Cinch says plainly it could not
+ * build something that holds together, then offers the few things that would
+ * actually change the answer — ask the stylist, add the missing kind of piece,
+ * or try again. Small icon circles are affordances, not an empty-state hero.
+ */
+function NothingWorks({ onRetry }: { onRetry: () => void }) {
+  const router = useRouter();
+  const theme = useTheme();
+
+  const rows: {
+    icon: React.ComponentProps<typeof SymbolView>['name'];
+    label: string;
+    onPress: () => void;
+  }[] = [
+    {
+      icon: 'bubble.left.and.text.bubble.right',
+      label: 'Ask the stylist for a way around it',
+      onPress: () => router.navigate('/stylist'),
+    },
+    { icon: 'plus', label: 'Add a piece Cinch is missing', onPress: () => router.push('/capture') },
+    { icon: 'arrow.clockwise', label: 'Try again once things change', onPress: onRetry },
+  ];
+
+  return (
+    <View className="mx-gutter rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
+      <Text variant="title">Nothing today feels right — and I won&apos;t pretend it does.</Text>
+      <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+        Cinch couldn&apos;t build an outfit that holds together from what&apos;s in your closet right
+        now. One more layer, or a pair of shoes, usually unlocks it.
+      </Text>
+      <View className="my-4">
+        <Rule />
+      </View>
+      <Text variant="eyebrow" className="mb-3">
+        What might help
+      </Text>
+      <View className="gap-3">
+        {rows.map((r) => (
+          <Pressable
+            key={r.label}
+            onPress={r.onPress}
+            accessibilityRole="button"
+            accessibilityLabel={r.label}
+            className="flex-row items-center gap-3 active:opacity-60">
+            <View className="h-8 w-8 items-center justify-center rounded-full bg-accent-light">
+              <SymbolView name={r.icon} size={15} tintColor={theme.accent} resizeMode="scaleAspectFit" />
+            </View>
+            <Text variant="body">{r.label}</Text>
+          </Pressable>
+        ))}
       </View>
     </View>
   );
@@ -325,13 +381,7 @@ export default function TodayScreen() {
 
         <View className="mt-6">
           {shown.length === 0 ? (
-            <EmptyState
-              symbol="questionmark.circle"
-              title="Nothing quite works today"
-              body="Cinch could not build an outfit that holds together from what is in your closet right now. A pair of shoes or one more layer usually unlocks it."
-              actionTitle="Add clothes"
-              onAction={() => router.push('/capture')}
-            />
+            <NothingWorks onRetry={refresh} />
           ) : (
             shown.map((outfit, i) => {
               const key = idOf(outfit.candidate.items);

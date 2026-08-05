@@ -1,10 +1,8 @@
-import { SymbolView } from 'expo-symbols';
 import { Modal, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { useTheme } from '@/theme/tokens';
 
 /**
  * The AI processing consent interaction required by Guideline 5.1.2(i).
@@ -26,16 +24,13 @@ export function ConsentSheet({
   onDecline: () => void;
   busy?: boolean;
 }) {
-  const theme = useTheme();
-
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
         <ScrollView contentContainerClassName="px-8 pb-8 pt-10">
-          <View className="mb-6 h-16 w-16 items-center justify-center rounded-full bg-tray dark:bg-tray-dark">
-            <SymbolView name="sparkles" size={28} tintColor={theme.accent} resizeMode="scaleAspectFit" />
-          </View>
-
+          <Text variant="eyebrow" className="mb-3 text-accent dark:text-accent-dark">
+            Before Cinch looks
+          </Text>
           <Text variant="title">Cinch uses AI to tag your clothes</Text>
 
           <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
