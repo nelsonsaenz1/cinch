@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { createOperationIds, runCommand } from '@/lib/commands';
 import { dateKey } from '@/lib/date';
 import type { OutfitCandidate } from '@/lib/styling';
+import { posthog } from '@/lib/posthog';
 import { getUserId, supabase } from '@/lib/supabase';
 
 /** Item ids already committed to a date this week, so the planner can avoid them. */
@@ -99,6 +100,7 @@ export function usePlanOutfit() {
       });
 
       opIds.settle(actionKey);
+      posthog?.capture('outfit_planned', { item_count: itemIds.length });
       return outfitId;
     },
 

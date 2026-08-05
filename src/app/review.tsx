@@ -9,6 +9,7 @@ import { Text } from '@/components/ui/text';
 import { ReviewCard } from '@/components/review/review-card';
 import { useReviewQueue } from '@/features/closet/queries';
 import { useVerifyItem } from '@/features/closet/mutations';
+import { posthog } from '@/lib/posthog';
 import type { Item, ItemCategory } from '@/schemas/item';
 
 /**
@@ -105,7 +106,12 @@ export default function ReviewScreen() {
       resolve(item.id);
 
       try {
-        await verify.mutateAsync({ id: item.id, patch: patchFor(item) });
+        const patch = patchFor(item);
+        await verify.mutateAsync({ id: item.id, patch });
+        posthog?.capture('garment_reviewed', {
+          corrected: Boolean(patch),
+          category: patch?.category ?? item.category,
+        });
       } catch (err) {
         // Never let a failed write look like a successful confirm. Put the item
         // back in the deck and say so, because the alternative is an item that

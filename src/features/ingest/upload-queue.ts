@@ -5,6 +5,7 @@ import { AppState } from 'react-native';
 import { CURRENT_CONSENT_VERSION } from '@/features/auth/use-consent';
 import { backgroundRemover } from '@/lib/bg-removal';
 import { prepareForUpload, prepareThumbnail } from '@/lib/image';
+import { posthog } from '@/lib/posthog';
 import { supabase, getUserId } from '@/lib/supabase';
 
 import { useQueueStore, type UploadJob } from './queue-store';
@@ -233,6 +234,7 @@ async function processJob(job: UploadJob): Promise<void> {
 
   if (outcome.kind === 'settled') {
     update(job.id, { stage: 'done' });
+    posthog?.capture('clothes_import_completed', { tagging_status: outcome.status });
     return;
   }
 
@@ -376,6 +378,7 @@ export async function sweepPendingTags(): Promise<void> {
 
       if (outcome.kind === 'settled') {
         settleJobsForItem(row.id, { stage: 'done', error: undefined });
+        posthog?.capture('clothes_import_completed', { tagging_status: outcome.status });
         continue;
       }
 

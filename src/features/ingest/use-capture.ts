@@ -2,6 +2,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useCallback } from 'react';
 import { Alert, Linking } from 'react-native';
 
+import { posthog } from '@/lib/posthog';
+
 import { useQueueStore } from './queue-store';
 import { drainQueue } from './upload-queue';
 
@@ -58,6 +60,10 @@ export function useCapture() {
     if (result.canceled || !result.assets?.length) return 0;
 
     enqueue(toJobs(result.assets));
+    posthog?.capture('clothes_import_selected', {
+      source: 'library',
+      item_count: result.assets.length,
+    });
     void drainQueue();
     return result.assets.length;
   }, [enqueue]);
@@ -92,6 +98,10 @@ export function useCapture() {
     if (result.canceled || !result.assets?.length) return 0;
 
     enqueue(toJobs(result.assets));
+    posthog?.capture('clothes_import_selected', {
+      source: 'camera',
+      item_count: result.assets.length,
+    });
     void drainQueue();
     return result.assets.length;
   }, [cameraPermission, requestCameraPermission, enqueue]);

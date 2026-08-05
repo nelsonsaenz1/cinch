@@ -5,6 +5,8 @@ import type { RefObject } from 'react';
 import { PixelRatio, type View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
+import { posthog } from '@/lib/posthog';
+
 /**
  * The share card is authored on a fixed 360 × 640 logical canvas — 9:16, the
  * Stories/TikTok frame. Every coordinate in plate-card.tsx assumes it.
@@ -37,6 +39,7 @@ export async function sharePlate(ref: RefObject<View | null>): Promise<string> {
 
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(uri, { UTI: 'public.png', mimeType: 'image/png' });
+    posthog?.capture('outfit_shared', { share_format: 'image' });
     await maybeRequestReview();
   }
 

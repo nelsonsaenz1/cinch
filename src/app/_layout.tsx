@@ -28,6 +28,7 @@ import {
   queryClient,
   shouldDehydrateQuery,
 } from '@/lib/query-client';
+import { posthog, PostHogRoot } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
 import '@/global.css';
@@ -76,6 +77,37 @@ function usePersistedCachePurge() {
 }
 
 /**
+ * Associate the shared analytics client with a Supabase user at the auth
+ * boundary. The UUID is stable, while contact and profile fields remain person
+ * properties rather than being repeated on captured events.
+ */
+function usePostHogIdentity() {
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        posthog?.reset();
+        return;
+      }
+
+      // `INITIAL_SESSION` covers a user restored from encrypted local session
+      // storage after PostHog's own device storage was cleared or reinstalled.
+      if ((event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') || !session) return;
+
+      const metadata = session.user.user_metadata as { full_name?: unknown };
+      const personProperties: Record<string, string> = {};
+      if (session.user.email) personProperties.email = session.user.email;
+      if (typeof metadata.full_name === 'string' && metadata.full_name.trim()) {
+        personProperties.name = metadata.full_name;
+      }
+
+      posthog?.identify(session.user.id, { $set: personProperties });
+    });
+
+    return () => sub.subscription.unsubscribe();
+  }, []);
+}
+
+/**
  * The routing gate.
  *
  * `useSegments` returns the current URL as an array — e.g. `['(tabs)', 'closet']`
@@ -87,6 +119,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // Completes a magic-link sign-in when the link opens the app, including the
   // cold-start case where no URL event ever fires.
   useDeepLinkAuth();
+  usePostHogIdentity();
 
   const session = useSession();
   const segments = useSegments();
@@ -188,58 +221,60 @@ export default function RootLayout() {
         `shouldDehydrateQuery` is an allowlist and the exclusions matter as much
         as the inclusions; see the note on it in lib/query-client.ts.
       */}
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{
-          persister,
-          buster: persistBuster,
-          maxAge: persistMaxAge,
-          dehydrateOptions: { shouldDehydrateQuery },
-        }}
-      >
-        {/*
-          ThemeProvider, DefaultTheme and DarkTheme now come from `expo-router`
-          itself — SDK 56 dropped React Navigation as the underlying
-          implementation, so importing these from '@react-navigation/native'
-          (as every older tutorial does) will not resolve.
-        */}
-        <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-          <StatusBar style={isDark ? 'light' : 'dark'} />
-          <AuthGate>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen
-                name="capture"
-                options={{ presentation: 'modal', headerShown: false }}
-              />
-              <Stack.Screen
-                name="review"
-                options={{ presentation: 'fullScreenModal', headerShown: false }}
-              />
-              {/* Stylist is a sheet off Today, not a tab — a chat tab is the
-                  generic-AI tell, and it duplicates Today's job. It OPENS at
-                  0.75 so Today stays visible behind it — the conversation is
-                  an aside on the page — but a long chat can be dragged to
-                  full height. 38 is the `sheet` radius token. */}
-              <Stack.Screen
-                name="stylist"
-                options={{
-                  presentation: 'formSheet',
-                  sheetAllowedDetents: [0.75, 1],
-                  sheetGrabberVisible: true,
-                  sheetCornerRadius: 38,
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="profile"
-                options={{ presentation: 'modal', headerShown: false }}
-              />
-            </Stack>
-          </AuthGate>
-        </ThemeProvider>
-      </PersistQueryClientProvider>
+      <PostHogRoot>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{
+            persister,
+            buster: persistBuster,
+            maxAge: persistMaxAge,
+            dehydrateOptions: { shouldDehydrateQuery },
+          }}
+        >
+          {/*
+            ThemeProvider, DefaultTheme and DarkTheme now come from `expo-router`
+            itself — SDK 56 dropped React Navigation as the underlying
+            implementation, so importing these from '@react-navigation/native'
+            (as every older tutorial does) will not resolve.
+          */}
+          <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+            <AuthGate>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen
+                  name="capture"
+                  options={{ presentation: 'modal', headerShown: false }}
+                />
+                <Stack.Screen
+                  name="review"
+                  options={{ presentation: 'fullScreenModal', headerShown: false }}
+                />
+                {/* Stylist is a sheet off Today, not a tab — a chat tab is the
+                    generic-AI tell, and it duplicates Today's job. It OPENS at
+                    0.75 so Today stays visible behind it — the conversation is
+                    an aside on the page — but a long chat can be dragged to
+                    full height. 38 is the `sheet` radius token. */}
+                <Stack.Screen
+                  name="stylist"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [0.75, 1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="profile"
+                  options={{ presentation: 'modal', headerShown: false }}
+                />
+              </Stack>
+            </AuthGate>
+          </ThemeProvider>
+        </PersistQueryClientProvider>
+      </PostHogRoot>
     </GestureHandlerRootView>
   );
 }
