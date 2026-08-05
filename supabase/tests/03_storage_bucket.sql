@@ -74,32 +74,43 @@ select is(
 set local role anon;
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 
-select is(
-  (select count(*) from storage.objects
-    where bucket_id = 'garments' and name like '%/original.jpg'),
-  0::bigint,
-  'anon can never read original.jpg — not for a public item, not for any item'
+-- The public-thumb policies reference `items` in their USING clause, and anon
+-- holds no grant on items while the social surface is deferred (20260806100000)
+-- — so every anon read of the bucket now REFUSES rather than filters. These
+-- are the same deliberate tripwires as 02's view assertions: the day anon is
+-- granted a path back in, these fail loudly and the public-read behaviour has
+-- to be consciously re-verified, not inherited.
+
+select throws_ok(
+  $$select count(*) from storage.objects
+     where bucket_id = 'garments' and name like '%/original.jpg'$$,
+  '42501',
+  null,
+  'anon cannot read the bucket at all while the social surface is deferred'
 );
 
-select is(
-  (select count(*) from storage.objects
-    where name = '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/thumb.jpg'),
-  1::bigint,
-  'anon can read the thumb of a public item'
+select throws_ok(
+  $$select count(*) from storage.objects
+     where name = '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/thumb.jpg'$$,
+  '42501',
+  null,
+  'not even the thumb of a public item — signed URLs are the only door'
 );
 
-select is(
-  (select count(*) from storage.objects
-    where name = '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/cutout.png'),
-  1::bigint,
-  'anon can read the cutout of a public item'
+select throws_ok(
+  $$select count(*) from storage.objects
+     where name = '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/cutout.png'$$,
+  '42501',
+  null,
+  'nor the cutout of a public item'
 );
 
-select is(
-  (select count(*) from storage.objects
-    where name = '11111111-1111-4111-8111-111111111111/cccccccc-cccc-4ccc-8ccc-cccccccccccc/thumb.jpg'),
-  0::bigint,
-  'a private item publishes nothing, even under a public profile'
+select throws_ok(
+  $$select count(*) from storage.objects
+     where name = '11111111-1111-4111-8111-111111111111/cccccccc-cccc-4ccc-8ccc-cccccccccccc/thumb.jpg'$$,
+  '42501',
+  null,
+  'and a private item publishes nothing, as ever'
 );
 
 select throws_ok(

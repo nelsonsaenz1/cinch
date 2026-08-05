@@ -123,6 +123,10 @@ select is(
              join pg_namespace n on n.oid = c.relnamespace
             where n.nspname = 'public'
               and c.relkind = 'r'
+              -- Only OUR tables. The local stack's services create and drop
+              -- their own bookkeeping tables in public (realtime's
+              -- `instances`), and probing one mid-drop aborts the file.
+              and c.relowner = 'postgres'::regrole
               and c.relrowsecurity
               and not exists (select 1 from pg_policy p where p.polrelid = c.oid)) x
     where has_table_privilege('authenticated', 'public.' || quote_ident(t), 'SELECT')),
