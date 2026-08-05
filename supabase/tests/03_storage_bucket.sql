@@ -165,8 +165,11 @@ select is(
 select is(
   (select count(*) from storage.objects
     where name = '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/thumb.jpg'),
-  1::bigint,
-  'a signed-in stranger sees a published derivative, same as anon'
+  0::bigint,
+  -- Was 1 when items carried a public-read policy; that policy fell with the
+  -- public boundary (20260804200000), so a stranger's storage policy subquery
+  -- rightly finds no public item. Flips back the day the social surface ships.
+  'a signed-in stranger sees no derivatives while the social surface is deferred'
 );
 
 select is(
