@@ -39,6 +39,8 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
     .filter(Boolean)
     .join(', ');
 
+  const neverWorn = item.wearCount === 0;
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -47,7 +49,7 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
       // No width class: FlashList's two-column layout already sizes the cell —
       // a w-1/2 here would render every card at a quarter of the screen.
       className="p-1.5 active:opacity-80">
-      <View className="aspect-[3/4] w-full overflow-hidden rounded-card bg-tray dark:bg-tray-dark">
+      <View className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-tray dark:bg-tray-dark">
         {imageUri ? (
           <Image
             source={stableImageSource(imageUri)}
@@ -70,10 +72,19 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
           </View>
         )}
 
+        {/* One badge only. A needs-review flag is the more urgent thing to say,
+            so it wins the corner; otherwise the never-worn flag — in the accent
+            — is the whole "get more from what you own" pitch made visible. */}
         {needsReview ? (
-          <View className="absolute left-2 top-2 rounded-chip bg-warning px-2 py-0.5">
+          <View className="absolute left-2 top-2 rounded-sm bg-warning px-2 py-0.5">
             <Text variant="caption" className="text-canvas dark:text-canvas">
               Needs review
+            </Text>
+          </View>
+        ) : neverWorn ? (
+          <View className="absolute left-2 top-2 rounded-sm bg-accent px-2 py-0.5">
+            <Text variant="colophon" className="text-canvas dark:text-canvas">
+              Never worn
             </Text>
           </View>
         ) : null}
@@ -87,16 +98,21 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
       </View>
 
       <View className="mt-2 px-0.5">
-        <Text variant="body" numberOfLines={1} className="font-medium">
+        <Text variant="label" numberOfLines={1} className="text-ink dark:text-ink-dark">
           {item.subcategory ?? 'Untagged item'}
         </Text>
-        <Text variant="label" numberOfLines={1} className="mt-0.5">
-          {cpw !== null
-            ? `$${cpw.toFixed(2)} / wear`
-            : item.wearCount === 0
-              ? 'Never worn'
-              : `Worn ${item.wearCount}×`}
-        </Text>
+        {/* wears on the left, cost-per-wear on the right in the serif — the
+            garment's whole story in one line. Never-worn reads in the accent. */}
+        <View className="mt-1 flex-row items-baseline justify-between">
+          <Text
+            variant="caption"
+            className={neverWorn ? 'text-accent dark:text-accent-dark' : 'text-muted dark:text-muted-dark'}>
+            {neverWorn ? 'Never worn' : `${item.wearCount} ${item.wearCount === 1 ? 'wear' : 'wears'}`}
+          </Text>
+          <Text variant="stat" className="text-label text-ink dark:text-ink-dark">
+            {cpw !== null ? `$${cpw.toFixed(2)}` : '—'}
+          </Text>
+        </View>
       </View>
     </Pressable>
   );

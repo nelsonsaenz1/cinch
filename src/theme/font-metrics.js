@@ -30,6 +30,22 @@
 
 /** @type {Record<string, {ascent: number, descent: number, leading: number, capHeight: number}>} */
 const FACES = {
+  // ── The faces in use ──────────────────────────────────────────────────────
+  //
+  // Instrument Serif sets the OS/2 USE_TYPO_METRICS bit, so CoreText lays it out
+  // from the *typo* metrics, not hhea. Parsed from the shipped TTF
+  // (node_modules/@expo-google-fonts/instrument-serif): unitsPerEm 1000,
+  // sTypoAscender 990 / sTypoDescender -310 / sTypoLineGap 0, sCapHeight 720.
+  // Its 1.30 line box is tall for a serif — an airy face — so display leadings
+  // clamp up to it and the tight plate measure comes from capTrim, not lineHeight.
+  instrument: { ascent: 0.99, descent: 0.31, leading: 1.3, capHeight: 0.72 },
+  // Helvetica Neue — the iOS system grotesque, not bundled. Standard metrics:
+  // unitsPerEm 1000, ascent 952 / descent -213 / lineGap ~28 -> ~1.19 line box,
+  // capHeight 714. Body leadings (~1.5) sit well clear of the floor, so nothing
+  // clips; these values exist only so the clamp math has a face to read.
+  helvetica: { ascent: 0.952, descent: 0.213, leading: 1.2, capHeight: 0.714 },
+
+  // ── Retired, kept defined so no stray reference throws during a rewrite ─────
   // unitsPerEm 2000, hhea asc 2250 / desc -800 / gap 0, sCapHeight 1500
   bodoni: { ascent: 1.125, descent: 0.4, leading: 1.525, capHeight: 0.75 },
   // unitsPerEm 1000, hhea asc 878 / desc -210 / gap 0, sCapHeight 686

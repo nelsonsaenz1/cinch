@@ -4,14 +4,18 @@ const { leading, tracking } = require('./src/theme/font-metrics');
 
 // Cinch design tokens.
 //
-// Editorial-minimal with streetwear energy — SSENSE meets Apple Weather.
+// A print lookbook that regenerates every morning — considered, quiet, warm.
 // Garment cutouts sit on warm paper, and exactly one accent carries every
 // call to action.
 //
-// The accent is a deliberate ultramarine rather than the terracotta/amber that
-// current models reach for by default on "editorial" briefs; that palette has
-// become recognizable as generated and reads generic next to real fashion work.
-// Ultramarine on warm paper is colder, sharper, and more technical.
+// The accent is oxblood — a deep, worn burgundy that reads as ink-with-blood
+// rather than a UI colour. On warm paper it's editorial and confident without
+// the coldness of a technical blue; it's SPENT, never sprayed: one oxblood
+// action per screen.
+//
+// The app is LIGHT ONLY (userInterfaceStyle 'light' in app.config.ts). Every
+// token still carries a `dark` value so no `dark:` class throws, but each is
+// set equal to its light value — the app never renders a second appearance.
 
 module.exports = {
   content: ['./src/**/*.{js,jsx,ts,tsx}'],
@@ -19,106 +23,108 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Surfaces — warm paper, cool ink.
-        canvas: { DEFAULT: '#FBF8F5', dark: '#061B24' },
-        surface: { DEFAULT: '#FFFFFF', dark: '#0A2633' },
-        // Cutouts are photographed against this, so it must stay neutral-warm
-        // and never tint the garment.
-        tray: { DEFAULT: '#F5F0E8', dark: '#123243' },
+        // Surfaces — warm paper, warm ink. Canvas is the page; surface is a
+        // card lifted off it; tray is the recessed well a garment sits in.
+        canvas: { DEFAULT: '#FBFAF6', dark: '#FBFAF6' },
+        surface: { DEFAULT: '#FFFFFF', dark: '#FFFFFF' },
+        tray: { DEFAULT: '#F0ECE3', dark: '#F0ECE3' },
         // The deepest sand, for a tile that needs to sit BACK from the tray
-        // without becoming a border.
-        sand: { DEFAULT: '#EDE7DB', dark: '#1B4254' },
+        // without becoming a border (progress tracks, selected fills).
+        sand: { DEFAULT: '#EAE5DB', dark: '#EAE5DB' },
 
-        // Type. Ink is a deep slate-navy rather than a true black: against warm
-        // paper a neutral black reads slightly green, and the navy keeps the
-        // page from going cold while still clearing 15:1 on canvas.
-        ink: { DEFAULT: '#0A2633', dark: '#FBF8F5' },
-        muted: { DEFAULT: '#6B665C', dark: '#93A5AF' },
-        hairline: { DEFAULT: '#EDE7DB', dark: '#1B4254' },
-        // The lookbook's structural rules. `hairline` is a whisper — right for
-        // a divider between list rows, too faint to carry the plate grammar.
-        // `rule` is ink at 18%, so it composites correctly over both canvas and
-        // tray without needing a second token.
-        rule: { DEFAULT: 'rgba(10,38,51,0.18)', dark: 'rgba(251,248,245,0.20)' },
+        // Type. Ink is a warm near-black (not a true black): on warm paper a
+        // neutral black reads cold and hard, and this brown-black keeps the
+        // page soft while still clearing well past 15:1 on canvas. `muted` is
+        // body-secondary; `faint` is the lighter tone the tracked eyebrows and
+        // inactive tab labels are set in.
+        ink: { DEFAULT: '#1C1A16', dark: '#1C1A16' },
+        muted: { DEFAULT: '#6B665C', dark: '#6B665C' },
+        faint: { DEFAULT: '#8A8578', dark: '#8A8578' },
+        // Divider between list rows — a whisper. `rule` is a touch stronger,
+        // for the card borders and section rules that carry the plate grammar.
+        // Both are warm ink at low alpha so they composite over canvas and tray.
+        hairline: { DEFAULT: 'rgba(28,26,22,0.09)', dark: 'rgba(28,26,22,0.09)' },
+        rule: { DEFAULT: 'rgba(28,26,22,0.12)', dark: 'rgba(28,26,22,0.12)' },
 
-        // The accent. Still SPENT rather than sprayed — one primary action per
-        // screen — but it is now a considered blue that belongs to the paper
-        // instead of the electric indigo that fought it.
+        // The accent — oxblood. One primary action per screen.
         accent: {
-          DEFAULT: '#2A6F97',
-          hover: '#1E5A7D',
-          light: '#E8F1F7',
-          dark: '#7FB3D3',
+          DEFAULT: '#6E2B2B',
+          hover: '#8A3A35',
+          light: '#F1E7E4',
+          dark: '#6E2B2B',
         },
-        // The second accent. Tan, for the places where blue would be read as a
-        // hyperlink — data highlights, the warm half of a two-tone chart.
-        'accent-warm': { DEFAULT: '#C4976C', hover: '#B08558', dark: '#D6AE88' },
+        // The second accent. Warm clay, for the places where oxblood would read
+        // as an error or a link — data highlights, the warm half of a chart.
+        'accent-warm': { DEFAULT: '#B08A76', hover: '#9C7460', dark: '#B08A76' },
 
-        // Semantic — used sparingly; never as decoration
+        // Semantic — used sparingly; never as decoration. Warmed to sit on
+        // paper; oxblood already owns "attention", so critical is a distinct,
+        // deeper brick to avoid reading as the accent.
         positive: '#1A8754',
-        warning: '#D4850A',
-        critical: '#C0392B',
+        warning: '#C58A2E',
+        critical: '#8A2E28',
       },
       fontFamily: {
-        // React Native does NOT synthesise weights for custom fonts: setting
-        // fontWeight on a loaded family is silently ignored, and you get the
-        // regular cut back. Every weight therefore has to be its own family
-        // name, which is why these are named by weight rather than by role.
+        // The system is one serif and one grotesque.
         //
-        // Bodoni Moda — the didone is the fashion-magazine letterform. Used
-        // large only; its hairlines break up below about 28px.
-        //
-        // Two optical masters, not one. `display` is cut at opsz=24 for the
-        // wordmark and screen titles, where the caption master's fat hairlines
-        // killed all the stroke contrast. `title` stays on the stock opsz=11
-        // cut, because at 28px the finer hairline would fall under a device
-        // pixel. See src/app/_layout.tsx for the measurements.
-        display: ['BodoniModa_Display'],
-        title: ['BodoniModa_600SemiBold'],
-        // Archivo — condensed grotesque with true tabular figures, legible at
-        // small sizes. Reads like a garment care label.
-        body: ['Archivo_400Regular'],
-        medium: ['Archivo_500Medium'],
-        semibold: ['Archivo_600SemiBold'],
-        mono: ['Archivo_500Medium'],
+        // Instrument Serif carries every display role — wordmark, titles, the
+        // big data figures. It is a single weight and a single optical master,
+        // so `display` and `title` are the same family; the names are kept only
+        // so existing `font-title` classes keep resolving. `displayItalic` is a
+        // real italic cut (RN will not synthesise a slant on a loaded family),
+        // used for the emphasis words like "already own."
+        display: ['InstrumentSerif_400Regular'],
+        title: ['InstrumentSerif_400Regular'],
+        displayItalic: ['InstrumentSerif_400Regular_Italic'],
+        // Helvetica Neue — the iOS system grotesque, referenced by its face
+        // names. It is a SYSTEM font, so unlike a bundled custom family it does
+        // honour distinct cuts by PostScript name; there is no true 600, so the
+        // heavier roles map to Medium, which is the right weight for the tracked
+        // labels and buttons without going blunt.
+        body: ['HelveticaNeue'],
+        medium: ['HelveticaNeue-Medium'],
+        semibold: ['HelveticaNeue-Medium'],
+        mono: ['HelveticaNeue'],
       },
       // Line heights are COMPUTED, never typed by hand. `leading()` takes the
       // ratio we want and clamps it up to the font's own line box, because
       // anything below that floor gets silently clipped at the top by CoreText.
-      // See src/theme/font-metrics.js — the didone needs 1.525, the grotesque
-      // only 1.088, so one "tight display leading" number cannot serve both.
-      // scripts/typography-smoke.ts asserts every token clears its floor.
+      // See src/theme/font-metrics.js — Instrument Serif's box is 1.30, so the
+      // tight display ratios below clamp up to it and the editorial measure
+      // comes from `trim` (capTrim), not from a sub-floor lineHeight. Helvetica
+      // sits at ~1.20, well under the body ratios, so grotesque text never
+      // clamps. scripts/typography-smoke.ts asserts every token clears its floor.
       //
-      // Tracking follows Apple's published optical curves, not taste: Bodoni
-      // uses the New York table (24 -> -0.26 ... 72 -> -1.09, interpolated),
-      // the only Apple spec for a serif display face. Archivo uses the SF Pro
-      // curve up to 20pt and holds at -0.40 above it — SF's positive tracking
-      // at large sizes is specific to SF's design and reads like a template on
-      // a narrower grotesque. RN letterSpacing is absolute points, never em.
+      // Tracking is light, not aggressive: Instrument Serif is a low-contrast
+      // serif that wants close to its natural fit (the design tracks the big
+      // wordmark only, at ~-0.01em), and Helvetica Neue needs none of the
+      // negative kern SF Pro asked for. Uppercase eyebrows keep positive
+      // tracking — the one place letters should breathe. RN letterSpacing is
+      // absolute points, never em.
       fontSize: {
-        // ── Bodoni Moda. Display only — never below 24px (didone dazzle:
-        //    the heavy stems dominate and the hairlines vanish).
-        wordmark: [`64px`, { lineHeight: `${leading('bodoni', 64, 1.05)}px`, letterSpacing: '-0.95px' }],
-        display: [`40px`, { lineHeight: `${leading('bodoni', 40, 1.05)}px`, letterSpacing: '-0.55px' }],
-        title: [`28px`, { lineHeight: `${leading('bodoni', 28, 1.1)}px`, letterSpacing: '-0.33px' }],
-        // The plate title — the didone at its smallest legal size.
-        plate: [`24px`, { lineHeight: `${leading('bodoni', 24, 1.1)}px`, letterSpacing: '-0.26px' }],
+        // ── Instrument Serif (display + big data figures) ──────────────────
+        wordmark: [`64px`, { lineHeight: `${leading('instrument', 64, 1.05)}px`, letterSpacing: '-0.6px' }],
+        display: [`40px`, { lineHeight: `${leading('instrument', 40, 1.05)}px`, letterSpacing: '-0.3px' }],
+        title: [`28px`, { lineHeight: `${leading('instrument', 28, 1.08)}px`, letterSpacing: '-0.15px' }],
+        // The plate title — the serif at a compact size.
+        plate: [`24px`, { lineHeight: `${leading('instrument', 24, 1.08)}px`, letterSpacing: '-0.1px' }],
+        // `figure` is the big data number — serif now, matching the design's
+        // stat grids (item detail "42×", closet strip "61×"). Tabular is a
+        // no-op on this face; single hero values don't jitter regardless.
+        figure: [`28px`, { lineHeight: `${leading('instrument', 28, 1.05)}px`, letterSpacing: '-0.15px' }],
 
-        // ── Archivo
-        // `figure` is title-sized but grotesque — big tabular numbers on
-        // Profile and item detail, kept out of the didone's tall line box.
-        figure: [`28px`, { lineHeight: `${leading('archivo', 28, 1.14)}px`, letterSpacing: '-0.4px' }],
-        heading: [`20px`, { lineHeight: `${leading('archivo', 20, 1.25)}px`, letterSpacing: '-0.45px' }],
+        // ── Helvetica Neue (everything set small) ──────────────────────────
+        heading: [`20px`, { lineHeight: `${leading('helvetica', 20, 1.25)}px`, letterSpacing: '-0.2px' }],
         // 17, not 16: Apple's iOS Body is 17pt, and every native control label
         // on screen sits at 17 — 16 reads a half-step small next to them.
-        body: [`17px`, { lineHeight: `${leading('archivo', 17, 1.5)}px`, letterSpacing: '-0.43px' }],
-        callout: [`16px`, { lineHeight: `${leading('archivo', 16, 1.5)}px`, letterSpacing: '-0.31px' }],
-        label: [`13px`, { lineHeight: `${leading('archivo', 13, 1.38)}px`, letterSpacing: '-0.08px' }],
-        caption: [`11px`, { lineHeight: `${leading('archivo', 11, 1.27)}px`, letterSpacing: '0.06px' }],
+        body: [`17px`, { lineHeight: `${leading('helvetica', 17, 1.5)}px`, letterSpacing: '0px' }],
+        callout: [`16px`, { lineHeight: `${leading('helvetica', 16, 1.5)}px`, letterSpacing: '0px' }],
+        label: [`13px`, { lineHeight: `${leading('helvetica', 13, 1.4)}px`, letterSpacing: '0px' }],
+        caption: [`11px`, { lineHeight: `${leading('helvetica', 11, 1.3)}px`, letterSpacing: '0.1px' }],
         // The tracked-out grotesque eyebrow — the fashion-magazine signature.
-        eyebrow: [`11px`, { lineHeight: `${leading('archivo', 11, 1.27)}px`, letterSpacing: '1.1px' }],
-        // The data line under a plate. Tabular figures, wide tracking.
-        colophon: [`10px`, { lineHeight: '14px', letterSpacing: '0.9px' }],
+        eyebrow: [`11px`, { lineHeight: `${leading('helvetica', 11, 1.3)}px`, letterSpacing: '1.6px' }],
+        // The data line under a plate. Small caps, wide tracking.
+        colophon: [`10px`, { lineHeight: '14px', letterSpacing: '1.4px' }],
       },
       // Concentric, per the HIG: inner = outer - inset, anchored at the plate
       // (a visible container), not the device bezel. `full` capsules belong to

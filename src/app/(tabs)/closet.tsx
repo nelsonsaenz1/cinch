@@ -1,11 +1,10 @@
+import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CategoryTile } from '@/components/closet/category-tile';
 import { ClosetGrid } from '@/components/closet/closet-grid';
-import { StatTile } from '@/components/closet/stat-tile';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Rule } from '@/components/ui/rule';
 import { ClosetGridSkeleton } from '@/components/ui/skeleton';
@@ -13,18 +12,21 @@ import { Text } from '@/components/ui/text';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { costPerWear, type Item, type ItemCategory } from '@/schemas/item';
+import { useTheme } from '@/theme/tokens';
 
 /**
- * Six categories, which is what makes the board work.
+ * The closet, as the handoff design draws it: a fixed masthead — title, a live
+ * search, the three headline numbers, and the category filter — sitting above a
+ * scrolling two-column grid of the actual garments.
  *
- * Two rows of three is the only arrangement that fits a phone without either
- * shrinking the squares below a readable caption or pushing the wardrobe
- * itself off the first screen. `other` is folded into Accessories rather than
- * given a seventh tile — a lone orphan tile on a third row would cost a whole
- * row of vertical space to say "miscellaneous".
+ * Everything above the grid is deliberately OUTSIDE the FlashList rather than
+ * riding as a ListHeader. A controlled <TextInput> inside a virtualised list's
+ * header loses focus on every keystroke, because the header re-renders and the
+ * input remounts. Keeping the masthead fixed also matches the design: the
+ * numbers and filter stay put while only the wardrobe scrolls.
  */
 const CATEGORIES: { key: ItemCategory | 'all'; label: string }[] = [
-  { key: 'all', label: 'Everything' },
+  { key: 'all', label: 'All' },
   { key: 'top', label: 'Tops' },
   { key: 'bottom', label: 'Bottoms' },
   { key: 'outerwear', label: 'Outerwear' },
@@ -32,37 +34,28 @@ const CATEGORIES: { key: ItemCategory | 'all'; label: string }[] = [
   { key: 'accessory', label: 'Accessories' },
 ];
 
-type SortKey = 'recent' | 'most-worn' | 'never-worn' | 'cost-per-wear';
-
 const GUTTER = 20;
-const GAP = 10;
-const COLUMNS = 3;
 
 export default function ClosetScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const theme = useTheme();
   const [category, setCategory] = useState<ItemCategory | 'all'>('all');
-  const [sort, setSort] = useState<SortKey>('recent');
+  const [query, setQuery] = useState('');
 
   // OUT-13: live closet. The same query Profile's stats already read, so the
   // two screens can never disagree about what the user owns.
   const closet = useCloset();
   const items = useMemo(() => closet.data ?? [], [closet.data]);
 
-  // The garments bucket is private — paths must be signed before an <Image>
-  // can render them. One batched request for the whole screen, tiles included.
+  // Garment paths are private — sign them before an <Image> can render them.
   const { resolve } = useSignedUrls(items.flatMap((i) => [i.thumbPath, i.cutoutPath]));
-
-  // Floor, not round: three tiles plus two gaps must never exceed the measure,
-  // or the last column wraps and the second row collapses into a third.
-  const tile = Math.floor((width - GUTTER * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
 
   const inCategory = useMemo(
     () => (key: ItemCategory | 'all') =>
       key === 'all'
         ? items
         : items.filter((i) =>
-            // Accessories absorb `other`, matching the tile that shows them.
+            // Accessories absorb `other`, so nothing falls through the filter.
             key === 'accessory'
               ? i.category === 'accessory' || i.category === 'other'
               : i.category === key,
@@ -70,135 +63,112 @@ export default function ClosetScreen() {
     [items],
   );
 
-  const visible = useMemo(() => {
-    const sorted = [...inCategory(category)];
-    switch (sort) {
-      case 'most-worn':
-        sorted.sort((a, b) => b.wearCount - a.wearCount);
-        break;
-      case 'never-worn':
-        // Never-worn first, then least-worn — this is the "what am I not
-        // wearing" view, so it must not silently hide worn items entirely.
-        sorted.sort((a, b) => a.wearCount - b.wearCount);
-        break;
-      case 'cost-per-wear': {
-        // Items with no price sort last rather than being treated as free.
-        const cpw = (i: Item) =>
-          i.purchasePrice === null || i.wearCount === 0
-            ? Number.POSITIVE_INFINITY
-            : i.purchasePrice / i.wearCount;
-        sorted.sort((a, b) => cpw(a) - cpw(b));
-        break;
-      }
-      case 'recent':
-      default:
-        sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    }
-    return sorted;
-  }, [inCategory, category, sort]);
-
-  // The three headline numbers, computed over the WHOLE closet rather than the
-  // filtered view: they are facts about the wardrobe, and a number that moved
-  // every time you tapped a category would be reporting the filter, not the
-  // closet.
+  // The three headline numbers, computed over the WHOLE closet, not the filtered
+  // view: they are facts about the wardrobe, and a number that moved every time
+  // you tapped a category would be reporting the filter, not the closet.
   const stats = useMemo(() => {
     const mostWorn = items.reduce<Item | null>(
       (best, i) => (best === null || i.wearCount > best.wearCount ? i : best),
       null,
     );
     const neverWorn = items.filter((i) => i.wearCount === 0).length;
-
     const priced = items
       .map((i) => costPerWear(i))
       .filter((v): v is number => v !== null && Number.isFinite(v));
-    const avgCpw = priced.length
-      ? priced.reduce((sum, v) => sum + v, 0) / priced.length
-      : null;
-
+    const avgCpw = priced.length ? priced.reduce((s, v) => s + v, 0) / priced.length : null;
     return { mostWorn, neverWorn, avgCpw };
   }, [items]);
 
-  const board = (
-    <View style={{ paddingBottom: 4 }}>
-      <View className="pb-4 pt-2">
+  // Category, then the live search over the words a person would actually type:
+  // what it is, its colour, the brand. Newest first within the result.
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const matches = (i: Item) =>
+      !q ||
+      [i.subcategory, i.category, i.brand, ...i.colors.map((c) => c.name)]
+        .filter(Boolean)
+        .some((s) => s!.toLowerCase().includes(q));
+    return inCategory(category)
+      .filter(matches)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [inCategory, category, query]);
+
+  const masthead = (
+    <View style={{ paddingHorizontal: GUTTER }}>
+      <View className="flex-row items-baseline justify-between pt-2">
         <Text variant="display" trim accessibilityRole="header">
-          My Closet
+          Closet
         </Text>
-        <View style={{ marginTop: 12 }}>
-          <Rule />
-        </View>
-        <Text variant="label" className="mt-2 text-muted dark:text-muted-dark">
+        <Text variant="label" className="text-faint dark:text-faint-dark">
           {items.length} {items.length === 1 ? 'piece' : 'pieces'}
         </Text>
       </View>
 
-      {/* Two rows of three. `flex-wrap` with a fixed tile width does the
-          wrapping, so adding a seventh category later costs nothing. */}
-      <View className="flex-row flex-wrap" style={{ gap: GAP }}>
+      {/* Search */}
+      <View className="mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5 dark:bg-tray-dark">
+        <SymbolView name="magnifyingglass" size={15} tintColor={theme.faint} resizeMode="scaleAspectFit" />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search your wardrobe"
+          placeholderTextColor={theme.faint}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+          accessibilityLabel="Search your wardrobe"
+          style={{ flex: 1, paddingVertical: 11, fontFamily: 'HelveticaNeue', fontSize: 15, color: theme.ink }}
+        />
+      </View>
+
+      {/* The three headline numbers — a divided strip, informational. */}
+      <View className="mt-3.5 flex-row border-y border-hairline dark:border-hairline-dark">
+        <StatCell
+          value={stats.mostWorn ? `${stats.mostWorn.wearCount}×` : '—'}
+          label="Most worn"
+        />
+        <StatCell
+          value={`${stats.neverWorn}`}
+          label="Never worn"
+          accent={stats.neverWorn > 0}
+          divided
+        />
+        <StatCell
+          value={stats.avgCpw !== null ? `$${stats.avgCpw.toFixed(2)}` : '—'}
+          label="Avg / wear"
+        />
+      </View>
+
+      {/* Category filter */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 7, paddingVertical: 12 }}>
         {CATEGORIES.map((c) => {
-          const inIt = inCategory(c.key);
+          const selected = category === c.key;
           return (
-            <CategoryTile
+            <Pressable
               key={c.key}
-              label={c.label}
-              count={inIt.length}
-              selected={category === c.key}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              accessibilityHint={`Show only ${c.label}`}
               onPress={() => setCategory(c.key)}
-              size={tile}
-              previews={inIt
-                .slice(0, 4)
-                .map((i) => resolve(i.thumbPath, i.cutoutPath))
-                .filter((u): u is string => Boolean(u))}
-            />
+              className={`rounded-full border px-3.5 py-1.5 active:opacity-70 ${
+                selected
+                  ? 'border-ink bg-ink dark:border-ink-dark dark:bg-ink-dark'
+                  : 'border-rule bg-transparent dark:border-rule-dark'
+              }`}>
+              <Text
+                variant="label"
+                className={
+                  selected ? 'text-canvas dark:text-canvas' : 'text-muted dark:text-muted-dark'
+                }>
+                {c.label}
+              </Text>
+            </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
-      <View style={{ marginTop: 24, marginBottom: 12 }}>
-        <Rule />
-      </View>
-    </View>
-  );
-
-  const insights = (
-    <View style={{ paddingTop: 28 }}>
-      <View>
-        <Rule />
-      </View>
-      <Text variant="eyebrow" className="mb-3 mt-3">
-        What it is telling you
-      </Text>
-
-      <View className="flex-row" style={{ gap: GAP }}>
-        <StatTile
-          label="Most worn"
-          value={stats.mostWorn ? `${stats.mostWorn.wearCount}×` : '—'}
-          detail={stats.mostWorn?.subcategory ?? stats.mostWorn?.category ?? null}
-          selected={sort === 'most-worn'}
-          onPress={() => setSort(sort === 'most-worn' ? 'recent' : 'most-worn')}
-          size={tile}
-        />
-        <StatTile
-          label="Never worn"
-          value={`${stats.neverWorn}`}
-          detail={
-            items.length
-              ? `${Math.round((stats.neverWorn / items.length) * 100)}% of closet`
-              : null
-          }
-          selected={sort === 'never-worn'}
-          onPress={() => setSort(sort === 'never-worn' ? 'recent' : 'never-worn')}
-          size={tile}
-        />
-        <StatTile
-          label="Cost / wear"
-          value={stats.avgCpw !== null ? `$${stats.avgCpw.toFixed(2)}` : '—'}
-          detail={stats.avgCpw !== null ? 'average' : 'add prices'}
-          selected={sort === 'cost-per-wear'}
-          onPress={() => setSort(sort === 'cost-per-wear' ? 'recent' : 'cost-per-wear')}
-          size={tile}
-        />
-      </View>
+      <Rule />
     </View>
   );
 
@@ -207,32 +177,69 @@ export default function ClosetScreen() {
       {closet.isLoading ? (
         <ClosetGridSkeleton />
       ) : (
-        <ClosetGrid
-          items={visible}
-          onItemPress={(item) => router.push({ pathname: '/item/[id]', params: { id: item.id } })}
-          resolveImage={resolve}
-          ListHeaderComponent={board}
-          // The numbers sit under the wardrobe because they are a conclusion
-          // drawn from it, and because putting them above would push the
-          // clothes themselves below the fold.
-          ListFooterComponent={items.length > 0 ? insights : null}
-          ListEmptyComponent={
-            <View className="h-96">
-              <EmptyState
-                symbol="tshirt"
-                title={category === 'all' ? 'Nothing here yet' : 'Nothing in this drawer'}
-                body={
-                  category === 'all'
-                    ? 'Add a few pieces and Cinch will start putting outfits together for you.'
-                    : 'No pieces in this category yet. Tap Everything to see the whole closet.'
-                }
-                actionTitle={category === 'all' ? 'Add clothes' : undefined}
-                onAction={category === 'all' ? () => router.push('/capture') : undefined}
-              />
-            </View>
-          }
-        />
+        <>
+          {masthead}
+          <ClosetGrid
+            items={visible}
+            onItemPress={(item) => router.push({ pathname: '/item/[id]', params: { id: item.id } })}
+            resolveImage={resolve}
+            ListEmptyComponent={
+              <View className="h-96">
+                <EmptyState
+                  symbol="tshirt"
+                  title={
+                    query
+                      ? 'Nothing matches'
+                      : category === 'all'
+                        ? 'An empty rail'
+                        : 'Nothing in this drawer'
+                  }
+                  body={
+                    query
+                      ? 'No pieces match that search. Try a colour, a brand, or the kind of garment.'
+                      : category === 'all'
+                        ? 'Add a few pieces and this fills with your real wardrobe — worn counts, cost-per-wear, the lot.'
+                        : 'No pieces in this category yet. Tap All to see the whole closet.'
+                  }
+                  actionTitle={category === 'all' && !query ? 'Add clothes' : undefined}
+                  onAction={
+                    category === 'all' && !query ? () => router.push('/capture') : undefined
+                  }
+                />
+              </View>
+            }
+          />
+        </>
       )}
     </SafeAreaView>
+  );
+}
+
+/** One column of the headline-numbers strip: a serif figure over a tiny cap label. */
+function StatCell({
+  value,
+  label,
+  accent = false,
+  divided = false,
+}: {
+  value: string;
+  label: string;
+  accent?: boolean;
+  divided?: boolean;
+}) {
+  return (
+    <View
+      className={`flex-1 items-center py-2.5 ${
+        divided ? 'border-x border-hairline dark:border-hairline-dark' : ''
+      }`}>
+      <Text
+        variant="stat"
+        className={accent ? 'text-accent dark:text-accent-dark' : 'text-ink dark:text-ink-dark'}>
+        {value}
+      </Text>
+      <Text variant="colophon" className="mt-0.5">
+        {label}
+      </Text>
+    </View>
   );
 }

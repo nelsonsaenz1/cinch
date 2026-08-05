@@ -17,53 +17,55 @@ type Variant =
   | 'stat';
 
 /**
- * Weight is expressed as a font FAMILY, never as `font-semibold`.
+ * Weight is a font FAMILY for the serif, and may be a family for Helvetica too.
  *
- * React Native does not synthesise weights for custom fonts. Applying
- * `fontWeight` to a loaded family is silently ignored and you get the regular
- * cut back — which reads as "the design just isn't landing" rather than as a
- * bug, so it is worth stating plainly here.
+ * React Native does not synthesise weights for a *bundled* family (Instrument
+ * Serif ships one weight, so there is only ever the regular cut). Helvetica Neue
+ * is a system face and does honour its distinct cuts by PostScript name, which
+ * is why `font-medium`/`font-semibold` resolve to HelveticaNeue-Medium. Either
+ * way, do not lean on `fontWeight`; name the family.
  *
  * Never hand-write a `lineHeight` on top of these. The sizes carry line heights
  * computed from the real font metrics; a tighter override clips the tops of the
- * glyphs. See src/theme/font-metrics.js.
+ * glyphs. See src/theme/font-metrics.js. The app is light-only, so no `dark:`
+ * halves here.
  */
 const variants: Record<Variant, string> = {
-  // Bodoni Moda. Display only — never below the 24px `plate` size.
-  wordmark: 'font-display text-wordmark text-ink dark:text-ink-dark',
-  display: 'font-display text-display text-ink dark:text-ink-dark',
-  // Deliberately `font-title`, not `font-display`: a coarser optical master —
-  // at 28px and below the display cut's hairlines drop under a device pixel.
-  title: 'font-title text-title text-ink dark:text-ink-dark',
-  plate: 'font-title text-plate text-ink dark:text-ink-dark',
+  // Instrument Serif — display only.
+  wordmark: 'font-display text-wordmark text-ink',
+  display: 'font-display text-display text-ink',
+  title: 'font-title text-title text-ink',
+  plate: 'font-title text-plate text-ink',
 
-  // Archivo.
-  heading: 'font-semibold text-heading text-ink dark:text-ink-dark',
-  body: 'font-body text-body text-ink dark:text-ink-dark',
-  callout: 'font-body text-callout text-ink dark:text-ink-dark',
-  label: 'font-medium text-label text-muted dark:text-muted-dark',
-  caption: 'font-medium text-caption text-muted dark:text-muted-dark',
-  // The tracked-out grotesque eyebrow — THE MORNING EDIT, PLATE Nº 2.
-  eyebrow: 'font-medium text-eyebrow uppercase text-muted dark:text-muted-dark',
-  // The data line under a plate. Set in the engine's own vocabulary.
-  colophon: 'font-medium text-colophon uppercase text-muted dark:text-muted-dark',
-  stat: 'font-mono text-body text-ink dark:text-ink-dark',
+  // Helvetica Neue.
+  heading: 'font-semibold text-heading text-ink',
+  body: 'font-body text-body text-ink',
+  callout: 'font-body text-callout text-ink',
+  label: 'font-medium text-label text-muted',
+  caption: 'font-medium text-caption text-muted',
+  // The tracked-out eyebrow, set in the lighter faint tone — the fashion-
+  // magazine signature.
+  eyebrow: 'font-medium text-eyebrow uppercase text-faint',
+  // The data line under a plate.
+  colophon: 'font-medium text-colophon uppercase text-faint',
+  // The hero data number — serif, matching the design's stat grids.
+  stat: 'font-title text-heading text-ink',
 };
 
 /**
- * The cap-trim table for the didone variants.
+ * The cap-trim table for the serif variants.
  *
- * A 64px Bodoni sits inside a 98px line box (the font's own metrics demand it —
- * shrinking the box is the clipping bug). Untrimmed, a rule placed 12px below
- * the text *looks* 35px below it, and the lookbook's tight plate grammar is
- * impossible. `trim` collapses the box to the cap height with negative margins,
- * leaving the glyph box intact. Opt in per use; flowing body text never wants it.
+ * Instrument Serif carries a tall 1.30 line box, so a 64px setting sits inside
+ * an 84px box. Untrimmed, a rule placed 12px below the text *looks* far below
+ * it, and the lookbook's tight plate grammar is impossible. `trim` collapses
+ * the box to the cap height with negative margins, leaving the glyph box intact.
+ * Opt in per use; flowing body text never wants it.
  */
 const TRIMS: Partial<Record<Variant, { marginTop: number; marginBottom: number }>> = {
-  wordmark: capTrim('bodoni', 64, leading('bodoni', 64, 1.05)),
-  display: capTrim('bodoni', 40, leading('bodoni', 40, 1.05)),
-  title: capTrim('bodoni', 28, leading('bodoni', 28, 1.1)),
-  plate: capTrim('bodoni', 24, leading('bodoni', 24, 1.1)),
+  wordmark: capTrim('instrument', 64, leading('instrument', 64, 1.05)),
+  display: capTrim('instrument', 40, leading('instrument', 40, 1.05)),
+  title: capTrim('instrument', 28, leading('instrument', 28, 1.08)),
+  plate: capTrim('instrument', 24, leading('instrument', 24, 1.08)),
 };
 
 export type TextProps = RNTextProps & {

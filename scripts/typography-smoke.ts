@@ -18,18 +18,19 @@ const tw = require('../tailwind.config.js');
 
 /** Which family each token is rendered in. See src/components/ui/text.tsx. */
 const FACE_OF: Record<string, FaceName> = {
-  wordmark: 'bodoni',
-  display: 'bodoni',
-  title: 'bodoni',
-  plate: 'bodoni',
-  figure: 'archivo',
-  heading: 'archivo',
-  body: 'archivo',
-  callout: 'archivo',
-  label: 'archivo',
-  caption: 'archivo',
-  eyebrow: 'archivo',
-  colophon: 'archivo',
+  wordmark: 'instrument',
+  display: 'instrument',
+  title: 'instrument',
+  plate: 'instrument',
+  // `figure` is the serif data number now — see text.tsx.
+  figure: 'instrument',
+  heading: 'helvetica',
+  body: 'helvetica',
+  callout: 'helvetica',
+  label: 'helvetica',
+  caption: 'helvetica',
+  eyebrow: 'helvetica',
+  colophon: 'helvetica',
 };
 
 const sizes = tw.theme.extend.fontSize as Record<string, [string, { lineHeight: string }]>;
@@ -70,9 +71,9 @@ for (const token of ['wordmark', 'display', 'title', 'plate']) {
   const [sizeRaw, meta] = sizes[token]!;
   const size = px(sizeRaw);
   const lh = px(meta.lineHeight);
-  const t = capTrim('bodoni', size, lh);
+  const t = capTrim('instrument', size, lh);
   const laidOut = lh + t.marginTop + t.marginBottom;
-  const cap = Math.round(size * FACES.bodoni.capHeight);
+  const cap = Math.round(size * FACES.instrument.capHeight);
   // Rounding each margin separately can land 1px off the rounded cap height;
   // anything beyond that means the trim math is broken.
   const ok = Math.abs(laidOut - cap) <= 1;

@@ -20,6 +20,8 @@ export type ThemeColors = {
   tray: string;
   ink: string;
   muted: string;
+  /** The lighter secondary tone — tracked eyebrows, inactive tab labels. */
+  faint: string;
   hairline: string;
   /** Structural rules of the plate grammar — ink at 18%, works over canvas and tray. */
   rule: string;
@@ -33,35 +35,28 @@ export type ThemeColors = {
 
 export type ColorSchemeName = 'light' | 'dark';
 
+// The app is light-only (userInterfaceStyle 'light' in app.config.ts). `dark` is
+// kept as a key so `dynamic()` and any `dark:` path still resolve, but it holds
+// the same oxblood values as `light` — the app never renders a second appearance.
+const light: ThemeColors = {
+  canvas: '#FBFAF6',
+  surface: '#FFFFFF',
+  tray: '#F0ECE3',
+  ink: '#1C1A16',
+  muted: '#6B665C',
+  faint: '#8A8578',
+  hairline: 'rgba(28,26,22,0.09)',
+  rule: 'rgba(28,26,22,0.12)',
+  accent: '#6E2B2B',
+  accentWarm: '#B08A76',
+  positive: '#1A8754',
+  warning: '#C58A2E',
+  critical: '#8A2E28',
+};
+
 const palette: Record<ColorSchemeName, ThemeColors> = {
-  light: {
-    canvas: '#FBF8F5',
-    surface: '#FFFFFF',
-    tray: '#F5F0E8',
-    ink: '#0A2633',
-    muted: '#6B665C',
-    hairline: '#EDE7DB',
-    rule: 'rgba(10,38,51,0.18)',
-    accent: '#2A6F97',
-    accentWarm: '#C4976C',
-    positive: '#1A8754',
-    warning: '#D4850A',
-    critical: '#C0392B',
-  },
-  dark: {
-    canvas: '#061B24',
-    surface: '#0A2633',
-    tray: '#123243',
-    ink: '#FBF8F5',
-    muted: '#93A5AF',
-    hairline: '#1B4254',
-    rule: 'rgba(251,248,245,0.20)',
-    accent: '#7FB3D3',
-    accentWarm: '#D6AE88',
-    positive: '#4CAF7D',
-    warning: '#E8A33D',
-    critical: '#E5675E',
-  },
+  light,
+  dark: light,
 };
 
 export function useTheme(): ThemeColors & { scheme: ColorSchemeName } {

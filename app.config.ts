@@ -24,7 +24,10 @@ const config: ExpoConfig = {
   scheme: 'cinch',
   version: '1.0.0',
   orientation: 'portrait',
-  userInterfaceStyle: 'automatic',
+  // Light only. Cinch is a print lookbook, and a print object has one
+  // appearance — this pins the app to light regardless of the system setting,
+  // which is also what makes the retired `dark:` classes provably inert.
+  userInterfaceStyle: 'light',
   icon: './assets/images/icon.png',
   // No `newArchEnabled` flag: the New Architecture is always on from SDK 55
   // onward and the field was removed from ExpoConfig entirely. There is no
@@ -164,7 +167,7 @@ const config: ExpoConfig = {
     package: 'com.nelsonsaenz.cinch',
     predictiveBackGestureEnabled: false,
     adaptiveIcon: {
-      backgroundColor: '#FBF8F5',
+      backgroundColor: '#FBFAF6',
       foregroundImage: './assets/images/android-icon-foreground.png',
       backgroundImage: './assets/images/android-icon-background.png',
       monochromeImage: './assets/images/android-icon-monochrome.png',
@@ -204,7 +207,7 @@ const config: ExpoConfig = {
     [
       'expo-splash-screen',
       {
-        backgroundColor: '#FBF8F5',
+        backgroundColor: '#FBFAF6',
         image: './assets/images/splash-icon.png',
         imageWidth: 76,
       },

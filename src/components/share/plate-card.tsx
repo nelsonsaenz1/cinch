@@ -21,11 +21,11 @@ const LAYOUT_ORDER: Garment['slot'][] = [
  * the phone's appearance mid-capture.
  */
 const PAPER = {
-  canvas: '#FBF8F5',
-  tray: '#F5F0E8',
-  ink: '#0A2633',
+  canvas: '#FBFAF6',
+  tray: '#F0ECE3',
+  ink: '#1C1A16',
   muted: '#6B665C',
-  rule: 'rgba(10,38,51,0.18)',
+  rule: 'rgba(28,26,22,0.12)',
 };
 
 const X = 32;
@@ -40,20 +40,20 @@ const MEASURE = CARD_W - X * 2; // 296
 const PRINT = { allowFontScaling: false } as const;
 
 /**
- * Bodoni below 40px uses the coarser opsz=11 master — same rule as the app's
- * `title`/`plate` variants. At 24–28pt the display cut's hairlines fall under
- * a device pixel even in the 3× capture.
+ * The display serif — Instrument Serif, the app's one display face. A single
+ * optical master, so nothing special is needed at small sizes the way the
+ * didone once demanded.
  */
 const serif = (size: number, track: number) => ({
-  fontFamily: 'BodoniModa_600SemiBold',
+  fontFamily: 'InstrumentSerif_400Regular',
   fontSize: size,
-  lineHeight: leading('bodoni', size, 1.1),
+  lineHeight: leading('instrument', size, 1.08),
   letterSpacing: tracking(size, track),
   color: PAPER.ink,
 });
 
 const grotesk = (size: number, lineHeight: number, track: number) => ({
-  fontFamily: 'Archivo_500Medium',
+  fontFamily: 'HelveticaNeue-Medium',
   fontSize: size,
   lineHeight,
   letterSpacing: track,
@@ -165,7 +165,7 @@ export function PlateCard({
       <View style={{ position: 'absolute', left: X, top: 90, width: MEASURE }}>
         <RNText
           {...PRINT}
-          style={[serif(28, -0.012), capTrim('bodoni', 28, leading('bodoni', 28, 1.1))]}>
+          style={[serif(28, -0.012), capTrim('instrument', 28, leading('instrument', 28, 1.08))]}>
           Cinch
         </RNText>
       </View>
@@ -203,7 +203,7 @@ export function PlateCard({
         <RNText
           {...PRINT}
           numberOfLines={1}
-          style={[serif(24, -0.011), capTrim('bodoni', 24, leading('bodoni', 24, 1.1))]}>
+          style={[serif(24, -0.011), capTrim('instrument', 24, leading('instrument', 24, 1.08))]}>
           {outfit.name}
         </RNText>
       </View>
