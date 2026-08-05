@@ -1,3 +1,4 @@
+import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
@@ -15,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/ui/text';
 import { sendEmailLink, signInWithApple } from '@/features/auth/actions';
@@ -27,14 +28,57 @@ const TERMS_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/terms';
 type Mode = 'choose' | 'email' | 'sent';
 
 /**
- * The one screen a signed-out user ever sees — the whole promise on a single
- * dark page. Rather than describe the product, it shows a sample outfit: an
- * eyebrow up top, a serif headline pushed to the bottom of the page, a strip of
- * four garment swatches standing in for a styled look, and the two ways in.
+ * One garment swatch of the welcome grid.
  *
- * The screen is ink (#1C1A16) end to end, so text colour comes from inline
- * `style` using theme values — a `text-*` className cannot reliably beat a Text
- * variant's own colour, and light-on-dark is the whole point here.
+ * A vertical Skia gradient rather than a solid: the four tiles stand in for
+ * photographed garments, and flat fills read as a colour chart where a soft
+ * falloff reads as cloth under light. Skia because it is already in the bundle
+ * for the plate — adding expo-linear-gradient for four static rectangles would
+ * be a dependency for a two-stop gradient.
+ *
+ * The gradient needs pixel bounds, so the tile measures itself; the canvas
+ * draws nothing until the first layout pass, which on a static screen is
+ * invisible.
+ */
+function SwatchTile({
+  top,
+  bottom,
+  radius,
+  children,
+}: {
+  top: string;
+  bottom: string;
+  radius: number;
+  children?: React.ReactNode;
+}) {
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  return (
+    <View
+      style={{ flex: 1, borderRadius: radius, overflow: 'hidden' }}
+      onLayout={(e) =>
+        setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
+      }>
+      {size.h > 0 ? (
+        <Canvas style={{ position: 'absolute', width: size.w, height: size.h }}>
+          <Rect x={0} y={0} width={size.w} height={size.h}>
+            <LinearGradient start={vec(0, 0)} end={vec(0, size.h)} colors={[top, bottom]} />
+          </Rect>
+        </Canvas>
+      ) : null}
+      {children}
+    </View>
+  );
+}
+
+/**
+ * The one screen a signed-out user ever sees.
+ *
+ * Composition per the welcome mock: the top of the page is a 2×2 grid of
+ * garment swatches on ink — a styled set presented like a contact sheet, the
+ * wordmark printed on the first tile and the set's caption along the bottom —
+ * and a canvas sheet rises over its lower edge carrying the promise and the
+ * two ways in. The product's whole grammar (a look as a set of plates, cost
+ * per wear as a headline fact) is on screen before a single word of pitch.
  *
  * Sign in with Apple leads because it is genuinely the least friction — and
  * because the App Store requires it once any other social login is offered
@@ -44,6 +88,7 @@ type Mode = 'choose' | 'email' | 'sent';
  */
 export default function SignInScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>('choose');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -79,46 +124,27 @@ export default function SignInScreen() {
     };
   }, [builtWithAppleSignIn]);
 
-  // Dark-page palette. `canvas`/`ink`/`faint` come from the design tokens; the
-  // warm tans have no token because they only ever appear on this one dark
-  // screen, so they are literal here (and match the handoff's welcome frame).
-  const cream = theme.canvas; // light text + the Apple button fill
-  const warmTan = '#B7A99A'; // eyebrow + the outfit caption line
-  const warmItalic = '#D8B7A6'; // the emphasis words "already own."
-  const subhead = '#C9C2B6'; // the paragraph under the headline
-  const hairlineOnInk = 'rgba(251,250,246,0.4)'; // outline button + field border
-
   /**
-   * Every measurement on this screen is the handoff's own pixel value scaled by
-   * one factor.
-   *
-   * The mock draws the welcome page inside a 300px-wide phone frame — it is a
-   * scaled picture of a ~400pt device, not a 300pt layout. Treating its pixels
-   * as points (which this screen used to do) rendered the whole page about a
-   * third too small: the eyebrow read as a footnote and the headline stopped
-   * carrying the page. `s` converts mock px to points so the proportions land
-   * as drawn, on any width.
+   * Every measurement is the mock's own pixel value scaled by one factor. The
+   * mock draws the page in a 300-unit-wide frame; `s` converts its units to
+   * points so the proportions land as drawn on any width.
    */
   const { width: screenW } = useWindowDimensions();
   const s = screenW / 300;
   const px = (mock: number) => mock * s;
 
-  // The tracked caption under the swatch strip — mock 10px/600 at .14em.
-  const caption = {
-    fontFamily: 'HelveticaNeue-Medium' as const,
-    fontSize: px(10),
-    letterSpacing: px(1.4),
-    textTransform: 'uppercase' as const,
-    color: '#B7A99A',
-  };
-
-  const headSize = px(44);
-  // The mock sets 1.02 leading. Instrument Serif declares a 1.30 line box, and
-  // `leading()` would clamp up to it — which is right for a single trimmed line
-  // but here would push the three lines a third further apart than the design.
-  // 1.10 clears the real ink (cap 0.72 + descent 0.31) with room to spare, so
-  // nothing clips, while keeping the headline as tight as the mock reads.
-  const headLineHeight = Math.round(headSize * 1.1);
+  // The grid's palette. Literal rather than tokenized: these are the mock's
+  // four garments — charcoal knit, slate shirt, clay coat, cream trouser — and
+  // exist nowhere else in the app. Each pair is a soft top-lit falloff.
+  const TILES = [
+    { top: '#37342F', bottom: '#282623' }, // charcoal
+    { top: '#A9B2C0', bottom: '#5E6874' }, // slate
+    { top: '#BB9179', bottom: '#754C3C' }, // clay
+    { top: '#F0EADE', bottom: '#A49E90' }, // cream
+  ];
+  const cream = theme.canvas;
+  const warmTan = '#C7A08D'; // the set caption's eyebrow, on ink
+  const captionLight = 'rgba(251,250,246,0.82)';
 
   const onApple = useCallback(async () => {
     if (busy) return;
@@ -154,106 +180,140 @@ export default function SignInScreen() {
   }, [busy, email]);
 
   return (
-    <SafeAreaView className="flex-1 bg-ink">
-      {/* This is the one dark screen in a light-only app; the global status bar
-          is dark-on-light and would vanish here. */}
+    <View className="flex-1 bg-ink">
+      {/* The grid half is ink; the global status bar is dark-on-light and
+          would vanish over it. */}
       <StatusBar style="light" />
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* ── The set: a 2×2 contact sheet of garment swatches ── */}
         <View
-          className="flex-1"
-          style={{ paddingHorizontal: px(26), paddingTop: px(14), paddingBottom: px(10) }}>
-          {/* ── Eyebrow, pinned to the top of the page ── */}
-          <Animated.View entering={FadeIn.duration(500)}>
+          style={{
+            flex: 1,
+            paddingTop: insets.top + px(6),
+            paddingHorizontal: px(16),
+            gap: px(7),
+          }}>
+          <View style={{ flex: 1, flexDirection: 'row', gap: px(7) }}>
+            <SwatchTile top={TILES[0].top} bottom={TILES[0].bottom} radius={px(14)}>
+              <RNText
+                style={{
+                  fontFamily: 'InstrumentSerif_400Regular',
+                  fontSize: px(34),
+                  color: cream,
+                  paddingTop: px(12),
+                  paddingLeft: px(15),
+                }}>
+                Cinch
+              </RNText>
+            </SwatchTile>
+            <SwatchTile top={TILES[1].top} bottom={TILES[1].bottom} radius={px(14)}>
+              <RNText
+                style={{
+                  fontFamily: 'HelveticaNeue-Medium',
+                  fontSize: px(9.5),
+                  letterSpacing: px(1.7),
+                  textTransform: 'uppercase',
+                  color: captionLight,
+                  textAlign: 'right',
+                  paddingTop: px(16),
+                  paddingRight: px(15),
+                }}>
+                Today&apos;s set
+              </RNText>
+            </SwatchTile>
+          </View>
+
+          <View style={{ flex: 1, flexDirection: 'row', gap: px(7) }}>
+            <SwatchTile top={TILES[2].top} bottom={TILES[2].bottom} radius={px(14)} />
+            <SwatchTile top={TILES[3].top} bottom={TILES[3].bottom} radius={px(14)} />
+          </View>
+
+          {/* The set's caption, printed over the grid's lower edge — the same
+              two facts every plate in the app carries: the look's name, its
+              palette, what it costs to wear. Absolute so the sheet can rise
+              over the tiles without pushing the caption off them. */}
+          <Animated.View
+            entering={FadeIn.delay(150).duration(500)}
+            pointerEvents="none"
+            style={{ position: 'absolute', left: px(31), bottom: px(34) }}>
             <RNText
               style={{
                 fontFamily: 'HelveticaNeue-Medium',
-                fontSize: px(11),
-                letterSpacing: px(3.3),
+                fontSize: px(10.5),
+                letterSpacing: px(1.6),
                 textTransform: 'uppercase',
                 color: warmTan,
               }}>
-              Cinch
+              The Quiet Monday
             </RNText>
-          </Animated.View>
-
-          {/* The eyebrow sits at the top; everything else falls to the bottom. */}
-          <View className="flex-1" />
-
-          {/* ── The promise: headline, paragraph, a sample look ── */}
-          <Animated.View entering={FadeInDown.delay(120).duration(600)}>
-            <RNText
-              accessibilityRole="header"
-              style={{
-                fontFamily: 'InstrumentSerif_400Regular',
-                fontSize: headSize,
-                lineHeight: headLineHeight,
-                letterSpacing: -0.4,
-                color: cream,
-              }}>
-              A stylist for{'\n'}the clothes you{'\n'}
-              <RNText
-                style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: warmItalic }}>
-                already own.
-              </RNText>
-            </RNText>
-
             <RNText
               style={{
                 fontFamily: 'HelveticaNeue',
-                fontSize: px(14),
-                lineHeight: px(21),
-                color: subhead,
-                marginTop: px(16),
-                maxWidth: px(230),
+                fontSize: px(13),
+                color: captionLight,
+                marginTop: px(4),
               }}>
-              One photo of your wardrobe. Every morning, outfits built from your real garments —
-              nothing to buy, ever.
+              Charcoal · cream · slate — $1.20 to wear
             </RNText>
-
-            {/* Sample outfit strip — four garment swatches standing in for a
-                styled look, in place of any illustration. */}
-            <View style={{ flexDirection: 'row', gap: px(8), marginTop: px(22), marginBottom: px(10) }}>
-              {['#3A3A38', '#E3DBCB', '#8A94A0', '#4A3B31'].map((tone, i) => (
-                <View
-                  key={i}
-                  style={{ flex: 1, height: px(96), borderRadius: px(4), backgroundColor: tone }}
-                />
-              ))}
-            </View>
-
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                marginBottom: px(24),
-              }}>
-              {/* The mock's two captions are together wider than its column, so
-                  it wraps them. Let the left one shrink for the same reason —
-                  without this they collide into "MONDAY$1.20". */}
-              <RNText style={[caption, { flexShrink: 1, marginRight: px(8) }]}>
-                Today · The Quiet Monday
-              </RNText>
-              <RNText style={[caption, { flexShrink: 0 }]}>$1.20 to wear</RNText>
-            </View>
           </Animated.View>
+        </View>
 
-          {/* ── The two ways in, plus the closing promise ── */}
-          <Animated.View entering={FadeInDown.delay(260).duration(650)}>
+        {/* ── The sheet: the promise and the two ways in ── */}
+        <Animated.View
+          entering={FadeInDown.delay(120).duration(600)}
+          style={{
+            backgroundColor: cream,
+            borderTopLeftRadius: px(24),
+            borderTopRightRadius: px(24),
+            marginTop: -px(22),
+            paddingHorizontal: px(31),
+            paddingTop: px(28),
+            paddingBottom: Math.max(insets.bottom, px(10)) + px(8),
+          }}>
+          <RNText
+            accessibilityRole="header"
+            style={{
+              fontFamily: 'InstrumentSerif_400Regular',
+              fontSize: px(29),
+              lineHeight: px(34),
+              letterSpacing: -0.3,
+              color: theme.ink,
+            }}>
+            Dressed from your{' '}
+            <RNText
+              style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: theme.accent }}>
+              own closet
+            </RNText>
+            , every morning.
+          </RNText>
+
+          <RNText
+            style={{
+              fontFamily: 'HelveticaNeue',
+              fontSize: px(14),
+              lineHeight: px(21),
+              color: theme.muted,
+              marginTop: px(9),
+            }}>
+            Weather, your plans, and what you actually wear — Cinch reads all three.
+          </RNText>
+
+          <View style={{ marginTop: px(19) }}>
             {mode === 'choose' ? (
               <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(140)}>
-                {/* Apple's OWN button, not a look-alike. The design draws a
-                    cream pill with the logo and "Continue with Apple", which is
-                    exactly AppleAuthenticationButton's WHITE style — so the zip
-                    is satisfied without shipping a custom control, which
-                    Guideline 4.8 / the Sign in with Apple HIG do not permit. */}
+                {/* Apple's OWN button, not a look-alike. The mock draws an ink
+                    pill reading "Continue with Apple" — exactly the BLACK style
+                    of AppleAuthenticationButton, so the design is satisfied
+                    without a custom control, which Guideline 4.8 / the Sign in
+                    with Apple HIG do not permit. */}
                 {appleAvailable ? (
                   <AppleAuthentication.AppleAuthenticationButton
                     buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-                    cornerRadius={px(30)}
-                    style={{ width: '100%', height: px(47), opacity: busy ? 0.6 : 1 }}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={px(26)}
+                    style={{ width: '100%', height: px(50), opacity: busy ? 0.6 : 1 }}
                     onPress={() => {
                       if (!busy) void onApple();
                     }}
@@ -268,15 +328,19 @@ export default function SignInScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Continue with email"
                   style={{
-                    height: px(47),
-                    borderRadius: px(30),
+                    height: px(50),
+                    borderRadius: px(26),
                     borderWidth: 1,
-                    borderColor: hairlineOnInk,
-                    marginTop: appleAvailable ? px(10) : 0,
+                    borderColor: theme.rule,
+                    marginTop: appleAvailable ? px(11) : 0,
                   }}
                   className="w-full items-center justify-center active:opacity-60">
                   <RNText
-                    style={{ fontFamily: 'HelveticaNeue-Medium', fontSize: px(14), color: cream }}>
+                    style={{
+                      fontFamily: 'HelveticaNeue-Medium',
+                      fontSize: px(14.5),
+                      color: theme.ink,
+                    }}>
                     Continue with email
                   </RNText>
                 </Pressable>
@@ -310,10 +374,10 @@ export default function SignInScreen() {
                     accessibilityLabel="Email address"
                     className="flex-1 rounded-full px-4 font-body text-callout"
                     style={{
-                      height: 52,
+                      height: px(50),
                       borderWidth: 1,
-                      borderColor: hairlineOnInk,
-                      color: cream,
+                      borderColor: theme.rule,
+                      color: theme.ink,
                     }}
                   />
                   <Pressable
@@ -322,17 +386,16 @@ export default function SignInScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Send sign-in link"
                     style={{
-                      height: 52,
-                      width: 52,
-                      borderRadius: 30,
-                      backgroundColor:
-                        email.trim() && !busy ? cream : 'rgba(251,250,246,0.14)',
+                      height: px(50),
+                      width: px(50),
+                      borderRadius: px(26),
+                      backgroundColor: email.trim() && !busy ? theme.ink : theme.tray,
                     }}
                     className="items-center justify-center">
                     <SymbolView
                       name="arrow.right"
                       size={18}
-                      tintColor={email.trim() && !busy ? theme.ink : theme.faint}
+                      tintColor={email.trim() && !busy ? theme.canvas : theme.faint}
                       resizeMode="scaleAspectFit"
                     />
                   </Pressable>
@@ -342,8 +405,8 @@ export default function SignInScreen() {
                   onPress={() => setMode('choose')}
                   accessibilityRole="button"
                   style={{ minHeight: MIN_TAP_TARGET }}
-                  className="mt-2 items-start justify-center active:opacity-60">
-                  <Text variant="label" style={{ color: warmTan }}>
+                  className="mt-1 items-start justify-center active:opacity-60">
+                  <Text variant="label" style={{ color: theme.accent }}>
                     Back
                   </Text>
                 </Pressable>
@@ -354,64 +417,52 @@ export default function SignInScreen() {
                   <SymbolView
                     name="envelope"
                     size={20}
-                    tintColor={theme.canvas}
+                    tintColor={theme.ink}
                     resizeMode="scaleAspectFit"
                   />
-                  <Text variant="heading" style={{ color: cream }}>
-                    Check your email
-                  </Text>
+                  <Text variant="heading">Check your email</Text>
                 </View>
-                <Text variant="callout" style={{ color: subhead, marginTop: 6, maxWidth: 320 }}>
-                  We sent a sign-in link to {email.trim().toLowerCase()}. Open it on this device and
-                  you are in.
+                <Text variant="callout" style={{ color: theme.muted, marginTop: 6 }}>
+                  We sent a sign-in link to {email.trim().toLowerCase()}. Open it on this device
+                  and you are in.
                 </Text>
                 <Pressable
                   onPress={() => setMode('email')}
                   accessibilityRole="button"
                   style={{ minHeight: MIN_TAP_TARGET }}
-                  className="mt-2 items-start justify-center active:opacity-60">
-                  <Text variant="label" style={{ color: warmTan }}>
+                  className="mt-1 items-start justify-center active:opacity-60">
+                  <Text variant="label" style={{ color: theme.accent }}>
                     Use a different address
                   </Text>
                 </Pressable>
               </Animated.View>
             )}
+          </View>
 
-            {/* The closing promise, then the terms — both kept legible on ink. */}
-            <RNText
-              style={{
-                fontFamily: 'HelveticaNeue',
-                fontSize: px(12),
-                lineHeight: px(16.8),
-                color: theme.faint,
-                textAlign: 'center',
-                marginTop: px(16),
-              }}>
-              We never show you a garment you don&apos;t have.
-            </RNText>
-
-            <View className="mt-2 flex-row flex-wrap items-center justify-center">
-              <Text variant="caption" style={{ color: theme.faint }}>
-                By continuing you agree to our{' '}
+          {/* Required legal furniture — the mock crops below the buttons, but a
+              sign-in screen without Terms and Privacy is a 1.1.6 conversation
+              with App Review. Kept quiet in faint. */}
+          <View className="mt-3 flex-row flex-wrap items-center justify-center">
+            <Text variant="caption" style={{ color: theme.faint }}>
+              By continuing you agree to our{' '}
+            </Text>
+            <Pressable onPress={() => void Linking.openURL(TERMS_URL)} hitSlop={8}>
+              <Text variant="caption" className="underline" style={{ color: theme.muted }}>
+                Terms
               </Text>
-              <Pressable onPress={() => void Linking.openURL(TERMS_URL)} hitSlop={8}>
-                <Text variant="caption" className="underline" style={{ color: cream }}>
-                  Terms
-                </Text>
-              </Pressable>
-              <Text variant="caption" style={{ color: theme.faint }}>
-                {' '}
-                and{' '}
+            </Pressable>
+            <Text variant="caption" style={{ color: theme.faint }}>
+              {' '}
+              and{' '}
+            </Text>
+            <Pressable onPress={() => void Linking.openURL(PRIVACY_URL)} hitSlop={8}>
+              <Text variant="caption" className="underline" style={{ color: theme.muted }}>
+                Privacy Policy
               </Text>
-              <Pressable onPress={() => void Linking.openURL(PRIVACY_URL)} hitSlop={8}>
-                <Text variant="caption" className="underline" style={{ color: cream }}>
-                  Privacy Policy
-                </Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </View>
+            </Pressable>
+          </View>
+        </Animated.View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
