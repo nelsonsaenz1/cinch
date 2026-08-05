@@ -45,6 +45,19 @@ const MAX_SUMMARY_LINES = 24;
 const MAX_SUMMARY_CHARS = 240;
 const MAX_CITY_CHARS = 120;
 
+/**
+ * The questionnaire brief.
+ *
+ * Every value is a key from a fixed client-side vocabulary — `dinner`, `dark`,
+ * `separates` — so 32 characters is roomy for the longest of them and far too
+ * small to smuggle a prompt through. Deliberately not validated against the
+ * enum itself: the vocabularies live in the app and ship on the App Store's
+ * schedule, so a server that rejected an unknown key would break every user on
+ * the old build the moment a mood was renamed. Bounding the length is what this
+ * file is for; the prompt treats the values as labels either way.
+ */
+const MAX_BRIEF_VALUE_CHARS = 32;
+
 /** Numbers reach the prompt through `Math.round`, so NaN and 1e308 both hurt. */
 const MAX_ABS_NUMBER = 1e6;
 
@@ -102,6 +115,12 @@ function boundedArray(value: unknown, field: string, max: number): unknown[] {
   if (value.length > max) {
     throw new BoundsError(`${field} has too many entries (${value.length}, limit ${max}).`);
   }
+  return value;
+}
+
+function optionalBoolean(value: unknown, field: string): boolean | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'boolean') throw new BoundsError(`${field} must be a boolean.`);
   return value;
 }
 
@@ -185,6 +204,14 @@ function chatRole(value: unknown, field: string): 'user' | 'assistant' {
   throw new BoundsError(`${field} must be "user" or "assistant".`);
 }
 
+/** What the person tapped through, when they used the guided opening. */
+export type ValidatedBrief = {
+  occasion: string;
+  silhouette?: string;
+  mood?: string;
+  dressForWeather?: boolean;
+};
+
 export type ValidatedChatRequest = {
   message: string;
   history: { role: 'user' | 'assistant'; text: string }[];
@@ -193,7 +220,19 @@ export type ValidatedChatRequest = {
   weather?: { feelsLikeC: number; precipitationChance: number };
   city?: string;
   styleSummary: string[];
+  brief?: ValidatedBrief;
 };
+
+function parseBrief(value: unknown): ValidatedBrief | undefined {
+  if (value === undefined || value === null) return undefined;
+  const b = asObject(value, 'brief');
+  return {
+    occasion: requiredString(b.occasion, 'brief.occasion', MAX_BRIEF_VALUE_CHARS),
+    silhouette: optionalString(b.silhouette, 'brief.silhouette', MAX_BRIEF_VALUE_CHARS),
+    mood: optionalString(b.mood, 'brief.mood', MAX_BRIEF_VALUE_CHARS),
+    dressForWeather: optionalBoolean(b.dressForWeather, 'brief.dressForWeather'),
+  };
+}
 
 export function parseChatRequest(raw: unknown): ValidatedChatRequest {
   const body = asObject(raw, 'body');
@@ -237,6 +276,7 @@ export function parseChatRequest(raw: unknown): ValidatedChatRequest {
       MAX_SUMMARY_LINES,
       MAX_SUMMARY_CHARS,
     ),
+    brief: parseBrief(body.brief),
   };
 }
 

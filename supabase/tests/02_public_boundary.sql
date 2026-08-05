@@ -21,7 +21,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(19);
+select plan(21);
 
 -- ---------------------------------------------------------------------------
 -- Seed: a deliberately PUBLIC profile. This is the hard case — a private
@@ -32,13 +32,19 @@ insert into auth.users (id, email)
 values ('11111111-1111-4111-8111-111111111111', 'owner@example.test'),
        ('22222222-2222-4222-8222-222222222222', 'stranger@example.test');
 
+-- `on conflict … do update`, not a plain insert: handle_new_user() is an
+-- AFTER INSERT trigger on auth.users and has ALREADY created each profile row
+-- by the time this runs. A plain insert dies on profiles_pkey before a single
+-- assertion executes — which is why this suite had never passed.
 insert into profiles (user_id, display_name, username, visibility,
                       sizes, home_city, ai_consent_at)
 values ('11111111-1111-4111-8111-111111111111', 'Owner', 'owner', 'public',
         '{"shoe": "10", "waist": "32", "chest": "40"}'::jsonb,
         'Lisbon', now()),
        ('22222222-2222-4222-8222-222222222222', 'Stranger', 'stranger', 'public',
-        '{"shoe": "8"}'::jsonb, 'Oslo', now());
+        '{"shoe": "8"}'::jsonb, 'Oslo', now())
+on conflict (user_id) do update
+  set display_name = excluded.display_name, username = excluded.username, visibility = excluded.visibility, sizes = excluded.sizes, home_city = excluded.home_city, ai_consent_at = excluded.ai_consent_at;
 
 insert into items (id, user_id, category, is_public, is_archived,
                    purchase_price, brand, thumb_path, cutout_path, image_path)
@@ -152,21 +158,36 @@ select throws_ok(
   'anon cannot enumerate the social graph'
 );
 
--- What anon IS allowed: the projections, and nothing else.
+-- The projections are REVOKED while the social surface is deferred
+-- (20260805213000). These assertions are the deliberate tripwire: the day the
+-- feature ships and SELECT is granted back, they fail loudly and have to be
+-- consciously rewritten to assert the row-level behaviour instead — which is
+-- exactly the moment that behaviour needs re-verifying.
 
-select is(
-  (select count(*) from public_profiles
-    where user_id = '11111111-1111-4111-8111-111111111111'),
-  1::bigint,
-  'anon can read a public profile through public_profiles'
+select throws_ok(
+  'select * from public_profiles',
+  '42501',
+  null,
+  'the public views are not granted while the social surface is deferred'
 );
 
-select is(
-  (select count(*) from public_items
-    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
-  1::bigint,
-  'anon can read a public item through public_items'
+select throws_ok(
+  'select * from public_items',
+  '42501',
+  null,
+  'public_items is not granted while the social surface is deferred'
 );
+
+reset role;
+select ok(
+  not has_table_privilege('anon', 'public.public_profiles', 'SELECT'),
+  'anon holds no SELECT on public_profiles in the catalogue either'
+);
+select ok(
+  not has_table_privilege('anon', 'public.public_items', 'SELECT'),
+  'anon holds no SELECT on public_items in the catalogue either'
+);
+set local role anon;
 
 select is(
   (select array_agg(column_name::text order by column_name)

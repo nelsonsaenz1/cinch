@@ -177,16 +177,6 @@ export default {
         );
       }
 
-      // ── Daily allowance, claimed before the provider is called and after the
-      //    two free exits above, so a skipped re-tag does not spend one. ──────
-      const quotaResponse = await enforceAiQuota(admin, userId, 'tagging');
-      if (quotaResponse) {
-        // Hand the claim back — the work never happened, and the item must
-        // stay taggable once the allowance resets.
-        await releaseItemJob(admin, itemId);
-        return quotaResponse;
-      }
-
       // ── Model config, read at call time so a model swap is a DB update ────
       const { data: config } = await admin
         .from('ai_config')
@@ -210,6 +200,22 @@ export default {
       if (signError || !signed?.signedUrl) {
         await releaseItemJob(admin, itemId);
         return Response.json({ error: 'Could not read the image.' }, { status: 500 });
+      }
+
+      // ── Allowance, claimed LAST — after the kill switch and after the image
+      //    has proven readable. `claim_ai_quota` does not refund (a refund
+      //    path is a free retry loop for an attacker), so a unit claimed
+      //    before those checks is a unit burnt by every retry against a
+      //    disabled workload or a broken image: with the queue retrying at
+      //    concurrency 3, flipping `ai_config.enabled = false` would drain a
+      //    free user's month in seconds instead of stopping spend. The other
+      //    two AI functions already order it this way.
+      const quotaResponse = await enforceAiQuota(admin, userId, 'tagging');
+      if (quotaResponse) {
+        // Hand the claim back — the work never happened, and the item must
+        // stay taggable once the allowance resets.
+        await releaseItemJob(admin, itemId);
+        return quotaResponse;
       }
 
       const content: ContentPart[] = [
@@ -327,7 +333,7 @@ export default {
         // it will pay for the call again, which is the honest cost of a write
         // that failed, and the alternative is an item stuck untagged forever.
         await releaseItemJob(admin, itemId);
-        return Response.json({ error: updateError.message }, { status: 500 });
+        return Response.json({ error: 'tag_write_failed' }, { status: 500 });
       }
 
       // Claim closed with a result: the row is now proof this item was tagged,

@@ -103,6 +103,21 @@ export default {
         );
       }
 
+      // The tapped answers, ahead of the taste summary and the shortlist so the
+      // model reads the request before it reads the options. Printed as keys
+      // rather than prose: they arrived as keys, and re-inflating them into a
+      // sentence here would only re-create the ambiguity the taps removed.
+      if (body.brief) {
+        const b = body.brief;
+        const lines = [`  occasion: ${b.occasion}`];
+        if (b.silhouette) lines.push(`  silhouette: ${b.silhouette}`);
+        if (b.mood) lines.push(`  mood: ${b.mood}`);
+        if (b.dressForWeather !== undefined) {
+          lines.push(`  mostly outside: ${b.dressForWeather ? 'yes' : 'no'}`);
+        }
+        parts.push(`WHAT THEY TAPPED\n${lines.join('\n')}`);
+      }
+
       if (body.styleSummary.length) {
         parts.push(
           `WHAT YOU KNOW ABOUT THEIR TASTE\n${body.styleSummary.map((s) => `  - They ${s}.`).join('\n')}`,

@@ -110,7 +110,6 @@ export default {
         return Response.json(
           {
             error: 'Could not start deleting your account. Nothing has been deleted — please try again.',
-            detail: readError.message,
           },
           { status: 500 },
         );
@@ -126,7 +125,7 @@ export default {
           return Response.json(
             {
               error: 'Could not start deleting your account. Nothing has been deleted — please try again.',
-              detail: markError.message,
+              detail: 'mark_failed',
             },
             { status: 500 },
           );
@@ -155,7 +154,7 @@ export default {
           {
             error:
               'Deleting your photos stopped part-way. Some have already been permanently deleted and your account still exists. Please try again — deletion continues from where it stopped.',
-            detail: err instanceof Error ? err.message : String(err),
+            detail: 'delete_failed',
             objectsRemoved: removed,
             accountDeleted: false,
             resumable: true,
@@ -177,7 +176,6 @@ export default {
           {
             error:
               'Your photos have been permanently deleted, but your account could not be removed. Please try again — this will finish the deletion.',
-            detail: deleteError.message,
             objectsRemoved: removed,
             accountDeleted: false,
             resumable: true,
