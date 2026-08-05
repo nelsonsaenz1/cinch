@@ -1,10 +1,52 @@
 import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import { getUserId, supabase } from '@/lib/supabase';
-import type { Item } from '@/schemas/item';
+import { itemColor, type Item } from '@/schemas/item';
 import type { Database } from '@/types/database';
 
 type ItemRow = Database['public']['Tables']['items']['Row'];
+
+const itemColorList = z.array(itemColor);
+
+/**
+ * Parses the `colors` JSON column.
+ *
+ * Every other column arrives with a real Postgres type behind it, so the
+ * generated types are trustworthy. `colors` is `jsonb`: nothing in the database
+ * constrains its shape, and it is written by an Edge Function whose own output
+ * contract lives in a separate file and has drifted from this one before. That
+ * makes it the one field worth actually validating on the way in.
+ *
+ * Degrades instead of throwing. A garment with an unreadable colour is still a
+ * garment the user owns and should see in their closet — and the scorer already
+ * treats a colourless item as merely unremarkable. Blowing up the whole query
+ * over one bad row would take the entire closet down with it.
+ */
+function toColors(raw: ItemRow['colors'], itemId: string): Item['colors'] {
+  if (raw === null || raw === undefined) return [];
+
+  const whole = itemColorList.safeParse(raw);
+  if (whole.success) return whole.data;
+
+  // Salvage per entry rather than all-or-nothing: one malformed swatch should
+  // not cost the item the colours that parsed cleanly beside it.
+  const salvaged = Array.isArray(raw)
+    ? raw.flatMap((entry) => {
+        const one = itemColor.safeParse(entry);
+        return one.success ? [one.data] : [];
+      })
+    : [];
+
+  console.warn(
+    `[closet] item ${itemId}: dropped ${
+      (Array.isArray(raw) ? raw.length : 1) - salvaged.length
+    } malformed colour entr(ies)`,
+    whole.error.issues,
+  );
+
+  return salvaged;
+}
 
 /**
  * Camel-cases a row from the database into the app's `Item` shape.
@@ -13,6 +55,10 @@ type ItemRow = Database['public']['Tables']['items']['Row'];
  * camelCase (JS convention). Rather than sprinkle mapping across every screen
  * this file is the single crossing point — swap one call site to change how
  * the entire app reads items.
+ *
+ * `ai_tags` is deliberately not mapped. It is the tagger's raw response kept
+ * for debugging and for re-deriving columns after a prompt change; nothing in
+ * the app reads it, so parsing it here would only be work that can fail.
  */
 function toItem(row: ItemRow): Item {
   return {
@@ -24,16 +70,15 @@ function toItem(row: ItemRow): Item {
     status: row.status,
     category: row.category,
     subcategory: row.subcategory,
-    // `colors` and `ai_tags` are Json in the DB. Trust the schema — the tagging
-    // path controls this shape end-to-end — but coerce so downstream code is
-    // typed rather than `unknown`.
-    colors: (row.colors as unknown as Item['colors']) ?? [],
+    colors: toColors(row.colors, row.id),
     pattern: row.pattern,
     material: row.material,
     brand: row.brand,
     formalityScore: row.formality_score,
     warmthScore: row.warmth_score,
     waterResistant: row.water_resistant,
+    fit: row.fit,
+    patternScale: row.pattern_scale,
     seasons: row.seasons,
     occasions: row.occasions,
     description: row.description,

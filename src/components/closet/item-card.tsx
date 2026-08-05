@@ -6,10 +6,13 @@ import { Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { type Item, costPerWear } from '@/schemas/item';
 import { useTheme } from '@/theme/tokens';
+import { stableImageSource } from '@/features/closet/use-image-urls';
 
 export type ItemCardProps = {
   item: Item;
   onPress?: (item: Item) => void;
+  /** Signed URL for the thumb/cutout — storage paths are not URLs. */
+  imageUri?: string;
 };
 
 /**
@@ -18,7 +21,7 @@ export type ItemCardProps = {
  * Cutouts sit on a neutral warm tray so nothing tints the garment — the tray
  * colour is the one surface in the app that must never carry the accent.
  */
-function ItemCardComponent({ item, onPress }: ItemCardProps) {
+function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
   const theme = useTheme();
   const cpw = costPerWear(item);
   const needsReview = item.status === 'needs_review';
@@ -41,11 +44,13 @@ function ItemCardComponent({ item, onPress }: ItemCardProps) {
       accessibilityRole="button"
       accessibilityLabel={a11yLabel}
       onPress={() => onPress?.(item)}
-      className="w-1/2 p-1.5 active:opacity-80">
+      // No width class: FlashList's two-column layout already sizes the cell —
+      // a w-1/2 here would render every card at a quarter of the screen.
+      className="p-1.5 active:opacity-80">
       <View className="aspect-[3/4] w-full overflow-hidden rounded-card bg-tray dark:bg-tray-dark">
-        {item.thumbPath || item.cutoutPath ? (
+        {imageUri ? (
           <Image
-            source={item.thumbPath ?? item.cutoutPath}
+            source={stableImageSource(imageUri)}
             contentFit="contain"
             transition={180}
             cachePolicy="memory-disk"

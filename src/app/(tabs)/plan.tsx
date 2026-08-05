@@ -14,6 +14,7 @@ import { fetchForecast, searchPlaces, type Place } from '@/features/context/weat
 import { usePlanOutfit, usePlannedWeek } from '@/features/plan/mutations';
 import { buildPackingList, planWeek } from '@/features/plan/packing';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
+import { dateKey } from '@/lib/date';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -25,7 +26,6 @@ const startOfToday = () => {
   d.setHours(0, 0, 0, 0);
   return d;
 };
-const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
 /**
  * Plan — the week ahead, and packing for a trip.
@@ -44,7 +44,9 @@ export default function PlanScreen() {
   const profileQuery = useStyleProfile();
   const { context, coords, cityLabel } = useStyleContext();
 
-  const items = wardrobe.data ?? [];
+  // Memoised: a bare `?? []` is a new array identity every render, which
+  // re-plans the whole week on any unrelated state change.
+  const items = useMemo(() => wardrobe.data ?? [], [wardrobe.data]);
   const profile = profileQuery.data ?? {
     weights: DEFAULT_WEIGHTS,
     affinities: EMPTY_AFFINITIES,
@@ -63,6 +65,15 @@ export default function PlanScreen() {
   const planned = usePlannedWeek(startOfToday(), WEEK_DAYS);
   const planOutfit = usePlanOutfit();
 
+  // Anything already committed to a day this week is out of the running for the
+  // others. Without this the planner happily suggests Tuesday's jacket again on
+  // Thursday, having no idea Tuesday was ever decided — the query was being
+  // fetched and then thrown away.
+  const alreadyPlanned = useMemo(
+    () => new Set(Object.values(planned.data ?? {}).flat()),
+    [planned.data],
+  );
+
   const weekDays = useMemo(() => {
     if (!weekForecast.data?.length || !canGenerate(items)) return [];
     return planWeek({
@@ -72,8 +83,9 @@ export default function PlanScreen() {
       baseContext: context,
       weights: profile.weights,
       affinities: profile.affinities,
+      alreadyPlanned,
     });
-  }, [weekForecast.data, items, context, profile.weights, profile.affinities]);
+  }, [weekForecast.data, items, context, profile.weights, profile.affinities, alreadyPlanned]);
 
   // --- Packing ------------------------------------------------------------
   const [query, setQuery] = useState('');
@@ -153,22 +165,17 @@ export default function PlanScreen() {
                 Seven days in {cityLabel}, no piece repeated within two days.
               </Text>
               {weekDays.map((day) => {
-                const key = isoDate(day.date);
+                const key = dateKey(day.date);
                 return (
                   <DayRow
                     key={key}
                     day={day}
                     resolveImage={resolve}
-                    planned={Boolean(planned.data?.[key])}
+                    planned={Boolean(planned.data?.[key]?.length)}
                     planning={planOutfit.isPending}
                     onPlan={() =>
                       day.outfit &&
-                      planOutfit.mutate({
-                        candidate: day.outfit,
-                        date: day.date,
-                        context: { weather: day.weather },
-                        reasoning: `Planned for ${key}`,
-                      })
+                      planOutfit.mutate({ candidate: day.outfit, date: day.date })
                     }
                   />
                 );
@@ -264,7 +271,7 @@ export default function PlanScreen() {
                   How it works out, day by day
                 </Text>
                 {packing.days.map((day) => (
-                  <DayRow key={isoDate(day.date)} day={day} resolveImage={resolve} />
+                  <DayRow key={dateKey(day.date)} day={day} resolveImage={resolve} />
                 ))}
               </View>
             ) : null}

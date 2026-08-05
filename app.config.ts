@@ -215,7 +215,21 @@ const config: ExpoConfig = {
         // `false` suppresses the key entirely. The picker does not need photo
         // permission on iOS 11+ — see the header comment.
         photosPermission: false,
-        cameraPermission: false,
+
+        // This one MUST be a real string, and the reason is not obvious.
+        //
+        // Photographing a garment goes through `ImagePicker.launchCameraAsync`
+        // (src/features/ingest/use-capture.ts), not expo-camera — so THIS
+        // plugin owns NSCameraUsageDescription. Setting it to `false` here
+        // deleted the key from the final plist even though expo-camera below
+        // declares one and is applied afterwards, which was verified by
+        // introspecting the resolved config, not assumed. An iOS app that
+        // opens the camera with no usage string is terminated by the system on
+        // the spot, so "Take photo" was a guaranteed crash in every build.
+        cameraPermission:
+          'Cinch uses your camera so you can photograph clothes and add them to your closet.',
+
+        // Genuinely unused: stills only, no video, so no microphone.
         microphonePermission: false,
       },
     ],
@@ -241,8 +255,26 @@ const config: ExpoConfig = {
         // justification we could not give.
         isAndroidBackgroundLocationEnabled: false,
         isIosBackgroundLocationEnabled: false,
+
+        // The three keys above the header swears must never ship.
+        //
+        // `isIosBackgroundLocationEnabled: false` does NOT suppress them —
+        // it only governs UIBackgroundModes. The permission strings are added
+        // unconditionally by expo-location's plugin, and worse, with Expo's
+        // own generic defaults ("Allow $(PRODUCT_NAME) to access your
+        // location"), which is precisely the wording the automated 5.1.1 pass
+        // rejects. `false` is the plugin's documented removal signal, same as
+        // `photosPermission: false` above.
+        //
+        // Verified against the generated ios/Cinch/Info.plist, not assumed:
+        // before this, all three were present in the built app.
+        locationAlwaysAndWhenInUsePermission: false,
+        locationAlwaysPermission: false,
+        motionUsagePermission: false,
       },
     ],
+    // Dev-only network keys must not reach the store build. See the plugin.
+    './plugins/with-production-privacy-hygiene',
     [
       'expo-calendar',
       {

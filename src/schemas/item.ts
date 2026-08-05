@@ -1,13 +1,17 @@
 import { z } from 'zod';
 
 /**
- * Shared between the client and the Supabase Edge Functions.
+ * The client's view of a garment.
  *
- * `aiTagSchema` is the exact shape handed to the model as
- * `output_config.format.json_schema`, so the model cannot return a shape the
- * app can't parse. Anything the model is allowed to omit must be `.nullable()`
- * here, not `.optional()` — a strict JSON schema requires every property to be
- * present in `required`.
+ * NOT shared with the Edge Functions, despite what this header used to claim.
+ * Supabase bundles only `supabase/functions/` on deploy, so the tagger cannot
+ * import from `src/` even in principle; the model's own output contract lives
+ * in `supabase/functions/_shared/tag-schema.ts` and is a genuinely different
+ * shape (it returns `colorNames: string[]`, which the function reshapes into
+ * `colors` on write). The two are kept in step by hand, so the rule for
+ * anything below is: describe what the DATABASE actually holds, not what the
+ * model was asked for. Where they disagree the database wins, because that is
+ * what this app has to read back.
  */
 
 export const itemCategory = z.enum([
@@ -33,6 +37,13 @@ export const itemStatus = z.enum([
 ]);
 export type ItemStatus = z.infer<typeof itemStatus>;
 
+/**
+ * The vocabularies the tagger is constrained to (`SEASONS` / `OCCASIONS` in
+ * `supabase/functions/_shared/tag-schema.ts`). The columns themselves are plain
+ * `text[]`, not Postgres enums, so `item` below stays permissive and these are
+ * used for building UI choices rather than for rejecting rows — a value that
+ * drifted out of this list is still a usable tag.
+ */
 export const season = z.enum(['spring', 'summer', 'fall', 'winter']);
 export const occasion = z.enum([
   'casual',
@@ -45,30 +56,29 @@ export const occasion = z.enum([
   'outdoor',
 ]);
 
+/** The fit and print vocabularies are real Postgres enums — see `src/types/database.ts`. */
+export const garmentFit = z.enum(['fitted', 'regular', 'relaxed', 'oversized']);
+export type GarmentFit = z.infer<typeof garmentFit>;
+
+export const patternScale = z.enum(['none', 'micro', 'small', 'medium', 'large']);
+export type PatternScale = z.infer<typeof patternScale>;
+
+/**
+ * One entry in the `colors` JSON column.
+ *
+ * `hex` is optional because the tagger does not produce it. `tag-item` writes
+ * `colorNames.map((name) => ({ name }))`, so every freshly tagged row arrives
+ * name-only; hex appears only on rows a human or a fixture supplied it for.
+ * This used to be a required 6-digit hex, which meant the schema rejected the
+ * exact shape the app writes for itself.
+ */
 export const itemColor = z.object({
-  hex: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'expected a 6-digit hex colour'),
+  hex: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'expected a 6-digit hex colour')
+    .nullish(),
   name: z.string(),
 });
-
-/** What the vision model must return for a single garment photo. */
-export const aiTagSchema = z.object({
-  category: itemCategory,
-  subcategory: z.string().describe('Specific garment type, e.g. "hoodie", "chinos", "loafers"'),
-  colors: z.array(itemColor).min(1).max(4).describe('Dominant colours, most prominent first'),
-  pattern: z.string().nullable().describe('e.g. "solid", "striped", "plaid", "floral"'),
-  material: z.string().nullable().describe('Best guess, e.g. "cotton", "wool", "leather"'),
-  brand: z.string().nullable().describe('Only if a logo or label is clearly legible'),
-  formalityScore: z.number().int().min(1).max(5).describe('1 = loungewear, 5 = black tie'),
-  warmthScore: z.number().int().min(1).max(5).describe('1 = hot weather only, 5 = deep winter'),
-  waterResistant: z.boolean(),
-  seasons: z.array(season).min(1),
-  occasions: z.array(occasion).min(1),
-  description: z
-    .string()
-    .max(160)
-    .describe('One natural sentence, as a stylist would describe it to a client'),
-});
-export type AiTags = z.infer<typeof aiTagSchema>;
 
 /** A row from `items`, as the app consumes it. */
 export const item = z.object({
@@ -87,6 +97,12 @@ export const item = z.object({
   formalityScore: z.number().int().min(1).max(5).nullable(),
   warmthScore: z.number().int().min(1).max(5).nullable(),
   waterResistant: z.boolean(),
+  // Written by the tagger and read by the styling engine's silhouette and
+  // print-mixing rules. Optional rather than merely nullable: the columns were
+  // added after the first tagging model shipped, so rows and fixtures that
+  // predate them legitimately carry neither.
+  fit: garmentFit.nullish(),
+  patternScale: patternScale.nullish(),
   seasons: z.array(z.string()),
   occasions: z.array(z.string()),
   description: z.string().nullable(),

@@ -1,20 +1,38 @@
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ScrollView, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
-import { fixtureItems } from '@/features/closet/fixtures';
+import { useCloset } from '@/features/closet/queries';
+import { useSignedUrls , stableImageSource } from '@/features/closet/use-image-urls';
 import { costPerWear } from '@/schemas/item';
+import { useTheme } from '@/theme/tokens';
 
 /** Item detail — full stats and tag editing. Fleshed out in OUT-14. */
 export default function ItemDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const theme = useTheme();
 
-  const item = fixtureItems.find((i) => i.id === id);
+  // Resolved from the same live query the grid renders, so navigating here is
+  // a cache hit, not a second fetch.
+  const closet = useCloset();
+  const item = (closet.data ?? []).find((i) => i.id === id);
   const cpw = item ? costPerWear(item) : null;
+
+  const { resolve } = useSignedUrls([item?.cutoutPath, item?.thumbPath]);
+  const imageUri = resolve(item?.cutoutPath, item?.thumbPath);
+
+  if (closet.isLoading) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+        <ActivityIndicator color={theme.muted} />
+      </SafeAreaView>
+    );
+  }
 
   if (!item) {
     return (
@@ -32,7 +50,18 @@ export default function ItemDetailScreen() {
       </View>
 
       <ScrollView contentContainerClassName="px-gutter pb-24">
-        <View className="mt-2 aspect-square w-full items-center justify-center rounded-card bg-tray dark:bg-tray-dark" />
+        <View className="mt-2 aspect-square w-full items-center justify-center overflow-hidden rounded-card bg-tray dark:bg-tray-dark">
+          {imageUri ? (
+            <Image
+              source={stableImageSource(imageUri)}
+              contentFit="contain"
+              transition={200}
+              cachePolicy="memory-disk"
+              style={{ width: '100%', height: '100%' }}
+              accessibilityIgnoresInvertColors
+            />
+          ) : null}
+        </View>
 
         <Text variant="title" className="mt-5">
           {item.subcategory ?? 'Untagged item'}

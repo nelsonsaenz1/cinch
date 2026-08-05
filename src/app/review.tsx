@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,7 +9,7 @@ import { Text } from '@/components/ui/text';
 import { ReviewCard } from '@/components/review/review-card';
 import { useReviewQueue } from '@/features/closet/queries';
 import { useVerifyItem } from '@/features/closet/mutations';
-import type { ItemCategory } from '@/schemas/item';
+import type { Item, ItemCategory } from '@/schemas/item';
 
 /**
  * The tag-review deck.
@@ -25,56 +25,117 @@ export default function ReviewScreen() {
 
   const items = useMemo(() => query.data ?? [], [query.data]);
 
-  // Pointer into the queue. Increment on both confirm and skip so the deck
-  // always advances — a skipped item stays user_verified=false and shows up
-  // again on the next visit, no wasted round-trip.
-  const [cursor, setCursor] = useState(0);
-
-  // Local per-card edits. Re-derived when the queue changes so late arrivals
-  // (background tagging finishing while the deck is open) come in with the
-  // model's own suggestions rather than a stale copy.
+  // Local per-card edits, keyed by item id. Keyed rather than indexed so a
+  // refetch that reorders or shortens the queue cannot hand one item's
+  // corrections to another.
   const [edits, setEdits] = useState<
     Record<string, { category: ItemCategory; occasions: string[] }>
   >({});
 
-  const advanceLockRef = useRef(false);
+  /**
+   * Ids the user has dealt with in this sitting — confirmed OR skipped.
+   *
+   * This replaces the old integer cursor. An index into a list that a
+   * background refetch can reorder needs a correcting effect every time the
+   * queue changes, and that effect could reset the deck to zero the instant the
+   * user finished it. Filtering by id is self-correcting: late arrivals append,
+   * a shrinking queue is a no-op, and nothing has to be reconciled after the
+   * fact.
+   *
+   * A SKIPPED id lives here and nowhere else. Nothing is written for it, so the
+   * row stays `user_verified = false` and the server hands it back on the next
+   * visit — which is exactly what "skip" should mean.
+   */
+  const [resolvedIds, setResolvedIds] = useState<ReadonlySet<string>>(() => new Set());
 
-  useEffect(() => {
-    // Reset cursor if a refetch shrinks the queue past our position.
-    if (cursor >= items.length && items.length > 0) setCursor(0);
-  }, [items.length, cursor]);
+  /**
+   * The last confirm that failed to persist. The item is put back in the deck
+   * when this is set, so the failure costs the user a retry and never a
+   * silently-dropped garment.
+   */
+  const [failure, setFailure] = useState<{ item: Item; message: string } | null>(null);
 
-  const commit = async (skip = false) => {
-    if (advanceLockRef.current) return;
-    const current = items[cursor];
-    if (!current) return;
-    advanceLockRef.current = true;
+  // Guards a double-fire on one card (a fast swipe can resolve the gesture
+  // twice before React has re-rendered the deck). Per-id rather than a global
+  // lock so genuinely swiping two cards in quick succession still works.
+  const inFlightRef = useRef<Set<string>>(new Set());
 
-    // Advance the visible deck first so the animation isn't waiting on the
-    // network — mutation happens in the background.
-    setCursor((c) => c + 1);
+  const deck = useMemo(
+    () => items.filter((it) => !resolvedIds.has(it.id)),
+    [items, resolvedIds],
+  );
 
-    if (!skip) {
-      const edit = edits[current.id];
-      const patch =
-        edit &&
-        (edit.category !== current.category ||
-          JSON.stringify(edit.occasions) !== JSON.stringify(current.occasions))
-          ? { category: edit.category, occasions: edit.occasions }
-          : undefined;
+  const resolve = useCallback((id: string) => {
+    setResolvedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const unresolve = useCallback((id: string) => {
+    setResolvedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  /** Only send fields the user actually changed — an unchanged patch is noise. */
+  const patchFor = useCallback(
+    (item: Item) => {
+      const edit = edits[item.id];
+      if (!edit) return undefined;
+      const changed =
+        edit.category !== item.category ||
+        JSON.stringify(edit.occasions) !== JSON.stringify(item.occasions);
+      return changed ? { category: edit.category, occasions: edit.occasions } : undefined;
+    },
+    [edits],
+  );
+
+  const confirm = useCallback(
+    async (item: Item) => {
+      if (inFlightRef.current.has(item.id)) return;
+      inFlightRef.current.add(item.id);
+      setFailure(null);
+
+      // Advance the visible deck first so the animation isn't waiting on the
+      // network. The write is still awaited — if it fails the card comes back.
+      resolve(item.id);
+
       try {
-        await verify.mutateAsync({ id: current.id, patch });
-      } catch {
-        // Errors surface via query invalidation on next fetch; the deck already
-        // moved on. A batched retry lives further down the roadmap.
+        await verify.mutateAsync({ id: item.id, patch: patchFor(item) });
+      } catch (err) {
+        // Never let a failed write look like a successful confirm. Put the item
+        // back in the deck and say so, because the alternative is an item that
+        // vanishes from the queue while still unverified in the database.
+        unresolve(item.id);
+        setFailure({
+          item,
+          message: err instanceof Error ? err.message : 'Could not save that. Check your connection.',
+        });
+      } finally {
+        inFlightRef.current.delete(item.id);
       }
-    }
+    },
+    [patchFor, resolve, unresolve, verify],
+  );
 
-    // Release the lock after the swipe animation would complete.
-    setTimeout(() => {
-      advanceLockRef.current = false;
-    }, 220);
-  };
+  // Only used to keep the end-of-deck copy honest — "these are ready to wear"
+  // is a lie if half of them were deferred.
+  const [skippedCount, setSkippedCount] = useState(0);
+
+  const skip = useCallback(
+    (item: Item) => {
+      // No mutation, by design. Skipping is "ask me later", and the only way to
+      // mean that is to leave the row untouched.
+      setFailure(null);
+      setSkippedCount((n) => n + 1);
+      resolve(item.id);
+    },
+    [resolve],
+  );
 
   if (query.isLoading) {
     return (
@@ -84,8 +145,8 @@ export default function ReviewScreen() {
     );
   }
 
-  const done = cursor >= items.length;
-  const remaining = Math.max(items.length - cursor, 0);
+  const done = deck.length === 0;
+  const remaining = deck.length;
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
@@ -101,6 +162,32 @@ export default function ReviewScreen() {
         <Button title={done ? 'Done' : 'Close'} variant="ghost" onPress={() => router.back()} />
       </View>
 
+      {/*
+        A failed confirm is the one error on this screen the user can act on, so
+        it gets a persistent banner with a retry rather than a toast that
+        disappears before they have read it. `accessibilityLiveRegion` makes
+        VoiceOver announce it, since the failure happens after the card has
+        already animated away and there is nothing else to notice.
+      */}
+      {failure ? (
+        <View
+          accessibilityLiveRegion="polite"
+          className="mx-gutter mt-3 flex-row items-center justify-between gap-3 rounded-card bg-warning/15 px-3 py-2">
+          <Text variant="label" className="flex-1">
+            {`Couldn't save ${failure.item.subcategory ?? failure.item.category}. ${failure.message}`}
+          </Text>
+          <Button
+            title="Retry"
+            variant="secondary"
+            onPress={() => {
+              const target = failure.item;
+              setFailure(null);
+              void confirm(target);
+            }}
+          />
+        </View>
+      ) : null}
+
       {done ? (
         <EmptyState
           symbol="checkmark.circle"
@@ -108,7 +195,9 @@ export default function ReviewScreen() {
           body={
             items.length === 0
               ? 'After an import lands, confirm or correct what Cinch guessed. One tap per piece.'
-              : 'These are ready to wear.'
+              : skippedCount > 0
+                ? `Confirmed pieces are ready to wear. The ${skippedCount} you skipped will be waiting next time.`
+                : 'These are ready to wear.'
           }
           actionTitle="Back to closet"
           onAction={() => router.replace('/(tabs)/closet')}
@@ -120,8 +209,8 @@ export default function ReviewScreen() {
             beneath peek out below and give the stack physical weight without
             costing render time on the whole queue.
           */}
-          {items
-            .slice(cursor, cursor + 3)
+          {deck
+            .slice(0, 3)
             .map((item, offset) => {
               const isTop = offset === 0;
               const edit = edits[item.id] ?? {
@@ -130,10 +219,11 @@ export default function ReviewScreen() {
               };
               return (
                 <ReviewCard
-                  // Include cursor in the key so React tears down and rebuilds
-                  // the top card when the deck advances — otherwise the
-                  // translateX shared value keeps its previous end position.
-                  key={`${item.id}-${cursor}-${offset}`}
+                  // Keyed by id alone. A resolved card is removed from `deck`
+                  // rather than stepped over by an index, so the cards that
+                  // remain keep their identity — and with it their untouched
+                  // translateX of 0 — as they are promoted up the stack.
+                  key={item.id}
                   item={item}
                   isTop={isTop}
                   depth={offset}
@@ -154,7 +244,8 @@ export default function ReviewScreen() {
                       return { ...prev, [item.id]: { ...edit, occasions: nextList } };
                     })
                   }
-                  onConfirm={() => void commit(false)}
+                  onConfirm={() => void confirm(item)}
+                  onSkip={() => skip(item)}
                 />
               );
             })

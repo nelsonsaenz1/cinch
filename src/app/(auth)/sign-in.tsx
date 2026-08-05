@@ -29,7 +29,7 @@ import { sendEmailLink, signInWithApple } from '@/features/auth/actions';
 import { MIN_TAP_TARGET, fadeEasing, useTheme } from '@/theme/tokens';
 
 const PRIVACY_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy';
-const TERMS_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/support';
+const TERMS_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/terms';
 
 /**
  * Entrance rhythm: the masthead sets itself like a page of print — wordmark,

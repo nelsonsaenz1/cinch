@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,14 +12,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PlateHero } from '@/components/brand/plate-hero';
 import { Plate } from '@/components/today/plate';
 import type { ReactionValue } from '@/components/today/reaction-bar';
 import { WeatherStrip } from '@/components/today/weather-strip';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
+import { startTagSweeper } from '@/features/ingest/upload-queue';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
 import {
   canGenerate,
@@ -115,6 +118,15 @@ export default function TodayScreen() {
   const [reactions, setReactions] = useState<Record<string, ReactionValue>>({});
   const [wornIds, setWornIds] = useState<Set<string>>(new Set());
 
+  // Items whose photos uploaded but whose tagging never completed are re-driven
+  // from here. Today is the first screen behind the auth gate, so it is the
+  // earliest point at which the sweep has a session to work with; the function
+  // itself is idempotent, consent-gated and rate-limited, so mounting this tab
+  // repeatedly costs nothing.
+  useEffect(() => {
+    startTagSweeper();
+  }, []);
+
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
 
@@ -124,12 +136,20 @@ export default function TodayScreen() {
   const items = useMemo(() => wardrobe.data ?? [], [wardrobe.data]);
 
   // Priors until the real profile loads, so generation is never blocked on it.
-  const profile = profileQuery.data ?? {
-    weights: DEFAULT_WEIGHTS,
-    affinities: EMPTY_AFFINITIES,
-    feedbackCount: 0,
-    summary: [],
-  };
+  //
+  // Memoised because the fallback is an object literal: without this it is a
+  // new identity on every render, which re-runs the styling engine and rebuilds
+  // every reaction callback on each keystroke in the note field.
+  const profile = useMemo(
+    () =>
+      profileQuery.data ?? {
+        weights: DEFAULT_WEIGHTS,
+        affinities: EMPTY_AFFINITIES,
+        feedbackCount: 0,
+        summary: [],
+      },
+    [profileQuery.data],
+  );
 
   const outfits = useOutfits({
     wardrobe: items,
@@ -158,19 +178,33 @@ export default function TodayScreen() {
       if (!outfit) return;
 
       const key = idOf(outfit.candidate.items);
-      setReactions((prev) => ({ ...prev, [key]: value }));
 
-      react.mutate({
-        candidate: outfit.candidate,
-        // The learner needs everything that was on screen, not just this card.
-        // Passing only the reacted outfit makes the baseline equal the sample
-        // and every gradient collapses to zero — silently.
-        shownAlongside: outfits.shortlist,
-        liked: value.liked,
-        profile,
-        reason: value.reason,
-        source: 'today',
-      });
+      // Optimistic, but honest about it. The card acknowledges the tap
+      // immediately — anything slower feels broken — while carrying `pending`
+      // until the write is confirmed, and flipping to `failed` rather than
+      // silently claiming to have learned something it never received.
+      const settle = (status: 'saved' | 'failed') =>
+        setReactions((prev) => (prev[key] ? { ...prev, [key]: { ...prev[key], status } } : prev));
+
+      setReactions((prev) => ({ ...prev, [key]: { ...value, status: 'pending' } }));
+
+      react.mutate(
+        {
+          candidate: outfit.candidate,
+          // The learner needs everything that was on screen, not just this card.
+          // Passing only the reacted outfit makes the baseline equal the sample
+          // and every gradient collapses to zero — silently.
+          shownAlongside: outfits.shortlist,
+          liked: value.liked,
+          profile,
+          reason: value.reason,
+          source: 'today',
+        },
+        {
+          onSuccess: () => settle('saved'),
+          onError: () => settle('failed'),
+        },
+      );
     },
     [shown, profile, outfits.shortlist, react],
   );
@@ -211,18 +245,32 @@ export default function TodayScreen() {
     const remaining = Math.max(0, MIN_CLOSET_FOR_OUTFITS - items.length);
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
-        <Masthead />
-        <EmptyState
-          symbol="sparkles"
-          title={items.length === 0 ? 'Your first outfit is close' : 'Almost there'}
-          body={
-            items.length === 0
-              ? 'Add about ten pieces and Cinch can start styling you — weather, plans, and everything already in your closet.'
-              : `${remaining || 'A few'} more ${remaining === 1 ? 'piece' : 'pieces'} and Cinch can start building outfits. It needs at least a top, a bottom, and something for your feet.`
-          }
-          actionTitle="Add clothes"
-          onAction={() => router.push('/capture')}
-        />
+        {/* Not the generic icon-in-a-circle empty state: the first thing a new
+            user sees on Today is a real plate — the same flat-lay that sold
+            them on the welcome screen — so the promise and the product look
+            identical. Its scarf landing is this screen's one bouncy moment. */}
+        <ScrollView contentContainerClassName="pb-10">
+          <Masthead />
+          <View className="px-gutter">
+            <PlateHero />
+            <View style={{ marginTop: 28 }}>
+              <Text variant="title" trim>
+                {items.length === 0 ? 'Your first outfit is close' : 'Almost there'}
+              </Text>
+            </View>
+            <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+              {items.length === 0
+                ? 'Add about ten pieces and Cinch starts styling you every morning — weather, plans, and everything already in your closet.'
+                : `${remaining || 'A few'} more ${remaining === 1 ? 'piece' : 'pieces'} and Cinch can start building outfits. It needs at least a top, a bottom, and something for your feet.`}
+            </Text>
+            <Button
+              title="Add clothes"
+              onPress={() => router.push('/capture')}
+              haptic
+              className="mt-8 self-stretch"
+            />
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }

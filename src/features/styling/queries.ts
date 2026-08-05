@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { toGarment, type Garment } from '@/lib/styling';
 import {
   DEFAULT_WEIGHTS,
   EMPTY_AFFINITIES,
   FEATURE_KEYS,
+  toGarment,
   type Affinities,
+  type Garment,
   type StyleWeights,
 } from '@/lib/styling';
 import { getUserId, supabase } from '@/lib/supabase';

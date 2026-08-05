@@ -21,11 +21,27 @@ import type { Database } from '../_shared/database.types.ts';
  * every table in the schema carries. That is deliberate: enumerating tables here
  * means a table added later is silently missed, and "we forgot to delete one
  * table" is a data-protection incident rather than a bug.
+ *
+ * ── Why this is resumable rather than transactional ────────────────────────
+ *
+ * Storage and auth are two systems and no transaction spans them, so a failure
+ * between them is not preventable — only survivable. The previous version tried
+ * to present the operation as all-or-nothing and had to lie to do it: a storage
+ * chunk failing part-way returned "Nothing has been removed", which stopped
+ * being true the instant the first chunk succeeded.
+ *
+ * So: mark the profile as mid-deletion first, then do the destructive work in
+ * an order where every step is safe to repeat, and report exactly what happened.
+ * Deleting an object that is already gone is a no-op, and the listing pass only
+ * sees what still exists — so a retry finishes the job rather than restarting
+ * it, and the response never claims a rollback that did not occur.
  */
 
 const BUCKET = 'garments';
 /** Supabase Storage caps `list` at 100 by default; ask for the maximum. */
 const PAGE = 1000;
+/** `remove` takes a batch; a large closet exceeds what one call accepts. */
+const REMOVE_CHUNK = 100;
 
 /** Every object under a prefix, recursing into per-item folders. */
 async function listAllPaths(
@@ -77,41 +93,107 @@ export default {
 
       if (!userId) return Response.json({ error: 'Not signed in.' }, { status: 401 });
 
-      // ── 1. Storage ────────────────────────────────────────────────────────
-      let removed = 0;
-      try {
-        const paths = await listAllPaths(admin.storage, userId);
-        // Remove in chunks; a large closet can exceed what one call accepts.
-        for (let i = 0; i < paths.length; i += 100) {
-          const chunk = paths.slice(i, i + 100);
-          const { error } = await admin.storage.from(BUCKET).remove(chunk);
-          if (error) throw error;
-          removed += chunk.length;
-        }
-      } catch (err) {
-        // Deliberately fatal. Reporting success while the user's photographs
-        // are still sitting in the bucket would be a false claim about their
-        // data, and they would have no way to discover it or try again.
+      // ── 1. Declare the intent, before anything is destroyed ───────────────
+      //
+      // This is the only point in the function where "nothing has been deleted"
+      // is a true sentence, so it is the only place that says it. A retry keeps
+      // the original timestamp: the column records when the user asked, and
+      // overwriting it would erase how long an interrupted deletion has been
+      // outstanding.
+      const { data: existing, error: readError } = await admin
+        .from('profiles')
+        .select('deletion_requested_at')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (readError) {
         return Response.json(
           {
-            error: 'Could not delete your photos. Nothing has been removed — please try again.',
-            detail: err instanceof Error ? err.message : String(err),
+            error: 'Could not start deleting your account. Nothing has been deleted — please try again.',
+            detail: readError.message,
           },
           { status: 500 },
         );
       }
 
-      // ── 2. The auth user. Cascades to every table. ────────────────────────
-      const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
+      if (!existing?.deletion_requested_at) {
+        const { error: markError } = await admin
+          .from('profiles')
+          .update({ deletion_requested_at: new Date().toISOString() })
+          .eq('user_id', userId);
 
-      if (deleteError) {
+        if (markError) {
+          return Response.json(
+            {
+              error: 'Could not start deleting your account. Nothing has been deleted — please try again.',
+              detail: markError.message,
+            },
+            { status: 500 },
+          );
+        }
+      }
+
+      const resumed = Boolean(existing?.deletion_requested_at);
+
+      // ── 2. Storage. Idempotent: the listing only returns what still exists,
+      //       so a retry picks up where the last attempt stopped. ────────────
+      let removed = 0;
+      try {
+        const paths = await listAllPaths(admin.storage, userId);
+        for (let i = 0; i < paths.length; i += REMOVE_CHUNK) {
+          const chunk = paths.slice(i, i + REMOVE_CHUNK);
+          const { error } = await admin.storage.from(BUCKET).remove(chunk);
+          if (error) throw error;
+          removed += chunk.length;
+        }
+      } catch (err) {
+        // No rollback claim. Objects removed before this point are gone and
+        // cannot come back, and saying otherwise would leave the user believing
+        // their photographs still exist. What is recoverable is the operation:
+        // the account is still there and running this again resumes it.
         return Response.json(
-          { error: 'Could not delete your account.', detail: deleteError.message },
+          {
+            error:
+              'Deleting your photos stopped part-way. Some have already been permanently deleted and your account still exists. Please try again — deletion continues from where it stopped.',
+            detail: err instanceof Error ? err.message : String(err),
+            objectsRemoved: removed,
+            accountDeleted: false,
+            resumable: true,
+            resumed,
+          },
           { status: 500 },
         );
       }
 
-      return Response.json({ ok: true, objectsRemoved: removed });
+      // ── 3. The auth user. Cascades to every table. ────────────────────────
+      const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
+
+      if (deleteError) {
+        // The photographs are gone and the account is not. Stating both is the
+        // whole point: this is the case the old code was silent about, and a
+        // user told only "could not delete your account" would reasonably
+        // assume their wardrobe survived.
+        return Response.json(
+          {
+            error:
+              'Your photos have been permanently deleted, but your account could not be removed. Please try again — this will finish the deletion.',
+            detail: deleteError.message,
+            objectsRemoved: removed,
+            accountDeleted: false,
+            resumable: true,
+            resumed,
+          },
+          { status: 500 },
+        );
+      }
+
+      // The profile row, including the marker set above, went with the cascade.
+      return Response.json({
+        ok: true,
+        objectsRemoved: removed,
+        accountDeleted: true,
+        resumed,
+      });
     },
   ),
 };

@@ -7,7 +7,8 @@ import type { Item } from '@/schemas/item';
 export type ClosetGridProps = {
   items: Item[];
   onItemPress?: (item: Item) => void;
-  ListHeaderComponent?: React.ComponentType | React.ReactElement | null;
+  /** Storage paths → signed URLs; the grid prefers the thumb, falls back to the cutout. */
+  resolveImage?: (...paths: (string | null | undefined)[]) => string | undefined;
   ListEmptyComponent?: React.ComponentType | React.ReactElement | null;
 };
 
@@ -16,21 +17,24 @@ export type ClosetGridProps = {
  * New-Architecture rewrite that measures automatically, so `estimatedItemSize`
  * and friends from v1 tutorials are gone, not merely optional.
  */
-export function ClosetGrid({
-  items,
-  onItemPress,
-  ListHeaderComponent,
-  ListEmptyComponent,
-}: ClosetGridProps) {
+export function ClosetGrid({ items, onItemPress, resolveImage, ListEmptyComponent }: ClosetGridProps) {
   return (
     <FlashList
       data={items}
       numColumns={2}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <ItemCard item={item} onPress={onItemPress} />}
-      ListHeaderComponent={ListHeaderComponent}
+      renderItem={({ item }) => (
+        <ItemCard
+          item={item}
+          onPress={onItemPress}
+          imageUri={resolveImage?.(item.thumbPath, item.cutoutPath)}
+        />
+      )}
       ListEmptyComponent={ListEmptyComponent}
-      contentContainerClassName="px-gutter pb-24"
+      // Plain style, deliberately: FlashList is not wrapped by NativeWind, so a
+      // contentContainerClassName here is silently dropped — no gutter, no
+      // bottom padding, and nothing errors. 20 = spacing.gutter, 96 = pb-24.
+      contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 96 }}
       ItemSeparatorComponent={() => <View className="h-1" />}
       showsVerticalScrollIndicator={false}
     />

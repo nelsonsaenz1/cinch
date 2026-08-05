@@ -9,6 +9,32 @@
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+/**
+ * Default ceiling on one provider call.
+ *
+ * Without it, `fetch` inherits no deadline at all: a provider that accepts the
+ * connection and then stalls holds an Edge Function invocation open until the
+ * platform kills it, and the caller's own retry doubles that. Two attempts at
+ * 30s is the budget a user will still sit through.
+ */
+export const DEFAULT_TIMEOUT_MS = 30_000;
+
+/**
+ * Anything URL-shaped, replaced wholesale.
+ *
+ * Error text from this module is written to `ai_calls.error`, a table read by
+ * whoever is debugging cost. Provider errors quote the request back, and a
+ * tagging request carries a signed URL to a private photograph of someone's
+ * clothes — short-lived, but a bearer token for the object while it lasts, and
+ * an operational log is not where it belongs. `data:` is included because an
+ * inlined image would otherwise land in the same column.
+ */
+const URL_LIKE = /\b(?:https?|data|blob):[^\s"'`)\]}]+/gi;
+
+export function redactUrls(text: string): string {
+  return text.replace(URL_LIKE, '[redacted-url]');
+}
+
 export type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
   content: string | ContentPart[];
@@ -56,45 +82,81 @@ export async function completeStructured<T>(opts: {
   maxTokens: number;
   params?: Record<string, unknown>;
   signal?: AbortSignal;
+  /** Overrides DEFAULT_TIMEOUT_MS. Vision calls legitimately take longer. */
+  timeoutMs?: number;
 }): Promise<CompletionResult<T>> {
   const started = Date.now();
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  const response = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${opts.apiKey}`,
-      'Content-Type': 'application/json',
-      // OpenRouter uses these for its model-usage leaderboard and for
-      // attributing traffic; harmless but good citizenship.
-      'HTTP-Referer': 'https://cinch.app',
-      'X-Title': 'Cinch',
-    },
-    signal: opts.signal,
-    body: JSON.stringify({
-      model: opts.model,
-      messages: opts.messages,
-      max_tokens: opts.maxTokens,
-      ...opts.params,
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
-          name: opts.schemaName,
-          strict: true,
-          schema: opts.schema,
-        },
+  // The timeout has to cover reading the body too, not just the handshake — a
+  // response that streams one byte a minute is the same stall — so it rides on
+  // the same signal rather than being a timer around the fetch call.
+  const deadline = AbortSignal.timeout(timeoutMs);
+  const signal = opts.signal ? AbortSignal.any([opts.signal, deadline]) : deadline;
+
+  let response: Response;
+  try {
+    response = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${opts.apiKey}`,
+        'Content-Type': 'application/json',
+        // OpenRouter uses these for its model-usage leaderboard and for
+        // attributing traffic; harmless but good citizenship.
+        'HTTP-Referer': 'https://cinch.app',
+        'X-Title': 'Cinch',
       },
-      // Ask OpenRouter to report what the call actually cost.
-      usage: { include: true },
-    }),
-  });
+      signal,
+      body: JSON.stringify({
+        model: opts.model,
+        messages: opts.messages,
+        max_tokens: opts.maxTokens,
+        ...opts.params,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: opts.schemaName,
+            strict: true,
+            schema: opts.schema,
+          },
+        },
+        // Ask OpenRouter to report what the call actually cost.
+        usage: { include: true },
+      }),
+    });
+  } catch (err) {
+    // A timeout is worth the caller's second attempt — it is usually a slow
+    // model rather than a broken request. A caller-supplied abort is not: the
+    // work it belonged to is already gone.
+    const name = err instanceof Error ? err.name : '';
+    if (name === 'TimeoutError') {
+      throw new OpenRouterError(
+        `OpenRouter did not respond within ${timeoutMs}ms.`,
+        undefined,
+        true,
+      );
+    }
+    if (name === 'AbortError') {
+      throw new OpenRouterError('OpenRouter request was cancelled.', undefined, false);
+    }
+    // Network-level failure. Redacted like everything else here, because the
+    // message can quote the request.
+    throw new OpenRouterError(
+      `OpenRouter request failed: ${redactUrls(err instanceof Error ? err.message : String(err))}`,
+      undefined,
+      true,
+    );
+  }
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     // 429 and 5xx are worth another attempt; 4xx generally is not — a malformed
     // schema will fail identically forever and retrying just burns budget.
     const retryable = response.status === 429 || response.status >= 500;
+    // Redact before slicing: slicing first can cut a signed URL mid-token and
+    // still leave the part that identifies the object.
     throw new OpenRouterError(
-      `OpenRouter ${response.status}: ${body.slice(0, 400)}`,
+      `OpenRouter ${response.status}: ${redactUrls(body).slice(0, 400)}`,
       response.status,
       retryable,
     );
@@ -119,7 +181,10 @@ export async function completeStructured<T>(opts: {
   try {
     parsed = JSON.parse(raw) as T;
   } catch {
-    throw new OpenRouterError(`Model returned non-JSON content: ${raw.slice(0, 200)}`);
+    // Model output, which is prompt-derived, so it gets the same treatment.
+    throw new OpenRouterError(
+      `Model returned non-JSON content: ${redactUrls(raw).slice(0, 200)}`,
+    );
   }
 
   const usage = json?.usage ?? {};

@@ -1,4 +1,5 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Linking from 'expo-linking';
 
 import { supabase } from '@/lib/supabase';
 
@@ -120,10 +121,22 @@ export async function sendEmailLink(email: string): Promise<SignInResult> {
     email: address,
     options: {
       shouldCreateUser: true,
-      // Where the link returns to. `cinch://` is registered in app.config.ts
-      // and allow-listed in the Supabase auth settings; without both, the link
-      // opens a browser tab that cannot hand the session back to the app.
-      emailRedirectTo: 'cinch://auth-callback',
+      // Where the link returns to, and the only URL `completeSessionFromUrl`
+      // will act on. Three separate things have to agree or the link dead-ends
+      // in a browser tab that cannot hand the session back:
+      //
+      //  1. `cinch` is registered as a scheme in app.config.ts (it is);
+      //  2. this exact string is on the allow-list under Supabase Dashboard →
+      //     Authentication → URL Configuration → Redirect URLs. It is NOT
+      //     configurable from this repository — if it is missing, Supabase
+      //     silently substitutes the project Site URL and the link opens the
+      //     website instead of the app;
+      //  3. the email template links `{{ .ConfirmationURL }}`, so Supabase
+      //     verifies the one-time token before redirecting here.
+      //
+      // Under PKCE this callback carries `?code=`, which is redeemable only on
+      // the device that made this call.
+      emailRedirectTo: CALLBACK_URL,
     },
   });
 
@@ -164,6 +177,88 @@ export async function verifyEmailCode(email: string, token: string): Promise<Sig
   return { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// Magic-link callback
+// ---------------------------------------------------------------------------
+
+export const CALLBACK_SCHEME = 'cinch';
+export const CALLBACK_ROUTE = 'auth-callback';
+export const CALLBACK_URL = `${CALLBACK_SCHEME}://${CALLBACK_ROUTE}`;
+
+/**
+ * The outcome of handling one incoming URL.
+ *
+ * `ignored` and `failed` are kept apart on purpose. Every deep link the app
+ * receives is offered to this function, so "this was not a sign-in link" is the
+ * common case and must not surface as an error; "this was a sign-in link and it
+ * did not work" always must.
+ */
+export type AuthCallbackResult =
+  | { status: 'signed-in' }
+  | { status: 'ignored'; reason: string }
+  | { status: 'failed'; message: string };
+
+/**
+ * Results, not just in-flight promises, keyed by authorization code.
+ *
+ * The same callback reaches us twice — once from the deep-link listener and
+ * once from the `/auth-callback` screen expo-router mounts for it. A code is
+ * single-use, so the second caller must be handed the first caller's outcome
+ * rather than attempting an exchange Supabase would (correctly) reject. Codes
+ * are short-lived and a run of the app sees a handful, so nothing is evicted.
+ */
+const exchanges = new Map<string, Promise<AuthCallbackResult>>();
+
+function describeCallbackError(
+  error: string | null,
+  code: string | null,
+  description: string | null,
+): string {
+  const all = `${error ?? ''} ${code ?? ''} ${description ?? ''}`;
+  if (/expired/i.test(all)) {
+    return 'That sign-in link has expired. Send yourself a new one.';
+  }
+  if (/access_denied|used/i.test(all)) {
+    return 'That sign-in link has already been used. Send yourself a new one.';
+  }
+  // URLSearchParams has already percent-decoded this; Supabase still sends `+`
+  // for spaces, which decoding does not touch.
+  const readable = description?.replace(/\+/g, ' ').trim();
+  return readable && readable.length > 0
+    ? readable
+    : 'That sign-in link could not be used. Send yourself a new one.';
+}
+
+function exchangeOnce(code: string): Promise<AuthCallbackResult> {
+  const existing = exchanges.get(code);
+  if (existing) return existing;
+
+  const attempt = supabase.auth
+    .exchangeCodeForSession(code)
+    .then(({ error }): AuthCallbackResult => {
+      if (!error) return { status: 'signed-in' };
+      if (/verifier|code challenge|pkce/i.test(error.message)) {
+        // The verifier lives only on the device that requested the link. This
+        // is the message a user gets when they tap the link on their laptop, or
+        // after reinstalling — and it is also what an attacker's forged link
+        // produces here, which is the intended outcome.
+        return {
+          status: 'failed',
+          message:
+            'This link has to be opened on the device that asked for it. Request a new link here and open it on this device.',
+        };
+      }
+      return { status: 'failed', message: describeCallbackError(null, null, error.message) };
+    })
+    .catch((err): AuthCallbackResult => ({
+      status: 'failed',
+      message: err instanceof Error ? err.message : 'Could not complete sign-in.',
+    }));
+
+  exchanges.set(code, attempt);
+  return attempt;
+}
+
 /**
  * Complete a magic-link sign-in from the URL the link opened.
  *
@@ -171,19 +266,57 @@ export async function verifyEmailCode(email: string, token: string): Promise<Sig
  * mandatory to do so on native, which means nothing parses the callback URL
  * automatically — this does it by hand.
  *
- * Supabase sends tokens in the URL FRAGMENT, after the `#`, not the query
- * string. Reading `?` here is the reason most native magic-link integrations
- * appear to do nothing at all.
+ * Two rules make this safe, and both matter:
+ *
+ *  - **Only `cinch://auth-callback` is acted on.** Any other scheme or route is
+ *    ignored outright, so an arbitrary `cinch://…` link cannot reach the auth
+ *    client at all.
+ *  - **Fragment tokens are refused, never redeemed.** Under the implicit flow a
+ *    URL carries a ready-made `access_token`/`refresh_token` that anyone can
+ *    put in a link, which is exactly how a victim gets signed into an
+ *    attacker's account. The client uses PKCE now, so a genuine callback
+ *    carries `?code=` and nothing else; a fragment token is by definition
+ *    unsolicited.
  */
-export async function completeSessionFromUrl(url: string): Promise<boolean> {
-  const fragment = url.split('#')[1];
-  if (!fragment) return false;
+export async function completeSessionFromUrl(url: string): Promise<AuthCallbackResult> {
+  const [beforeHash, fragment = ''] = url.split('#');
 
-  const params = new URLSearchParams(fragment);
-  const access_token = params.get('access_token');
-  const refresh_token = params.get('refresh_token');
-  if (!access_token || !refresh_token) return false;
+  const parsed = Linking.parse(beforeHash);
+  const scheme = parsed.scheme?.toLowerCase() ?? null;
+  // `cinch://auth-callback` parses the route as the hostname; `cinch:///auth-callback`
+  // parses it as the path. Both shapes occur in the wild depending on who built
+  // the URL, and only the route itself is being checked here.
+  const route = (parsed.hostname ?? parsed.path ?? '').replace(/^\/+|\/+$/g, '').toLowerCase();
 
-  const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-  return !error;
+  if (scheme !== CALLBACK_SCHEME || route !== CALLBACK_ROUTE) {
+    return { status: 'ignored', reason: 'not-the-sign-in-callback' };
+  }
+
+  const query = new URLSearchParams(beforeHash.split('?')[1] ?? '');
+  const hash = new URLSearchParams(fragment);
+  // Supabase puts errors in the query string for PKCE and in the fragment for
+  // implicit; accepting either means an expired link reads the same both ways.
+  const pick = (name: string) => query.get(name) ?? hash.get(name);
+
+  const error = pick('error');
+  const errorCode = pick('error_code');
+  if (error || errorCode) {
+    return {
+      status: 'failed',
+      message: describeCallbackError(error, errorCode, pick('error_description')),
+    };
+  }
+
+  if (hash.get('access_token') || hash.get('refresh_token')) {
+    return {
+      status: 'failed',
+      message:
+        'That link tried to sign you into an account without your permission, so it was refused. Ask for a new sign-in link from this screen.',
+    };
+  }
+
+  const code = pick('code');
+  if (!code) return { status: 'ignored', reason: 'callback-carried-no-code' };
+
+  return exchangeOnce(code);
 }

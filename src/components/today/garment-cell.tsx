@@ -5,6 +5,7 @@ import { Text } from '@/components/ui/text';
 import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
+import { stableImageSource } from '@/features/closet/use-image-urls';
 
 /**
  * One garment in a flat-lay tray — the cutout photograph when one exists,
@@ -42,7 +43,7 @@ export function GarmentCell({
           shadowOffset: { width: 0, height: 4 },
         }}>
         <Image
-          source={uri}
+          source={stableImageSource(uri)}
           contentFit="contain"
           transition={paper ? 0 : 200}
           cachePolicy="memory-disk"

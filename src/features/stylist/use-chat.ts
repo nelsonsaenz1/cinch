@@ -245,10 +245,21 @@ export function useChat({
     [persist, send],
   );
 
+  /**
+   * Start a fresh conversation.
+   *
+   * Invalidating `chat-history` would be exactly wrong here: the query refetches
+   * the most recent session — the one we just walked away from — and its
+   * `queryFn` calls `setMessages`, so the thread reappears. Instead the cached
+   * history is replaced with an empty list, which is the truth for a new
+   * session, and the next `persist` opens a real one because `sessionRef` is
+   * null. The prior conversation stays in the database, where it belongs; this
+   * is "new chat", not "delete history".
+   */
   const clear = useCallback(() => {
     setMessages([]);
     sessionRef.current = null;
-    void qc.invalidateQueries({ queryKey: ['chat-history'] });
+    qc.setQueryData<ChatMessage[]>(['chat-history'], []);
   }, [qc]);
 
   return {

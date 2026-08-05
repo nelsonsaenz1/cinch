@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       ai_calls: {
@@ -68,6 +93,13 @@ export type Database = {
             referencedRelation: "items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_calls_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ai_config: {
@@ -97,6 +129,27 @@ export type Database = {
           provider?: string
           updated_at?: string
           workload?: Database["public"]["Enums"]["ai_workload"]
+        }
+        Relationships: []
+      }
+      ai_usage_counters: {
+        Row: {
+          calls: number
+          day: string
+          kind: string
+          user_id: string
+        }
+        Insert: {
+          calls?: number
+          day?: string
+          kind: string
+          user_id: string
+        }
+        Update: {
+          calls?: number
+          day?: string
+          kind?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -187,13 +240,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "closet_likes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "closet_likes_outfit_id_fkey"
             columns: ["outfit_id"]
             isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "closet_likes_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      command_log: {
+        Row: {
+          claimed_at: string
+          kind: string
+          op_id: string
+          result_id: string | null
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string
+          kind: string
+          op_id: string
+          result_id?: string | null
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string
+          kind?: string
+          op_id?: string
+          result_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       follows: {
         Row: {
@@ -247,6 +338,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_inquiries_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
             referencedColumns: ["id"]
           },
         ]
@@ -401,6 +499,27 @@ export type Database = {
             referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "outfit_calendar_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_calendar_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "outfit_calendar_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id", "user_id"]
+          },
         ]
       }
       outfit_items: {
@@ -434,11 +553,53 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "outfit_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_item_same_user"
+            columns: ["item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "outfit_items_item_same_user"
+            columns: ["item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "outfit_items_outfit_id_fkey"
             columns: ["outfit_id"]
             isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }
@@ -486,6 +647,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_reactions_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_reactions_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "outfit_reactions_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }
@@ -542,6 +724,7 @@ export type Database = {
           bio: string | null
           color_season: string | null
           created_at: string
+          deletion_requested_at: string | null
           display_name: string | null
           follower_count: number
           following_count: number
@@ -565,6 +748,7 @@ export type Database = {
           bio?: string | null
           color_season?: string | null
           created_at?: string
+          deletion_requested_at?: string | null
           display_name?: string | null
           follower_count?: number
           following_count?: number
@@ -588,6 +772,7 @@ export type Database = {
           bio?: string | null
           color_season?: string | null
           created_at?: string
+          deletion_requested_at?: string | null
           display_name?: string | null
           follower_count?: number
           following_count?: number
@@ -646,11 +831,53 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "style_feedback_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "style_feedback_item_same_user"
+            columns: ["item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "style_feedback_item_same_user"
+            columns: ["item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "style_feedback_outfit_id_fkey"
             columns: ["outfit_id"]
             isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "style_feedback_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "style_feedback_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "style_feedback_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }
@@ -718,6 +945,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_corrections_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
             referencedColumns: ["id"]
           },
         ]
@@ -834,16 +1068,149 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "wishlist_items_gap_same_user"
+            columns: ["gap_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "wardrobe_gaps"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "wishlist_items_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "wishlist_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wishlist_items_item_same_user"
+            columns: ["item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "wishlist_items_item_same_user"
+            columns: ["item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id", "user_id"]
+          },
         ]
       }
     }
     Views: {
+      public_items: {
+        Row: {
+          brand: string | null
+          category: Database["public"]["Enums"]["item_category"] | null
+          colors: Json | null
+          created_at: string | null
+          cutout_path: string | null
+          description: string | null
+          id: string | null
+          is_for_sale: boolean | null
+          material: string | null
+          occasions: string[] | null
+          pattern: string | null
+          seasons: string[] | null
+          subcategory: string | null
+          thumb_path: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      public_like_counts: {
+        Row: {
+          item_id: string | null
+          likes: number | null
+          outfit_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "closet_likes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closet_likes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closet_likes_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closet_likes_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_outfit_items: {
+        Row: {
+          item_id: string | null
+          outfit_id: string | null
+          position: number | null
+          role: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outfit_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_outfits: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          name: string | null
+          occasion: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       public_profiles: {
         Row: {
           avatar_url: string | null
@@ -886,6 +1253,7 @@ export type Database = {
         Args: {
           p_affinities: Json
           p_baseline: Json
+          p_expected_feedback_count?: number
           p_features: Json
           p_item_ids: string[]
           p_outfit_id?: string
@@ -895,10 +1263,43 @@ export type Database = {
           p_summary: string[]
           p_weights: Json
         }
-        Returns: undefined
+        Returns: Json
+      }
+      claim_ai_quota: {
+        Args: { p_daily_limit: number; p_kind: string; p_user_id: string }
+        Returns: Json
+      }
+      claim_command: {
+        Args: { p_kind: string; p_op_id: string; p_user_id: string }
+        Returns: {
+          already_done: boolean
+          existing_result: string
+        }[]
       }
       current_ai_consent_version: { Args: never; Returns: number }
       log_outfit_wear: { Args: { p_outfit_id: string }; Returns: undefined }
+      plan_outfit_tx: {
+        Args: {
+          p_context?: Json
+          p_item_ids: string[]
+          p_name?: string
+          p_note?: string
+          p_op_id: string
+          p_planned_date: string
+        }
+        Returns: string
+      }
+      wear_outfit_tx: {
+        Args: {
+          p_context?: Json
+          p_item_ids: string[]
+          p_name?: string
+          p_op_id: string
+          p_reasoning?: string
+          p_source?: Database["public"]["Enums"]["outfit_source"]
+        }
+        Returns: string
+      }
     }
     Enums: {
       ai_workload: "tagging" | "outfit_generation" | "stylist_chat"
@@ -1049,6 +1450,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       ai_workload: ["tagging", "outfit_generation", "stylist_chat"],

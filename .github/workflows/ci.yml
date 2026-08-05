@@ -28,6 +28,18 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Failing, not advisory. A lint step that is allowed to be red is a lint
+      # step nobody reads, and `react-hooks/set-state-in-effect` in particular
+      # catches a class of cascading-render bug that typecheck cannot see.
+      - name: Lint
+        run: npm run lint
+
+      # The unit suite is pure logic — the styling engine, the colour maths,
+      # cost-per-wear, date keys. No renderer, no native mocks: `node --test`
+      # over esbuild bundles, which is why it runs in seconds.
+      - name: Unit tests
+        run: npm test
+
       # The styling engine is the core IP and is pure, deterministic arithmetic
       # over a fixed fixture closet — so it is exactly the thing that can break
       # silently. A colour-harmony regression produces outfits that are merely
@@ -39,6 +51,33 @@ jobs:
       # time but blows up when Metro actually bundles it for the device.
       - name: Bundle for iOS
         run: npx expo export --platform ios --output-dir /tmp/export
+
+  # Row level security is the only thing standing between one user's closet and
+  # everyone else's, and it is invisible to every other job here: it lives in
+  # the database, not in the app, so a broken policy typechecks, bundles and
+  # ships. pgTAP against a real local Postgres with the real migrations applied
+  # is the only way to actually observe it.
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Starts Postgres with every migration in supabase/migrations applied,
+      # then runs supabase/tests/*.sql under pg_prove. No remote project and no
+      # secrets are involved — this is entirely local to the runner.
+      - name: Start local Supabase
+        run: supabase db start
+
+      - name: RLS and storage policy tests
+        run: supabase test db
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
 
   functions:
     runs-on: ubuntu-latest

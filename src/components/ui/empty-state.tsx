@@ -19,6 +19,13 @@ export type EmptyStateProps = {
   tone?: 'neutral' | 'blocked';
 };
 
+/**
+ * Set like everything else in the book: hard-left on the gutter, one didone
+ * line, body, action. The old version was the centred-circle-badge pattern —
+ * a named AI-slop tell the design brief exists to escape. The symbol stays,
+ * but as a small glyph above the title, not an illustration pretending to be
+ * content.
+ */
 export function EmptyState({
   symbol,
   title,
@@ -30,21 +37,21 @@ export function EmptyState({
   const theme = useTheme();
 
   return (
-    <View className="flex-1 items-center justify-center px-10" accessibilityRole="summary">
-      <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-tray dark:bg-tray-dark">
-        <SymbolView
-          name={symbol}
-          size={34}
-          tintColor={tone === 'blocked' ? theme.warning : theme.muted}
-          resizeMode="scaleAspectFit"
-        />
+    <View className="flex-1 justify-center px-gutter" accessibilityRole="summary">
+      <SymbolView
+        name={symbol}
+        size={22}
+        tintColor={tone === 'blocked' ? theme.warning : theme.muted}
+        resizeMode="scaleAspectFit"
+      />
+
+      <View style={{ marginTop: 16 }}>
+        <Text variant="title" trim>
+          {title}
+        </Text>
       </View>
 
-      <Text variant="title" className="text-center">
-        {title}
-      </Text>
-
-      <Text variant="body" className="mt-3 text-center text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
         {body}
       </Text>
 

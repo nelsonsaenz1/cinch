@@ -9,6 +9,14 @@ import {
   outfitSchema,
   type OutfitRerank,
 } from '../_shared/outfit-schema.ts';
+import {
+  BoundsError,
+  parseOutfitRequest,
+  readBoundedJson,
+  type ValidatedCandidate,
+  type ValidatedOutfitRequest,
+} from '../_shared/input-bounds.ts';
+import { enforceAiQuota } from '../_shared/quota.ts';
 
 /**
  * generate-outfits — re-rank a shortlist and write the reasoning.
@@ -27,41 +35,17 @@ import {
  *
  *   - The model physically cannot hallucinate clothes. It returns ids drawn
  *     from a list, and anything unrecognised is dropped below.
+ *
+ * What the candidate cap never covered: the count of candidates was bounded but
+ * nothing inside them was, so fourteen candidates could still carry unbounded
+ * item names and notes straight into a prompt we pay for. Shape and size are now
+ * both checked in `_shared/input-bounds.ts` before the provider is called.
  */
 
-const MAX_CANDIDATES = 14;
+/** Text-only re-rank; the shared default is the right budget. */
+const OUTFIT_TIMEOUT_MS = 30_000;
 
-type Candidate = {
-  id: string;
-  items: {
-    slot: string;
-    name: string;
-    color: string;
-    formality: number;
-  }[];
-  score: number;
-  /** Grounded notes from the scorer, e.g. "rain-ready", "complementary palette". */
-  notes: string[];
-};
-
-type Body = {
-  candidates?: Candidate[];
-  context?: {
-    weather?: {
-      feelsLikeC: number;
-      highC: number;
-      lowC: number;
-      precipitationChance: number;
-      windKph: number;
-    } | null;
-    events?: { title: string; startsAt: string; formality: number }[];
-    note?: string | null;
-    city?: string | null;
-  };
-  /** Plain-language description of the learned preferences. */
-  styleSummary?: string[];
-  count?: number;
-};
+type Candidate = ValidatedCandidate;
 
 const describeCandidate = (c: Candidate): string => {
   const pieces = c.items
@@ -71,8 +55,7 @@ const describeCandidate = (c: Candidate): string => {
   return `${c.id}: ${pieces} (fit score ${Math.round(c.score * 100)})${notes}`;
 };
 
-const describeContext = (ctx: Body['context']): string => {
-  if (!ctx) return 'No context supplied.';
+const describeContext = (ctx: ValidatedOutfitRequest): string => {
   const lines: string[] = [];
 
   if (ctx.weather) {
@@ -84,7 +67,7 @@ const describeContext = (ctx: Body['context']): string => {
     );
   }
 
-  if (ctx.events?.length) {
+  if (ctx.events.length) {
     lines.push('Today:');
     for (const e of ctx.events) {
       lines.push(`  - ${e.startsAt} ${e.title} (formality ${e.formality}/5)`);
@@ -92,7 +75,7 @@ const describeContext = (ctx: Body['context']): string => {
   }
 
   if (ctx.note) lines.push(`The user says: "${ctx.note}"`);
-  return lines.join('\n');
+  return lines.length ? lines.join('\n') : 'No context supplied.';
 };
 
 export default {
@@ -104,17 +87,17 @@ export default {
         return Response.json({ error: 'OPENROUTER_API_KEY is not configured.' }, { status: 500 });
       }
 
-      let body: Body;
+      let body: ValidatedOutfitRequest;
       try {
-        body = await req.json();
-      } catch {
-        return Response.json({ error: 'Expected a JSON body.' }, { status: 400 });
+        body = parseOutfitRequest(await readBoundedJson(req));
+      } catch (err) {
+        if (err instanceof BoundsError) {
+          return Response.json({ error: err.message }, { status: 400 });
+        }
+        throw err;
       }
 
-      const candidates = (body.candidates ?? []).slice(0, MAX_CANDIDATES);
-      if (!candidates.length) {
-        return Response.json({ error: 'candidates is required.' }, { status: 400 });
-      }
+      const candidates = body.candidates;
 
       // `withSupabase` returns an untyped client, so every query result widens to
       // `never` and column names stop being checked at all. Casting once here
@@ -154,13 +137,18 @@ export default {
         return Response.json({ error: 'Styling is disabled.' }, { status: 503 });
       }
 
-      const count = Math.min(Math.max(body.count ?? 3, 1), 5);
-      const styleSummary = body.styleSummary?.length
+      // ── Daily allowance. Claimed after the free rejections above and before
+      //    the provider, so a disabled workload never spends one. ────────────
+      const quotaResponse = await enforceAiQuota(admin, userId, 'outfit_generation');
+      if (quotaResponse) return quotaResponse;
+
+      const count = body.count;
+      const styleSummary = body.styleSummary.length
         ? `\n\nWhat you know about this person's taste, learned from their reactions:\n${body.styleSummary.map((s) => `  - They ${s}.`).join('\n')}`
         : '';
 
       const userPrompt = [
-        describeContext(body.context),
+        describeContext(body),
         '',
         `Candidate outfits (each is a fixed set of clothes this person owns):`,
         ...candidates.map((c) => `  ${describeCandidate(c)}`),
@@ -175,6 +163,7 @@ export default {
       let completionTokens: number | null = null;
       let costUsd: number | null = null;
       let latencyMs = 0;
+      const startedAt = Date.now();
 
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
@@ -189,6 +178,7 @@ export default {
             schemaName: 'outfit_picks',
             maxTokens: config.max_tokens,
             params: (config.params ?? {}) as Record<string, unknown>,
+            timeoutMs: OUTFIT_TIMEOUT_MS,
           });
 
           picks = result.parsed;
@@ -200,6 +190,10 @@ export default {
           break;
         } catch (err) {
           failure = err instanceof Error ? err.message : String(err);
+          // Wall clock across the failed attempts. The provider only reports
+          // latency on a response, so failures used to be logged as 0 ms —
+          // which read as instant and free, and they are neither.
+          latencyMs = Date.now() - startedAt;
           const retryable = err instanceof OpenRouterError && err.retryable;
           if (!retryable || attempt === 1) break;
           await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));

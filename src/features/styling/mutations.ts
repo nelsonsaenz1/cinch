@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 
+import { createOperationIds, runCommand } from '@/lib/commands';
 import {
   describeWeights,
   meanFeatures,
@@ -17,16 +19,21 @@ export type ReactionSource = 'today' | 'chat' | 'shuffle' | 'onboarding_quiz';
 /**
  * Record a like or dislike and fold it into the learned model.
  *
- * The learning maths runs on the client rather than in a database function for
- * one reason that matters: the very same code has to run when the app is
- * offline. Outfit generation works with no network, so reacting must too —
- * otherwise the offline experience silently stops learning, and the user's
- * taste profile develops holes wherever they happened to be on a plane.
+ * The learning maths runs on the client because the client is where the rest of
+ * the styling engine already lives — the same `updateWeights` that runs here
+ * runs inside the offline generator, and keeping one implementation means the
+ * two can never disagree about what a reaction is worth.
  *
  * The write is a single RPC so the reaction row and the updated model land
  * atomically. Consistency risk here is asymmetric: a model updated without its
  * reaction recorded can never be reconstructed, because the reaction log is the
  * only evidence the update happened.
+ *
+ * This mutation REQUIRES the network. There is no durable queue behind it, so a
+ * reaction made offline is lost — which is why `ReactionBar` reports pending,
+ * saved and failed as three different things instead of confirming the write
+ * the moment the user taps. If offline reactions are ever wanted they need an
+ * actual outbox; do not describe one here until it exists.
  */
 export function useReactToOutfit() {
   const qc = useQueryClient();
@@ -61,7 +68,7 @@ export function useReactToOutfit() {
       const affinities = updateAffinities(profile.affinities, candidate.items, liked);
       const summary = describeWeights(weights);
 
-      const { error } = await supabase.rpc('apply_outfit_reaction', {
+      const { data, error } = await supabase.rpc('apply_outfit_reaction', {
         p_item_ids: candidate.items.map((g) => g.id),
         p_reaction: liked ? 1 : -1,
         p_features: candidate.features,
@@ -72,20 +79,54 @@ export function useReactToOutfit() {
         p_outfit_id: outfitId ?? undefined,
         p_reason: reason,
         p_source: source,
+        // Which version of the profile these weights were derived from.
+        //
+        // `weights` above is an ABSOLUTE vector computed from the snapshot this
+        // screen is holding. React twice in quick succession and both writes
+        // derive from the same snapshot, so whichever lands second erases the
+        // first while the count still rises twice — the profile then claims two
+        // reactions' worth of learning and carries one. Sending the version lets
+        // the server refuse a superseded write instead of applying it blindly.
+        p_expected_feedback_count: profile.feedbackCount,
       });
 
       if (error) throw error;
-      return { weights, affinities, summary };
+
+      // The reaction itself is always recorded; only the weight update can be
+      // refused. `applied: false` means someone beat us to it, so the local
+      // vector is stale and must not be written into the cache.
+      const applied = (data as { applied?: boolean } | null)?.applied !== false;
+      return { weights, affinities, summary, applied };
     },
 
     onSuccess: (next) => {
+      if (!next.applied) {
+        // Refetch rather than merge: the authoritative profile already contains
+        // the other reaction's learning, and this one's event is on record to be
+        // replayed. Writing our stale vector here would undo exactly what the
+        // server just protected.
+        void qc.invalidateQueries({ queryKey: ['style-profile'] });
+        return;
+      }
+
       // Write straight into the cache so the next generation on this screen
       // already reflects the reaction. Waiting for a refetch would let the user
       // dislike an outfit and immediately be shown its twin.
       qc.setQueryData<StyleProfile>(['style-profile'], (prev) =>
         prev
-          ? { ...prev, ...next, feedbackCount: prev.feedbackCount + 1 }
-          : { ...next, feedbackCount: 1 },
+          ? {
+              ...prev,
+              weights: next.weights,
+              affinities: next.affinities,
+              summary: next.summary,
+              feedbackCount: prev.feedbackCount + 1,
+            }
+          : {
+              weights: next.weights,
+              affinities: next.affinities,
+              summary: next.summary,
+              feedbackCount: 1,
+            },
       );
       void qc.invalidateQueries({ queryKey: ['style-profile'] });
     },
@@ -98,9 +139,21 @@ export function useReactToOutfit() {
  * "Wear It" is the strongest positive signal the app receives — far stronger
  * than a tap on a heart — so it trains the model as a like in addition to
  * incrementing the wear counts.
+ *
+ * One call, not three. This used to insert the outfit, insert its items, and
+ * then call `log_outfit_wear`, which meant a dropped connection could leave an
+ * outfit with no garments in it or a wear that was never counted — and a retry
+ * created a second outfit while incrementing `wear_count` twice, quietly
+ * corrupting cost-per-wear and the freshness rule. `wear_outfit_tx` is all
+ * three writes in one transaction, keyed by an operation id so the retry
+ * returns the original outfit instead of repeating it.
  */
 export function useWearOutfit() {
   const qc = useQueryClient();
+
+  // Held across renders: the id must survive a retry of the same tap, which is
+  // the only thing that makes the command idempotent.
+  const opIds = useRef(createOperationIds()).current;
 
   return useMutation({
     mutationFn: async ({
@@ -115,36 +168,22 @@ export function useWearOutfit() {
       const userId = await getUserId();
       if (!userId) throw new Error('Not signed in.');
 
-      const { data: outfit, error: outfitError } = await supabase
-        .from('outfits')
-        .insert({
-          user_id: userId,
-          generated_by: 'ai',
-          reasoning,
-          context_snapshot: context as never,
-        })
-        .select('id')
-        .single();
+      const itemIds = candidate.items.map((g) => g.id);
+      // The garments are what identifies the action — the same set of clothes
+      // tapped twice in a row is one wear being retried, not two wears.
+      const actionKey = itemIds.join('.');
 
-      if (outfitError) throw outfitError;
-
-      const { error: itemsError } = await supabase.from('outfit_items').insert(
-        candidate.items.map((g, i) => ({
-          outfit_id: outfit.id,
-          item_id: g.id,
-          user_id: userId,
-          role: 'base',
-          position: i,
-        })),
-      );
-      if (itemsError) throw itemsError;
-
-      const { error: wearError } = await supabase.rpc('log_outfit_wear', {
-        p_outfit_id: outfit.id,
+      const outfitId = await runCommand('wear_outfit_tx', {
+        p_op_id: opIds.for(actionKey),
+        p_item_ids: itemIds,
+        p_name: null,
+        p_reasoning: reasoning,
+        p_context: context ?? null,
+        p_source: 'ai',
       });
-      if (wearError) throw wearError;
 
-      return outfit.id;
+      opIds.settle(actionKey);
+      return outfitId;
     },
 
     onSuccess: () => {

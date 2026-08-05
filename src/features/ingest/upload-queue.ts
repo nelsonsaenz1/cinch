@@ -1,5 +1,8 @@
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { File } from 'expo-file-system';
+import { AppState } from 'react-native';
 
+import { CURRENT_CONSENT_VERSION } from '@/features/auth/use-consent';
 import { backgroundRemover } from '@/lib/bg-removal';
 import { prepareForUpload, prepareThumbnail } from '@/lib/image';
 import { supabase, getUserId } from '@/lib/supabase';
@@ -23,8 +26,9 @@ import { useQueueStore, type UploadJob } from './queue-store';
  *    Supabase rate-limits recursive Edge Function calls (outbound `fetch()`
  *    between functions), so the obvious "one orchestrator spawns 100 taggers"
  *    pattern gets throttled. The client calls `tag-item` once per item instead.
- *    Items left at `pending_tag` by a backgrounded app are re-driven by a sweep
- *    on next launch.
+ *    Items left at `pending_tag` by a backgrounded app are re-driven by
+ *    `sweepPendingTags`, which `startTagSweeper` wires to app launch and to
+ *    every return to the foreground.
  */
 
 const MAX_CONCURRENCY = 3;
@@ -33,6 +37,90 @@ const BUCKET = 'garments';
 
 let running = 0;
 let draining = false;
+
+// ---------------------------------------------------------------------------
+// Tagging
+// ---------------------------------------------------------------------------
+
+/**
+ * What `tag-item` did, as far as this client is concerned.
+ *
+ * The distinction the previous code missed: the Edge Function returns its own
+ * failures as **200 with a JSON body** (`{ ok: false, status: 'needs_review' }`),
+ * because losing an item is unacceptable and a badged item is recoverable. So
+ * `await invoke(...)` resolving proves nothing at all. Both `error` and the
+ * body have to be read, and the local job may only be called finished when the
+ * server row actually reached a terminal status.
+ */
+type TagOutcome =
+  /** The row is `tagged` or `needs_review`; nothing further will change it. */
+  | { kind: 'settled'; status: 'tagged' | 'needs_review' }
+  /** AI consent is absent or withdrawn. Retrying is a guaranteed 403 forever. */
+  | { kind: 'consent' }
+  /** Transient: the row is still `pending_tag` and a later sweep should retry. */
+  | { kind: 'retry'; message: string };
+
+type TagResponseBody = { ok?: boolean; status?: string; error?: string };
+
+/** Read the JSON body off a non-2xx response, if there is one to read. */
+async function readErrorBody(error: unknown): Promise<TagResponseBody | null> {
+  if (!(error instanceof FunctionsHttpError)) return null;
+  try {
+    const response = (error as { context?: unknown }).context as Response | undefined;
+    return response ? ((await response.json()) as TagResponseBody) : null;
+  } catch {
+    // A non-JSON error body tells us nothing; treat it as an ordinary failure.
+    return null;
+  }
+}
+
+/** Ask the Edge Function to tag one item, and report what actually happened. */
+async function requestTag(itemId: string): Promise<TagOutcome> {
+  try {
+    const { data, error } = await supabase.functions.invoke<TagResponseBody>('tag-item', {
+      body: { itemId },
+    });
+
+    if (error) {
+      const body = await readErrorBody(error);
+      if (body?.error === 'ai_consent_required') return { kind: 'consent' };
+      return { kind: 'retry', message: error instanceof Error ? error.message : String(error) };
+    }
+
+    // 200, but the body decides. `needs_review` is a settled outcome — the item
+    // is waiting in the review deck, not waiting on another call.
+    if (data?.status === 'tagged' || data?.status === 'needs_review') {
+      return { kind: 'settled', status: data.status };
+    }
+
+    return { kind: 'retry', message: data?.error ?? 'Tagging did not complete.' };
+  } catch (err) {
+    return { kind: 'retry', message: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Move every queue job pointing at this item to a stage, with an explanation. */
+function settleJobsForItem(itemId: string, patch: Partial<UploadJob>): void {
+  const { jobs, update } = useQueueStore.getState();
+  for (const job of jobs) {
+    if (job.itemId === itemId) update(job.id, patch);
+  }
+}
+
+const CONSENT_WITHDRAWN_MESSAGE =
+  'Saved, but not tagged — AI processing is turned off for your account.';
+
+/** Is AI processing currently permitted for this user? */
+async function hasAiConsent(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('ai_consent_version')
+    .eq('user_id', userId)
+    .single();
+
+  if (error) return false;
+  return (data?.ai_consent_version ?? 0) >= CURRENT_CONSENT_VERSION;
+}
 
 /** Upload one local file to a Storage path via a signed upload URL. */
 async function uploadObject(
@@ -134,17 +222,33 @@ async function processJob(job: UploadJob): Promise<void> {
     .eq('id', itemId);
   if (updateError) throw new Error(`Could not record upload: ${updateError.message}`);
 
-  // 5. Request tagging. A failure here is explicitly NOT fatal: the item is
-  //    already saved and sits at `pending_tag` for the launch sweep to retry.
-  //    Losing a tag is recoverable; losing an upload is not.
-  update(job.id, { stage: 'tagging', progress: 1 });
-  try {
-    await supabase.functions.invoke('tag-item', { body: { itemId } });
-  } catch {
-    // Intentionally swallowed — see above.
+  // 5. Request tagging. A failure here is explicitly NOT fatal to the import:
+  //    the item is already saved. But it is not `done` either — the job stays
+  //    at `tagging` so the screen keeps counting it as in progress and the
+  //    sweep picks it up, rather than reporting "All done" over a row that is
+  //    still sitting at `pending_tag`.
+  update(job.id, { stage: 'tagging', progress: 1, error: undefined });
+
+  const outcome = await requestTag(itemId);
+
+  if (outcome.kind === 'settled') {
+    update(job.id, { stage: 'done' });
+    return;
   }
 
-  update(job.id, { stage: 'done' });
+  if (outcome.kind === 'consent') {
+    // Terminal on purpose. Every retry would be another guaranteed 403, and the
+    // user turned this off deliberately — the garment is still in their closet,
+    // it just has no machine-written tags.
+    update(job.id, { stage: 'failed', error: CONSENT_WITHDRAWN_MESSAGE });
+    return;
+  }
+
+  // Left at `tagging` with the reason attached. `processJob` must NOT throw
+  // here: the caller treats a throw as "retry the whole job", which would
+  // re-encode and re-upload three objects for a failure that is only about the
+  // last call.
+  update(job.id, { error: outcome.message });
 }
 
 /**
@@ -191,30 +295,138 @@ export async function drainQueue(): Promise<void> {
   } finally {
     draining = false;
   }
+
+  // Anything the batch left at `tagging` is now the sweep's problem. Rate
+  // limiting inside it means this is a nudge, not a guarantee of a pass here.
+  void sweepPendingTags();
 }
+
+// ---------------------------------------------------------------------------
+// Recovery sweep
+// ---------------------------------------------------------------------------
+
+/** Never more than this many items in one pass, however many are outstanding. */
+const SWEEP_BATCH = 25;
+/** Floor between passes, so foregrounding the app repeatedly cannot stampede. */
+const SWEEP_MIN_INTERVAL_MS = 60_000;
+/** Ceiling on the backoff — a day-long outage should still retry hourly. */
+const SWEEP_MAX_INTERVAL_MS = 30 * 60_000;
+
+let sweeping = false;
+let sweepInterval = SWEEP_MIN_INTERVAL_MS;
+let nextSweepAt = 0;
 
 /**
  * Re-drives items whose upload finished but whose tagging never did — the
- * normal outcome when a user backgrounds the app mid-import.
+ * normal outcome when a user backgrounds the app mid-import, and now also the
+ * outcome when `tag-item` returns a transient failure.
+ *
+ * Three properties this has to have, all learned the hard way:
+ *
+ * 1. **Consent-gated.** A user who withdraws AI consent has every `tag-item`
+ *    call refused with 403, and `needs_review` items are permanently in the
+ *    candidate set — so an ungated sweep would fire up to fifty guaranteed
+ *    failures on every single launch, forever. Consent is checked once up
+ *    front, and an `ai_consent_required` answer aborts the pass immediately
+ *    rather than working through the rest of the batch.
+ *
+ * 2. **Deduplicated.** Launch and the first foreground transition can arrive
+ *    within milliseconds of each other; without the `sweeping` guard both
+ *    passes would tag the same items twice and pay for both model calls.
+ *
+ * 3. **Backed off.** Repeated failure doubles the interval up to half an hour,
+ *    so a provider outage costs a handful of requests rather than one per
+ *    foreground for as long as it lasts.
+ *
+ * `needs_review` is included deliberately: those rows carry no tags, and a
+ * later attempt against a healthy model often succeeds where the first did not.
  */
 export async function sweepPendingTags(): Promise<void> {
-  const userId = await getUserId();
-  if (!userId) return;
+  if (sweeping || Date.now() < nextSweepAt) return;
+  sweeping = true;
 
-  const { data, error } = await supabase
-    .from('items')
-    .select('id')
-    .eq('user_id', userId)
-    .in('status', ['pending_tag', 'needs_review'])
-    .limit(50);
+  try {
+    const userId = await getUserId();
+    if (!userId) return;
 
-  if (error || !data) return;
-
-  for (const row of data) {
-    try {
-      await supabase.functions.invoke('tag-item', { body: { itemId: row.id } });
-    } catch {
-      // Next launch will try again.
+    if (!(await hasAiConsent(userId))) {
+      // Not a failure, so the backoff is left alone — but nothing here will
+      // work until consent is granted again, and granting it invalidates the
+      // consent query and brings the user back through capture anyway.
+      nextSweepAt = Date.now() + SWEEP_MAX_INTERVAL_MS;
+      return;
     }
+
+    const { data, error } = await supabase
+      .from('items')
+      .select('id')
+      .eq('user_id', userId)
+      .in('status', ['pending_tag', 'needs_review'])
+      .limit(SWEEP_BATCH);
+
+    if (error || !data?.length) {
+      nextSweepAt = Date.now() + SWEEP_MIN_INTERVAL_MS;
+      return;
+    }
+
+    let failures = 0;
+
+    for (const row of data) {
+      const outcome = await requestTag(row.id);
+
+      if (outcome.kind === 'settled') {
+        settleJobsForItem(row.id, { stage: 'done', error: undefined });
+        continue;
+      }
+
+      if (outcome.kind === 'consent') {
+        // Consent changed underneath us between the check above and now. Stop:
+        // every remaining item in the batch would fail identically.
+        settleJobsForItem(row.id, { stage: 'failed', error: CONSENT_WITHDRAWN_MESSAGE });
+        nextSweepAt = Date.now() + SWEEP_MAX_INTERVAL_MS;
+        return;
+      }
+
+      failures += 1;
+      settleJobsForItem(row.id, { error: outcome.message });
+    }
+
+    // Back off only when the whole batch failed; a partial success means the
+    // service is up and the remainder is worth another try soon.
+    sweepInterval =
+      failures === data.length
+        ? Math.min(sweepInterval * 2, SWEEP_MAX_INTERVAL_MS)
+        : SWEEP_MIN_INTERVAL_MS;
+    nextSweepAt = Date.now() + sweepInterval;
+  } finally {
+    sweeping = false;
   }
+}
+
+let sweeperStarted = false;
+
+/**
+ * Wire the sweep to the app's lifecycle.
+ *
+ * Called once from Today, which is the first authenticated screen — the sweep
+ * needs a session, so anywhere above the auth gate would run it signed out and
+ * achieve nothing.
+ *
+ * Foregrounding is the trigger, not network recovery: NetInfo is not a
+ * dependency of this app and adding one for this would be disproportionate.
+ * Coming back to the app is in practice when a user has signal again, and
+ * `sweepPendingTags` is idempotent and rate-limited, so an early attempt on a
+ * dead connection costs one failed request and a longer wait.
+ *
+ * The listener is never removed. That is deliberate — it lives as long as the
+ * process does, and there is exactly one.
+ */
+export function startTagSweeper(): void {
+  if (sweeperStarted) return;
+  sweeperStarted = true;
+
+  void sweepPendingTags();
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') void sweepPendingTags();
+  });
 }

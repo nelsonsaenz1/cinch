@@ -14,6 +14,9 @@ import {
   TAG_SYSTEM_PROMPT,
   type TagResult,
 } from '../_shared/tag-schema.ts';
+import { BoundsError, parseTagRequest, readBoundedJson } from '../_shared/input-bounds.ts';
+import { claimItemJob, completeItemJob, releaseItemJob } from '../_shared/job-claim.ts';
+import { enforceAiQuota } from '../_shared/quota.ts';
 
 /**
  * tag-item — vision tagging for one garment.
@@ -26,13 +29,25 @@ import {
  * Contract: this function must never lose an item. Every failure path leaves the
  * row present and marked `needs_review`, because a missing tag is recoverable in
  * the swipe deck and a missing garment is not.
+ *
+ * Cost discipline, added after review: a vision call is the most expensive thing
+ * this app does, and the only gate used to be "is somebody signed in". Three
+ * things now stand between a caller and the provider — bounded input, a daily
+ * allowance, and an exclusive claim on the item — so re-tagging the same
+ * photograph in a loop costs database rows rather than model calls.
  */
 
 const BUCKET = 'garments';
 /** Signed URL lifetime — only needs to outlive the model call. */
 const SIGNED_URL_TTL_SECONDS = 300;
+/**
+ * Vision calls with a fetched image are the slowest workload here, so they get
+ * more room than the shared default before the request is abandoned.
+ */
+const TAG_TIMEOUT_MS = 45_000;
 
-type Body = { itemId?: string };
+/** Statuses that mean the garment already has tags worth keeping. */
+const SETTLED: readonly string[] = ['tagged', 'verified'];
 
 export default {
   fetch: withSupabase(
@@ -46,16 +61,17 @@ export default {
         );
       }
 
-      let body: Body;
+      let itemId: string;
+      let force: boolean;
       try {
-        body = await req.json();
-      } catch {
-        return Response.json({ error: 'Expected a JSON body.' }, { status: 400 });
-      }
-
-      const itemId = body.itemId;
-      if (!itemId) {
-        return Response.json({ error: 'itemId is required.' }, { status: 400 });
+        const parsed = parseTagRequest(await readBoundedJson(req));
+        itemId = parsed.itemId;
+        force = parsed.force;
+      } catch (err) {
+        if (err instanceof BoundsError) {
+          return Response.json({ error: err.message }, { status: 400 });
+        }
+        throw err;
       }
 
       // `withSupabase` returns an untyped client, so every query result widens to
@@ -95,7 +111,7 @@ export default {
       //    also proves ownership without a manual user_id check. ─────────────
       const { data: item, error: itemError } = await db
         .from('items')
-        .select('id, image_path, status')
+        .select('id, image_path, status, ai_tags')
         .eq('id', itemId)
         .single();
 
@@ -106,6 +122,71 @@ export default {
         return Response.json({ error: 'Item has no image yet.' }, { status: 409 });
       }
 
+      // ── Idempotency. The query above used to ignore `status`, so the same
+      //    garment could be sent to the vision model an unlimited number of
+      //    times, each one a fresh charge for an answer we already have. A
+      //    settled item returns what it already knows and costs nothing.
+      //
+      //    `force` exists because re-tagging is sometimes the right thing —
+      //    after a model change, or when a user rejects the tags — and the
+      //    caller should have to say so rather than get it by accident. ──────
+      if (SETTLED.includes(item.status) && !force) {
+        return Response.json({
+          ok: true,
+          status: item.status,
+          tags: item.ai_tags,
+          skipped: 'already_tagged',
+        });
+      }
+
+      // ── Exclusive claim. The upload queue runs at concurrency 3 and retries,
+      //    so two invocations for one item genuinely overlap; without this both
+      //    would call the provider. Forcing a re-tag drops the previous claim
+      //    first, since that claim is the record of the run being replaced. ───
+      if (force) await releaseItemJob(admin, itemId);
+
+      let claim;
+      try {
+        claim = await claimItemJob(admin, itemId, userId, 'tag_item');
+      } catch (err) {
+        // The claim is the thing that stops us paying twice, so a claim we
+        // could not take is a reason to stop, not to proceed hopefully.
+        return Response.json(
+          {
+            error: 'Could not start tagging this item. Please try again.',
+            detail: err instanceof Error ? err.message : String(err),
+          },
+          { status: 503 },
+        );
+      }
+
+      if (!claim.claimed) {
+        if (claim.reason === 'already_done') {
+          return Response.json({
+            ok: true,
+            status: item.status,
+            tags: item.ai_tags,
+            skipped: 'already_tagged',
+          });
+        }
+        // 409 rather than an error: nothing is wrong, another invocation is
+        // simply mid-flight, and the client's queue can move on.
+        return Response.json(
+          { ok: false, status: 'in_progress', error: 'This item is already being tagged.' },
+          { status: 409 },
+        );
+      }
+
+      // ── Daily allowance, claimed before the provider is called and after the
+      //    two free exits above, so a skipped re-tag does not spend one. ──────
+      const quotaResponse = await enforceAiQuota(admin, userId, 'tagging');
+      if (quotaResponse) {
+        // Hand the claim back — the work never happened, and the item must
+        // stay taggable once the allowance resets.
+        await releaseItemJob(admin, itemId);
+        return quotaResponse;
+      }
+
       // ── Model config, read at call time so a model swap is a DB update ────
       const { data: config } = await admin
         .from('ai_config')
@@ -114,6 +195,9 @@ export default {
         .single();
 
       if (!config?.enabled) {
+        // Every early return from here on releases the claim: the item is
+        // untouched, and leaving it claimed would block the retry that fixes it.
+        await releaseItemJob(admin, itemId);
         return Response.json({ error: 'Tagging is disabled.' }, { status: 503 });
       }
 
@@ -124,6 +208,7 @@ export default {
         .createSignedUrl(item.image_path, SIGNED_URL_TTL_SECONDS);
 
       if (signError || !signed?.signedUrl) {
+        await releaseItemJob(admin, itemId);
         return Response.json({ error: 'Could not read the image.' }, { status: 500 });
       }
 
@@ -138,6 +223,7 @@ export default {
       let completionTokens: number | null = null;
       let costUsd: number | null = null;
       let latencyMs = 0;
+      const startedAt = Date.now();
 
       // Two attempts. A retryable failure (429 / 5xx) is worth one more try;
       // anything else will fail identically and retrying only burns budget.
@@ -154,6 +240,7 @@ export default {
             schemaName: 'garment_tags',
             maxTokens: config.max_tokens,
             params: (config.params ?? {}) as Record<string, unknown>,
+            timeoutMs: TAG_TIMEOUT_MS,
           });
 
           tags = normalizeTags(result.parsed);
@@ -165,6 +252,11 @@ export default {
           break;
         } catch (err) {
           failure = err instanceof Error ? err.message : String(err);
+          // Wall clock, including the failed attempts and the backoff between
+          // them. The provider reports latency only on a response, so this used
+          // to be logged as 0 — which read as "free and instant" for exactly
+          // the calls that are neither.
+          latencyMs = Date.now() - startedAt;
           const retryable = err instanceof OpenRouterError && err.retryable;
           if (!retryable || attempt === 1) break;
           await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
@@ -193,6 +285,10 @@ export default {
           .from('items')
           .update({ status: 'needs_review' })
           .eq('id', itemId);
+
+        // The job did not produce tags, so it is not done. Releasing the claim
+        // is what lets the user press retry on the needs_review badge.
+        await releaseItemJob(admin, itemId);
 
         return Response.json(
           { ok: false, status: 'needs_review', error: failure },
@@ -227,8 +323,16 @@ export default {
         .eq('id', itemId);
 
       if (updateError) {
+        // Tags exist but did not land. Release so a retry can write them —
+        // it will pay for the call again, which is the honest cost of a write
+        // that failed, and the alternative is an item stuck untagged forever.
+        await releaseItemJob(admin, itemId);
         return Response.json({ error: updateError.message }, { status: 500 });
       }
+
+      // Claim closed with a result: the row is now proof this item was tagged,
+      // and a duplicate invocation that arrives late reads it instead of paying.
+      await completeItemJob(admin, itemId);
 
       return Response.json({ ok: true, status: 'tagged', tags, costUsd });
     },

@@ -6,8 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ClosetGrid } from '@/components/closet/closet-grid';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ClosetGridSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { fixtureItems } from '@/features/closet/fixtures';
+import { useCloset } from '@/features/closet/queries';
+import { useSignedUrls } from '@/features/closet/use-image-urls';
 import type { Item, ItemCategory } from '@/schemas/item';
 
 const CATEGORY_FILTERS: { key: ItemCategory | 'all'; label: string }[] = [
@@ -33,9 +35,14 @@ export default function ClosetScreen() {
   const [category, setCategory] = useState<ItemCategory | 'all'>('all');
   const [sort, setSort] = useState<SortKey>('recent');
 
-  // TODO(OUT-13): replace fixtures with a TanStack Query hook against Supabase
-  // once the migration is applied to the linked project.
-  const items = fixtureItems;
+  // OUT-13: live closet. The same query Profile's stats already read, so the
+  // two screens can never disagree about what the user owns.
+  const closet = useCloset();
+  const items = useMemo(() => closet.data ?? [], [closet.data]);
+
+  // The garments bucket is private — paths must be signed before an <Image>
+  // can render them. One batched request for the whole grid.
+  const { resolve } = useSignedUrls(items.flatMap((i) => [i.thumbPath, i.cutoutPath]));
 
   const visible = useMemo(() => {
     const filtered =
@@ -110,9 +117,13 @@ export default function ClosetScreen() {
         ))}
       </ScrollView>
 
+      {closet.isLoading ? (
+        <ClosetGridSkeleton />
+      ) : (
       <ClosetGrid
         items={visible}
         onItemPress={(item) => router.push({ pathname: '/item/[id]', params: { id: item.id } })}
+        resolveImage={resolve}
         ListEmptyComponent={
           <View className="h-96">
             <EmptyState
@@ -129,6 +140,7 @@ export default function ClosetScreen() {
           </View>
         }
       />
+      )}
     </SafeAreaView>
   );
 }

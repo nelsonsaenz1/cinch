@@ -33,6 +33,10 @@ export function useSignedUrls(paths: (string | null | undefined)[]) {
     queryKey: ['signed-urls', unique],
     enabled: unique.length > 0,
     staleTime: REFETCH_AFTER_MS,
+    // staleTime alone only MARKS the data stale — nothing re-runs a query the
+    // screen is already subscribed to, and focus refetch is disabled globally.
+    // The interval is what actually renews URLs before the 60-minute expiry.
+    refetchInterval: REFETCH_AFTER_MS,
     gcTime: TTL_SECONDS * 1000,
     queryFn: async (): Promise<Record<string, string>> => {
       const { data, error } = await supabase.storage
@@ -62,4 +66,24 @@ export function useSignedUrls(paths: (string | null | undefined)[]) {
       return undefined;
     },
   };
+}
+
+/**
+ * Turn a signed URL into an `<Image>` source that survives re-signing.
+ *
+ * expo-image keys its disk cache on the whole URI by default, and a signed URI
+ * carries a token that is different on every signing — so the same garment
+ * photograph was written to disk under a new key every hour and never once read
+ * back. Offline, and on any cold start after the previous token expired, every
+ * cell fell back to a placeholder even though the bytes were already on the
+ * device.
+ *
+ * Stripping the query leaves `{bucket}/{user}/{item}/{file}`, which is stable
+ * for the life of the object, so the cache actually hits. Passing it explicitly
+ * is required: expo-image cannot infer that two URLs differing only in their
+ * token are the same image.
+ */
+export function stableImageSource(uri: string | undefined) {
+  if (!uri) return undefined;
+  return { uri, cacheKey: uri.split('?')[0] };
 }

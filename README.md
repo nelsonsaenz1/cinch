@@ -1,56 +1,163 @@
-# Welcome to your Expo app 👋
+# Cinch
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An iOS wardrobe app. You photograph your clothes once; Cinch tags them, and from
+then on it tells you what to wear — for today's weather, today's calendar, and
+what you actually reach for.
 
-## Get started
+The part that matters is that **the styling is not an API call**. Outfit
+generation is a deterministic engine that runs on the phone: perceptual colour
+maths in OKLCH, a beam search over the closet, and a linear model over named
+features that learns from every thumbs-up. It works offline, it costs nothing
+per outfit, and every recommendation decomposes into a reason you can argue
+with. A language model is used only for the two things it is genuinely better
+at — reading a photograph of a garment, and writing a sentence about a look the
+engine already chose.
 
-1. Install dependencies
+## Architecture
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+src/
+  app/            expo-router routes; (tabs) is Today / Closet / Plan
+  components/     presentational, grouped by the screen that owns them
+  features/       hooks, queries and mutations, grouped by domain
+  lib/
+    color/        sRGB <-> OKLab <-> OKLCH, hue families, harmony scoring
+    styling/      garment projection, scoring rules, beam search, learning
+    shopping/     wardrobe gap analysis
+  schemas/        zod schemas at every trust boundary
+  theme/          design tokens
+supabase/
+  migrations/     schema and row level security, applied in filename order
+  functions/      Deno Edge Functions (tag-item, generate-outfits,
+                  stylist-chat, delete-account)
+  tests/          pgTAP RLS and storage policy tests
+tests/            unit tests for the pure logic
+scripts/          smoke tests, test runner, font and simulator helpers
+web/              the static marketing, privacy and support site
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Three boundaries are worth knowing before changing anything:
 
-### Other setup steps
+- **The engine is pure.** Everything under `src/lib/` takes data and returns
+  data — no React, no network, no clock except the `now` passed into the
+  context. That is what makes it testable, and the tests in `tests/` are the
+  contract.
+- **The model never sees your closet.** Edge Functions receive a shortlist the
+  device already generated, not the wardrobe. The API key lives in Edge Function
+  secrets and is never referenced from client code.
+- **Row level security is the security model.** There is no server-side
+  authorization layer to fall back on. Public data is exposed *only* through the
+  allowlisted projection views (`public_profiles`, `public_items`,
+  `public_outfits`, `public_outfit_items`, `public_like_counts`) — never the
+  base tables. `supabase/tests/` is what holds that line.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Prerequisites
 
-## Learn more
+- Node 22
+- Xcode with an iOS 26 simulator runtime (this is a development build, not Expo
+  Go — the app uses native modules Expo Go does not ship)
+- [Supabase CLI](https://supabase.com/docs/guides/local-development) for
+  migrations and the database tests
+- Docker, for `supabase db start`
 
-To learn more about developing your project with Expo, look at the following resources:
+## Environment
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Copy the template and fill it in. Names only below — never commit values.
 
-## Join the community
+```bash
+cp .env.example .env.local
+```
 
-Join our community of developers creating universal apps.
+| Variable | Where | What |
+| --- | --- | --- |
+| `EXPO_PUBLIC_SUPABASE_URL` | `.env.local` | Project URL. Inlined into the bundle. |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `.env.local` | Publishable (anon) key. Public by construction — RLS is what protects the data, not this key. |
+| `OPENROUTER_API_KEY` | Supabase Edge Function secrets | Model access. Never in the app bundle, never in this repo. |
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+`EXPO_PUBLIC_*` is compiled into the JavaScript bundle and is readable by anyone
+with the `.ipa`. If a value must stay secret, it belongs in Edge Function
+secrets and behind a function.
+
+## Setup and run
+
+```bash
+npm ci
+npx expo run:ios          # first run builds the native project
+npm start                 # subsequent runs
+```
+
+`./scripts/run-ios.sh` wraps the same thing with the simulator-runtime repair
+this machine has historically needed; read the header comment before running it,
+since the first step uses `sudo`.
+
+## Checks
+
+| Command | What it does |
+| --- | --- |
+| `npm run typecheck` | `tsc --noEmit` over the app. Edge Functions are excluded — they are Deno. |
+| `npm run lint` | ESLint via `expo lint`. |
+| `npm test` | Unit tests: styling engine invariants, colour maths, cost-per-wear, date keys. |
+| `npm run test:db` | pgTAP tests against a local Supabase. Requires `supabase db start`. |
+| `npm run smoke:styling` | Prints real outfits and colour pairings for a human to eyeball. |
+| `npm run smoke:type` | Typographic scale and font-metric check. |
+
+All of these run in CI (`.github/workflows/ci.yml`), plus a full iOS bundle —
+which catches the failure typecheck cannot: a module that resolves at compile
+time and then blows up when Metro bundles it for the device.
+
+### About the unit tests
+
+There is no Jest. The things worth testing here are pure functions, and Node 22
+ships a test runner; `scripts/run-tests.mjs` bundles each `tests/*.test.ts` with
+esbuild (already a dependency) and hands the results to `node --test`.
+
+A test may be written before the module it covers exists. Such a file is named
+`*.test.ts.pending` with a `// requires: <path>` header — the extension keeps it
+out of `tsc`, and the runner promotes it to a real test automatically once its
+dependency lands.
+
+### About the database tests
+
+`supabase/tests/*.sql` are pgTAP, run by `supabase test db` against a local
+Postgres with every migration applied. They exercise four roles — `anon`, the
+owner, an unrelated authenticated user, and `service_role` — across every table
+and the storage bucket. They are the only check in the project that can see a
+broken RLS policy: a policy that leaks the whole table still typechecks, still
+bundles, and still ships.
+
+## Database workflow
+
+```bash
+supabase db start                          # local Postgres, migrations applied
+supabase migration new <name>              # write SQL by hand; no diffing
+supabase test db                           # prove the policies still hold
+npm run gen:types                          # regenerate src/types/database.ts
+supabase db push                           # apply to the linked project
+```
+
+Migrations are append-only and applied in filename order. Never edit one that
+has been pushed — write another.
+
+`npm run gen:types` regenerates the TypeScript row types for both the app and
+the Edge Functions from the linked project, so run it after every schema change
+or the types quietly describe the old schema.
+
+## Release
+
+Builds go through EAS; profiles are in `eas.json`.
+
+```bash
+eas build --profile development --platform ios   # simulator dev client
+eas build --profile preview --platform ios       # internal distribution
+eas build --profile production --platform ios
+eas submit --profile production --platform ios
+```
+
+`production` uses `autoIncrement` with `appVersionSource: remote`, so the build
+number comes from EAS rather than from the repo. The App Store listing copy
+lives in `docs/app-store-listing.md`, and the marketing and legal pages served
+alongside it are in `web/`.
+
+## Licence
+
+MIT — see `LICENSE`.

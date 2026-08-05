@@ -4,6 +4,14 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 import type { Database } from '../_shared/database.types.ts';
 import { CHAT_SYSTEM_PROMPT, chatSchema, type ChatResult } from '../_shared/chat-schema.ts';
 import { completeStructured, OpenRouterError } from '../_shared/openrouter.ts';
+import {
+  BoundsError,
+  CHAT_LIMITS,
+  parseChatRequest,
+  readBoundedJson,
+  type ValidatedChatRequest,
+} from '../_shared/input-bounds.ts';
+import { enforceAiQuota } from '../_shared/quota.ts';
 
 /**
  * stylist-chat — conversational styling grounded in a real closet.
@@ -16,28 +24,16 @@ import { completeStructured, OpenRouterError } from '../_shared/openrouter.ts';
  * Conversation history is capped rather than replayed in full. A long thread
  * about one wardrobe adds tokens without adding information — the closet digest
  * and the shortlist already carry the state that matters.
+ *
+ * Those caps are now enforced rather than assumed. Everything in the body ends
+ * up in a prompt we pay for by the token, and the only check used to be that
+ * `message` was non-empty — so a signed-in account could put a megabyte of text
+ * in `notes[]` and have us pay to send it. `_shared/input-bounds.ts` bounds
+ * every field and the body as a whole before the provider is touched.
  */
 
-const MAX_CANDIDATES = 10;
-const MAX_HISTORY = 8;
-
-type Body = {
-  message?: string;
-  sessionId?: string | null;
-  history?: { role: 'user' | 'assistant'; text: string }[];
-  digest?: string;
-  candidates?: {
-    id: string;
-    items: { slot: string; name: string; color: string; formality: number }[];
-    score: number;
-    notes: string[];
-  }[];
-  context?: {
-    weather?: { feelsLikeC: number; precipitationChance: number } | null;
-    city?: string | null;
-  };
-  styleSummary?: string[];
-};
+/** The chat prompt is the largest of the three workloads but text-only. */
+const CHAT_TIMEOUT_MS = 30_000;
 
 export default {
   fetch: withSupabase(
@@ -48,15 +44,16 @@ export default {
         return Response.json({ error: 'OPENROUTER_API_KEY is not configured.' }, { status: 500 });
       }
 
-      let body: Body;
+      let body: ValidatedChatRequest;
       try {
-        body = await req.json();
-      } catch {
-        return Response.json({ error: 'Expected a JSON body.' }, { status: 400 });
+        body = parseChatRequest(await readBoundedJson(req));
+      } catch (err) {
+        if (err instanceof BoundsError) {
+          return Response.json({ error: err.message }, { status: 400 });
+        }
+        throw err;
       }
-
-      const message = body.message?.trim();
-      if (!message) return Response.json({ error: 'message is required.' }, { status: 400 });
+      const message = body.message;
 
       const db = ctx.supabase as unknown as SupabaseClient<Database>;
       const admin = ctx.supabaseAdmin as unknown as SupabaseClient<Database>;
@@ -89,19 +86,24 @@ export default {
         return Response.json({ error: 'The stylist is unavailable.' }, { status: 503 });
       }
 
-      const candidates = (body.candidates ?? []).slice(0, MAX_CANDIDATES);
+      // ── Daily allowance. Claimed here: after the cheap rejections, before
+      //    anything that costs money. ────────────────────────────────────────
+      const quotaResponse = await enforceAiQuota(admin, userId, 'stylist_chat');
+      if (quotaResponse) return quotaResponse;
+
+      const candidates = body.candidates;
 
       const parts: string[] = [];
       if (body.digest) parts.push(`THEIR CLOSET\n${body.digest}`);
 
-      if (body.context?.weather) {
-        const w = body.context.weather;
+      if (body.weather) {
+        const w = body.weather;
         parts.push(
-          `WEATHER${body.context.city ? ` in ${body.context.city}` : ''}: feels like ${Math.round(w.feelsLikeC)}°C, ${Math.round(w.precipitationChance * 100)}% chance of rain.`,
+          `WEATHER${body.city ? ` in ${body.city}` : ''}: feels like ${Math.round(w.feelsLikeC)}°C, ${Math.round(w.precipitationChance * 100)}% chance of rain.`,
         );
       }
 
-      if (body.styleSummary?.length) {
+      if (body.styleSummary.length) {
         parts.push(
           `WHAT YOU KNOW ABOUT THEIR TASTE\n${body.styleSummary.map((s) => `  - They ${s}.`).join('\n')}`,
         );
@@ -124,7 +126,10 @@ export default {
 
       parts.push(`THEY ASKED\n${message}`);
 
-      const history = (body.history ?? []).slice(-MAX_HISTORY).map((m) => ({
+      // Already bounded to CHAT_LIMITS.maxHistoryTurns by the parser, which
+      // rejects an over-long thread instead of quietly trimming it: a client
+      // sending more than it should is a bug worth seeing, not one to absorb.
+      const history = body.history.slice(-CHAT_LIMITS.maxHistoryTurns).map((m) => ({
         role: m.role,
         content: m.text,
       }));
@@ -135,6 +140,7 @@ export default {
       let completionTokens: number | null = null;
       let costUsd: number | null = null;
       let latencyMs = 0;
+      const startedAt = Date.now();
 
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
@@ -150,6 +156,7 @@ export default {
             schemaName: 'stylist_reply',
             maxTokens: config.max_tokens,
             params: (config.params ?? {}) as Record<string, unknown>,
+            timeoutMs: CHAT_TIMEOUT_MS,
           });
 
           result = completion.parsed;
@@ -161,6 +168,10 @@ export default {
           break;
         } catch (err) {
           failure = err instanceof Error ? err.message : String(err);
+          // Wall clock across the failed attempts. The provider only reports
+          // latency on a response, so failures used to be logged as 0 ms —
+          // which read as instant and free, and they are neither.
+          latencyMs = Date.now() - startedAt;
           const retryable = err instanceof OpenRouterError && err.retryable;
           if (!retryable || attempt === 1) break;
           await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));

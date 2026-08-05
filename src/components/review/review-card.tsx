@@ -14,9 +14,10 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
-import type { Item, ItemCategory } from '@/schemas/item';
+import { occasion, type Item, type ItemCategory } from '@/schemas/item';
 import { motion, spring, useTheme } from '@/theme/tokens';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -39,16 +40,9 @@ const CATEGORY_OPTIONS: { key: ItemCategory; label: string }[] = [
   { key: 'other', label: 'Other' },
 ];
 
-const OCCASION_OPTIONS = [
-  'casual',
-  'office',
-  'date',
-  'gym',
-  'event',
-  'streetwear',
-  'formal',
-  'outdoor',
-];
+// Taken from the schema rather than retyped, so the chips on offer here cannot
+// drift away from the vocabulary the tagger is constrained to.
+const OCCASION_OPTIONS: readonly string[] = occasion.options;
 
 export type ReviewCardProps = {
   item: Item;
@@ -57,10 +51,17 @@ export type ReviewCardProps = {
   /** Ordinal from the top; 0 = active, 1 = peeking underneath, 2+ = hidden. */
   depth: number;
   /**
-   * Fires when the user drags the top card past the confirm threshold.
-   * The parent is expected to await the mutation, then advance the deck.
+   * Right swipe, or the Confirm button. The parent persists `user_verified`
+   * along with whatever corrections the user made.
    */
-  onConfirm: (patch?: { category?: ItemCategory; occasions?: string[] }) => void;
+  onConfirm: () => void;
+  /**
+   * Left swipe, or the Skip button. Deliberately a SEPARATE handler from
+   * `onConfirm`: skipping must not write anything, because the whole point is
+   * that the user could not decide yet. Wiring both directions to one callback
+   * is how this screen used to silently mark deferred items as trusted.
+   */
+  onSkip: () => void;
   category: ItemCategory;
   occasions: string[];
   onEditCategory: (next: ItemCategory) => void;
@@ -72,6 +73,7 @@ export function ReviewCard({
   isTop,
   depth,
   onConfirm,
+  onSkip,
   category,
   occasions,
   onEditCategory,
@@ -87,9 +89,13 @@ export function ReviewCard({
     });
   }, []);
 
-  const commit = useCallback(() => {
+  const confirm = useCallback(() => {
     onConfirm();
   }, [onConfirm]);
+
+  const skip = useCallback(() => {
+    onSkip();
+  }, [onSkip]);
 
   const pan = Gesture.Pan()
     .enabled(isTop)
@@ -100,15 +106,16 @@ export function ReviewCard({
     .onEnd((e) => {
       const dragged = e.translationX + e.velocityX * 0.15;
       if (dragged > SWIPE_THRESHOLD) {
-        // Fly off right → confirm.
+        // Fly off right → confirm. The success haptic is reserved for this
+        // direction; a skip is not an accomplishment and should not feel like one.
         translateX.value = withTiming(SCREEN_WIDTH * 1.4, { duration: motion.duration.slow });
         runOnJS(fireHaptic)();
-        runOnJS(commit)();
+        runOnJS(confirm)();
       } else if (dragged < -SWIPE_THRESHOLD) {
-        // Fly off left → skip for now; the parent treats this the same as
-        // "next" without marking verified.
+        // Fly off left → skip. Nothing is persisted, so the item is still
+        // unverified server-side and returns on the next visit.
         translateX.value = withTiming(-SCREEN_WIDTH * 1.4, { duration: motion.duration.slow });
-        runOnJS(commit)(); // Same handler — parent decides how to interpret.
+        runOnJS(skip)();
       } else {
         translateX.value = withSpring(0, spring.interactive);
       }
@@ -163,8 +170,18 @@ export function ReviewCard({
           cardStyle,
         ]}
         pointerEvents={isTop ? 'auto' : 'none'}
-        accessibilityRole="adjustable"
-        accessibilityLabel={`Reviewing ${item.subcategory ?? item.category}. Swipe right to confirm, left to skip.`}>
+        // Deliberately NOT `accessibilityRole="adjustable"`: that role promises
+        // increment/decrement semantics this card does not have, and it was set
+        // on a container whose only real affordance was a pan gesture — which
+        // VoiceOver and Switch Control users cannot perform at all. The two
+        // outcomes are exposed as real buttons at the foot of the card instead,
+        // and the container stays a plain group so the correction chips inside
+        // it remain individually focusable.
+        accessibilityLabel={`Reviewing ${item.subcategory ?? item.category}`}
+        // Cards under the top one are inert and must not be reachable by a
+        // swipe of the VoiceOver cursor either.
+        accessibilityElementsHidden={!isTop}
+        importantForAccessibility={isTop ? 'yes' : 'no-hide-descendants'}>
         <View className="flex-1 overflow-hidden rounded-card bg-surface dark:bg-surface-dark">
           {/* Photo */}
           <View className="aspect-square w-full items-center justify-center bg-tray dark:bg-tray-dark">
@@ -241,6 +258,31 @@ export function ReviewCard({
                   onPress={() => onToggleOccasion(o)}
                 />
               ))}
+            </View>
+
+            {/*
+              The swipe is the fast path, not the only path. A pan gesture is
+              unavailable to VoiceOver and Switch Control, and awkward one-handed
+              on a large phone, so both outcomes also exist as ordinary buttons.
+              Hints spell out the consequence because "Skip" alone does not say
+              whether the item comes back.
+            */}
+            <View className="mt-auto flex-row gap-2 pt-4">
+              <Button
+                title="Skip"
+                variant="secondary"
+                className="flex-1"
+                onPress={skip}
+                accessibilityHint="Leaves the tags unconfirmed. This item returns next time you review."
+              />
+              <Button
+                title="Confirm"
+                variant="primary"
+                className="flex-1"
+                haptic
+                onPress={confirm}
+                accessibilityHint="Marks these tags as correct and removes the item from the review queue."
+              />
             </View>
           </View>
         </View>

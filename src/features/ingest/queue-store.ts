@@ -73,9 +73,16 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     // Anything caught mid-flight by a crash or a kill is retried from the top.
     // Every stage is idempotent up to creating the item row, which is keyed by
     // `itemId` once it exists.
-    const requeued = restored.map((j) =>
-      j.stage === 'done' || j.stage === 'failed' ? j : { ...j, stage: 'queued' as const, progress: 0 },
-    );
+    //
+    // A job that reached `tagging` is the exception. Its photos are already in
+    // Storage and its row already says `pending_tag`, so restarting it would
+    // re-encode and re-upload three objects to achieve nothing. It stays at
+    // `tagging`, which is the truth, and `sweepPendingTags` is what finishes it.
+    const requeued = restored.map((j) => {
+      if (j.stage === 'done' || j.stage === 'failed') return j;
+      if (j.stage === 'tagging' && j.itemId) return { ...j, progress: 1 };
+      return { ...j, stage: 'queued' as const, progress: 0 };
+    });
     set({ jobs: requeued, hydrated: true });
   },
 

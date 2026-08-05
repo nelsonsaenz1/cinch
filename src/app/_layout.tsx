@@ -1,6 +1,6 @@
 import { Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold } from '@expo-google-fonts/archivo';
 import { BodoniModa_400Regular, BodoniModa_600SemiBold } from '@expo-google-fonts/bodoni-moda';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import {
@@ -19,7 +19,15 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PaperGrain } from '@/components/ui/paper';
 import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
 import { useSession } from '@/features/auth/use-session';
-import { queryClient } from '@/lib/query-client';
+import {
+  persistBuster,
+  persistMaxAge,
+  persister,
+  purgePersistedCache,
+  queryClient,
+  shouldDehydrateQuery,
+} from '@/lib/query-client';
+import { supabase } from '@/lib/supabase';
 
 import '@/global.css';
 
@@ -37,6 +45,34 @@ void SplashScreen.preventAutoHideAsync();
  * is designed over.
  */
 export const unstable_settings = { anchor: '(tabs)' };
+
+/**
+ * Erase the on-disk query cache whenever the signed-in identity changes.
+ *
+ * `useSession` already calls `queryClient.clear()` on the same events, but that
+ * only empties memory — the dehydrated blob in SQLite survives it, and the next
+ * cold start rehydrates it before anyone knows who is signed in. On a shared
+ * device that means user B watching user A's closet paint in.
+ *
+ * This lives here rather than in `signOut()` because sign-out is not the only
+ * way the identity changes: account deletion, a revoked refresh token, and the
+ * magic-link callback all move the session without going through that function.
+ * The auth event is the thing that is actually true in every case.
+ *
+ * `INITIAL_SESSION` and `TOKEN_REFRESHED` are deliberately not handled — the
+ * first fires on every cold start, which is precisely when the cache must be
+ * kept, and the second is the same user with a newer token.
+ */
+function usePersistedCachePurge() {
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        void purgePersistedCache();
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+}
 
 /**
  * The routing gate.
@@ -62,6 +98,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
     // Design fixture routes stay reachable signed-out in development builds.
     if (__DEV__ && segments[0]?.startsWith('dev-')) return;
+
+    // The magic-link callback is the one route a signed-OUT user is supposed to
+    // be sitting on: it is where the PKCE code is exchanged, so by definition
+    // there is no session yet when it mounts. Bouncing it to sign-in would tear
+    // the screen down mid-exchange and swallow the "signing you in…" state and
+    // any expired-link error the user needs to read. It routes itself when the
+    // exchange settles.
+    if (segments[0] === 'auth-callback') return;
 
     // `replace` only swaps the FOCUSED route. If the session ends while the
     // profile modal or stylist sheet is up, replacing in place would leave the
@@ -94,6 +138,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
+
+  usePersistedCachePurge();
 
   const [fontsLoaded, fontError] = useFonts({
     BodoniModa_400Regular,
@@ -131,7 +177,26 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={queryClient}>
+      {/*
+        Persisted, not plain. The closet, the wardrobe and the learned style
+        profile are written to SQLite and restored on launch, so a cold start
+        with no signal still has something to dress you from — the styling
+        engine is a local beam search and needs no network once those three are
+        cached. Without this the app opened to an empty closet offline, which
+        the App Store listing already claimed it did not.
+
+        `shouldDehydrateQuery` is an allowlist and the exclusions matter as much
+        as the inclusions; see the note on it in lib/query-client.ts.
+      */}
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister,
+          buster: persistBuster,
+          maxAge: persistMaxAge,
+          dehydrateOptions: { shouldDehydrateQuery },
+        }}
+      >
         {/*
           ThemeProvider, DefaultTheme and DarkTheme now come from `expo-router`
           itself — SDK 56 dropped React Navigation as the underlying
@@ -174,7 +239,7 @@ export default function RootLayout() {
             </Stack>
           </AuthGate>
         </ThemeProvider>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
       {/* The grain covers the base app only. Natively-presented modals sit in
           their own view controllers above this view — which is correct: the
           camera feed and the stylist sheet are not paper. */}

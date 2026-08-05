@@ -27,7 +27,22 @@ export const DISLIKE_REASONS = [
   { label: 'Worn too recently', reason: 'freshness' },
 ] as const;
 
-export type ReactionValue = { liked: boolean; reason?: string };
+/**
+ * Where a reaction has got to.
+ *
+ * This exists because the bar used to say "Saved to your taste profile" the
+ * instant the user tapped, whether or not the write ever reached the server —
+ * and the write is an online-only RPC with no queue behind it, so on a bad
+ * connection the app was simply lying about having learned something.
+ *
+ * Optional on `ReactionValue` because the same type is what the bar hands BACK
+ * through `onReact`, where a status would be meaningless. An absent status is
+ * read as `pending`: the safe reading, since a reaction nobody has confirmed is
+ * exactly a reaction in flight.
+ */
+export type ReactionStatus = 'pending' | 'saved' | 'failed';
+
+export type ReactionValue = { liked: boolean; reason?: string; status?: ReactionStatus };
 
 export function ReactionBar({
   onReact,
@@ -49,16 +64,50 @@ export function ReactionBar({
   };
 
   if (reacted) {
+    const status = reacted.status ?? 'pending';
+
+    // Failure is offered as a retry rather than an apology. The reaction is
+    // still held in the parent's state, so tapping replays exactly what the
+    // user chose, reason and all.
+    if (status === 'failed') {
+      return (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Reaction not saved. Tap to try again."
+          onPress={() => {
+            tap(Haptics.ImpactFeedbackStyle.Light);
+            onReact({ liked: reacted.liked, reason: reacted.reason });
+          }}
+          hitSlop={10}
+          style={{ minHeight: MIN_TAP_TARGET - 12 }}
+          className="flex-row items-center gap-2 py-1 active:opacity-60">
+          <SymbolView
+            name="arrow.clockwise"
+            size={15}
+            tintColor={theme.muted}
+            resizeMode="scaleAspectFit"
+          />
+          <Text variant="label" className="text-critical">
+            Could not save that — tap to try again
+          </Text>
+        </Pressable>
+      );
+    }
+
     return (
       <View className="flex-row items-center gap-2 py-1">
         <SymbolView
           name={reacted.liked ? 'heart.fill' : 'hand.thumbsdown.fill'}
           size={15}
-          tintColor={reacted.liked ? theme.accent : theme.muted}
+          tintColor={reacted.liked && status === 'saved' ? theme.accent : theme.muted}
           resizeMode="scaleAspectFit"
         />
         <Text variant="label">
-          {reacted.liked ? 'Saved to your taste profile' : 'Noted — you will see fewer like this'}
+          {status === 'pending'
+            ? 'Saving…'
+            : reacted.liked
+              ? 'Saved to your taste profile'
+              : 'Noted — you will see fewer like this'}
         </Text>
       </View>
     );

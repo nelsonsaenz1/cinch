@@ -77,7 +77,7 @@ ASK IT ANYTHING
 "Dinner at 7, drinks after?" "What am I missing?" The stylist answers using only your real clothes, and tells you honestly when you do not own the right thing rather than inventing something.
 
 WORKS WITHOUT SIGNAL
-Outfit building runs entirely on your iPhone. On a plane, in a basement, or with no bars at all, Cinch still dresses you.
+Outfit building runs entirely on your iPhone. On a plane, in a basement, or with no bars at all, Cinch still dresses you from the closet it has already downloaded. Naming and rewriting outfits is the only part that waits for a connection.
 
 PRIVATE BY DEFAULT
 Cinch never reads your photo library — iOS hands it only the pictures you tap. Your closet is private to your account. There is no advertising and no tracking across other apps. You can delete your account, and everything in it, from inside the app.

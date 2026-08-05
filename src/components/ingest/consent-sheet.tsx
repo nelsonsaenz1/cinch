@@ -63,9 +63,17 @@ export function ConsentSheet({
             </Text>
           </View>
 
+          {/* This promise is kept in Profile → "AI features" → Turn off, which
+              nulls the consent record the Edge Functions check on every call.
+              The second sentence used to say withdrawal turned off "outfit
+              suggestions", which was not true: outfits are built by the
+              on-device engine and keep working without any AI at all. Only the
+              naming and the reasoning prose come from the model. */}
           <Text variant="label" className="mt-6">
-            You can withdraw this at any time in Profile. Doing so keeps your
-            closet but turns off tagging and outfit suggestions.
+            You can withdraw this at any time in Profile. Your closet stays, and
+            Cinch keeps putting outfits together on your phone — what stops is
+            tagging new pieces, the stylist chat, and having the AI rewrite the
+            suggestions.
           </Text>
 
           <View className="mt-8 gap-3">

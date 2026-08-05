@@ -9,6 +9,7 @@ import { dayLabel, shortDate, type PlannedDay } from '@/features/plan/packing';
 import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
+import { stableImageSource } from '@/features/closet/use-image-urls';
 
 const LAYOUT_ORDER: Garment['slot'][] = [
   'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
@@ -75,7 +76,7 @@ export function DayRow({
                   className="items-center justify-center">
                   {uri ? (
                     <Image
-                      source={uri}
+                      source={stableImageSource(uri)}
                       contentFit="contain"
                       transition={150}
                       cachePolicy="memory-disk"

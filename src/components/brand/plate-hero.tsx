@@ -28,7 +28,6 @@ import { spring } from '@/theme/tokens';
 
 const CANVAS = { w: 1040, h: 660 };
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const LAYERS = [
   { name: 'coat', src: require('@/assets/plates/plate-01-coat.svg') },
   { name: 'knit', src: require('@/assets/plates/plate-01-knit.svg') },
@@ -36,7 +35,6 @@ const LAYERS = [
   { name: 'shoes', src: require('@/assets/plates/plate-01-shoes.svg') },
   { name: 'scarf', src: require('@/assets/plates/plate-01-scarf.svg') },
 ] as const;
-/* eslint-enable @typescript-eslint/no-require-imports */
 
 function Layer({ src, index, still }: { src: number; index: number; still: boolean }) {
   const progress = useSharedValue(still ? 1 : 0);
