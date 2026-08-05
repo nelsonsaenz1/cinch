@@ -11,6 +11,7 @@ import {
   Pressable,
   Text as RNText,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
@@ -18,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/ui/text';
 import { sendEmailLink, signInWithApple } from '@/features/auth/actions';
-import { leading } from '@/theme/font-metrics';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 const PRIVACY_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy';
@@ -88,11 +88,37 @@ export default function SignInScreen() {
   const subhead = '#C9C2B6'; // the paragraph under the headline
   const hairlineOnInk = 'rgba(251,250,246,0.4)'; // outline button + field border
 
-  // Instrument Serif's line box floors at 1.30, so the headline sits a touch
-  // airier than the HTML mock's 1.02 — `leading()` clamps up to avoid clipping
-  // the ascenders. Kept in one place so the italic run inherits the same size.
-  const headSize = 44;
-  const headLineHeight = leading('instrument', headSize, 1.05);
+  /**
+   * Every measurement on this screen is the handoff's own pixel value scaled by
+   * one factor.
+   *
+   * The mock draws the welcome page inside a 300px-wide phone frame — it is a
+   * scaled picture of a ~400pt device, not a 300pt layout. Treating its pixels
+   * as points (which this screen used to do) rendered the whole page about a
+   * third too small: the eyebrow read as a footnote and the headline stopped
+   * carrying the page. `s` converts mock px to points so the proportions land
+   * as drawn, on any width.
+   */
+  const { width: screenW } = useWindowDimensions();
+  const s = screenW / 300;
+  const px = (mock: number) => mock * s;
+
+  // The tracked caption under the swatch strip — mock 10px/600 at .14em.
+  const caption = {
+    fontFamily: 'HelveticaNeue-Medium' as const,
+    fontSize: px(10),
+    letterSpacing: px(1.4),
+    textTransform: 'uppercase' as const,
+    color: '#B7A99A',
+  };
+
+  const headSize = px(44);
+  // The mock sets 1.02 leading. Instrument Serif declares a 1.30 line box, and
+  // `leading()` would clamp up to it — which is right for a single trimmed line
+  // but here would push the three lines a third further apart than the design.
+  // 1.10 clears the real ink (cap 0.72 + descent 0.31) with room to spare, so
+  // nothing clips, while keeping the headline as tight as the mock reads.
+  const headLineHeight = Math.round(headSize * 1.1);
 
   const onApple = useCallback(async () => {
     if (busy) return;
@@ -135,12 +161,21 @@ export default function SignInScreen() {
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View className="flex-1 px-bare" style={{ paddingTop: 8, paddingBottom: 4 }}>
+        <View
+          className="flex-1"
+          style={{ paddingHorizontal: px(26), paddingTop: px(14), paddingBottom: px(10) }}>
           {/* ── Eyebrow, pinned to the top of the page ── */}
           <Animated.View entering={FadeIn.duration(500)}>
-            <Text variant="eyebrow" style={{ color: warmTan }}>
+            <RNText
+              style={{
+                fontFamily: 'HelveticaNeue-Medium',
+                fontSize: px(11),
+                letterSpacing: px(3.3),
+                textTransform: 'uppercase',
+                color: warmTan,
+              }}>
               Cinch
-            </Text>
+            </RNText>
           </Animated.View>
 
           {/* The eyebrow sits at the top; everything else falls to the bottom. */}
@@ -164,18 +199,26 @@ export default function SignInScreen() {
               </RNText>
             </RNText>
 
-            <Text variant="body" style={{ color: subhead, marginTop: 16, maxWidth: 300 }}>
+            <RNText
+              style={{
+                fontFamily: 'HelveticaNeue',
+                fontSize: px(14),
+                lineHeight: px(21),
+                color: subhead,
+                marginTop: px(16),
+                maxWidth: px(230),
+              }}>
               One photo of your wardrobe. Every morning, outfits built from your real garments —
               nothing to buy, ever.
-            </Text>
+            </RNText>
 
             {/* Sample outfit strip — four garment swatches standing in for a
                 styled look, in place of any illustration. */}
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 22, marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', gap: px(8), marginTop: px(22), marginBottom: px(10) }}>
               {['#3A3A38', '#E3DBCB', '#8A94A0', '#4A3B31'].map((tone, i) => (
                 <View
                   key={i}
-                  style={{ flex: 1, height: 96, borderRadius: 4, backgroundColor: tone }}
+                  style={{ flex: 1, height: px(96), borderRadius: px(4), backgroundColor: tone }}
                 />
               ))}
             </View>
@@ -184,14 +227,15 @@ export default function SignInScreen() {
               style={{
                 flexDirection: 'row',
                 justifyContent: 'space-between',
-                marginBottom: 24,
+                marginBottom: px(24),
               }}>
-              <Text variant="colophon" style={{ color: warmTan }}>
+              {/* The mock's two captions are together wider than its column, so
+                  it wraps them. Let the left one shrink for the same reason —
+                  without this they collide into "MONDAY$1.20". */}
+              <RNText style={[caption, { flexShrink: 1, marginRight: px(8) }]}>
                 Today · The Quiet Monday
-              </Text>
-              <Text variant="colophon" style={{ color: warmTan }}>
-                $1.20 to wear
-              </Text>
+              </RNText>
+              <RNText style={[caption, { flexShrink: 0 }]}>$1.20 to wear</RNText>
             </View>
           </Animated.View>
 
@@ -208,8 +252,8 @@ export default function SignInScreen() {
                   <AppleAuthentication.AppleAuthenticationButton
                     buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
                     buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-                    cornerRadius={30}
-                    style={{ width: '100%', height: 52, opacity: busy ? 0.6 : 1 }}
+                    cornerRadius={px(30)}
+                    style={{ width: '100%', height: px(47), opacity: busy ? 0.6 : 1 }}
                     onPress={() => {
                       if (!busy) void onApple();
                     }}
@@ -224,16 +268,17 @@ export default function SignInScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Continue with email"
                   style={{
-                    height: 52,
-                    borderRadius: 30,
+                    height: px(47),
+                    borderRadius: px(30),
                     borderWidth: 1,
                     borderColor: hairlineOnInk,
-                    marginTop: appleAvailable ? 10 : 0,
+                    marginTop: appleAvailable ? px(10) : 0,
                   }}
                   className="w-full items-center justify-center active:opacity-60">
-                  <Text variant="callout" className="font-medium" style={{ color: cream }}>
+                  <RNText
+                    style={{ fontFamily: 'HelveticaNeue-Medium', fontSize: px(14), color: cream }}>
                     Continue with email
-                  </Text>
+                  </RNText>
                 </Pressable>
               </Animated.View>
             ) : mode === 'email' ? (
@@ -333,11 +378,17 @@ export default function SignInScreen() {
             )}
 
             {/* The closing promise, then the terms — both kept legible on ink. */}
-            <Text
-              variant="caption"
-              style={{ color: theme.faint, textAlign: 'center', marginTop: 16 }}>
+            <RNText
+              style={{
+                fontFamily: 'HelveticaNeue',
+                fontSize: px(12),
+                lineHeight: px(16.8),
+                color: theme.faint,
+                textAlign: 'center',
+                marginTop: px(16),
+              }}>
               We never show you a garment you don&apos;t have.
-            </Text>
+            </RNText>
 
             <View className="mt-2 flex-row flex-wrap items-center justify-center">
               <Text variant="caption" style={{ color: theme.faint }}>
