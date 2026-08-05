@@ -1,0 +1,30 @@
+-- garment-search — "describe it, don't photograph it".
+--
+-- The feature's whole footprint in the database is one enum value. Everything
+-- else it touches already exists: `items` takes the imported garment at
+-- `pending_tag` like any photographed one, `ai_usage_counters` counts the new
+-- quota kind without a schema change (its `kind` column is text, deliberately —
+-- adding an allowance should not need a migration), and the Storage bucket
+-- policy already authorizes on the `{user_id}/` prefix the import writes under.
+--
+-- `ai_calls.workload` is the exception: it is the `ai_workload` enum, because
+-- cost accounting is the one place a typo must not silently create a new
+-- category. So the value has to be declared.
+--
+-- WHY THERE IS NO `ai_config` ROW SEEDED HERE
+--
+-- Postgres refuses to *use* an enum value inside the transaction that adds it
+-- ("unsafe use of new value of enum type"), and each migration file runs in one
+-- transaction — so `insert into ai_config (workload, …) values ('garment_search', …)`
+-- in this file would fail on every fresh database. The Edge Function is written
+-- for that: it reads `ai_config` with `maybeSingle()` and falls back to a vetted
+-- vision model when the row is absent, so the feature works the moment it
+-- deploys. Seeding a row later (a one-line INSERT, in its own migration or by
+-- hand) is what changes the model without an App Store release, which is the
+-- reason that table exists.
+--
+-- `if not exists` keeps this re-runnable against a database where it has
+-- already been applied — the CLI is not the only thing that has ever run a
+-- migration against production.
+
+alter type ai_workload add value if not exists 'garment_search';
