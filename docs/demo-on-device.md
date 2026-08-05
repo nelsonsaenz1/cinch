@@ -18,7 +18,20 @@ share card. It would be a different, worse app — not a demo of this one.
 ## Option A — free sideload (no paid Apple account)
 
 Works today with a plain Apple ID. **The app stops launching after 7 days**;
-rebuild to renew. Needs the iPhone plugged into this Mac.
+rebuild to renew. Needs the iPhone paired with this Mac.
+
+### Fastest route: one manual step, then one command
+
+1. **Sign in to Xcode** (this cannot be scripted — it needs your password/2FA):
+   `Xcode → Settings… → Accounts → "+" → Apple ID → sign in`
+2. `scripts/install-device.sh`
+
+That script finds your signing team and the paired iPhone, switches the project
+to free-team signing, builds Release (JS embedded, so the app runs with no Mac
+and no Metro), and installs. Then trust the certificate on the phone:
+`Settings → General → VPN & Device Management → your Apple ID → Trust`.
+
+The longer manual walkthrough follows, if you would rather drive Xcode yourself.
 
 ### 1. Switch the project to free-team signing
 
