@@ -304,6 +304,17 @@ const config: ExpoConfig = {
     ],
   ],
 
+  // EAS Update (over-the-air JS updates). The URL is this project's update
+  // endpoint; `appVersion` policy means an update can only reach binaries
+  // whose native version matches the version it was published against —
+  // never a binary with different native modules.
+  updates: {
+    url: 'https://u.expo.dev/30c4281f-73b9-4bf2-9b4d-e2a62b2552e9',
+  },
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
+
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
