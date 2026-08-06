@@ -113,7 +113,20 @@ export function useCloset() {
     queryKey: ['closet'],
     queryFn: async ({ signal }): Promise<Item[]> => {
       const userId = await closetUserId();
-      if (!userId) return [];
+      // No session is not the same fact as "zero items" — resolving to `[]`
+      // used to hand a session hiccup straight to `EmptyCloset`'s ghost slots,
+      // telling someone with a full wardrobe "Add your closet". An empty
+      // design makes a claim about the data (see ui/empty-state.tsx's own
+      // docblock): only render it once that claim is verified true, and "the
+      // session lookup came back empty" verifies nothing about the closet.
+      // Throwing routes this through the same isError → ErrorState-with-retry
+      // path a timed-out session lookup already takes (see session.ts), and —
+      // because `closet` is a persisted query key — a transient failure on a
+      // background refetch leaves yesterday's real closet on screen rather
+      // than replacing it with a "successful" empty read.
+      if (!userId) {
+        throw new Error("Couldn't confirm your session. Check your connection and try again.");
+      }
 
       const { data, error } = await supabase
         .from('items')
