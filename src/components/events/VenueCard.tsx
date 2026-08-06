@@ -27,7 +27,7 @@ export function VenueCard({
   if (!venueName && !venueAddress && !reservationUrl) return null;
 
   return (
-    <View className="rounded-card border border-rule p-4 dark:border-rule-dark">
+    <View className="rounded-plate border border-rule p-4 dark:border-rule-dark">
       <Text variant="eyebrow">The table</Text>
 
       {venueName ? (

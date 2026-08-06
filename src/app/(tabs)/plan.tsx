@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
 import { DayRow } from '@/components/plan/day-row';
 import { Chip } from '@/components/ui/chip';
-import { EmptyState } from '@/components/ui/empty-state';
+import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
@@ -62,7 +62,7 @@ function Segment({
       accessibilityState={{ selected: active }}
       accessibilityLabel={showDot ? `${label}, new invitations` : label}
       style={{ minHeight: MIN_TAP_TARGET - 8 }}
-      className={`flex-1 flex-row items-center justify-center rounded-full ${
+      className={`flex-1 flex-row items-center justify-center rounded-md ${
         active ? 'bg-ink' : ''
       } active:opacity-70`}>
       <Text variant="label" style={{ color: active ? theme.canvas : theme.muted }}>
@@ -208,7 +208,7 @@ export default function PlanScreen() {
         </Text>
       </View>
 
-      <View className="mx-gutter mb-4 flex-row rounded-full bg-sand p-1">
+      <View className="mx-gutter mb-4 flex-row rounded-md bg-sand p-1">
         <Segment label="Week" active={mode === 'week'} onPress={() => setMode('week')} />
         <Segment
           label="Events"
@@ -221,8 +221,10 @@ export default function PlanScreen() {
 
       {mode === 'events' ? (
         <ScrollView contentContainerClassName="pb-10" showsVerticalScrollIndicator={false}>
-          {/* One control, two affordances — the mock's full-width ink pill. */}
-          <View className="mx-gutter mb-5 flex-row items-center overflow-hidden rounded-full bg-ink">
+          {/* One control, two affordances. `md`, not a capsule: this is a
+              labelled control, and rounded-full is reserved for glass chrome
+              and 1:1 marks (tailwind.config.js). */}
+          <View className="mx-gutter mb-5 flex-row items-center overflow-hidden rounded-md bg-ink">
             <Pressable
               onPress={() => router.push('/event/new')}
               accessibilityRole="button"
@@ -248,10 +250,19 @@ export default function PlanScreen() {
             </Pressable>
           </View>
 
-          {myEvents.isLoading || invites.isLoading ? (
-            <View className="items-center py-16">
-              <ActivityIndicator color={theme.muted} />
-            </View>
+          {myEvents.isError || invites.isError ? (
+            <ErrorState
+              compact
+              title="Couldn't load your plans"
+              body="Something went wrong reaching your events. Check your connection and try again."
+              onRetry={() => {
+                void myEvents.refetch();
+                void invites.refetch();
+              }}
+              retrying={myEvents.isRefetching || invites.isRefetching}
+            />
+          ) : myEvents.isLoading || invites.isLoading ? (
+            <ListSkeleton count={3} label="Reading your plans…" />
           ) : (
             <>
               {(invites.data?.length ?? 0) > 0 ? (
@@ -312,9 +323,26 @@ export default function PlanScreen() {
       ) : (
         <ScrollView contentContainerClassName="pb-10" keyboardShouldPersistTaps="handled">
           {mode === 'week' ? (
-            weekForecast.isLoading ? (
-              <View className="items-center py-16">
-                <ActivityIndicator color={theme.muted} />
+            weekForecast.isError ? (
+              <ErrorState
+                compact
+                title="Couldn't load the forecast"
+                body="This week's weather didn't come through, so Cinch can't lay out the days ahead. Check your connection and try again."
+                onRetry={() => void weekForecast.refetch()}
+                retrying={weekForecast.isRefetching}
+              />
+            ) : weekForecast.isLoading ? (
+              <ListSkeleton count={WEEK_DAYS} avatar={false} />
+            ) : weekDays.length === 0 ? (
+              <View className="px-gutter pt-6">
+                <Text variant="title" trim>
+                  Couldn&rsquo;t plan this week
+                </Text>
+                <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                  The forecast came back without enough to work with, so
+                  nothing in your closet could be matched to the days ahead.
+                  Try again in a moment.
+                </Text>
               </View>
             ) : (
               <>
@@ -399,9 +427,17 @@ export default function PlanScreen() {
                     real forecast where you are going.
                   </Text>
                 </View>
+              ) : tripForecast.isError ? (
+                <ErrorState
+                  compact
+                  title="Couldn't load the forecast"
+                  body="The weather for your trip didn't come through, so Cinch can't build a packing list yet. Check your connection and try again."
+                  onRetry={() => void tripForecast.refetch()}
+                  retrying={tripForecast.isRefetching}
+                />
               ) : tripForecast.isLoading ? (
-                <View className="items-center py-16">
-                  <ActivityIndicator color={theme.muted} />
+                <View className="pt-6">
+                  <ListSkeleton count={tripDays} avatar={false} />
                 </View>
               ) : packing ? (
                 <View className="pt-6">
