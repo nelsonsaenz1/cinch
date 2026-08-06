@@ -1963,6 +1963,7 @@ export type Database = {
         }
         Returns: string
       }
+      username_available: { Args: { p_username: string }; Returns: boolean }
       wear_outfit_tx: {
         Args: {
           p_context?: Json
