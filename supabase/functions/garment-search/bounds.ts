@@ -41,7 +41,22 @@ export type ValidatedImportRequest = {
   source?: string;
 };
 
-export type ValidatedRequest = ValidatedSearchRequest | ValidatedImportRequest;
+/**
+ * A product page URL somebody pasted.
+ *
+ * Bounded to the same 2,048 characters as an image URL — the practical ceiling
+ * every browser and proxy already agrees on, and comfortably past the tracking
+ * parameters a shared retailer link drags along with it.
+ */
+export type ValidatedResolveRequest = {
+  action: 'resolve';
+  pageUrl: string;
+};
+
+export type ValidatedRequest =
+  | ValidatedSearchRequest
+  | ValidatedImportRequest
+  | ValidatedResolveRequest;
 
 function asObject(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -91,8 +106,18 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
     };
   }
 
+  if (action === 'resolve') {
+    return {
+      action: 'resolve',
+      // Shape only. `assertSafeUrl` decides whether the *destination* may be
+      // reached, and it is the security boundary — this check exists so a
+      // 10KB paste is refused before anything opens a socket.
+      pageUrl: requiredString(body.pageUrl, 'pageUrl', MAX_URL_CHARS),
+    };
+  }
+
   if (action !== 'search') {
-    throw new BoundsError('action must be "search" or "import".');
+    throw new BoundsError('action must be "search", "resolve" or "import".');
   }
 
   const swatch = optionalString(body.swatch, 'swatch', MAX_SWATCH_CHARS);

@@ -1,6 +1,13 @@
 import { OpenRouterError, redactUrls, type ChatMessage, type ContentPart } from '../_shared/openrouter.ts';
 
 import { guardedFetch, UnsafeUrlError } from './net.ts';
+import {
+  extractImageUrl,
+  hostLabel,
+  PAGE_ACCEPT,
+  PAGE_MAX_BYTES,
+  PAGE_TIMEOUT_MS,
+} from './page-meta.ts';
 
 /**
  * Finding a photograph of a garment somebody described in words.
@@ -84,9 +91,6 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 /** Web search plus a model call is slower than a bare completion. */
 const SEARCH_TIMEOUT_MS = 45_000;
-/** A product page is HTML; anything past this is analytics, not markup. */
-const PAGE_MAX_BYTES = 768 * 1024;
-const PAGE_TIMEOUT_MS = 8_000;
 /** Pages are resolved in parallel; this bounds the fan-out, not the results. */
 const MAX_PAGES_RESOLVED = 10;
 
@@ -137,63 +141,6 @@ function citationKey(raw: string): string {
   } catch {
     return raw;
   }
-}
-
-/** "www.reformation.com" -> "reformation.com". Shown as the tile's caption. */
-function hostLabel(url: URL): string {
-  return url.hostname.toLowerCase().replace(/^www\./, '');
-}
-
-const ENTITIES: Record<string, string> = {
-  '&amp;': '&',
-  '&quot;': '"',
-  '&#39;': "'",
-  '&apos;': "'",
-  '&lt;': '<',
-  '&gt;': '>',
-  '&#x2F;': '/',
-};
-
-function decodeEntities(value: string): string {
-  return value.replace(/&(?:amp|quot|#39|apos|lt|gt|#x2F);/gi, (match) => ENTITIES[match.toLowerCase()] ?? match);
-}
-
-/**
- * The product photograph a page publishes about itself.
- *
- * `og:image` is the right thing to read rather than the biggest `<img>` in the
- * markup: it is the image the retailer chose to represent the product, it is
- * absolute or resolvable, and it is the one asset on a commerce page that is
- * reliably the garment rather than a banner, a badge or a tracking pixel.
- * Parsed with regular expressions on purpose — an HTML parser in the bundle to
- * read three meta tags would be the larger cost, and a miss here is a dropped
- * candidate, not a wrong one.
- */
-function extractImageUrl(html: string, pageUrl: URL): string | null {
-  const patterns = [
-    /<meta[^>]+(?:property|name)=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,
-    /<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']og:image(?::secure_url|:url)?["']/i,
-    /<meta[^>]+(?:property|name)=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i,
-    // JSON-LD Product, which is what a page without Open Graph usually has.
-    /"image"\s*:\s*"([^"]+)"/i,
-    /"image"\s*:\s*\[\s*"([^"]+)"/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = pattern.exec(html);
-    if (!match?.[1]) continue;
-    const raw = decodeEntities(match[1].trim());
-    try {
-      // Protocol-relative and root-relative URLs are both common; resolving
-      // against the page is what makes them usable.
-      const resolved = new URL(raw, pageUrl);
-      if (resolved.protocol !== 'https:') continue;
-      return resolved.toString();
-    } catch {
-      continue;
-    }
-  }
-  return null;
 }
 
 /**
@@ -339,7 +286,7 @@ export function openRouterWebProvider(opts: {
         verified.map(async (candidate): Promise<GarmentCandidate | null> => {
           try {
             const page = await guardedFetch(candidate.pageUrl, {
-              accept: 'text/html,application/xhtml+xml',
+              accept: PAGE_ACCEPT,
               maxBytes: PAGE_MAX_BYTES,
               timeoutMs: PAGE_TIMEOUT_MS,
             });
