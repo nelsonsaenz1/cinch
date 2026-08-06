@@ -28,7 +28,7 @@ import {
 import { boardLeader, type AttendeeBoard, type PostedLook } from '@/features/event-outfits/types';
 import { useEvent, useEventMembers } from '@/features/events/queries';
 import { useEventChannel } from '@/features/events/use-event-channel';
-import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
+import { REPORT_REASONS, useBlockUser, useReportContent } from '@/features/social-graph/moderation';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -37,8 +37,6 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * client's to keep consistent, and a reviewer reading the queue should see one
  * set of words whatever surface a report came from.
  */
-const REPORT_REASONS = ['Harassment', 'Inappropriate content', 'Spam', 'Impersonation'] as const;
-
 /** "Fri 8 Aug, 7:30pm" — the mock's metadata line. */
 function whenLabel(d: Date): string {
   const day = d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });

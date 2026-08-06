@@ -14,13 +14,11 @@ import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-vi
 import { ClosetGridSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
-import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
+import { REPORT_REASONS, useBlockUser, useReportContent } from '@/features/social-graph/moderation';
 import { useRequestBorrow, useUnfollow } from '@/features/social-graph/mutations';
 import { useFriendCloset, useFriends } from '@/features/social-graph/queries';
 import { profileName, type FriendItem } from '@/features/social-graph/types';
 import { useTheme } from '@/theme/tokens';
-
-const REPORT_REASONS = ['Harassment', 'Inappropriate content', 'Spam', 'Impersonation', 'Other'];
 
 /**
  * A friend's closet — the browsable, borrowable edition.

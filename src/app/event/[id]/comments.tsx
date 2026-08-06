@@ -23,13 +23,11 @@ import {
 import { COMPLIMENTS, type EventComment } from '@/features/event-outfits/types';
 import { useEvent, useEventMembers } from '@/features/events/queries';
 import { useEventChannel } from '@/features/events/use-event-channel';
-import { useReportContent } from '@/features/social-graph/moderation';
+import { REPORT_REASONS, useReportContent } from '@/features/social-graph/moderation';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /** The comment box cap — product-spec §3.5. The schema allows more; the UI doesn't. */
 const COMMENT_MAX = 500;
-
-const REPORT_REASONS = ['Harassment', 'Inappropriate content', 'Spam', 'Impersonation'] as const;
 
 /** Three comment rows' worth of shape — avatar disc, name, two lines of body. */
 function ThreadSkeleton() {

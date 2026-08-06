@@ -24,6 +24,28 @@ import { socialDb } from './types';
  * caller.
  */
 
+/**
+ * The one report-reason vocabulary, shared by every reporting surface.
+ *
+ * `content_reports.reason` is free text — the database enforces nothing — so
+ * this list is the only thing keeping the operator's triage queue groupable.
+ * It had been copied into three screens and had already drifted ('Other'
+ * existed only on the profile screen), which is exactly how a triage queue
+ * ends up with five spellings of the same complaint. Screens import it; none
+ * declares its own.
+ *
+ * 'Other' stays: a reporter whose reason doesn't fit the taxonomy must still
+ * be able to file — a report we can't categorise beats an abuse we never
+ * hear about. It sorts last so the specific reasons get first refusal.
+ */
+export const REPORT_REASONS = [
+  'Harassment',
+  'Inappropriate content',
+  'Spam',
+  'Impersonation',
+  'Other',
+] as const;
+
 export interface ReportInput {
   subject: ReportSubject;
   /** Id in the subject's table. */
