@@ -302,6 +302,16 @@ function useSuperwallGate(): Gate {
           `Superwall could not show "${target.placement}" (${reason}). ` +
             'Dismissed so nothing is left on screen; the caller falls back to its own copy.',
         );
+        // `reason` is already one of a handful of short, known causes — an SDK
+        // event name, `no_response`, `silent_render`, `skipped_without_grant`
+        // — EXCEPT `sdk_error: ${error}`, which embeds whatever the SDK threw
+        // and is unbounded. Collapsed to the bare `sdk_error` tag so this stays
+        // the low-cardinality enum `EventProps` calls for, never user content
+        // or a raw error string.
+        track('paywall_unavailable', {
+          placement: target.placement,
+          reason: reason.startsWith('sdk_error') ? 'sdk_error' : reason,
+        });
       }
 
       target.settle(outcome);

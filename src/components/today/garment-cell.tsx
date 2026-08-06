@@ -211,6 +211,7 @@ export function GarmentCell({
     return (
       <Image
         source={stableImageSource(uri)}
+        recyclingKey={garment.id}
         contentFit="contain"
         transition={paper ? 0 : 200}
         cachePolicy="memory-disk"

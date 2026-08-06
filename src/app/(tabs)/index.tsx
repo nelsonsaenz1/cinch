@@ -575,13 +575,28 @@ export default function TodayScreen() {
 
         {/* Not the old flat-lay hero, which promised a look the closet cannot
             yet produce. An honest empty tray instead: Cinch cannot style a
-            wardrobe it has never seen, and it says exactly that. */}
-        <View className="flex-1 items-center justify-center px-gutter" style={{ paddingBottom: 48 }}>
+            wardrobe it has never seen, and it says exactly that.
+
+            A ScrollView, not a plain centred `flex-1` View: the composition
+            below (tray, two-line title, body, button) was measured for the
+            system default text size. At a large Dynamic Type setting every
+            piece of it grows taller, and a fixed, non-scrolling `flex-1`
+            viewport has nowhere to put the overflow — the button and the
+            title's second line were being pushed past the screen edge rather
+            than clipped by any one element. `flexGrow` keeps the same
+            centred composition when it fits, and lets the page scroll rather
+            than lose content when it doesn't. */}
+        <ScrollView
+          contentContainerClassName="flex-grow items-center justify-center px-gutter"
+          contentContainerStyle={{ paddingBottom: 48 }}>
           <View
             className="items-center justify-end bg-tray dark:bg-tray-dark"
             style={{
               width: 132,
-              height: 152,
+              // `minHeight`, not `height`: the label inside is either the
+              // short "Nothing to style yet" or a piece count, but a fixed
+              // height is still the wrong contract for a box a Text sits in.
+              minHeight: 152,
               borderRadius: 8,
               borderWidth: 1.5,
               borderColor: theme.rule,
@@ -622,7 +637,7 @@ export default function TodayScreen() {
               {empty ? 'Add your clothes' : 'Add more clothes'}
             </Text>
           </Pressable>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }

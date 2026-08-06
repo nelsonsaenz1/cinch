@@ -51,6 +51,7 @@ function FriendItemCardComponent({ item, imageUri, onAskToBorrow }: FriendItemCa
         {imageUri ? (
           <Image
             source={stableImageSource(imageUri)}
+            recyclingKey={item.id}
             contentFit="contain"
             transition={180}
             cachePolicy="memory-disk"
