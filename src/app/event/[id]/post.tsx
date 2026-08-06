@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LookStack, PlateTriptych, lookName } from '@/components/event-outfits/OutfitPostCard';
@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 // Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
 // `ErrorState` the title/body/retry sibling of `EmptyState`.
 import { ErrorState } from '@/components/ui/error-state';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
@@ -135,7 +136,7 @@ export default function PostLookScreen() {
           onAction={() => router.back()}
         />
       ) : (
-        <ScrollView contentContainerClassName="px-gutter pb-24">
+        <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-24">
           <Text variant="title" trim className="mt-5">
             Which one for the table?
           </Text>
@@ -210,7 +211,7 @@ export default function PostLookScreen() {
               />
             </View>
           ) : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
       )}
     </SafeAreaView>
   );
