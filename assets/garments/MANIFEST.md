@@ -21,6 +21,7 @@ leather — matching the Plate palette (`#E7E3D9` / `#FBFAF6` background, `#1C1A
 | `brown-leather-loafers.jpg` | Cognac pebbled-leather penny loafers, overhead macro shot | Shoes | https://unsplash.com/photos/BEpF9cqNAic | Lily Johnson (Unsplash) | Unsplash License | 2026-08-06 |
 | `cognac-leather-tote.jpg` | Cognac leather tote bag hanging against a white door | Bag | https://unsplash.com/photos/XwjrPFW7xw0 | Ugluk Potroshitel (Unsplash) | Unsplash License | 2026-08-06 |
 | `brown-leather-crossbody-bag.jpg` | Small brown leather crossbody bag, studio white background | Bag | https://www.pexels.com/photo/bag-with-belt-on-white-background-22432989/ | Muneeb Malhotra (Pexels) | Pexels License | 2026-08-06 |
+| `cream-crochet-poncho.jpg` | Oatmeal open-knit fringed crochet poncho on a wooden hanger, plain wall, natural light | Tops / knitwear | https://pixabay.com/photos/clothes-fashion-poncho-hanger-2619832/ | StockSnap (Pixabay) | Pixabay Content License | 2026-08-06 |
 
 ## Notes
 
@@ -38,3 +39,28 @@ leather — matching the Plate palette (`#E7E3D9` / `#FBFAF6` background, `#1C1A
 - `charcoal-tailored-trousers.jpg` is a first-person overhead shot rather than a flat
   lay — it was the only trouser image found that was both on-license and free of
   clutter/branding. No face is visible.
+
+### Second pass (2026-08-06, gap-fill)
+
+- Added one piece: `cream-crochet-poncho.jpg`, an oatmeal knit top/topper that extends
+  the knitwear range per the brief's "second knit or top" ask.
+- **No dress was added.** Pixabay (the unexplored source flagged by the first pass),
+  plus renewed searches on Unsplash and Pexels, were worked hard across many query
+  variants (midi/wrap/shift/shirtdress/slip/knit dress, "dress hanger", "dress flat
+  lay," color-specific searches). The category is dominated by worn-portrait fashion
+  photography (faces, outdoor lifestyle shots) or wedding-dress photography; the rare
+  single-garment product shots were either wedding gowns, cluttered multi-garment
+  racks, abstract fabric-drape close-ups with no visible silhouette, or Unsplash+
+  (paid, not free-license) images. Nothing cleared the bar. This remains the one open
+  gap in the set.
+- A dark-wash denim candidate (Pexels, "black denim jeans on white panel") was found
+  and downloaded, but rejected after visual inspection: a leather brand patch is
+  visible on the waistband. Per the sourcing standard, visible brand marks are
+  rejected outright rather than cropped around, so no second bottom was added this
+  pass.
+- The set is now 11 garments. It still reads as one coherent warm-neutral wardrobe;
+  the poncho slots naturally next to the cream mohair sweater. The dress gap (and,
+  secondarily, a second bottom) should be treated as open until a genuinely clean,
+  on-license, unbranded image turns up — padding either with a compromise image would
+  break the "single clean garment, no clutter, no brand marks" standard the rest of
+  the set holds to.
