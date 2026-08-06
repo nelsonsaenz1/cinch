@@ -1,12 +1,16 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LookStack, PlateTriptych, lookName } from '@/components/event-outfits/OutfitPostCard';
 import { PostComposer } from '@/components/event-outfits/PostComposer';
 import { EmptyState } from '@/components/ui/empty-state';
+// Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
+// `ErrorState` the title/body/retry sibling of `EmptyState`.
+import { ErrorState } from '@/components/ui/error-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -73,6 +77,15 @@ export default function PostLookScreen() {
   };
 
   const loading = outfits.isLoading || wardrobe.isLoading || posts.isLoading;
+  // Any one of the three failing leaves this list wrong rather than empty: a
+  // failed wardrobe read drops every garment, so every outfit filters out and
+  // the screen would say "No saved looks yet" to a woman with fifty.
+  const failed = outfits.isError || wardrobe.isError || posts.isError;
+  const retry = () => {
+    void outfits.refetch();
+    void wardrobe.refetch();
+    void posts.refetch();
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">
@@ -88,9 +101,30 @@ export default function PostLookScreen() {
         <Text variant="colophon">Share a look</Text>
       </View>
 
-      {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={theme.muted} />
+      {failed ? (
+        <ErrorState
+          title="Your looks didn’t load"
+          body="Your saved outfits are still there — the connection dropped on the way."
+          onRetry={retry}
+        />
+      ) : loading ? (
+        <View className="px-gutter" accessibilityLabel="Reading your saved looks">
+          <Skeleton className="mt-5 h-9 w-3/4 rounded-md" />
+          <View className="mt-5 gap-3">
+            {[0, 1, 2].map((i) => (
+              <View
+                key={i}
+                className="flex-row items-center gap-3 rounded-plate border border-hairline p-3.5">
+                <Skeleton className="h-11 w-11 rounded-md" />
+                <Skeleton className="h-11 w-11 rounded-md" />
+                <Skeleton className="h-11 w-11 rounded-md" />
+                <View className="flex-1">
+                  <Skeleton className="h-4 w-2/3 rounded-sm" />
+                  <Skeleton className="mt-2 h-3 w-1/2 rounded-sm" />
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
       ) : candidates.length === 0 ? (
         <EmptyState

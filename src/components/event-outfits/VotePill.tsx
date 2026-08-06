@@ -74,9 +74,10 @@ export function VotePill({
             {picked ? 'Picked' : 'Pick'}
           </Text>
           {votes > 0 ? (
-            <Text
-              variant="label"
-              style={{ color: picked ? 'rgba(251,250,246,0.7)' : theme.muted }}>
+            // Canvas at 70% on the ink fill — the tally is subordinate to the
+            // verb beside it. Written as an alpha suffix on the token rather
+            // than a hand-typed rgba, the way `chip.tsx` prints its count.
+            <Text variant="label" style={{ color: picked ? `${theme.canvas}B3` : theme.muted }}>
               {votes}
             </Text>
           ) : null}

@@ -15,7 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentRow } from '@/components/event-outfits/CommentRow';
 import { lookName } from '@/components/event-outfits/OutfitPostCard';
+import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
+// Batch-1 seam: the shared states kit.
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
 import { useEventComments, useEventPosts } from '@/features/event-outfits/queries';
@@ -35,6 +38,24 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 const COMMENT_MAX = 500;
 
 const REPORT_REASONS = ['Harassment', 'Inappropriate content', 'Spam', 'Impersonation'] as const;
+
+/** Three comment rows' worth of shape — avatar disc, name, two lines of body. */
+function ThreadSkeleton() {
+  return (
+    <View className="px-gutter pt-4" accessibilityLabel="Reading the thread">
+      {[0, 1, 2].map((i) => (
+        <View key={i} className="flex-row gap-3 py-3">
+          <Skeleton className="h-7 w-7 rounded-full" />
+          <View className="flex-1">
+            <Skeleton className="h-3 w-24 rounded-sm" />
+            <Skeleton className="mt-2 h-4 w-full rounded-sm" />
+            <Skeleton className="mt-1.5 h-4 w-2/3 rounded-sm" />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 /**
  * The thread — event-level ("table talk", no `post` param) or one look's
@@ -150,10 +171,23 @@ export default function EventCommentsScreen() {
           ) : null}
         </View>
 
-        {comments.isLoading ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator color={theme.muted} />
+        {comments.isError ? (
+          // A thread that failed to arrive is not a quiet table. The composer
+          // below stays live — sending still works when reading didn't.
+          <View className="flex-1 px-gutter pt-8">
+            <Text variant="body">This thread didn’t load</Text>
+            <Text variant="caption" className="mt-1.5">
+              Nothing was lost — the connection dropped on the way.
+            </Text>
+            <Button
+              title="Try again"
+              variant="secondary"
+              onPress={() => void comments.refetch()}
+              className="mt-4 self-start"
+            />
           </View>
+        ) : comments.isLoading ? (
+          <ThreadSkeleton />
         ) : (
           <ScrollView contentContainerClassName="px-gutter pb-4 pt-2">
             {(comments.data ?? []).length === 0 ? (

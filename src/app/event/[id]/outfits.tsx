@@ -1,19 +1,16 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  AttendeeLookCard,
-  InitialAvatar,
-  OutfitPostCard,
-  PlateTriptych,
-  lookDescriptor,
-  lookName,
-} from '@/components/event-outfits/OutfitPostCard';
+import { InitialAvatar, OutfitPostCard } from '@/components/event-outfits/OutfitPostCard';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+// Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
+// `ErrorState` the title/body/retry sibling of `EmptyState`.
+import { ErrorState } from '@/components/ui/error-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -33,15 +30,6 @@ import { useEvent, useEventMembers } from '@/features/events/queries';
 import { useEventChannel } from '@/features/events/use-event-channel';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
-/**
- * The YOUR LOOK card's blush treatment (founder-mocks §1b): rose-tinted sand
- * with a hairline rose border. Local literals, not theme tokens — this
- * surface exists on exactly one card in the app, and a token would invite it
- * elsewhere. Derived from accentWarm (#B08A76) over tray.
- */
-const BLUSH_SURFACE = '#F7EDE8';
-const BLUSH_BORDER = 'rgba(176,138,118,0.45)';
-
 /** "Fri 8 Aug, 7:30pm" — the mock's metadata line. */
 function whenLabel(d: Date): string {
   const day = d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -52,17 +40,37 @@ function whenLabel(d: Date): string {
   return `${day}, ${time}`;
 }
 
+/** Two bands' worth of shape while the board loads — a name row and a card. */
+function BoardSkeleton() {
+  return (
+    <View accessibilityLabel="Reading the board">
+      {[0, 1].map((i) => (
+        <View key={i} className="mt-8">
+          <View className="flex-row items-center gap-2.5 px-gutter">
+            <Skeleton className="h-6 w-6 rounded-full" />
+            <Skeleton className="h-5 flex-1 rounded-md" />
+          </View>
+          <View className="px-gutter pt-3">
+            {/* The card width the bands actually scroll at. */}
+            <Skeleton className="h-72 rounded-plate" style={{ width: 300 }} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 /**
- * The board — the event's outfit page. Founder-mocks §1b above the fold
- * (YOUR LOOK, WHO'S WEARING WHAT), product-spec §3.3–3.5 mechanics below it:
- * per-attendee bands of options with signed, movable picks. Grouping by
- * attendee is load-bearing — the page helps each person decide, it never
- * ranks people against each other.
+ * Every option — the deciding surface. Per-attendee bands of looks with
+ * signed, movable picks (product-spec §3.3–3.5). Grouping by attendee is
+ * load-bearing: the page helps each person decide, it never ranks people
+ * against each other.
  *
- * This is its own route rather than part of EVENTS' detail screen because
- * file-based routing is the decoupler between the two agents' work: the
- * detail screen links here by path string and imports nothing from this
- * feature.
+ * The founder mock's above-the-fold pair — YOUR LOOK and the WHO'S WEARING
+ * WHAT grid — used to open this screen. They now open the event detail page
+ * itself (`./index.tsx`, the composition point), which is where the mock and
+ * the field guide both draw them, and this route is what it always was
+ * underneath: all the options, side by side, with the picks on them.
  */
 export default function EventOutfitBoardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -119,12 +127,6 @@ export default function EventOutfitBoardScreen() {
     });
   }, [boards, members.data, me]);
 
-  const myBoard = orderedBoards.find((b) => b.userId === me) ?? null;
-  const otherBoards = orderedBoards.filter((b) => b.userId !== me);
-
-  const joinedCount = (members.data ?? []).filter((m) => m.state === 'joined').length;
-  const sharedCount = boards.length;
-
   const commentCountFor = (postId: string) =>
     (comments.data ?? []).filter((c) => c.postId === postId && !c.hidden).length;
 
@@ -179,10 +181,48 @@ export default function EventOutfitBoardScreen() {
     (castVote.isPending && castVote.variables?.postId === postId) ||
     (retractVote.isPending && myVote.data?.postId === postId);
 
+  const backRow = (
+    <View className="flex-row items-center gap-3 px-gutter pt-2">
+      <Pressable
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        hitSlop={8}
+        className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
+        <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
+      </Pressable>
+      <Text variant="colophon">Event</Text>
+    </View>
+  );
+
+  // A failed fetch is not an empty board and not a deleted event. Both of
+  // those had one branch here, and it read as "nobody has posted a look yet"
+  // — the single most misleading sentence this screen could print.
+  if (event.isError || posts.isError) {
+    return (
+      <SafeAreaView className="flex-1 bg-canvas">
+        {backRow}
+        <ErrorState
+          title="The board didn’t load"
+          body="Everyone’s looks and picks are still there — the connection dropped on the way."
+          onRetry={() => {
+            void event.refetch();
+            void posts.refetch();
+          }}
+        />
+      </SafeAreaView>
+    );
+  }
+
   if (event.isLoading || posts.isLoading) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
-        <ActivityIndicator color={theme.muted} />
+      <SafeAreaView className="flex-1 bg-canvas">
+        {backRow}
+        <View className="px-gutter">
+          <Skeleton className="mt-5 h-9 w-2/3 rounded-md" />
+          <Skeleton className="mt-4 h-4 w-1/2 rounded-sm" />
+        </View>
+        <BoardSkeleton />
       </SafeAreaView>
     );
   }
@@ -201,26 +241,14 @@ export default function EventOutfitBoardScreen() {
     );
   }
 
-  const myLeading = myBoard ? (boardLeader(myBoard.looks) ?? myBoard.looks[0]) : null;
-
   return (
     <SafeAreaView className="flex-1 bg-canvas">
       <ScrollView contentContainerClassName="pb-24">
         {/* ── Back row: chevron + small-caps EVENT (founder-mocks §1b) ── */}
-        <View className="flex-row items-center gap-3 px-gutter pt-2">
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            hitSlop={8}
-            className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
-            <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-          </Pressable>
-          <Text variant="colophon">Event</Text>
-        </View>
+        {backRow}
 
         <View className="px-gutter">
-          <Text variant="display" trim className="mt-5">
+          <Text variant="title" trim className="mt-5">
             {detail.title}
           </Text>
           {/* Metadata line. Weather is display-only enrichment with no venue
@@ -230,109 +258,51 @@ export default function EventOutfitBoardScreen() {
             {detail.dressCode ? ` · ${detail.dressCode}` : ''}
           </Text>
 
-          {/* ── YOUR LOOK — the viewer's own board, blush-set ── */}
-          <View
-            className="mt-6 rounded-plate border p-4"
-            style={{ backgroundColor: BLUSH_SURFACE, borderColor: BLUSH_BORDER, borderWidth: 1 }}>
-            <Text variant="colophon" style={{ color: theme.accent }}>
-              Your look
-            </Text>
-
-            {myLeading ? (
-              <>
-                <View className="mt-3 flex-row items-center gap-3">
-                  <PlateTriptych garments={myLeading.garments} resolveImage={resolve} cell={52} />
-                </View>
-                <Text variant="plate" numberOfLines={1} className="mt-3">
-                  {lookName(myLeading.garments, myLeading.caption)}
-                </Text>
-                <Text variant="label" numberOfLines={1} className="mt-1">
-                  {myLeading.caption ? lookDescriptor(myLeading.garments) : 'Your friends are picking below.'}
-                </Text>
-              </>
-            ) : (
-              <Text variant="callout" className="mt-3 text-muted">
-                Nothing shared yet — pick a look from your closet and let the
-                table weigh in.
-              </Text>
-            )}
-
-            {!locked ? (
-              <View className="mt-4 flex-row gap-2">
-                {myLeading ? (
-                  <Button
-                    title="Swap a piece"
-                    variant="secondary"
-                    haptic
-                    onPress={goPost}
-                    className="flex-1"
-                  />
-                ) : null}
-                <Button
-                  title={myLeading ? 'Share another' : 'Share with group'}
-                  variant="secondary"
-                  haptic
-                  onPress={goPost}
-                  className="flex-1"
-                />
-              </View>
-            ) : null}
-          </View>
-
-          {/* ── WHO'S WEARING WHAT — each attendee's leading look ── */}
-          <View className="mt-8 flex-row items-baseline justify-between">
-            <Text variant="eyebrow">Who’s wearing what</Text>
+          <View className="mt-6 flex-row items-baseline justify-between">
+            <Text variant="eyebrow">Every option</Text>
             <Text variant="colophon">
-              {sharedCount} of {Math.max(joinedCount, sharedCount)} shared
+              {looks.length === 1 ? '1 look' : `${looks.length} looks`}
             </Text>
           </View>
 
-          {otherBoards.length === 0 && !myBoard ? (
-            <View className="mt-4 rounded-plate border border-hairline bg-surface p-5">
-              <Text variant="body" className="text-muted">
-                Be the first to the mirror — share a look and the table follows.
-              </Text>
-            </View>
-          ) : (
-            <View className="-mx-1.5 mt-3 flex-row flex-wrap">
-              {orderedBoards.map((board) => {
-                const leading = boardLeader(board.looks) ?? board.looks[0];
-                if (!leading) return null;
-                return (
-                  <View key={board.userId} className="w-1/2 p-1.5">
-                    <AttendeeLookCard
-                      look={leading}
-                      attendeeName={nameOf(board.userId)}
-                      resolveImage={resolve}
-                      onPress={() => goComments(leading.id)}
-                    />
-                  </View>
-                );
-              })}
-            </View>
-          )}
+          {!locked && !detail.canceledAt ? (
+            <Button
+              title="Share a look"
+              variant="secondary"
+              haptic
+              onPress={goPost}
+              className="mt-3 self-stretch"
+            />
+          ) : null}
         </View>
 
-        {/* ── Below the fold: the boards — help each person decide ── */}
-        {orderedBoards.map((board) => (
-          <BoardBand
-            key={board.userId}
-            board={board}
-            name={nameOf(board.userId)}
-            isMineBoard={board.userId === me}
-            locked={locked}
-            myVotePostId={myVote.data?.postId ?? null}
-            isHost={detail.isHost}
-            me={me}
-            resolveImage={resolve}
-            commentCountFor={commentCountFor}
-            voterNamesFor={voterNamesFor}
-            onToggleVote={toggleVote}
-            onDelete={confirmDelete}
-            onOpenComments={goComments}
-            votePendingFor={votePendingFor}
-          />
-        ))}
+        {orderedBoards.length === 0 ? (
+          <View className="mx-gutter mt-6 rounded-plate border border-hairline bg-surface p-5">
+            <Text variant="body" className="text-muted">
+              Be the first to the mirror — share a look and the table follows.
+            </Text>
+          </View>
+        ) : (
+          orderedBoards.map((board) => (
+            <BoardBand
+              key={board.userId}
+              board={board}
+              name={nameOf(board.userId)}
+              isMineBoard={board.userId === me}
+              locked={locked}
+              myVotePostId={myVote.data?.postId ?? null}
+              isHost={detail.isHost}
+              me={me}
+              resolveImage={resolve}
+              commentCountFor={commentCountFor}
+              voterNamesFor={voterNamesFor}
+              onToggleVote={toggleVote}
+              onDelete={confirmDelete}
+              onOpenComments={goComments}
+              votePendingFor={votePendingFor}
+            />
+          ))
+        )}
 
         {/* ── Table talk — the event-level thread ── */}
         <Pressable
