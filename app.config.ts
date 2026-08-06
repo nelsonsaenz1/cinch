@@ -32,6 +32,33 @@ import type { ExpoConfig } from 'expo/config';
  */
 const FREE_SIGNING = process.env.CINCH_FREE_SIGNING === '1';
 
+/**
+ * NSMotionUsageDescription — and why it lives in a constant.
+ *
+ * expo-location's config plugin owns this key. It goes through
+ * `IOSConfig.Permissions.createPermissionsPlugin`, whose contract is:
+ *
+ *   if (permissions[key] === false) delete infoPlist[key];
+ *   else infoPlist[key] = permissions[key] || infoPlist[key] || default;
+ *
+ * The delete is unconditional and the plugin mod runs AFTER the base mod that
+ * merges `ios.infoPlist`. So `motionUsagePermission: false` did not merely
+ * "decline to add" the key — it deleted the one we had declared in
+ * `ios.infoPlist`, silently, on the build server. `expo config` shows the
+ * pre-plugin config and so reported the key present; the generated
+ * ios/Cinch/Info.plist did not have it. That is how builds 3 and 4 both
+ * shipped without it and both drew ITMS-90683.
+ *
+ * The key is genuinely required: CoreMotion is linked into the app binary via
+ * ExpoCamera and ExpoLocation, and Apple's static pass demands a purpose
+ * string for it. So the fix is to give the plugin the real string rather than
+ * `false`. It is declared in both places from this one constant: the plugin
+ * value is what actually lands, and the `ios.infoPlist` copy keeps the key
+ * visible where every other purpose string is documented.
+ */
+const MOTION_USAGE_DESCRIPTION =
+  'Cinch reads device orientation while you photograph clothes so each picture comes out the right way up. Nothing about your movement is recorded.';
+
 const config: ExpoConfig = {
   name: 'Cinch',
   slug: 'cinch',
@@ -77,13 +104,15 @@ const config: ExpoConfig = {
         UISceneConfigurations: {},
       },
 
-      // Required by ITMS-90683 (Apple's automated Info.plist pass on build 3):
-      // expo-camera references CoreMotion — it reads device orientation so a
-      // photo taken sideways is stored the right way up. That is the entire
-      // use; nothing records or transmits movement. Written like the other
-      // strings above: concrete and honest, never a generated default.
-      NSMotionUsageDescription:
-        'Cinch reads device orientation while you photograph clothes so each picture comes out the right way up. Nothing about your movement is recorded.',
+      // Required by ITMS-90683 (Apple's automated Info.plist pass): expo-camera
+      // references CoreMotion — it reads device orientation so a photo taken
+      // sideways is stored the right way up. That is the entire use; nothing
+      // records or transmits movement.
+      //
+      // Declaring it HERE is not sufficient on its own — expo-location's plugin
+      // owns the key and runs later. See MOTION_USAGE_DESCRIPTION above and the
+      // `motionUsagePermission` entry in the expo-location plugin block.
+      NSMotionUsageDescription: MOTION_USAGE_DESCRIPTION,
     },
 
     /**
@@ -305,7 +334,7 @@ const config: ExpoConfig = {
         isAndroidBackgroundLocationEnabled: false,
         isIosBackgroundLocationEnabled: false,
 
-        // The three keys above the header swears must never ship.
+        // The two "always" keys the header swears must never ship.
         //
         // `isIosBackgroundLocationEnabled: false` does NOT suppress them —
         // it only governs UIBackgroundModes. The permission strings are added
@@ -316,10 +345,18 @@ const config: ExpoConfig = {
         // `photosPermission: false` above.
         //
         // Verified against the generated ios/Cinch/Info.plist, not assumed:
-        // before this, all three were present in the built app.
+        // before this, both were present in the built app.
         locationAlwaysAndWhenInUsePermission: false,
         locationAlwaysPermission: false,
-        motionUsagePermission: false,
+
+        // NOT `false`. This plugin is the last writer of
+        // NSMotionUsageDescription, and `false` makes it DELETE the key that
+        // `ios.infoPlist` declared — which is exactly what shipped in builds 3
+        // and 4 and drew ITMS-90683 twice. CoreMotion is linked into the
+        // binary through ExpoCamera and ExpoLocation, so the key has to be
+        // there; giving the plugin the real string is the only arrangement
+        // that survives prebuild.
+        motionUsagePermission: MOTION_USAGE_DESCRIPTION,
       },
     ],
     // Dev-only network keys must not reach the store build. See the plugin.
