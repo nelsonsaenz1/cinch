@@ -98,7 +98,15 @@ function useAnalyticsIdentity() {
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-        if (session?.user.id) identifyUser(session.user.id, isoWeek(session.user.created_at));
+        if (session?.user.id) {
+          // The cohort rides on SIGNED_IN only. `INITIAL_SESSION` fires on
+          // every cold start, and a set-once property re-sent each launch is a
+          // billed person update per launch for a value that by definition
+          // cannot have changed. SIGNED_IN is the moment it becomes true, and
+          // because it is set-once, arriving late costs nothing.
+          const week = event === 'SIGNED_IN' ? isoWeek(session.user.created_at) : null;
+          identifyUser(session.user.id, week);
+        }
       } else if (event === 'SIGNED_OUT') {
         identifyUser(null);
       }

@@ -621,21 +621,20 @@ export function trackOnce(event: AppEvent, properties?: EventProps): void {
  * possibly wrong, derivation — an overwrite there silently rewrites history in
  * every cohort chart already drawn from it.
  *
- * Sent as a `$set` event rather than a re-`identify()`. Re-identifying the same
- * person on every plan or closet change is how an alias chain gets built for no
- * reason; `$set` is the operation that is actually meant.
+ * Delegates to the SDK's own `setPersonProperties` rather than re-calling
+ * `identify()`. Re-identifying the same person on every plan or closet change
+ * builds an alias chain for no reason, and the SDK's version additionally
+ * dedupes an unchanged payload in memory — a second guard behind the caller's
+ * own, which is the one that survives a remount.
+ *
+ * The third argument suppresses a feature-flag reload. Every person update
+ * would otherwise fire a flags request, and this app evaluates no flags at all;
+ * that is a network round trip per plan change bought for nothing.
  */
 export type PersonProps = Record<string, number | boolean | string>;
 
 export function setPersonProperties(set: PersonProps, setOnce?: PersonProps): void {
-  if (!posthog) return;
-  const hasSet = Object.keys(set).length > 0;
-  const hasSetOnce = setOnce !== undefined && Object.keys(setOnce).length > 0;
-  if (!hasSet && !hasSetOnce) return;
-  posthog.capture('$set', {
-    ...(hasSet ? { $set: set } : {}),
-    ...(hasSetOnce ? { $set_once: setOnce } : {}),
-  });
+  posthog?.setPersonProperties(set, setOnce, false);
 }
 
 /**
