@@ -17,18 +17,21 @@ import { costPerWear, type Item } from '@/schemas/item';
 /** Who the closet belongs to, as the profile row + auth claims know them. */
 export type ClosetIdentity = {
   name: string;
-  /** `@handle`. Nullable until the user claims one — the column exists today,
-   *  but the claiming UI arrives with the social wave. */
+  /** `@handle`. Nullable until the user claims one in the edit-profile sheet
+   *  (features/profile) — claiming is optional and many accounts predate it. */
   username: string | null;
   homeCity: string | null;
   bio: string | null;
   styleTags: string[];
+  /** The profile photograph, as a public URL. Null until one is set — the
+   *  monogram is the fallback, not a placeholder face. */
+  avatarUrl: string | null;
 };
 
 /**
  * Identity for the closet masthead. Mirrors the fallback chain Profile's own
- * header uses (src/app/profile.tsx): `display_name` is rarely set because there
- * is no settings UI for it yet, so the Apple Sign In name captured at first
+ * header uses (src/app/profile.tsx): `display_name` is settable in the
+ * edit-profile sheet but optional, so the Apple Sign In name captured at first
  * login backs it up, then the email's local part, before giving up.
  *
  * Reads the name and email off the LOCAL session rather than `getClaims()`.
@@ -44,11 +47,20 @@ export function useClosetIdentity() {
     queryFn: async ({ signal }): Promise<ClosetIdentity> => {
       const session = await closetSession();
       const user = session?.user;
-      if (!user) return { name: 'You', username: null, homeCity: null, bio: null, styleTags: [] };
+      if (!user) {
+        return {
+          name: 'You',
+          username: null,
+          homeCity: null,
+          bio: null,
+          styleTags: [],
+          avatarUrl: null,
+        };
+      }
 
       const { data: row } = await supabase
         .from('profiles')
-        .select('display_name, username, bio, home_city, style_tags')
+        .select('display_name, username, bio, home_city, style_tags, avatar_url')
         .eq('user_id', user.id)
         .abortSignal(signal)
         .maybeSingle();
@@ -65,6 +77,7 @@ export function useClosetIdentity() {
         homeCity: row?.home_city ?? null,
         bio: row?.bio ?? null,
         styleTags: row?.style_tags ?? [],
+        avatarUrl: row?.avatar_url ?? null,
       };
     },
     // The row changes only through settings screens the user is not on while
@@ -139,18 +152,9 @@ export function mostWornItems(items: Item[], limit: number): Item[] {
 }
 
 /**
- * What a piece is called when it stands alone: "Charcoal wool coat" rather than
- * a bare subcategory. Colour first because that is how people refer to their
- * own clothes; capitalised because it opens a caption.
+ * Garment naming moved to `item-name.ts` when the grid and the item-detail
+ * screen started needing it too — three surfaces printing three different
+ * names for one sweater. Re-exported here so this module's existing importers
+ * keep their one import line.
  */
-export function pieceName(item: Item): string {
-  const raw = [item.colors[0]?.name, item.subcategory ?? item.category]
-    .filter(Boolean)
-    .join(' ');
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
-}
-
-/** "27 wears", with the singular handled once instead of at every call site. */
-export function wearsLabel(count: number): string {
-  return `${count} ${count === 1 ? 'wear' : 'wears'}`;
-}
+export { pieceName, wearsLabel } from '@/features/closet/item-name';

@@ -11,6 +11,7 @@ import { Chip } from '@/components/ui/chip';
 import { ErrorState } from '@/components/ui/empty-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Text } from '@/components/ui/text';
+import { pieceName } from '@/features/closet/item-name';
 import { useVerifyItem } from '@/features/closet/mutations';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls, stableImageSource } from '@/features/closet/use-image-urls';
@@ -206,8 +207,12 @@ export default function ItemDetailScreen() {
           ) : null}
         </View>
 
+        {/* The shared name — "Charcoal wool coat", the field guide's 04 title,
+            not the bare lowercase `subcategory` this used to print. Same
+            derivation as the closet grid and the highlights rail
+            (features/closet/item-name.ts). */}
         <Text variant="title" className="mt-5">
-          {item.subcategory ?? 'Untagged item'}
+          {pieceName(item)}
         </Text>
         {ownedSince ? (
           <Text variant="label" className="mt-1 text-faint dark:text-faint-dark">

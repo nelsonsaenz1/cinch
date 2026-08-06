@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ClosetGrid } from '@/components/closet/closet-grid';
 import { GhostSlotGrid } from '@/components/closet/ghost-slot-grid';
 import { PlateThumb } from '@/components/closet/plate-thumb';
-import { Chip, ClosetGridSkeleton, EmptyState, ErrorState, Text } from '@/components/ui';
+import { Avatar, Chip, ClosetGridSkeleton, EmptyState, ErrorState, Text } from '@/components/ui';
 import {
   closetStats,
   mostWornItems,
@@ -18,6 +18,8 @@ import {
 } from '@/features/closet/profile';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import { EditProfileSheet } from '@/features/profile/edit-profile-sheet';
+import { useFollowerCount } from '@/features/profile/queries';
 import { useStyleProfile } from '@/features/styling/queries';
 import type { Item } from '@/schemas/item';
 import { leading } from '@/theme/font-metrics';
@@ -93,23 +95,15 @@ const RAIL_PLATE = 124;
  */
 const TASTE_THRESHOLD = 8;
 
-/**
- * "ME" from "Mara Ellis", "MA" from "Mara" alone — same rules as the Profile
- * modal's avatar (app/profile.tsx), so the two monograms can never disagree.
- * Falls back to a bare "?" rather than throwing while the name loads.
- */
-function initialsFor(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  const first = words[0] ?? '';
-  const last = words.length > 1 ? (words[words.length - 1] ?? '') : '';
-  const letters = last ? `${first[0] ?? ''}${last[0] ?? ''}` : first.slice(0, 2);
-  return (letters || '?').toUpperCase();
-}
-
 /** Chips and captions open with a capital; tags arrive lowercase from the DB. */
 function sentenceCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** "1 Piece", not "1 Pieces". The stats row is the app's most-read line of
+ *  type and it was ungrammatical at n=1 on three of its four numbers. */
+function plural(count: number, singular: string): string {
+  return count === 1 ? singular : `${singular}s`;
 }
 
 export default function ClosetScreen() {
@@ -118,12 +112,14 @@ export default function ClosetScreen() {
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('All');
+  const [editing, setEditing] = useState(false);
 
   // The same query Profile's delete-account warning reads, so the two screens
   // can never disagree about what the user owns.
   const closet = useCloset();
   const identity = useClosetIdentity();
   const outfitCount = useOutfitCount();
+  const followerCount = useFollowerCount();
   const style = useStyleProfile();
   const items = useMemo(() => closet.data ?? [], [closet.data]);
 
@@ -176,9 +172,9 @@ export default function ClosetScreen() {
 
   const name = identity.data?.name ?? '';
 
-  // "@handle · City". Both columns exist on `profiles` today; the username
-  // CLAIMING flow ships with the social wave, so for most users this renders
-  // just the city until then — the join collapses around whatever is missing.
+  // "@handle · City". The handle is claimed in the edit-profile sheet and the
+  // city is not editable anywhere yet, so this often renders one half or
+  // neither — the join collapses around whatever is missing.
   const handleLine = [
     identity.data?.username ? `@${identity.data.username}` : null,
     identity.data?.homeCity,
@@ -215,6 +211,9 @@ export default function ClosetScreen() {
     void closet.refetch();
     void identity.refetch();
     void outfitCount.refetch();
+    // Nobody tells this device that someone followed you, so the pull is the
+    // only thing that ever makes the FOLLOWERS numeral current.
+    void followerCount.refetch();
   };
 
   const header = (
@@ -338,48 +337,90 @@ export default function ClosetScreen() {
             <View>
               {header}
 
-              {/* Profile row — the monogram beside the three wardrobe numbers. */}
-              <View className="mt-6 flex-row items-center gap-5 px-gutter">
-                <View className="h-[76px] w-[76px] items-center justify-center rounded-full bg-sand">
-                  {/* Oxblood serif initials on sand, per the mock. Inline colour,
-                      not a className: a text-accent class has no guaranteed
-                      precedence over the variant's own text-ink. */}
-                  <Text variant="title" style={{ color: theme.accent }}>
-                    {initialsFor(name)}
-                  </Text>
-                </View>
-                <View className="flex-1 flex-row">
-                  <Stat value={`${stats.pieces}`} label="Pieces" />
-                  <Stat
-                    value={outfitCount.data !== undefined ? `${outfitCount.data}` : '—'}
-                    label="Outfits"
-                  />
-                  {/* The mock sets the unworn numeral in oxblood — the "get more
-                      from what you own" pitch as a colour. Zero stays ink: an
-                      accent celebrating the absence of a problem reads as an alarm
-                      that failed to clear. */}
-                  <Stat value={`${stats.unworn}`} label="Unworn" accent={stats.unworn > 0} />
+              {/* Identity — the face, the name, and the way in to changing
+                  both. The stats row used to sit here beside the monogram,
+                  three cells wide; a fourth number does not fit next to a
+                  76pt disc (FOLLOWERS alone is wider than the cell), so the
+                  numbers moved down to their own full-width line and the name
+                  came up to stand beside the face where it reads better. */}
+              <View className="mt-6 flex-row items-center gap-4 px-gutter">
+                {/* The shared Avatar, not a hand-built disc: it carries the
+                    photo-then-initials fallback and the oxblood-on-sand
+                    monogram this screen used to draw itself. */}
+                <Avatar
+                  name={name}
+                  size={76}
+                  tone="accent"
+                  imageUri={identity.data?.avatarUrl}
+                  fallback="?"
+                />
+                <View className="flex-1">
+                  {name ? (
+                    // One line: `trim` collapses the line box to the cap
+                    // height, which a wrapped second line would clip.
+                    <Text variant="title" trim numberOfLines={1} accessibilityRole="header">
+                      {name}
+                    </Text>
+                  ) : null}
+                  {handleLine ? (
+                    <Text variant="label" className="mt-2.5 text-muted">
+                      {handleLine}
+                    </Text>
+                  ) : null}
+                  {/* Quiet, in ink rather than the accent: this page already
+                      spends its accent on the unworn numeral, and a second
+                      one turns a spend into a spray. */}
+                  <Pressable
+                    onPress={() => setEditing(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit your profile"
+                    accessibilityHint="Change your name, handle, bio and photo"
+                    hitSlop={10}
+                    className="mt-2 flex-row items-center gap-1.5 self-start active:opacity-60">
+                    <SymbolView
+                      name="pencil"
+                      size={11}
+                      tintColor={theme.muted}
+                      resizeMode="scaleAspectFit"
+                    />
+                    <Text variant="colophon">Edit profile</Text>
+                  </Pressable>
                 </View>
               </View>
 
-              <View className="mt-6 px-gutter">
-                {name ? (
-                  <Text variant="title" trim accessibilityRole="header">
-                    {name}
-                  </Text>
-                ) : null}
-                {handleLine ? (
-                  <Text variant="label" className="mt-2.5 text-muted">
-                    {handleLine}
-                  </Text>
-                ) : null}
+              {/* The spec line — the wardrobe in four numbers, full width.
+                  FOLLOWERS is a real count of `follows` rows pointing at this
+                  user (friends plus anyone whose follow she has not returned),
+                  which is exactly the two lists /friends shows. */}
+              <View className="mt-7 flex-row px-gutter">
+                <Stat value={`${stats.pieces}`} label={plural(stats.pieces, 'Piece')} />
+                <Stat
+                  value={outfitCount.data !== undefined ? `${outfitCount.data}` : '—'}
+                  label={plural(outfitCount.data ?? 0, 'Outfit')}
+                />
+                {/* The mock sets the unworn numeral in oxblood — the "get more
+                    from what you own" pitch as a colour. Zero stays ink: an
+                    accent celebrating the absence of a problem reads as an alarm
+                    that failed to clear. */}
+                <Stat value={`${stats.unworn}`} label="Unworn" accent={stats.unworn > 0} />
+                <Stat
+                  value={followerCount.data !== undefined ? `${followerCount.data}` : '—'}
+                  label={plural(followerCount.data ?? 0, 'Follower')}
+                  onPress={() => router.push('/friends')}
+                  hint="Opens your friends and requests"
+                />
+              </View>
+
+              <View className="px-gutter">
                 {bioLine ? (
-                  <Text variant="callout" className="mt-2.5 text-ink">
+                  <Text variant="callout" className="mt-6 text-ink">
                     {bioLine}
                   </Text>
                 ) : null}
                 {chips.length > 0 ? (
-                  <View className="mt-4 flex-row flex-wrap gap-2">
+                  // Closer to the prose it qualifies than to the spec line it
+                  // would otherwise be crowding when there is no bio.
+                  <View className={`${bioLine ? 'mt-4' : 'mt-6'} flex-row flex-wrap gap-2`}>
                     {/* The ui kit's own `Chip`, not a hand-rolled capsule — a
                         labelled control is `rounded-md` square-cornered per
                         the "capsules only on glass chrome" rule
@@ -483,6 +524,10 @@ export default function ClosetScreen() {
           }
         />
       )}
+
+      {/* Mounted only while open, so its read of `profiles` costs nothing on
+          a screen the user is only scrolling. */}
+      {editing ? <EditProfileSheet visible onClose={() => setEditing(false)} /> : null}
     </SafeAreaView>
   );
 }
@@ -534,18 +579,60 @@ function HeaderIcon({
   );
 }
 
-/** One profile stat: a serif numeral over a small-caps label. */
-function Stat({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
+/**
+ * One profile stat: a serif numeral over a small-caps label.
+ *
+ * Three of the four are facts about the wardrobe and do nothing when tapped;
+ * FOLLOWERS is a fact about people, and people are somewhere you can go. It
+ * gets the button role only when it is given an `onPress`, so VoiceOver never
+ * announces a control that isn't one.
+ */
+function Stat({
+  value,
+  label,
+  accent = false,
+  onPress,
+  hint,
+}: {
+  value: string;
+  label: string;
+  accent?: boolean;
+  onPress?: () => void;
+  hint?: string;
+}) {
   const theme = useTheme();
-  return (
-    <View className="flex-1 items-center" accessibilityLabel={`${value} ${label}`}>
+
+  const body = (
+    <>
       <Text variant="title" style={accent ? { color: theme.accent } : undefined}>
         {value}
       </Text>
-      <Text variant="colophon" className="mt-1">
+      {/* One line, always: "Followers" is the widest label on the row and a
+          wrapped second line would push its numeral out of alignment with the
+          other three. */}
+      <Text variant="colophon" numberOfLines={1} className="mt-1">
         {label}
       </Text>
-    </View>
+    </>
+  );
+
+  if (!onPress) {
+    return (
+      <View className="flex-1 items-center" accessibilityLabel={`${value} ${label}`}>
+        {body}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${value} ${label}`}
+      accessibilityHint={hint}
+      className="flex-1 items-center active:opacity-60">
+      {body}
+    </Pressable>
   );
 }
 

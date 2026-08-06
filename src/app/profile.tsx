@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -21,6 +22,7 @@ import { signOut } from '@/features/auth/actions';
 import { useAiConsent, useGrantAiConsent, useRevokeAiConsent } from '@/features/auth/use-consent';
 import { useDeleteAccount } from '@/features/auth/use-delete-account';
 import { useCloset } from '@/features/closet/queries';
+import { EditProfileSheet } from '@/features/profile/edit-profile-sheet';
 import { useBorrowRequests } from '@/features/social-graph/queries';
 import { useStyleProfile } from '@/features/styling/queries';
 import { getUserId, supabase } from '@/lib/supabase';
@@ -35,19 +37,6 @@ const SUPPORT_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/suppor
 
 /** How many reactions the style engine wants before it will say anything about taste. */
 const TASTE_THRESHOLD = 8;
-
-/**
- * "AA" from "Ava Ansari", "AV" from "Ava" alone. Falls back to a bare "?"
- * rather than throwing while the name is still loading.
- */
-function initialsFor(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  const first = words[0] ?? '';
-  const last = words.length > 1 ? (words[words.length - 1] ?? '') : '';
-  const letters = last ? `${first[0] ?? ''}${last[0] ?? ''}` : first.slice(0, 2);
-  return (letters || '?').toUpperCase();
-}
 
 function weeksSince(iso: string): number {
   const created = new Date(iso).getTime();
@@ -64,19 +53,30 @@ function joinNaturally(parts: string[]): string {
 }
 
 /**
- * Name + account age for the masthead. Neither lives anywhere else in the
- * app, so this reads `profiles` directly rather than growing a new feature
- * module for two columns. `display_name` is rarely set today (there is no
- * settings UI for it yet) so this falls back through the Apple Sign In name
- * captured at first login, then the email's local part, before giving up.
+ * Name, face and account age for the masthead. Account age lives nowhere else
+ * in the app, so this reads `profiles` directly rather than growing a new
+ * feature module for three columns.
+ *
+ * The fallback chain survives the arrival of the edit-profile sheet: setting
+ * a display name is now possible but still optional, so an account that has
+ * never opened the sheet falls back through the Apple Sign In name captured
+ * at first login, then the email's local part, before giving up.
  */
-async function fetchProfileHeader(): Promise<{ name: string; memberSince: string | null }> {
+async function fetchProfileHeader(): Promise<{
+  name: string;
+  memberSince: string | null;
+  avatarUrl: string | null;
+}> {
   const userId = await getUserId();
-  if (!userId) return { name: 'You', memberSince: null };
+  if (!userId) return { name: 'You', memberSince: null, avatarUrl: null };
 
   const [{ data: claimsData }, { data: profileRow }] = await Promise.all([
     supabase.auth.getClaims(),
-    supabase.from('profiles').select('display_name, created_at').eq('user_id', userId).maybeSingle(),
+    supabase
+      .from('profiles')
+      .select('display_name, avatar_url, created_at')
+      .eq('user_id', userId)
+      .maybeSingle(),
   ]);
 
   const claims = claimsData?.claims;
@@ -86,7 +86,11 @@ async function fetchProfileHeader(): Promise<{ name: string; memberSince: string
   const name =
     profileRow?.display_name || meta.full_name || (email ? email.split('@')[0] : null) || 'You';
 
-  return { name, memberSince: profileRow?.created_at ?? null };
+  return {
+    name,
+    memberSince: profileRow?.created_at ?? null,
+    avatarUrl: profileRow?.avatar_url ?? null,
+  };
 }
 
 /**
@@ -171,6 +175,7 @@ export default function ProfileScreen() {
   const revokeConsent = useRevokeAiConsent();
   const grantConsent = useGrantAiConsent();
   const [consentVisible, setConsentVisible] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   // Only used for the exact count named in the delete-account warning below —
   // the zip's Profile screen has no wardrobe stats card, so nothing else here
@@ -322,13 +327,10 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <View className="flex-row items-center gap-3.5 px-gutter pb-6 pt-6">
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-ink">
-              {/* Gotcha: a text-canvas className does not reliably win over a Text
-                  variant's own color, so light-on-ink goes through inline style. */}
-              <Text variant="heading" style={{ color: theme.canvas }}>
-                {initialsFor(name)}
-              </Text>
-            </View>
+            {/* The shared Avatar, which carries both the photo and the
+                light-on-ink monogram this screen used to hand-build (including
+                the className-vs-inline-colour gotcha it used to restate). */}
+            <Avatar name={name} size={56} tone="ink" imageUri={profileHeader.data?.avatarUrl} />
             <View>
               <Text variant="plate" accessibilityRole="header">
                 {profileHeader.isError ? 'Your profile' : name}
@@ -352,6 +354,15 @@ export default function ProfileScreen() {
         )}
 
         <View className="px-gutter">
+          {/* The way in to name, handle, bio and photograph — the columns that
+              have existed on `profiles` since the first migration with nothing
+              anywhere in the app able to write them. Directly under the
+              masthead it edits, above everything about the engine: this is the
+              one row on the screen that changes what other people see. */}
+          <View className="mb-7 overflow-hidden rounded-plate border border-rule bg-surface">
+            <AccountRow label="Edit profile" onPress={() => setEditing(true)} />
+          </View>
+
           {/* What the engine has learned, in the user's own terms. Showing this
               is what makes the personalisation feel like a relationship rather
               than a black box — and gives them somewhere to push back. The
@@ -525,6 +536,10 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Mounted only while open — a page sheet over this modal, the same
+          sheet the closet's identity block opens. */}
+      {editing ? <EditProfileSheet visible onClose={() => setEditing(false)} /> : null}
 
       <ConsentSheet
         visible={consentVisible}
