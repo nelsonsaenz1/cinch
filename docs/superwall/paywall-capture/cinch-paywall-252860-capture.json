@@ -1,0 +1,668 @@
+{
+  "captured": "2026-08-06T15:00:47.637Z",
+  "paywall": 252860,
+  "note": "Structural capture of Superwall paywall 252860 from the live editor tab. Never saved server-side.",
+  "innerText": "10:11\n✕\nCINCH MEMBERSHIP\nA stylist for the clothes you already own.\nYou've had full access to Cinch. To keep every outfit, your whole closet, and the stylist, choose a plan.\nTHE DATA BEHIND EVERY OUTFIT\nCost-per-wear\nWhat each garment has really cost you, every time you've worn it.\nColour harmony\nThe colours in your closet that genuinely work together.\nWhat you actually wear\nReal usage, so nothing good sits unworn at the back.\nCHOOSE A PLAN\nMonthly\nAnnual\nAnnual is about two months free.\nStandard\n$7.99\n/ month\n✓\n150 garments\nA fresh outfit every day\n30 stylist messages a month\nPro\n$14.99\n/ month\n✓\nUnlimited garments\nUnlimited outfits\nUnlimited stylist\nContinue — $7.99 / month\n$7.99 billed monthly. Cancel anytime in Settings.\nRestore Purchases\nTerms\nPrivacy\nYour subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your App Store settings.\nStack\n\nHas Introductory Offer",
+  "nodeCount": 73,
+  "rows": [
+    {
+      "d": 3,
+      "t": "div",
+      "w": 249,
+      "h": 523,
+      "bg": "rgb(35, 39, 46)",
+      "radius": "70px",
+      "padding": "12px"
+    },
+    {
+      "d": 4,
+      "t": "div",
+      "w": 235,
+      "h": 508,
+      "bg": "rgb(255, 255, 255)",
+      "radius": "58px"
+    },
+    {
+      "d": 6,
+      "t": "div",
+      "w": 75,
+      "h": 21,
+      "txt": "10:11",
+      "font": "normal 600 14.82px/14.82px Rubik",
+      "color": "rgb(0, 0, 0)",
+      "flex": "row jc:center ai:center gap:normal"
+    },
+    {
+      "d": 5,
+      "t": "div",
+      "w": 70,
+      "h": 21,
+      "bg": "rgb(0, 0, 0)",
+      "radius": "22.815px",
+      "flex": "row jc:flex-end ai:center gap:normal"
+    },
+    {
+      "d": 6,
+      "t": "div",
+      "w": 13,
+      "h": 13,
+      "bg": "rgba(255, 255, 255, 0.2)",
+      "radius": "9999px"
+    },
+    {
+      "d": 7,
+      "t": "div",
+      "w": 235,
+      "h": 508,
+      "bg": "rgb(255, 255, 255)"
+    },
+    {
+      "d": 11,
+      "t": "div",
+      "w": 235,
+      "h": 508,
+      "bg": "rgb(255, 255, 255)"
+    },
+    {
+      "d": 13,
+      "t": "div",
+      "w": 235,
+      "h": 876,
+      "bg": "rgb(251, 250, 246)",
+      "padding": "56px 20px 44px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 14,
+      "t": "div",
+      "w": 19,
+      "h": 19,
+      "bg": "rgba(28, 26, 22, 0.05)",
+      "radius": "16px"
+    },
+    {
+      "d": 15,
+      "t": "span",
+      "w": 6,
+      "h": 8,
+      "txt": "✕",
+      "font": "normal 300 14px/14px Helvetica Neue",
+      "color": "rgb(107, 102, 92)"
+    },
+    {
+      "d": 14,
+      "t": "span",
+      "w": 211,
+      "h": 8,
+      "txt": "CINCH MEMBERSHIP",
+      "font": "normal 500 11px/12.65px Helvetica Neue",
+      "color": "rgb(138, 133, 120)",
+      "letterSpacing": "1.6px",
+      "textTransform": "uppercase"
+    },
+    {
+      "d": 16,
+      "t": "span",
+      "w": 144,
+      "h": 51,
+      "txt": "A stylist for the clothes you",
+      "font": "normal 400 38px/40.28px Instrument Serif",
+      "color": "rgb(28, 26, 22)",
+      "letterSpacing": "-0.4px"
+    },
+    {
+      "d": 16,
+      "t": "span",
+      "w": 190,
+      "h": 51,
+      "txt": "already own.",
+      "font": "italic 400 38px/40.28px Instrument Serif",
+      "color": "rgb(28, 26, 22)",
+      "letterSpacing": "-0.4px"
+    },
+    {
+      "d": 14,
+      "t": "span",
+      "w": 211,
+      "h": 42,
+      "txt": "You've had full access to Cinch. To keep every outfit, your whole closet, and the stylist, choose a plan.",
+      "font": "normal 400 15.5px/23.25px Helvetica Neue",
+      "color": "rgb(107, 102, 92)"
+    },
+    {
+      "d": 15,
+      "t": "span",
+      "w": 211,
+      "h": 15,
+      "txt": "THE DATA BEHIND EVERY OUTFIT",
+      "font": "normal 500 11px/12.65px Helvetica Neue",
+      "color": "rgb(138, 133, 120)",
+      "letterSpacing": "1.6px",
+      "textTransform": "uppercase",
+      "padding": "0px 0px 12px"
+    },
+    {
+      "d": 16,
+      "t": "div",
+      "w": 4,
+      "h": 4,
+      "bg": "rgb(176, 138, 118)",
+      "radius": "3px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 17,
+      "t": "span",
+      "w": 200,
+      "h": 11,
+      "txt": "Cost-per-wear",
+      "font": "normal 500 14px/18.2px Helvetica Neue",
+      "color": "rgb(28, 26, 22)"
+    },
+    {
+      "d": 17,
+      "t": "span",
+      "w": 200,
+      "h": 24,
+      "txt": "What each garment has really cost you, every time you've worn it.",
+      "font": "normal 400 13.5px/19.575px Helvetica Neue",
+      "color": "rgb(107, 102, 92)"
+    },
+    {
+      "d": 16,
+      "t": "div",
+      "w": 4,
+      "h": 4,
+      "bg": "rgb(176, 138, 118)",
+      "radius": "3px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 17,
+      "t": "span",
+      "w": 200,
+      "h": 11,
+      "txt": "Colour harmony",
+      "font": "normal 500 14px/18.2px Helvetica Neue",
+      "color": "rgb(28, 26, 22)"
+    },
+    {
+      "d": 17,
+      "t": "span",
+      "w": 200,
+      "h": 24,
+      "txt": "The colours in your closet that genuinely work together.",
+      "font": "normal 400 13.5px/19.575px Helvetica Neue",
+      "color": "rgb(107, 102, 92)"
+    },
+    {
+      "d": 16,
+      "t": "div",
+      "w": 4,
+      "h": 4,
+      "bg": "rgb(176, 138, 118)",
+      "radius": "3px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 17,
+      "t": "span",
+      "w": 193,
+      "h": 11,
+      "txt": "What you actually wear",
+      "font": "normal 500 14px/18.2px Helvetica Neue",
+      "color": "rgb(28, 26, 22)"
+    },
+    {
+      "d": 17,
+      "t": "span",
+      "w": 193,
+      "h": 12,
+      "txt": "Real usage, so nothing good sits unworn at the back.",
+      "font": "normal 400 13.5px/19.575px Helvetica Neue",
+      "color": "rgb(107, 102, 92)"
+    },
+    {
+      "d": 15,
+      "t": "span",
+      "w": 211,
+      "h": 8,
+      "txt": "CHOOSE A PLAN",
+      "font": "normal 500 11px/12.65px Helvetica Neue",
+      "color": "rgb(138, 133, 120)",
+      "letterSpacing": "1.6px",
+      "textTransform": "uppercase"
+    },
+    {
+      "d": 16,
+      "t": "div",
+      "w": 211,
+      "h": 26,
+      "bg": "rgb(240, 236, 227)",
+      "radius": "12px",
+      "padding": "3px"
+    },
+    {
+      "d": 17,
+      "t": "div",
+      "w": 106,
+      "h": 23,
+      "bg": "rgb(255, 255, 255)",
+      "radius": "9px"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 30,
+      "h": 9,
+      "txt": "Monthly",
+      "font": "normal 500 13.5px/15.525px Helvetica Neue",
+      "color": "rgb(28, 26, 22)"
+    },
+    {
+      "d": 17,
+      "t": "div",
+      "w": 101,
+      "h": 23,
+      "radius": "9px"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 26,
+      "h": 9,
+      "txt": "Annual",
+      "font": "normal 500 13.5px/15.525px Helvetica Neue",
+      "color": "rgb(138, 133, 120)"
+    },
+    {
+      "d": 16,
+      "t": "span",
+      "w": 211,
+      "h": 8,
+      "txt": "Annual is about two months free.",
+      "font": "normal 400 12px/13.8px Helvetica Neue",
+      "color": "rgb(138, 133, 120)"
+    },
+    {
+      "d": 15,
+      "t": "div",
+      "w": 211,
+      "h": 125,
+      "bg": "rgb(241, 231, 228)",
+      "radius": "16px",
+      "border": "1px rgb(110, 43, 43)",
+      "padding": "16px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 77,
+      "h": 17,
+      "txt": "Standard",
+      "font": "normal 400 24px/28.8px Instrument Serif",
+      "color": "rgb(28, 26, 22)"
+    },
+    {
+      "d": 19,
+      "t": "span",
+      "w": 47,
+      "h": 18,
+      "txt": "$7.99",
+      "font": "normal 400 30px/30px Instrument Serif",
+      "color": "rgb(28, 26, 22)"
+    },
+    {
+      "d": 19,
+      "t": "span",
+      "w": 27,
+      "h": 8,
+      "txt": "/ month",
+      "font": "normal 400 13px/13px Helvetica Neue",
+      "color": "rgb(107, 102, 92)"
+    },
+    {
+      "d": 17,
+      "t": "div",
+      "w": 13,
+      "h": 13,
+      "radius": "11px",
+      "border": "1px rgb(110, 43, 43)"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 6,
+      "h": 7,
+      "txt": "✓",
+      "font": "normal 400 11px/11px system",
+      "color": "rgb(110, 43, 43)"
+    },
+    {
+      "d": 16,
+      "t": "div",
+      "w": 190,
+      "h": 1,
+      "bg": "rgba(28, 26, 22, 0.12)",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 18,
+      "t": "div",
+      "w": 2,
+      "h": 2,
+      "bg": "rgb(176, 138, 118)",
+      "radius": "2px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 50,
+      "h": 11,
+      "txt": "150 garments",
+      "font": "normal 400 13.5px/18.9px Helvetica Neue",
+      "color": "rgb(63, 59, 52)"
+    },
+    {
+      "d": 18,
+      "t": "div",
+      "w": 2,
+      "h": 2,
+      "bg": "rgb(176, 138, 118)",
+      "radius": "2px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 83,
+      "h": 11,
+      "txt": "A fresh outfit every day",
+      "font": "normal 400 13.5px/18.9px Helvetica Neue",
+      "color": "rgb(63, 59, 52)"
+    },
+    {
+      "d": 18,
+      "t": "div",
+      "w": 2,
+      "h": 2,
+      "bg": "rgb(176, 138, 118)",
+      "radius": "2px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 103,
+      "h": 11,
+      "txt": "30 stylist messages a month",
+      "font": "normal 400 13.5px/18.9px Helvetica Neue",
+      "color": "rgb(63, 59, 52)"
+    },
+    {
+      "d": 15,
+      "t": "div",
+      "w": 211,
+      "h": 125,
+      "bg": "rgb(255, 255, 255)",
+      "radius": "16px",
+      "border": "1px rgba(28, 26, 22, 0.12)",
+      "padding": "16px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 88,
+      "h": 17,
+      "txt": "Pro",
+      "font": "normal 400 24px/28.8px Instrument Serif",
+      "color": "rgb(28, 26, 22)"
+    },
+    {
+      "d": 19,
+      "t": "span",
+      "w": 58,
+      "h": 18,
+      "txt": "$14.99",
+      "font": "normal 400 30px/30px Instrument Serif",
+      "color": "rgb(28, 26, 22)"
+    },
+    {
+      "d": 19,
+      "t": "span",
+      "w": 27,
+      "h": 8,
+      "txt": "/ month",
+      "font": "normal 400 13px/13px Helvetica Neue",
+      "color": "rgb(107, 102, 92)"
+    },
+    {
+      "d": 17,
+      "t": "div",
+      "w": 13,
+      "h": 13,
+      "radius": "11px",
+      "border": "1px rgba(28, 26, 22, 0.35)"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 6,
+      "h": 7,
+      "txt": "✓",
+      "font": "normal 400 11px/11px system",
+      "color": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "d": 16,
+      "t": "div",
+      "w": 190,
+      "h": 1,
+      "bg": "rgba(28, 26, 22, 0.12)",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 18,
+      "t": "div",
+      "w": 2,
+      "h": 2,
+      "bg": "rgb(176, 138, 118)",
+      "radius": "2px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 71,
+      "h": 11,
+      "txt": "Unlimited garments",
+      "font": "normal 400 13.5px/18.9px Helvetica Neue",
+      "color": "rgb(63, 59, 52)"
+    },
+    {
+      "d": 18,
+      "t": "div",
+      "w": 2,
+      "h": 2,
+      "bg": "rgb(176, 138, 118)",
+      "radius": "2px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 59,
+      "h": 11,
+      "txt": "Unlimited outfits",
+      "font": "normal 400 13.5px/18.9px Helvetica Neue",
+      "color": "rgb(63, 59, 52)"
+    },
+    {
+      "d": 18,
+      "t": "div",
+      "w": 2,
+      "h": 2,
+      "bg": "rgb(176, 138, 118)",
+      "radius": "2px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 18,
+      "t": "span",
+      "w": 58,
+      "h": 11,
+      "txt": "Unlimited stylist",
+      "font": "normal 400 13.5px/18.9px Helvetica Neue",
+      "color": "rgb(63, 59, 52)"
+    },
+    {
+      "d": 14,
+      "t": "div",
+      "w": 211,
+      "h": 32,
+      "bg": "rgb(110, 43, 43)",
+      "radius": "12px"
+    },
+    {
+      "d": 15,
+      "t": "span",
+      "w": 116,
+      "h": 11,
+      "txt": "Continue — $7.99 / month",
+      "font": "normal 500 16px/18.4px Helvetica Neue",
+      "color": "rgb(255, 255, 255)"
+    },
+    {
+      "d": 14,
+      "t": "span",
+      "w": 211,
+      "h": 8,
+      "txt": "$7.99 billed monthly. Cancel anytime in Settings.",
+      "font": "normal 400 11.5px/13.225px Helvetica Neue",
+      "color": "rgb(138, 133, 120)"
+    },
+    {
+      "d": 15,
+      "t": "span",
+      "w": 66,
+      "h": 9,
+      "txt": "Restore Purchases",
+      "font": "normal 400 13px/14.95px Helvetica Neue",
+      "color": "rgb(107, 102, 92)"
+    },
+    {
+      "d": 15,
+      "t": "div",
+      "w": 2,
+      "h": 2,
+      "bg": "rgb(199, 193, 180)",
+      "radius": "1.5px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 15,
+      "t": "span",
+      "w": 21,
+      "h": 9,
+      "txt": "Terms",
+      "font": "normal 400 13px/14.95px Helvetica Neue",
+      "color": "rgb(107, 102, 92)"
+    },
+    {
+      "d": 15,
+      "t": "div",
+      "w": 2,
+      "h": 2,
+      "bg": "rgb(199, 193, 180)",
+      "radius": "1.5px",
+      "flex": "column jc:start ai:stretch gap:0px"
+    },
+    {
+      "d": 15,
+      "t": "span",
+      "w": 26,
+      "h": 9,
+      "txt": "Privacy",
+      "font": "normal 400 13px/14.95px Helvetica Neue",
+      "color": "rgb(107, 102, 92)"
+    },
+    {
+      "d": 14,
+      "t": "span",
+      "w": 192,
+      "h": 30,
+      "txt": "Your subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your App Store settings.",
+      "font": "normal 400 11px/16.5px Helvetica Neue",
+      "color": "rgb(138, 133, 120)"
+    },
+    {
+      "d": 14,
+      "t": "div",
+      "w": 235,
+      "h": 876,
+      "bg": "rgba(0, 0, 0, 0.02)",
+      "border": "2px rgb(0, 129, 255)"
+    },
+    {
+      "d": 16,
+      "t": "div",
+      "w": 25,
+      "h": 11,
+      "txt": "Stack",
+      "bg": "rgb(0, 129, 255)",
+      "font": "normal 400 12px/16.8px system-ui",
+      "color": "rgb(255, 255, 255)",
+      "radius": "4px",
+      "padding": "0px 5px",
+      "flex": "row jc:normal ai:center gap:normal"
+    },
+    {
+      "d": 5,
+      "t": "div",
+      "w": 80,
+      "h": 2,
+      "radius": "2px"
+    },
+    {
+      "d": 3,
+      "t": "div",
+      "w": 127,
+      "h": 20,
+      "bg": "rgb(35, 39, 46)",
+      "radius": "8px",
+      "border": "1px rgba(255, 255, 255, 0.1)",
+      "padding": "0px 3px",
+      "flex": "row jc:normal ai:center gap:normal"
+    },
+    {
+      "d": 5,
+      "t": "p",
+      "w": 87,
+      "h": 12,
+      "txt": "Has Introductory Offer",
+      "font": "normal 400 14px/20px Rubik",
+      "color": "rgb(255, 255, 255)"
+    },
+    {
+      "d": 5,
+      "t": "button",
+      "w": 21,
+      "h": 13,
+      "bg": "rgba(68, 73, 78, 0.5)",
+      "radius": "9999px",
+      "border": "1px rgba(255, 255, 255, 0.1)",
+      "flex": "row jc:normal ai:center gap:normal"
+    },
+    {
+      "d": 6,
+      "t": "span",
+      "w": 10,
+      "h": 10,
+      "bg": "rgb(255, 255, 255)",
+      "radius": "9999px"
+    }
+  ]
+}
