@@ -1,13 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { CameraView } from 'expo-camera';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { GarmentSearchSheet } from '@/components/ingest/garment-search-sheet';
@@ -16,6 +18,7 @@ import { useAiConsent, useGrantAiConsent } from '@/features/auth/use-consent';
 import { Placement } from '@/features/billing/placements';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { useGate } from '@/features/billing/use-gate';
+import { useCameraAccess } from '@/features/ingest/use-camera-access';
 import { useCapture } from '@/features/ingest/use-capture';
 import {
   useQueueStore,
@@ -48,7 +51,39 @@ export default function CaptureScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { pickFromLibrary, takePhoto, selectionLimit } = useCapture();
+  const { pickFromLibrary, takePhoto, addPhoto, selectionLimit } = useCapture();
+
+  /**
+   * Camera permission is asked for HERE, on the way in — see `useCameraAccess`.
+   * The stage below is a live preview now, so the permission is a precondition
+   * of the screen rather than of the shutter.
+   */
+  const { access, openSettings } = useCameraAccess();
+  const cameraRef = useRef<CameraView>(null);
+  // `takePictureAsync` before the session is up returns the last frame on iOS,
+  // which for a session that never started is nothing at all.
+  const [cameraReady, setCameraReady] = useState(false);
+  // A device that cannot run the preview — a simulator has no camera at all —
+  // falls back to the instructional frame and the system camera, rather than
+  // showing a black rectangle and a shutter that does nothing.
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [shooting, setShooting] = useState(false);
+  const live = access === 'granted' && !previewFailed;
+
+  /**
+   * The preview runs only while this screen is in front. `active={false}` tears
+   * the capture session down without unmounting the view, so coming back from
+   * /review or from the tab underneath resumes rather than remounts — and a
+   * screen sitting in the stack behind another one is not quietly holding the
+   * camera open.
+   */
+  const [focused, setFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
 
   const qc = useQueryClient();
   const capacity = useCapacity();
@@ -74,17 +109,108 @@ export default function CaptureScreen() {
     void drainQueue();
   }, [hydrate]);
 
+  /**
+   * The shutter, on whichever camera this device actually has.
+   *
+   * In-app when the preview is live: the frame the user composed is the frame
+   * that gets taken, with no second camera UI opening over the one they are
+   * already looking at. The system camera stays as the fallback for a device
+   * that cannot run a preview session, and carries its own permission handling
+   * for exactly that case.
+   */
+  const shoot = useCallback(async () => {
+    const camera = cameraRef.current;
+    if (!live || !camera || !cameraReady) {
+      await takePhoto();
+      return;
+    }
+    setShooting(true);
+    try {
+      const picture = await camera.takePictureAsync({ quality: 0.9, exif: false });
+      if (picture?.uri) addPhoto(picture);
+    } catch {
+      // Whatever went wrong with the session, the garment in front of the user
+      // still has to be photographable. Drop to the system camera and stay
+      // there for the rest of this visit.
+      setPreviewFailed(true);
+      await takePhoto();
+    } finally {
+      setShooting(false);
+    }
+  }, [live, cameraReady, addPhoto, takePhoto]);
+
   // All three ways in dispatch from one place. The gate below reaches for this
   // twice, and inlining a ternary at each site is how the second entry point
   // was written — a third would have made that three copies of one decision.
   const run = useCallback(
     (action: CaptureAction) => {
       if (action === 'library') void pickFromLibrary();
-      else if (action === 'camera') void takePhoto();
+      else if (action === 'camera') void shoot();
       else setDescribeVisible(true);
     },
-    [pickFromLibrary, takePhoto],
+    [pickFromLibrary, shoot],
   );
+
+  /**
+   * Resuming the thing a gate interrupted — on the far side of the dismissal.
+   *
+   * "Allow processing" used to call `run(next)` in the same tick as
+   * `setConsentVisible(false)`, and the picker never opened: iOS refuses to
+   * present a view controller while another modal is still animating away, so
+   * the library sheet — and the describe sheet, which has the same shape — was
+   * dropped on the floor. The user's consent had registered; nothing else had.
+   * They tapped Library again and, consent now granted, it worked. That is the
+   * "the first tap does nothing" the founder saw, and it is a property of the
+   * dismissal rather than of consent, so the paywall grant below goes through
+   * the same door.
+   *
+   * Held in a ref, not state: the firing site is a native callback outside
+   * React's update cycle, and it has to be readable and clearable in one go so
+   * that an interrupted action runs exactly once.
+   */
+  const deferredAction = useRef<CaptureAction | null>(null);
+  const deferredTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // `run` changes identity when the camera becomes ready. Resumption is
+  // scheduled up to half a second before it fires, so it reads the dispatcher
+  // as it stands at that moment rather than the one that existed when the gate
+  // was answered — otherwise a grant landing in that window would shoot through
+  // a closure that still believed the preview was cold.
+  const runRef = useRef(run);
+  useEffect(() => {
+    runRef.current = run;
+  }, [run]);
+
+  const runResume = useCallback(() => {
+    if (deferredTimer.current) {
+      clearTimeout(deferredTimer.current);
+      deferredTimer.current = null;
+    }
+    const next = deferredAction.current;
+    deferredAction.current = null;
+    if (next) runRef.current(next);
+  }, []);
+
+  /**
+   * `onDismiss` is the exact signal, and the consent sheet passes it back — but
+   * it is an iOS-only Modal callback and the paywall has no equivalent at all.
+   * The timer is the same resumption for both of those gaps; whichever fires
+   * first clears the other, so the action runs once either way.
+   */
+  const deferResume = useCallback(
+    (action: CaptureAction) => {
+      deferredAction.current = action;
+      if (deferredTimer.current) clearTimeout(deferredTimer.current);
+      deferredTimer.current = setTimeout(runResume, 450);
+    },
+    [runResume],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (deferredTimer.current) clearTimeout(deferredTimer.current);
+    };
+  }, []);
 
   /**
    * Gate every capture entry point, in the order the user should meet the gates.
@@ -118,7 +244,11 @@ export default function CaptureScreen() {
             qc.invalidateQueries({ queryKey: ['subscription'] }),
             qc.invalidateQueries({ queryKey: ['closet-count'] }),
           ]);
-          run(action);
+          // Deferred, not immediate: a paywall is a presented view controller
+          // like the consent sheet, and the picker cannot open over one that is
+          // still leaving. Superwall gives no dismissal callback to hang this
+          // on, so it waits out the animation.
+          deferResume(action);
         });
         return;
       }
@@ -130,15 +260,14 @@ export default function CaptureScreen() {
       setPendingAction(action);
       setConsentVisible(true);
     },
-    [capacity.full, gate, qc, consent.data?.granted, run],
+    [capacity.full, gate, qc, consent.data?.granted, run, deferResume],
   );
 
   const onAcceptConsent = async () => {
     await grantConsent.mutateAsync();
-    setConsentVisible(false);
-    const next = pendingAction;
+    if (pendingAction) deferResume(pendingAction);
     setPendingAction(null);
-    if (next) run(next);
+    setConsentVisible(false);
   };
 
   // A light tap on the two capture controls, matching the Buttons this dark
@@ -225,32 +354,80 @@ export default function CaptureScreen() {
         </Pressable>
       </View>
 
-      {/* The framed stage. The real capture runs in the system camera/picker, so
-          this is an instructional viewfinder — a frame and a rule of thumb, not
-          a live preview. */}
-      <View className="mx-4 my-2 flex-1 items-center justify-center overflow-hidden rounded-plate">
-        <View className="absolute inset-0 bg-surface" style={{ opacity: 0.04 }} />
-        <Corner canvas={theme.canvas} pos="tl" />
-        <Corner canvas={theme.canvas} pos="tr" />
-        <Corner canvas={theme.canvas} pos="bl" />
-        <Corner canvas={theme.canvas} pos="br" />
-        <View style={{ opacity: 0.5 }}>
-          <SymbolView name="tshirt" size={44} tintColor={theme.canvas} />
+      {/* The framed stage — a LIVE viewfinder, per 07a. It was an instructional
+          frame with a garment glyph in it, which on a dark screen reads as a
+          camera that has failed to start; the corner guides and the hint now
+          sit over the real preview they were always drawn for. */}
+      {access === 'blocked' ? (
+        /* Declined, and on iOS that decision is final until Settings — so this
+           is a plate rather than a prompt. It is drawn on canvas, not on the
+           ink stage: the states kit sets ink type, and ink on ink is the black
+           rectangle this whole change exists to remove. The two other doors
+           below stay open, so a refused camera narrows the screen instead of
+           ending it. */
+        <View className="mx-4 my-2 flex-1 overflow-hidden rounded-plate bg-canvas dark:bg-canvas-dark">
+          <EmptyState
+            symbol="camera.fill"
+            tone="blocked"
+            title="Camera access is off"
+            body="Cinch can't show the viewfinder without it. Turn the camera on in Settings, or add clothes from your library instead."
+            actionTitle="Open Settings"
+            onAction={openSettings}
+          />
         </View>
-        <Text
-          variant="caption"
-          className="absolute"
-          style={{ bottom: 22, color: theme.canvas, opacity: 0.75 }}>
-          One garment, plain background
-        </Text>
-      </View>
+      ) : (
+        <View className="mx-4 my-2 flex-1 items-center justify-center overflow-hidden rounded-plate">
+          {live ? (
+            <CameraView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              facing="back"
+              mode="picture"
+              active={focused}
+              onCameraReady={() => setCameraReady(true)}
+              onMountError={() => setPreviewFailed(true)}
+            />
+          ) : (
+            /* Still waiting on the permission alert, or a device with no
+               preview to give. The old instructional frame is exactly right
+               for both: it says what to photograph while there is nothing to
+               show. */
+            <>
+              <View className="absolute inset-0 bg-surface" style={{ opacity: 0.04 }} />
+              <View style={{ opacity: 0.5 }}>
+                <SymbolView name="tshirt" size={44} tintColor={theme.canvas} />
+              </View>
+            </>
+          )}
+          <Corner canvas={theme.canvas} pos="tl" />
+          <Corner canvas={theme.canvas} pos="tr" />
+          <Corner canvas={theme.canvas} pos="bl" />
+          <Corner canvas={theme.canvas} pos="br" />
+          <Text
+            variant="caption"
+            className="absolute"
+            style={{
+              bottom: 22,
+              color: theme.canvas,
+              opacity: 0.75,
+              // Over a live scene the hint has no fixed backdrop to be legible
+              // against — a white shirt fills the frame and the line vanishes.
+              textShadowColor: 'rgba(0,0,0,0.55)',
+              textShadowOffset: { width: 0, height: 1 },
+              textShadowRadius: 4,
+            }}>
+            One garment, plain background
+          </Text>
+        </View>
+      )}
 
-      {/* Library · shutter · describe. There is no "Flip" here: with no in-app
-          live preview there is nothing to flip — the system camera carries its
-          own flip control. "Describe" occupies the slot that used to be a
-          spacer, which keeps the shutter centred and gives the quiet third way
-          in the same weight as the library: it is the door for the garments
-          somebody will never get round to photographing. */}
+      {/* Library · shutter · describe. The handoff draws "Flip" in the third
+          slot; "Describe" holds it instead, and now that the preview is live
+          that is a choice rather than a limitation. A front camera photograph
+          of a garment held at arm's length is not a garment photograph, so flip
+          would be a control for a shot nobody wants — while describe is the
+          door for the pieces somebody will never get round to photographing at
+          all. */}
       <View className="flex-row items-center justify-between px-8 py-2">
         <Pressable
           accessibilityRole="button"
@@ -263,13 +440,37 @@ export default function CaptureScreen() {
           </Text>
         </Pressable>
 
+        {/* Dimmed and inert while the camera is off, rather than live over a
+            plate that has just said it cannot open — the Settings button in the
+            stage is the one way forward from there, and a shutter that fires an
+            alert saying the same thing is a second, worse copy of it. */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Take a photo"
+          accessibilityState={{ disabled: access === 'blocked', busy: shooting }}
+          accessibilityHint={
+            access === 'blocked' ? 'Turn on camera access in Settings to use this' : undefined
+          }
+          disabled={access === 'blocked' || shooting}
           onPress={() => start('camera')}
           className="items-center justify-center active:opacity-80"
-          style={{ width: 64, height: 64, borderRadius: 32, borderWidth: 3, borderColor: theme.canvas }}>
-          <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: theme.canvas }} />
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: 32,
+            borderWidth: 3,
+            borderColor: theme.canvas,
+            opacity: access === 'blocked' ? 0.35 : 1,
+          }}>
+          <View
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 25,
+              backgroundColor: theme.canvas,
+              opacity: shooting ? 0.5 : 1,
+            }}
+          />
         </Pressable>
 
         <Pressable
@@ -416,9 +617,13 @@ export default function CaptureScreen() {
         visible={consentVisible}
         busy={grantConsent.isPending}
         onAccept={() => void onAcceptConsent()}
+        onDismissed={runResume}
         onDecline={() => {
           setConsentVisible(false);
           setPendingAction(null);
+          // Nothing to resume: a decline is an answer, not a pause. Clearing
+          // it here means a decline can never fire the picker on the way out.
+          deferredAction.current = null;
         }}
       />
     </SafeAreaView>

@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Alert, Linking } from 'react-native';
 
 import { track } from '@/lib/posthog';
@@ -29,7 +29,15 @@ import { drainQueue } from './upload-queue';
  */
 const SELECTION_LIMIT = 60;
 
-function toJobs(assets: ImagePicker.ImagePickerAsset[]) {
+/**
+ * The shape both ways in produce. `launchImageLibraryAsync` hands back a full
+ * `ImagePickerAsset`; the in-app viewfinder's `takePictureAsync` hands back a
+ * `CameraCapturedPicture`, which is the same three fields and no `assetId` —
+ * a photograph that has just been taken is not in any library yet.
+ */
+type CapturedAsset = { uri: string; width: number; height: number; assetId?: string | null };
+
+function toJobs(assets: CapturedAsset[]) {
   return assets.map((asset, index) => ({
     // Stable within a batch and unique across batches without needing a uuid
     // dependency in the hot path.
@@ -42,17 +50,32 @@ function toJobs(assets: ImagePicker.ImagePickerAsset[]) {
 
 export function useCapture() {
   const enqueue = useQueueStore((s) => s.enqueue);
+  const clearSettled = useQueueStore((s) => s.clearSettled);
+  const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
+
   /**
-   * A new batch starts on a clean rail.
+   * A sitting starts on a clean rail — ONCE PER VISIT, not once per import.
    *
    * `persist` keeps every job that is not `done`, so a failure from a previous
    * sitting comes back on every launch and would otherwise ride along beside
    * the twelve photographs just chosen — counted in "Processing 1 of 13",
    * banner and all, for a garment the user dealt with days ago. Anything still
    * moving is left alone; only the settled residue goes.
+   *
+   * Sweeping on every import was right while the only way in was a multi-select:
+   * one trip to the library, one batch, one rail. The in-app viewfinder makes
+   * shooting garments one at a time the ordinary case, and clearing per import
+   * would wipe each finished garment off the rail the instant the next shutter
+   * fell — taking the "Added 4 of 4" count and the "Review tags" button with it.
+   * The residue this exists for belongs to a PREVIOUS sitting, so sweeping it
+   * once on the way in is the whole of the job.
    */
-  const clearSettled = useQueueStore((s) => s.clearSettled);
-  const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
+  const sweptResidue = useRef(false);
+  const sweepOnce = useCallback(() => {
+    if (sweptResidue.current) return;
+    sweptResidue.current = true;
+    clearSettled();
+  }, [clearSettled]);
 
   const pickFromLibrary = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -71,12 +94,37 @@ export function useCapture() {
 
     // Count and source only — never asset ids or file paths.
     track('clothes_import_selected', { source: 'library', count: result.assets.length });
-    clearSettled();
+    sweepOnce();
     enqueue(toJobs(result.assets));
     void drainQueue();
     return result.assets.length;
-  }, [clearSettled, enqueue]);
+  }, [sweepOnce, enqueue]);
 
+  /**
+   * A frame off the in-app viewfinder, straight onto the queue.
+   *
+   * The file lives in the cache directory and is read from there by
+   * `prepareForUpload`, exactly as a picked asset is — nothing downstream knows
+   * or cares which of the two doors the garment came through.
+   */
+  const addPhoto = useCallback(
+    (picture: CapturedAsset) => {
+      track('clothes_import_selected', { source: 'camera', count: 1 });
+      sweepOnce();
+      enqueue(toJobs([picture]));
+      void drainQueue();
+      return 1;
+    },
+    [sweepOnce, enqueue],
+  );
+
+  /**
+   * The system camera, kept as the fallback for the devices where the in-app
+   * preview cannot run at all — a simulator, or a `CameraView` that reports a
+   * mount error. It carries its own permission request and its own Settings
+   * route because on that path there is no stage-level blocked state to lean
+   * on: the user tapped a shutter and something has to answer them.
+   */
   const takePhoto = useCallback(async () => {
     // The camera genuinely does need permission, unlike the library picker.
     if (!cameraPermission?.granted) {
@@ -107,11 +155,11 @@ export function useCapture() {
     if (result.canceled || !result.assets?.length) return 0;
 
     track('clothes_import_selected', { source: 'camera', count: result.assets.length });
-    clearSettled();
+    sweepOnce();
     enqueue(toJobs(result.assets));
     void drainQueue();
     return result.assets.length;
-  }, [cameraPermission, requestCameraPermission, clearSettled, enqueue]);
+  }, [cameraPermission, requestCameraPermission, sweepOnce, enqueue]);
 
-  return { pickFromLibrary, takePhoto, selectionLimit: SELECTION_LIMIT };
+  return { pickFromLibrary, takePhoto, addPhoto, selectionLimit: SELECTION_LIMIT };
 }
