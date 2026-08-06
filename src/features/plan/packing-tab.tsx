@@ -1,11 +1,13 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { View } from 'react-native';
 
-import { Button, ListSkeleton, Rule, Text } from '@/components/ui';
+import { Button, ErrorState, ListSkeleton, Rule, Text } from '@/components/ui';
 
 import { PackingTrip } from './packing-trip';
 import type { Trip } from './trip';
 import { TripQuestionnaire } from './trip-questionnaire';
-import { usePackingAccess } from './use-packing-access';
+import { usePackingAccess, type UnlockState } from './use-packing-access';
+import { STALL_DEADLINE_MS, useStalled } from './use-stalled';
 
 /**
  * Packing, end to end: the gate, the questions, the trip.
@@ -32,7 +34,15 @@ import { usePackingAccess } from './use-packing-access';
  * of what is behind it converts nothing and reads as a toll gate; the founder's
  * whole objection to nagging is that it costs trust the app cannot re-earn.
  */
-function PackingLocked({ onUnlock }: { onUnlock: () => void }) {
+function PackingLocked({
+  onUnlock,
+  unlockState,
+}: {
+  onUnlock: () => void;
+  unlockState: UnlockState;
+}) {
+  const unavailable = unlockState === 'unavailable';
+
   return (
     <View className="px-gutter pt-2">
       <View className="rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
@@ -58,8 +68,33 @@ function PackingLocked({ onUnlock }: { onUnlock: () => void }) {
           are.
         </Text>
 
-        {/* The screen's one oxblood action. */}
-        <Button title="See membership" onPress={onUnlock} haptic className="mt-6 self-stretch" />
+        {/*
+          THE CTA IS NEVER ALLOWED TO DEAD-END.
+
+          The membership sheet behind this button is not live yet, and a button
+          that opens nothing is worse than one that admits it — the user taps,
+          judges the app broken, and is right. When `unlock()` comes back having
+          shown nobody anything, the action is replaced by one quiet line in the
+          plate's own grammar. No alert, no toast: this is information, and the
+          guide sets information in the surface it belongs to.
+
+          Replaced rather than disabled-with-a-note, because a greyed-out
+          "See membership" still reads as something the user failed to earn.
+        */}
+        {unavailable ? (
+          <Text variant="body" className="mt-6 text-faint dark:text-faint-dark">
+            Membership opens soon — Packing unlocks with it.
+          </Text>
+        ) : (
+          /* The screen's one oxblood action. */
+          <Button
+            title="See membership"
+            onPress={onUnlock}
+            loading={unlockState === 'opening'}
+            haptic
+            className="mt-6 self-stretch"
+          />
+        )}
       </View>
     </View>
   );
@@ -81,13 +116,33 @@ export function PackingTab({
   onTrip: (trip: Trip | null) => void;
 }) {
   const access = usePackingAccess(active);
+  const qc = useQueryClient();
+  const stalled = useStalled(access.loading, STALL_DEADLINE_MS);
 
   // The entitlement is unknown for one round trip on a cold start. Drawing the
   // lock during it would flash "you have not paid" at a paying subscriber —
   // the one wrong answer that costs a support ticket rather than a second.
-  if (access.loading) return <ListSkeleton count={3} avatar={false} />;
+  //
+  // Bounded, though: a subscription read that never settles must not leave the
+  // skeleton running forever (see `use-stalled`). Failing to an error with a
+  // retry is also the safe direction — it shows nobody the lock, and it shows
+  // nobody the questionnaire.
+  if (access.loading) {
+    return stalled ? (
+      <ErrorState
+        compact
+        title="Couldn’t check your membership"
+        body="Cinch couldn’t read your membership just now, so it won’t guess. This is a connection problem — nothing about your account has changed."
+        onRetry={() => void qc.invalidateQueries({ queryKey: ['subscription'] })}
+      />
+    ) : (
+      <ListSkeleton count={3} avatar={false} />
+    );
+  }
 
-  if (!access.allowed) return <PackingLocked onUnlock={access.unlock} />;
+  if (!access.allowed) {
+    return <PackingLocked onUnlock={access.unlock} unlockState={access.unlockState} />;
+  }
 
   if (!trip) return <TripQuestionnaire onComplete={onTrip} />;
 

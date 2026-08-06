@@ -16,6 +16,7 @@ import { usePlanOutfit, usePlannedWeek } from '@/features/plan/mutations';
 import { PackingTab } from '@/features/plan/packing-tab';
 import { planWeek } from '@/features/plan/packing';
 import type { Trip } from '@/features/plan/trip';
+import { STALL_DEADLINE_MS, useStalled } from '@/features/plan/use-stalled';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { dateKey } from '@/lib/date';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
@@ -171,7 +172,34 @@ export default function PlanScreen() {
   // full social calendar, and that invitation is the growth loop. Packing is
   // exempt for a different reason: its empty-closet answer used to be a button
   // that opened the camera, which is precisely the entry point being removed.
-  const closetEmpty = !wardrobe.isLoading && !canGenerate(items);
+  //
+  // Read only AFTER the failure and loading branches below, so an unread closet
+  // can never be reported as an empty one.
+  const closetEmpty = !canGenerate(items);
+
+  /**
+   * Week's three honest answers, in the order they have to be asked.
+   *
+   * THE ORDER IS THE FIX. `closetEmpty` used to be the first question, and it
+   * folded two states that are not empty into "Add about ten pieces": a closet
+   * read that FAILED (`items` falls back to `[]`, so a network error told the
+   * user their wardrobe was empty — the exact false claim `ErrorState` exists
+   * to stop) and one still in flight, which fell past the forecast's skeleton
+   * into "Couldn't plan this week" because `canGenerate([])` is false while
+   * loading. Failure first, then loading, then absence.
+   *
+   * `profileQuery` is deliberately not here: it has a `DEFAULT_WEIGHTS`
+   * fallback, so its failure degrades the ranking rather than the screen, and
+   * blocking the week on it would be the same over-claiming in reverse.
+   */
+  const weekFailed = wardrobe.isError || weekForecast.isError;
+  const weekLoading = wardrobe.isLoading || weekForecast.isLoading;
+  const weekStalled = useStalled(weekLoading, STALL_DEADLINE_MS);
+
+  const retryWeek = () => {
+    void wardrobe.refetch();
+    void weekForecast.refetch();
+  };
 
   /** The event day's forecast, when the day is inside the week window. */
   const weatherFor = (startsAt: Date) => {
@@ -297,6 +325,15 @@ export default function PlanScreen() {
         // unmounts on every switch to Week, and five questions should survive
         // someone glancing at their week.
         <PackingTab active trip={trip} onTrip={setTrip} />
+      ) : weekFailed || weekStalled ? (
+        <ErrorState
+          title="Couldn’t lay out your week"
+          body="Cinch couldn’t read everything the days ahead need — your closet, or this week’s weather. That’s a connection problem, not a change to your things: nothing in your wardrobe has moved."
+          onRetry={retryWeek}
+          retrying={wardrobe.isRefetching || weekForecast.isRefetching}
+        />
+      ) : weekLoading ? (
+        <ListSkeleton count={WEEK_DAYS} avatar={false} label="Laying out your week…" />
       ) : closetEmpty ? (
         <EmptyState
           symbol="calendar"
@@ -307,17 +344,7 @@ export default function PlanScreen() {
         />
       ) : (
         <ScrollView contentContainerClassName="pb-10" keyboardShouldPersistTaps="handled">
-          {weekForecast.isError ? (
-              <ErrorState
-                compact
-                title="Couldn't load the forecast"
-                body="This week's weather didn't come through, so Cinch can't lay out the days ahead. Check your connection and try again."
-                onRetry={() => void weekForecast.refetch()}
-              retrying={weekForecast.isRefetching}
-            />
-          ) : weekForecast.isLoading ? (
-            <ListSkeleton count={WEEK_DAYS} avatar={false} />
-          ) : weekDays.length === 0 ? (
+          {weekDays.length === 0 ? (
             <View className="px-gutter pt-6">
               <Text variant="title" trim>
                 Couldn&rsquo;t plan this week
