@@ -14,7 +14,9 @@ type Variant =
   | 'caption'
   | 'eyebrow'
   | 'colophon'
-  | 'stat';
+  | 'stat'
+  | 'statSmall'
+  | 'statFigure';
 
 /**
  * Weight is a font FAMILY for the serif, and may be a family for Helvetica too.
@@ -48,8 +50,20 @@ const variants: Record<Variant, string> = {
   eyebrow: 'font-medium text-eyebrow uppercase text-faint',
   // The data line under a plate.
   colophon: 'font-medium text-colophon uppercase text-faint',
-  // The hero data number — serif, matching the design's stat grids.
+  // ── The serif data figures ────────────────────────────────────────────────
+  // Three sizes, because the app needs three and was getting them by stacking a
+  // second `text-*` class on top of `stat` — `variant="stat" className="text-
+  // figure"` in the item-detail grid, `className="text-label"` on the closet
+  // cards. NativeWind gives no precedence between two size utilities on one
+  // element, so those renders were a coin toss: the item-detail hero figure was
+  // as likely to come out at `stat`'s 20px as at the 28px it was asking for.
+  // Same hazard the label colours hit in button.tsx L18-25. Name the size.
+  /** The default data figure — plate cost-per-wear, day-row weekday. 20px. */
   stat: 'font-title text-heading text-ink',
+  /** The figure inside a card, set beside caption text. 13px. */
+  statSmall: 'font-title text-label text-ink',
+  /** The hero figure of a stat grid — item detail's "42×". 28px. */
+  statFigure: 'font-title text-figure text-ink',
 };
 
 /**
@@ -77,7 +91,13 @@ export type TextProps = RNTextProps & {
 
 export function Text({ variant = 'body', className = '', trim = false, style, ...rest }: TextProps) {
   const isDisplay =
-    variant === 'wordmark' || variant === 'display' || variant === 'title' || variant === 'plate';
+    variant === 'wordmark' ||
+    variant === 'display' ||
+    variant === 'title' ||
+    variant === 'plate' ||
+    // The hero figure sits in a fixed 2×2 grid cell; the looser 1.8 cap lets a
+    // large Dynamic Type setting push "£4.20" out of its own box.
+    variant === 'statFigure';
 
   return (
     <RNText
@@ -88,7 +108,12 @@ export function Text({ variant = 'body', className = '', trim = false, style, ..
       style={[
         // Tabular figures stop wear counts, temperatures and prices from
         // jittering as digits change. Helvetica Neue ships them; this turns them on.
-        variant === 'stat' || variant === 'colophon' ? { fontVariant: ['tabular-nums'] } : null,
+        variant === 'stat' ||
+        variant === 'statSmall' ||
+        variant === 'statFigure' ||
+        variant === 'colophon'
+          ? { fontVariant: ['tabular-nums'] }
+          : null,
         trim ? TRIMS[variant] : null,
         style,
       ]}

@@ -56,6 +56,15 @@ module.exports = {
         // The second accent. Warm clay, for the places where oxblood would read
         // as an error or a link — data highlights, the warm half of a chart.
         'accent-warm': { DEFAULT: '#B08A76', hover: '#9C7460', dark: '#B08A76' },
+        // The warm rose surface — accentWarm composited over tray. It marks the
+        // one card on a page that belongs to the reader ("Your look" on an
+        // event). `blush-rule` is its hairline; a plain `rule` over blush goes
+        // grey and kills the warmth. Spend it like the accent: one per screen.
+        blush: { DEFAULT: '#F7EDE8', dark: '#F7EDE8' },
+        'blush-rule': { DEFAULT: 'rgba(176,138,118,0.45)', dark: 'rgba(176,138,118,0.45)' },
+        // The one dimming value — sheet backdrops and gradients over garment
+        // photography. Warm ink at 40%, never a neutral black.
+        scrim: { DEFAULT: 'rgba(28,26,22,0.40)', dark: 'rgba(28,26,22,0.40)' },
 
         // Semantic — used sparingly; never as decoration. Warmed to sit on
         // paper; oxblood already owns "attention", so critical is a distinct,
@@ -127,10 +136,26 @@ module.exports = {
         colophon: [`10px`, { lineHeight: '14px', letterSpacing: '1.4px' }],
       },
       // Concentric, per the HIG: inner = outer - inset, anchored at the plate
-      // (a visible container), not the device bezel. `full` capsules belong to
-      // the glass chrome layer only — content-layer controls are `md`;
-      // SSENSE / Mytheresa / Vestiaire all use rectangles, and the pill is a
-      // consumer-app signature.
+      // (a visible container), not the device bezel.
+      //
+      // ── `full`: the rule, settled ────────────────────────────────────────
+      // The old note read "GLASS CHROME ONLY", which the app then contradicted
+      // in a dozen honest places — every avatar monogram is a circle, so is the
+      // circular back button on eight screens, so are the palette dots. Read
+      // literally the rule outlawed the design's own signatures; read loosely
+      // it outlawed nothing. The distinction it was always reaching for is not
+      // *which layer* but *what shape*:
+      //
+      //   ALLOWED   `full` on a 1:1 box — a circle. Avatars, monograms, icon-
+      //             only discs, dots, the glass chrome layer.
+      //   FORBIDDEN `full` on a wider-than-tall box — a capsule. Any control
+      //             carrying a text label is `md` (12px), full stop.
+      //
+      // A circle is a portrait frame; a capsule is a consumer-app signature.
+      // SSENSE / Mytheresa / Vestiaire all set their labelled controls as
+      // rectangles, and that is the stronger position. So: the segmented
+      // toggle on Plan, the RSVP pills on an event, the New-event bar — all
+      // capsules, all wrong, all `md`. The back button stays a circle.
       borderRadius: {
         xs: '2px',
         sm: '4px',
@@ -139,7 +164,7 @@ module.exports = {
         lg: '16px',
         plate: '20px', // outfit plate, item card
         sheet: '38px', // half sheets, iOS 26 inset
-        full: '9999px', // GLASS CHROME ONLY
+        full: '9999px', // CIRCLES AND GLASS CHROME ONLY — never a labelled capsule
         // Transitional aliases; retire as screens are rewritten.
         card: '20px',
         chip: '12px',

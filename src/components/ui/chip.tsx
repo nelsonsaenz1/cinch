@@ -42,10 +42,13 @@ export function Chip({ label, selected = false, onPress, count, accessibilityHin
       <Text variant="label" style={{ color: selected ? theme.canvas : theme.ink }}>
         {label}
       </Text>
+      {/* `statSmall`, not `stat` + a `text-label` override: two size utilities
+          on one element have no defined precedence in NativeWind — the same
+          hazard as the colours above. The variant names the size once. */}
       {count !== undefined ? (
         <Text
-          variant="stat"
-          className="ml-1.5 text-label"
+          variant="statSmall"
+          className="ml-1.5"
           style={{ color: selected ? `${theme.canvas}B3` : theme.muted }}>
           {count}
         </Text>
