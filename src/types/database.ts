@@ -52,7 +52,7 @@ export type Database = {
           prompt_tokens: number | null
           provider: string
           succeeded: boolean
-          user_id: string
+          user_id: string | null
           workload: Database["public"]["Enums"]["ai_workload"]
         }
         Insert: {
@@ -67,7 +67,7 @@ export type Database = {
           prompt_tokens?: number | null
           provider: string
           succeeded?: boolean
-          user_id: string
+          user_id?: string | null
           workload: Database["public"]["Enums"]["ai_workload"]
         }
         Update: {
@@ -82,7 +82,7 @@ export type Database = {
           prompt_tokens?: number | null
           provider?: string
           succeeded?: boolean
-          user_id?: string
+          user_id?: string | null
           workload?: Database["public"]["Enums"]["ai_workload"]
         }
         Relationships: [
