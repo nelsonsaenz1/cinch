@@ -40,6 +40,46 @@ import { enforceAiQuota } from '../_shared/quota.ts';
 const BUCKET = 'garments';
 /** Signed URL lifetime — only needs to outlive the model call. */
 const SIGNED_URL_TTL_SECONDS = 300;
+
+/**
+ * Where `auth: 'user'` gets the keys it verifies signatures against.
+ *
+ * THIS IS THE FIX FOR THE IMPORT THAT NEVER FINISHED. `@supabase/server`'s
+ * `auth: 'user'` mode resolves its JWKS from `SUPABASE_JWKS` (inline JSON) or
+ * `SUPABASE_JWKS_URL` (endpoint) and from NOTHING ELSE — it does not derive one
+ * from `SUPABASE_URL`, and the Edge Functions platform does not inject either
+ * variable. With neither set, `verifyCredentials` hits
+ *
+ *     case 'user': if (!env.jwks) return null
+ *
+ * before it ever looks at the token, no auth mode matches, and EVERY request
+ * — including one carrying a perfectly valid, unexpired user JWT — comes back
+ * 401 `INVALID_CREDENTIALS`. The handler below never ran once: on the founder's
+ * device the photo uploaded, the row reached `pending_tag`, tagging 401'd, and
+ * the client sat spinning. `ai_calls`, `command_log` and `ai_usage_counters`
+ * were all empty across the project's whole lifetime, which is what a function
+ * body that has never executed looks like.
+ *
+ * Deriving the endpoint from `SUPABASE_URL` here means tagging cannot be broken
+ * again by a secret nobody knew to set. An explicitly configured `SUPABASE_JWKS`
+ * or `SUPABASE_JWKS_URL` still wins — this only fills the hole, and passing
+ * `undefined` leaves the library's own resolution completely untouched.
+ */
+function jwksEnv(): { jwks: URL } | undefined {
+  if (Deno.env.get('SUPABASE_JWKS')?.trim()) return undefined;
+  if (Deno.env.get('SUPABASE_JWKS_URL')?.trim()) return undefined;
+
+  const projectUrl = Deno.env.get('SUPABASE_URL');
+  if (!projectUrl) return undefined;
+
+  try {
+    return { jwks: new URL('/auth/v1/.well-known/jwks.json', projectUrl) };
+  } catch {
+    // A malformed SUPABASE_URL is the platform's problem, not something to
+    // crash the module over at import time.
+    return undefined;
+  }
+}
 /**
  * Vision calls with a fetched image are the slowest workload here, so they get
  * more room than the shared default before the request is abandoned.
@@ -51,7 +91,7 @@ const SETTLED: readonly string[] = ['tagged', 'verified'];
 
 export default {
   fetch: withSupabase(
-    { auth: 'user' },
+    { auth: 'user', env: jwksEnv() },
     async (req: Request, ctx): Promise<Response> => {
       const apiKey = Deno.env.get('OPENROUTER_API_KEY');
       if (!apiKey) {

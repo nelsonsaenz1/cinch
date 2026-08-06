@@ -52,7 +52,26 @@ function invalidateAfterItemSettled(): void {
 
 const MAX_CONCURRENCY = 3;
 const MAX_ATTEMPTS = 3;
+/**
+ * How many times one garment may be sent to `tag-item` before the job gives up
+ * and says so on screen.
+ *
+ * There used to be no such number, and that is the whole of the "it just
+ * continuously loads and loads" bug. A transient tagging failure left the job
+ * parked at `tagging` with a message nobody rendered, `selectActiveCount` kept
+ * counting it as in-flight, and the only thing that could ever move it was a
+ * sweep that is rate-limited to once a minute and silently returns early when
+ * one is already running. A failure the user cannot see and cannot act on is
+ * indistinguishable from a spinner that never stops, so tagging now terminates:
+ * three tries, then a visible, retryable failure.
+ */
+const MAX_TAG_ATTEMPTS = 3;
+/** Backoff between tag attempts within a single job run. */
+const TAG_RETRY_DELAY_MS = 1200;
 const BUCKET = 'garments';
+
+const CONSENT_WITHDRAWN_MESSAGE =
+  'Saved, but not tagged — AI processing is turned off for your account.';
 
 let running = 0;
 let draining = false;
@@ -73,24 +92,118 @@ let draining = false;
  */
 type TagOutcome =
   /** The row is `tagged` or `needs_review`; nothing further will change it. */
-  | { kind: 'settled'; status: 'tagged' | 'needs_review' }
-  /** AI consent is absent or withdrawn. Retrying is a guaranteed 403 forever. */
-  | { kind: 'consent' }
-  /** Transient: the row is still `pending_tag` and a later sweep should retry. */
+  | { kind: 'settled'; status: 'tagged' | 'needs_review'; label?: string }
+  /**
+   * Answered, and the answer is no. Another identical call is not going to
+   * change it, so the queue must stop rather than loop — `accountWide` says
+   * whether the rest of the batch is refused for the same reason.
+   */
+  | { kind: 'blocked'; message: string; retryable: boolean; accountWide: boolean }
+  /** Transient: the row is still `pending_tag` and another attempt is worth it. */
   | { kind: 'retry'; message: string };
 
-type TagResponseBody = { ok?: boolean; status?: string; error?: string };
+type TagResponseBody = {
+  ok?: boolean;
+  status?: string;
+  error?: string;
+  tags?: { category?: string | null; subcategory?: string | null } | null;
+};
 
-/** Read the JSON body off a non-2xx response, if there is one to read. */
-async function readErrorBody(error: unknown): Promise<TagResponseBody | null> {
-  if (!(error instanceof FunctionsHttpError)) return null;
+/**
+ * What a garment should be called on the status rail.
+ *
+ * Subcategory when the tagger produced one ("Knit"), the broad category
+ * otherwise ("Top"). Never a placeholder: an item with no usable name shows its
+ * stage instead, which is at least true.
+ */
+function labelFor(tags: TagResponseBody['tags']): string | undefined {
+  const raw = tags?.subcategory ?? tags?.category;
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
+/** Status code and parsed body from a non-2xx invoke, as far as either can be read. */
+async function readHttpError(
+  error: unknown,
+): Promise<{ status: number | null; body: TagResponseBody | null }> {
+  if (!(error instanceof FunctionsHttpError)) return { status: null, body: null };
+  const response = (error as { context?: unknown }).context as Response | undefined;
+  if (!response) return { status: null, body: null };
   try {
-    const response = (error as { context?: unknown }).context as Response | undefined;
-    return response ? ((await response.json()) as TagResponseBody) : null;
+    return { status: response.status, body: (await response.json()) as TagResponseBody };
   } catch {
-    // A non-JSON error body tells us nothing; treat it as an ordinary failure.
-    return null;
+    // A non-JSON error body still has a status, and the status is the half that
+    // decides whether retrying is pointless.
+    return { status: response.status, body: null };
   }
+}
+
+/**
+ * Turn an HTTP status from `tag-item` into a decision.
+ *
+ * The old code had exactly one branch here — consent — and treated *everything
+ * else* as retryable, forever. That is what turned a 401 into an infinite
+ * spinner: `withSupabase({ auth: 'user' })` was refusing every request with
+ * `INVALID_CREDENTIALS` because the function had no JWKS to verify against, and
+ * the client answered by asking again on every sweep, for as long as the app
+ * was installed. A 4xx is the server saying it understood and declined; asking
+ * an identical question again is not a recovery strategy.
+ */
+function classify(status: number | null, body: TagResponseBody | null): TagOutcome {
+  const detail = body?.error;
+
+  if (status === 403 && detail === 'ai_consent_required') {
+    return {
+      kind: 'blocked',
+      message: CONSENT_WITHDRAWN_MESSAGE,
+      retryable: false,
+      accountWide: true,
+    };
+  }
+
+  if (status === 401 || status === 403) {
+    // Either the session is stale or the function cannot verify tokens at all.
+    // Both are real, both are fixed elsewhere, and neither is fixed by looping.
+    return {
+      kind: 'blocked',
+      message: 'Saved, but not tagged — Cinch couldn’t verify your account. Sign out and back in, then retry.',
+      retryable: true,
+      accountWide: true,
+    };
+  }
+
+  if (status === 429) {
+    return {
+      kind: 'blocked',
+      message: 'Saved, but not tagged — you’ve used this period’s tagging allowance.',
+      retryable: true,
+      accountWide: true,
+    };
+  }
+
+  if (status === 404) {
+    return {
+      kind: 'blocked',
+      message: 'Saved, but not tagged — Cinch couldn’t find this garment to tag.',
+      retryable: false,
+      accountWide: false,
+    };
+  }
+
+  if (status === 400) {
+    return {
+      kind: 'blocked',
+      message: 'Saved, but not tagged — Cinch couldn’t read this request.',
+      retryable: false,
+      accountWide: false,
+    };
+  }
+
+  // 409 (another invocation holds the claim), 5xx, and every network failure:
+  // the item is genuinely still on its way.
+  return { kind: 'retry', message: detail ?? 'Tagging didn’t finish. Cinch will try again.' };
 }
 
 /** Ask the Edge Function to tag one item, and report what actually happened. */
@@ -101,18 +214,17 @@ async function requestTag(itemId: string): Promise<TagOutcome> {
     });
 
     if (error) {
-      const body = await readErrorBody(error);
-      if (body?.error === 'ai_consent_required') return { kind: 'consent' };
-      return { kind: 'retry', message: error instanceof Error ? error.message : String(error) };
+      const { status, body } = await readHttpError(error);
+      return classify(status, body);
     }
 
     // 200, but the body decides. `needs_review` is a settled outcome — the item
     // is waiting in the review deck, not waiting on another call.
     if (data?.status === 'tagged' || data?.status === 'needs_review') {
-      return { kind: 'settled', status: data.status };
+      return { kind: 'settled', status: data.status, label: labelFor(data.tags) };
     }
 
-    return { kind: 'retry', message: data?.error ?? 'Tagging did not complete.' };
+    return { kind: 'retry', message: data?.error ?? 'Tagging didn’t finish. Cinch will try again.' };
   } catch (err) {
     return { kind: 'retry', message: err instanceof Error ? err.message : String(err) };
   }
@@ -125,9 +237,6 @@ function settleJobsForItem(itemId: string, patch: Partial<UploadJob>): void {
     if (job.itemId === itemId) update(job.id, patch);
   }
 }
-
-const CONSENT_WITHDRAWN_MESSAGE =
-  'Saved, but not tagged — AI processing is turned off for your account.';
 
 /** Is AI processing currently permitted for this user? */
 async function hasAiConsent(userId: string): Promise<boolean> {
@@ -366,40 +475,63 @@ async function processJob(job: UploadJob): Promise<void> {
   if (updateError) throw new Error(`Could not record upload: ${updateError.message}`);
 
   // 5. Request tagging. A failure here is explicitly NOT fatal to the import:
-  //    the item is already saved. But it is not `done` either — the job stays
-  //    at `tagging` so the screen keeps counting it as in progress and the
-  //    sweep picks it up, rather than reporting "All done" over a row that is
-  //    still sitting at `pending_tag`.
+  //    the item is already saved. But it must still REACH AN END. Up to
+  //    MAX_TAG_ATTEMPTS tries with a short backoff, then the job is marked
+  //    `failed` with the reason on it — never left at `tagging` for a sweep
+  //    that may not run for an hour, which is what made this look like an
+  //    import that loads forever.
   update(job.id, { stage: 'tagging', progress: 1, error: undefined });
 
-  const outcome = await requestTag(itemId);
+  let lastMessage = 'Tagging didn’t finish.';
 
-  if (outcome.kind === 'settled') {
-    // Before the invalidation, so the closet's refetch already sees real hex
-    // rather than showing model-named swatches for a beat and then swapping.
-    if (cutout.colors) await reapplyMeasuredColors(itemId, cutout.colors);
+  for (let attempt = 0; attempt < MAX_TAG_ATTEMPTS; attempt++) {
+    update(job.id, { tagAttempts: attempt + 1 });
+    const outcome = await requestTag(itemId);
 
-    update(job.id, { stage: 'done' });
-    invalidateAfterItemSettled();
-    // After the durable write, so a crash between tag and track loses the
-    // event rather than fabricating one for an item that never landed.
-    track('clothes_import_completed', { path: 'queue' });
-    return;
+    if (outcome.kind === 'settled') {
+      // Before the invalidation, so the closet's refetch already sees real hex
+      // rather than showing model-named swatches for a beat and then swapping.
+      if (cutout.colors) await reapplyMeasuredColors(itemId, cutout.colors);
+
+      update(job.id, { stage: 'done', error: undefined, label: outcome.label });
+      invalidateAfterItemSettled();
+      // After the durable write, so a crash between tag and track loses the
+      // event rather than fabricating one for an item that never landed.
+      track('clothes_import_completed', { path: 'queue' });
+      return;
+    }
+
+    if (outcome.kind === 'blocked') {
+      // Answered and declined. Retrying is a guaranteed identical answer, so
+      // this stops here and says why — the garment is in the closet either way.
+      update(job.id, {
+        stage: 'failed',
+        error: outcome.message,
+        retryable: outcome.retryable,
+      });
+      invalidateAfterItemSettled();
+      return;
+    }
+
+    lastMessage = outcome.message;
+    // Show the reason while the retries run, so a slow recovery reads as a
+    // recovery rather than as nothing happening.
+    update(job.id, { error: lastMessage });
+    if (attempt < MAX_TAG_ATTEMPTS - 1) {
+      await new Promise((r) => setTimeout(r, TAG_RETRY_DELAY_MS * (attempt + 1)));
+    }
   }
 
-  if (outcome.kind === 'consent') {
-    // Terminal on purpose. Every retry would be another guaranteed 403, and the
-    // user turned this off deliberately — the garment is still in their closet,
-    // it just has no machine-written tags.
-    update(job.id, { stage: 'failed', error: CONSENT_WITHDRAWN_MESSAGE });
-    return;
-  }
-
-  // Left at `tagging` with the reason attached. `processJob` must NOT throw
-  // here: the caller treats a throw as "retry the whole job", which would
-  // re-encode and re-upload three objects for a failure that is only about the
-  // last call.
-  update(job.id, { error: outcome.message });
+  // Out of tries. The photograph is uploaded and the row exists at
+  // `pending_tag`, so the sweep may still rescue it later and will flip this
+  // job back to `done` if it does — but the screen stops pretending and offers
+  // the user the retry instead.
+  update(job.id, {
+    stage: 'failed',
+    error: `${lastMessage} Your garment is saved — tap retry to tag it.`,
+    retryable: true,
+  });
+  invalidateAfterItemSettled();
 }
 
 /**
@@ -434,9 +566,14 @@ export async function drainQueue(): Promise<void> {
         .catch((err: unknown) => {
           const message = err instanceof Error ? err.message : String(err);
           const attempts = next.attempts + 1;
+          const exhausted = attempts >= MAX_ATTEMPTS;
           useQueueStore.getState().update(next.id, {
-            stage: attempts >= MAX_ATTEMPTS ? 'failed' : 'queued',
+            stage: exhausted ? 'failed' : 'queued',
             error: message,
+            // Encoding, cutting out and uploading are all things that fail for
+            // reasons that pass — signal, storage, memory pressure. Worth
+            // offering again rather than presenting as final.
+            retryable: exhausted ? true : undefined,
           });
         })
         .finally(() => {
@@ -447,9 +584,69 @@ export async function drainQueue(): Promise<void> {
     draining = false;
   }
 
-  // Anything the batch left at `tagging` is now the sweep's problem. Rate
-  // limiting inside it means this is a nudge, not a guarantee of a pass here.
+  // The loop above only exits with `running === 0` and nothing queued, so any
+  // job still sitting at `tagging` here is not in flight — it is one a previous
+  // session was killed in the middle of and `hydrate` restored. Finishing those
+  // is done HERE rather than delegated to the sweep, because the sweep is
+  // rate-limited to once a minute and returns early when one is already running:
+  // handing it a stalled job is a hope, not a handover, and hoping is what left
+  // the founder's import spinning.
+  await resumeStalledTagging();
+
+  // The sweep still runs, as the long-tail recovery for rows the app has no
+  // local job for at all — an import finished on another device, or a queue
+  // entry that aged out of storage.
   void sweepPendingTags();
+}
+
+/**
+ * Finish tagging for jobs a previous run left mid-flight.
+ *
+ * Only safe to call when the drain loop has gone quiet — see the call site.
+ * Every job either settles, fails visibly, or is handed to the sweep with its
+ * attempt count already spent; none of them may go back to waiting silently.
+ */
+async function resumeStalledTagging(): Promise<void> {
+  const stalled = useQueueStore.getState().jobs.filter((j) => j.stage === 'tagging');
+
+  for (const job of stalled) {
+    const { update } = useQueueStore.getState();
+    const itemId = job.itemId;
+    // No row yet means the kill landed before the insert; the whole job has to
+    // run again from the top rather than be tagged.
+    if (!itemId) {
+      update(job.id, { stage: 'queued', progress: 0, error: undefined });
+      continue;
+    }
+
+    if (job.tagAttempts >= MAX_TAG_ATTEMPTS) {
+      update(job.id, {
+        stage: 'failed',
+        error: `${job.error ?? 'Tagging didn’t finish.'} Your garment is saved — tap retry to tag it.`,
+        retryable: true,
+      });
+      continue;
+    }
+
+    update(job.id, { tagAttempts: job.tagAttempts + 1 });
+    const outcome = await requestTag(itemId);
+
+    if (outcome.kind === 'settled') {
+      update(job.id, { stage: 'done', error: undefined, label: outcome.label });
+      invalidateAfterItemSettled();
+      track('clothes_import_completed', { path: 'resume' });
+      continue;
+    }
+
+    update(job.id, {
+      stage: 'failed',
+      error:
+        outcome.kind === 'blocked'
+          ? outcome.message
+          : `${outcome.message} Your garment is saved — tap retry to tag it.`,
+      retryable: outcome.kind === 'blocked' ? outcome.retryable : true,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -526,18 +723,34 @@ export async function sweepPendingTags(): Promise<void> {
       const outcome = await requestTag(row.id);
 
       if (outcome.kind === 'settled') {
-        settleJobsForItem(row.id, { stage: 'done', error: undefined });
+        // A job this sweep rescued may well be sitting at `failed` from an
+        // earlier run — clearing the error is what lets a late success undo a
+        // visible failure rather than leaving both on screen at once.
+        settleJobsForItem(row.id, {
+          stage: 'done',
+          error: undefined,
+          retryable: undefined,
+          label: outcome.label,
+        });
         invalidateAfterItemSettled();
         track('clothes_import_completed', { path: 'sweep' });
         continue;
       }
 
-      if (outcome.kind === 'consent') {
-        // Consent changed underneath us between the check above and now. Stop:
-        // every remaining item in the batch would fail identically.
-        settleJobsForItem(row.id, { stage: 'failed', error: CONSENT_WITHDRAWN_MESSAGE });
-        nextSweepAt = Date.now() + SWEEP_MAX_INTERVAL_MS;
-        return;
+      if (outcome.kind === 'blocked') {
+        settleJobsForItem(row.id, {
+          stage: 'failed',
+          error: outcome.message,
+          retryable: outcome.retryable,
+        });
+        // An account-wide refusal — consent withdrawn, session unverifiable,
+        // allowance spent — refuses the rest of this batch identically. Stop
+        // rather than work through fifty guaranteed failures.
+        if (outcome.accountWide) {
+          nextSweepAt = Date.now() + SWEEP_MAX_INTERVAL_MS;
+          return;
+        }
+        continue;
       }
 
       failures += 1;
@@ -554,6 +767,64 @@ export async function sweepPendingTags(): Promise<void> {
   } finally {
     sweeping = false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// User-initiated retry
+// ---------------------------------------------------------------------------
+
+/**
+ * Try a failed job again, because the user asked.
+ *
+ * Two routes, and the difference matters. A job that already has an `itemId`
+ * got its photographs uploaded and its row written — only the tag is missing —
+ * so it re-asks for the tag alone. Re-encoding and re-uploading three objects
+ * to fix a failed 200-byte function call is minutes of a stranger's battery
+ * spent on nothing. A job that never reached an item id has no such shortcut
+ * and goes back through the queue from the top.
+ *
+ * The sweep's rate limit is cleared here on purpose: an explicit tap is exactly
+ * the moment the backoff should not apply.
+ */
+export async function retryJob(jobId: string): Promise<void> {
+  const { jobs, update } = useQueueStore.getState();
+  const job = jobs.find((j) => j.id === jobId);
+  if (!job || job.stage !== 'failed') return;
+
+  if (!job.itemId) {
+    update(jobId, { stage: 'queued', attempts: 0, tagAttempts: 0, error: undefined, retryable: undefined, progress: 0 });
+    nextSweepAt = 0;
+    sweepInterval = SWEEP_MIN_INTERVAL_MS;
+    await drainQueue();
+    return;
+  }
+
+  update(jobId, { stage: 'tagging', progress: 1, error: undefined, retryable: undefined });
+  const outcome = await requestTag(job.itemId);
+
+  if (outcome.kind === 'settled') {
+    update(jobId, { stage: 'done', error: undefined, retryable: undefined, label: outcome.label });
+    invalidateAfterItemSettled();
+    track('clothes_import_completed', { path: 'retry' });
+    return;
+  }
+
+  update(jobId, {
+    stage: 'failed',
+    tagAttempts: job.tagAttempts + 1,
+    error: outcome.message,
+    retryable: outcome.kind === 'blocked' ? outcome.retryable : true,
+  });
+}
+
+/** Every failed job worth another go, in one tap. */
+export async function retryFailedJobs(): Promise<void> {
+  const retryable = useQueueStore
+    .getState()
+    .jobs.filter((j) => j.stage === 'failed' && j.retryable !== false);
+  // Sequential rather than parallel: these are the calls that were already
+  // failing, and three at once is how a struggling backend is kept struggling.
+  for (const job of retryable) await retryJob(job.id);
 }
 
 let sweeperStarted = false;

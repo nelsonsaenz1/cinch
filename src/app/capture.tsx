@@ -17,8 +17,13 @@ import { Placement } from '@/features/billing/placements';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { useGate } from '@/features/billing/use-gate';
 import { useCapture } from '@/features/ingest/use-capture';
-import { useQueueStore, selectActiveCount } from '@/features/ingest/queue-store';
-import { drainQueue } from '@/features/ingest/upload-queue';
+import {
+  useQueueStore,
+  selectActiveCount,
+  selectFailedJobs,
+  selectPhaseLabel,
+} from '@/features/ingest/queue-store';
+import { drainQueue, retryFailedJobs } from '@/features/ingest/upload-queue';
 import { useTheme } from '@/theme/tokens';
 
 /** One L of the framing guide. Light lines on the dark stage, per the design. */
@@ -151,10 +156,26 @@ export default function CaptureScreen() {
   // Progress is read entirely off the real upload/tag queue — never fabricated.
   const total = jobs.length;
   const doneCount = jobs.filter((j) => j.stage === 'done').length;
-  const failedCount = jobs.filter((j) => j.stage === 'failed').length;
+  const failed = selectFailedJobs(jobs);
+  const failedCount = failed.length;
   const active = selectActiveCount(jobs); // queued + in-flight, i.e. still to process
   const allDone = total > 0 && active === 0;
   const fraction = total ? doneCount / total : 0;
+  // What the batch is actually doing this second — "cleaning up…",
+  // "categorising…". Named rather than implied, because a long tagging pass over
+  // a slow connection is otherwise indistinguishable from nothing happening.
+  const phase = selectPhaseLabel(jobs);
+  const canRetry = failed.some((j) => j.retryable !== false);
+  const [retrying, setRetrying] = useState(false);
+
+  const retryFailed = useCallback(async () => {
+    setRetrying(true);
+    try {
+      await retryFailedJobs();
+    } finally {
+      setRetrying(false);
+    }
+  }, []);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-ink">
@@ -255,7 +276,7 @@ export default function CaptureScreen() {
                   ? failedCount > 0
                     ? `Added ${doneCount} of ${total}`
                     : 'All added'
-                  : `Processing ${Math.min(doneCount + 1, total)} of ${total}`}
+                  : `Processing ${Math.min(doneCount + 1, total)} of ${total}${phase ? ` · ${phase}` : ''}`}
               </Text>
               {!allDone ? (
                 <Text variant="caption" style={{ color: theme.faint }}>{`${active} to go`}</Text>
@@ -278,6 +299,38 @@ export default function CaptureScreen() {
             )}
 
             <UploadQueueList jobs={jobs} />
+
+            {/*
+              A stopped garment, said out loud.
+              Before this, a tagging failure lived only in `job.error` — a field
+              nothing rendered — while the job sat counted as in-flight forever.
+              That is what "it just continuously loads and loads" was: not a slow
+              import, an invisible one. The banner takes the same grammar the
+              review deck already uses for a failed save (warning wash, one
+              sentence, one action beside it) rather than a new pattern, and the
+              retry only appears when there is genuinely something to retry.
+            */}
+            {failedCount > 0 ? (
+              <View
+                accessibilityLiveRegion="polite"
+                className="mt-3 rounded-card bg-warning/15 px-3 py-2.5">
+                <Text variant="colophon">
+                  {failedCount === 1 ? '1 piece stopped' : `${failedCount} pieces stopped`}
+                </Text>
+                <Text variant="label" className="mt-1">
+                  {failed[0]?.error ?? 'Cinch couldn’t finish this one.'}
+                </Text>
+                {canRetry ? (
+                  <Button
+                    title="Try these again"
+                    variant="secondary"
+                    loading={retrying}
+                    onPress={() => void retryFailed()}
+                    className="mt-2.5 self-start"
+                  />
+                ) : null}
+              </View>
+            ) : null}
 
             {doneCount > 0 ? (
               <Button
