@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import { pieceName } from '@/features/closet/item-name';
 import { type Item, costPerWear } from '@/schemas/item';
 import { leading } from '@/theme/font-metrics';
 import { useTheme } from '@/theme/tokens';
@@ -92,8 +93,12 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
       </View>
 
       <View className="mt-2 px-0.5">
+        {/* The shared name, not the bare `subcategory` column: the tile used
+            to read "sweater" while the highlights rail ten points above it
+            said "Cream sweater" for the same garment. One derivation now
+            (features/closet/item-name.ts) — colour, kind, capitalised. */}
         <Text variant="label" numberOfLines={1} className="text-ink dark:text-ink-dark">
-          {item.subcategory ?? 'Untagged item'}
+          {pieceName(item)}
         </Text>
         {/* wears on the left, cost-per-wear on the right in the serif — the
             garment's whole story in one line. Never-worn reads in the accent. */}
