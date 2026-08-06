@@ -1,4 +1,6 @@
 import { withSupabase } from 'npm:@supabase/server@^1';
+
+import { jwksEnv } from '../_shared/jwks.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
@@ -82,7 +84,7 @@ async function listAllPaths(
 
 export default {
   fetch: withSupabase(
-    { auth: 'user' },
+    { auth: 'user', env: jwksEnv() },
     async (req: Request, ctx): Promise<Response> => {
       if (req.method !== 'POST') {
         return Response.json({ error: 'Method not allowed.' }, { status: 405 });
