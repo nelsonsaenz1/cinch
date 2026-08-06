@@ -152,6 +152,12 @@ export default function ReviewScreen() {
     [edits],
   );
 
+  // Confirmed cards leave `items` on the next refetch, so a total derived from
+  // items.length alone RENUMBERS as the user works — "1 of 10" became "1 of 9"
+  // instead of "2 of 10". Counting confirms this sitting keeps the ordinal
+  // advancing through a stable total, which is what a position marker is for.
+  const [confirmedCount, setConfirmedCount] = useState(0);
+
   const confirm = useCallback(
     async (item: Item) => {
       if (inFlightRef.current.has(item.id)) return;
@@ -237,12 +243,6 @@ export default function ReviewScreen() {
   // Only used to keep the end-of-deck copy honest — "these are ready to wear"
   // is a lie if half of them were deferred.
   const [skippedCount, setSkippedCount] = useState(0);
-
-  // Confirmed cards leave `items` on the next refetch, so a total derived from
-  // items.length alone RENUMBERS as the user works — "1 of 10" became "1 of 9"
-  // instead of "2 of 10". Counting confirms this sitting keeps the ordinal
-  // advancing through a stable total, which is what a position marker is for.
-  const [confirmedCount, setConfirmedCount] = useState(0);
 
   const skip = useCallback(
     (item: Item) => {
