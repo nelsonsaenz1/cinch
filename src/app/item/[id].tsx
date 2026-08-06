@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { formatPrice, parsePrice } from '@/components/review/review-card';
@@ -12,6 +12,8 @@ import { Text } from '@/components/ui/text';
 import { useVerifyItem } from '@/features/closet/mutations';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls, stableImageSource } from '@/features/closet/use-image-urls';
+import { useSetBorrowable } from '@/features/social-graph/mutations';
+import { useItemBorrowable } from '@/features/social-graph/queries';
 import { costPerWear, type Item } from '@/schemas/item';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -56,6 +58,12 @@ export default function ItemDetailScreen() {
   const [draft, setDraft] = useState<string | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
   const save = useVerifyItem();
+
+  // The lending flag. Read separately from the closet query on purpose: the
+  // generated `Item` type predates the `borrowable` column, and this is the
+  // one screen that can flip it.
+  const borrowable = useItemBorrowable(id ?? null);
+  const setBorrowable = useSetBorrowable();
 
   if (closet.isLoading) {
     return (
@@ -240,6 +248,57 @@ export default function ItemDetailScreen() {
             That didn&rsquo;t save. Check your connection and try again.
           </Text>
         ) : null}
+
+        {/* Lending. Default is borrowable — generosity is the feature — and
+            the copy says plainly what "off" does and does not do: the piece
+            stays visible in a friend's view of the closet either way, there is
+            just no ask on it. While the flag is loading the switch is withheld
+            (spinner in its place), same reasoning as Profile's consent toggle:
+            a control that says "off" for a beat and then flips reads as the
+            app having lost the setting. */}
+        <View className="mt-6 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+          <View className="flex-row items-center justify-between p-4">
+            <View className="flex-1 pr-3">
+              <Text variant="body">Borrowable</Text>
+              <Text variant="caption" className="mt-1 text-muted">
+                {borrowable.data === undefined
+                  ? 'Checking…'
+                  : borrowable.data
+                    ? 'Friends can ask to borrow this piece.'
+                    : 'Marked not for lending. Friends still see it in your closet — there’s just no way to ask.'}
+              </Text>
+            </View>
+            {borrowable.data !== undefined ? (
+              <Switch
+                value={borrowable.data}
+                onValueChange={(next) =>
+                  setBorrowable.mutate(
+                    { id: item.id, borrowable: next },
+                    {
+                      onError: (err) =>
+                        Alert.alert(
+                          'Could not update lending',
+                          err instanceof Error
+                            ? err.message
+                            : 'Something went wrong. The setting has not changed.',
+                        ),
+                    },
+                  )
+                }
+                disabled={setBorrowable.isPending}
+                trackColor={{ false: theme.rule, true: theme.ink }}
+                accessibilityLabel="Borrowable"
+                accessibilityHint={
+                  borrowable.data
+                    ? 'Marks this piece not for lending'
+                    : 'Lets friends ask to borrow this piece'
+                }
+              />
+            ) : (
+              <ActivityIndicator size="small" color={theme.faint} />
+            )}
+          </View>
+        </View>
 
         {item.description ? (
           <Text variant="body" className="mt-5 text-muted dark:text-muted-dark">

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import {
@@ -18,6 +19,7 @@ import { signOut } from '@/features/auth/actions';
 import { useAiConsent, useGrantAiConsent, useRevokeAiConsent } from '@/features/auth/use-consent';
 import { useDeleteAccount } from '@/features/auth/use-delete-account';
 import { useCloset } from '@/features/closet/queries';
+import { useBorrowRequests } from '@/features/social-graph/queries';
 import { useStyleProfile } from '@/features/styling/queries';
 import { getUserId, supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -95,11 +97,14 @@ function AccountRow({
   onPress,
   tone = 'ink',
   loading = false,
+  detail,
 }: {
   label: string;
   onPress: () => void;
   tone?: 'ink' | 'accent';
   loading?: boolean;
+  /** Quiet fact before the chevron — "2 waiting". Data, not decoration. */
+  detail?: string;
 }) {
   const theme = useTheme();
   const iconColor = tone === 'accent' ? theme.accent : theme.faint;
@@ -115,16 +120,23 @@ function AccountRow({
       <Text variant="body" className={tone === 'accent' ? 'text-accent' : 'text-ink'}>
         {label}
       </Text>
-      {loading ? (
-        <ActivityIndicator size="small" color={iconColor} />
-      ) : (
-        <SymbolView
-          name="chevron.right"
-          size={13}
-          tintColor={iconColor}
-          resizeMode="scaleAspectFit"
-        />
-      )}
+      <View className="flex-row items-center gap-2">
+        {detail ? (
+          <Text variant="caption" className="text-accent">
+            {detail}
+          </Text>
+        ) : null}
+        {loading ? (
+          <ActivityIndicator size="small" color={iconColor} />
+        ) : (
+          <SymbolView
+            name="chevron.right"
+            size={13}
+            tintColor={iconColor}
+            resizeMode="scaleAspectFit"
+          />
+        )}
+      </View>
     </Pressable>
   );
 }
@@ -139,10 +151,19 @@ function AccountRow({
  */
 export default function ProfileScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const closet = useCloset();
   const style = useStyleProfile();
   const deleteAccount = useDeleteAccount();
   const profileHeader = useQuery({ queryKey: ['profile-header'], queryFn: fetchProfileHeader });
+
+  // Only for the "waiting" count on the Borrow requests row — the row itself
+  // is the screen for everything else. No tab badges anywhere: a single quiet
+  // number here is the Plate's whole tolerance for unread-count anxiety.
+  const borrow = useBorrowRequests();
+  const pendingAsks = (borrow.data ?? []).filter(
+    (t) => t.direction === 'incoming' && t.request.status === 'pending',
+  ).length;
 
   const consent = useAiConsent();
   const revokeConsent = useRevokeAiConsent();
@@ -400,6 +421,24 @@ export default function ProfileScreen() {
                 <ActivityIndicator size="small" color={theme.faint} />
               )}
             </View>
+          </View>
+
+          <Text variant="eyebrow" className="mb-2.5 mt-7">
+            Friends &amp; borrowing
+          </Text>
+          <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+            <AccountRow label="Friends" onPress={() => router.push('/friends')} />
+            <View className="h-px bg-hairline" />
+            <AccountRow
+              label="Borrow requests"
+              detail={pendingAsks > 0 ? `${pendingAsks} waiting` : undefined}
+              onPress={() => router.push('/borrow')}
+            />
+            <View className="h-px bg-hairline" />
+            <AccountRow
+              label="Blocked users"
+              onPress={() => router.push({ pathname: '/friends', params: { blocked: '1' } })}
+            />
           </View>
 
           <Text variant="eyebrow" className="mb-2.5 mt-7">
