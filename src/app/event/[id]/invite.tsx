@@ -1,10 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RosterRow } from '@/components/events/RosterRow';
 import { Button } from '@/components/ui/button';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 // Batch-1 seam: the shared states kit.
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -94,9 +95,8 @@ export default function InviteScreen() {
         </Text>
       ) : null}
 
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerClassName="px-gutter pb-10"
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         {candidates.isError ? (
           // A failed search is not "nobody by that name" — that sentence tells
@@ -214,7 +214,7 @@ export default function InviteScreen() {
             ))}
           </>
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

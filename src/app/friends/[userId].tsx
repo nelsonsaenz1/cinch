@@ -2,21 +2,13 @@ import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, Modal, Pressable, RefreshControl, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FriendItemCard } from '@/components/social/FriendItemCard';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/empty-state';
+import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 // Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `ClosetGridSkeleton`
 // is already exported; reused as-is for a friend's closet grid, same shape.
 import { ClosetGridSkeleton } from '@/components/ui/skeleton';
@@ -273,7 +265,7 @@ export default function FriendClosetScreen() {
           style={{ backgroundColor: theme.scrim }}
           accessibilityLabel="Close"
           onPress={() => setAsking(null)}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <KeyboardAvoidingScreen>
             {/* Stop taps inside the card falling through to the scrim. */}
             <Pressable onPress={(e) => e.stopPropagation()}>
               <View className="rounded-t-sheet bg-canvas px-gutter pb-10 pt-6">
@@ -322,7 +314,7 @@ export default function FriendClosetScreen() {
                 />
               </View>
             </Pressable>
-          </KeyboardAvoidingView>
+          </KeyboardAvoidingScreen>
         </Pressable>
       </Modal>
     </SafeAreaView>

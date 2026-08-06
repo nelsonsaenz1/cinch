@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Text } from '@/components/ui/text';
 import { socialDenialCopy, useCreateEvent } from '@/features/events/mutations';
 import type { EventVisibility } from '@/features/events/types';
@@ -177,9 +178,8 @@ export default function NewEventScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerClassName="px-gutter pb-16"
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <View className="mt-4">
           <Text variant="title" trim>
@@ -374,7 +374,7 @@ export default function NewEventScreen() {
           onPress={submit}
           className="mt-8"
         />
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

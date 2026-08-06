@@ -1,20 +1,14 @@
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MessageBubble } from '@/components/stylist/message-bubble';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
+import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -272,9 +266,7 @@ export default function StylistScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingScreen className="flex-1">
         <StylistHeader />
 
         <ScrollView
@@ -398,11 +390,16 @@ export default function StylistScreen() {
             placeholder="Dinner at 7, drinks after…"
             placeholderTextColor={theme.muted}
             multiline
+            textAlignVertical="top"
             returnKeyType="send"
             blurOnSubmit
             accessibilityLabel="Ask the stylist"
             style={{ maxHeight: 110 }}
-            className="flex-1 rounded-full border border-rule bg-surface px-4 py-2.5 text-ink dark:border-rule-dark dark:bg-surface-dark dark:text-ink-dark"
+            // `font-body text-callout` — the same computed, floor-safe line
+            // height every other field carries (src/theme/font-metrics.js).
+            // The bare `text-ink` this used to carry set colour only, leaving
+            // the box sized off RN's undocumented default TextInput font.
+            className="flex-1 rounded-full border border-rule bg-surface px-4 py-2.5 font-body text-callout text-ink dark:border-rule-dark dark:bg-surface-dark dark:text-ink-dark"
           />
           <Pressable
             onPress={() => submit(draft)}
@@ -423,7 +420,7 @@ export default function StylistScreen() {
             />
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingScreen>
     </SafeAreaView>
   );
 }

@@ -1,22 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentRow } from '@/components/event-outfits/CommentRow';
 import { lookName } from '@/components/event-outfits/OutfitPostCard';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
+import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 // Batch-1 seam: the shared states kit.
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -144,9 +136,7 @@ export default function EventCommentsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1">
+      <KeyboardAvoidingScreen className="flex-1">
         <View className="flex-row items-center gap-3 px-gutter pt-2">
           <Pressable
             onPress={() => router.back()}
@@ -289,7 +279,7 @@ export default function EventCommentsScreen() {
             )}
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingScreen>
     </SafeAreaView>
   );
 }

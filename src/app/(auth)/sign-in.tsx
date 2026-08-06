@@ -8,9 +8,7 @@ import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
   Linking,
-  Platform,
   Pressable,
   Text as RNText,
   TextInput,
@@ -20,6 +18,7 @@ import {
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { Text } from '@/components/ui/text';
 import { sendEmailLink, signInWithApple } from '@/features/auth/actions';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -248,9 +247,7 @@ export default function SignInScreen() {
       {/* The grid half is ink; the global status bar is dark-on-light and
           would vanish over it. */}
       <StatusBar style="light" />
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingScreen className="flex-1">
         {/* ── The set: a 2×2 contact sheet of garment swatches ── */}
         <View
           style={{
@@ -448,9 +445,17 @@ export default function SignInScreen() {
                     textContentType="emailAddress"
                     returnKeyType="go"
                     accessibilityLabel="Email address"
+                    // `minHeight`, not `height`: a fixed height doesn't grow
+                    // past its own ceiling, so a larger Dynamic Type setting
+                    // (this field carries no `maxFontSizeMultiplier`, unlike
+                    // `Text`) renders a taller line than the box allows and
+                    // the field's own bounds clip it. `minHeight` keeps the
+                    // pill exactly px(50) tall at the system default and lets
+                    // it grow, never clip, past that.
                     className="flex-1 rounded-full px-4 font-body text-callout"
                     style={{
-                      height: px(50),
+                      minHeight: px(50),
+                      paddingVertical: px(8),
                       borderWidth: 1,
                       borderColor: theme.rule,
                       color: theme.ink,
@@ -538,7 +543,7 @@ export default function SignInScreen() {
             </Pressable>
           </View>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingScreen>
     </View>
   );
 }
