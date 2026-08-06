@@ -314,7 +314,11 @@ const config: ExpoConfig = {
     // whether the OS supports Sign in with Apple, not whether THIS build holds
     // the entitlement — so the build-time answer has to be carried across too.
     appleSignInEnabled: !FREE_SIGNING,
+    eas: {
+      projectId: '30c4281f-73b9-4bf2-9b4d-e2a62b2552e9',
+    },
   },
+  owner: 'nelsonsaenz',
 };
 
 export default config;
