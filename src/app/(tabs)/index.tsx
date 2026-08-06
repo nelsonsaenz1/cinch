@@ -562,11 +562,21 @@ export default function TodayScreen() {
   // plate is a new impression. The ref is deliberately per-mount rather than
   // persisted: seeing today's outfits tomorrow IS a new impression, which is
   // the opposite of `closet_ready`'s once-per-person claim.
+  //
+  // `source` leads the key, and that is not decoration. The screen enhances in
+  // place: the local engine's set paints first and the model's re-ranked set
+  // replaces it seconds later. Those are two impressions, one of which we paid
+  // for — but the re-rank picks from the same shortlist and routinely comes
+  // back with the same plates in the same order, so a joined-ids key alone
+  // would silently swallow the second. This is the one place the identity of a
+  // set is not just its garments.
   const viewedRef = useRef<string | null>(null);
   const platesOnScreen =
     !wardrobe.isLoading && !wardrobe.isError && canGenerate(items) && effectiveShown.length > 0;
+  const viewedSource = effectiveShown[0]?.source ?? null;
+  const viewedCount = effectiveShown.length;
   const viewedKey = platesOnScreen
-    ? effectiveShown.map((o) => idOf(o.candidate.items)).join('|')
+    ? `${viewedSource}|${effectiveShown.map((o) => idOf(o.candidate.items)).join('/')}`
     : null;
   useEffect(() => {
     if (!viewedKey || viewedRef.current === viewedKey) return;
@@ -574,12 +584,15 @@ export default function TodayScreen() {
     track('outfit_set_viewed', {
       surface: 'today',
       // The number of plates, never anything about what is on them.
-      count: viewedKey.split('|').length,
+      count: viewedCount,
+      // Which engine produced the set the reader is actually looking at.
+      source: viewedSource ?? 'engine',
       offline,
     });
-    // `offline` is read, not depended on: the flag belongs to the moment the
-    // set first appeared, and adding it here would only re-run an effect the
-    // ref already blocks.
+    // `offline`, `viewedCount` and `viewedSource` are read, not depended on:
+    // all three belong to the moment the set first appeared, and every one of
+    // them is already folded into `viewedKey` or fixed by it. Adding them here
+    // would only re-run an effect the ref already blocks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewedKey]);
 
@@ -731,6 +744,7 @@ export default function TodayScreen() {
       else setRefreshFailed(true);
     });
   }, [outfits.aiError, gate]);
+
 
   // --- States --------------------------------------------------------------
 

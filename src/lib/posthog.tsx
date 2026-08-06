@@ -228,6 +228,16 @@ export type AppEvent =
    * rate should be readable with those sessions excluded). Once per distinct
    * set per mount: a "show me another" swap replaces a plate and counts again,
    * because a new outfit really did arrive in front of the reader.
+   *
+   * `source` is 'engine' | 'ai' and is part of the KEY as well as a property.
+   * Today enhances in place — the on-device scorer's set paints in about ten
+   * milliseconds and the model's re-ranked set replaces it seconds later — and
+   * those are two different things shown to the reader, one of which we paid
+   * for. The re-rank picks from the same shortlist, so it routinely returns the
+   * same plates in the same order and a joined-ids key alone would never see
+   * the second set. A like rate that differs sharply between the two sources is
+   * the direct read on whether the re-rank is worth paying for; without the
+   * split there is no way to ask.
    */
   | 'outfit_set_viewed'
   /** An outfit recorded as actually worn — the habit metric. */
