@@ -19,7 +19,7 @@ import { startTagSweeper } from '@/features/ingest/upload-queue';
 import { Placement } from '@/features/billing/placements';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
-import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
+import { canGenerate, MIN_CLOSET_FOR_OUTFITS, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits } from '@/features/styling/use-outfits';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES, targetWarmth, type Garment, type WeatherContext } from '@/lib/styling';
 import { supabase } from '@/lib/supabase';
@@ -112,6 +112,37 @@ function useFirstName(): string | null {
 }
 
 /**
+ * The stylist door, per the field guide's masthead row (§02): the ✦ glyph,
+ * always reachable, in every state the screen can be in.
+ *
+ * Extracted so every masthead — full and reduced alike — carries it. Before
+ * this it lived only inside `Masthead`, which renders exclusively on a normal
+ * day with outfits on screen; every other state (loading, a failed fetch, an
+ * empty closet, "nothing works", offline) fell back to `ReducedMasthead`,
+ * which never had it. A founder opening the app new, or on a day the engine
+ * came back empty, had no way to reach the stylist at all — not subtle,
+ * simply absent. `navigate`, not `push`: a fast double-tap must not stack two
+ * sheets. 34pt with 8pt of hitSlop clears the 44pt minimum tap target on
+ * every side.
+ */
+function StylistButton() {
+  const router = useRouter();
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={() => router.navigate('/stylist')}
+      accessibilityRole="button"
+      accessibilityLabel="Ask the stylist"
+      hitSlop={8}
+      style={{ width: 34, height: 34 }}
+      className="items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
+      <SymbolView name="sparkles" size={16} tintColor={theme.accent} resizeMode="scaleAspectFit" />
+    </Pressable>
+  );
+}
+
+/**
  * The page header: the day and place as a tracked eyebrow, and a serif greeting.
  *
  * No rule under it. The design sets the greeting, the weather line and the
@@ -138,21 +169,7 @@ function Masthead({ city, name }: { city: string; name?: string | null }) {
           </View>
         </View>
         <View className="flex-row gap-2" style={{ marginTop: 2 }}>
-          <Pressable
-            // navigate, not push: a fast double-tap must not stack two sheets.
-            onPress={() => router.navigate('/stylist')}
-            accessibilityRole="button"
-            accessibilityLabel="Ask the stylist"
-            hitSlop={8}
-            style={{ width: 34, height: 34 }}
-            className="items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
-            <SymbolView
-              name="sparkles"
-              size={16}
-              tintColor={theme.accent}
-              resizeMode="scaleAspectFit"
-            />
-          </Pressable>
+          <StylistButton />
           <Pressable
             onPress={() => router.navigate('/profile')}
             accessibilityRole="button"
@@ -174,21 +191,32 @@ function Masthead({ city, name }: { city: string; name?: string | null }) {
 }
 
 /**
- * The reduced masthead: the eyebrow and the section name, nothing else.
+ * The reduced masthead: the eyebrow and the section name, plus the same ✦
+ * stylist door the full masthead carries.
  *
- * Shared by the two states that have no morning to greet — a brand-new user
- * with no closet, and a day the engine could not dress. Both are moments where
- * a cheerful "Good afternoon, Mara" over bad news reads as a machine that has
- * not noticed.
+ * Shared by every state that has no morning to greet — first load, a failed
+ * fetch, a brand-new user with no closet, a day the engine could not dress,
+ * and offline. All of them still need a stylist to ask (the honest
+ * "nothing works" card even names it as the first thing that might help), so
+ * the door stays lit even when there is no greeting to put it next to. Only
+ * the profile avatar drops — there is no fresh morning to attribute to
+ * anyone.
  */
 function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
   return (
     <View className="px-gutter pt-2">
-      <Text variant="eyebrow">{eyebrow}</Text>
-      <View style={{ marginTop: 6 }}>
-        <Text variant="display" trim accessibilityRole="header">
-          Today
-        </Text>
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1">
+          <Text variant="eyebrow">{eyebrow}</Text>
+          <View style={{ marginTop: 6 }}>
+            <Text variant="display" trim accessibilityRole="header">
+              Today
+            </Text>
+          </View>
+        </View>
+        <View style={{ marginTop: 2 }}>
+          <StylistButton />
+        </View>
       </View>
     </View>
   );
@@ -221,6 +249,56 @@ function nothingWorksReason(items: Garment[], weather: WeatherContext | null): s
   }
 
   return "Cinch couldn't build an outfit that holds together from what's in your closet right now. One more layer, or a pair of shoes, usually unlocks it.";
+}
+
+/**
+ * The count-and-cause line for a closet that has started but hasn't crossed
+ * `MIN_CLOSET_FOR_OUTFITS` yet.
+ *
+ * `canGenerate()` gates on two things at once — a top-and-bottom pairing (or
+ * a dress) and a numeric floor — so a closet mid-capture can be short of
+ * either, both, or neither. Without this, someone who has just photographed
+ * seven garments fell straight through to the zero-item virgin copy
+ * ("Nothing to style yet… Photograph your wardrobe once") and read it as her
+ * upload having failed. This names what actually landed — the count first,
+ * since it's the proof the uploads worked — and exactly what's still needed,
+ * the same way `nothingWorksReason` above is honest about a full closet that
+ * can't produce a look today. Never called with an empty closet; that stays
+ * the original virgin state.
+ */
+function buildingCloset(items: Garment[]): { count: string; body: string } {
+  const count = items.length;
+  const piece = count === 1 ? 'piece' : 'pieces';
+  const countLine = `${count} ${piece} so far`;
+
+  const has = (slot: Garment['slot']) => items.some((g) => g.slot === slot);
+  const hasTop = has('base_top') || has('dress');
+  const hasBottom = has('bottom') || has('dress');
+
+  if (!hasTop && !hasBottom) {
+    return {
+      count: countLine,
+      body: 'I need a top and a bottom — or a dress — before I can put a single outfit together. Keep photographing.',
+    };
+  }
+  if (!hasTop) {
+    return {
+      count: countLine,
+      body: 'Bottoms are in. I still need a top, or a dress, before I can build an outfit.',
+    };
+  }
+  if (!hasBottom) {
+    return {
+      count: countLine,
+      body: 'Tops are in. I still need a bottom, or a dress, before I can build an outfit.',
+    };
+  }
+
+  const remaining = MIN_CLOSET_FOR_OUTFITS - count;
+  return {
+    count: countLine,
+    body: `The basics are there. ${remaining} more ${remaining === 1 ? 'piece' : 'pieces'} and I'll have enough to start building real outfits.`,
+  };
 }
 
 /**
@@ -482,6 +560,13 @@ export default function TodayScreen() {
   }
 
   if (!canGenerate(items)) {
+    // Zero items is the only closet the virgin copy ("Nothing to style yet")
+    // is honest about. Above zero and below the threshold, that same copy
+    // reads as a failed upload to someone who just photographed real
+    // garments — so it tells the truth instead: what landed, what's missing.
+    const empty = items.length === 0;
+    const building = empty ? null : buildingCloset(items);
+
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
         {/* The masthead reduces to the date and the section name: a brand-new
@@ -503,12 +588,12 @@ export default function TodayScreen() {
               borderStyle: 'dashed',
               paddingBottom: 12,
             }}>
-            <Text variant="colophon">Nothing to style yet</Text>
+            <Text variant="colophon">{empty ? 'Nothing to style yet' : building!.count}</Text>
           </View>
 
           <View style={{ marginTop: 26 }}>
             <Text variant="title" className="text-center">
-              I can&apos;t style{'\n'}what I can&apos;t see
+              {empty ? <>I can&apos;t style{'\n'}what I can&apos;t see</> : 'Not quite enough yet'}
             </Text>
           </View>
 
@@ -516,8 +601,9 @@ export default function TodayScreen() {
             variant="body"
             className="mt-3 text-center text-muted dark:text-muted-dark"
             style={{ maxWidth: 264 }}>
-            Photograph your wardrobe once and I&apos;ll build outfits from your real clothes each
-            morning. No shopping, ever.
+            {empty
+              ? "Photograph your wardrobe once and I'll build outfits from your real clothes each morning. No shopping, ever."
+              : building!.body}
           </Text>
 
           {/* Ink, not oxblood: the one spent accent is reserved for a loved
@@ -529,11 +615,11 @@ export default function TodayScreen() {
               router.push('/capture');
             }}
             accessibilityRole="button"
-            accessibilityLabel="Add your clothes"
+            accessibilityLabel={empty ? 'Add your clothes' : 'Add more clothes'}
             style={{ minHeight: MIN_TAP_TARGET }}
             className="mt-7 flex-row items-center justify-center rounded-md bg-ink px-6 active:opacity-70 dark:bg-ink-dark">
             <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
-              Add your clothes
+              {empty ? 'Add your clothes' : 'Add more clothes'}
             </Text>
           </Pressable>
         </View>
