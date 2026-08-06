@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Text } from '@/components/ui/text';
+import { stableImageSource } from '@/features/closet/use-image-urls';
 import type { Item, ItemCategory } from '@/schemas/item';
 import { GUTTER, MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
 
@@ -66,6 +67,31 @@ export function formatPrice(value: number): string {
 
 export type ReviewCardProps = {
   item: Item;
+  /**
+   * A SIGNED, displayable URL for the garment photograph — never a storage path.
+   *
+   * The `garments` bucket is private, so `item.thumbPath` and friends are keys,
+   * not URLs: handing one to `<Image>` renders nothing at all, silently, with no
+   * error to debug (see the comment on `useSignedUrls`). This card used to do
+   * exactly that, which is why the deck showed a blank plate for every user. The
+   * parent signs the whole queue in one batch and hands the result down; this
+   * component deliberately has no access to the raw paths' resolution logic, so
+   * the mistake cannot be reintroduced here.
+   *
+   * Undefined while the batch is still in flight, and undefined for a garment
+   * with no photograph — the two are told apart by the item's own paths below.
+   */
+  imageUri?: string;
+  /**
+   * The one-line, muted admission of what the tagger could not read AND the card
+   * has no control for. Optional and usually absent.
+   *
+   * It lives on the card rather than in a screen-wide banner above the deck: a
+   * full-width notice at the top of somebody's first review session reads as an
+   * error the app is reporting about itself, at the most delicate moment in
+   * onboarding. The honesty is worth keeping; the volume was not.
+   */
+  gapNote?: string | null;
   /** True for the visible card. Cards below the top render smaller and inert. */
   isTop: boolean;
   /** Ordinal from the top; 0 = active, 1 = peeking underneath, 2+ = hidden. */
@@ -105,6 +131,8 @@ export type ReviewCardProps = {
 
 export function ReviewCard({
   item,
+  imageUri,
+  gapNote,
   isTop,
   depth,
   onConfirm,
@@ -214,6 +242,18 @@ export function ReviewCard({
 
   const needsReview = item.status === 'needs_review';
 
+  /**
+   * Whether this garment HAS a photograph, which is a different question from
+   * whether its URL has arrived yet.
+   *
+   * Telling the two apart is what keeps the placeholder honest: a tshirt glyph
+   * flashed over a card whose photo is one signing round-trip away claims the
+   * item has no picture, and then contradicts itself a moment later. While the
+   * batch is in flight the plate simply stays empty.
+   */
+  const hasPhoto = Boolean(item.thumbPath || item.cutoutPath || item.imagePath);
+  const photoSource = stableImageSource(imageUri);
+
   const categoryLabel = CATEGORY_OPTIONS.find((c) => c.key === category)?.label ?? 'Uncategorised';
   const categoryValue = item.subcategory ? `${categoryLabel} · ${item.subcategory}` : categoryLabel;
 
@@ -290,15 +330,15 @@ export function ReviewCard({
 
             {/* Cleaned-up photo */}
             <View className="mb-4 h-44 w-full items-center justify-center overflow-hidden rounded-plate bg-tray dark:bg-tray-dark">
-              {item.thumbPath || item.cutoutPath || item.imagePath ? (
+              {photoSource ? (
                 <Image
-                  source={item.thumbPath ?? item.cutoutPath ?? item.imagePath}
+                  source={photoSource}
                   contentFit="contain"
                   transition={180}
                   style={{ width: '100%', height: '100%' }}
                   accessibilityIgnoresInvertColors
                 />
-              ) : (
+              ) : hasPhoto ? null : (
                 <SymbolView
                   name={needsReview ? 'exclamationmark.triangle' : 'tshirt'}
                   size={40}
@@ -418,6 +458,22 @@ export function ReviewCard({
                 {price != null ? formatPrice(price) : 'Add it for cost per wear'}
               </Text>
             </ReviewRow>
+
+            {/*
+              The footnote, and only ever a footnote.
+
+              This is what the tagger could not read on rows the card cannot
+              edit — a statement of record, not a request. It sits under the spec
+              lines, in the faint tone, sized like a caption under a photograph:
+              close enough to the blank rows that it explains them, quiet enough
+              that a first-time user reads the card before they read the
+              apology. Rendered only when there is something to admit.
+            */}
+            {gapNote ? (
+              <Text variant="caption" className="mt-3" style={{ color: theme.faint }}>
+                {gapNote}
+              </Text>
+            ) : null}
 
             {/*
               The swipe is the fast path, not the only path. A pan gesture is
