@@ -93,7 +93,46 @@ export function isFullyTagged(item: Item): boolean {
  * badly tagged garment produces an invitation rather than an inventory.
  */
 export function describeGaps(gaps: TagGap[]): string {
-  const words = gaps.slice(0, 3).map((g) => GAP_LABEL[g]);
+  return joinClause(gaps.slice(0, 3).map((g) => GAP_LABEL[g]));
+}
+
+/**
+ * The same gaps as a NOUN list — "the colour and the brand" — for the terse
+ * footnote on the card, where the surrounding sentence does the explaining.
+ *
+ * Separate from `GAP_LABEL` because that map is written for an invitation
+ * ("Cinch wasn't sure about what kind of piece it is") and reads as a mouthful
+ * inside a statement of record.
+ */
+const GAP_NOUN: Record<TagGap, string> = {
+  category: 'the category',
+  colours: 'the colour',
+  details: 'the fabric',
+  brand: 'the brand',
+};
+
+/**
+ * The unfixable gaps as one quiet line for the foot of the review card.
+ *
+ * This wording replaced a screen-wide banner above the deck that read "Cinch
+ * left the brand blank. Nothing here fills that in — confirm the rest." Every
+ * word of that was true, and it still had to go: a full-bleed notice pinned over
+ * the first card a new user ever sees announces a defect before it announces the
+ * garment, and "nothing here fills that in" lands as a dead end rather than as
+ * the reassurance it was meant to be.
+ *
+ * So the admission stays and the volume drops. It says what is missing, and then
+ * — the half that actually helps — that confirming is still the right move.
+ * Returns null when there is nothing to admit, so the card renders no footnote
+ * at all rather than an empty line.
+ */
+export function noteGaps(gaps: TagGap[]): string | null {
+  if (gaps.length === 0) return null;
+  return `Cinch couldn’t read ${joinClause(gaps.slice(0, 3).map((g) => GAP_NOUN[g]))} — confirming keeps the rest.`;
+}
+
+/** "a", "a and b", "a, b and c" — Oxford-comma-free, as the copy deck sets it. */
+function joinClause(words: string[]): string {
   if (words.length === 0) return '';
   if (words.length === 1) return words[0]!;
   return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]!}`;

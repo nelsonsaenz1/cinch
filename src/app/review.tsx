@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { track } from '@/lib/posthog';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,14 @@ import { Text } from '@/components/ui/text';
 import { ReviewCard } from '@/components/review/review-card';
 import { useReviewQueue } from '@/features/closet/queries';
 import { useVerifyItem } from '@/features/closet/mutations';
-import { describeGaps, gapsFor, isFullyTagged, partitionGaps } from '@/features/ingest/tag-gaps';
+import { useSignedUrls } from '@/features/closet/use-image-urls';
+import {
+  describeGaps,
+  gapsFor,
+  isFullyTagged,
+  noteGaps,
+  partitionGaps,
+} from '@/features/ingest/tag-gaps';
 import type { Item, ItemCategory } from '@/schemas/item';
 
 /**
@@ -27,7 +34,51 @@ export default function ReviewScreen() {
   const query = useReviewQueue();
   const verify = useVerifyItem();
 
+  /**
+   * The top inset, taken from the hook rather than from `<SafeAreaView>`.
+   *
+   * This route is a `fullScreenModal` (see `_layout.tsx`), and that is what
+   * makes the difference: `SafeAreaView` in react-native-safe-area-context v5 is
+   * a NATIVE view that reads the safe area off its own superview, and inside a
+   * modally-presented view controller that comes back as zero — so the wrapper
+   * that pads every other screen in Cinch padded nothing here, and the progress
+   * line sat against the clock with "Close" under the battery glyphs.
+   *
+   * `useSafeAreaInsets` reads the JS context that the provider seeds from the
+   * window's real metrics, which the modal presentation cannot zero out. Applied
+   * explicitly, top and bottom, so there is exactly one source of inset on this
+   * screen and no chance of double padding.
+   */
+  const insets = useSafeAreaInsets();
+  const frame = {
+    flex: 1,
+    paddingTop: insets.top,
+    paddingBottom: insets.bottom,
+  } as const;
+
   const items = useMemo(() => query.data ?? [], [query.data]);
+
+  /**
+   * Storage paths -> signed URLs, for the WHOLE queue in one request.
+   *
+   * The `garments` bucket is private. A stored path is not a URL, and expo-image
+   * given a path renders an empty plate without so much as a warning — which is
+   * precisely what this deck did for every user until now. The closet grid has
+   * always signed; the review card was handed `item.thumbPath` raw.
+   *
+   * Batched at the screen rather than per card for the same reason the grid
+   * batches: only three cards are mounted at a time, but the deck walks the
+   * whole queue, and signing on promotion would put a round trip between each
+   * swipe and the next photograph. One request up front means the next card's
+   * image is already resolved before it reaches the top of the stack.
+   *
+   * Called before every early return below, so the hook order is fixed.
+   */
+  // Named `resolveImage`, not `resolve`: this screen already has a `resolve`,
+  // and it means something entirely different (mark a card dealt with).
+  const { resolve: resolveImage } = useSignedUrls(
+    useMemo(() => items.flatMap((i) => [i.thumbPath, i.cutoutPath, i.imagePath]), [items]),
+  );
 
   // Local per-card edits, keyed by item id. Keyed rather than indexed so a
   // refetch that reorders or shortens the queue cannot hand one item's
@@ -203,7 +254,7 @@ export default function ReviewScreen() {
     // version was a bare "Loading…" string — the one screen state the design
     // never drew, drawn now in the same grammar as the card it becomes.
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+      <View className="flex-1 bg-canvas dark:bg-canvas-dark" style={frame}>
         <View className="flex-row items-center justify-end px-gutter pt-2">
           <Button title="Close" variant="ghost" onPress={() => router.back()} />
         </View>
@@ -226,7 +277,7 @@ export default function ReviewScreen() {
             ))}
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -235,7 +286,7 @@ export default function ReviewScreen() {
     // be read is not an empty queue, and saying so here is what keeps the
     // empty state's word good.
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+      <View className="flex-1 bg-canvas dark:bg-canvas-dark" style={frame}>
         <View className="flex-row items-center justify-end px-gutter pt-2">
           <Button title="Close" variant="ghost" onPress={() => router.back()} />
         </View>
@@ -245,7 +296,7 @@ export default function ReviewScreen() {
           onRetry={() => void query.refetch()}
           retrying={query.isRefetching}
         />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -260,34 +311,34 @@ export default function ReviewScreen() {
   // arrives BEFORE the eye reaches the spec rows, and so the card itself keeps
   // the composition the design draws.
   const top = deck[0];
-  const { askable, unfixable } = partitionGaps(top ? gapsFor(top) : []);
+  const { askable } = partitionGaps(top ? gapsFor(top) : []);
   /**
-   * One sentence, and which one depends on whether there is a control to point
-   * at.
+   * The banner above the deck is now ONE thing and only one: an invitation the
+   * card can honour.
    *
-   * Where the card can honour it, this is an invitation: "set it below".
+   * `askable` gaps have a control behind them — "set it below" points at the
+   * Edit affordance on the Category row — so naming them before the eye reaches
+   * the spec rows earns its width.
    *
-   * Where it cannot, it is a statement of record and must read as one. The
-   * previous wording — "Cinch couldn't read its colour. Confirming keeps the
-   * rest." — announced a defect over a card whose Colours and Details rows are
-   * deliberately read-outs with no Edit on them (only category and price are
-   * patchable; see `useVerifyItem`), and the item screen doesn't edit colour
-   * either. So it sent somebody hunting for a control that exists nowhere in
-   * the app. It now says plainly that there is nothing to correct here, which
-   * is both true and the fastest thing to read.
+   * The other half used to live here too, and it was the wrong shape for what it
+   * said. "Cinch left the brand blank. Nothing here fills that in — confirm the
+   * rest." is a statement of record about a row with no control, rendered
+   * full-bleed across the top of the first card of somebody's first review — an
+   * app reporting a defect about itself at the most delicate moment in
+   * onboarding. That admission is still made, still in Cinch's own words, but on
+   * the card as a muted footnote (`noteGaps`, passed to each `ReviewCard`),
+   * where it explains the blank rows it sits under instead of pre-empting them.
    */
   const gapLine = askable.length
     ? `Cinch wasn’t sure about ${describeGaps(askable)} — set it below, or skip.`
-    : unfixable.length
-      ? `Cinch left ${describeGaps(unfixable)} blank. Nothing here fills that in — confirm the rest.`
-      : null;
+    : null;
 
   // Everything still in the deck that the tagger answered in full — the pieces
   // there is no honest question to ask about.
   const settled = deck.filter(isFullyTagged);
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <View className="flex-1 bg-canvas dark:bg-canvas-dark" style={frame}>
       {/*
         The deck is a fullScreenModal with no native header, so this ghost
         control stays as the only way out — dropping it would trap anyone who
@@ -431,6 +482,14 @@ export default function ReviewScreen() {
                   // translateX of 0 — as they are promoted up the stack.
                   key={item.id}
                   item={item}
+                  // Thumb first (smallest byte count for a 176pt plate), then
+                  // the cutout, then the original — the same order the card's
+                  // own fallback used before it was handed raw paths.
+                  imageUri={resolveImage(item.thumbPath, item.cutoutPath, item.imagePath)}
+                  // Per card, not per deck: the card underneath is a different
+                  // garment with different holes in it, and it is promoted to
+                  // the top the moment this one is swiped away.
+                  gapNote={noteGaps(partitionGaps(gapsFor(item)).unfixable)}
                   isTop={isTop}
                   depth={offset}
                   category={edit.category}
@@ -465,6 +524,6 @@ export default function ReviewScreen() {
             .reverse()}
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
