@@ -1,6 +1,5 @@
 import { withSupabase } from 'npm:@supabase/server@^1';
 
-import { jwksEnv } from '../_shared/jwks.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
@@ -54,7 +53,7 @@ const SETTLED: readonly string[] = ['tagged', 'verified'];
 
 export default {
   fetch: withSupabase(
-    { auth: 'user', env: jwksEnv() },
+    { auth: 'user' },
     async (req: Request, ctx): Promise<Response> => {
       const apiKey = Deno.env.get('OPENROUTER_API_KEY');
       if (!apiKey) {
@@ -85,7 +84,10 @@ export default {
       const db = ctx.supabase as unknown as SupabaseClient<Database>;
       const admin = ctx.supabaseAdmin as unknown as SupabaseClient<Database>;
 
-      const userId = (ctx.userClaims as { sub?: string } | undefined)?.sub;
+      // `UserClaims` is the normalized view: the JWT's `sub` is exposed as `id`.
+      // There is no `.sub` on it — reading one yields `undefined` and 401s every
+      // authenticated caller. Keep this untyped-cast-free so the compiler checks it.
+      const userId = ctx.userClaims?.id;
       if (!userId) {
         return Response.json({ error: 'Not signed in.' }, { status: 401 });
       }
