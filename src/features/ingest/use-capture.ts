@@ -42,6 +42,16 @@ function toJobs(assets: ImagePicker.ImagePickerAsset[]) {
 
 export function useCapture() {
   const enqueue = useQueueStore((s) => s.enqueue);
+  /**
+   * A new batch starts on a clean rail.
+   *
+   * `persist` keeps every job that is not `done`, so a failure from a previous
+   * sitting comes back on every launch and would otherwise ride along beside
+   * the twelve photographs just chosen — counted in "Processing 1 of 13",
+   * banner and all, for a garment the user dealt with days ago. Anything still
+   * moving is left alone; only the settled residue goes.
+   */
+  const clearSettled = useQueueStore((s) => s.clearSettled);
   const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
 
   const pickFromLibrary = useCallback(async () => {
@@ -61,10 +71,11 @@ export function useCapture() {
 
     // Count and source only — never asset ids or file paths.
     track('clothes_import_selected', { source: 'library', count: result.assets.length });
+    clearSettled();
     enqueue(toJobs(result.assets));
     void drainQueue();
     return result.assets.length;
-  }, [enqueue]);
+  }, [clearSettled, enqueue]);
 
   const takePhoto = useCallback(async () => {
     // The camera genuinely does need permission, unlike the library picker.
@@ -96,10 +107,11 @@ export function useCapture() {
     if (result.canceled || !result.assets?.length) return 0;
 
     track('clothes_import_selected', { source: 'camera', count: result.assets.length });
+    clearSettled();
     enqueue(toJobs(result.assets));
     void drainQueue();
     return result.assets.length;
-  }, [cameraPermission, requestCameraPermission, enqueue]);
+  }, [cameraPermission, requestCameraPermission, clearSettled, enqueue]);
 
   return { pickFromLibrary, takePhoto, selectionLimit: SELECTION_LIMIT };
 }

@@ -25,6 +25,18 @@ export type UploadJob = {
   width: number;
   height: number;
   stage: JobStage;
+  /**
+   * How this garment got here.
+   *
+   * `photo` is the ordinary path: a local file that has to be prepared, cut out
+   * and uploaded. `import` is a garment DESCRIBED rather than photographed —
+   * the Edge Function has already downloaded the picture and written the row, so
+   * the only step left is the tag. The distinction has to be on the job because
+   * `hydrate` and `drainQueue` both decide what to re-run from it: sending an
+   * imported garment back through the encoder would try to downscale a remote
+   * URL and fail on a row that is already perfectly fine.
+   */
+  source?: 'photo' | 'import';
   attempts: number;
   /**
    * How many times `tag-item` has been asked about this garment.
@@ -65,9 +77,26 @@ type QueueState = {
   hydrated: boolean;
   hydrate: () => void;
   enqueue: (jobs: Omit<UploadJob, 'stage' | 'attempts' | 'tagAttempts' | 'progress'>[]) => void;
+  /**
+   * Put a garment on the rail that is ALREADY uploaded — the described-import
+   * path. It enters at `tagging` rather than `queued` so the drain loop never
+   * picks it up and tries to re-encode a picture it does not have locally.
+   */
+  enqueueTagging: (job: { id: string; localUri: string; itemId: string }) => void;
   update: (id: string, patch: Partial<UploadJob>) => void;
   remove: (id: string) => void;
-  clearFinished: () => void;
+  /**
+   * Drop every job that has stopped — added or failed — and keep whatever is
+   * still moving.
+   *
+   * The screen calls this at the start of a new batch and when a settled batch
+   * is left behind. Without it a non-retryable failure ("AI processing is turned
+   * off") sat in the rail for the life of the install: `persist` keeps every
+   * non-`done` job, `hydrate` restores it verbatim, and nothing ever removed it.
+   */
+  clearSettled: () => void;
+  /** Dismiss the failures alone, leaving the added pieces on the rail. */
+  clearFailed: () => void;
 };
 
 function persist(jobs: UploadJob[]) {
@@ -130,6 +159,30 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     persist(jobs);
   },
 
+  enqueueTagging: ({ id, localUri, itemId }) => {
+    if (get().jobs.some((j) => j.id === id)) return;
+    const jobs = [
+      ...get().jobs,
+      {
+        id,
+        localUri,
+        itemId,
+        source: 'import' as const,
+        // No local pixels to measure; the rail renders the remote picture at a
+        // fixed size and nothing else reads these.
+        width: 0,
+        height: 0,
+        stage: 'tagging' as const,
+        attempts: 1,
+        tagAttempts: 0,
+        // The upload half is genuinely finished — the server did it.
+        progress: 1,
+      },
+    ];
+    set({ jobs });
+    persist(jobs);
+  },
+
   update: (id, patch) => {
     const jobs = get().jobs.map((j) => (j.id === id ? { ...j, ...patch } : j));
     set({ jobs });
@@ -142,8 +195,14 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     persist(jobs);
   },
 
-  clearFinished: () => {
-    const jobs = get().jobs.filter((j) => j.stage !== 'done');
+  clearSettled: () => {
+    const jobs = get().jobs.filter((j) => j.stage !== 'done' && j.stage !== 'failed');
+    set({ jobs });
+    persist(jobs);
+  },
+
+  clearFailed: () => {
+    const jobs = get().jobs.filter((j) => j.stage !== 'failed');
     set({ jobs });
     persist(jobs);
   },
@@ -159,7 +218,30 @@ export function selectFailedJobs(jobs: UploadJob[]) {
 }
 
 /**
- * The one sentence that describes what the batch is doing right now.
+ * What each stage is CALLED — the single table both progress surfaces read.
+ *
+ * There used to be two: this module spelled the tagging phase "categorising…"
+ * in the headline while the rail underneath it said "Categorising…", and the
+ * cutout stage was "cleaning up…" above and "Cleaning…" below. Two spellings of
+ * one moment, six lines apart on the same screen. The words are the design's —
+ * the rail reads `Coat ✓ · Knit ✓ · Cleaning… · Queued` — and an ellipsis marks
+ * a stage that is still working, so a settled stage never carries one.
+ */
+export const STAGE_LABEL: Record<JobStage, string> = {
+  queued: 'Queued',
+  preparing: 'Preparing…',
+  // On-device background removal — the same word the consent sheet uses for it.
+  cutout: 'Cleaning…',
+  uploading: 'Uploading…',
+  // "Working out what this garment is". "Tagging" is our word for it, not
+  // anyone else's; this says what is happening.
+  tagging: 'Categorising…',
+  done: 'Added ✓',
+  failed: 'Failed',
+};
+
+/**
+ * The one phrase that describes what the batch is doing right now.
  *
  * Reads the furthest-along stage actually in flight rather than the first job
  * in the array, because at concurrency 3 the queue is usually mid-upload on one
@@ -169,11 +251,11 @@ export function selectFailedJobs(jobs: UploadJob[]) {
  */
 export function selectPhaseLabel(jobs: UploadJob[]): string | null {
   const stages = new Set(jobs.map((j) => j.stage));
-  if (stages.has('tagging')) return 'categorising…';
-  if (stages.has('uploading')) return 'uploading…';
-  if (stages.has('cutout')) return 'cleaning up…';
-  if (stages.has('preparing')) return 'preparing…';
-  // Nothing has started yet. "Processing 1 of 5 · queued" contradicts itself,
+  if (stages.has('tagging')) return STAGE_LABEL.tagging;
+  if (stages.has('uploading')) return STAGE_LABEL.uploading;
+  if (stages.has('cutout')) return STAGE_LABEL.cutout;
+  if (stages.has('preparing')) return STAGE_LABEL.preparing;
+  // Nothing has started yet. "Processing 1 of 5 · Queued" contradicts itself,
   // so the headline says only the count until there is a verb to report.
   return null;
 }

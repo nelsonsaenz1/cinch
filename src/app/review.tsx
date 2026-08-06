@@ -261,13 +261,25 @@ export default function ReviewScreen() {
   // the composition the design draws.
   const top = deck[0];
   const { askable, unfixable } = partitionGaps(top ? gapsFor(top) : []);
-  // One sentence, and which one depends on whether there is a control to point
-  // at. An invitation is only made where the card can honour it; where it
-  // cannot, the line admits the hole instead of pretending to a fix.
+  /**
+   * One sentence, and which one depends on whether there is a control to point
+   * at.
+   *
+   * Where the card can honour it, this is an invitation: "set it below".
+   *
+   * Where it cannot, it is a statement of record and must read as one. The
+   * previous wording — "Cinch couldn't read its colour. Confirming keeps the
+   * rest." — announced a defect over a card whose Colours and Details rows are
+   * deliberately read-outs with no Edit on them (only category and price are
+   * patchable; see `useVerifyItem`), and the item screen doesn't edit colour
+   * either. So it sent somebody hunting for a control that exists nowhere in
+   * the app. It now says plainly that there is nothing to correct here, which
+   * is both true and the fastest thing to read.
+   */
   const gapLine = askable.length
     ? `Cinch wasn’t sure about ${describeGaps(askable)} — set it below, or skip.`
     : unfixable.length
-      ? `Cinch couldn’t read ${describeGaps(unfixable)}. Confirming keeps the rest.`
+      ? `Cinch left ${describeGaps(unfixable)} blank. Nothing here fills that in — confirm the rest.`
       : null;
 
   // Everything still in the deck that the tagger answered in full — the pieces
@@ -278,9 +290,16 @@ export default function ReviewScreen() {
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
       {/*
         The deck is a fullScreenModal with no native header, so this ghost
-        "Close"/"Done" stays as the only way out — dropping it would trap
-        anyone who wants to finish reviewing later. It sits in its own slim
-        row so it doesn't compete with the colophon progress line below.
+        control stays as the only way out — dropping it would trap anyone who
+        wants to finish reviewing later. It sits in its own slim row so it
+        doesn't compete with the colophon progress line below.
+
+        WHY THIS ONE IS NOT ALWAYS "DONE", unlike capture's (07a). The word
+        changes because the state does: with cards left in the deck the review
+        is demonstrably not done, and labelling the exit "Done" would have the
+        user assert something untrue about their own closet — the pieces behind
+        it stay unverified and come back next time. "Close" while there is work
+        left, "Done" once the deck is empty.
       */}
       <View className="flex-row items-center justify-end px-gutter pt-2">
         <Button title={done ? 'Done' : 'Close'} variant="ghost" onPress={() => router.back()} />
@@ -291,15 +310,23 @@ export default function ReviewScreen() {
           <Text variant="colophon">
             Review · {Math.min(current + 1, total)} of {total}
           </Text>
-          {/* Segmented progress — one pill per item, the current step in the
-              accent, the rest in sand. `maxWidth` keeps a handful of pills at
-              their full size while letting a long batch compress instead of
-              overflowing the row. */}
+          {/*
+            Segmented progress — one pill per item, the current step in INK,
+            the rest in sand. `maxWidth` keeps a handful of pills at their full
+            size while letting a long batch compress instead of overflowing.
+
+            The current pill used to be oxblood, and that was one accent too
+            many: this screen already spends it on the "Edit" affordances inside
+            the card, which are the only invitation the deck actually makes —
+            the whole reason it exists is to let somebody correct a machine. A
+            position marker is not a call to action, so it takes the ink the
+            rest of the type is set in and the accent stays spent once.
+          */}
           <View className="flex-row items-center gap-1">
             {Array.from({ length: total }).map((_, i) => (
               <View
                 key={i}
-                className={`h-1 rounded-full ${i === current ? 'bg-accent dark:bg-accent-dark' : 'bg-sand dark:bg-sand-dark'}`}
+                className={`h-1 rounded-full ${i === current ? 'bg-ink dark:bg-ink-dark' : 'bg-sand dark:bg-sand-dark'}`}
                 style={{ flex: 1, maxWidth: 16 }}
               />
             ))}

@@ -56,6 +56,7 @@ export default function CaptureScreen() {
 
   const jobs = useQueueStore((s) => s.jobs);
   const hydrate = useQueueStore((s) => s.hydrate);
+  const clearFailed = useQueueStore((s) => s.clearFailed);
 
   const consent = useAiConsent();
   const grantConsent = useGrantAiConsent();
@@ -160,6 +161,11 @@ export default function CaptureScreen() {
   const failedCount = failed.length;
   const active = selectActiveCount(jobs); // queued + in-flight, i.e. still to process
   const allDone = total > 0 && active === 0;
+  // Everything the queue has finished ARGUING about, added or not. The ordinal
+  // below counts these rather than the successes alone: a batch where the first
+  // four failed was reading "Processing 1 of 5" while it worked on the fifth,
+  // which is a count of nothing anybody could see.
+  const settledCount = doneCount + failedCount;
   const fraction = total ? doneCount / total : 0;
   // What the batch is actually doing this second — "cleaning up…",
   // "categorising…". Named rather than implied, because a long tagging pass over
@@ -177,6 +183,23 @@ export default function CaptureScreen() {
     }
   }, []);
 
+  /**
+   * Leaving a finished batch behind clears it.
+   *
+   * Jobs are persisted so an interrupted import resumes, and the cost of that
+   * was permanence: every non-`done` job — including a failure nobody can do
+   * anything more about — came back on the next launch and sat in the rail for
+   * good. This runs only when nothing is still moving, so backgrounding the app
+   * mid-import still resumes exactly as before; a batch that has finished
+   * arguing is simply not news any more once its screen has been dismissed.
+   */
+  useEffect(() => {
+    return () => {
+      const { jobs: latest, clearSettled: clear } = useQueueStore.getState();
+      if (latest.length > 0 && selectActiveCount(latest) === 0) clear();
+    };
+  }, []);
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-ink">
       {/* The capture stage is the one dark screen in a light-only app; the
@@ -186,14 +209,18 @@ export default function CaptureScreen() {
         <Text variant="heading" style={{ color: theme.canvas }}>
           Add clothes
         </Text>
+        {/* "Done", not "Close" — the guide's own word for this control (07a).
+            It is also the truer one: an import keeps running in the queue after
+            this screen goes away, so the tap ends the user's session at the
+            stage rather than closing anything down. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel="Done adding clothes"
           hitSlop={12}
           onPress={() => router.back()}
           className="py-2">
           <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
-            Close
+            Done
           </Text>
         </Pressable>
       </View>
@@ -260,7 +287,9 @@ export default function CaptureScreen() {
 
       {/* The progress sheet — bg-surface, rounded top corners, flush to the
           bottom edge. Everything below is driven by the queue state. */}
-      <View className="rounded-t-plate bg-surface px-5 pt-4" style={{ paddingBottom: insets.bottom + 20 }}>
+      <View
+        className="rounded-t-plate bg-surface px-gutter pt-4"
+        style={{ paddingBottom: insets.bottom + 20 }}>
         {total === 0 ? (
           <>
             <Text variant="plate">Photograph your closet</Text>
@@ -271,12 +300,20 @@ export default function CaptureScreen() {
         ) : (
           <>
             <View className="flex-row items-baseline justify-between">
-              <Text variant="stat">
+              {/*
+                The progress line is DATA, not a headline: Helvetica at body
+                size, tabular figures so the count does not jitter as it climbs.
+                It was set in the serif `stat` variant, which is the register
+                this app reserves for a figure being displayed — a cost per
+                wear, a wear count — and reading a status line in the same voice
+                as a plate's hero number overstates it.
+              */}
+              <Text variant="body" style={{ fontVariant: ['tabular-nums'] }}>
                 {allDone
                   ? failedCount > 0
                     ? `Added ${doneCount} of ${total}`
                     : 'All added'
-                  : `Processing ${Math.min(doneCount + 1, total)} of ${total}${phase ? ` · ${phase}` : ''}`}
+                  : `Processing ${Math.min(settledCount + 1, total)} of ${total}${phase ? ` · ${phase}` : ''}`}
               </Text>
               {!allDone ? (
                 <Text variant="caption" style={{ color: theme.faint }}>{`${active} to go`}</Text>
@@ -320,15 +357,30 @@ export default function CaptureScreen() {
                 <Text variant="label" className="mt-1">
                   {failed[0]?.error ?? 'Cinch couldn’t finish this one.'}
                 </Text>
-                {canRetry ? (
+                {/*
+                  A way out of the banner, not only a way back in. Some of these
+                  failures are final by design — AI processing turned off, a
+                  garment that no longer exists — and without a dismissal they
+                  were permanent: the queue persists everything unfinished, so
+                  the same red line came back on every launch, forever. The
+                  garment itself is saved either way; this clears the notice.
+                */}
+                <View className="mt-2.5 flex-row items-center gap-2">
+                  {canRetry ? (
+                    <Button
+                      title="Try these again"
+                      variant="secondary"
+                      loading={retrying}
+                      onPress={() => void retryFailed()}
+                    />
+                  ) : null}
                   <Button
-                    title="Try these again"
-                    variant="secondary"
-                    loading={retrying}
-                    onPress={() => void retryFailed()}
-                    className="mt-2.5 self-start"
+                    title="Dismiss"
+                    variant="ghost"
+                    onPress={clearFailed}
+                    accessibilityHint="Clears this notice. The pieces stay in your closet, untagged."
                   />
-                ) : null}
+                </View>
               </View>
             ) : null}
 
@@ -345,15 +397,20 @@ export default function CaptureScreen() {
         )}
       </View>
 
-      {/* Imported garments arrive at `pending_tag` like photographed ones, so
-          the review deck is the same next step — sent there directly because
-          this screen's own progress panel is driven by the upload queue, which
-          a described garment never touches. */}
-      <GarmentSearchSheet
-        visible={describeVisible}
-        onClose={() => setDescribeVisible(false)}
-        onImported={() => router.replace('/review')}
-      />
+      {/*
+        A described garment now joins the same queue a photographed one does
+        (`tagImportedGarment`, fired by the import mutation), so the user stays
+        here and watches it categorise on the rail like everything else.
+
+        It used to be sent straight to /review on the strength of a row at
+        `pending_tag` — a status the review query does not select. The deck
+        would say "Nothing to review" while the garment they had just added was
+        nowhere on screen at all, and a tag failure on that path had no job to
+        attach itself to and so appeared nowhere either. The division the guide
+        draws is the fix: capture (07) shows the work, review (08) shows the
+        result, and "Review tags" below appears exactly when there IS one.
+      */}
+      <GarmentSearchSheet visible={describeVisible} onClose={() => setDescribeVisible(false)} />
 
       <ConsentSheet
         visible={consentVisible}

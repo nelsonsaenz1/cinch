@@ -29,9 +29,6 @@ const PROMISES = [
   'Never sold, never shared, never used to advertise',
 ];
 
-/** The scrim over the presenting screen — ink at half strength. */
-const SCRIM = 'rgba(28,26,22,0.5)';
-
 export function ConsentSheet({
   visible,
   onAccept,
@@ -54,7 +51,11 @@ export function ConsentSheet({
       onRequestClose={() => {
         if (!busy) onDecline();
       }}>
-      <View className="flex-1 justify-end" style={{ backgroundColor: SCRIM }}>
+      {/* `scrim` is the one dimming value in the system — warm ink at 40%, the
+          same wash every other sheet in the app drops over the screen behind
+          it. This used to be a hand-written rgba() at 0.5: a second, slightly
+          heavier dark that only this sheet knew about. */}
+      <View className="flex-1 justify-end" style={{ backgroundColor: theme.scrim }}>
         {/* Scrim tap declines. Hidden from assistive tech — the explicit
             "Not now" button below is the accessible way out, and a full-screen
             invisible "button" is noise to a VoiceOver pass. */}
@@ -81,7 +82,14 @@ export function ConsentSheet({
             <Text variant="title" trim>
               Before Cinch looks
             </Text>
-            <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+            {/* Tone as an inline style, not a stacked `text-muted`. Two colour
+                utilities on one element are resolved by their order in the
+                generated stylesheet — which is the order of the palette in
+                tailwind.config.js — and not by which one the call site wrote
+                last. `muted` happens to sit after `ink` there, so this class
+                did win, but it won by accident and a palette reshuffle would
+                silently flip it. An inline style is the only tone that holds.*/}
+            <Text variant="body" className="mt-3" style={{ color: theme.muted }}>
               To turn your photos into a wardrobe, Cinch processes each image. Here&apos;s exactly what
               that means.
             </Text>
@@ -122,7 +130,9 @@ export function ConsentSheet({
                 Profile → "AI features" → Turn off nulls the consent record the
                 Edge Functions check, and the closet plus the on-device outfit
                 engine keep working without any AI at all. */}
-            <Text variant="label" className="mt-3 text-center text-muted dark:text-muted-dark">
+            {/* `label` is already muted; restating it here stacked a second
+                colour utility for no gain. */}
+            <Text variant="label" className="mt-3 text-center">
               You can turn AI features off anytime in Profile.
             </Text>
           </ScrollView>

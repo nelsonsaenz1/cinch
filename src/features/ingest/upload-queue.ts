@@ -75,6 +75,8 @@ const CONSENT_WITHDRAWN_MESSAGE =
 
 let running = 0;
 let draining = false;
+/** Job ids whose tagging loop is running right now — see `driveTagging`. */
+const driving = new Set<string>();
 
 // ---------------------------------------------------------------------------
 // Tagging
@@ -166,9 +168,14 @@ function classify(status: number | null, body: TagResponseBody | null): TagOutco
   if (status === 401 || status === 403) {
     // Either the session is stale or the function cannot verify tokens at all.
     // Both are real, both are fixed elsewhere, and neither is fixed by looping.
+    // The cure this used to prescribe — "sign out and back in" — was a cure for
+    // a fault the user does not have. A 401 here is as often the function
+    // failing to verify tokens at all as it is a stale session, and sending
+    // somebody to destroy a working session over our outage costs them their
+    // place and fixes nothing. Say whose problem it is, and keep the retry.
     return {
       kind: 'blocked',
-      message: 'Saved, but not tagged — Cinch couldn’t verify your account. Sign out and back in, then retry.',
+      message: 'Saved, but not tagged — Cinch couldn’t verify your account. That one is on us; try again in a bit.',
       retryable: true,
       accountWide: true,
     };
@@ -228,6 +235,102 @@ async function requestTag(itemId: string): Promise<TagOutcome> {
   } catch (err) {
     return { kind: 'retry', message: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/**
+ * Ask for a tag until the answer settles, and keep one queue job honest about it.
+ *
+ * Shared by both ways a garment gets in, and that sharing is the point. The
+ * photographed path always had this loop; the described path had nothing — it
+ * created the row and left, so a tagging failure on an imported garment had
+ * nowhere to appear and no retry to offer. One loop means one set of rules
+ * about when to stop, one place the reason is written down, and one banner.
+ *
+ * `onSettled` runs before the job is marked done — the photo path uses it to
+ * put its measured colours back on the row before the closet refetches.
+ */
+async function driveTagging(
+  jobId: string,
+  itemId: string,
+  opts: { path: string; onSettled?: () => Promise<void> },
+): Promise<void> {
+  const { update } = useQueueStore.getState();
+  // A described import is tagged OUTSIDE the drain loop, so a photo batch
+  // started while one is in flight would reach `resumeStalledTagging`, find a
+  // job sitting at `tagging`, and pay for a second identical model call.
+  // Anything in this set is being driven right now and is nobody else's to
+  // rescue.
+  driving.add(jobId);
+  update(jobId, { stage: 'tagging', progress: 1, error: undefined });
+
+  let lastMessage = 'Tagging didn’t finish.';
+
+  try {
+    for (let attempt = 0; attempt < MAX_TAG_ATTEMPTS; attempt++) {
+      update(jobId, { tagAttempts: attempt + 1 });
+      const outcome = await requestTag(itemId);
+
+      if (outcome.kind === 'settled') {
+        await opts.onSettled?.();
+        update(jobId, { stage: 'done', error: undefined, label: outcome.label });
+        invalidateAfterItemSettled();
+        // After the durable write, so a crash between tag and track loses the
+        // event rather than fabricating one for an item that never landed.
+        track('clothes_import_completed', { path: opts.path });
+        return;
+      }
+
+      if (outcome.kind === 'blocked') {
+        // Answered and declined. Retrying is a guaranteed identical answer, so
+        // this stops here and says why — the garment is in the closet either way.
+        update(jobId, { stage: 'failed', error: outcome.message, retryable: outcome.retryable });
+        invalidateAfterItemSettled();
+        return;
+      }
+
+      lastMessage = outcome.message;
+      // Show the reason while the retries run, so a slow recovery reads as a
+      // recovery rather than as nothing happening.
+      update(jobId, { error: lastMessage });
+      if (attempt < MAX_TAG_ATTEMPTS - 1) {
+        await new Promise((r) => setTimeout(r, TAG_RETRY_DELAY_MS * (attempt + 1)));
+      }
+    }
+
+    // Out of tries. The photograph is uploaded and the row exists at
+    // `pending_tag`, so the sweep may still rescue it later and will flip this
+    // job back to `done` if it does — but the screen stops pretending and offers
+    // the user the retry instead.
+    update(jobId, {
+      stage: 'failed',
+      error: `${lastMessage} Your garment is saved — tap retry to tag it.`,
+      retryable: true,
+    });
+    invalidateAfterItemSettled();
+  } finally {
+    driving.delete(jobId);
+  }
+}
+
+/**
+ * Put a DESCRIBED garment on the same rail as a photographed one.
+ *
+ * The import Edge Function has already fetched the picture and written the row
+ * at `pending_tag`, so there is nothing to encode, cut out or upload — but the
+ * tag still has to happen, and until now it was handed to `sweepPendingTags`
+ * and forgotten. That sweep is rate-limited to once a minute and returns early
+ * when one is already running, so "describe it instead" could produce a garment
+ * that was invisible on capture (no job, no progress, no failure) and invisible
+ * on review (the deck only lists `tagged` and `needs_review`). A job here is
+ * what makes the described path show its work in the one place the design puts
+ * progress — frame 07 — and land in the deck, frame 08, when there is a result.
+ */
+export async function tagImportedGarment(itemId: string, previewUri: string): Promise<void> {
+  // Keyed by item so a double-tap on the same tile cannot create two jobs; the
+  // store also refuses a duplicate id outright.
+  const jobId = `import-${itemId}`;
+  useQueueStore.getState().enqueueTagging({ id: jobId, localUri: previewUri, itemId });
+  await driveTagging(jobId, itemId, { path: 'describe' });
 }
 
 /** Move every queue job pointing at this item to a stage, with an explanation. */
@@ -480,58 +583,16 @@ async function processJob(job: UploadJob): Promise<void> {
   //    `failed` with the reason on it — never left at `tagging` for a sweep
   //    that may not run for an hour, which is what made this look like an
   //    import that loads forever.
-  update(job.id, { stage: 'tagging', progress: 1, error: undefined });
-
-  let lastMessage = 'Tagging didn’t finish.';
-
-  for (let attempt = 0; attempt < MAX_TAG_ATTEMPTS; attempt++) {
-    update(job.id, { tagAttempts: attempt + 1 });
-    const outcome = await requestTag(itemId);
-
-    if (outcome.kind === 'settled') {
-      // Before the invalidation, so the closet's refetch already sees real hex
-      // rather than showing model-named swatches for a beat and then swapping.
-      if (cutout.colors) await reapplyMeasuredColors(itemId, cutout.colors);
-
-      update(job.id, { stage: 'done', error: undefined, label: outcome.label });
-      invalidateAfterItemSettled();
-      // After the durable write, so a crash between tag and track loses the
-      // event rather than fabricating one for an item that never landed.
-      track('clothes_import_completed', { path: 'queue' });
-      return;
-    }
-
-    if (outcome.kind === 'blocked') {
-      // Answered and declined. Retrying is a guaranteed identical answer, so
-      // this stops here and says why — the garment is in the closet either way.
-      update(job.id, {
-        stage: 'failed',
-        error: outcome.message,
-        retryable: outcome.retryable,
-      });
-      invalidateAfterItemSettled();
-      return;
-    }
-
-    lastMessage = outcome.message;
-    // Show the reason while the retries run, so a slow recovery reads as a
-    // recovery rather than as nothing happening.
-    update(job.id, { error: lastMessage });
-    if (attempt < MAX_TAG_ATTEMPTS - 1) {
-      await new Promise((r) => setTimeout(r, TAG_RETRY_DELAY_MS * (attempt + 1)));
-    }
-  }
-
-  // Out of tries. The photograph is uploaded and the row exists at
-  // `pending_tag`, so the sweep may still rescue it later and will flip this
-  // job back to `done` if it does — but the screen stops pretending and offers
-  // the user the retry instead.
-  update(job.id, {
-    stage: 'failed',
-    error: `${lastMessage} Your garment is saved — tap retry to tag it.`,
-    retryable: true,
+  // Re-bound as a const: the narrowing above does not survive being captured by
+  // the callback below, and a `let` would come back in as `string | undefined`.
+  const taggedItemId = itemId;
+  const measured = cutout.colors;
+  await driveTagging(job.id, taggedItemId, {
+    path: 'queue',
+    // Before the job settles, so the closet's refetch already sees real hex
+    // rather than showing model-named swatches for a beat and then swapping.
+    onSettled: measured ? () => reapplyMeasuredColors(taggedItemId, measured) : undefined,
   });
-  invalidateAfterItemSettled();
 }
 
 /**
@@ -607,7 +668,9 @@ export async function drainQueue(): Promise<void> {
  * attempt count already spent; none of them may go back to waiting silently.
  */
 async function resumeStalledTagging(): Promise<void> {
-  const stalled = useQueueStore.getState().jobs.filter((j) => j.stage === 'tagging');
+  const stalled = useQueueStore
+    .getState()
+    .jobs.filter((j) => j.stage === 'tagging' && !driving.has(j.id));
 
   for (const job of stalled) {
     const { update } = useQueueStore.getState();
