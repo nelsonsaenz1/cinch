@@ -123,7 +123,26 @@ export type AppEvent =
   /** The share sheet was opened for an outfit card. */
   | 'outfit_shared'
   /** A server refusal that offered an upgrade — the paywall funnel's top. */
-  | 'paywall_presented';
+  | 'paywall_presented'
+  /**
+   * A sign-in attempt began. Carries `method` only — never the address.
+   *
+   * These three fire BEFORE `identifyUser`, so they attach to the anonymous
+   * distinct id. That is required, not a flaw: the funnel has to span the
+   * moment the identity is created, and PostHog aliases the anonymous id to
+   * the identified one on `identify()`, so it stitches together on its own.
+   */
+  | 'auth_started'
+  /** A sign-in attempt produced a session. */
+  | 'auth_completed'
+  /**
+   * A sign-in attempt did not produce a session. `reason` is the existing
+   * `SignInResult` enum, never an error message — those carry addresses and
+   * tokens. `canceled` lives here rather than in its own event: dismissing the
+   * Apple sheet is the single most common outcome, and splitting it out makes
+   * the funnel harder to read, not easier.
+   */
+  | 'auth_failed';
 
 /**
  * Bounded, non-identifying properties.

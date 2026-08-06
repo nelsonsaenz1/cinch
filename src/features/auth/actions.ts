@@ -1,6 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 
+import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -23,11 +24,34 @@ export type SignInResult =
   | { ok: true }
   | { ok: false; reason: 'canceled' | 'unavailable' | 'failed'; message?: string };
 
+type AuthMethod = 'apple' | 'email';
+
+/**
+ * Report a finished sign-in attempt, and hand the result straight back.
+ *
+ * Returning the result is what lets this wrap a `return` in place, so no path
+ * out of a function can be added later without going past it — the failure
+ * modes here are one-line early returns and they are exactly the ones that get
+ * missed.
+ *
+ * `reason` is the existing enum and nothing else. `result.message` is
+ * DELIBERATELY not forwarded: it is assembled from Supabase and Apple error
+ * strings, which routinely contain the email address that was being signed in
+ * with, and sending that to an analytics vendor contradicts both the privacy
+ * manifest and the App Store answers. See the header of lib/posthog.tsx.
+ */
+function reportAuth(method: AuthMethod, result: SignInResult): SignInResult {
+  if (result.ok) track('auth_completed', { method });
+  else track('auth_failed', { method, reason: result.reason });
+  return result;
+}
+
 export async function signInWithApple(): Promise<SignInResult> {
+  track('auth_started', { method: 'apple' });
   try {
     const available = await AppleAuthentication.isAvailableAsync();
     if (!available) {
-      return { ok: false, reason: 'unavailable' };
+      return reportAuth('apple', { ok: false, reason: 'unavailable' });
     }
 
     const credential = await AppleAuthentication.signInAsync({
@@ -41,7 +65,11 @@ export async function signInWithApple(): Promise<SignInResult> {
       // Should not happen when requestedScopes includes at least one scope,
       // but the type is nullable and shipping a crash here is worse than a
       // clear error message.
-      return { ok: false, reason: 'failed', message: 'Apple did not return an identity token.' };
+      return reportAuth('apple', {
+        ok: false,
+        reason: 'failed',
+        message: 'Apple did not return an identity token.',
+      });
     }
 
     const { error } = await supabase.auth.signInWithIdToken({
@@ -49,7 +77,7 @@ export async function signInWithApple(): Promise<SignInResult> {
       token: credential.identityToken,
     });
     if (error) {
-      return { ok: false, reason: 'failed', message: error.message };
+      return reportAuth('apple', { ok: false, reason: 'failed', message: error.message });
     }
 
     // Persist the name right now — it is only in `credential.fullName` on this
@@ -71,19 +99,19 @@ export async function signInWithApple(): Promise<SignInResult> {
       }
     }
 
-    return { ok: true };
+    return reportAuth('apple', { ok: true });
   } catch (err) {
     // ERR_REQUEST_CANCELED is the user tapping cancel; that is not an error
     // condition and should never surface as one in the UI.
     const code = (err as { code?: string })?.code;
     if (code === 'ERR_REQUEST_CANCELED') {
-      return { ok: false, reason: 'canceled' };
+      return reportAuth('apple', { ok: false, reason: 'canceled' });
     }
-    return {
+    return reportAuth('apple', {
       ok: false,
       reason: 'failed',
       message: err instanceof Error ? err.message : String(err),
-    };
+    });
   }
 }
 
@@ -110,10 +138,16 @@ export async function signOut(): Promise<void> {
  * that shape.
  */
 export async function sendEmailLink(email: string): Promise<SignInResult> {
+  // Started, not completed — no matter how this returns. A sent link is not a
+  // session; the completion for this method is `verifyEmailCode` or
+  // `completeSessionFromUrl`, possibly in a later run of the app.
+  track('auth_started', { method: 'email' });
+
   const address = email.trim().toLowerCase();
 
   // Cheap client-side shape check. The real validation is the email arriving.
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(address)) {
+    track('auth_failed', { method: 'email', reason: 'failed' });
     return { ok: false, reason: 'failed', message: 'That does not look like an email address.' };
   }
 
@@ -144,6 +178,7 @@ export async function sendEmailLink(email: string): Promise<SignInResult> {
     // Supabase's built-in mailer is rate limited to a couple of sends an hour.
     // Saying so is far better than a generic failure the user will read as the
     // app being broken.
+    track('auth_failed', { method: 'email', reason: 'failed' });
     const rateLimited = /rate limit|too many/i.test(error.message);
     return {
       ok: false,
@@ -157,7 +192,12 @@ export async function sendEmailLink(email: string): Promise<SignInResult> {
   return { ok: true };
 }
 
-/** Verify a numeric code, for once custom SMTP makes codes possible. */
+/**
+ * Verify a numeric code, for once custom SMTP makes codes possible.
+ *
+ * A completion path, so it reports an outcome but never `auth_started` —
+ * `sendEmailLink` already opened this attempt.
+ */
 export async function verifyEmailCode(email: string, token: string): Promise<SignInResult> {
   const { error } = await supabase.auth.verifyOtp({
     email: email.trim().toLowerCase(),
@@ -166,15 +206,15 @@ export async function verifyEmailCode(email: string, token: string): Promise<Sig
   });
 
   if (error) {
-    return {
+    return reportAuth('email', {
       ok: false,
       reason: 'failed',
       message: /expired/i.test(error.message)
         ? 'That code has expired. Send a new one.'
         : 'That code was not right. Check it and try again.',
-    };
+    });
   }
-  return { ok: true };
+  return reportAuth('email', { ok: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -253,10 +293,42 @@ function exchangeOnce(code: string): Promise<AuthCallbackResult> {
     .catch((err): AuthCallbackResult => ({
       status: 'failed',
       message: err instanceof Error ? err.message : 'Could not complete sign-in.',
-    }));
+    }))
+    // Reported HERE, inside the memoised chain, and not at the call site. The
+    // same callback reaches `completeSessionFromUrl` twice by design — once
+    // from the deep-link listener, once from the /auth-callback screen — so a
+    // call-site emit would double every magic-link outcome in the funnel and
+    // halve the apparent conversion. This runs once per code, which is once
+    // per real attempt.
+    .then((result) => {
+      if (result.status === 'signed-in') {
+        track('auth_completed', { method: 'email' });
+      } else if (result.status === 'failed') {
+        track('auth_failed', { method: 'email', reason: 'failed' });
+      }
+      return result;
+    });
 
   exchanges.set(code, attempt);
   return attempt;
+}
+
+/**
+ * Callback URLs whose failure has already been reported.
+ *
+ * The double-delivery above is handled by the `exchanges` memo for anything
+ * that reaches an exchange, but the pre-exchange refusals — an expired link, a
+ * forged fragment token — never get that far and would otherwise be counted
+ * once per delivery. Same lifetime argument as `exchanges`: a run of the app
+ * sees a handful of callbacks, so nothing is evicted. It stays on the device
+ * and is never sent anywhere.
+ */
+const reportedFailures = new Set<string>();
+
+function reportCallbackFailure(url: string): void {
+  if (reportedFailures.has(url)) return;
+  reportedFailures.add(url);
+  track('auth_failed', { method: 'email', reason: 'failed' });
 }
 
 /**
@@ -301,6 +373,7 @@ export async function completeSessionFromUrl(url: string): Promise<AuthCallbackR
   const error = pick('error');
   const errorCode = pick('error_code');
   if (error || errorCode) {
+    reportCallbackFailure(url);
     return {
       status: 'failed',
       message: describeCallbackError(error, errorCode, pick('error_description')),
@@ -308,6 +381,7 @@ export async function completeSessionFromUrl(url: string): Promise<AuthCallbackR
   }
 
   if (hash.get('access_token') || hash.get('refresh_token')) {
+    reportCallbackFailure(url);
     return {
       status: 'failed',
       message:
