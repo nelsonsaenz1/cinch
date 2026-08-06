@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 
-import { Button, Text } from '@/components/ui';
+import { Button, KeyboardAwareScrollView, Text } from '@/components/ui';
 import { searchPlaces, type Place } from '@/features/context/weather';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -123,9 +123,8 @@ export function TripQuestionnaire({ onComplete }: { onComplete: (trip: Trip) => 
   const q = useTripQuestionnaire(onComplete);
 
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
       contentContainerClassName="px-gutter pb-16 pt-2"
-      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}>
       <Text variant="eyebrow">
         Packing · {q.position} of {q.total}
@@ -219,6 +218,6 @@ export function TripQuestionnaire({ onComplete }: { onComplete: (trip: Trip) => 
           </Text>
         </Pressable>
       ) : null}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }

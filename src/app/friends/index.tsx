@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlockedList } from '@/components/social/BlockedList';
 import { ProfileRow } from '@/components/social/ProfileRow';
 import { Button } from '@/components/ui/button';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 // Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `RowSkeleton`
 // lands alongside `Skeleton`'s export. Code against the contract.
 import { RowSkeleton } from '@/components/ui/skeleton';
@@ -201,7 +202,7 @@ export default function FriendsScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         ref={scrollRef}
         contentContainerClassName="px-gutter pb-24"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
@@ -358,7 +359,7 @@ export default function FriendsScreen() {
         <View className="overflow-hidden rounded-plate border border-rule bg-surface">
           <BlockedList />
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

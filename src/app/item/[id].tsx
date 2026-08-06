@@ -2,13 +2,14 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { formatPrice, parsePrice } from '@/components/review/review-card';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { ErrorState } from '@/components/ui/empty-state';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Text } from '@/components/ui/text';
 import { useVerifyItem } from '@/features/closet/mutations';
 import { useCloset } from '@/features/closet/queries';
@@ -191,7 +192,7 @@ export default function ItemDetailScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerClassName="px-gutter pb-24">
+      <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-24">
         <View className="mt-2 aspect-square w-full items-center justify-center overflow-hidden rounded-plate bg-tray dark:bg-tray-dark">
           {imageUri ? (
             <Image
@@ -421,7 +422,7 @@ export default function ItemDetailScreen() {
             ) : null}
           </View>
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
