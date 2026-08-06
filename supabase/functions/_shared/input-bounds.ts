@@ -35,8 +35,19 @@ export class BoundsError extends Error {
  */
 const MAX_BODY_CHARS = 64 * 1024;
 
-/** Shared field ceilings. Generous against real traffic, fatal to a loop. */
-const MAX_ID_CHARS = 64;
+/**
+ * Shared field ceilings. Generous against real traffic, fatal to a loop.
+ *
+ * MAX_ID_CHARS must fit an outfit-candidate id, which the client builds by
+ * joining up to four item UUIDs with '.' (`candidateId` in
+ * src/features/stylist/use-chat.ts and src/features/styling/use-outfits.ts):
+ * 4×36 + 3 = 147 chars. At 64 this bound silently 400'd every stylist-chat
+ * and generate-outfits call the evening it shipped — the functions answered
+ * in ~260ms, which looked healthy in the logs and was actually the validator
+ * rejecting before the model. 160 covers the real maximum with headroom and
+ * remains fatal to anything loop-shaped.
+ */
+const MAX_ID_CHARS = 160;
 const MAX_ITEMS_PER_CANDIDATE = 12;
 const MAX_ITEM_FIELD_CHARS = 120;
 const MAX_NOTES_PER_CANDIDATE = 8;

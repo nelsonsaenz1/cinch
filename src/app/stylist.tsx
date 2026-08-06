@@ -387,7 +387,7 @@ export default function StylistScreen() {
             onSubmitEditing={() => submit(draft)}
             // The placeholder does the job a feature tour would: it shows the
             // one question nothing else on the market can answer.
-            placeholder="Dinner at 7, drinks after…"
+            placeholder="Ask about tonight…"
             placeholderTextColor={theme.muted}
             multiline
             textAlignVertical="top"

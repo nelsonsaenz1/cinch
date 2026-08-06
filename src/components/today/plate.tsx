@@ -48,8 +48,16 @@ export type PlateColophon = {
   feelsLikeC?: number | null;
 };
 
-/** The tiny label the design prints under the stack for each garment. */
-const labelFor = (g: Garment) => g.subcategory ?? g.category;
+/**
+ * The tiny label the design prints under the stack for each garment.
+ * Capitalised: the approved App Store frames set the data line as
+ * "Mohair sweater · Penny loafers", and a lowercase "shirt · loafers"
+ * reads as debug output next to them.
+ */
+const labelFor = (g: Garment) => {
+  const s = g.subcategory ?? g.category;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
 
 /** Concentric with the tile's own corner: soft enough to be a photograph, not a chip. */
 const TILE_RADIUS = 10;

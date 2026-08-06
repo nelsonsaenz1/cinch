@@ -360,8 +360,13 @@ export default function PlanScreen() {
               <View className="mb-1 px-gutter">
                 <Text variant="title">This week</Text>
               </View>
+              {/* The engine PREFERS spreading wear (REUSE_BOOST is a soft
+                  scorer, not a cap) — with a small closet the same shirt can
+                  honestly appear five times. The old line, "No piece worn
+                  more than twice", printed a promise the week below it
+                  visibly broke. */}
               <Text variant="label" className="mb-5 px-gutter text-accent dark:text-accent-dark">
-                No piece worn more than twice
+                Repeats kept to a minimum
               </Text>
               {weekDays.map((day, i) => {
                 const key = dateKey(day.date);
