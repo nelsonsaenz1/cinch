@@ -8,14 +8,59 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatPrice, parsePrice } from '@/components/review/review-card';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
+import { ErrorState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { useVerifyItem } from '@/features/closet/mutations';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls, stableImageSource } from '@/features/closet/use-image-urls';
 import { useSetBorrowable } from '@/features/social-graph/mutations';
 import { useItemBorrowable } from '@/features/social-graph/queries';
+import { pairHarmony, toGarmentColors } from '@/lib/color';
 import { costPerWear, type Item } from '@/schemas/item';
+import { leading } from '@/theme/font-metrics';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+
+/**
+ * How many of the other pieces in the closet actually work with this one's
+ * colours — the guide's "works with 8 of your pieces" line, computed from the
+ * same OKLCH harmony model the styling engine scores outfits with rather than
+ * a canned number. Each side is reduced to its dominant colour, same as
+ * `analyzePalette` does for a whole outfit; 0.55 is a shade above the
+ * "unremarkable but fine" midpoint the scorer itself uses, so this counts real
+ * pairings, not merely inoffensive ones.
+ */
+const HARMONY_FLOOR = 0.55;
+
+function harmonyCount(item: Item, closet: Item[]): number {
+  const mine = toGarmentColors(item.colors)[0];
+  if (!mine) return 0;
+
+  let count = 0;
+  for (const other of closet) {
+    if (other.id === item.id) continue;
+    const theirs = toGarmentColors(other.colors)[0];
+    if (!theirs) continue;
+    if (pairHarmony(mine, theirs).score >= HARMONY_FLOOR) count++;
+  }
+  return count;
+}
+
+/**
+ * Cost-per-wear only ever falls as a piece is worn more against a fixed
+ * price, so "down from $X a wear" is a real, computed fact rather than the
+ * guide's invented "last winter" — it compares today's cost per wear against
+ * what it was `LOOKBACK` wears ago. Silent until there is enough history to
+ * make the comparison mean something, and silent again if the piece hasn't
+ * actually gotten any cheaper (a brand-new higher price wouldn't have).
+ */
+const CPW_LOOKBACK = 8;
+
+function cpwTrend(item: Item, cpw: number | null): string | null {
+  if (cpw === null || item.purchasePrice === null || item.wearCount <= CPW_LOOKBACK) return null;
+  const earlierCpw = item.purchasePrice / (item.wearCount - CPW_LOOKBACK);
+  if (earlierCpw - cpw < 0.05) return null;
+  return `Down from $${earlierCpw.toFixed(2)} a wear ${CPW_LOOKBACK} wears ago.`;
+}
 
 /** "Oct 2023" from an ISO date, for the owned-since line. */
 function monthYear(iso: string | null): string | null {
@@ -49,6 +94,8 @@ export default function ItemDetailScreen() {
   const closet = useCloset();
   const item = (closet.data ?? []).find((i) => i.id === id);
   const cpw = item ? costPerWear(item) : null;
+  const worksWith = item ? harmonyCount(item, closet.data ?? []) : 0;
+  const trend = item ? cpwTrend(item, cpw) : null;
 
   const { resolve } = useSignedUrls([item?.cutoutPath, item?.thumbPath]);
   const imageUri = resolve(item?.cutoutPath, item?.thumbPath);
@@ -69,6 +116,21 @@ export default function ItemDetailScreen() {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
         <ActivityIndicator color={theme.muted} />
+      </SafeAreaView>
+    );
+  }
+
+  // A failed fetch is not a deletion. This used to fall through to the
+  // "no longer in your closet" branch below and tell someone the piece was
+  // gone over a network error that never touched her closet.
+  if (closet.isError) {
+    return (
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+        <ErrorState
+          title="Couldn't load this piece"
+          body="Check your connection and try again."
+          onRetry={() => void closet.refetch()}
+        />
       </SafeAreaView>
     );
   }
@@ -180,6 +242,16 @@ export default function ItemDetailScreen() {
             <StatBox value={sinceLastWorn(item)} label="Since last worn" />
           </View>
         </View>
+
+        {/* The honest commentary line under the stat grid — computed, not
+            invented: cost per wear only falls as a fixed price is worn more,
+            so this is a real comparison against the same piece's own earlier
+            self, not a claim about a season it may not have been owned in. */}
+        {trend ? (
+          <Text variant="label" className="mt-2 text-muted dark:text-muted-dark">
+            {trend}
+          </Text>
+        ) : null}
 
         {/* The price edit — the screen's one oxblood, spent here because this
             is the field that turns the hero tile from a dash into the number
@@ -338,6 +410,15 @@ export default function ItemDetailScreen() {
                 {colours.map((c) => c.name).join(' · ')}
               </Text>
             </View>
+            {/* The half of this caption that carries the moat: how many other
+                real pieces this colour actually pairs with, scored by the same
+                OKLCH harmony model the outfit engine uses — not a claim any
+                competitor without real closets behind it could make. */}
+            {(closet.data?.length ?? 0) > 1 ? (
+              <Text variant="label" className="mt-2 text-muted dark:text-muted-dark">
+                Works with {worksWith} of your other pieces.
+              </Text>
+            ) : null}
           </View>
         ) : null}
       </ScrollView>
@@ -349,11 +430,12 @@ export default function ItemDetailScreen() {
  * One cell of the stat grid. `edge` names which internal borders it draws so the
  * cross lines never double up; `invert` is the ink hero tile.
  *
- * Colours are set by `style`, not className: on the inverted tile a `text-canvas`
- * class does NOT reliably beat the `stat` variant's own `text-ink` (NativeWind
- * gives no guaranteed precedence between two `text-*` utilities that land on the
- * same element), which rendered the hero figure ink-on-ink — invisible. An
- * inline style always wins, so the value is legible on both tiles.
+ * All sizing and colour is set by `style`, not className: on the inverted tile
+ * a `text-canvas` class does NOT reliably beat the `stat` variant's own
+ * `text-ink` (NativeWind gives no guaranteed precedence between two `text-*`
+ * utilities that land on the same element), which rendered the hero figure
+ * ink-on-ink — invisible, and the same hazard would apply to stacking a size
+ * class (see button.tsx L18-25). An inline style always wins.
  */
 function StatBox({
   value,
@@ -370,13 +452,32 @@ function StatBox({
   const borders = `${edge.includes('r') ? 'border-r ' : ''}${edge.includes('b') ? 'border-b ' : ''}`;
   return (
     <View className={`flex-1 p-4 ${borders}border-rule dark:border-rule-dark ${invert ? 'bg-ink' : ''}`}>
-      <Text variant="stat" className="text-figure" style={{ color: invert ? theme.canvas : theme.ink }}>
+      {/* The design's hero figure size (26px) — matched here at the tailwind
+          config's own `figure` values rather than stacking `className="text-figure"`
+          on top of the `stat` variant's `text-heading`, which is the same
+          two-`text-*`-classes hazard the comment above names. */}
+      <Text
+        variant="stat"
+        style={{
+          color: invert ? theme.canvas : theme.ink,
+          fontSize: 28,
+          lineHeight: leading('instrument', 28, 1.05),
+          letterSpacing: -0.15,
+        }}>
         {value}
       </Text>
+      {/* 8px, not the shared 10px `colophon` size — the guide sets these
+          stat-grid labels smaller than every other colophon in the app, so
+          the override is local rather than a change to the shared token. */}
       <Text
         variant="colophon"
         className="mt-1"
-        style={{ color: invert ? 'rgba(251,250,246,0.7)' : theme.faint }}>
+        style={{
+          color: invert ? 'rgba(251,250,246,0.7)' : theme.faint,
+          fontSize: 8,
+          lineHeight: 11,
+          letterSpacing: 1.1,
+        }}>
         {label}
       </Text>
     </View>

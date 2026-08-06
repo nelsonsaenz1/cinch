@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ClosetGrid } from '@/components/closet/closet-grid';
 import { PlateThumb } from '@/components/closet/plate-thumb';
+import { Chip } from '@/components/ui/chip';
+import { ErrorState } from '@/components/ui/empty-state';
 import { ClosetGridSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import {
@@ -20,7 +22,35 @@ import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleProfile } from '@/features/styling/queries';
 import type { Item } from '@/schemas/item';
+import { leading } from '@/theme/font-metrics';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+
+/**
+ * The field guide's sticky browsing row — Tops / Bottoms / Outerwear / Shoes /
+ * Accessories — lifted from `dev-closet.tsx` and wired to the real category
+ * column. It lives inside search mode (see `ClosetScreen`) because that is
+ * the screen's only full-wardrobe grid; the identity view above it stays a
+ * curated set of highlights, not a place to filter.
+ */
+type CategoryFilter = 'All' | 'Tops' | 'Bottoms' | 'Outerwear' | 'Shoes' | 'Accessories';
+const CATEGORIES: CategoryFilter[] = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
+
+/** Which of the five browsing chips a stored `ItemCategory` falls under. Total: every value maps somewhere. */
+function chipFor(category: Item['category']): CategoryFilter {
+  switch (category) {
+    case 'top':
+    case 'dress':
+      return 'Tops';
+    case 'bottom':
+      return 'Bottoms';
+    case 'outerwear':
+      return 'Outerwear';
+    case 'footwear':
+      return 'Shoes';
+    default:
+      return 'Accessories';
+  }
+}
 
 /**
  * The closet as the founder's mock draws it: the user's own profile page.
@@ -76,6 +106,7 @@ export default function ClosetScreen() {
   const theme = useTheme();
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<CategoryFilter>('All');
 
   // The same query Profile's delete-account warning reads, so the two screens
   // can never disagree about what the user owns.
@@ -104,16 +135,20 @@ export default function ClosetScreen() {
   const favourites = useMemo(() => mostWornItems(items, FAVOURITE_LIMIT), [items]);
 
   // Live search over the words a person would actually type: what it is, its
-  // colour, the brand. Empty query = the whole closet, newest first.
+  // colour, the brand — narrowed first by the category chip, same as the
+  // guide's browsing row. Empty query and "All" = the whole closet, newest
+  // first.
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const matches = (i: Item) =>
-      !q ||
-      [i.subcategory, i.category, i.brand, ...i.colors.map((c) => c.name)]
+    const matches = (i: Item) => {
+      if (category !== 'All' && chipFor(i.category) !== category) return false;
+      if (!q) return true;
+      return [i.subcategory, i.category, i.brand, ...i.colors.map((c) => c.name)]
         .filter(Boolean)
         .some((s) => s!.toLowerCase().includes(q));
+    };
     return items.filter(matches).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [items, query]);
+  }, [items, query, category]);
 
   const name = identity.data?.name ?? '';
 
@@ -170,6 +205,7 @@ export default function ClosetScreen() {
           onPress={() => {
             setSearching((s) => !s);
             setQuery('');
+            setCategory('All');
           }}
         />
         <HeaderIcon
@@ -194,6 +230,22 @@ export default function ClosetScreen() {
             </Text>
           </View>
           <ClosetGridSkeleton />
+        </>
+      ) : closet.isError ? (
+        // A failed fetch is not an empty wardrobe. Falling through to
+        // EmptyCloset here used to tell someone with 200 garments "An empty
+        // rail" over a network error that has nothing to do with what she owns.
+        <>
+          <View className="px-gutter pt-2">
+            <Text variant="display" trim accessibilityRole="header">
+              Closet
+            </Text>
+          </View>
+          <ErrorState
+            title="Couldn't read your closet"
+            body="Check your connection and try again."
+            onRetry={refresh}
+          />
         </>
       ) : searching ? (
         // The browse-everything mode: search over the full grid. The input sits
@@ -227,7 +279,19 @@ export default function ClosetScreen() {
               }}
             />
           </View>
-          <View className="h-2" />
+
+          {/* The field guide's browsing row, restored. Full wardrobe browsing
+              lives here — inside search mode — rather than on the identity
+              view above, which stays curated highlights. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 7, paddingHorizontal: 20, paddingVertical: 10 }}>
+            {CATEGORIES.map((c) => (
+              <Chip key={c} label={c} selected={category === c} onPress={() => setCategory(c)} />
+            ))}
+          </ScrollView>
+
           <ClosetGrid
             items={visible}
             onItemPress={openItem}
@@ -235,7 +299,7 @@ export default function ClosetScreen() {
             refreshControl={
               <RefreshControl refreshing={closet.isRefetching} onRefresh={refresh} />
             }
-            ListEmptyComponent={<EmptySearch query={query} />}
+            ListEmptyComponent={<EmptySearch query={query} category={category} />}
           />
         </>
       ) : (
@@ -455,8 +519,14 @@ function MostWornRow({
           />
         </View>
       </View>
-      {/* Same serif-at-label-size idiom as the item card's cost-per-wear. */}
-      <Text variant="stat" className="text-label text-ink">
+      {/* Same serif-at-label-size idiom as the item card's cost-per-wear. Size
+          is set inline, not via a second `text-*` class stacked on the `stat`
+          variant's own — NativeWind gives no guaranteed precedence between
+          two size utilities on one element (see button.tsx L18-25). */}
+      <Text
+        variant="stat"
+        className="text-ink"
+        style={{ fontSize: 13, lineHeight: leading('helvetica', 13, 1.4) }}>
         {wearsLabel(item.wearCount)}
       </Text>
     </Pressable>
@@ -502,17 +572,20 @@ function EmptyCloset({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-/** The search grid's nothing-found state. */
-function EmptySearch({ query }: { query: string }) {
+/** The search grid's nothing-found state — honest about which filter emptied it. */
+function EmptySearch({ query, category }: { query: string; category: CategoryFilter }) {
+  const filtered = category !== 'All';
   return (
     <View className="items-center px-8 pt-16">
       <Text variant="title" className="text-center">
-        {query ? 'Nothing matches' : 'An empty rail'}
+        {query || filtered ? 'Nothing matches' : 'An empty rail'}
       </Text>
       <Text variant="body" className="mt-3 max-w-[260px] text-center text-muted">
         {query
           ? 'No pieces match that search. Try a colour, a brand, or the kind of garment.'
-          : 'Add a few pieces and your whole wardrobe becomes searchable here.'}
+          : filtered
+            ? `Nothing filed under ${category.toLowerCase()} yet.`
+            : 'Add a few pieces and your whole wardrobe becomes searchable here.'}
       </Text>
     </View>
   );

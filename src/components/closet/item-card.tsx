@@ -5,6 +5,7 @@ import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { type Item, costPerWear } from '@/schemas/item';
+import { leading } from '@/theme/font-metrics';
 import { useTheme } from '@/theme/tokens';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 
@@ -102,7 +103,13 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
             className={neverWorn ? 'text-accent dark:text-accent-dark' : 'text-muted dark:text-muted-dark'}>
             {neverWorn ? 'Never worn' : `${item.wearCount} ${item.wearCount === 1 ? 'wear' : 'wears'}`}
           </Text>
-          <Text variant="stat" className="text-label text-ink dark:text-ink-dark">
+          {/* Size is set inline, not via a second `text-*` class stacked on the
+              `stat` variant's own — NativeWind gives no guaranteed precedence
+              between two size utilities on one element (see button.tsx L18-25). */}
+          <Text
+            variant="stat"
+            className="text-ink dark:text-ink-dark"
+            style={{ fontSize: 13, lineHeight: leading('helvetica', 13, 1.4) }}>
             {cpw !== null ? `$${cpw.toFixed(2)}` : '—'}
           </Text>
         </View>
