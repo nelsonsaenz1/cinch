@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cinch — Stylist</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .bub-user {
+    margin-left: auto;
+    max-width: 85%;
+    background: var(--ink);
+    color: var(--canvas);
+    padding: 10px 16px;
+    border-radius: 20px 20px 4px 20px;
+    font-size: 17px;
+    line-height: 1.5;
+    width: fit-content;
+  }
+  .bub-stylist {
+    max-width: 85%;
+    background: var(--tray);
+    color: var(--ink);
+    padding: 10px 16px;
+    border-radius: 20px 20px 20px 4px;
+    font-size: 17px;
+    line-height: 1.5;
+    width: fit-content;
+  }
+  .strip { margin-top: 8px; border-radius: 20px; background: var(--tray); padding: 8px; display: flex; gap: 4px; height: 88px; }
+  .strip .g { border-radius: 8px; overflow: hidden; }
+  .strip .g img { width: 100%; height: 100%; object-fit: cover; display: block; }
+</style>
+</head>
+<body>
+<div class="stage ink">
+  <div class="wordmark">Cinch</div>
+  <div class="headline">A stylist that <em>never</em> sells you anything.</div>
+  <div class="subline">It answers from your real closet &mdash; and says so, plainly, when you don&rsquo;t own the right thing.</div>
+
+  <div class="device"><div class="screen"><div class="app">
+
+    <!-- iOS status bar -->
+    <div class="statusbar">
+      <span class="time">9:41</span>
+      <div class="island"></div>
+      <div class="statusglyphs">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#1C1A16"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></g></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 12 L2 5.2 C3.8 3.6 6 2.7 8.5 2.7 C11 2.7 13.2 3.6 15 5.2 Z" fill="#1C1A16" opacity=".95"/><path d="M8.5 2.7 C6 2.7 3.8 3.6 2 5.2 L0 3.1 C2.3 1.1 5.3 0 8.5 0 C11.7 0 14.7 1.1 17 3.1 L15 5.2 C13.2 3.6 11 2.7 8.5 2.7 Z" fill="#1C1A16" opacity=".35"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" fill="none" stroke="#1C1A16" opacity=".4"/><rect x="2" y="2" width="15" height="8" rx="2" fill="#1C1A16"/><rect x="23" y="4" width="2" height="4" rx="1" fill="#1C1A16" opacity=".4"/></svg>
+      </div>
+    </div>
+
+    <!-- Stylist header -->
+    <div class="gutter" style="padding-top:10px; padding-bottom:12px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--hairline);">
+      <div style="width:36px;height:36px;border-radius:18px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;">
+        <svg width="15" height="15" viewBox="0 0 16 16"><path d="M8 0 C8.6 3.4 9.8 4.9 13.5 5.6 C9.8 6.3 8.6 7.8 8 11.2 C7.4 7.8 6.2 6.3 2.5 5.6 C6.2 4.9 7.4 3.4 8 0 Z M13 10 C13.3 11.6 13.9 12.3 15.6 12.6 C13.9 12.9 13.3 13.6 13 15.2 C12.7 13.6 12.1 12.9 10.4 12.6 C12.1 12.3 12.7 11.6 13 10 Z" fill="#6E2B2B"/></svg>
+      </div>
+      <div>
+        <div class="t-plate">Stylist</div>
+        <div class="t-caption" style="margin-top:2px; color:var(--faint);">Only your clothes &mdash; nothing invented</div>
+      </div>
+    </div>
+
+    <!-- Conversation -->
+    <div class="gutter" style="padding-top:22px;">
+
+      <div class="bub-user">Dinner at 7, then drinks after &mdash; what works?</div>
+
+      <div style="margin-top:20px;">
+        <div class="bub-stylist">The cream mohair over your charcoal trousers. Warm enough for a patio, and the loafers carry it from the table to the bar. You&rsquo;ve worn the pairing twice &mdash; it works.</div>
+        <div class="strip" style="max-width:85%;">
+          <div class="g" style="flex:1.4;"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/cream-mohair-sweater.jpg" style="object-position:50% 40%; transform:scale(1.6); transform-origin:52% 44%;"></div>
+          <div class="g" style="flex:1.3;"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/charcoal-tailored-trousers.jpg" style="object-position:40% 62%; transform:scale(1.5); transform-origin:40% 66%;"></div>
+          <div class="g" style="flex:1;"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/brown-leather-loafers.jpg" style="object-position:18% 72%;"></div>
+          <div class="g" style="flex:1;"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/brown-leather-crossbody-bag.jpg" style="object-position:50% 55%; transform:scale(1.5); transform-origin:50% 58%;"></div>
+        </div>
+        <div class="t-caption" style="margin-top:6px; max-width:85%;">cream sweater, charcoal trousers, brown loafers, brown crossbody</div>
+      </div>
+
+      <div class="bub-user" style="margin-top:24px;">Could I do black tie with this closet?</div>
+
+      <div style="margin-top:20px;">
+        <div class="bub-stylist">No &mdash; nothing you own is formal enough for black tie, and I won&rsquo;t invent a gown you don&rsquo;t have. The closest true thing: the white linen blouse tucked into the charcoal trousers. Smart, not black tie.</div>
+        <div class="t-label" style="margin-top:12px; font-style:italic;">Want me to keep an eye on what the closet is missing?</div>
+      </div>
+
+    </div>
+
+    <!-- Composer -->
+    <div style="position:absolute; left:0; right:0; bottom:0; border-top:1px solid var(--hairline); background:var(--canvas); padding:12px 20px 24px; display:flex; align-items:center; gap:8px;">
+      <div style="flex:1; border:1px solid var(--rule); background:var(--surface); border-radius:22px; padding:11px 16px;">
+        <span class="t-callout" style="color:var(--faint);">Ask about tonight&hellip;</span>
+      </div>
+      <div style="width:38px;height:38px;border-radius:19px;background:var(--ink);display:flex;align-items:center;justify-content:center;">
+        <svg width="14" height="16" viewBox="0 0 14 16"><path d="M7 14.5 V2 M2 6.5 L7 1.5 L12 6.5" fill="none" stroke="#FBFAF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+
+  </div></div></div>
+</div>
+</body>
+</html>

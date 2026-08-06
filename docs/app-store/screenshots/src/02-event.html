@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cinch — Deciding together</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .trip { display: flex; gap: 8px; }
+  .trip .cell { width: 52px; height: 52px; border-radius: 12px; background: var(--tray); overflow: hidden; }
+  .trip .cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .gridcard { background: var(--surface); border: 1px solid var(--hairline); border-radius: 20px; padding: 12px; }
+  .gridcard .mini { display: flex; gap: 6px; }
+  .gridcard .mini .cell { flex: 1; aspect-ratio: 1; border-radius: 6px; background: var(--tray); overflow: hidden; }
+  .gridcard .mini .cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .avatar { border-radius: 50%; background: var(--sand); display: flex; align-items: center; justify-content: center; }
+  .avatar span { font-size: 11px; font-weight: 500; color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="stage ink">
+  <div class="wordmark">Cinch</div>
+  <div class="headline">The group chat, <em>answered.</em></div>
+  <div class="subline">Post the dinner. Friends pin looks from their own closets, vote &mdash; and everyone walks in decided.</div>
+
+  <div class="device"><div class="screen"><div class="app">
+
+    <!-- iOS status bar -->
+    <div class="statusbar">
+      <span class="time">9:41</span>
+      <div class="island"></div>
+      <div class="statusglyphs">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#1C1A16"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></g></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 12 L2 5.2 C3.8 3.6 6 2.7 8.5 2.7 C11 2.7 13.2 3.6 15 5.2 Z" fill="#1C1A16" opacity=".95"/><path d="M8.5 2.7 C6 2.7 3.8 3.6 2 5.2 L0 3.1 C2.3 1.1 5.3 0 8.5 0 C11.7 0 14.7 1.1 17 3.1 L15 5.2 C13.2 3.6 11 2.7 8.5 2.7 Z" fill="#1C1A16" opacity=".35"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" fill="none" stroke="#1C1A16" opacity=".4"/><rect x="2" y="2" width="15" height="8" rx="2" fill="#1C1A16"/><rect x="23" y="4" width="2" height="4" rx="1" fill="#1C1A16" opacity=".4"/></svg>
+      </div>
+    </div>
+
+    <!-- Back row -->
+    <div class="gutter" style="padding-top:6px; display:flex; align-items:center; gap:12px;">
+      <div style="width:36px;height:36px;border-radius:18px;border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;">
+        <svg width="9" height="15" viewBox="0 0 9 15"><path d="M7.5 1.5 L2 7.5 L7.5 13.5" fill="none" stroke="#1C1A16" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <span class="t-colophon">Event</span>
+    </div>
+
+    <!-- Title + metadata -->
+    <div class="gutter" style="margin-top:16px;">
+      <div class="t-title">Dana&rsquo;s birthday dinner</div>
+      <div class="t-body" style="margin-top:10px; color:var(--muted);">Sat, Aug 8, 7:30 PM &middot; Bar Ideale &middot; Feels 70&deg;, clear evening</div>
+      <div class="t-colophon" style="margin-top:8px;">Birthday dinner &middot; table for 6 &middot; something festive</div>
+    </div>
+
+    <!-- RSVP -->
+    <div class="gutter" style="margin-top:14px; display:flex; gap:12px;">
+      <div class="pill ink-fill" style="height:44px; padding:0 22px; font-size:15px; font-weight:600;">Going</div>
+    </div>
+
+    <!-- YOUR LOOK — the blush card -->
+    <div style="margin:18px 20px 0; background:var(--blush); border:1px solid var(--blush-rule); border-radius:20px; padding:16px;">
+      <div class="t-colophon" style="color:var(--accent);">Your look</div>
+      <div class="trip" style="margin-top:12px;">
+        <div class="cell"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/cream-mohair-sweater.jpg" style="object-position:50% 40%; transform:scale(1.7); transform-origin:52% 44%;"></div>
+        <div class="cell"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/beige-corduroy-skirt.jpg" style="object-position:16% 82%; transform:scale(1.4); transform-origin:14% 84%;"></div>
+        <div class="cell"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/brown-leather-boots.jpg" style="object-position:50% 58%; transform:scale(1.35); transform-origin:50% 60%;"></div>
+      </div>
+      <div class="t-plate" style="margin-top:12px;">Cream &amp; Cognac</div>
+      <div class="t-label" style="margin-top:4px;">cream sweater, cognac boots</div>
+      <div class="t-colophon" style="margin-top:8px;">3 picks from the table</div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <div class="pill" style="flex:1; background:var(--surface);">Swap a piece</div>
+        <div class="pill" style="flex:1; background:var(--surface);">Share another</div>
+      </div>
+    </div>
+
+    <!-- Who's wearing what -->
+    <div class="gutter" style="margin-top:22px; display:flex; align-items:baseline; justify-content:space-between;">
+      <span class="t-eyebrow">Who&rsquo;s wearing what</span>
+      <span class="t-colophon">2 of 5 shared</span>
+    </div>
+
+    <div style="margin:10px 14px 0; display:flex;">
+      <div style="width:50%; padding:6px;">
+        <div class="gridcard">
+          <div class="mini">
+            <div class="cell"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/cream-mohair-sweater.jpg" style="object-position:50% 40%; transform:scale(1.7); transform-origin:52% 44%;"></div>
+            <div class="cell"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/beige-corduroy-skirt.jpg" style="object-position:16% 82%; transform:scale(1.4); transform-origin:14% 84%;"></div>
+            <div class="cell"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/brown-leather-boots.jpg" style="object-position:50% 58%; transform:scale(1.35); transform-origin:50% 60%;"></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+            <div class="avatar" style="width:24px;height:24px;"><span>ME</span></div>
+            <span class="t-label" style="color:var(--ink);">You</span>
+          </div>
+          <div class="t-caption" style="margin-top:4px;">cream sweater, cognac boots</div>
+        </div>
+      </div>
+      <div style="width:50%; padding:6px;">
+        <div class="gridcard">
+          <div class="mini">
+            <div class="cell"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/white-linen-blouse.jpg" style="object-position:50% 46%; transform:scale(1.5); transform-origin:50% 48%;"></div>
+            <div class="cell"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/charcoal-tailored-trousers.jpg" style="object-position:40% 62%; transform:scale(1.5); transform-origin:40% 66%;"></div>
+            <div class="cell"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/brown-leather-loafers.jpg" style="object-position:18% 72%;"></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+            <div class="avatar" style="width:24px;height:24px;"><span>D</span></div>
+            <span class="t-label" style="color:var(--ink);">Dana</span>
+          </div>
+          <div class="t-caption" style="margin-top:4px;">white blouse, charcoal trousers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- The stylist's group note -->
+    <div style="margin:10px 20px 0; background:var(--tray); border-radius:20px; padding:16px;">
+      <div class="t-callout" style="color:var(--ink);">Two of you are in cream. Yours reads differently with the cognac boots.</div>
+    </div>
+
+    <!-- Nav rows -->
+    <div class="gutter" style="margin-top:14px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--hairline);">
+        <div>
+          <div class="t-body">Every option</div>
+          <div class="t-caption" style="color:var(--faint);">All the looks, with picks</div>
+        </div>
+        <svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5 L6.5 6.5 L1.5 11.5" fill="none" stroke="#8A8578" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0;">
+        <div class="t-body">Table talk</div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="t-colophon">8</span>
+          <svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5 L6.5 6.5 L1.5 11.5" fill="none" stroke="#8A8578" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+    </div>
+
+  </div></div></div>
+</div>
+</body>
+</html>

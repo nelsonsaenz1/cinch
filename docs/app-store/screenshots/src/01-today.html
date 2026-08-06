@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cinch — Today</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .plate-stack { position: relative; width: 100%; height: 296px; margin-top: 12px; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .actions .pill { flex: 1; }
+  .actions .pill.wear { flex: none; padding: 0 16px; }
+</style>
+</head>
+<body>
+<div class="stage paper">
+  <div class="wordmark">Cinch</div>
+  <div class="headline">Dressed in a <em>minute.</em></div>
+  <div class="subline">Every morning: outfits built from your own closet, chosen for the day&rsquo;s weather, plans, and your taste.</div>
+
+  <div class="device"><div class="screen"><div class="app">
+
+    <!-- iOS status bar -->
+    <div class="statusbar">
+      <span class="time">9:41</span>
+      <div class="island"></div>
+      <div class="statusglyphs">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#1C1A16"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></g></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 12 L2 5.2 C3.8 3.6 6 2.7 8.5 2.7 C11 2.7 13.2 3.6 15 5.2 Z" fill="#1C1A16" opacity=".95"/><path d="M8.5 2.7 C6 2.7 3.8 3.6 2 5.2 L0 3.1 C2.3 1.1 5.3 0 8.5 0 C11.7 0 14.7 1.1 17 3.1 L15 5.2 C13.2 3.6 11 2.7 8.5 2.7 Z" fill="#1C1A16" opacity=".35"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" fill="none" stroke="#1C1A16" opacity=".4"/><rect x="2" y="2" width="15" height="8" rx="2" fill="#1C1A16"/><rect x="23" y="4" width="2" height="4" rx="1" fill="#1C1A16" opacity=".4"/></svg>
+      </div>
+    </div>
+
+    <!-- Masthead -->
+    <div class="gutter" style="padding-top:6px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+      <div>
+        <div class="t-eyebrow">Thu 6 Aug &middot; Denver</div>
+        <div class="t-display" style="margin-top:6px;">Good morning, Mara</div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:2px;">
+        <div style="width:34px;height:34px;border-radius:17px;border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;">
+          <svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 0 C8.6 3.4 9.8 4.9 13.5 5.6 C9.8 6.3 8.6 7.8 8 11.2 C7.4 7.8 6.2 6.3 2.5 5.6 C6.2 4.9 7.4 3.4 8 0 Z M13 10 C13.3 11.6 13.9 12.3 15.6 12.6 C13.9 12.9 13.3 13.6 13 15.2 C12.7 13.6 12.1 12.9 10.4 12.6 C12.1 12.3 12.7 11.6 13 10 Z" fill="#6E2B2B"/></svg>
+        </div>
+        <div style="width:34px;height:34px;border-radius:17px;background:var(--ink);display:flex;align-items:center;justify-content:center;">
+          <svg width="15" height="15" viewBox="0 0 15 15"><circle cx="7.5" cy="4.6" r="3" fill="#FBFAF6"/><path d="M1.6 13.6 C2.2 10.4 4.6 8.9 7.5 8.9 C10.4 8.9 12.8 10.4 13.4 13.6 Z" fill="#FBFAF6"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weather strip -->
+    <div class="gutter" style="margin-top:6px;">
+      <div class="t-label">Feels 72&deg; &middot; Clear, light breeze &middot; Denver</div>
+      <div class="t-label" style="margin-top:6px;">12:30pm Lunch with Dana &middot; 7pm Dinner</div>
+    </div>
+
+    <!-- Plans note pill -->
+    <div style="margin:12px 20px 0; display:flex; align-items:center; gap:8px; border-radius:12px; background:var(--tray); padding:10px 14px;">
+      <svg width="15" height="15" viewBox="0 0 15 15"><path d="M7.5 1.5 V13.5 M1.5 7.5 H13.5" stroke="#B08A76" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span class="t-callout" style="color:var(--faint);">What&rsquo;s on today? Tell Cinch</span>
+    </div>
+
+    <!-- The plate -->
+    <div class="card gutter" style="margin:16px 20px 0; padding:14px;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px;">
+        <div class="t-plate">The Long Lunch</div>
+        <div class="t-colophon">Feels 72&deg;</div>
+      </div>
+      <div class="t-callout" style="margin-top:8px; color:var(--muted);">Cream over charcoal keeps the afternoon easy, and the loafers carry it into dinner without trying.</div>
+
+      <div class="plate-stack">
+        <div class="tile" style="left:0; top:0; width:186px; height:186px;">
+          <img src="file:///Users/nelsonsaenz/cinch/assets/garments/cream-mohair-sweater.jpg" style="object-position:50% 40%; transform:scale(1.6); transform-origin:52% 44%;">
+        </div>
+        <div class="tile" style="right:0; top:28px; width:158px; height:158px;">
+          <img src="file:///Users/nelsonsaenz/cinch/assets/garments/charcoal-tailored-trousers.jpg" style="object-position:40% 62%; transform:scale(1.5); transform-origin:40% 66%;">
+        </div>
+        <div class="tile" style="left:24px; top:170px; width:130px; height:130px;">
+          <img src="file:///Users/nelsonsaenz/cinch/assets/garments/brown-leather-loafers.jpg" style="object-position:18% 72%;">
+        </div>
+        <div class="tile" style="right:34px; top:182px; width:116px; height:116px;">
+          <img src="file:///Users/nelsonsaenz/cinch/assets/garments/cognac-leather-tote.jpg" style="object-position:50% 60%; transform:scale(1.18); transform-origin:50% 60%;">
+        </div>
+      </div>
+
+      <div class="t-caption" style="margin-top:10px;">Mohair sweater &nbsp;&middot;&nbsp; Tailored trousers &nbsp;&middot;&nbsp; Penny loafers &nbsp;&middot;&nbsp; Leather tote</div>
+
+      <div class="rule-line" style="margin-top:12px;"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-top:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="t-eyebrow">Palette</span>
+          <span class="dot" style="width:14px;height:14px;background:#E9DFCC;border:1px solid var(--rule);"></span>
+          <span class="dot" style="width:14px;height:14px;background:#494340;border:1px solid var(--rule);"></span>
+          <span class="dot" style="width:14px;height:14px;background:#9A5A33;border:1px solid var(--rule);"></span>
+          <span class="dot" style="width:14px;height:14px;background:#6B4A38;border:1px solid var(--rule);"></span>
+        </div>
+        <div style="display:flex; align-items:baseline; gap:4px;">
+          <span class="t-stat">$3.40</span>
+          <span class="t-colophon">/ wear</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <div class="pill">Love it</div>
+        <div class="pill muted-label">Not for me</div>
+        <div class="pill wear">I wore this</div>
+      </div>
+    </div>
+
+    <!-- Honest learning line -->
+    <div class="gutter" style="margin-top:12px; max-width:390px;">
+      <div class="t-label">Learning from 12 reactions &mdash; it thinks you lean warm neutrals.</div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tabbar">
+      <div class="tabitem active">
+        <svg width="21" height="21" viewBox="0 0 21 21"><circle cx="10.5" cy="10.5" r="4.4" fill="#1C1A16"/><g stroke="#1C1A16" stroke-width="1.7" stroke-linecap="round"><path d="M10.5 1.2 V3.4"/><path d="M10.5 17.6 V19.8"/><path d="M1.2 10.5 H3.4"/><path d="M17.6 10.5 H19.8"/><path d="M3.9 3.9 L5.5 5.5"/><path d="M15.5 15.5 L17.1 17.1"/><path d="M17.1 3.9 L15.5 5.5"/><path d="M5.5 15.5 L3.9 17.1"/></g></svg>
+        <span class="lbl">Today</span>
+      </div>
+      <div class="tabitem">
+        <svg width="21" height="21" viewBox="0 0 21 21"><g fill="none" stroke="#6B665C" stroke-width="1.7"><rect x="2" y="2" width="7.2" height="7.2" rx="1.6"/><rect x="11.8" y="2" width="7.2" height="7.2" rx="1.6"/><rect x="2" y="11.8" width="7.2" height="7.2" rx="1.6"/><rect x="11.8" y="11.8" width="7.2" height="7.2" rx="1.6"/></g></svg>
+        <span class="lbl">Closet</span>
+      </div>
+      <div class="tabitem">
+        <svg width="21" height="21" viewBox="0 0 21 21"><g fill="none" stroke="#6B665C" stroke-width="1.7"><rect x="2" y="3.5" width="17" height="15" rx="2.4"/><path d="M2 8 H19"/><path d="M6.2 1.5 V5"/><path d="M14.8 1.5 V5"/></g></svg>
+        <span class="lbl">Plan</span>
+      </div>
+    </div>
+
+  </div></div></div>
+</div>
+</body>
+</html>
