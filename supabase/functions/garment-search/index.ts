@@ -9,7 +9,15 @@ import { BoundsError, readBoundedJson } from '../_shared/input-bounds.ts';
 import { OpenRouterError } from '../_shared/openrouter.ts';
 import { enforceAiQuota } from '../_shared/quota.ts';
 import { parseGarmentSearchRequest } from './bounds.ts';
-import { guardedFetch, UnsafeUrlError } from './net.ts';
+import { assertSafeUrl, guardedFetch, UnsafeUrlError } from './net.ts';
+import {
+  extractImageUrl,
+  extractTitle,
+  hostLabel,
+  PAGE_ACCEPT,
+  PAGE_MAX_BYTES,
+  PAGE_TIMEOUT_MS,
+} from './page-meta.ts';
 import { openRouterWebProvider } from './provider.ts';
 
 /**
@@ -21,12 +29,21 @@ import { openRouterWebProvider } from './provider.ts';
  * size 2, navy", optionally attaches a quick photo of the actual colour, and
  * picks their garment out of a handful of product images found on the web.
  *
- * TWO ACTIONS, ONE FUNCTION
+ * THREE ACTIONS, ONE FUNCTION
  *
- *   search  costs a model call and a web search — quota'd, consent-gated.
- *   import  downloads the chosen image and creates the item — no model, no
- *           quota unit. Charging twice for one garment would be charging the
- *           user for changing their mind, and the expensive half already ran.
+ *   search   costs a model call and a web search — quota'd, consent-gated.
+ *   resolve  reads ONE page the user pasted and returns its og:image and
+ *            og:title. No model, no web search — but it is the action that
+ *            turns a user-supplied string into an outbound fetch, so it is
+ *            quota'd too (see `resolveLink` for why, and at what cost).
+ *   import   downloads the chosen image and creates the item — no model, no
+ *            quota unit. Charging twice for one garment would be charging the
+ *            user for changing their mind, and the expensive half already ran.
+ *
+ * `search` and `resolve` are the two doors into the same room. One is for
+ * somebody who knows what the garment is called; the other is for somebody who
+ * is already looking at it in a shop's app and can share the link. They meet at
+ * `import`, which is the only code path that writes anything.
  *
  * THE DOWNLOAD HAPPENS HERE, NEVER ON THE CLIENT. Three reasons, in order of
  * how quickly they bite: a retailer's CDN does not send CORS headers, so the
@@ -162,7 +179,11 @@ export default {
       }
 
       if (request.action === 'import') {
-        return await importImage(db, admin, userId, request.imageUrl);
+        return await importImage(db, admin, userId, request.imageUrl, request.title);
+      }
+
+      if (request.action === 'resolve') {
+        return await resolveLink(admin, userId, request.pageUrl);
       }
 
       // ── Model config, read at call time so a model swap is a DB update ────
@@ -237,7 +258,167 @@ export default {
 };
 
 /**
+ * The sentence for a page we reached and could not read.
+ *
+ * It names the real cause — no picture we could find — and gives the way
+ * forward that always works, because a great many retailers render their
+ * product pages in JavaScript and there is no honest way to promise otherwise
+ * from inside an Edge Function with an eight-second budget and no browser.
+ */
+const UNREADABLE_MESSAGE =
+  "Cinch couldn't find the picture on that page — photograph the item instead.";
+
+/**
+ * Turn a pasted product link into a preview: one picture, one name, one shop.
+ *
+ * WHY THIS IS A SEPARATE ROUND TRIP AND NOT PART OF `import`. The user pasted a
+ * URL, not a garment. Between the paste and the closet there has to be a moment
+ * where they see what Cinch actually found and can say no — retailer links are
+ * shared from apps, carry tracking parameters, and sometimes point at a
+ * category page rather than the dress. Adding the wrong item silently and
+ * asking them to go delete it is the version of this feature nobody comes back
+ * to. So: resolve returns, the sheet shows, the person confirms, `import`
+ * writes.
+ *
+ * WHY A QUOTA UNIT, WHEN THERE IS NO MODEL CALL HERE. This action is the one
+ * place in the app where a string a user typed becomes an outbound HTTP request
+ * from inside Supabase's network. `net.ts` bounds WHERE that request may go and
+ * HOW BIG the answer may be; nothing bounded HOW MANY, and an authenticated
+ * script looping this is a page-fetching proxy with our name on the user agent.
+ * `garment_search` is the allowance that already exists, is already monthly, and
+ * is already sized to the onboarding burst this feature serves — 20 on free.
+ *
+ * It is an over-charge and worth saying so plainly: a link resolve costs us
+ * about nothing, where a described search costs ~$0.008 in web search. The
+ * honest fix is a separate, much larger `link_import` counter, which needs a
+ * migration deployed ahead of the function. Until then this errs toward the
+ * bound that exists rather than shipping an unbounded fetch primitive.
+ *
+ * A failed resolve still spends the unit, exactly as a failed search does —
+ * `claim_ai_quota` has no refund path on purpose (see `_shared/quota.ts`), since
+ * a refund is a free retry loop for anyone willing to provoke failures.
+ */
+async function resolveLink(
+  admin: SupabaseClient<Database>,
+  userId: string,
+  pageUrl: string,
+): Promise<Response> {
+  const quotaResponse = await enforceAiQuota(admin, userId, 'garment_search');
+  if (quotaResponse) return quotaResponse;
+
+  const started = Date.now();
+
+  /** One accounting row per unit spent, so quota and `ai_calls` reconcile. */
+  const record = async (succeeded: boolean, error: string | null) => {
+    await admin.from('ai_calls').insert({
+      user_id: userId,
+      workload: WORKLOAD,
+      // Not a model and not pretending to be one. This row exists so "how many
+      // garment_search units went to links" is answerable in SQL.
+      provider: 'link-import',
+      model_id: 'none',
+      cost_usd: 0,
+      latency_ms: Date.now() - started,
+      succeeded,
+      error,
+    });
+  };
+
+  let page;
+  try {
+    page = await guardedFetch(pageUrl, {
+      accept: PAGE_ACCEPT,
+      maxBytes: PAGE_MAX_BYTES,
+      timeoutMs: PAGE_TIMEOUT_MS,
+    });
+  } catch (err) {
+    if (err instanceof UnsafeUrlError) {
+      await record(false, `unsafe: ${err.message}`);
+      // Deliberately one message for every reason the guard refuses — "not
+      // https", "private address", "too many redirects", "too large". Which
+      // one it was is only useful to somebody probing the guard.
+      return fail(
+        'link_rejected',
+        "Cinch can't open that link. Paste the product page from the shop's own site.",
+        400,
+      );
+    }
+    await record(false, 'unreachable');
+    return fail(
+      'link_unreachable',
+      "That page didn't answer. Check the link, or photograph the item instead.",
+      502,
+    );
+  }
+
+  if (page.status !== 200) {
+    await record(false, `status ${page.status}`);
+    return fail(
+      'link_unreachable',
+      "That page didn't answer. Check the link, or photograph the item instead.",
+      502,
+    );
+  }
+
+  const contentType = page.contentType.split(';')[0].trim();
+
+  // Someone who long-pressed a product photograph and copied the image address
+  // has already done the extraction by hand. Handing that straight to the
+  // preview is a better answer than telling them their link isn't a page.
+  if (contentType.startsWith('image/')) {
+    await record(true, null);
+    return Response.json({
+      ok: true,
+      imageUrl: page.url.toString(),
+      title: null,
+      source: hostLabel(page.url),
+    });
+  }
+
+  if (!contentType.includes('html')) {
+    await record(false, `content-type ${contentType || 'unknown'}`);
+    return fail(
+      'link_not_a_page',
+      "That link isn't a product page. Open the item on the shop's site and copy that link.",
+      415,
+    );
+  }
+
+  // `fatal: false` because a retailer serving a mislabelled encoding should cost
+  // us a few replacement characters in a title, never the whole import.
+  const html = new TextDecoder('utf-8', { fatal: false }).decode(page.body);
+
+  const imageUrl = extractImageUrl(html, page.url);
+  if (!imageUrl) {
+    await record(false, 'no image on page');
+    return fail('link_no_image', UNREADABLE_MESSAGE, 422);
+  }
+
+  // Vetted now so a preview that could never be imported is never shown. The
+  // import re-checks, because that is the call that downloads bytes.
+  try {
+    assertSafeUrl(imageUrl);
+  } catch {
+    await record(false, 'image url unsafe');
+    return fail('link_no_image', UNREADABLE_MESSAGE, 422);
+  }
+
+  await record(true, null);
+
+  return Response.json({
+    ok: true,
+    imageUrl,
+    // May be null. The client offers its own field rather than inventing a name.
+    title: extractTitle(html, page.url),
+    source: hostLabel(page.url),
+  });
+}
+
+/**
  * Download the chosen product image and turn it into a closet item.
+ *
+ * The single write path, reached from both doors: a tapped candidate tile and a
+ * confirmed link preview arrive here with the same three facts.
  *
  * ORDER MATTERS. The download runs BEFORE the row is created, so a blocked CDN
  * or an oversized file leaves nothing behind. The row is created second, which
@@ -251,6 +432,7 @@ async function importImage(
   admin: SupabaseClient<Database>,
   userId: string,
   imageUrl: string,
+  title?: string,
 ): Promise<Response> {
   let downloaded;
   try {
@@ -279,9 +461,21 @@ async function importImage(
 
   // ── The row. RLS scopes `db` to the caller, so `user_id` cannot be spoofed,
   //    and `items_enforce_limit` refuses the insert when the plan is full. ───
+  // `description` carries the product name because there is no `items.name`
+  // column to carry it — the app derives a garment's title from its colour and
+  // subcategory (`features/closet/item-name.ts`), which are tags, and an
+  // untagged import has neither yet. So the words the user confirmed are what
+  // identifies the piece in the window before tagging lands, and they are what
+  // survives if tagging never does: `tag-item` writes `description` only on
+  // SUCCESS, so a `needs_review` garment keeps "Reformation Gemma Dress"
+  // instead of showing up blank.
+  //
+  // Stated plainly because it is a real limit: a SUCCESSFUL tag overwrites this
+  // with the model's own description. Making a user's typed name outlive that
+  // needs either a column or a change in `tag-item`, both outside this file.
   const { data: item, error: insertError } = await db
     .from('items')
-    .insert({ user_id: userId, status: 'pending_upload' })
+    .insert({ user_id: userId, status: 'pending_upload', description: title ?? null })
     .select('id')
     .single();
 
