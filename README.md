@@ -1,8 +1,11 @@
 # Cinch
 
 An iOS wardrobe app. You photograph your clothes once; Cinch tags them, and from
-then on it tells you what to wear — for today's weather, today's calendar, and
-what you actually reach for.
+then on it tells you what to wear — for today's weather, today's calendar, what
+you actually reach for, and now who you're actually seeing. Post a dinner, invite
+your friends, and everyone pins outfit options from her own closet for the others
+to vote on. Borrow the piece you don't own from someone who does. See, in numbers,
+what you actually wear and what's been sitting there since March.
 
 The part that matters is that **the styling is not an API call**. Outfit
 generation is a deterministic engine that runs on the phone: perceptual colour
@@ -11,7 +14,10 @@ features that learns from every thumbs-up. It works offline, it costs nothing
 per outfit, and every recommendation decomposes into a reason you can argue
 with. A language model is used only for the two things it is genuinely better
 at — reading a photograph of a garment, and writing a sentence about a look the
-engine already chose.
+engine already chose. The same discipline holds for the social layer: every
+outfit a friend votes on is real, from a real closet, chosen against her own
+other options — never a leaderboard, never a stranger, never a feed of clothes
+nobody owns. See `docs/social/product-spec.md` for the full spec.
 
 ## Architecture
 

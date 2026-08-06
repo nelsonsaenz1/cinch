@@ -6,15 +6,15 @@ You are designing an iOS app called **Cinch**. This brief tells you what the app
 
 ## What Cinch is
 
-Cinch is **a personal stylist for the clothes you already own.**
+Cinch is **a personal stylist for the clothes you already own — and, increasingly, the clothes your friends own too.**
 
-You photograph your wardrobe once. Every morning, Cinch builds outfits from your real garments — factoring in the weather where you are, what's on your calendar that day, and what it has learned you actually like to wear. Over time it gets to know your taste.
+You photograph your wardrobe once. Every morning, Cinch builds outfits from your real garments — factoring in the weather where you are, what's on your calendar that day, and what it has learned you actually like to wear. Over time it gets to know your taste. When there's a dinner, a wedding, a trip with people in it, that same styling becomes a shared decision: everyone pins options from her own closet, friends vote and comment, and each person shows up in the look her friends helped her choose.
 
-The thing that makes it different: **it only ever styles clothes you own.** It does not sell you anything and never shows you a garment you don't have. It is the opposite of a shopping app — its whole promise is helping you get more out of what's already in your closet.
+The thing that makes it different: **it only ever styles clothes someone actually owns.** It does not sell you anything and never shows you a garment nobody has. It is the opposite of a shopping app and the opposite of an aspirational feed — its whole promise is helping you get more out of what's already in your closet, and your friends' closets, together.
 
 ### Who it's for
 
-People with a full closet who still feel like they have nothing to wear. People who want to dress well without thinking hard about it every morning. People who care about not wasting the clothes they bought.
+People with a full closet who still feel like they have nothing to wear. People who want to dress well without thinking hard about it every morning. People who care about not wasting the clothes they bought. And, for the social layer specifically: people who already text a group chat "what are you wearing Thursday?" — Cinch is where that conversation happens with real outfits attached instead of guesses.
 
 ### What makes it special (and worth showing off in the design)
 
@@ -25,6 +25,8 @@ Cinch actually *computes* things about your wardrobe that competitors don't:
 - **Real usage data** — what you wear constantly, what you never touch, how your money is distributed across your closet.
 
 This data is the heart of the product. The design should make these numbers feel like the point, not like fine print. An outfit isn't just a picture — it comes with the facts behind why it was chosen.
+
+The same moat extends into the social layer, and it's the reason Cinch's social features can't be copied by an app without real closets behind them: a friend's vote is on an outfit that's actually real, "chosen by the table" is a fact you can print in the interface, not a claim. Competitors doing "social styling" are voting on Pinterest boards. Cinch's friends are voting on someone's actual closet.
 
 ### The feeling
 
@@ -70,14 +72,27 @@ The user's account: a summary of their style, control over the AI features (incl
 ### The shareable outfit
 Any outfit can be exported as a single tall image made for sharing to Instagram or similar — the outfit, its name, and the data behind it, composed as one beautiful frame. This is the app's best advertisement, so it deserves to be the most striking thing you design.
 
+### Social — deciding together
+Full spec, screens and mocks: `docs/social/product-spec.md`, `docs/social/roadmap.md`,
+`docs/social/founder-mocks.md`. In brief: an occasion (a dinner, a wedding, a trip)
+lives on the Plan tab; friends join, each posts a couple of outfit options from her
+own closet, everyone votes and comments, and a winning look gets crowned per
+attendee — never a contest between people, always one person's options judged
+against each other. Friend closets are browsable for borrowing. The Closet tab
+gains a profile identity — most-worn pieces, favourites, the same cost-per-wear
+data, now presentable to a friend. Same Plate grammar throughout: numbered
+plates, serif titles, quiet colophons that print the social data the way they
+already print weather and $/wear — `PINNED BY MARIA · 3 PICKS · CHOSEN`.
+
 ---
 
 ## A few things to hold onto
 
 - **The data is the moat.** Cost-per-wear, colour harmony, usage — no competitor shows these. Wherever an outfit or a garment appears, its real numbers should be part of the presentation, not hidden away.
-- **It only shows clothes the user owns.** Never design a "shop" or "discover new products" surface. That's not what this is.
+- **It only shows clothes someone actually owns** — the user's own closet, or a friend's, with her consent. Never design a "shop" or "discover new products" surface. That's not what this is.
+- **Social is decision-making, not audience-building.** No leaderboards, no "best dressed," no public counts. Every vote is one person's options, judged only against each other, by the friends she invited.
 - **Honest, never hype.** The copy and the design should state what's true plainly. If Cinch has only learned a little about someone, it says so.
-- **Editorial, not app-y.** Lean toward the feeling of print — magazines, lookbooks, considered typography — over the feeling of a typical utility app.
+- **Editorial, not app-y.** Lean toward the feeling of print — magazines, lookbooks, considered typography — over the feeling of a typical utility app or social feed.
 
 Beyond these, the design direction is open. Bring a strong point of view.
 

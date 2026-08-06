@@ -10,7 +10,7 @@ limits. Paste as-is; the limits are noted so edits stay legal.
 | Field | Value | Limit |
 |---|---|---|
 | App Name | `Cinch: AI Closet & Stylist` | 30 (uses 26) |
-| Subtitle | `Outfits from clothes you own` | 30 (uses 28) |
+| Subtitle | `Outfits, chosen with friends` | 30 (uses 28) |
 | Bundle ID | `com.nelsonsaenz.cinch` | — |
 | SKU | `cinch-ios-001` | — |
 | Primary category | Lifestyle | — |
@@ -27,12 +27,14 @@ that is not there. Revisit only if a shopping integration actually ships.
 ## Keywords
 
 ```
-wardrobe,outfit,ootd,capsule,fashion,packing,clothes,organizer,weather,daily,mix,match,digital
+wardrobe,outfit,friends,social,borrow,vote,closet,fashion,ootd,clothes,weather,daily,share,group
 ```
 
-93 of 100 characters. Deliberately excludes "closet", "stylist" and "AI" —
-those already appear in the app name and subtitle, which Apple indexes
-separately, so repeating them wastes the budget.
+96 of 100 characters. Deliberately excludes "stylist" and "AI" — those already
+appear in the app name, which Apple indexes separately, so repeating them
+wastes the budget. Traded out "capsule", "packing", "organizer", "mix", "match"
+and "digital" from the solo-app draft to make room for the social terms that
+now carry the positioning: friends, social, borrow, vote, share, group.
 
 ---
 
@@ -42,22 +44,31 @@ separately, so repeating them wastes the budget.
 messaging.*
 
 ```
-Photograph what you own. Cinch builds outfits that suit the weather, your plans, and the way you actually dress — and learns your taste every time you react.
+Photograph what you own. Cinch builds your outfit — then your friends help you pick it, vote on looks, and lend you what's missing from theirs.
 ```
 
 ---
 
 ## Description
 
-*4,000 character limit. This draft is ~1,750.*
+*4,000 character limit. This draft is ~3,620.*
 
 ```
-Cinch turns the clothes you already own into outfits worth wearing.
+Cinch turns the clothes you and your friends already own into outfits worth wearing — and worth showing up in together.
 
 Photograph each piece and Cinch identifies it — what it is, its colours, how formal it is, how warm it is. That becomes your digital closet. From there it does the part that is actually hard: working out what goes with what.
 
+DECIDE TOGETHER
+Post the dinner, the wedding, the trip. Invite your friends. Everyone pins a couple of outfit options from her own closet, everyone votes and comments on everyone else's, and each person walks in wearing the look her friends helped her choose. Nobody is ranked against anybody else — every vote is about one person's options, judged only against each other, by the friends she invited.
+
+BORROW FROM EACH OTHER
+See what your friends own, not just what they post. Browse a friend's closet, find the black clutch she never wears, and ask to borrow it. She lends it or says not this time — either way it stays between the two of you. What you borrow shows up in your own outfit builder until you give it back.
+
+SEE YOUR OWN STORY
+Cinch tracks every wear. See your most-worn pieces, the ones sitting untouched, and what you're actually spending per wear — the real story of your closet, not the one you'd guess.
+
 BUILT ONLY FROM WHAT YOU OWN
-Every suggestion is assembled from your real wardrobe. Nothing is imagined, nothing is a catalogue photo, and nothing is a piece you would have to go and buy first.
+Every suggestion — yours or a friend's — is assembled from real wardrobes. Nothing is imagined, nothing is a catalogue photo, and nothing is a piece you would have to go and buy first.
 
 IT UNDERSTANDS A WHOLE DAY
 A client dinner at seven and drinks at ten are not the same dress code. Cinch finds the one outfit that carries you through both — and tells you the single piece to lose on the way. Type "dinner then drinks after" and it works it out, or connect your calendar and it reads the day for you.
@@ -74,14 +85,14 @@ Like an outfit, skip it, or say why it is wrong — too formal, not your colours
 PACK WITHOUT OVERPACKING
 Tell Cinch where you are going and for how long. It reads the forecast at your destination and works out the smallest set of clothes that still gives you a different outfit every day — from what you already own.
 
-ASK IT ANYTHING
-"Dinner at 7, drinks after?" "What am I missing?" The stylist answers using only your real clothes, and tells you honestly when you do not own the right thing rather than inventing something.
+ASK THE STYLIST ANYTHING
+"Dinner at 7, drinks after?" "What am I missing?" The stylist answers using only your real clothes, tells you honestly when you do not own the right thing rather than inventing something, and knows when an outfit needs to work for the friends who'll be there too.
 
 WORKS WITHOUT SIGNAL
-Outfit building runs entirely on your iPhone. On a plane, in a basement, or with no bars at all, Cinch still dresses you from the closet it has already downloaded. Naming and rewriting outfits is the only part that waits for a connection.
+Outfit building runs entirely on your iPhone. On a plane, in a basement, or with no bars at all, Cinch still dresses you from the closet it has already downloaded. Social features and naming outfits are the only parts that wait for a connection.
 
 PRIVATE BY DEFAULT
-Cinch never reads your photo library — iOS hands it only the pictures you tap. Your closet is private to your account. There is no advertising and no tracking across other apps. You can delete your account, and everything in it, from inside the app.
+Cinch never reads your photo library — iOS hands it only the pictures you tap. Your closet stays private until you choose to share it with a friend. There is no advertising and no tracking across other apps. You can delete your account, and everything in it, from inside the app.
 ```
 
 ---
