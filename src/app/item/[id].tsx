@@ -12,7 +12,7 @@ import { ErrorState } from '@/components/ui/empty-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Text } from '@/components/ui/text';
 import { pieceName } from '@/features/closet/item-name';
-import { useVerifyItem } from '@/features/closet/mutations';
+import { useRemoveItems, useRetagItem, useVerifyItem } from '@/features/closet/mutations';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls, stableImageSource } from '@/features/closet/use-image-urls';
 import { useSetBorrowable } from '@/features/social-graph/mutations';
@@ -108,6 +108,14 @@ export default function ItemDetailScreen() {
   const [saveFailed, setSaveFailed] = useState(false);
   const save = useVerifyItem();
 
+  // The two things you can do TO a piece rather than with it. `retagError`
+  // holds the server's refusal — the allowance is enforced server-side, and a
+  // refusal that vanishes into a console log is a feature the user thinks is
+  // broken rather than one they have run out of.
+  const retag = useRetagItem();
+  const remove = useRemoveItems();
+  const [retagError, setRetagError] = useState<string | null>(null);
+
   // The lending flag. Read separately from the closet query on purpose: the
   // generated `Item` type predates the `borrowable` column, and this is the
   // one screen that can flip it.
@@ -158,6 +166,65 @@ export default function ItemDetailScreen() {
    */
   const neverWorn = item.purchasePrice !== null && item.wearCount === 0;
 
+  /**
+   * True while the tagger is looking at this photograph again.
+   *
+   * Read from the ROW as well as the mutation, because `useRetagItem` writes
+   * `pending_tag` before it calls: a user who backs out mid-read and comes
+   * straight back should find the same in-progress state, not tags that are
+   * about to be replaced presented as settled. It also covers a piece that has
+   * never finished its first tagging pass, which is the same fact.
+   */
+  const retagging = retag.isPending || item.status === 'pending_tag';
+
+  const startRetag = () => {
+    setRetagError(null);
+    retag.mutate(
+      { item },
+      {
+        onError: (err) =>
+          setRetagError(
+            err instanceof Error ? err.message : 'Cinch couldn’t re-read this piece. Try again.',
+          ),
+      },
+    );
+  };
+
+  /**
+   * The removal. One confirmation, and it names both consequences in the
+   * sentence the user is agreeing to — the piece leaves the closet and the
+   * photographs are deleted from storage, neither of which can be undone.
+   * (Account deletion asks twice; that one takes the whole wardrobe. This is
+   * one garment, and a second dialog for it would be friction theatre.)
+   */
+  const confirmRemove = () => {
+    Alert.alert(
+      `Remove ${pieceName(item)}?`,
+      'It leaves your closet and its photos are deleted. This can’t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () =>
+            remove.mutate(
+              { ids: [item.id] },
+              {
+                onSuccess: () => router.back(),
+                onError: (err) =>
+                  Alert.alert(
+                    'Could not remove this piece',
+                    err instanceof Error
+                      ? err.message
+                      : 'Something went wrong. The piece is still in your closet.',
+                  ),
+              },
+            ),
+        },
+      ],
+    );
+  };
+
   const commitPrice = async () => {
     if (draft === null) return;
     const next = parsePrice(draft);
@@ -176,10 +243,11 @@ export default function ItemDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
-      {/* Circular back, category centred — the design's header. There is no
-          "⋯" overflow: nothing in the app can delete or archive an item yet
-          (useVerifyItem is the only item mutation), and a menu that opens onto
-          nothing is worse than no menu. Add it when there are real actions. */}
+      {/* Circular back, category centred — the design's header. Still no "⋯"
+          overflow now that there ARE destructive actions: they live as named
+          rows at the foot of the page (see the maintenance plate), where the
+          sentence under them can say what they do. A menu would hide the same
+          two actions behind a glyph and cost them their captions. */}
       <View className="flex-row items-center justify-between px-gutter pt-2">
         <Pressable
           onPress={() => router.back()}
@@ -427,8 +495,110 @@ export default function ItemDetailScreen() {
             ) : null}
           </View>
         ) : null}
+
+        {/* Maintenance — the two things done TO a piece rather than with it,
+            in the same spec-line plate the account screen uses for the same
+            grammar: named rows, a hairline between them, the destructive one
+            in the accent, and the sentence that qualifies them underneath
+            rather than inside a dialog nobody has opened yet. */}
+        <View className="mt-8 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+          <SpecRow
+            label={retagging ? 'Reading this piece…' : 'Re-read this piece'}
+            caption={
+              retagging
+                ? // Not "again": this row also lights up for a piece still on
+                  // its FIRST tagging pass, and telling that user her garment
+                  // is being re-read would be describing something that never
+                  // happened.
+                  'Cinch is reading the photo. This takes a moment.'
+                : 'Cinch looks at the photo again and redoes the tags. It goes back in the review deck to be confirmed.'
+            }
+            onPress={startRetag}
+            loading={retagging}
+          />
+          <View className="h-px bg-hairline" />
+          <SpecRow
+            label="Remove from closet"
+            caption="Deletes its photos too."
+            tone="accent"
+            onPress={confirmRemove}
+            loading={remove.isPending}
+          />
+        </View>
+
+        {retagError ? (
+          <Text
+            variant="label"
+            accessibilityLiveRegion="polite"
+            className="mt-2 text-critical dark:text-critical">
+            {retagError}
+          </Text>
+        ) : null}
       </KeyboardAwareScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * One row of the maintenance plate: a named action, the sentence that says
+ * what it does, and a chevron — or a spinner while it is happening.
+ *
+ * Same shape as the account screen's `AccountRow` (app/profile.tsx), which is
+ * the app's established grammar for "a list of things you can do", with a
+ * caption added: these two actions are irreversible in a way that opening
+ * Privacy or Support is not, and the caption is where that gets said before
+ * anybody taps. `tone="accent"` is the destructive one, matching Delete
+ * account rather than introducing a second destructive colour.
+ *
+ * Disabled while loading, so a slow re-read cannot be fired twice — the server
+ * would refuse the second with a 409 anyway, but a control that visibly does
+ * nothing is worse than one that is visibly busy.
+ */
+function SpecRow({
+  label,
+  caption,
+  onPress,
+  tone = 'ink',
+  loading = false,
+}: {
+  label: string;
+  caption: string;
+  onPress: () => void;
+  tone?: 'ink' | 'accent';
+  loading?: boolean;
+}) {
+  const theme = useTheme();
+  const iconColor = tone === 'accent' ? theme.accent : theme.faint;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={caption}
+      accessibilityState={{ busy: loading, disabled: loading }}
+      onPress={onPress}
+      disabled={loading}
+      style={{ minHeight: MIN_TAP_TARGET }}
+      className="flex-row items-center justify-between gap-3 px-4 py-3.5 active:opacity-60">
+      <View className="flex-1">
+        <Text variant="body" className={tone === 'accent' ? 'text-accent' : 'text-ink'}>
+          {label}
+        </Text>
+        <Text variant="caption" className="mt-1 text-muted">
+          {caption}
+        </Text>
+      </View>
+      {loading ? (
+        <ActivityIndicator size="small" color={iconColor} />
+      ) : (
+        <SymbolView
+          name="chevron.right"
+          size={13}
+          tintColor={iconColor}
+          resizeMode="scaleAspectFit"
+        />
+      )}
+    </Pressable>
   );
 }
 

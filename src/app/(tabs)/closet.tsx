@@ -1,13 +1,16 @@
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ClosetGrid } from '@/components/closet/closet-grid';
 import { GhostSlotGrid } from '@/components/closet/ghost-slot-grid';
 import { PlateThumb } from '@/components/closet/plate-thumb';
+import { SelectionBar } from '@/components/closet/selection-bar';
 import { Avatar, Chip, ClosetGridSkeleton, EmptyState, ErrorState, Text } from '@/components/ui';
+import { useRemoveItems } from '@/features/closet/mutations';
 import {
   closetStats,
   mostWornItems,
@@ -113,6 +116,9 @@ export default function ClosetScreen() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('All');
   const [editing, setEditing] = useState(false);
+  /** The picked pieces, or `null` when the grid is not in selection mode. */
+  const [picked, setPicked] = useState<ReadonlySet<string> | null>(null);
+  const remove = useRemoveItems();
 
   // The same query Profile's delete-account warning reads, so the two screens
   // can never disagree about what the user owns.
@@ -207,6 +213,61 @@ export default function ClosetScreen() {
   const openItem = (item: Item) =>
     router.push({ pathname: '/item/[id]', params: { id: item.id } });
 
+  // Tapping a tile opens it; holding one starts picking them. `null` is "not
+  // selecting" — one piece of state rather than a boolean and a set that can
+  // disagree about whether the mode is on.
+  const togglePicked = (item: Item) =>
+    setPicked((current) => {
+      const next = new Set(current ?? []);
+      if (!next.delete(item.id)) next.add(item.id);
+      return next;
+    });
+
+  const beginSelection = (item: Item) => {
+    // Long press has no visual until the mode arrives, so the tick alone is
+    // late feedback; the same `selectionAsync` the rest of the app uses.
+    void Haptics.selectionAsync().catch(() => {});
+    togglePicked(item);
+  };
+
+  /**
+   * Bulk removal. One confirmation, naming the count and both consequences —
+   * same sentence as item detail's, because it is the same promise: the pieces
+   * leave the closet and their photographs are deleted from storage.
+   */
+  const confirmRemovePicked = () => {
+    const ids = [...(picked ?? [])];
+    if (ids.length === 0) return;
+
+    Alert.alert(
+      ids.length === 1 ? 'Remove this piece?' : `Remove ${ids.length} pieces?`,
+      ids.length === 1
+        ? 'It leaves your closet and its photos are deleted. This can’t be undone.'
+        : 'They leave your closet and their photos are deleted. This can’t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () =>
+            remove.mutate(
+              { ids },
+              {
+                onSuccess: () => setPicked(null),
+                onError: (err) =>
+                  Alert.alert(
+                    ids.length === 1 ? 'Could not remove this piece' : 'Could not remove these pieces',
+                    err instanceof Error
+                      ? err.message
+                      : 'Something went wrong. Nothing has been removed.',
+                  ),
+              },
+            ),
+        },
+      ],
+    );
+  };
+
   const refresh = () => {
     void closet.refetch();
     void identity.refetch();
@@ -242,6 +303,18 @@ export default function ClosetScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+      {/* Pinned above everything while selecting — the masthead scrolls away
+          with the identity page, and a Remove control that scrolls away with
+          it is a Remove control nobody can reach (see SelectionBar). */}
+      {picked !== null ? (
+        <SelectionBar
+          count={picked.size}
+          busy={remove.isPending}
+          onCancel={() => setPicked(null)}
+          onRemove={confirmRemovePicked}
+        />
+      ) : null}
+
       {closet.isLoading ? (
         // Just the title standing above the skeleton — the page has nothing to
         // say about a wardrobe it has not read yet, and keeping the title put
@@ -313,7 +386,9 @@ export default function ClosetScreen() {
 
           <ClosetGrid
             items={visible}
-            onItemPress={openItem}
+            onItemPress={picked !== null ? togglePicked : openItem}
+            onItemLongPress={beginSelection}
+            selectedIds={picked}
             resolveImage={resolve}
             refreshControl={
               <RefreshControl refreshing={closet.isRefetching} onRefresh={refresh} />
@@ -330,7 +405,9 @@ export default function ClosetScreen() {
         // hazard that keeps the search field outside the list doesn't apply.
         <ClosetGrid
           items={visible}
-          onItemPress={openItem}
+          onItemPress={picked !== null ? togglePicked : openItem}
+          onItemLongPress={beginSelection}
+          selectedIds={picked}
           resolveImage={resolve}
           refreshControl={<RefreshControl refreshing={closet.isRefetching} onRefresh={refresh} />}
           ListHeaderComponent={

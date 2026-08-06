@@ -7,6 +7,14 @@ import type { Item } from '@/schemas/item';
 export type ClosetGridProps = {
   items: Item[];
   onItemPress?: (item: Item) => void;
+  /** Long press on a tile — the way into the closet's selection mode. */
+  onItemLongPress?: (item: Item) => void;
+  /**
+   * The picked ids, or null when the grid is not selecting. A `Set` rather
+   * than an array: this is read once per visible cell on every render, and an
+   * `includes` over a two-hundred-piece selection is a scroll stutter.
+   */
+  selectedIds?: ReadonlySet<string> | null;
   /** Storage paths → signed URLs; the grid prefers the thumb, falls back to the cutout. */
   resolveImage?: (...paths: (string | null | undefined)[]) => string | undefined;
   ListEmptyComponent?: React.ComponentType | React.ReactElement | null;
@@ -27,6 +35,8 @@ export type ClosetGridProps = {
 export function ClosetGrid({
   items,
   onItemPress,
+  onItemLongPress,
+  selectedIds = null,
   resolveImage,
   ListEmptyComponent,
   ListHeaderComponent,
@@ -38,10 +48,16 @@ export function ClosetGrid({
       data={items}
       numColumns={2}
       keyExtractor={(item) => item.id}
+      // `extraData` is what makes a selection visible: FlashList memoizes cells
+      // against the data array, which does not change when a tick is toggled.
+      extraData={selectedIds}
       renderItem={({ item }) => (
         <ItemCard
           item={item}
           onPress={onItemPress}
+          onLongPress={onItemLongPress}
+          selecting={selectedIds !== null}
+          selected={selectedIds?.has(item.id) ?? false}
           imageUri={resolveImage?.(item.thumbPath, item.cutoutPath)}
         />
       )}
