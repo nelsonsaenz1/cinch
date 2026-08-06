@@ -25,20 +25,29 @@ Ordered by how much revenue silently disappears if you skip it, not by dashboard
 
 | # | Item | State | Blast radius if skipped |
 | --- | --- | --- | --- |
-| 1 | `SUPERWALL_WEBHOOK_SECRET` set in Supabase | **NOT DONE** | **User pays, app still treats them as free.** Every delivery 500s; `subscriptions.plan` never moves. |
-| 2 | Vercel CSP allows the paywall page's script + styles | **NOT DONE** | Paywall loads as unstyled HTML with dead buttons. Nobody can purchase at all. |
-| 3 | Paywall `252860` pointed at the hosted URL | **NOT DONE** | Superwall renders its own empty block-editor canvas. Blank paywall. |
-| 4 | Four products attached to paywall `252860` | **NOT DONE** | `{{ products.* }}` resolve to nothing — no prices, `data-pw-purchase` targets an unknown product. |
-| 5 | App Store Connect API key uploaded to Superwall | **NOT DONE** | No product sync, no drift detection, no "ready for sale" check, no ASC-side subscription state. |
-| 6 | App-specific shared secret uploaded to Superwall | **NOT DONE** | Superwall cannot verify App Store receipts. |
-| 7 | Superwall's ASSN URL pasted into App Store Connect | **UNVERIFIED** | Zero revenue events have ever landed. Revenue/MRR dashboards stay empty; entitlement state may lag. |
-| 8 | Webhook endpoint registered in Superwall | **DONE** | — (see §1, this was expected to be the missing piece and is not) |
+**Updated 2026-08-06 after a working session. Only two rows are still open.**
+
+| # | Item | State | Blast radius if skipped |
+| --- | --- | --- | --- |
+| 1 | `SUPERWALL_WEBHOOK_SECRET` set in Supabase | **DONE** | Unsigned POST now returns 401 `Invalid signature.`, not 500. No redeploy was needed — the function picked it up on next cold start. |
+| 2 | Vercel CSP allows the paywall page's script + styles | **DONE** | Scoped to `/superwall/*`; root keeps `default-src 'none'`. Moot for the paywall now (see row 3) but the page is correct. |
+| 3 | Paywall `252860` pointed at the hosted URL | **DROPPED — deliberate** | The block-editor paywall turned out to be complete and already resolving real prices. Switching would put Vercel + a CSP header + an external CDN into the purchase path for no gain. |
+| 4 | Four products attached to paywall `252860` | **DONE** | Already correct on arrival: exact camelCase slots, right ids, prices, entitlements. |
+| 5 | App Store Connect API key uploaded to Superwall | **DONE** | `ios.asc_api_key` passes. |
+| 6 | App-specific shared secret uploaded to Superwall | **N/A — FIELD NO LONGER EXISTS** | None. See §6 — the doctor's p0 on this is a stale check. Do not chase it. |
+| 7 | Superwall's ASSN URL pasted into App Store Connect | **DONE — verified** | Both Production and Sandbox slots matched Superwall's URL character-for-character. Apple has retired the V1/V2 selector; these fields are V2. |
+| 8 | Webhook endpoint registered in Superwall | **DONE** | — (`run_doctor` claims zero active endpoints; that is a false alarm, see §13) |
 | 9 | Products exist in Superwall, correctly priced + entitled | **DONE** | — |
 | 10 | Campaign "Limits & trial" with 4 placements | **DONE** | — |
-| 11 | `event_hosting_over_limit` placement + campaign | **NOT DONE** | Hosting-limit refusal shows a plain error instead of a paywall. No revenue lost that was ever offered. |
+| 11 | `event_hosting_over_limit` placement + campaign | **HALF DONE** | Repo side landed (commit `247c5f0` moved it into `Placement`). The Superwall campaign placement is still missing. |
 | 12 | Retire the stock "Example Campaign" | **NOT DONE** | Cosmetic. A dead `campaign_trigger` placement with a 100% holdout. |
+| 13 | Apple App ID set on the Superwall application | **DONE** | Was empty; set to `6798479578`. Unblocks product-drift and ready-for-sale checks, which had been silently skipping. |
+| 14 | **Publish paywall `252860`** | **BLOCKED — Superwall bug** | **Nothing can be shown to anyone.** `save+promote` fails `NOT_FOUND`; paywall stuck at `version: 0`, `published_at: null`. Needs Superwall support. |
 
-**Two things in the pre-flight brief turned out to be wrong.** Read §1 and §13 before you start
+**Row 14 is the only thing between here and a working purchase flow.** Everything else in the
+subscription chain is configured and verified.
+
+**Three things in the pre-flight brief turned out to be wrong.** Read §1, §6 and §13 before you start
 clicking, or you will spend an hour fixing something that is already fine.
 
 ---
@@ -272,17 +281,34 @@ ASC — presents as a paywall that loads fine and then fails at the purchase she
 5. Store the `.p8` in your password manager, not the repo. If it lands in git it is a credential leak
    that needs a key revocation, not a `git rm`.
 
-### 6. App-specific shared secret
+### 6. App-specific shared secret — **NOT REQUIRED. Do not chase this.**
 
-1. **App Store Connect** → **Users and Access** → **Integrations** → **App-Specific Shared Secrets**
-   → select **Cinch** → generate or copy.
-2. **Superwall dashboard** → same application settings screen → **In-App Purchase Configuration** →
-   paste into the **Shared Secret** field.
+> **Corrected 2026-08-06 against the live dashboard.** This step was written against an older
+> Superwall layout and is obsolete. **There is no Shared Secret field in the dashboard any more.**
+> "In-App Purchase Configuration" now contains exactly four things — P8 key file, Bundle ID, Key ID,
+> Issuer ID — all of which are uploaded and confirmed working.
 
-**Why it matters:** the shared secret is how Superwall validates a receipt with Apple. Without it,
-Superwall is trusting the client's word about what was purchased, and its entitlement state — which is
-what your campaign audience `no_active_entitlements` filters on — can be wrong in both directions: a
-paying user who keeps seeing the paywall, or a non-paying user who stops seeing it.
+The shared secret belonged to Apple's legacy `verifyReceipt` endpoint. Superwall now validates through
+the App Store Server API using the P8 key, so the secret has been retired from the UI.
+
+**`run_doctor` still reports `ios.iap_shared_secret` as a p0 error. Ignore it — it is a stale check.**
+Three things establish that:
+
+1. Its sibling check `revenue.tracking_method_configured` **passes**, reporting
+   `configured_sources: ["app_store_connect_api", "app_store_server_notifications"]`.
+2. That same check lists `iap_shared_secret` only under `available_sources` — it is one of four
+   *alternatives*, not a prerequisite.
+3. The remediation text can only offer an API call
+   (`PATCH …/settings { "app_store_connect_shared_secret": … }`) and never a dashboard path, because
+   no dashboard path exists.
+
+Superwall's own docs say to choose **one** revenue-tracking method. Cinch has two wired
+(ASC API + App Store Server Notifications), which is more than sufficient.
+
+**If receipt validation ever does misbehave in sandbox** — entitlement state wrong in either direction,
+a paying user still seeing the paywall or a free user not — revisit this, because that is the symptom
+the shared secret used to address. Until then it is a false alarm and setting it would mean handing a
+credential to an API for no gain.
 
 ---
 
