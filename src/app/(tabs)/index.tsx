@@ -3,20 +3,15 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Plate } from '@/components/today/plate';
 import type { ReactionValue } from '@/components/today/reaction-bar';
 import { WeatherStrip } from '@/components/today/weather-strip';
+import { ErrorState } from '@/components/ui/empty-state';
 import { Rule } from '@/components/ui/rule';
+import { PlateSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
@@ -26,7 +21,7 @@ import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits } from '@/features/styling/use-outfits';
-import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
+import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES, targetWarmth, type Garment, type WeatherContext } from '@/lib/styling';
 import { supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -200,13 +195,42 @@ function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
 }
 
 /**
+ * Why the engine came back empty, in the engine's own terms rather than a
+ * generic apology.
+ *
+ * `generateOutfits` only ever returns nothing when there is no valid core to
+ * build from (no top-and-bottom pairing and no dress) or — on a genuinely cold
+ * day — no layer warm enough to wear over one. Both are facts about the
+ * wardrobe the caller already has on screen, so this reads them off the same
+ * wardrobe and weather rather than inventing a scenario the way a canned
+ * "a formal lunch in heavy rain" line would.
+ */
+function nothingWorksReason(items: Garment[], weather: WeatherContext | null): string {
+  const has = (slot: Garment['slot']) => items.some((g) => g.slot === slot);
+
+  if (!has('base_top') && !has('dress')) {
+    return "Your closet doesn't have a top or a dress in it yet — every outfit needs one of the two.";
+  }
+  if (!has('bottom') && !has('dress')) {
+    return "Your closet doesn't have bottoms or a dress in it yet — every outfit needs one of the two.";
+  }
+
+  const target = weather ? targetWarmth(weather.feelsLikeC, weather.windKph) : null;
+  if (target !== null && target >= 9 && !has('outerwear') && !has('mid_layer')) {
+    return "Today calls for real warmth, and there's no coat or heavy layer in your closet yet.";
+  }
+
+  return "Cinch couldn't build an outfit that holds together from what's in your closet right now. One more layer, or a pair of shoes, usually unlocks it.";
+}
+
+/**
  * The honest "nothing works" state. Not an apology and not a generic empty
  * icon: the design's whole point here is that Cinch says plainly it could not
  * build something that holds together, then offers the few things that would
  * actually change the answer — ask the stylist, add the missing kind of piece,
  * or try again. Small icon circles are affordances, not an empty-state hero.
  */
-function NothingWorks({ onRetry }: { onRetry: () => void }) {
+function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () => void }) {
   const router = useRouter();
   const theme = useTheme();
 
@@ -228,8 +252,7 @@ function NothingWorks({ onRetry }: { onRetry: () => void }) {
     <View className="mx-gutter rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
       <Text variant="title">Nothing today feels right — and I won&apos;t pretend it does.</Text>
       <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
-        Cinch couldn&apos;t build an outfit that holds together from what&apos;s in your closet right
-        now. One more layer, or a pair of shoes, usually unlocks it.
+        {reason}
       </Text>
       <View className="my-4">
         <Rule />
@@ -433,9 +456,27 @@ export default function TodayScreen() {
   if (wardrobe.isLoading) {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={theme.muted} />
+        <ReducedMasthead eyebrow={dayLine(cityLabel)} />
+        <View className="mt-6">
+          <PlateSkeleton />
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  // A failed wardrobe fetch is not an empty closet. Left unchecked this used
+  // to fall through to the empty-closet screen below and tell someone with a
+  // full wardrobe "I can't style what I can't see" over a network error that
+  // has nothing to do with what she owns.
+  if (wardrobe.isError) {
+    return (
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+        <ReducedMasthead eyebrow={dayLine(cityLabel)} />
+        <ErrorState
+          title="Couldn't read your closet"
+          body="Check your connection and try again."
+          onRetry={() => void wardrobe.refetch()}
+        />
       </SafeAreaView>
     );
   }
@@ -623,7 +664,7 @@ export default function TodayScreen() {
 
         <View className="mt-6">
           {nothingWorks ? (
-            <NothingWorks onRetry={refresh} />
+            <NothingWorks reason={nothingWorksReason(items, context.weather)} onRetry={refresh} />
           ) : (
             shown.map((outfit, i) => {
               const key = idOf(outfit.candidate.items);
