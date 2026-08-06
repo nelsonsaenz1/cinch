@@ -4,6 +4,9 @@ import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RosterRow } from '@/components/events/RosterRow';
+import { Button } from '@/components/ui/button';
+// Batch-1 seam: the shared states kit.
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
 import { socialDenialCopy, useInviteMember } from '@/features/events/mutations';
@@ -53,13 +56,16 @@ export default function InviteScreen() {
         <Text variant="title" trim>
           Invite friends
         </Text>
+        {/* Ink, not the accent. This sheet's one oxblood action is Invite, on
+            the rows; a dismiss control that shares the accent with it spends
+            the colour twice on one screen against the house rule. */}
         <Pressable
           onPress={() => router.back()}
           accessibilityRole="button"
           accessibilityLabel="Done"
           hitSlop={12}
           className="py-2">
-          <Text variant="body" className="font-semibold text-accent dark:text-accent-dark">
+          <Text variant="body" className="font-semibold">
             Done
           </Text>
         </Pressable>
@@ -75,7 +81,7 @@ export default function InviteScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           accessibilityLabel="Search people to invite"
-          className="rounded-card border border-hairline px-3.5 py-2.5 font-body text-body text-ink dark:border-hairline-dark dark:text-ink-dark"
+          className="rounded-md border border-hairline px-3.5 py-2.5 font-body text-body text-ink dark:border-hairline-dark dark:text-ink-dark"
         />
       </View>
 
@@ -92,9 +98,32 @@ export default function InviteScreen() {
         contentContainerClassName="px-gutter pb-10"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        {candidates.isLoading ? (
-          <View className="items-center py-10">
-            <ActivityIndicator color={theme.muted} />
+        {candidates.isError ? (
+          // A failed search is not "nobody by that name" — that sentence tells
+          // a woman her friend isn't on Cinch when the network simply blinked.
+          <View className="mt-6">
+            <Text variant="body">That search didn’t go through</Text>
+            <Text variant="caption" className="mt-1.5">
+              Your friends are still there. Try again in a moment.
+            </Text>
+            <Button
+              title="Try again"
+              variant="secondary"
+              onPress={() => void candidates.refetch()}
+              className="mt-4 self-start"
+            />
+          </View>
+        ) : candidates.isLoading ? (
+          <View className="mt-4" accessibilityLabel="Searching your friends">
+            {[0, 1, 2].map((i) => (
+              <View key={i} className="flex-row items-center gap-3 py-2.5">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <View className="flex-1">
+                  <Skeleton className="h-4 w-1/2 rounded-sm" />
+                  <Skeleton className="mt-1.5 h-3 w-1/3 rounded-sm" />
+                </View>
+              </View>
+            ))}
           </View>
         ) : rows.length > 0 ? (
           <View className="mt-4">
@@ -157,12 +186,14 @@ export default function InviteScreen() {
             })}
           </View>
         ) : search.trim().length >= 2 && candidates.isFetched ? (
-          <Text variant="label" className="mt-6 text-muted dark:text-muted-dark">
+          // Empty copy on the `EmptyState` scale (17px), not the 13px label
+          // this screen used to whisper it at.
+          <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
             Nobody by that name yet. Friends appear here once you’re connected
             on Cinch.
           </Text>
         ) : (
-          <Text variant="label" className="mt-6 text-muted dark:text-muted-dark">
+          <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
             Search your friends by name or username. Only people you invite can
             see this occasion.
           </Text>

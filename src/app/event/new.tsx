@@ -157,8 +157,10 @@ export default function NewEventScreen() {
     );
   };
 
+  // `rounded-md`, not the transitional `rounded-card` alias: fields carry the
+  // same 12px radius as buttons and chips (tailwind.config.js L134-141).
   const inputClassName =
-    'rounded-card border border-hairline px-3.5 py-2.5 font-body text-body text-ink dark:border-hairline-dark dark:text-ink-dark';
+    'rounded-md border border-hairline px-3.5 py-2.5 font-body text-body text-ink dark:border-hairline-dark dark:text-ink-dark';
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>

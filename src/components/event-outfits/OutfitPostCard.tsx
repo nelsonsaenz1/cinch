@@ -19,8 +19,9 @@ import {
   type StackedPiece,
 } from '@/components/today/garment-cell';
 import { VotePill } from '@/components/event-outfits/VotePill';
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import type { PostedLook } from '@/features/event-outfits/types';
+import { boardLeader, type AttendeeBoard, type PostedLook } from '@/features/event-outfits/types';
 import type { Garment } from '@/lib/styling';
 import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
 
@@ -28,6 +29,19 @@ import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
 const CONTACT = { dx: 0, dy: 5, blur: 11, color: 'rgba(28,26,22,0.16)' } as const;
 
 const TILE_RADIUS = 10;
+
+/**
+ * The YOUR LOOK card's blush treatment (founder-mocks §1b): rose-tinted sand
+ * with a hairline rose border. Local literals, not theme tokens — this
+ * surface exists on exactly one card in the app, and a token would invite it
+ * elsewhere. Derived from accentWarm (#B08A76) over tray.
+ *
+ * They live here, beside the only component that paints them, rather than in
+ * the screen that used to own the card: the card now appears on the event
+ * detail page, and two copies of a colour is how a third one starts.
+ */
+const BLUSH_SURFACE = '#F7EDE8';
+const BLUSH_BORDER = 'rgba(176,138,118,0.45)';
 
 type ResolveImage = (...paths: (string | null | undefined)[]) => string | undefined;
 
@@ -175,7 +189,7 @@ export function LookStack({
               top: piece.y,
               width: piece.size,
               height: piece.size,
-              shadowColor: '#1C1A16',
+              shadowColor: theme.ink,
               shadowOpacity: 0.16,
               shadowRadius: CONTACT.blur,
               shadowOffset: { width: CONTACT.dx, height: CONTACT.dy },
@@ -390,4 +404,192 @@ export function AttendeeLookCard({
       </Text>
     </Pressable>
   );
+}
+
+/**
+ * YOUR LOOK — the viewer's own board, blush-set (founder-mocks §1b).
+ *
+ * The mock draws the three swatches *beside* the look name; they are stacked
+ * above it here because at gutter width the serif name has ~140px left over
+ * next to a triptych, which wraps "Oxblood & Cream" onto two lines on every
+ * phone narrower than a Pro Max. Same parts, same order, one row down.
+ *
+ * Presentational on purpose: it takes the leading look and two callbacks, so
+ * the event detail page and the board page can both print it without either
+ * one owning the other's queries.
+ */
+export function YourLookCard({
+  leading,
+  resolveImage,
+  locked,
+  onSwap,
+  onShare,
+}: {
+  /** The viewer's pick-leading look, or null when she has shared nothing. */
+  leading: PostedLook | null;
+  resolveImage: ResolveImage;
+  /** Board locked (the evening started): the card is a record, not a control. */
+  locked: boolean;
+  onSwap: () => void;
+  onShare: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View
+      className="rounded-plate p-4"
+      style={{ backgroundColor: BLUSH_SURFACE, borderColor: BLUSH_BORDER, borderWidth: 1 }}>
+      <Text variant="colophon" style={{ color: theme.accent }}>
+        Your look
+      </Text>
+
+      {leading ? (
+        <>
+          <View className="mt-3">
+            <PlateTriptych garments={leading.garments} resolveImage={resolveImage} cell={52} />
+          </View>
+          <Text variant="plate" numberOfLines={1} className="mt-3">
+            {lookName(leading.garments, leading.caption)}
+          </Text>
+          <Text variant="label" numberOfLines={1} className="mt-1">
+            {lookDescriptor(leading.garments)}
+          </Text>
+          {leading.votes > 0 ? (
+            // The one number on this card, printed the way $/wear and weather
+            // are: quiet, and only when it is true.
+            <Text variant="colophon" className="mt-2">
+              {leading.votes === 1 ? '1 pick from the table' : `${leading.votes} picks from the table`}
+            </Text>
+          ) : null}
+        </>
+      ) : (
+        <Text variant="callout" className="mt-3 text-muted">
+          Nothing shared yet — pick a look from your closet and let the table
+          weigh in.
+        </Text>
+      )}
+
+      {!locked ? (
+        <View className="mt-4 flex-row gap-2">
+          {leading ? (
+            <Button title="Swap a piece" variant="secondary" haptic onPress={onSwap} className="flex-1" />
+          ) : null}
+          <Button
+            title={leading ? 'Share another' : 'Share with group'}
+            variant="secondary"
+            haptic
+            onPress={onShare}
+            className="flex-1"
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * WHO'S WEARING WHAT — the two-column grid of every attendee's leading look
+ * (founder-mocks §1b). Order is the caller's (self first, then roster); this
+ * only prints, and it prints nothing at all for an attendee whose board is
+ * somehow empty rather than drawing a hole in the grid.
+ */
+export function AttendeeLookGrid({
+  boards,
+  nameOf,
+  resolveImage,
+  onOpen,
+}: {
+  boards: AttendeeBoard[];
+  nameOf: (userId: string) => string | null;
+  resolveImage: ResolveImage;
+  onOpen: (look: PostedLook) => void;
+}) {
+  return (
+    <View className="-mx-1.5 flex-row flex-wrap">
+      {boards.map((board) => {
+        const leading = boardLeader(board.looks) ?? board.looks[0];
+        if (!leading) return null;
+        return (
+          <View key={board.userId} className="w-1/2 p-1.5">
+            <AttendeeLookCard
+              look={leading}
+              attendeeName={nameOf(board.userId)}
+              resolveImage={resolveImage}
+              onPress={() => onOpen(leading)}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/** "three" for 3 — small counts read as words in the stylist's voice. */
+const COUNT_WORDS = ['', '', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'] as const;
+const countWord = (n: number): string => COUNT_WORDS[n] ?? String(n);
+
+/** The heaviest garment of a look — the piece that decides what it reads as. */
+function anchorOf(look: PostedLook): Garment | null {
+  return [...look.garments].sort((a, b) => b.visualWeight - a.visualWeight)[0] ?? null;
+}
+
+/**
+ * The stylist's group note (field guide 05b, the tray-filled line under the
+ * grid): one sentence about what the table is converging on, and where the
+ * viewer sits inside it.
+ *
+ * Computed, never authored. The convergence is the hue FAMILY of each
+ * attendee's leading look's heaviest garment — family, not colour name, so
+ * "ecru" and "cream" count as the same room — and the colour it names is the
+ * commonest name inside that family. The viewer's difference is her own
+ * heaviest piece outside it.
+ *
+ * Returns null whenever there is nothing true to say: fewer than two boards,
+ * no colours on file, or no family shared by at least two attendees. An
+ * invented pattern would be the one lie on a screen whose whole promise is
+ * that the numbers are real.
+ */
+export function groupStyleNote(boards: AttendeeBoard[], me: string | null): string | null {
+  type Entry = { userId: string; family: string; colour: string; look: PostedLook };
+
+  const entries: Entry[] = [];
+  for (const board of boards) {
+    const look = boardLeader(board.looks) ?? board.looks[0];
+    const anchor = look ? anchorOf(look) : null;
+    const colour = anchor?.colors[0];
+    if (!look || !colour?.family || !colour.name) continue;
+    entries.push({ userId: board.userId, family: colour.family, colour: colour.name, look });
+  }
+  if (entries.length < 2) return null;
+
+  const byFamily = new Map<string, Entry[]>();
+  for (const e of entries) byFamily.set(e.family, [...(byFamily.get(e.family) ?? []), e]);
+
+  const [family, group] = [...byFamily.entries()].sort((a, b) => b[1].length - a[1].length)[0]!;
+  if (group.length < 2) return null;
+
+  // The commonest colour NAME inside the shared family is what to call it.
+  const nameCounts = new Map<string, number>();
+  for (const e of group) nameCounts.set(e.colour, (nameCounts.get(e.colour) ?? 0) + 1);
+  const colour = [...nameCounts.entries()].sort((a, b) => b[1] - a[1])[0]![0];
+  const count = countWord(group.length);
+
+  const mine = me ? entries.find((e) => e.userId === me) : undefined;
+
+  if (mine && mine.family === family) {
+    const contrast = [...mine.look.garments]
+      .sort((a, b) => b.visualWeight - a.visualWeight)
+      .find((g) => g.colors[0]?.family && g.colors[0].family !== family);
+    const piece = contrast?.subcategory ?? contrast?.category;
+    const contrastColour = contrast?.colors[0]?.name;
+    return contrastColour && piece
+      ? `${count} of you are in ${colour}. Yours reads differently with the ${contrastColour} ${piece}.`
+      : `${count} of you are in ${colour} — yours will read as part of the set.`;
+  }
+
+  if (mine) {
+    return `${count} of them are in ${colour}. Yours is the ${mine.colour} in the room.`;
+  }
+
+  return `${count} of them are already in ${colour} — worth knowing before you pick.`;
 }
