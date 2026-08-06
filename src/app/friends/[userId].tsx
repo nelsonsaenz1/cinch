@@ -9,6 +9,7 @@ import { FriendItemCard } from '@/components/social/FriendItemCard';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/empty-state';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
+import { ScreenHeader } from '@/components/ui/screen-header';
 // Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `ClosetGridSkeleton`
 // is already exported; reused as-is for a friend's closet grid, same shape.
 import { ClosetGridSkeleton } from '@/components/ui/skeleton';
@@ -18,16 +19,16 @@ import { REPORT_REASONS, useBlockUser, useReportContent } from '@/features/socia
 import { useRequestBorrow, useUnfollow } from '@/features/social-graph/mutations';
 import { useFriendCloset, useFriends } from '@/features/social-graph/queries';
 import { profileName, type FriendItem } from '@/features/social-graph/types';
-import { useTheme } from '@/theme/tokens';
+import { GUTTER, useTheme } from '@/theme/tokens';
 
 /**
  * A friend's closet — the browsable, borrowable edition.
  *
  * Everything on this screen comes through the `friend_items` projection:
  * presentation and the borrowable flag, nothing else. No prices, no wear
- * counts, no originals — the moat is hers, and this screen must not even have
- * the columns to leak. Not-for-lending pieces render like the rest, just with
- * no ask; the trigger on `borrow_requests` is the real gate.
+ * counts, no originals — the moat is theirs, and this screen must not even
+ * have the columns to leak. Not-for-lending pieces render like the rest, just
+ * with no ask; the trigger on `borrow_requests` is the real gate.
  */
 export default function FriendClosetScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
@@ -91,7 +92,8 @@ export default function FriendClosetScreen() {
               reason,
             },
             {
-              onSuccess: () => Alert.alert('Reported', 'Thank you — we review every report.'),
+              // One promise, everywhere, and one the operator can keep.
+              onSuccess: () => Alert.alert('Thank you', 'Every report is reviewed.'),
               onError: (err) =>
                 Alert.alert(
                   'Could not send that report',
@@ -108,7 +110,7 @@ export default function FriendClosetScreen() {
     if (!userId) return;
     Alert.alert(
       `Block ${name}`,
-      'She won’t be able to find you, message you, or see your closet — and she won’t be told. This also ends the friendship.',
+      'They won’t be able to find you, message you, or see your closet — and they won’t be told. This also ends the friendship.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -135,7 +137,7 @@ export default function FriendClosetScreen() {
     if (!userId) return;
     Alert.alert(
       `Unfriend ${name}`,
-      'Her closet closes to you and yours to her. She isn’t notified.',
+      'Their closet closes to you and yours to them. They aren’t notified.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -160,7 +162,10 @@ export default function FriendClosetScreen() {
 
   const overflow = () => {
     Alert.alert(name, undefined, [
-      { text: 'Unfriend', onPress: promptUnfriend },
+      // Destructive, like Block beside it: both end the friendship and both
+      // are irreversible in exactly the same way, so only one of them being
+      // marked was the menu saying one was safer than it is.
+      { text: 'Unfriend', style: 'destructive', onPress: promptUnfriend },
       { text: 'Report', onPress: promptReport },
       { text: 'Block', style: 'destructive', onPress: promptBlock },
       { text: 'Cancel', style: 'cancel' },
@@ -171,36 +176,33 @@ export default function FriendClosetScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <View className="flex-row items-center justify-between px-gutter pt-2">
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={8}
-          className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
-          <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-        </Pressable>
-        <Text variant="colophon">Her closet</Text>
-        <Pressable
-          onPress={overflow}
-          accessibilityRole="button"
-          accessibilityLabel={`More options for ${name}`}
-          hitSlop={8}
-          className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
-          <SymbolView name="ellipsis" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-        </Pressable>
-      </View>
+      {/* "Their closet", not "Her closet": the app knows this person's name
+          and nothing about their pronouns, and it has no business guessing.
+          The name itself is the display title one line below. */}
+      <ScreenHeader
+        title="Their closet"
+        trailing={
+          <Pressable
+            onPress={overflow}
+            accessibilityRole="button"
+            accessibilityLabel={`More options for ${name}`}
+            hitSlop={8}
+            className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
+            <SymbolView name="ellipsis" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
+          </Pressable>
+        }
+      />
 
       <View className="px-gutter pb-3 pt-3">
         <Text variant="display" trim accessibilityRole="header">
           {name}
         </Text>
-        {/* The count line doubles as loading text ("Opening her closet…")
+        {/* The count line doubles as loading text ("Opening the closet…")
             with no visual shape behind it. The grid below now carries its own
             skeleton, so this line simply withholds itself until there is a
             real count to report — no sentence pretending to be a state. */}
         {!closet.isLoading && !closet.isError ? (
-          <Text variant="label" className="mt-2 text-faint">
+          <Text variant="label" className="mt-2 text-muted">
             {`${items.length} ${items.length === 1 ? 'piece' : 'pieces'} · ${borrowableCount} borrowable`}
           </Text>
         ) : null}
@@ -210,20 +212,22 @@ export default function FriendClosetScreen() {
         // A failed fetch is not the same fact as an empty or lapsed closet —
         // it gets its own state and a way to try again, not "Nothing to show."
         <ErrorState
-          title="Couldn’t open her closet"
-          body="This didn’t load — it isn’t the same as her closet being empty. Try again."
+          title={`Couldn’t open ${name}’s closet`}
+          body="This didn’t load — which isn’t the same fact as the closet being empty. Try again."
           onRetry={() => void closet.refetch()}
         />
       ) : closet.isLoading ? (
         <ClosetGridSkeleton />
       ) : items.length === 0 ? (
-        // Empty either because her closet is genuinely empty or because the
+        // Empty either because the closet is genuinely empty or because the
         // friendship has lapsed — the view can't say which, and neither should
         // the copy: accusing a friend of unfriending is worse than vagueness.
         <EmptyState
           symbol="tshirt"
           title="Nothing to show"
-          body="Her closet is empty, or it isn’t open to you right now. Pull down on the Friends list to refresh."
+          body="Their closet is empty, or it isn’t open to you right now."
+          actionTitle="Try again"
+          onAction={() => void closet.refetch()}
         />
       ) : (
         <FlashList
@@ -239,17 +243,23 @@ export default function FriendClosetScreen() {
           )}
           // Plain style, not contentContainerClassName — FlashList is outside
           // NativeWind and silently drops classNames (see closet-grid.tsx).
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 96 }}
+          // GUTTER rather than a literal 20 for the same reason: the token is
+          // the page measure, and a copy of its value drifts silently.
+          contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: 96 }}
           ItemSeparatorComponent={() => <View className="h-1" />}
           refreshControl={
-            <RefreshControl refreshing={closet.isRefetching} onRefresh={() => void closet.refetch()} />
+            <RefreshControl
+              refreshing={closet.isRefetching}
+              onRefresh={() => void closet.refetch()}
+              tintColor={theme.muted}
+            />
           }
           showsVerticalScrollIndicator={false}
         />
       )}
 
       {/* The ask. A small sheet, not a form: garment, an optional line, send.
-          The decline on her side is one canned tap, and this side promises as
+          The decline on their side is one canned tap, and this side promises as
           much — the whole flow exists to absorb the awkwardness. */}
       <Modal
         visible={asking !== null}
@@ -273,7 +283,7 @@ export default function FriendClosetScreen() {
                 <Text variant="body" className="mt-3 text-muted">
                   {asking?.subcategory ?? asking?.category ?? ''}
                   {asking?.brand ? ` · ${asking.brand}` : ''} — {name} decides, and either answer
-                  is one tap for her.
+                  is one tap for them.
                 </Text>
 
                 <View className="mt-4 rounded-md border border-rule px-3">

@@ -5,19 +5,13 @@ import {
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import {
-  DarkTheme,
-  DefaultTheme,
-  Stack,
-  ThemeProvider,
-  useRouter,
-  useSegments,
-} from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { ActivityIndicator, useColorScheme, View } from 'react-native';
+import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { Text } from '@/components/ui/text';
 import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
 import { useSession } from '@/features/auth/use-session';
 import { Superwall } from '@/features/billing/superwall';
@@ -169,10 +163,20 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // Session hydrates from AsyncStorage on mount. Waiting a beat here prevents
   // the sign-in screen flashing for a user who was already signed in on a
   // previous launch.
+  //
+  // The frame that shows while it hydrates is the FIRST frame after the splash,
+  // and it used to be an iOS blue-grey `ActivityIndicator` on paper. The splash
+  // is the wordmark's canvas (#FBFAF6, app.config.ts); this holds that same
+  // ground and prints the wordmark on it, so the handover reads as one screen
+  // settling rather than two screens swapping. No spinner: the wait is usually
+  // a few frames, and a ring that appears and vanishes is a flicker, not
+  // feedback.
   if (session.loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
-        <ActivityIndicator />
+      <View className="flex-1 items-center justify-center bg-canvas">
+        <Text variant="display" trim>
+          Cinch
+        </Text>
       </View>
     );
   }
@@ -181,9 +185,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-
   usePersistedCachePurge();
   useAnalyticsIdentity();
 
@@ -236,8 +237,20 @@ export default function RootLayout() {
           implementation, so importing these from '@react-navigation/native'
           (as every older tutorial does) will not resolve.
         */}
-        <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-          <StatusBar style={isDark ? 'light' : 'dark'} />
+        {/*
+          Pinned to light, not read from `useColorScheme`. The app declares
+          `userInterfaceStyle: 'light'` (app.config.ts) and the palette has one
+          set of values — the `dark:` halves in tailwind.config.js are the same
+          hexes as the light ones. Branching on the system scheme therefore
+          bought nothing and cost a real bug on a device set to Dark: expo-
+          router's DarkTheme paints its own near-black under every navigator,
+          which shows through as a dark flash between screens and behind the
+          modal sheets while the canvas of the incoming screen mounts. The
+          status bar goes with it — dark glyphs, because every screen but the
+          sign-in hero is paper, and that one screen sets its own.
+        */}
+        <ThemeProvider value={DefaultTheme}>
+          <StatusBar style="dark" />
           {/*
             Inside the query provider, because the identity binding reads
             `useSession` — which subscribes to the query client to purge caches
@@ -280,9 +293,22 @@ export default function RootLayout() {
                     headerShown: false,
                   }}
                 />
+                {/* Profile edit is a sheet off the closet, in the same dialect
+                    as the stylist: a form you fill and dismiss, not a place
+                    you go. Full height (no partial detent — the form is long
+                    and a half sheet would open already scrolled), with the
+                    grabber and the 38 `sheet` radius so the two sheets in the
+                    app are visibly the same object. Capture stays a
+                    full-screen modal above: a camera stage is not a sheet. */}
                 <Stack.Screen
                   name="profile"
-                  options={{ presentation: 'modal', headerShown: false }}
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
                 />
               </Stack>
               </AuthGate>

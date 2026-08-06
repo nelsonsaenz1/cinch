@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BorrowRequestRow } from '@/components/social/BorrowRequestRow';
 import { EmptyState, ErrorState } from '@/components/ui/empty-state';
+import { Rule } from '@/components/ui/rule';
+import { ScreenHeader } from '@/components/ui/screen-header';
 // Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `ListSkeleton`
 // lands alongside `Skeleton`'s export. Code against the contract.
 import { ListSkeleton } from '@/components/ui/skeleton';
@@ -81,7 +82,7 @@ export default function BorrowScreen() {
         ) : (
           rows.map((thread, i) => (
             <View key={thread.request.id}>
-              {i > 0 ? <View className="h-px bg-hairline" /> : null}
+              {i > 0 ? <Rule tone="hairline" /> : null}
               <BorrowRequestRow
                 thread={thread}
                 imageUri={resolve(thread.item?.thumbPath, thread.item?.cutoutPath)}
@@ -100,18 +101,7 @@ export default function BorrowScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <View className="flex-row items-center justify-between px-gutter pt-2">
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={8}
-          className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
-          <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-        </Pressable>
-        <Text variant="colophon">Between friends</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <ScreenHeader align="center" title="Between friends" />
 
       <View className="px-gutter pt-3">
         <Text variant="display" trim accessibilityRole="header">
@@ -140,7 +130,7 @@ export default function BorrowScreen() {
         <EmptyState
           symbol="hanger"
           title="Nothing on loan"
-          body="When a friend asks to borrow one of your pieces — or you ask for one of hers — it shows up here."
+          body="When a friend asks to borrow one of your pieces — or you ask for one of theirs — it shows up here."
           actionTitle="Browse your friends"
           onAction={() => router.push('/friends')}
         />
@@ -151,6 +141,7 @@ export default function BorrowScreen() {
             <RefreshControl
               refreshing={threads.isRefetching}
               onRefresh={() => void threads.refetch()}
+              tintColor={theme.muted}
             />
           }>
           {section('Asked of you', incoming, 'No one has asked for anything.')}

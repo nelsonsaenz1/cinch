@@ -9,6 +9,7 @@ import Animated, {
   interpolate,
   runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
   withTiming,
@@ -145,6 +146,19 @@ export function ReviewCard({
   const theme = useTheme();
   const translateX = useSharedValue(0);
 
+  /**
+   * How long the card takes to leave, and nothing else.
+   *
+   * Reduce Motion is a request not to be thrown large objects across the
+   * screen; it is NOT a request to lose the swipe, which is this deck's whole
+   * interaction. So the gesture — its thresholds, its overlays, its committed
+   * outcomes — is untouched, and only the fly-off's duration collapses to the
+   * shortest step on the scale. A plain boolean, captured by the worklet below
+   * the same way `depth` is.
+   */
+  const reduceMotion = useReducedMotion();
+  const flyOffDuration = reduceMotion ? motion.duration.fast : motion.duration.slow;
+
   // Which row's editor is open, if any. Only one at a time — this is a "tap to
   // correct" affordance, not a form. Category and Price are the two fields this
   // card can actually patch (see `useVerifyItem`), so Colours and Details below
@@ -194,13 +208,13 @@ export function ReviewCard({
       if (dragged > SWIPE_THRESHOLD) {
         // Fly off right → confirm. The success haptic is reserved for this
         // direction; a skip is not an accomplishment and should not feel like one.
-        translateX.value = withTiming(SCREEN_WIDTH * 1.4, { duration: motion.duration.slow });
+        translateX.value = withTiming(SCREEN_WIDTH * 1.4, { duration: flyOffDuration });
         runOnJS(fireHaptic)();
         runOnJS(confirm)();
       } else if (dragged < -SWIPE_THRESHOLD) {
         // Fly off left → skip. Nothing is persisted, so the item is still
         // unverified server-side and returns on the next visit.
-        translateX.value = withTiming(-SCREEN_WIDTH * 1.4, { duration: motion.duration.slow });
+        translateX.value = withTiming(-SCREEN_WIDTH * 1.4, { duration: flyOffDuration });
         runOnJS(skip)();
       } else {
         translateX.value = withSpring(0, spring.interactive);
@@ -297,7 +311,7 @@ export function ReviewCard({
         // swipe of the VoiceOver cursor either.
         accessibilityElementsHidden={!isTop}
         importantForAccessibility={isTop ? 'yes' : 'no-hide-descendants'}>
-        <View className="flex-1 overflow-hidden rounded-card bg-surface dark:bg-surface-dark">
+        <View className="flex-1 overflow-hidden rounded-plate bg-surface dark:bg-surface-dark">
           {/*
             The card's contents scroll, for one reason: the Price field.
 
@@ -347,18 +361,57 @@ export function ReviewCard({
                 />
               )}
 
-              {/* Drag intent — visible only while the card is being dragged. */}
+              {/*
+                Drag intent — visible only while the card is being dragged.
+
+                STYLE, NOT className. NativeWind's interop registers React
+                Native primitives only, so a `className` on a Reanimated
+                component is silently dropped — no warning, nothing to debug.
+                These two pills carried their ENTIRE appearance in classes, so
+                they were rendering unpositioned, unpadded and untinted: two
+                bare words in normal flow inside the photo well, fading in and
+                out with the drag. The "see the outcome while you drag" idea was
+                never actually on screen.
+
+                CANVAS STAYS on the green, and the swap to `ink` is deliberately
+                not made. `canvas` on `positive` is 4.34:1 — a near-miss at
+                13px, and the reason this label was flagged. `ink` on the same
+                green is 3.84:1: worse, not better. The palette is locked, so
+                with both candidates under AA the honest move is to keep the
+                higher ratio and leave the finding recorded rather than trade
+                one near-miss for a further one.
+              */}
               <Animated.View
-                style={acceptOverlay}
-                className="absolute right-3 top-3 rounded-chip bg-positive px-3 py-1"
+                style={[
+                  {
+                    position: 'absolute',
+                    right: 12,
+                    top: 12,
+                    borderRadius: 12,
+                    backgroundColor: theme.positive,
+                    paddingHorizontal: 12,
+                    paddingVertical: 4,
+                  },
+                  acceptOverlay,
+                ]}
                 pointerEvents="none">
                 <Text variant="label" style={{ color: theme.canvas }}>
                   Confirm
                 </Text>
               </Animated.View>
               <Animated.View
-                style={skipOverlay}
-                className="absolute left-3 top-3 rounded-chip bg-muted px-3 py-1"
+                style={[
+                  {
+                    position: 'absolute',
+                    left: 12,
+                    top: 12,
+                    borderRadius: 12,
+                    backgroundColor: theme.muted,
+                    paddingHorizontal: 12,
+                    paddingVertical: 4,
+                  },
+                  skipOverlay,
+                ]}
                 pointerEvents="none">
                 <Text variant="label" style={{ color: theme.canvas }}>
                   Skip
@@ -563,7 +616,11 @@ function ReviewRow({
             hitSlop={8}
             accessibilityRole="button"
             accessibilityState={{ expanded }}
-            accessibilityLabel={`Edit ${label.toLowerCase()}`}>
+            accessibilityLabel={`Edit ${label.toLowerCase()}`}
+            // The one control on this card with no pressed state at all — it
+            // was a bare text node, so a tap that opened a chip grid below the
+            // fold looked like a tap that did nothing.
+            className="active:opacity-60">
             <Text variant="label" className="text-accent dark:text-accent-dark">
               {expanded ? 'Done' : 'Edit'}
             </Text>

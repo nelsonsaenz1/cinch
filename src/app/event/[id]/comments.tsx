@@ -1,15 +1,16 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentRow } from '@/components/event-outfits/CommentRow';
 import { lookName } from '@/components/event-outfits/OutfitPostCard';
-import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
-import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 // Batch-1 seam: the shared states kit.
+import { ErrorState } from '@/components/ui/error-state';
+import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
@@ -63,7 +64,6 @@ export default function EventCommentsScreen() {
   const { id, post } = useLocalSearchParams<{ id: string; post?: string }>();
   const eventId = id ?? null;
   const postId = post ?? null;
-  const router = useRouter();
   const theme = useTheme();
   const session = useSession();
 
@@ -101,32 +101,70 @@ export default function EventCommentsScreen() {
     );
   };
 
-  const reportComment = (comment: EventComment) => {
-    Alert.alert('Report this comment', 'What’s wrong with it?', [
-      ...REPORT_REASONS.map((reason) => ({
-        text: reason,
-        onPress: () =>
-          report.mutate(
-            {
-              subject: 'comment',
-              subjectId: comment.id,
-              subjectUserId: comment.userId,
-              reason,
-            },
-            {
-              onSuccess: () =>
-                Alert.alert('Thank you', 'Reports are reviewed within 24 hours.'),
-              onError: (error: unknown) =>
-                Alert.alert('That didn’t go through', socialErrorMessage(error)),
-            },
-          ),
-      })),
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
-  };
+  /**
+   * The thank-you promises review, not a deadline — the same sentence every
+   * other reporting surface in the app now prints. "Reviewed within 24 hours"
+   * was an SLA nobody had committed to operationally, and the one surface
+   * whose whole value is being believed is the wrong place to overpromise.
+   */
+  const reportComment = useCallback(
+    (comment: EventComment) => {
+      Alert.alert('Report this comment', 'What’s wrong with it?', [
+        ...REPORT_REASONS.map((reason) => ({
+          text: reason,
+          onPress: () =>
+            report.mutate(
+              {
+                subject: 'comment' as const,
+                subjectId: comment.id,
+                subjectUserId: comment.userId,
+                reason,
+              },
+              {
+                onSuccess: () => Alert.alert('Thank you', 'Every report is reviewed.'),
+                onError: (error: unknown) =>
+                  Alert.alert('That didn’t go through', socialErrorMessage(error)),
+              },
+            ),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
+    },
+    [report],
+  );
 
   const mutateErr = (error: unknown) =>
     Alert.alert('That didn’t work', socialErrorMessage(error));
+
+  // Stable handlers, so `CommentRow`'s memo survives the composer's keystrokes
+  // and the thread's realtime invalidations. Each takes the comment rather
+  // than closing over one.
+  const confirmDeleteComment = useCallback(
+    (comment: EventComment) => {
+      if (!eventId) return;
+      Alert.alert('Delete this comment?', undefined, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () =>
+            deleteComment.mutate({ eventId, commentId: comment.id }, { onError: mutateErr }),
+        },
+      ]);
+    },
+    [eventId, deleteComment],
+  );
+
+  const toggleHidden = useCallback(
+    (comment: EventComment) => {
+      if (!eventId) return;
+      hideComment.mutate(
+        { eventId, commentId: comment.id, hidden: !comment.hidden },
+        { onError: mutateErr },
+      );
+    },
+    [eventId, hideComment],
+  );
 
   const title = look
     ? lookName(look.garments, look.caption)
@@ -135,17 +173,7 @@ export default function EventCommentsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-canvas">
       <KeyboardAvoidingScreen className="flex-1">
-        <View className="flex-row items-center gap-3 px-gutter pt-2">
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            hitSlop={8}
-            className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
-            <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-          </Pressable>
-          <Text variant="colophon">{look ? 'On this look' : 'Table talk'}</Text>
-        </View>
+        <ScreenHeader align="leading" title={look ? 'On this look' : 'Table talk'} />
 
         <View className="px-gutter">
           <Text variant="title" trim numberOfLines={1} className="mt-4">
@@ -161,17 +189,15 @@ export default function EventCommentsScreen() {
 
         {comments.isError ? (
           // A thread that failed to arrive is not a quiet table. The composer
-          // below stays live — sending still works when reading didn't.
-          <View className="flex-1 px-gutter pt-8">
-            <Text variant="body">This thread didn’t load</Text>
-            <Text variant="caption" className="mt-1.5">
-              Nothing was lost — the connection dropped on the way.
-            </Text>
-            <Button
-              title="Try again"
-              variant="secondary"
-              onPress={() => void comments.refetch()}
-              className="mt-4 self-start"
+          // below stays live — sending still works when reading didn't, which
+          // is why this is `compact`: the page has more on it than the error.
+          <View className="flex-1 pt-4">
+            <ErrorState
+              compact
+              title="This thread didn’t load"
+              body="Nothing was lost — the connection dropped on the way. You can still say something below."
+              onRetry={() => void comments.refetch()}
+              retrying={comments.isRefetching}
             />
           </View>
         ) : comments.isLoading ? (
@@ -195,29 +221,9 @@ export default function EventCommentsScreen() {
                     }
                     isMine={comment.userId === session.userId}
                     isHost={isHost}
-                    onReport={() => reportComment(comment)}
-                    onDelete={() =>
-                      Alert.alert('Delete this comment?', undefined, [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Delete',
-                          style: 'destructive',
-                          onPress: () =>
-                            eventId &&
-                            deleteComment.mutate(
-                              { eventId, commentId: comment.id },
-                              { onError: mutateErr },
-                            ),
-                        },
-                      ])
-                    }
-                    onToggleHidden={() =>
-                      eventId &&
-                      hideComment.mutate(
-                        { eventId, commentId: comment.id, hidden: !comment.hidden },
-                        { onError: mutateErr },
-                      )
-                    }
+                    onReport={reportComment}
+                    onDelete={confirmDeleteComment}
+                    onToggleHidden={toggleHidden}
                   />
                 </View>
               ))

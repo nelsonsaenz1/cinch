@@ -1,9 +1,12 @@
 import { useEffect } from 'react';
 import { View, type ViewProps } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   interpolate,
+  ReduceMotion,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -39,18 +42,34 @@ const BAND_WIDTH = 60;
  * `ActivityIndicator` — the designed option was not reachable.
  */
 export function Skeleton({ className = '', style, ...rest }: SkeletonProps) {
+  const reduced = useReducedMotion();
   const sweep = useSharedValue(0);
 
   useEffect(() => {
+    if (reduced) return;
     sweep.value = withRepeat(withTiming(1, { duration: 1300, easing: Easing.linear }), -1, false);
-  }, [sweep]);
+    // A loop with -1 repetitions outlives its component unless it is told not
+    // to; on a screen that mounts a dozen of these, that is a dozen worklets
+    // still ticking after the content arrived.
+    return () => cancelAnimation(sweep);
+  }, [reduced, sweep]);
 
-  const highlightStyle = useAnimatedStyle(() => ({
-    left: `${interpolate(sweep.value, [0, 1], [-BAND_WIDTH, 100])}%`,
-    // Fades in/out at the edges of its own travel so the band reads as a soft
-    // pass of light rather than a hard-edged bar sliding across.
-    opacity: interpolate(sweep.value, [0, 0.5, 1], [0, 0.9, 0]),
-  }));
+  const highlightStyle = useAnimatedStyle(() =>
+    reduced
+      ? {
+          // Reduce Motion: the band parks in the middle of its own travel at
+          // half strength. The cell keeps the soft two-tone depth that says
+          // "placeholder" and loses only the part that moves.
+          left: `${(100 - BAND_WIDTH) / 2}%`,
+          opacity: 0.45,
+        }
+      : {
+          left: `${interpolate(sweep.value, [0, 1], [-BAND_WIDTH, 100])}%`,
+          // Fades in/out at the edges of its own travel so the band reads as a
+          // soft pass of light rather than a hard-edged bar sliding across.
+          opacity: interpolate(sweep.value, [0, 0.5, 1], [0, 0.9, 0]),
+        },
+  );
 
   return (
     <View
@@ -72,13 +91,41 @@ export function Skeleton({ className = '', style, ...rest }: SkeletonProps) {
 /** The small accent-tinted ring next to "Reading your wardrobe…". */
 export function Spinner() {
   const theme = useTheme();
+  const reduced = useReducedMotion();
   const rotation = useSharedValue(0);
+  const pulse = useSharedValue(1);
 
   useEffect(() => {
+    if (reduced) {
+      // Rotation is the vestibular half of a spinner; a cross-fade is not, and
+      // Apple treats opacity as the sanctioned substitute. The ring still has
+      // to say "working" — a frozen one says "stuck".
+      //
+      // `ReduceMotion.Never` on both the tween and the repeat is required, not
+      // decorative: Reanimated defaults every animation to `System`, so the
+      // setting that asked for this pulse would otherwise cancel it on the
+      // first frame.
+      pulse.value = withRepeat(
+        withTiming(0.35, {
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+          reduceMotion: ReduceMotion.Never,
+        }),
+        -1,
+        true,
+        undefined,
+        ReduceMotion.Never,
+      );
+      return () => cancelAnimation(pulse);
+    }
     rotation.value = withRepeat(withTiming(360, { duration: 800, easing: Easing.linear }), -1, false);
-  }, [rotation]);
+    return () => cancelAnimation(rotation);
+  }, [reduced, rotation, pulse]);
 
-  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${rotation.value}deg` }] }));
+  const style = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+    opacity: pulse.value,
+  }));
 
   return (
     <Animated.View

@@ -61,6 +61,7 @@ export function PlateThumb({
           contentFit="contain"
           transition={200}
           cachePolicy="memory-disk"
+          recyclingKey={item.id}
           style={{ width: '100%', height: '100%' }}
           accessibilityIgnoresInvertColors
         />

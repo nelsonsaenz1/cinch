@@ -1,8 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Spinner } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { CALLBACK_URL, completeSessionFromUrl } from '@/features/auth/actions';
 
@@ -67,20 +68,35 @@ export default function AuthCallbackScreen() {
     });
   }, [params, router]);
 
+  /*
+    The waiting room between the mail app and the closet.
+
+    It used to be the platform `ActivityIndicator` — iOS blue-grey, centred on
+    paper, the one frame in the whole sign-in that belongs to no product. The
+    wordmark and the app's own accent-tinted ring cost nothing and mean the
+    user never leaves Cinch: the last thing they saw before the mail app was
+    this serif, and it is the first thing they see coming back.
+  */
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <SafeAreaView className="flex-1 bg-canvas">
       <View className="flex-1 items-center justify-center px-gutter">
+        <Text variant="display" trim className="text-center">
+          Cinch
+        </Text>
         {failure === null ? (
-          <>
-            <ActivityIndicator />
-            <Text variant="callout" className="mt-4 text-muted dark:text-muted-dark">
+          <View
+            accessibilityLiveRegion="polite"
+            className="mt-6 flex-row items-center justify-center gap-2.5">
+            <Spinner />
+            <Text variant="body" className="text-muted">
               Signing you in…
             </Text>
-          </>
+          </View>
         ) : (
           <Text
-            variant="callout"
-            className="text-center text-muted dark:text-muted-dark"
+            variant="body"
+            accessibilityLiveRegion="polite"
+            className="mt-6 text-center text-muted"
             style={{ maxWidth: 320 }}>
             {failure}
           </Text>

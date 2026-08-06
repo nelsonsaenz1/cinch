@@ -23,6 +23,13 @@ import {
 import type { Item, ItemCategory } from '@/schemas/item';
 
 /**
+ * The most pips the progress bar will ever draw. Twelve 16pt marks plus their
+ * gaps is about half a phone's width — the point past which another pip stops
+ * adding information and starts subtracting legibility from the ones beside it.
+ */
+const PIP_LIMIT = 12;
+
+/**
  * The tag-review deck.
  *
  * Target interaction cost: under 2 seconds per item. Common case is one
@@ -267,7 +274,7 @@ export default function ReviewScreen() {
         </View>
         <View accessibilityLabel="Loading your review queue" className="flex-1 px-5 pb-5 pt-1">
           <Skeleton className="h-3 w-28 rounded-chip" />
-          <View className="mt-4 flex-1 rounded-card bg-surface p-5 dark:bg-surface-dark">
+          <View className="mt-4 flex-1 rounded-plate bg-surface p-5 dark:bg-surface-dark">
             <Skeleton className="h-6 w-36 rounded-chip" />
             <Skeleton className="mt-2 h-3 w-52 rounded-chip" />
             <Skeleton className="mb-4 mt-4 h-44 w-full rounded-plate" />
@@ -314,6 +321,15 @@ export default function ReviewScreen() {
   // 0-based position of the card currently on top of the stack — items ahead
   // of it have already been confirmed or skipped this sitting.
   const current = total - deck.length;
+
+  // The pip bar, at whatever length it can actually be read at. Above the cap
+  // the marker travels the bar in proportion rather than parking at the far
+  // end, so a sixty-piece queue still shows movement as the deck is worked.
+  const pipCount = Math.min(total, PIP_LIMIT);
+  const activePip =
+    total <= PIP_LIMIT
+      ? current
+      : Math.min(Math.floor((current / total) * pipCount), pipCount - 1);
 
   // What the tagger left unanswered on the card the user is looking at. Named
   // above the deck rather than inside the card so the invitation to correct
@@ -382,14 +398,28 @@ export default function ReviewScreen() {
             position marker is not a call to action, so it takes the ink the
             rest of the type is set in and the accent stays spent once.
           */}
+          {/*
+            CAPPED AT TWELVE. `flex: 1` with a 16pt ceiling degrades gracefully
+            for a handful of pieces and catastrophically for sixty: a
+            sixty-photo import drew sixty pips squeezed to sub-pixel slivers
+            with hairline gaps between them, which is a grey smear, not a
+            position. Past the cap the bar carries the shape and the colophon
+            beside it says how many pieces it is compressing — the exact count
+            is already on the ordinal to its left.
+          */}
           <View className="flex-row items-center gap-1">
-            {Array.from({ length: total }).map((_, i) => (
+            {Array.from({ length: pipCount }).map((_, i) => (
               <View
                 key={i}
-                className={`h-1 rounded-full ${i === current ? 'bg-ink dark:bg-ink-dark' : 'bg-sand dark:bg-sand-dark'}`}
+                className={`h-1 rounded-full ${i === activePip ? 'bg-ink dark:bg-ink-dark' : 'bg-sand dark:bg-sand-dark'}`}
                 style={{ flex: 1, maxWidth: 16 }}
               />
             ))}
+            {total > PIP_LIMIT ? (
+              <Text variant="colophon" className="ml-1.5">
+                · {total - PIP_LIMIT} more
+              </Text>
+            ) : null}
           </View>
         </View>
       ) : null}
@@ -416,9 +446,14 @@ export default function ReviewScreen() {
       */}
       {!done && settled.length >= 3 ? (
         <View className="px-gutter pb-1 pt-1">
+          {/* `secondary`, not `ghost`. This is the shortcut that turns sixty
+              gestures into one — the single most valuable control on the
+              screen — and it was drawn in the register the app reserves for
+              "Close" and "Dismiss". It still isn't the oxblood primary: the
+              accent belongs to the Edit affordances inside the card. */}
           <Button
             title={`Confirm the ${settled.length} Cinch is sure about`}
-            variant="ghost"
+            variant="secondary"
             loading={confirmingAll}
             onPress={() => void confirmAllSettled(settled)}
             accessibilityHint="Marks every piece with complete tags as correct, leaving only the ones that need your eye."
@@ -437,7 +472,7 @@ export default function ReviewScreen() {
       {failure ? (
         <View
           accessibilityLiveRegion="polite"
-          className="mx-gutter mt-3 flex-row items-center justify-between gap-3 rounded-card bg-warning/15 px-3 py-2">
+          className="mx-gutter mt-3 flex-row items-center justify-between gap-3 rounded-plate bg-warning/15 px-3 py-2">
           <Text variant="label" className="flex-1">
             {`Couldn't save ${failure.item.subcategory ?? failure.item.category}. ${failure.message}`}
           </Text>

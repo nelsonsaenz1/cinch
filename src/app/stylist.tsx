@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
@@ -36,14 +37,14 @@ const UNITS = 'F' as const;
  * chips, the questionnaire answers — is drawn in hairline and ink, which is
  * what lets one small red circle still read as the app's voice speaking.
  */
-function StylistHeader() {
+function StylistHeader({ onNewQuestion }: { onNewQuestion?: () => void }) {
   const theme = useTheme();
   return (
     <View className="flex-row items-center gap-3 border-b border-hairline px-gutter pb-3 pt-5 dark:border-hairline-dark">
       <View className="h-9 w-9 items-center justify-center rounded-full bg-accent-light">
         <SymbolView name="sparkles" size={15} tintColor={theme.accent} resizeMode="scaleAspectFit" />
       </View>
-      <View>
+      <View className="flex-1">
         <Text variant="plate" trim accessibilityRole="header">
           Stylist
         </Text>
@@ -51,6 +52,21 @@ function StylistHeader() {
           Only your clothes — nothing invented
         </Text>
       </View>
+      {/* Reachable only once there is a thread to leave — the designed opening
+          (greeting, four doors, questionnaire) was otherwise reachable exactly
+          once per account, because nothing called the chat hook's `clear()`. */}
+      {onNewQuestion ? (
+        <Pressable
+          onPress={onNewQuestion}
+          accessibilityRole="button"
+          accessibilityLabel="Start a new question"
+          hitSlop={12}
+          className="active:opacity-60">
+          <Text variant="label" className="text-muted dark:text-muted-dark">
+            New question
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -70,7 +86,7 @@ function AnswerChip({ label, onPress }: { label: string; onPress: () => void }) 
       onPress={onPress}
       accessibilityRole="button"
       style={{ minHeight: MIN_TAP_TARGET }}
-      className="justify-center rounded-chip border border-rule px-4 active:opacity-60 dark:border-rule-dark">
+      className="justify-center rounded-md border border-rule px-4 active:opacity-60 dark:border-rule-dark">
       <Text variant="body">{label}</Text>
     </Pressable>
   );
@@ -83,7 +99,7 @@ function StartRow({ label, onPress }: { label: string; onPress: () => void }) {
       onPress={onPress}
       accessibilityRole="button"
       style={{ minHeight: MIN_TAP_TARGET }}
-      className="justify-center rounded-md border border-hairline px-4 py-3 active:opacity-60 dark:border-hairline-dark">
+      className="justify-center rounded-md border border-rule px-4 py-3 active:opacity-60 dark:border-rule-dark">
       <Text variant="body">{label}</Text>
     </Pressable>
   );
@@ -143,21 +159,16 @@ export default function StylistScreen() {
     summary: [],
   };
 
-  const { messages, ask, retry, isSending } = useChat({ wardrobe: items, context, profile });
-
-  const scrollSoon = useCallback(() => {
-    // Let the new bubble mount before scrolling to it.
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
-  }, []);
+  const { messages, ask, retry, clear, isSending } = useChat({ wardrobe: items, context, profile });
 
   const submit = useCallback(
     (text: string) => {
       if (!text.trim() || isSending) return;
+      void Haptics.selectionAsync().catch(() => {});
       setDraft('');
       void ask(text);
-      scrollSoon();
     },
-    [ask, isSending, scrollSoon],
+    [ask, isSending],
   );
 
   /**
@@ -181,9 +192,8 @@ export default function StylistScreen() {
         });
       }
       void ask(composed.message, { brief: composed.brief, intent: composed.intent });
-      scrollSoon();
     },
-    [ask, scrollSoon],
+    [ask],
   );
 
   const questionnaire = useQuestionnaire({
@@ -199,6 +209,12 @@ export default function StylistScreen() {
     cancelQuestionnaire();
     inputRef.current?.focus();
   }, [cancelQuestionnaire]);
+
+  /** "New question" — back to the designed opening, any time, on demand. */
+  const startNewQuestion = useCallback(() => {
+    cancelQuestionnaire();
+    clear();
+  }, [cancelQuestionnaire, clear]);
 
   const hello = useMemo(
     () => greeting({ now: openedAt, weather: context.weather, units: UNITS }),
@@ -267,7 +283,7 @@ export default function StylistScreen() {
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
       <KeyboardAvoidingScreen className="flex-1">
-        <StylistHeader />
+        <StylistHeader onNewQuestion={messages.length > 0 ? startNewQuestion : undefined} />
 
         <ScrollView
           ref={scrollRef}
@@ -295,8 +311,8 @@ export default function StylistScreen() {
               </View>
 
               <Text variant="caption" className="mt-5">
-                Or just say it — the stylist answers with clothes you own, and says so when
-                you do not own the right thing.
+                Or just say it. The stylist answers with clothes you own — and tells you
+                plainly when you don&rsquo;t own the right thing.
               </Text>
             </View>
           ) : null}
@@ -312,10 +328,7 @@ export default function StylistScreen() {
               onPressOutfit={() =>
                 router.canGoBack() ? router.back() : router.replace('/(tabs)')
               }
-              onRetry={() => {
-                retry(message.id);
-                scrollSoon();
-              }}
+              onRetry={() => retry(message.id)}
             />
           ))}
 
@@ -343,7 +356,7 @@ export default function StylistScreen() {
                 resolveImage={resolve}
               />
 
-              <View className="flex-row flex-wrap gap-2 px-gutter">
+              <View className="mt-3 flex-row flex-wrap gap-2 px-gutter">
                 {questionnaire.step.options.map((option) => (
                   <AnswerChip
                     key={option.key}
@@ -357,15 +370,28 @@ export default function StylistScreen() {
                 <Text variant="eyebrow">
                   {questionnaire.position} of {questionnaire.total}
                 </Text>
-                <Pressable
-                  onPress={escapeToTyping}
-                  accessibilityRole="button"
-                  accessibilityHint="Closes the questions and opens the keyboard"
-                  hitSlop={12}>
-                  <Text variant="label" className="underline">
-                    I&rsquo;ll just type
-                  </Text>
-                </Pressable>
+                <View className="flex-row items-center gap-5">
+                  {questionnaire.canGoBack ? (
+                    <Pressable
+                      onPress={questionnaire.back}
+                      accessibilityRole="button"
+                      accessibilityLabel="Back to the previous question"
+                      hitSlop={12}>
+                      <Text variant="label" className="underline">
+                        Back
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    onPress={escapeToTyping}
+                    accessibilityRole="button"
+                    accessibilityHint="Closes the questions and opens the keyboard"
+                    hitSlop={12}>
+                    <Text variant="label" className="underline">
+                      I&rsquo;ll just type
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
           ) : null}
@@ -407,7 +433,7 @@ export default function StylistScreen() {
             accessibilityRole="button"
             accessibilityLabel="Send"
             style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}
-            className={`items-center justify-center rounded-full ${
+            className={`items-center justify-center rounded-full active:opacity-60 ${
               draft.trim() && !isSending
                 ? 'bg-ink dark:bg-ink-dark'
                 : 'bg-tray dark:bg-tray-dark'

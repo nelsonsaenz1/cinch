@@ -91,7 +91,7 @@ export function ConsentSheet({
           </View>
 
           <ScrollView
-            contentContainerClassName="px-8 pt-5"
+            contentContainerClassName="px-gutter pt-5"
             contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
             <Text variant="title" trim>
               Before Cinch looks
@@ -122,13 +122,22 @@ export function ConsentSheet({
             </View>
 
             <View className="mt-8 gap-2">
-              {/* Ink primary, per the zip — the accent is spent elsewhere. */}
+              {/* Ink primary, per the zip — the accent is spent elsewhere.
+
+                  `rounded-md` and a `minHeight`, not `rounded-plate` and a
+                  fixed `h-14`: 20 is the PLATE radius (a card, a photo well),
+                  and a button drawn at it reads as a slab rather than a
+                  control — every other primary in the app is 12. The fixed
+                  height held the box at 56pt however large the label grew,
+                  which clipped "Allow processing" at AX sizes; a floor lets it
+                  grow instead. */}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Allow processing"
                 onPress={onAccept}
                 disabled={busy}
-                className="h-14 items-center justify-center rounded-plate bg-ink active:opacity-90 dark:bg-ink-dark">
+                style={{ minHeight: 52 }}
+                className="items-center justify-center rounded-md bg-ink px-5 py-3 active:opacity-90 dark:bg-ink-dark">
                 {busy ? (
                   <ActivityIndicator color={theme.canvas} />
                 ) : (

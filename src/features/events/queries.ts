@@ -4,6 +4,7 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import { getUserId, supabase } from '@/lib/supabase';
 import type { EventOutfitPostRow, SocialProfileRow } from '@/features/social/db-rows';
 import { dateKey } from '@/lib/date';
+import { useDebouncedValue } from '@/lib/use-debounced-value';
 
 import {
   toEvent,
@@ -246,15 +247,18 @@ export function useInviteCandidates(search: string): UseQueryResult<SocialProfil
   // query containing them would be parsed as syntax, not text. Stripping is
   // enough — nobody's username contains a paren, and a search is best-effort.
   const q = search.trim().replace(/[,()%]/g, '');
+  // Debounce the query, not the render: the field updates every keystroke,
+  // the Supabase round trip waits for typing to pause.
+  const debouncedQ = useDebouncedValue(q, 200);
 
   return useQuery({
-    queryKey: ['invite-candidates', q],
-    enabled: q.length >= 2,
+    queryKey: ['invite-candidates', debouncedQ],
+    enabled: debouncedQ.length >= 2,
     staleTime: 60_000,
     queryFn: async (): Promise<SocialProfileRow[]> => {
       const { data, error } = await socialFrom('social_profiles')
         .select('user_id, username, display_name, avatar_url')
-        .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+        .or(`username.ilike.%${debouncedQ}%,display_name.ilike.%${debouncedQ}%`)
         .limit(20);
       if (error) throw error;
       return (data ?? []) as SocialProfileRow[];

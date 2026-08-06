@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Rule } from '@/components/ui/rule';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { signOut } from '@/features/auth/actions';
@@ -104,6 +105,12 @@ function AccountRow({
   tone = 'ink',
   loading = false,
   detail,
+  /**
+   * `chevron.right` means "further in". A row that hands you to Safari is not
+   * further in — it is out of the app entirely, and iOS's own settings mark
+   * that with the up-right arrow. Two glyphs for two different promises.
+   */
+  external = false,
 }: {
   label: string;
   onPress: () => void;
@@ -111,6 +118,7 @@ function AccountRow({
   loading?: boolean;
   /** Quiet fact before the chevron — "2 waiting". Data, not decoration. */
   detail?: string;
+  external?: boolean;
 }) {
   const theme = useTheme();
   const iconColor = tone === 'accent' ? theme.accent : theme.faint;
@@ -119,6 +127,7 @@ function AccountRow({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ busy: loading }}
+      accessibilityHint={external ? 'Opens in your browser' : undefined}
       onPress={onPress}
       disabled={loading}
       style={{ minHeight: MIN_TAP_TARGET }}
@@ -136,7 +145,7 @@ function AccountRow({
           <ActivityIndicator size="small" color={iconColor} />
         ) : (
           <SymbolView
-            name="chevron.right"
+            name={external ? 'arrow.up.right' : 'chevron.right'}
             size={13}
             tintColor={iconColor}
             resizeMode="scaleAspectFit"
@@ -309,6 +318,18 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+      {/* The way out.
+          This screen is presented as a modal with no header, and it drew no
+          close affordance of any kind — the only dismissal was the system
+          swipe, which is undiscoverable, and a modal with no visible exit is
+          the one interaction failure users report as being stuck. A ghost
+          "Done" in a right-aligned header row, the grammar `review.tsx` uses.
+          Always "Done" here, unlike review's: there is no work left to assert
+          anything untrue about — the settings on this page save themselves. */}
+      <View className="flex-row items-center justify-end px-gutter pt-2">
+        <Button title="Done" variant="ghost" onPress={() => router.back()} />
+      </View>
+
       <ScrollView contentContainerClassName="pb-24">
         {/* The masthead — avatar, name, and account age stand in for a page
             title, matching the design; VoiceOver still gets a heading. Three
@@ -331,21 +352,25 @@ export default function ProfileScreen() {
                 light-on-ink monogram this screen used to hand-build (including
                 the className-vs-inline-colour gotcha it used to restate). */}
             <Avatar name={name} size={56} tone="ink" imageUri={profileHeader.data?.avatarUrl} />
-            <View>
-              <Text variant="plate" accessibilityRole="header">
+            <View className="flex-1">
+              {/* `title` (28), matching the Closet identity block. The same
+                  fact — a person's own name — was set at two sizes on two
+                  screens one tap apart. */}
+              <Text variant="title" trim accessibilityRole="header" numberOfLines={1}>
                 {profileHeader.isError ? 'Your profile' : name}
               </Text>
               {profileHeader.isError ? (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => void profileHeader.refetch()}
-                  hitSlop={8}>
+                  hitSlop={8}
+                  className="active:opacity-60">
                   <Text variant="caption" className="mt-1 text-muted underline">
                     Your details didn&rsquo;t load — try again
                   </Text>
                 </Pressable>
               ) : (
-                <Text variant="caption" className="mt-1 text-faint">
+                <Text variant="caption" className="mt-1 text-muted">
                   {weeksLabel}
                 </Text>
               )}
@@ -371,7 +396,7 @@ export default function ProfileScreen() {
               A failed style query gets its own branch: without one, the card
               fell through to feedbackCount = 0 and told a user with months of
               reactions "Nothing yet" — an error asserting something false
-              about her taste. */}
+              about their taste. */}
           <View className="rounded-plate border border-rule bg-surface p-4">
             <Text variant="eyebrow">What Cinch has learned</Text>
             {style.isLoading ? (
@@ -400,6 +425,13 @@ export default function ProfileScreen() {
                 <Text variant="body" className="mt-2.5 text-ink">
                   {learnedSentence}
                 </Text>
+                {/* The bar stays `accent`: this is a task in flight (a
+                    threshold being reached), not a ratio of data, which is
+                    what the Closet's `accentWarm` wear bars are. The shared
+                    `ProgressTrack` that would encode that distinction is a
+                    cross-territory consolidation and is deferred; the colour
+                    reasoning is recorded here so the eventual `tone` prop
+                    lands on the right value. */}
                 <View className="mt-3.5 flex-row items-center gap-2.5">
                   <View className="h-[5px] flex-1 overflow-hidden rounded-full bg-sand">
                     <View
@@ -447,7 +479,7 @@ export default function ProfileScreen() {
                 accessibilityHint="Always on — outfits are generated on this phone, not by AI"
               />
             </View>
-            <View className="h-px bg-hairline" />
+            <Rule tone="hairline" />
             {/* Guideline 5.1.2(i) consent, and its withdrawal. The sheet shown
                 before the first upload tells the user this control is here, so
                 it has to be findable rather than buried under a submenu.
@@ -501,13 +533,13 @@ export default function ProfileScreen() {
           </Text>
           <View className="overflow-hidden rounded-plate border border-rule bg-surface">
             <AccountRow label="Friends" onPress={() => router.push('/friends')} />
-            <View className="h-px bg-hairline" />
+            <Rule tone="hairline" />
             <AccountRow
               label="Borrow requests"
               detail={pendingAsks > 0 ? `${pendingAsks} waiting` : undefined}
               onPress={() => router.push('/borrow')}
             />
-            <View className="h-px bg-hairline" />
+            <Rule tone="hairline" />
             <AccountRow
               label="Blocked users"
               onPress={() => router.push({ pathname: '/friends', params: { blocked: '1' } })}
@@ -518,12 +550,20 @@ export default function ProfileScreen() {
             Account
           </Text>
           <View className="overflow-hidden rounded-plate border border-rule bg-surface">
-            <AccountRow label="Privacy" onPress={() => void Linking.openURL(PRIVACY_URL)} />
-            <View className="h-px bg-hairline" />
-            <AccountRow label="Support" onPress={() => void Linking.openURL(SUPPORT_URL)} />
-            <View className="h-px bg-hairline" />
+            <AccountRow
+              label="Privacy"
+              external
+              onPress={() => void Linking.openURL(PRIVACY_URL)}
+            />
+            <Rule tone="hairline" />
+            <AccountRow
+              label="Support"
+              external
+              onPress={() => void Linking.openURL(SUPPORT_URL)}
+            />
+            <Rule tone="hairline" />
             <AccountRow label="Sign out" onPress={confirmSignOut} />
-            <View className="h-px bg-hairline" />
+            <Rule tone="hairline" />
             <AccountRow
               label="Delete account"
               tone="accent"
@@ -531,7 +571,10 @@ export default function ProfileScreen() {
               loading={deleteAccount.isPending}
             />
           </View>
-          <Text variant="caption" className="mt-3 px-1 text-center text-faint">
+          {/* Hard-left on the gutter like every other line on the page. The
+              Plate grammar has no centred body copy, and the last line of the
+              screen was the only place breaking the screen's own alignment. */}
+          <Text variant="caption" className="mt-3 text-muted">
             Deleting your account permanently removes your closet, photos, and style profile.
           </Text>
         </View>

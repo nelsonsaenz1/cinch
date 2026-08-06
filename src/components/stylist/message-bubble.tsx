@@ -48,7 +48,7 @@ function OutfitStrip({
       accessibilityLabel={`Outfit: ${label}`}
       className="mt-2 active:opacity-80">
       <View
-        className="flex-row gap-1 overflow-hidden rounded-card bg-tray p-2 dark:bg-tray-dark"
+        className="flex-row gap-1 overflow-hidden rounded-plate bg-tray p-2 dark:bg-tray-dark"
         style={{ height: 88 }}>
         {pieces.map((g) => {
           const uri = resolveImage(g.cutoutPath, g.thumbPath);
@@ -56,11 +56,11 @@ function OutfitStrip({
             <View
               key={g.id}
               style={{ flexGrow: g.visualWeight, flexShrink: 1, flexBasis: 0 }}
-              className="items-center justify-center">
+              className="overflow-hidden rounded items-center justify-center">
               {uri ? (
                 <Image
                   source={uri}
-                  contentFit="contain"
+                  contentFit="cover"
                   transition={150}
                   cachePolicy="memory-disk"
                   style={{ width: '100%', height: '100%' }}
@@ -68,7 +68,7 @@ function OutfitStrip({
                 />
               ) : (
                 <View
-                  className="h-full w-full rounded-md"
+                  className="h-full w-full"
                   style={{
                     backgroundColor: g.colors[0] ? oklchToHex(g.colors[0].oklch) : theme.hairline,
                   }}
@@ -78,7 +78,7 @@ function OutfitStrip({
           );
         })}
       </View>
-      <Text variant="caption" numberOfLines={1} className="mt-1">
+      <Text variant="caption" numberOfLines={2} className="mt-1">
         {label}
       </Text>
     </Pressable>
@@ -147,7 +147,7 @@ export function MessageBubble({
               accessibilityRole="button"
               accessibilityHint="Sends the same question again"
               hitSlop={12}
-              className="mt-2 self-start">
+              className="mt-2 self-start active:opacity-60">
               <Text variant="label" className="underline">
                 Try again
               </Text>

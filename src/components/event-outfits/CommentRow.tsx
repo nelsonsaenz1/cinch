@@ -1,7 +1,8 @@
 import { SymbolView } from 'expo-symbols';
-import { Alert, Pressable, View } from 'react-native';
+import { memo } from 'react';
+import { ActionSheetIOS, Pressable, View } from 'react-native';
 
-import { InitialAvatar } from '@/components/event-outfits/OutfitPostCard';
+import { Avatar } from '@/components/ui/avatar';
 import { Text } from '@/components/ui/text';
 import { isCompliment, type EventComment } from '@/features/event-outfits/types';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -22,14 +23,21 @@ function timeLabel(d: Date): string {
  *
  * Hidden rows reach only their author and the host (RLS decides, not the
  * client); this component's job is to LABEL that state honestly so the host
- * sees what she hid and the author knows her words are under review — nobody
- * is shown a silently vanished message they can still see.
+ * sees what they hid and the author knows their words are under review —
+ * nobody is shown a silently vanished message they can still see.
  *
  * A compliment (fixed-vocabulary body) is typeset as the stylist would say
  * it — serif, no bubble weight — so praise reads as a printed note rather
  * than chat.
+ *
+ * Memoized, and the callbacks take the comment rather than closing over it:
+ * a thread re-renders on every realtime invalidation and on every keystroke
+ * in the composer above it, and none of that changes a row that has already
+ * arrived. Handlers built per row in the parent's `.map` would be new objects
+ * on every one of those renders and the memo would never hold, so the screen
+ * passes three stable `useCallback`s and each row hands its own comment back.
  */
-export function CommentRow({
+export const CommentRow = memo(function CommentRow({
   comment,
   authorName,
   isMine,
@@ -42,30 +50,51 @@ export function CommentRow({
   authorName: string | null;
   isMine: boolean;
   isHost: boolean;
-  onReport: () => void;
-  onDelete: () => void;
-  onToggleHidden: () => void;
+  onReport: (comment: EventComment) => void;
+  onDelete: (comment: EventComment) => void;
+  onToggleHidden: (comment: EventComment) => void;
 }) {
   const theme = useTheme();
   const compliment = isCompliment(comment.body);
 
+  /**
+   * The overflow as iOS's own content overflow — a bottom sheet with a red
+   * destructive row — rather than an `Alert` with a list of verbs in it. Same
+   * swap, same reasoning as `OutfitPostCard`'s menu, so a reader who has met
+   * one has met both.
+   */
   const openMenu = () => {
-    const buttons: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [];
-    if (!isMine) buttons.push({ text: 'Report', style: 'destructive', onPress: onReport });
+    const actions: { label: string; run: () => void }[] = [];
+    if (!isMine) actions.push({ label: 'Report', run: () => onReport(comment) });
     if (isHost && !isMine) {
-      buttons.push({
-        text: comment.hidden ? 'Unhide' : 'Hide from the table',
-        onPress: onToggleHidden,
+      actions.push({
+        label: comment.hidden ? 'Unhide' : 'Hide from the table',
+        run: () => onToggleHidden(comment),
       });
     }
-    if (isMine || isHost) buttons.push({ text: 'Delete', style: 'destructive', onPress: onDelete });
-    buttons.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert('This comment', undefined, buttons);
+    if (isMine || isHost) actions.push({ label: 'Delete', run: () => onDelete(comment) });
+    if (actions.length === 0) return;
+
+    // Delete when it is on offer, otherwise Report: the one row that cannot
+    // be undone gets the tint. Hiding is reversible and takes none.
+    const deleteIndex = actions.findIndex((a) => a.label === 'Delete');
+    const destructiveIndex =
+      deleteIndex >= 0 ? deleteIndex : actions.findIndex((a) => a.label === 'Report');
+
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title: 'This comment',
+        options: [...actions.map((a) => a.label), 'Cancel'],
+        cancelButtonIndex: actions.length,
+        ...(destructiveIndex >= 0 ? { destructiveButtonIndex: destructiveIndex } : {}),
+      },
+      (index) => actions[index]?.run(),
+    );
   };
 
   return (
     <View className="flex-row gap-3 py-3" style={{ opacity: comment.hidden ? 0.5 : 1 }}>
-      <InitialAvatar name={authorName} size={28} />
+      <Avatar name={authorName} size={28} tone="accent" />
 
       <View className="flex-1">
         <View className="flex-row items-baseline gap-2">
@@ -86,7 +115,13 @@ export function CommentRow({
         )}
 
         {comment.hidden ? (
-          <Text variant="caption" className="mt-1" style={{ color: theme.warning }}>
+          // `critical`, not `warning`. The palette is locked and `warning`
+          // (#C58A2E) reads 2.85:1 on surface at 11px — under AA for the one
+          // line on this row that tells someone their words are under review.
+          // `critical` (#8A2E28) clears it at 7.4:1, and the stronger read is
+          // the honest one: the row above it is already dimmed to 50%, so a
+          // quieter label would be the second thing on the row apologising.
+          <Text variant="caption" className="mt-1" style={{ color: theme.critical }}>
             {isMine ? 'Hidden while the host takes a look' : 'Hidden from the table'}
           </Text>
         ) : null}
@@ -103,4 +138,4 @@ export function CommentRow({
       </Pressable>
     </View>
   );
-}
+});

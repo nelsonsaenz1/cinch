@@ -35,8 +35,9 @@ module.exports = {
         // Type. Ink is a warm near-black (not a true black): on warm paper a
         // neutral black reads cold and hard, and this brown-black keeps the
         // page soft while still clearing well past 15:1 on canvas. `muted` is
-        // body-secondary; `faint` is the lighter tone the tracked eyebrows and
-        // inactive tab labels are set in.
+        // body-secondary — and, since the 2026-08-06 contrast pass, the tone
+        // eyebrows and colophons are set in. `faint` fails AA as text on
+        // canvas (3.5:1): reserve it for decorative marks and dark grounds.
         ink: { DEFAULT: '#1C1A16', dark: '#1C1A16' },
         muted: { DEFAULT: '#6B665C', dark: '#6B665C' },
         faint: { DEFAULT: '#8A8578', dark: '#8A8578' },
@@ -165,8 +166,8 @@ module.exports = {
         plate: '20px', // outfit plate, item card
         sheet: '38px', // half sheets, iOS 26 inset
         full: '9999px', // CIRCLES AND GLASS CHROME ONLY — never a labelled capsule
-        // Transitional aliases; retire as screens are rewritten.
-        card: '20px',
+        // Transitional alias; retire as screens are rewritten. (`card` retired
+        // 2026-08-06 — zero call sites; use `plate`.)
         chip: '12px',
       },
       spacing: {

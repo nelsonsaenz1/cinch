@@ -1,4 +1,5 @@
 import { DynamicColorIOS, Platform, useColorScheme, type ColorValue } from 'react-native';
+import { ReduceMotion } from 'react-native-reanimated';
 
 /**
  * The single source of truth for colour values needed in *JavaScript* —
@@ -110,16 +111,24 @@ export function dynamic(key: keyof ThemeColors): ColorValue {
  * `bouncy` is used EXACTLY ONCE in the app: the final garment landing in a
  * plate assembly. That scarcity is what makes the one bounce feel like an
  * event instead of a texture.
+ *
+ * Every preset carries `reduceMotion: ReduceMotion.System`, so a
+ * `withSpring(x, spring.*)` anywhere in the app — written today or in a year —
+ * settles instantly to its end value when the accessibility setting is on.
+ * Stated rather than inherited from Reanimated's default: the compliance is a
+ * property of the vocabulary, not of whichever version of the library is
+ * installed. Durations and damping ratios are untouched; with the setting off
+ * these are the same springs they always were.
  */
 export const spring = {
   /** SwiftUI .smooth — the default. Plates, sheets, screen content. */
-  smooth: { duration: 500, dampingRatio: 1.0 },
+  smooth: { duration: 500, dampingRatio: 1.0, reduceMotion: ReduceMotion.System },
   /** SwiftUI .snappy — buttons, chips, selection. */
-  snappy: { duration: 450, dampingRatio: 0.85 },
+  snappy: { duration: 450, dampingRatio: 0.85, reduceMotion: ReduceMotion.System },
   /** SwiftUI .bouncy — the single plate-landing moment. Nothing else. */
-  bouncy: { duration: 500, dampingRatio: 0.7 },
+  bouncy: { duration: 500, dampingRatio: 0.7, reduceMotion: ReduceMotion.System },
   /** Gesture release, drag snap-back. */
-  interactive: { duration: 150, dampingRatio: 0.86 },
+  interactive: { duration: 150, dampingRatio: 0.86, reduceMotion: ReduceMotion.System },
 } as const;
 
 
@@ -138,6 +147,27 @@ export const concentric = (outer: number, inset: number) => Math.max(outer - ins
 
 /** Accessibility floor. 44pt is the Apple minimum, not a target. */
 export const MIN_TAP_TARGET = 44;
+
+/**
+ * The one pressed opacity.
+ *
+ * The app had four (60/70/80/90) across 86 call sites — two rails on the same
+ * screen disagreed. `usePressFeedback` interpolates to this value, so a control
+ * that adopts the hook is by definition consistent with every other one.
+ */
+export const PRESSED_OPACITY = 0.8;
+
+/**
+ * The contact shadow — the one elevation in the app, for a surface that has
+ * lifted off the paper rather than been drawn on it.
+ *
+ * Exported now, spent later: several files carry their own copy of these four
+ * numbers, and consolidating them means editing across territories. Until that
+ * pass lands this is the value they should converge on, not a new one.
+ */
+export const shadow = {
+  contact: { dx: 0, dy: 5, blur: 11, color: 'rgba(28,26,22,0.16)' },
+} as const;
 
 /**
  * The page margin, as a number — the same 20 `spacing.gutter` gives `px-gutter`.

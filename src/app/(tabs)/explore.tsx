@@ -8,6 +8,7 @@ import { ProfileRow } from '@/components/social/ProfileRow';
 import { Button } from '@/components/ui/button';
 import { EmptyState, ErrorState } from '@/components/ui/empty-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { Rule } from '@/components/ui/rule';
 import { RowSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -78,7 +79,12 @@ export default function ExploreScreen() {
   const hasFriends = (friends.data ?? []).length > 0;
 
   const searching = query.trim().replace(/^@/, '').length >= 2;
-  const refreshing = additions.isRefetching || friends.isRefetching;
+  // All three, because `refresh` refetches all three: with `following` left
+  // out, a pull whose slowest query was the follow list ended its spinner
+  // while that list was still arriving — the gesture reported done before it
+  // was, which is the one thing pull-to-refresh must never do.
+  const refreshing =
+    additions.isRefetching || friends.isRefetching || following.isRefetching;
 
   const refresh = () => {
     void additions.refetch();
@@ -99,7 +105,7 @@ export default function ExploreScreen() {
     );
   };
 
-  /** Where a garment leads: her closet, or — for your own piece — the piece. */
+  /** Where a garment leads: their closet, or — for your own piece — the piece. */
   const openEntry = (entry: NewAddition) => {
     if (entry.isSelf) {
       router.push({ pathname: '/item/[id]', params: { id: entry.item.id } });
@@ -108,18 +114,42 @@ export default function ExploreScreen() {
     router.push({ pathname: '/friends/[userId]', params: { userId: entry.ownerId } });
   };
 
+  /**
+   * The page's one standing link, written once. Requests, blocks and the full
+   * friends list live on the Friends screen; this page does not duplicate
+   * them, it points at them — from the foot of a full timeline and from under
+   * an empty one, which used to be two copies with two different top margins.
+   */
+  const circleLink = (
+    <Pressable
+      onPress={() => router.push('/friends')}
+      accessibilityRole="button"
+      accessibilityLabel="Open your circle"
+      className="mt-5 flex-row items-center gap-1.5 py-2 active:opacity-60">
+      <Text variant="label" className="text-muted">
+        Your circle
+      </Text>
+      <SymbolView
+        name="chevron.right"
+        size={11}
+        tintColor={theme.faint}
+        resizeMode="scaleAspectFit"
+      />
+    </Pressable>
+  );
+
   /** What the right edge of a search result says about where things stand. */
   const searchTrailing = (profile: SocialProfile) => {
     if (friendIds.has(profile.userId)) {
       return (
-        <Text variant="caption" className="text-faint">
+        <Text variant="caption" className="text-muted">
           Friends
         </Text>
       );
     }
     if (followingIds.has(profile.userId)) {
       return (
-        <Text variant="caption" className="text-faint">
+        <Text variant="caption" className="text-muted">
           Requested
         </Text>
       );
@@ -213,13 +243,13 @@ export default function ExploreScreen() {
                   onRetry={() => void search.refetch()}
                 />
               ) : (search.data ?? []).length === 0 ? (
-                <Text variant="body" className="px-4 py-3.5 text-faint">
+                <Text variant="body" className="px-4 py-3.5 text-muted">
                   No one by that username.
                 </Text>
               ) : (
                 (search.data ?? []).map((profile, i) => (
                   <View key={profile.userId}>
-                    {i > 0 ? <View className="h-px bg-hairline" /> : null}
+                    {i > 0 ? <Rule tone="hairline" /> : null}
                     <ProfileRow
                       profile={profile}
                       subtitle={profile.username ? `@${profile.username}` : null}
@@ -239,9 +269,9 @@ export default function ExploreScreen() {
               )}
             </View>
 
-            <Text variant="caption" className="mt-3 text-faint">
-              A friendship is mutual: when she adds you back, her closet opens to you and yours to
-              her.
+            <Text variant="caption" className="mt-3 text-muted">
+              A friendship is mutual: when they add you back, their closet opens to you and yours
+              to them.
             </Text>
           </View>
         ) : additions.isError ? (
@@ -273,41 +303,27 @@ export default function ExploreScreen() {
               body={
                 hasFriends
                   ? 'Nobody in your circle has added a piece lately. When they do, it lands here — newest first, with the day it arrived.'
-                  : 'This page fills with what your friends add to their closets. Find someone by username; when she adds you back, her closet opens to you and yours to her.'
+                  : 'This page fills with what your friends add to their closets. Find someone by username; when they add you back, their closet opens to you and yours to them.'
               }
               actionTitle={hasFriends ? 'Find more friends' : 'Find a friend'}
               onAction={() => searchRef.current?.focus()}
             />
-            <Pressable
-              onPress={() => router.push('/friends')}
-              accessibilityRole="button"
-              accessibilityLabel="Open your circle"
-              className="mt-2 flex-row items-center gap-1.5 px-gutter py-2 active:opacity-60">
-              <Text variant="label" className="text-muted">
-                Your circle
-              </Text>
-              <SymbolView
-                name="chevron.right"
-                size={11}
-                tintColor={theme.faint}
-                resizeMode="scaleAspectFit"
-              />
-            </Pressable>
+            <View className="px-gutter">{circleLink}</View>
           </View>
         ) : (
           <View className="px-gutter">
-            {/* A woman with a full closet and no friends never reaches the
-                empty state below — her own additions fill the page — so the
+            {/* Someone with a full closet and no friends never reaches the
+                empty state below — their own additions fill the page — so the
                 invitation has to travel with the timeline rather than only
                 replace it. Compact, and above the first date, because it is
-                the one thing on this page she hasn't done yet. */}
+                the one thing on this page they haven't done yet. */}
             {!hasFriends ? (
               <View className="mt-6 overflow-hidden rounded-plate border border-rule bg-surface dark:border-rule-dark">
                 <EmptyState
                   compact
                   symbol="person.2"
                   title="Just you, so far"
-                  body="Everything below is your own. Add a friend and her new pieces land here too — a friendship is mutual, so her closet opens to you when she adds you back."
+                  body="Everything below is your own. Add a friend and their new pieces land here too — a friendship is mutual, so their closet opens to you when they add you back."
                   actionTitle="Find a friend"
                   onAction={() => searchRef.current?.focus()}
                 />
@@ -338,24 +354,7 @@ export default function ExploreScreen() {
               </View>
             ))}
 
-            {/* The page's one standing link. Requests, blocks and the full
-                friends list live on the Friends screen; Explore does not
-                duplicate them, it points at them. */}
-            <Pressable
-              onPress={() => router.push('/friends')}
-              accessibilityRole="button"
-              accessibilityLabel="Open your circle"
-              className="mt-5 flex-row items-center gap-1.5 py-2 active:opacity-60">
-              <Text variant="label" className="text-muted">
-                Your circle
-              </Text>
-              <SymbolView
-                name="chevron.right"
-                size={11}
-                tintColor={theme.faint}
-                resizeMode="scaleAspectFit"
-              />
-            </Pressable>
+            {circleLink}
           </View>
         )}
       </KeyboardAwareScrollView>

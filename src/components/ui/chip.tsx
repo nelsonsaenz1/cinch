@@ -1,3 +1,5 @@
+import * as Haptics from 'expo-haptics';
+import { useCallback } from 'react';
 import { Pressable } from 'react-native';
 
 import { Text } from '@/components/ui/text';
@@ -10,6 +12,18 @@ export type ChipProps = {
   /** Renders a count suffix in tabular numerals, e.g. filter result counts. */
   count?: number;
   accessibilityHint?: string;
+  /**
+   * `outline` (default) is the interactive chip: a hairline ring that fills
+   * with the accent when selected. `fill` is the READ-ONLY descriptive tag the
+   * approved closet frame draws — a sand ground with no ring at all.
+   *
+   * Scoped deliberately rather than made the global style: the category filter
+   * needs the outlined/filled pair to carry its selected state, and a filled
+   * resting chip would leave it nothing to change into. Radius stays 12 in
+   * both tones — the frame's 999 capsule is a recorded deviation, and one
+   * radius grammar beats a 2px match to a mock that broke its own scale.
+   */
+  tone?: 'outline' | 'fill';
 };
 
 /**
@@ -17,23 +31,42 @@ export type ChipProps = {
  * tap, so tags are always chips — never a picker, never a dropdown, never a
  * form field.
  */
-export function Chip({ label, selected = false, onPress, count, accessibilityHint }: ChipProps) {
+export function Chip({
+  label,
+  selected = false,
+  onPress,
+  count,
+  accessibilityHint,
+  tone = 'outline',
+}: ChipProps) {
   const theme = useTheme();
+  const filled = tone === 'fill';
+
+  // The selection tick every other control in the app gives a tap. Best-effort:
+  // haptics no-op in Low Power Mode, and a failure must never eat the press.
+  const press = useCallback(() => {
+    if (!onPress) return;
+    void Haptics.selectionAsync().catch(() => {});
+    onPress();
+  }, [onPress]);
 
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : 'text'}
       accessibilityState={{ selected }}
       accessibilityHint={accessibilityHint}
-      onPress={onPress}
+      onPress={onPress ? press : undefined}
       // Visual height stays compact; the touch target is padded out to 44pt.
       hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
       style={{ minHeight: MIN_TAP_TARGET - 12 }}
       className={[
-        'flex-row items-center justify-center rounded-chip border px-3.5 active:opacity-60',
-        selected
-          ? 'border-accent bg-accent dark:border-accent-dark dark:bg-accent-dark'
-          : 'border-hairline bg-transparent dark:border-hairline-dark',
+        'flex-row items-center justify-center rounded-chip px-3.5',
+        onPress ? 'active:opacity-60' : '',
+        filled
+          ? 'bg-sand dark:bg-sand-dark'
+          : selected
+            ? 'border border-accent bg-accent dark:border-accent-dark dark:bg-accent-dark'
+            : 'border border-hairline bg-transparent dark:border-hairline-dark',
       ].join(' ')}>
       {/* Inline style, not a className: `variant="label"` already carries
           `text-muted`, and NativeWind gives no guaranteed precedence between

@@ -60,7 +60,10 @@ function NewAdditionRowComponent({ entry, owner, imageUri, onPress, isLast }: Ne
   const theme = useTheme();
   const { item, isSelf } = entry;
 
-  const piece = item.subcategory ?? item.category;
+  // Capitalized to the approved frames' register ("Skirt", not "skirt") —
+  // the same rule as the Today plate's labelFor and the Plan day rows.
+  const rawPiece = item.subcategory ?? item.category;
+  const piece = rawPiece.charAt(0).toUpperCase() + rawPiece.slice(1);
   const spec = [item.colors[0]?.name, item.brand].filter(Boolean).join(' · ');
   const who = isSelf ? 'You' : owner ? profileName(owner) : 'A friend';
   const when = sinceLabel(item.createdAt);

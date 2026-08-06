@@ -212,7 +212,7 @@ export function TripQuestionnaire({ onComplete }: { onComplete: (trip: Trip) => 
           accessibilityRole="button"
           accessibilityLabel="Back to the previous question"
           hitSlop={12}
-          className="mt-8 self-start">
+          className="mt-8 self-start active:opacity-60">
           <Text variant="label" className="underline">
             Back
           </Text>

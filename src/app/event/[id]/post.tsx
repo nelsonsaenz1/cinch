@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 // `ErrorState` the title/body/retry sibling of `EmptyState`.
 import { ErrorState } from '@/components/ui/error-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
@@ -90,17 +91,7 @@ export default function PostLookScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">
-      <View className="flex-row items-center gap-3 px-gutter pt-2">
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={8}
-          className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
-          <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-        </Pressable>
-        <Text variant="colophon">Share a look</Text>
-      </View>
+      <ScreenHeader align="leading" title="Share a look" />
 
       {failed ? (
         <ErrorState

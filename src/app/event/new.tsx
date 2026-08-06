@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { Text } from '@/components/ui/text';
 import { socialDenialCopy, useCreateEvent } from '@/features/events/mutations';
 import type { EventVisibility } from '@/features/events/types';
@@ -165,18 +166,7 @@ export default function NewEventScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
-      <View className="flex-row items-center justify-between px-gutter pt-2">
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={8}
-          className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
-          <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-        </Pressable>
-        <Text variant="colophon">New occasion</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <ScreenHeader title="New occasion" />
 
       <KeyboardAwareScrollView
         contentContainerClassName="px-gutter pb-16"
@@ -339,7 +329,7 @@ export default function NewEventScreen() {
             onPress={() => setVisibility('friends')}
           />
         </View>
-        <Text variant="caption" className="mt-2 text-faint dark:text-faint-dark">
+        <Text variant="caption" className="mt-2 text-muted dark:text-muted-dark">
           There is no public option. Only people you invite — or, if you allow
           it, your friends — ever know this occasion exists.
         </Text>
@@ -350,7 +340,7 @@ export default function NewEventScreen() {
         <TextInput
           value={dressCode}
           onChangeText={setDressCode}
-          placeholder="“Cocktail-ish”, “she said wear color” (optional)"
+          placeholder="“Cocktail-ish”, “they said wear color” (optional)"
           placeholderTextColor={theme.faint}
           accessibilityLabel="Dress code note"
           className={inputClassName}
@@ -374,6 +364,18 @@ export default function NewEventScreen() {
           onPress={submit}
           className="mt-8"
         />
+        {/* A form that refuses has to say why. The bad-URL case already prints
+            its line above the fields; the empty-title case — much the commoner
+            one — printed nothing at all and left a 40%-opacity button as the
+            only explanation. Live region so VoiceOver hears it appear. */}
+        {title.trim().length === 0 ? (
+          <Text
+            variant="caption"
+            accessibilityLiveRegion="polite"
+            className="mt-2.5 text-muted dark:text-muted-dark">
+            Give it a name and Cinch can plan it.
+          </Text>
+        ) : null}
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );

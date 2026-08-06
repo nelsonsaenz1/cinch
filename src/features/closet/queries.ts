@@ -143,6 +143,44 @@ export function useCloset() {
 }
 
 /**
+ * How many pieces are waiting in the review deck — the number alone.
+ *
+ * `head: true` with `count: 'exact'` asks PostgREST for the count and no rows
+ * at all, which is the whole reason this is a separate query from
+ * `useReviewQueue`: the Closet masthead needs one integer to decide whether to
+ * offer "Review tags", and pulling every unverified row (with its colours, its
+ * paths, its description) to call `.length` on it would be the closet's second
+ * full table read on a screen that already has one.
+ *
+ * The filters are kept identical to `useReviewQueue`'s below — the count and
+ * the deck must never disagree about what "waiting" means.
+ *
+ * Zero on no session rather than an error: this feeds an affordance, and a menu
+ * row is the wrong place to report a session problem the closet query behind it
+ * is already reporting properly.
+ */
+export function useReviewCount() {
+  return useQuery({
+    queryKey: ['review-queue', 'count'],
+    queryFn: async ({ signal }): Promise<number> => {
+      const userId = await closetUserId();
+      if (!userId) return 0;
+
+      const { count, error } = await supabase
+        .from('items')
+        .select('id', { head: true, count: 'exact' })
+        .eq('user_id', userId)
+        .eq('user_verified', false)
+        .in('status', ['tagged', 'needs_review'])
+        .abortSignal(signal);
+
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+}
+
+/**
  * Items awaiting user review — anything the tagger touched but the user
  * hasn't confirmed. `needs_review` (tagging failed) surfaces first because
  * those are the ones with nothing populated to swipe past.

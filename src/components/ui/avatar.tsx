@@ -105,6 +105,8 @@ export function Avatar({
           source={{ uri: imageUri }}
           contentFit="cover"
           transition={150}
+          cachePolicy="memory-disk"
+          recyclingKey={imageUri}
           style={{ width: '100%', height: '100%' }}
           accessibilityIgnoresInvertColors
         />

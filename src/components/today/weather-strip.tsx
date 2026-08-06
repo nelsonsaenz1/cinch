@@ -45,7 +45,7 @@ export function WeatherStrip({
   const theme = useTheme();
 
   return (
-    <View className="mt-2 px-gutter">
+    <View className="mt-1.5 px-gutter">
       {weather ? (
         <Text variant="label" numberOfLines={2}>
           Feels {formatTemp(weather.feelsLikeC, units)} · {describeWeather(weather, units)}
@@ -64,21 +64,27 @@ export function WeatherStrip({
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={`Using ${city}. Turn on location to use where you are.`}
-          className="mt-2 flex-row items-center gap-1.5 active:opacity-60">
+          className="mt-1.5 flex-row items-center gap-1.5 active:opacity-60">
           <SymbolView
             name="location.slash"
             size={13}
             tintColor={theme.accentWarm}
             resizeMode="scaleAspectFit"
           />
-          <Text variant="label" style={{ color: theme.accentWarm }}>
+          {/* Ink, not clay. `accentWarm` on canvas is 2.98:1 — below AA for a
+              13pt label, and this is a call to action, not decoration. The
+              palette is locked, so the fix is usage: the tint stays on the
+              leading glyph, which carries no information, and the sentence
+              goes to ink — which also tells it apart from the plain muted
+              context lines above it. */}
+          <Text variant="label" className="flex-1" style={{ color: theme.ink }}>
             Using {city} — turn on location for where you are
           </Text>
         </Pressable>
       ) : null}
 
       {events.length > 0 ? (
-        <View className="mt-2 flex-row flex-wrap items-center gap-x-2 gap-y-1">
+        <View className="mt-1.5 flex-row flex-wrap items-center gap-x-2 gap-y-1">
           {events.slice(0, 4).map((e, i) => (
             <View key={e.id} className="flex-row items-center gap-2">
               {i > 0 ? <Text variant="label">·</Text> : null}
@@ -89,7 +95,7 @@ export function WeatherStrip({
           ))}
         </View>
       ) : calendarEnabled ? (
-        <Text variant="label" className="mt-2">
+        <Text variant="label" className="mt-1.5">
           Nothing on your calendar today.
         </Text>
       ) : onConnectCalendar ? (
@@ -99,14 +105,16 @@ export function WeatherStrip({
           onPress={onConnectCalendar}
           hitSlop={8}
           accessibilityRole="button"
-          className="mt-2 flex-row items-center gap-1.5 active:opacity-60">
+          className="mt-1.5 flex-row items-center gap-1.5 active:opacity-60">
           <SymbolView
             name="calendar"
             size={13}
             tintColor={theme.accentWarm}
             resizeMode="scaleAspectFit"
           />
-          <Text variant="label" style={{ color: theme.accentWarm }}>
+          {/* Same reasoning as the location line above: tint on the glyph,
+              ink on the sentence. */}
+          <Text variant="label" className="flex-1" style={{ color: theme.ink }}>
             Use today&rsquo;s plans to sharpen these
           </Text>
         </Pressable>

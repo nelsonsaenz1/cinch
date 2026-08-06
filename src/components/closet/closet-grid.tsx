@@ -3,6 +3,7 @@ import { View } from 'react-native';
 
 import { ItemCard } from '@/components/closet/item-card';
 import type { Item } from '@/schemas/item';
+import { GUTTER } from '@/theme/tokens';
 
 export type ClosetGridProps = {
   items: Item[];
@@ -66,11 +67,15 @@ export function ClosetGrid({
       ListFooterComponent={ListFooterComponent}
       // Plain style, deliberately: FlashList is not wrapped by NativeWind, so a
       // contentContainerClassName here is silently dropped — no gutter, no
-      // bottom padding, and nothing errors. 20 = spacing.gutter, 96 = pb-24.
-      contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 96 }}
+      // bottom padding, and nothing errors. `GUTTER` is the same measure
+      // `px-gutter` gives every other page; 96 = pb-24.
+      contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: 96 }}
       ItemSeparatorComponent={() => <View className="h-1" />}
       refreshControl={refreshControl}
       showsVerticalScrollIndicator={false}
+      // Search mode puts a live text field directly above this grid; scrolling
+      // the results is how a person says they are done typing.
+      keyboardDismissMode="on-drag"
     />
   );
 }

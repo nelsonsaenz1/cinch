@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RosterRow } from '@/components/events/RosterRow';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 // Batch-1 seam: the shared states kit.
@@ -12,18 +13,7 @@ import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
 import { socialDenialCopy, useInviteMember } from '@/features/events/mutations';
 import { useEventMembers, useInviteCandidates } from '@/features/events/queries';
-import type { SocialProfileRow } from '@/features/social/db-rows';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
-
-/** "DK" from a profile's best name. Mirrors the roster chip. */
-function initialsFor(profile: SocialProfileRow): string {
-  const name = profile.display_name ?? profile.username ?? '';
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const first = words[0] ?? '';
-  const last = words.length > 1 ? (words[words.length - 1] ?? '') : '';
-  const letters = last ? `${first[0] ?? ''}${last[0] ?? ''}` : first.slice(0, 2);
-  return (letters || '?').toUpperCase();
-}
 
 /**
  * The invite sheet. Search runs over `social_profiles` — the view already
@@ -65,7 +55,7 @@ export default function InviteScreen() {
           accessibilityRole="button"
           accessibilityLabel="Done"
           hitSlop={12}
-          className="py-2">
+          className="py-2 active:opacity-60">
           <Text variant="body" className="font-semibold">
             Done
           </Text>
@@ -138,11 +128,7 @@ export default function InviteScreen() {
                     'flex-row items-center gap-3 py-2.5',
                     i === rows.length - 1 ? '' : 'border-b border-hairline dark:border-hairline-dark',
                   ].join(' ')}>
-                  <View className="h-8 w-8 items-center justify-center rounded-full bg-sand">
-                    <Text variant="caption" style={{ color: theme.ink }}>
-                      {initialsFor(p)}
-                    </Text>
-                  </View>
+                  <Avatar name={p.display_name ?? p.username} size={32} tone="sand" />
                   <View className="flex-1">
                     <Text variant="body" numberOfLines={1}>
                       {p.display_name ?? p.username ?? 'A friend'}

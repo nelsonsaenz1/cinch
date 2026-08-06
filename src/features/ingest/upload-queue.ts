@@ -73,6 +73,45 @@ const BUCKET = 'garments';
 const CONSENT_WITHDRAWN_MESSAGE =
   'Saved, but not tagged — AI processing is turned off for your account.';
 
+/**
+ * What a stopped garment is called ON SCREEN.
+ *
+ * `job.error` is a DIAGNOSTIC string and stays one — it carries HTTP status
+ * detail, Edge Function messages and raw `Error.message` text, all of it
+ * valuable in a log and none of it a sentence to put in front of somebody
+ * looking at a photograph of a jumper. The capture banner used to render it
+ * verbatim, so a JWKS misconfiguration read as "Cinch couldn't verify your
+ * account" and a storage timeout as whatever the network layer happened to
+ * throw.
+ *
+ * Three outcomes are all a person can act on here, so there are three
+ * sentences: the photo was unreadable (nothing to retry — reshoot it), the
+ * transfer stopped (retry), or the tag never happened because AI is off (the
+ * garment is saved, and the fix is in Profile). Everything else lands on the
+ * transfer line, which is the honest general case: the piece is in the closet
+ * and something between here and the tag did not finish.
+ *
+ * Deliberately not written back into `job.error` — the queue keeps the truth,
+ * the screen gets the sentence.
+ */
+export function userFacingFailure(job: Pick<UploadJob, 'error'> | undefined): string {
+  const raw = job?.error ?? '';
+
+  // The one failure a retry cannot help and the user can genuinely fix: the
+  // consent record the Edge Function checks is absent or withdrawn.
+  if (raw === CONSENT_WITHDRAWN_MESSAGE || raw.includes('ai_consent_required')) {
+    return 'AI processing is off, so this one stayed untagged.';
+  }
+
+  // A photograph that could not be decoded, downscaled or cut out never became
+  // an upload at all — there is nothing on the far end to finish.
+  if (/decode|unsupported|corrupt|read the image|prepare/i.test(raw)) {
+    return 'Cinch couldn’t read that photo.';
+  }
+
+  return 'That upload didn’t finish.';
+}
+
 let running = 0;
 let draining = false;
 /** Job ids whose tagging loop is running right now — see `driveTagging`. */

@@ -8,8 +8,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatPrice, parsePrice } from '@/components/review/review-card';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
-import { ErrorState } from '@/components/ui/empty-state';
+import { EmptyState, ErrorState } from '@/components/ui/empty-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { Rule } from '@/components/ui/rule';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { pieceName } from '@/features/closet/item-name';
 import { useRemoveItems, useRetagItem, useVerifyItem } from '@/features/closet/mutations';
@@ -19,7 +22,6 @@ import { useSetBorrowable } from '@/features/social-graph/mutations';
 import { useItemBorrowable } from '@/features/social-graph/queries';
 import { pairHarmony, toGarmentColors } from '@/lib/color';
 import { costPerWear, type Item } from '@/schemas/item';
-import { leading } from '@/theme/font-metrics';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -94,9 +96,23 @@ export default function ItemDetailScreen() {
   // Resolved from the same live query the grid renders, so navigating here is
   // a cache hit, not a second fetch.
   const closet = useCloset();
-  const item = (closet.data ?? []).find((i) => i.id === id);
+  const items = closet.data ?? [];
+  const item = items.find((i) => i.id === id);
   const cpw = item ? costPerWear(item) : null;
-  const worksWith = item ? harmonyCount(item, closet.data ?? []) : 0;
+  /**
+   * MEMOISED BY THE COMPILER, deliberately not by hand.
+   *
+   * This walks the WHOLE closet and runs an OKLCH pair comparison per garment —
+   * at two hundred pieces, two hundred colour conversions — and it did so on
+   * every keystroke of the price field below. The obvious fix is a `useMemo`
+   * around it, and that fix is worse: `item` is derived from `closet.data` by a
+   * `.find()` in this same body, which React Compiler cannot prove stable, so
+   * the manual memo makes the whole component BAIL OUT of optimisation (see
+   * `react-hooks/preserve-manual-memoization`). Left plain, the compiler
+   * memoises this call and everything around it. Do not "fix" this by adding a
+   * dependency array.
+   */
+  const worksWith = item ? harmonyCount(item, items) : 0;
   const trend = item ? cpwTrend(item, cpw) : null;
 
   const { resolve } = useSignedUrls([item?.cutoutPath, item?.thumbPath]);
@@ -124,8 +140,8 @@ export default function ItemDetailScreen() {
 
   if (closet.isLoading) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
-        <ActivityIndicator color={theme.muted} />
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+        <ItemSkeleton />
       </SafeAreaView>
     );
   }
@@ -135,7 +151,7 @@ export default function ItemDetailScreen() {
   // gone over a network error that never touched her closet.
   if (closet.isError) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
         <ErrorState
           title="Couldn't load this piece"
           body="Check your connection and try again."
@@ -146,10 +162,18 @@ export default function ItemDetailScreen() {
   }
 
   if (!item) {
+    // `EmptyState`, not a centred sentence with a ghost "Back" under it. This
+    // is the same claim about the data every other empty in the app makes, and
+    // it deserves the same composition — glyph, serif line, the way onward.
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
-        <Text variant="body">This piece is no longer in your closet.</Text>
-        <Button title="Back" variant="ghost" onPress={() => router.back()} className="mt-4" />
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+        <EmptyState
+          symbol="tshirt"
+          title="This piece is gone"
+          body="It is no longer in your closet. Whatever removed it — here, or on another device — has already taken effect."
+          actionTitle="Back to closet"
+          onAction={() => router.back()}
+        />
       </SafeAreaView>
     );
   }
@@ -242,24 +266,14 @@ export default function ItemDetailScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
-      {/* Circular back, category centred — the design's header. Still no "⋯"
-          overflow now that there ARE destructive actions: they live as named
+    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      {/* Circular back, category centred — the design's header, now the shared
+          `ScreenHeader` rather than the ninth hand-copy of it. Still no "⋯"
+          overflow even though there ARE destructive actions: they live as named
           rows at the foot of the page (see the maintenance plate), where the
           sentence under them can say what they do. A menu would hide the same
           two actions behind a glyph and cost them their captions. */}
-      <View className="flex-row items-center justify-between px-gutter pt-2">
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={8}
-          className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
-          <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-        </Pressable>
-        <Text variant="colophon">{item.category}</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <ScreenHeader title={item.category} />
 
       <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-24">
         <View className="mt-2 aspect-square w-full items-center justify-center overflow-hidden rounded-plate bg-tray dark:bg-tray-dark">
@@ -457,9 +471,13 @@ export default function ItemDetailScreen() {
             <Text variant="eyebrow" className="mb-3">
               Suits
             </Text>
+            {/* `tone="fill"` — these describe the garment, they don't filter
+                anything, and the approved frames draw read-only tags as sand
+                grounds rather than rings. Same treatment as the closet's style
+                tags; the interactive chips in the review deck stay outlined. */}
             <View className="flex-row flex-wrap gap-2">
               {item.occasions.map((o) => (
-                <Chip key={o} label={o} />
+                <Chip key={o} label={o} tone="fill" />
               ))}
             </View>
           </View>
@@ -516,7 +534,7 @@ export default function ItemDetailScreen() {
             onPress={startRetag}
             loading={retagging}
           />
-          <View className="h-px bg-hairline" />
+          <Rule tone="hairline" />
           <SpecRow
             label="Remove from closet"
             caption="Deletes its photos too."
@@ -536,6 +554,57 @@ export default function ItemDetailScreen() {
         ) : null}
       </KeyboardAwareScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * The shape of this page, before the page.
+ *
+ * The last bare full-screen spinner in the main flow lived here: a garment
+ * tapped in the grid produced a centred ring on an empty canvas, which reads as
+ * a stall and could just as easily resolve into an error. Every measure below
+ * tracks the real composition — the square photo well, the title, the
+ * owned-since line, the 2×2 stat grid with its cross rules — so the page fills
+ * in rather than replacing itself. Built from the shared `Skeleton` primitive;
+ * nothing here is a new shape language.
+ */
+function ItemSkeleton() {
+  return (
+    <View accessibilityLabel="Loading this piece">
+      {/* The header's back disc and centred colophon, in place, so the one
+          control on screen does not appear only once the data lands. */}
+      <View className="flex-row items-center justify-between px-gutter pt-2">
+        <Skeleton className="h-9 w-9 rounded-full" />
+        <Skeleton className="h-2.5 w-16 rounded-chip" />
+        <View style={{ width: 36 }} />
+      </View>
+
+      <View className="px-gutter">
+        <Skeleton className="mt-2 aspect-square w-full rounded-plate" />
+        <Skeleton className="mt-5 h-7 w-2/3 rounded-chip" />
+        <Skeleton className="mt-2 h-3 w-32 rounded-chip" />
+
+        {/* The stat grid, as four cells inside one frame — the cross lines are
+            the real thing, so the placeholder keeps them rather than drawing a
+            single grey slab where a bordered grid is about to be. */}
+        <View className="mt-6 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+          {[0, 1].map((row) => (
+            <View key={row} className="flex-row">
+              {[0, 1].map((col) => (
+                <View
+                  key={col}
+                  className={`flex-1 p-4 ${col === 0 ? 'border-r ' : ''}${
+                    row === 0 ? 'border-b ' : ''
+                  }border-rule dark:border-rule-dark`}>
+                  <Skeleton className="h-7 w-16 rounded-chip" />
+                  <Skeleton className="mt-2 h-2 w-12 rounded-chip" />
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -628,18 +697,13 @@ function StatBox({
   const borders = `${edge.includes('r') ? 'border-r ' : ''}${edge.includes('b') ? 'border-b ' : ''}`;
   return (
     <View className={`flex-1 p-4 ${borders}border-rule dark:border-rule-dark ${invert ? 'bg-ink' : ''}`}>
-      {/* The design's hero figure size (26px) — matched here at the tailwind
-          config's own `figure` values rather than stacking `className="text-figure"`
-          on top of the `stat` variant's `text-heading`, which is the same
-          two-`text-*`-classes hazard the comment above names. */}
-      <Text
-        variant="stat"
-        style={{
-          color: invert ? theme.canvas : theme.ink,
-          fontSize: 28,
-          lineHeight: leading('instrument', 28, 1.05),
-          letterSpacing: -0.15,
-        }}>
+      {/* `statFigure` IS this size — 28px serif, 1.05 leading, -0.15 tracking,
+          the `figure` step in tailwind.config.js — so the variant names it once
+          instead of `stat` plus three inline overrides. Only the COLOUR stays
+          in `style`, because on the inverted tile a `text-canvas` class does
+          not reliably beat the variant's own `text-ink` (see the docblock
+          above). */}
+      <Text variant="statFigure" style={{ color: invert ? theme.canvas : theme.ink }}>
         {value}
       </Text>
       {/* 8px, not the shared 10px `colophon` size — the guide sets these

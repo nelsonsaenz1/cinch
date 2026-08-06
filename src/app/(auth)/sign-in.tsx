@@ -2,6 +2,7 @@ import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Asset } from 'expo-asset';
 import Constants from 'expo-constants';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
@@ -15,7 +16,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeOut, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
@@ -48,6 +49,19 @@ function describeThrownSignInError(err: unknown): string {
 }
 
 type Mode = 'choose' | 'email' | 'sent';
+
+/**
+ * The Dynamic Type ceilings, matching the shared `Text` component exactly.
+ *
+ * This screen is drawn in raw `RNText` because every measure on it is the
+ * mock's own pixel value scaled by `px()` — but a raw `RNText` scales without
+ * a ceiling, and the hero's type is printed over absolutely-positioned
+ * geometry that cannot reflow. At AX5 an uncapped wordmark walks into the
+ * garment tiles and the caption off the grid. Same numbers as text.tsx: the
+ * display-class serif takes the tighter cap, everything else the looser one.
+ */
+const MAX_DISPLAY_SCALE = 1.4;
+const MAX_TEXT_SCALE = 1.8;
 
 /** Every plate-01 SVG is drawn on this shared canvas, in its own corner of it. */
 const PLATE_CANVAS = { w: 1040, h: 660 } as const;
@@ -245,6 +259,51 @@ function HeroScrim() {
 }
 
 /**
+ * One legal link, as a SPAN inside the sentence rather than its own Pressable.
+ *
+ * The line used to be five sibling `Text`s inside a wrapping flex row, so the
+ * wrap points fell between the fragments — "By continuing you agree to our"
+ * could break away from "Terms", and at a large Dynamic Type setting the row
+ * broke mid-phrase in places no typesetter would choose. Nested text keeps it
+ * one string and lets the layout break it between words.
+ *
+ * Two consequences of being a span, both deliberate:
+ *  - RN's `Text` has no `hitSlop` (it is not a touchable), so the retention
+ *    box is `pressRetentionOffset` instead — the finger may stray this far
+ *    before the press is cancelled.
+ *  - `opacity` is not an attribute nested text carries, so the pressed state
+ *    is a colour step (muted → ink) rather than the app's usual fade. Same
+ *    grammar, the medium's own version of it.
+ */
+function LegalLink({
+  label,
+  url,
+  color,
+  pressedColor,
+}: {
+  label: string;
+  url: string;
+  color: string;
+  pressedColor: string;
+}) {
+  const [pressed, setPressed] = useState(false);
+  return (
+    <Text
+      variant="caption"
+      className="underline"
+      accessibilityRole="link"
+      suppressHighlighting
+      pressRetentionOffset={{ top: 8, left: 8, right: 8, bottom: 8 }}
+      onPress={() => void Linking.openURL(url)}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      style={{ color: pressed ? pressedColor : color }}>
+      {label}
+    </Text>
+  );
+}
+
+/**
  * The one screen a signed-out user ever sees.
  *
  * Composition per the welcome mock: the top of the page is a 2×2 grid of
@@ -263,6 +322,9 @@ function HeroScrim() {
 export default function SignInScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  // Every entrance on this screen is a fade or a fade-up; with Reduce Motion
+  // on, each one is simply skipped and the element mounts at its end state.
+  const reduced = useReducedMotion();
   const [mode, setMode] = useState<Mode>('choose');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -434,6 +496,7 @@ export default function SignInScreen() {
               children, and type under the scrim would dim with the artwork. */}
           <RNText
             pointerEvents="none"
+            maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
             style={{
               position: 'absolute',
               left: px(16 + 15),
@@ -446,6 +509,11 @@ export default function SignInScreen() {
           </RNText>
           <RNText
             pointerEvents="none"
+            maxFontSizeMultiplier={MAX_TEXT_SCALE}
+            // The label is pinned to the tile's top-right corner and the
+            // wordmark to the top-left; a scaled label that wraps to three
+            // lines would otherwise run down into the coat.
+            numberOfLines={2}
             style={{
               position: 'absolute',
               right: px(16 + 15),
@@ -465,10 +533,14 @@ export default function SignInScreen() {
               palette, what it costs to wear. Absolute so the sheet can rise
               over the tiles without pushing the caption off them. */}
           <Animated.View
-            entering={FadeIn.delay(150).duration(500)}
+            entering={reduced ? undefined : FadeIn.delay(150).duration(500)}
             pointerEvents="none"
-            style={{ position: 'absolute', left: px(31), bottom: px(34) }}>
+            // Bottom-anchored, so scaled type grows UP into the scrim's dark
+            // band rather than down off the grid. The right margin mirrors the
+            // left so a wrapped caption never runs under the sheet's corner.
+            style={{ position: 'absolute', left: px(31), right: px(31), bottom: px(34) }}>
             <RNText
+              maxFontSizeMultiplier={MAX_TEXT_SCALE}
               style={{
                 fontFamily: 'HelveticaNeue-Medium',
                 fontSize: px(10.5),
@@ -479,6 +551,7 @@ export default function SignInScreen() {
               The Quiet Monday
             </RNText>
             <RNText
+              maxFontSizeMultiplier={MAX_TEXT_SCALE}
               style={{
                 fontFamily: 'HelveticaNeue',
                 fontSize: px(13),
@@ -492,7 +565,7 @@ export default function SignInScreen() {
 
         {/* ── The sheet: the promise and the two ways in ── */}
         <Animated.View
-          entering={FadeInDown.delay(120).duration(600)}
+          entering={reduced ? undefined : FadeInDown.delay(120).duration(600)}
           style={{
             backgroundColor: cream,
             borderTopLeftRadius: px(24),
@@ -504,6 +577,7 @@ export default function SignInScreen() {
           }}>
           <RNText
             accessibilityRole="header"
+            maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
             style={{
               fontFamily: 'InstrumentSerif_400Regular',
               fontSize: px(29),
@@ -520,6 +594,7 @@ export default function SignInScreen() {
           </RNText>
 
           <RNText
+            maxFontSizeMultiplier={MAX_TEXT_SCALE}
             style={{
               fontFamily: 'HelveticaNeue',
               fontSize: px(14),
@@ -532,7 +607,9 @@ export default function SignInScreen() {
 
           <View style={{ marginTop: px(19) }}>
             {mode === 'choose' ? (
-              <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(140)}>
+              <Animated.View
+                entering={reduced ? undefined : FadeIn.duration(220)}
+                exiting={reduced ? undefined : FadeOut.duration(140)}>
                 {/* Apple's OWN button, not a look-alike. The mock draws an ink
                     pill reading "Continue with Apple" — exactly the BLACK style
                     of AppleAuthenticationButton, so the design is satisfied
@@ -543,7 +620,12 @@ export default function SignInScreen() {
                     buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
                     buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
                     cornerRadius={px(26)}
-                    style={{ width: '100%', height: px(50), opacity: busy ? 0.6 : 1 }}
+                    // The capsule stays HERE and only here: this is Apple's own
+                    // control, drawn to Apple's spec, and the app's labelled
+                    // buttons no longer wear the shape. `minHeight` so the
+                    // native label — which scales with Dynamic Type and takes
+                    // no cap from us — is never clipped by a fixed box.
+                    style={{ width: '100%', minHeight: px(50), opacity: busy ? 0.6 : 1 }}
                     onPress={() => {
                       if (!busy) void onApple();
                     }}
@@ -558,25 +640,38 @@ export default function SignInScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Continue with email"
                   style={{
-                    height: px(50),
-                    borderRadius: px(26),
+                    // `minHeight`: at a large Dynamic Type setting the label
+                    // needs more than the mock's 50 units, and a fixed height
+                    // clips it rather than growing.
+                    minHeight: px(50),
+                    // The 12px button/field radius, carried through the same
+                    // `px()` scale as everything else on the screen. A labelled
+                    // control is not a capsule — the capsule is reserved for
+                    // circles and for Apple's own button above it.
+                    borderRadius: px(12),
                     borderWidth: 1,
                     borderColor: theme.rule,
                     marginTop: appleAvailable ? px(11) : 0,
+                    paddingHorizontal: px(16),
+                    paddingVertical: px(8),
                   }}
                   className="w-full items-center justify-center active:opacity-60">
                   <RNText
+                    maxFontSizeMultiplier={MAX_TEXT_SCALE}
                     style={{
                       fontFamily: 'HelveticaNeue-Medium',
                       fontSize: px(14.5),
                       color: theme.ink,
+                      textAlign: 'center',
                     }}>
                     Continue with email
                   </RNText>
                 </Pressable>
               </Animated.View>
             ) : mode === 'email' ? (
-              <Animated.View entering={FadeIn.duration(260)} exiting={FadeOut.duration(140)}>
+              <Animated.View
+                entering={reduced ? undefined : FadeIn.duration(260)}
+                exiting={reduced ? undefined : FadeOut.duration(140)}>
                 <View className="flex-row items-center gap-2">
                   <TextInput
                     ref={emailRef}
@@ -607,11 +702,14 @@ export default function SignInScreen() {
                     // (this field carries no `maxFontSizeMultiplier`, unlike
                     // `Text`) renders a taller line than the box allows and
                     // the field's own bounds clip it. `minHeight` keeps the
-                    // pill exactly px(50) tall at the system default and lets
+                    // field exactly px(50) tall at the system default and lets
                     // it grow, never clip, past that.
-                    className="flex-1 rounded-full px-4 font-body text-callout"
+                    className="flex-1 px-4 font-body text-callout"
                     style={{
                       minHeight: px(50),
+                      // The field takes the button's 12px radius, not the
+                      // capsule: same control family, same shape.
+                      borderRadius: px(12),
                       paddingVertical: px(8),
                       borderWidth: 1,
                       borderColor: theme.rule,
@@ -619,17 +717,25 @@ export default function SignInScreen() {
                     }}
                   />
                   <Pressable
-                    onPress={() => void onSendEmail()}
+                    onPress={() => {
+                      // The one send on this screen: a selection tick, the same
+                      // grain every other commit in the app carries.
+                      void Haptics.selectionAsync().catch(() => {});
+                      void onSendEmail();
+                    }}
                     disabled={busy || !email.trim()}
                     accessibilityRole="button"
                     accessibilityLabel="Send sign-in link"
                     style={{
-                      height: px(50),
+                      // A disc, so it keeps its full radius — the shape rule
+                      // bans the capsule on LABELLED controls, not on circles.
+                      // `minHeight` for the same reason the field has it.
+                      minHeight: px(50),
                       width: px(50),
                       borderRadius: px(26),
                       backgroundColor: email.trim() && !busy ? theme.ink : theme.tray,
                     }}
-                    className="items-center justify-center">
+                    className="items-center justify-center active:opacity-60">
                     <SymbolView
                       name="arrow.right"
                       size={18}
@@ -650,7 +756,7 @@ export default function SignInScreen() {
                 </Pressable>
               </Animated.View>
             ) : (
-              <Animated.View entering={FadeIn.duration(300)}>
+              <Animated.View entering={reduced ? undefined : FadeIn.duration(300)}>
                 <View className="flex-row items-center gap-2">
                   <SymbolView
                     name="envelope"
@@ -662,13 +768,52 @@ export default function SignInScreen() {
                 </View>
                 <Text variant="callout" style={{ color: theme.muted, marginTop: 6 }}>
                   We sent a sign-in link to {email.trim().toLowerCase()}. Open it on this device
-                  and you are in.
+                  to finish signing in.
                 </Text>
+                {/*
+                  The wait state's real failure mode is a link that went to
+                  spam, and the old screen's only exit was "use a different
+                  address" — which re-types an address that was correct. Name
+                  the likely cause, then offer the action that actually fixes
+                  it.
+                */}
+                <Text variant="caption" style={{ color: theme.muted, marginTop: px(8) }}>
+                  Nothing yet? Check the spam folder, or send it again.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    void Haptics.selectionAsync().catch(() => {});
+                    void onSendEmail();
+                  }}
+                  disabled={busy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Send the sign-in link again"
+                  style={{
+                    minHeight: px(50),
+                    borderRadius: px(12),
+                    backgroundColor: theme.ink,
+                    marginTop: px(14),
+                    paddingHorizontal: px(16),
+                    paddingVertical: px(8),
+                    opacity: busy ? 0.6 : 1,
+                  }}
+                  className="w-full items-center justify-center active:opacity-60">
+                  <RNText
+                    maxFontSizeMultiplier={MAX_TEXT_SCALE}
+                    style={{
+                      fontFamily: 'HelveticaNeue-Medium',
+                      fontSize: px(14.5),
+                      color: theme.canvas,
+                      textAlign: 'center',
+                    }}>
+                    {busy ? 'Sending…' : 'Send it again'}
+                  </RNText>
+                </Pressable>
                 <Pressable
                   onPress={() => setMode('email')}
                   accessibilityRole="button"
                   style={{ minHeight: MIN_TAP_TARGET }}
-                  className="mt-1 items-start justify-center active:opacity-60">
+                  className="items-center justify-center active:opacity-60">
                   <Text variant="label" style={{ color: theme.accent }}>
                     Use a different address
                   </Text>
@@ -679,26 +824,26 @@ export default function SignInScreen() {
 
           {/* Required legal furniture — the mock crops below the buttons, but a
               sign-in screen without Terms and Privacy is a 1.1.6 conversation
-              with App Review. Kept quiet in faint. */}
-          <View className="mt-3 flex-row flex-wrap items-center justify-center">
-            <Text variant="caption" style={{ color: theme.faint }}>
-              By continuing you agree to our{' '}
-            </Text>
-            <Pressable onPress={() => void Linking.openURL(TERMS_URL)} hitSlop={8}>
-              <Text variant="caption" className="underline" style={{ color: theme.muted }}>
-                Terms
-              </Text>
-            </Pressable>
-            <Text variant="caption" style={{ color: theme.faint }}>
-              {' '}
-              and{' '}
-            </Text>
-            <Pressable onPress={() => void Linking.openURL(PRIVACY_URL)} hitSlop={8}>
-              <Text variant="caption" className="underline" style={{ color: theme.muted }}>
-                Privacy Policy
-              </Text>
-            </Pressable>
-          </View>
+              with App Review. Kept quiet, but in `muted`: it is 11px, it is the
+              agreement the user is entering, and `faint` on canvas is 3.52:1.
+              One sentence, two spans — see LegalLink. */}
+          <Text variant="caption" className="mt-3 text-center" style={{ color: theme.muted }}>
+            By continuing you agree to our{' '}
+            <LegalLink
+              label="Terms"
+              url={TERMS_URL}
+              color={theme.ink}
+              pressedColor={theme.accent}
+            />{' '}
+            and{' '}
+            <LegalLink
+              label="Privacy Policy"
+              url={PRIVACY_URL}
+              color={theme.ink}
+              pressedColor={theme.accent}
+            />
+            .
+          </Text>
         </Animated.View>
       </KeyboardAvoidingScreen>
     </View>

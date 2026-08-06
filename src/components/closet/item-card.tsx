@@ -6,7 +6,6 @@ import { Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { pieceName } from '@/features/closet/item-name';
 import { type Item, costPerWear } from '@/schemas/item';
-import { leading } from '@/theme/font-metrics';
 import { useTheme } from '@/theme/tokens';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 
@@ -111,11 +110,17 @@ function ItemCardComponent({
                 capped rather than allowed to grow past its own pill: the tighter
                 1.4 multiplier text.tsx reserves for exactly this — content
                 pinned inside a fixed-size cell (see its `statFigure` note). */}
+            {/* INK on the warning fill, not canvas. `canvas`-on-`warning` was
+                2.85:1 — below AA at any size — on the one badge in the app
+                whose whole job is to be noticed. The palette is locked, so the
+                fix is usage: the same amber ground read in ink clears at
+                5.83:1. (The never-worn badge below keeps `canvas`, which is
+                correct — the accent is dark enough to carry it.) */}
             <Text
               variant="caption"
               numberOfLines={1}
               maxFontSizeMultiplier={1.4}
-              style={{ color: theme.canvas }}>
+              style={{ color: theme.ink }}>
               Needs review
             </Text>
           </View>
@@ -164,13 +169,9 @@ function ItemCardComponent({
             className={neverWorn ? 'text-accent dark:text-accent-dark' : 'text-muted dark:text-muted-dark'}>
             {neverWorn ? 'Never worn' : `${item.wearCount} ${item.wearCount === 1 ? 'wear' : 'wears'}`}
           </Text>
-          {/* Size is set inline, not via a second `text-*` class stacked on the
-              `stat` variant's own — NativeWind gives no guaranteed precedence
-              between two size utilities on one element (see button.tsx L18-25). */}
-          <Text
-            variant="stat"
-            className="text-ink dark:text-ink-dark"
-            style={{ fontSize: 13, lineHeight: leading('helvetica', 13, 1.4) }}>
+          {/* `statSmall` names the 13px serif figure once, rather than stacking
+              an inline `fontSize` on the `stat` variant — see text.tsx. */}
+          <Text variant="statSmall" className="text-ink dark:text-ink-dark">
             {cpw !== null ? `$${cpw.toFixed(2)}` : '—'}
           </Text>
         </View>

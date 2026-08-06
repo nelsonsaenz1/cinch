@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Calendar from 'expo-calendar';
 import * as Location from 'expo-location';
-import { useCallback, useMemo, useState } from 'react';
-import { Linking } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AppState, Linking } from 'react-native';
 
 import { useSession } from '@/features/auth/use-session';
 import type { EventContext, StyleContext } from '@/lib/styling';
@@ -115,6 +115,31 @@ export function useStyleContext({
 } = {}) {
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const qc = useQueryClient();
+
+  // --- Calendar permission persistence --------------------------------------
+  //
+  // The grant itself lives with iOS, not with this component — a fresh
+  // `useState(false)` was forgetting it on every mount, so a cold start never
+  // showed today's events and the connect CTA kept re-offering something
+  // already turned on. Seed from the OS's own record on mount, and re-read on
+  // foreground so a grant (or revocation) made from Settings is picked up
+  // without a relaunch — the same pattern `use-camera-access.ts:64-69` uses.
+  useEffect(() => {
+    let cancelled = false;
+    const readPermission = async () => {
+      const { status } = await Calendar.getCalendarPermissionsAsync();
+      if (!cancelled) setCalendarEnabled(status === 'granted');
+    };
+    void readPermission();
+
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void readPermission();
+    });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
 
   // --- Location ------------------------------------------------------------
   //

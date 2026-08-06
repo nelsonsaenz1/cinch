@@ -26,7 +26,7 @@ import {
   selectFailedJobs,
   selectPhaseLabel,
 } from '@/features/ingest/queue-store';
-import { drainQueue, retryFailedJobs } from '@/features/ingest/upload-queue';
+import { drainQueue, retryFailedJobs, userFacingFailure } from '@/features/ingest/upload-queue';
 import { useTheme } from '@/theme/tokens';
 
 /** One L of the framing guide. Light lines on the dark stage, per the design. */
@@ -102,6 +102,19 @@ export default function CaptureScreen() {
   const [describeVisible, setDescribeVisible] = useState(false);
   // What to run once consent lands, so the user isn't made to tap twice.
   const [pendingAction, setPendingAction] = useState<null | CaptureAction>(null);
+  /**
+   * Whether the user has said no to AI processing in THIS sitting.
+   *
+   * Declining used to be a dead end that looked like a bug: the sheet slid
+   * away, the picker never opened, and the screen sat exactly as it had before
+   * the tap — no explanation, and no way back to the ask short of guessing that
+   * tapping Library again would re-open it. This is the state the progress
+   * sheet below turns into a sentence and a way forward.
+   *
+   * Local to the visit rather than read off `consent`: a user who has never
+   * been asked has not declined anything, and the two must not look the same.
+   */
+  const [declinedConsent, setDeclinedConsent] = useState(false);
 
   // Rehydrate a batch interrupted by a kill or a crash, and resume it.
   useEffect(() => {
@@ -267,8 +280,15 @@ export default function CaptureScreen() {
     await grantConsent.mutateAsync();
     if (pendingAction) deferResume(pendingAction);
     setPendingAction(null);
+    setDeclinedConsent(false);
     setConsentVisible(false);
   };
+
+  /** The declined state's way back in. Nothing pending — this is a fresh ask. */
+  const reopenConsent = useCallback(() => {
+    setPendingAction(null);
+    setConsentVisible(true);
+  }, []);
 
   // A light tap on the two capture controls, matching the Buttons this dark
   // control row replaces. Best-effort only — haptics no-op during a camera
@@ -335,7 +355,11 @@ export default function CaptureScreen() {
           global status bar is dark-on-light, which would vanish here. */}
       <StatusBar style="light" />
       <View className="flex-row items-center justify-between px-gutter pt-1">
-        <Text variant="heading" style={{ color: theme.canvas }}>
+        {/* `plate`, the serif — every other screen title in the app is set in
+            it, and this one was the lone Helvetica `heading`. The stage is
+            dark, so the colour is canvas; the register is the same as
+            everywhere else. */}
+        <Text variant="plate" style={{ color: theme.canvas }}>
           Add clothes
         </Text>
         {/* "Done", not "Close" — the guide's own word for this control (07a).
@@ -412,7 +436,10 @@ export default function CaptureScreen() {
               opacity: 0.75,
               // Over a live scene the hint has no fixed backdrop to be legible
               // against — a white shirt fills the frame and the line vanishes.
-              textShadowColor: 'rgba(0,0,0,0.55)',
+              // Warm ink at 55%, not pure black: a neutral black shadow reads
+              // cold against the warm canvas type it sits under, and the
+              // palette has no true black in it anywhere else.
+              textShadowColor: 'rgba(28,26,22,0.55)',
               textShadowOffset: { width: 0, height: 1 },
               textShadowRadius: 4,
             }}>
@@ -429,29 +456,47 @@ export default function CaptureScreen() {
           door for the pieces somebody will never get round to photographing at
           all. */}
       <View className="flex-row items-center justify-between px-8 py-2">
+        {/* `minWidth`, not `w-16`. A fixed 64pt box sliced "Library" to "Libra"
+            at AX-1 and above — the label is the only thing that says what the
+            control does, so it takes the space it needs and shrinks to fit
+            rather than being clipped by a width that never grew. */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Choose from library"
           hitSlop={12}
           onPress={() => start('library')}
-          className="w-16 py-2">
-          <Text variant="label" style={{ color: theme.canvas }}>
+          style={{ minWidth: 64 }}
+          className="py-2">
+          <Text variant="label" numberOfLines={1} adjustsFontSizeToFit style={{ color: theme.canvas }}>
             Library
           </Text>
         </Pressable>
 
-        {/* Dimmed and inert while the camera is off, rather than live over a
-            plate that has just said it cannot open — the Settings button in the
-            stage is the one way forward from there, and a shutter that fires an
-            alert saying the same thing is a second, worse copy of it. */}
+        {/* Dimmed and inert until the camera is actually GRANTED, rather than
+            live over a plate that has just said it cannot open — the Settings
+            button in the stage is the one way forward from there, and a shutter
+            that fires an alert saying the same thing is a second, worse copy of
+            it.
+
+            `!== 'granted'`, not `=== 'blocked'`: `checking` is the state while
+            iOS's own permission alert is on screen, and the shutter was live
+            underneath it. A tap there fell through to the system-camera
+            fallback, which requests the permission AGAIN — a second OS prompt
+            stacked on the first, over a question the user is already being
+            asked. Nothing here should be pressable while the OS owns the
+            screen. */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Take a photo"
-          accessibilityState={{ disabled: access === 'blocked', busy: shooting }}
+          accessibilityState={{ disabled: access !== 'granted', busy: shooting }}
           accessibilityHint={
-            access === 'blocked' ? 'Turn on camera access in Settings to use this' : undefined
+            access === 'blocked'
+              ? 'Turn on camera access in Settings to use this'
+              : access === 'checking'
+                ? 'Waiting for camera access'
+                : undefined
           }
-          disabled={access === 'blocked' || shooting}
+          disabled={access !== 'granted' || shooting}
           onPress={() => start('camera')}
           className="items-center justify-center active:opacity-80"
           style={{
@@ -460,7 +505,7 @@ export default function CaptureScreen() {
             borderRadius: 32,
             borderWidth: 3,
             borderColor: theme.canvas,
-            opacity: access === 'blocked' ? 0.35 : 1,
+            opacity: access !== 'granted' ? 0.35 : 1,
           }}>
           <View
             style={{
@@ -479,8 +524,9 @@ export default function CaptureScreen() {
           accessibilityHint="Find a picture of a garment by describing it"
           hitSlop={12}
           onPress={() => start('describe')}
-          className="w-16 items-end py-2">
-          <Text variant="label" style={{ color: theme.canvas }}>
+          style={{ minWidth: 64 }}
+          className="items-end py-2">
+          <Text variant="label" numberOfLines={1} adjustsFontSizeToFit style={{ color: theme.canvas }}>
             Describe
           </Text>
         </Pressable>
@@ -494,9 +540,34 @@ export default function CaptureScreen() {
         {total === 0 ? (
           <>
             <Text variant="plate">Photograph your closet</Text>
-            <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
-              {`Pick up to ${selectionLimit} photos at a time, or shoot pieces one by one. Cinch cuts out the background and tags everything for you.`}
-            </Text>
+            {declinedConsent ? (
+              /*
+                The answer to "I tapped Not now and nothing happened."
+
+                A decline is a real answer with a real consequence, so the
+                consequence is stated rather than left to be inferred from a
+                picker that never opened. Persistent rather than a toast,
+                because the condition it describes persists — and paired with
+                the way back, since the sheet is one tap away and this is the
+                only place in the app that says so.
+              */
+              <View accessibilityLiveRegion="polite">
+                <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
+                  AI processing is off, so Cinch can&rsquo;t cut out or tag photos yet.
+                </Text>
+                <Button
+                  title="Turn it on"
+                  variant="secondary"
+                  onPress={reopenConsent}
+                  accessibilityHint="Re-opens the AI processing disclosure"
+                  className="mt-3 self-start"
+                />
+              </View>
+            ) : (
+              <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
+                {`Pick up to ${selectionLimit} photos at a time, or shoot pieces one by one. Cinch cuts out the background and tags everything for you.`}
+              </Text>
+            )}
           </>
         ) : (
           <>
@@ -551,12 +622,22 @@ export default function CaptureScreen() {
             {failedCount > 0 ? (
               <View
                 accessibilityLiveRegion="polite"
-                className="mt-3 rounded-card bg-warning/15 px-3 py-2.5">
-                <Text variant="colophon">
+                className="mt-3 rounded-plate bg-warning/15 px-3 py-2.5">
+                {/* Tone inline: `colophon` carries `text-faint`, which on this
+                    warning wash is 3.06:1 — a headline nobody can read over a
+                    notice whose whole job is to be read. `muted` clears AA on
+                    the same ground, matching the sibling label below it and the
+                    review deck's identical banner. */}
+                <Text variant="colophon" style={{ color: theme.muted }}>
                   {failedCount === 1 ? '1 piece stopped' : `${failedCount} pieces stopped`}
                 </Text>
+                {/* The mapped sentence, not the raw `job.error`. The queue's own
+                    strings are diagnostic ("Saved, but not tagged — Cinch
+                    couldn't verify your account"); `userFacingFailure` reduces
+                    them to the three things a person can act on, and
+                    `job.error` stays untouched for logging. */}
                 <Text variant="label" className="mt-1">
-                  {failed[0]?.error ?? 'Cinch couldn’t finish this one.'}
+                  {userFacingFailure(failed[0])}
                 </Text>
                 {/*
                   A way out of the banner, not only a way back in. Some of these
@@ -575,8 +656,11 @@ export default function CaptureScreen() {
                       onPress={() => void retryFailed()}
                     />
                   ) : null}
+                  {/* "Dismiss" named the gesture; this names the OUTCOME, which
+                      is what the user is actually deciding. The hint is
+                      unchanged — it was already saying the true half. */}
                   <Button
-                    title="Dismiss"
+                    title="Leave them untagged"
                     variant="ghost"
                     onPress={clearFailed}
                     accessibilityHint="Clears this notice. The pieces stay in your closet, untagged."
@@ -621,6 +705,11 @@ export default function CaptureScreen() {
         onDecline={() => {
           setConsentVisible(false);
           setPendingAction(null);
+          // Recorded, not swallowed: the progress sheet turns this into a
+          // visible sentence and a one-tap way back (see the `total === 0`
+          // branch). Without it a decline was indistinguishable from a tap that
+          // did nothing at all.
+          setDeclinedConsent(true);
           // Nothing to resume: a decline is an answer, not a pause. Clearing
           // it here means a decline can never fire the picker on the way out.
           deferredAction.current = null;

@@ -1,18 +1,23 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useRef, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BlockedList } from '@/components/social/BlockedList';
 import { ProfileRow } from '@/components/social/ProfileRow';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { Rule } from '@/components/ui/rule';
+import { ScreenHeader } from '@/components/ui/screen-header';
 // Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `RowSkeleton`
 // lands alongside `Skeleton`'s export. Code against the contract.
-import { RowSkeleton } from '@/components/ui/skeleton';
+import { ListSkeleton, RowSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
+import { REPORT_REASONS, useBlockUser, useReportContent } from '@/features/social-graph/moderation';
 import {
   useFollowing,
   useFriendRequests,
@@ -23,8 +28,17 @@ import { useFollow } from '@/features/social-graph/mutations';
 import { profileName, type SocialProfile } from '@/features/social-graph/types';
 import { useTheme } from '@/theme/tokens';
 
-/** The report vocabulary Guideline 1.2 asks for, as one-tap choices. */
-const REPORT_REASONS = ['Harassment', 'Inappropriate content', 'Spam', 'Impersonation', 'Other'];
+/**
+ * Requests the recipient has waved off, kept on the device and nowhere else.
+ *
+ * "Not now" writes nothing to the server, and that is the whole design: the
+ * screen's own docblock promises the sender cannot detect being ignored, and
+ * a `declined` row or a delete would be detectable. What the recipient gets
+ * back is their screen — the row goes, quietly, on this phone. Re-sending
+ * after a block or an unfollow produces a new edge and a new id, so a waved
+ * request never traps a genuine second approach.
+ */
+const DISMISSED_KEY = 'cinch.friends.dismissedRequests.v1';
 
 /**
  * Friends — the circle, its requests, and the door in.
@@ -54,10 +68,41 @@ export default function FriendsScreen() {
   const block = useBlockUser();
   const report = useReportContent();
 
+  // Waved-off requests, read once on mount and written back on each change.
+  // A read that fails leaves the set empty, which shows every request — the
+  // safe direction to fail in: a request nobody can see is worse than one
+  // somebody has to wave off twice.
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    let alive = true;
+    void AsyncStorage.getItem(DISMISSED_KEY)
+      .then((raw) => {
+        if (!alive || !raw) return;
+        const ids: unknown = JSON.parse(raw);
+        if (Array.isArray(ids)) setDismissed(new Set(ids.filter((id) => typeof id === 'string')));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const dismissRequest = useCallback((userId: string) => {
+    setDismissed((prev) => {
+      const next = new Set(prev).add(userId);
+      void AsyncStorage.setItem(DISMISSED_KEY, JSON.stringify([...next])).catch(() => {});
+      return next;
+    });
+  }, []);
+
   const friendIds = new Set((friends.data ?? []).map((p) => p.userId));
   const followingIds = new Set(following.data ?? []);
+  const openRequests = (requests.data ?? []).filter((p) => !dismissed.has(p.userId));
 
-  const refreshing = friends.isRefetching || requests.isRefetching;
+  // All three, because `refresh` refetches all three — a pull that reports
+  // done while one of its queries is still arriving is a lie about the data.
+  const refreshing =
+    friends.isRefetching || requests.isRefetching || following.isRefetching;
   const refresh = () => {
     void friends.refetch();
     void requests.refetch();
@@ -90,7 +135,10 @@ export default function FriendsScreen() {
               reason,
             },
             {
-              onSuccess: () => Alert.alert('Reported', 'Thank you — we review every report.'),
+              // One promise, everywhere, and one the operator can keep: the
+              // app used to say "reviewed within 24 hours" on two surfaces
+              // and "we review every report" on two others.
+              onSuccess: () => Alert.alert('Thank you', 'Every report is reviewed.'),
               onError: (err) =>
                 Alert.alert(
                   'Could not send that report',
@@ -107,7 +155,7 @@ export default function FriendsScreen() {
     const name = profileName(profile);
     Alert.alert(
       `Block ${name}`,
-      'She won’t be able to find you, message you, or see your closet — and she won’t be told. This also ends any friendship.',
+      'They won’t be able to find you, message you, or see your closet — and they won’t be told. This also ends any friendship.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -129,9 +177,20 @@ export default function FriendsScreen() {
     );
   };
 
+  /**
+   * "Not now" is the option this screen was missing.
+   *
+   * The docblock above is right that ignoring a request is doing nothing, and
+   * right that the sender must not be able to tell — but that left the
+   * recipient with a row they could never clear, forever, and the only ways
+   * out of it were Report and Block, which are both accusations. "Not now"
+   * writes nothing to the server: it hides the row on this device and keeps
+   * every promise the paragraph above makes.
+   */
   const requestOptions = (profile: SocialProfile) => {
     Alert.alert(profileName(profile), 'Wants to be friends.', [
       { text: 'Accept', onPress: () => addFriend(profile) },
+      { text: 'Not now', onPress: () => dismissRequest(profile.userId) },
       { text: 'Report', onPress: () => promptReport(profile) },
       { text: 'Block', style: 'destructive', onPress: () => promptBlock(profile) },
       { text: 'Cancel', style: 'cancel' },
@@ -141,10 +200,10 @@ export default function FriendsScreen() {
   /** What the right edge of a search result says about where things stand. */
   const searchTrailing = (profile: SocialProfile) => {
     if (friendIds.has(profile.userId)) {
-      return <Text variant="caption" className="text-faint">Friends</Text>;
+      return <Text variant="caption" className="text-muted">Friends</Text>;
     }
     if (followingIds.has(profile.userId)) {
-      return <Text variant="caption" className="text-faint">Requested</Text>;
+      return <Text variant="caption" className="text-muted">Requested</Text>;
     }
     return (
       <Button
@@ -162,18 +221,7 @@ export default function FriendsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <View className="flex-row items-center justify-between px-gutter pt-2">
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={8}
-          className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
-          <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-        </Pressable>
-        <Text variant="colophon">Your circle</Text>
-        <View style={{ width: 36 }} />
-      </View>
+      <ScreenHeader title="Your circle" />
 
       <View className="px-gutter pt-3">
         <Text variant="display" trim accessibilityRole="header">
@@ -205,7 +253,9 @@ export default function FriendsScreen() {
       <KeyboardAwareScrollView
         ref={scrollRef}
         contentContainerClassName="px-gutter pb-24"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
+        }
         onContentSizeChange={() => {
           if (blockedParam === '1') scrollRef.current?.scrollToEnd({ animated: false });
         }}>
@@ -220,25 +270,21 @@ export default function FriendsScreen() {
                   <RowSkeleton />
                 </View>
               ) : search.isError ? (
-                <View className="px-4 py-3.5">
-                  <Text variant="body" className="text-critical">
-                    Couldn’t search right now.
-                  </Text>
-                  <Button
-                    title="Try again"
-                    variant="ghost"
-                    onPress={() => void search.refetch()}
-                    className="mt-2 self-start"
-                  />
-                </View>
+                <ErrorState
+                  compact
+                  title="Couldn’t search just now."
+                  body="This is a connection problem, not an answer about who is on Cinch."
+                  onRetry={() => void search.refetch()}
+                  retrying={search.isRefetching}
+                />
               ) : (search.data ?? []).length === 0 ? (
-                <Text variant="body" className="px-4 py-3.5 text-faint">
+                <Text variant="body" className="px-4 py-3.5 text-muted">
                   No one by that username.
                 </Text>
               ) : (
                 (search.data ?? []).map((profile, i) => (
                   <View key={profile.userId}>
-                    {i > 0 ? <View className="h-px bg-hairline" /> : null}
+                    {i > 0 ? <Rule tone="hairline" /> : null}
                     <ProfileRow
                       profile={profile}
                       subtitle={profile.username ? `@${profile.username}` : null}
@@ -263,28 +309,24 @@ export default function FriendsScreen() {
         {/* A failed requests fetch used to hide the whole section — the same
             shape of bug as the empty-on-error problem, just invisible instead
             of misleading. It gets a row now, same as everything else. */}
-        {(requests.data ?? []).length > 0 || requests.isError ? (
+        {openRequests.length > 0 || requests.isError ? (
           <>
             <Text variant="eyebrow" className="mb-2.5 mt-6">
               Requests
             </Text>
             <View className="overflow-hidden rounded-plate border border-rule bg-surface">
               {requests.isError ? (
-                <View className="px-4 py-3.5">
-                  <Text variant="body" className="text-critical">
-                    Couldn’t load your requests.
-                  </Text>
-                  <Button
-                    title="Try again"
-                    variant="ghost"
-                    onPress={() => void requests.refetch()}
-                    className="mt-2 self-start"
-                  />
-                </View>
+                <ErrorState
+                  compact
+                  title="Couldn’t load your requests."
+                  body="This didn’t load. It doesn’t mean nobody has asked."
+                  onRetry={() => void requests.refetch()}
+                  retrying={requests.isRefetching}
+                />
               ) : (
-                (requests.data ?? []).map((profile, i) => (
+                openRequests.map((profile, i) => (
                   <View key={profile.userId}>
-                    {i > 0 ? <View className="h-px bg-hairline" /> : null}
+                    {i > 0 ? <Rule tone="hairline" /> : null}
                     <ProfileRow
                       profile={profile}
                       subtitle="Wants to be friends"
@@ -311,32 +353,35 @@ export default function FriendsScreen() {
         </Text>
         <View className="overflow-hidden rounded-plate border border-rule bg-surface">
           {friends.isError ? (
-            <View className="px-4 py-3.5">
-              <Text variant="body" className="text-critical">
-                Couldn’t load your friends. This doesn’t mean your circle is empty.
-              </Text>
-              <Button
-                title="Try again"
-                variant="ghost"
-                onPress={() => void friends.refetch()}
-                className="mt-2 self-start"
-              />
-            </View>
+            <ErrorState
+              compact
+              title="Couldn’t load your friends."
+              body="This is a connection problem. It doesn’t mean your circle is empty — nothing has changed."
+              onRetry={() => void friends.refetch()}
+              retrying={friends.isRefetching}
+            />
           ) : friends.isLoading ? (
-            <View className="px-4 py-3.5">
-              <RowSkeleton />
-              <RowSkeleton />
+            // The shared list skeleton, ragged-width, instead of two identical
+            // bars: a column of matching bars reads as a loading graphic, a
+            // ragged one reads as names about to arrive.
+            <View className="-mx-gutter py-2">
+              <ListSkeleton count={2} />
             </View>
           ) : (friends.data ?? []).length === 0 ? (
-            <Text variant="body" className="px-4 py-3.5 text-faint">
-              {hasCircle
-                ? 'No friends yet — accept a request above.'
-                : 'No friends yet. Search a username above; when she adds you back, her closet opens to you and yours to her.'}
-            </Text>
+            <EmptyState
+              compact
+              symbol="person.2"
+              title={hasCircle ? 'No friends yet' : 'Nobody here yet'}
+              body={
+                hasCircle
+                  ? 'Accept a request above and your circle starts here.'
+                  : 'Search a username above. A friendship is mutual: when they add you back, their closet opens to you and yours to them.'
+              }
+            />
           ) : (
             (friends.data ?? []).map((profile, i) => (
               <View key={profile.userId}>
-                {i > 0 ? <View className="h-px bg-hairline" /> : null}
+                {i > 0 ? <Rule tone="hairline" /> : null}
                 <ProfileRow
                   profile={profile}
                   subtitle={profile.username ? `@${profile.username}` : null}

@@ -2,7 +2,17 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import {
+  ActionSheetIOS,
+  Alert,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  TextInput,
+  View,
+} from 'react-native';
+import Animated, { FadeInUp, FadeOut, FadeOutUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ClosetGrid } from '@/components/closet/closet-grid';
@@ -19,14 +29,13 @@ import {
   useOutfitCount,
   wearsLabel,
 } from '@/features/closet/profile';
-import { useCloset } from '@/features/closet/queries';
+import { useCloset, useReviewCount } from '@/features/closet/queries';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { EditProfileSheet } from '@/features/profile/edit-profile-sheet';
 import { useFollowerCount } from '@/features/profile/queries';
 import { useStyleProfile } from '@/features/styling/queries';
 import type { Item } from '@/schemas/item';
-import { leading } from '@/theme/font-metrics';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { GUTTER, MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
  * The field guide's sticky browsing row — Tops / Bottoms / Outerwear / Shoes /
@@ -89,6 +98,13 @@ const FAVOURITE_LIMIT = 8;
 
 /** Rail plate side, in points — three-and-a-bit visible on a 390pt screen. */
 const RAIL_PLATE = 124;
+/**
+ * The gap between plates on a horizontal rail, and the gap between the browsing
+ * chips. Named because they are two different measures that were both typed
+ * inline and so read as though they had to agree.
+ */
+const RAIL_GAP = 14;
+const CHIP_GAP = 7;
 
 /**
  * How many reactions the style engine wants before it will say anything about
@@ -126,6 +142,10 @@ export default function ClosetScreen() {
   const identity = useClosetIdentity();
   const outfitCount = useOutfitCount();
   const followerCount = useFollowerCount();
+  // The number only — the masthead menu needs an integer, not the rows (see
+  // `useReviewCount`). It shares the `review-queue` key prefix, so every
+  // existing invalidation already keeps it current.
+  const reviewWaiting = useReviewCount();
   const style = useStyleProfile();
   const items = useMemo(() => closet.data ?? [], [closet.data]);
 
@@ -275,6 +295,49 @@ export default function ClosetScreen() {
     // Nobody tells this device that someone followed you, so the pull is the
     // only thing that ever makes the FOLLOWERS numeral current.
     void followerCount.refetch();
+    void reviewWaiting.refetch();
+  };
+
+  /**
+   * The masthead's overflow menu.
+   *
+   * REVIEW IS THE REASON THIS EXISTS. `/review` was reachable from exactly one
+   * place — the "Review tags" button inside capture's progress sheet — so
+   * leaving capture, or killing the app mid-import, stranded every untagged
+   * piece in a deck with no door. The badge on the tile said "Needs review" and
+   * nothing in the app could act on it.
+   *
+   * `ActionSheetIOS`, not a popover library: the app ships no menu dependency
+   * and this is three rows of plain text. The review row is omitted entirely
+   * when the count is zero — an always-present "Review tags (0)" teaches people
+   * to stop reading the menu.
+   */
+  const openMenu = () => {
+    const reviewCount = reviewWaiting.data ?? 0;
+    const rows: { label: string; run: () => void }[] = [];
+    if (reviewCount > 0) {
+      rows.push({ label: `Review tags (${reviewCount})`, run: () => router.push('/review') });
+    }
+    // Long press is the fast way in and stays the fast way in; this is the
+    // discoverable one. An empty `picked` set IS selection mode with nothing
+    // picked, which SelectionBar already draws ("Select pieces", Remove dimmed).
+    rows.push({ label: 'Select pieces', run: () => setPicked(new Set()) });
+    rows.push({ label: 'Profile and settings', run: () => router.navigate('/profile') });
+
+    if (Platform.OS !== 'ios') {
+      // Android and the web preview have no action sheet; an Alert offers the
+      // same three choices in the platform's own furniture.
+      Alert.alert('Closet', undefined, [
+        ...rows.map((r) => ({ text: r.label, onPress: r.run })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
+      return;
+    }
+
+    ActionSheetIOS.showActionSheetWithOptions(
+      { options: [...rows.map((r) => r.label), 'Cancel'], cancelButtonIndex: rows.length },
+      (index) => rows[index]?.run(),
+    );
   };
 
   const header = (
@@ -288,14 +351,18 @@ export default function ClosetScreen() {
           label={searching ? 'Close search' : 'Search your wardrobe'}
           onPress={() => {
             setSearching((s) => !s);
+            // The typed query belongs to the field and goes with it. The
+            // CATEGORY does not: the same browsing row is drawn above the grid
+            // in BOTH modes, so resetting it here silently threw away a filter
+            // the user could still see selected on the other side of the tap.
             setQuery('');
-            setCategory('All');
           }}
         />
         <HeaderIcon
           name="ellipsis"
-          label="Account and settings"
-          onPress={() => router.navigate('/profile')}
+          label="More closet actions"
+          hint="Review tags, select pieces, or open your profile"
+          onPress={openMenu}
         />
       </View>
     </View>
@@ -307,26 +374,42 @@ export default function ClosetScreen() {
           with the identity page, and a Remove control that scrolls away with
           it is a Remove control nobody can reach (see SelectionBar). */}
       {picked !== null ? (
-        <SelectionBar
-          count={picked.size}
-          busy={remove.isPending}
-          onCancel={() => setPicked(null)}
-          onRemove={confirmRemovePicked}
-        />
+        // Entering/exiting rather than simply appearing: the bar pushes the
+        // whole page down by its own height, and an instant appearance reads as
+        // the grid jumping. The `layout` props below carry the other half.
+        <Animated.View entering={FadeInUp.duration(180)} exiting={FadeOutUp.duration(140)}>
+          <SelectionBar
+            count={picked.size}
+            busy={remove.isPending}
+            onCancel={() => setPicked(null)}
+            onRemove={confirmRemovePicked}
+          />
+        </Animated.View>
       ) : null}
 
       {closet.isLoading ? (
         // Just the title standing above the skeleton — the page has nothing to
         // say about a wardrobe it has not read yet, and keeping the title put
         // stops the screen jumping when the data lands.
-        <>
+        //
+        // The fade-out is the crossfade: Reanimated keeps an exiting view
+        // mounted while its replacement appears, so the wardrobe arrives OVER
+        // the skeleton rather than swapping with it in one hard frame — which
+        // is what the skeleton's shape was promising all along.
+        //
+        // `style`, NOT `className`: NativeWind's interop registers React Native
+        // primitives only, so a class on a Reanimated component is silently
+        // dropped — `flex-1` here would vanish and the skeleton would collapse
+        // to nothing. Same reason upload-queue-list.tsx keeps its layout on a
+        // plain View inside the animated one.
+        <Animated.View style={{ flex: 1 }} exiting={FadeOut.duration(140)}>
           <View className="px-gutter pt-2">
             <Text variant="display" trim accessibilityRole="header">
               Closet
             </Text>
           </View>
           <ClosetGridSkeleton />
-        </>
+        </Animated.View>
       ) : closet.isError ? (
         // A failed fetch is not an empty wardrobe. Falling through to
         // EmptyCloset here used to tell someone with 200 garments "An empty
@@ -391,7 +474,11 @@ export default function ClosetScreen() {
             selectedIds={picked}
             resolveImage={resolve}
             refreshControl={
-              <RefreshControl refreshing={closet.isRefetching} onRefresh={refresh} />
+              <RefreshControl
+                refreshing={closet.isRefetching}
+                onRefresh={refresh}
+                tintColor={theme.muted}
+              />
             }
             ListEmptyComponent={<EmptySearch query={query} category={category} />}
           />
@@ -409,7 +496,13 @@ export default function ClosetScreen() {
           onItemLongPress={beginSelection}
           selectedIds={picked}
           resolveImage={resolve}
-          refreshControl={<RefreshControl refreshing={closet.isRefetching} onRefresh={refresh} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={closet.isRefetching}
+              onRefresh={refresh}
+              tintColor={theme.muted}
+            />
+          }
           ListHeaderComponent={
             <View>
               {header}
@@ -469,7 +562,7 @@ export default function ClosetScreen() {
                   FOLLOWERS is a real count of `follows` rows pointing at this
                   user (friends plus anyone whose follow she has not returned),
                   which is exactly the two lists /friends shows. */}
-              <View className="mt-7 flex-row px-gutter">
+              <View className="mt-5 flex-row px-gutter">
                 <Stat value={`${stats.pieces}`} label={plural(stats.pieces, 'Piece')} />
                 <Stat
                   value={outfitCount.data !== undefined ? `${outfitCount.data}` : '—'}
@@ -503,9 +596,14 @@ export default function ClosetScreen() {
                         the "capsules only on glass chrome" rule
                         (tailwind.config.js borderRadius). No `onPress`: these
                         describe the wardrobe, they don't filter it, so the
-                        chip renders `accessibilityRole="text"`. */}
+                        chip renders `accessibilityRole="text"`.
+
+                        `tone="fill"` for the same reason: the approved frame
+                        draws these as sand-filled tags, and a chip with no
+                        press has no selected state for an outline to carry.
+                        The browsing row below stays outlined — that one does. */}
                     {chips.map((chip) => (
-                      <Chip key={chip} label={chip} />
+                      <Chip key={chip} label={chip} tone="fill" />
                     ))}
                   </View>
                 ) : null}
@@ -515,27 +613,24 @@ export default function ClosetScreen() {
                 <>
                   {hasWearData ? (
                     <>
-                      <View className="mt-8">
+                      <View className="mt-6">
                         <View className="flex-row items-baseline justify-between px-gutter">
                           <Text variant="eyebrow">Favourite pieces</Text>
-                          {/* Disabled until a favourite flag exists — see the SEAM
-                              note on `favourites` above. Kept visible because the
-                              mock draws it and the affordance ships with the flag. */}
-                          <Pressable
-                            disabled
-                            accessibilityRole="button"
-                            accessibilityState={{ disabled: true }}
-                            accessibilityLabel="Edit favourite pieces"
-                            accessibilityHint="Coming soon">
-                            <Text variant="label" className="text-accent opacity-40">
-                              Edit
-                            </Text>
-                          </Pressable>
+                          {/* NO "Edit" HERE. It shipped permanently disabled,
+                              waiting on the favourite flag the SEAM note above
+                              describes — and a coloured control that never
+                              responds is a broken affordance, not a preview of
+                              one. It comes back with the flag; until then the
+                              rail says what it is and nothing else. */}
                         </View>
                         <ScrollView
                           horizontal
                           showsHorizontalScrollIndicator={false}
-                          contentContainerStyle={{ paddingHorizontal: 20, gap: 14, paddingTop: 12 }}>
+                          contentContainerStyle={{
+                            paddingHorizontal: GUTTER,
+                            gap: RAIL_GAP,
+                            paddingTop: 12,
+                          }}>
                           {favourites.map((item) => (
                             <Pressable
                               key={item.id}
@@ -562,7 +657,7 @@ export default function ClosetScreen() {
                         </ScrollView>
                       </View>
 
-                      <View className="mt-8 px-gutter">
+                      <View className="mt-6 px-gutter">
                         <Text variant="eyebrow">Most worn</Text>
                         <View className="mt-1.5">
                           {mostWorn.map((item) => (
@@ -625,7 +720,7 @@ function CategoryChipsRow({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 7, paddingHorizontal: 20, paddingVertical: 10 }}>
+      contentContainerStyle={{ gap: CHIP_GAP, paddingHorizontal: GUTTER, paddingVertical: 10 }}>
       {CATEGORIES.map((c) => (
         <Chip key={c} label={c} selected={category === c} onPress={() => onSelect(c)} />
       ))}
@@ -637,10 +732,13 @@ function CategoryChipsRow({
 function HeaderIcon({
   name,
   label,
+  hint,
   onPress,
 }: {
   name: SymbolViewProps['name'];
   label: string;
+  /** Only the ellipsis needs one: a glyph that opens a menu has to say so. */
+  hint?: string;
   onPress: () => void;
 }) {
   const theme = useTheme();
@@ -648,6 +746,7 @@ function HeaderIcon({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={hint}
       onPress={onPress}
       style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}
       className="items-center justify-center active:opacity-60">
@@ -760,14 +859,10 @@ function MostWornRow({
           />
         </View>
       </View>
-      {/* Same serif-at-label-size idiom as the item card's cost-per-wear. Size
-          is set inline, not via a second `text-*` class stacked on the `stat`
-          variant's own — NativeWind gives no guaranteed precedence between
-          two size utilities on one element (see button.tsx L18-25). */}
-      <Text
-        variant="stat"
-        className="text-ink"
-        style={{ fontSize: 13, lineHeight: leading('helvetica', 13, 1.4) }}>
+      {/* Same serif-at-label-size idiom as the item card's cost-per-wear.
+          `statSmall` names that 13px size once, rather than `variant="stat"`
+          plus an inline `fontSize` override — see text.tsx. */}
+      <Text variant="statSmall" className="text-ink">
         {wearsLabel(item.wearCount)}
       </Text>
     </Pressable>
@@ -795,14 +890,14 @@ function LatestPiecesRail({
   if (items.length === 0) return null;
 
   return (
-    <View className="mt-8">
+    <View className="mt-6">
       <View className="px-gutter">
         <Text variant="eyebrow">Latest pieces</Text>
       </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, gap: 14, paddingTop: 12 }}>
+        contentContainerStyle={{ paddingHorizontal: GUTTER, gap: RAIL_GAP, paddingTop: 12 }}>
         {items.map((item) => (
           <Pressable
             key={item.id}
@@ -847,6 +942,8 @@ function LatestPiecesRail({
  *   body, in that order.
  */
 function EmptyCloset({ onAdd }: { onAdd: () => void }) {
+  const theme = useTheme();
+
   return (
     <View className="mt-6">
       {/* Rendered first so RN paints it first — the type stands on the slots. */}
@@ -866,7 +963,12 @@ function EmptyCloset({ onAdd }: { onAdd: () => void }) {
             // growing to fit it.
             style={{ minHeight: 48 }}
             className="mt-5 items-center justify-center self-start rounded-md bg-ink px-7 py-3 active:opacity-90">
-            <Text variant="callout" className="font-semibold" style={{ color: '#FBFAF6' }}>
+            {/* `theme.canvas`, not the hex it happens to be: the palette lives
+                in one file, and a literal here is a second copy a token change
+                cannot reach. Inline rather than a `text-canvas` class for the
+                usual reason — two `text-*` utilities on one element have no
+                defined precedence (see button.tsx L18-25). */}
+            <Text variant="callout" className="font-semibold" style={{ color: theme.canvas }}>
               Add clothes
             </Text>
           </Pressable>
@@ -876,8 +978,8 @@ function EmptyCloset({ onAdd }: { onAdd: () => void }) {
       {/* The 03c line, spoken as the grid's caption — on canvas, never over a
           ghost cell (see the contrast note above). */}
       <Text variant="body" className="mt-2 px-gutter text-muted">
-        Add a few pieces and this fills with your real wardrobe — worn counts, cost-per-wear,
-        the lot.
+        Add a few pieces and this fills with your real wardrobe — what you wear, and what it costs
+        you to wear it.
       </Text>
     </View>
   );

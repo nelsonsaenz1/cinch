@@ -1,7 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { SymbolView } from 'expo-symbols';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, View, type LayoutChangeEvent } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
@@ -20,7 +29,7 @@ import { STALL_DEADLINE_MS, useStalled } from '@/features/plan/use-stalled';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { dateKey } from '@/lib/date';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { concentric, MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
 
 const WEEK_DAYS = 7;
 
@@ -38,39 +47,131 @@ const daysFromToday = (d: Date) => {
 };
 
 type Mode = 'week' | 'events' | 'packing';
+const MODES: Mode[] = ['week', 'events', 'packing'];
 
 /**
- * One segment of the pill toggle: sand track, ink pill for the active one,
- * cream label on ink. The dot is the app's entire notion of a badge — a
- * single quiet mark when invitations wait, never a number in a red circle.
+ * One segment of the pill toggle: sand track, cream label on ink for the
+ * active one. The ink itself is drawn once, by the sliding pill in
+ * `SegmentedControl` — this only ever renders its label and the dot. The dot
+ * is the app's entire notion of a badge — a single quiet mark when
+ * invitations wait, never a number in a red circle.
  */
 function Segment({
   label,
   active,
   onPress,
   showDot,
+  onLayout,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
   showDot?: boolean;
+  onLayout?: (e: LayoutChangeEvent) => void;
 }) {
   const theme = useTheme();
   return (
     <Pressable
       onPress={onPress}
+      onLayout={onLayout}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       accessibilityLabel={showDot ? `${label}, new invitations` : label}
       style={{ minHeight: MIN_TAP_TARGET - 8 }}
-      className={`flex-1 flex-row items-center justify-center rounded-md ${
-        active ? 'bg-ink' : ''
-      } active:opacity-70`}>
+      className="flex-1 flex-row items-center justify-center active:opacity-70">
       <Text variant="label" style={{ color: active ? theme.canvas : theme.muted }}>
         {label}
       </Text>
       {showDot ? <View className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent" /> : null}
     </Pressable>
+  );
+}
+
+/**
+ * The Week/Events/Packing toggle. One absolutely-positioned ink pill slides
+ * under the labels rather than each segment painting its own fill — the
+ * geometry iOS users read as `UISegmentedControl` every day. The pill's
+ * radius is `concentric(12, 4)`, not a second `rounded-md`: the track is 12,
+ * inset 4 on every side, so the pill reads as one continuous corner system
+ * with its container instead of "also rounded" (tokens.ts's concentric rule).
+ *
+ * Each segment reports its own box on mount via `onLayout` rather than the
+ * pill computing thirds from the track width — this stays correct even if a
+ * fourth mode or unequal segments ever show up. `spring.snappy` already
+ * carries `reduceMotion: ReduceMotion.System` (tokens.ts), so the slide
+ * settles instantly with Reduce Motion on; no separate gate needed here.
+ */
+function SegmentedControl({
+  mode,
+  onChange,
+  inviteCount,
+}: {
+  mode: Mode;
+  onChange: (m: Mode) => void;
+  inviteCount: number;
+}) {
+  const theme = useTheme();
+  const [boxes, setBoxes] = useState<Partial<Record<Mode, { x: number; width: number }>>>({});
+  const measured = useRef<Mode | null>(null);
+
+  const pillX = useSharedValue(0);
+  const pillWidth = useSharedValue(0);
+
+  useEffect(() => {
+    const box = boxes[mode];
+    if (!box) return;
+    if (measured.current === null) {
+      // First layout: place the pill instantly — there is nothing to slide
+      // from yet, and animating in from a corner would read as a bug.
+      pillX.value = box.x;
+      pillWidth.value = box.width;
+    } else {
+      pillX.value = withSpring(box.x, spring.snappy);
+      pillWidth.value = withSpring(box.width, spring.snappy);
+    }
+    measured.current = mode;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, boxes[mode]?.x, boxes[mode]?.width]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: pillX.value }],
+    width: pillWidth.value,
+  }));
+
+  const select = (m: Mode) => {
+    if (m !== mode) void Haptics.selectionAsync().catch(() => {});
+    onChange(m);
+  };
+
+  return (
+    <View className="mx-gutter mb-4 flex-row rounded-md bg-sand p-1">
+      {/* NativeWind className does not reach Animated.* components (the
+          babel/css-interop transform only registers plain RN primitives) —
+          every property that would have been `absolute bottom-0 top-0
+          bg-ink` has to be inline style instead, same as the wrapper pattern
+          in upload-queue-list.tsx. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          { position: 'absolute', top: 0, bottom: 0, backgroundColor: theme.ink },
+          { borderRadius: concentric(12, 4) },
+          pillStyle,
+        ]}
+      />
+      {MODES.map((m) => (
+        <Segment
+          key={m}
+          label={m === 'week' ? 'Week' : m === 'events' ? 'Events' : 'Packing'}
+          active={mode === m}
+          onPress={() => select(m)}
+          showDot={m === 'events' && inviteCount > 0}
+          onLayout={(e) => {
+            const { x, width } = e.nativeEvent.layout;
+            setBoxes((prev) => ({ ...prev, [m]: { x, width } }));
+          }}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -94,6 +195,12 @@ export default function PlanScreen() {
   const [mode, setMode] = useState<Mode>('week');
   /** The answered packing questionnaire — see the Packing branch below. */
   const [trip, setTrip] = useState<Trip | null>(null);
+  // Which day's plan write is in flight, so committing Tuesday no longer
+  // disables and spins all seven rows (borrow.tsx's `busyId` is the same
+  // shape). `planError` is cleared on every new attempt, not just success, so
+  // a stale failure never lingers under a day that has since saved.
+  const [planningKey, setPlanningKey] = useState<string | null>(null);
+  const [planError, setPlanError] = useState(false);
 
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
@@ -216,178 +323,231 @@ export default function PlanScreen() {
         </Text>
       </View>
 
-      <View className="mx-gutter mb-4 flex-row rounded-md bg-sand p-1">
-        <Segment label="Week" active={mode === 'week'} onPress={() => setMode('week')} />
-        <Segment
-          label="Events"
-          active={mode === 'events'}
-          onPress={() => setMode('events')}
-          showDot={inviteCount > 0}
-        />
-        <Segment label="Packing" active={mode === 'packing'} onPress={() => setMode('packing')} />
-      </View>
+      <SegmentedControl mode={mode} onChange={setMode} inviteCount={inviteCount} />
 
       {mode === 'events' ? (
-        <ScrollView contentContainerClassName="pb-10" showsVerticalScrollIndicator={false}>
-          {/* One control, two affordances. `md`, not a capsule: this is a
-              labelled control, and rounded-full is reserved for glass chrome
-              and 1:1 marks (tailwind.config.js). */}
-          <View className="mx-gutter mb-5 flex-row items-center overflow-hidden rounded-md bg-ink">
-            <Pressable
-              onPress={() => router.push('/event/new')}
-              accessibilityRole="button"
-              accessibilityLabel="New event"
-              style={{ minHeight: 52 }}
-              className="flex-1 flex-row items-center px-5 active:opacity-70">
-              <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
-                +  New event
-              </Text>
-            </Pressable>
-            <View className="h-5 w-hair bg-canvas opacity-25" />
-            <Pressable
-              // The friends surface belongs to the social-graph slice; the
-              // path string is the whole coupling, same as the event routes.
-              onPress={() => router.push('/friends')}
-              accessibilityRole="button"
-              accessibilityLabel="Invite friends"
-              style={{ minHeight: 52 }}
-              className="flex-row items-center px-5 active:opacity-70">
-              <Text variant="label" style={{ color: `${theme.canvas}B3` }}>
-                Invite friends
-              </Text>
-            </Pressable>
-          </View>
+        // className does not reach Animated.* (see the pill above) — flex-1
+        // is inline here rather than a dropped class.
+        <Animated.View
+          key="events"
+          style={{ flex: 1 }}
+          entering={FadeIn.duration(motion.duration.fast)}
+          exiting={FadeOut.duration(motion.duration.fast)}>
+          <ScrollView contentContainerClassName="pb-10" showsVerticalScrollIndicator={false}>
+            {/* One primary action per surface (the app's own rule everywhere
+                else): "New event" is the full-width ink control; "Invite
+                friends" is a quiet link beneath it, same grammar as Lately's
+                "Your circle" row, rather than the two sharing one container. */}
+            <View className="mx-gutter mb-5">
+              <Pressable
+                onPress={() => router.push('/event/new')}
+                accessibilityRole="button"
+                accessibilityLabel="New event"
+                style={{ minHeight: 52 }}
+                className="flex-row items-center rounded-md bg-ink px-5 active:opacity-70">
+                <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                  +  New event
+                </Text>
+              </Pressable>
+              <Pressable
+                // The friends surface belongs to the social-graph slice; the
+                // path string is the whole coupling, same as the event routes.
+                onPress={() => router.push('/friends')}
+                accessibilityRole="button"
+                accessibilityLabel="Invite friends"
+                className="flex-row items-center gap-1.5 py-2 active:opacity-60">
+                <Text variant="label" className="text-muted dark:text-muted-dark">
+                  Invite friends
+                </Text>
+                <SymbolView
+                  name="chevron.right"
+                  size={11}
+                  tintColor={theme.faint}
+                  resizeMode="scaleAspectFit"
+                />
+              </Pressable>
+            </View>
 
-          {myEvents.isError || invites.isError ? (
-            <ErrorState
-              compact
-              title="Couldn't load your plans"
-              body="Something went wrong reaching your events. Check your connection and try again."
-              onRetry={() => {
-                void myEvents.refetch();
-                void invites.refetch();
-              }}
-              retrying={myEvents.isRefetching || invites.isRefetching}
-            />
-          ) : myEvents.isLoading || invites.isLoading ? (
-            <ListSkeleton count={3} label="Reading your plans…" />
-          ) : (
-            <>
-              {(invites.data?.length ?? 0) > 0 ? (
-                <View className="px-gutter">
-                  <Text variant="eyebrow" className="mb-3">
-                    Invitations
-                  </Text>
-                  {invites.data!.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      weather={weatherFor(event.startsAt)}
-                      onPress={() => router.push(`/event/${event.id}`)}
-                    />
-                  ))}
-                </View>
-              ) : null}
-
-              {(myEvents.data?.length ?? 0) > 0 ? (
-                <View className="px-gutter">
-                  {(invites.data?.length ?? 0) > 0 ? (
-                    <Text variant="eyebrow" className="mb-3 mt-4">
-                      Coming up
+            {myEvents.isError || invites.isError ? (
+              <ErrorState
+                compact
+                title="Couldn't load your plans"
+                body="Something went wrong reaching your events. Check your connection and try again."
+                onRetry={() => {
+                  void myEvents.refetch();
+                  void invites.refetch();
+                }}
+                retrying={myEvents.isRefetching || invites.isRefetching}
+              />
+            ) : myEvents.isLoading || invites.isLoading ? (
+              <ListSkeleton count={3} label="Reading your plans…" />
+            ) : (
+              <>
+                {(invites.data?.length ?? 0) > 0 ? (
+                  <View className="px-gutter">
+                    <Text variant="eyebrow" className="mb-3">
+                      Invitations
                     </Text>
-                  ) : null}
-                  {myEvents.data!.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      weather={weatherFor(event.startsAt)}
-                      onPress={() => router.push(`/event/${event.id}`)}
-                    />
-                  ))}
-                </View>
-              ) : (invites.data?.length ?? 0) === 0 ? (
-                <View className="px-gutter pt-6">
-                  <Text variant="title" trim>
-                    Nothing planned together yet
-                  </Text>
-                  <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
-                    Post a dinner, a wedding, a trip — invite your friends, and
-                    everyone picks their look before the night. Occasions are
-                    invite-only, always.
-                  </Text>
-                </View>
-              ) : null}
-            </>
-          )}
-        </ScrollView>
+                    {invites.data!.map((event) => (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        weather={weatherFor(event.startsAt)}
+                        onPress={() => router.push(`/event/${event.id}`)}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+
+                {(myEvents.data?.length ?? 0) > 0 ? (
+                  <View className="px-gutter">
+                    {(invites.data?.length ?? 0) > 0 ? (
+                      <Text variant="eyebrow" className="mb-3 mt-4">
+                        Coming up
+                      </Text>
+                    ) : null}
+                    {myEvents.data!.map((event) => (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        weather={weatherFor(event.startsAt)}
+                        onPress={() => router.push(`/event/${event.id}`)}
+                      />
+                    ))}
+                  </View>
+                ) : (invites.data?.length ?? 0) === 0 ? (
+                  <View className="px-gutter pt-6">
+                    <Text variant="title" trim>
+                      Nothing planned together yet
+                    </Text>
+                    <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                      Post a dinner, a wedding, a trip — invite your friends, and
+                      everyone picks their look before the night. Occasions are
+                      invite-only, always.
+                    </Text>
+                  </View>
+                ) : null}
+              </>
+            )}
+          </ScrollView>
+        </Animated.View>
       ) : mode === 'packing' ? (
         // The answered trip is held HERE, not inside PackingTab: that component
         // unmounts on every switch to Week, and five questions should survive
         // someone glancing at their week.
-        <PackingTab active trip={trip} onTrip={setTrip} />
-      ) : weekFailed || weekStalled ? (
-        <ErrorState
-          title="Couldn’t lay out your week"
-          body="Cinch couldn’t read everything the days ahead need — your closet, or this week’s weather. That’s a connection problem, not a change to your things: nothing in your wardrobe has moved."
-          onRetry={retryWeek}
-          retrying={wardrobe.isRefetching || weekForecast.isRefetching}
-        />
-      ) : weekLoading ? (
-        <ListSkeleton count={WEEK_DAYS} avatar={false} label="Laying out your week…" />
-      ) : closetEmpty ? (
-        <EmptyState
-          symbol="calendar"
-          title="Plan the week ahead"
-          body="Lay out outfits for the days coming up, one for each day, with no piece worn more than twice. Add about ten pieces to get started."
-          actionTitle="Add clothes"
-          onAction={() => router.push('/capture')}
-        />
+        <Animated.View
+          key="packing"
+          style={{ flex: 1 }}
+          entering={FadeIn.duration(motion.duration.fast)}
+          exiting={FadeOut.duration(motion.duration.fast)}>
+          <PackingTab active trip={trip} onTrip={setTrip} />
+        </Animated.View>
       ) : (
-        <ScrollView contentContainerClassName="pb-10" keyboardShouldPersistTaps="handled">
-          {weekDays.length === 0 ? (
-            <View className="px-gutter pt-6">
-              <Text variant="title" trim>
-                Couldn&rsquo;t plan this week
-              </Text>
-              <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
-                The forecast came back without enough to work with, so nothing
-                in your closet could be matched to the days ahead. Try again in
-                a moment.
-              </Text>
-            </View>
+        <Animated.View
+          key="week"
+          style={{ flex: 1 }}
+          entering={FadeIn.duration(motion.duration.fast)}
+          exiting={FadeOut.duration(motion.duration.fast)}>
+          {weekFailed || weekStalled ? (
+            <ErrorState
+              title="Couldn’t lay out your week"
+              body="Cinch couldn’t read everything the days ahead need — your closet, or this week’s weather. That’s a connection problem, not a change to your things: nothing in your wardrobe has moved."
+              onRetry={retryWeek}
+              retrying={wardrobe.isRefetching || weekForecast.isRefetching}
+            />
+          ) : weekLoading ? (
+            <Animated.View key="week-loading" exiting={FadeOut.duration(motion.duration.fast)}>
+              <ListSkeleton count={WEEK_DAYS} avatar={false} label="Laying out your week…" />
+            </Animated.View>
+          ) : closetEmpty ? (
+            <EmptyState
+              symbol="calendar"
+              title="Plan the week ahead"
+              body="Lay out outfits for the days coming up, one for each day, with no piece worn more than twice. Add about ten pieces and the week lays itself out."
+              actionTitle="Add clothes"
+              onAction={() => router.push('/capture')}
+            />
           ) : (
-            <>
-              <View className="mb-1 px-gutter">
-                <Text variant="title">This week</Text>
-              </View>
-              {/* The engine PREFERS spreading wear (REUSE_BOOST is a soft
-                  scorer, not a cap) — with a small closet the same shirt can
-                  honestly appear five times. The old line, "No piece worn
-                  more than twice", printed a promise the week below it
-                  visibly broke. */}
-              <Text variant="label" className="mb-5 px-gutter text-accent dark:text-accent-dark">
-                Repeats kept to a minimum
-              </Text>
-              {weekDays.map((day, i) => {
-                const key = dateKey(day.date);
-                return (
-                  <DayRow
-                    key={key}
-                    day={day}
-                    resolveImage={resolve}
-                    planned={Boolean(planned.data?.[key]?.length)}
-                    planning={planOutfit.isPending}
-                    isLast={i === weekDays.length - 1}
-                    onPlan={() =>
-                      day.outfit &&
-                      planOutfit.mutate({ candidate: day.outfit, date: day.date })
-                    }
+            // Animated.View wraps a plain ScrollView rather than animating
+            // Animated.ScrollView itself: `contentContainerClassName` is a
+            // NativeWind prop, and NativeWind does not reach Animated.*
+            // components either (same reason the pill above is inline style).
+            <Animated.View key="week-content" entering={FadeIn.duration(motion.duration.fast)}>
+              <ScrollView
+                contentContainerClassName="pb-10"
+                keyboardShouldPersistTaps="handled"
+                refreshControl={
+                  <RefreshControl
+                    refreshing={wardrobe.isRefetching || weekForecast.isRefetching}
+                    onRefresh={retryWeek}
+                    tintColor={theme.muted}
                   />
-                );
-              })}
-            </>
+                }>
+                {weekDays.length === 0 ? (
+                  <ErrorState
+                    compact
+                    title="Couldn't plan this week"
+                    body="The forecast came back without enough to work with, so nothing in your closet could be matched to the days ahead."
+                    onRetry={retryWeek}
+                    retrying={wardrobe.isRefetching || weekForecast.isRefetching}
+                  />
+                ) : (
+                  <>
+                    <View className="mb-2 px-gutter">
+                      <Text variant="title">This week</Text>
+                    </View>
+                    {/* The engine PREFERS spreading wear (REUSE_BOOST is a
+                        soft scorer, not a cap) — with a small closet the same
+                        shirt can honestly appear five times. The old line,
+                        "No piece worn more than twice", printed a promise
+                        the week below it visibly broke. */}
+                    <Text
+                      variant="label"
+                      className="mb-2 px-gutter text-accent dark:text-accent-dark">
+                      Repeats kept to a minimum
+                    </Text>
+                    {weekDays.map((day, i) => {
+                      const key = dateKey(day.date);
+                      return (
+                        <DayRow
+                          key={key}
+                          day={day}
+                          resolveImage={resolve}
+                          planned={Boolean(planned.data?.[key]?.length)}
+                          planning={planningKey === key}
+                          isLast={i === weekDays.length - 1}
+                          onPlan={() => {
+                            if (!day.outfit) return;
+                            setPlanningKey(key);
+                            setPlanError(false);
+                            planOutfit.mutate(
+                              { candidate: day.outfit, date: day.date },
+                              {
+                                onError: () => setPlanError(true),
+                                onSettled: () => setPlanningKey(null),
+                              },
+                            );
+                          }}
+                        />
+                      );
+                    })}
+                    {/* `polite` rather than a modal or a toast: the failure
+                        belongs to the one row that triggered it, and nothing
+                        else on the screen should interrupt to say so. */}
+                    {planError ? (
+                      <Text
+                        variant="caption"
+                        accessibilityLiveRegion="polite"
+                        className="mt-3 px-gutter text-critical dark:text-critical">
+                        That day didn&rsquo;t save. Check your connection and try again.
+                      </Text>
+                    ) : null}
+                  </>
+                )}
+              </ScrollView>
+            </Animated.View>
           )}
-        </ScrollView>
+        </Animated.View>
       )}
     </SafeAreaView>
   );

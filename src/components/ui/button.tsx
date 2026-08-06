@@ -1,19 +1,41 @@
 import * as Haptics from 'expo-haptics';
-import { ActivityIndicator, Pressable, type PressableProps, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  type PressableProps,
+  type ViewStyle,
+} from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { usePressFeedback } from '@/components/ui/use-press-feedback';
+import { MIN_TAP_TARGET, useTheme, type ThemeColors } from '@/theme/tokens';
 
 type Variant = 'primary' | 'secondary' | 'ghost';
 
-// The accent is SPENT, not sprayed: it lives on the primary action and nowhere
-// else. Secondary buttons are outlined with the structural rule colour, like
-// everything else in the plate grammar; ghost actions are quiet ink.
-const container: Record<Variant, string> = {
-  primary: 'bg-accent dark:bg-accent-dark',
-  secondary: 'bg-transparent border border-rule dark:border-rule-dark',
-  ghost: 'bg-transparent',
-};
+/** `rounded-md` in tailwind.config.js — pills belong to the glass chrome layer. */
+const RADIUS = 12;
+
+/**
+ * The ground — background and border — as inline styles rather than classes.
+ *
+ * The accent is SPENT, not sprayed: it lives on the primary action and nowhere
+ * else. Secondary buttons are outlined with the structural rule colour, like
+ * everything else in the plate grammar; ghost actions are quiet ink.
+ *
+ * It is drawn on an absolutely-positioned `Animated.View` so the press
+ * compression carries the whole pill and not just its label. That layer cannot
+ * take a `className` — NativeWind's interop is registered for the React Native
+ * primitives, not for Reanimated's wrappers, so a class there would silently do
+ * nothing — hence the theme lookup, the same reasoning as `labelKey` below.
+ */
+function ground(variant: Variant, theme: ThemeColors): ViewStyle {
+  const base: ViewStyle = { borderRadius: RADIUS };
+  if (variant === 'primary') return { ...base, backgroundColor: theme.accent };
+  if (variant === 'secondary') return { ...base, borderWidth: 1, borderColor: theme.rule };
+  return base;
+}
 
 /**
  * Label colour is applied as an inline STYLE, not a className.
@@ -35,9 +57,14 @@ export type ButtonProps = Omit<PressableProps, 'children' | 'style'> & {
   variant?: Variant;
   loading?: boolean;
   /**
-   * Fires a selection tap on press. Note haptics silently no-op in Low Power
-   * Mode, when Taptic is disabled, and while a camera session is active — so
-   * the visual pressed state below is the real feedback, never the haptic.
+   * Fires a selection tap on press. Defaults ON: a Button is a discrete
+   * commitment, and 30 of the app's call sites — every destructive and every
+   * commit action among them — simply omitted the prop and shipped silent. The
+   * handful of places that must stay quiet pass `haptic={false}`.
+   *
+   * Note haptics silently no-op in Low Power Mode, when Taptic is disabled, and
+   * while a camera session is active — so the visual pressed state below is the
+   * real feedback, never the haptic.
    */
   haptic?: boolean;
   className?: string;
@@ -47,14 +74,17 @@ export function Button({
   title,
   variant = 'primary',
   loading = false,
-  haptic = false,
+  haptic = true,
   disabled,
   onPress,
+  onPressIn,
+  onPressOut,
   className = '',
   ...rest
 }: ButtonProps) {
   const theme = useTheme();
   const isDisabled = disabled || loading;
+  const press = usePressFeedback(!isDisabled);
 
   return (
     <Pressable
@@ -69,27 +99,40 @@ export function Button({
         }
         onPress?.(event);
       }}
+      onPressIn={(event) => {
+        press.onPressIn();
+        onPressIn?.(event);
+      }}
+      onPressOut={(event) => {
+        press.onPressOut();
+        onPressOut?.(event);
+      }}
       style={{ minHeight: MIN_TAP_TARGET }}
-      // NativeWind types `className` as a string, so the `({ pressed }) => ...`
-      // callback form that plain RN Pressable accepts does not apply here.
-      // The `active:` variant is NativeWind's equivalent and maps to pressed.
+      // Layout, padding and the caller's own classes stay here so `px-0`,
+      // `px-6`, `flex-1` and `self-*` keep behaving exactly as they always did.
+      // Only the paint moved onto the animated layers below.
       className={[
-        // rounded-md, not a capsule: pills belong to the glass chrome layer.
-        'flex-row items-center justify-center rounded-md px-5 active:opacity-70',
-        container[variant],
+        'flex-row items-center justify-center rounded-md px-5',
         isDisabled ? 'opacity-40' : '',
         className,
       ].join(' ')}
       {...rest}>
-      {loading ? (
-        <ActivityIndicator size="small" color={theme[labelKey[variant]]} />
-      ) : (
-        <View className="flex-row items-center gap-2">
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, ground(variant, theme), press.style]}
+      />
+      {/* The label rides the same shared value as the ground, so the pill and
+          what is written on it compress as one object rather than sliding
+          against each other. */}
+      <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8 }, press.style]}>
+        {loading ? (
+          <ActivityIndicator size="small" color={theme[labelKey[variant]]} />
+        ) : (
           <Text variant="body" className="font-semibold" style={{ color: theme[labelKey[variant]] }}>
             {title}
           </Text>
-        </View>
-      )}
+        )}
+      </Animated.View>
     </Pressable>
   );
 }

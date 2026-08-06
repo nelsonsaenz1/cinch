@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 // Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
 // `ErrorState` the title/body/retry sibling of `EmptyState`.
 import { ErrorState } from '@/components/ui/error-state';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
@@ -73,24 +74,27 @@ function whenLine(event: EventDetail): string {
  * cannot be reached from outside either. What this does share is the house
  * radius: `rounded-md`, not the `rounded-full` this control used to carry
  * against `tailwind.config.js`'s "capsules are glass chrome only".
+ *
+ * Inert, and that is the whole point of it. "Going" used to be a button whose
+ * press opened "Leave this occasion?" — the most emphatic, most button-shaped
+ * thing on the page silently carried the one destructive action on it, which
+ * is a trap in both directions: nobody looking to leave would think to press
+ * the badge that says they are going, and anyone pressing it to see what it
+ * did got a leave prompt. Leaving now lives where the host's own exit lives,
+ * as a quiet `critical` link at the foot of the page.
  */
-function StatePill({ label, onPress }: { label: string; onPress?: () => void }) {
+function StatePill({ label }: { label: string }) {
   const theme = useTheme();
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
+    <View
+      accessibilityRole="text"
+      accessibilityLabel={`You are ${label.toLowerCase()}`}
       style={{ minHeight: MIN_TAP_TARGET }}
-      className={[
-        'flex-row items-center justify-center rounded-md bg-ink px-5',
-        onPress ? 'active:opacity-70' : '',
-      ].join(' ')}>
+      className="flex-row items-center justify-center rounded-md bg-ink px-5">
       <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
         {label}
       </Text>
-    </Pressable>
+    </View>
   );
 }
 
@@ -118,7 +122,7 @@ function NavRow({
       <View className="flex-1">
         <Text variant="body">{label}</Text>
         {hint ? (
-          <Text variant="caption" className="text-faint dark:text-faint-dark">
+          <Text variant="caption" className="text-muted dark:text-muted-dark">
             {hint}
           </Text>
         ) : null}
@@ -178,7 +182,6 @@ function DetailSkeleton() {
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const theme = useTheme();
   const session = useSession();
   const me = session.userId;
 
@@ -266,20 +269,10 @@ export default function EventDetailScreen() {
     Alert.alert(title, socialDenialCopy(error) ?? 'Check your connection and try again.');
 
   // Drawn in every branch, loading and failed included: a screen you cannot
-  // leave is the one state worse than a screen with nothing on it.
-  const backRow = (
-    <View className="flex-row items-center gap-3 px-gutter pt-2">
-      <Pressable
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        hitSlop={8}
-        className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
-        <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-      </Pressable>
-      <Text variant="colophon">Event</Text>
-    </View>
-  );
+  // leave is the one state worse than a screen with nothing on it. The header
+  // itself is now the shared `ScreenHeader` — same disc, same `hitSlop`, one
+  // copy of the accessibility contract instead of nine.
+  const backRow = <ScreenHeader align="leading" title="Event" />;
 
   if (eventQuery.isLoading) {
     return (
@@ -395,6 +388,24 @@ export default function EventDetailScreen() {
 
   const locked = openedAt >= event.startsAt.getTime();
 
+  /**
+   * Venue, reservation link and the map affordance — logistics, printed once
+   * and placed after the decision rather than in front of it (see the board
+   * comment below). Held in a const because the board has three branches and
+   * the venue belongs to two of them: it must survive a failed posts fetch,
+   * since a dropped board is exactly when someone is standing outside needing
+   * the address. Only the skeleton branch omits it, and that resolves.
+   */
+  const venueBlock = (
+    <View className="mt-6">
+      <VenueCard
+        venueName={event.venueName}
+        venueAddress={event.venueAddress}
+        reservationUrl={event.reservationUrl}
+      />
+    </View>
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
       {backRow}
@@ -434,7 +445,7 @@ export default function EventDetailScreen() {
                 />
               </>
             ) : event.myState === 'joined' ? (
-              <StatePill label="Going" onPress={confirmLeave} />
+              <StatePill label="Going" />
             ) : event.myState === 'invited' ? (
               <>
                 {/* The one accent on this screen: an invitee has exactly one
@@ -468,35 +479,37 @@ export default function EventDetailScreen() {
           </View>
         )}
         {!isMember && event.myState === 'invited' ? (
-          <Text variant="caption" className="mt-3 text-faint dark:text-faint-dark">
+          <Text variant="caption" className="mt-3 text-muted dark:text-muted-dark">
             Joining puts it on your Plan — and shows you where and when.
           </Text>
         ) : null}
 
         {isMember ? (
           <>
-            <View className="mt-7">
-              <VenueCard
-                venueName={event.venueName}
-                venueAddress={event.venueAddress}
-                reservationUrl={event.reservationUrl}
-              />
-            </View>
-
-            {/* ── The board, composed onto this page ─────────────────────── */}
+            {/* ── The board, composed onto this page ───────────────────────
+                RSVP row straight into YOUR LOOK, per the approved frame
+                (02-event). The venue card used to sit here, ~90pt of logistics
+                between the decision and the thing being decided, which on a
+                6.1" pushed the blush card — the whole point of the social
+                layer — under the fold. It is not deleted (it carries the
+                reservation-URL affordance) and the venue facts are already in
+                the metadata line above; it simply follows the group note. */}
             {posts.isError ? (
-              <View className="mt-7 rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark">
-                <Text variant="body">The looks didn’t load</Text>
-                <Text variant="caption" className="mt-1.5">
-                  Nobody’s board is lost — the connection dropped on the way.
-                </Text>
-                <Button
-                  title="Try again"
-                  variant="secondary"
-                  onPress={() => void posts.refetch()}
-                  className="mt-4 self-start"
-                />
-              </View>
+              // `-mx-gutter` because `ErrorState compact` sets its own gutter
+              // and this scroll container already has one — the same
+              // gutterless trick `packing-trip.tsx` uses.
+              <>
+                <View className="-mx-gutter mt-4">
+                  <ErrorState
+                    compact
+                    title="The looks didn’t load"
+                    body="Nobody’s board is lost — the connection dropped on the way."
+                    onRetry={() => void posts.refetch()}
+                    retrying={posts.isRefetching}
+                  />
+                </View>
+                {venueBlock}
+              </>
             ) : posts.isLoading ? (
               <View className="mt-7" accessibilityLabel="Reading the board">
                 <Skeleton className="h-44 w-full rounded-plate" />
@@ -550,10 +563,16 @@ export default function EventDetailScreen() {
                     guide puts under this grid. Computed from what is actually
                     on the board, and absent when there is nothing true. */}
                 {groupNote ? (
+                  // `body` (17), not `callout` (16): this is the stylist
+                  // speaking, and every other sentence the stylist says on a
+                  // page sits at 17. The half-step down read as a caption for
+                  // the grid above rather than a line of its own.
                   <View className="mt-4 rounded-plate bg-tray p-4">
-                    <Text variant="callout">{groupNote}</Text>
+                    <Text variant="body">{groupNote}</Text>
                   </View>
                 ) : null}
+
+                {venueBlock}
 
                 <View className="mt-6">
                   <NavRow
@@ -573,20 +592,19 @@ export default function EventDetailScreen() {
             <View className="mt-8 flex-row items-baseline justify-between">
               <Text variant="eyebrow">The guests</Text>
               {members.isError ? null : (
-                <Text variant="label" className="text-faint dark:text-faint-dark">
+                <Text variant="label" className="text-muted dark:text-muted-dark">
                   {joinedCount} going
                 </Text>
               )}
             </View>
             {members.isError ? (
-              <View className="mt-2 flex-row items-baseline justify-between gap-3">
-                <Text variant="body" className="flex-1 text-muted dark:text-muted-dark">
-                  The guest list didn’t load.
-                </Text>
-                <Button
-                  title="Try again"
-                  variant="ghost"
-                  onPress={() => void members.refetch()}
+              <View className="-mx-gutter">
+                <ErrorState
+                  compact
+                  title="The guest list didn’t load"
+                  body="This is a connection problem, not a change to who is coming."
+                  onRetry={() => void members.refetch()}
+                  retrying={members.isRefetching}
                 />
               </View>
             ) : members.isLoading ? (
@@ -624,6 +642,9 @@ export default function EventDetailScreen() {
           </Text>
         )}
 
+        {/* The page's one destructive line, in the place a destructive line
+            belongs: the foot, quiet, in `critical`. The host cancels; everyone
+            else leaves. Neither is ever the biggest control on the screen. */}
         {!event.canceledAt && event.isHost ? (
           <Pressable
             onPress={confirmCancel}
@@ -633,6 +654,18 @@ export default function EventDetailScreen() {
             className="mt-10 self-start active:opacity-60">
             <Text variant="label" className="text-critical dark:text-critical">
               Cancel this occasion
+            </Text>
+          </Pressable>
+        ) : null}
+        {!event.canceledAt && !event.isHost && event.myState === 'joined' ? (
+          <Pressable
+            onPress={confirmLeave}
+            accessibilityRole="button"
+            accessibilityLabel="Leave this occasion"
+            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+            className="mt-10 self-start active:opacity-60">
+            <Text variant="label" className="text-critical dark:text-critical">
+              Leave this occasion
             </Text>
           </Pressable>
         ) : null}

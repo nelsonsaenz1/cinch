@@ -10,6 +10,7 @@ import {
   type ComposedAsk,
   type EntryKey,
   type Step,
+  type StepKey,
 } from './questionnaire';
 
 /**
@@ -118,12 +119,30 @@ export function useQuestionnaire({
   /** The escape hatch, offered at every step. Answers so far are discarded. */
   const cancel = useCallback(() => commit(null), [commit]);
 
+  /**
+   * Undo the most recent answer and re-ask its question.
+   *
+   * Mirrors `use-trip-questionnaire.ts:93-95`'s `back`, but this flow has no
+   * index to decrement — position is derived from `transcript.length` — so
+   * going back means popping the last turn and forgetting the answer it
+   * recorded, which is exactly what re-showing that step needs to be true.
+   */
+  const back = useCallback(() => {
+    const current = runRef.current;
+    if (!current || !current.transcript.length) return;
+    const lastTurn = current.transcript[current.transcript.length - 1]!;
+    const answers = { ...current.answers };
+    delete answers[lastTurn.key as StepKey];
+    commit({ ...current, answers, transcript: current.transcript.slice(0, -1) });
+  }, [commit]);
+
   const step = run ? (run.steps[run.transcript.length] ?? null) : null;
 
   return {
     active: run !== null,
     step,
     transcript: run?.transcript ?? [],
+    canGoBack: (run?.transcript.length ?? 0) > 0,
     /**
      * Progress, counting the opening tap as the first step.
      *
@@ -140,6 +159,7 @@ export function useQuestionnaire({
     total: run ? run.steps.length + 1 : 0,
     start,
     answer,
+    back,
     cancel,
   };
 }

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Canvas,
   Group,
@@ -10,6 +11,7 @@ import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
+  LinearTransition,
   useAnimatedStyle,
   useDerivedValue,
   useReducedMotion,
@@ -35,7 +37,7 @@ import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
 import type { StyledOutfit } from '@/features/styling/use-outfits';
 import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
-import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
 
 /** Order pieces the way a look is read aloud: outer layers, then core, then feet. */
 const LAYOUT_ORDER: Garment['slot'][] = [
@@ -72,8 +74,8 @@ const TILE_RADIUS = 10;
  */
 const CONTACT = { dx: 0, dy: 5, blur: 11, color: 'rgba(28,26,22,0.16)' } as const;
 
-/** The stagger, in ms — piece n lands 60ms after piece n-1. */
-const landingDelay = (index: number) => 120 + index * 60;
+/** The stagger — piece n lands one `motion.stagger` after piece n-1. */
+const landingDelay = (index: number) => 120 + index * motion.stagger;
 
 /**
  * The look's palette, as the swatch dots the footer prints — the real garment
@@ -288,6 +290,47 @@ function GarmentStack({
 }
 
 /**
+ * Whether the "Hold to share" hint has done its job, cached for the session.
+ *
+ * The affordance is long-press only and otherwise reachable solely through
+ * `accessibilityHint`, so a sighted user has no way to learn it exists. Printed
+ * once, on the first plate, until the first successful share — after that the
+ * card carries no share chrome at all, which is the point.
+ */
+const SHARE_HINT_KEY = 'cinch.share.hint-retired';
+let shareHintRetired: boolean | null = null;
+
+function useShareHint(active: boolean) {
+  // Starts hidden: a hint that flashes in and then disappears once storage
+  // answers is worse than one that arrives a frame late. Once the module-level
+  // answer is known every later mount reads it straight from the initialiser.
+  const [retired, setRetired] = useState(() => shareHintRetired ?? true);
+
+  useEffect(() => {
+    if (!active || shareHintRetired !== null) return;
+    let cancelled = false;
+    void AsyncStorage.getItem(SHARE_HINT_KEY)
+      .then((v) => {
+        shareHintRetired = v === '1';
+        if (!cancelled) setRetired(shareHintRetired);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
+
+  const retire = useCallback(() => {
+    if (shareHintRetired) return;
+    shareHintRetired = true;
+    setRetired(true);
+    void AsyncStorage.setItem(SHARE_HINT_KEY, '1').catch(() => {});
+  }, []);
+
+  return { showHint: active && !retired, retire };
+}
+
+/**
  * The "I wore this" action. Not a `Button`: the design's worn state is an ink
  * FILL, and the shared button has no ink variant — so this is a small inline
  * pill in the same grammar as the reaction pills beside it. Light label colour
@@ -358,6 +401,7 @@ export function Plate({
   onReact,
   reacted,
   wearing,
+  wearFailed,
   worn,
   enhancing,
   offline = false,
@@ -373,6 +417,8 @@ export function Plate({
   onReact: (value: ReactionValue) => void;
   reacted?: ReactionValue | null;
   wearing?: boolean;
+  /** The wear write came back with an error and has not been retried. */
+  wearFailed?: boolean;
   worn?: boolean;
   /** The model is still working. Distinct from having given up on it. */
   enhancing?: boolean;
@@ -392,10 +438,15 @@ export function Plate({
   // reports ready, view-shot captures it, the system sheet opens. The card
   // unmounts when the sheet closes — it never stays resident.
   const [shareMounted, setShareMounted] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
   const shareView = useRef<View>(null);
+
+  // The long-press affordance, printed once on the day's first card.
+  const { showHint, retire } = useShareHint(index === 0 && !offline);
 
   const handleShare = useCallback(() => {
     if (shareMounted) return;
+    setShareFailed(false);
     // Rigid is the "snap" of the haptics vocabulary — the shutter.
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
     setShareMounted(true);
@@ -403,15 +454,17 @@ export function Plate({
 
   const handleCardReady = useCallback(() => {
     void sharePlate(shareView)
+      .then(() => retire())
       .catch((err) => {
         // The user felt the shutter haptic; going silent after it reads as a
-        // dead button. The error notification haptic is the honest answer —
-        // there is no toast layer to say more.
+        // dead button. The error haptic is the reflex; the line below the
+        // credits is the answer, because a haptic cannot say why.
         console.warn('[share] capture failed', err);
+        setShareFailed(true);
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       })
       .finally(() => setShareMounted(false));
-  }, []);
+  }, [retire]);
 
   const pieces = useMemo(
     () =>
@@ -433,7 +486,7 @@ export function Plate({
 
   return (
     <View className="mb-section px-gutter">
-      <View className="rounded-plate border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
+      <View className="rounded-plate border border-rule bg-surface p-3.5 dark:border-rule-dark dark:bg-surface-dark">
         {/* Long-press the visual → the 1080×1920 artifact. The share target is
             the card's editorial half only; the action pills below stay tappable
             and the card carries no share chrome of its own. */}
@@ -478,10 +531,26 @@ export function Plate({
                  to carry has nowhere to sit under overlapping pieces, so the
                  engine's own name for each garment is set once, in order, the
                  way a lookbook credits a shot. ── */}
-          <Text variant="caption" numberOfLines={2} className="mt-3">
-            {pieces.map(labelFor).join('  ·  ')}
-          </Text>
+          <View className="mt-2.5 flex-row items-baseline justify-between gap-3">
+            <Text variant="caption" numberOfLines={2} className="flex-1">
+              {pieces.map(labelFor).join(' · ')}
+            </Text>
+            {/* The only chrome the share flow ever gets, and it retires
+                itself: printed on the day's first card until the first
+                successful share, then never again. */}
+            {showHint ? <Text variant="colophon">Hold to share</Text> : null}
+          </View>
         </Pressable>
+
+        {shareFailed ? (
+          <Text
+            variant="caption"
+            className="mt-2"
+            accessibilityLiveRegion="polite"
+            style={{ color: theme.critical }}>
+            Couldn&rsquo;t make the image. Try again in a moment.
+          </Text>
+        ) : null}
 
         {!offline && outfit.swapNote ? (
           <View className="mt-3 flex-row gap-2 rounded-md border border-hairline p-3 dark:border-hairline-dark">
@@ -518,7 +587,7 @@ export function Plate({
                    that number too now — what they don't have is a look their
                    friends actually voted on, from a closet those friends can
                    see is real. ── */}
-            <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3 dark:border-rule-dark">
+            <View className="mt-3 flex-row items-center justify-between border-t border-rule pt-2.5 dark:border-rule-dark">
               <View className="flex-1 flex-row items-center gap-2">
                 <Text variant="eyebrow">Palette</Text>
                 <View className="flex-row items-center gap-1.5">
@@ -545,11 +614,52 @@ export function Plate({
               ) : null}
             </View>
 
-            {/* ── The three actions, as the design sets them: love, pass, worn. ── */}
-            <View className="mt-3.5 flex-row items-start gap-2">
-              <ReactionBar onReact={onReact} reacted={reacted} disabled={wearing} />
-              <WearButton worn={Boolean(worn)} wearing={Boolean(wearing)} onPress={onWear} />
-            </View>
+            {/* ── The three actions, as the design sets them: love, pass, worn.
+                   The bar owns the whole row so it can stand the wear action
+                   down while the reason chooser is open; `layout` carries the
+                   one height change that composition still allows. ── */}
+            <Animated.View
+              layout={reduced ? undefined : LinearTransition.springify()}
+              // Inline, not `mt-3.5`: NativeWind classes do not reach
+              // Reanimated components in this project.
+              style={{ marginTop: 14 }}>
+              <ReactionBar
+                onReact={onReact}
+                reacted={reacted}
+                disabled={wearing}
+                trailing={
+                  wearFailed ? null : (
+                    <WearButton worn={Boolean(worn)} wearing={Boolean(wearing)} onPress={onWear} />
+                  )
+                }
+              />
+              {/* A failed wear is the one thing on this card that must not go
+                  quiet: `wear_count` and cost-per-wear are the numbers the
+                  product is about. Full width, in the grammar the reaction
+                  bar's own failure used to use, so the retry is unmissable. */}
+              {wearFailed ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Wear not logged. Tap to try again."
+                  accessibilityLiveRegion="polite"
+                  onPress={() => {
+                    void Haptics.selectionAsync().catch(() => {});
+                    onWear();
+                  }}
+                  style={{ minHeight: MIN_TAP_TARGET - 4 }}
+                  className="mt-2 flex-row items-center justify-center gap-2 rounded-md border border-rule px-3 active:opacity-70">
+                  <SymbolView
+                    name="arrow.clockwise"
+                    size={14}
+                    tintColor={theme.critical}
+                    resizeMode="scaleAspectFit"
+                  />
+                  <Text variant="label" className="font-medium" style={{ color: theme.critical }}>
+                    Couldn&rsquo;t log — retry
+                  </Text>
+                </Pressable>
+              ) : null}
+            </Animated.View>
           </>
         )}
       </View>

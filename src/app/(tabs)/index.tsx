@@ -1,9 +1,10 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Plate } from '@/components/today/plate';
@@ -23,7 +24,7 @@ import { canGenerate, MIN_CLOSET_FOR_OUTFITS, useStyleProfile, useWardrobe } fro
 import { useOutfits } from '@/features/styling/use-outfits';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES, targetWarmth, type Garment, type WeatherContext } from '@/lib/styling';
 import { supabase } from '@/lib/supabase';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
 /** Stable identity for a candidate: the exact set of garments in it. */
 const idOf = (items: { id: string }[]) => items.map((g) => g.id).join('.');
@@ -248,7 +249,7 @@ function nothingWorksReason(items: Garment[], weather: WeatherContext | null): s
     return "Today calls for real warmth, and there's no coat or heavy layer in your closet yet.";
   }
 
-  return "Cinch couldn't build an outfit that holds together from what's in your closet right now. One more layer, or a pair of shoes, usually unlocks it.";
+  return "Cinch couldn't build an outfit that holds together from what's in your closet right now. One more layer, or a pair of shoes, usually fixes it.";
 }
 
 /**
@@ -375,6 +376,12 @@ export default function TodayScreen() {
   const [committedNote, setCommittedNote] = useState('');
   const [reactions, setReactions] = useState<Record<string, ReactionValue>>({});
   const [wornIds, setWornIds] = useState<Set<string>>(new Set());
+  // Wear, per outfit rather than per screen. `wear.isPending` is the mutation's
+  // global flag, so keying off it froze and spun every plate at once when one
+  // was tapped — and a failed write left no trace at all.
+  const [wearState, setWearState] = useState<Record<string, 'pending' | 'failed'>>({});
+  // An explicit pull-to-refresh that came back with nothing to show for itself.
+  const [refreshFailed, setRefreshFailed] = useState(false);
 
   const firstName = useFirstName();
 
@@ -434,7 +441,13 @@ export default function TodayScreen() {
   // when it errors (after its retry) the device could not reach the forecast,
   // and the outfits on screen are the local engine's set built from the
   // persisted closet — exactly "this morning's set". Never a faked flag.
-  const offline = weatherFailed && shown.length > 0;
+  //
+  // Deliberately NOT gated on `shown.length > 0` any more. It used to be, and
+  // an offline user whose local engine produced nothing fell through to
+  // "Nothing today feels right" — a claim about her wardrobe, made over a
+  // network failure. The network is tested first; when both hold, the banner
+  // runs above the card rather than the card standing alone.
+  const offline = weatherFailed;
 
   // What the looks are for — the user's own words first, else the day's first
   // calendar event. Carried into each plate's share artifact.
@@ -448,6 +461,14 @@ export default function TodayScreen() {
   const react = useReactToOutfit();
   const wear = useWearOutfit();
   const gate = useGate();
+
+  // The pull kicks off three fetches — the re-rank, the closet and the
+  // forecast — and the control used to retract when only the first of them
+  // settled, which read as "done" while two thirds of the page was still
+  // moving. `useIsFetching` is how the weather query is reached from here:
+  // it is owned by `useStyleContext`, which exposes no refetch flag.
+  const weatherFetching = useIsFetching({ queryKey: ['weather'] }) > 0;
+  const refreshing = outfits.isEnhancing || wardrobe.isRefetching || weatherFetching;
   // True only between an explicit pull-to-refresh and the next re-rank result.
   const userAskedRef = useRef(false);
 
@@ -494,9 +515,26 @@ export default function TodayScreen() {
       if (!outfit) return;
       const key = idOf(outfit.candidate.items);
 
+      // Same shape as `handleReact` above, and for the same reason: the write
+      // is an online-only command with no queue behind it, so the card has to
+      // be able to say "in flight", "done" and "never landed" as three
+      // different things. `wear_count` and cost-per-wear are the numbers the
+      // product is about — they must never diverge silently.
+      setWearState((prev) => ({ ...prev, [key]: 'pending' }));
+
       wear.mutate(
         { candidate: outfit.candidate, context, reasoning: outfit.reasoning },
-        { onSuccess: () => setWornIds((prev) => new Set(prev).add(key)) },
+        {
+          onSuccess: () => {
+            setWearState((prev) => {
+              const next = { ...prev };
+              delete next[key];
+              return next;
+            });
+            setWornIds((prev) => new Set(prev).add(key));
+          },
+          onError: () => setWearState((prev) => ({ ...prev, [key]: 'failed' })),
+        },
       );
     },
     [shown, context, wear],
@@ -508,6 +546,7 @@ export default function TodayScreen() {
     // someone who merely opened the tab — but a pull-to-refresh is an explicit
     // request for a fresh outfit, and refusing that one deserves an answer.
     userAskedRef.current = true;
+    setRefreshFailed(false);
     void qc.invalidateQueries({ queryKey: ['wardrobe'] });
     void qc.invalidateQueries({ queryKey: ['weather'] });
     // `refetch`, not an invalidation: the re-rank's key is content-derived
@@ -526,6 +565,10 @@ export default function TodayScreen() {
       // No onGranted retry — the local outfits are already up, and the next
       // refresh after an upgrade re-ranks naturally.
       if (denial) void gate.present(Placement.GenerateOutfitOverLimit);
+      // Anything else — an outage, a timeout — used to produce nothing at
+      // all: the spinner retracted and the same outfits sat there. An
+      // explicit request always gets an answer.
+      else setRefreshFailed(true);
     });
   }, [outfits.aiError, gate]);
 
@@ -535,9 +578,12 @@ export default function TodayScreen() {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
         <ReducedMasthead eyebrow={dayLine(cityLabel)} />
-        <View className="mt-6">
+        {/* Inline style, not `mt-6`: NativeWind's interop is registered for the
+            RN primitives only, so a className on a Reanimated component is
+            silently dropped. */}
+        <Animated.View exiting={FadeOut.duration(motion.duration.fast)} style={{ marginTop: 24 }}>
           <PlateSkeleton />
-        </View>
+        </Animated.View>
       </SafeAreaView>
     );
   }
@@ -653,11 +699,7 @@ export default function TodayScreen() {
         <ScrollView
           contentContainerClassName="pb-10"
           refreshControl={
-            <RefreshControl
-              refreshing={outfits.isEnhancing}
-              onRefresh={refresh}
-              tintColor={theme.muted}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
           }>
           {/* Said plainly and once, in ink, so it reads as a state of the whole
               screen rather than a per-card warning. */}
@@ -674,29 +716,41 @@ export default function TodayScreen() {
             <ReducedMasthead eyebrow={syncedLine(wardrobe.dataUpdatedAt)} />
           </View>
 
-          {/* Dimmed as one block: the set is real, but it is this morning's,
-              and so is the note under it. */}
-          <View className="mt-5" style={{ opacity: 0.62 }}>
-            {shown.map((outfit, i) => (
-              <Plate
-                key={idOf(outfit.candidate.items)}
-                outfit={outfit}
-                index={i}
-                occasion={occasion}
-                colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
-                resolveImage={resolve}
-                offline
-                onWear={() => handleWear(i)}
-                onReact={(value) => handleReact(i, value)}
-              />
-            ))}
+          {shown.length === 0 ? (
+            /* Offline AND nothing the local engine can build. The banner above
+               has already said the network is the reason the page is stale;
+               the card below is still the honest account of the wardrobe, and
+               the two together stop the app blaming the closet for the
+               connection. Not dimmed — the card is not a stale artifact, it is
+               a live reading of what is actually in the closet. */
+            <View className="mt-5">
+              <NothingWorks reason={nothingWorksReason(items, context.weather)} onRetry={refresh} />
+            </View>
+          ) : (
+            /* Dimmed as one block: the set is real, but it is this morning's,
+               and so is the note under it. */
+            <View className="mt-5" style={{ opacity: 0.62 }}>
+              {shown.map((outfit, i) => (
+                <Plate
+                  key={idOf(outfit.candidate.items)}
+                  outfit={outfit}
+                  index={i}
+                  occasion={occasion}
+                  colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
+                  resolveImage={resolve}
+                  offline
+                  onWear={() => handleWear(i)}
+                  onReact={(value) => handleReact(i, value)}
+                />
+              ))}
 
-            {/* The reactions are gone from the card because they cannot reach
-                the learner. Say what happens instead. */}
-            <Text variant="caption" className="px-gutter text-center">
-              Reactions will sync once you&rsquo;re back online.
-            </Text>
-          </View>
+              {/* The reactions are gone from the card because they cannot reach
+                  the learner. Say what happens instead. */}
+              <Text variant="caption" className="px-gutter text-center">
+                Reactions will sync once you&rsquo;re back online.
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     );
@@ -710,99 +764,143 @@ export default function TodayScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
-      <ScrollView
-        contentContainerClassName="pb-10"
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          <RefreshControl
-            refreshing={outfits.isEnhancing}
-            onRefresh={refresh}
-            tintColor={theme.muted}
-          />
-        }>
-        {nothingWorks ? (
-          <ReducedMasthead eyebrow={dayLine(cityLabel)} />
-        ) : (
-          <Masthead city={cityLabel} name={firstName} />
-        )}
-
-        <WeatherStrip
-          weather={context.weather}
-          events={context.events}
-          city={cityLabel}
-          usingFallbackLocation={usingFallbackLocation}
-          onEnableLocation={() => void requestLocation()}
-          calendarEnabled={calendarEnabled}
-          onConnectCalendar={() => void requestCalendar()}
-        />
-
-        {/* The plans note, set as the design's tray pill with a leading "+".
-            The multi-event differentiator, reachable without the calendar:
-            "dinner at 7 then drinks after" is the exact sentence the engine is
-            built for, and typing it must not require a permission grant. Clay,
-            not oxblood — the one spent accent stays reserved for a loved look. */}
-        {nothingWorks ? null : (
-          <View className="mx-gutter mt-4 flex-row items-center gap-2 rounded-md bg-tray px-3.5 py-2.5 dark:bg-tray-dark">
-            <SymbolView
-              name="plus"
-              size={15}
-              tintColor={theme.accentWarm}
-              resizeMode="scaleAspectFit"
-            />
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              onSubmitEditing={() => setCommittedNote(note.trim())}
-              onBlur={() => setCommittedNote(note.trim())}
-              returnKeyType="done"
-              placeholder="What's on today? Tell Cinch"
-              placeholderTextColor={theme.faint}
-              accessibilityLabel="Describe your plans today"
-              className="flex-1 font-body text-callout text-ink dark:text-ink-dark"
-            />
-          </View>
-        )}
-
-        <View className="mt-6">
+      {/* `style`, not `flex-1` — NativeWind classes do not reach Reanimated
+          components in this project. */}
+      <Animated.View entering={FadeIn.duration(motion.duration.base)} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerClassName="pb-10"
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
+          }>
           {nothingWorks ? (
-            <NothingWorks reason={nothingWorksReason(items, context.weather)} onRetry={refresh} />
+            <ReducedMasthead eyebrow={dayLine(cityLabel)} />
           ) : (
-            shown.map((outfit, i) => {
-              const key = idOf(outfit.candidate.items);
-              return (
-                <Plate
-                  key={key}
-                  outfit={outfit}
-                  index={i}
-                  occasion={occasion}
-                  colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
-                  resolveImage={resolve}
-                  reacted={reactions[key] ?? null}
-                  worn={wornIds.has(key)}
-                  wearing={wear.isPending}
-                  enhancing={outfits.isEnhancing}
-                  onWear={() => handleWear(i)}
-                  onReact={(value) => handleReact(i, value)}
-                />
-              );
-            })
+            <Masthead city={cityLabel} name={firstName} />
           )}
-        </View>
 
-        {/* Say plainly how much it has actually learned. Implying a rich taste
-            model after two taps is a promise the engine cannot keep. */}
-        {shown.length > 0 ? (
-          <View className="px-gutter pt-2">
-            <Text variant="label">
-              {feedbackCount < 8
-                ? `${8 - feedbackCount} more reactions and Cinch will start recognising your taste.`
-                : profile.summary.length
-                  ? `Learning from ${feedbackCount} reactions — it thinks you ${profile.summary[0]}.`
-                  : `Learning from ${feedbackCount} reactions.`}
+          <WeatherStrip
+            weather={context.weather}
+            events={context.events}
+            city={cityLabel}
+            usingFallbackLocation={usingFallbackLocation}
+            onEnableLocation={() => void requestLocation()}
+            calendarEnabled={calendarEnabled}
+            onConnectCalendar={() => void requestCalendar()}
+          />
+
+          {/* The plans note, set as the design's tray pill with a leading "+".
+              The multi-event differentiator, reachable without the calendar:
+              "dinner at 7 then drinks after" is the exact sentence the engine is
+              built for, and typing it must not require a permission grant. Clay,
+              not oxblood — the one spent accent stays reserved for a loved look. */}
+          {nothingWorks ? null : (
+            <>
+              <View className="mx-gutter mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5 py-2.5 dark:bg-tray-dark">
+                <SymbolView
+                  name="plus"
+                  size={15}
+                  tintColor={theme.accentWarm}
+                  resizeMode="scaleAspectFit"
+                />
+                <TextInput
+                  value={note}
+                  onChangeText={setNote}
+                  onSubmitEditing={() => setCommittedNote(note.trim())}
+                  onBlur={() => setCommittedNote(note.trim())}
+                  returnKeyType="done"
+                  placeholder="What's on today?"
+                  placeholderTextColor={theme.faint}
+                  accessibilityLabel="Describe your plans today"
+                  className="flex-1 font-body text-callout text-ink dark:text-ink-dark"
+                />
+              </View>
+
+              {/* The sentence went somewhere. Committing the note silently
+                  re-runs the whole engine, and the screen used to give no sign
+                  it had been read at all — the app's single most differentiating
+                  input felt inert. The × puts it back. */}
+              {committedNote ? (
+                <View
+                  className="mx-gutter mt-1.5 flex-row items-center gap-2"
+                  accessibilityLiveRegion="polite">
+                  <Text variant="caption" numberOfLines={2} className="flex-1">
+                    Styling for &ldquo;{committedNote}&rdquo;.
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setNote('');
+                      setCommittedNote('');
+                    }}
+                    hitSlop={14}
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear your plans for today"
+                    className="active:opacity-60">
+                    <SymbolView
+                      name="xmark"
+                      size={11}
+                      tintColor={theme.muted}
+                      resizeMode="scaleAspectFit"
+                    />
+                  </Pressable>
+                </View>
+              ) : null}
+            </>
+          )}
+
+          {/* An explicit pull always gets an answer, even when the answer is
+              that nothing changed. Gated on the error still standing, so a
+              re-rank that later comes back clean retires the line without
+              anyone having to remember to clear it. */}
+          {refreshFailed && outfits.aiError ? (
+            <Text variant="caption" className="mt-2 px-gutter" accessibilityLiveRegion="polite">
+              Couldn&rsquo;t refresh just now — these are still today&rsquo;s.
             </Text>
+          ) : null}
+
+          <View className="mt-4">
+            {nothingWorks ? (
+              <NothingWorks reason={nothingWorksReason(items, context.weather)} onRetry={refresh} />
+            ) : (
+              shown.map((outfit, i) => {
+                const key = idOf(outfit.candidate.items);
+                return (
+                  <Plate
+                    key={key}
+                    outfit={outfit}
+                    index={i}
+                    occasion={occasion}
+                    colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
+                    resolveImage={resolve}
+                    reacted={reactions[key] ?? null}
+                    worn={wornIds.has(key)}
+                    wearing={wearState[key] === 'pending'}
+                    wearFailed={wearState[key] === 'failed'}
+                    enhancing={outfits.isEnhancing}
+                    onWear={() => handleWear(i)}
+                    onReact={(value) => handleReact(i, value)}
+                  />
+                );
+              })
+            )}
           </View>
-        ) : null}
-      </ScrollView>
+
+          {/* Say plainly how much it has actually learned. Implying a rich taste
+              model after two taps is a promise the engine cannot keep. */}
+          {shown.length > 0 ? (
+            <View className="px-gutter pt-2">
+              <Text variant="label">
+                {feedbackCount < 8
+                  ? `${8 - feedbackCount} more reactions and Cinch will start recognising your taste.`
+                  : profile.summary.length
+                    ? `Learning from ${feedbackCount} reactions — it thinks you ${profile.summary[0]}.`
+                    : `Learning from ${feedbackCount} reactions.`}
+              </Text>
+            </View>
+          ) : null}
+        </ScrollView>
+      </Animated.View>
     </SafeAreaView>
   );
 }

@@ -7,6 +7,7 @@ import type {
   UserBlockRow,
 } from '@/features/social/db-rows';
 import { getUserId, supabase } from '@/lib/supabase';
+import { useDebouncedValue } from '@/lib/use-debounced-value';
 
 import {
   socialDb,
@@ -161,10 +162,13 @@ export function useFriendRequests() {
 export function useProfileSearch(rawQuery: string) {
   // "@dana" and "Dana " mean dana; prefix match is what a username field expects.
   const q = rawQuery.trim().replace(/^@/, '').toLowerCase();
+  // Debounce the query, not the render: the field updates every keystroke,
+  // the Supabase round trip waits for typing to pause.
+  const debouncedQ = useDebouncedValue(q, 200);
 
   return useQuery({
-    queryKey: ['profile-search', q],
-    enabled: q.length >= 2,
+    queryKey: ['profile-search', debouncedQ],
+    enabled: debouncedQ.length >= 2,
     queryFn: async (): Promise<SocialProfile[]> => {
       const userId = await getUserId();
       if (!userId) return [];
@@ -173,12 +177,12 @@ export function useProfileSearch(rawQuery: string) {
         supabase
           .from('public_profiles')
           .select('user_id, username, display_name, avatar_url')
-          .ilike('username', `${q}%`)
+          .ilike('username', `${debouncedQ}%`)
           .limit(10),
         socialDb
           .from('social_profiles')
           .select('user_id, username, display_name, avatar_url')
-          .ilike('username', `${q}%`)
+          .ilike('username', `${debouncedQ}%`)
           .limit(10),
       ]);
 

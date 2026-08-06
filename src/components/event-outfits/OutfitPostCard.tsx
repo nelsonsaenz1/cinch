@@ -1,7 +1,7 @@
 import { Canvas, Image as SkiaImage, Shadow, useImage } from '@shopify/react-native-skia';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ActionSheetIOS, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -19,6 +19,7 @@ import {
   type StackedPiece,
 } from '@/components/today/garment-cell';
 import { VotePill } from '@/components/event-outfits/VotePill';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { boardLeader, type AttendeeBoard, type PostedLook } from '@/features/event-outfits/types';
@@ -29,19 +30,6 @@ import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
 const CONTACT = { dx: 0, dy: 5, blur: 11, color: 'rgba(28,26,22,0.16)' } as const;
 
 const TILE_RADIUS = 10;
-
-/**
- * The YOUR LOOK card's blush treatment (founder-mocks §1b): rose-tinted sand
- * with a hairline rose border. Local literals, not theme tokens — this
- * surface exists on exactly one card in the app, and a token would invite it
- * elsewhere. Derived from accentWarm (#B08A76) over tray.
- *
- * They live here, beside the only component that paints them, rather than in
- * the screen that used to own the card: the card now appears on the event
- * detail page, and two copies of a colour is how a third one starts.
- */
-const BLUSH_SURFACE = '#F7EDE8';
-const BLUSH_BORDER = 'rgba(176,138,118,0.45)';
 
 type ResolveImage = (...paths: (string | null | undefined)[]) => string | undefined;
 
@@ -83,32 +71,6 @@ export function keyPieces(garments: Garment[], count = 3): Garment[] {
 }
 
 /**
- * Initials chip for an attendee. Sand fill, serif initials — the founder
- * mock's avatar grammar (initials on muted circles, never photos).
- */
-export function InitialAvatar({ name, size = 28 }: { name: string | null; size?: number }) {
-  const theme = useTheme();
-  const initials =
-    (name ?? '')
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase())
-      .join('') || '?';
-
-  return (
-    <View
-      accessibilityElementsHidden
-      className="items-center justify-center rounded-full bg-sand"
-      style={{ width: size, height: size }}>
-      <Text variant="caption" style={{ color: theme.accent }}>
-        {initials}
-      </Text>
-    </View>
-  );
-}
-
-/**
  * A row of small garment plates — the founder mock's swatch/triptych unit.
  * Flat plates on tray squares, never raw photos: the cutout (or its honest
  * colour swatch) inside a rounded tray cell, reusing `GarmentCell` so the
@@ -139,9 +101,9 @@ export function PlateTriptych({
 
 /**
  * The full composed look — the SAME geometry Today's plate prints, because a
- * posted look on the board and the plate she saw this morning must be the
- * same picture. Layout comes from `stackLayout`; this only draws. Static (no
- * landing choreography): the board is a reading surface, and the one bouncy
+ * posted look on the board and the plate seen this morning must be the same
+ * picture. Layout comes from `stackLayout`; this only draws. Static (no
+ * landing choreography): the board is a reading surface, and the one animated
  * moment on this screen belongs to the crown.
  */
 export function LookStack({
@@ -225,9 +187,15 @@ function PlateStackLayer({ piece, uri }: { piece: StackedPiece; uri?: string }) 
 }
 
 /**
- * The crown landing on the winning look — the screen's single `bouncy`
- * spring, per the one-bounce rule: an event, not a texture. accentWarm, not
- * oxblood — celebration, never a call to action.
+ * The crown landing on the winning look — an event, not a texture. accentWarm,
+ * not oxblood: celebration, never a call to action.
+ *
+ * `snappy`, not `bouncy`. tokens.ts is explicit that `bouncy` is spent EXACTLY
+ * ONCE in the app, on the final garment landing in Today's plate, and a second
+ * bounce is what turns the first one from a signature into a mannerism. The
+ * crown keeps everything that makes it an arrival — the 250ms delay, the
+ * scale-and-drop, the accentWarm tint — and lands on the control spring the
+ * rest of the app's discrete moments use.
  */
 function Crown() {
   const theme = useTheme();
@@ -236,7 +204,7 @@ function Crown() {
 
   useEffect(() => {
     if (reduced) return;
-    progress.value = withDelay(250, withSpring(1, spring.bouncy));
+    progress.value = withDelay(250, withSpring(1, spring.snappy));
   }, [progress, reduced]);
 
   const style = useAnimatedStyle(() => ({
@@ -305,21 +273,43 @@ export function OutfitPostCard({
   const name = lookName(look.garments, look.caption);
   const a11y = `${posterName ?? 'A friend'}'s look: ${lookDescriptor(look.garments)}`;
 
+  /**
+   * The overflow, as an action sheet rather than an `Alert` with buttons in it.
+   *
+   * `ActionSheetIOS` is what iOS itself uses for content overflow — it rises
+   * from the bottom, it can mark the destructive row red, and it costs no new
+   * dependency (RN ships it). An `Alert` is for a question; this is a list of
+   * things you can do to a look, which is a different grammar.
+   */
   const openMenu = () => {
-    const buttons: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [];
-    if (onReport) buttons.push({ text: 'Report', style: 'destructive', onPress: onReport });
+    const actions: { label: string; destructive: boolean; run: () => void }[] = [];
+    if (onReport) actions.push({ label: 'Report', destructive: true, run: onReport });
     if (onBlock) {
-      buttons.push({
-        text: posterName ? `Block ${posterName.split(/\s+/)[0]}` : 'Block her',
-        style: 'destructive',
-        onPress: onBlock,
+      actions.push({
+        label: posterName ? `Block ${posterName.split(/\s+/)[0]}` : 'Block this person',
+        destructive: true,
+        run: onBlock,
       });
     }
     if (onDelete) {
-      buttons.push({ text: 'Retire this look', style: 'destructive', onPress: onDelete });
+      actions.push({ label: 'Retire this look', destructive: true, run: onDelete });
     }
-    buttons.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert('This look', undefined, buttons);
+    if (actions.length === 0) return;
+
+    // One destructive index is all iOS will tint. Every row here ends
+    // something, so the tint goes to the one that ends the most: retiring the
+    // look outright when it is on offer, otherwise the block.
+    const destructiveLabel = onDelete ? 'Retire this look' : actions[0]?.label;
+
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title: 'This look',
+        options: [...actions.map((a) => a.label), 'Cancel'],
+        cancelButtonIndex: actions.length,
+        destructiveButtonIndex: actions.findIndex((a) => a.label === destructiveLabel),
+      },
+      (index) => actions[index]?.run(),
+    );
   };
 
   const hasMenu = Boolean(onReport || onBlock || onDelete);
@@ -327,11 +317,13 @@ export function OutfitPostCard({
   return (
     <View className="rounded-plate border border-rule bg-surface p-4">
       {crowned ? (
+        // The tint stays on the crown glyph, where it is a mark; the words
+        // stay in the colophon's own muted, where they are readable.
+        // accentWarm on 10px small-caps was 2.6:1 on surface — a celebration
+        // nobody with ordinary eyesight could actually read.
         <View className="mb-2 flex-row items-center gap-2">
           <Crown />
-          <Text variant="colophon" style={{ color: theme.accentWarm }}>
-            The look · Chosen by the table
-          </Text>
+          <Text variant="colophon">The look · Chosen by the table</Text>
         </View>
       ) : null}
 
@@ -431,7 +423,7 @@ export function AttendeeLookCard({
         ))}
       </View>
       <View className="mt-2.5 flex-row items-center gap-2">
-        <InitialAvatar name={attendeeName} size={24} />
+        <Avatar name={attendeeName} size={24} tone="accent" />
         <Text variant="label" numberOfLines={1} className="flex-1 text-ink">
           {firstName}
         </Text>
@@ -473,9 +465,14 @@ export function YourLookCard({
   const theme = useTheme();
 
   return (
+    // `theme.blush` / `theme.blushRule` — the two tokens that exist for exactly
+    // this card (tokens.ts: "one blush card per screen"). They carry the same
+    // values the local literals here used to, so this is a rename, not a
+    // repaint; what it buys is that the next surface tempted by rose-tinted
+    // sand has to reach for a documented token and read its rule first.
     <View
       className="rounded-plate p-4"
-      style={{ backgroundColor: BLUSH_SURFACE, borderColor: BLUSH_BORDER, borderWidth: 1 }}>
+      style={{ backgroundColor: theme.blush, borderColor: theme.blushRule, borderWidth: 1 }}>
       <Text variant="colophon" style={{ color: theme.accent }}>
         Your look
       </Text>

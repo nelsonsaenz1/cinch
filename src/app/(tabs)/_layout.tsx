@@ -18,15 +18,21 @@ import { dynamic } from '@/theme/tokens';
  * Four tabs, deliberately — and the fourth was argued for, not assumed. A
  * Stylist chat tab is the generic-AI tell and duplicates Today's job; it is a
  * sheet off Today (src/app/stylist.tsx), and Profile is the avatar in Today's
- * masthead (src/app/profile.tsx). Explore earns a place those two could not
+ * masthead (src/app/profile.tsx). The fourth earns a place those two could not
  * because it is the only *destination* in the app whose content changes
- * without the user doing anything: what her friends have added since she last
+ * without the user doing anything: what your friends have added since you last
  * looked. Buried behind the Friends screen it would be a page nobody knows
  * updated. Four is also still inside what the bar composes well — iOS allows
  * five before it collapses into "More", and each label stays a single short
  * word at 11px.
  *
- * `person.2` rather than a compass or a magnifying glass: this Explore is
+ * On the label: the route, the file and the `person.2` symbol are all named
+ * `explore` and stay that way, but the word under the icon is **Lately** —
+ * which is what the page has always called itself in its own title
+ * (explore.tsx) and what the charter's locked page inventory names. A tab
+ * whose word matches its page is a destination; one that doesn't is a mystery.
+ *
+ * `person.2` rather than a compass or a magnifying glass: this page is
  * emphatically not a public discovery feed (the projection behind it is
  * friends-only — see src/features/explore/queries.ts), and an icon that
  * promised strangers' closets would be promising something the security model
@@ -74,7 +80,7 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="explore">
         <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Lately</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

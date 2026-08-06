@@ -62,7 +62,14 @@ export function DayRow({
   // real, already-scored facts rather than inventing a title: the piece list
   // stands in for a name, and `explain` — the same sentence shown as
   // "reasoning" on the Today plate — stands in for the day's context.
-  const name = pieces.map((g) => g.subcategory ?? g.category).join(' · ');
+  // Capitalized to the approved frames' register ("Shirt · Skirt · Loafer"),
+  // matching the Today plate's labelFor — lowercase reads as debug output.
+  const name = pieces
+    .map((g) => {
+      const s = g.subcategory ?? g.category;
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    })
+    .join(' · ');
   const reasoning = day.outfit ? explain(day.outfit) : null;
 
   const a11yLabel = [
@@ -76,7 +83,7 @@ export function DayRow({
     .join('. ');
 
   const containerClassName = [
-    'flex-row items-center gap-3.5 px-gutter py-3.5',
+    'flex-row items-center gap-3.5 px-gutter py-5',
     isLast ? '' : 'border-b border-hairline dark:border-hairline-dark',
     onPlan ? 'active:opacity-60' : '',
   ].join(' ');
@@ -96,13 +103,11 @@ export function DayRow({
 
   const rowContent = (
     <>
-      <View style={{ width: 40 }}>
+      <View style={{ width: 42 }}>
         <Text variant="stat">{day.date.toLocaleDateString(undefined, { weekday: 'short' })}</Text>
         {day.weather ? (
           <View className="mt-0.5 flex-row items-center gap-1">
-            <Text variant="caption" className="text-faint dark:text-faint-dark">
-              {formatTemp(day.weather.feelsLikeC, units)}
-            </Text>
+            <Text variant="caption">{formatTemp(day.weather.feelsLikeC, units)}</Text>
             <SymbolView
               name={weatherSymbol(day.weather)}
               size={10}
@@ -143,14 +148,11 @@ export function DayRow({
       <View className="flex-1">
         {day.outfit ? (
           <>
-            <Text variant="body" numberOfLines={1}>
+            <Text variant="callout" numberOfLines={1}>
               {name}
             </Text>
             {reasoning ? (
-              <Text
-                variant="caption"
-                numberOfLines={1}
-                className="text-faint dark:text-faint-dark">
+              <Text variant="caption" numberOfLines={1} className="mt-0.5">
                 {reasoning}
               </Text>
             ) : null}

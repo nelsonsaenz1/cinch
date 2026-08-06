@@ -3,6 +3,7 @@ import { Alert, View } from 'react-native';
 import { ProfileRow } from '@/components/social/ProfileRow';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/empty-state';
+import { Rule } from '@/components/ui/rule';
 // Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `RowSkeleton`
 // lands alongside `Skeleton`'s export. Code against the contract.
 import { RowSkeleton } from '@/components/ui/skeleton';
@@ -88,7 +89,7 @@ export function BlockedList() {
         const name = row.profile ? profileName(row.profile) : 'A private member';
         return (
           <View key={row.userId}>
-            {i > 0 ? <View className="h-px bg-hairline" /> : null}
+            {i > 0 ? <Rule tone="hairline" /> : null}
             <ProfileRow
               profile={
                 row.profile ?? {

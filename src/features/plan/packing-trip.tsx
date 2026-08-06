@@ -197,7 +197,7 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
         accessibilityRole="button"
         accessibilityLabel="Answer the packing questions again"
         hitSlop={12}
-        className="mt-3 self-start">
+        className="mt-3 self-start active:opacity-60">
         <Text variant="label" className="underline">
           Start again
         </Text>

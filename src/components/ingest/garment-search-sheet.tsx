@@ -108,7 +108,7 @@ export function GarmentSearchSheet({
             accessibilityLabel="Close"
             hitSlop={12}
             onPress={onClose}
-            className="py-1">
+            className="py-1 active:opacity-60">
             <Text variant="body" className="font-semibold">
               Close
             </Text>
@@ -183,7 +183,8 @@ export function GarmentSearchSheet({
                 accessibilityRole="button"
                 accessibilityLabel="Remove colour photo"
                 hitSlop={12}
-                onPress={flow.clearSwatch}>
+                onPress={flow.clearSwatch}
+                className="active:opacity-60">
                 <Text variant="label">Remove</Text>
               </Pressable>
             </View>

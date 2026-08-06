@@ -45,11 +45,20 @@ const variants: Record<Variant, string> = {
   callout: 'font-body text-callout text-ink',
   label: 'font-medium text-label text-muted',
   caption: 'font-medium text-caption text-muted',
-  // The tracked-out eyebrow, set in the lighter faint tone — the fashion-
-  // magazine signature.
-  eyebrow: 'font-medium text-eyebrow uppercase text-faint',
+  // The tracked-out eyebrow — the fashion-magazine signature.
+  //
+  // Set in `muted`, not `faint`. Both variants carry real, non-redundant
+  // content app-wide (a ScreenHeader title is the page's H1; a plate colophon
+  // is its temperature and cost per wear) at 10–13px, none of it "large text".
+  // `faint` on canvas is 3.52:1 — an AA failure on nearly every screen. `muted`
+  // is 5.46:1 and one step darker, not a new voice: tracking, casing and size
+  // are unchanged, so the quiet layer stays the quiet layer. Reserve `faint`
+  // for text genuinely redundant with an adjacent icon or duplicated on screen,
+  // and set it per-caller. A caller on a dark or accent ground overrides with
+  // inline `style`, never a second `text-*` class — see EventCard.tsx.
+  eyebrow: 'font-medium text-eyebrow uppercase text-muted',
   // The data line under a plate.
-  colophon: 'font-medium text-colophon uppercase text-faint',
+  colophon: 'font-medium text-colophon uppercase text-muted',
   // ── The serif data figures ────────────────────────────────────────────────
   // Three sizes, because the app needs three and was getting them by stacking a
   // second `text-*` class on top of `stat` — `variant="stat" className="text-

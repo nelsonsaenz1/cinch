@@ -1,15 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { InitialAvatar, OutfitPostCard } from '@/components/event-outfits/OutfitPostCard';
+import { OutfitPostCard } from '@/components/event-outfits/OutfitPostCard';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 // Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
 // `ErrorState` the title/body/retry sibling of `EmptyState`.
 import { ErrorState } from '@/components/ui/error-state';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
@@ -59,7 +61,7 @@ function BoardSkeleton() {
           </View>
           <View className="px-gutter pt-3">
             {/* The card width the bands actually scroll at. */}
-            <Skeleton className="h-72 rounded-plate" style={{ width: 300 }} />
+            <Skeleton className="h-72 rounded-plate" style={{ width: CARD_WIDTH }} />
           </View>
         </View>
       ))}
@@ -122,8 +124,23 @@ export default function EventOutfitBoardScreen() {
       userId === me ? 'You' : (map.get(userId) ?? null);
   }, [members.data, me]);
 
-  const { resolve } = useSignedUrls(
+  const { urls } = useSignedUrls(
     looks.flatMap((l) => l.garments.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath])),
+  );
+
+  /**
+   * `useSignedUrls` builds a fresh `resolve` closure on every render, which
+   * would quietly defeat `BoardBand`'s memo on the heaviest screen in the app
+   * — every band draws Skia canvases. The hook itself is protected and not
+   * this screen's to change, so the stable identity is made here over the URL
+   * map it already exposes: the same lookup, re-created only when the map is.
+   */
+  const resolveImage = useCallback(
+    (...paths: (string | null | undefined)[]): string | undefined => {
+      for (const path of paths) if (path && urls[path]) return urls[path];
+      return undefined;
+    },
+    [urls],
   );
 
   // Boards ordered: mine first, then roster order, then any stray poster.
@@ -136,134 +153,175 @@ export default function EventOutfitBoardScreen() {
     });
   }, [boards, members.data, me]);
 
-  const commentCountFor = (postId: string) =>
-    (comments.data ?? []).filter((c) => c.postId === postId && !c.hidden).length;
+  // One pass over the thread instead of one filter per card: with a dozen
+  // looks on the page the old `commentCountFor` walked the whole comment list
+  // a dozen times on every render, and every realtime invalidation is a
+  // render. Same for the voter names below.
+  const commentCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of comments.data ?? []) {
+      if (c.hidden) continue;
+      counts.set(c.postId ?? '', (counts.get(c.postId ?? '') ?? 0) + 1);
+    }
+    return counts;
+  }, [comments.data]);
+
+  const commentCountFor = useCallback(
+    (postId: string) => commentCounts.get(postId) ?? 0,
+    [commentCounts],
+  );
 
   // Signed picks by first name — "Picked by Dana, Maria". A voter the roster
   // query can't name (removed member) is dropped rather than shown as a blank.
-  const voterNamesFor = (look: PostedLook): string[] =>
-    look.voterIds
-      .map((v) => nameOf(v))
-      .filter((n): n is string => Boolean(n))
-      .map((n) => n.split(/\s+/)[0]);
+  const voterNames = useMemo(() => {
+    const names = new Map<string, string[]>();
+    for (const look of looks) {
+      names.set(
+        look.id,
+        look.voterIds
+          .map((v) => nameOf(v))
+          .filter((n): n is string => Boolean(n))
+          .map((n) => n.split(/\s+/)[0]!),
+      );
+    }
+    return names;
+  }, [looks, nameOf]);
+
+  const voterNamesFor = useCallback(
+    (look: PostedLook): string[] => voterNames.get(look.id) ?? [],
+    [voterNames],
+  );
 
   const goPost = () =>
     router.push({ pathname: '/event/[id]/post', params: { id: eventId ?? '' } });
-  const goComments = (postId?: string) =>
-    router.push({
-      pathname: '/event/[id]/comments',
-      params: postId ? { id: eventId ?? '', post: postId } : { id: eventId ?? '' },
-    });
+  // The handlers below are `useCallback`s so `BoardBand`'s memo can hold —
+  // rebuilt on every render they would make it a no-op. Each depends only on
+  // the mutation object (stable across renders) and the event id.
+  const goComments = useCallback(
+    (postId?: string) =>
+      router.push({
+        pathname: '/event/[id]/comments',
+        params: postId ? { id: eventId ?? '', post: postId } : { id: eventId ?? '' },
+      }),
+    [router, eventId],
+  );
 
-  const toggleVote = (look: PostedLook) => {
-    if (!eventId) return;
-    const opts = {
-      onError: (error: unknown) =>
-        Alert.alert('That pick didn’t land', socialErrorMessage(error)),
-    };
-    if (myVote.data?.postId === look.id) {
-      retractVote.mutate({ eventId }, opts);
-    } else {
-      castVote.mutate({ eventId, postId: look.id }, opts);
-    }
-  };
+  const toggleVote = useCallback(
+    (look: PostedLook) => {
+      if (!eventId) return;
+      const opts = {
+        onError: (error: unknown) =>
+          Alert.alert('That pick didn’t land', socialErrorMessage(error)),
+      };
+      if (myVote.data?.postId === look.id) {
+        retractVote.mutate({ eventId }, opts);
+      } else {
+        castVote.mutate({ eventId, postId: look.id }, opts);
+      }
+    },
+    [eventId, myVote.data?.postId, retractVote, castVote],
+  );
 
-  const confirmDelete = (look: PostedLook) => {
-    if (!eventId) return;
-    Alert.alert('Retire this look?', 'Its picks and comments go with it.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Retire',
-        style: 'destructive',
-        onPress: () =>
-          deletePost.mutate(
-            { eventId, postId: look.id },
-            {
-              onError: (error) => Alert.alert('That didn’t work', socialErrorMessage(error)),
-            },
-          ),
-      },
-    ]);
-  };
+  const confirmDelete = useCallback(
+    (look: PostedLook) => {
+      if (!eventId) return;
+      Alert.alert('Retire this look?', 'Its picks and comments go with it.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Retire',
+          style: 'destructive',
+          onPress: () =>
+            deletePost.mutate(
+              { eventId, postId: look.id },
+              {
+                onError: (error) => Alert.alert('That didn’t work', socialErrorMessage(error)),
+              },
+            ),
+        },
+      ]);
+    },
+    [eventId, deletePost],
+  );
 
   /**
    * Report a look. Same two-step Alert the comment thread uses — reason first,
    * then a plain thank-you — and silent to its author, like every report in
-   * the app. The board does not change underneath her: a reported look is for
-   * the operator to judge, and a woman who wants it gone from her own screen
-   * has Block in the same menu.
+   * the app. The board does not change underneath the reporter: a reported
+   * look is for the operator to judge, and anyone who wants it gone from their
+   * own screen has Block in the same menu.
+   *
+   * The thank-you promises review, not a deadline. "Reviewed within 24 hours"
+   * is an SLA nobody committed to operationally, and a promise the app cannot
+   * keep is worse than no promise on the one surface whose entire value is
+   * being believed.
    */
-  const reportLook = (look: PostedLook) => {
-    Alert.alert('Report this look', 'What’s wrong with it?', [
-      ...REPORT_REASONS.map((reason) => ({
-        text: reason,
-        onPress: () =>
-          report.mutate(
-            {
-              subject: 'outfit_post' as const,
-              subjectId: look.id,
-              subjectUserId: look.userId,
-              reason,
-            },
-            {
-              onSuccess: () =>
-                Alert.alert('Thank you', 'Reports are reviewed within 24 hours.'),
-              onError: (error: unknown) =>
-                Alert.alert('That didn’t go through', socialErrorMessage(error)),
-            },
-          ),
-      })),
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
-  };
+  const reportLook = useCallback(
+    (look: PostedLook) => {
+      Alert.alert('Report this look', 'What’s wrong with it?', [
+        ...REPORT_REASONS.map((reason) => ({
+          text: reason,
+          onPress: () =>
+            report.mutate(
+              {
+                subject: 'outfit_post' as const,
+                subjectId: look.id,
+                subjectUserId: look.userId,
+                reason,
+              },
+              {
+                onSuccess: () => Alert.alert('Thank you', 'Every report is reviewed.'),
+                onError: (error: unknown) =>
+                  Alert.alert('That didn’t go through', socialErrorMessage(error)),
+              },
+            ),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
+    },
+    [report],
+  );
 
   /**
    * Block from the board. Account-level, not event-level: the words say so
-   * before the button, because "block" here reaches every screen she appears
-   * on, not just this one. Her looks, picks and words leave this event too —
-   * RLS decides that, not this screen; the invalidations inside the hook are
-   * only the board catching up with what is already true.
+   * before the button, because "block" here reaches every screen that person
+   * appears on, not just this one. Their looks, picks and words leave this
+   * event too — RLS decides that, not this screen; the invalidations inside
+   * the hook are only the board catching up with what is already true.
    */
-  const confirmBlock = (look: PostedLook) => {
-    const who = nameOf(look.userId) ?? 'this person';
-    Alert.alert(
-      `Block ${who}`,
-      'Her looks, picks and comments leave your board — here and everywhere else in Cinch. She won’t be told.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Block',
-          style: 'destructive',
-          onPress: () =>
-            block.mutate(
-              { userId: look.userId },
-              {
-                onError: (error: unknown) =>
-                  Alert.alert('That didn’t work', socialErrorMessage(error)),
-              },
-            ),
-        },
-      ],
-    );
-  };
-
-  const votePendingFor = (postId: string) =>
-    (castVote.isPending && castVote.variables?.postId === postId) ||
-    (retractVote.isPending && myVote.data?.postId === postId);
-
-  const backRow = (
-    <View className="flex-row items-center gap-3 px-gutter pt-2">
-      <Pressable
-        onPress={() => router.back()}
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        hitSlop={8}
-        className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
-        <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-      </Pressable>
-      <Text variant="colophon">Event</Text>
-    </View>
+  const confirmBlock = useCallback(
+    (look: PostedLook) => {
+      const who = nameOf(look.userId) ?? 'this person';
+      Alert.alert(
+        `Block ${who}`,
+        'Their looks, picks and comments leave your board — here and everywhere else in Cinch. They won’t be told.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Block',
+            style: 'destructive',
+            onPress: () =>
+              block.mutate(
+                { userId: look.userId },
+                {
+                  onError: (error: unknown) =>
+                    Alert.alert('That didn’t work', socialErrorMessage(error)),
+                },
+              ),
+          },
+        ],
+      );
+    },
+    [nameOf, block],
   );
+
+  const votePendingFor = useCallback(
+    (postId: string) =>
+      (castVote.isPending && castVote.variables?.postId === postId) ||
+      (retractVote.isPending && myVote.data?.postId === postId),
+    [castVote.isPending, castVote.variables?.postId, retractVote.isPending, myVote.data?.postId],
+  );
+
+  const backRow = <ScreenHeader align="leading" title="Event" />;
 
   // A failed fetch is not an empty board and not a deleted event. Both of
   // those had one branch here, and it read as "nobody has posted a look yet"
@@ -363,7 +421,7 @@ export default function EventOutfitBoardScreen() {
               myVotePostId={myVote.data?.postId ?? null}
               isHost={detail.isHost}
               me={me}
-              resolveImage={resolve}
+              resolveImage={resolveImage}
               commentCountFor={commentCountFor}
               voterNamesFor={voterNamesFor}
               onToggleVote={toggleVote}
@@ -396,13 +454,22 @@ export default function EventOutfitBoardScreen() {
   );
 }
 
+/** The card width the rail scrolls at, and the gap between two of them. */
+const CARD_WIDTH = 300;
+const CARD_GAP = 12;
+
 /**
- * One attendee's band: her name and state, then her options side by side.
+ * One attendee's band: their name and state, then their options side by side.
  * Pre-lock a member with no looks is "still deciding" — a state, not a
- * deficiency — and post-lock she simply has no band (absence gets no
+ * deficiency — and post-lock they simply have no band (absence gets no
  * spotlight, product-spec §5).
+ *
+ * Memoized because this screen re-renders on every realtime invalidation and
+ * every vote, and each band draws a Skia canvas per look. The screen passes
+ * `useCallback`ed handlers and a `urls`-keyed `resolveImage` precisely so this
+ * holds; adding an inline arrow at the call site silently turns it off again.
  */
-function BoardBand({
+const BoardBand = memo(function BoardBand({
   board,
   name,
   isMineBoard,
@@ -448,19 +515,27 @@ function BoardBand({
   return (
     <View className="mt-8">
       <View className="flex-row items-center gap-2.5 px-gutter">
-        <InitialAvatar name={isMineBoard ? 'You' : name} size={24} />
+        <Avatar name={isMineBoard ? 'You' : name} size={24} tone="accent" />
         <Text variant="heading" className="flex-1" numberOfLines={1}>
           {displayName}
         </Text>
         <Text variant="colophon">{stateLine}</Text>
       </View>
 
+      {/* The rail snaps. These are the options a person is choosing between,
+          one card at a time — a free-scrolling rail leaves two half-cards on
+          screen and no card being considered. `start` alignment plus the
+          gutter-sized inset keeps the settled card on the page's own margin,
+          so a snapped rail reads as a page turning, not a carousel. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        snapToInterval={CARD_WIDTH + CARD_GAP}
+        snapToAlignment="start"
+        decelerationRate="fast"
         contentContainerClassName="gap-3 px-gutter pt-3">
         {board.looks.map((look) => (
-          <View key={look.id} style={{ width: 300 }}>
+          <View key={look.id} style={{ width: CARD_WIDTH }}>
             <OutfitPostCard
               look={look}
               posterName={name}
@@ -473,8 +548,8 @@ function BoardBand({
               resolveImage={resolveImage}
               onToggleVote={() => onToggleVote(look)}
               // Report and block are for other people's looks only; retiring
-              // is the owner's or the host's. A woman's own card therefore
-              // still carries a ⋯ — with one item in it.
+              // is the owner's or the host's. Your own card therefore still
+              // carries a ⋯ — with one item in it.
               onReport={look.userId === me ? undefined : () => onReport(look)}
               onBlock={look.userId === me ? undefined : () => onBlock(look)}
               onDelete={look.userId === me || isHost ? () => onDelete(look) : undefined}
@@ -486,4 +561,4 @@ function BoardBand({
       </ScrollView>
     </View>
   );
-}
+});
