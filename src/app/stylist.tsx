@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MessageBubble } from '@/components/stylist/message-bubble';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
@@ -147,7 +149,7 @@ export default function StylistScreen() {
     summary: [],
   };
 
-  const { messages, ask, isSending } = useChat({ wardrobe: items, context, profile });
+  const { messages, ask, retry, isSending } = useChat({ wardrobe: items, context, profile });
 
   const scrollSoon = useCallback(() => {
     // Let the new bubble mount before scrolling to it.
@@ -217,7 +219,43 @@ export default function StylistScreen() {
 
   const showOpening = messages.length === 0 && !questionnaire.active;
 
-  if (!wardrobe.isLoading && !canGenerate(items)) {
+  // A failed wardrobe fetch is NOT an empty closet. Without this branch the
+  // screen fell through to "add about ten pieces first" — telling a user with
+  // a full wardrobe to start photographing it again.
+  if (wardrobe.isError) {
+    return (
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
+        <StylistHeader />
+        <ErrorState
+          title="Your closet didn't load."
+          body="The stylist only answers with clothes you actually own, so it needs to read them first. Your closet hasn't changed — this is a connection problem."
+          onRetry={() => void wardrobe.refetch()}
+          retrying={wardrobe.isRefetching}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // The opening composition, before the wardrobe is in: greeting line, its
+  // subline, and the four doors — as bars, in their own places.
+  if (wardrobe.isLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
+        <StylistHeader />
+        <View accessibilityLabel="Reading your wardrobe" className="px-gutter pt-6">
+          <Skeleton className="h-6 w-44 rounded-chip" />
+          <Skeleton className="mt-4 h-3.5 w-4/5 rounded-chip" />
+          <View className="mt-7 gap-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-12 rounded-md" />
+            ))}
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!canGenerate(items)) {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
         <StylistHeader />
@@ -282,6 +320,10 @@ export default function StylistScreen() {
               onPressOutfit={() =>
                 router.canGoBack() ? router.back() : router.replace('/(tabs)')
               }
+              onRetry={() => {
+                retry(message.id);
+                scrollSoon();
+              }}
             />
           ))}
 

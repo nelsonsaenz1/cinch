@@ -119,8 +119,8 @@ export function ReviewCard({
   // Which row's editor is open, if any. Only one at a time — this is a "tap to
   // correct" affordance, not a form. Category and Price are the two fields this
   // card can actually patch (see `useVerifyItem`), so Colours and Details below
-  // render as plain read-outs — Edit label shown for visual parity with the
-  // handoff, but not wired to an editor.
+  // render as plain read-outs with no Edit affordance at all: a coloured "Edit"
+  // that does nothing reads as broken, which is worse than its absence.
   const [openEditor, setOpenEditor] = useState<'category' | 'price' | null>(null);
 
   /**
@@ -301,13 +301,11 @@ export function ReviewCard({
             </View>
 
             {/* Category / Colours / Details — a colophon label, the value
-                beneath it, an accent "Edit" affordance, and a hairline
-                divider between rows. Only Category's Edit opens a picker;
-                Colours and Details show the same affordance for visual
-                parity with the handoff but have nothing to patch yet. */}
+                beneath it, and a hairline divider between rows. The accent
+                "Edit" appears only on the rows that can actually be patched
+                (Category, Price); Colours and Details are read-outs. */}
             <ReviewRow
               label="Category"
-              editable
               expanded={openEditor === 'category'}
               onToggleEdit={() => setOpenEditor((cur) => (cur === 'category' ? null : 'category'))}
               expandedContent={
@@ -330,7 +328,7 @@ export function ReviewCard({
               </Text>
             </ReviewRow>
 
-            <ReviewRow label="Colours" editable>
+            <ReviewRow label="Colours">
               <View className="flex-row items-center gap-2">
                 {colours.map((c, i) =>
                   c.hex ? (
@@ -347,7 +345,7 @@ export function ReviewCard({
               </View>
             </ReviewRow>
 
-            <ReviewRow label="Details" editable>
+            <ReviewRow label="Details">
               <Text variant="callout" numberOfLines={2}>
                 {detailsValue}
               </Text>
@@ -358,7 +356,6 @@ export function ReviewCard({
                 optional: skipping it costs the user nothing but the number. */}
             <ReviewRow
               label="Price"
-              editable
               isLast
               expanded={openEditor === 'price'}
               onToggleEdit={() => setOpenEditor((cur) => (cur === 'price' ? null : 'price'))}
@@ -442,19 +439,16 @@ export function ReviewCard({
 
 /**
  * One Category/Colours/Details/Price row: a tracked colophon label, the value
- * beneath it, a hairline under all but the last row, and — when `editable`
- * is set — an accent "Edit" affordance matching the handoff. Where
- * `onToggleEdit` is also supplied (Category, Price), that affordance is a real
- * control that reveals `expandedContent` — a chip grid, or a field — in place.
- * Colours and Details have no backing edit callback — the review pipeline can
- * patch only category and price (see `useVerifyItem`) — so their "Edit" renders
- * as plain text: the same look as the handoff, without pretending a tap does
- * something it can't.
+ * beneath it, and a hairline under all but the last row. Supplying
+ * `onToggleEdit` (Category, Price) is what puts the accent "Edit" on the row —
+ * a real control that reveals `expandedContent` (a chip grid, or a field) in
+ * place. Rows without one (Colours, Details) carry no affordance at all: the
+ * review pipeline can patch only category and price (see `useVerifyItem`),
+ * and an "Edit" that a tap does nothing with reads as broken.
  */
 function ReviewRow({
   label,
   children,
-  editable = false,
   expanded = false,
   onToggleEdit,
   expandedContent,
@@ -462,7 +456,6 @@ function ReviewRow({
 }: {
   label: string;
   children: React.ReactNode;
-  editable?: boolean;
   expanded?: boolean;
   onToggleEdit?: () => void;
   expandedContent?: React.ReactNode;
@@ -475,7 +468,7 @@ function ReviewRow({
           <Text variant="colophon">{label}</Text>
           <View className="mt-1">{children}</View>
         </View>
-        {editable && onToggleEdit ? (
+        {onToggleEdit ? (
           <Pressable
             onPress={onToggleEdit}
             hitSlop={8}
@@ -486,13 +479,9 @@ function ReviewRow({
               {expanded ? 'Done' : 'Edit'}
             </Text>
           </Pressable>
-        ) : editable ? (
-          <Text variant="label" className="text-accent dark:text-accent-dark">
-            Edit
-          </Text>
         ) : null}
       </View>
-      {editable && onToggleEdit && expanded ? (
+      {onToggleEdit && expanded ? (
         <View className="mt-3 flex-row flex-wrap gap-1.5">{expandedContent}</View>
       ) : null}
     </View>
