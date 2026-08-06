@@ -32,8 +32,13 @@ const BAND_WIDTH = 60;
  * left-to-right on loop, echoing the handoff's `linear-gradient` shimmer
  * without pulling in a gradient library: two flat tones plus a Reanimated
  * `left` tween cover the same ground.
+ *
+ * Exported: this is the primitive the composed skeletons below are built from,
+ * and the one any screen with a shape of its own should build from too. It was
+ * module-private for a while, which is why 45 screens shipped a bare
+ * `ActivityIndicator` — the designed option was not reachable.
  */
-function Skeleton({ className = '', style, ...rest }: SkeletonProps) {
+export function Skeleton({ className = '', style, ...rest }: SkeletonProps) {
   const sweep = useSharedValue(0);
 
   useEffect(() => {
@@ -65,7 +70,7 @@ function Skeleton({ className = '', style, ...rest }: SkeletonProps) {
 }
 
 /** The small accent-tinted ring next to "Reading your wardrobe…". */
-function Spinner() {
+export function Spinner() {
   const theme = useTheme();
   const rotation = useSharedValue(0);
 
@@ -94,6 +99,23 @@ function Spinner() {
   );
 }
 
+/**
+ * The lead-in line above a skeleton — the ring plus a sentence saying what is
+ * being read. Optional, and deliberately so: it earns its place on a whole
+ * screen (Closet, Today) where the wait is the only thing happening, and gets
+ * in the way inside a card that already has a heading over it.
+ */
+export function SkeletonLead({ label }: { label: string }) {
+  return (
+    <View className="flex-row items-center gap-2.5 px-gutter pb-5 pt-4">
+      <Spinner />
+      <Text variant="body" className="text-muted dark:text-muted-dark">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 // The design varies each label bar's width for realism (70/55/65/60%); it's
 // still static per-slot, not data, so it stays a presentational-only skeleton.
 const LABEL_WIDTHS = ['70%', '55%', '65%', '60%'] as const;
@@ -102,16 +124,16 @@ const LABEL_WIDTHS = ['70%', '55%', '65%', '60%'] as const;
 export function ClosetGridSkeleton({ count = 6 }: { count?: number }) {
   return (
     <View accessibilityLabel="Loading your closet">
-      <View className="flex-row items-center gap-2.5 px-gutter pb-5 pt-4">
-        <Spinner />
-        <Text variant="body" className="text-muted dark:text-muted-dark">
-          Reading your wardrobe…
-        </Text>
-      </View>
+      <SkeletonLead label="Reading your wardrobe…" />
       <View className="flex-row flex-wrap px-gutter">
         {Array.from({ length: count }).map((_, i) => (
           <View key={i} className="w-1/2 p-1.5">
-            <Skeleton className="aspect-[3/4] w-full rounded-card" />
+            {/* Geometry tracks item-card.tsx L51 exactly — aspect-[4/5] and
+                rounded-lg, not the 3/4 + 20px this used to guess at. A
+                skeleton whose cell is a different shape from the cell that
+                replaces it makes the whole grid jump when data lands, which
+                reads as a bug rather than as content arriving. */}
+            <Skeleton className="aspect-[4/5] w-full rounded-lg" />
             <Skeleton
               className="mt-2 h-3 rounded-chip"
               style={{ width: LABEL_WIDTHS[i % LABEL_WIDTHS.length] }}
@@ -119,6 +141,123 @@ export function ClosetGridSkeleton({ count = 6 }: { count?: number }) {
           </View>
         ))}
       </View>
+    </View>
+  );
+}
+
+/**
+ * One list row: monogram disc, name, subtitle. Matches the anatomy shared by
+ * `RosterRow`, `ProfileRow` and the invite candidate rows — 32pt circle, two
+ * bars, hairline beneath.
+ */
+export function RowSkeleton({
+  avatar = true,
+  isLast = false,
+  width = '60%',
+}: {
+  /** Set false for rows that are text-only, e.g. a borrow thread. */
+  avatar?: boolean;
+  isLast?: boolean;
+  /** The primary bar's width. Vary it across a list so rows don't stripe. */
+  width?: `${number}%`;
+}) {
+  return (
+    <View
+      className={[
+        'flex-row items-center gap-3 py-2.5',
+        isLast ? '' : 'border-b border-hairline dark:border-hairline-dark',
+      ].join(' ')}
+      style={{ minHeight: 44 }}>
+      {avatar ? <Skeleton className="h-8 w-8 rounded-full" /> : null}
+      <View className="flex-1 gap-2">
+        <Skeleton className="h-3.5 rounded-chip" style={{ width }} />
+        <Skeleton className="h-2.5 w-1/3 rounded-chip" />
+      </View>
+    </View>
+  );
+}
+
+// Same reasoning as LABEL_WIDTHS: a column of identical bars reads as a
+// loading *graphic*, a ragged one reads as names about to arrive.
+const ROW_WIDTHS = ['62%', '48%', '70%', '54%', '66%'] as const;
+
+/**
+ * A list of `RowSkeleton`s in the gutter — friends, the guest list, borrow
+ * threads, blocked users. The replacement for the app's two other loading
+ * dialects: the bare `ActivityIndicator` and the bare sentence
+ * ("Reading your circle…"), neither of which says anything about the shape of
+ * what is coming.
+ */
+export function ListSkeleton({
+  count = 4,
+  avatar = true,
+  label,
+}: {
+  count?: number;
+  avatar?: boolean;
+  /** Renders the ring-and-sentence lead-in above the rows. */
+  label?: string;
+}) {
+  return (
+    <View accessibilityLabel={label ?? 'Loading'}>
+      {label ? <SkeletonLead label={label} /> : null}
+      <View className="px-gutter">
+        {Array.from({ length: count }).map((_, i) => (
+          <RowSkeleton
+            key={i}
+            avatar={avatar}
+            isLast={i === count - 1}
+            width={ROW_WIDTHS[i % ROW_WIDTHS.length]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The outfit plate, before it has an outfit — the shape of `plate.tsx`'s card
+ * (title row, reasoning, garment well, colophon, the ruled cost-per-wear
+ * footer) with every line of type replaced by a bar.
+ *
+ * Today spent every other state on a real composition and then fell back to a
+ * centred spinner for the one state the user sees every single morning. A
+ * plate-shaped wait tells her the plate is coming; a spinner tells her nothing
+ * and could just as well resolve into an error.
+ */
+export function PlateSkeleton({ count = 1 }: { count?: number }) {
+  return (
+    <View accessibilityLabel="Styling your day">
+      {Array.from({ length: count }).map((_, i) => (
+        <View key={i} className="mb-section px-gutter">
+          <View className="rounded-plate border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
+            {/* Title + the weather colophon opposite it. */}
+            <View className="flex-row items-baseline justify-between gap-3">
+              <Skeleton className="h-5 flex-1 rounded-chip" />
+              <Skeleton className="h-2.5 w-16 rounded-chip" />
+            </View>
+
+            {/* The two-line reasoning. */}
+            <View className="mt-3 gap-2">
+              <Skeleton className="h-3.5 w-full rounded-chip" />
+              <Skeleton className="h-3.5 w-4/5 rounded-chip" />
+            </View>
+
+            {/* The garment well. The stack it stands in for is taller than it
+                is wide, so the placeholder is too — a square here collapses
+                the card and the page reflows when the outfit lands. */}
+            <Skeleton className="mt-4 aspect-[5/4] w-full rounded-lg" />
+
+            <Skeleton className="mt-3 h-3 w-2/3 rounded-chip" />
+
+            {/* The ruled footer: label left, cost-per-wear figure right. */}
+            <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3 dark:border-rule-dark">
+              <Skeleton className="h-3.5 w-24 rounded-chip" />
+              <Skeleton className="h-4 w-14 rounded-chip" />
+            </View>
+          </View>
+        </View>
+      ))}
     </View>
   );
 }

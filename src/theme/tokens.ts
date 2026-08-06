@@ -28,6 +28,22 @@ export type ThemeColors = {
   accent: string;
   /** The second accent. Warm tan — used where blue would read as a link. */
   accentWarm: string;
+  /**
+   * The warm rose surface. Derived from `accentWarm` over `tray`, it marks the
+   * one card on a page that is *yours* — the "Your look" board on an event.
+   * Promoted out of `event/[id]/outfits.tsx`, where it lived as a local
+   * literal, so the shared-look grammar can spread without the hex spreading
+   * with it. Spend it as sparingly as the accent: one blush card per screen.
+   */
+  blush: string;
+  /** The hairline that belongs to `blush` — accentWarm at 45%, never `rule`. */
+  blushRule: string;
+  /**
+   * Warm ink at 40%. The one dimming value: sheet backdrops, and gradients
+   * over photography where a caption has to stay legible on any garment.
+   * Typed by hand in three places before this token existed.
+   */
+  scrim: string;
   positive: string;
   warning: string;
   critical: string;
@@ -49,6 +65,9 @@ const light: ThemeColors = {
   rule: 'rgba(28,26,22,0.12)',
   accent: '#6E2B2B',
   accentWarm: '#B08A76',
+  blush: '#F7EDE8',
+  blushRule: 'rgba(176,138,118,0.45)',
+  scrim: 'rgba(28,26,22,0.40)',
   positive: '#1A8754',
   warning: '#C58A2E',
   critical: '#8A2E28',
