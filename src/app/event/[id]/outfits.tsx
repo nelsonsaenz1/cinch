@@ -28,7 +28,16 @@ import {
 import { boardLeader, type AttendeeBoard, type PostedLook } from '@/features/event-outfits/types';
 import { useEvent, useEventMembers } from '@/features/events/queries';
 import { useEventChannel } from '@/features/events/use-event-channel';
+import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+
+/**
+ * The same four reasons the comment thread and the profile screen offer —
+ * the `content_reports.reason` column is free text, so the vocabulary is the
+ * client's to keep consistent, and a reviewer reading the queue should see one
+ * set of words whatever surface a report came from.
+ */
+const REPORT_REASONS = ['Harassment', 'Inappropriate content', 'Spam', 'Impersonation'] as const;
 
 /** "Fri 8 Aug, 7:30pm" — the mock's metadata line. */
 function whenLabel(d: Date): string {
@@ -93,6 +102,8 @@ export default function EventOutfitBoardScreen() {
   const castVote = useCastVote();
   const retractVote = useRetractVote();
   const deletePost = useDeletePost();
+  const report = useReportContent();
+  const block = useBlockUser();
 
   const detail = event.data;
   const looks = useMemo(() => posts.data?.looks ?? [], [posts.data]);
@@ -175,6 +186,67 @@ export default function EventOutfitBoardScreen() {
           ),
       },
     ]);
+  };
+
+  /**
+   * Report a look. Same two-step Alert the comment thread uses — reason first,
+   * then a plain thank-you — and silent to its author, like every report in
+   * the app. The board does not change underneath her: a reported look is for
+   * the operator to judge, and a woman who wants it gone from her own screen
+   * has Block in the same menu.
+   */
+  const reportLook = (look: PostedLook) => {
+    Alert.alert('Report this look', 'What’s wrong with it?', [
+      ...REPORT_REASONS.map((reason) => ({
+        text: reason,
+        onPress: () =>
+          report.mutate(
+            {
+              subject: 'outfit_post' as const,
+              subjectId: look.id,
+              subjectUserId: look.userId,
+              reason,
+            },
+            {
+              onSuccess: () =>
+                Alert.alert('Thank you', 'Reports are reviewed within 24 hours.'),
+              onError: (error: unknown) =>
+                Alert.alert('That didn’t go through', socialErrorMessage(error)),
+            },
+          ),
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  };
+
+  /**
+   * Block from the board. Account-level, not event-level: the words say so
+   * before the button, because "block" here reaches every screen she appears
+   * on, not just this one. Her looks, picks and words leave this event too —
+   * RLS decides that, not this screen; the invalidations inside the hook are
+   * only the board catching up with what is already true.
+   */
+  const confirmBlock = (look: PostedLook) => {
+    const who = nameOf(look.userId) ?? 'this person';
+    Alert.alert(
+      `Block ${who}`,
+      'Her looks, picks and comments leave your board — here and everywhere else in Cinch. She won’t be told.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: () =>
+            block.mutate(
+              { userId: look.userId },
+              {
+                onError: (error: unknown) =>
+                  Alert.alert('That didn’t work', socialErrorMessage(error)),
+              },
+            ),
+        },
+      ],
+    );
   };
 
   const votePendingFor = (postId: string) =>
@@ -297,6 +369,8 @@ export default function EventOutfitBoardScreen() {
               commentCountFor={commentCountFor}
               voterNamesFor={voterNamesFor}
               onToggleVote={toggleVote}
+              onReport={reportLook}
+              onBlock={confirmBlock}
               onDelete={confirmDelete}
               onOpenComments={goComments}
               votePendingFor={votePendingFor}
@@ -342,6 +416,8 @@ function BoardBand({
   commentCountFor,
   voterNamesFor,
   onToggleVote,
+  onReport,
+  onBlock,
   onDelete,
   onOpenComments,
   votePendingFor,
@@ -357,6 +433,8 @@ function BoardBand({
   commentCountFor: (postId: string) => number;
   voterNamesFor: (look: PostedLook) => string[];
   onToggleVote: (look: PostedLook) => void;
+  onReport: (look: PostedLook) => void;
+  onBlock: (look: PostedLook) => void;
   onDelete: (look: PostedLook) => void;
   onOpenComments: (postId: string) => void;
   votePendingFor: (postId: string) => boolean;
@@ -396,6 +474,11 @@ function BoardBand({
               votePending={votePendingFor(look.id)}
               resolveImage={resolveImage}
               onToggleVote={() => onToggleVote(look)}
+              // Report and block are for other people's looks only; retiring
+              // is the owner's or the host's. A woman's own card therefore
+              // still carries a ⋯ — with one item in it.
+              onReport={look.userId === me ? undefined : () => onReport(look)}
+              onBlock={look.userId === me ? undefined : () => onBlock(look)}
               onDelete={look.userId === me || isHost ? () => onDelete(look) : undefined}
               onOpenComments={() => onOpenComments(look.id)}
               commentCount={commentCountFor(look.id)}
