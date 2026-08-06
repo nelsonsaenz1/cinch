@@ -13,10 +13,25 @@ const STAGE_LABEL: Record<JobStage, string> = {
   preparing: 'Preparing',
   cutout: 'Cleaning…',
   uploading: 'Uploading',
-  tagging: 'Tagging',
+  // The word for "working out what this garment is". "Tagging" is our word for
+  // it, not anyone else's; this says what is happening.
+  tagging: 'Categorising…',
   done: 'Added ✓',
   failed: 'Failed',
 };
+
+/**
+ * What a thumbnail calls itself.
+ *
+ * The design's rail reads `Coat ✓ · Knit ✓ · Cleaning… · Queued · Queued` —
+ * finished pieces are NAMED, and only the ones still in flight fall back to
+ * their stage. A garment has no truthful name until the tagger has said what it
+ * is, so the name appears exactly when it becomes true and never before.
+ */
+function captionFor(job: UploadJob): string {
+  if (job.stage === 'done' && job.label) return `${job.label} ✓`;
+  return STAGE_LABEL[job.stage];
+}
 
 // Stages where work is actively moving — these thumbnails get the shimmer.
 const IN_FLIGHT: JobStage[] = ['preparing', 'cutout', 'uploading', 'tagging'];
@@ -59,7 +74,7 @@ function Thumb({ job }: { job: UploadJob }) {
   return (
     <View
       className="mr-2.5 w-[52px]"
-      accessibilityLabel={`${STAGE_LABEL[job.stage]}${failed && job.error ? `. ${job.error}` : ''}`}>
+      accessibilityLabel={`${captionFor(job)}${failed && job.error ? `. ${job.error}` : ''}`}>
       <View
         className={`overflow-hidden rounded ${queued ? 'border border-dashed border-rule' : ''}`}
         style={{ height: 64 }}>
@@ -79,7 +94,7 @@ function Thumb({ job }: { job: UploadJob }) {
         numberOfLines={1}
         className="mt-1 text-center"
         style={failed ? { color: theme.critical } : undefined}>
-        {STAGE_LABEL[job.stage]}
+        {captionFor(job)}
       </Text>
     </View>
   );

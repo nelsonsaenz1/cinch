@@ -12,6 +12,7 @@ import { Text } from '@/components/ui/text';
 import { ReviewCard } from '@/components/review/review-card';
 import { useReviewQueue } from '@/features/closet/queries';
 import { useVerifyItem } from '@/features/closet/mutations';
+import { describeGaps, gapsFor, isFullyTagged, partitionGaps } from '@/features/ingest/tag-gaps';
 import type { Item, ItemCategory } from '@/schemas/item';
 
 /**
@@ -137,6 +138,50 @@ export default function ReviewScreen() {
     [patchFor, resolve, unresolve, verify],
   );
 
+  /**
+   * Accept every garment the tagger answered completely, in one action.
+   *
+   * The instruction this serves: do not interrogate somebody about things the
+   * machine already got right. After a sixty-photo import most cards are a
+   * settled spec line and a "Looks right" — sixty gestures to say "yes" sixty
+   * times. This says it once, and leaves in the deck only the pieces that
+   * genuinely need a person: the ones `gapsFor` found a hole in.
+   *
+   * Sequential, not parallel: these are ordinary row updates and a burst of
+   * sixty concurrent ones is how a review session ends in a rate limit. A
+   * failure stops the run and puts the offending card back, exactly as a single
+   * confirm does — a bulk action that silently drops half its work would be
+   * worse than no bulk action.
+   */
+  const [confirmingAll, setConfirmingAll] = useState(false);
+
+  const confirmAllSettled = useCallback(
+    async (settled: Item[]) => {
+      setConfirmingAll(true);
+      setFailure(null);
+      try {
+        for (const it of settled) {
+          resolve(it.id);
+          try {
+            await verify.mutateAsync({ id: it.id, patch: patchFor(it) });
+            track('garment_reviewed', { corrected: false });
+          } catch (err) {
+            unresolve(it.id);
+            setFailure({
+              item: it,
+              message:
+                err instanceof Error ? err.message : 'Could not save that. Check your connection.',
+            });
+            return;
+          }
+        }
+      } finally {
+        setConfirmingAll(false);
+      }
+    },
+    [patchFor, resolve, unresolve, verify],
+  );
+
   // Only used to keep the end-of-deck copy honest — "these are ready to wear"
   // is a lie if half of them were deferred.
   const [skippedCount, setSkippedCount] = useState(0);
@@ -210,6 +255,25 @@ export default function ReviewScreen() {
   // of it have already been confirmed or skipped this sitting.
   const current = total - deck.length;
 
+  // What the tagger left unanswered on the card the user is looking at. Named
+  // above the deck rather than inside the card so the invitation to correct
+  // arrives BEFORE the eye reaches the spec rows, and so the card itself keeps
+  // the composition the design draws.
+  const top = deck[0];
+  const { askable, unfixable } = partitionGaps(top ? gapsFor(top) : []);
+  // One sentence, and which one depends on whether there is a control to point
+  // at. An invitation is only made where the card can honour it; where it
+  // cannot, the line admits the hole instead of pretending to a fix.
+  const gapLine = askable.length
+    ? `Cinch wasn’t sure about ${describeGaps(askable)} — set it below, or skip.`
+    : unfixable.length
+      ? `Cinch couldn’t read ${describeGaps(unfixable)}. Confirming keeps the rest.`
+      : null;
+
+  // Everything still in the deck that the tagger answered in full — the pieces
+  // there is no honest question to ask about.
+  const settled = deck.filter(isFullyTagged);
+
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
       {/*
@@ -240,6 +304,39 @@ export default function ReviewScreen() {
               />
             ))}
           </View>
+        </View>
+      ) : null}
+
+      {/*
+        The invitation to correct, aimed only where it belongs.
+
+        `gapsFor` reads what the tagger actually produced, so this line names the
+        rows with a hole in them and stays silent when there are none — a garment
+        Cinch is sure about should read as a settled spec sheet to confirm, not
+        as a form to fill in. Set as a caption because that is what the type
+        system calls a line under a photograph.
+      */}
+      {!done && gapLine ? (
+        <View className="px-gutter pb-1 pt-1">
+          <Text variant="caption">{gapLine}</Text>
+        </View>
+      ) : null}
+
+      {/*
+        Three or more is the point at which confirming them one at a time stops
+        being a review and starts being a chore. Below that the deck is quicker
+        than the shortcut, so the shortcut does not appear.
+      */}
+      {!done && settled.length >= 3 ? (
+        <View className="px-gutter pb-1 pt-1">
+          <Button
+            title={`Confirm the ${settled.length} Cinch is sure about`}
+            variant="ghost"
+            loading={confirmingAll}
+            onPress={() => void confirmAllSettled(settled)}
+            accessibilityHint="Marks every piece with complete tags as correct, leaving only the ones that need your eye."
+            className="self-start"
+          />
         </View>
       ) : null}
 

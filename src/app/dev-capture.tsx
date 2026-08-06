@@ -42,6 +42,14 @@ const ART = [
 
 const STAGES: UploadJob['stage'][] = ['done', 'done', 'cutout', 'queued', 'queued'];
 
+/**
+ * What the tagger would have called each fixture. With the stages above this
+ * renders the design's status rail exactly as drawn — `Coat ✓ · Knit ✓ ·
+ * Cleaning… · Queued · Queued` — a named piece once it is identified, a stage
+ * while it is still on its way.
+ */
+const LABELS: (string | undefined)[] = ['Coat', 'Knit', undefined, undefined, undefined];
+
 /** One L of the framing guide. Light lines on the dark stage, per the design. */
 function Corner({ canvas, pos }: { canvas: string; pos: 'tl' | 'tr' | 'bl' | 'br' }) {
   const edges = {
@@ -84,7 +92,9 @@ export default function DevCaptureScreen() {
         width: 1200,
         height: 1500,
         stage: STAGES[i],
+        label: LABELS[i],
         attempts: 0,
+        tagAttempts: 0,
         progress: STAGES[i] === 'done' ? 1 : 0,
       })),
     [],
