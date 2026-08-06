@@ -334,6 +334,12 @@ export type AppEvent =
    * `method` is 'apple' | 'email'. One per attempt, so a retry after a failed
    * Apple sheet counts again — attempts are what convert, and PostHog funnels
    * count unique people anyway.
+   *
+   * This and its two outcomes (`auth_completed`, `auth_failed`) fire BEFORE
+   * `identifyUser`, so they attach to the anonymous distinct id. That is
+   * required, not a flaw: the funnel has to span the moment the identity is
+   * created, and PostHog aliases the anonymous id onto the identified one on
+   * `identify()`, so it stitches together on its own.
    */
   | 'auth_started'
   /**
@@ -458,7 +464,24 @@ export type AppEvent =
    * microphone let the user down, the other means the model did, and they lead
    * to completely different fixes.
    */
-  | 'intake_failed';
+  | 'intake_failed'
+  /**
+   * A sign-in attempt produced a session.
+   *
+   * Fired from `features/auth/actions.ts`, not from a screen — the magic-link
+   * route completes in a deep-link handler with no screen of its own, and an
+   * emit per screen would have missed exactly the path the funnel exists to
+   * measure.
+   */
+  | 'auth_completed'
+  /**
+   * A sign-in attempt did not produce a session. `reason` is the existing
+   * `SignInResult` enum, never an error message — those carry addresses and
+   * tokens. `canceled` lives here rather than in its own event: dismissing the
+   * Apple sheet is the single most common outcome, and splitting it out makes
+   * the funnel harder to read, not easier.
+   */
+  | 'auth_failed';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.
