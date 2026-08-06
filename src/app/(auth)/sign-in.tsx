@@ -26,22 +26,101 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 const PRIVACY_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy';
 const TERMS_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/terms';
 
+/**
+ * Turn a THROWN sign-in failure into a message worth showing.
+ *
+ * The auth actions return `{ ok: false }` for every failure they can name, so
+ * anything that arrives here escaped them — in practice the session-storage
+ * layer. Under PKCE, `signInWithOtp` persists the code verifier through the
+ * Supabase client's storage adapter BEFORE the request goes out; on a build
+ * whose keychain entitlement is missing (a dev build, most commonly),
+ * SecureStore rejects, supabase-js rethrows the non-auth error, and without a
+ * catch the tap on the send arrow does nothing at all — no alert, busy stuck.
+ * The entitlement itself is a build problem fixed elsewhere; the contract HERE
+ * is that no storage failure is ever silent.
+ */
+function describeThrownSignInError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  const isStorageFailure = /secure ?store|keychain|entitlement|storage/i.test(message);
+  return isStorageFailure
+    ? 'Cinch couldn’t store your sign-in securely on this device, so no link was sent. Restart the app and try again — if it keeps happening, this build can’t reach the device’s keychain.'
+    : message || 'Please try again.';
+}
+
 type Mode = 'choose' | 'email' | 'sent';
+
+/** Every plate-01 SVG is drawn on this shared canvas, in its own corner of it. */
+const PLATE_CANVAS = { w: 1040, h: 660 } as const;
+
+/**
+ * Where one garment drawing goes inside its tile.
+ *
+ * The plate SVGs are not centred artwork: each one draws its garment at the
+ * position it occupies in the COMPOSED 1040×660 plate (knit top-centre, coat
+ * left, derbies bottom-right, trousers centre-right), because the dev fixtures
+ * overlay all of them into one flat lay. Rendered whole into a tile with
+ * `contain`, that history is exactly what made the first pass read accidental:
+ * every garment landed small and off-centre, the derbies drifted into the
+ * set's caption, the trousers hugged an edge. So each tile states where the
+ * GARMENT goes and the maths below scales/offsets the whole canvas to put it
+ * there — a per-tile focus crop, not a canvas dump.
+ */
+type GarmentPlacement = {
+  /**
+   * The garment's bounding box in canvas units — measured from the rendered
+   * SVG (getBBox over every group, stroke extents and the ground-shadow
+   * ellipses included, rotations applied), not read off the path data.
+   */
+  bbox: readonly [x: number, y: number, w: number, h: number];
+  /** Where the garment's centre lands, as fractions of the tile. */
+  cx: number;
+  cy: number;
+  /** The most of the tile's width / height the garment may span. */
+  fw: number;
+  fh: number;
+  /** Rotation about the garment's centre. −90 lays the folded trousers flat. */
+  rotate?: number;
+};
 
 /**
  * The four garments of the welcome set — the same plate artwork the dev
- * fixtures use, bundled so the first screen never waits on a network. The
- * handoff drew these tiles as placeholders to be replaced with real garment
- * shots; every other screen made that replacement and this one now has too.
- * Order matches the tile order below: each drawing is picked for contrast
- * against its tile's ground (cream knit on charcoal, navy coat on slate,
- * dark derbies on clay, camel trousers on cream).
+ * fixtures use, bundled so the first screen never waits on a network. Order
+ * matches the tile order below: each drawing is picked for contrast against
+ * its tile's ground (cream knit on charcoal, navy coat on slate, dark derbies
+ * on clay, camel trousers on cream).
+ *
+ * The placements were chosen by RENDERING, not by arithmetic — the ghosted
+ * rail learned the same lesson about blur: values picked in the abstract read
+ * wrong on screen. A pixel-accurate HTML mock of this screen (real SVGs, the
+ * mock's own 300-unit measurements at iPhone scale) was screenshotted and the
+ * numbers below iterated against it until:
+ *
+ *  - the knit clears the wordmark printed over the first tile's top-left;
+ *  - the coat clears the TODAY'S SET label at the second tile's top-right;
+ *  - both bottom-row garments sit in one shared band (≈ the top half of the
+ *    tile) with the set's caption printed on clear ground beneath them —
+ *    the caption crosses BOTH bottom tiles, so anything below ~55% of those
+ *    tiles' height collides with it;
+ *  - the trousers lie on their side (−90°): upright, a folded trouser is far
+ *    taller than the caption-free band and can only render as a clipped leg.
  */
-const GARMENT_ART = [
-  require('@/assets/plates/plate-01-knit.svg'),
-  require('@/assets/plates/plate-01-coat.svg'),
-  require('@/assets/plates/plate-01-shoes.svg'),
-  require('@/assets/plates/plate-01-trousers.svg'),
+const GARMENT_ART: { source: number; place: GarmentPlacement }[] = [
+  {
+    source: require('@/assets/plates/plate-01-knit.svg') as number,
+    place: { bbox: [436, 89, 260, 261], cx: 0.55, cy: 0.7, fw: 0.6, fh: 0.5 },
+  },
+  {
+    source: require('@/assets/plates/plate-01-coat.svg') as number,
+    place: { bbox: [68, 105, 370, 521], cx: 0.5, cy: 0.61, fw: 0.8, fh: 0.72 },
+  },
+  {
+    source: require('@/assets/plates/plate-01-shoes.svg') as number,
+    place: { bbox: [752, 405, 240, 221], cx: 0.5, cy: 0.245, fw: 0.62, fh: 0.38 },
+  },
+  {
+    source: require('@/assets/plates/plate-01-trousers.svg') as number,
+    place: { bbox: [652, 239, 207, 377], cx: 0.5, cy: 0.25, fw: 0.72, fh: 0.36, rotate: -90 },
+  },
 ];
 
 /**
@@ -62,14 +141,49 @@ function SwatchTile({
   bottom,
   radius,
   art,
+  place,
 }: {
   top: string;
   bottom: string;
   radius: number;
   /** Resolved asset URI for the garment drawing laid over the ground. */
   art?: string;
+  /** Where the garment lands in the tile; required whenever `art` is given. */
+  place?: GarmentPlacement;
 }) {
   const [size, setSize] = useState({ w: 0, h: 0 });
+
+  // The focus crop: scale the whole plate canvas so the garment's bounding
+  // box spans at most (fw × tile width, fh × tile height), then offset the
+  // canvas so the garment's centre sits at (cx, cy) of the tile. The tile's
+  // `overflow: hidden` crops the rest of the canvas away.
+  let artStyle = null;
+  if (place && size.h > 0) {
+    const [bx, by, bw, bh] = place.bbox;
+    // A quarter-turned garment's footprint swaps its axes.
+    const quarterTurn = place.rotate != null && Math.abs(place.rotate) % 180 === 90;
+    const footW = quarterTurn ? bh : bw;
+    const footH = quarterTurn ? bw : bh;
+    const scale = Math.min((place.fw * size.w) / footW, (place.fh * size.h) / footH);
+    // The garment's centre, in scaled canvas points — both the offset target
+    // and, when rotating, the pivot (so rotation never moves the garment).
+    const gcx = (bx + bw / 2) * scale;
+    const gcy = (by + bh / 2) * scale;
+    artStyle = {
+      position: 'absolute' as const,
+      width: PLATE_CANVAS.w * scale,
+      height: PLATE_CANVAS.h * scale,
+      left: place.cx * size.w - gcx,
+      top: place.cy * size.h - gcy,
+      ...(place.rotate != null
+        ? {
+            transformOrigin: [gcx, gcy, 0] as [number, number, number],
+            transform: [{ rotate: `${place.rotate}deg` }],
+          }
+        : null),
+    };
+  }
+
   return (
     <View
       style={{ flex: 1, borderRadius: radius, overflow: 'hidden' }}
@@ -83,14 +197,14 @@ function SwatchTile({
           </Rect>
         </Canvas>
       ) : null}
-      {art ? (
+      {art && artStyle ? (
         <Image
           source={art}
-          contentFit="contain"
+          // The style's width/height keep the canvas aspect exactly, so fill
+          // cannot distort — it just makes the sizing explicit.
+          contentFit="fill"
           transition={0}
-          // Inset so the drawing sits on its ground like a styled flat-lay,
-          // not an edge-to-edge sticker.
-          style={{ position: 'absolute', left: '8%', right: '8%', top: '12%', bottom: '12%' }}
+          style={artStyle}
           accessibilityIgnoresInvertColors
         />
       ) : null}
@@ -207,39 +321,58 @@ export default function SignInScreen() {
   const captionLight = 'rgba(251,250,246,0.82)';
 
   // Bundled SVGs resolve synchronously to a file URI — no loading state needed.
-  const artUris = useMemo(() => GARMENT_ART.map((m) => Asset.fromModule(m).uri), []);
+  const artUris = useMemo(() => GARMENT_ART.map((m) => Asset.fromModule(m.source).uri), []);
 
   const onApple = useCallback(async () => {
     if (busy) return;
     setBusy(true);
-    const result = await signInWithApple();
-    setBusy(false);
-    if (result.ok) return; // Root layout redirects as soon as the session lands.
+    try {
+      // `signInWithApple` catches everything and answers in results — the
+      // try/catch is a firebreak for the same class of escape `onSendEmail`
+      // genuinely has: if the action ever leaks a storage rejection, the user
+      // still gets an alert instead of a dead button and a stuck spinner.
+      const result = await signInWithApple();
+      if (result.ok) return; // Root layout redirects as soon as the session lands.
 
-    switch (result.reason) {
-      case 'canceled':
-        break; // The user chose to back out. Do not shame them for it.
-      case 'unavailable':
-        Alert.alert(
-          'Sign in with Apple is unavailable',
-          'This device does not support it. You can continue with your email instead.',
-        );
-        setMode('email');
-        break;
-      case 'failed':
-        Alert.alert('Could not sign you in', result.message ?? 'Please try again in a moment.');
-        break;
+      switch (result.reason) {
+        case 'canceled':
+          break; // The user chose to back out. Do not shame them for it.
+        case 'unavailable':
+          Alert.alert(
+            'Sign in with Apple is unavailable',
+            'This device does not support it. You can continue with your email instead.',
+          );
+          setMode('email');
+          break;
+        case 'failed':
+          Alert.alert('Could not sign you in', result.message ?? 'Please try again in a moment.');
+          break;
+      }
+    } catch (err) {
+      Alert.alert('Could not sign you in', describeThrownSignInError(err));
+    } finally {
+      // `finally`, not a line after the await: if the await throws, an inline
+      // reset never runs, `busy` sticks true, and every button on the screen
+      // is disabled forever — the "tap does nothing" failure all over again.
+      setBusy(false);
     }
   }, [busy]);
 
   const onSendEmail = useCallback(async () => {
     if (busy || !email.trim()) return;
     setBusy(true);
-    const result = await sendEmailLink(email);
-    setBusy(false);
-
-    if (result.ok) setMode('sent');
-    else Alert.alert('Could not send the link', result.message ?? 'Please try again.');
+    try {
+      const result = await sendEmailLink(email);
+      if (result.ok) setMode('sent');
+      else Alert.alert('Could not send the link', result.message ?? 'Please try again.');
+    } catch (err) {
+      // Without this catch, a SecureStore rejection out of the PKCE verifier
+      // persist inside `signInWithOtp` is an unhandled rejection: the send
+      // arrow does nothing, silently. See `describeThrownSignInError`.
+      Alert.alert('Could not send the link', describeThrownSignInError(err));
+    } finally {
+      setBusy(false);
+    }
   }, [busy, email]);
 
   return (
@@ -257,13 +390,37 @@ export default function SignInScreen() {
             gap: px(7),
           }}>
           <View style={{ flex: 1, flexDirection: 'row', gap: px(7) }}>
-            <SwatchTile top={TILES[0].top} bottom={TILES[0].bottom} radius={px(14)} art={artUris[0]} />
-            <SwatchTile top={TILES[1].top} bottom={TILES[1].bottom} radius={px(14)} art={artUris[1]} />
+            <SwatchTile
+              top={TILES[0].top}
+              bottom={TILES[0].bottom}
+              radius={px(14)}
+              art={artUris[0]}
+              place={GARMENT_ART[0].place}
+            />
+            <SwatchTile
+              top={TILES[1].top}
+              bottom={TILES[1].bottom}
+              radius={px(14)}
+              art={artUris[1]}
+              place={GARMENT_ART[1].place}
+            />
           </View>
 
           <View style={{ flex: 1, flexDirection: 'row', gap: px(7) }}>
-            <SwatchTile top={TILES[2].top} bottom={TILES[2].bottom} radius={px(14)} art={artUris[2]} />
-            <SwatchTile top={TILES[3].top} bottom={TILES[3].bottom} radius={px(14)} art={artUris[3]} />
+            <SwatchTile
+              top={TILES[2].top}
+              bottom={TILES[2].bottom}
+              radius={px(14)}
+              art={artUris[2]}
+              place={GARMENT_ART[2].place}
+            />
+            <SwatchTile
+              top={TILES[3].top}
+              bottom={TILES[3].bottom}
+              radius={px(14)}
+              art={artUris[3]}
+              place={GARMENT_ART[3].place}
+            />
           </View>
 
           {/* The legibility scrim, above the artwork and below every line of
