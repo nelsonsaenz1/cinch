@@ -12,6 +12,7 @@ export { Button, type ButtonProps } from '@/components/ui/button';
 export { Chip, type ChipProps } from '@/components/ui/chip';
 export { EmptyState, type EmptyStateProps } from '@/components/ui/empty-state';
 export { ErrorState, type ErrorStateProps } from '@/components/ui/error-state';
+export { GHOSTED_RAIL_HEIGHT, GhostedRail } from '@/components/ui/ghosted-rail';
 export { Rule } from '@/components/ui/rule';
 export { BackButton, ScreenHeader, type ScreenHeaderProps } from '@/components/ui/screen-header';
 export {
