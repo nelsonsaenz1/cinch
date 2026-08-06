@@ -25,6 +25,12 @@ export type ChatMessage = {
   followUp: string | null;
   pending?: boolean;
   failed?: boolean;
+  /**
+   * A failed turn worth offering again. True only for the transport failures —
+   * a refusal (consent, plan, quota) would refuse identically on retry, and
+   * those paths already carry their own way forward.
+   */
+  retryable?: boolean;
 };
 
 const candidateId = (c: OutfitCandidate) => c.items.map((g) => g.id).join('.');
@@ -229,36 +235,35 @@ export function useChat({
     },
   });
 
-  const ask = useCallback(
-    async (question: string, options?: AskOptions) => {
-      const trimmed = question.trim();
-      if (!trimmed) return;
+  /**
+   * The asks behind failed turns, keyed by the failed bubble's id, so a retry
+   * can re-run the same question in the same bubble. A ref, not state: the map
+   * drives no render of its own — the `retryable` flag on the message does.
+   */
+  const failedAsks = useRef(new Map<string, { question: string; options?: AskOptions }>());
 
-      const userMessage: ChatMessage = {
-        id: `u-${Date.now()}`,
-        role: 'user',
-        text: trimmed,
-        outfits: [],
-        followUp: null,
-      };
-      const placeholder: ChatMessage = {
-        id: `a-${Date.now()}`,
-        role: 'assistant',
-        text: '',
-        outfits: [],
-        followUp: null,
-        pending: true,
-      };
-
-      setMessages((prev) => [...prev, userMessage, placeholder]);
-      void persist('user', { text: trimmed });
-
+  /**
+   * One model turn against an already-mounted assistant bubble. Shared by
+   * `ask` (fresh bubble) and `retry` (the failed bubble, flipped back to
+   * pending) so a retried turn resolves in place rather than replaying the
+   * question as a second pair of bubbles.
+   */
+  const run = useCallback(
+    async (placeholderId: string, question: string, options?: AskOptions) => {
       try {
-        const result = await send.mutateAsync({ question: trimmed, options });
+        const result = await send.mutateAsync({ question, options });
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === placeholder.id
-              ? { ...m, text: result.reply, outfits: result.outfits, followUp: result.followUp, pending: false }
+            m.id === placeholderId
+              ? {
+                  ...m,
+                  text: result.reply,
+                  outfits: result.outfits,
+                  followUp: result.followUp,
+                  pending: false,
+                  failed: false,
+                  retryable: false,
+                }
               : m,
           ),
         );
@@ -285,8 +290,16 @@ export function useChat({
               ? "You have used this month's stylist messages."
               : 'The stylist could not be reached. Your outfits on the Today tab still work — they are built on your phone.';
 
+        // Only a transport failure earns a retry affordance; a refusal would
+        // simply refuse again, and the denial path below already offers its
+        // own next step.
+        const retryable = !consent && !denial;
+        if (retryable) failedAsks.current.set(placeholderId, { question, options });
+
         setMessages((prev) =>
-          prev.map((m) => (m.id === placeholder.id ? { ...m, pending: false, failed: true, text } : m)),
+          prev.map((m) =>
+            m.id === placeholderId ? { ...m, pending: false, failed: true, retryable, text } : m,
+          ),
         );
 
         if (denial) {
@@ -297,11 +310,65 @@ export function useChat({
           //
           // Through a ref because the retry is `ask` itself: naming it directly
           // would make the callback depend on the value it is defining.
-          void gate.present(Placement.OpenStylist, () => askRef.current(trimmed, options));
+          void gate.present(Placement.OpenStylist, () => askRef.current(question, options));
         }
       }
     },
     [persist, send, gate],
+  );
+
+  const ask = useCallback(
+    async (question: string, options?: AskOptions) => {
+      const trimmed = question.trim();
+      if (!trimmed) return;
+
+      const userMessage: ChatMessage = {
+        id: `u-${Date.now()}`,
+        role: 'user',
+        text: trimmed,
+        outfits: [],
+        followUp: null,
+      };
+      const placeholder: ChatMessage = {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        text: '',
+        outfits: [],
+        followUp: null,
+        pending: true,
+      };
+
+      setMessages((prev) => [...prev, userMessage, placeholder]);
+      void persist('user', { text: trimmed });
+
+      await run(placeholder.id, trimmed, options);
+    },
+    [persist, run],
+  );
+
+  /**
+   * Re-run a failed turn in its own bubble.
+   *
+   * The bubble flips back to pending and the same question goes up again —
+   * nothing is appended, so the thread reads as one question that took two
+   * tries, which is what happened. The user's turn was already persisted on
+   * the first attempt and is not written twice.
+   */
+  const retry = useCallback(
+    (messageId: string) => {
+      const failed = failedAsks.current.get(messageId);
+      if (!failed || send.isPending) return;
+      failedAsks.current.delete(messageId);
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, pending: true, failed: false, retryable: false, text: '' } : m,
+        ),
+      );
+
+      void run(messageId, failed.question, failed.options);
+    },
+    [run, send.isPending],
   );
 
   // In an effect, not during render: a ref written while rendering is a value
@@ -334,6 +401,7 @@ export function useChat({
   return {
     messages,
     ask,
+    retry,
     clear,
     isSending: send.isPending,
     isLoading: history.isLoading,

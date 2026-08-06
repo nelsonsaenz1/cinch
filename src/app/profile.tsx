@@ -14,6 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { signOut } from '@/features/auth/actions';
 import { useAiConsent, useGrantAiConsent, useRevokeAiConsent } from '@/features/auth/use-consent';
@@ -172,8 +174,10 @@ export default function ProfileScreen() {
 
   // Only used for the exact count named in the delete-account warning below —
   // the zip's Profile screen has no wardrobe stats card, so nothing else here
-  // reads from the closet.
-  const pieceCount = closet.data?.length ?? 0;
+  // reads from the closet. Null when the closet has not loaded (or failed to):
+  // the warning then names "every piece" rather than claiming "your 0 pieces"
+  // to someone whose closet simply could not be read.
+  const pieceCount = closet.data?.length ?? null;
 
   const name = profileHeader.data?.name ?? '';
   const memberSince = profileHeader.data?.memberSince;
@@ -221,8 +225,10 @@ export default function ProfileScreen() {
   const confirmDelete = () => {
     Alert.alert(
       'Delete account',
-      `This permanently deletes your ${pieceCount} ${
-        pieceCount === 1 ? 'piece' : 'pieces'
+      `This permanently deletes ${
+        pieceCount != null
+          ? `your ${pieceCount} ${pieceCount === 1 ? 'piece' : 'pieces'}`
+          : 'every piece in your closet'
       }, every photo you uploaded, your outfit history, and everything Cinch has learned about your style.\n\nThis cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -300,54 +306,110 @@ export default function ProfileScreen() {
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScrollView contentContainerClassName="pb-24">
         {/* The masthead — avatar, name, and account age stand in for a page
-            title, matching the design; VoiceOver still gets a heading. */}
-        <View className="flex-row items-center gap-3.5 px-gutter pb-6 pt-6">
-          <View className="h-14 w-14 items-center justify-center rounded-full bg-ink">
-            {/* Gotcha: a text-canvas className does not reliably win over a Text
-                variant's own color, so light-on-ink goes through inline style. */}
-            <Text variant="heading" style={{ color: theme.canvas }}>
-              {initialsFor(name)}
-            </Text>
+            title, matching the design; VoiceOver still gets a heading. Three
+            branches: skeletal while the header query is in flight (a blank
+            masthead on first paint read as the app not knowing who you are),
+            an honest retry line if it failed, the real thing otherwise. */}
+        {profileHeader.isLoading ? (
+          <View
+            accessibilityLabel="Loading your profile"
+            className="flex-row items-center gap-3.5 px-gutter pb-6 pt-6">
+            <Skeleton className="h-14 w-14 rounded-full" />
+            <View className="gap-2">
+              <Skeleton className="h-5 w-36 rounded-chip" />
+              <Skeleton className="h-3 w-24 rounded-chip" />
+            </View>
           </View>
-          <View>
-            <Text variant="plate" accessibilityRole="header">
-              {name}
-            </Text>
-            <Text variant="caption" className="mt-1 text-faint">
-              {weeksLabel}
-            </Text>
+        ) : (
+          <View className="flex-row items-center gap-3.5 px-gutter pb-6 pt-6">
+            <View className="h-14 w-14 items-center justify-center rounded-full bg-ink">
+              {/* Gotcha: a text-canvas className does not reliably win over a Text
+                  variant's own color, so light-on-ink goes through inline style. */}
+              <Text variant="heading" style={{ color: theme.canvas }}>
+                {initialsFor(name)}
+              </Text>
+            </View>
+            <View>
+              <Text variant="plate" accessibilityRole="header">
+                {profileHeader.isError ? 'Your profile' : name}
+              </Text>
+              {profileHeader.isError ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void profileHeader.refetch()}
+                  hitSlop={8}>
+                  <Text variant="caption" className="mt-1 text-muted underline">
+                    Your details didn&rsquo;t load — try again
+                  </Text>
+                </Pressable>
+              ) : (
+                <Text variant="caption" className="mt-1 text-faint">
+                  {weeksLabel}
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
         <View className="px-gutter">
           {/* What the engine has learned, in the user's own terms. Showing this
               is what makes the personalisation feel like a relationship rather
               than a black box — and gives them somewhere to push back. The
-              progress bar is honest about the threshold, not decorative. */}
+              progress bar is honest about the threshold, not decorative.
+
+              A failed style query gets its own branch: without one, the card
+              fell through to feedbackCount = 0 and told a user with months of
+              reactions "Nothing yet" — an error asserting something false
+              about her taste. */}
           <View className="rounded-plate border border-rule bg-surface p-4">
             <Text variant="eyebrow">What Cinch has learned</Text>
-            <Text variant="body" className="mt-2.5 text-ink">
-              {learnedSentence}
-            </Text>
-            <View className="mt-3.5 flex-row items-center gap-2.5">
-              <View className="h-[5px] flex-1 overflow-hidden rounded-full bg-sand">
-                <View
-                  className="h-full rounded-full bg-accent"
-                  style={{ width: `${learnedProgress}%` }}
-                />
+            {style.isLoading ? (
+              <View accessibilityLabel="Loading your style profile">
+                <View className="mt-3 gap-2">
+                  <Skeleton className="h-3.5 w-full rounded-chip" />
+                  <Skeleton className="h-3.5 w-3/5 rounded-chip" />
+                </View>
+                <Skeleton className="mt-4 h-[5px] w-full rounded-full" />
               </View>
-              {/* Serif, per the zip — the one caption on this screen set in
-                  Instrument Serif rather than Helvetica. Same gotcha as the
-                  avatar initials above: a className font override is not
-                  guaranteed to beat the variant's own family, so this goes
-                  through inline style instead. */}
-              <Text
-                variant="caption"
-                className="text-muted"
-                style={{ fontFamily: 'InstrumentSerif_400Regular' }}>
-                Getting to know you
-              </Text>
-            </View>
+            ) : style.isError ? (
+              <>
+                <Text variant="body" className="mt-2.5 text-muted">
+                  This didn&rsquo;t load — everything Cinch has learned is still saved.
+                </Text>
+                <Button
+                  title="Try again"
+                  variant="secondary"
+                  onPress={() => void style.refetch()}
+                  loading={style.isRefetching}
+                  className="mt-3.5 self-start px-6"
+                />
+              </>
+            ) : (
+              <>
+                <Text variant="body" className="mt-2.5 text-ink">
+                  {learnedSentence}
+                </Text>
+                <View className="mt-3.5 flex-row items-center gap-2.5">
+                  <View className="h-[5px] flex-1 overflow-hidden rounded-full bg-sand">
+                    <View
+                      className="h-full rounded-full bg-accent"
+                      style={{ width: `${learnedProgress}%` }}
+                    />
+                  </View>
+                  {/* Serif, per the zip — the one caption on this screen set in
+                      Instrument Serif rather than Helvetica. Same gotcha as the
+                      avatar initials above: a className font override is not
+                      guaranteed to beat the variant's own family, so this goes
+                      through inline style instead. */}
+                  <Text
+                    variant="caption"
+                    className="text-muted"
+                    style={{ fontFamily: 'InstrumentSerif_400Regular' }}>
+                    Getting to know you
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
 
           <Text variant="eyebrow" className="mb-2.5 mt-7">

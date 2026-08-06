@@ -89,10 +89,13 @@ export function MessageBubble({
   message,
   resolveImage,
   onPressOutfit,
+  onRetry,
 }: {
   message: ChatMessage;
   resolveImage: (...paths: (string | null | undefined)[]) => string | undefined;
   onPressOutfit?: (outfit: OutfitCandidate) => void;
+  /** Re-asks a failed turn in place. Rendered only when the turn is retryable. */
+  onRetry?: () => void;
 }) {
   const theme = useTheme();
   const isUser = message.role === 'user';
@@ -132,6 +135,24 @@ export function MessageBubble({
               {message.text}
             </Text>
           </View>
+
+          {/* A failed turn that can be re-run offers the run again — the same
+              underlined-label grammar as "I'll just type", because both are
+              quiet escapes, not celebrations. The muted bubble alone was a
+              dead end: the question was gone from the composer and there was
+              nothing left to tap. */}
+          {message.failed && message.retryable && onRetry ? (
+            <Pressable
+              onPress={onRetry}
+              accessibilityRole="button"
+              accessibilityHint="Sends the same question again"
+              hitSlop={12}
+              className="mt-2 self-start">
+              <Text variant="label" className="underline">
+                Try again
+              </Text>
+            </Pressable>
+          ) : null}
 
           {message.outfits.map((outfit, i) => (
             <OutfitStrip

@@ -102,14 +102,18 @@ const label = (size: number, track: number, color: string = INK.tan) => ({
 });
 
 /**
- * The outfit's name, broken the way the mock breaks it: everything but the last
- * word on line one, the last word alone on line two and set in the warm italic.
- * A one-word name keeps its single roman line rather than inventing an orphan.
+ * The outfit's name, broken the way the mock breaks it: the first word alone
+ * on line one, everything from the second word on line two, set in the warm
+ * italic. (This used to isolate the LAST word instead — identical for the
+ * two-word names most looks carry, wrong for three: "The Quiet Monday" broke
+ * as "The Quiet / Monday" where the mock sets "The / Quiet Monday".) A
+ * one-word name keeps its single roman line rather than inventing an orphan.
  */
 function titleLines(name: string): [string, string | null] {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length < 2) return [name.trim(), null];
-  return [words.slice(0, -1).join(' '), words[words.length - 1]];
+  const [first, ...rest] = words;
+  return [first ?? '', rest.join(' ')];
 }
 
 /**

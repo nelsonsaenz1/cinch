@@ -1,9 +1,11 @@
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { Asset } from 'expo-asset';
 import Constants from 'expo-constants';
+import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -28,13 +30,29 @@ const TERMS_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/terms';
 type Mode = 'choose' | 'email' | 'sent';
 
 /**
- * One garment swatch of the welcome grid.
+ * The four garments of the welcome set — the same plate artwork the dev
+ * fixtures use, bundled so the first screen never waits on a network. The
+ * handoff drew these tiles as placeholders to be replaced with real garment
+ * shots; every other screen made that replacement and this one now has too.
+ * Order matches the tile order below: each drawing is picked for contrast
+ * against its tile's ground (cream knit on charcoal, navy coat on slate,
+ * dark derbies on clay, camel trousers on cream).
+ */
+const GARMENT_ART = [
+  require('@/assets/plates/plate-01-knit.svg'),
+  require('@/assets/plates/plate-01-coat.svg'),
+  require('@/assets/plates/plate-01-shoes.svg'),
+  require('@/assets/plates/plate-01-trousers.svg'),
+];
+
+/**
+ * One garment tile of the welcome grid.
  *
- * A vertical Skia gradient rather than a solid: the four tiles stand in for
- * photographed garments, and flat fills read as a colour chart where a soft
- * falloff reads as cloth under light. Skia because it is already in the bundle
- * for the plate — adding expo-linear-gradient for four static rectangles would
- * be a dependency for a two-stop gradient.
+ * A vertical Skia gradient under the artwork rather than a solid: a soft
+ * top-lit falloff reads as a photographed ground where a flat fill reads as a
+ * colour chart. Skia because it is already in the bundle for the plate —
+ * adding expo-linear-gradient for four static rectangles would be a dependency
+ * for a two-stop gradient.
  *
  * The gradient needs pixel bounds, so the tile measures itself; the canvas
  * draws nothing until the first layout pass, which on a static screen is
@@ -44,12 +62,13 @@ function SwatchTile({
   top,
   bottom,
   radius,
-  children,
+  art,
 }: {
   top: string;
   bottom: string;
   radius: number;
-  children?: React.ReactNode;
+  /** Resolved asset URI for the garment drawing laid over the ground. */
+  art?: string;
 }) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   return (
@@ -65,7 +84,49 @@ function SwatchTile({
           </Rect>
         </Canvas>
       ) : null}
-      {children}
+      {art ? (
+        <Image
+          source={art}
+          contentFit="contain"
+          transition={0}
+          // Inset so the drawing sits on its ground like a styled flat-lay,
+          // not an edge-to-edge sticker.
+          style={{ position: 'absolute', left: '8%', right: '8%', top: '12%', bottom: '12%' }}
+          accessibilityIgnoresInvertColors
+        />
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * The 180° legibility scrim over the hero, per the welcome mock: dark at the
+ * top under the wordmark, clear through the middle so the garments stay lit,
+ * dark again at the bottom under the set's caption. It sits ABOVE the tiles
+ * and BELOW every line of type — which is the whole reason the wordmark and
+ * captions render as overlays on the grid rather than inside the tiles.
+ */
+function HeroScrim() {
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  return (
+    <View
+      pointerEvents="none"
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      onLayout={(e) =>
+        setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
+      }>
+      {size.h > 0 ? (
+        <Canvas style={{ width: size.w, height: size.h }}>
+          <Rect x={0} y={0} width={size.w} height={size.h}>
+            <LinearGradient
+              start={vec(0, 0)}
+              end={vec(0, size.h)}
+              colors={['rgba(20,19,17,0.5)', 'rgba(20,19,17,0)', 'rgba(20,19,17,0.9)']}
+              positions={[0, 0.45, 1]}
+            />
+          </Rect>
+        </Canvas>
+      ) : null}
     </View>
   );
 }
@@ -133,9 +194,9 @@ export default function SignInScreen() {
   const s = screenW / 300;
   const px = (mock: number) => mock * s;
 
-  // The grid's palette. Literal rather than tokenized: these are the mock's
-  // four garments — charcoal knit, slate shirt, clay coat, cream trouser — and
-  // exist nowhere else in the app. Each pair is a soft top-lit falloff.
+  // The grounds under the four garments. Literal rather than tokenized: these
+  // are the mock's tile colours — charcoal, slate, clay, cream — and exist
+  // nowhere else in the app. Each pair is a soft top-lit falloff.
   const TILES = [
     { top: '#37342F', bottom: '#282623' }, // charcoal
     { top: '#A9B2C0', bottom: '#5E6874' }, // slate
@@ -143,8 +204,11 @@ export default function SignInScreen() {
     { top: '#F0EADE', bottom: '#A49E90' }, // cream
   ];
   const cream = theme.canvas;
-  const warmTan = '#C7A08D'; // the set caption's eyebrow, on ink
+  const warmTan = '#D8B7A6'; // the set caption's eyebrow, on ink — the mock's own value
   const captionLight = 'rgba(251,250,246,0.82)';
+
+  // Bundled SVGs resolve synchronously to a file URI — no loading state needed.
+  const artUris = useMemo(() => GARMENT_ART.map((m) => Asset.fromModule(m).uri), []);
 
   const onApple = useCallback(async () => {
     if (busy) return;
@@ -196,39 +260,51 @@ export default function SignInScreen() {
             gap: px(7),
           }}>
           <View style={{ flex: 1, flexDirection: 'row', gap: px(7) }}>
-            <SwatchTile top={TILES[0].top} bottom={TILES[0].bottom} radius={px(14)}>
-              <RNText
-                style={{
-                  fontFamily: 'InstrumentSerif_400Regular',
-                  fontSize: px(34),
-                  color: cream,
-                  paddingTop: px(12),
-                  paddingLeft: px(15),
-                }}>
-                Cinch
-              </RNText>
-            </SwatchTile>
-            <SwatchTile top={TILES[1].top} bottom={TILES[1].bottom} radius={px(14)}>
-              <RNText
-                style={{
-                  fontFamily: 'HelveticaNeue-Medium',
-                  fontSize: px(9.5),
-                  letterSpacing: px(1.7),
-                  textTransform: 'uppercase',
-                  color: captionLight,
-                  textAlign: 'right',
-                  paddingTop: px(16),
-                  paddingRight: px(15),
-                }}>
-                Today&apos;s set
-              </RNText>
-            </SwatchTile>
+            <SwatchTile top={TILES[0].top} bottom={TILES[0].bottom} radius={px(14)} art={artUris[0]} />
+            <SwatchTile top={TILES[1].top} bottom={TILES[1].bottom} radius={px(14)} art={artUris[1]} />
           </View>
 
           <View style={{ flex: 1, flexDirection: 'row', gap: px(7) }}>
-            <SwatchTile top={TILES[2].top} bottom={TILES[2].bottom} radius={px(14)} />
-            <SwatchTile top={TILES[3].top} bottom={TILES[3].bottom} radius={px(14)} />
+            <SwatchTile top={TILES[2].top} bottom={TILES[2].bottom} radius={px(14)} art={artUris[2]} />
+            <SwatchTile top={TILES[3].top} bottom={TILES[3].bottom} radius={px(14)} art={artUris[3]} />
           </View>
+
+          {/* The legibility scrim, above the artwork and below every line of
+              type — with real garment drawings in the tiles, the wordmark and
+              captions need it to stay readable over any image. */}
+          <HeroScrim />
+
+          {/* The wordmark and the set label, printed over the scrim at the
+              positions the mock draws them inside the first two tiles. They
+              moved out of the tiles when the scrim arrived: a tile clips its
+              children, and type under the scrim would dim with the artwork. */}
+          <RNText
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: px(16 + 15),
+              top: insets.top + px(6 + 12),
+              fontFamily: 'InstrumentSerif_400Regular',
+              fontSize: px(34),
+              color: cream,
+            }}>
+            Cinch
+          </RNText>
+          <RNText
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              right: px(16 + 15),
+              top: insets.top + px(6 + 16),
+              fontFamily: 'HelveticaNeue-Medium',
+              fontSize: px(9.5),
+              letterSpacing: px(1.7),
+              textTransform: 'uppercase',
+              color: captionLight,
+              textAlign: 'right',
+            }}>
+            Today&apos;s set
+          </RNText>
 
           {/* The set's caption, printed over the grid's lower edge — the same
               two facts every plate in the app carries: the look's name, its

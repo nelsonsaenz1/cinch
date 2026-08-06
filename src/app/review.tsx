@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { track } from '@/lib/posthog';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { ReviewCard } from '@/components/review/review-card';
 import { useReviewQueue } from '@/features/closet/queries';
@@ -151,9 +153,53 @@ export default function ReviewScreen() {
   );
 
   if (query.isLoading) {
+    // The shape of the deck, before the deck: header line, then a card with
+    // the photo well and the four tag rows where they will land. The old
+    // version was a bare "Loading…" string — the one screen state the design
+    // never drew, drawn now in the same grammar as the card it becomes.
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
-        <Text variant="body">Loading…</Text>
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+        <View className="flex-row items-center justify-end px-gutter pt-2">
+          <Button title="Close" variant="ghost" onPress={() => router.back()} />
+        </View>
+        <View accessibilityLabel="Loading your review queue" className="flex-1 px-5 pb-5 pt-1">
+          <Skeleton className="h-3 w-28 rounded-chip" />
+          <View className="mt-4 flex-1 rounded-card bg-surface p-5 dark:bg-surface-dark">
+            <Skeleton className="h-6 w-36 rounded-chip" />
+            <Skeleton className="mt-2 h-3 w-52 rounded-chip" />
+            <Skeleton className="mb-4 mt-4 h-44 w-full rounded-plate" />
+            {[0, 1, 2].map((i) => (
+              <View
+                key={i}
+                className="mb-3 border-b border-hairline pb-3 dark:border-hairline-dark">
+                <Skeleton className="h-2.5 w-16 rounded-chip" />
+                <Skeleton
+                  className="mt-2 h-4 rounded-chip"
+                  style={{ width: (['55%', '40%', '65%'] as const)[i] }}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (query.isError) {
+    // Distinct from "Nothing to review", deliberately: a queue that could not
+    // be read is not an empty queue, and saying so here is what keeps the
+    // empty state's word good.
+    return (
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+        <View className="flex-row items-center justify-end px-gutter pt-2">
+          <Button title="Close" variant="ghost" onPress={() => router.back()} />
+        </View>
+        <ErrorState
+          title="The queue didn't load."
+          body="Whatever is waiting for review is still waiting — this is a connection problem, not an empty queue."
+          onRetry={() => void query.refetch()}
+          retrying={query.isRefetching}
+        />
       </SafeAreaView>
     );
   }

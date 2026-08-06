@@ -5,6 +5,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, TextInput, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import { useGarmentSearchFlow, type GarmentCandidate } from '@/features/ingest/use-garment-search';
@@ -174,12 +175,18 @@ export function GarmentSearchSheet({
   );
 }
 
+// Ragged caption widths, so the placeholder grid reads as product titles about
+// to arrive rather than a loading graphic.
+const TILE_LABEL_WIDTHS = ['72%', '55%', '64%', '48%'] as const;
+
 /**
  * The candidate grid, and the two honest ways it can be empty.
  *
  * `results === null` means no search has run — nothing is said, because there is
  * nothing to say yet. An empty array means the search ran and found nothing
  * usable, which deserves a real sentence and a way forward rather than a shrug.
+ * While the search is out, the grid's own shape stands in for it — the tiles
+ * the results will land in, not a spinner floating in nothing.
  */
 function Results({
   flow,
@@ -188,6 +195,22 @@ function Results({
   flow: ReturnType<typeof useGarmentSearchFlow>;
   onChoose: (candidate: GarmentCandidate) => void;
 }) {
+  if (flow.searching) {
+    return (
+      <View className="mt-8" accessibilityLabel="Looking for pictures">
+        <Text variant="eyebrow">Pictures that might match</Text>
+        <View className="mt-3 flex-row flex-wrap" style={{ marginHorizontal: -6 }}>
+          {TILE_LABEL_WIDTHS.map((width, i) => (
+            <View key={i} className="mb-4" style={{ width: '50%', paddingHorizontal: 6 }}>
+              <Skeleton className="aspect-[4/5] w-full rounded-lg" />
+              <Skeleton className="mt-2 h-3 rounded-chip" style={{ width }} />
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
   if (flow.results === null) return null;
 
   if (flow.results.length === 0 && !flow.searching) {
