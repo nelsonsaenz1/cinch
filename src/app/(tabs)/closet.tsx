@@ -1,84 +1,110 @@
-import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ClosetGrid } from '@/components/closet/closet-grid';
+import { PlateThumb } from '@/components/closet/plate-thumb';
 import { ClosetGridSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import {
+  closetStats,
+  mostWornItems,
+  pieceName,
+  useClosetIdentity,
+  useOutfitCount,
+  wearsLabel,
+} from '@/features/closet/profile';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
-import { costPerWear, type Item, type ItemCategory } from '@/schemas/item';
-import { useTheme } from '@/theme/tokens';
+import { useStyleProfile } from '@/features/styling/queries';
+import type { Item } from '@/schemas/item';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
- * The closet, as the handoff design draws it: a fixed masthead — title, a live
- * search, the three headline numbers, and the category filter — sitting above a
- * scrolling two-column grid of the actual garments.
+ * The closet as the founder's mock draws it: the user's own profile page.
  *
- * Everything above the grid is deliberately OUTSIDE the FlashList rather than
- * riding as a ListHeader. A controlled <TextInput> inside a virtualised list's
- * header loses focus on every keystroke, because the header re-renders and the
- * input remounts. Keeping the masthead fixed also matches the design: the
- * numbers and filter stay put while only the wardrobe scrolls.
+ * Not a grid with a masthead any more — the page IS the person: monogram
+ * avatar, the three wardrobe numbers, name and handle, the cost-per-wear
+ * sentence spoken as prose, style tags, then a favourites rail and the
+ * most-worn chart. Every number on screen derives from rows the user owns;
+ * nothing is invented (see features/closet/profile.ts for each derivation).
+ *
+ * Browsing the whole wardrobe moved behind the header's search icon: the mock
+ * gives the default state to identity and highlights, so the exhaustive grid
+ * appears when asked for — the search field over the full two-column grid,
+ * which with an empty query is simply the entire closet, newest first.
  */
-const CATEGORIES: { key: ItemCategory | 'all'; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'top', label: 'Tops' },
-  { key: 'bottom', label: 'Bottoms' },
-  { key: 'outerwear', label: 'Outerwear' },
-  { key: 'footwear', label: 'Shoes' },
-  { key: 'accessory', label: 'Accessories' },
-];
 
-const GUTTER = 20;
+/** Top-N cutoffs. Small enough to stay highlights, not an inventory. */
+const MOST_WORN_LIMIT = 5;
+const FAVOURITE_LIMIT = 8;
+
+/** Rail plate side, in points — three-and-a-bit visible on a 390pt screen. */
+const RAIL_PLATE = 124;
+
+/**
+ * How many reactions the style engine wants before it will say anything about
+ * taste. Mirrors the constant of the same name in app/profile.tsx — the chips
+ * below fall back to the learned style summary, and showing a "taste" the
+ * engine itself would disown breaks the app's honesty rule.
+ */
+const TASTE_THRESHOLD = 8;
+
+/**
+ * "ME" from "Mara Ellis", "MA" from "Mara" alone — same rules as the Profile
+ * modal's avatar (app/profile.tsx), so the two monograms can never disagree.
+ * Falls back to a bare "?" rather than throwing while the name loads.
+ */
+function initialsFor(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  const first = words[0] ?? '';
+  const last = words.length > 1 ? (words[words.length - 1] ?? '') : '';
+  const letters = last ? `${first[0] ?? ''}${last[0] ?? ''}` : first.slice(0, 2);
+  return (letters || '?').toUpperCase();
+}
+
+/** Chips and captions open with a capital; tags arrive lowercase from the DB. */
+function sentenceCase(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export default function ClosetScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const [category, setCategory] = useState<ItemCategory | 'all'>('all');
+  const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
 
-  // OUT-13: live closet. The same query Profile's stats already read, so the
-  // two screens can never disagree about what the user owns.
+  // The same query Profile's delete-account warning reads, so the two screens
+  // can never disagree about what the user owns.
   const closet = useCloset();
+  const identity = useClosetIdentity();
+  const outfitCount = useOutfitCount();
+  const style = useStyleProfile();
   const items = useMemo(() => closet.data ?? [], [closet.data]);
 
-  // Garment paths are private — sign them before an <Image> can render them.
-  const { resolve } = useSignedUrls(items.flatMap((i) => [i.thumbPath, i.cutoutPath]));
-
-  const inCategory = useMemo(
-    () => (key: ItemCategory | 'all') =>
-      key === 'all'
-        ? items
-        : items.filter((i) =>
-            // Accessories absorb `other`, so nothing falls through the filter.
-            key === 'accessory'
-              ? i.category === 'accessory' || i.category === 'other'
-              : i.category === key,
-          ),
-    [items],
+  // One signing batch covers both regimes: plates and cutouts for the profile
+  // sections, thumbs for the search grid. Paths are private — sign or nothing.
+  const { resolve } = useSignedUrls(
+    items.flatMap((i) => [i.platePath, i.cutoutPath, i.thumbPath]),
   );
 
-  // The three headline numbers, computed over the WHOLE closet, not the filtered
-  // view: they are facts about the wardrobe, and a number that moved every time
-  // you tapped a category would be reporting the filter, not the closet.
-  const stats = useMemo(() => {
-    const mostWorn = items.reduce<Item | null>(
-      (best, i) => (best === null || i.wearCount > best.wearCount ? i : best),
-      null,
-    );
-    const neverWorn = items.filter((i) => i.wearCount === 0).length;
-    const priced = items
-      .map((i) => costPerWear(i))
-      .filter((v): v is number => v !== null && Number.isFinite(v));
-    const avgCpw = priced.length ? priced.reduce((s, v) => s + v, 0) / priced.length : null;
-    return { mostWorn, neverWorn, avgCpw };
-  }, [items]);
+  // The headline numbers, computed over the WHOLE closet — they are facts
+  // about the wardrobe, never about a search in progress.
+  const stats = useMemo(() => closetStats(items), [items]);
+  const mostWorn = useMemo(() => mostWornItems(items, MOST_WORN_LIMIT), [items]);
 
-  // Category, then the live search over the words a person would actually type:
-  // what it is, its colour, the brand. Newest first within the result.
+  // SEAM — favourites. No favourite flag exists in the schema yet and the DB
+  // agent owns migrations, so the rail is driven by wear data (the pieces the
+  // user demonstrably reaches for) and the Edit affordance below renders
+  // disabled. When an `items.is_favourite` lands, swap this derivation for the
+  // flagged set and enable Edit; nothing else on the page changes.
+  const favourites = useMemo(() => mostWornItems(items, FAVOURITE_LIMIT), [items]);
+
+  // Live search over the words a person would actually type: what it is, its
+  // colour, the brand. Empty query = the whole closet, newest first.
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const matches = (i: Item) =>
@@ -86,213 +112,407 @@ export default function ClosetScreen() {
       [i.subcategory, i.category, i.brand, ...i.colors.map((c) => c.name)]
         .filter(Boolean)
         .some((s) => s!.toLowerCase().includes(q));
-    return inCategory(category)
-      .filter(matches)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [inCategory, category, query]);
+    return items.filter(matches).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [items, query]);
 
-  const masthead = (
-    <View style={{ paddingHorizontal: GUTTER }}>
-      <View className="flex-row items-baseline justify-between pt-2">
-        <Text variant="display" trim accessibilityRole="header">
-          Closet
-        </Text>
-        <Text variant="label" className="text-faint dark:text-faint-dark">
-          {items.length} {items.length === 1 ? 'piece' : 'pieces'}
-        </Text>
-      </View>
+  const name = identity.data?.name ?? '';
 
-      {/* Search */}
-      <View className="mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5 dark:bg-tray-dark">
-        <SymbolView name="magnifyingglass" size={15} tintColor={theme.faint} resizeMode="scaleAspectFit" />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search your wardrobe"
-          placeholderTextColor={theme.faint}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-          accessibilityLabel="Search your wardrobe"
-          style={{ flex: 1, paddingVertical: 11, fontFamily: 'HelveticaNeue', fontSize: 15, color: theme.ink }}
+  // "@handle · City". Both columns exist on `profiles` today; the username
+  // CLAIMING flow ships with the social wave, so for most users this renders
+  // just the city until then — the join collapses around whatever is missing.
+  const handleLine = [
+    identity.data?.username ? `@${identity.data.username}` : null,
+    identity.data?.homeCity,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  // The bio, ending in the computed average cost-per-wear as prose. The
+  // sentence is only spoken when at least one piece has both a price and a
+  // wear — an average over nothing is not a fact, so it goes unsaid.
+  const bioLine = [
+    identity.data?.bio,
+    stats.avgCostPerWear !== null ? `Averages $${stats.avgCostPerWear.toFixed(2)} a wear.` : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  // Style-tag chips: the profile's own tags when the user has set them, else
+  // the engine's learned summary — but only past the honesty threshold, the
+  // same line Profile's "What Cinch has learned" card draws.
+  const chips = useMemo(() => {
+    const tags = identity.data?.styleTags ?? [];
+    if (tags.length > 0) return tags.map(sentenceCase);
+    if ((style.data?.feedbackCount ?? 0) >= TASTE_THRESHOLD) {
+      return (style.data?.summary ?? []).map(sentenceCase);
+    }
+    return [];
+  }, [identity.data?.styleTags, style.data]);
+
+  const openItem = (item: Item) =>
+    router.push({ pathname: '/item/[id]', params: { id: item.id } });
+
+  const refresh = () => {
+    void closet.refetch();
+    void identity.refetch();
+    void outfitCount.refetch();
+  };
+
+  const header = (
+    <View className="flex-row items-center justify-between pl-gutter pr-2 pt-2">
+      <Text variant="display" trim accessibilityRole="header">
+        Closet
+      </Text>
+      <View className="flex-row items-center">
+        <HeaderIcon
+          name="magnifyingglass"
+          label={searching ? 'Close search' : 'Search your wardrobe'}
+          onPress={() => {
+            setSearching((s) => !s);
+            setQuery('');
+          }}
+        />
+        <HeaderIcon
+          name="ellipsis"
+          label="Account and settings"
+          onPress={() => router.navigate('/profile')}
         />
       </View>
-
-      {/* The three headline numbers — a divided strip, informational. */}
-      <View className="mt-3.5 flex-row border-y border-hairline dark:border-hairline-dark">
-        <StatCell
-          value={stats.mostWorn ? `${stats.mostWorn.wearCount}×` : '—'}
-          label="Most worn"
-        />
-        <StatCell
-          value={`${stats.neverWorn}`}
-          label="Never worn"
-          accent={stats.neverWorn > 0}
-          divided
-        />
-        <StatCell
-          value={stats.avgCpw !== null ? `$${stats.avgCpw.toFixed(2)}` : '—'}
-          label="Avg / wear"
-        />
-      </View>
-
-      {/* Category filter */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 7, paddingVertical: 12 }}>
-        {CATEGORIES.map((c) => {
-          const selected = category === c.key;
-          return (
-            <Pressable
-              key={c.key}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              accessibilityHint={`Show only ${c.label}`}
-              onPress={() => setCategory(c.key)}
-              className={`rounded-full border px-3.5 py-1.5 active:opacity-70 ${
-                selected
-                  ? 'border-ink bg-ink dark:border-ink-dark dark:bg-ink-dark'
-                  : 'border-rule bg-transparent dark:border-rule-dark'
-              }`}>
-              <Text
-                variant="label"
-                // Inline, not a className: the variant's own text-muted and a
-                // text-canvas class have no guaranteed precedence.
-                style={{ color: selected ? theme.canvas : theme.muted }}>
-                {c.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
     </View>
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       {closet.isLoading ? (
-        // The masthead swaps down to just the title while loading — the search,
-        // stat strip and chips have nothing to act on yet, but the design keeps
-        // the "Closet" title standing above the spinner so the page doesn't jump.
+        // Just the title standing above the skeleton — the page has nothing to
+        // say about a wardrobe it has not read yet, and keeping the title put
+        // stops the screen jumping when the data lands.
         <>
-          <View style={{ paddingHorizontal: GUTTER }} className="pt-2">
+          <View className="px-gutter pt-2">
             <Text variant="display" trim accessibilityRole="header">
               Closet
             </Text>
           </View>
           <ClosetGridSkeleton />
         </>
-      ) : (
+      ) : searching ? (
+        // The browse-everything mode: search over the full grid. The input sits
+        // OUTSIDE the list for the same reason the old masthead did — a
+        // controlled TextInput in a virtualised header remounts, and loses
+        // focus, on every keystroke.
         <>
-          {masthead}
+          {header}
+          <View className="mx-gutter mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5">
+            <SymbolView
+              name="magnifyingglass"
+              size={15}
+              tintColor={theme.faint}
+              resizeMode="scaleAspectFit"
+            />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              autoFocus
+              placeholder="Search your wardrobe"
+              placeholderTextColor={theme.faint}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+              accessibilityLabel="Search your wardrobe"
+              style={{
+                flex: 1,
+                paddingVertical: 11,
+                fontFamily: 'HelveticaNeue',
+                fontSize: 15,
+                color: theme.ink,
+              }}
+            />
+          </View>
+          <View className="h-2" />
           <ClosetGrid
             items={visible}
-            onItemPress={(item) => router.push({ pathname: '/item/[id]', params: { id: item.id } })}
+            onItemPress={openItem}
             resolveImage={resolve}
-            // The grid's only refetch affordance. The ingest queue invalidates
-            // on its own when an import settles; this is for everything else —
-            // an edit on another device, a delete that raced the cache.
             refreshControl={
-              <RefreshControl refreshing={closet.isRefetching} onRefresh={() => void closet.refetch()} />
+              <RefreshControl refreshing={closet.isRefetching} onRefresh={refresh} />
             }
-            ListEmptyComponent={
-              <EmptyCloset
-                query={query}
-                category={category}
-                onAdd={() => router.push('/capture')}
-              />
-            }
+            ListEmptyComponent={<EmptySearch query={query} />}
           />
         </>
+      ) : (
+        <ScrollView
+          contentContainerClassName="pb-24"
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={closet.isRefetching} onRefresh={refresh} />
+          }>
+          {header}
+
+          {/* Profile row — the monogram beside the three wardrobe numbers. */}
+          <View className="mt-6 flex-row items-center gap-5 px-gutter">
+            <View className="h-[76px] w-[76px] items-center justify-center rounded-full bg-sand">
+              {/* Oxblood serif initials on sand, per the mock. Inline colour,
+                  not a className: a text-accent class has no guaranteed
+                  precedence over the variant's own text-ink. */}
+              <Text variant="title" style={{ color: theme.accent }}>
+                {initialsFor(name)}
+              </Text>
+            </View>
+            <View className="flex-1 flex-row">
+              <Stat value={`${stats.pieces}`} label="Pieces" />
+              <Stat
+                value={outfitCount.data !== undefined ? `${outfitCount.data}` : '—'}
+                label="Outfits"
+              />
+              {/* The mock sets the unworn numeral in oxblood — the "get more
+                  from what you own" pitch as a colour. Zero stays ink: an
+                  accent celebrating the absence of a problem reads as an alarm
+                  that failed to clear. */}
+              <Stat value={`${stats.unworn}`} label="Unworn" accent={stats.unworn > 0} />
+            </View>
+          </View>
+
+          <View className="mt-6 px-gutter">
+            {name ? (
+              <Text variant="title" trim accessibilityRole="header">
+                {name}
+              </Text>
+            ) : null}
+            {handleLine ? (
+              <Text variant="label" className="mt-2.5 text-muted">
+                {handleLine}
+              </Text>
+            ) : null}
+            {bioLine ? (
+              <Text variant="callout" className="mt-2.5 text-ink">
+                {bioLine}
+              </Text>
+            ) : null}
+            {chips.length > 0 ? (
+              <View className="mt-4 flex-row flex-wrap gap-2">
+                {chips.map((chip) => (
+                  <View key={chip} className="rounded-full bg-sand px-3.5 py-1.5">
+                    <Text variant="label" className="text-ink">
+                      {chip}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+
+          {items.length === 0 ? (
+            <EmptyCloset onAdd={() => router.push('/capture')} />
+          ) : (
+            <>
+              {favourites.length > 0 ? (
+                <View className="mt-8">
+                  <View className="flex-row items-baseline justify-between px-gutter">
+                    <Text variant="eyebrow">Favourite pieces</Text>
+                    {/* Disabled until a favourite flag exists — see the SEAM
+                        note on `favourites` above. Kept visible because the
+                        mock draws it and the affordance ships with the flag. */}
+                    <Pressable
+                      disabled
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: true }}
+                      accessibilityLabel="Edit favourite pieces"
+                      accessibilityHint="Coming soon">
+                      <Text variant="label" className="text-accent opacity-40">
+                        Edit
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 20, gap: 14, paddingTop: 12 }}>
+                    {favourites.map((item) => (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => openItem(item)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${pieceName(item)}, ${wearsLabel(item.wearCount)}`}
+                        className="active:opacity-80"
+                        style={{ width: RAIL_PLATE }}>
+                        {/* Plate → cutout only; the raw photo never stands in
+                            for a plate (see PlateThumb). */}
+                        <PlateThumb
+                          item={item}
+                          uri={resolve(item.platePath, item.cutoutPath)}
+                          size={RAIL_PLATE}
+                        />
+                        <Text variant="label" numberOfLines={1} className="mt-2 text-ink">
+                          {pieceName(item)}
+                        </Text>
+                        <Text variant="caption" className="mt-0.5 text-muted">
+                          {wearsLabel(item.wearCount)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
+
+              {mostWorn.length > 0 ? (
+                <View className="mt-8 px-gutter">
+                  <Text variant="eyebrow">Most worn</Text>
+                  <View className="mt-1.5">
+                    {mostWorn.map((item) => (
+                      <MostWornRow
+                        key={item.id}
+                        item={item}
+                        max={mostWorn[0]?.wearCount ?? 1}
+                        uri={resolve(item.platePath, item.cutoutPath)}
+                        onPress={() => openItem(item)}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+            </>
+          )}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-/**
- * The empty rail — the design's 03c.
- *
- * Centred, not hard-left like the shared `EmptyState`, and the placeholder is
- * three dashed garment rails rather than an icon: the shape of what is missing
- * says "hang something here" far better than a t-shirt glyph. The same dashed
- * grammar the empty Today uses, so the two read as one app.
- */
-function EmptyCloset({
-  query,
-  category,
-  onAdd,
+/** One header icon at the accessibility floor — the title row's quiet chrome. */
+function HeaderIcon({
+  name,
+  label,
+  onPress,
 }: {
-  query: string;
-  category: ItemCategory | 'all';
-  onAdd: () => void;
+  name: SymbolViewProps['name'];
+  label: string;
+  onPress: () => void;
 }) {
-  const wholeCloset = category === 'all' && !query;
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}
+      className="items-center justify-center active:opacity-60">
+      <SymbolView name={name} size={17} tintColor={theme.ink} resizeMode="scaleAspectFit" />
+    </Pressable>
+  );
+}
 
-  const title = query ? 'Nothing matches' : wholeCloset ? 'An empty rail' : 'Nothing in this drawer';
-  const body = query
-    ? 'No pieces match that search. Try a colour, a brand, or the kind of garment.'
-    : wholeCloset
-      ? 'Add a few pieces and this fills with your real wardrobe — worn counts, cost-per-wear, the lot.'
-      : 'No pieces in this category yet. Tap All to see the whole closet.';
+/** One profile stat: a serif numeral over a small-caps label. */
+function Stat({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
+  const theme = useTheme();
+  return (
+    <View className="flex-1 items-center" accessibilityLabel={`${value} ${label}`}>
+      <Text variant="title" style={accent ? { color: theme.accent } : undefined}>
+        {value}
+      </Text>
+      <Text variant="colophon" className="mt-1">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * One most-worn row: plate thumb, name, the wear bar, the count in the serif.
+ *
+ * The bar is scaled to the section's own maximum so the top piece always fills
+ * the track and the rest read as ratios of it — the mock's "dusty rose" maps
+ * to the accent-warm token, the palette's designated data highlight, rather
+ * than a new colour.
+ */
+function MostWornRow({
+  item,
+  max,
+  uri,
+  onPress,
+}: {
+  item: Item;
+  max: number;
+  uri?: string;
+  onPress: () => void;
+}) {
+  // Floor at 5% so the fifth-place bar is still a bar, not a rounding error.
+  const fraction = Math.max(item.wearCount / Math.max(max, 1), 0.05);
 
   return (
-    <View className="items-center px-8 pt-16">
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${pieceName(item)}, ${wearsLabel(item.wearCount)}`}
+      className="flex-row items-center gap-3 py-2.5 active:opacity-70">
+      <PlateThumb item={item} uri={uri} size={48} showFallbackLabel={false} />
+      <View className="flex-1">
+        <Text variant="label" numberOfLines={1} className="text-ink">
+          {pieceName(item)}
+        </Text>
+        <View className="mt-2 h-[5px] overflow-hidden rounded-full bg-sand">
+          <View
+            className="h-full rounded-full bg-accent-warm"
+            style={{ width: `${fraction * 100}%` }}
+          />
+        </View>
+      </View>
+      {/* Same serif-at-label-size idiom as the item card's cost-per-wear. */}
+      <Text variant="stat" className="text-label text-ink">
+        {wearsLabel(item.wearCount)}
+      </Text>
+    </Pressable>
+  );
+}
+
+/**
+ * The empty rail — carried over from the previous closet in spirit and in
+ * grammar: three dashed garment rails say "hang something here" better than a
+ * t-shirt glyph, and match the empty Today so the two read as one app.
+ */
+function EmptyCloset({ onAdd }: { onAdd: () => void }) {
+  return (
+    <View className="items-center px-8 pt-14">
       <View className="flex-row gap-2">
         {[0, 1, 2].map((i) => (
           <View
             key={i}
             style={{ width: 52, height: 74 }}
-            className="rounded-md border border-dashed border-rule bg-tray dark:border-rule-dark dark:bg-tray-dark"
+            className="rounded-md border border-dashed border-rule bg-tray"
           />
         ))}
       </View>
 
       <Text variant="title" className="mt-7 text-center">
-        {title}
+        An empty rail
       </Text>
-      <Text variant="body" className="mt-3 max-w-[260px] text-center text-muted dark:text-muted-dark">
-        {body}
+      <Text variant="body" className="mt-3 max-w-[260px] text-center text-muted">
+        Add a few pieces and this fills with your real wardrobe — worn counts, cost-per-wear,
+        the lot.
       </Text>
 
-      {wholeCloset ? (
-        <Pressable
-          onPress={onAdd}
-          accessibilityRole="button"
-          accessibilityLabel="Add clothes"
-          className="mt-6 h-12 items-center justify-center rounded-md bg-ink px-7 active:opacity-90 dark:bg-ink-dark">
-          <Text variant="callout" className="font-semibold" style={{ color: '#FBFAF6' }}>
-            Add clothes
-          </Text>
-        </Pressable>
-      ) : null}
+      <Pressable
+        onPress={onAdd}
+        accessibilityRole="button"
+        accessibilityLabel="Add clothes"
+        className="mt-6 h-12 items-center justify-center rounded-md bg-ink px-7 active:opacity-90">
+        <Text variant="callout" className="font-semibold" style={{ color: '#FBFAF6' }}>
+          Add clothes
+        </Text>
+      </Pressable>
     </View>
   );
 }
 
-/** One column of the headline-numbers strip: a serif figure over a tiny cap label. */
-function StatCell({
-  value,
-  label,
-  accent = false,
-  divided = false,
-}: {
-  value: string;
-  label: string;
-  accent?: boolean;
-  divided?: boolean;
-}) {
+/** The search grid's nothing-found state. */
+function EmptySearch({ query }: { query: string }) {
   return (
-    <View
-      className={`flex-1 items-center py-2.5 ${
-        divided ? 'border-x border-hairline dark:border-hairline-dark' : ''
-      }`}>
-      <Text
-        variant="stat"
-        className={accent ? 'text-accent dark:text-accent-dark' : 'text-ink dark:text-ink-dark'}>
-        {value}
+    <View className="items-center px-8 pt-16">
+      <Text variant="title" className="text-center">
+        {query ? 'Nothing matches' : 'An empty rail'}
       </Text>
-      <Text variant="colophon" className="mt-0.5">
-        {label}
+      <Text variant="body" className="mt-3 max-w-[260px] text-center text-muted">
+        {query
+          ? 'No pieces match that search. Try a colour, a brand, or the kind of garment.'
+          : 'Add a few pieces and your whole wardrobe becomes searchable here.'}
       </Text>
     </View>
   );
