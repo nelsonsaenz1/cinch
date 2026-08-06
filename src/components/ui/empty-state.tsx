@@ -40,6 +40,18 @@ export type EmptyStateProps = {
  * on an `isError` branch is how "No one is blocked." came to be shown to
  * someone whose blocks were merely unreadable.
  */
+/**
+ * Re-exported so the sentence above is true at the import site, not just in
+ * prose: anyone reaching here for the empty branch finds the error branch in
+ * the same place. Two separate agents independently imported `ErrorState`
+ * from this module on the strength of that comment, which is a fair reading —
+ * the fix is to make the reading correct rather than to keep being surprised
+ * by it. `error-state.tsx` remains the definition; `@/components/ui` is the
+ * canonical barrel.
+ */
+export { ErrorState } from './error-state';
+export type { ErrorStateProps } from './error-state';
+
 export function EmptyState({
   symbol,
   title,
