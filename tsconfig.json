@@ -20,6 +20,13 @@
   ],
   "exclude": [
     "node_modules",
+    // Handoff packages are unpacked here and are gitignored (see .gitignore).
+    // They carry point-in-time COPIES of repo modules — `use-plan.ts`,
+    // `posthog.tsx.current` — whose relative imports resolve against the repo
+    // root they came from, not this one. Left in, `tsc` reports "Cannot find
+    // module './plans'" against a file that is not part of the app, and a
+    // clean typecheck stops meaning anything.
+    "handoff",
     // Edge Functions run on Deno, not React Native — different globals
     // (`Deno`), different module resolution (`npm:` and `.ts` specifiers).
     // They are typechecked by `deno check` via `npm run check:functions`,
