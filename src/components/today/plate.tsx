@@ -334,9 +334,11 @@ function WearButton({
  * The card, top to bottom: the outfit's serif name with the feels-like it
  * was chosen against as a colophon; the model's reasoning; the stack, the look
  * composed body-ordered with the pieces named beneath it in one credit line;
- * then a footer printing the palette in the engine's own colours and the look's
- * cost per wear — the number no competitor computes, so none can print it —
- * and the love / not-for-me / worn actions.
+ * then a footer printing the palette in the engine's own colours and the
+ * look's cost per wear — a number Whering and Indyx print too now, so it isn't
+ * what makes this footer Cinch's; the friends who voted this look into
+ * existence, from a closet they can see is real, are — and the love / not-for-me
+ * / worn actions.
  */
 export function Plate({
   outfit,
@@ -503,8 +505,11 @@ export function Plate({
           </View>
         ) : (
           <>
-            {/* ── Footer: the palette in the engine's own colours, and the number
-                   no competitor tracks — what wearing the look costs per wear. ── */}
+            {/* ── Footer: the palette in the engine's own colours, and what
+                   wearing the look costs per wear. Other closet apps track
+                   that number too now — what they don't have is a look their
+                   friends actually voted on, from a closet those friends can
+                   see is real. ── */}
             <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3 dark:border-rule-dark">
               <View className="flex-1 flex-row items-center gap-2">
                 <Text variant="eyebrow">Palette</Text>

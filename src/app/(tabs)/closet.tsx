@@ -609,8 +609,15 @@ function Stat({
       </Text>
       {/* One line, always: "Followers" is the widest label on the row and a
           wrapped second line would push its numeral out of alignment with the
-          other three. */}
-      <Text variant="colophon" numberOfLines={1} className="mt-1">
+          other three. Because it genuinely can't wrap, it takes the same
+          tighter 1.4 cap `text.tsx` reserves for content pinned to a fixed
+          cell rather than the variant's default 1.8 — at 1.8 "Followers" was
+          clipping to "FOLLOWER" and "Unworn" to "UNWOR" under the numeral. */}
+      <Text
+        variant="colophon"
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.4}
+        className="mt-1">
         {label}
       </Text>
     </>
@@ -776,7 +783,12 @@ function EmptyCloset({ onAdd }: { onAdd: () => void }) {
             onPress={onAdd}
             accessibilityRole="button"
             accessibilityLabel="Add clothes"
-            className="mt-5 h-12 items-center justify-center self-start rounded-md bg-ink px-7 active:opacity-90">
+            // `min-h-12`, not `h-12`: a fixed height held the button to 48pt
+            // regardless of the label's own size, so a large Dynamic Type
+            // setting grew "Add clothes" past its box instead of the box
+            // growing to fit it.
+            style={{ minHeight: 48 }}
+            className="mt-5 items-center justify-center self-start rounded-md bg-ink px-7 py-3 active:opacity-90">
             <Text variant="callout" className="font-semibold" style={{ color: '#FBFAF6' }}>
               Add clothes
             </Text>

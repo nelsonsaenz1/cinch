@@ -54,6 +54,7 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
         {imageUri ? (
           <Image
             source={stableImageSource(imageUri)}
+            recyclingKey={item.id}
             contentFit="contain"
             transition={180}
             cachePolicy="memory-disk"
@@ -78,13 +79,29 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
             — is the whole "get more from what you own" pitch made visible. */}
         {needsReview ? (
           <View className="absolute left-2 top-2 rounded-sm bg-warning px-2 py-0.5">
-            <Text variant="caption" style={{ color: theme.canvas }}>
+            {/* The card around this badge is a fixed-aspect tray (`aspect-[4/5]`)
+                with `overflow-hidden` — a badge that wraps to a second line at a
+                large Dynamic Type setting doesn't grow the card, it gets sliced
+                by it. Two words genuinely cannot wrap here, so the line is
+                capped rather than allowed to grow past its own pill: the tighter
+                1.4 multiplier text.tsx reserves for exactly this — content
+                pinned inside a fixed-size cell (see its `statFigure` note). */}
+            <Text
+              variant="caption"
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.4}
+              style={{ color: theme.canvas }}>
               Needs review
             </Text>
           </View>
         ) : neverWorn ? (
           <View className="absolute left-2 top-2 rounded-sm bg-accent px-2 py-0.5">
-            <Text variant="colophon" style={{ color: theme.canvas }}>
+            {/* Same fixed-tray constraint as the needs-review badge above. */}
+            <Text
+              variant="colophon"
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.4}
+              style={{ color: theme.canvas }}>
               Never worn
             </Text>
           </View>

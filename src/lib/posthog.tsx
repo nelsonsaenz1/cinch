@@ -62,6 +62,28 @@ export const posthog: PostHog | null = token
       // next launch, and long enough not to make a request per tap.
       flushInterval: 10,
       flushAt: 20,
+      // Error visibility (#86): there is no crash reporter in this app, so an
+      // uncaught JS exception or unhandled promise rejection otherwise vanishes
+      // — nobody sees it unless the user happens to describe the crash.
+      //
+      // The installed posthog-react-native (4.62, checked in node_modules —
+      // see `error-tracking/index.d.ts`) ships its own `captureException` and
+      // an `errorTracking.autocapture` option, so this wires into that rather
+      // than hand-rolling an `ErrorUtils.setGlobalHandler`. Its own
+      // `trackUncaughtExceptions` (error-tracking/utils.js) reads the CURRENT
+      // global handler, calls the tracker, then calls the original handler
+      // straight after — so the platform's own fatal-error behaviour (the
+      // Hermes red box in dev, the native crash in prod) still runs unchanged.
+      // Nothing here rethrows, and nothing here can loop: a capture failure
+      // is swallowed inside the SDK's own try/catch, not re-thrown into the
+      // handler it just installed.
+      //
+      // Console autocapture is left off — this is exception tracking, not a
+      // log pipe, and a wrapped `console.error` would start forwarding
+      // component stack traces that may embed garment data logged elsewhere.
+      errorTracking: {
+        autocapture: { uncaughtExceptions: true, unhandledRejections: true },
+      },
     })
   : null;
 
@@ -113,7 +135,35 @@ export type AppEvent =
   /** The share sheet was opened for an outfit card. */
   | 'outfit_shared'
   /** A server refusal that offered an upgrade — the paywall funnel's top. */
-  | 'paywall_presented';
+  | 'paywall_presented'
+  /**
+   * A paywall that could not be shown — dismissed by the client fail-safe in
+   * `use-gate.ts` rather than left as a dead grey sheet. Properties carry the
+   * placement and a bounded reason enum (an SDK event name, `no_response`,
+   * `silent_render`, `skipped_without_grant`, or `sdk_error`), never the raw
+   * error text, which is unbounded.
+   */
+  | 'paywall_unavailable'
+  /**
+   * A garment import that never reached `done` — the terminal failure of an
+   * upload-queue job. `stage` is the pipeline step it died at (e.g. `cutout`,
+   * `uploading`, `tagging`); `reason` is a short, bounded cause, never the raw
+   * error string. No call site exists yet: `upload-queue.ts` and its list UI
+   * are out of this change's territory. See the deferred call sites noted in
+   * `track`'s doc comment below.
+   */
+  | 'clothes_import_failed'
+  /**
+   * A generic JS exception, for manual `catch` blocks that want a typed event
+   * rather than reaching for `posthog.captureException` directly. The
+   * top-level hook below does NOT emit this — the installed SDK supports
+   * native exception autocapture, so uncaught errors and unhandled rejections
+   * are captured as PostHog's own `$exception` event instead, the same way
+   * `useScreenTracking` below emits `$screen` outside this union. `client_error`
+   * stays reserved for a deliberate, in-app `catch`, with only a bounded
+   * `name`/`message`/first stack frame — never the full stack or user content.
+   */
+  | 'client_error';
 
 /**
  * Bounded, non-identifying properties.
@@ -125,7 +175,23 @@ export type AppEvent =
  */
 export type EventProps = Record<string, number | boolean | string | undefined>;
 
-/** Emit an event. Safe to call when analytics are unconfigured. */
+/**
+ * Emit an event. Safe to call when analytics are unconfigured.
+ *
+ * FOLLOW-UP OWED: `clothes_import_failed` has no call site yet.
+ * `src/features/ingest/upload-queue.ts` is where a job's `stage` actually
+ * flips to `'failed'` — see the `update(jobId, { stage: 'failed', error })`
+ * calls around lines 286, 305, 687, 705, 805 and 876 — and
+ * `src/components/ingest/upload-queue-list.tsx` is the only UI that renders
+ * that state (its `Thumb`, `failed`/`job.error`). Both are out of this
+ * change's territory (capture/ingest is explicitly excluded), and neither is
+ * reachable from any file this change was allowed to touch, so the event is
+ * declared here and unwired. The natural fix is one `track('clothes_import_failed',
+ * { stage: job.stage, reason: <bounded classification of job.error> })` per
+ * terminal `'failed'` transition in `upload-queue.ts` — `reason` should be a
+ * short enum classifying the failure, not `job.error` itself, which is
+ * free-text meant for the human-readable banner.
+ */
 export function track(event: AppEvent, properties?: EventProps): void {
   if (!posthog) return;
   // `undefined` is allowed in EventProps so call sites can write optional

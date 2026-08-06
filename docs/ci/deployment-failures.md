@@ -6,9 +6,11 @@ Diagnostic only — nothing was fixed, re-run, pushed, or changed.
 ## 1. Verdict
 
 **Nothing is broken right now, and nothing on the deploy path was ever
-involved.** There is no Vercel git integration, no GitHub Pages site, and the
-GitHub Deployments API returns an empty list — so the emails are not deploy
-failures at all. They are ordinary GitHub Actions *run failure* notifications
+involved.** At the time of this investigation there was no Vercel git
+integration (it was reconnected the same day, 2026-08-06, after this
+diagnosis — see the note under §5 "Anything Vercel"), no GitHub Pages site,
+and the GitHub Deployments API returned an empty list — so the emails were not
+deploy failures at all. They are ordinary GitHub Actions *run failure* notifications
 from the single workflow in this repo, `CI`, which GitHub titles in a way that
 reads like a deployment. Those emails came from two unrelated things. The bulk
 of them — sixteen consecutive red runs on `main` across 2026-08-05 — were all
@@ -219,9 +221,16 @@ else. No other batch owns any file. Overlap is zero by construction.
   branches on the remote (`posthog/instrumentation-5a85ce` and
   `posthog/instrumentation-gaps`) — confirm with that session which is live
   before touching either.
-- **Anything Vercel.** Verified there is no git integration, no Deployments API
-  entries, and no Pages site. The marketing site in `web/` deploys only by
-  manual `vercel --prod`. No email in this batch came from Vercel.
+- **Anything Vercel.** At investigation time there was no git integration, no
+  Deployments API entries, and no Pages site — the marketing site in `web/`
+  deployed only by manual `vercel --prod`, and no email in this batch came
+  from Vercel. **Update, 2026-08-06:** the Vercel git integration was
+  reconnected the same day, with Root Directory set to `web`. That changes the
+  premise of this line for anything investigated *after* the reconnect — a
+  push to `main` now triggers a real Vercel deployment, and a failure there
+  would be a genuine deploy-failure email, not a mislabelled Actions run. This
+  report's verdict still holds for the runs it covers, all from before the
+  reconnect.
 
 ## Appendix — evidence
 

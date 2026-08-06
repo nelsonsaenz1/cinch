@@ -109,13 +109,14 @@ First release.
 
 | Field | Value |
 |---|---|
-| Privacy Policy URL | `https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy` |
-| Support URL | `https://cinch-nelsonsaenz1-3579s-projects.vercel.app/support` |
-| Marketing URL | `https://cinch-nelsonsaenz1-3579s-projects.vercel.app` |
+| Privacy Policy URL | `https://www.cinchstyle.com/privacy` |
+| Support URL | `https://www.cinchstyle.com/support` |
+| Marketing URL | `https://www.cinchstyle.com` |
 
-All three are live and reachable without a login — Vercel's deployment
-protection was on by default and returned 302 to everything, including to
-Apple's reviewers.
+The site is live on its own domain now, so these no longer point at the
+Vercel preview host. All three are reachable without a login — the
+deployment-protection issue that returned 302 to everything, including to
+Apple's reviewers, was on the old `*.vercel.app` URL and does not apply here.
 
 ---
 
