@@ -575,17 +575,55 @@ export function trackOnce(event: AppEvent, properties?: EventProps): void {
 }
 
 /**
+ * Person properties — attributes of the PERSON, not of one event.
+ *
+ * These exist so every event can be segmented by plan, closet size and cohort
+ * without any event having to carry them. Same bound as `EventProps`: numbers,
+ * booleans and short fixed enums. A count is not a list; `garment_count` is
+ * how many garments there are and never which ones.
+ *
+ * `set` is last-write-wins. `setOnce` lands only if the property is absent, and
+ * the distinction is load-bearing for anything a cohort is built on: a value
+ * that can never legitimately change must not be overwritable by a later,
+ * possibly wrong, derivation — an overwrite there silently rewrites history in
+ * every cohort chart already drawn from it.
+ *
+ * Sent as a `$set` event rather than a re-`identify()`. Re-identifying the same
+ * person on every plan or closet change is how an alias chain gets built for no
+ * reason; `$set` is the operation that is actually meant.
+ */
+export type PersonProps = Record<string, number | boolean | string>;
+
+export function setPersonProperties(set: PersonProps, setOnce?: PersonProps): void {
+  if (!posthog) return;
+  const hasSet = Object.keys(set).length > 0;
+  const hasSetOnce = setOnce !== undefined && Object.keys(setOnce).length > 0;
+  if (!hasSet && !hasSetOnce) return;
+  posthog.capture('$set', {
+    ...(hasSet ? { $set: set } : {}),
+    ...(hasSetOnce ? { $set_once: setOnce } : {}),
+  });
+}
+
+/**
  * Bind analytics to the signed-in identity, or clear it.
  *
  * Called from the single auth subscription in `_layout.tsx` rather than from a
  * hook, so there is exactly one place that decides who the current person is.
  * `userId` is the Supabase UUID and the only identifier sent.
+ *
+ * `signupWeek` is set-once here rather than alongside the other person
+ * properties, because this is the one place the account's creation time is
+ * already in hand — it rides on the auth session and costs no extra read. It is
+ * an ISO week string (`2026-W32`), which is a bucket, not a timestamp: it
+ * cohorts a user without pinning them to a moment.
  */
-export function identifyUser(userId: string | null): void {
+export function identifyUser(userId: string | null, signupWeek?: string | null): void {
   currentUserId = userId;
   if (!posthog) return;
   if (userId) {
     posthog.identify(userId);
+    if (signupWeek) setPersonProperties({}, { signup_week: signupWeek });
     return;
   }
   // The once-per-user flags are keyed by user id and live in storage, so the

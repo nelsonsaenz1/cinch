@@ -12,6 +12,8 @@ import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Text } from '@/components/ui/text';
+import { AnalyticsProperties } from '@/features/analytics/analytics-properties';
+import { isoWeek } from '@/features/analytics/signup-week';
 import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
 import { useSession } from '@/features/auth/use-session';
 import { useInviteDeepLink } from '@/features/invite/use-invite-deep-link';
@@ -84,12 +86,19 @@ function usePersistedCachePurge() {
  *
  * Only the Supabase UUID is sent. No email, no name — see the header of
  * lib/posthog.tsx for why that line is load-bearing for App Review, not taste.
+ *
+ * The signup week rides along because this is the one place it is free: the
+ * session already carries `created_at`, so no query is needed to cohort the
+ * user. It is derived from a fixed string, which keeps the call pure — and it
+ * is set ONCE on the person, never overwritten. The rest of the person
+ * properties are set by `AnalyticsProperties`, which cannot live here: this
+ * hook runs outside the query provider. See that file.
  */
 function useAnalyticsIdentity() {
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-        if (session?.user.id) identifyUser(session.user.id);
+        if (session?.user.id) identifyUser(session.user.id, isoWeek(session.user.created_at));
       } else if (event === 'SIGNED_OUT') {
         identifyUser(null);
       }
@@ -299,6 +308,12 @@ export default function RootLayout() {
             hole at its most important step.
           */}
           <Analytics>
+            {/*
+              Inside the query provider, because it reads `usePlan` and
+              `useCapacity` — see the file for why this is a component rather
+              than a call inside `useAnalyticsIdentity` above.
+            */}
+            <AnalyticsProperties />
             <Superwall>
               <AuthGate>
               <Stack screenOptions={{ headerShown: false }}>
