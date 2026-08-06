@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { getUserId, supabase } from '@/lib/supabase';
+import { closetSession, closetUserId } from '@/features/closet/session';
+import { supabase } from '@/lib/supabase';
 import { costPerWear, type Item } from '@/schemas/item';
 
 /**
@@ -29,26 +30,31 @@ export type ClosetIdentity = {
  * header uses (src/app/profile.tsx): `display_name` is rarely set because there
  * is no settings UI for it yet, so the Apple Sign In name captured at first
  * login backs it up, then the email's local part, before giving up.
+ *
+ * Reads the name and email off the LOCAL session rather than `getClaims()`.
+ * On Hermes, `getClaims()` degrades to a network `getUser()` on every call and
+ * inherits the auth client's hang modes (see features/closet/session.ts) — and
+ * verified claims buy nothing here, because the masthead only greets the person
+ * this device already believes is signed in. RLS decides what the row query
+ * returns regardless.
  */
 export function useClosetIdentity() {
   return useQuery({
     queryKey: ['closet-identity'],
-    queryFn: async (): Promise<ClosetIdentity> => {
-      const userId = await getUserId();
-      if (!userId) return { name: 'You', username: null, homeCity: null, bio: null, styleTags: [] };
+    queryFn: async ({ signal }): Promise<ClosetIdentity> => {
+      const session = await closetSession();
+      const user = session?.user;
+      if (!user) return { name: 'You', username: null, homeCity: null, bio: null, styleTags: [] };
 
-      const [{ data: claimsData }, { data: row }] = await Promise.all([
-        supabase.auth.getClaims(),
-        supabase
-          .from('profiles')
-          .select('display_name, username, bio, home_city, style_tags')
-          .eq('user_id', userId)
-          .maybeSingle(),
-      ]);
+      const { data: row } = await supabase
+        .from('profiles')
+        .select('display_name, username, bio, home_city, style_tags')
+        .eq('user_id', user.id)
+        .abortSignal(signal)
+        .maybeSingle();
 
-      const claims = claimsData?.claims;
-      const meta = (claims?.user_metadata ?? {}) as { full_name?: string };
-      const email = (claims?.email as string | undefined) ?? null;
+      const meta = (user.user_metadata ?? {}) as { full_name?: string };
+      const email = user.email ?? null;
 
       const name =
         row?.display_name || meta.full_name || (email ? email.split('@')[0] : null) || 'You';
@@ -78,14 +84,15 @@ export function useClosetIdentity() {
 export function useOutfitCount() {
   return useQuery({
     queryKey: ['outfit-count'],
-    queryFn: async (): Promise<number> => {
-      const userId = await getUserId();
+    queryFn: async ({ signal }): Promise<number> => {
+      const userId = await closetUserId();
       if (!userId) return 0;
 
       const { count, error } = await supabase
         .from('outfits')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .abortSignal(signal);
 
       if (error) throw error;
       return count ?? 0;

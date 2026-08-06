@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 
-import { getUserId, supabase } from '@/lib/supabase';
+import { closetUserId } from '@/features/closet/session';
+import { supabase } from '@/lib/supabase';
 import { itemColor, type Item } from '@/schemas/item';
 import type { Database } from '@/types/database';
 
@@ -94,12 +95,24 @@ function toItem(row: ItemRow): Item {
   };
 }
 
-/** All non-archived items for the signed-in user, most recent first. */
+/**
+ * All non-archived items for the signed-in user, most recent first.
+ *
+ * The user id comes from `closetUserId` — the locally persisted session with a
+ * deadline — NOT from `lib/supabase.getUserId`. The latter's `getClaims()` call
+ * round-trips to the auth server on every read (Hermes has no `crypto.subtle`,
+ * so local verification never happens) and can pend forever when the auth
+ * client's internals stall, which is exactly the infinite "Reading your
+ * wardrobe…" skeleton. See features/closet/session.ts for the full account.
+ *
+ * `signal` is React Query's abort signal, threaded into PostgREST so an
+ * unmounted or superseded fetch settles instead of lingering.
+ */
 export function useCloset() {
   return useQuery({
     queryKey: ['closet'],
-    queryFn: async (): Promise<Item[]> => {
-      const userId = await getUserId();
+    queryFn: async ({ signal }): Promise<Item[]> => {
+      const userId = await closetUserId();
       if (!userId) return [];
 
       const { data, error } = await supabase
@@ -107,7 +120,8 @@ export function useCloset() {
         .select('*')
         .eq('user_id', userId)
         .eq('is_archived', false)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .abortSignal(signal);
 
       if (error) throw error;
       return (data ?? []).map(toItem);
@@ -123,8 +137,8 @@ export function useCloset() {
 export function useReviewQueue() {
   return useQuery({
     queryKey: ['review-queue'],
-    queryFn: async (): Promise<Item[]> => {
-      const userId = await getUserId();
+    queryFn: async ({ signal }): Promise<Item[]> => {
+      const userId = await closetUserId();
       if (!userId) return [];
 
       const { data, error } = await supabase
@@ -136,7 +150,8 @@ export function useReviewQueue() {
         // needs_review before tagged, then oldest first so a big batch is
         // consumed FIFO rather than newest-first.
         .order('status', { ascending: true })
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .abortSignal(signal);
 
       if (error) throw error;
       return (data ?? []).map(toItem);

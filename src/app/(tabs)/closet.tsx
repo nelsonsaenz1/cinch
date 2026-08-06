@@ -5,10 +5,10 @@ import { Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ClosetGrid } from '@/components/closet/closet-grid';
+import { GhostSlotGrid } from '@/components/closet/ghost-slot-grid';
 import { PlateThumb } from '@/components/closet/plate-thumb';
 import { Chip } from '@/components/ui/chip';
 import { ErrorState } from '@/components/ui/empty-state';
-import { GhostedRail } from '@/components/ui/ghosted-rail';
 import { ClosetGridSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import {
@@ -535,68 +535,57 @@ function MostWornRow({
 }
 
 /**
- * The empty rail — carried over from the previous closet in spirit and in
- * grammar: three dashed garment rails say "hang something here" better than a
- * t-shirt glyph, and match the empty Today so the two read as one app.
+ * The empty closet, per the founder's own wording: "the blank boxes with
+ * example ghosted garments and on top of them say 'add your closet'".
  *
- * Behind them, a `GhostedRail`: the same fixture continuing past both screen
- * edges, hung with real garment photography pushed so far back it is texture
- * rather than inventory. The point is that a first-run closet should show the
- * *shape* of a full one instead of a blank page — but the three dashed rails
- * stay the subject. They are opaque `tray` over the ghosts' `sand`, they are
- * the only thing the title and the button are about, and nothing behind them
- * is tappable or audible to VoiceOver. See `ui/ghosted-rail.tsx` for why it is
- * ghosted this hard and what the height contract means.
+ * The page above this is already the profile top the founder asked for —
+ * monogram avatar, the three wardrobe numbers at zero, the name. What this
+ * section adds is the closet grid itself, rendered as blank slots: the real
+ * two-column geometry (`GhostSlotGrid` tracks `item-card.tsx` cell for cell)
+ * with licensed garment photography ghosted through each slot, and the
+ * invitation set over them. When the first pieces land, the real cards land in
+ * exactly these frames — the page fills in rather than being replaced.
  *
- * Note on the shared primitive: this is deliberately NOT `ui/EmptyState`. That
- * component's own docblock rules out exactly this composition — "the symbol
- * stays, but as a small glyph above the title, not an illustration pretending
- * to be content" — and it sets hard-left on the gutter. It is the app's
- * *section* empty. The closet's zero state is the field guide's centred hero
- * frame (03c, verbatim), which the audit records as matching the spec; folding
- * one into the other would break both. What is shared is the ghosting itself,
- * which lives in `@/components/ui` so the next hero empty that wants a backdrop
- * does not hand-roll a second one.
+ * Composition rules, all inherited rather than invented:
+ * - Hard-left on the gutter, serif title, ink CTA — the Plate's empty-state
+ *   grammar (frame 03c carried the copy; the centred hero frame it carried is
+ *   superseded by the founder's grid-of-slots direction).
+ * - Only ink type and the opaque ink button sit over the ghost cells; ink
+ *   holds 10.9:1 over the worst-case composite. The `muted` body line drops to
+ *   ~3.6:1 there, so it sits BELOW the grid on plain canvas — the contrast
+ *   contract documented in `ui/ghosted-rail.tsx`, which `GhostSlotGrid`
+ *   restates.
+ * - Nothing ghosted is tappable or audible; VoiceOver hears title, button,
+ *   body, in that order.
  */
 function EmptyCloset({ onAdd }: { onAdd: () => void }) {
   return (
-    <View>
-      {/* Rendered first so RN paints it first — behind everything below. */}
-      <GhostedRail />
-
-      {/* pt-14 (56pt) puts the dashed trio's 74pt over the middle of the
-          148pt band, and lands the title 10pt clear of the lowest ghost.
-          `muted` body copy must never composite over a ghost cell — it drops
-          to ~3.6:1 there against 5.4:1 on canvas. */}
-      <View className="items-center px-8 pt-14">
-        <View className="flex-row gap-2">
-          {[0, 1, 2].map((i) => (
-            <View
-              key={i}
-              style={{ width: 52, height: 74 }}
-              className="rounded-md border border-dashed border-rule bg-tray"
-            />
-          ))}
-        </View>
-
-        <Text variant="title" className="mt-7 text-center">
-          An empty rail
-        </Text>
-        <Text variant="body" className="mt-3 max-w-[260px] text-center text-muted">
-          Add a few pieces and this fills with your real wardrobe — worn counts, cost-per-wear,
-          the lot.
-        </Text>
-
-        <Pressable
-          onPress={onAdd}
-          accessibilityRole="button"
-          accessibilityLabel="Add clothes"
-          className="mt-6 h-12 items-center justify-center rounded-md bg-ink px-7 active:opacity-90">
-          <Text variant="callout" className="font-semibold" style={{ color: '#FBFAF6' }}>
-            Add clothes
+    <View className="mt-6">
+      {/* Rendered first so RN paints it first — the type stands on the slots. */}
+      <View>
+        <GhostSlotGrid />
+        <View className="absolute inset-0 justify-center px-gutter">
+          <Text variant="title" accessibilityRole="header">
+            Add your closet
           </Text>
-        </Pressable>
+          <Pressable
+            onPress={onAdd}
+            accessibilityRole="button"
+            accessibilityLabel="Add clothes"
+            className="mt-5 h-12 items-center justify-center self-start rounded-md bg-ink px-7 active:opacity-90">
+            <Text variant="callout" className="font-semibold" style={{ color: '#FBFAF6' }}>
+              Add clothes
+            </Text>
+          </Pressable>
+        </View>
       </View>
+
+      {/* The 03c line, spoken as the grid's caption — on canvas, never over a
+          ghost cell (see the contrast note above). */}
+      <Text variant="body" className="mt-2 px-gutter text-muted">
+        Add a few pieces and this fills with your real wardrobe — worn counts, cost-per-wear,
+        the lot.
+      </Text>
     </View>
   );
 }
