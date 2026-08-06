@@ -2,6 +2,10 @@ import { Alert, View } from 'react-native';
 
 import { ProfileRow } from '@/components/social/ProfileRow';
 import { Button } from '@/components/ui/button';
+import { ErrorState } from '@/components/ui/empty-state';
+// Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `RowSkeleton`
+// lands alongside `Skeleton`'s export. Code against the contract.
+import { RowSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useUnblockUser } from '@/features/social-graph/moderation';
 import { useBlockedUsers } from '@/features/social-graph/queries';
@@ -15,6 +19,12 @@ import { profileName } from '@/features/social-graph/types';
  * pairs by design, so a private blocked account has no readable identity here
  * and renders as a neutral row — blocking someone must not keep a window open
  * onto their profile.
+ *
+ * This is a moderation surface, so its three states are never allowed to
+ * collapse into each other: loading must not look settled, and a failed fetch
+ * must never render as "No one is blocked." — on this screen specifically,
+ * that message tells a woman her blocks vanished, which is frightening on its
+ * own and unsafe if she acts on the belief.
  */
 export function BlockedList() {
   const blocked = useBlockedUsers();
@@ -44,12 +54,29 @@ export function BlockedList() {
     );
   };
 
-  if (blocked.isLoading) return null;
+  if (blocked.isLoading) {
+    return (
+      <View className="px-4 py-3.5">
+        <RowSkeleton />
+        <RowSkeleton />
+      </View>
+    );
+  }
+
+  if (blocked.isError) {
+    return (
+      <ErrorState
+        title="Couldn’t load your blocked list"
+        body="This didn’t load — it does not mean no one is blocked. Try again before assuming anything changed."
+        onRetry={() => void blocked.refetch()}
+      />
+    );
+  }
 
   const rows = blocked.data ?? [];
   if (rows.length === 0) {
     return (
-      <Text variant="caption" className="px-4 py-3.5 text-faint">
+      <Text variant="body" className="px-4 py-3.5 text-faint">
         No one is blocked.
       </Text>
     );

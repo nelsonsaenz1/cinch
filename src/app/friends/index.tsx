@@ -7,6 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlockedList } from '@/components/social/BlockedList';
 import { ProfileRow } from '@/components/social/ProfileRow';
 import { Button } from '@/components/ui/button';
+// Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `RowSkeleton`
+// lands alongside `Skeleton`'s export. Code against the contract.
+import { RowSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
 import {
@@ -189,7 +192,11 @@ export default function FriendsScreen() {
             returnKeyType="search"
             clearButtonMode="while-editing"
             accessibilityLabel="Find a friend by username"
-            style={{ flex: 1, paddingVertical: 11, fontFamily: 'HelveticaNeue', fontSize: 15, color: theme.ink }}
+            // 17, not 15: 15 sits off the type scale (17/16/13/11). This is a
+            // free-text field, so it takes `body`'s 17px, matching the
+            // precedent set by the other free-text input in the app
+            // (garment-search-sheet.tsx).
+            style={{ flex: 1, paddingVertical: 11, fontFamily: 'HelveticaNeue', fontSize: 17, color: theme.ink }}
           />
         </View>
       </View>
@@ -207,9 +214,25 @@ export default function FriendsScreen() {
               People
             </Text>
             <View className="overflow-hidden rounded-plate border border-rule bg-surface">
-              {(search.data ?? []).length === 0 ? (
-                <Text variant="caption" className="px-4 py-3.5 text-faint">
-                  {search.isLoading ? 'Looking…' : 'No one by that username.'}
+              {search.isLoading ? (
+                <View className="px-4 py-3.5">
+                  <RowSkeleton />
+                </View>
+              ) : search.isError ? (
+                <View className="px-4 py-3.5">
+                  <Text variant="body" className="text-critical">
+                    Couldn’t search right now.
+                  </Text>
+                  <Button
+                    title="Try again"
+                    variant="ghost"
+                    onPress={() => void search.refetch()}
+                    className="mt-2 self-start"
+                  />
+                </View>
+              ) : (search.data ?? []).length === 0 ? (
+                <Text variant="body" className="px-4 py-3.5 text-faint">
+                  No one by that username.
                 </Text>
               ) : (
                 (search.data ?? []).map((profile, i) => (
@@ -236,31 +259,48 @@ export default function FriendsScreen() {
           </>
         ) : null}
 
-        {(requests.data ?? []).length > 0 ? (
+        {/* A failed requests fetch used to hide the whole section — the same
+            shape of bug as the empty-on-error problem, just invisible instead
+            of misleading. It gets a row now, same as everything else. */}
+        {(requests.data ?? []).length > 0 || requests.isError ? (
           <>
             <Text variant="eyebrow" className="mb-2.5 mt-6">
               Requests
             </Text>
             <View className="overflow-hidden rounded-plate border border-rule bg-surface">
-              {(requests.data ?? []).map((profile, i) => (
-                <View key={profile.userId}>
-                  {i > 0 ? <View className="h-px bg-hairline" /> : null}
-                  <ProfileRow
-                    profile={profile}
-                    subtitle="Wants to be friends"
-                    onPress={requestOptions}
-                    trailing={
-                      <Button
-                        title="Accept"
-                        variant="secondary"
-                        disabled={follow.isPending}
-                        haptic
-                        onPress={() => addFriend(profile)}
-                      />
-                    }
+              {requests.isError ? (
+                <View className="px-4 py-3.5">
+                  <Text variant="body" className="text-critical">
+                    Couldn’t load your requests.
+                  </Text>
+                  <Button
+                    title="Try again"
+                    variant="ghost"
+                    onPress={() => void requests.refetch()}
+                    className="mt-2 self-start"
                   />
                 </View>
-              ))}
+              ) : (
+                (requests.data ?? []).map((profile, i) => (
+                  <View key={profile.userId}>
+                    {i > 0 ? <View className="h-px bg-hairline" /> : null}
+                    <ProfileRow
+                      profile={profile}
+                      subtitle="Wants to be friends"
+                      onPress={requestOptions}
+                      trailing={
+                        <Button
+                          title="Accept"
+                          variant="secondary"
+                          disabled={follow.isPending}
+                          haptic
+                          onPress={() => addFriend(profile)}
+                        />
+                      }
+                    />
+                  </View>
+                ))
+              )}
             </View>
           </>
         ) : null}
@@ -269,13 +309,28 @@ export default function FriendsScreen() {
           Friends
         </Text>
         <View className="overflow-hidden rounded-plate border border-rule bg-surface">
-          {(friends.data ?? []).length === 0 ? (
-            <Text variant="caption" className="px-4 py-3.5 text-faint">
-              {friends.isLoading
-                ? 'Reading your circle…'
-                : hasCircle
-                  ? 'No friends yet — accept a request above.'
-                  : 'No friends yet. Search a username above; when she adds you back, her closet opens to you and yours to her.'}
+          {friends.isError ? (
+            <View className="px-4 py-3.5">
+              <Text variant="body" className="text-critical">
+                Couldn’t load your friends. This doesn’t mean your circle is empty.
+              </Text>
+              <Button
+                title="Try again"
+                variant="ghost"
+                onPress={() => void friends.refetch()}
+                className="mt-2 self-start"
+              />
+            </View>
+          ) : friends.isLoading ? (
+            <View className="px-4 py-3.5">
+              <RowSkeleton />
+              <RowSkeleton />
+            </View>
+          ) : (friends.data ?? []).length === 0 ? (
+            <Text variant="body" className="px-4 py-3.5 text-faint">
+              {hasCircle
+                ? 'No friends yet — accept a request above.'
+                : 'No friends yet. Search a username above; when she adds you back, her closet opens to you and yours to her.'}
             </Text>
           ) : (
             (friends.data ?? []).map((profile, i) => (
