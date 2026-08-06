@@ -112,6 +112,37 @@ function useFirstName(): string | null {
 }
 
 /**
+ * The stylist door, per the field guide's masthead row (§02): the ✦ glyph,
+ * always reachable, in every state the screen can be in.
+ *
+ * Extracted so every masthead — full and reduced alike — carries it. Before
+ * this it lived only inside `Masthead`, which renders exclusively on a normal
+ * day with outfits on screen; every other state (loading, a failed fetch, an
+ * empty closet, "nothing works", offline) fell back to `ReducedMasthead`,
+ * which never had it. A founder opening the app new, or on a day the engine
+ * came back empty, had no way to reach the stylist at all — not subtle,
+ * simply absent. `navigate`, not `push`: a fast double-tap must not stack two
+ * sheets. 34pt with 8pt of hitSlop clears the 44pt minimum tap target on
+ * every side.
+ */
+function StylistButton() {
+  const router = useRouter();
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={() => router.navigate('/stylist')}
+      accessibilityRole="button"
+      accessibilityLabel="Ask the stylist"
+      hitSlop={8}
+      style={{ width: 34, height: 34 }}
+      className="items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
+      <SymbolView name="sparkles" size={16} tintColor={theme.accent} resizeMode="scaleAspectFit" />
+    </Pressable>
+  );
+}
+
+/**
  * The page header: the day and place as a tracked eyebrow, and a serif greeting.
  *
  * No rule under it. The design sets the greeting, the weather line and the
@@ -138,21 +169,7 @@ function Masthead({ city, name }: { city: string; name?: string | null }) {
           </View>
         </View>
         <View className="flex-row gap-2" style={{ marginTop: 2 }}>
-          <Pressable
-            // navigate, not push: a fast double-tap must not stack two sheets.
-            onPress={() => router.navigate('/stylist')}
-            accessibilityRole="button"
-            accessibilityLabel="Ask the stylist"
-            hitSlop={8}
-            style={{ width: 34, height: 34 }}
-            className="items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
-            <SymbolView
-              name="sparkles"
-              size={16}
-              tintColor={theme.accent}
-              resizeMode="scaleAspectFit"
-            />
-          </Pressable>
+          <StylistButton />
           <Pressable
             onPress={() => router.navigate('/profile')}
             accessibilityRole="button"
@@ -174,21 +191,32 @@ function Masthead({ city, name }: { city: string; name?: string | null }) {
 }
 
 /**
- * The reduced masthead: the eyebrow and the section name, nothing else.
+ * The reduced masthead: the eyebrow and the section name, plus the same ✦
+ * stylist door the full masthead carries.
  *
- * Shared by the two states that have no morning to greet — a brand-new user
- * with no closet, and a day the engine could not dress. Both are moments where
- * a cheerful "Good afternoon, Mara" over bad news reads as a machine that has
- * not noticed.
+ * Shared by every state that has no morning to greet — first load, a failed
+ * fetch, a brand-new user with no closet, a day the engine could not dress,
+ * and offline. All of them still need a stylist to ask (the honest
+ * "nothing works" card even names it as the first thing that might help), so
+ * the door stays lit even when there is no greeting to put it next to. Only
+ * the profile avatar drops — there is no fresh morning to attribute to
+ * anyone.
  */
 function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
   return (
     <View className="px-gutter pt-2">
-      <Text variant="eyebrow">{eyebrow}</Text>
-      <View style={{ marginTop: 6 }}>
-        <Text variant="display" trim accessibilityRole="header">
-          Today
-        </Text>
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1">
+          <Text variant="eyebrow">{eyebrow}</Text>
+          <View style={{ marginTop: 6 }}>
+            <Text variant="display" trim accessibilityRole="header">
+              Today
+            </Text>
+          </View>
+        </View>
+        <View style={{ marginTop: 2 }}>
+          <StylistButton />
+        </View>
       </View>
     </View>
   );
