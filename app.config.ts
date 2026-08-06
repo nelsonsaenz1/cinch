@@ -174,11 +174,35 @@ const config: ExpoConfig = {
           ],
         },
         {
+          // Also the PostHog distinct id: analytics events are keyed to the
+          // Supabase user id, which makes this an Analytics purpose too.
           NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeUserID',
           NSPrivacyCollectedDataTypeLinked: true,
           NSPrivacyCollectedDataTypeTracking: false,
           NSPrivacyCollectedDataTypePurposes: [
             'NSPrivacyCollectedDataTypePurposeAppFunctionality',
+            'NSPrivacyCollectedDataTypePurposeAnalytics',
+          ],
+        },
+        {
+          // The membership plan, written by the Superwall webhook against the
+          // signed-in user. Apple cross-checks this manifest against the App
+          // Privacy answers in App Store Connect, and a mismatch is a review
+          // hold — so anything declared there is declared here.
+          NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypePurchaseHistory',
+          NSPrivacyCollectedDataTypeLinked: true,
+          NSPrivacyCollectedDataTypeTracking: false,
+          NSPrivacyCollectedDataTypePurposes: [
+            'NSPrivacyCollectedDataTypePurposeAppFunctionality',
+          ],
+        },
+        {
+          // Screen views and product events (PostHog), identified as above.
+          NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeProductInteraction',
+          NSPrivacyCollectedDataTypeLinked: true,
+          NSPrivacyCollectedDataTypeTracking: false,
+          NSPrivacyCollectedDataTypePurposes: [
+            'NSPrivacyCollectedDataTypePurposeAnalytics',
           ],
         },
       ],
