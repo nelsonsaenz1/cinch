@@ -1,5 +1,6 @@
 import { Pressable, View } from 'react-native';
 
+import { Avatar } from '@/components/ui';
 import { Text } from '@/components/ui/text';
 import type { EventSummary } from '@/features/events/types';
 import type { WeatherContext } from '@/lib/styling';
@@ -43,16 +44,6 @@ function whenLabel(startsAt: Date, endsAt: Date | null): string {
   return startsAt.getMonth() === endsAt.getMonth()
     ? `${startsAt.getDate()}–${endsAt.getDate()} ${month(endsAt)}`
     : `${startsAt.getDate()} ${month(startsAt)} – ${endsAt.getDate()} ${month(endsAt)}`;
-}
-
-/** "MA" from "Mara", "DK" from "Dana Kim" — the avatar chip's whole content. */
-function initialsFor(name: string | null): string {
-  if (!name) return 'ME'; // the caller's own chip; social_profiles excludes self
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const first = words[0] ?? '';
-  const last = words.length > 1 ? (words[words.length - 1] ?? '') : '';
-  const letters = last ? `${first[0] ?? ''}${last[0] ?? ''}` : first.slice(0, 2);
-  return (letters || '?').toUpperCase();
 }
 
 /** True when this occasion is dressed by packing, not by a single look. */
@@ -134,7 +125,7 @@ export function EventCard({
       ]
         .filter(Boolean)
         .join('. ')}
-      className="mb-3 rounded-plate border border-hairline bg-surface p-4 active:opacity-70 dark:border-hairline-dark dark:bg-surface-dark">
+      className="mb-3 rounded-plate border border-rule bg-surface p-4 active:opacity-70 dark:border-rule-dark dark:bg-surface-dark">
       <View className="flex-row items-baseline justify-between gap-3">
         <Text variant="plate" className="flex-1" numberOfLines={1}>
           {event.title}
@@ -152,16 +143,13 @@ export function EventCard({
 
       <View className="mt-3.5 flex-row items-center">
         {/* The overlapping cluster. Each chip after the first pulls left; the
-            surface-coloured ring is what keeps the overlap legible. */}
+            surface-coloured ring is what keeps the overlap legible. `name` is
+            null exactly for the caller's own chip (`social_profiles` excludes
+            self), which `Avatar`'s fallback reads as "ME". */}
         <View className="flex-row">
           {faces.map((a, i) => (
-            <View
-              key={a.userId}
-              className="h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-sand dark:border-surface-dark"
-              style={i > 0 ? { marginLeft: -8 } : undefined}>
-              <Text variant="caption" style={{ color: theme.ink }}>
-                {initialsFor(a.name)}
-              </Text>
+            <View key={a.userId} style={i > 0 ? { marginLeft: -8 } : undefined}>
+              <Avatar name={a.name} size={28} fallback="ME" ring />
             </View>
           ))}
         </View>

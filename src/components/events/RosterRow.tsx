@@ -1,19 +1,9 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
+import { Avatar, Button } from '@/components/ui';
 import { Text } from '@/components/ui/text';
 import type { EventMember } from '@/features/events/types';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
-
-/** "DK" from "Dana Kim", "DA" from "dana" alone. Never empty, never throws. */
-function initialsFor(member: EventMember, isSelf: boolean): string {
-  if (isSelf) return 'ME';
-  const name = member.displayName ?? member.username ?? '';
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  const first = words[0] ?? '';
-  const last = words.length > 1 ? (words[words.length - 1] ?? '') : '';
-  const letters = last ? `${first[0] ?? ''}${last[0] ?? ''}` : first.slice(0, 2);
-  return (letters || '?').toUpperCase();
-}
+import { MIN_TAP_TARGET } from '@/theme/tokens';
 
 /**
  * One line of the guest list: initials chip, name, state — and, for the host
@@ -37,8 +27,6 @@ export function RosterRow({
   /** Suppresses the bottom hairline on the last row of the list. */
   isLast?: boolean;
 }) {
-  const theme = useTheme();
-
   const name = isSelf ? 'You' : (member.displayName ?? member.username ?? 'A guest');
   const standing =
     member.role === 'host' ? 'Hosting' : member.state === 'invited' ? 'Still deciding' : null;
@@ -51,11 +39,11 @@ export function RosterRow({
         'flex-row items-center gap-3 py-2.5',
         isLast ? '' : 'border-b border-hairline dark:border-hairline-dark',
       ].join(' ')}>
-      <View className="h-8 w-8 items-center justify-center rounded-full bg-sand">
-        <Text variant="caption" style={{ color: theme.ink }}>
-          {initialsFor(member, isSelf)}
-        </Text>
-      </View>
+      <Avatar
+        name={isSelf ? null : (member.displayName ?? member.username)}
+        size={32}
+        fallback={isSelf ? 'ME' : '?'}
+      />
 
       <View className="flex-1">
         <Text variant="body" numberOfLines={1}>
@@ -75,17 +63,13 @@ export function RosterRow({
       ) : null}
 
       {onRemove ? (
-        <Pressable
+        <Button
+          title="Remove"
+          variant="ghost"
           onPress={onRemove}
-          accessibilityRole="button"
           accessibilityLabel={`Remove ${name}`}
-          hitSlop={8}
-          style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-          className="active:opacity-60">
-          <Text variant="label" className="text-muted dark:text-muted-dark">
-            Remove
-          </Text>
-        </Pressable>
+          className="px-0"
+        />
       ) : null}
     </View>
   );
