@@ -165,11 +165,18 @@ select is(
 select is(
   (select count(*) from storage.objects
     where name = '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/thumb.jpg'),
-  0::bigint,
-  -- Was 1 when items carried a public-read policy; that policy fell with the
-  -- public boundary (20260804200000), so a stranger's storage policy subquery
-  -- rightly finds no public item. Flips back the day the social surface ships.
-  'a signed-in stranger sees no derivatives while the social surface is deferred'
+  1::bigint,
+  -- CONSCIOUSLY REWRITTEN for the social surface (20260807103000), exactly as
+  -- the previous comment here promised. This was 0 while the surface was
+  -- deferred; the "public derivatives readable when signed in" policy now
+  -- authorizes a signed-in stranger to read the published derivative of a
+  -- public item whose owner's profile is public — via a SECURITY DEFINER
+  -- item check, since the caller still holds no row of `items` under RLS.
+  -- The boundary that matters is unchanged and asserted around this test:
+  -- original.jpg stays unreadable (above), an unpublished item's derivatives
+  -- stay unreadable (below), and every ANON assertion in this file still
+  -- holds — the un-parking was for authenticated only (architecture.md §1.5).
+  'a signed-in stranger reads exactly the published derivatives of a public item'
 );
 
 select is(
