@@ -77,7 +77,9 @@
     "test": "node ./scripts/run-tests.mjs",
     "test:db": "supabase test db",
     "gen:types": "supabase gen types typescript --linked > src/types/database.ts && supabase gen types typescript --linked > supabase/functions/_shared/database.types.ts",
-    "smoke:type": "esbuild scripts/typography-smoke.ts --bundle --platform=node --format=cjs --outfile=node_modules/.cache/typography-smoke.cjs --log-level=error && node node_modules/.cache/typography-smoke.cjs"
+    "smoke:type": "esbuild scripts/typography-smoke.ts --bundle --platform=node --format=cjs --outfile=node_modules/.cache/typography-smoke.cjs --log-level=error && node node_modules/.cache/typography-smoke.cjs",
+    "build:store": "npx -y -p eas-cli@21.6.0 -p typescript@5.9.3 eas build --platform ios --profile production --auto-submit",
+    "submit:latest": "npx -y -p eas-cli@21.6.0 -p typescript@5.9.3 eas submit --platform ios --latest --non-interactive"
   },
   "private": true
 }
