@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
-import type { PlacementName } from '@/features/billing/placements';
+import { Placement, type PlacementName } from '@/features/billing/placements';
 import { useGate } from '@/features/billing/use-gate';
 import { getUserId } from '@/lib/supabase';
 
@@ -58,15 +58,13 @@ export function socialDenialCopy(error: unknown): string | null {
 /**
  * The hosting-limit paywall moment.
  *
- * `placements.ts` belongs to the billing slice and this slice may not edit it,
- * so the name is declared here and cast. INTEGRATION MUST: move this constant
- * into `Placement` in `src/features/billing/placements.ts` and create the
- * matching Superwall campaign. Until the campaign exists, registering the
- * placement simply proceeds without a paywall (documented Superwall behaviour
- * for unmatched placements) — the retry then meets the database trigger again,
- * so nothing is ever given away; the moment is just less designed.
+ * Declared in `Placement` alongside the other four now that the build wave is
+ * integrated; this alias is kept only so the call sites below read the same as
+ * they did. The matching Superwall campaign still has to be created — until it
+ * is, an unmatched placement proceeds without a paywall and the retry meets the
+ * database trigger again, so nothing is given away.
  */
-const EVENT_HOSTING_PLACEMENT = 'event_hosting_over_limit' as unknown as PlacementName;
+const EVENT_HOSTING_PLACEMENT: PlacementName = Placement.EventHostingOverLimit;
 
 // ---------------------------------------------------------------------------
 // Shared invalidation

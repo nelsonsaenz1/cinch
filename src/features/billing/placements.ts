@@ -53,6 +53,18 @@ export const Placement = {
    * `trialing` has gone false and the plan fell back to `free`.
    */
   TrialExpired: 'trial_expired',
+
+  /**
+   * Hosting an occasion past the plan's ceiling (`event_limit_for_plan()`:
+   * 2 / 15 / 100).
+   *
+   * Same shape as the three above — the database trigger has already refused
+   * the insert, so this only decides what to show. Note the Superwall campaign
+   * for this one does not exist yet: an unmatched placement proceeds without a
+   * paywall, and the retry meets the trigger again, so nothing is given away.
+   * The moment is simply undesigned until the campaign is created.
+   */
+  EventHostingOverLimit: 'event_hosting_over_limit',
 } as const;
 
 export type PlacementName = (typeof Placement)[keyof typeof Placement];
