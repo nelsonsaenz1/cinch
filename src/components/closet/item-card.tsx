@@ -15,6 +15,12 @@ export type ItemCardProps = {
   onPress?: (item: Item) => void;
   /** Signed URL for the thumb/cutout — storage paths are not URLs. */
   imageUri?: string;
+  /** Enters selection mode from the grid. Absent = the grid has no such mode. */
+  onLongPress?: (item: Item) => void;
+  /** True while the grid is picking pieces rather than opening them. */
+  selecting?: boolean;
+  /** Whether this piece is one of the picked ones. Only read while selecting. */
+  selected?: boolean;
 };
 
 /**
@@ -23,7 +29,14 @@ export type ItemCardProps = {
  * Cutouts sit on a neutral warm tray so nothing tints the garment — the tray
  * colour is the one surface in the app that must never carry the accent.
  */
-function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
+function ItemCardComponent({
+  item,
+  onPress,
+  imageUri,
+  onLongPress,
+  selecting = false,
+  selected = false,
+}: ItemCardProps) {
   const theme = useTheme();
   const cpw = costPerWear(item);
   const needsReview = item.status === 'needs_review';
@@ -46,11 +59,23 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={a11yLabel}
+      // Announced only in selection mode: a grid of two hundred garments that
+      // all report "not selected" is noise on every other visit.
+      accessibilityState={selecting ? { selected } : undefined}
+      accessibilityHint={selecting ? undefined : onLongPress ? 'Long press to select pieces' : undefined}
       onPress={() => onPress?.(item)}
+      onLongPress={onLongPress ? () => onLongPress(item) : undefined}
       // No width class: FlashList's two-column layout already sizes the cell —
       // a w-1/2 here would render every card at a quarter of the screen.
       className="p-1.5 active:opacity-80">
-      <View className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-tray dark:bg-tray-dark">
+      <View
+        className={`aspect-[4/5] w-full overflow-hidden rounded-lg bg-tray dark:bg-tray-dark ${
+          // The ring is the selection, not the tick — it is readable at a
+          // glance across a whole grid where a 20pt glyph is not. Drawn as a
+          // border, which RN insets rather than adding to the box, so a
+          // selected cell never shifts its neighbours.
+          selecting && selected ? 'border-2 border-ink dark:border-ink-dark' : ''
+        }`}>
         {imageUri ? (
           <Image
             source={stableImageSource(imageUri)}
@@ -90,6 +115,20 @@ function ItemCardComponent({ item, onPress, imageUri }: ItemCardProps) {
           </View>
         ) : null}
 
+        {/* The pick mark, top RIGHT — the badge above owns the left corner, and
+            two marks in one corner is how a grid stops being readable. Hidden
+            entirely outside selection mode: nothing about a garment is
+            "unselected" when there is no selection. */}
+        {selecting ? (
+          <View className="absolute right-2 top-2">
+            <SymbolView
+              name={selected ? 'checkmark.circle.fill' : 'circle'}
+              size={22}
+              tintColor={selected ? theme.ink : theme.faint}
+              resizeMode="scaleAspectFit"
+            />
+          </View>
+        ) : null}
       </View>
 
       <View className="mt-2 px-0.5">

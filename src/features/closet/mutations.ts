@@ -1,10 +1,40 @@
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { withDeadline } from '@/features/closet/session';
 import { getUserId, supabase } from '@/lib/supabase';
 import type { Item } from '@/schemas/item';
 import type { Database } from '@/types/database';
 
 type ItemUpdate = Database['public']['Tables']['items']['Update'];
+
+/** The garment bucket. Objects are keyed `{user_id}/{item_id}/{file}`. */
+const BUCKET = 'garments';
+
+/**
+ * How long the auth lookup behind a destructive write may pend before it fails
+ * honestly. `getUserId` calls `getClaims()`, which on Hermes round-trips to the
+ * auth server and can pend forever when auth-js's internals stall — see
+ * features/closet/session.ts. A "Remove" that spins indefinitely is the same
+ * bug that file exists to prevent, so the deadline applies here too.
+ */
+const AUTH_DEADLINE_MS = 8_000;
+
+/**
+ * Invalidate everything that counts garments.
+ *
+ * The same four keys `upload-queue.invalidateAfterItemSettled` touches when an
+ * item lands — removal moves every one of those numbers in the other
+ * direction — plus the postable-outfit list, because an outfit can lose its
+ * last surviving piece to a removal and stops being postable at all.
+ */
+function invalidateAfterItemsRemoved(qc: ReturnType<typeof useQueryClient>): void {
+  void qc.invalidateQueries({ queryKey: ['closet'] });
+  void qc.invalidateQueries({ queryKey: ['wardrobe'] });
+  void qc.invalidateQueries({ queryKey: ['review-queue'] });
+  void qc.invalidateQueries({ queryKey: ['closet-count'] });
+  void qc.invalidateQueries({ queryKey: ['my-postable-outfits'] });
+}
 
 /**
  * The one write from the review deck — and now the one write from item detail.
@@ -69,6 +99,296 @@ export function useVerifyItem() {
       // list is the source of truth.
       void qc.invalidateQueries({ queryKey: ['review-queue'] });
       void qc.invalidateQueries({ queryKey: ['closet'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Removal
+// ---------------------------------------------------------------------------
+
+/**
+ * Every storage object that belongs to one item.
+ *
+ * Two sources, deliberately unioned. The row's four path columns are the
+ * authoritative record of what the app wrote, and the folder listing catches
+ * what the columns cannot name: `upload-queue` uploads `original.jpg`,
+ * `thumb.jpg`, `cutout.png` and `plate.png` BEFORE it writes those columns, so
+ * an import killed between the two leaves objects on a row whose paths are all
+ * null.
+ *
+ * Listing alone is not enough either: a listing that fails for network reasons
+ * reports the same empty array as a folder that is genuinely empty, and
+ * treating that as "no photos to delete" is precisely the promise this
+ * function must not break. So the two sources cover each other, and the one
+ * case where they cannot — a row naming no paths at all, where the listing is
+ * the only witness there is — makes a failed listing fatal rather than
+ * silently deleting the row and orphaning objects nobody can name again.
+ */
+async function garmentObjects(
+  userId: string,
+  row: {
+    id: string;
+    image_path: string | null;
+    cutout_path: string | null;
+    thumb_path: string | null;
+    plate_path: string | null;
+  },
+): Promise<string[]> {
+  const paths = new Set<string>();
+
+  for (const p of [row.image_path, row.cutout_path, row.thumb_path, row.plate_path]) {
+    if (p) paths.add(p);
+  }
+
+  const prefix = `${userId}/${row.id}`;
+  const { data: listed, error } = await supabase.storage.from(BUCKET).list(prefix, { limit: 100 });
+
+  if (error && paths.size === 0) {
+    throw new Error(`Couldn’t check this piece’s photos, so nothing was removed. ${error.message}`);
+  }
+
+  for (const object of listed ?? []) paths.add(`${prefix}/${object.name}`);
+
+  return [...paths];
+}
+
+/**
+ * Remove garments from the closet, for good.
+ *
+ * ── Why this is a hard DELETE and not the archive flag ────────────────────
+ *
+ * `is_archived` exists and every closet read filters it, so archiving looks
+ * like the gentler answer. It isn't, for two reasons that only show up in the
+ * schema:
+ *
+ * 1. **Archived rows still spend the closet allowance.** `enforce_item_limit`
+ *    (migrations/20260805160000) counts `select count(*) from items where
+ *    user_id = $1` with no archive filter, deliberately — otherwise "archive
+ *    everything" would be an unlimited free closet. Nothing in the app can
+ *    unarchive, so an archived row would burn one of thirty slots permanently,
+ *    and a user who removed ten pieces would still be told her closet is full.
+ *    A removal that costs the user capacity forever is not a removal.
+ *
+ * 2. **The cascade does not destroy the history that matters.** The learning
+ *    and accounting tables — `style_feedback`, `tag_corrections`, `ai_calls`,
+ *    `wishlist_items` — are all `on delete set null`, so the personalization
+ *    flywheel and the spend record survive the garment. `outfit_reactions`
+ *    keeps a plain `uuid[]` with no foreign key at all, so reaction history is
+ *    untouched. What cascades is `outfit_items`, `closet_likes`,
+ *    `item_inquiries` and `borrow_requests` — join rows that are meaningless
+ *    without the garment. And the visible outcome there is identical under
+ *    either design: an outfit whose piece is archived already renders without
+ *    it (`useWardrobe` filters archived, and `useMyPostableOutfits` drops
+ *    outfits left with nothing to show), so archiving would degrade that
+ *    outfit exactly as much while keeping the row.
+ *
+ * A tombstone row pointing at photographs that no longer exist is also the
+ * less honest artefact of the two: the promise made in the confirm dialog is
+ * that the piece is gone and its photographs are deleted, and a hard delete is
+ * that sentence executed literally.
+ *
+ * ── Order of operations ───────────────────────────────────────────────────
+ *
+ * Storage first, then the row. The row is the only record of where the objects
+ * live, so deleting it first and failing on storage would strand photographs
+ * nobody can name — the one outcome the privacy promise cannot survive. This
+ * way a storage failure aborts with everything still intact and retryable, and
+ * the worst case (objects gone, row delete failed) is a visible item with a
+ * missing picture that a second Remove finishes off.
+ */
+export function useRemoveItems() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ ids }: { ids: string[] }) => {
+      if (ids.length === 0) return { removed: 0 };
+
+      const userId = await withDeadline(getUserId(), AUTH_DEADLINE_MS, 'Sign-in check');
+      if (!userId) throw new Error('Not signed in.');
+
+      // Read the paths off the rows rather than trusting what the grid happens
+      // to hold: the cache can be a few minutes old, and a stale `cutout_path`
+      // is a photograph left in the bucket.
+      const { data: rows, error: readError } = await supabase
+        .from('items')
+        .select('id, image_path, cutout_path, thumb_path, plate_path')
+        .in('id', ids);
+      if (readError) throw readError;
+
+      const objects = (
+        await Promise.all((rows ?? []).map((row) => garmentObjects(userId, row)))
+      ).flat();
+
+      if (objects.length > 0) {
+        const { error: storageError } = await supabase.storage.from(BUCKET).remove(objects);
+        // Deliberately fatal. Reporting success here would be claiming the
+        // photographs are deleted while they are still in the bucket.
+        if (storageError) {
+          throw new Error(
+            `Couldn’t delete the photos, so nothing was removed. ${storageError.message}`,
+          );
+        }
+      }
+
+      const { error: deleteError } = await supabase.from('items').delete().in('id', ids);
+      if (deleteError) throw deleteError;
+
+      return { removed: ids.length };
+    },
+    onSuccess: () => invalidateAfterItemsRemoved(qc),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Re-tagging
+// ---------------------------------------------------------------------------
+
+/** The parts of `tag-item`'s response this screen reads. */
+type TagResponseBody = {
+  ok?: boolean;
+  status?: string;
+  error?: string;
+  message?: string;
+  period?: string;
+};
+
+/**
+ * Status code and parsed body from a non-2xx invoke, as far as either can be
+ * read. Mirrors `upload-queue`'s reader of the same name — that one is private
+ * to the queue module and its `requestTag` cannot send `force`, so this path
+ * invokes the function directly rather than coupling item detail to the import
+ * queue's job store.
+ */
+async function readHttpError(
+  error: unknown,
+): Promise<{ status: number | null; body: TagResponseBody | null }> {
+  if (!(error instanceof FunctionsHttpError)) return { status: null, body: null };
+  const response = (error as { context?: unknown }).context as Response | undefined;
+  if (!response) return { status: null, body: null };
+  try {
+    return { status: response.status, body: (await response.json()) as TagResponseBody };
+  } catch {
+    return { status: response.status, body: null };
+  }
+}
+
+/**
+ * What to tell the user when the server declines.
+ *
+ * The allowance is enforced server-side (`_shared/quota.ts`) and answers 402
+ * when the plan excludes the workload and 429 when the period's allowance is
+ * spent. Both are said plainly rather than dressed up as a generic failure —
+ * the user asked for a specific thing, paid for or not, and deserves to know
+ * which of the two it was.
+ */
+function refusalMessage(status: number | null, body: TagResponseBody | null): string {
+  const detail = body?.error;
+
+  if (status === 403 && detail === 'ai_consent_required') {
+    return 'AI processing is off for your account, so Cinch can’t read this piece. Turn it back on in Profile.';
+  }
+  if (status === 401 || status === 403) {
+    return 'Cinch couldn’t verify your account. That one is on us — try again in a bit.';
+  }
+  if (status === 402) {
+    return body?.message ?? 'Re-reading a piece is part of Standard and Pro.';
+  }
+  if (status === 429) {
+    return `You’ve used this ${body?.period ?? 'period'}’s tagging allowance. It resets — try again then.`;
+  }
+  if (status === 409) {
+    return 'Cinch is already reading this piece. Give it a moment.';
+  }
+  if (status === 404) {
+    return 'Cinch couldn’t find this piece to read.';
+  }
+  if (status === 503) {
+    return 'Tagging is unavailable right now. Try again shortly.';
+  }
+  return 'Cinch couldn’t re-read this piece. Try again.';
+}
+
+/**
+ * Ask the tagger to look at this garment again.
+ *
+ * `tag-item` refuses a second call on a settled item unless `force` is set —
+ * that idempotency gate is what stops the same photograph being billed twice —
+ * so this is the one caller that sets it, because the user asked for exactly
+ * that. `force` also releases the previous claim server-side, so a re-read is
+ * not blocked by the run it is replacing.
+ *
+ * The row is flipped to `pending_tag` BEFORE the call rather than held in
+ * component state: the invoke can take the better part of a minute (a vision
+ * call with a fetched image), and a progress state that lives in one screen
+ * disappears the moment the user navigates away, leaving the grid showing
+ * confident old tags for a garment being re-read. Writing it means every
+ * surface agrees, and `sweepPendingTags` is a safety net if the app dies
+ * mid-call.
+ *
+ * `user_verified` goes back to false with it, and that is the honest part: the
+ * tags about to land are the model's again, unread by anyone. The piece
+ * returns to the review deck to be confirmed, which is where a freshly tagged
+ * garment belongs.
+ *
+ * On a refusal the previous status and verification are put back, so a user
+ * who is out of allowance is not left with an item stuck at "reading" forever.
+ */
+export function useRetagItem() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ item }: { item: Item }) => {
+      const restore = async () => {
+        await supabase
+          .from('items')
+          .update({ status: item.status, user_verified: item.userVerified })
+          .eq('id', item.id);
+      };
+
+      const { error: markError } = await supabase
+        .from('items')
+        .update({ status: 'pending_tag', user_verified: false })
+        .eq('id', item.id);
+      if (markError) throw markError;
+
+      // So the grid and the review queue show the in-progress state too, not
+      // just the screen that asked for it.
+      void qc.invalidateQueries({ queryKey: ['closet'] });
+      void qc.invalidateQueries({ queryKey: ['review-queue'] });
+
+      // `invoke` reports transport failures through `error` rather than by
+      // throwing, but a throw here would skip the restore below and leave the
+      // piece reading "reading" forever — so it is caught explicitly.
+      let result: Awaited<ReturnType<typeof supabase.functions.invoke<TagResponseBody>>>;
+      try {
+        result = await supabase.functions.invoke<TagResponseBody>('tag-item', {
+          body: { itemId: item.id, force: true },
+        });
+      } catch (err) {
+        await restore();
+        throw err instanceof Error ? err : new Error('Cinch couldn’t re-read this piece.');
+      }
+
+      if (result.error) {
+        const { status, body } = await readHttpError(result.error);
+        await restore();
+        throw new Error(refusalMessage(status, body));
+      }
+
+      // 200, but the body decides — the function reports its own failures as
+      // `{ ok: false, status: 'needs_review' }` with a 200, because losing an
+      // item is unacceptable and a badged one is recoverable.
+      const status = result.data?.status;
+      if (status === 'tagged' || status === 'needs_review') return { status };
+
+      await restore();
+      throw new Error('Cinch couldn’t re-read this piece. Try again.');
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ['closet'] });
+      void qc.invalidateQueries({ queryKey: ['review-queue'] });
+      void qc.invalidateQueries({ queryKey: ['wardrobe'] });
     },
   });
 }
