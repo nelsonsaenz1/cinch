@@ -26,6 +26,7 @@ import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits } from '@/features/styling/use-outfits';
+import { track } from '@/lib/posthog';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
 import { supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -427,6 +428,45 @@ export default function TodayScreen() {
       if (denial) void gate.present(Placement.GenerateOutfitOverLimit);
     });
   }, [outfits.aiError, gate]);
+
+  /**
+   * The impression event — `outfit_reacted`'s missing denominator.
+   *
+   * Keyed on the set, not fired per card and not per render: the screen paints
+   * three plates and re-renders on every keystroke in the plans field, and one
+   * event per card would make the like rate come out at a third of its real
+   * value with nothing to signal it was wrong.
+   *
+   * TWO impressions per morning are correct and are not deduplicated. The
+   * screen enhances in place — the local engine's set appears in about ten
+   * milliseconds and the model's re-ranked set replaces it fifteen seconds
+   * later — and those are two different things shown to the user, one of which
+   * we paid for. Distinguishing them is the point of the `source` property.
+   *
+   * `source` is therefore part of the KEY as well as a property. The re-rank
+   * picks from the same shortlist the engine did, so it routinely comes back
+   * with the same three candidates in the same order and a joined-ids key
+   * alone would never see the second set. This is the one place the identity
+   * of a set is not just its garments.
+   *
+   * Ref written in an effect. The React Compiler rejects a ref write during
+   * render outright, and this repo has it enabled.
+   */
+  const impressionRef = useRef<string | null>(null);
+  useEffect(() => {
+    const first = shown[0];
+    if (!first) return;
+
+    const key = `${first.source}|${shown.map((o) => idOf(o.candidate.items)).join('/')}`;
+    if (impressionRef.current === key) return;
+    impressionRef.current = key;
+
+    track('outfits_shown', {
+      count: shown.length,
+      source: first.source,
+      closetSize: items.length,
+    });
+  }, [shown, items.length]);
 
   // --- States --------------------------------------------------------------
 

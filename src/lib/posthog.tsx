@@ -100,6 +100,16 @@ export type AppEvent =
   | 'cutout_result'
   /** AI tags confirmed or corrected by the user. */
   | 'garment_reviewed'
+  /**
+   * A set of outfits was put in front of the user.
+   *
+   * The DENOMINATOR for `outfit_reacted`, and the only reason a like *rate*
+   * is computable at all — sum the `count` property, do not count events.
+   * `source` separates a set the model re-ranked from one the on-device scorer
+   * produced alone; a like rate that differs sharply between them is the
+   * direct read on whether the re-rank is worth paying for.
+   */
+  | 'outfits_shown'
   /** An outfit liked or dismissed. */
   | 'outfit_reacted'
   /** An outfit recorded as actually worn — the habit metric. */
