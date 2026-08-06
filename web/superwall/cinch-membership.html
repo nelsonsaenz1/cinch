@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cinch Membership</title>
+
+<!--
+  Cinch — Membership (cinch-membership / id 252860)
+  Self-hosted external paywall for Superwall's "Paywall.js" contract.
+  See docs/superwall/README.md in this repo for how to attach this URL to
+  the paywall in the Superwall dashboard, product naming, and the one
+  optional app-side code change (per-placement subhead via `params`).
+
+  Superwall bridge script — DO NOT remove `async`, do not self-host a copy.
+  https://superwall.com/docs/advanced-paywall-creation
+-->
+<script async src="https://cdn.superwall.me/runtime/entrypoint.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --canvas: #FBFAF6;
+    --surface: #FFFFFF;
+    --tray: #F0ECE3;
+    --ink: #1C1A16;
+    --muted: #6B665C;
+    --faint: #8A8578;
+    --hairline: rgba(28,26,22,0.09);
+    --rule: rgba(28,26,22,0.12);
+    --accent: #6E2B2B;
+    --accent-hover: #8A3A35;
+    --accent-light: #F1E7E4;
+    --accent-warm: #B08A76;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .serif {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-weight: 400;
+  }
+
+  .page {
+    min-height: 100vh;
+    padding: max(56px, env(safe-area-inset-top) + 20px) 20px
+             max(44px, env(safe-area-inset-bottom) + 20px);
+  }
+
+  .eyebrow {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  h1.headline {
+    margin: 12px 0 0;
+    font-size: 38px;
+    line-height: 1.06;
+    letter-spacing: -0.4px;
+  }
+  h1.headline em {
+    font-style: italic;
+  }
+
+  p.subhead {
+    margin: 14px 0 0;
+    font-size: 15.5px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  /* dismiss */
+  .dismiss-row { display: flex; justify-content: flex-start; margin-bottom: 26px; }
+  .dismiss-btn {
+    width: 32px; height: 32px; border: none; border-radius: 9999px;
+    background: rgba(28,26,22,0.05);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0;
+  }
+
+  /* data section */
+  .data-section { margin-top: 30px; }
+  .data-header {
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .data-row {
+    display: flex; gap: 12px; padding: 14px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .data-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-warm); flex-shrink: 0; margin-top: 6px;
+  }
+  .data-label { font-weight: 500; font-size: 14px; color: var(--ink); }
+  .data-body { font-size: 13.5px; line-height: 1.45; color: var(--muted); margin-top: 2px; }
+
+  /* plan section */
+  .plan-section { margin-top: 30px; }
+
+  .period-toggle {
+    display: flex; background: var(--tray); border-radius: 12px; padding: 3px; margin-top: 14px;
+  }
+  .period-btn {
+    flex: 1; height: 38px; border: none; border-radius: 9px; cursor: pointer;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 500; font-size: 13.5px;
+    background: transparent; color: var(--faint); transition: background .15s, color .15s, box-shadow .15s;
+  }
+  .period-btn.active {
+    background: var(--surface); color: var(--ink);
+    box-shadow: 0 1px 2px rgba(28,26,22,0.10);
+  }
+  .period-note { font-size: 12px; color: var(--faint); margin-top: 8px; }
+
+  .cards { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+
+  .plan-card {
+    box-sizing: border-box; padding: 16px; border-radius: 16px; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--rule);
+    transition: background .15s, border-color .15s;
+  }
+  .plan-card.selected {
+    background: var(--accent-light);
+    border: 1.5px solid var(--accent);
+  }
+  .plan-card-top { display: flex; align-items: flex-start; justify-content: space-between; }
+  .plan-name { font-size: 24px; line-height: 1; letter-spacing: -0.1px; }
+  .plan-price-row { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; }
+  .plan-price { font-size: 30px; line-height: 1; letter-spacing: -0.2px; }
+  .plan-per { font-size: 13px; color: var(--muted); }
+  .plan-note { font-size: 11.5px; color: var(--faint); margin-top: 4px; min-height: 14px; }
+
+  .mark {
+    width: 22px; height: 22px; border-radius: 9999px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid rgba(28,26,22,0.2);
+  }
+  .plan-card.selected .mark { border-color: var(--accent); }
+  .mark svg { display: none; }
+  .plan-card.selected .mark svg { display: block; }
+
+  .plan-rule { height: 1px; background: var(--rule); margin: 14px 0; }
+
+  .plan-line { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; }
+  .plan-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent-warm); flex-shrink: 0; }
+  .plan-line-text { font-size: 13.5px; color: #3F3B34; }
+
+  /* CTA */
+  .subscribe-btn {
+    width: 100%; height: 54px; margin-top: 22px; border: none; border-radius: 12px;
+    background: var(--accent); color: #FFFFFF;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 500; font-size: 16px;
+    letter-spacing: 0.1px; cursor: pointer;
+  }
+  .subscribe-btn:active { background: var(--accent-hover); }
+
+  .bill-line { text-align: center; font-size: 11.5px; color: var(--faint); margin-top: 12px; }
+
+  .footer-links {
+    display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px;
+  }
+  .footer-links button, .footer-links a {
+    border: none; background: none; padding: 0;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: var(--muted);
+    cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  }
+  .footer-dot { width: 3px; height: 3px; border-radius: 50%; background: #C7C1B4; }
+
+  .legal {
+    margin: 18px auto 0; max-width: 320px; text-align: center;
+    font-size: 11px; line-height: 1.5; color: var(--faint);
+  }
+
+  /* Hidden data source nodes — rendered once by Paywall.js's Liquid pass,
+     then read by JS on state changes. Never shown directly. */
+  #product-data { display: none; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- dismiss -->
+  <div class="dismiss-row">
+    <button class="dismiss-btn" aria-label="Dismiss" data-pw-close>
+      <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="#6B665C" stroke-width="1.4" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <!-- header -->
+  <div class="eyebrow">Cinch Membership</div>
+  <h1 class="headline serif">A stylist for the clothes you <em>already own.</em></h1>
+  <p class="subhead">{{ params.subhead | default: "You've had full access to Cinch. To keep every outfit, your whole closet, and the stylist, choose a plan." }}</p>
+
+  <!-- data hook -->
+  <div class="data-section">
+    <div class="eyebrow data-header">The data behind every outfit</div>
+
+    <div class="data-row">
+      <span class="data-dot"></span>
+      <div>
+        <div class="data-label">Cost-per-wear</div>
+        <div class="data-body">What each garment has really cost you, every time you've worn it.</div>
+      </div>
+    </div>
+    <div class="data-row">
+      <span class="data-dot"></span>
+      <div>
+        <div class="data-label">Colour harmony</div>
+        <div class="data-body">The colours in your closet that genuinely work together.</div>
+      </div>
+    </div>
+    <div class="data-row">
+      <span class="data-dot"></span>
+      <div>
+        <div class="data-label">What you actually wear</div>
+        <div class="data-body">Real usage, so nothing good sits unworn at the back.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- plan section -->
+  <div class="plan-section">
+    <div class="eyebrow">Choose a plan</div>
+
+    <!-- period toggle -->
+    <div class="period-toggle">
+      <button type="button" class="period-btn active" id="btn-monthly">Monthly</button>
+      <button type="button" class="period-btn" id="btn-annual">Annual</button>
+    </div>
+    <div class="period-note">Annual is about two months free.</div>
+
+    <!-- cards -->
+    <div class="cards">
+
+      <div class="plan-card selected" id="card-standard">
+        <div class="plan-card-top">
+          <div>
+            <div class="plan-name serif">Standard</div>
+            <div class="plan-price-row">
+              <span class="plan-price serif" id="std-price">{{ products.standardMonthly.price }}</span>
+              <span class="plan-per" id="std-per">{{ products.standardMonthly.period }}</span>
+            </div>
+            <div class="plan-note" id="std-note"></div>
+          </div>
+          <div class="mark">
+            <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6.2l2.6 2.6L10 3" stroke="#1C1A16" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="plan-rule"></div>
+        <div class="plan-line"><span class="plan-dot"></span><span class="plan-line-text">150 garments</span></div>
+        <div class="plan-line"><span class="plan-dot"></span><span class="plan-line-text">A fresh outfit every day</span></div>
+        <div class="plan-line"><span class="plan-dot"></span><span class="plan-line-text">30 stylist messages a month</span></div>
+      </div>
+
+      <div class="plan-card" id="card-pro">
+        <div class="plan-card-top">
+          <div>
+            <div class="plan-name serif">Pro</div>
+            <div class="plan-price-row">
+              <span class="plan-price serif" id="pro-price">{{ products.proMonthly.price }}</span>
+              <span class="plan-per" id="pro-per">{{ products.proMonthly.period }}</span>
+            </div>
+            <div class="plan-note" id="pro-note"></div>
+          </div>
+          <div class="mark">
+            <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6.2l2.6 2.6L10 3" stroke="#1C1A16" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="plan-rule"></div>
+        <div class="plan-line"><span class="plan-dot"></span><span class="plan-line-text">Unlimited garments</span></div>
+        <div class="plan-line"><span class="plan-dot"></span><span class="plan-line-text">Unlimited outfits</span></div>
+        <div class="plan-line"><span class="plan-dot"></span><span class="plan-line-text">Unlimited stylist</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <button type="button" class="subscribe-btn" id="subscribe-btn" data-pw-purchase="standardMonthly">
+    <span id="subscribe-label">Continue</span>
+  </button>
+
+  <div class="bill-line" id="bill-line"></div>
+
+  <div class="footer-links">
+    <button type="button" data-pw-restore>Restore Purchases</button>
+    <span class="footer-dot"></span>
+    <a href="#" data-pw-open-url="https://cinch-nelsonsaenz1-3579s-projects.vercel.app/terms">Terms</a>
+    <span class="footer-dot"></span>
+    <a href="#" data-pw-open-url="https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy">Privacy</a>
+  </div>
+
+  <p class="legal">Your subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your App Store settings.</p>
+
+</div>
+
+<!--
+  Hidden data source. Paywall.js substitutes every {{ }} token below exactly
+  once, when the page's Liquid pass runs. The script further down only ever
+  reads these already-substituted strings — it never re-evaluates Liquid —
+  because Paywall.js does not re-run its templating pass in response to
+  in-page JS state changes.
+
+  Product names (standardMonthly / standardAnnual / proMonthly / proAnnual)
+  must match the product names given to the four StoreKit products attached
+  to this paywall in the Superwall dashboard. See README.md, "Products."
+-->
+<div id="product-data">
+  <span data-plan="standard" data-period="monthly" data-field="price">{{ products.standardMonthly.price }}</span>
+  <span data-plan="standard" data-period="monthly" data-field="per">{{ products.standardMonthly.period }}</span>
+  <span data-plan="standard" data-period="monthly" data-field="note"></span>
+  <span data-plan="standard" data-period="monthly" data-field="bill">{{ products.standardMonthly.price }} billed monthly. Cancel anytime in Settings.</span>
+
+  <span data-plan="standard" data-period="annual" data-field="price">{{ products.standardAnnual.price }}</span>
+  <span data-plan="standard" data-period="annual" data-field="per">{{ products.standardAnnual.period }}</span>
+  <span data-plan="standard" data-period="annual" data-field="note">about {{ products.standardAnnual.monthlyPrice }} a month</span>
+  <span data-plan="standard" data-period="annual" data-field="bill">{{ products.standardAnnual.price }} billed once a year. Cancel anytime in Settings.</span>
+
+  <span data-plan="pro" data-period="monthly" data-field="price">{{ products.proMonthly.price }}</span>
+  <span data-plan="pro" data-period="monthly" data-field="per">{{ products.proMonthly.period }}</span>
+  <span data-plan="pro" data-period="monthly" data-field="note"></span>
+  <span data-plan="pro" data-period="monthly" data-field="bill">{{ products.proMonthly.price }} billed monthly. Cancel anytime in Settings.</span>
+
+  <span data-plan="pro" data-period="annual" data-field="price">{{ products.proAnnual.price }}</span>
+  <span data-plan="pro" data-period="annual" data-field="per">{{ products.proAnnual.period }}</span>
+  <span data-plan="pro" data-period="annual" data-field="note">about {{ products.proAnnual.monthlyPrice }} a month</span>
+  <span data-plan="pro" data-period="annual" data-field="bill">{{ products.proAnnual.price }} billed once a year. Cancel anytime in Settings.</span>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // Purely local UI state — which card is selected and which period is
+  // toggled on. This never touches Superwall; it only decides which of the
+  // four pre-rendered product blocks above to display, and which named
+  // product `data-pw-purchase` should fire on tap.
+  var state = { plan: 'standard', period: 'monthly' };
+
+  var els = {
+    btnMonthly: document.getElementById('btn-monthly'),
+    btnAnnual: document.getElementById('btn-annual'),
+    cardStandard: document.getElementById('card-standard'),
+    cardPro: document.getElementById('card-pro'),
+    subscribeBtn: document.getElementById('subscribe-btn'),
+    subscribeLabel: document.getElementById('subscribe-label'),
+    billLine: document.getElementById('bill-line'),
+    stdPrice: document.getElementById('std-price'),
+    stdPer: document.getElementById('std-per'),
+    stdNote: document.getElementById('std-note'),
+    proPrice: document.getElementById('pro-price'),
+    proPer: document.getElementById('pro-per'),
+    proNote: document.getElementById('pro-note'),
+  };
+
+  function fieldFor(plan, period, field) {
+    var selector = '#product-data span[data-plan="' + plan + '"][data-period="' + period + '"][data-field="' + field + '"]';
+    var node = document.querySelector(selector);
+    return node ? node.textContent.trim() : '';
+  }
+
+  function productNameFor(plan, period) {
+    // standardMonthly / standardAnnual / proMonthly / proAnnual —
+    // must match the product names in the Superwall dashboard exactly.
+    return plan + period.charAt(0).toUpperCase() + period.slice(1);
+  }
+
+  function render() {
+    var monthlyOn = state.period === 'monthly';
+    els.btnMonthly.classList.toggle('active', monthlyOn);
+    els.btnAnnual.classList.toggle('active', !monthlyOn);
+
+    var stdOn = state.plan === 'standard';
+    els.cardStandard.classList.toggle('selected', stdOn);
+    els.cardPro.classList.toggle('selected', !stdOn);
+
+    els.stdPrice.textContent = fieldFor('standard', state.period, 'price');
+    els.stdPer.textContent = fieldFor('standard', state.period, 'per');
+    els.stdNote.textContent = fieldFor('standard', state.period, 'note');
+
+    els.proPrice.textContent = fieldFor('pro', state.period, 'price');
+    els.proPer.textContent = fieldFor('pro', state.period, 'per');
+    els.proNote.textContent = fieldFor('pro', state.period, 'note');
+
+    var selPrice = fieldFor(state.plan, state.period, 'price');
+    var selPer = fieldFor(state.plan, state.period, 'per');
+    els.subscribeLabel.textContent = 'Continue — ' + selPrice + ' ' + selPer;
+    els.billLine.textContent = fieldFor(state.plan, state.period, 'bill');
+
+    // The only line that actually drives what gets purchased. Paywall.js
+    // reads this attribute at tap time, so it is safe to keep it in sync
+    // with local UI state right up until the moment the button is pressed.
+    els.subscribeBtn.setAttribute('data-pw-purchase', productNameFor(state.plan, state.period));
+  }
+
+  els.btnMonthly.addEventListener('click', function () { state.period = 'monthly'; render(); });
+  els.btnAnnual.addEventListener('click', function () { state.period = 'annual'; render(); });
+  els.cardStandard.addEventListener('click', function () { state.plan = 'standard'; render(); });
+  els.cardPro.addEventListener('click', function () { state.plan = 'pro'; render(); });
+
+  render();
+})();
+</script>
+
+</body>
+</html>
