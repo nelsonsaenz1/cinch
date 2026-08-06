@@ -52,6 +52,20 @@ export type EmptyStateProps = {
 export { ErrorState } from './error-state';
 export type { ErrorStateProps } from './error-state';
 
+/**
+ * The third member of the states kit, for the same reason: a *hero* empty —
+ * the closet's "An empty rail", Today's "I can't style what I can't see" — is
+ * a centred composition with an illustration in it, which is exactly what the
+ * docblock above rules out for this component. Those two screens keep their
+ * own frames. What they should not each invent is the ghosted garment backdrop
+ * behind the affordance, so it lives here as one component with the
+ * accessibility and contrast rules baked in.
+ *
+ * `GhostedRail` renders absolutely and hides itself from touch and VoiceOver;
+ * `GHOSTED_RAIL_HEIGHT` is the line below which body copy must stay.
+ */
+export { GHOSTED_RAIL_HEIGHT, GhostedRail } from './ghosted-rail';
+
 export function EmptyState({
   symbol,
   title,
