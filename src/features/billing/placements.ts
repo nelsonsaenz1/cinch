@@ -65,6 +65,28 @@ export const Placement = {
    * The moment is simply undesigned until the campaign is created.
    */
   EventHostingOverLimit: 'event_hosting_over_limit',
+
+  /**
+   * Packing — the one surface that is membership-only outright.
+   *
+   * THE SHAPE IS DIFFERENT FROM EVERY PLACEMENT ABOVE, and the difference is
+   * the point. The others are registered *after* a server has already refused
+   * something; Superwall only decides what to show. Packing has no server
+   * refusal to wait for, because planning a trip is not a row in a table — it
+   * is a screen. So the app itself is the gate: `usePackingAccess` reads the
+   * entitlement from `usePlan()` and refuses to render the questionnaire for a
+   * free account, and this placement is the conversion surface offered at that
+   * moment.
+   *
+   * IT MUST FAIL CLOSED. An unmatched placement proceeds silently, and there is
+   * currently no `packing_access` campaign in the dashboard — so if the lock
+   * lived in Superwall, every free user would simply walk through. The lock
+   * lives in the app; the paywall is what we show them once they are stopped.
+   * The server backs this up independently: `packing-brief` claims the
+   * `stylist_chat` allowance, which free is excluded from, so even a patched
+   * client gets a 402 rather than a brief.
+   */
+  PackingAccess: 'packing_access',
 } as const;
 
 export type PlacementName = (typeof Placement)[keyof typeof Placement];

@@ -1,27 +1,27 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
 import { DayRow } from '@/components/plan/day-row';
-import { Chip } from '@/components/ui/chip';
 import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
-import { fetchForecast, searchPlaces, type Place } from '@/features/context/weather';
+import { fetchForecast } from '@/features/context/weather';
 import { useEventInvites, useMyEvents } from '@/features/events/queries';
 import { usePlanOutfit, usePlannedWeek } from '@/features/plan/mutations';
-import { buildPackingList, planWeek } from '@/features/plan/packing';
+import { PackingTab } from '@/features/plan/packing-tab';
+import { planWeek } from '@/features/plan/packing';
+import type { Trip } from '@/features/plan/trip';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { dateKey } from '@/lib/date';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 const WEEK_DAYS = 7;
-const TRIP_LENGTHS = [3, 5, 7, 10];
 
 const startOfToday = () => {
   const d = new Date();
@@ -80,11 +80,19 @@ function Segment({
  * engine in opposite directions (variety vs. the smallest bag that closes);
  * Events is the social calendar — occasions live INSIDE Plan, not behind a
  * fourth tab, per the founder's mock.
+ *
+ * PACKING IS A WHOLE SLICE OF ITS OWN and lives in `features/plan/packing-tab`:
+ * it is membership-gated, it opens on a questionnaire rather than on this
+ * screen's shared closet gate, and it renders the closet itself underneath its
+ * results — none of which composes with the scroll view the other two modes
+ * share. This file now hands it the mode flag and gets out of the way.
  */
 export default function PlanScreen() {
   const router = useRouter();
   const theme = useTheme();
   const [mode, setMode] = useState<Mode>('week');
+  /** The answered packing questionnaire — see the Packing branch below. */
+  const [trip, setTrip] = useState<Trip | null>(null);
 
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
@@ -150,47 +158,19 @@ export default function PlanScreen() {
     });
   }, [weekForecast.data, items, context, profile.weights, profile.affinities, alreadyPlanned]);
 
-  // --- Packing ------------------------------------------------------------
-  const [query, setQuery] = useState('');
-  const [destination, setDestination] = useState<Place | null>(null);
-  const [tripDays, setTripDays] = useState(5);
+  // Packing signs and fetches its own images — it renders the whole closet, not
+  // a handful of planned outfits — so this covers the week only.
+  const { resolve } = useSignedUrls(
+    weekDays.flatMap(
+      (d) => d.outfit?.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath]) ?? [],
+    ),
+  );
 
-  const places = useQuery({
-    queryKey: ['places', query],
-    enabled: mode === 'packing' && query.trim().length >= 2 && !destination,
-    staleTime: 10 * 60_000,
-    queryFn: ({ signal }) => searchPlaces(query, signal),
-  });
-
-  const tripForecast = useQuery({
-    queryKey: ['forecast', destination?.latitude, destination?.longitude, tripDays],
-    enabled: Boolean(destination),
-    staleTime: 30 * 60_000,
-    queryFn: ({ signal }) =>
-      fetchForecast(destination!.latitude, destination!.longitude, tripDays, signal),
-  });
-
-  const packing = useMemo(() => {
-    if (!tripForecast.data?.length || !canGenerate(items)) return null;
-    return buildPackingList({
-      wardrobe: items,
-      forecasts: tripForecast.data,
-      startDate: startOfToday(),
-      baseContext: context,
-      weights: profile.weights,
-      formality: null,
-    });
-  }, [tripForecast.data, items, context, profile.weights]);
-
-  // Sign every image both closet modes could render, in one request.
-  const { resolve } = useSignedUrls([
-    ...weekDays.flatMap((d) => d.outfit?.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath]) ?? []),
-    ...(packing?.items.flatMap((i) => [i.garment.platePath, i.garment.cutoutPath, i.garment.thumbPath]) ?? []),
-  ]);
-
-  // The closet gate applies to the two styling modes only. Events stays open
-  // regardless — a brand-new user invited to Thursday's dinner has an empty
-  // closet and a full social calendar, and that invitation is the growth loop.
+  // The closet gate applies to the WEEK only now. Events stays open regardless
+  // — a brand-new user invited to Thursday's dinner has an empty closet and a
+  // full social calendar, and that invitation is the growth loop. Packing is
+  // exempt for a different reason: its empty-closet answer used to be a button
+  // that opened the camera, which is precisely the entry point being removed.
   const closetEmpty = !wardrobe.isLoading && !canGenerate(items);
 
   /** The event day's forecast, when the day is inside the week window. */
@@ -312,171 +292,67 @@ export default function PlanScreen() {
             </>
           )}
         </ScrollView>
+      ) : mode === 'packing' ? (
+        // The answered trip is held HERE, not inside PackingTab: that component
+        // unmounts on every switch to Week, and five questions should survive
+        // someone glancing at their week.
+        <PackingTab active trip={trip} onTrip={setTrip} />
       ) : closetEmpty ? (
         <EmptyState
           symbol="calendar"
           title="Plan the week ahead"
-          body="Lay out outfits for the days coming up, or build a packing list from what you already own. Add about ten pieces to get started."
+          body="Lay out outfits for the days coming up, one for each day, with no piece worn more than twice. Add about ten pieces to get started."
           actionTitle="Add clothes"
           onAction={() => router.push('/capture')}
         />
       ) : (
         <ScrollView contentContainerClassName="pb-10" keyboardShouldPersistTaps="handled">
-          {mode === 'week' ? (
-            weekForecast.isError ? (
+          {weekForecast.isError ? (
               <ErrorState
                 compact
                 title="Couldn't load the forecast"
                 body="This week's weather didn't come through, so Cinch can't lay out the days ahead. Check your connection and try again."
                 onRetry={() => void weekForecast.refetch()}
-                retrying={weekForecast.isRefetching}
-              />
-            ) : weekForecast.isLoading ? (
-              <ListSkeleton count={WEEK_DAYS} avatar={false} />
-            ) : weekDays.length === 0 ? (
-              <View className="px-gutter pt-6">
-                <Text variant="title" trim>
-                  Couldn&rsquo;t plan this week
-                </Text>
-                <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
-                  The forecast came back without enough to work with, so
-                  nothing in your closet could be matched to the days ahead.
-                  Try again in a moment.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <View className="mb-1 px-gutter">
-                  <Text variant="title">This week</Text>
-                </View>
-                <Text variant="label" className="mb-5 px-gutter text-accent dark:text-accent-dark">
-                  No piece worn more than twice
-                </Text>
-                {weekDays.map((day, i) => {
-                  const key = dateKey(day.date);
-                  return (
-                    <DayRow
-                      key={key}
-                      day={day}
-                      resolveImage={resolve}
-                      planned={Boolean(planned.data?.[key]?.length)}
-                      planning={planOutfit.isPending}
-                      isLast={i === weekDays.length - 1}
-                      onPlan={() =>
-                        day.outfit &&
-                        planOutfit.mutate({ candidate: day.outfit, date: day.date })
-                      }
-                    />
-                  );
-                })}
-              </>
-            )
+              retrying={weekForecast.isRefetching}
+            />
+          ) : weekForecast.isLoading ? (
+            <ListSkeleton count={WEEK_DAYS} avatar={false} />
+          ) : weekDays.length === 0 ? (
+            <View className="px-gutter pt-6">
+              <Text variant="title" trim>
+                Couldn&rsquo;t plan this week
+              </Text>
+              <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                The forecast came back without enough to work with, so nothing
+                in your closet could be matched to the days ahead. Try again in
+                a moment.
+              </Text>
+            </View>
           ) : (
             <>
-              <View className="px-gutter">
-                <TextInput
-                  value={destination ? `${destination.name}, ${destination.country}` : query}
-                  onChangeText={(t) => {
-                    setDestination(null);
-                    setQuery(t);
-                  }}
-                  placeholder="Where are you going?"
-                  placeholderTextColor={theme.muted}
-                  accessibilityLabel="Destination"
-                  className="rounded-card border border-hairline px-3.5 py-2.5 text-ink dark:border-hairline-dark dark:text-ink-dark"
-                />
-
-                {!destination && (places.data?.length ?? 0) > 0 ? (
-                  <View className="mt-2 overflow-hidden rounded-card border border-hairline dark:border-hairline-dark">
-                    {places.data!.map((place) => (
-                      <Pressable
-                        key={`${place.name}-${place.latitude}`}
-                        onPress={() => {
-                          setDestination(place);
-                          setQuery('');
-                        }}
-                        accessibilityRole="button"
-                        style={{ minHeight: MIN_TAP_TARGET }}
-                        className="justify-center border-b border-hairline px-4 active:opacity-60 dark:border-hairline-dark">
-                        <Text variant="body">
-                          {place.name}
-                          <Text variant="label">  {place.country}</Text>
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-
-                <View className="mt-4 flex-row gap-2">
-                  {TRIP_LENGTHS.map((n) => (
-                    <Chip
-                      key={n}
-                      label={`${n} days`}
-                      selected={tripDays === n}
-                      onPress={() => setTripDays(n)}
-                    />
-                  ))}
-                </View>
+              <View className="mb-1 px-gutter">
+                <Text variant="title">This week</Text>
               </View>
-
-              {!destination ? (
-                <View className="px-gutter pt-8">
-                  <Text variant="body" className="text-muted dark:text-muted-dark">
-                    Pick a destination and Cinch builds the smallest set of clothes
-                    that still gives you a different outfit each day — using the
-                    real forecast where you are going.
-                  </Text>
-                </View>
-              ) : tripForecast.isError ? (
-                <ErrorState
-                  compact
-                  title="Couldn't load the forecast"
-                  body="The weather for your trip didn't come through, so Cinch can't build a packing list yet. Check your connection and try again."
-                  onRetry={() => void tripForecast.refetch()}
-                  retrying={tripForecast.isRefetching}
-                />
-              ) : tripForecast.isLoading ? (
-                <View className="pt-6">
-                  <ListSkeleton count={tripDays} avatar={false} />
-                </View>
-              ) : packing ? (
-                <View className="pt-6">
-                  <View className="mx-gutter mb-6 rounded-card border border-hairline p-5 dark:border-hairline-dark">
-                    <Text variant="caption">Pack</Text>
-                    <Text variant="stat" className="mt-2 text-figure">
-                      {packing.items.length} pieces
-                    </Text>
-                    <Text variant="label" className="mt-1">
-                      {tripDays} days in {destination.name} · covers every day
-                    </Text>
-
-                    <View className="mt-4 gap-1.5">
-                      {packing.items.map(({ garment, days }) => (
-                        <View key={garment.id} className="flex-row items-baseline gap-2">
-                          <Text variant="body" className="flex-1" numberOfLines={1}>
-                            {garment.colors[0]?.name ?? ''} {garment.subcategory ?? garment.category}
-                          </Text>
-                          <Text variant="label">
-                            {days === tripDays ? 'every day' : `${days} ${days === 1 ? 'day' : 'days'}`}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-
-                  <Text variant="label" className="mb-4 px-gutter">
-                    How it works out, day by day
-                  </Text>
-                  {packing.days.map((day, i) => (
-                    <DayRow
-                      key={dateKey(day.date)}
-                      day={day}
-                      resolveImage={resolve}
-                      isLast={i === packing.days.length - 1}
-                    />
-                  ))}
-                </View>
-              ) : null}
+              <Text variant="label" className="mb-5 px-gutter text-accent dark:text-accent-dark">
+                No piece worn more than twice
+              </Text>
+              {weekDays.map((day, i) => {
+                const key = dateKey(day.date);
+                return (
+                  <DayRow
+                    key={key}
+                    day={day}
+                    resolveImage={resolve}
+                    planned={Boolean(planned.data?.[key]?.length)}
+                    planning={planOutfit.isPending}
+                    isLast={i === weekDays.length - 1}
+                    onPlan={() =>
+                      day.outfit &&
+                      planOutfit.mutate({ candidate: day.outfit, date: day.date })
+                    }
+                  />
+                );
+              })}
             </>
           )}
         </ScrollView>
