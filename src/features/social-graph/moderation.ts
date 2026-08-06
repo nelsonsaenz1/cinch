@@ -16,6 +16,12 @@ import { socialDb } from './types';
  * three distinct reporters via trigger), and a block is one insert into
  * `user_blocks` whose server trigger severs both follow edges. The client
  * never tears down the graph itself — it just asks, then refetches.
+ *
+ * Every reportable surface goes through `useReportContent` with a different
+ * `subject`: 'profile' from a friend's closet, 'comment' from an event thread,
+ * 'outfit_post' from a look on an event board. The enum has carried all five
+ * subjects since 20260807100000, so a new surface needs no migration — only a
+ * caller.
  */
 
 export interface ReportInput {
@@ -101,6 +107,10 @@ export function useBlockUser(): UseMutationResult<void, Error, { userId: string 
         'event-comments',
         'event-posts',
         'event-members',
+        // A block retracts the picks between the pair server-side
+        // (20260807120000): one pick per event, and leaving it on a look she
+        // can no longer see would spend it forever.
+        'my-vote',
       ]) {
         void qc.invalidateQueries({ queryKey: [key] });
       }

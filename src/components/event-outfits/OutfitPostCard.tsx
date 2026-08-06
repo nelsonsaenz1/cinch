@@ -1,7 +1,7 @@
 import { Canvas, Image as SkiaImage, Shadow, useImage } from '@shopify/react-native-skia';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -257,6 +257,13 @@ function Crown() {
  * caption, and the vote pill. The crown appears only once the board is
  * locked, and only on the pick-leader of THIS board — winners exist per
  * attendee, never across attendees.
+ *
+ * The ⋯ carries the App Store UGC minimum set on the post itself, not only on
+ * its comments (Guideline 1.2: every piece of user content is reportable, and
+ * its author blockable). Same grammar as `CommentRow`'s menu — report always,
+ * block for someone else's look, retire for the owner or host — because a
+ * woman who has learned the ⋯ on a comment should not have to learn a second
+ * gesture six inches higher up the same screen.
  */
 export function OutfitPostCard({
   look,
@@ -269,6 +276,8 @@ export function OutfitPostCard({
   votePending,
   resolveImage,
   onToggleVote,
+  onReport,
+  onBlock,
   onDelete,
   onOpenComments,
   commentCount,
@@ -284,6 +293,9 @@ export function OutfitPostCard({
   votePending: boolean;
   resolveImage: ResolveImage;
   onToggleVote: () => void;
+  /** Present on someone else's look — you cannot report or block yourself. */
+  onReport?: () => void;
+  onBlock?: () => void;
   /** Present when the caller may retire this look (owner or host). */
   onDelete?: () => void;
   onOpenComments: () => void;
@@ -292,6 +304,25 @@ export function OutfitPostCard({
   const theme = useTheme();
   const name = lookName(look.garments, look.caption);
   const a11y = `${posterName ?? 'A friend'}'s look: ${lookDescriptor(look.garments)}`;
+
+  const openMenu = () => {
+    const buttons: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [];
+    if (onReport) buttons.push({ text: 'Report', style: 'destructive', onPress: onReport });
+    if (onBlock) {
+      buttons.push({
+        text: posterName ? `Block ${posterName.split(/\s+/)[0]}` : 'Block her',
+        style: 'destructive',
+        onPress: onBlock,
+      });
+    }
+    if (onDelete) {
+      buttons.push({ text: 'Retire this look', style: 'destructive', onPress: onDelete });
+    }
+    buttons.push({ text: 'Cancel', style: 'cancel' });
+    Alert.alert('This look', undefined, buttons);
+  };
+
+  const hasMenu = Boolean(onReport || onBlock || onDelete);
 
   return (
     <View className="rounded-plate border border-rule bg-surface p-4">
@@ -310,15 +341,21 @@ export function OutfitPostCard({
         <Text variant="plate" numberOfLines={1} className="flex-1">
           {name}
         </Text>
-        {onDelete ? (
+        {hasMenu ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Retire this look"
+            accessibilityLabel="Look options"
+            accessibilityHint="Report this look, block its author, or retire it"
             hitSlop={10}
-            onPress={onDelete}
+            onPress={openMenu}
             style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}
             className="active:opacity-60">
-            <SymbolView name="trash" size={14} tintColor={theme.faint} resizeMode="scaleAspectFit" />
+            <SymbolView
+              name="ellipsis"
+              size={14}
+              tintColor={theme.faint}
+              resizeMode="scaleAspectFit"
+            />
           </Pressable>
         ) : null}
       </View>
