@@ -76,6 +76,14 @@ const config: ExpoConfig = {
         UIApplicationSupportsMultipleScenes: false,
         UISceneConfigurations: {},
       },
+
+      // Required by ITMS-90683 (Apple's automated Info.plist pass on build 3):
+      // expo-camera references CoreMotion — it reads device orientation so a
+      // photo taken sideways is stored the right way up. That is the entire
+      // use; nothing records or transmits movement. Written like the other
+      // strings above: concrete and honest, never a generated default.
+      NSMotionUsageDescription:
+        'Cinch reads device orientation while you photograph clothes so each picture comes out the right way up. Nothing about your movement is recorded.',
     },
 
     /**
