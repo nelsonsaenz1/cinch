@@ -33,11 +33,24 @@ export function ConsentSheet({
   visible,
   onAccept,
   onDecline,
+  onDismissed,
   busy,
 }: {
   visible: boolean;
   onAccept: () => void;
   onDecline: () => void;
+  /**
+   * Fired once the sheet has finished LEAVING — not when `visible` flips.
+   *
+   * This is what makes "Allow processing" open the picker on the first tap.
+   * The picker and the describe sheet are both view controllers iOS presents
+   * modally, and asking it to present one while this modal is still on its way
+   * out is refused outright: the call resolved as though it had been cancelled
+   * and the user was left looking at the capture screen, having consented to
+   * nothing visible. Whatever was interrupted has to be resumed on the far side
+   * of the dismissal, and this is the only signal for that edge.
+   */
+  onDismissed?: () => void;
   busy?: boolean;
 }) {
   const theme = useTheme();
@@ -48,6 +61,7 @@ export function ConsentSheet({
       visible={visible}
       transparent
       animationType="slide"
+      onDismiss={onDismissed}
       onRequestClose={() => {
         if (!busy) onDecline();
       }}>
