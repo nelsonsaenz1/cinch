@@ -4,6 +4,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
 
+import { recordAiCall } from '../_shared/ai-calls.ts';
 import { completeStructured, OpenRouterError } from '../_shared/openrouter.ts';
 import {
   OUTFIT_SYSTEM_PROMPT,
@@ -204,7 +205,7 @@ export default {
         }
       }
 
-      await admin.from('ai_calls').insert({
+      await recordAiCall(admin, {
         user_id: userId,
         workload: 'outfit_generation',
         provider: config.provider,
