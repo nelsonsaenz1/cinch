@@ -17,6 +17,13 @@ export type ProfileRowProps = {
   showsChevron?: boolean;
 };
 
+// TODO(batch-1 seam): swap for the shared `Avatar` component once
+// `src/components/ui` publishes it (field-guide-audit.md names it "a single
+// Avatar with a size prop", but gives no prop contract to code against yet —
+// unlike `Skeleton`/error-state, it isn't one of the two pre-declared seam
+// exports, so guessing its shape here risked a worse mismatch at merge than
+// leaving this file's copy in place). This is one of five duplicates
+// (`EventCard.tsx`, `RosterRow.tsx`, `invite.tsx`, `OutfitPostCard.tsx`).
 /** "DA" from "Dana Alvarez", "DA" from "dana" alone — same rules as Profile's masthead. */
 function initialsFor(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);

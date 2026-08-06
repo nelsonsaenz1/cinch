@@ -16,7 +16,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FriendItemCard } from '@/components/social/FriendItemCard';
 import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
+import { EmptyState, ErrorState } from '@/components/ui/empty-state';
+// Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `ClosetGridSkeleton`
+// is already exported; reused as-is for a friend's closet grid, same shape.
+import { ClosetGridSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
@@ -202,14 +205,28 @@ export default function FriendClosetScreen() {
         <Text variant="display" trim accessibilityRole="header">
           {name}
         </Text>
-        <Text variant="label" className="mt-2 text-faint">
-          {closet.isLoading
-            ? 'Opening her closet…'
-            : `${items.length} ${items.length === 1 ? 'piece' : 'pieces'} · ${borrowableCount} borrowable`}
-        </Text>
+        {/* The count line doubles as loading text ("Opening her closet…")
+            with no visual shape behind it. The grid below now carries its own
+            skeleton, so this line simply withholds itself until there is a
+            real count to report — no sentence pretending to be a state. */}
+        {!closet.isLoading && !closet.isError ? (
+          <Text variant="label" className="mt-2 text-faint">
+            {`${items.length} ${items.length === 1 ? 'piece' : 'pieces'} · ${borrowableCount} borrowable`}
+          </Text>
+        ) : null}
       </View>
 
-      {!closet.isLoading && items.length === 0 ? (
+      {closet.isError ? (
+        // A failed fetch is not the same fact as an empty or lapsed closet —
+        // it gets its own state and a way to try again, not "Nothing to show."
+        <ErrorState
+          title="Couldn’t open her closet"
+          body="This didn’t load — it isn’t the same as her closet being empty. Try again."
+          onRetry={() => void closet.refetch()}
+        />
+      ) : closet.isLoading ? (
+        <ClosetGridSkeleton />
+      ) : items.length === 0 ? (
         // Empty either because her closet is genuinely empty or because the
         // friendship has lapsed — the view can't say which, and neither should
         // the copy: accusing a friend of unfriending is worse than vagueness.
@@ -251,7 +268,9 @@ export default function FriendClosetScreen() {
         onRequestClose={() => setAsking(null)}>
         <Pressable
           className="flex-1 justify-end"
-          style={{ backgroundColor: 'rgba(28,26,22,0.4)' }}
+          // Pre-declared seam (docs/design/field-guide-audit.md, Batch 1):
+          // `theme.scrim` promotes this hand-typed rgba to a token.
+          style={{ backgroundColor: theme.scrim }}
           accessibilityLabel="Close"
           onPress={() => setAsking(null)}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -280,7 +299,8 @@ export default function FriendClosetScreen() {
                       minHeight: 64,
                       paddingVertical: 10,
                       fontFamily: 'HelveticaNeue',
-                      fontSize: 15,
+                      // 17, not 15: matches `body` on the type scale.
+                      fontSize: 17,
                       color: theme.ink,
                     }}
                   />

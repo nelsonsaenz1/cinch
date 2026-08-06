@@ -5,7 +5,10 @@ import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BorrowRequestRow } from '@/components/social/BorrowRequestRow';
-import { EmptyState } from '@/components/ui/empty-state';
+import { EmptyState, ErrorState } from '@/components/ui/empty-state';
+// Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `ListSkeleton`
+// lands alongside `Skeleton`'s export. Code against the contract.
+import { ListSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useAnswerBorrow, useCancelBorrow } from '@/features/social-graph/mutations';
@@ -72,7 +75,7 @@ export default function BorrowScreen() {
       </Text>
       <View className="overflow-hidden rounded-plate border border-rule bg-surface">
         {rows.length === 0 ? (
-          <Text variant="caption" className="px-4 py-3.5 text-faint">
+          <Text variant="body" className="px-4 py-3.5 text-faint">
             {emptyLine}
           </Text>
         ) : (
@@ -116,7 +119,24 @@ export default function BorrowScreen() {
         </Text>
       </View>
 
-      {!threads.isLoading && all.length === 0 ? (
+      {threads.isError ? (
+        // A failed fetch is not a settled "nothing on loan" — it is its own
+        // state, with its own way back in.
+        <ErrorState
+          title="Couldn’t load your borrowing"
+          body="Something went wrong reaching these requests. Nothing here has changed — try again."
+          onRetry={() => void threads.refetch()}
+        />
+      ) : threads.isLoading ? (
+        // The initial load used to fall through to the same `rows.length ===
+        // 0` branch each section renders once settled, so "Nothing on loan"
+        // and "No one has asked for anything." appeared before any data had
+        // arrived. Loading now has its own shape, so empty can only ever mean
+        // the query succeeded and came back with nothing.
+        <View className="px-gutter pt-6">
+          <ListSkeleton count={3} />
+        </View>
+      ) : all.length === 0 ? (
         <EmptyState
           symbol="hanger"
           title="Nothing on loan"
