@@ -16,9 +16,10 @@ import Animated, {
 
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Text } from '@/components/ui/text';
 import type { Item, ItemCategory } from '@/schemas/item';
-import { MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
+import { GUTTER, MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 /**
@@ -230,13 +231,16 @@ export function ReviewCard({
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
+        // Inset by the page gutter on all four sides — the same measure every
+        // other screen's `px-gutter` uses, taken from the token rather than
+        // typed as 20 four times.
         style={[
           {
             position: 'absolute',
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: 20,
+            left: GUTTER,
+            right: GUTTER,
+            top: GUTTER,
+            bottom: GUTTER,
           },
           cardStyle,
         ]}
@@ -254,11 +258,33 @@ export function ReviewCard({
         accessibilityElementsHidden={!isTop}
         importantForAccessibility={isTop ? 'yes' : 'no-hide-descendants'}>
         <View className="flex-1 overflow-hidden rounded-card bg-surface dark:bg-surface-dark">
-          <View className="flex-1 p-5">
+          {/*
+            The card's contents scroll, for one reason: the Price field.
+
+            It is the last row before the buttons, which puts it within a
+            thumb's width of the bottom of the screen — and the decimal pad
+            covers roughly the bottom half. The field a person had just tapped
+            was under the keyboard, with nothing on this screen able to move it.
+            `automaticallyAdjustKeyboardInsets` is UIScrollView's own answer:
+            the focused field rises above the keyboard and the rest of the card
+            keeps its composition exactly as drawn. `flexGrow: 1` on the content
+            is what lets the footer's `mt-auto` still push the buttons to the
+            bottom when nothing is being edited, and the pan gesture above only
+            claims horizontal movement (`activeOffsetX`), so a vertical drag
+            scrolls rather than swiping the card away.
+          */}
+          <KeyboardAwareScrollView
+            scrollEnabled={isTop}
+            showsVerticalScrollIndicator={false}
+            contentContainerClassName="p-5"
+            contentContainerStyle={{ flexGrow: 1 }}>
             <Text variant="title" trim>
               Is this right?
             </Text>
-            <Text variant="label" className="mb-4 mt-1.5 text-faint dark:text-faint-dark">
+            {/* Tone inline rather than a stacked `text-faint` over the label
+                variant's `text-muted` — see the note on the confirm button
+                below for why a second colour class is not a reliable override.*/}
+            <Text variant="label" className="mb-4 mt-1.5" style={{ color: theme.faint }}>
               My best guess — correct anything that&rsquo;s off.
             </Text>
 
@@ -409,11 +435,14 @@ export function ReviewCard({
               />
               {/*
                 Not the shared Button: its "primary" variant is the oxblood
-                accent, and this screen already spends that accent on the
-                "Edit" affordances above. The one confirming action here is
-                ink-filled instead — the "ink-selected" treatment the design
-                system reserves for exactly this case, hand-built rather than
-                repurposing a component whose whole job is guarding the accent.
+                accent, and this screen spends that accent on the "Edit"
+                affordances above — the deck's one invitation to correct
+                something, and now its ONLY accent (the progress pip above the
+                card used to take a second helping and is ink again). The one
+                confirming action here is ink-filled instead — the
+                "ink-selected" treatment the design system reserves for exactly
+                this case, hand-built rather than repurposing a component whose
+                whole job is guarding the accent.
               */}
               <Pressable
                 accessibilityRole="button"
@@ -422,15 +451,19 @@ export function ReviewCard({
                 hitSlop={{ top: 4, bottom: 4 }}
                 style={{ minHeight: MIN_TAP_TARGET }}
                 className="flex-1 flex-row items-center justify-center rounded-md bg-ink px-5 active:opacity-70 dark:bg-ink-dark">
-                {/* Inline style, not `text-canvas`: the className loses to the
-                    variant's own `text-ink` and the label vanishes on the ink
-                    fill. Same trap as the item-detail hero tile. */}
+                {/* Inline style, not `text-canvas`. Two colour utilities on one
+                    element are resolved by their order in the GENERATED
+                    stylesheet — the order of the palette in tailwind.config.js
+                    — not by which the call site wrote last, so `text-canvas`
+                    here would lose to the variant's `text-ink` (canvas is
+                    declared first, ink later) and the label would vanish into
+                    the ink fill. Same trap as the item-detail hero tile. */}
                 <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
                   Looks right
                 </Text>
               </Pressable>
             </View>
-          </View>
+          </KeyboardAwareScrollView>
         </View>
       </Animated.View>
     </GestureDetector>

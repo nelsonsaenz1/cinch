@@ -4,21 +4,11 @@ import { Animated, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/theme/tokens';
-import type { JobStage, UploadJob } from '@/features/ingest/queue-store';
+import { STAGE_LABEL, type JobStage, type UploadJob } from '@/features/ingest/queue-store';
 
-// Honest, per-item status. "Cleaning…" is the on-device background removal (the
-// `cutout` stage) — the same word the consent sheet and the design use for it.
-const STAGE_LABEL: Record<JobStage, string> = {
-  queued: 'Queued',
-  preparing: 'Preparing',
-  cutout: 'Cleaning…',
-  uploading: 'Uploading',
-  // The word for "working out what this garment is". "Tagging" is our word for
-  // it, not anyone else's; this says what is happening.
-  tagging: 'Categorising…',
-  done: 'Added ✓',
-  failed: 'Failed',
-};
+// The per-item status words live in the store beside the stages they name, so
+// the rail and the headline above it cannot drift into two spellings of the
+// same moment — which is exactly what "cleaning up…" over "Cleaning…" was.
 
 /**
  * What a thumbnail calls itself.

@@ -7,7 +7,7 @@ import { useCallback, useState } from 'react';
 import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
-import { sweepPendingTags } from './upload-queue';
+import { tagImportedGarment } from './upload-queue';
 
 /**
  * "Describe it, don't photograph it."
@@ -193,11 +193,17 @@ export function useGarmentSearch() {
  * Turning the tapped tile into a closet item.
  *
  * The server downloads the image, creates the row at `pending_tag` and stops
- * there — which is exactly where a photographed garment arrives too, so tagging
- * is the existing sweep's job rather than a second pipeline. `sweepPendingTags`
- * is nudged here so the tags usually land before the user reaches the closet;
- * it is rate-limited internally, so this is a nudge and not a guarantee, and
- * the item is safe either way.
+ * there — which is exactly where a photographed garment arrives too, so the tag
+ * is driven by the same queue rather than a second pipeline.
+ *
+ * It used to be handed to `sweepPendingTags` and forgotten, and that was the
+ * dead end: the sweep is rate-limited to once a minute and returns early when
+ * one is already running, so the garment could sit at `pending_tag` — invisible
+ * on capture, which draws its progress from the queue, and invisible in the
+ * review deck, which lists only `tagged` and `needs_review`. Somebody who
+ * described a dress was shown "Nothing to review" while their dress existed
+ * nowhere they could see. `tagImportedGarment` puts it on the capture rail and
+ * carries it to a result — or to a failure with a retry on it.
  */
 export function useGarmentImport() {
   const qc = useQueryClient();
@@ -213,12 +219,14 @@ export function useGarmentImport() {
       if (!data.itemId) throw new GarmentSearchError('import_failed', MESSAGES.import_failed);
       return data.itemId;
     },
-    onSuccess: () => {
+    onSuccess: (itemId, { candidate }) => {
       invalidateAfterItemSettled(qc);
       // After the durable write, so a crash between import and track loses the
       // event rather than fabricating one for a garment that never landed.
       track('garment_search_used', { stage: 'imported' });
-      void sweepPendingTags();
+      // The chosen product shot stands in as the rail thumbnail: it is the
+      // picture the user actually tapped, and the server saved that same one.
+      void tagImportedGarment(itemId, candidate.imageUrl);
     },
   });
 }

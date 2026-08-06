@@ -138,3 +138,12 @@ export const concentric = (outer: number, inset: number) => Math.max(outer - ins
 
 /** Accessibility floor. 44pt is the Apple minimum, not a target. */
 export const MIN_TAP_TARGET = 44;
+
+/**
+ * The page margin, as a number — the same 20 `spacing.gutter` gives `px-gutter`.
+ *
+ * For the handful of places that cannot use the class: an absolutely positioned
+ * layer, a measured offset, an animated inset. Those were typing `20` by hand,
+ * which is how a measure drifts one screen at a time.
+ */
+export const GUTTER = 20;

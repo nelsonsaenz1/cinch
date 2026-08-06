@@ -37,12 +37,9 @@ const MAX_DESCRIPTION_CHARS = 240;
 export function GarmentSearchSheet({
   visible,
   onClose,
-  onImported,
 }: {
   visible: boolean;
   onClose: () => void;
-  /** Fired after a garment lands, so the caller can send the user onward. */
-  onImported?: (itemId: string) => void;
 }) {
   const theme = useTheme();
   const flow = useGarmentSearchFlow();
@@ -60,12 +57,13 @@ export function GarmentSearchSheet({
 
   const canSearch = flow.description.trim().length >= 3 && !flow.searching;
 
+  // On a successful import the sheet simply gets out of the way. The garment
+  // joins the capture queue behind it (see `useGarmentImport`), so what the
+  // user drops back onto is the progress rail with their piece on it — not a
+  // review deck that cannot see an untagged row yet.
   const choose = async (candidate: GarmentCandidate) => {
     const itemId = await flow.choose(candidate);
-    if (itemId) {
-      onImported?.(itemId);
-      onClose();
-    }
+    if (itemId) onClose();
   };
 
   return (
