@@ -3,6 +3,7 @@ import { withSupabase } from 'npm:@supabase/server@^1';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
+import { recordAiCall } from '../_shared/ai-calls.ts';
 import { BoundsError, readBoundedJson } from '../_shared/input-bounds.ts';
 import { completeStructured, OpenRouterError } from '../_shared/openrouter.ts';
 import { enforceAiQuota } from '../_shared/quota.ts';
@@ -241,7 +242,7 @@ export default {
         }
       }
 
-      await admin.from('ai_calls').insert({
+      await recordAiCall(admin, {
         user_id: userId,
         workload: WORKLOAD,
         provider: config?.provider ?? 'openrouter',

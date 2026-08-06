@@ -4,6 +4,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
 
+import { recordAiCall } from '../_shared/ai-calls.ts';
 import { BoundsError, readBoundedJson } from '../_shared/input-bounds.ts';
 import { OpenRouterError } from '../_shared/openrouter.ts';
 import { enforceAiQuota } from '../_shared/quota.ts';
@@ -213,7 +214,7 @@ export default {
       // ── Accounting. Written for failures too: a failed search still costs a
       //    web-search charge and sometimes tokens, and hiding that skews every
       //    later decision about whether this feature pays for itself. ────────
-      await admin.from('ai_calls').insert({
+      await recordAiCall(admin, {
         user_id: userId,
         workload: WORKLOAD,
         provider: config?.provider ?? provider.id,

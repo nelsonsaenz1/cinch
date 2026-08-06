@@ -4,6 +4,8 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
 
+import { recordAiCall } from '../_shared/ai-calls.ts';
+
 import {
   completeStructured,
   OpenRouterError,
@@ -276,7 +278,7 @@ export default {
 
       // ── Accounting. Written for both success and failure — a failed call still
       //    costs latency and sometimes tokens, and hiding that skews the model. ─
-      await admin.from('ai_calls').insert({
+      await recordAiCall(admin, {
         user_id: userId,
         workload: 'tagging',
         provider: config.provider,

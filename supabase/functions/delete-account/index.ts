@@ -18,6 +18,15 @@ import type { Database } from '../_shared/database.types.ts';
  * bucket with no record that they exist. The path prefix would still be
  * derivable, but nothing would ever walk it again.
  *
+ * BOTH buckets, not just `garments`. `avatars` (20260807110000) is PUBLIC and
+ * keyed `{user_id}/{ms}.jpg`, so an avatar left behind is not merely an orphan
+ * — it is a photograph of the user's face still served from a URL that needs no
+ * authentication, belonging to an account that no longer exists. The client
+ * deletes the object it replaces (features/profile/avatar.ts), but that is a
+ * best-effort path that leaves spares behind by design, and it never runs at
+ * all when the account itself goes. This function is the only thing that walks
+ * the folder, so it has to walk both.
+ *
  * Everything else is handled by `on delete cascade` on the auth.users FK, which
  * every table in the schema carries. That is deliberate: enumerating tables here
  * means a table added later is silently missed, and "we forgot to delete one
@@ -38,15 +47,34 @@ import type { Database } from '../_shared/database.types.ts';
  * it, and the response never claims a rollback that did not occur.
  */
 
-const BUCKET = 'garments';
+/**
+ * Every bucket this user owns objects in, in the order they are cleared.
+ *
+ * `garments` first because it is the large one and the one the warning copy
+ * names; a partial run that stops after it has still removed the bulk of what
+ * the user asked to be rid of. The order is otherwise arbitrary — each bucket
+ * is cleared independently and each is safe to repeat.
+ */
+const BUCKETS = ['garments', 'avatars'] as const;
+
+type Bucket = (typeof BUCKETS)[number];
+
 /** Supabase Storage caps `list` at 100 by default; ask for the maximum. */
 const PAGE = 1000;
 /** `remove` takes a batch; a large closet exceeds what one call accepts. */
 const REMOVE_CHUNK = 100;
 
-/** Every object under a prefix, recursing into per-item folders. */
+/**
+ * Every object under a prefix, recursing into per-item folders.
+ *
+ * The recursion is what `garments` needs — its objects are keyed
+ * {user}/{item}/{file}. `avatars` is flat ({user}/{ms}.jpg), so the walk
+ * terminates after one level there; the same function serves both rather than
+ * two that drift.
+ */
 async function listAllPaths(
   storage: SupabaseClient<Database>['storage'],
+  bucket: Bucket,
   prefix: string,
 ): Promise<string[]> {
   const out: string[] = [];
@@ -58,7 +86,7 @@ async function listAllPaths(
 
     for (;;) {
       const { data, error } = await storage
-        .from(BUCKET)
+        .from(bucket)
         .list(dir, { limit: PAGE, offset });
 
       if (error) throw error;
@@ -138,34 +166,58 @@ export default {
 
       const resumed = Boolean(existing?.deletion_requested_at);
 
-      // ── 2. Storage. Idempotent: the listing only returns what still exists,
-      //       so a retry picks up where the last attempt stopped. ────────────
+      // ── 2. Storage, bucket by bucket. Idempotent: the listing only returns
+      //       what still exists, so a retry picks up where the last attempt
+      //       stopped — within a bucket and across them. ───────────────────
+      //
+      // `removed` stays a single running total across both buckets because it
+      // is what the response has always meant ("objects gone") and what the
+      // warning copy promises ("every photo you uploaded" — a face is a photo
+      // the user uploaded too). `removedByBucket` is additive detail for
+      // whoever is reading a failed run; nothing client-side depends on it.
       let removed = 0;
-      try {
-        const paths = await listAllPaths(admin.storage, userId);
-        for (let i = 0; i < paths.length; i += REMOVE_CHUNK) {
-          const chunk = paths.slice(i, i + REMOVE_CHUNK);
-          const { error } = await admin.storage.from(BUCKET).remove(chunk);
-          if (error) throw error;
-          removed += chunk.length;
+      const removedByBucket: Record<Bucket, number> = { garments: 0, avatars: 0 };
+
+      for (const bucket of BUCKETS) {
+        try {
+          const paths = await listAllPaths(admin.storage, bucket, userId);
+          for (let i = 0; i < paths.length; i += REMOVE_CHUNK) {
+            const chunk = paths.slice(i, i + REMOVE_CHUNK);
+            const { error } = await admin.storage.from(bucket).remove(chunk);
+            if (error) throw error;
+            removed += chunk.length;
+            removedByBucket[bucket] += chunk.length;
+          }
+        } catch (err) {
+          // No rollback claim. Objects removed before this point are gone and
+          // cannot come back, and saying otherwise would leave the user believing
+          // their photographs still exist. What is recoverable is the operation:
+          // the account is still there and running this again resumes it.
+          //
+          // The same sentence covers a failure in either bucket, and it is true
+          // in both: an avatar is one of the photographs being deleted. Naming
+          // the bucket in prose would mean explaining Storage layout to someone
+          // who is trying to leave, so it goes in `failedBucket` and the log
+          // line instead — where the person debugging it will look.
+          console.error(
+            `delete-account: clearing bucket "${bucket}" failed after ${removed} object(s)`,
+            err,
+          );
+          return Response.json(
+            {
+              error:
+                'Deleting your photos stopped part-way. Some have already been permanently deleted and your account still exists. Please try again — deletion continues from where it stopped.',
+              detail: 'delete_failed',
+              failedBucket: bucket,
+              objectsRemoved: removed,
+              removedByBucket,
+              accountDeleted: false,
+              resumable: true,
+              resumed,
+            },
+            { status: 500 },
+          );
         }
-      } catch (err) {
-        // No rollback claim. Objects removed before this point are gone and
-        // cannot come back, and saying otherwise would leave the user believing
-        // their photographs still exist. What is recoverable is the operation:
-        // the account is still there and running this again resumes it.
-        return Response.json(
-          {
-            error:
-              'Deleting your photos stopped part-way. Some have already been permanently deleted and your account still exists. Please try again — deletion continues from where it stopped.',
-            detail: 'delete_failed',
-            objectsRemoved: removed,
-            accountDeleted: false,
-            resumable: true,
-            resumed,
-          },
-          { status: 500 },
-        );
       }
 
       // ── 3. The auth user. Cascades to every table. ────────────────────────
@@ -181,6 +233,7 @@ export default {
             error:
               'Your photos have been permanently deleted, but your account could not be removed. Please try again — this will finish the deletion.',
             objectsRemoved: removed,
+            removedByBucket,
             accountDeleted: false,
             resumable: true,
             resumed,
@@ -193,6 +246,7 @@ export default {
       return Response.json({
         ok: true,
         objectsRemoved: removed,
+        removedByBucket,
         accountDeleted: true,
         resumed,
       });

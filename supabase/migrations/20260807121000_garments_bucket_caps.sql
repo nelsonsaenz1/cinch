@@ -1,0 +1,69 @@
+-- ===========================================================================
+-- Caps on the `garments` bucket.
+--
+-- `garments` was created in the first migration with `(id, name, public)` and
+-- nothing else, so `file_size_limit` and `allowed_mime_types` are both NULL:
+-- any authenticated user may write an object of any size and any type into her
+-- own folder. The RLS policies answer "whose folder", which is the question
+-- they exist for — they say nothing about what may be put in it. A 2 GB video
+-- named `original.jpg` satisfies every policy on the bucket.
+--
+-- `avatars` (20260807110000) was born with both caps. This is the same
+-- treatment for the bucket that predates the habit, and it is an UPDATE rather
+-- than an insert because the bucket already exists in production with real
+-- objects in it. Existing objects are not re-validated — these bound future
+-- uploads only, which is the correct scope: everything already stored came
+-- from the app.
+--
+-- ── allowed_mime_types: what the app actually uploads ──────────────────────
+--
+-- Two writers, and between them exactly three real formats:
+--
+--   1. The ingest queue (src/features/ingest/upload-queue.ts) writes four
+--      objects per item — `original.jpg` and `thumb.jpg` as image/jpeg, and
+--      `cutout.png` and `plate.png` as image/png. The cutouts must be PNG:
+--      they carry the alpha channel that makes a garment sit on the plate
+--      without a white box around it, and JPEG has no alpha.
+--
+--   2. garment-search's import (supabase/functions/garment-search/index.ts)
+--      downloads a product photograph from the open web and re-uploads it with
+--      the origin's own content type, which its IMAGE_EXTENSIONS map limits to
+--      jpeg, png and webp. So webp belongs here even though nothing on-device
+--      ever produces one — omitting it would break "describe it, don't
+--      photograph it" for any retailer serving webp, which is most of them.
+--
+-- `image/jpg` is included because it is not a real MIME type but is a real
+-- header: the same function's map lists it explicitly for that reason, and it
+-- forwards whatever the origin sent. Leaving it out would let a request pass
+-- the function's own allow-list and then be refused by Storage — a failure
+-- mode that exists only in the gap between two lists, which is exactly the
+-- kind of thing that gets debugged twice.
+--
+-- Deliberately NOT permissive: no `image/*`, no HEIC. Storage matches this
+-- list against the declared content type, so a wildcard would readmit the
+-- arbitrary-bytes case above under an image label. HEIC is absent because
+-- nothing uploads one — expo-image-manipulator re-encodes every capture to
+-- JPEG before it reaches the queue (src/lib/image.ts), so a HEIC arriving here
+-- did not come from this app.
+--
+-- ── file_size_limit: 15 MiB ────────────────────────────────────────────────
+--
+-- A backstop, not a working limit. What the app really writes is much smaller:
+-- the client downscales to a 1024px long edge at quality 0.8 (a few hundred KB)
+-- and a 400px thumbnail, and the largest object it can produce is a 1536px
+-- transparent PNG cutout — a few MB at worst, on a busy garment.
+--
+-- The number is set above garment-search's own MAX_IMAGE_BYTES (10 MB), and
+-- deliberately so. That constant is the tight, feature-specific bound and it
+-- should stay the thing that rejects an oversized product photograph, because
+-- it fails with an explanation the import flow can show. A bucket limit at or
+-- below it would mean the same rejection arriving instead as an opaque Storage
+-- error after the download had already been paid for. 15 MiB leaves that
+-- ceiling room to be raised a little without a migration, while still turning
+-- "any size at all" into a bounded number — which is the whole point.
+-- ===========================================================================
+
+update storage.buckets
+   set file_size_limit    = 15728640, -- 15 MiB
+       allowed_mime_types = array['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+ where id = 'garments';
