@@ -21,7 +21,7 @@ type ItemRow = Database['public']['Tables']['items']['Row'];
  * moving thirty pieces to storage moves the "24 of 30" figure by nothing.
  * Nowhere in this feature — not the screen copy, not a hook name, not a toast —
  * may imply otherwise. The user is trading grid clutter for nothing but grid
- * clutter, and that is a fair trade only if she is told it is the trade.
+ * clutter, and that is a fair trade only if they are told it is the trade.
  *
  * ── Why a Storage SCREEN, and not just an archive action ──────────────────
  *
@@ -30,8 +30,8 @@ type ItemRow = Database['public']['Tables']['items']['Row'];
  * *"Nothing in the app can unarchive, so an archived row would burn one of
  * thirty slots permanently."* That objection is about a one-way door, not about
  * the flag. A door with a handle on both sides is a different object: the slot
- * is occupied while the piece is stored and released the moment she deletes it
- * for good, and she can always see what is holding her slots and get it back.
+ * is occupied while the piece is stored and released the moment they delete it
+ * for good, and they can always see what is holding their slots and get it back.
  *
  * So this file does not overturn that docblock, it satisfies the condition in
  * it. Remove stays a hard delete that destroys the photographs; storage keeps
@@ -124,7 +124,7 @@ function toStoredItem(row: ItemRow): Item {
  * abort `signal` is threaded into PostgREST, and a missing session throws
  * rather than resolving to `[]`. "Nothing in storage" is a claim, and this
  * screen's empty state is the only thing standing between the user and the
- * belief that pieces she stored are gone.
+ * belief that pieces they stored are gone.
  *
  * `['closet','stored']` sits under the `closet` prefix so that any invalidation
  * of the closet reaches it — the two lists are two filters over one table and
@@ -226,7 +226,7 @@ async function setArchived(ids: string[], archived: boolean, failure: string): P
  * promise is that the photographs are gone; this hook's promise is the
  * opposite one, and the photographs surviving is the entire point of it. A
  * stored piece keeps its cutout, its plate and its thumbnail so that the
- * Storage screen can show her what she owns and Restore can return it intact.
+ * Storage screen can show them what they own and Restore can return it intact.
  *
  * Wear history is untouched for the same reason: `wear_count` and `last_worn_at`
  * are facts about a garment's past, and putting it in a drawer does not unwear it.

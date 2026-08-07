@@ -24,7 +24,7 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * all. See features/closet/storage.ts for the trigger read behind that claim.
  *
  * The two actions per row are the two real answers: bring it back, or delete it
- * for good. There is deliberately no third, quieter option — a piece she wants
+ * for good. There is deliberately no third, quieter option — a piece they want
  * neither in the closet nor deleted is exactly what this screen is.
  */
 
@@ -95,9 +95,9 @@ export default function StorageScreen() {
   let body: React.ReactNode;
 
   if (stored.isError) {
-    // A failed read is not an empty drawer. Telling someone her stored pieces
+    // A failed read is not an empty drawer. Telling someone their stored pieces
     // are gone over a dropped connection is the one thing this screen must
-    // never do — it is the screen she opens to check they are still there.
+    // never do — it is the screen they open to check those pieces are still there.
     body = (
       <ErrorState
         title="Couldn’t open storage"
@@ -202,7 +202,7 @@ function StoredRow({
         ) : (
           // A piece whose photo never uploaded, or whose cutout never ran. The
           // placeholder is a garment glyph rather than a broken frame — the row
-          // still has a name, and the name is what she is looking for.
+          // still has a name, and the name is what they are looking for.
           <View className="flex-1 items-center justify-center">
             <SymbolView
               name="tshirt"
