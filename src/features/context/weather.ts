@@ -60,7 +60,15 @@ export async function fetchWeather(
 
   const json = (await res.json()) as OpenMeteoResponse;
 
-  const feelsLikeC = json.current?.apparent_temperature ?? json.current?.temperature_2m ?? 18;
+  // No invented temperature. This value reaches the share card, an artifact
+  // that leaves the phone, and the card's rule is that weather is printed or
+  // dropped — never estimated. A payload with neither reading is a failed
+  // request that happened to return 200, so it throws like one: the caller
+  // ends up with no weather context at all, the colophon line disappears, and
+  // nothing claims to know what the day feels like. (`?? 18` used to sit here,
+  // which shipped a confident "Feels 64°F" derived from nothing.)
+  const feelsLikeC = json.current?.apparent_temperature ?? json.current?.temperature_2m;
+  if (feelsLikeC == null) throw new Error('Weather response carried no temperature');
   const highC = json.daily?.apparent_temperature_max?.[0] ?? json.daily?.temperature_2m_max?.[0] ?? feelsLikeC;
   const lowC = json.daily?.apparent_temperature_min?.[0] ?? json.daily?.temperature_2m_min?.[0] ?? feelsLikeC;
 

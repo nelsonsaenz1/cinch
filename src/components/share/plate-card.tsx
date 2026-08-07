@@ -1,88 +1,96 @@
 import { Image } from 'expo-image';
-import { useEffect, useMemo } from 'react';
-import { Text as RNText, View } from 'react-native';
-
-import { outfitCostPerWear } from '@/components/today/cost-per-wear';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  GarmentCell,
-  STACK_ASPECT,
-  platePathOf,
-  stackLayout,
-  stackRegime,
-  type StackedPiece,
-} from '@/components/today/garment-cell';
+  Text as RNText,
+  View,
+  type LayoutChangeEvent,
+  type TextLayoutEventData,
+  type NativeSyntheticEvent,
+  type ViewStyle,
+} from 'react-native';
+
+import { GarmentCell } from '@/components/today/garment-cell';
 import type { PlateColophon } from '@/components/today/plate';
 import { stableImageSource } from '@/features/closet/use-image-urls';
+import { formatTemp } from '@/features/context/weather';
+import {
+  cardDescription,
+  cardPieceOrder,
+  cardStack,
+  cardStackHeight,
+} from '@/features/share/card-layout';
+import { CARD_H, CARD_W } from '@/features/share/capture-plate';
 import type { StyledOutfit } from '@/features/styling/use-outfits';
 import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
-import { CARD_H, CARD_W } from '@/features/share/capture-plate';
 import { capTrim, leading, tracking } from '@/theme/font-metrics';
 
-/** Order pieces the way a flat-lay reads: outer layers, then core, then feet. */
-const LAYOUT_ORDER: Garment['slot'][] = [
-  'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
-];
-
 /**
- * The poster is INK — it is the one dark surface the product prints, and it is
- * dark on purpose: a Stories frame is viewed against a black phone, and a cream
- * card blows out next to it. It is also a CAPTURED IMAGE, so it must not read
- * the app's colour scheme at all; every value here is a literal, and nothing in
- * this file may call `useTheme()`.
+ * The card is PAPER — the same ground the app is printed on, because the whole
+ * proposition is a lookbook page, and a lookbook page is not backlit. It is
+ * also a CAPTURED IMAGE, so it must not read the app's colour scheme at all:
+ * a dark-mode phone would otherwise export a different artifact than a
+ * light-mode one from the same outfit. Every value here is a literal, and
+ * nothing in this file may call `useTheme()`.
  */
-const INK = {
-  ground: '#1C1A16',
-  cream: '#F3F0E9',
-  /** Small tracked labels — masthead date, eyebrow, footer captions. */
-  tan: '#B7A99A',
-  /** The italic second line of the outfit title. */
-  rose: '#D8B7A6',
-  /** The closing line, quietest thing on the card. */
+const PAPER = {
+  ground: '#F4F0E6',
+  /** Wordmark, name, piece list — the things the card asserts. */
+  ink: '#1C1A16',
+  /** Date, description, weather — the things it merely notes. */
+  muted: '#6B665C',
+  /** The tagline under "Cinch", quietest thing on the card. */
   faint: '#8A8578',
-  /** Footer rule, cream at 20%. */
-  rule: 'rgba(243,240,233,0.2)',
-  /** Edge on a swatch dot, so a near-black colour still reads as a disc. */
-  dotEdge: 'rgba(255,255,255,0.15)',
-  /** Ground under a cutout photograph — lifted just off the card. */
-  tile: '#26231E',
+  /** The hairline over the piece list. */
+  rule: 'rgba(28,26,22,0.20)',
+  /** Ground under a photograph, so a tile still reads while its image decodes. */
+  tile: '#EAE4D6',
+  /** Edge on a tile — a pale garment on pale paper needs a boundary. */
+  tileEdge: 'rgba(28,26,22,0.10)',
+  /** Edge on a swatch dot, so a near-white colour still reads as a disc. */
+  dotEdge: 'rgba(28,26,22,0.12)',
 };
 
 /**
- * The handoff authors this frame at 340 × 604; the capture canvas is 360 × 640.
- * Same 9:16 proportion, so every measurement in the mock maps through one
- * scale factor rather than being re-guessed. `z()` is that factor — the numbers
- * passed to it are literally the mock's pixels.
+ * The design canvas is 1080 × 1920; the capture canvas is 360 × 640 logical,
+ * which view-shot multiplies by the device scale to land on exactly
+ * 1080 × 1920 px at @3x. So the factor is a flat third, and every number below
+ * is written as `z(<the atlas's own pixel>)` — the file is meant to be diffed
+ * against the atlas, not read as a set of tuned constants.
+ *
+ * Nothing is rounded on the way through. The atlas's numbers are large, and
+ * rounding to whole logical points would throw away a third of the precision
+ * the 3× capture is there to keep; fractional font sizes and offsets rasterise
+ * correctly.
  */
-const z = (mockPx: number) => Math.round((mockPx * CARD_W) / 340);
-
-const X = z(26); // the mock's 26px side margin
-const MEASURE = CARD_W - X * 2;
+const z = (designPx: number) => (designPx * CARD_W) / 1080;
 
 /**
  * The card's geometry is fixed print layout — it must not scale with the
- * phone's Dynamic Type setting, or the footer's two columns collide in the
+ * phone's Dynamic Type setting, or the signature's two columns collide in the
  * exported PNG. The in-app plate scales; the artifact is set type.
  */
 const PRINT = { allowFontScaling: false } as const;
 
 /**
- * The display serif — Instrument Serif, the app's one display face. Its line
- * box floors at 1.30, so the mock's 1.0 leading clamps up; the optical tightness
- * comes back from `capTrim`, never from a hand-written lineHeight.
+ * The display serif. Its line box floors at 1.30, so both display leadings the
+ * atlas asks for (0.98 on the name, 1.0 on the signature) clamp up to the same
+ * number — which is why `trim()` below can compute the trim from a single
+ * ratio and still be exact for both. The optical tightness comes back from
+ * `capTrim`, never from a hand-written lineHeight.
  */
-const serif = (size: number, color: string = INK.cream) => ({
+const serif = (size: number, track: number, color: string = PAPER.ink) => ({
   fontFamily: 'InstrumentSerif_400Regular',
   fontSize: size,
   lineHeight: leading('instrument', size, 1.0),
-  letterSpacing: tracking(size, -0.012),
+  letterSpacing: tracking(size, track),
   color,
 });
 
 /**
- * Cap-trim for a serif line, with `space` added back on top. The mock's
+ * Cap-trim for a serif line, with `space` added back on top. The atlas's
  * margins are measured from the CAP, so the trim's negative margin and the
- * mock's gap have to be summed — overriding `marginTop` would silently throw
+ * atlas's gap have to be summed — overriding `marginTop` would silently throw
  * the trim away and drop the line by a third of its size.
  */
 const trim = (size: number, space = 0) => {
@@ -90,36 +98,47 @@ const trim = (size: number, space = 0) => {
   return { ...t, marginTop: t.marginTop + space };
 };
 
-/** The tracked caps the mock sets in Helvetica 600. */
-const label = (size: number, track: number, color: string = INK.tan) => ({
+/** The tracked caps the atlas sets in Helvetica 500. */
+const label = (size: number, track: number, color: string) => ({
   fontFamily: 'HelveticaNeue-Medium',
   fontSize: size,
   lineHeight: leading('helvetica', size, 1.2),
   letterSpacing: tracking(size, track),
   color,
   textTransform: 'uppercase' as const,
-  fontVariant: ['tabular-nums' as const],
 });
 
-/**
- * The outfit's name, broken the way the mock breaks it: the first word alone
- * on line one, everything from the second word on line two, set in the warm
- * italic. (This used to isolate the LAST word instead — identical for the
- * two-word names most looks carry, wrong for three: "The Quiet Monday" broke
- * as "The Quiet / Monday" where the mock sets "The / Quiet Monday".) A
- * one-word name keeps its single roman line rather than inventing an orphan.
- */
-function titleLines(name: string): [string, string | null] {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length < 2) return [name.trim(), null];
-  const [first, ...rest] = words;
-  return [first ?? '', rest.join(' ')];
-}
+/** Corner radius shared by every tile — the atlas's 18px on the 1080 canvas. */
+const TILE_RADIUS = z(18);
 
 /**
- * The look's palette as the footer prints it — the real garment colours the
- * engine scored, deduplicated, and limited to the pieces that carry the outfit
- * (a belt does not claim a swatch from the coat).
+ * The atlas's `0 26px 52px rgba(28,26,22,.20)`. CSS blur-radius is roughly
+ * TWICE iOS's shadowRadius (CSS blurs across the full radius, Core Animation
+ * takes it as a standard deviation), so 52 becomes 26 here — passing 52
+ * straight through would print a fog instead of a lifted photograph.
+ */
+const TILE_SHADOW = {
+  shadowColor: '#1C1A16',
+  shadowOpacity: 0.2,
+  shadowOffset: { width: 0, height: z(26) },
+  shadowRadius: z(52) / 2,
+};
+
+/**
+ * The tiny label the plate prints for each garment. Copied from the in-app
+ * plate rather than imported so the two surfaces are visibly the same rule —
+ * the atlas's requirement is "the same piece names the plate shows", and the
+ * day one of them starts printing a brand the divergence has to be a diff.
+ */
+const labelFor = (g: Garment) => {
+  const s = g.subcategory ?? g.category;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+/**
+ * The look's palette as the signature prints it — the real garment colours the
+ * tagger extracted, deduplicated, and limited to the pieces that carry the
+ * outfit (a belt does not claim a swatch from the coat).
  */
 function paletteDots(pieces: Garment[]): string[] {
   const seen = new Set<string>();
@@ -132,271 +151,366 @@ function paletteDots(pieces: Garment[]): string[] {
     if (seen.has(hex)) continue;
     seen.add(hex);
     out.push(hex);
-    if (out.length >= 3) break; // the mock prints three
+    if (out.length >= 4) break; // the atlas prints four
   }
   return out;
 }
 
 /**
- * One garment in the poster's stack.
+ * The date, as "WED 6 AUGUST".
  *
- * WHY PLAIN VIEWS AND NOT SKIA. The in-app plate composes the plate regime in
- * a Skia canvas, for the alpha-derived shadow. This card is not rendered to a
- * screen — it is rendered off-screen and captured by react-native-view-shot,
- * and a Skia surface is a Metal layer whose contents a UIView snapshot cannot
- * be relied on to include. A poster that exports blank is a worse failure than
- * a poster whose shadow is a rounded rect, and the share sheet is the app's
- * best advertisement. So the poster draws the same rectangles with the same
- * `contain` fit using ordinary views: geometry identical by construction (both
- * call `stackLayout`), light very nearly so (iOS derives a shadow from a
- * transparent PNG's alpha too — it is Skia's blur curve that differs, not the
- * shape).
+ * Composed from three single-field calls rather than one three-field call
+ * because the ordering is part of the design: `toLocaleDateString` with all
+ * three options returns whatever the device's locale wants — "Wed, 6 August"
+ * in en-GB, "Wed, August 6" in en-US — and the card must print the same rail
+ * on every phone. `formatToParts` would do the same job in one call but is not
+ * reliably implemented across JS engines.
  */
-function StackLayer({ piece, uri, plated }: { piece: StackedPiece; uri?: string; plated: boolean }) {
-  const { garment } = piece;
-  const hex = garment.colors[0] ? oklchToHex(garment.colors[0].oklch) : null;
-  const box = {
-    position: 'absolute' as const,
-    left: piece.x,
-    top: piece.y,
-    width: piece.size,
-    height: piece.size,
-  };
+function cardDate(now: Date): string {
+  const weekday = now.toLocaleDateString('en-GB', { weekday: 'short' });
+  const day = now.toLocaleDateString('en-GB', { day: 'numeric' });
+  const month = now.toLocaleDateString('en-GB', { month: 'long' });
+  return `${weekday} ${day} ${month}`;
+}
 
-  if (plated) {
-    return (
-      <View
-        style={{
-          ...box,
-          shadowColor: '#000000',
-          shadowOpacity: 0.45,
-          shadowRadius: z(10),
-          shadowOffset: { width: 0, height: z(5) },
-        }}>
-        <Image
-          source={stableImageSource(uri)}
-          contentFit="contain"
-          // No fade: view-shot would otherwise capture the garment mid-
-          // transition, at partial opacity.
-          transition={0}
-          cachePolicy="memory-disk"
-          style={{ width: '100%', height: '100%' }}
-          accessibilityIgnoresInvertColors
-        />
-      </View>
-    );
-  }
-
+/**
+ * One garment in the collage — a photograph in a rounded rectangle.
+ *
+ * WHY PLAIN VIEWS AND NOT SKIA. The in-app plate composes its stack in a Skia
+ * canvas, for the alpha-derived shadow. This card is not rendered to a screen —
+ * it is rendered off-screen and captured by react-native-view-shot, and a Skia
+ * surface is a Metal layer whose contents a UIView snapshot cannot be relied on
+ * to include. A card that exports blank is a worse failure than a card whose
+ * shadow is a rounded rect, and the share sheet is the app's best
+ * advertisement. The atlas's tiles are rectangles anyway, so nothing is lost.
+ *
+ * The shadow and the clip are two views on purpose: on iOS a layer that clips
+ * its contents (`overflow: hidden`) cannot also cast a shadow — the shadow is
+ * clipped away with everything else.
+ */
+function StackTile({
+  garment,
+  uri,
+  style,
+}: {
+  garment: Garment;
+  uri?: string;
+  style: ViewStyle;
+}) {
   return (
     <View
       style={{
-        ...box,
-        borderRadius: z(8),
-        overflow: 'hidden',
-        // A cutout is transparent, so it needs a ground that is not the
-        // garment's own colour or the photograph disappears into it.
-        backgroundColor: uri ? INK.tile : (hex ?? INK.tile),
+        ...style,
+        borderRadius: TILE_RADIUS,
+        backgroundColor: PAPER.tile,
+        ...TILE_SHADOW,
       }}>
-      {uri ? <GarmentCell garment={garment} uri={uri} paper /> : null}
+      <View
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: TILE_RADIUS,
+          overflow: 'hidden',
+          backgroundColor: PAPER.tile,
+          borderWidth: 1,
+          borderColor: PAPER.tileEdge,
+        }}>
+        {uri ? (
+          // COVER, not contain: the atlas's tiles are photographs cropped to
+          // their frame, not cutouts floating in one.
+          <Image
+            source={stableImageSource(uri)}
+            contentFit="cover"
+            // No fade: view-shot would otherwise capture the garment
+            // mid-transition, at partial opacity.
+            transition={0}
+            cachePolicy="memory-disk"
+            style={{ width: '100%', height: '100%' }}
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          // The app's own swatch fallback, which is the atlas's rule exactly:
+          // a garment without a photograph falls back to its colour, same as
+          // everywhere else — the card never ships an empty tile.
+          <GarmentCell garment={garment} paper />
+        )}
+      </View>
     </View>
   );
 }
 
 /**
- * The exportable poster — 360 × 640 logical, captured at 1080 × 1920.
+ * The exportable card — 360 × 640 logical, captured at 1080 × 1920.
  *
- * Top to bottom, the handoff's frame 10: masthead (wordmark + date), eyebrow,
- * the big serif title with its italic second line, the STACK filling the middle
- * — the same body-ordered composition the in-app plate draws, on this card's
- * fixed measure — then a footer that prints the two numbers no competitor has,
- * the palette and the cost per wear, over a hairline.
+ * Five bands, top to bottom: the colophon rail (wordmark and date), the name,
+ * the collage, the rule and the piece list, and the signature. What the card
+ * does NOT carry is as designed as what it does — see the props and the
+ * comments at each omission.
  */
 export function PlateCard({
   outfit,
+  colophon,
   resolveImage,
   onReady,
 }: {
   outfit: StyledOutfit;
   /**
-   * Circumstances the in-app plate prints in its colophon. The poster does not
-   * print them — the handoff's frame carries only the look and its economics —
-   * but the props stay on the contract so callers need not special-case it.
+   * Circumstances the in-app plate prints in its colophon. The card prints
+   * almost none of them: `occasion` is never shown, and of `colophon` only
+   * `feelsLikeC` is ever read — the atlas's rule is that nothing on the card
+   * identifies who made it or where they were, so the city is dropped. Both
+   * props stay on the contract so callers need not special-case this surface.
    */
   occasion?: string | null;
   colophon?: PlateColophon;
   resolveImage: (...paths: (string | null | undefined)[]) => string | undefined;
-  /** Fired once the card is safe to capture. */
+  /** Fired once, when the card is safe to capture. */
   onReady?: () => void;
 }) {
-  const pieces = useMemo(
-    () =>
-      [...outfit.candidate.items].sort(
-        (a, b) => LAYOUT_ORDER.indexOf(a.slot) - LAYOUT_ORDER.indexOf(b.slot),
-      ),
-    [outfit.candidate.items],
-  );
+  const pieces = useMemo(() => cardPieceOrder(outfit.candidate.items), [outfit.candidate.items]);
+
+  /** The collage: role-ranked, five at most, zipped to the atlas's slots. */
+  const stack = useMemo(() => cardStack(pieces), [pieces]);
+  const stackHeight = useMemo(() => cardStackHeight(stack.length), [stack.length]);
+
+  const dots = useMemo(() => paletteDots(pieces), [pieces]);
+  const description = useMemo(() => cardDescription(outfit.reasoning), [outfit.reasoning]);
+  const date = useMemo(() => cardDate(new Date()), []);
 
   /**
-   * The stack, on the poster's fixed measure. Same table, same regime rule,
-   * same rectangles as the in-app plate — this is what makes the artifact the
-   * picture the user was looking at when they long-pressed it.
+   * The name at full size, unless it does not fit in two lines.
+   *
+   * This is measured rather than guessed — a character count cannot know that
+   * "Willow" and "Millimetre" are different widths. The first pass renders
+   * uncapped so `onTextLayout` reports the TRUE line count; a third line
+   * demotes the size and caps at two, and the cap stays from then on so a
+   * pathological name truncates rather than overflowing into the collage.
    */
-  const regime = useMemo(() => stackRegime(pieces, resolveImage), [pieces, resolveImage]);
-  const layout = useMemo(() => stackLayout(pieces, MEASURE, regime), [pieces, regime]);
+  const [nameFit, setNameFit] = useState<'measuring' | 'full' | 'small'>('measuring');
+  const nameSize = nameFit === 'small' ? z(112) : z(136);
+  const nameTrim = trim(nameSize, z(92));
 
-  const [head, tail] = useMemo(() => titleLines(outfit.name), [outfit.name]);
-  const dots = useMemo(() => paletteDots(pieces), [pieces]);
-  const cpw = useMemo(() => outfitCostPerWear(pieces), [pieces]);
+  const onNameLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
+    if (nameFit !== 'measuring') return;
+    setNameFit(e.nativeEvent.lines.length > 2 ? 'small' : 'full');
+  };
 
-  const date = useMemo(
-    () =>
-      new Date().toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-      }),
-    [],
-  );
+  /**
+   * The band the collage is scaled into. The atlas gives the stack `flex:1`,
+   * which is what guarantees a long name or a long description can never push
+   * a tile through the rule below — the block shrinks instead.
+   */
+  const [band, setBand] = useState<{ width: number; height: number } | null>(null);
+  const onBandLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setBand((prev) =>
+      prev && prev.width === width && prev.height === height ? prev : { width, height },
+    );
+  };
 
-  const hasImages = pieces.some((g) => resolveImage(platePathOf(g), g.cutoutPath, g.thumbPath));
+  /** Uniform fit: `scale` is the effective WIDTH of the composition. */
+  const scale = band && stackHeight > 0 ? Math.min(band.width, band.height / stackHeight) : 0;
 
+  const hasImages = pieces.some((g) => resolveImage(g.cutoutPath, g.thumbPath));
+
+  /**
+   * `onReady` must fire once per mount, and only when the card is genuinely
+   * finished: the collage measured, the name's shrink decision made and
+   * re-rendered, and the images given a beat to paint. Listing `onReady` in
+   * the deps would restart that last wait every time the parent re-renders
+   * with a fresh closure, so it is held in a ref instead.
+   */
+  const onReadyRef = useRef(onReady);
   useEffect(() => {
-    if (!onReady) return;
-    // Swatches paint on the next frame; cutouts come from expo-image's disk
-    // cache and need a beat longer. view-shot has no "images settled" signal,
-    // so this is a bounded wait, not a guess at network time — by the time a
-    // plate is shareable its images were already on screen and cached.
-    const t = setTimeout(onReady, hasImages ? 350 : 80);
+    onReadyRef.current = onReady;
+  });
+
+  const firedRef = useRef(false);
+  // The band, not the block: an outfit with nothing in it would otherwise
+  // never produce a scale, and the capture would wait forever rather than
+  // export an empty card.
+  const measured = (band?.width ?? 0) > 0 && nameFit !== 'measuring';
+  useEffect(() => {
+    if (!measured || firedRef.current) return;
+    // Swatches paint on the next frame; photographs come from expo-image's
+    // disk cache and need a beat longer. view-shot has no "images settled"
+    // signal, so this is a bounded wait, not a guess at network time — by the
+    // time a plate is shareable its images were already on screen and cached.
+    const t = setTimeout(() => {
+      firedRef.current = true;
+      onReadyRef.current?.();
+    }, hasImages ? 350 : 80);
     return () => clearTimeout(t);
-    // Deps empty on purpose — onReady must fire once per mount, not again on
-    // prop changes, and listing it would retrigger the capture timer whenever
-    // the parent re-renders with a fresh closure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [measured, hasImages]);
 
   return (
-    <View style={{ width: CARD_W, height: CARD_H, backgroundColor: INK.ground }}>
-      {/* ── Masthead: the wordmark, and the day this look was worn ── */}
+    <View
+      style={{
+        width: CARD_W,
+        height: CARD_H,
+        backgroundColor: PAPER.ground,
+        paddingTop: z(76),
+        paddingBottom: z(76),
+        paddingHorizontal: z(80),
+      }}>
+      {/* ── 1. The colophon rail: the wordmark, and the day this look was worn ── */}
       <View
         style={{
           flexDirection: 'row',
           justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: X,
-          // The mock measures its 24px to the line BOX; the wordmark is
-          // cap-trimmed, so the ascender slack the trim took off is added back
-          // here — otherwise the whole card rides 6px high against the edge.
-          paddingTop: z(24) - trim(z(22)).marginTop,
+          alignItems: 'baseline',
         }}>
-        <RNText {...PRINT} style={[serif(z(22)), trim(z(22))]}>
+        <RNText {...PRINT} style={label(z(26), 7 / 26, PAPER.ink)}>
           Cinch
         </RNText>
-        <RNText {...PRINT} style={label(z(9), 0.24)}>
+        <RNText
+          {...PRINT}
+          style={[label(z(24), 3.4 / 24, PAPER.muted), { fontVariant: ['tabular-nums'] }]}>
           {date}
         </RNText>
       </View>
 
-      {/* ── The look's name, the largest thing on the card ── */}
-      <View style={{ paddingHorizontal: X, paddingTop: z(16), paddingBottom: z(6) }}>
-        <RNText {...PRINT} style={label(z(9), 0.24)}>
-          Today&apos;s outfit
-        </RNText>
-        {/* Two lines, not three: the stack below is sized against a fixed type
-            budget, and a third line would push it into the footer. */}
-        <RNText {...PRINT} numberOfLines={2} style={[serif(z(40)), trim(z(40), z(8))]}>
-          {head}
-          {tail ? (
-            <RNText
-              {...PRINT}
-              style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: INK.rose }}>
-              {'\n'}
-              {tail}
-            </RNText>
-          ) : null}
-        </RNText>
-      </View>
+      {/* ── 2. The name, the largest thing on the card ── */}
+      <RNText
+        {...PRINT}
+        onTextLayout={onNameLayout}
+        numberOfLines={nameFit === 'small' ? 2 : undefined}
+        style={[serif(nameSize, -2 / 136), nameTrim]}>
+        {outfit.name}
+      </RNText>
 
-      {/* ── The stack, centred in whatever height the type leaves ── */}
-      <View
-        style={{
-          flex: 1,
-          paddingHorizontal: X,
-          paddingTop: z(16),
-          paddingBottom: z(8),
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        {/* The box is the full measure, and the type above it is bounded (the
-            title takes two lines at most) precisely so this fits without ever
-            being measured — the capture must not wait on a layout pass. */}
-        <View style={{ width: MEASURE, height: MEASURE * STACK_ASPECT }}>
-          {layout.map((piece) => (
-            <StackLayer
-              key={piece.garment.id}
-              piece={piece}
-              plated={regime === 'plate'}
-              uri={
-                regime === 'plate'
-                  ? resolveImage(platePathOf(piece.garment))
-                  : resolveImage(piece.garment.cutoutPath, piece.garment.thumbPath)
-              }
-            />
-          ))}
-        </View>
-      </View>
-
-      {/* ── Footer: the two facts, then the line that explains the product ── */}
-      <View style={{ paddingHorizontal: X, paddingTop: z(6), paddingBottom: z(24) }}>
-        <View style={{ height: 1, width: MEASURE, backgroundColor: INK.rule }} />
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            paddingTop: z(16),
-          }}>
-          <View>
-            <RNText {...PRINT} style={label(z(8), 0.18)}>
-              Palette
-            </RNText>
-            <View style={{ flexDirection: 'row', gap: z(6), marginTop: z(7) }}>
-              {dots.map((hex) => (
-                <View
-                  key={hex}
-                  style={{
-                    width: z(16),
-                    height: z(16),
-                    borderRadius: z(16) / 2,
-                    backgroundColor: hex,
-                    borderWidth: 1,
-                    borderColor: INK.dotEdge,
-                  }}
-                />
-              ))}
-            </View>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <RNText {...PRINT} style={label(z(8), 0.18)}>
-              Cost per wear
-            </RNText>
-            {/* Honest when there is no price data: a dash, never a made-up
-                figure. The label stays so the frame does not reflow. */}
-            <RNText {...PRINT} style={[serif(z(26)), trim(z(26), z(3))]}>
-              {cpw != null ? `$${cpw.toFixed(2)}` : '—'}
-            </RNText>
-          </View>
-        </View>
+      {/* The stylist's first sentence. Not capped to a line count: the whole
+          reason `cardDescription` takes a SENTENCE is to avoid an ellipsis on
+          an artifact that leaves the phone, and the collage below is `flex:1`,
+          so an extra line costs the tiles a little size and nothing else.
+          `marginTop` adds back the descender the name's cap-trim removed —
+          without it this line would sit inside the name's descenders. */}
+      {description ? (
         <RNText
           {...PRINT}
           style={{
             fontFamily: 'HelveticaNeue',
-            fontSize: z(11),
-            lineHeight: leading('helvetica', z(11), 1.4),
-            color: INK.faint,
-            marginTop: z(16),
+            fontSize: z(34),
+            lineHeight: leading('helvetica', z(34), 1.42),
+            color: PAPER.muted,
+            maxWidth: z(760),
+            marginTop: z(26) - nameTrim.marginBottom,
           }}>
-          Styled by Cinch — from clothes I already own.
+          {description}
         </RNText>
+      ) : null}
+
+      {/* ── 3. The collage — role-sized photographs, staggered so no two edges
+             align. Centred in whatever height the type above it leaves. ── */}
+      <View
+        onLayout={onBandLayout}
+        style={{
+          flex: 1,
+          marginTop: description ? z(44) : z(44) - nameTrim.marginBottom,
+        }}>
+        {band && scale > 0 ? (
+          <View
+            style={{
+              position: 'absolute',
+              left: (band.width - scale) / 2,
+              top: (band.height - scale * stackHeight) / 2,
+              width: scale,
+              height: scale * stackHeight,
+            }}>
+            {stack.map(({ garment, slot }) => (
+              <StackTile
+                key={garment.id}
+                garment={garment}
+                uri={resolveImage(garment.cutoutPath, garment.thumbPath)}
+                style={{
+                  position: 'absolute',
+                  left: slot.x * scale,
+                  top: slot.y * scale,
+                  width: slot.size * scale,
+                  height: slot.size * scale,
+                }}
+              />
+            ))}
+          </View>
+        ) : null}
+      </View>
+
+      {/* ── 4. The rule and the piece list ── */}
+      {/* A hairline is authored in device terms, not scaled: the atlas's 1px on
+          the 1080 canvas is a third of a logical point, which survives only at
+          @3x and rounds away everywhere else. */}
+      <View style={{ height: 1, backgroundColor: PAPER.rule, marginTop: z(36) }} />
+      {/* Body order, not the collage's size order — the two are deliberately
+          different: the tiles are composed, the list is read. */}
+      <RNText
+        {...PRINT}
+        numberOfLines={2}
+        style={{
+          fontFamily: 'HelveticaNeue-Medium',
+          fontSize: z(27),
+          lineHeight: leading('helvetica', z(27), 1.45),
+          color: PAPER.ink,
+          maxWidth: z(780),
+          marginTop: z(30),
+        }}>
+        {pieces.map(labelFor).join(' · ')}
+      </RNText>
+
+      {/* ── 5. The signature — the palette and the weather on the left, the one
+             place the app advertises itself on the right. No cost per wear:
+             that number is the user's own and stays on the plate in the app,
+             never on the artifact that leaves the phone. ── */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          gap: z(32),
+          marginTop: z(40),
+        }}>
+        <View style={{ gap: z(16) }}>
+          <View style={{ flexDirection: 'row', gap: z(12) }}>
+            {dots.map((hex) => (
+              <View
+                key={hex}
+                style={{
+                  width: z(36),
+                  height: z(36),
+                  borderRadius: z(36) / 2,
+                  backgroundColor: hex,
+                  borderWidth: 1,
+                  borderColor: PAPER.dotEdge,
+                }}
+              />
+            ))}
+          </View>
+          {/* No weather, no line. It is never estimated, never a dash, never a
+              placeholder — the dots row simply becomes the whole column. */}
+          {colophon?.feelsLikeC != null ? (
+            <RNText {...PRINT} style={label(z(23), 3.2 / 23, PAPER.muted)}>
+              {`Feels ${formatTemp(colophon.feelsLikeC, 'F')}F`}
+            </RNText>
+          ) : null}
+        </View>
+
+        <View style={{ alignItems: 'flex-end' }}>
+          <RNText {...PRINT} style={[serif(z(46), 0), trim(z(46))]}>
+            Cinch
+          </RNText>
+          {/* The atlas sets "CLOTHES SHE ALREADY OWNS". The product's own brand
+              line is "the clothes you already own", and this card is read by
+              strangers rather than by its author, so it is set in the second
+              person — the deviation is deliberate, and this is where it lives.
+              `marginTop` adds back the descender the cap-trim above removed. */}
+          <RNText
+            {...PRINT}
+            style={[
+              label(z(21), 2.6 / 21, PAPER.faint),
+              { marginTop: z(8) - trim(z(46)).marginBottom, textAlign: 'right' },
+            ]}>
+            Clothes you already own
+          </RNText>
+        </View>
       </View>
     </View>
   );

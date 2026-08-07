@@ -442,30 +442,71 @@ export function Plate({
   const [shareFailed, setShareFailed] = useState(false);
   const shareView = useRef<View>(null);
 
-  // The long-press affordance, printed once on the day's first card.
-  const { showHint, retire } = useShareHint(index === 0 && !offline);
+  // "No name, no card" — share card atlas, 02 Anatomy: "An unnamed outfit
+  // cannot be shared; the share action stays disabled until the stylist has
+  // named it." The name is the poster's whole top band, so an untitled look
+  // does not degrade gracefully, it renders as a bug that outlives the app it
+  // came from. Better that the gesture do nothing than mint that artifact.
+  const shareable = outfit.name.trim().length > 0;
+
+  // The long-press affordance, printed once on the day's first card — and never
+  // on a plate the long press would refuse, or the hint teaches a lie.
+  const { showHint, retire } = useShareHint(index === 0 && !offline && shareable);
+
+  /**
+   * The deadline on the card reporting ready.
+   *
+   * The card only calls `onReady` once its collage has been measured and its
+   * name has been through `onTextLayout`. Those are ordinary layout callbacks
+   * and they do arrive — but if one ever doesn't, the failure mode is the worst
+   * one available: the user feels the shutter haptic and then nothing happens,
+   * for ever, with no sheet and no message, because the only path that reports
+   * a problem runs *after* `onReady`. A silent hang is not one of the states
+   * the atlas designs for; a failure is. So an unmet deadline is converted into
+   * the failure the atlas does specify.
+   */
+  const readyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const failShare = useCallback((reason: string, err?: unknown) => {
+    // The user felt the shutter haptic; going silent after it reads as a dead
+    // button. The error haptic is the reflex; the line under the name is the
+    // answer, because a haptic cannot say why.
+    console.warn(`[share] ${reason}`, err);
+    setShareFailed(true);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+    setShareMounted(false);
+  }, []);
+
+  const clearReadyTimer = useCallback(() => {
+    if (readyTimer.current) clearTimeout(readyTimer.current);
+    readyTimer.current = null;
+  }, []);
+
+  // Nothing may outlive the plate — a timer that fires after unmount would set
+  // state on a card that is gone.
+  useEffect(() => clearReadyTimer, [clearReadyTimer]);
 
   const handleShare = useCallback(() => {
-    if (shareMounted) return;
+    if (!shareable || shareMounted) return;
     setShareFailed(false);
     // Rigid is the "snap" of the haptics vocabulary — the shutter.
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
     setShareMounted(true);
-  }, [shareMounted]);
+    // Generous on purpose: the card's own settle wait is 350ms, so this is not
+    // a race against it — it is a floor under a callback that never came.
+    clearReadyTimer();
+    readyTimer.current = setTimeout(() => failShare('card never reported ready'), 4000);
+  }, [clearReadyTimer, failShare, shareable, shareMounted]);
 
   const handleCardReady = useCallback(() => {
+    clearReadyTimer();
     void sharePlate(shareView)
-      .then(() => retire())
-      .catch((err) => {
-        // The user felt the shutter haptic; going silent after it reads as a
-        // dead button. The error haptic is the reflex; the line below the
-        // credits is the answer, because a haptic cannot say why.
-        console.warn('[share] capture failed', err);
-        setShareFailed(true);
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      .then(() => {
+        retire();
+        setShareMounted(false);
       })
-      .finally(() => setShareMounted(false));
-  }, [retire]);
+      .catch((err) => failShare('capture failed', err));
+  }, [clearReadyTimer, failShare, retire]);
 
   const pieces = useMemo(
     () =>
@@ -490,11 +531,15 @@ export function Plate({
       <View className="rounded-plate border border-rule bg-surface p-3.5 dark:border-rule-dark dark:bg-surface-dark">
         {/* Long-press the visual → the 1080×1920 artifact. The share target is
             the card's editorial half only; the action pills below stay tappable
-            and the card carries no share chrome of its own. */}
+            and the card carries no share chrome of its own.
+
+            On an unnamed plate the recogniser and the hint stand down together:
+            leaving the hint behind would have VoiceOver promise a share the
+            gesture then refuses, which is worse than no affordance at all. */}
         <Pressable
-          onLongPress={handleShare}
+          onLongPress={shareable ? handleShare : undefined}
           delayLongPress={350}
-          accessibilityHint="Long press to share this plate as an image">
+          accessibilityHint={shareable ? 'Long press to share this plate as an image' : undefined}>
           {/* ── Header: the outfit's name, and what it was dressed for ── */}
           <View className="flex-row items-baseline justify-between gap-3">
             <Text variant="plate" numberOfLines={1} className="flex-1">
@@ -509,6 +554,21 @@ export function Plate({
               <Text variant="colophon">Feels {temp}</Text>
             ) : null}
           </View>
+
+          {/* Directly under the name, where the atlas's Failure card sets it
+              (02 Anatomy). The name is what the user pressed, so the name is
+              where the refusal has to answer — stranded below the credits at
+              the far end of the card it reads as a note about the credits, and
+              on a long plate it can be off-screen when the haptic fires. */}
+          {shareFailed ? (
+            <Text
+              variant="caption"
+              className="mt-2"
+              accessibilityLiveRegion="polite"
+              style={{ color: theme.critical }}>
+              Couldn&rsquo;t make the image. Try again in a moment.
+            </Text>
+          ) : null}
 
           {!offline && outfit.reasoning ? (
             <Text variant="callout" className="mt-2 text-muted dark:text-muted-dark">
@@ -542,16 +602,6 @@ export function Plate({
             {showHint ? <Text variant="colophon">Hold to share</Text> : null}
           </View>
         </Pressable>
-
-        {shareFailed ? (
-          <Text
-            variant="caption"
-            className="mt-2"
-            accessibilityLiveRegion="polite"
-            style={{ color: theme.critical }}>
-            Couldn&rsquo;t make the image. Try again in a moment.
-          </Text>
-        ) : null}
 
         {!offline && outfit.swapNote ? (
           <View className="mt-3 flex-row gap-2 rounded-md border border-hairline p-3 dark:border-hairline-dark">
