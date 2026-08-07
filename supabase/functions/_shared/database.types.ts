@@ -1123,6 +1123,7 @@ export type Database = {
       profiles: {
         Row: {
           ai_consent_at: string | null
+          ai_consent_revoked_at: string | null
           ai_consent_version: number | null
           avatar_url: string | null
           bio: string | null
@@ -1147,6 +1148,7 @@ export type Database = {
         }
         Insert: {
           ai_consent_at?: string | null
+          ai_consent_revoked_at?: string | null
           ai_consent_version?: number | null
           avatar_url?: string | null
           bio?: string | null
@@ -1171,6 +1173,7 @@ export type Database = {
         }
         Update: {
           ai_consent_at?: string | null
+          ai_consent_revoked_at?: string | null
           ai_consent_version?: number | null
           avatar_url?: string | null
           bio?: string | null

@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -23,7 +22,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { signOut } from '@/features/auth/actions';
-import { useAiConsent, useGrantAiConsent, useRevokeAiConsent } from '@/features/auth/use-consent';
+import { useAiConsent } from '@/features/auth/use-consent';
 import { useDeleteAccount } from '@/features/auth/use-delete-account';
 import { Placement } from '@/features/billing/placements';
 import { useGate } from '@/features/billing/use-gate';
@@ -211,10 +210,9 @@ export default function ProfileScreen() {
     (t) => t.direction === 'incoming' && t.request.status === 'pending',
   ).length;
 
+  // Only for the On/Off fact on the AI tagging row — the switch itself, the
+  // consent sheet and the revoke confirmation all live on /privacy now.
   const consent = useAiConsent();
-  const revokeConsent = useRevokeAiConsent();
-  const grantConsent = useGrantAiConsent();
-  const [consentVisible, setConsentVisible] = useState(false);
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -296,43 +294,6 @@ export default function ProfileScreen() {
       ? `${deleteAccount.error.message}\n\nAnything already removed is permanently gone. Tap Delete everything again to finish the job.`
       : 'Something went wrong part-way through. Anything already removed is permanently gone, and your account still exists. Tap Delete everything again to finish the job.'
     : null;
-
-  /**
-   * The withdrawal the consent sheet promises.
-   *
-   * One confirmation, not two — unlike deletion this is fully reversible, and
-   * friction on the *un-sharing* direction is a dark pattern. What the dialog
-   * has to do instead is be accurate about the blast radius, because the fear
-   * that stops people withdrawing consent is not knowing what breaks.
-   *
-   * Both lists below are true as written. Outfit generation is a local beam
-   * search over the closet (`src/lib/styling`) and needs neither the network
-   * nor the model; only the outfit's name and its written reasoning come from
-   * the AI, and without it the engine writes its own from the scoring notes.
-   */
-  const confirmRevoke = () => {
-    Alert.alert(
-      'Turn off AI features',
-      'Nothing more will be sent to our AI provider.\n\nWhat stops: tagging new pieces automatically, the stylist chat, and the AI rewriting your outfit suggestions.\n\nWhat keeps working: your whole closet, everything already tagged, and outfit suggestions — those are built on your phone and never needed the AI.\n\nYou can turn it back on here whenever you like.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Turn off',
-          style: 'destructive',
-          onPress: () =>
-            revokeConsent.mutate(undefined, {
-              onError: (err) =>
-                Alert.alert(
-                  'Could not turn off AI features',
-                  err instanceof Error
-                    ? err.message
-                    : 'Something went wrong. Your settings have not changed.',
-                ),
-            }),
-        },
-      ],
-    );
-  };
 
   // "Cinch 1.0.0 (218)" — expo-constants carries the config version in every
   // build. The iOS build number only exists once EAS stamps one in; until
@@ -583,56 +544,17 @@ export default function ProfileScreen() {
               />
             </View>
             <Rule tone="hairline" />
-            {/* Guideline 5.1.2(i) consent, and its withdrawal. The sheet shown
-                before the first upload tells the user this control is here, so
-                it has to be findable rather than buried under a submenu. The
-                mock draws these as bare label-plus-switch rows; the captions
-                stay because they carry the disclosure the consent framework
-                depends on — a switch labelled only "AI features" does not say
-                what leaves the phone.
-
-                While `consent` is still loading the switch itself is withheld
-                (a spinner sits in its place) rather than defaulting to off: a
-                control that says "off" for a beat and then flips to "on" reads
-                as the app having lost the setting. */}
-            <View className="flex-row items-center justify-between p-4">
-              <View className="flex-1 pr-3">
-                <Text variant="body">AI features</Text>
-                <Text variant="caption" className="mt-1 text-muted">
-                  {consent.data
-                    ? consent.data.granted
-                      ? 'Tagging, stylist chat, and outfit write-ups use OpenRouter.'
-                      : 'Off — nothing is sent to our AI provider.'
-                    : 'Checking your setting…'}
-                </Text>
-              </View>
-              {consent.data ? (
-                <Switch
-                  value={consent.data.granted}
-                  onValueChange={(next) => {
-                    if (next) {
-                      // Re-granting opens the same full disclosure sheet a new
-                      // user sees, which is what records a fresh version and
-                      // timestamp. A bare toggle-to-on here would be
-                      // re-consenting to text the user last read weeks ago.
-                      setConsentVisible(true);
-                    } else {
-                      confirmRevoke();
-                    }
-                  }}
-                  disabled={revokeConsent.isPending || grantConsent.isPending}
-                  trackColor={{ false: theme.rule, true: theme.ink }}
-                  accessibilityLabel="AI features"
-                  accessibilityHint={
-                    consent.data.granted
-                      ? 'Turns off AI tagging and the stylist chat'
-                      : 'Opens the AI consent details'
-                  }
-                />
-              ) : (
-                <ActivityIndicator size="small" color={theme.faint} />
-              )}
-            </View>
+            {/* The doorway to Privacy (consent atlas A-06), where the
+                Guideline 5.1.2(i) switch, its honest state line, the
+                back-fill and the consent record now live. A row, not a
+                switch: the control moved to a screen with room to say what
+                actually leaves the phone, and this row only reports the
+                state and leads there. */}
+            <AccountRow
+              label="AI tagging"
+              detail={consent.data ? (consent.data.granted ? 'On' : 'Off') : undefined}
+              onPress={() => router.push('/privacy')}
+            />
           </Card>
 
           {/* "People", not the mock's "People & notifications" — no
@@ -731,24 +653,6 @@ export default function ProfileScreen() {
           onClose={() => setDeleting(false)}
         />
       ) : null}
-
-      <ConsentSheet
-        visible={consentVisible}
-        busy={grantConsent.isPending}
-        onAccept={() => {
-          grantConsent.mutate(undefined, {
-            onSuccess: () => setConsentVisible(false),
-            onError: (err) =>
-              Alert.alert(
-                'Could not turn AI features back on',
-                err instanceof Error
-                  ? err.message
-                  : 'Something went wrong. Your settings have not changed.',
-              ),
-          });
-        }}
-        onDecline={() => setConsentVisible(false)}
-      />
     </SafeAreaView>
   );
 }

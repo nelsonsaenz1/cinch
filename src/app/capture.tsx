@@ -4,8 +4,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
+import Storage from 'expo-sqlite/kv-store';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -28,19 +29,168 @@ import {
   selectPhaseLabel,
 } from '@/features/ingest/queue-store';
 import { drainQueue, retryFailedJobs, userFacingFailure } from '@/features/ingest/upload-queue';
-import { useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+
+/**
+ * Whether this account has answered the consent sheet with "Keep my photos on
+ * this phone". There is no server-side "declined" record — consent that was
+ * never granted and consent that was declined look identical in `profiles` —
+ * so the decline is persisted here, in the same kv-store the upload queue
+ * uses, with `revokedAt` from the server as corroboration for a decline (a
+ * revocation) made on another device. Simple and honest: the flag only ever
+ * widens local mode, never grants anything.
+ */
+const DECLINED_KEY = 'cinch.ai-consent.declined.v1';
+/** A-04 is shown once, at the moment of decline — never re-shown ("no second ask"). */
+const EXPLAINER_SEEN_KEY = 'cinch.ai-consent.decline-explainer-seen.v1';
+
+function readFlag(key: string): boolean {
+  try {
+    return Storage.getItemSync(key) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function writeFlag(key: string, value: boolean): void {
+  try {
+    Storage.setItemSync(key, value ? 'true' : 'false');
+  } catch {
+    // Worst case the explainer shows once more; never block the flow over it.
+  }
+}
+
+/** The three consequences, verbatim from frame A-04. */
+const DECLINE_ROWS = [
+  'You’ll type the category, colour and fabric yourself. Four taps an item, roughly.',
+  'Search still works, on the words you wrote. “Something warm for Thursday” won’t.',
+  'Outfits, wear counts, cost per wear and lending to friends are unaffected.',
+] as const;
+
+/**
+ * Frame A-04 — "Declined: what changes". Shown full-screen on the capture
+ * surface at the moment of decline, once per account. A clear account of what
+ * is different, not a warning: no amber, no icon, no "are you sure". Exported
+ * so dev-capture's atlas fixture renders this exact component and cannot
+ * drift from it.
+ */
+export function DeclineExplainer({
+  onAddItem,
+  onTurnOnAi,
+}: {
+  /** The ink pill — proceed with the waiting item (or open the picker) in local mode. */
+  onAddItem: () => void;
+  /** The footnote link — re-present the consent sheet. */
+  onTurnOnAi: () => void;
+}) {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+
+  return (
+    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-canvas dark:bg-canvas-dark">
+      {/* Centered serif wordmark — A-04's header carries no controls at all:
+          the decision is made, and this page only explains it. */}
+      <View className="items-center pt-1">
+        <Text variant="plate">Cinch</Text>
+      </View>
+      <ScrollView
+        contentContainerClassName="px-gutter pt-8"
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
+        {/* The whole page is the announcement of a state change the user just
+            made — read it out once, politely. */}
+        <View accessibilityLiveRegion="polite">
+          <Text variant="eyebrow">Photos stay on this phone</Text>
+          <Text variant="title" trim className="mt-4">
+            Done. Nothing was sent.
+          </Text>
+          <Text variant="callout" className="mt-3" style={{ color: theme.muted }}>
+            Here’s what’s different for you, so nothing surprises you later.
+          </Text>
+
+          {/* Three hairline-ruled rows — the same ledger grammar as the consent
+              sheet's facts, with the oxblood em-dash where its numerals sat. */}
+          <View className="mt-6">
+            {DECLINE_ROWS.map((row, index) => (
+              <View
+                key={row}
+                className={`flex-row gap-3 border-t border-rule py-3 dark:border-rule-dark ${
+                  index === DECLINE_ROWS.length - 1 ? 'border-b' : ''
+                }`}>
+                <Text
+                  variant="label"
+                  style={{ color: theme.accent }}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants">
+                  —
+                </Text>
+                <Text variant="label" className="flex-1 font-body">
+                  {row}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <Button
+          title="Add the item myself"
+          variant="ink"
+          className="mt-6"
+          onPress={onAddItem}
+          accessibilityHint="Adds the photo without sending it anywhere. You type the tags."
+        />
+
+        {/* The way back, stated plainly rather than buried. The whole footnote
+            is the tap target — an inline 13px link alone is under the 44pt
+            floor, same reasoning as the consent sheet's policy link. */}
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="Turn AI tagging on"
+          accessibilityHint="Re-opens the AI tagging disclosure"
+          onPress={onTurnOnAi}
+          style={{ minHeight: MIN_TAP_TARGET }}
+          className="mt-3 justify-center active:opacity-60">
+          <Text variant="label" className="text-center">
+            Changed your mind?{' '}
+            <Text variant="label" style={{ color: theme.accent }}>
+              Turn AI tagging on
+            </Text>
+          </Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
 
 /** One L of the framing guide. Light lines on the dark stage, per the design. */
 function Corner({ canvas, pos }: { canvas: string; pos: 'tl' | 'tr' | 'bl' | 'br' }) {
   const edges = {
     tl: { top: 20, left: 20, borderTopWidth: 2, borderLeftWidth: 2, borderTopLeftRadius: 4 },
     tr: { top: 20, right: 20, borderTopWidth: 2, borderRightWidth: 2, borderTopRightRadius: 4 },
-    bl: { bottom: 20, left: 20, borderBottomWidth: 2, borderLeftWidth: 2, borderBottomLeftRadius: 4 },
-    br: { bottom: 20, right: 20, borderBottomWidth: 2, borderRightWidth: 2, borderBottomRightRadius: 4 },
+    bl: {
+      bottom: 20,
+      left: 20,
+      borderBottomWidth: 2,
+      borderLeftWidth: 2,
+      borderBottomLeftRadius: 4,
+    },
+    br: {
+      bottom: 20,
+      right: 20,
+      borderBottomWidth: 2,
+      borderRightWidth: 2,
+      borderBottomRightRadius: 4,
+    },
   } as const;
   return (
     <View
-      style={{ position: 'absolute', width: 22, height: 22, borderColor: canvas, opacity: 0.55, ...edges[pos] }}
+      style={{
+        position: 'absolute',
+        width: 22,
+        height: 22,
+        borderColor: canvas,
+        opacity: 0.55,
+        ...edges[pos],
+      }}
     />
   );
 }
@@ -103,19 +253,37 @@ export default function CaptureScreen() {
   const [describeVisible, setDescribeVisible] = useState(false);
   // What to run once consent lands, so the user isn't made to tap twice.
   const [pendingAction, setPendingAction] = useState<null | CaptureAction>(null);
+
   /**
-   * Whether the user has said no to AI processing in THIS sitting.
+   * Local mode — declining is a WORKING mode, not a dead end (frames A-04/05).
    *
-   * Declining used to be a dead end that looked like a bug: the sheet slid
-   * away, the picker never opened, and the screen sat exactly as it had before
-   * the tap — no explanation, and no way back to the ask short of guessing that
-   * tapping Library again would re-open it. This is the state the progress
-   * sheet below turns into a sentence and a way forward.
-   *
-   * Local to the visit rather than read off `consent`: a user who has never
-   * been asked has not declined anything, and the two must not look the same.
+   * Declining used to refuse the picker outright and leave a small banner
+   * explaining why nothing happened. Now the screen keeps working: the picker
+   * opens, the pipeline runs on-device, and the photos never leave the phone.
+   * `declinedLocally` is the persisted "this account answered the sheet with
+   * decline" flag (see DECLINED_KEY); `revokedAt` corroborates a decline made
+   * on another device or through Settings. A fresh account — never asked,
+   * never answered — matches neither, and still meets the sheet first.
    */
-  const [declinedConsent, setDeclinedConsent] = useState(false);
+  const [declinedLocally, setDeclinedLocally] = useState(() => readFlag(DECLINED_KEY));
+  const [explainerSeen, setExplainerSeen] = useState(() => readFlag(EXPLAINER_SEEN_KEY));
+  const [explainerVisible, setExplainerVisible] = useState(false);
+
+  const granted = consent.data?.granted === true;
+  const declinedMode = !granted && (declinedLocally || consent.data?.revokedAt != null);
+
+  /**
+   * Whether the NEXT enqueue is local, readable from callbacks that fire
+   * outside React's render cycle (the shutter, the deferred resume). Kept as a
+   * ref because the accept path must flip it synchronously: the consent query
+   * refetches on its own schedule, and the resumed action fires ~450ms after
+   * the grant — reading stale query data there would send an accepted user's
+   * first photo through the local path.
+   */
+  const localModeRef = useRef(declinedMode);
+  useEffect(() => {
+    localModeRef.current = declinedMode;
+  }, [declinedMode]);
 
   // Rehydrate a batch interrupted by a kill or a crash, and resume it.
   useEffect(() => {
@@ -134,20 +302,23 @@ export default function CaptureScreen() {
    */
   const shoot = useCallback(async () => {
     const camera = cameraRef.current;
+    // The mode is read at the moment of the shot, not closed over: the same
+    // shutter serves both modes, and only the enqueue differs.
+    const opts = { local: localModeRef.current };
     if (!live || !camera || !cameraReady) {
-      await takePhoto();
+      await takePhoto(opts);
       return;
     }
     setShooting(true);
     try {
       const picture = await camera.takePictureAsync({ quality: 0.9, exif: false });
-      if (picture?.uri) addPhoto(picture);
+      if (picture?.uri) addPhoto(picture, opts);
     } catch {
       // Whatever went wrong with the session, the garment in front of the user
       // still has to be photographable. Drop to the system camera and stay
       // there for the rest of this visit.
       setPreviewFailed(true);
-      await takePhoto();
+      await takePhoto(opts);
     } finally {
       setShooting(false);
     }
@@ -158,7 +329,7 @@ export default function CaptureScreen() {
   // was written — a third would have made that three copies of one decision.
   const run = useCallback(
     (action: CaptureAction) => {
-      if (action === 'library') void pickFromLibrary();
+      if (action === 'library') void pickFromLibrary({ local: localModeRef.current });
       else if (action === 'camera') void shoot();
       else setDescribeVisible(true);
     },
@@ -267,29 +438,61 @@ export default function CaptureScreen() {
         return;
       }
 
-      if (consent.data?.granted) {
+      if (granted) {
         run(action);
         return;
       }
+
+      // Declined is a working mode: the flow continues on-device rather than
+      // refusing. A-04 is NOT re-shown here — it belongs to the moment of
+      // decline alone, and after that the screen simply works in local mode.
+      if (declinedMode) {
+        run(action);
+        return;
+      }
+
+      // Never answered — the sheet still gates the first upload.
       setPendingAction(action);
       setConsentVisible(true);
     },
-    [capacity.full, gate, qc, consent.data?.granted, run, deferResume],
+    [capacity.full, gate, qc, granted, declinedMode, run, deferResume],
   );
 
   const onAcceptConsent = async () => {
     await grantConsent.mutateAsync();
+    // Synchronously, before the resumed action fires: the consent query's
+    // refetch will land later, and the deferred picker must already know the
+    // photos are cleared to travel. A grant also ends declined mode.
+    localModeRef.current = false;
+    setDeclinedLocally(false);
+    writeFlag(DECLINED_KEY, false);
+    setExplainerVisible(false);
     if (pendingAction) deferResume(pendingAction);
     setPendingAction(null);
-    setDeclinedConsent(false);
     setConsentVisible(false);
   };
 
-  /** The declined state's way back in. Nothing pending — this is a fresh ask. */
+  /**
+   * A-04's footnote — "Turn AI tagging on" re-presents the ask in full.
+   * `pendingAction` is left alone: an accept resumes the item that was
+   * waiting behind the sheet the first time round.
+   */
   const reopenConsent = useCallback(() => {
-    setPendingAction(null);
     setConsentVisible(true);
   }, []);
+
+  /**
+   * A-04's ink pill. The shot that was blocking the sheet is THE item — it
+   * rides `pendingAction` and goes through the local pipeline; with nothing
+   * waiting, the button opens the picker in local mode. Either way the
+   * explainer's job is done and it never returns.
+   */
+  const addItemMyself = useCallback(() => {
+    setExplainerVisible(false);
+    const next = pendingAction ?? 'library';
+    setPendingAction(null);
+    run(next);
+  }, [pendingAction, run]);
 
   // A light tap on the two capture controls, matching the Buttons this dark
   // control row replaces. Best-effort only — haptics no-op during a camera
@@ -316,11 +519,14 @@ export default function CaptureScreen() {
   // four failed was reading "Processing 1 of 5" while it worked on the fifth,
   // which is a count of nothing anybody could see.
   const settledCount = doneCount + failedCount;
-  // Floored at a sliver, not zero: the first shot sits at 0 done for its whole
-  // first pass, and an empty track under "Processing 1 of 1" reads as a bar
-  // that failed to start rather than one that has. The track unmounts on
-  // settle, so the floor never lies about a finished batch.
-  const fraction = total ? Math.max(doneCount / total, 0.08) : 0;
+  // Filled by settled jobs, not successes: a failure is work the queue has
+  // finished, and a bar that ignores it stalls short of the truth. Floored at a
+  // sliver, not zero: the first shot sits at 0 settled for its whole first
+  // pass, and an empty track under "Processing 1 of 1" reads as a bar that
+  // failed to start rather than one that has. Pinned to full on settle — the
+  // track stays mounted then, so the floor must never lie about a finished
+  // batch.
+  const fraction = total ? (allDone ? 1 : Math.max(settledCount / total, 0.04)) : 0;
   // What the batch is actually doing this second — "cleaning up…",
   // "categorising…". Named rather than implied, because a long tagging pass over
   // a slow connection is otherwise indistinguishable from nothing happening.
@@ -355,133 +561,152 @@ export default function CaptureScreen() {
   }, []);
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-ink">
-      {/* The capture stage is the one dark screen in a light-only app; the
+    <>
+      {explainerVisible ? (
+        /*
+        A-04 replaces the capture surface entirely at the moment of decline —
+        full-screen content on canvas, not a banner over the dark stage. The
+        sheets below stay mounted in a stable position, so the consent Modal
+        finishes its slide-down over this page and the footnote's "Turn AI
+        tagging on" can re-present the ask.
+      */
+        <>
+          {/* Canvas ground, so the status bar goes back to the app's default. */}
+          <StatusBar style="dark" />
+          <DeclineExplainer onAddItem={addItemMyself} onTurnOnAi={reopenConsent} />
+        </>
+      ) : (
+        <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-ink">
+          {/* The capture stage is the one dark screen in a light-only app; the
           global status bar is dark-on-light, which would vanish here. */}
-      <StatusBar style="light" />
-      <View className="flex-row items-center justify-between px-gutter pt-1">
-        {/* `plate`, the serif — every other screen title in the app is set in
+          <StatusBar style="light" />
+          <View className="flex-row items-center justify-between px-gutter pt-1">
+            {/* `plate`, the serif — every other screen title in the app is set in
             it, and this one was the lone Helvetica `heading`. The stage is
             dark, so the colour is canvas; the register is the same as
             everywhere else. */}
-        <Text variant="plate" style={{ color: theme.canvas }}>
-          Add clothes
-        </Text>
-        {/* "Done", not "Close" — the guide's own word for this control (07a).
+            <Text variant="plate" style={{ color: theme.canvas }}>
+              Add clothes
+            </Text>
+            {/* "Done", not "Close" — the guide's own word for this control (07a).
             It is also the truer one: an import keeps running in the queue after
             this screen goes away, so the tap ends the user's session at the
             stage rather than closing anything down. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Done adding clothes"
-          hitSlop={12}
-          onPress={() => router.back()}
-          className="py-2">
-          <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
-            Done
-          </Text>
-        </Pressable>
-      </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Done adding clothes"
+              hitSlop={12}
+              onPress={() => router.back()}
+              className="py-2">
+              <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                Done
+              </Text>
+            </Pressable>
+          </View>
 
-      {/* The framed stage — a LIVE viewfinder, per 07a. It was an instructional
+          {/* The framed stage — a LIVE viewfinder, per 07a. It was an instructional
           frame with a garment glyph in it, which on a dark screen reads as a
           camera that has failed to start; the corner guides and the hint now
           sit over the real preview they were always drawn for. */}
-      {access === 'blocked' ? (
-        /* Declined, and on iOS that decision is final until Settings — so this
+          {access === 'blocked' ? (
+            /* Declined, and on iOS that decision is final until Settings — so this
            is a plate rather than a prompt. It is drawn on canvas, not on the
            ink stage: the states kit sets ink type, and ink on ink is the black
            rectangle this whole change exists to remove. The two other doors
            below stay open, so a refused camera narrows the screen instead of
            ending it. */
-        <View className="mx-4 my-2 flex-1 overflow-hidden rounded-plate bg-canvas dark:bg-canvas-dark">
-          <EmptyState
-            symbol="camera.fill"
-            tone="blocked"
-            title="Camera access is off"
-            body="Cinch can’t show the viewfinder without it. Turn the camera on in Settings, or add clothes from your library instead."
-            actionTitle="Open Settings"
-            onAction={openSettings}
-          />
-        </View>
-      ) : (
-        <View className="mx-4 my-2 flex-1 items-center justify-center overflow-hidden rounded-plate">
-          {live ? (
-            <CameraView
-              ref={cameraRef}
-              style={StyleSheet.absoluteFill}
-              facing="back"
-              mode="picture"
-              active={focused}
-              onCameraReady={() => setCameraReady(true)}
-              onMountError={() => setPreviewFailed(true)}
-            />
+            <View className="mx-4 my-2 flex-1 overflow-hidden rounded-plate bg-canvas dark:bg-canvas-dark">
+              <EmptyState
+                symbol="camera.fill"
+                tone="blocked"
+                title="Camera access is off"
+                body="Cinch can’t show the viewfinder without it. Turn the camera on in Settings, or add clothes from your library instead."
+                actionTitle="Open Settings"
+                onAction={openSettings}
+              />
+            </View>
           ) : (
-            /* Still waiting on the permission alert, or a device with no
+            <View className="mx-4 my-2 flex-1 items-center justify-center overflow-hidden rounded-plate">
+              {live ? (
+                <CameraView
+                  ref={cameraRef}
+                  style={StyleSheet.absoluteFill}
+                  facing="back"
+                  mode="picture"
+                  active={focused}
+                  onCameraReady={() => setCameraReady(true)}
+                  onMountError={() => setPreviewFailed(true)}
+                />
+              ) : (
+                /* Still waiting on the permission alert, or a device with no
                preview to give. The old instructional frame is exactly right
                for both: it says what to photograph while there is nothing to
                show. */
-            <>
-              <View className="absolute inset-0 bg-surface" style={{ opacity: 0.04 }} />
-              <View style={{ opacity: 0.5 }}>
-                <SymbolView name="tshirt" size={44} tintColor={theme.canvas} />
-              </View>
-            </>
+                <>
+                  <View className="absolute inset-0 bg-surface" style={{ opacity: 0.04 }} />
+                  <View style={{ opacity: 0.5 }}>
+                    <SymbolView name="tshirt" size={44} tintColor={theme.canvas} />
+                  </View>
+                </>
+              )}
+              <Corner canvas={theme.canvas} pos="tl" />
+              <Corner canvas={theme.canvas} pos="tr" />
+              <Corner canvas={theme.canvas} pos="bl" />
+              <Corner canvas={theme.canvas} pos="br" />
+              <Text
+                variant="label"
+                className="absolute"
+                style={[
+                  { bottom: 22, color: theme.canvas, opacity: 0.75 },
+                  // Over a live scene the hint has no fixed backdrop to be legible
+                  // against — a white shirt fills the frame and the line vanishes.
+                  // Warm ink at 55%, not pure black: a neutral black shadow reads
+                  // cold against the warm canvas type it sits under, and the
+                  // palette has no true black in it anywhere else. The shadow
+                  // belongs to the live preview alone; on the instructional frame
+                  // there is nothing bright to defend against.
+                  live
+                    ? {
+                        textShadowColor: 'rgba(28,26,22,0.55)',
+                        textShadowOffset: { width: 0, height: 1 },
+                        textShadowRadius: 4,
+                      }
+                    : null,
+                ]}>
+                One garment, plain background
+              </Text>
+            </View>
           )}
-          <Corner canvas={theme.canvas} pos="tl" />
-          <Corner canvas={theme.canvas} pos="tr" />
-          <Corner canvas={theme.canvas} pos="bl" />
-          <Corner canvas={theme.canvas} pos="br" />
-          <Text
-            variant="label"
-            className="absolute"
-            style={[
-              { bottom: 22, color: theme.canvas, opacity: 0.75 },
-              // Over a live scene the hint has no fixed backdrop to be legible
-              // against — a white shirt fills the frame and the line vanishes.
-              // Warm ink at 55%, not pure black: a neutral black shadow reads
-              // cold against the warm canvas type it sits under, and the
-              // palette has no true black in it anywhere else. The shadow
-              // belongs to the live preview alone; on the instructional frame
-              // there is nothing bright to defend against.
-              live
-                ? {
-                    textShadowColor: 'rgba(28,26,22,0.55)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 4,
-                  }
-                : null,
-            ]}>
-            One garment, plain background
-          </Text>
-        </View>
-      )}
 
-      {/* Library · shutter · describe. The handoff draws "Flip" in the third
+          {/* Library · shutter · describe. The handoff draws "Flip" in the third
           slot; "Describe" holds it instead, and now that the preview is live
           that is a choice rather than a limitation. A front camera photograph
           of a garment held at arm's length is not a garment photograph, so flip
           would be a control for a shot nobody wants — while describe is the
           door for the pieces somebody will never get round to photographing at
           all. */}
-      <View className="flex-row items-center justify-between px-8 py-2">
-        {/* `minWidth`, not `w-16`. A fixed 64pt box sliced "Library" to "Libra"
+          <View className="flex-row items-center justify-between px-8 py-2">
+            {/* `minWidth`, not `w-16`. A fixed 64pt box sliced "Library" to "Libra"
             at AX-1 and above — the label is the only thing that says what the
             control does, so it takes the space it needs and shrinks to fit
             rather than being clipped by a width that never grew. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Choose from library"
-          hitSlop={12}
-          onPress={() => start('library')}
-          style={{ minWidth: 64 }}
-          className="py-2">
-          <Text variant="label" numberOfLines={1} adjustsFontSizeToFit style={{ color: theme.canvas }}>
-            Library
-          </Text>
-        </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Choose from library"
+              hitSlop={12}
+              onPress={() => start('library')}
+              style={{ minWidth: 64 }}
+              className="py-2">
+              <Text
+                variant="label"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={{ color: theme.canvas }}>
+                Library
+              </Text>
+            </Pressable>
 
-        {/* Dimmed and inert until the camera is actually GRANTED, rather than
+            {/* Dimmed and inert until the camera is actually GRANTED, rather than
             live over a plate that has just said it cannot open — the Settings
             button in the stage is the one way forward from there, and a shutter
             that fires an alert saying the same thing is a second, worse copy of
@@ -494,94 +719,79 @@ export default function CaptureScreen() {
             stacked on the first, over a question the user is already being
             asked. Nothing here should be pressable while the OS owns the
             screen. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Take a photo"
-          accessibilityState={{ disabled: access !== 'granted', busy: shooting }}
-          accessibilityHint={
-            access === 'blocked'
-              ? 'Turn on camera access in Settings to use this'
-              : access === 'checking'
-                ? 'Waiting for camera access'
-                : undefined
-          }
-          disabled={access !== 'granted' || shooting}
-          onPress={() => start('camera')}
-          className="items-center justify-center active:opacity-80"
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 32,
-            borderWidth: 3,
-            borderColor: theme.canvas,
-            opacity: access !== 'granted' ? 0.35 : 1,
-          }}>
-          <View
-            style={{
-              width: 50,
-              height: 50,
-              borderRadius: 25,
-              backgroundColor: theme.canvas,
-              opacity: shooting ? 0.5 : 1,
-            }}
-          />
-        </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Take a photo"
+              accessibilityState={{ disabled: access !== 'granted', busy: shooting }}
+              accessibilityHint={
+                access === 'blocked'
+                  ? 'Turn on camera access in Settings to use this'
+                  : access === 'checking'
+                    ? 'Waiting for camera access'
+                    : undefined
+              }
+              disabled={access !== 'granted' || shooting}
+              onPress={() => start('camera')}
+              className="items-center justify-center active:opacity-80"
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                borderWidth: 3,
+                borderColor: theme.canvas,
+                opacity: access !== 'granted' ? 0.35 : 1,
+              }}>
+              <View
+                style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: 25,
+                  backgroundColor: theme.canvas,
+                  opacity: shooting ? 0.5 : 1,
+                }}
+              />
+            </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Describe it instead"
-          accessibilityHint="Find a picture of a garment by describing it"
-          hitSlop={12}
-          onPress={() => start('describe')}
-          style={{ minWidth: 64 }}
-          className="items-end py-2">
-          <Text variant="label" numberOfLines={1} adjustsFontSizeToFit style={{ color: theme.canvas }}>
-            Describe
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* The progress sheet — bg-surface, rounded top corners, flush to the
-          bottom edge. Everything below is driven by the queue state. */}
-      <View
-        className="rounded-t-plate bg-surface px-gutter pt-4"
-        style={{ paddingBottom: insets.bottom + 20 }}>
-        {total === 0 ? (
-          <>
-            <Text variant="plate">Photograph your closet</Text>
-            {declinedConsent ? (
-              /*
-                The answer to "I tapped Not now and nothing happened."
-
-                A decline is a real answer with a real consequence, so the
-                consequence is stated rather than left to be inferred from a
-                picker that never opened. Persistent rather than a toast,
-                because the condition it describes persists — and paired with
-                the way back, since the sheet is one tap away and this is the
-                only place in the app that says so.
-              */
-              <View accessibilityLiveRegion="polite">
-                <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
-                  AI processing is off, so Cinch can&rsquo;t cut out or tag photos yet.
-                </Text>
-                <Button
-                  title="Turn it on"
-                  variant="secondary"
-                  onPress={reopenConsent}
-                  accessibilityHint="Re-opens the AI processing disclosure"
-                  className="mt-3 self-start"
-                />
-              </View>
-            ) : (
-              <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
-                {`Pick up to ${selectionLimit} photos at a time, or shoot pieces one by one. Cinch cuts out the background and tags everything for you.`}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Describe it instead"
+              accessibilityHint="Find a picture of a garment by describing it"
+              hitSlop={12}
+              onPress={() => start('describe')}
+              style={{ minWidth: 64 }}
+              className="items-end py-2">
+              <Text
+                variant="label"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={{ color: theme.canvas }}>
+                Describe
               </Text>
-            )}
-          </>
-        ) : (
-          <>
-            <View className="flex-row items-baseline justify-between">
-              {/*
+            </Pressable>
+          </View>
+
+          {/* The progress sheet — bg-surface, rounded top corners, flush to the
+          bottom edge. Everything below is driven by the queue state. */}
+          <View
+            className="rounded-t-plate bg-surface px-gutter pt-4"
+            style={{ paddingBottom: insets.bottom + 20 }}>
+            {total === 0 ? (
+              <>
+                <Text variant="plate">Photograph your closet</Text>
+                {/* Local mode gets the honest half of the promise — the amber
+                declined banner this replaced is superseded by A-04, which said
+                everything once; here the screen just works, and the copy only
+                stops claiming a tagging pass that will not run. */}
+                <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
+                  {declinedMode
+                    ? `Pick up to ${selectionLimit} photos at a time, or shoot pieces one by one. Photos stay on this phone, and the tags are yours to write.`
+                    : `Pick up to ${selectionLimit} photos at a time, or shoot pieces one by one. Cinch cuts out the background and tags everything for you.`}
+                </Text>
+              </>
+            ) : (
+              <>
+                <View className="flex-row items-baseline justify-between">
+                  {/*
                 The progress line is DATA, not a headline: Helvetica at body
                 size, tabular figures so the count does not jitter as it climbs.
                 It was set in the serif `stat` variant, which is the register
@@ -589,38 +799,32 @@ export default function CaptureScreen() {
                 wear, a wear count — and reading a status line in the same voice
                 as a plate's hero number overstates it.
               */}
-              <Text variant="body" style={{ fontVariant: ['tabular-nums'] }}>
-                {allDone
-                  ? failedCount > 0
-                    ? `Added ${doneCount} of ${total}`
-                    : 'All added'
-                  : `Processing ${Math.min(settledCount + 1, total)} of ${total}${phase ? ` · ${phase}` : ''}`}
-              </Text>
-              {/* `label`, not `caption`: the count is a sibling of the headline,
+                  <Text variant="body" style={{ fontVariant: ['tabular-nums'] }}>
+                    {allDone
+                      ? `Added ${doneCount} of ${total}`
+                      : `Processing ${Math.min(settledCount + 1, total)} of ${total}${phase ? ` · ${phase}` : ''}`}
+                  </Text>
+                  {/* `label`, not `caption`: the count is a sibling of the headline,
                   not a footnote under a thumbnail — 11px beside 17px read as
                   debris. Colour rides inline; the variant's own `muted` loses
-                  to it, which is the one precedence that holds. */}
-              {!allDone ? (
-                <Text variant="label" style={{ color: theme.faint }}>{`${active} to go`}</Text>
-              ) : failedCount > 0 ? (
-                <Text variant="label" style={{ color: theme.critical }}>
-                  {`${failedCount} couldn’t be added`}
-                </Text>
-              ) : null}
-            </View>
+                  to it, which is the one precedence that holds. Once settled,
+                  nothing rides here: a failure count already leads the banner
+                  below as its eyebrow, and saying it twice is nagging. */}
+                  {!allDone ? (
+                    <Text variant="label" style={{ color: theme.faint }}>{`${active} to go`}</Text>
+                  ) : null}
+                </View>
 
-            {/* Ink fill, not accent: this sheet's promoted action ("Review
+                {/* Ink fill, not accent: this sheet's promoted action ("Review
                 tags") is already ink, and an oxblood bar above an ink button
-                spends the accent on a meter. */}
-            {allDone ? (
-              <View className="mt-3" />
-            ) : (
-              <ProgressTrack value={fraction} tone="ink" height={6} className="my-3" />
-            )}
+                spends the accent on a meter. Stays mounted when the batch
+                settles, pinned to full — the finished bar is part of the
+                record, not scaffolding to strike. */}
+                <ProgressTrack value={fraction} tone="ink" height={6} className="my-3" />
 
-            <UploadQueueList jobs={jobs} />
+                <UploadQueueList jobs={jobs} />
 
-            {/*
+                {/*
               A stopped garment, said out loud.
               Before this, a tagging failure lived only in `job.error` — a field
               nothing rendered — while the job sat counted as in-flight forever.
@@ -630,30 +834,30 @@ export default function CaptureScreen() {
               sentence, one action beside it) rather than a new pattern, and the
               retry only appears when there is genuinely something to retry.
             */}
-            {failedCount > 0 ? (
-              <View
-                accessibilityLiveRegion="polite"
-                className="mt-3 rounded-plate bg-warning/15 px-3 py-2.5">
-                {/* Tone inline: `colophon` carries `text-faint`, which on this
+                {failedCount > 0 ? (
+                  <View
+                    accessibilityLiveRegion="polite"
+                    className="mt-3 rounded-plate bg-warning/15 px-3 py-2.5">
+                    {/* Tone inline: `colophon` carries `text-faint`, which on this
                     warning wash is 3.06:1 — a headline nobody can read over a
                     notice whose whole job is to be read. `muted` clears AA on
                     the same ground, matching the sibling label below it and the
                     review deck's identical banner. */}
-                <Text variant="colophon" style={{ color: theme.muted }}>
-                  {failedCount === 1 ? '1 piece stopped' : `${failedCount} pieces stopped`}
-                </Text>
-                {/* The mapped sentence, not the raw `job.error`. The queue's own
+                    <Text variant="colophon" style={{ color: theme.muted }}>
+                      {failedCount === 1 ? '1 piece stopped' : `${failedCount} pieces stopped`}
+                    </Text>
+                    {/* The mapped sentence, not the raw `job.error`. The queue's own
                     strings are diagnostic ("Saved, but not tagged — Cinch
                     couldn't verify your account"); `userFacingFailure` reduces
                     them to the three things a person can act on, and
                     `job.error` stays untouched for logging. */}
-                {/* Ink, inline: `label` ships `muted`, and the sentence is the
+                    {/* Ink, inline: `label` ships `muted`, and the sentence is the
                     banner's actual content — the eyebrow above it is the quiet
                     layer, not this. */}
-                <Text variant="label" className="mt-1" style={{ color: theme.ink }}>
-                  {userFacingFailure(failed[0])}
-                </Text>
-                {/*
+                    <Text variant="label" className="mt-1" style={{ color: theme.ink }}>
+                      {userFacingFailure(failed[0])}
+                    </Text>
+                    {/*
                   A way out of the banner, not only a way back in. Some of these
                   failures are final by design — AI processing turned off, a
                   garment that no longer exists — and without a dismissal they
@@ -661,46 +865,49 @@ export default function CaptureScreen() {
                   the same red line came back on every launch, forever. The
                   garment itself is saved either way; this clears the notice.
                 */}
-                <View className="mt-2.5 flex-row items-center gap-2">
-                  {canRetry ? (
-                    <Button
-                      title="Try these again"
-                      variant="secondary"
-                      loading={retrying}
-                      onPress={() => void retryFailed()}
-                    />
-                  ) : null}
-                  {/* "Dismiss" named the gesture; this names the OUTCOME, which
+                    <View className="mt-2.5 flex-row items-center gap-2">
+                      {canRetry ? (
+                        <Button
+                          title="Try again"
+                          variant="ink"
+                          loading={retrying}
+                          onPress={() => void retryFailed()}
+                        />
+                      ) : null}
+                      {/* "Dismiss" named the gesture; this names the OUTCOME, which
                       is what the user is actually deciding. The hint is
                       unchanged — it was already saying the true half. */}
-                  <Button
-                    title="Leave them untagged"
-                    variant="ghost"
-                    onPress={clearFailed}
-                    accessibilityHint="Clears this notice. The pieces stay in your closet, untagged."
-                  />
-                </View>
-              </View>
-            ) : null}
+                      <Button
+                        title="Leave them untagged"
+                        variant="ghost"
+                        onPress={clearFailed}
+                        accessibilityHint="Clears this notice. The pieces stay in your closet, untagged."
+                      />
+                    </View>
+                  </View>
+                ) : null}
 
-            {/* `ink`, not `primary`: the atlas draws the promoted state as the
+                {/* `ink`, not `primary`: the atlas draws the promoted state as the
                 ink fill — this screen has no oxblood on it anywhere, and the
-                way onward should not be the place it appears. It stays
-                secondary while a retry is on offer: "Try these again" is the
-                promoted decision in that state, and two filled buttons on one
-                sheet is a screen arguing with itself. */}
-            {doneCount > 0 ? (
-              <Button
-                title="Review tags"
-                variant={allDone && !(failedCount > 0 && canRetry) ? 'ink' : 'secondary'}
-                onPress={() => router.replace('/review')}
-                haptic
-                className="mt-4"
-              />
-            ) : null}
-          </>
-        )}
-      </View>
+                way onward should not be the place it appears. Always ink when
+                shown: the atlas draws it ink-filled even beside a retry
+                (Q-04). And only once the batch has settled — mid-batch (Q-02)
+                the sheet shows no button at all, because the way onward is a
+                verdict on the whole batch, not a shortcut past it. */}
+                {allDone && doneCount > 0 ? (
+                  <Button
+                    title="Review tags"
+                    variant="ink"
+                    onPress={() => router.replace('/review')}
+                    haptic
+                    className="mt-4"
+                  />
+                ) : null}
+              </>
+            )}
+          </View>
+        </SafeAreaView>
+      )}
 
       {/*
         A described garment now joins the same queue a photographed one does
@@ -724,17 +931,26 @@ export default function CaptureScreen() {
         onDismissed={runResume}
         onDecline={() => {
           setConsentVisible(false);
-          setPendingAction(null);
-          // Recorded, not swallowed: the progress sheet turns this into a
-          // visible sentence and a one-tap way back (see the `total === 0`
-          // branch). Without it a decline was indistinguishable from a tap that
-          // did nothing at all.
-          setDeclinedConsent(true);
-          // Nothing to resume: a decline is an answer, not a pause. Clearing
-          // it here means a decline can never fire the picker on the way out.
+          // The answer is recorded and the mode flips NOW — synchronously,
+          // ahead of any query refetch — so the very next enqueue is local.
+          setDeclinedLocally(true);
+          writeFlag(DECLINED_KEY, true);
+          localModeRef.current = true;
+          // Nothing resumes on the way out: a decline is an answer, not a
+          // pause. The photo that was waiting behind the sheet stays with
+          // `pendingAction` instead — A-04's "Add the item myself" is what
+          // carries it through the local pipeline.
           deferredAction.current = null;
+          // First-ever decline gets the one full account of what changes
+          // (A-04). Marked seen immediately: it is shown at the moment of
+          // decline and never again — no second ask, no second explainer.
+          if (!explainerSeen) {
+            setExplainerSeen(true);
+            writeFlag(EXPLAINER_SEEN_KEY, true);
+            setExplainerVisible(true);
+          }
         }}
       />
-    </SafeAreaView>
+    </>
   );
 }

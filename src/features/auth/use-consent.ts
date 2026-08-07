@@ -18,19 +18,31 @@ import { getUserId, supabase } from '@/lib/supabase';
  * Bump `CURRENT_CONSENT_VERSION` (and `current_ai_consent_version()` in SQL,
  * they must match) whenever the processor or the data categories change. That
  * forces every existing user to re-consent.
+ *
+ * v2 is the 2026-08 rewrite of the disclosure: it names the AI partner,
+ * states the no-retention/no-training claim and the face-recognition claim in
+ * so many words, and introduces local mode as a real alternative. The text
+ * changed materially, so consent given to v1 does not cover it.
  */
-export const CURRENT_CONSENT_VERSION = 1;
+export const CURRENT_CONSENT_VERSION = 2;
 
 export function useAiConsent() {
   return useQuery({
     queryKey: ['ai-consent'],
-    queryFn: async (): Promise<{ granted: boolean; version: number | null }> => {
+    queryFn: async (): Promise<{
+      granted: boolean;
+      version: number | null;
+      /** When the current consent was recorded — "On since", "Consent recorded". */
+      grantedAt: string | null;
+      /** When consent was last withdrawn — Settings' honest "Off since <date>". */
+      revokedAt: string | null;
+    }> => {
       const userId = await getUserId();
-      if (!userId) return { granted: false, version: null };
+      if (!userId) return { granted: false, version: null, grantedAt: null, revokedAt: null };
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('ai_consent_version')
+        .select('ai_consent_version, ai_consent_at, ai_consent_revoked_at')
         .eq('user_id', userId)
         .single();
 
@@ -40,6 +52,8 @@ export function useAiConsent() {
       return {
         granted: version !== null && version >= CURRENT_CONSENT_VERSION,
         version,
+        grantedAt: data?.ai_consent_at ?? null,
+        revokedAt: data?.ai_consent_revoked_at ?? null,
       };
     },
   });
@@ -58,6 +72,9 @@ export function useGrantAiConsent() {
         .update({
           ai_consent_version: CURRENT_CONSENT_VERSION,
           ai_consent_at: new Date().toISOString(),
+          // A fresh grant supersedes any earlier withdrawal: "Off since" must
+          // never be shown alongside a live consent.
+          ai_consent_revoked_at: null,
         })
         .eq('user_id', userId);
 
@@ -82,6 +99,9 @@ export function useGrantAiConsent() {
  * `ai_consent_at` is cleared alongside it rather than kept as history. The
  * record's only purpose is proving a *current* permission; a stale timestamp
  * with no version attached would just be a date we can no longer interpret.
+ * `ai_consent_revoked_at` is set instead: it exists so Settings can honestly
+ * say "Off since <date>" (design frame A-06). It is state-change history, not
+ * a consent record — nothing server-side reads it as permission for anything.
  *
  * Re-granting is deliberately NOT offered as a one-tap undo anywhere. It goes
  * back through `ConsentSheet`, which writes a fresh version and timestamp via
@@ -98,7 +118,11 @@ export function useRevokeAiConsent() {
 
       const { error } = await supabase
         .from('profiles')
-        .update({ ai_consent_version: null, ai_consent_at: null })
+        .update({
+          ai_consent_version: null,
+          ai_consent_at: null,
+          ai_consent_revoked_at: new Date().toISOString(),
+        })
         .eq('user_id', userId);
 
       if (error) throw error;

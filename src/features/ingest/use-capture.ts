@@ -37,7 +37,14 @@ const SELECTION_LIMIT = 60;
  */
 type CapturedAsset = { uri: string; width: number; height: number; assetId?: string | null };
 
-function toJobs(assets: CapturedAsset[]) {
+/**
+ * The mode a batch is enqueued in. `local: true` is declined-consent local
+ * mode (frame A-04): the same pipeline minus the upload and the tag — photos
+ * stay on this phone. Stamped on the job at enqueue so it survives a crash.
+ */
+type CaptureOptions = { local?: boolean };
+
+function toJobs(assets: CapturedAsset[], opts?: CaptureOptions) {
   return assets.map((asset, index) => ({
     // Stable within a batch and unique across batches without needing a uuid
     // dependency in the hot path.
@@ -45,6 +52,7 @@ function toJobs(assets: CapturedAsset[]) {
     localUri: asset.uri,
     width: asset.width,
     height: asset.height,
+    ...(opts?.local ? { local: true } : {}),
   }));
 }
 
@@ -77,28 +85,31 @@ export function useCapture() {
     clearSettled();
   }, [clearSettled]);
 
-  const pickFromLibrary = useCallback(async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], // Excludes livePhotos deliberately — real libraries
-      // are full of them and we want stills only.
-      allowsMultipleSelection: true,
-      selectionLimit: SELECTION_LIMIT,
-      // NEVER `base64: true` alongside multi-select. It materializes every
-      // image as a JS string and is the single most common iOS EXC_RESOURCE
-      // memory crash in exactly this flow. Upload from the file URI instead.
-      quality: 0.9,
-      exif: false,
-    });
+  const pickFromLibrary = useCallback(
+    async (opts?: CaptureOptions) => {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], // Excludes livePhotos deliberately — real libraries
+        // are full of them and we want stills only.
+        allowsMultipleSelection: true,
+        selectionLimit: SELECTION_LIMIT,
+        // NEVER `base64: true` alongside multi-select. It materializes every
+        // image as a JS string and is the single most common iOS EXC_RESOURCE
+        // memory crash in exactly this flow. Upload from the file URI instead.
+        quality: 0.9,
+        exif: false,
+      });
 
-    if (result.canceled || !result.assets?.length) return 0;
+      if (result.canceled || !result.assets?.length) return 0;
 
-    // Count and source only — never asset ids or file paths.
-    track('clothes_import_selected', { source: 'library', count: result.assets.length });
-    sweepOnce();
-    enqueue(toJobs(result.assets));
-    void drainQueue();
-    return result.assets.length;
-  }, [sweepOnce, enqueue]);
+      // Count and source only — never asset ids or file paths.
+      track('clothes_import_selected', { source: 'library', count: result.assets.length });
+      sweepOnce();
+      enqueue(toJobs(result.assets, opts));
+      void drainQueue();
+      return result.assets.length;
+    },
+    [sweepOnce, enqueue],
+  );
 
   /**
    * A frame off the in-app viewfinder, straight onto the queue.
@@ -108,10 +119,10 @@ export function useCapture() {
    * or cares which of the two doors the garment came through.
    */
   const addPhoto = useCallback(
-    (picture: CapturedAsset) => {
+    (picture: CapturedAsset, opts?: CaptureOptions) => {
       track('clothes_import_selected', { source: 'camera', count: 1 });
       sweepOnce();
-      enqueue(toJobs([picture]));
+      enqueue(toJobs([picture], opts));
       void drainQueue();
       return 1;
     },
@@ -125,41 +136,44 @@ export function useCapture() {
    * route because on that path there is no stage-level blocked state to lean
    * on: the user tapped a shutter and something has to answer them.
    */
-  const takePhoto = useCallback(async () => {
-    // The camera genuinely does need permission, unlike the library picker.
-    if (!cameraPermission?.granted) {
-      const next = await requestCameraPermission();
-      if (!next.granted) {
-        // Once denied with canAskAgain false, the prompt never appears again
-        // and Settings is the only route. Say so rather than silently no-oping.
-        if (!next.canAskAgain) {
-          Alert.alert(
-            'Camera access is off',
-            'Turn on camera access in Settings to photograph clothes directly. You can still add photos from your library.',
-            [
-              { text: 'Not now', style: 'cancel' },
-              { text: 'Open Settings', onPress: () => void Linking.openSettings() },
-            ],
-          );
+  const takePhoto = useCallback(
+    async (opts?: CaptureOptions) => {
+      // The camera genuinely does need permission, unlike the library picker.
+      if (!cameraPermission?.granted) {
+        const next = await requestCameraPermission();
+        if (!next.granted) {
+          // Once denied with canAskAgain false, the prompt never appears again
+          // and Settings is the only route. Say so rather than silently no-oping.
+          if (!next.canAskAgain) {
+            Alert.alert(
+              'Camera access is off',
+              'Turn on camera access in Settings to photograph clothes directly. You can still add photos from your library.',
+              [
+                { text: 'Not now', style: 'cancel' },
+                { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+              ],
+            );
+          }
+          return 0;
         }
-        return 0;
       }
-    }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      quality: 0.9,
-      exif: false,
-    });
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.9,
+        exif: false,
+      });
 
-    if (result.canceled || !result.assets?.length) return 0;
+      if (result.canceled || !result.assets?.length) return 0;
 
-    track('clothes_import_selected', { source: 'camera', count: result.assets.length });
-    sweepOnce();
-    enqueue(toJobs(result.assets));
-    void drainQueue();
-    return result.assets.length;
-  }, [cameraPermission, requestCameraPermission, sweepOnce, enqueue]);
+      track('clothes_import_selected', { source: 'camera', count: result.assets.length });
+      sweepOnce();
+      enqueue(toJobs(result.assets, opts));
+      void drainQueue();
+      return result.assets.length;
+    },
+    [cameraPermission, requestCameraPermission, sweepOnce, enqueue],
+  );
 
   return { pickFromLibrary, takePhoto, addPhoto, selectionLimit: SELECTION_LIMIT };
 }

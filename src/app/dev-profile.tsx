@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
 import { Pressable, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -21,9 +20,9 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * signed-out. The real screen's data comes from usePlan/useStyleProfile/
  * useAiConsent/useBorrowRequests/a profile-header query, which all hit
  * Supabase or StoreKit — this fixture has no session-dependent hooks.
- * The AI-features switch is locally stateful for a believable screenshot;
- * every row and the Done/Edit/Manage actions are no-ops here rather than
- * the real navigation and mutations.
+ * The AI tagging row mirrors the real screen's doorway to /privacy (consent
+ * atlas A-06) with a hardcoded "On"; every row and the Done/Edit/Manage
+ * actions are no-ops here rather than the real navigation and mutations.
  *
  * The Membership card shows the atlas's renewal date and price. The real
  * screen deliberately cannot (no renewal date or charged price exists
@@ -93,9 +92,6 @@ function AccountRow({
 export default function DevProfileScreen() {
   const theme = useTheme();
   const router = useRouter();
-  // Believable interactivity for a screenshot; the switch never calls the real
-  // consent grant/revoke mutations, and toggling on skips the consent sheet.
-  const [aiFeaturesOn, setAiFeaturesOn] = useState(true);
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
@@ -229,30 +225,11 @@ export default function DevProfileScreen() {
               />
             </View>
             <Rule tone="hairline" />
-            {/* The captions stay even in a fixture — they carry the consent
-                disclosure the row exists for, and judging the screen means
-                judging it with its densest copy in place. */}
-            <View className="flex-row items-center justify-between p-4">
-              <View className="flex-1 pr-3">
-                <Text variant="body">AI features</Text>
-                <Text variant="caption" className="mt-1 text-muted">
-                  {aiFeaturesOn
-                    ? 'Tagging, stylist chat, and outfit write-ups use OpenRouter.'
-                    : 'Off — nothing is sent to our AI provider.'}
-                </Text>
-              </View>
-              <Switch
-                value={aiFeaturesOn}
-                onValueChange={setAiFeaturesOn}
-                trackColor={{ false: theme.rule, true: theme.ink }}
-                accessibilityLabel="AI features"
-                accessibilityHint={
-                  aiFeaturesOn
-                    ? 'Turns off AI tagging and the stylist chat'
-                    : 'Opens the AI consent details'
-                }
-              />
-            </View>
+            {/* The real screen's doorway to Privacy (consent atlas A-06) —
+                the switch, honest state line, back-fill and consent record
+                live on /privacy now; this row only reports On/Off and leads
+                there. A no-op here like every other row. */}
+            <AccountRow label="AI tagging" detail="On" />
           </Card>
 
           <SectionHeader title="People" className="mb-2.5 mt-6" />

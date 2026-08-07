@@ -329,6 +329,20 @@ export default function RootLayout() {
                     headerShown: false,
                   }}
                 />
+                {/* Privacy (consent atlas A-06) is pushed FROM the profile
+                    sheet, so it presents as a sheet in the same dialect —
+                    its own back chevron returns to Profile, which stays
+                    mounted underneath. */}
+                <Stack.Screen
+                  name="privacy"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
               </Stack>
               </AuthGate>
             </Superwall>

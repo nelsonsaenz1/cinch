@@ -2,6 +2,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { withDeadline } from '@/features/closet/session';
+import { deleteLocalPhoto } from '@/features/ingest/local-photos';
 import { getUserId, supabase } from '@/lib/supabase';
 import type { Item } from '@/schemas/item';
 import type { Database } from '@/types/database';
@@ -55,7 +56,19 @@ export function useVerifyItem() {
     }: {
       id: string;
       patch?: Partial<
-        Pick<Item, 'category' | 'subcategory' | 'occasions' | 'seasons' | 'purchasePrice'>
+        Pick<
+          Item,
+          | 'category'
+          | 'subcategory'
+          | 'occasions'
+          | 'seasons'
+          | 'purchasePrice'
+          // The manual-tagging pair — a local item's colours are hand-picked
+          // and its fabric hand-chosen, written to the same columns the tagger
+          // fills for everything else.
+          | 'colors'
+          | 'material'
+        >
       >;
       /**
        * Whether this write also means "a human confirmed the tags".
@@ -80,6 +93,13 @@ export function useVerifyItem() {
       // checks for `undefined` (field absent from the patch) rather than
       // truthiness, which would make clearing a price impossible.
       if (patch?.purchasePrice !== undefined) update.purchase_price = patch.purchasePrice;
+      // The `colors` column is jsonb and the generated type says only `Json`;
+      // the app's `[{name, hex?}]` is a valid shape of it, the same one
+      // `tag-item` writes, so the cast records intent rather than papering
+      // over a mismatch.
+      if (patch?.colors !== undefined) update.colors = patch.colors as ItemUpdate['colors'];
+      // Same undefined-vs-null distinction as price: null clears the fabric.
+      if (patch?.material !== undefined) update.material = patch.material;
 
       // Nothing to say. A `verify: false` call whose patch turned out to be
       // empty is a no-op, not an empty UPDATE for PostgREST to reject.
@@ -324,6 +344,14 @@ export function useRemoveItems() {
 
       const { error: deleteError } = await supabase.from('items').delete().in('id', ids);
       if (deleteError) throw deleteError;
+
+      // Local mode's half of "deleting an item deletes both": any photo kept
+      // on-device for these rows goes with them. Fire-and-forget by design —
+      // `deleteLocalPhoto` is a silent no-op when there is nothing local, and
+      // a cleanup hiccup must not fail a removal the server already made.
+      for (const id of ids) {
+        void deleteLocalPhoto(id).catch(() => {});
+      }
 
       return { removed: ids.length };
     },

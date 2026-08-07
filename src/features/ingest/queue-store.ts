@@ -37,6 +37,17 @@ export type UploadJob = {
    * URL and fail on a row that is already perfectly fine.
    */
   source?: 'photo' | 'import';
+  /**
+   * Local mode — AI tagging declined, photos stay on the phone (frame A-04).
+   *
+   * A local job runs the same on-device pipeline (downscale, thumbnail,
+   * cutout) and creates the same item row, but never uploads and never tags:
+   * the files land in the local photo store and `image_path` stays null. On
+   * the job rather than derived at run time, because a job enqueued in local
+   * mode must STAY local across a crash and a rehydrate — consent flipping on
+   * mid-batch must never quietly upload photos that were promised the phone.
+   */
+  local?: boolean;
   attempts: number;
   /**
    * How many times `tag-item` has been asked about this garment.

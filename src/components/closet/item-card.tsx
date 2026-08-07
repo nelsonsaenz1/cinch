@@ -8,6 +8,7 @@ import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { pieceName } from '@/features/closet/item-name';
 import { stableImageSource } from '@/features/closet/use-image-urls';
+import { useLocalPhoto } from '@/features/ingest/local-photos';
 import { type Item, costPerWear } from '@/schemas/item';
 import { useTheme } from '@/theme/tokens';
 
@@ -48,6 +49,15 @@ function ItemCardComponent({
 }: ItemCardProps) {
   const theme = useTheme();
   const press = usePressFeedback();
+  // A local item — `imagePath` null, its photo never uploaded — has no signed
+  // URL for the grid to resolve, so the tile reads the on-device copy instead.
+  // Keyed to null for every uploaded item so a 200-tile grid subscribes only
+  // for the rows that are actually local; when the file is gone (another
+  // device, a reinstall) this resolves null and the placeholder below stands,
+  // never a broken image.
+  const localPhoto = useLocalPhoto(item.imagePath === null ? item.id : null);
+  const displayUri =
+    imageUri ?? (item.imagePath === null ? (localPhoto.thumbUri ?? localPhoto.imageUri ?? undefined) : undefined);
   const cpw = costPerWear(item);
   const needsReview = item.status === 'needs_review';
   const neverWorn = item.wearCount === 0;
@@ -96,9 +106,9 @@ function ItemCardComponent({
               : 'border border-hairline dark:border-hairline-dark'
           }`}
           style={dimmed ? { opacity: 0.55 } : undefined}>
-          {imageUri ? (
+          {displayUri ? (
             <Image
-              source={stableImageSource(imageUri)}
+              source={stableImageSource(displayUri)}
               recyclingKey={item.id}
               contentFit="cover"
               transition={180}

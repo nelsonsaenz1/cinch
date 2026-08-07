@@ -10,6 +10,7 @@ import { track } from '@/lib/posthog';
 import { queryClient } from '@/lib/query-client';
 import { supabase, getUserId } from '@/lib/supabase';
 
+import { deleteLocalPhoto, getLocalPhoto, saveLocalPhoto } from './local-photos';
 import { useQueueStore, type UploadJob } from './queue-store';
 
 /**
@@ -538,11 +539,71 @@ async function reapplyMeasuredColors(itemId: string, colors: MeasuredColor[]): P
   }
 }
 
+/**
+ * The local-mode pipeline — declining AI tagging is a working mode (A-04).
+ *
+ * Same on-device work as the ordinary path: downscale, thumbnail, and the one
+ * native Vision pass for the cutout's measured colours (all of which happens
+ * on this phone and sends nothing anywhere). Then the two steps that would
+ * move data off the device are simply absent: no Storage upload, no `tag-item`
+ * call. The row is created with `image_path` null and status `verified` —
+ * the honest terminal status in the vocabulary, because in local mode the tags
+ * are the user's own words from the moment they exist; there is no AI pass
+ * awaiting review (so the review deck, which selects `tagged`/`needs_review`,
+ * never lists it) and nothing pending (so `sweepPendingTags`, which selects
+ * `pending_tag`/`needs_review`, can never pick it up). The photos land in the
+ * local photo store, keyed by the item id.
+ */
+async function processLocalJob(job: UploadJob, userId: string): Promise<void> {
+  const { update } = useQueueStore.getState();
+
+  update(job.id, { stage: 'preparing' });
+  const prepared = await prepareForUpload(job.localUri, job.width, job.height);
+  const thumb = await prepareThumbnail(job.localUri, job.width, job.height);
+
+  // The cutout runs for its colour measurement — the one piece of AI-free
+  // metadata a local item can still carry, and it syncs because it is words
+  // and hex, not pixels.
+  update(job.id, { stage: 'cutout' });
+  const cutout = await runCutout(job.localUri);
+
+  let itemId = job.itemId;
+  if (!itemId) {
+    const { data, error } = await supabase
+      .from('items')
+      .insert({
+        user_id: userId,
+        status: 'verified',
+        ...(cutout.colors ? { colors: cutout.colors } : {}),
+        ...(cutout.analysis ? { color_analysis: cutout.analysis } : {}),
+      })
+      .select('id')
+      .single();
+    if (error || !data) throw new Error(`Could not create item: ${error?.message}`);
+    itemId = data.id;
+    update(job.id, { itemId });
+  }
+  if (!itemId) throw new Error('Item id missing after creation.');
+
+  await saveLocalPhoto(itemId, prepared.uri, thumb.uri);
+
+  update(job.id, { stage: 'done', error: undefined });
+  invalidateAfterItemSettled();
+  track('clothes_import_completed', { path: 'local' });
+}
+
 async function processJob(job: UploadJob): Promise<void> {
   const { update } = useQueueStore.getState();
 
   const userId = await getUserId();
   if (!userId) throw new Error('Not signed in.');
+
+  // The declined-consent path never uploads and never tags — see the promise
+  // spelled out on `processLocalJob`.
+  if (job.local) {
+    await processLocalJob(job, userId);
+    return;
+  }
 
   // 1. Downscale + thumbnail.
   update(job.id, { stage: 'preparing' });
@@ -812,6 +873,12 @@ export async function sweepPendingTags(): Promise<void> {
       .select('id')
       .eq('user_id', userId)
       .in('status', ['pending_tag', 'needs_review'])
+      // Defense in depth for the local-mode guarantee (frame A-06): an item
+      // whose photo never left the phone has no `image_path`, and flipping
+      // consent back on must NEVER retroactively drag it into a tagging pass.
+      // Local items are also `verified` and so outside the status filter —
+      // but a promise this explicit gets enforced twice.
+      .not('image_path', 'is', null)
       .limit(SWEEP_BATCH);
 
     if (error || !data?.length) {
@@ -872,6 +939,112 @@ export async function sweepPendingTags(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Backfill — the explicit way back from local mode
+// ---------------------------------------------------------------------------
+
+let backfilling = false;
+
+/**
+ * "Tag the N items I already have" (frame A-06) — one explicit pass, then stop.
+ *
+ * This is the ONLY code that moves a local-mode photo off the device, and it
+ * runs solely when the user asks for it from the Privacy screen. Turning
+ * tagging back on does not call this; nothing calls this on a timer.
+ *
+ * Two kinds of candidate, one decision each:
+ *
+ * - `image_path` null with photos in THIS device's local store: the local
+ *   files are uploaded through the ordinary Storage path, the row gains its
+ *   `image_path` at `pending_tag`, the now-redundant local copies are removed,
+ *   and tagging is driven through the same loop a fresh import uses. An
+ *   `image_path`-null item with no local photo — added from another device,
+ *   or a `pending_upload` row a crash orphaned — is skipped silently: there is
+ *   nothing here to send.
+ *
+ * - A server `image_path` but tagging never settled (`pending_tag` /
+ *   `needs_review`): re-driven through the same tagging loop directly. No
+ *   queue job exists for these, and `driveTagging`'s store writes no-op
+ *   harmlessly against an absent id.
+ *
+ * Consent-gated exactly as normal tagging is (and the Edge Function enforces
+ * it again server-side); sequential like `retryFailedJobs`, because a backfill
+ * is a background courtesy, not a stampede. Returns how many items were
+ * actually put through.
+ */
+export async function startBackfill(): Promise<{ enqueued: number }> {
+  if (backfilling) return { enqueued: 0 };
+  backfilling = true;
+
+  try {
+    const userId = await getUserId();
+    if (!userId) return { enqueued: 0 };
+    if (!(await hasAiConsent(userId))) return { enqueued: 0 };
+
+    const { data, error } = await supabase
+      .from('items')
+      .select('id, image_path')
+      .eq('user_id', userId)
+      .or('image_path.is.null,status.in.(pending_tag,needs_review)');
+    if (error || !data?.length) return { enqueued: 0 };
+
+    let enqueued = 0;
+
+    for (const row of data) {
+      if (!row.image_path) {
+        const local = await getLocalPhoto(row.id);
+        // Photos on another phone (or nowhere) cannot be backfilled from here.
+        if (!local) continue;
+
+        const base = `${userId}/${row.id}`;
+        const jobId = `backfill-${row.id}`;
+        // On the rail like any other in-flight garment, so a user who wanders
+        // to capture sees the pass they started rather than silence.
+        useQueueStore
+          .getState()
+          .enqueueTagging({ id: jobId, localUri: local.thumbUri, itemId: row.id });
+
+        try {
+          await uploadObject(local.imageUri, `${base}/original.jpg`, 'image/jpeg');
+          await uploadObject(local.thumbUri, `${base}/thumb.jpg`, 'image/jpeg');
+          const { error: updateError } = await supabase
+            .from('items')
+            .update({
+              image_path: `${base}/original.jpg`,
+              thumb_path: `${base}/thumb.jpg`,
+              status: 'pending_tag',
+            })
+            .eq('id', row.id);
+          if (updateError) throw new Error(`Could not record upload: ${updateError.message}`);
+        } catch (err) {
+          useQueueStore
+            .getState()
+            .update(jobId, {
+              stage: 'failed',
+              error: err instanceof Error ? err.message : String(err),
+              retryable: true,
+            });
+          continue;
+        }
+
+        // The server holds the photo now; the local copy has done its job.
+        await deleteLocalPhoto(row.id);
+        await driveTagging(jobId, row.id, { path: 'backfill' });
+        enqueued += 1;
+        continue;
+      }
+
+      // Uploaded but never (successfully) tagged — re-drive the tag alone.
+      await driveTagging(`backfill-${row.id}`, row.id, { path: 'backfill' });
+      enqueued += 1;
+    }
+
+    return { enqueued };
+  } finally {
+    backfilling = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // User-initiated retry
 // ---------------------------------------------------------------------------
 
@@ -894,7 +1067,14 @@ export async function retryJob(jobId: string): Promise<void> {
   if (!job || job.stage !== 'failed') return;
 
   if (!job.itemId) {
-    update(jobId, { stage: 'queued', attempts: 0, tagAttempts: 0, error: undefined, retryable: undefined, progress: 0 });
+    update(jobId, {
+      stage: 'queued',
+      attempts: 0,
+      tagAttempts: 0,
+      error: undefined,
+      retryable: undefined,
+      progress: 0,
+    });
     nextSweepAt = 0;
     sweepInterval = SWEEP_MIN_INTERVAL_MS;
     await drainQueue();

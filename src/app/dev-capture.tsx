@@ -18,7 +18,10 @@ import {
   type JobStage,
   type UploadJob,
 } from '@/features/ingest/queue-store';
-import { useTheme } from '@/theme/tokens';
+import { userFacingFailure } from '@/features/ingest/upload-queue';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+
+import { DeclineExplainer } from './capture';
 
 /**
  * Capture fixture — `cinch://dev-capture`.
@@ -26,8 +29,9 @@ import { useTheme } from '@/theme/tokens';
  * The Capture State Atlas as one vertically scrolling screen: every rendering
  * the camera stage can produce, hardcoded, signed-out, with no camera session
  * and no real queue. One full-height page per state, labeled with its atlas ID
- * (C-01 … C-12, plus the seven-stage rail strip), so the whole atlas can be
- * judged on-device against docs/design/capture-atlas/.
+ * (C-01 … C-06 for the stage, Q-01 … Q-05 for the queue per the Queue State
+ * Atlas, plus the seven-stage rail strip), so the whole atlas can be judged
+ * on-device against docs/design/capture-atlas/.
  *
  * The three fixed bands — header, stage, control row — and the progress sheet
  * carry the exact classes capture.tsx draws them with, and every headline,
@@ -59,7 +63,7 @@ function job(
   id: string,
   art: number,
   stage: JobStage,
-  extra?: Partial<Pick<UploadJob, 'label' | 'retryable'>>,
+  extra?: Partial<Pick<UploadJob, 'label' | 'retryable' | 'error'>>,
 ): UploadJob {
   return {
     id,
@@ -79,25 +83,45 @@ function Corner({ canvas, pos }: { canvas: string; pos: 'tl' | 'tr' | 'bl' | 'br
   const edges = {
     tl: { top: 20, left: 20, borderTopWidth: 2, borderLeftWidth: 2, borderTopLeftRadius: 4 },
     tr: { top: 20, right: 20, borderTopWidth: 2, borderRightWidth: 2, borderTopRightRadius: 4 },
-    bl: { bottom: 20, left: 20, borderBottomWidth: 2, borderLeftWidth: 2, borderBottomLeftRadius: 4 },
-    br: { bottom: 20, right: 20, borderBottomWidth: 2, borderRightWidth: 2, borderBottomRightRadius: 4 },
+    bl: {
+      bottom: 20,
+      left: 20,
+      borderBottomWidth: 2,
+      borderLeftWidth: 2,
+      borderBottomLeftRadius: 4,
+    },
+    br: {
+      bottom: 20,
+      right: 20,
+      borderBottomWidth: 2,
+      borderRightWidth: 2,
+      borderBottomRightRadius: 4,
+    },
   } as const;
   return (
     <View
-      style={{ position: 'absolute', width: 22, height: 22, borderColor: canvas, opacity: 0.55, ...edges[pos] }}
+      style={{
+        position: 'absolute',
+        width: 22,
+        height: 22,
+        borderColor: canvas,
+        opacity: 0.55,
+        ...edges[pos],
+      }}
     />
   );
 }
 
-/** The atlas ID strip above each page's header. */
-function AtlasLabel({ id, name }: { id: string; name: string }) {
+/** The atlas ID strip above each page's header. Ink on the one light page. */
+function AtlasLabel({ id, name, onLight }: { id: string; name: string; onLight?: boolean }) {
   const theme = useTheme();
+  const color = onLight ? theme.ink : theme.canvas;
   return (
     <View className="flex-row items-baseline gap-2 px-gutter pt-2">
-      <Text variant="caption" style={{ color: theme.canvas, opacity: 0.45 }}>
+      <Text variant="caption" style={{ color, opacity: 0.45 }}>
         {id}
       </Text>
-      <Text variant="caption" style={{ color: theme.canvas, opacity: 0.45 }}>
+      <Text variant="caption" style={{ color, opacity: 0.45 }}>
         {name}
       </Text>
     </View>
@@ -203,7 +227,11 @@ function ControlRow({ dimmed, shooting }: { dimmed?: boolean; shooting?: boolean
   return (
     <View className="flex-row items-center justify-between px-8 py-2">
       <View style={{ minWidth: 64 }} className="py-2">
-        <Text variant="label" numberOfLines={1} adjustsFontSizeToFit style={{ color: theme.canvas }}>
+        <Text
+          variant="label"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          style={{ color: theme.canvas }}>
           Library
         </Text>
       </View>
@@ -230,7 +258,11 @@ function ControlRow({ dimmed, shooting }: { dimmed?: boolean; shooting?: boolean
       </View>
 
       <View style={{ minWidth: 64 }} className="items-end py-2">
-        <Text variant="label" numberOfLines={1} adjustsFontSizeToFit style={{ color: theme.canvas }}>
+        <Text
+          variant="label"
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          style={{ color: theme.canvas }}>
           Describe
         </Text>
       </View>
@@ -238,26 +270,20 @@ function ControlRow({ dimmed, shooting }: { dimmed?: boolean; shooting?: boolean
   );
 }
 
-/** The idle sheet — C-01/C-03's copy, or C-06's declined variant. */
-function IdleSheet({ declined }: { declined?: boolean }) {
+/** The idle sheet — C-01/C-03's copy, or the honest local-mode line (C-06b). */
+function IdleSheet({ local }: { local?: boolean }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View className="rounded-t-plate bg-surface px-gutter pt-4" style={{ paddingBottom: insets.bottom + 20 }}>
+    <View
+      className="rounded-t-plate bg-surface px-gutter pt-4"
+      style={{ paddingBottom: insets.bottom + 20 }}>
       <Text variant="plate">Photograph your closet</Text>
-      {declined ? (
-        <View>
-          <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
-            AI processing is off, so Cinch can&rsquo;t cut out or tag photos yet.
-          </Text>
-          <Button title="Turn it on" variant="secondary" onPress={() => {}} className="mt-3 self-start" />
-        </View>
-      ) : (
-        <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
-          Pick up to 20 photos at a time, or shoot pieces one by one. Cinch cuts out the background
-          and tags everything for you.
-        </Text>
-      )}
+      <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
+        {local
+          ? 'Pick up to 60 photos at a time, or shoot pieces one by one. Photos stay on this phone, and the tags are yours to write.'
+          : 'Pick up to 60 photos at a time, or shoot pieces one by one. Cinch cuts out the background and tags everything for you.'}
+      </Text>
     </View>
   );
 }
@@ -268,18 +294,7 @@ function IdleSheet({ declined }: { declined?: boolean }) {
  * mount/unmount rules — so a fixture that reads wrong here would read wrong
  * on the real screen too.
  */
-function ProgressSheet({
-  jobs,
-  failureSentence,
-}: {
-  jobs: UploadJob[];
-  /**
-   * The banner's one sentence, pinned to the atlas string. The real screen
-   * maps `job.error` through `userFacingFailure`; a fixture has no real error
-   * to map, and the atlas's sentences are the contract being checked.
-   */
-  failureSentence?: string;
-}) {
+function ProgressSheet({ jobs }: { jobs: UploadJob[] }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -289,37 +304,40 @@ function ProgressSheet({
   const failedCount = failed.length;
   const active = selectActiveCount(jobs);
   const allDone = total > 0 && active === 0;
+  // Everything the queue has finished arguing about, added or not — the
+  // ordinal counts these rather than the successes alone, exactly as
+  // capture.tsx counts them.
   const settledCount = doneCount + failedCount;
-  // Floored at a sliver, exactly as capture.tsx floors it: an empty track
-  // under "Processing 1 of 1" reads as a bar that failed to start.
-  const fraction = total ? Math.max(doneCount / total, 0.08) : 0;
+  // Filled by settled jobs, floored at a sliver, pinned to full on settle —
+  // capture.tsx's fraction, verbatim. The floor must never lie about a
+  // finished batch, and an empty track under "Processing 1 of 5" reads as a
+  // bar that failed to start.
+  const fraction = total ? (allDone ? 1 : Math.max(settledCount / total, 0.04)) : 0;
   const phase = selectPhaseLabel(jobs);
   const canRetry = failed.some((j) => j.retryable !== false);
 
   return (
-    <View className="rounded-t-plate bg-surface px-gutter pt-4" style={{ paddingBottom: insets.bottom + 20 }}>
+    <View
+      className="rounded-t-plate bg-surface px-gutter pt-4"
+      style={{ paddingBottom: insets.bottom + 20 }}>
       <View className="flex-row items-baseline justify-between">
+        {/* Settled reads "Added N of N" even when N is the whole batch — the
+            count of what was achieved, never "All added". */}
         <Text variant="body" style={{ fontVariant: ['tabular-nums'] }}>
           {allDone
-            ? failedCount > 0
-              ? `Added ${doneCount} of ${total}`
-              : 'All added'
+            ? `Added ${doneCount} of ${total}`
             : `Processing ${Math.min(settledCount + 1, total)} of ${total}${phase ? ` · ${phase}` : ''}`}
         </Text>
+        {/* Once settled, nothing rides here: a failure count already leads the
+            banner below as its eyebrow, and saying it twice is nagging. */}
         {!allDone ? (
           <Text variant="label" style={{ color: theme.faint }}>{`${active} to go`}</Text>
-        ) : failedCount > 0 ? (
-          <Text variant="label" style={{ color: theme.critical }}>
-            {`${failedCount} couldn’t be added`}
-          </Text>
         ) : null}
       </View>
 
-      {allDone ? (
-        <View className="mt-3" />
-      ) : (
-        <ProgressTrack value={fraction} tone="ink" height={6} className="my-3" />
-      )}
+      {/* Stays mounted when the batch settles, pinned to full — the finished
+          bar is part of the record, not scaffolding to strike. */}
+      <ProgressTrack value={fraction} tone="ink" height={6} className="my-3" />
 
       <UploadQueueList jobs={jobs} />
 
@@ -328,44 +346,57 @@ function ProgressSheet({
           <Text variant="colophon" style={{ color: theme.muted }}>
             {failedCount === 1 ? '1 piece stopped' : `${failedCount} pieces stopped`}
           </Text>
+          {/* The mapped sentence, not the raw `job.error` — the mock job
+              carries a diagnostic string and `userFacingFailure` reduces it,
+              exactly as the real banner does. */}
           <Text variant="label" className="mt-1" style={{ color: theme.ink }}>
-            {failureSentence}
+            {userFacingFailure(failed[0])}
           </Text>
           <View className="mt-2.5 flex-row items-center gap-2">
-            {canRetry ? <Button title="Try these again" variant="secondary" onPress={() => {}} /> : null}
+            {canRetry ? <Button title="Try again" variant="ink" onPress={() => {}} /> : null}
             <Button title="Leave them untagged" variant="ghost" onPress={() => {}} />
           </View>
         </View>
       ) : null}
 
-      {doneCount > 0 ? (
-        <Button
-          title="Review tags"
-          variant={allDone && !(failedCount > 0 && canRetry) ? 'ink' : 'secondary'}
-          onPress={() => {}}
-          className="mt-4"
-        />
+      {/* `ink`, always, and only once the batch has settled — mid-batch the
+          sheet shows no button at all, because the way onward is a verdict on
+          the whole batch, not a shortcut past it. */}
+      {allDone && doneCount > 0 ? (
+        <Button title="Review tags" variant="ink" onPress={() => {}} className="mt-4" />
       ) : null}
     </View>
   );
 }
 
 /**
- * Inline replica of `ConsentSheet` over the dimmed stage. The real one is a
- * full-screen Modal and cannot be stacked inside a scrolling atlas, so its
- * exact furniture is redrawn here — grabber, title, the three ✦ promise rows,
- * the ink primary at `rounded-md`, the ghost decline, the Profile footnote.
- * Kept in step with consent-sheet.tsx by hand.
+ * Inline replica of `ConsentSheet` over the dimmed stage — frame A-01. The
+ * real one is a full-screen Modal and cannot be stacked inside a scrolling
+ * atlas, so its exact furniture is redrawn here: grabber, eyebrow, serif
+ * title, the four hairline-ruled numbered facts, the ink accept over the
+ * outlined decline (two equal ways forward, neither ghosted), and the
+ * Settings footnote with the policy link. Kept in step with
+ * consent-sheet.tsx by hand.
  */
 function ConsentReplica() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
-  const promises = [
-    'Cleans up the photo — removes the background',
-    'Identifies the garment, its colours and category',
-    'Never sold, never shared, never used to advertise',
-  ];
+  const facts = [
+    {
+      lead: 'The photo goes to our AI partner,',
+      rest: ' which returns a category, colour and fabric.',
+    },
+    {
+      lead: 'They don’t keep it and don’t train on it.',
+      rest: ' It’s deleted once the tags come back.',
+    },
+    {
+      lead: 'We keep the photo and the tags',
+      rest: ' in your closet. Deleting an item deletes both.',
+    },
+    { lead: 'We never run face recognition,', rest: ' here or anywhere in Cinch.' },
+  ] as const;
 
   return (
     <View
@@ -377,42 +408,48 @@ function ConsentReplica() {
           <View className="h-[5px] w-9 rounded-full bg-sand dark:bg-sand-dark" />
         </View>
 
-        <View className="px-gutter pt-5" style={{ paddingBottom: insets.bottom + 16 }}>
-          <Text variant="title" trim>
-            Before Cinch looks
+        <View className="px-gutter pt-4" style={{ paddingBottom: insets.bottom + 16 }}>
+          <Text variant="eyebrow">Before we send anything</Text>
+          <Text variant="title" trim className="mt-4">
+            Cinch can tag your clothes for you.
           </Text>
-          <Text variant="body" className="mt-3" style={{ color: theme.muted }}>
-            To turn your photos into a wardrobe, Cinch processes each image. Here&apos;s exactly what
-            that means.
+          <Text variant="callout" className="mt-3" style={{ color: theme.muted }}>
+            To do it, the photo has to leave your phone. Here is exactly what that means.
           </Text>
 
-          <View className="mt-7 gap-4">
-            {promises.map((line) => (
-              <View key={line} className="flex-row items-center gap-3">
-                <View className="h-7 w-7 items-center justify-center rounded-full bg-accent-light">
-                  <SymbolView name="sparkle" size={14} tintColor={theme.accent} resizeMode="scaleAspectFit" />
-                </View>
-                <Text variant="callout" className="flex-1">
-                  {line}
+          <View className="mt-4">
+            {facts.map(({ lead, rest }, index) => (
+              <View
+                key={lead}
+                className={`flex-row gap-3 border-t border-rule py-2.5 dark:border-rule-dark ${
+                  index === facts.length - 1 ? 'border-b' : ''
+                }`}>
+                <Text variant="statSmall" className="w-4" style={{ color: theme.accent }}>
+                  {index + 1}
+                </Text>
+                <Text variant="label" className="flex-1 font-body">
+                  <Text variant="label" className="font-semibold" style={{ color: theme.ink }}>
+                    {lead}
+                  </Text>
+                  {rest}
                 </Text>
               </View>
             ))}
           </View>
 
-          <View className="mt-8 gap-2">
-            <View
-              style={{ minHeight: 52 }}
-              className="items-center justify-center rounded-md bg-ink px-5 py-3 dark:bg-ink-dark">
-              <Text variant="callout" className="font-semibold" style={{ color: theme.canvas }}>
-                Allow processing
-              </Text>
-            </View>
-            <Button title="Not now" variant="ghost" onPress={() => {}} />
+          <View className="mt-5 gap-2.5">
+            <Button title="Turn on AI tagging" variant="ink" onPress={() => {}} />
+            <Button title="Keep my photos on this phone" variant="secondary" onPress={() => {}} />
           </View>
 
-          <Text variant="label" className="mt-3 text-center">
-            You can turn AI features off anytime in Profile.
-          </Text>
+          <View style={{ minHeight: MIN_TAP_TARGET }} className="mt-2 justify-center">
+            <Text variant="label" className="text-center">
+              Either way, you can change this in Settings.{' '}
+              <Text variant="label" style={{ color: theme.accent }}>
+                Read the full policy
+              </Text>
+            </Text>
+          </View>
         </View>
       </View>
     </View>
@@ -427,42 +464,56 @@ export default function DevCaptureScreen() {
   // The batch fixtures, front-to-back as the queue works: finished pieces on
   // the left, what is still coming to the right. Named exactly as the atlas
   // names them, because a `done` job with no label would render "Added ✓" and
-  // the rail's whole point is that a finished piece is named.
-  const firstShot = useMemo(() => [job('c08-1', COAT, 'cutout')], []);
+  // the rail's whole point is that a finished piece is named. These are the
+  // Queue State Atlas's own casts, Q-01 … Q-05, headline and counts computed
+  // from them by the derivations above — never written out by hand.
+  const justQueued = useMemo(
+    () => [
+      job('q01-1', COAT, 'queued'),
+      job('q01-2', KNIT, 'queued'),
+      job('q01-3', TROUSERS, 'queued'),
+      job('q01-4', LOAFERS, 'queued'),
+      job('q01-5', BLOUSE, 'queued'),
+    ],
+    [],
+  );
   const midBatch = useMemo(
     () => [
-      job('c09-1', COAT, 'done', { label: 'Coat' }),
-      job('c09-2', KNIT, 'done', { label: 'Knit' }),
-      job('c09-3', TROUSERS, 'tagging'),
-      job('c09-4', LOAFERS, 'queued'),
-      job('c09-5', BLOUSE, 'queued'),
+      job('q02-1', COAT, 'done', { label: 'Coat' }),
+      job('q02-2', KNIT, 'done', { label: 'Knit' }),
+      job('q02-3', TROUSERS, 'tagging'),
+      job('q02-4', LOAFERS, 'uploading'),
+      job('q02-5', BLOUSE, 'cutout'),
     ],
     [],
   );
-  const allAdded = useMemo(
+  const settled = useMemo(
     () => [
-      job('c10-1', COAT, 'done', { label: 'Coat' }),
-      job('c10-2', KNIT, 'done', { label: 'Knit' }),
-      job('c10-3', TROUSERS, 'done', { label: 'Trousers' }),
-      job('c10-4', LOAFERS, 'done', { label: 'Loafers' }),
-      job('c10-5', BLOUSE, 'done', { label: 'Blouse' }),
+      job('q03-1', COAT, 'done', { label: 'Coat' }),
+      job('q03-2', KNIT, 'done', { label: 'Knit' }),
+      job('q03-3', TROUSERS, 'done', { label: 'Trousers' }),
+      job('q03-4', LOAFERS, 'done', { label: 'Shoes' }),
+      job('q03-5', BLOUSE, 'done', { label: 'Blouse' }),
     ],
     [],
   );
-  const someStopped = useMemo(
+  const oneStopped = useMemo(
     () => [
-      job('c11-1', COAT, 'done', { label: 'Coat' }),
-      job('c11-2', KNIT, 'done', { label: 'Knit' }),
-      job('c11-3', TROUSERS, 'done', { label: 'Trousers' }),
-      job('c11-4', LOAFERS, 'failed', { retryable: true }),
-      job('c11-5', BLOUSE, 'failed', { retryable: true }),
+      job('q04-1', COAT, 'done', { label: 'Coat' }),
+      job('q04-2', KNIT, 'done', { label: 'Knit' }),
+      job('q04-3', TROUSERS, 'done', { label: 'Trousers' }),
+      job('q04-4', SKIRT, 'done', { label: 'Skirt' }),
+      // A diagnostic string, as the queue would hold it; `userFacingFailure`
+      // reduces it to "That upload didn’t finish." in the banner.
+      job('q04-5', TOTE, 'failed', { retryable: true, error: 'Upload failed with 500' }),
     ],
     [],
   );
-  const stoppedForGood = useMemo(
+  const reopened = useMemo(
     () => [
-      job('c12-1', SKIRT, 'done', { label: 'Skirt' }),
-      job('c12-2', TOTE, 'failed', { retryable: false }),
+      job('q05-1', SKIRT, 'done', { label: 'Skirt' }),
+      job('q05-2', BLOUSE, 'tagging'),
+      job('q05-3', LOAFERS, 'queued'),
     ],
     [],
   );
@@ -526,68 +577,76 @@ export default function DevCaptureScreen() {
           <ConsentReplica />
         </View>
 
-        {/* C-06 · declined this sitting — the consequence stated, with the one
-            tap back to the sheet. */}
+        {/* C-06 · declined — frame A-04, full-screen on the capture surface.
+            The real exported component, so the fixture cannot drift: eyebrow,
+            "Done. Nothing was sent.", the three hairline-ruled consequences,
+            the ink pill and the way back. Nothing amber anywhere. */}
+        <View style={{ height: pageHeight }} className="bg-canvas dark:bg-canvas-dark">
+          <AtlasLabel id="C-06" name="Declined — what changes (A-04)" onLight />
+          <DeclineExplainer onAddItem={() => {}} onTurnOnAi={() => {}} />
+        </View>
+
+        {/* C-06b · a later visit while declined — the screen just works in
+            local mode: same stage, same controls, only the idle line changes.
+            A-04 is never re-shown. */}
         <View style={{ height: pageHeight }} className="bg-ink">
-          <AtlasLabel id="C-06" name="Declined this sitting" />
+          <AtlasLabel id="C-06b" name="Local mode — a later visit" />
           <Header />
           <Stage kind="photo" />
           <ControlRow />
-          <IdleSheet declined />
+          <IdleSheet local />
         </View>
 
-        {/* C-08 · first shot — inner disc at 50% while `shooting`. */}
+        {/* Q-01 · just queued — no verb yet: "Processing 1 of 5", "5 to go",
+            the track nudged off zero at the 4% floor. */}
         <View style={{ height: pageHeight }} className="bg-ink">
-          <AtlasLabel id="C-08" name="First shot — one on the rail" />
+          <AtlasLabel id="Q-01" name="Just queued — no verb yet" />
           <Header />
           <Stage kind="photo" />
-          <ControlRow shooting />
-          <ProgressSheet jobs={firstShot} />
+          <ControlRow />
+          <ProgressSheet jobs={justQueued} />
         </View>
 
-        {/* C-09 · mid-batch — the headline counts settled jobs; finished
-            pieces are named, in-flight ones show their stage. */}
+        {/* Q-02 · mid-batch, three in flight — the headline counts settled
+            jobs and names the furthest-along stage; finished pieces are
+            named, in-flight ones show their stage. No button yet. */}
         <View style={{ height: pageHeight }} className="bg-ink">
-          <AtlasLabel id="C-09" name="Mid-batch — five in sequence" />
+          <AtlasLabel id="Q-02" name="Mid-batch — three in flight" />
           <Header />
           <Stage kind="photo" />
           <ControlRow />
           <ProgressSheet jobs={midBatch} />
         </View>
 
-        {/* C-10 · all added — the track unmounts, "Review tags" is primary. */}
+        {/* Q-03 · settled — "Added 5 of 5", the track full and still mounted,
+            the ink "Review tags" as the way on. */}
         <View style={{ height: pageHeight }} className="bg-ink">
-          <AtlasLabel id="C-10" name="All added — the way on" />
+          <AtlasLabel id="Q-03" name="Settled — the way on" />
           <Header />
           <Stage kind="photo" />
           <ControlRow />
-          <ProgressSheet jobs={allAdded} />
+          <ProgressSheet jobs={settled} />
         </View>
 
-        {/* C-11 · some stopped, retryable — warning wash, one sentence, the
-            retry beside the way out. */}
+        {/* Q-04 · one stopped, retryable — warning wash, one mapped sentence,
+            ink "Try again" beside the way out, "Review tags" still below. */}
         <View style={{ height: pageHeight }} className="bg-ink">
-          <AtlasLabel id="C-11" name="Some stopped — retryable" />
+          <AtlasLabel id="Q-04" name="One stopped, retryable" />
           <Header />
           <Stage kind="photo" />
           <ControlRow />
-          <ProgressSheet
-            jobs={someStopped}
-            failureSentence="Saved, but not tagged — the connection dropped."
-          />
+          <ProgressSheet jobs={oneStopped} />
         </View>
 
-        {/* C-12 · stopped for good — no retry that is guaranteed to
-            disappoint; the dismissal alone. */}
+        {/* Q-05 · reopened — the rail comes back as it was: the added piece
+            named, the tagger resuming, the queued one starting over. Nothing
+            announces the interruption. */}
         <View style={{ height: pageHeight }} className="bg-ink">
-          <AtlasLabel id="C-12" name="Stopped for good — no retry offered" />
+          <AtlasLabel id="Q-05" name="Reopened — the rail comes back as it was" />
           <Header />
           <Stage kind="photo" />
           <ControlRow />
-          <ProgressSheet
-            jobs={stoppedForGood}
-            failureSentence="Saved, but not tagged — AI processing is turned off."
-          />
+          <ProgressSheet jobs={reopened} />
         </View>
 
         {/* The rail — all seven captions one thumbnail can carry, side by

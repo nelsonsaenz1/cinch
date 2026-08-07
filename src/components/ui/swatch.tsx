@@ -12,17 +12,24 @@ export type SwatchProps = {
    * file stays free of the closet feature's cache-key concerns.
    */
   imageSource?: ImageSource;
-  /** The four sizes the app actually draws: the plate dot, the day-row cell, the review circle, the item-detail circle. */
-  size: 14 | 16 | 18 | 24;
+  /** The five sizes the app actually draws: the plate dot, the day-row cell, the review circle, the item-detail circle, the manual-tagging picker circle. */
+  size: 14 | 16 | 18 | 24 | 30;
   /** `circle` (default) rings a colour in the palette rule; `square` is the day-row's clipped photo cell, no ring. */
   shape?: 'circle' | 'square';
+  /**
+   * The picked state of a selectable swatch — the atlas's 2px ink ring
+   * (A-05's colour row). Purely visual: the pressable, its role and its
+   * `accessibilityState` belong to the caller, same as `imageSource` keeps
+   * this file free of the closet's concerns.
+   */
+  selected?: boolean;
 };
 
 /**
  * One component for the app's four colour-swatch dialects — 14/16/18/24pt,
  * circles and a square, each previously hand-typed at its own call site.
  */
-export function Swatch({ hex, imageSource, size, shape = 'circle' }: SwatchProps) {
+export function Swatch({ hex, imageSource, size, shape = 'circle', selected = false }: SwatchProps) {
   const theme = useTheme();
 
   if (shape === 'square') {
@@ -54,8 +61,8 @@ export function Swatch({ hex, imageSource, size, shape = 'circle' }: SwatchProps
         height: size,
         borderRadius: size / 2,
         backgroundColor: hex,
-        borderWidth: 1,
-        borderColor: theme.rule,
+        borderWidth: selected ? 2 : 1,
+        borderColor: selected ? theme.ink : theme.rule,
       }}
     />
   );
