@@ -20,14 +20,6 @@ import type { Item } from '@/schemas/item';
 /** The rows the review card shows, in the order the design lists them. */
 export type TagGap = 'category' | 'colours' | 'details' | 'brand';
 
-/** The user-facing word for each gap — lower case, so it reads inside a sentence. */
-const GAP_LABEL: Record<TagGap, string> = {
-  category: 'what kind of piece it is',
-  colours: 'its colour',
-  details: 'the fabric and pattern',
-  brand: 'the brand',
-};
-
 /**
  * `category` is a gap in three cases and only three: the tagging run failed
  * outright (`needs_review`), the model reached for the catch-all bucket, or it
@@ -87,23 +79,19 @@ export function isFullyTagged(item: Item): boolean {
 }
 
 /**
- * The gaps as one readable clause: "its colour and the brand".
+ * The gaps as one readable clause: "the colour and the brand".
  *
  * Oxford-comma-free and sentence-cased by the caller. Capped at three so a
- * badly tagged garment produces an invitation rather than an inventory.
+ * badly tagged garment produces an invitation rather than an inventory. The
+ * atlas sets the register — "Cinch wasn't sure about the category" — so the
+ * invitation and the footnote below share one noun list rather than keeping a
+ * wordier paraphrase alive beside it.
  */
 export function describeGaps(gaps: TagGap[]): string {
-  return joinClause(gaps.slice(0, 3).map((g) => GAP_LABEL[g]));
+  return joinClause(gaps.slice(0, 3).map((g) => GAP_NOUN[g]));
 }
 
-/**
- * The same gaps as a NOUN list — "the colour and the brand" — for the terse
- * footnote on the card, where the surrounding sentence does the explaining.
- *
- * Separate from `GAP_LABEL` because that map is written for an invitation
- * ("Cinch wasn't sure about what kind of piece it is") and reads as a mouthful
- * inside a statement of record.
- */
+/** The gap as a plain noun — "the colour" — for both lines above. */
 const GAP_NOUN: Record<TagGap, string> = {
   category: 'the category',
   colours: 'the colour',
@@ -114,21 +102,18 @@ const GAP_NOUN: Record<TagGap, string> = {
 /**
  * The unfixable gaps as one quiet line for the foot of the review card.
  *
- * This wording replaced a screen-wide banner above the deck that read "Cinch
- * left the brand blank. Nothing here fills that in — confirm the rest." Every
- * word of that was true, and it still had to go: a full-bleed notice pinned over
- * the first card a new user ever sees announces a defect before it announces the
- * garment, and "nothing here fills that in" lands as a dead end rather than as
- * the reassurance it was meant to be.
+ * This sentence used to be a screen-wide banner above the deck — a full-bleed
+ * notice pinned over the first card a new user ever sees, announcing a defect
+ * before it announced the garment. The atlas keeps the admission word for word
+ * and drops only the volume: it lives under the spec rows it explains, in the
+ * faint tone, where it reads as a footnote instead of an error report.
  *
- * So the admission stays and the volume drops. It says what is missing, and then
- * — the half that actually helps — that confirming is still the right move.
  * Returns null when there is nothing to admit, so the card renders no footnote
  * at all rather than an empty line.
  */
 export function noteGaps(gaps: TagGap[]): string | null {
   if (gaps.length === 0) return null;
-  return `Cinch couldn’t read ${joinClause(gaps.slice(0, 3).map((g) => GAP_NOUN[g]))} — confirming keeps the rest.`;
+  return `Cinch left ${joinClause(gaps.slice(0, 3).map((g) => GAP_NOUN[g]))} blank. Nothing here fills that in — confirm the rest.`;
 }
 
 /** "a", "a and b", "a, b and c" — Oxford-comma-free, as the copy deck sets it. */

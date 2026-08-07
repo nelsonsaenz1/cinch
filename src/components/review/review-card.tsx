@@ -31,6 +31,14 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
  */
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
 
+/**
+ * The Confirm drag pill's fill, exactly as the state atlas draws it (R-03).
+ * Deliberately not `theme.positive`: the outcome overlays are the one place the
+ * deck admits another hue, and the atlas chose this muted sage over the app's
+ * brighter success green. Local because no other surface draws a drag outcome.
+ */
+const CONFIRM_OVERLAY_GREEN = '#3E6B4A';
+
 const CATEGORY_OPTIONS: { key: ItemCategory; label: string }[] = [
   // "Tops", plural, matches the handoff's exact "Tops · Knitwear" (Frame 08)
   // and the plural convention the closet's own category filter already uses.
@@ -269,8 +277,16 @@ export function ReviewCard({
   const hasPhoto = Boolean(item.thumbPath || item.cutoutPath || item.imagePath);
   const photoSource = stableImageSource(imageUri);
 
+  // "Other" with no subtype is the tagger's catch-all, not an answer, and the
+  // atlas prints it the way it prints every unanswered field: "Uncategorised",
+  // in the faint register (R-02) — a placeholder to fill, not a value to trust.
+  const isUncategorised = category === 'other' && !item.subcategory;
   const categoryLabel = CATEGORY_OPTIONS.find((c) => c.key === category)?.label ?? 'Uncategorised';
-  const categoryValue = item.subcategory ? `${categoryLabel} · ${item.subcategory}` : categoryLabel;
+  const categoryValue = isUncategorised
+    ? 'Uncategorised'
+    : item.subcategory
+      ? `${categoryLabel} · ${item.subcategory}`
+      : categoryLabel;
 
   const colours = item.colors.slice(0, 3);
   const coloursValue = colours.length > 0 ? colours.map((c) => c.name).join(' · ') : 'Not detected';
@@ -374,13 +390,13 @@ export function ReviewCard({
                 out with the drag. The "see the outcome while you drag" idea was
                 never actually on screen.
 
-                CANVAS STAYS on the green, and the swap to `ink` is deliberately
-                not made. `canvas` on `positive` is 4.34:1 — a near-miss at
-                13px, and the reason this label was flagged. `ink` on the same
-                green is 3.84:1: worse, not better. The palette is locked, so
-                with both candidates under AA the honest move is to keep the
-                higher ratio and leave the finding recorded rather than trade
-                one near-miss for a further one.
+                THE GREEN IS THE ATLAS'S, not the theme's `positive`. The state
+                atlas draws this pill in #3E6B4A — the one place another hue is
+                allowed in ("green and grey are the outcome itself", rule card
+                05) — and that muted sage sits in the palette's register where
+                the success green #1A8754 reads as a foreign traffic light.
+                Scoped to this overlay rather than promoted to a token: nothing
+                else in the app draws a drag outcome.
               */}
               <Animated.View
                 style={[
@@ -389,7 +405,7 @@ export function ReviewCard({
                     right: 12,
                     top: 12,
                     borderRadius: 12,
-                    backgroundColor: theme.positive,
+                    backgroundColor: CONFIRM_OVERLAY_GREEN,
                     paddingHorizontal: 12,
                     paddingVertical: 4,
                   },
@@ -435,6 +451,10 @@ export function ReviewCard({
                       key={c.key}
                       label={c.label}
                       selected={category === c.key}
+                      // Ink, not accent (atlas R-05): the oxblood on this card
+                      // is already spent on Edit, and a selected chip is a
+                      // state, not another invitation.
+                      selectedGround="ink"
                       onPress={() => {
                         onEditCategory(c.key);
                         setOpenEditor(null);
@@ -443,7 +463,10 @@ export function ReviewCard({
                   ))}
                 </>
               }>
-              <Text variant="callout" numberOfLines={1}>
+              <Text
+                variant="callout"
+                numberOfLines={1}
+                style={isUncategorised ? { color: theme.faint } : undefined}>
                 {categoryValue}
               </Text>
             </ReviewRow>
@@ -489,6 +512,10 @@ export function ReviewCard({
                     // anything but digits and a point.
                     keyboardType="decimal-pad"
                     inputMode="decimal"
+                    // The atlas draws the caret in the accent (R-06) — the
+                    // system-blue default is the one foreign colour this card
+                    // could otherwise show.
+                    selectionColor={theme.accent}
                     autoFocus
                     placeholder="0"
                     placeholderTextColor={theme.faint}
@@ -500,7 +527,12 @@ export function ReviewCard({
                   />
                 </View>
               }>
-              <Text variant="callout" numberOfLines={1}>
+              {/* The unanswered price is an invitation, so it takes the faint
+                  register the atlas gives every placeholder value. */}
+              <Text
+                variant="callout"
+                numberOfLines={1}
+                style={price == null ? { color: theme.faint } : undefined}>
                 {price != null ? formatPrice(price) : 'Add it for cost per wear'}
               </Text>
             </ReviewRow>

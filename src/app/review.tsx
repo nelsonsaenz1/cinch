@@ -252,15 +252,16 @@ export default function ReviewScreen() {
         // Offered only after the write landed. A confirm that failed already
         // puts the card back by itself, and there is nothing there to undo.
         offerUndo(item);
-      } catch (err) {
+      } catch {
         // Never let a failed write look like a successful confirm. Put the item
         // back in the deck and say so, because the alternative is an item that
         // vanishes from the queue while still unverified in the database.
         unresolve(item.id);
-        setFailure({
-          item,
-          message: err instanceof Error ? err.message : 'Could not save that. Check your connection.',
-        });
+        // The atlas fixes this line's copy — "Couldn't save shearling coat.
+        // Check your connection." — so the banner names the garment and keeps
+        // one calm sentence, rather than relaying whatever a fetch layer put
+        // in `err.message`.
+        setFailure({ item, message: 'Check your connection.' });
       } finally {
         inFlightRef.current.delete(item.id);
       }
@@ -344,13 +345,9 @@ export default function ReviewScreen() {
           try {
             await verify.mutateAsync({ id: it.id, patch: patchFor(it) });
             track('garment_reviewed', { corrected: false });
-          } catch (err) {
+          } catch {
             unresolve(it.id);
-            setFailure({
-              item: it,
-              message:
-                err instanceof Error ? err.message : 'Could not save that. Check your connection.',
-            });
+            setFailure({ item: it, message: 'Check your connection.' });
             return;
           }
         }
