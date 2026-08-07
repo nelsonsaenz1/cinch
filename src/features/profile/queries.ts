@@ -83,12 +83,18 @@ async function isHandleFree(handle: string): Promise<boolean> {
   // function does not exist until the migration ships — so `supabase.rpc`
   // cannot know its name yet. One narrow cast here beats hand-editing the
   // generated types file, which the next regen would silently revert.
-  const call = supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+  // Cast the CLIENT, not the method: pulling `rpc` off the object detaches its
+  // `this`, and the builder reads `this.rest` on invocation — every check then
+  // threw before reaching the network, which the error-tolerant design below
+  // silently rendered as "no verdict". The field looked idle instead of broken.
+  const client = supabase as unknown as {
+    rpc(
+      fn: string,
+      args: Record<string, unknown>,
+    ): PromiseLike<{ data: unknown; error: { message: string } | null }>;
+  };
 
-  const { data, error } = await call('username_available', { p_username: handle });
+  const { data, error } = await client.rpc('username_available', { p_username: handle });
   if (error) throw new Error(error.message);
   return data === true;
 }

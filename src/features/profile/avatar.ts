@@ -18,12 +18,14 @@ import { supabase } from '@/lib/supabase';
  *    app.config.ts. Asking here would show a prompt for access we do not need
  *    and lose everyone who taps "Don't Allow".
  *
- * 2. **Square, cropped by the picker, downscaled on-device.** Supabase's
- *    Storage transformations are Pro-only and bill per origin image, which is
- *    why nothing in this app is resized server-side (`lib/image.ts` carries
- *    the full argument). A 512px square is four times the largest place an
- *    avatar is ever drawn (the 76pt closet monogram at 3×), and lands around
- *    40 KB — well inside the bucket's 2 MB ceiling.
+ * 2. **Square, cropped in-app, downscaled on-device.** Supabase's Storage
+ *    transformations are Pro-only and bill per origin image, which is why
+ *    nothing in this app is resized server-side (`lib/image.ts` carries the
+ *    full argument). The square comes from `avatar-crop-sheet.tsx` — the
+ *    "Move and scale" step that replaced the system picker's own crop UI —
+ *    which crops on the original pixels and hands back an edge of at most
+ *    `AVATAR_EDGE`. A 1024px square lands well inside the bucket's 2 MB
+ *    ceiling and stays sharp on the 88pt edit-sheet disc at 3×.
  *
  * 3. **A new object name every time.** The path is `{user_id}/{ms}.jpg`, never
  *    a fixed `avatar.jpg`. A public bucket sits behind a CDN and an overwritten
@@ -35,19 +37,18 @@ import { supabase } from '@/lib/supabase';
 
 const BUCKET = 'avatars';
 
-/** Side of the stored square, in pixels. */
-const AVATAR_EDGE = 512;
-/** JPEG quality. 0.82 is where a 512px face stops visibly improving. */
+/** Side of the stored square, in pixels. Exported for the crop sheet. */
+export const AVATAR_EDGE = 1024;
+/** JPEG quality. 0.82 is where a face at this size stops visibly improving. */
 const AVATAR_QUALITY = 0.82;
 
 /**
- * Open the system picker and return the chosen image, already square.
+ * Open the system picker and return the chosen image, as shot.
  *
- * `allowsEditing` gives iOS's own crop-and-pan UI, whose window is square by
- * default, so the user chooses the crop rather than the app guessing at it —
- * a centre-crop of a group photo is rarely her face. (`aspect` is Android-only
- * and is passed for the day this is not an iOS-only app; on iOS the square is
- * the platform's own default, not ours.)
+ * No `allowsEditing`: the square crop is the app's own "Move and scale" step
+ * (`avatar-crop-sheet.tsx`), which the picker hands the full asset to. The
+ * system crop UI would run first and then be immediately contradicted by ours
+ * — two crop screens for one photograph.
  *
  * Returns null when the picker is dismissed. Dismissal is not an error and
  * must not be reported as one.
@@ -55,8 +56,6 @@ const AVATAR_QUALITY = 0.82;
 export async function pickAvatar(): Promise<ImagePicker.ImagePickerAsset | null> {
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
-    allowsEditing: true,
-    aspect: [1, 1],
     quality: 1, // Compression happens once, below, after the resize.
   });
 
@@ -72,14 +71,14 @@ export async function pickAvatar(): Promise<ImagePicker.ImagePickerAsset | null>
  * visibly soft on a face. Same shape of function, different numbers.
  *
  * The ASPECT RATIO IS PRESERVED even though the result is meant to be square.
- * The picker's crop step already produced a square, so this is normally a
- * no-op; forcing a 512×512 resize instead would silently stretch anything
- * that arrived otherwise (an `allowsEditing` the user somehow bypassed, a
- * future call site that does not crop). A non-square avatar is centre-cropped
- * by `contentFit="cover"` in `Avatar`, which is a crop, not a distortion.
+ * The crop sheet already produced a square at or under `AVATAR_EDGE`, so this
+ * is normally a no-op; forcing an exact square resize instead would silently
+ * stretch anything that arrived otherwise (a future call site that does not
+ * crop). A non-square avatar is centre-cropped by `contentFit="cover"` in
+ * `Avatar`, which is a crop, not a distortion.
  *
  * Never upscales: a 200px photograph stays 200px rather than being
- * interpolated up to a soft 512.
+ * interpolated up to a soft 1024.
  */
 export async function prepareAvatar(uri: string, width: number, height: number): Promise<string> {
   const context =

@@ -1,6 +1,6 @@
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -13,8 +13,9 @@ import {
 } from '@/components/ui';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
+import { AvatarCropSheet, type CropAsset } from './avatar-crop-sheet';
 import { pickAvatar } from './avatar';
-import { HANDLE_MAX, handleProblem, normaliseHandle } from './handle';
+import { HANDLE_MAX, HANDLE_MIN, handleProblem, normaliseHandle } from './handle';
 import { BIO_MAX, NAME_MAX, saveProfileDenialCopy, useSaveProfile } from './mutations';
 import { useHandleAvailability, useMyProfile } from './queries';
 
@@ -28,13 +29,36 @@ import { useHandleAvailability, useMyProfile } from './queries';
  * week. A page-sheet modal is the same presentation the router would give it,
  * owned by the feature instead of the navigator.
  *
- * The Plate grammar throughout: hard-left on the gutter, caps kickers over
- * every field, the serif reserved for the page's one title, and the single
- * accent spend on Save.
+ * The atlas grammar (E-01/E-02): Cancel · serif title · Save across the top,
+ * the photograph centred over its oxblood "Change photo", caps kickers over
+ * white 46px fields, and the single accent spend on Save. The header Save is
+ * the only save — no bottom button.
  */
 
-/** The photograph, at the size the closet draws it. */
-const AVATAR_SIZE = 76;
+/** The photograph, at the size the sheet's centred disc draws it. */
+const AVATAR_SIZE = 88;
+
+/** Field height, per the atlas. */
+const FIELD_HEIGHT = 46;
+
+/**
+ * A handful of alternatives when the handle she wants is held.
+ *
+ * Derived locally — a compressed display name, the `_wears` suffix, a short
+ * number — and NOT availability-checked here: tapping one fills the field,
+ * and the real check answers as it does for anything typed. The number is a
+ * deterministic function of the base so the rail does not reshuffle on every
+ * keystroke.
+ */
+function suggestHandles(taken: string, displayName: string): string[] {
+  const base = normaliseHandle(taken);
+  const fromName = displayName.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const digits = String(((base.charCodeAt(0) || 0) + base.length) % 90 + 10);
+  const candidates = [fromName, `${base}_wears`, `${base}${digits}`];
+  return [...new Set(candidates)]
+    .filter((c) => c !== base && handleProblem(c) === null && c.length > 0)
+    .slice(0, 3);
+}
 
 export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const theme = useTheme();
@@ -49,6 +73,9 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
   const [pickedAvatar, setPickedAvatar] = useState<
     { uri: string; width: number; height: number } | null | undefined
   >(undefined);
+  /** The picker's asset while the crop sheet is up; null keeps it closed. */
+  const [cropAsset, setCropAsset] = useState<CropAsset | null>(null);
+  const [focused, setFocused] = useState<'name' | 'handle' | 'bio' | null>(null);
 
   // Seed once, from the first successful read. Re-seeding on every data change
   // would wipe what the user has typed the moment a background refetch lands.
@@ -87,30 +114,47 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
   /**
    * The line under the handle field. One line, four things it can say, in
    * order of how much the user needs to hear it: what is malformed, what is
-   * taken, what is free, and — when there is nothing to report — what the
-   * field is for.
+   * taken, that the check is in flight, and — when there is nothing to
+   * report — what the field is for.
    *
    * The last one is the important one. Eleven screens READ `username` and
    * until now nothing could write it, so friend search has been searching a
    * column nobody could fill. This sentence is what tells a user why claiming
-   * one matters.
+   * one matters. (A free handle says so INSIDE the field — the check mark —
+   * so the helper keeps explaining rather than repeating it.)
    */
-  const handleHint: { text: string; tone: 'error' | 'good' | 'quiet' } = handleError
-    ? { text: handleError, tone: 'error' }
+  const normal = normaliseHandle(handle);
+  // If the length is fine, the problem handleProblem found is the characters.
+  const formatProblem =
+    handleError !== null && normal.length >= HANDLE_MIN && normal.length <= HANDLE_MAX;
+  const handleHint: { text: string; tone: 'error' | 'quiet' } = handleError
+    ? {
+        text: formatProblem
+          ? 'Spaces and punctuation will not work here. Letters, numbers and underscores only.'
+          : handleError,
+        tone: 'error',
+      }
     : availability === 'taken'
-      ? { text: `@${normaliseHandle(handle)} is taken. Try another.`, tone: 'error' }
+      ? { text: 'Someone has this one. Try adding a word or a number.', tone: 'error' }
       : availability === 'checking'
-        ? { text: 'Checking…', tone: 'quiet' }
-        : availability === 'free'
-          ? { text: `@${normaliseHandle(handle)} is yours.`, tone: 'good' }
-          : { text: 'How friends find you. Letters, numbers and underscores.', tone: 'quiet' };
+        ? { text: 'Hold on a second.', tone: 'quiet' }
+        : {
+            text: 'Letters, numbers and underscores. This is how friends find your closet.',
+            tone: 'quiet',
+          };
+
+  const suggestions = useMemo(
+    () => (availability === 'taken' ? suggestHandles(handle, name) : []),
+    [availability, handle, name],
+  );
 
   const choosePhoto = async () => {
     try {
       const asset = await pickAvatar();
       // A dismissed picker is not a failure and must not be reported as one.
       if (!asset) return;
-      setPickedAvatar({ uri: asset.uri, width: asset.width, height: asset.height });
+      // Into the "Move and scale" step — nothing is committed until Use photo.
+      setCropAsset({ uri: asset.uri, width: asset.width, height: asset.height });
     } catch {
       Alert.alert('Could not open your photos', 'Try again in a moment.');
     }
@@ -156,9 +200,24 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
     ]);
   };
 
-  // Fields share one shape — the same 12px radius as buttons and chips.
-  const inputClassName =
-    'rounded-md border border-hairline px-3.5 py-2.5 font-body text-body text-ink dark:border-hairline-dark dark:text-ink-dark';
+  /**
+   * The one border, in its three states: a 1px rule at rest, 1.5px ink while
+   * focused, 1.5px oxblood when the field holds something that cannot save.
+   * Inline because the width changes with the state — a class pair would
+   * leave a seam where NativeWind resolves precedence, not the state.
+   */
+  const frame = (state: 'rest' | 'focus' | 'error') =>
+    state === 'error'
+      ? { borderWidth: 1.5, borderColor: theme.accent }
+      : state === 'focus'
+        ? { borderWidth: 1.5, borderColor: theme.ink }
+        : { borderWidth: 1, borderColor: theme.rule };
+
+  const handleState =
+    handleError || availability === 'taken' ? 'error' : focused === 'handle' ? 'focus' : 'rest';
+
+  // Fields share one shape — white ground, the same 12px radius as buttons.
+  const fieldClassName = 'rounded-md bg-surface dark:bg-surface-dark';
 
   return (
     <Modal
@@ -167,45 +226,59 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
       presentationStyle="pageSheet"
       onRequestClose={close}>
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
-        {/* Cancel · title · Save. Save is a text button rather than a bar
-            button so the accent lands on it and nowhere else on the sheet. */}
-        <View className="flex-row items-center justify-between px-gutter pt-2">
-          {/* Inert while the save is in flight: leaving mid-upload would tear
-              down the screen that is supposed to report how it went. */}
-          <Pressable
-            onPress={close}
-            disabled={save.isPending}
-            accessibilityRole="button"
-            accessibilityLabel="Cancel"
-            accessibilityState={{ disabled: save.isPending }}
-            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-            className={`active:opacity-60 ${save.isPending ? 'opacity-30' : ''}`}>
-            <Text variant="label" className="text-muted dark:text-muted-dark">
-              Cancel
-            </Text>
-          </Pressable>
-          <Text variant="colophon">Edit profile</Text>
-          <Pressable
-            onPress={submit}
-            disabled={!canSave}
-            accessibilityRole="button"
-            accessibilityLabel="Save profile"
-            accessibilityState={{ disabled: !canSave, busy: save.isPending }}
-            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-            className={`active:opacity-60 ${canSave ? '' : 'opacity-30'}`}>
-            <Text variant="label" style={{ color: theme.accent }}>
-              {save.isPending ? 'Saving…' : 'Save'}
-            </Text>
-          </Pressable>
+        {/* Cancel · serif title · Save. Save is a text button rather than a
+            bar button so the accent lands on it and nowhere else; inert it
+            reads in the byline grey, not a dimmed oxblood. */}
+        <View className="flex-row items-center px-gutter pb-2 pt-2">
+          <View className="flex-1 items-start">
+            {/* Inert while the save is in flight: leaving mid-upload would
+                tear down the screen that is supposed to report how it went. */}
+            <Pressable
+              onPress={close}
+              disabled={save.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              accessibilityState={{ disabled: save.isPending }}
+              style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+              className={`active:opacity-60 ${save.isPending ? 'opacity-30' : ''}`}>
+              <Text
+                variant="label"
+                style={{ fontSize: 15, lineHeight: 20 }}
+                className="text-muted dark:text-muted-dark">
+                Cancel
+              </Text>
+            </Pressable>
+          </View>
+          <Text variant="plate" style={{ fontSize: 20, lineHeight: 26 }} accessibilityRole="header">
+            Edit profile
+          </Text>
+          <View className="flex-1 items-end">
+            <Pressable
+              onPress={submit}
+              disabled={!canSave}
+              accessibilityRole="button"
+              accessibilityLabel="Save profile"
+              accessibilityState={{ disabled: !canSave, busy: save.isPending }}
+              style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+              className="active:opacity-60">
+              <Text
+                variant="label"
+                style={{ fontSize: 15, lineHeight: 20, color: canSave || save.isPending ? theme.accent : theme.byline }}>
+                {save.isPending ? 'Saving…' : 'Save'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         {profile.isLoading ? (
-          <View accessibilityLabel="Loading your profile" className="px-gutter pt-8">
-            <Skeleton className="h-[76px] w-[76px] rounded-full" />
-            <Skeleton className="mt-8 h-3 w-20 rounded-chip" />
-            <Skeleton className="mt-3 h-11 w-full rounded-md" />
-            <Skeleton className="mt-7 h-3 w-20 rounded-chip" />
-            <Skeleton className="mt-3 h-11 w-full rounded-md" />
+          <View accessibilityLabel="Loading your profile" className="px-gutter pt-4">
+            <View className="items-center">
+              <Skeleton className="h-[88px] w-[88px] rounded-full" />
+            </View>
+            <Skeleton className="mt-8 h-3 w-24 rounded-chip" />
+            <Skeleton className="mt-2 h-[46px] w-full rounded-md" />
+            <Skeleton className="mt-6 h-3 w-24 rounded-chip" />
+            <Skeleton className="mt-2 h-[46px] w-full rounded-md" />
           </View>
         ) : profile.isError ? (
           // A failed read is not an empty profile. Seeding the form from
@@ -232,15 +305,10 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
           <KeyboardAwareScrollView
             contentContainerClassName="px-gutter pb-16"
             showsVerticalScrollIndicator={false}>
-            <View className="mt-4">
-              <Text variant="title" trim accessibilityRole="header">
-                Your profile
-              </Text>
-            </View>
-
-            {/* The photograph. Hard-left beside its own two actions, not a
-                centred hero — this is a field like the others, at the top. */}
-            <View className="mt-7 flex-row items-center gap-5">
+            {/* The photograph, centred over its one oxblood text action. The
+                Remove affordance stays quiet — a caption that exists only
+                when there is a photo to remove. */}
+            <View className="items-center pb-5 pt-1.5">
               <Pressable
                 onPress={() => void choosePhoto()}
                 accessibilityRole="button"
@@ -253,69 +321,52 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
                   imageUri={shownAvatar}
                   fallback="?"
                 />
-                {/* The affordance, said in a glyph rather than a caption —
-                    a disc with no visible way in reads as decoration. */}
-                <View
-                  className="absolute bottom-0 right-0 h-7 w-7 items-center justify-center rounded-full border border-surface bg-ink dark:border-surface-dark dark:bg-ink-dark">
-                  <SymbolView
-                    name="camera"
-                    size={12}
-                    tintColor={theme.canvas}
-                    resizeMode="scaleAspectFit"
-                  />
-                </View>
               </Pressable>
-              <View className="flex-1">
+              <Pressable
+                onPress={() => void choosePhoto()}
+                accessibilityRole="button"
+                style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+                className="active:opacity-60">
+                <Text variant="label" style={{ color: theme.accent }}>
+                  {shownAvatar ? 'Change photo' : 'Add a photo'}
+                </Text>
+              </Pressable>
+              {shownAvatar ? (
                 <Pressable
-                  onPress={() => void choosePhoto()}
+                  onPress={confirmRemovePhoto}
                   accessibilityRole="button"
-                  style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+                  hitSlop={8}
                   className="active:opacity-60">
-                  <Text variant="body" className="text-ink dark:text-ink-dark">
-                    {shownAvatar ? 'Change photo' : 'Add a photo'}
+                  <Text variant="caption" className="text-muted dark:text-muted-dark">
+                    Remove
                   </Text>
                 </Pressable>
-                {shownAvatar ? (
-                  <Pressable
-                    onPress={confirmRemovePhoto}
-                    accessibilityRole="button"
-                    hitSlop={8}
-                    className="active:opacity-60">
-                    <Text variant="caption" className="text-muted dark:text-muted-dark">
-                      Remove
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <Text variant="caption" className="text-faint dark:text-faint-dark">
-                    Your initials stand in until you do.
-                  </Text>
-                )}
-              </View>
+              ) : null}
             </View>
 
-            <SectionHeader title="Name" className="mb-3 mt-8" />
+            <SectionHeader title="Display name" className="mb-2" />
             <TextInput
               value={name}
               onChangeText={setName}
+              onFocus={() => setFocused('name')}
+              onBlur={() => setFocused(null)}
               placeholder="What friends call you"
               placeholderTextColor={theme.faint}
               maxLength={NAME_MAX}
               autoCapitalize="words"
               autoCorrect={false}
               accessibilityLabel="Display name"
-              className={inputClassName}
+              className={`${fieldClassName} px-3.5 font-body text-callout text-ink dark:text-ink-dark`}
+              style={[{ minHeight: FIELD_HEIGHT }, frame(focused === 'name' ? 'focus' : 'rest')]}
             />
 
-            <SectionHeader title="Handle" className="mb-3 mt-7" />
+            <SectionHeader title="Handle" className="mb-2 mt-5" />
             <View
-              className={`flex-row items-center rounded-md border px-3.5 ${
-                handleHint.tone === 'error'
-                  ? 'border-critical'
-                  : 'border-hairline dark:border-hairline-dark'
-              }`}>
+              className={`${fieldClassName} flex-row items-center px-3.5`}
+              style={[{ minHeight: FIELD_HEIGHT }, frame(handleState)]}>
               {/* The `@` belongs to the field, not to the value — storing it
                   would break the format constraint on the column. */}
-              <Text variant="body" className="text-faint dark:text-faint-dark">
+              <Text variant="callout" className="text-faint dark:text-faint-dark">
                 @
               </Text>
               <TextInput
@@ -325,6 +376,8 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
                 // she is not going to keep is a small lie the field can
                 // simply not tell.
                 onChangeText={(next) => setHandle(normaliseHandle(next))}
+                onFocus={() => setFocused('handle')}
+                onBlur={() => setFocused(null)}
                 placeholder="handle"
                 placeholderTextColor={theme.faint}
                 maxLength={HANDLE_MAX}
@@ -333,77 +386,150 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
                 accessibilityLabel="Handle"
                 style={{
                   flex: 1,
-                  paddingVertical: 11,
+                  minHeight: FIELD_HEIGHT - 3, // inside the widest border
                   paddingLeft: 2,
                   fontFamily: 'HelveticaNeue',
-                  fontSize: 17,
+                  fontSize: 16,
                   color: theme.ink,
                 }}
               />
+              {/* The verdict lives IN the field — a check, a spinner, or the
+                  one word "Taken" — with the helper below carrying the fix. */}
+              {availability === 'free' ? (
+                <View className="flex-row items-center gap-1.5" accessibilityLiveRegion="polite">
+                  <SymbolView
+                    name="checkmark"
+                    size={12}
+                    tintColor={theme.ink}
+                    resizeMode="scaleAspectFit"
+                  />
+                  <Text variant="label" className="text-ink dark:text-ink-dark">
+                    Available
+                  </Text>
+                </View>
+              ) : availability === 'checking' ? (
+                <View className="flex-row items-center gap-1.5" accessibilityLiveRegion="polite">
+                  <ActivityIndicator size="small" color={theme.faint} />
+                  <Text variant="label" className="text-faint dark:text-faint-dark">
+                    Checking
+                  </Text>
+                </View>
+              ) : availability === 'taken' ? (
+                <Text variant="label" accessibilityLiveRegion="polite" style={{ color: theme.accent }}>
+                  Taken
+                </Text>
+              ) : null}
             </View>
             <Text
               variant="caption"
               accessibilityLiveRegion={handleHint.tone === 'quiet' ? 'none' : 'polite'}
-              className={`mt-2 ${
-                handleHint.tone === 'error'
-                  ? 'text-critical'
-                  : handleHint.tone === 'good'
-                    ? 'text-muted dark:text-muted-dark'
-                    : 'text-faint dark:text-faint-dark'
-              }`}>
+              className={handleHint.tone === 'error' ? 'mt-2' : 'mt-2 text-muted dark:text-muted-dark'}
+              style={handleHint.tone === 'error' ? { color: theme.accent } : undefined}>
               {handleHint.text}
             </Text>
+            {suggestions.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="mt-2.5"
+                contentContainerStyle={{ gap: 7 }}>
+                {/* Alternatives that fill the field on tap. `rounded-chip`
+                    rather than the atlas's 15px capsule: labelled controls in
+                    this app are 12px rectangles by rule (tailwind.config.js on
+                    `full`), and one radius grammar beats a 3px match. */}
+                {suggestions.map((s) => (
+                  <Pressable
+                    key={s}
+                    onPress={() => setHandle(s)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Use handle ${s}`}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    style={{ height: 30, justifyContent: 'center' }}
+                    className="rounded-chip border border-rule px-3 active:opacity-60 dark:border-rule-dark">
+                    <Text variant="label" style={{ color: theme.ink }}>
+                      @{s}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
 
             <SectionHeader
               title="Bio"
-              className="mb-3 mt-7"
-              // The count only appears once it is worth watching — a counter
-              // standing at 0/280 over an empty field is pressure, not help.
+              className="mb-2 mt-5"
               trailing={
-                bio.length > BIO_MAX - 60 ? (
-                  <Text
-                    variant="colophon"
-                    className={bioOver ? 'text-critical' : 'text-faint dark:text-faint-dark'}>
-                    {bio.length}/{BIO_MAX}
-                  </Text>
-                ) : null
+                <Text
+                  variant="caption"
+                  style={{ color: bioOver ? theme.accent : theme.faint }}>
+                  {bio.length} / {BIO_MAX}
+                </Text>
               }
             />
+            {/* No maxLength: typing past the limit is allowed, the counter and
+                border say so, and Save stays inert. The atlas highlights the
+                overflow substring inside the field; RN's nested-Text children
+                fight a controlled TextInput's selection on iOS, so this ships
+                the sanctioned fallback — counter, border, helper — rather
+                than a glitchy overlay. */}
             <TextInput
               value={bio}
               onChangeText={setBio}
+              onFocus={() => setFocused('bio')}
+              onBlur={() => setFocused(null)}
               placeholder="A line about how you dress."
               placeholderTextColor={theme.faint}
               multiline
-              maxLength={BIO_MAX}
               accessibilityLabel="Bio"
-              className={`${inputClassName} h-24`}
-              style={{ textAlignVertical: 'top' }}
+              className={`${fieldClassName} px-3.5 py-3 font-body text-callout text-ink dark:text-ink-dark`}
+              style={[
+                { minHeight: 104, textAlignVertical: 'top' },
+                frame(bioOver ? 'error' : focused === 'bio' ? 'focus' : 'rest'),
+              ]}
             />
-            <Text variant="caption" className="mt-2 text-faint dark:text-faint-dark">
-              Sits under your name on your closet. Leave it empty and nothing shows.
-            </Text>
+            {bioOver ? (
+              <Text
+                variant="caption"
+                accessibilityLiveRegion="polite"
+                className="mt-2"
+                style={{ color: theme.accent }}>
+                {bio.length - BIO_MAX === 1
+                  ? '1 character past the limit.'
+                  : `${bio.length - BIO_MAX} characters past the limit.`}
+              </Text>
+            ) : (
+              <Text variant="caption" className="mt-2 text-muted dark:text-muted-dark">
+                Sits under your name on your closet. Leave it empty and nothing shows.
+              </Text>
+            )}
 
             {save.isError ? (
               <Text
                 variant="label"
                 accessibilityLiveRegion="polite"
-                className="mt-7 text-critical dark:text-critical">
+                className="mt-6"
+                style={{ color: theme.accent }}>
                 {saveProfileDenialCopy(save.error) ??
                   'That didn’t save. Nothing has changed — check your connection and try again.'}
               </Text>
             ) : null}
 
-            <Button
-              title={save.isError ? 'Try again' : 'Save changes'}
-              haptic
-              loading={save.isPending}
-              disabled={!canSave}
-              onPress={submit}
-              className="mt-8"
-            />
+            <Text variant="caption" className="mt-7 text-muted dark:text-muted-dark">
+              Your handle and bio are visible to anyone you share a closet link with. Everything
+              else stays private.
+            </Text>
           </KeyboardAwareScrollView>
         )}
+
+        {/* Picker → Move and scale → pickedAvatar. Back leaves everything
+            exactly as it was. */}
+        <AvatarCropSheet
+          asset={cropAsset}
+          onCancel={() => setCropAsset(null)}
+          onUse={(cropped) => {
+            setPickedAvatar(cropped);
+            setCropAsset(null);
+          }}
+        />
       </SafeAreaView>
     </Modal>
   );
