@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { socialDenialCopy, useCreateEvent } from '@/features/events/mutations';
 import type { EventVisibility } from '@/features/events/types';
@@ -177,9 +178,7 @@ export default function NewEventScreen() {
           </Text>
         </View>
 
-        <Text variant="eyebrow" className="mb-3 mt-7">
-          What
-        </Text>
+        <SectionHeader title="What" className="mb-3 mt-7" />
         <TextInput
           value={title}
           onChangeText={setTitle}
@@ -200,9 +199,7 @@ export default function NewEventScreen() {
           ))}
         </View>
 
-        <Text variant="eyebrow" className="mb-3 mt-7">
-          When
-        </Text>
+        <SectionHeader title="When" className="mb-3 mt-7" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
           {days.map((d, i) => (
             <Chip
@@ -254,9 +251,7 @@ export default function NewEventScreen() {
           </View>
         ) : null}
 
-        <Text variant="eyebrow" className="mb-3 mt-7">
-          Where
-        </Text>
+        <SectionHeader title="Where" className="mb-3 mt-7" />
         {/* Manual by design. When device-local venue search ships it slots in
             here as a typeahead over these same two fields — the seam and its
             reasoning live in features/events/venue-search.ts. */}
@@ -297,9 +292,7 @@ export default function NewEventScreen() {
           </Text>
         ) : null}
 
-        <Text variant="eyebrow" className="mb-3 mt-7">
-          Who
-        </Text>
+        <SectionHeader title="Who" className="mb-3 mt-7" />
         <View className="flex-row items-center gap-4">
           <StepButton
             symbol="minus"
@@ -334,9 +327,7 @@ export default function NewEventScreen() {
           it, your friends — ever know this occasion exists.
         </Text>
 
-        <Text variant="eyebrow" className="mb-3 mt-7">
-          Dress
-        </Text>
+        <SectionHeader title="Dress" className="mb-3 mt-7" />
         <TextInput
           value={dressCode}
           onChangeText={setDressCode}

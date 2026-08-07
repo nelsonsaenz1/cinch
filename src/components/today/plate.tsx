@@ -31,6 +31,7 @@ import {
   type StackedPiece,
 } from '@/components/today/garment-cell';
 import { ReactionBar, type ReactionValue } from '@/components/today/reaction-bar';
+import { Swatch } from '@/components/ui/swatch';
 import { Text } from '@/components/ui/text';
 import { formatTemp } from '@/features/context/weather';
 import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
@@ -592,17 +593,7 @@ export function Plate({
                 <Text variant="eyebrow">Palette</Text>
                 <View className="flex-row items-center gap-1.5">
                   {dots.map((hex, i) => (
-                    <View
-                      key={`${hex}-${i}`}
-                      style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: 7,
-                        backgroundColor: hex,
-                        borderWidth: 1,
-                        borderColor: theme.rule,
-                      }}
-                    />
+                    <Swatch key={`${hex}-${i}`} hex={hex} size={14} />
                   ))}
                 </View>
               </View>

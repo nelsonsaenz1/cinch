@@ -9,7 +9,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  TextInput,
   View,
 } from 'react-native';
 import Animated, { FadeInUp, FadeOut, FadeOutUp } from 'react-native-reanimated';
@@ -19,7 +18,17 @@ import { ClosetGrid } from '@/components/closet/closet-grid';
 import { GhostSlotGrid } from '@/components/closet/ghost-slot-grid';
 import { PlateThumb } from '@/components/closet/plate-thumb';
 import { SelectionBar } from '@/components/closet/selection-bar';
-import { Avatar, Chip, ClosetGridSkeleton, EmptyState, ErrorState, Text } from '@/components/ui';
+import {
+  Avatar,
+  Chip,
+  ClosetGridSkeleton,
+  EmptyState,
+  ErrorState,
+  ProgressTrack,
+  SearchField,
+  SectionHeader,
+  Text,
+} from '@/components/ui';
 import { useRemoveItems } from '@/features/closet/mutations';
 import {
   closetStats,
@@ -433,35 +442,13 @@ export default function ClosetScreen() {
         // focus, on every keystroke.
         <>
           {header}
-          <View className="mx-gutter mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5">
-            <SymbolView
-              name="magnifyingglass"
-              size={15}
-              tintColor={theme.faint}
-              resizeMode="scaleAspectFit"
-            />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              autoFocus
-              placeholder="Search your wardrobe"
-              placeholderTextColor={theme.faint}
-              returnKeyType="search"
-              clearButtonMode="while-editing"
-              accessibilityLabel="Search your wardrobe"
-              style={{
-                flex: 1,
-                paddingVertical: 11,
-                fontFamily: 'HelveticaNeue',
-                // 17 = the `body` size on the type scale (tailwind.config.js)
-                // — the same value the friends-search field uses for the
-                // identical row (src/app/friends/index.tsx). 15 sat off the
-                // scale entirely.
-                fontSize: 17,
-                color: theme.ink,
-              }}
-            />
-          </View>
+          <SearchField
+            value={query}
+            onChangeText={setQuery}
+            autoFocus
+            placeholder="Search your wardrobe"
+            className="mx-gutter mt-3"
+          />
 
           {/* The field guide's browsing row. Narrows the same full-wardrobe
               grid the identity view shows below it — see CategoryChipsRow. */}
@@ -658,7 +645,7 @@ export default function ClosetScreen() {
                       </View>
 
                       <View className="mt-6 px-gutter">
-                        <Text variant="eyebrow">Most worn</Text>
+                        <SectionHeader title="Most worn" />
                         <View className="mt-1.5">
                           {mostWorn.map((item) => (
                             <MostWornRow
@@ -852,12 +839,7 @@ function MostWornRow({
         <Text variant="label" numberOfLines={1} className="text-ink">
           {pieceName(item)}
         </Text>
-        <View className="mt-2 h-[5px] overflow-hidden rounded-full bg-sand">
-          <View
-            className="h-full rounded-full bg-accent-warm"
-            style={{ width: `${fraction * 100}%` }}
-          />
-        </View>
+        <ProgressTrack value={fraction} tone="accentWarm" className="mt-2" />
       </View>
       {/* Same serif-at-label-size idiom as the item card's cost-per-wear.
           `statSmall` names that 13px size once, rather than `variant="stat"`
@@ -892,7 +874,7 @@ function LatestPiecesRail({
   return (
     <View className="mt-6">
       <View className="px-gutter">
-        <Text variant="eyebrow">Latest pieces</Text>
+        <SectionHeader title="Latest pieces" />
       </View>
       <ScrollView
         horizontal

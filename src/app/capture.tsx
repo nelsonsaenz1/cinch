@@ -10,6 +10,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ProgressTrack } from '@/components/ui/progress-track';
 import { Text } from '@/components/ui/text';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { GarmentSearchSheet } from '@/components/ingest/garment-search-sheet';
@@ -599,12 +600,7 @@ export default function CaptureScreen() {
             {allDone ? (
               <View className="mt-3" />
             ) : (
-              <View className="my-3 h-1.5 overflow-hidden rounded-full bg-sand">
-                <View
-                  className="h-full rounded-full bg-accent"
-                  style={{ width: `${Math.round(fraction * 100)}%` }}
-                />
-              </View>
+              <ProgressTrack value={fraction} height={6} className="my-3" />
             )}
 
             <UploadQueueList jobs={jobs} />

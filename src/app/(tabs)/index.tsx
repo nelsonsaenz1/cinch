@@ -10,8 +10,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plate } from '@/components/today/plate';
 import type { ReactionValue } from '@/components/today/reaction-bar';
 import { WeatherStrip } from '@/components/today/weather-strip';
+import { Card } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/empty-state';
+import { Notice } from '@/components/ui/notice';
 import { Rule } from '@/components/ui/rule';
+import { SectionHeader } from '@/components/ui/section-header';
 import { PlateSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -328,7 +331,7 @@ function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () => void
   ];
 
   return (
-    <View className="mx-gutter rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
+    <Card padding="xl" className="mx-gutter">
       <Text variant="title">Nothing today feels right — and I won&apos;t pretend it does.</Text>
       <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
         {reason}
@@ -336,9 +339,7 @@ function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () => void
       <View className="my-4">
         <Rule />
       </View>
-      <Text variant="eyebrow" className="mb-3">
-        What might help
-      </Text>
+      <SectionHeader title="What might help" className="mb-3" />
       <View className="gap-3">
         {rows.map((r) => (
           <Pressable
@@ -354,7 +355,7 @@ function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () => void
           </Pressable>
         ))}
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -854,9 +855,10 @@ export default function TodayScreen() {
               re-rank that later comes back clean retires the line without
               anyone having to remember to clear it. */}
           {refreshFailed && outfits.aiError ? (
-            <Text variant="caption" className="mt-2 px-gutter" accessibilityLiveRegion="polite">
-              Couldn&rsquo;t refresh just now — these are still today&rsquo;s.
-            </Text>
+            <Notice
+              message="Couldn’t refresh just now — these are still today’s."
+              className="mt-2 px-gutter"
+            />
           ) : null}
 
           <View className="mt-4">

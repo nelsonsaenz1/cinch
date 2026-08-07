@@ -16,7 +16,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ProgressTrack } from '@/components/ui/progress-track';
 import { Rule } from '@/components/ui/rule';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { signOut } from '@/features/auth/actions';
@@ -384,9 +387,9 @@ export default function ProfileScreen() {
               anywhere in the app able to write them. Directly under the
               masthead it edits, above everything about the engine: this is the
               one row on the screen that changes what other people see. */}
-          <View className="mb-7 overflow-hidden rounded-plate border border-rule bg-surface">
+          <Card className="mb-7">
             <AccountRow label="Edit profile" onPress={() => setEditing(true)} />
-          </View>
+          </Card>
 
           {/* What the engine has learned, in the user's own terms. Showing this
               is what makes the personalisation feel like a relationship rather
@@ -397,8 +400,8 @@ export default function ProfileScreen() {
               fell through to feedbackCount = 0 and told a user with months of
               reactions "Nothing yet" — an error asserting something false
               about their taste. */}
-          <View className="rounded-plate border border-rule bg-surface p-4">
-            <Text variant="eyebrow">What Cinch has learned</Text>
+          <Card padding="lg">
+            <SectionHeader title="What Cinch has learned" />
             {style.isLoading ? (
               <View accessibilityLabel="Loading your style profile">
                 <View className="mt-3 gap-2">
@@ -427,18 +430,9 @@ export default function ProfileScreen() {
                 </Text>
                 {/* The bar stays `accent`: this is a task in flight (a
                     threshold being reached), not a ratio of data, which is
-                    what the Closet's `accentWarm` wear bars are. The shared
-                    `ProgressTrack` that would encode that distinction is a
-                    cross-territory consolidation and is deferred; the colour
-                    reasoning is recorded here so the eventual `tone` prop
-                    lands on the right value. */}
+                    what the Closet's `accentWarm` wear bars are. */}
                 <View className="mt-3.5 flex-row items-center gap-2.5">
-                  <View className="h-[5px] flex-1 overflow-hidden rounded-full bg-sand">
-                    <View
-                      className="h-full rounded-full bg-accent"
-                      style={{ width: `${learnedProgress}%` }}
-                    />
-                  </View>
+                  <ProgressTrack value={learnedProgress / 100} className="flex-1" />
                   {/* Serif, per the zip — the one caption on this screen set in
                       Instrument Serif rather than Helvetica. Same gotcha as the
                       avatar initials above: a className font override is not
@@ -453,12 +447,10 @@ export default function ProfileScreen() {
                 </View>
               </>
             )}
-          </View>
+          </Card>
 
-          <Text variant="eyebrow" className="mb-2.5 mt-7">
-            AI styling
-          </Text>
-          <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+          <SectionHeader title="AI styling" className="mb-2.5 mt-7" />
+          <Card>
             {/* Decorative, not a preference: the beam search over the closet
                 (src/lib/styling) has no off switch — it needs neither the
                 network nor the AI provider, so there is nothing to grant or
@@ -526,12 +518,10 @@ export default function ProfileScreen() {
                 <ActivityIndicator size="small" color={theme.faint} />
               )}
             </View>
-          </View>
+          </Card>
 
-          <Text variant="eyebrow" className="mb-2.5 mt-7">
-            Friends &amp; borrowing
-          </Text>
-          <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+          <SectionHeader title="Friends &amp; borrowing" className="mb-2.5 mt-7" />
+          <Card>
             <AccountRow label="Friends" onPress={() => router.push('/friends')} />
             <Rule tone="hairline" />
             <AccountRow
@@ -544,12 +534,10 @@ export default function ProfileScreen() {
               label="Blocked users"
               onPress={() => router.push({ pathname: '/friends', params: { blocked: '1' } })}
             />
-          </View>
+          </Card>
 
-          <Text variant="eyebrow" className="mb-2.5 mt-7">
-            Account
-          </Text>
-          <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+          <SectionHeader title="Account" className="mb-2.5 mt-7" />
+          <Card>
             <AccountRow
               label="Privacy"
               external
@@ -570,7 +558,7 @@ export default function ProfileScreen() {
               onPress={confirmDelete}
               loading={deleteAccount.isPending}
             />
-          </View>
+          </Card>
           {/* Hard-left on the gutter like every other line on the page. The
               Plate grammar has no centred body copy, and the last line of the
               screen was the only place breaking the screen's own alignment. */}

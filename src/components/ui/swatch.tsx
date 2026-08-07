@@ -1,0 +1,59 @@
+import { Image, type ImageSource } from 'expo-image';
+import { View } from 'react-native';
+
+import { useTheme } from '@/theme/tokens';
+
+export type SwatchProps = {
+  /** The garment's colour, as a hex fill. */
+  hex?: string;
+  /**
+   * A photo to fall back to when there is no tagged colour — the day-row's
+   * only variant. Pre-resolved by the caller (`stableImageSource`), so this
+   * file stays free of the closet feature's cache-key concerns.
+   */
+  imageSource?: ImageSource;
+  /** The four sizes the app actually draws: the plate dot, the day-row cell, the review circle, the item-detail circle. */
+  size: 14 | 16 | 18 | 24;
+  /** `circle` (default) rings a colour in the palette rule; `square` is the day-row's clipped photo cell, no ring. */
+  shape?: 'circle' | 'square';
+};
+
+/**
+ * One component for the app's four colour-swatch dialects — 14/16/18/24pt,
+ * circles and a square, each previously hand-typed at its own call site.
+ */
+export function Swatch({ hex, imageSource, size, shape = 'circle' }: SwatchProps) {
+  const theme = useTheme();
+
+  if (shape === 'square') {
+    return (
+      <View
+        className="overflow-hidden rounded-sm bg-tray dark:bg-tray-dark"
+        style={{ width: size, height: size }}>
+        {hex ? (
+          <View style={{ flex: 1, backgroundColor: hex }} />
+        ) : imageSource ? (
+          <Image
+            source={imageSource}
+            contentFit="cover"
+            style={{ width: '100%', height: '100%' }}
+            accessibilityIgnoresInvertColors
+          />
+        ) : null}
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: hex,
+        borderWidth: 1,
+        borderColor: theme.rule,
+      }}
+    />
+  );
+}

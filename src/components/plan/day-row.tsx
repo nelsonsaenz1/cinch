@@ -1,7 +1,7 @@
-import { Image } from 'expo-image';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
+import { Swatch } from '@/components/ui/swatch';
 import { Text } from '@/components/ui/text';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import { formatTemp } from '@/features/context/weather';
@@ -126,20 +126,7 @@ export function DayRow({
             const hex = g.colors[0] ? oklchToHex(g.colors[0].oklch) : undefined;
             const uri = hex ? undefined : resolveImage(g.cutoutPath, g.thumbPath);
             return (
-              <View
-                key={g.id}
-                className="h-4 w-4 overflow-hidden rounded-sm bg-tray dark:bg-tray-dark">
-                {hex ? (
-                  <View style={{ flex: 1, backgroundColor: hex }} />
-                ) : uri ? (
-                  <Image
-                    source={stableImageSource(uri)}
-                    contentFit="cover"
-                    style={{ width: '100%', height: '100%' }}
-                    accessibilityIgnoresInvertColors
-                  />
-                ) : null}
-              </View>
+              <Swatch key={g.id} hex={hex} imageSource={stableImageSource(uri)} size={16} shape="square" />
             );
           })}
         </View>

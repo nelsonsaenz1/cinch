@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { View } from 'react-native';
 
-import { Button, ErrorState, ListSkeleton, Rule, Text } from '@/components/ui';
+import { Button, Card, ErrorState, ListSkeleton, Rule, SectionHeader, Text } from '@/components/ui';
 
 import { PackingTrip } from './packing-trip';
 import type { Trip } from './trip';
@@ -45,8 +45,8 @@ function PackingLocked({
 
   return (
     <View className="px-gutter pt-2">
-      <View className="rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
-        <Text variant="eyebrow">Membership</Text>
+      <Card padding="xl">
+        <SectionHeader title="Membership" />
         <View className="mt-3">
           <Text variant="title" trim>
             Packing is part of Cinch membership.
@@ -95,7 +95,7 @@ function PackingLocked({
             className="mt-6 self-stretch"
           />
         )}
-      </View>
+      </Card>
     </View>
   );
 }

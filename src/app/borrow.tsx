@@ -4,9 +4,11 @@ import { Alert, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BorrowRequestRow } from '@/components/social/BorrowRequestRow';
+import { Card } from '@/components/ui/card';
 import { EmptyState, ErrorState } from '@/components/ui/empty-state';
 import { Rule } from '@/components/ui/rule';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SectionHeader } from '@/components/ui/section-header';
 // Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `ListSkeleton`
 // lands alongside `Skeleton`'s export. Code against the contract.
 import { ListSkeleton } from '@/components/ui/skeleton';
@@ -71,10 +73,8 @@ export default function BorrowScreen() {
 
   const section = (title: string, rows: BorrowThread[], emptyLine: string) => (
     <>
-      <Text variant="eyebrow" className="mb-2.5 mt-6">
-        {title}
-      </Text>
-      <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+      <SectionHeader title={title} className="mb-2.5 mt-6" />
+      <Card>
         {rows.length === 0 ? (
           <Text variant="body" className="px-4 py-3.5 text-faint">
             {emptyLine}
@@ -95,7 +95,7 @@ export default function BorrowScreen() {
             </View>
           ))
         )}
-      </View>
+      </Card>
     </>
   );
 

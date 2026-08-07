@@ -7,6 +7,7 @@ import { RosterRow } from '@/components/events/RosterRow';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { SectionHeader } from '@/components/ui/section-header';
 // Batch-1 seam: the shared states kit.
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -187,9 +188,7 @@ export default function InviteScreen() {
 
         {(members.data ?? []).length > 0 ? (
           <>
-            <Text variant="eyebrow" className="mb-1 mt-8">
-              On the list
-            </Text>
+            <SectionHeader title="On the list" className="mb-1 mt-8" />
             {(members.data ?? []).map((m, i, list) => (
               <RosterRow
                 key={m.userId}

@@ -12,6 +12,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/theme/tokens';
 
@@ -277,7 +278,7 @@ export function PlateSkeleton({ count = 1 }: { count?: number }) {
     <View accessibilityLabel="Styling your day">
       {Array.from({ length: count }).map((_, i) => (
         <View key={i} className="mb-section px-gutter">
-          <View className="rounded-plate border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
+          <Card padding="lg">
             {/* Title + the weather colophon opposite it. */}
             <View className="flex-row items-baseline justify-between gap-3">
               <Skeleton className="h-5 flex-1 rounded-chip" />
@@ -302,7 +303,7 @@ export function PlateSkeleton({ count = 1 }: { count?: number }) {
               <Skeleton className="h-3.5 w-24 rounded-chip" />
               <Skeleton className="h-4 w-14 rounded-chip" />
             </View>
-          </View>
+          </Card>
         </View>
       ))}
     </View>

@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
 import { DayRow } from '@/components/plan/day-row';
-import { EmptyState, ErrorState, ListSkeleton } from '@/components/ui';
+import { EmptyState, ErrorState, ListSkeleton, Notice, SectionHeader } from '@/components/ui';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
@@ -385,9 +385,7 @@ export default function PlanScreen() {
               <>
                 {(invites.data?.length ?? 0) > 0 ? (
                   <View className="px-gutter">
-                    <Text variant="eyebrow" className="mb-3">
-                      Invitations
-                    </Text>
+                    <SectionHeader title="Invitations" className="mb-3" />
                     {invites.data!.map((event) => (
                       <EventCard
                         key={event.id}
@@ -402,9 +400,7 @@ export default function PlanScreen() {
                 {(myEvents.data?.length ?? 0) > 0 ? (
                   <View className="px-gutter">
                     {(invites.data?.length ?? 0) > 0 ? (
-                      <Text variant="eyebrow" className="mb-3 mt-4">
-                        Coming up
-                      </Text>
+                      <SectionHeader title="Coming up" className="mb-3 mt-4" />
                     ) : null}
                     {myEvents.data!.map((event) => (
                       <EventCard
@@ -535,12 +531,11 @@ export default function PlanScreen() {
                         belongs to the one row that triggered it, and nothing
                         else on the screen should interrupt to say so. */}
                     {planError ? (
-                      <Text
-                        variant="caption"
-                        accessibilityLiveRegion="polite"
-                        className="mt-3 px-gutter text-critical dark:text-critical">
-                        That day didn&rsquo;t save. Check your connection and try again.
-                      </Text>
+                      <Notice
+                        message="That day didn’t save. Check your connection and try again."
+                        tone="critical"
+                        className="mt-3 px-gutter"
+                      />
                     ) : null}
                   </>
                 )}

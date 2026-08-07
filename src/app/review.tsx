@@ -5,8 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { track } from '@/lib/posthog';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
+import { Notice } from '@/components/ui/notice';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { ReviewCard } from '@/components/review/review-card';
@@ -387,7 +389,7 @@ export default function ReviewScreen() {
         </View>
         <View accessibilityLabel="Loading your review queue" className="flex-1 px-5 pb-5 pt-1">
           <Skeleton className="h-3 w-28 rounded-chip" />
-          <View className="mt-4 flex-1 rounded-plate bg-surface p-5 dark:bg-surface-dark">
+          <Card padding="xl" border="none" className="mt-4 flex-1">
             <Skeleton className="h-6 w-36 rounded-chip" />
             <Skeleton className="mt-2 h-3 w-52 rounded-chip" />
             <Skeleton className="mb-4 mt-4 h-44 w-full rounded-plate" />
@@ -402,7 +404,7 @@ export default function ReviewScreen() {
                 />
               </View>
             ))}
-          </View>
+          </Card>
         </View>
       </View>
     );
@@ -547,25 +549,21 @@ export default function ReviewScreen() {
         layer in this app and this is not the place to invent one.
       */}
       {undoItem ? (
-        <View
-          accessibilityLiveRegion="polite"
-          className="flex-row items-center justify-between gap-3 px-gutter pb-1 pt-1">
-          {/* The failed case takes the critical colour rather than staying a
-              muted footnote: at that point the line is no longer a receipt for
-              something that worked. */}
-          <Text
-            variant="caption"
-            className={undoError ? 'flex-1 text-critical dark:text-critical' : 'flex-1'}>
-            {undoError ?? 'Confirmed.'}
-          </Text>
-          <Button
-            title="Undo"
-            variant="ghost"
-            loading={unverify.isPending}
-            onPress={() => void undoConfirm(undoItem)}
-            accessibilityHint="Puts the piece you just confirmed back in the deck, with any corrections you made."
-          />
-        </View>
+        // The failed case takes the critical colour rather than staying a
+        // muted footnote: at that point the line is no longer a receipt for
+        // something that worked.
+        <Notice
+          message={undoError ?? 'Confirmed.'}
+          tone={undoError ? 'critical' : 'neutral'}
+          className="px-gutter pb-1 pt-1"
+          action={{
+            label: 'Undo',
+            loading: unverify.isPending,
+            onPress: () => void undoConfirm(undoItem),
+            accessibilityHint:
+              'Puts the piece you just confirmed back in the deck, with any corrections you made.',
+          }}
+        />
       ) : null}
 
       {/*

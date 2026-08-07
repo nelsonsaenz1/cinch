@@ -11,7 +11,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 // Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
 // `ErrorState` the title/body/retry sibling of `EmptyState`.
 import { ErrorState } from '@/components/ui/error-state';
+import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
@@ -386,12 +388,15 @@ export default function EventOutfitBoardScreen() {
             {detail.dressCode ? ` · ${detail.dressCode}` : ''}
           </Text>
 
-          <View className="mt-6 flex-row items-baseline justify-between">
-            <Text variant="eyebrow">Every option</Text>
-            <Text variant="colophon">
-              {looks.length === 1 ? '1 look' : `${looks.length} looks`}
-            </Text>
-          </View>
+          <SectionHeader
+            title="Every option"
+            className="mt-6"
+            trailing={
+              <Text variant="colophon">
+                {looks.length === 1 ? '1 look' : `${looks.length} looks`}
+              </Text>
+            }
+          />
 
           {!locked && !detail.canceledAt ? (
             <Button
@@ -405,11 +410,11 @@ export default function EventOutfitBoardScreen() {
         </View>
 
         {orderedBoards.length === 0 ? (
-          <View className="mx-gutter mt-6 rounded-plate border border-hairline bg-surface p-5">
+          <Card border="hairline" padding="xl" className="mx-gutter mt-6">
             <Text variant="body" className="text-muted">
               Be the first to the mirror — share a look and the table follows.
             </Text>
-          </View>
+          </Card>
         ) : (
           orderedBoards.map((board) => (
             <BoardBand

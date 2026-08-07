@@ -1,5 +1,7 @@
-import { Linking, Pressable, View } from 'react-native';
+import { Linking, Pressable } from 'react-native';
 
+import { Card } from '@/components/ui/card';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { reservationLabel } from '@/features/events/venue-search';
 import { MIN_TAP_TARGET } from '@/theme/tokens';
@@ -27,8 +29,8 @@ export function VenueCard({
   if (!venueName && !venueAddress && !reservationUrl) return null;
 
   return (
-    <View className="rounded-plate border border-rule p-4 dark:border-rule-dark">
-      <Text variant="eyebrow">The table</Text>
+    <Card padding="lg" fill="none">
+      <SectionHeader title="The table" />
 
       {venueName ? (
         <Text variant="heading" className="mt-2">
@@ -60,6 +62,6 @@ export function VenueCard({
           </Text>
         </Pressable>
       ) : null}
-    </View>
+    </Card>
   );
 }

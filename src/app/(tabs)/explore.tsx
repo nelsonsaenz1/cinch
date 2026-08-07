@@ -6,9 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProfileRow } from '@/components/social/ProfileRow';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { EmptyState, ErrorState } from '@/components/ui/empty-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Rule } from '@/components/ui/rule';
+import { SearchField } from '@/components/ui/search-field';
+import { SectionHeader } from '@/components/ui/section-header';
 import { RowSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -181,35 +184,15 @@ export default function ExploreScreen() {
             component is deliberate: `useProfileSearch` is the shareable part
             and is shared; the field is eight lines of layout that each screen
             spaces for itself. */}
-        <View className="mt-4 flex-row items-center gap-2 rounded-md bg-tray px-3.5">
-          <SymbolView
-            name="magnifyingglass"
-            size={15}
-            tintColor={theme.faint}
-            resizeMode="scaleAspectFit"
-          />
-          <TextInput
-            ref={searchRef}
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Find a friend by username"
-            placeholderTextColor={theme.faint}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-            accessibilityLabel="Find a friend by username"
-            // 17, matching `body` on the type scale — the precedent every
-            // free-text field in the app follows.
-            style={{
-              flex: 1,
-              paddingVertical: 11,
-              fontFamily: 'HelveticaNeue',
-              fontSize: 17,
-              color: theme.ink,
-            }}
-          />
-        </View>
+        <SearchField
+          inputRef={searchRef}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Find a friend by username"
+          autoCapitalize="none"
+          autoCorrect={false}
+          className="mt-4"
+        />
       </View>
 
       <KeyboardAwareScrollView
@@ -227,10 +210,8 @@ export default function ExploreScreen() {
         }>
         {searching ? (
           <View className="px-gutter">
-            <Text variant="eyebrow" className="mb-2.5 mt-6">
-              People
-            </Text>
-            <View className="overflow-hidden rounded-plate border border-rule bg-surface dark:border-rule-dark">
+            <SectionHeader title="People" className="mb-2.5 mt-6" />
+            <Card>
               {search.isLoading ? (
                 <View className="px-4 py-3.5">
                   <RowSkeleton isLast />
@@ -267,7 +248,7 @@ export default function ExploreScreen() {
                   </View>
                 ))
               )}
-            </View>
+            </Card>
 
             <Text variant="caption" className="mt-3 text-muted">
               A friendship is mutual: when they add you back, their closet opens to you and yours
@@ -286,12 +267,10 @@ export default function ExploreScreen() {
           </View>
         ) : additions.isLoading ? (
           <View className="px-gutter">
-            <Text variant="eyebrow" className="mb-2.5 mt-6">
-              Reading your circle
-            </Text>
-            <View className="overflow-hidden rounded-plate border border-rule bg-surface dark:border-rule-dark">
+            <SectionHeader title="Reading your circle" className="mb-2.5 mt-6" />
+            <Card>
               <NewAdditionsSkeleton />
-            </View>
+            </Card>
           </View>
         ) : entries.length === 0 ? (
           // Two different absences, two different sentences. Neither of them
@@ -318,7 +297,7 @@ export default function ExploreScreen() {
                 replace it. Compact, and above the first date, because it is
                 the one thing on this page they haven't done yet. */}
             {!hasFriends ? (
-              <View className="mt-6 overflow-hidden rounded-plate border border-rule bg-surface dark:border-rule-dark">
+              <Card className="mt-6">
                 <EmptyState
                   compact
                   symbol="person.2"
@@ -327,15 +306,13 @@ export default function ExploreScreen() {
                   actionTitle="Find a friend"
                   onAction={() => searchRef.current?.focus()}
                 />
-              </View>
+              </Card>
             ) : null}
 
             {groups.map((group) => (
               <View key={group.key}>
-                <Text variant="eyebrow" className="mb-2.5 mt-6">
-                  {group.label}
-                </Text>
-                <View className="overflow-hidden rounded-plate border border-rule bg-surface dark:border-rule-dark">
+                <SectionHeader title={group.label} className="mb-2.5 mt-6" />
+                <Card>
                   {group.entries.map((entry, i) => (
                     <NewAdditionRow
                       key={entry.item.id}
@@ -350,7 +327,7 @@ export default function ExploreScreen() {
                       isLast={i === group.entries.length - 1}
                     />
                   ))}
-                </View>
+                </Card>
               </View>
             ))}
 

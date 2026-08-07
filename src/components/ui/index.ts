@@ -9,6 +9,7 @@
 
 export { Avatar, initialsFor, type AvatarProps } from '@/components/ui/avatar';
 export { Button, type ButtonProps } from '@/components/ui/button';
+export { Card, type CardProps } from '@/components/ui/card';
 export { Chip, type ChipProps } from '@/components/ui/chip';
 export { EmptyState, type EmptyStateProps } from '@/components/ui/empty-state';
 export { ErrorState, type ErrorStateProps } from '@/components/ui/error-state';
@@ -17,8 +18,12 @@ export {
   KeyboardAvoidingScreen,
   KeyboardAwareScrollView,
 } from '@/components/ui/keyboard-aware-scroll-view';
+export { Notice, type NoticeProps } from '@/components/ui/notice';
 export { Rule } from '@/components/ui/rule';
+export { SearchField, type SearchFieldProps } from '@/components/ui/search-field';
 export { BackButton, ScreenHeader, type ScreenHeaderProps } from '@/components/ui/screen-header';
+export { SectionHeader, type SectionHeaderProps } from '@/components/ui/section-header';
+export { ProgressTrack, type ProgressTrackProps } from '@/components/ui/progress-track';
 export {
   ClosetGridSkeleton,
   ListSkeleton,
@@ -29,4 +34,5 @@ export {
   Spinner,
   type SkeletonProps,
 } from '@/components/ui/skeleton';
+export { Swatch, type SwatchProps } from '@/components/ui/swatch';
 export { Text, type TextProps } from '@/components/ui/text';

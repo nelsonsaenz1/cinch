@@ -18,6 +18,7 @@ import Animated, {
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { Swatch } from '@/components/ui/swatch';
 import { Text } from '@/components/ui/text';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import type { Item, ItemCategory } from '@/schemas/item';
@@ -449,15 +450,7 @@ export function ReviewCard({
 
             <ReviewRow label="Colours">
               <View className="flex-row items-center gap-2">
-                {colours.map((c, i) =>
-                  c.hex ? (
-                    <View
-                      key={`${c.name}-${i}`}
-                      className="h-[18px] w-[18px] rounded-full border border-rule dark:border-rule-dark"
-                      style={{ backgroundColor: c.hex }}
-                    />
-                  ) : null,
-                )}
+                {colours.map((c, i) => (c.hex ? <Swatch key={`${c.name}-${i}`} hex={c.hex} size={18} /> : null))}
                 <Text variant="callout" numberOfLines={1} className="shrink">
                   {coloursValue}
                 </Text>

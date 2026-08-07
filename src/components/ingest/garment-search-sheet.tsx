@@ -5,6 +5,8 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, TextInput, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { stableImageSource } from '@/features/closet/use-image-urls';
@@ -263,9 +265,9 @@ function LinkPreview({
 
   return (
     <View className="mt-8">
-      <Text variant="eyebrow">What Cinch found</Text>
+      <SectionHeader title="What Cinch found" />
 
-      <View className="mt-3 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+      <Card fill="none" className="mt-3">
         {/* Product shots arrive on white with wide margins, so the tray sits
             behind them and `contain` keeps the garment whole. */}
         <View className="aspect-[4/5] w-full bg-tray dark:bg-tray-dark">
@@ -301,7 +303,7 @@ function LinkPreview({
             {preview.source}
           </Text>
         </View>
-      </View>
+      </Card>
 
       <Button
         title="Add to closet"
@@ -352,7 +354,7 @@ function Results({
   if (flow.searching) {
     return (
       <View className="mt-8" accessibilityLabel="Looking for pictures">
-        <Text variant="eyebrow">Pictures that might match</Text>
+        <SectionHeader title="Pictures that might match" />
         <View className="mt-3 flex-row flex-wrap" style={{ marginHorizontal: -6 }}>
           {TILE_LABEL_WIDTHS.map((width, i) => (
             <View key={i} className="mb-4" style={{ width: '50%', paddingHorizontal: 6 }}>
@@ -382,7 +384,7 @@ function Results({
 
   return (
     <View className="mt-8">
-      <Text variant="eyebrow">Pictures that might match</Text>
+      <SectionHeader title="Pictures that might match" />
 
       {/* Two columns, hand-laid rather than a FlatList: six tiles inside a
           ScrollView do not want a second scroll container, and a nested

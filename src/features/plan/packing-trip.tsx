@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 
 import { ClosetGrid } from '@/components/closet/closet-grid';
 import { PlateThumb } from '@/components/closet/plate-thumb';
-import { EmptyState, ErrorState, ListSkeleton, Rule, Text } from '@/components/ui';
+import { Card, EmptyState, ErrorState, ListSkeleton, Rule, SectionHeader, Text } from '@/components/ui';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
@@ -228,7 +228,7 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
             />
           </View>
         ) : brief.data ? (
-          <View className="rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
+          <Card padding="xl">
             <Text variant="plate" trim>
               {brief.data.headline}
             </Text>
@@ -245,22 +245,20 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
                 <View className="my-4">
                   <Rule />
                 </View>
-                <Text variant="eyebrow" className="mb-2">
-                  What you don’t have
-                </Text>
+                <SectionHeader title="What you don’t have" className="mb-2" />
                 <Text variant="body" className="text-muted dark:text-muted-dark">
                   {brief.data.gaps}
                 </Text>
               </>
             ) : null}
-          </View>
+          </Card>
         ) : null}
       </View>
 
       {/* ── The day-parts ─────────────────────────────────────────────────── */}
       {suggested.map((part) => (
         <View key={part.part} className="mt-8">
-          <Text variant="eyebrow">{dayPartOf(part.part).title}</Text>
+          <SectionHeader title={dayPartOf(part.part).title} />
           <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
             {part.note}
           </Text>
@@ -280,8 +278,8 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
 
       {/* ── The capsule, computed on device ───────────────────────────────── */}
       {capsule ? (
-        <View className="mt-8 rounded-plate border border-rule p-5 dark:border-rule-dark">
-          <Text variant="eyebrow">The capsule</Text>
+        <Card padding="xl" fill="none" className="mt-8">
+          <SectionHeader title="The capsule" />
           <Text variant="statFigure" className="mt-2">
             {capsule.items.length} pieces
           </Text>
@@ -300,12 +298,12 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
               </View>
             ))}
           </View>
-        </View>
+        </Card>
       ) : null}
 
       {/* ── And then the closet, whichever way the above went ─────────────── */}
       <View className="mt-10 mb-3">
-        <Text variant="eyebrow">Your closet</Text>
+        <SectionHeader title="Your closet" />
         <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
           Everything you own, to add anything the brief missed.
         </Text>

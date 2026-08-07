@@ -21,6 +21,7 @@ import {
 import { VotePill } from '@/components/event-outfits/VotePill';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { boardLeader, type AttendeeBoard, type PostedLook } from '@/features/event-outfits/types';
 import type { Garment } from '@/lib/styling';
@@ -315,7 +316,7 @@ export function OutfitPostCard({
   const hasMenu = Boolean(onReport || onBlock || onDelete);
 
   return (
-    <View className="rounded-plate border border-rule bg-surface p-4">
+    <Card padding="lg">
       {crowned ? (
         // The tint stays on the crown glyph, where it is a mark; the words
         // stay in the colophon's own muted, where they are readable.
@@ -385,7 +386,7 @@ export function OutfitPostCard({
           Picked by {voterNames.join(', ')}
         </Text>
       ) : null}
-    </View>
+    </Card>
   );
 }
 

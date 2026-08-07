@@ -3,7 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Avatar, Button, KeyboardAwareScrollView, Skeleton, Text } from '@/components/ui';
+import {
+  Avatar,
+  Button,
+  KeyboardAwareScrollView,
+  SectionHeader,
+  Skeleton,
+  Text,
+} from '@/components/ui';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 import { pickAvatar } from './avatar';
@@ -286,9 +293,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
               </View>
             </View>
 
-            <Text variant="eyebrow" className="mb-3 mt-8">
-              Name
-            </Text>
+            <SectionHeader title="Name" className="mb-3 mt-8" />
             <TextInput
               value={name}
               onChangeText={setName}
@@ -301,9 +306,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
               className={inputClassName}
             />
 
-            <Text variant="eyebrow" className="mb-3 mt-7">
-              Handle
-            </Text>
+            <SectionHeader title="Handle" className="mb-3 mt-7" />
             <View
               className={`flex-row items-center rounded-md border px-3.5 ${
                 handleHint.tone === 'error'
@@ -351,18 +354,21 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
               {handleHint.text}
             </Text>
 
-            <View className="mb-3 mt-7 flex-row items-baseline justify-between">
-              <Text variant="eyebrow">Bio</Text>
-              {/* The count only appears once it is worth watching — a counter
-                  standing at 0/280 over an empty field is pressure, not help. */}
-              {bio.length > BIO_MAX - 60 ? (
-                <Text
-                  variant="colophon"
-                  className={bioOver ? 'text-critical' : 'text-faint dark:text-faint-dark'}>
-                  {bio.length}/{BIO_MAX}
-                </Text>
-              ) : null}
-            </View>
+            <SectionHeader
+              title="Bio"
+              className="mb-3 mt-7"
+              // The count only appears once it is worth watching — a counter
+              // standing at 0/280 over an empty field is pressure, not help.
+              trailing={
+                bio.length > BIO_MAX - 60 ? (
+                  <Text
+                    variant="colophon"
+                    className={bioOver ? 'text-critical' : 'text-faint dark:text-faint-dark'}>
+                    {bio.length}/{BIO_MAX}
+                  </Text>
+                ) : null
+              }
+            />
             <TextInput
               value={bio}
               onChangeText={setBio}

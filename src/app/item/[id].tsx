@@ -7,12 +7,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { formatPrice, parsePrice } from '@/components/review/review-card';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState, ErrorState } from '@/components/ui/empty-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Rule } from '@/components/ui/rule';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Swatch } from '@/components/ui/swatch';
 import { Text } from '@/components/ui/text';
 import { pieceName } from '@/features/closet/item-name';
 import {
@@ -335,7 +338,7 @@ export default function ItemDetailScreen() {
         {/* The 2×2 stat grid. Cost-per-wear is the inverted hero tile — it is the
             number no competitor computes, so it gets the ink. Internal cross
             lines come from per-cell borders; the outer frame from the container. */}
-        <View className="mt-6 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+        <Card fill="none" className="mt-6">
           <View className="flex-row">
             <StatBox value={`${item.wearCount}×`} label="Worn" edge="rb" />
             <StatBox
@@ -359,7 +362,7 @@ export default function ItemDetailScreen() {
             />
             <StatBox value={sinceLastWorn(item)} label="Since last worn" />
           </View>
-        </View>
+        </Card>
 
         {/* The honest commentary line under the stat grid — computed, not
             invented: cost per wear only falls as a fixed price is worn more,
@@ -446,7 +449,7 @@ export default function ItemDetailScreen() {
             (spinner in its place), same reasoning as Profile's consent toggle:
             a control that says "off" for a beat and then flips reads as the
             app having lost the setting. */}
-        <View className="mt-6 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+        <Card fill="none" className="mt-6">
           <View className="flex-row items-center justify-between p-4">
             <View className="flex-1 pr-3">
               <Text variant="body">Borrowable</Text>
@@ -488,7 +491,7 @@ export default function ItemDetailScreen() {
               <ActivityIndicator size="small" color={theme.faint} />
             )}
           </View>
-        </View>
+        </Card>
 
         {item.description ? (
           <Text variant="body" className="mt-5 text-muted dark:text-muted-dark">
@@ -498,9 +501,7 @@ export default function ItemDetailScreen() {
 
         {item.occasions.length > 0 ? (
           <View className="mt-6">
-            <Text variant="eyebrow" className="mb-3">
-              Suits
-            </Text>
+            <SectionHeader title="Suits" className="mb-3" />
             {/* `tone="fill"` — these describe the garment, they don't filter
                 anything, and the approved frames draw read-only tags as sand
                 grounds rather than rings. Same treatment as the closet's style
@@ -515,19 +516,9 @@ export default function ItemDetailScreen() {
 
         {colours.length > 0 ? (
           <View className="mt-6">
-            <Text variant="eyebrow" className="mb-3">
-              Colours
-            </Text>
+            <SectionHeader title="Colours" className="mb-3" />
             <View className="flex-row items-center gap-2.5">
-              {colours.map((c, i) =>
-                c.hex ? (
-                  <View
-                    key={`${c.name}-${i}`}
-                    className="h-6 w-6 rounded-full border border-rule dark:border-rule-dark"
-                    style={{ backgroundColor: c.hex }}
-                  />
-                ) : null,
-              )}
+              {colours.map((c, i) => (c.hex ? <Swatch key={`${c.name}-${i}`} hex={c.hex} size={24} /> : null))}
               <Text variant="label" className="text-muted dark:text-muted-dark">
                 {colours.map((c) => c.name).join(' · ')}
               </Text>
@@ -549,7 +540,7 @@ export default function ItemDetailScreen() {
             named rows, a hairline between them, the destructive one in the
             accent, and the sentence that qualifies them underneath rather than
             inside a dialog nobody has opened yet. */}
-        <View className="mt-8 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+        <Card fill="none" className="mt-8">
           {/* Only for a piece that has been confirmed — an item still in the
               queue cannot be sent anywhere it is not already. It sits above
               "Re-read" because it is the cheaper half of the same idea: this
@@ -588,7 +579,7 @@ export default function ItemDetailScreen() {
             onPress={confirmRemove}
             loading={remove.isPending}
           />
-        </View>
+        </Card>
 
         {maintenanceError ? (
           <Text
@@ -633,7 +624,7 @@ function ItemSkeleton() {
         {/* The stat grid, as four cells inside one frame — the cross lines are
             the real thing, so the placeholder keeps them rather than drawing a
             single grey slab where a bordered grid is about to be. */}
-        <View className="mt-6 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+        <Card fill="none" className="mt-6">
           {[0, 1].map((row) => (
             <View key={row} className="flex-row">
               {[0, 1].map((col) => (
@@ -648,7 +639,7 @@ function ItemSkeleton() {
               ))}
             </View>
           ))}
-        </View>
+        </Card>
       </View>
     </View>
   );

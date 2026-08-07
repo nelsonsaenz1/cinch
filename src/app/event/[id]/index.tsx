@@ -17,7 +17,9 @@ import { Button } from '@/components/ui/button';
 // Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
 // `ErrorState` the title/body/retry sibling of `EmptyState`.
 import { ErrorState } from '@/components/ui/error-state';
+import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
@@ -534,20 +536,23 @@ export default function EventDetailScreen() {
                   />
                 </View>
 
-                <View className="mt-8 flex-row items-baseline justify-between">
-                  <Text variant="eyebrow">Who’s wearing what</Text>
-                  <Text variant="colophon">
-                    {sharedCount} of {Math.max(joinedCount, sharedCount)} shared
-                  </Text>
-                </View>
+                <SectionHeader
+                  title="Who’s wearing what"
+                  className="mt-8"
+                  trailing={
+                    <Text variant="colophon">
+                      {sharedCount} of {Math.max(joinedCount, sharedCount)} shared
+                    </Text>
+                  }
+                />
 
                 {orderedBoards.length === 0 ? (
-                  <View className="mt-3 rounded-plate border border-hairline bg-surface p-5 dark:border-hairline-dark">
+                  <Card border="hairline" padding="xl" className="mt-3">
                     <Text variant="body" className="text-muted dark:text-muted-dark">
                       Be the first to the mirror — share a look and the table
                       follows.
                     </Text>
-                  </View>
+                  </Card>
                 ) : (
                   <View className="mt-3">
                     <AttendeeLookGrid
@@ -589,14 +594,17 @@ export default function EventDetailScreen() {
               </>
             )}
 
-            <View className="mt-8 flex-row items-baseline justify-between">
-              <Text variant="eyebrow">The guests</Text>
-              {members.isError ? null : (
-                <Text variant="label" className="text-muted dark:text-muted-dark">
-                  {joinedCount} going
-                </Text>
-              )}
-            </View>
+            <SectionHeader
+              title="The guests"
+              className="mt-8"
+              trailing={
+                members.isError ? null : (
+                  <Text variant="label" className="text-muted dark:text-muted-dark">
+                    {joinedCount} going
+                  </Text>
+                )
+              }
+            />
             {members.isError ? (
               <View className="-mx-gutter">
                 <ErrorState

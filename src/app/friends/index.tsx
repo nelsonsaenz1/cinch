@@ -1,18 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BlockedList } from '@/components/social/BlockedList';
 import { ProfileRow } from '@/components/social/ProfileRow';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Rule } from '@/components/ui/rule';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SearchField } from '@/components/ui/search-field';
+import { SectionHeader } from '@/components/ui/section-header';
 // Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `RowSkeleton`
 // lands alongside `Skeleton`'s export. Code against the contract.
 import { ListSkeleton, RowSkeleton } from '@/components/ui/skeleton';
@@ -229,25 +231,14 @@ export default function FriendsScreen() {
         </Text>
 
         {/* Find by username — the second door in, after invite links. */}
-        <View className="mt-4 flex-row items-center gap-2 rounded-md bg-tray px-3.5">
-          <SymbolView name="magnifyingglass" size={15} tintColor={theme.faint} resizeMode="scaleAspectFit" />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Find a friend by username"
-            placeholderTextColor={theme.faint}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-            accessibilityLabel="Find a friend by username"
-            // 17, not 15: 15 sits off the type scale (17/16/13/11). This is a
-            // free-text field, so it takes `body`'s 17px, matching the
-            // precedent set by the other free-text input in the app
-            // (garment-search-sheet.tsx).
-            style={{ flex: 1, paddingVertical: 11, fontFamily: 'HelveticaNeue', fontSize: 17, color: theme.ink }}
-          />
-        </View>
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Find a friend by username"
+          autoCapitalize="none"
+          autoCorrect={false}
+          className="mt-4"
+        />
       </View>
 
       <KeyboardAwareScrollView
@@ -261,10 +252,8 @@ export default function FriendsScreen() {
         }}>
         {searching ? (
           <>
-            <Text variant="eyebrow" className="mb-2.5 mt-6">
-              People
-            </Text>
-            <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+            <SectionHeader title="People" className="mb-2.5 mt-6" />
+            <Card>
               {search.isLoading ? (
                 <View className="px-4 py-3.5">
                   <RowSkeleton />
@@ -302,7 +291,7 @@ export default function FriendsScreen() {
                   </View>
                 ))
               )}
-            </View>
+            </Card>
           </>
         ) : null}
 
@@ -311,10 +300,8 @@ export default function FriendsScreen() {
             of misleading. It gets a row now, same as everything else. */}
         {openRequests.length > 0 || requests.isError ? (
           <>
-            <Text variant="eyebrow" className="mb-2.5 mt-6">
-              Requests
-            </Text>
-            <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+            <SectionHeader title="Requests" className="mb-2.5 mt-6" />
+            <Card>
               {requests.isError ? (
                 <ErrorState
                   compact
@@ -344,14 +331,12 @@ export default function FriendsScreen() {
                   </View>
                 ))
               )}
-            </View>
+            </Card>
           </>
         ) : null}
 
-        <Text variant="eyebrow" className="mb-2.5 mt-6">
-          Friends
-        </Text>
-        <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+        <SectionHeader title="Friends" className="mb-2.5 mt-6" />
+        <Card>
           {friends.isError ? (
             <ErrorState
               compact
@@ -393,17 +378,15 @@ export default function FriendsScreen() {
               </View>
             ))
           )}
-        </View>
+        </Card>
 
         {/* Blocked lives at the bottom of the same page — findable (Apple asks
             that blocks be manageable) without giving the unhappy path its own
             room in the house. */}
-        <Text variant="eyebrow" className="mb-2.5 mt-7">
-          Blocked
-        </Text>
-        <View className="overflow-hidden rounded-plate border border-rule bg-surface">
+        <SectionHeader title="Blocked" className="mb-2.5 mt-7" />
+        <Card>
           <BlockedList />
-        </View>
+        </Card>
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );
