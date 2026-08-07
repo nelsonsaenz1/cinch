@@ -1,27 +1,178 @@
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, Pressable, RefreshControl, TextInput, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ProfileRow } from '@/components/social/ProfileRow';
-import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
-import { EmptyState, ErrorState } from '@/components/ui/empty-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Rule } from '@/components/ui/rule';
 import { SearchField } from '@/components/ui/search-field';
 import { SectionHeader } from '@/components/ui/section-header';
-import { RowSkeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import {
+  CircledExclamationGlyph,
+  HangerGlyph,
+  HERO_GLYPH_INK,
+  TwoPersonGlyph,
+} from '@/features/explore/glyphs';
 import { NewAdditionRow, NewAdditionsSkeleton } from '@/features/explore/new-addition-row';
 import { useNewAdditions, type NewAddition } from '@/features/explore/queries';
 import { groupByDay } from '@/features/explore/timeline';
 import { useFollow } from '@/features/social-graph/mutations';
 import { useFollowing, useFriends, useProfileSearch } from '@/features/social-graph/queries';
-import type { SocialProfile } from '@/features/social-graph/types';
-import { useTheme } from '@/theme/tokens';
+import { profileName, type SocialProfile } from '@/features/social-graph/types';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+
+/**
+ * The Lately atlas's local grammar, where it departs from the shared kit.
+ *
+ * The cards here sit at 16, not the plate's 20 — a ledger line is smaller
+ * furniture than an outfit plate. The outline buttons take a 22% ink edge,
+ * stronger than `rule`, because they sit inside already-ruled cards; the hero
+ * glyphs draw at 28% (`HERO_GLYPH_INK`, named in glyphs.tsx beside the row
+ * fallback's 22%). Local constants rather than tokens: no other screen speaks
+ * this dialect yet.
+ */
+const CARD_RADIUS = 16;
+const OUTLINE_EDGE = 'rgba(28,26,22,0.22)';
+
+type LatelyButtonProps = {
+  title: string;
+  onPress: () => void;
+  /** The ink fill — hero CTAs only. Everything quieter is the outline. */
+  filled?: boolean;
+  height?: number;
+  radius?: number;
+  fontSize?: number;
+  paddingX?: number;
+  disabled?: boolean;
+};
+
+/**
+ * The atlas's button, at the atlas's sizes: 44/10 filled for the hero way
+ * forward, 40/10 and 36/9 and 34/9 outlined for the quieter commitments. Not
+ * the shared `Button`, whose 12pt radius and 17px label are fixed inside its
+ * animated ground — this page's controls are drawn smaller than the app's
+ * default hand. Press feedback, haptics and the 44pt floor (via hitSlop when
+ * the drawn height is under it) match `Button` exactly.
+ */
+function LatelyButton({
+  title,
+  onPress,
+  filled = false,
+  height = 34,
+  radius = 9,
+  fontSize = 13,
+  paddingX = 14,
+  disabled = false,
+}: LatelyButtonProps) {
+  const theme = useTheme();
+  const press = usePressFeedback(!disabled);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      hitSlop={height < MIN_TAP_TARGET ? (MIN_TAP_TARGET - height) / 2 : undefined}
+      onPress={() => {
+        void Haptics.selectionAsync().catch(() => {
+          /* haptics are best-effort; never block the action */
+        });
+        onPress();
+      }}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      className={disabled ? 'opacity-40' : ''}>
+      <Animated.View
+        style={[
+          press.style,
+          {
+            height,
+            borderRadius: radius,
+            paddingHorizontal: paddingX,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          filled
+            ? { backgroundColor: theme.ink }
+            : { borderWidth: 1, borderColor: OUTLINE_EDGE },
+        ]}>
+        {/* Filled carries the atlas's 600 through the shared Button's own
+            recipe (`font-semibold`, which the type system maps to
+            HelveticaNeue-Medium — the heaviest cut these roles take);
+            outlined stays the label variant's 500. */}
+        <Text
+          variant={filled ? 'body' : 'label'}
+          className={filled ? 'font-semibold' : ''}
+          style={{
+            fontSize,
+            lineHeight: Math.round(fontSize * 1.3),
+            color: filled ? theme.canvas : theme.ink,
+          }}>
+          {title}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+type HeroProps = {
+  glyph: ReactNode;
+  title: string;
+  body: string;
+  actionTitle: string;
+  onAction: () => void;
+  /** True for the failed read — announced, not merely findable. */
+  alert?: boolean;
+};
+
+/**
+ * The full-page state: glyph, serif line, body, one filled way forward —
+ * centred, where the shared `EmptyState`/`ErrorState` kit sets its states
+ * hard-left. The Lately atlas centres all three of this page's heroes, so the
+ * composition is local; the kit's claims discipline still governs which branch
+ * renders it — an empty describes the data, an error refuses to.
+ */
+function Hero({ glyph, title, body, actionTitle, onAction, alert = false }: HeroProps) {
+  return (
+    <View
+      accessibilityRole={alert ? 'alert' : 'summary'}
+      className="flex-1 items-center justify-center"
+      style={{ paddingHorizontal: 42 }}>
+      {glyph}
+      <View style={{ marginTop: 18 }}>
+        <Text variant="title" trim className="text-center">
+          {title}
+        </Text>
+      </View>
+      <Text
+        className="mt-2.5 text-center text-muted"
+        style={{ fontSize: 15, lineHeight: 23 }}>
+        {body}
+      </Text>
+      <View style={{ marginTop: 20 }}>
+        <LatelyButton
+          title={actionTitle}
+          onPress={onAction}
+          filled
+          height={44}
+          radius={10}
+          fontSize={15}
+          paddingX={20}
+        />
+      </View>
+    </View>
+  );
+}
 
 /**
  * Explore — what has lately arrived in the closets you can see, and the way to
@@ -135,7 +286,7 @@ export default function ExploreScreen() {
       <SymbolView
         name="chevron.right"
         size={11}
-        tintColor={theme.faint}
+        tintColor={theme.byline}
         resizeMode="scaleAspectFit"
       />
     </Pressable>
@@ -145,26 +296,20 @@ export default function ExploreScreen() {
   const searchTrailing = (profile: SocialProfile) => {
     if (friendIds.has(profile.userId)) {
       return (
-        <Text variant="caption" className="text-muted">
+        <Text variant="caption" style={{ fontSize: 12, lineHeight: 16, color: theme.faint }}>
           Friends
         </Text>
       );
     }
     if (followingIds.has(profile.userId)) {
       return (
-        <Text variant="caption" className="text-muted">
+        <Text variant="caption" style={{ fontSize: 12, lineHeight: 16, color: theme.faint }}>
           Requested
         </Text>
       );
     }
     return (
-      <Button
-        title="Add"
-        variant="secondary"
-        disabled={follow.isPending}
-        haptic
-        onPress={() => addFriend(profile)}
-      />
+      <LatelyButton title="Add" disabled={follow.isPending} onPress={() => addFriend(profile)} />
     );
   };
 
@@ -211,73 +356,152 @@ export default function ExploreScreen() {
         {searching ? (
           <View className="px-gutter">
             <SectionHeader title="People" className="mb-2.5 mt-6" />
-            <Card>
+            <Card style={{ borderRadius: CARD_RADIUS }}>
               {search.isLoading ? (
-                <View className="px-4 py-3.5">
-                  <RowSkeleton isLast />
+                // The result row's own geometry — a 36pt disc and two bars —
+                // so nothing jumps when the names land.
+                <View className="flex-row items-center gap-3 px-4 py-3.5">
+                  <Skeleton style={{ width: 36, height: 36, borderRadius: 18 }} />
+                  <View className="flex-1" style={{ gap: 7 }}>
+                    <Skeleton className="rounded-chip" style={{ height: 13, width: '52%' }} />
+                    <Skeleton className="rounded-chip" style={{ height: 10, width: '28%' }} />
+                  </View>
                 </View>
               ) : search.isError ? (
-                <ErrorState
-                  compact
-                  title="Couldn’t search just now."
-                  body="This is a connection problem, not an answer about who is on Cinch."
-                  onRetry={() => void search.refetch()}
-                />
+                // The atlas's section-level failure: grotesque line, quiet
+                // body, outlined retry — no glyph, no serif. The shared
+                // `ErrorState` speaks the hero grammar; inside a ruled card
+                // the failure is a sentence, not a composition. What it still
+                // refuses to claim is unchanged: a failed search says nothing
+                // about who is on Cinch.
+                <View accessibilityRole="alert" style={{ padding: 16 }}>
+                  <Text style={{ fontFamily: 'HelveticaNeue-Medium', fontSize: 15, lineHeight: 20 }}>
+                    Couldn’t search just now.
+                  </Text>
+                  <Text
+                    className="text-muted"
+                    style={{ marginTop: 6, fontSize: 13, lineHeight: 20 }}>
+                    This is a connection problem, not an answer about who is on Cinch.
+                  </Text>
+                  <View className="self-start" style={{ marginTop: 12 }}>
+                    <LatelyButton
+                      title="Try again"
+                      height={36}
+                      onPress={() => void search.refetch()}
+                    />
+                  </View>
+                </View>
               ) : (search.data ?? []).length === 0 ? (
-                <Text variant="body" className="px-4 py-3.5 text-muted">
+                // A sentence, not an empty state — the page is not empty, the
+                // query is.
+                <Text
+                  variant="body"
+                  className="px-4 py-3.5"
+                  style={{ fontSize: 15, lineHeight: 20, color: theme.faint }}>
                   No one by that username.
                 </Text>
               ) : (
-                (search.data ?? []).map((profile, i) => (
-                  <View key={profile.userId}>
-                    {i > 0 ? <Rule tone="hairline" /> : null}
-                    <ProfileRow
-                      profile={profile}
-                      subtitle={profile.username ? `@${profile.username}` : null}
-                      onPress={
-                        friendIds.has(profile.userId)
-                          ? (p) =>
-                              router.push({
-                                pathname: '/friends/[userId]',
-                                params: { userId: p.userId },
-                              })
-                          : undefined
-                      }
-                      trailing={searchTrailing(profile)}
-                    />
-                  </View>
-                ))
+                (search.data ?? []).map((profile, i) => {
+                  const name = profileName(profile);
+                  const subtitle = profile.username ? `@${profile.username}` : null;
+                  const opens = friendIds.has(profile.userId);
+                  return (
+                    <View key={profile.userId}>
+                      {i > 0 ? <Rule tone="hairline" /> : null}
+                      {/* Set locally rather than with `ProfileRow`: the atlas
+                          draws this row smaller than the app's list grammar —
+                          36pt sand disc, 15px name, 12px handle — and those
+                          sizes are this page's, not the Friends screen's. */}
+                      <Pressable
+                        accessibilityRole={opens ? 'button' : 'text'}
+                        accessibilityLabel={[name, subtitle].filter(Boolean).join(', ')}
+                        onPress={
+                          opens
+                            ? () =>
+                                router.push({
+                                  pathname: '/friends/[userId]',
+                                  params: { userId: profile.userId },
+                                })
+                            : undefined
+                        }
+                        disabled={!opens}
+                        style={{ minHeight: MIN_TAP_TARGET }}
+                        className="flex-row items-center gap-3 px-4 py-3.5 active:opacity-60">
+                        <Avatar name={name} size={36} imageUri={profile.avatarUrl} />
+                        <View className="flex-1">
+                          <Text
+                            variant="body"
+                            numberOfLines={1}
+                            style={{ fontSize: 15, lineHeight: 20 }}>
+                            {name}
+                          </Text>
+                          {subtitle ? (
+                            <Text
+                              variant="caption"
+                              numberOfLines={1}
+                              style={{
+                                marginTop: 1,
+                                fontSize: 12,
+                                lineHeight: 16,
+                                color: theme.faint,
+                              }}>
+                              {subtitle}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {searchTrailing(profile)}
+                      </Pressable>
+                    </View>
+                  );
+                })
               )}
             </Card>
 
-            <Text variant="caption" className="mt-3 text-muted">
+            <Text
+              variant="caption"
+              className="mt-3"
+              style={{ fontSize: 12, lineHeight: 18, color: theme.faint }}>
               A friendship is mutual: when they add you back, their closet opens to you and yours
               to them.
             </Text>
           </View>
         ) : additions.isError ? (
           // A failed read is not an empty circle, and must never be dressed as
-          // one — the whole `ErrorState` exists for this distinction.
+          // one — this hero exists for the same distinction `ErrorState` does,
+          // and claims no more than it did: the read failed, nothing moved.
+          // The glyph is the circled exclamation in oxblood, not warning
+          // amber — the atlas spends the accent on the one state that stops
+          // the page.
           <View className="flex-1">
-            <ErrorState
+            <Hero
+              alert
+              glyph={<CircledExclamationGlyph size={34} color={theme.accent} />}
               title="Couldn’t read your circle."
               body="This didn’t load, which is a connection problem rather than a change to anyone’s closet. Nothing has moved."
-              onRetry={() => void additions.refetch()}
+              actionTitle="Try again"
+              onAction={() => void additions.refetch()}
             />
           </View>
         ) : additions.isLoading ? (
           <View className="px-gutter">
             <SectionHeader title="Reading your circle" className="mb-2.5 mt-6" />
-            <Card>
+            <Card style={{ borderRadius: CARD_RADIUS }}>
               <NewAdditionsSkeleton />
             </Card>
           </View>
         ) : entries.length === 0 ? (
-          // Two different absences, two different sentences. Neither of them
-          // blames the user, and both name the one action that changes it.
+          // Two different absences, two different sentences, two different
+          // symbols. Neither blames the user, and both name the one action
+          // that changes it.
           <View className="flex-1">
-            <EmptyState
-              symbol={hasFriends ? 'tshirt' : 'person.2'}
+            <Hero
+              glyph={
+                hasFriends ? (
+                  <HangerGlyph size={34} color={HERO_GLYPH_INK} />
+                ) : (
+                  <TwoPersonGlyph size={34} color={HERO_GLYPH_INK} />
+                )
+              }
               title={hasFriends ? 'Nothing new yet' : 'An empty page, for now'}
               body={
                 hasFriends
@@ -297,22 +521,37 @@ export default function ExploreScreen() {
                 replace it. Compact, and above the first date, because it is
                 the one thing on this page they haven't done yet. */}
             {!hasFriends ? (
-              <Card className="mt-6">
-                <EmptyState
-                  compact
-                  symbol="person.2"
-                  title="Just you, so far"
-                  body="Everything below is your own. Add a friend and their new pieces land here too — a friendship is mutual, so their closet opens to you when they add you back."
-                  actionTitle="Find a friend"
-                  onAction={() => searchRef.current?.focus()}
-                />
+              // The atlas's card empty: no glyph, a 22px serif line, quiet
+              // body, one outlined door — smaller type than the hero because
+              // it shares the page with a real timeline.
+              <Card
+                accessibilityRole="summary"
+                className="mt-6"
+                style={{ borderRadius: CARD_RADIUS, paddingVertical: 20, paddingHorizontal: 18 }}>
+                <Text variant="plate" style={{ fontSize: 22, lineHeight: 26 }}>
+                  Just you, so far
+                </Text>
+                <Text className="mt-2 text-muted" style={{ fontSize: 14, lineHeight: 21 }}>
+                  Everything below is your own. Add a friend and their new pieces land here too — a
+                  friendship is mutual, so their closet opens to you when they add you back.
+                </Text>
+                <View className="mt-3.5 self-start">
+                  <LatelyButton
+                    title="Find a friend"
+                    height={40}
+                    radius={10}
+                    fontSize={14}
+                    paddingX={16}
+                    onPress={() => searchRef.current?.focus()}
+                  />
+                </View>
               </Card>
             ) : null}
 
             {groups.map((group) => (
               <View key={group.key}>
                 <SectionHeader title={group.label} className="mb-2.5 mt-6" />
-                <Card>
+                <Card style={{ borderRadius: CARD_RADIUS }}>
                   {group.entries.map((entry, i) => (
                     <NewAdditionRow
                       key={entry.item.id}

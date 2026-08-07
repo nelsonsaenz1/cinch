@@ -1,5 +1,4 @@
 import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -10,11 +9,19 @@ import { stableImageSource } from '@/features/closet/use-image-urls';
 import { profileName, type SocialProfile } from '@/features/social-graph/types';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
+import { FALLBACK_GLYPH_INK, HangerGlyph } from './glyphs';
 import type { NewAddition } from './queries';
 import { sinceLabel } from './timeline';
 
 /** The plate well's side. Big enough to read a garment, small enough to list. */
 const PLATE = 76;
+
+/**
+ * The attribution line's tracking. The colophon token carries 1.4 for the
+ * plate data lines; the Lately atlas sets its elapsed marks and swatch
+ * captions a shade tighter, at 1.2.
+ */
+const ATTRIBUTION_TRACKING = 1.2;
 
 /**
  * Legibility flip for the fallback swatch's caption — the same relative-luminance
@@ -109,41 +116,65 @@ function NewAdditionRowComponent({ entry, owner, imageUri, onPress, isLast }: Ne
               variant="colophon"
               numberOfLines={2}
               className="text-center"
-              style={{ color: isDarkHex(swatch) ? '#FFFFFFCC' : '#1C1A16AA' }}>
+              style={{
+                letterSpacing: ATTRIBUTION_TRACKING,
+                color: isDarkHex(swatch) ? '#FFFFFFCC' : '#1C1A16AA',
+              }}>
               {piece}
             </Text>
           </View>
         ) : (
-          <SymbolView
-            name="tshirt"
-            size={22}
-            tintColor={theme.hairline}
-            resizeMode="scaleAspectFit"
-          />
+          // The coat hanger, not an SF tshirt: the atlas's own garment mark,
+          // so an unrendered piece reads as "closet piece", not "missing
+          // image".
+          <HangerGlyph size={24} color={FALLBACK_GLYPH_INK} />
         )}
       </View>
 
       <View className="flex-1">
-        <Text variant="body" numberOfLines={1}>
+        {/* The atlas's spec-line sizes, not the app scale: 15 for the piece,
+            12 for the colour-and-label line. A catalogue line is set smaller
+            than prose. */}
+        <Text variant="body" numberOfLines={1} style={{ fontSize: 15, lineHeight: 20 }}>
           {piece}
         </Text>
         {spec ? (
-          <Text variant="caption" numberOfLines={1} className="mt-0.5 text-muted">
+          <Text
+            variant="caption"
+            numberOfLines={1}
+            className="mt-0.5"
+            // Inline, not a `text-*` class: the caption variant carries its
+            // own colour utility and NativeWind gives no precedence between
+            // two of them on one element.
+            style={{ fontSize: 12, lineHeight: 16, color: theme.faint }}>
             {spec}
           </Text>
         ) : null}
 
         <View className="mt-2 flex-row items-center gap-2">
+          {/* "ME" reversed on ink, per the atlas — your own chip is the one
+              dark mark on the line; a friend's stays the quiet sand disc. */}
           <Avatar
             name={isSelf ? null : (owner?.displayName ?? owner?.username)}
             imageUri={isSelf ? null : owner?.avatarUrl}
             size={22}
+            tone={isSelf ? 'ink' : 'sand'}
             fallback={isSelf ? 'ME' : '?'}
           />
-          <Text variant="caption" numberOfLines={1} className="flex-1 text-faint">
+          <Text
+            variant="caption"
+            numberOfLines={1}
+            className="flex-1"
+            style={{ fontSize: 12, lineHeight: 16, color: theme.byline }}>
             {who}
           </Text>
-          {when ? <Text variant="colophon">{when}</Text> : null}
+          {when ? (
+            <Text
+              variant="colophon"
+              style={{ letterSpacing: ATTRIBUTION_TRACKING, color: theme.byline }}>
+              {when}
+            </Text>
+          ) : null}
         </View>
       </View>
     </Pressable>
@@ -175,14 +206,17 @@ export function NewAdditionsSkeleton({ count = 4 }: { count?: number }) {
             'flex-row items-center gap-3.5 px-4 py-3.5',
             i === count - 1 ? '' : 'border-b border-hairline dark:border-hairline-dark',
           ].join(' ')}>
-          <Skeleton style={{ width: PLATE, height: PLATE }} className="rounded-lg" />
+          {/* 120ms per row, per the atlas — the card reads as lines arriving
+              in order rather than one graphic pulsing. */}
+          <Skeleton style={{ width: PLATE, height: PLATE }} className="rounded-lg" delay={i * 120} />
           <View className="flex-1 gap-2">
             <Skeleton
               className="h-3.5 rounded-chip"
               style={{ width: BAR_WIDTHS[i % BAR_WIDTHS.length] }}
+              delay={i * 120}
             />
-            <Skeleton className="h-2.5 w-1/3 rounded-chip" />
-            <Skeleton className="mt-1 h-5 w-2/5 rounded-chip" />
+            <Skeleton className="h-2.5 w-1/3 rounded-chip" delay={i * 120} />
+            <Skeleton className="mt-1 h-5 w-2/5 rounded-chip" delay={i * 120} />
           </View>
         </View>
       ))}

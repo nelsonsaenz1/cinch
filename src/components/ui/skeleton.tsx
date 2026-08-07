@@ -8,6 +8,7 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
@@ -18,10 +19,19 @@ import { useTheme } from '@/theme/tokens';
 
 export type SkeletonProps = ViewProps & {
   className?: string;
+  /**
+   * Milliseconds before the sweep starts. The Lately atlas staggers its rows
+   * 120ms apart so a card of placeholders reads as lines arriving in order
+   * rather than one graphic pulsing; per-instance because only the composed
+   * skeleton knows which row it is.
+   */
+  delay?: number;
 };
 
 // The shimmer's two tones, transcribed from the handoff's own gradient stops.
 // Not app tokens — this warm-paper pairing exists only for the sweep itself.
+// (The Lately atlas restates the base as #EDE8DD, a point away; the handoff's
+// stop stays authoritative for the shared primitive.)
 const SHIMMER_BASE = '#ECE8DF';
 const SHIMMER_HIGHLIGHT = '#F5F2EB';
 
@@ -42,18 +52,21 @@ const BAND_WIDTH = 60;
  * module-private for a while, which is why 45 screens shipped a bare
  * `ActivityIndicator` — the designed option was not reachable.
  */
-export function Skeleton({ className = '', style, ...rest }: SkeletonProps) {
+export function Skeleton({ className = '', style, delay = 0, ...rest }: SkeletonProps) {
   const reduced = useReducedMotion();
   const sweep = useSharedValue(0);
 
   useEffect(() => {
     if (reduced) return;
-    sweep.value = withRepeat(withTiming(1, { duration: 1300, easing: Easing.linear }), -1, false);
+    sweep.value = withDelay(
+      delay,
+      withRepeat(withTiming(1, { duration: 1300, easing: Easing.linear }), -1, false),
+    );
     // A loop with -1 repetitions outlives its component unless it is told not
     // to; on a screen that mounts a dozen of these, that is a dozen worklets
     // still ticking after the content arrived.
     return () => cancelAnimation(sweep);
-  }, [reduced, sweep]);
+  }, [reduced, sweep, delay]);
 
   const highlightStyle = useAnimatedStyle(() =>
     reduced

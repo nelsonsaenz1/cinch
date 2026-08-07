@@ -23,6 +23,8 @@ export type ThemeColors = {
   muted: string;
   /** The lighter secondary tone — tracked eyebrows, inactive tab labels. */
   faint: string;
+  /** Lighter still — the Lately attribution voice: bylines, elapsed marks, pointing chevrons. */
+  byline: string;
   hairline: string;
   /** Structural rules of the plate grammar — ink at 18%, works over canvas and tray. */
   rule: string;
@@ -62,6 +64,7 @@ const light: ThemeColors = {
   ink: '#1C1A16',
   muted: '#6B665C',
   faint: '#8A8578',
+  byline: '#A29C90',
   hairline: 'rgba(28,26,22,0.09)',
   rule: 'rgba(28,26,22,0.12)',
   accent: '#6E2B2B',

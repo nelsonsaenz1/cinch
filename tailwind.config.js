@@ -41,6 +41,11 @@ module.exports = {
         ink: { DEFAULT: '#1C1A16', dark: '#1C1A16' },
         muted: { DEFAULT: '#6B665C', dark: '#6B665C' },
         faint: { DEFAULT: '#8A8578', dark: '#8A8578' },
+        // One step lighter than `faint` — the Lately ledger's attribution
+        // voice: whose piece a row is, the elapsed mark beside it, the chevron
+        // that points away. Credit lines, never body copy; the same AA caveat
+        // as `faint` applies, harder.
+        byline: { DEFAULT: '#A29C90', dark: '#A29C90' },
         // Divider between list rows — a whisper. `rule` is a touch stronger,
         // for the card borders and section rules that carry the plate grammar.
         // Both are warm ink at low alpha so they composite over canvas and tray.

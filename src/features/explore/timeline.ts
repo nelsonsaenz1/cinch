@@ -22,22 +22,35 @@ function startOfDay(d: Date): number {
 }
 
 /**
- * "Just now" · "12 min ago" · "5h ago" · "3d ago" · "14 Jul".
+ * "Just now" · "12 min ago" · "5h ago" · "Yesterday" · "3d ago" · "14 Jul".
  *
  * Rendered through `colophon`, which upper-cases and tracks it; the strings are
  * written in sentence case so they read correctly anywhere else too.
+ *
+ * The day tiers are CALENDAR days — the same `startOfDay` arithmetic the
+ * headings use — not 24-hour buckets. Elapsed-hour buckets disagree with the
+ * headings at exactly the rows where both are visible: a piece added at 22:00
+ * read the next morning is eleven elapsed hours but sits under YESTERDAY, and
+ * an elapsed "1d" can be two calendar days old. Minutes and hours are kept for
+ * today's entries only, where the heading and the clock agree by construction.
  */
 export function sinceLabel(iso: string, now: Date = new Date()): string {
-  const then = new Date(iso).getTime();
+  const at = new Date(iso);
+  const then = at.getTime();
   if (Number.isNaN(then)) return '';
 
-  const elapsed = now.getTime() - then;
-  if (elapsed < MINUTE) return 'Just now';
-  if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)} min ago`;
-  if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h ago`;
-  if (elapsed < 7 * DAY) return `${Math.max(1, Math.floor(elapsed / DAY))}d ago`;
+  const days = Math.round((startOfDay(now) - startOfDay(at)) / DAY);
 
-  return new Date(then).toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+  if (days <= 0) {
+    const elapsed = now.getTime() - then;
+    if (elapsed < MINUTE) return 'Just now';
+    if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)} min ago`;
+    return `${Math.max(1, Math.floor(elapsed / HOUR))}h ago`;
+  }
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days}d ago`;
+
+  return at.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 }
 
 /**

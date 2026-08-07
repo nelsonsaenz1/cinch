@@ -86,7 +86,21 @@ export function Avatar({
   const variant: TextProps['variant'] =
     size >= 64 ? 'title' : size >= 48 ? 'heading' : size >= 40 ? 'callout' : 'caption';
 
-  const color = tone === 'ink' ? theme.canvas : tone === 'accent' ? theme.accent : theme.ink;
+  // Below 24pt the caption's 11px initials crowd the disc — the Lately atlas
+  // sets its 22pt attribution chips at 9/600 in `muted` (600 resolves to the
+  // Medium cut the caption variant already carries). Inline rather than a
+  // variant: no other size needs it, and 24pt discs elsewhere must not move.
+  const tiny = size < 24;
+  const tinyInitials = tiny ? { fontSize: 9, lineHeight: 11 } : null;
+
+  const color =
+    tone === 'ink'
+      ? theme.canvas
+      : tone === 'accent'
+        ? theme.accent
+        : tiny
+          ? theme.muted
+          : theme.ink;
 
   return (
     <View
@@ -111,7 +125,7 @@ export function Avatar({
           accessibilityIgnoresInvertColors
         />
       ) : (
-        <Text variant={variant} style={{ color }}>
+        <Text variant={variant} style={[{ color }, tinyInitials]}>
           {initialsFor(name, fallback)}
         </Text>
       )}
