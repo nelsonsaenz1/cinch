@@ -32,6 +32,7 @@ export function WeatherStrip({
   onEnableLocation,
   onConnectCalendar,
   calendarEnabled,
+  weatherOnly = false,
 }: {
   weather: WeatherContext | null;
   events: EventContext[];
@@ -41,19 +42,32 @@ export function WeatherStrip({
   onEnableLocation?: () => void;
   onConnectCalendar?: () => void;
   calendarEnabled?: boolean;
+  /**
+   * Just the weather sentence, nothing under it. The nothing-works state
+   * (T-09) keeps this line — its reason card is read against the same weather
+   * — but drops the calendar, permission and location rows along with the
+   * greeting and plans pill.
+   */
+  weatherOnly?: boolean;
 }) {
   const theme = useTheme();
 
+  const weatherLine = weather ? (
+    <Text variant="label" numberOfLines={2}>
+      Feels {formatTemp(weather.feelsLikeC, units)} · {describeWeather(weather, units)}
+      {` · ${city}`}
+    </Text>
+  ) : (
+    <Text variant="label">Weather unavailable — styling on your closet alone.</Text>
+  );
+
+  if (weatherOnly) {
+    return <View className="mt-1.5 px-gutter">{weatherLine}</View>;
+  }
+
   return (
     <View className="mt-1.5 px-gutter">
-      {weather ? (
-        <Text variant="label" numberOfLines={2}>
-          Feels {formatTemp(weather.feelsLikeC, units)} · {describeWeather(weather, units)}
-          {` · ${city}`}
-        </Text>
-      ) : (
-        <Text variant="label">Weather unavailable — styling on your closet alone.</Text>
-      )}
+      {weatherLine}
 
       {/* Location off is a dead end otherwise: iOS only ever asks once, so
           without a way back the forecast is silently someone else's city

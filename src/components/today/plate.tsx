@@ -575,11 +575,13 @@ export function Plate({
             <Text variant="callout" className="text-muted dark:text-muted-dark">
               Saved for offline
             </Text>
-            {cpw != null ? (
-              <Text variant="stat" accessibilityLabel={`$${cpw.toFixed(2)} per wear`}>
-                ${cpw.toFixed(2)}
-              </Text>
-            ) : null}
+            <Text
+              variant="stat"
+              accessibilityLabel={
+                cpw != null ? `$${cpw.toFixed(2)} per wear` : 'Cost per wear not available'
+              }>
+              {cpw != null ? `$${cpw.toFixed(2)}` : '—'}
+            </Text>
           </View>
         ) : (
           <>
@@ -597,12 +599,17 @@ export function Plate({
                   ))}
                 </View>
               </View>
-              {cpw != null ? (
-                <View className="flex-row items-baseline gap-1">
-                  <Text variant="stat">${cpw.toFixed(2)}</Text>
-                  <Text variant="colophon">/ wear</Text>
-                </View>
-              ) : null}
+              {/* "—" when unpriced, never an absent slot: the footer's
+                  geometry is part of the plate anatomy the skeleton and every
+                  reaction state reserve (atlas D-01). */}
+              <View
+                className="flex-row items-baseline gap-1"
+                accessibilityLabel={
+                  cpw != null ? `$${cpw.toFixed(2)} per wear` : 'Cost per wear not available'
+                }>
+                <Text variant="stat">{cpw != null ? `$${cpw.toFixed(2)}` : '—'}</Text>
+                <Text variant="colophon">/ wear</Text>
+              </View>
             </View>
 
             {/* ── The three actions, as the design sets them: love, pass, worn.

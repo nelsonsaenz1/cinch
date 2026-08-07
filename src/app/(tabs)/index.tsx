@@ -9,9 +9,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Plate } from '@/components/today/plate';
 import type { ReactionValue } from '@/components/today/reaction-bar';
+import { closetGap, gapBody, SamplePlate } from '@/components/today/sample-plate';
 import { WeatherStrip } from '@/components/today/weather-strip';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ErrorState } from '@/components/ui/empty-state';
 import { Notice } from '@/components/ui/notice';
 import { Rule } from '@/components/ui/rule';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -253,56 +254,6 @@ function nothingWorksReason(items: Garment[], weather: WeatherContext | null): s
   }
 
   return "Cinch couldn't build an outfit that holds together from what's in your closet right now. One more layer, or a pair of shoes, usually fixes it.";
-}
-
-/**
- * The count-and-cause line for a closet that has started but hasn't crossed
- * `MIN_CLOSET_FOR_OUTFITS` yet.
- *
- * `canGenerate()` gates on two things at once — a top-and-bottom pairing (or
- * a dress) and a numeric floor — so a closet mid-capture can be short of
- * either, both, or neither. Without this, someone who has just photographed
- * seven garments fell straight through to the zero-item virgin copy
- * ("Nothing to style yet… Photograph your wardrobe once") and read it as her
- * upload having failed. This names what actually landed — the count first,
- * since it's the proof the uploads worked — and exactly what's still needed,
- * the same way `nothingWorksReason` above is honest about a full closet that
- * can't produce a look today. Never called with an empty closet; that stays
- * the original virgin state.
- */
-function buildingCloset(items: Garment[]): { count: string; body: string } {
-  const count = items.length;
-  const piece = count === 1 ? 'piece' : 'pieces';
-  const countLine = `${count} ${piece} so far`;
-
-  const has = (slot: Garment['slot']) => items.some((g) => g.slot === slot);
-  const hasTop = has('base_top') || has('dress');
-  const hasBottom = has('bottom') || has('dress');
-
-  if (!hasTop && !hasBottom) {
-    return {
-      count: countLine,
-      body: 'I need a top and a bottom — or a dress — before I can put a single outfit together. Keep photographing.',
-    };
-  }
-  if (!hasTop) {
-    return {
-      count: countLine,
-      body: 'Bottoms are in. I still need a top, or a dress, before I can build an outfit.',
-    };
-  }
-  if (!hasBottom) {
-    return {
-      count: countLine,
-      body: 'Tops are in. I still need a bottom, or a dress, before I can build an outfit.',
-    };
-  }
-
-  const remaining = MIN_CLOSET_FOR_OUTFITS - count;
-  return {
-    count: countLine,
-    body: `The basics are there. ${remaining} more ${remaining === 1 ? 'piece' : 'pieces'} and I'll have enough to start building real outfits.`,
-  };
 }
 
 /**
@@ -589,73 +540,92 @@ export default function TodayScreen() {
     );
   }
 
-  // A failed wardrobe fetch is not an empty closet. Left unchecked this used
-  // to fall through to the empty-closet screen below and tell someone with a
-  // full wardrobe "I can't style what I can't see" over a network error that
-  // has nothing to do with what she owns.
+  // A failed wardrobe fetch is not an empty closet (T-08). Left unchecked this
+  // used to fall through to the empty-closet screen below and tell someone
+  // with a full wardrobe "I can't style what I can't see" over a network error
+  // that has nothing to do with what she owns. Composed inline rather than via
+  // `ErrorState`: the atlas sets this glyph muted and the retry outlined —
+  // oxblood stays reserved for a loved look, and `ErrorState`'s full-screen
+  // form spends both.
   if (wardrobe.isError) {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
         <ReducedMasthead eyebrow={dayLine(cityLabel)} />
-        <ErrorState
-          title="Couldn't read your closet"
-          body="Check your connection and try again."
-          onRetry={() => void wardrobe.refetch()}
-        />
+        <View accessibilityRole="alert" className="px-gutter" style={{ marginTop: 88 }}>
+          <SymbolView
+            name="exclamationmark.triangle"
+            size={22}
+            tintColor={theme.muted}
+            resizeMode="scaleAspectFit"
+          />
+          <View style={{ marginTop: 16 }}>
+            <Text variant="title" trim>
+              Couldn&rsquo;t read your closet
+            </Text>
+          </View>
+          <Text variant="body" className="mt-3.5 text-muted dark:text-muted-dark">
+            Check your connection and try again.
+          </Text>
+          {/* Wrapper carries the offset: `Button` omits `style` from its props. */}
+          <View style={{ marginTop: 30 }}>
+            <Button
+              title="Try again"
+              variant="secondary"
+              loading={wardrobe.isRefetching}
+              onPress={() => void wardrobe.refetch()}
+              className="self-stretch"
+            />
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
 
   if (!canGenerate(items)) {
-    // Zero items is the only closet the virgin copy ("Nothing to style yet")
-    // is honest about. Above zero and below the threshold, that same copy
-    // reads as a failed upload to someone who just photographed real
-    // garments — so it tells the truth instead: what landed, what's missing.
-    const empty = items.length === 0;
-    const building = empty ? null : buildingCloset(items);
+    // The empty-closet ladder (T-04/05/06). Zero items is the only closet the
+    // virgin copy ("I can't style what I can't see") is honest about — above
+    // zero and below the threshold that same copy reads as a failed upload to
+    // someone who just photographed real garments, so the rungs diverge: the
+    // sample plate stays, one tile goes dashed and names the missing slot, and
+    // the eyebrow prints the count as proof the uploads worked.
+    const gap = closetGap(items, MIN_CLOSET_FOR_OUTFITS);
+    const empty = gap.kind === 'virgin';
+    const pieces = `${items.length} ${items.length === 1 ? 'piece' : 'pieces'} in`;
 
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
-        {/* The masthead reduces to the date and the section name: a brand-new
-            user has no morning to greet yet, and no stylist to ask. */}
+        {/* The masthead reduces to the date and the section name; the stylist
+            door stays, the profile chip drops (T-04). */}
         <ReducedMasthead eyebrow={dayLine(cityLabel)} />
 
-        {/* Not the old flat-lay hero, which promised a look the closet cannot
-            yet produce. An honest empty tray instead: Cinch cannot style a
-            wardrobe it has never seen, and it says exactly that.
-
-            A ScrollView, not a plain centred `flex-1` View: the composition
-            below (tray, two-line title, body, button) was measured for the
-            system default text size. At a large Dynamic Type setting every
-            piece of it grows taller, and a fixed, non-scrolling `flex-1`
-            viewport has nowhere to put the overflow — the button and the
-            title's second line were being pushed past the screen edge rather
-            than clipped by any one element. `flexGrow` keeps the same
-            centred composition when it fits, and lets the page scroll rather
-            than lose content when it doesn't. */}
+        {/* A ScrollView, not a plain centred `flex-1` View: at a large Dynamic
+            Type setting every piece of this composition grows taller, and a
+            fixed viewport has nowhere to put the overflow. `flexGrow` keeps
+            the centred composition when it fits and scrolls when it doesn't
+            (the atlas calls this out on T-04). */}
         <ScrollView
           contentContainerClassName="flex-grow items-center justify-center px-gutter"
           contentContainerStyle={{ paddingBottom: 48 }}>
-          <View
-            className="items-center justify-end bg-tray dark:bg-tray-dark"
-            style={{
-              width: 132,
-              // `minHeight`, not `height`: the label inside is either the
-              // short "Nothing to style yet" or a piece count, but a fixed
-              // height is still the wrong contract for a box a Text sits in.
-              minHeight: 152,
-              borderRadius: 8,
-              borderWidth: 1.5,
-              borderColor: theme.rule,
-              borderStyle: 'dashed',
-              paddingBottom: 12,
-            }}>
-            <Text variant="colophon">{empty ? 'Nothing to style yet' : building!.count}</Text>
-          </View>
+          {/* Not an empty tray: a miniature sample plate under a "What your
+              mornings become" eyebrow shows the destination — the happy path
+              in matchbook form, on clearly-bundled sample data. */}
+          <Text variant="colophon" style={{ marginBottom: 10 }}>
+            {empty ? 'What your mornings become' : `What your mornings become · ${pieces}`}
+          </Text>
+
+          <SamplePlate gap={gap} />
 
           <View style={{ marginTop: 26 }}>
             <Text variant="title" className="text-center">
-              {empty ? <>I can&apos;t style{'\n'}what I can&apos;t see</> : 'Not quite enough yet'}
+              {empty ? (
+                <>
+                  I can&apos;t style{'\n'}what I can&apos;t see
+                </>
+              ) : (
+                // Always this title on the part-built rungs (T-05/06); the
+                // body below carries which slot or count is short.
+                <>You&rsquo;re almost there</>
+              )}
             </Text>
           </View>
 
@@ -663,9 +633,7 @@ export default function TodayScreen() {
             variant="body"
             className="mt-3 text-center text-muted dark:text-muted-dark"
             style={{ maxWidth: 264 }}>
-            {empty
-              ? "Photograph your wardrobe once and I'll build outfits from your real clothes each morning. No shopping, ever."
-              : building!.body}
+            {gapBody(gap)}
           </Text>
 
           {/* Ink, not oxblood: the one spent accent is reserved for a loved
@@ -689,11 +657,12 @@ export default function TodayScreen() {
     );
   }
 
-  // Offline is not the normal screen dimmed — it is its own composition, and
-  // the order says why. The banner comes first, above everything, because the
-  // staleness qualifies the entire page; the masthead drops to when the app
-  // last reached the server, since there is no fresh morning to greet and no
-  // stylist to ask; and every plate loses the parts the network paid for.
+  // Offline is not the normal screen dimmed — it is its own composition
+  // (T-10/T-11), and the order says why. The banner comes first, above
+  // everything, because the staleness qualifies the entire page; the masthead
+  // drops to when the app last reached the server, since there is no fresh
+  // morning to greet (the ✦ stylist door stays — it never closes); and every
+  // plate loses the parts the network paid for.
   if (offline) {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
@@ -789,6 +758,9 @@ export default function TodayScreen() {
             onEnableLocation={() => void requestLocation()}
             calendarEnabled={calendarEnabled}
             onConnectCalendar={() => void requestCalendar()}
+            // T-09 keeps the weather line — the card's reason is read against
+            // it — and drops the calendar and permission lines with the pill.
+            weatherOnly={nothingWorks}
           />
 
           {/* The plans note, set as the design's tray pill with a leading "+".
@@ -888,9 +860,12 @@ export default function TodayScreen() {
             )}
           </View>
 
-          {/* Say plainly how much it has actually learned. Implying a rich taste
-              model after two taps is a promise the engine cannot keep. */}
-          {shown.length > 0 ? (
+          {/* Say plainly how much it has actually learned (S-09/S-10). Implying
+              a rich taste model after two taps is a promise the engine cannot
+              keep — and gated on the profile actually having loaded, because
+              "8 more reactions" read off the placeholder profile is a claim
+              about a count the app has not seen yet. */}
+          {shown.length > 0 && profileQuery.data ? (
             <View className="px-gutter pt-2">
               <Text variant="label">
                 {feedbackCount < 8

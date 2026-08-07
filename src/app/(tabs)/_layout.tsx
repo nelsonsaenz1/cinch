@@ -26,11 +26,10 @@ import { dynamic } from '@/theme/tokens';
  * five before it collapses into "More", and each label stays a single short
  * word at 11px.
  *
- * On the label: the route, the file and the `person.2` symbol are all named
- * `explore` and stay that way, but the word under the icon is **Lately** —
- * which is what the page has always called itself in its own title
- * (explore.tsx) and what the charter's locked page inventory names. A tab
- * whose word matches its page is a destination; one that doesn't is a mystery.
+ * On the label: **Explore**, per the Today State Atlas (docs/design/today-atlas,
+ * "Rules the atlas encodes": Today / Closet / Plan / Explore, person.2). The
+ * atlas is founder-approved canon and supersedes the earlier "Lately" call,
+ * which had matched the page's own title in explore.tsx.
  *
  * `person.2` rather than a compass or a magnifying glass: this page is
  * emphatically not a public discovery feed (the projection behind it is
@@ -80,7 +79,7 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="explore">
         <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
-        <NativeTabs.Trigger.Label>Lately</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
