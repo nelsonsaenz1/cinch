@@ -12,6 +12,8 @@ type Variant =
   | 'callout'
   | 'label'
   | 'caption'
+  | 'note'
+  | 'noteSmall'
   | 'eyebrow'
   | 'colophon'
   | 'stat'
@@ -45,6 +47,26 @@ const variants: Record<Variant, string> = {
   callout: 'font-body text-callout text-ink',
   label: 'font-medium text-label text-muted',
   caption: 'font-medium text-caption text-muted',
+  // `label` and `caption` at their own sizes but in the REGULAR cut.
+  //
+  // Both variants above are `font-medium`, which is right for what they were
+  // built for — tracked labels and buttons, the things an atlas draws at
+  // `font-weight:500`. It is wrong for running secondary prose at the same
+  // size: the Stylist sheet's promise line and its closing caption are the
+  // quietest sentences on that screen and the atlas sets no font-weight on
+  // either, so medium rendered them as bold grey shouting a disclaimer meant to
+  // be murmured.
+  //
+  // Named variants rather than `variant="label" className="font-body"` for the
+  // reason recorded under the serif figures below: NativeWind gives no
+  // precedence between two utilities of the same kind on one element, and
+  // `medium` follows `body` in tailwind.config.js's `fontFamily`, so the class
+  // form loses and the inline-style form is at the mercy of how className
+  // styles merge. Name the weight; don't stack it.
+  /** Secondary prose at 13px, regular. */
+  note: 'font-body text-label text-muted',
+  /** Secondary prose at 11px, regular. */
+  noteSmall: 'font-body text-caption text-muted',
   // The tracked-out eyebrow — the fashion-magazine signature.
   //
   // Set in `muted`, not `faint`. Both variants carry real, non-redundant

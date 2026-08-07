@@ -287,7 +287,7 @@ export function useChat({
           : denial?.kind === 'plan_excluded'
             ? 'The stylist is part of Standard and Pro.'
             : denial?.kind === 'quota_exceeded'
-              ? "You have used this month's stylist messages."
+              ? 'You have used this month’s stylist messages.'
               : 'The stylist could not be reached. Your outfits on the Today tab still work — they are built on your phone.';
 
         // Only a transport failure earns a retry affordance; a refusal would
@@ -404,6 +404,5 @@ export function useChat({
     retry,
     clear,
     isSending: send.isPending,
-    isLoading: history.isLoading,
   };
 }

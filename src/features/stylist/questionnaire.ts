@@ -64,9 +64,9 @@ export type MoodKey = (typeof MOODS)[number]['key'];
  * promised was deterministic.
  */
 export const OCCASIONS = [
-  { key: 'work', label: 'Work', phrase: "I'm in the office today.", formality: 3, occasion: 'office' },
-  { key: 'dinner', label: 'Dinner out', phrase: "I'm going out for dinner.", formality: 4, occasion: 'date' },
-  { key: 'drinks', label: 'Drinks', phrase: "I'm going for drinks later.", formality: 2, occasion: 'casual' },
+  { key: 'work', label: 'Work', phrase: 'I’m in the office today.', formality: 3, occasion: 'office' },
+  { key: 'dinner', label: 'Dinner out', phrase: 'I’m going out for dinner.', formality: 4, occasion: 'date' },
+  { key: 'drinks', label: 'Drinks', phrase: 'I’m going for drinks later.', formality: 2, occasion: 'casual' },
   { key: 'day', label: 'A normal day', phrase: 'Nothing in particular today.', formality: 2, occasion: 'casual' },
 ] as const;
 
@@ -76,7 +76,7 @@ export const EVENT_OCCASIONS = [
   { key: 'party', label: 'A party', phrase: 'I have a party.', formality: 3, occasion: 'event' },
   { key: 'work_event', label: 'Something for work', phrase: 'I have a work event.', formality: 4, occasion: 'office' },
   { key: 'dinner_event', label: 'A dinner', phrase: 'I have a dinner.', formality: 4, occasion: 'date' },
-  { key: 'formal', label: 'Black tie', phrase: "It's black tie.", formality: 5, occasion: 'formal' },
+  { key: 'formal', label: 'Black tie', phrase: 'It’s black tie.', formality: 5, occasion: 'formal' },
 ] as const;
 
 type OccasionOption = (typeof OCCASIONS)[number] | (typeof EVENT_OCCASIONS)[number];
@@ -92,7 +92,7 @@ type OccasionOption = (typeof OCCASIONS)[number] | (typeof EVENT_OCCASIONS)[numb
 export const SILHOUETTES = [
   { key: 'dress', label: 'A dress', phrase: 'a dress', requiresDress: true },
   { key: 'separates', label: 'Trousers', phrase: 'trousers', requiresDress: false },
-  { key: 'either', label: "Either's fine", phrase: '', requiresDress: false },
+  { key: 'either', label: 'Either’s fine', phrase: '', requiresDress: false },
 ] as const;
 
 export type SilhouetteKey = (typeof SILHOUETTES)[number]['key'];
@@ -100,10 +100,8 @@ export type SilhouetteKey = (typeof SILHOUETTES)[number]['key'];
 /** The weather step. Only ever asked when there is a forecast to name. */
 export const WEATHER_ANSWERS = [
   { key: 'outside', label: 'Dress for it' },
-  { key: 'inside', label: "I'm mostly inside" },
+  { key: 'inside', label: 'I’m mostly inside' },
 ] as const;
-
-export type WeatherAnswerKey = (typeof WEATHER_ANSWERS)[number]['key'];
 
 // ---------------------------------------------------------------------------
 // Steps
@@ -135,13 +133,29 @@ export type StylistBrief = {
   dressForWeather?: boolean;
 };
 
-/** What the questionnaire knows before it asks anything. */
+/**
+ * What the questionnaire knows before it asks anything.
+ *
+ * The forecast and its formatted temperature are one fact, so they are paired
+ * in the type rather than left as two independently nullable fields. The weather
+ * step names the number out loud, and the caller's string is the only place the
+ * display unit is decided — the stylist screen formats in Fahrenheit. A shape
+ * that permitted a forecast with no reading would make that step reachable with
+ * nothing to name, and the only way out would be re-deriving the temperature
+ * here from the raw Celsius the context carries, which is how a Fahrenheit
+ * screen ends up printing a Celsius number. Pairing them deletes that branch
+ * rather than guarding it.
+ */
 export type QuestionnaireContext = {
   wardrobe: Garment[];
-  weather: WeatherContext | null;
-  /** Degrees, already formatted for display — e.g. "46°". */
-  temperature: string | null;
-};
+} & (
+  | {
+      weather: WeatherContext;
+      /** Degrees, already formatted for display — e.g. "46°". */
+      temperature: string;
+    }
+  | { weather: null; temperature: null }
+);
 
 const hasDresses = (wardrobe: Garment[]) => wardrobe.some((g) => g.slot === 'dress');
 
@@ -150,16 +164,20 @@ const hasDresses = (wardrobe: Garment[]) => wardrobe.some((g) => g.slot === 'dre
  *
  * Names the number rather than asking for it. Someone who has already told the
  * app where they are should never be asked what the weather is like.
+ *
+ * The already-formatted temperature is required rather than optional because
+ * `QuestionnaireContext` ships it alongside the forecast: there is no state in
+ * which this has a forecast to read and no number to name, so there is nothing
+ * for a fallback to do except get the unit wrong.
  */
-function weatherLine(weather: WeatherContext, temperature: string | null): string {
-  const temp = temperature ?? `${Math.round(weather.feelsLikeC)}°`;
+function weatherLine(weather: WeatherContext, temperature: string): string {
   if (weather.precipitationChance >= 0.4) {
-    return `It is ${temp} out with rain likely.`;
+    return `It is ${temperature} out with rain likely.`;
   }
   if (weather.swing) {
-    return `It is ${temp} now, but the day swings a long way.`;
+    return `It is ${temperature} now, but the day swings a long way.`;
   }
-  return `It is ${temp} out.`;
+  return `It is ${temperature} out.`;
 }
 
 /**

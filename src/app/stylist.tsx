@@ -1,17 +1,23 @@
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { SymbolView } from 'expo-symbols';
 import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MessageBubble } from '@/components/stylist/message-bubble';
-import { Chip } from '@/components/ui/chip';
-import { EmptyState } from '@/components/ui/empty-state';
-import { ErrorState } from '@/components/ui/error-state';
+import {
+  AnswerGrid,
+  Composer,
+  OPENING_TOP,
+  OpeningSkeleton,
+  RefinementRow,
+  StepFooter,
+  StylistHeader,
+  StylistOpening,
+  TRANSCRIPT_TOP,
+} from '@/components/stylist/sheet-parts';
+import { ClosetDidntLoad, ClosetTooSmall } from '@/components/stylist/stylist-states';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { formatTemp } from '@/features/context/weather';
@@ -22,88 +28,9 @@ import { useQuestionnaire } from '@/features/stylist/use-questionnaire';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { track } from '@/lib/posthog';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /** Temperatures elsewhere in the app default to Fahrenheit; match them. */
 const UNITS = 'F' as const;
-
-/**
- * The sheet's header: a small oxblood-tinted mark, the serif name, and the
- * promise that keeps the feature trustworthy — stated plainly, every time.
- * `pt-5` clears the native sheet grabber; the hairline hands off to the
- * message list the way a card's rule hands off to its body.
- *
- * This mark is the screen's single accent. Everything below it — the opening
- * chips, the questionnaire answers — is drawn in hairline and ink, which is
- * what lets one small red circle still read as the app's voice speaking.
- */
-function StylistHeader({ onNewQuestion }: { onNewQuestion?: () => void }) {
-  const theme = useTheme();
-  return (
-    <View className="flex-row items-center gap-3 border-b border-hairline px-gutter pb-3 pt-5 dark:border-hairline-dark">
-      <View className="h-9 w-9 items-center justify-center rounded-full bg-accent-light">
-        <SymbolView name="sparkles" size={15} tintColor={theme.accent} resizeMode="scaleAspectFit" />
-      </View>
-      <View className="flex-1">
-        <Text variant="plate" trim accessibilityRole="header">
-          Stylist
-        </Text>
-        <Text variant="caption" className="mt-0.5 text-faint dark:text-faint-dark">
-          Only your clothes — nothing invented
-        </Text>
-      </View>
-      {/* Reachable only once there is a thread to leave — the designed opening
-          (greeting, four doors, questionnaire) was otherwise reachable exactly
-          once per account, because nothing called the chat hook's `clear()`. */}
-      {onNewQuestion ? (
-        <Pressable
-          onPress={onNewQuestion}
-          accessibilityRole="button"
-          accessibilityLabel="Start a new question"
-          hitSlop={12}
-          className="active:opacity-60">
-          <Text variant="label" className="text-muted dark:text-muted-dark">
-            New question
-          </Text>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
-/**
- * A tappable answer.
- *
- * Its own component rather than the shared `Chip` for one reason: `Chip` buys
- * its 44pt target with `hitSlop`, which is right for a single row of filters
- * and wrong here, where answers wrap onto two or three lines and neighbouring
- * slop regions would overlap into each other. This one is 44pt of real
- * geometry, so a wrapped grid of them stays honest about what was tapped.
- */
-function AnswerChip({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={{ minHeight: MIN_TAP_TARGET }}
-      className="justify-center rounded-md border border-rule px-4 active:opacity-60 dark:border-rule-dark">
-      <Text variant="body">{label}</Text>
-    </Pressable>
-  );
-}
-
-/** A full-width opening door. Wider than an answer because it is a decision. */
-function StartRow({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={{ minHeight: MIN_TAP_TARGET }}
-      className="justify-center rounded-md border border-rule px-4 py-3 active:opacity-60 dark:border-rule-dark">
-      <Text variant="body">{label}</Text>
-    </Pressable>
-  );
-}
 
 /** A scripted turn rendered through the real bubble, so it is indistinguishable. */
 const scriptTurn = (id: string, role: ChatMessage['role'], text: string): ChatMessage => ({
@@ -137,7 +64,6 @@ const scriptTurn = (id: string, role: ChatMessage['role'], text: string): ChatMe
  */
 export default function StylistScreen() {
   const router = useRouter();
-  const theme = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
   const [draft, setDraft] = useState('');
@@ -229,19 +155,53 @@ export default function StylistScreen() {
 
   const showOpening = messages.length === 0 && !questionnaire.active;
 
+  /**
+   * Whether there is an answer on screen for the refinement chips to refine.
+   *
+   * "Something warmer" is a follow-up, so it needs something to follow. The row
+   * used to be gated on `messages.length > 0 && !questionnaire.active`, and
+   * both halves of that were wrong:
+   *
+   *   - `messages.length > 0` counts the pending placeholder. Finishing the
+   *     questionnaire mounts the user's composed sentence AND an empty pending
+   *     bubble in one go, so the length is 2 the instant the request goes up and
+   *     the chips drew over S-04 — which the atlas draws with no chip row at
+   *     all, correctly: the chips would be offering to adjust an answer that
+   *     does not exist yet, and tapping one would fire a second request behind
+   *     the first.
+   *   - `!questionnaire.active` looked like the guard against exactly that and
+   *     was not, because `useQuestionnaire.answer` calls `commit(null)` BEFORE
+   *     `onComplete`, deliberately (so the last chip row cannot render over the
+   *     message it produced). `active` is therefore already false by the time
+   *     `ask()` mounts those two bubbles. It is also redundant now: a flow can
+   *     only be started from the opening, which requires an empty thread.
+   *
+   * So the test is a settled assistant turn — pending is the only state that
+   * has nothing to refine. A FAILED turn deliberately still counts: S-06 draws
+   * the chip row under the failure bubble, and it is right to, because the chips
+   * are the other way to ask again beside "Try again" — an outage the retry did
+   * not clear may still answer a differently-worded question. That is why this
+   * is `!m.pending` and not the narrower "resolved" test of `!m.pending &&
+   * !m.failed`, which would have blanked the row in S-06.
+   */
+  const hasSettledAnswer = messages.some((m) => m.role === 'assistant' && !m.pending);
+
   // A failed wardrobe fetch is NOT an empty closet. Without this branch the
   // screen fell through to "add about ten pieces first" — telling a user with
-  // a full wardrobe to start photographing it again.
+  // a full wardrobe to start photographing it again. Hence the order: this
+  // guard has to run BEFORE `!canGenerate(items)`, because a failed read
+  // leaves `items` empty and would satisfy that test too.
+  //
+  // The copy now lives with the composition in stylist-states.tsx (S-10), which
+  // draws this frame as a centred column rather than in the shared kit's
+  // left-aligned grammar. Read that file's docblock before changing either.
+  // `ClosetDidntLoad` renders `flex-1`; the SafeAreaView above is the column it
+  // centres in, which is why it needs no wrapper.
   if (wardrobe.isError) {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
         <StylistHeader />
-        <ErrorState
-          title="Your closet didn't load."
-          body="The stylist only answers with clothes you actually own, so it needs to read them first. Your closet hasn't changed — this is a connection problem."
-          onRetry={() => void wardrobe.refetch()}
-          retrying={wardrobe.isRefetching}
-        />
+        <ClosetDidntLoad onRetry={() => void wardrobe.refetch()} retrying={wardrobe.isRefetching} />
       </SafeAreaView>
     );
   }
@@ -252,30 +212,18 @@ export default function StylistScreen() {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
         <StylistHeader />
-        <View accessibilityLabel="Reading your wardrobe" className="px-gutter pt-6">
-          <Skeleton className="h-6 w-44 rounded-chip" />
-          <Skeleton className="mt-4 h-3.5 w-4/5 rounded-chip" />
-          <View className="mt-7 gap-2">
-            {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-12 rounded-md" />
-            ))}
-          </View>
-        </View>
+        <OpeningSkeleton />
       </SafeAreaView>
     );
   }
 
+  // Reached only once the read SUCCEEDED and came back short — see the ordering
+  // note above. Copy and composition are S-09's, in stylist-states.tsx.
   if (!canGenerate(items)) {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
         <StylistHeader />
-        <EmptyState
-          symbol="bubble.left.and.bubble.right"
-          title="Ask for anything"
-          body="Dinner at 7 and drinks after? A trip to pack for? Add about ten pieces first — the stylist only ever answers with clothes you actually own."
-          actionTitle="Add clothes"
-          onAction={() => router.push('/capture')}
-        />
+        <ClosetTooSmall onAddClothes={() => router.push('/capture')} />
       </SafeAreaView>
     );
   }
@@ -289,32 +237,22 @@ export default function StylistScreen() {
           ref={scrollRef}
           className="flex-1"
           contentContainerClassName="pb-4"
+          // Chosen here rather than inside either branch, so the two can never
+          // add up — see TRANSCRIPT_TOP / OPENING_TOP for the atlas values. A
+          // style rather than a `pt-*` class so those constants can be named at
+          // all; it merges with the `pb-4` above rather than replacing it,
+          // because the class and the inline object are collected together and
+          // these two set different edges.
+          contentContainerStyle={{ paddingTop: showOpening ? OPENING_TOP : TRANSCRIPT_TOP }}
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
           {showOpening ? (
-            <View className="px-gutter pt-6">
-              <Text variant="title" trim>
-                {hello.salutation}
-              </Text>
-              <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
-                {hello.line}
-              </Text>
-
-              <View className="mt-7 gap-2">
-                {QUICK_STARTS.map((start) => (
-                  <StartRow
-                    key={start.key}
-                    label={start.label}
-                    onPress={() => questionnaire.start(start.key)}
-                  />
-                ))}
-              </View>
-
-              <Text variant="caption" className="mt-5">
-                Or just say it. The stylist answers with clothes you own — and tells you
-                plainly when you don&rsquo;t own the right thing.
-              </Text>
-            </View>
+            <StylistOpening
+              salutation={hello.salutation}
+              line={hello.line}
+              starts={QUICK_STARTS}
+              onStart={questionnaire.start}
+            />
           ) : null}
 
           {messages.map((message) => (
@@ -351,101 +289,49 @@ export default function StylistScreen() {
 
           {questionnaire.step ? (
             <View>
+              {/* `flush` — and ONLY here. The atlas puts 12 between the current
+                  question and its answers (S-02, S-03), which is what
+                  `AnswerGrid` carries; this bubble's own 16pt bottom margin
+                  would stack on top of it, because React Native does not
+                  collapse margins, and draw 28. The replayed turns above take no
+                  `flush`: their 16/18 rhythm is the transcript's own, and it is
+                  what makes a scripted pair read like a model one. */}
               <MessageBubble
                 message={scriptTurn('q-current', 'assistant', questionnaire.step.question)}
                 resolveImage={resolve}
+                flush
               />
 
-              <View className="mt-3 flex-row flex-wrap gap-2 px-gutter">
-                {questionnaire.step.options.map((option) => (
-                  <AnswerChip
-                    key={option.key}
-                    label={option.label}
-                    onPress={() => questionnaire.answer(option.key)}
-                  />
-                ))}
-              </View>
+              <AnswerGrid options={questionnaire.step.options} onAnswer={questionnaire.answer} />
 
-              <View className="mt-4 flex-row items-center justify-between px-gutter">
-                <Text variant="eyebrow">
-                  {questionnaire.position} of {questionnaire.total}
-                </Text>
-                <View className="flex-row items-center gap-5">
-                  {questionnaire.canGoBack ? (
-                    <Pressable
-                      onPress={questionnaire.back}
-                      accessibilityRole="button"
-                      accessibilityLabel="Back to the previous question"
-                      hitSlop={12}>
-                      <Text variant="label" className="underline">
-                        Back
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                  <Pressable
-                    onPress={escapeToTyping}
-                    accessibilityRole="button"
-                    accessibilityHint="Closes the questions and opens the keyboard"
-                    hitSlop={12}>
-                    <Text variant="label" className="underline">
-                      I&rsquo;ll just type
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
+              {/* No wrapper and no margin here: `StepFooter` owns the atlas's
+                  18pt offset above itself (S-02, S-03) along with its own row
+                  layout. A `marginTop` at this call site would land on top of
+                  that one and draw 36. */}
+              <StepFooter
+                position={questionnaire.position}
+                total={questionnaire.total}
+                canGoBack={questionnaire.canGoBack}
+                onBack={questionnaire.back}
+                onType={escapeToTyping}
+              />
             </View>
           ) : null}
         </ScrollView>
 
-        {messages.length > 0 && !questionnaire.active ? (
-          <View className="flex-row flex-wrap gap-2 px-gutter pb-2">
-            <Chip label="Something warmer" onPress={() => submit('Something warmer')} />
-            <Chip label="Dressier" onPress={() => submit('A bit dressier')} />
-            <Chip label="More casual" onPress={() => submit('More casual')} />
-          </View>
-        ) : null}
+        {/* On the gate: see `hasSettledAnswer` above — S-04 draws no chip row,
+            S-05 and S-06 both do. The row's own geometry, and the fact that a
+            chip's label and the sentence it sends are different strings, live
+            in `RefinementRow`. */}
+        {hasSettledAnswer ? <RefinementRow onRefine={submit} /> : null}
 
-        <View className="flex-row items-end gap-2 border-t border-hairline px-gutter pb-2 pt-3 dark:border-hairline-dark">
-          <TextInput
-            ref={inputRef}
-            value={draft}
-            onChangeText={setDraft}
-            onSubmitEditing={() => submit(draft)}
-            // The placeholder does the job a feature tour would: it shows the
-            // one question nothing else on the market can answer.
-            placeholder="Ask about tonight…"
-            placeholderTextColor={theme.muted}
-            multiline
-            textAlignVertical="top"
-            returnKeyType="send"
-            blurOnSubmit
-            accessibilityLabel="Ask the stylist"
-            style={{ maxHeight: 110 }}
-            // `font-body text-callout` — the same computed, floor-safe line
-            // height every other field carries (src/theme/font-metrics.js).
-            // The bare `text-ink` this used to carry set colour only, leaving
-            // the box sized off RN's undocumented default TextInput font.
-            className="flex-1 rounded-full border border-rule bg-surface px-4 py-2.5 font-body text-callout text-ink dark:border-rule-dark dark:bg-surface-dark dark:text-ink-dark"
-          />
-          <Pressable
-            onPress={() => submit(draft)}
-            disabled={!draft.trim() || isSending}
-            accessibilityRole="button"
-            accessibilityLabel="Send"
-            style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}
-            className={`items-center justify-center rounded-full active:opacity-60 ${
-              draft.trim() && !isSending
-                ? 'bg-ink dark:bg-ink-dark'
-                : 'bg-tray dark:bg-tray-dark'
-            }`}>
-            <SymbolView
-              name="arrow.up"
-              size={17}
-              tintColor={draft.trim() && !isSending ? theme.canvas : theme.muted}
-              resizeMode="scaleAspectFit"
-            />
-          </Pressable>
-        </View>
+        <Composer
+          value={draft}
+          onChangeText={setDraft}
+          onSend={() => submit(draft)}
+          sending={isSending}
+          inputRef={inputRef}
+        />
       </KeyboardAvoidingScreen>
     </SafeAreaView>
   );

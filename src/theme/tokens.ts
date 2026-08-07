@@ -26,7 +26,7 @@ export type ThemeColors = {
   /** Lighter still — the Lately attribution voice: bylines, elapsed marks, pointing chevrons. */
   byline: string;
   hairline: string;
-  /** Structural rules of the plate grammar — ink at 18%, works over canvas and tray. */
+  /** Structural rules of the plate grammar — ink at 12%, works over canvas and tray. */
   rule: string;
   accent: string;
   /** The second accent. Warm tan — used where blue would read as a link. */

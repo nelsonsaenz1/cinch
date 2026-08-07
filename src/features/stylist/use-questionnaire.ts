@@ -9,6 +9,7 @@ import {
   type Answers,
   type ComposedAsk,
   type EntryKey,
+  type QuestionnaireContext,
   type Step,
   type StepKey,
 } from './questionnaire';
@@ -65,8 +66,22 @@ export function useQuestionnaire({
     setRun(next);
   }, []);
 
-  const ctx = useMemo(
-    () => ({ wardrobe, weather, temperature }),
+  /**
+   * The two nullable props, re-paired into the one shape `buildSteps` accepts.
+   *
+   * The screen hands down the forecast and its formatted temperature as separate
+   * values, and nothing in their types says they are always null together — only
+   * the caller's `weather ? formatTemp(...) : null` does, which the compiler
+   * cannot see. Correlating them once here is what lets `buildSteps` and the
+   * weather line it composes be total: no forecast reaches them without the
+   * reading that step has to name, so neither needs a fallback that would have
+   * to invent a temperature in the wrong unit.
+   */
+  const ctx = useMemo<QuestionnaireContext>(
+    () =>
+      weather && temperature
+        ? { wardrobe, weather, temperature }
+        : { wardrobe, weather: null, temperature: null },
     [wardrobe, weather, temperature],
   );
 
@@ -122,10 +137,11 @@ export function useQuestionnaire({
   /**
    * Undo the most recent answer and re-ask its question.
    *
-   * Mirrors `use-trip-questionnaire.ts:93-95`'s `back`, but this flow has no
-   * index to decrement — position is derived from `transcript.length` — so
-   * going back means popping the last turn and forgetting the answer it
-   * recorded, which is exactly what re-showing that step needs to be true.
+   * Mirrors `back` in `use-trip-questionnaire.ts`, but that flow holds an index
+   * it can decrement and this one has none — position is derived from
+   * `transcript.length` — so going back means popping the last turn and
+   * forgetting the answer it recorded, which is exactly what re-showing that
+   * step needs to be true.
    */
   const back = useCallback(() => {
     const current = runRef.current;
@@ -144,19 +160,21 @@ export function useQuestionnaire({
     transcript: run?.transcript ?? [],
     canGoBack: (run?.transcript.length ?? 0) > 0,
     /**
-     * Progress, counting the opening tap as the first step.
+     * Progress through the scripted questions, and nothing else.
      *
-     * Not a flourish and not a fib — choosing a door genuinely answered a
-     * question, and it is the one the whole flow branches on. Counting it means
-     * the first real question reads "2 of 5" rather than "1 of 4", which is the
-     * endowed-progress effect: Nunes & Drèze gave car-wash customers a 10-stamp
-     * card with two stamps already on it against a plain 8-stamp card —
-     * identical work — and completion went from 19% to 34%. Finishing is the
-     * whole game here, because the IKEA effect only pays out on completion:
-     * an abandoned flow buys no attachment at all, just a wasted tap.
+     * Both numbers are read off `steps`, which `buildSteps` fixed before the
+     * first bubble was drawn, so "1 of 4" is a promise the flow can keep rather
+     * than a total that grows as the person taps.
+     *
+     * The opening door is deliberately not counted. Padding the total with it
+     * buys a little endowed progress, but it costs the one thing the counter is
+     * for: the person is asked four questions and is told there are five, and a
+     * count that does not match what is on screen is how a progress indicator
+     * stops being believed. Honesty about the remaining work is what makes the
+     * number worth showing at all.
      */
-    position: run ? run.transcript.length + 2 : 0,
-    total: run ? run.steps.length + 1 : 0,
+    position: run ? run.transcript.length + 1 : 0,
+    total: run ? run.steps.length : 0,
     start,
     answer,
     back,
