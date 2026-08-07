@@ -39,6 +39,11 @@ const IN_FLIGHT: JobStage[] = ['preparing', 'cutout', 'uploading', 'tagging'];
 const SHEEN_LOW = 0.18;
 const SHEEN_HIGH = 0.45;
 
+// The thumbnail's entrance, per the design: 180 ms, deliberately between the
+// motion scale's `fast` (140) and `base` (220) — slow enough not to arrive in
+// one hard frame, quick enough to keep pace with a shutter being worked.
+const ENTER_MS = 180;
+
 /**
  * A light sheen that breathes across a thumbnail while its garment is being
  * cleaned up — the design's "shimmer". Opacity-only, so it runs on the UI
@@ -84,7 +89,7 @@ function Thumb({ job }: { job: UploadJob }) {
     // end of the rail is the app's single loudest "is this working?" moment,
     // and it used to arrive in one hard frame. NativeWind classes do not reach
     // Reanimated components, so the layout stays on the plain View inside.
-    <Animated.View entering={FadeIn.duration(motion.duration.fast)}>
+    <Animated.View entering={FadeIn.duration(ENTER_MS)}>
       <View
         className="mr-2.5 w-[52px]"
         accessibilityLabel={`${captionFor(job)}${failed && job.error ? `. ${job.error}` : ''}`}>

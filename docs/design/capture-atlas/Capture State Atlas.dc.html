@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#EFEBE1; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:#1C1A16; -webkit-font-smoothing:antialiased; }
+  a { color:#6E2B2B; } a:hover { color:#8A3A35; }
+  .frame { scrollbar-width:none; -ms-overflow-style:none; }
+  .frame::-webkit-scrollbar { width:0; height:0; }
+</style>
+</helmet>
+
+<div style="padding:56px 64px 96px;max-width:2900px">
+
+  <div style="max-width:820px;margin-bottom:56px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Cinch &middot; Capture screen &middot; build reference</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:52px;line-height:1.08;margin-top:10px">The Capture state atlas</div>
+    <div style="font-size:16px;line-height:1.55;color:#6B665C;margin-top:14px">Every rendering the camera stage can produce, traced from <span style="font-family:ui-monospace,monospace;font-size:13px;background:#E7E2D6;padding:1px 6px;border-radius:4px">src/app/capture.tsx</span>, <span style="font-family:ui-monospace,monospace;font-size:13px;background:#E7E2D6;padding:1px 6px;border-radius:4px">use-camera-access.ts</span> and the ingest queue. This is the one dark screen in a light-only app: ink stage, canvas type, light status bar. Three fixed bands — stage, control row, progress sheet — hold their geometry through every state; only the sheet changes height.</div>
+  </div>
+
+  <!-- ═══ SECTION 1 · permission ═══ -->
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">01 &middot; Access</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:32px;margin-top:6px">Three things the stage can be</div>
+    <div style="font-size:14px;color:#6B665C;margin-top:8px;max-width:780px">Permission is requested on entry, not on the shutter — by the time anyone looks at the stage, iOS has either put its alert over it or the preview is already running. <span style="font-family:ui-monospace,monospace;font-size:12px;background:#E7E2D6;padding:1px 5px;border-radius:4px">checking</span> and <span style="font-family:ui-monospace,monospace;font-size:12px;background:#E7E2D6;padding:1px 5px;border-radius:4px">blocked</span> are kept apart on purpose: a user who has never been asked has refused nothing.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:72px">
+
+    <!-- C-01 live -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-01</span><span style="font-size:13px;font-weight:500">Granted &mdash; live viewfinder, nothing shot yet</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;position:relative;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px">
+          <span style="font-weight:600;font-size:15px;color:#FBFAF6">9:41</span>
+          <svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#FBFAF6"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#FBFAF6"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#FBFAF6"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#FBFAF6"></rect><path d="M25 6.5 A7.5 7.5 0 0 1 36 6.5" stroke="#FBFAF6" stroke-width="1.7" fill="none" stroke-linecap="round"></path><path d="M27.6 9 A4 4 0 0 1 33.4 9" stroke="#FBFAF6" stroke-width="1.7" fill="none" stroke-linecap="round"></path><circle cx="30.5" cy="11" r="1.3" fill="#FBFAF6"></circle><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(251,250,246,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#FBFAF6"></rect><path d="M66 4.5 v3" stroke="rgba(251,250,246,.45)" stroke-width="1.4" stroke-linecap="round"></path></svg>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 0">
+          <div style="font-family:'Instrument Serif',serif;font-size:26px;color:#FBFAF6">Add clothes</div>
+          <div style="font-size:16px;font-weight:600;color:#FBFAF6;padding:8px 0">Done</div>
+        </div>
+        <div style="position:relative;margin:8px 16px;flex:1;border-radius:20px;overflow:hidden;background:#100F0D">
+          <img src="assets/garments/cognac-shearling-coat.jpg" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" alt="Live preview">
+          <div style="position:absolute;top:20px;left:20px;width:22px;height:22px;border-top:2px solid #FBFAF6;border-left:2px solid #FBFAF6;border-top-left-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;top:20px;right:20px;width:22px;height:22px;border-top:2px solid #FBFAF6;border-right:2px solid #FBFAF6;border-top-right-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;bottom:20px;left:20px;width:22px;height:22px;border-bottom:2px solid #FBFAF6;border-left:2px solid #FBFAF6;border-bottom-left-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;bottom:20px;right:20px;width:22px;height:22px;border-bottom:2px solid #FBFAF6;border-right:2px solid #FBFAF6;border-bottom-right-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;left:0;right:0;bottom:22px;text-align:center;font-size:13px;font-weight:500;color:rgba(251,250,246,.75);text-shadow:0 1px 4px rgba(28,26,22,.55)">One garment, plain background</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:20px 20px 0 0;padding:16px 20px 34px">
+          <div style="font-family:'Instrument Serif',serif;font-size:24px">Photograph your closet</div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">Pick up to 20 photos at a time, or shoot pieces one by one. Cinch cuts out the background and tags everything for you.</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px"><span style="font-family:ui-monospace,monospace;font-size:11px;background:#E7E2D6;padding:1px 5px;border-radius:4px">access === 'granted' &amp;&amp; !previewFailed &amp;&amp; jobs.length === 0</span> — the preview runs only while the screen is focused (<span style="font-family:ui-monospace,monospace;font-size:11px">active={focused}</span>), so returning from /review resumes the session rather than remounting it. Corner guides sit at 55% over the real scene; the hint carries a warm ink shadow because a white shirt filling the frame would otherwise swallow it.</div>
+    </div>
+
+    <!-- C-02 checking -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-02</span><span style="font-size:13px;font-weight:500">Checking &mdash; the OS alert owns the screen</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;position:relative;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px">
+          <span style="font-weight:600;font-size:15px;color:#FBFAF6">9:41</span>
+          <svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#FBFAF6"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#FBFAF6"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#FBFAF6"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#FBFAF6"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(251,250,246,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#FBFAF6"></rect></svg>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 0">
+          <div style="font-family:'Instrument Serif',serif;font-size:26px;color:#FBFAF6">Add clothes</div>
+          <div style="font-size:16px;font-weight:600;color:#FBFAF6;padding:8px 0">Done</div>
+        </div>
+        <div style="position:relative;margin:8px 16px;flex:1;border-radius:20px;overflow:hidden;background:#211F1B;display:flex;align-items:center;justify-content:center">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#FBFAF6" stroke-width="1.2" stroke-linejoin="round" style="opacity:.5"><path d="M8.5 3 L4 5.5 L5.5 9 L7 8.4 V21 h10 V8.4 L18.5 9 L20 5.5 L15.5 3 a3.5 3.5 0 0 1-7 0 Z"></path></svg>
+          <div style="position:absolute;top:20px;left:20px;width:22px;height:22px;border-top:2px solid #FBFAF6;border-left:2px solid #FBFAF6;border-top-left-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;top:20px;right:20px;width:22px;height:22px;border-top:2px solid #FBFAF6;border-right:2px solid #FBFAF6;border-top-right-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;bottom:20px;left:20px;width:22px;height:22px;border-bottom:2px solid #FBFAF6;border-left:2px solid #FBFAF6;border-bottom-left-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;bottom:20px;right:20px;width:22px;height:22px;border-bottom:2px solid #FBFAF6;border-right:2px solid #FBFAF6;border-bottom-right-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;left:0;right:0;bottom:22px;text-align:center;font-size:13px;font-weight:500;color:rgba(251,250,246,.75)">One garment, plain background</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center;opacity:.35"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:20px 20px 0 0;padding:16px 20px 34px">
+          <div style="font-family:'Instrument Serif',serif;font-size:24px">Photograph your closet</div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">Pick up to 20 photos at a time, or shoot pieces one by one. Cinch cuts out the background and tags everything for you.</div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(28,26,22,.40);display:flex;align-items:center;justify-content:center">
+          <div style="width:270px;background:#F2F1F1;border-radius:14px;overflow:hidden;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.4)">
+            <div style="padding:19px 16px 15px">
+              <div style="font-size:17px;font-weight:600;letter-spacing:-.2px">&ldquo;Cinch&rdquo; Would Like to Access the Camera</div>
+              <div style="margin-top:4px;font-size:13px;line-height:1.35;color:#3C3A38">To photograph the clothes you already own.</div>
+            </div>
+            <div style="display:flex;border-top:.5px solid rgba(60,60,67,.29)">
+              <div style="flex:1;padding:11px 0;font-size:17px;color:#0A7AFF;border-right:.5px solid rgba(60,60,67,.29)">Don&rsquo;t Allow</div>
+              <div style="flex:1;padding:11px 0;font-size:17px;font-weight:600;color:#0A7AFF">OK</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px"><span style="font-family:ui-monospace,monospace;font-size:11px;background:#E7E2D6;padding:1px 5px;border-radius:4px">access === 'checking'</span> — status unread, or undetermined with the alert up. The instructional frame stands in for the preview; the shutter is dimmed to 35% and <em>inert</em> (<span style="font-family:ui-monospace,monospace;font-size:11px">disabled: access !== 'granted'</span>), because a tap here fell through to the system camera and stacked a second OS prompt on the first. One request per visit, guarded by a ref.</div>
+    </div>
+
+    <!-- C-03 blocked -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-03</span><span style="font-size:13px;font-weight:500">Blocked &mdash; the path to Settings</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;position:relative;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px">
+          <span style="font-weight:600;font-size:15px;color:#FBFAF6">9:41</span>
+          <svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#FBFAF6"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#FBFAF6"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#FBFAF6"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#FBFAF6"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(251,250,246,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#FBFAF6"></rect></svg>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 0">
+          <div style="font-family:'Instrument Serif',serif;font-size:26px;color:#FBFAF6">Add clothes</div>
+          <div style="font-size:16px;font-weight:600;color:#FBFAF6;padding:8px 0">Done</div>
+        </div>
+        <div style="margin:8px 16px;flex:1;border-radius:20px;overflow:hidden;background:#FBFAF6;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 32px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="#1C1A16" style="opacity:.85"><path d="M9.2 4h5.6l1.2 2H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l1.2-2Z"></path><circle cx="12" cy="12.5" r="3.6" fill="#FBFAF6"></circle></svg>
+          <div style="font-family:'Instrument Serif',serif;font-size:26px;margin-top:14px">Camera access is off</div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">Cinch can&rsquo;t show the viewfinder without it. Turn the camera on in Settings, or add clothes from your library instead.</div>
+          <div style="margin-top:18px;border:1px solid rgba(28,26,22,.25);border-radius:12px;padding:12px 20px;font-size:15px;font-weight:600">Open Settings</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center;opacity:.35"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:20px 20px 0 0;padding:16px 20px 34px">
+          <div style="font-family:'Instrument Serif',serif;font-size:24px">Photograph your closet</div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">Pick up to 20 photos at a time, or shoot pieces one by one. Cinch cuts out the background and tags everything for you.</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px"><span style="font-family:ui-monospace,monospace;font-size:11px;background:#E7E2D6;padding:1px 5px;border-radius:4px">access === 'blocked'</span> — on iOS the first &ldquo;Don&rsquo;t Allow&rdquo; is final, so this is a plate with a route out, not a second prompt. Drawn on canvas rather than on the ink stage: ink type on ink is the black rectangle this state exists to remove. Library and Describe stay live, so a refused camera narrows the screen instead of ending it. Permission is re-read on foreground, so a grant made in Settings lands here.</div>
+    </div>
+
+    <!-- C-04 no camera -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-04</span><span style="font-size:13px;font-weight:500">No preview &mdash; simulator / mount error</span></div>
+      <div class="frame" style="width:393px;height:520px;display:flex;flex-direction:column;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:44px 44px 20px 20px;overflow:hidden;position:relative;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px">
+          <span style="font-weight:600;font-size:15px;color:#FBFAF6">9:41</span>
+          <svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#FBFAF6"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#FBFAF6"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#FBFAF6"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#FBFAF6"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(251,250,246,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#FBFAF6"></rect></svg>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 0">
+          <div style="font-family:'Instrument Serif',serif;font-size:26px;color:#FBFAF6">Add clothes</div>
+          <div style="font-size:16px;font-weight:600;color:#FBFAF6;padding:8px 0">Done</div>
+        </div>
+        <div style="position:relative;margin:8px 16px;flex:1;border-radius:20px;overflow:hidden;background:#211F1B;display:flex;align-items:center;justify-content:center">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#FBFAF6" stroke-width="1.2" stroke-linejoin="round" style="opacity:.5"><path d="M8.5 3 L4 5.5 L5.5 9 L7 8.4 V21 h10 V8.4 L18.5 9 L20 5.5 L15.5 3 a3.5 3.5 0 0 1-7 0 Z"></path></svg>
+          <div style="position:absolute;top:20px;left:20px;width:22px;height:22px;border-top:2px solid #FBFAF6;border-left:2px solid #FBFAF6;border-top-left-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;top:20px;right:20px;width:22px;height:22px;border-top:2px solid #FBFAF6;border-right:2px solid #FBFAF6;border-top-right-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;bottom:20px;left:20px;width:22px;height:22px;border-bottom:2px solid #FBFAF6;border-left:2px solid #FBFAF6;border-bottom-left-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;bottom:20px;right:20px;width:22px;height:22px;border-bottom:2px solid #FBFAF6;border-right:2px solid #FBFAF6;border-bottom-right-radius:4px;opacity:.55"></div>
+          <div style="position:absolute;left:0;right:0;bottom:22px;text-align:center;font-size:13px;font-weight:500;color:rgba(251,250,246,.75)">One garment, plain background</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px 20px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px"><span style="font-family:ui-monospace,monospace;font-size:11px;background:#E7E2D6;padding:1px 5px;border-radius:4px">previewFailed</span> — set by <span style="font-family:ui-monospace,monospace;font-size:11px">onMountError</span>, or by a <span style="font-family:ui-monospace,monospace;font-size:11px">takePictureAsync</span> that threw. Same instructional frame as C-02, but the shutter stays <em>live</em>: it hands off to the system camera, which carries its own permission handling. Once dropped, the fallback holds for the rest of the visit rather than flickering between two cameras.</div>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 2 · gates ═══ -->
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">02 &middot; The gates before a photo</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:32px;margin-top:6px">Capacity, then consent</div>
+    <div style="font-size:14px;color:#6B665C;margin-top:8px;max-width:780px">All three doors — Library, shutter, Describe — dispatch through one guard. Capacity is checked <em>before</em> consent: a full closet means the garment cannot be added at all, so asking permission to send photographs to a model moments before refusing the thing they asked for collects a decision nobody has a use for.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:72px">
+
+    <!-- C-05 consent -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-05</span><span style="font-size:13px;font-weight:500">First-run consent, over the dimmed stage</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;position:relative;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px">
+          <span style="font-weight:600;font-size:15px;color:#FBFAF6">9:41</span>
+          <svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#FBFAF6"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#FBFAF6"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#FBFAF6"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#FBFAF6"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(251,250,246,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#FBFAF6"></rect></svg>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 20px 0">
+          <div style="font-family:'Instrument Serif',serif;font-size:26px;color:#FBFAF6">Add clothes</div>
+          <div style="font-size:16px;font-weight:600;color:#FBFAF6;padding:8px 0">Done</div>
+        </div>
+        <div style="position:relative;margin:8px 16px;flex:1;border-radius:20px;overflow:hidden;background:#100F0D">
+          <img src="assets/garments/cognac-shearling-coat.jpg" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" alt="Live preview">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:20px 20px 0 0;padding:16px 20px 34px">
+          <div style="font-family:'Instrument Serif',serif;font-size:24px">Photograph your closet</div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">Pick up to 20 photos at a time, or shoot pieces one by one.</div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(28,26,22,.40);display:flex;flex-direction:column;justify-content:flex-end">
+          <div style="background:#FBFAF6;border-radius:20px 20px 0 0;padding:10px 20px 34px">
+            <div style="display:flex;justify-content:center;padding-bottom:10px"><div style="width:36px;height:5px;border-radius:3px;background:#E7E2D6"></div></div>
+            <div style="font-family:'Instrument Serif',serif;font-size:34px;line-height:1.1">Before Cinch looks</div>
+            <div style="margin-top:12px;font-size:16px;line-height:1.5;color:#6B665C">To turn your photos into a wardrobe, Cinch processes each image. Here&rsquo;s exactly what that means.</div>
+            <div style="margin-top:28px;display:flex;flex-direction:column;gap:16px">
+              <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:50%;background:#F2E7E4;display:flex;align-items:center;justify-content:center;color:#6E2B2B;font-size:13px">&#10022;</div><div style="flex:1;font-size:16px;line-height:1.4">Cleans up the photo &mdash; removes the background</div></div>
+              <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:50%;background:#F2E7E4;display:flex;align-items:center;justify-content:center;color:#6E2B2B;font-size:13px">&#10022;</div><div style="flex:1;font-size:16px;line-height:1.4">Identifies the garment, its colours and category</div></div>
+              <div style="display:flex;align-items:center;gap:12px"><div style="width:28px;height:28px;border-radius:50%;background:#F2E7E4;display:flex;align-items:center;justify-content:center;color:#6E2B2B;font-size:13px">&#10022;</div><div style="flex:1;font-size:16px;line-height:1.4">Never sold, never shared, never used to advertise</div></div>
+            </div>
+            <div style="margin-top:32px;display:flex;flex-direction:column;gap:8px">
+              <div style="min-height:52px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600">Allow processing</div>
+              <div style="min-height:44px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#1C1A16">Not now</div>
+            </div>
+            <div style="margin-top:12px;text-align:center;font-size:13px;font-weight:500;color:#6B665C">You can turn AI features off anytime in Profile.</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px"><span style="font-family:ui-monospace,monospace;font-size:11px;background:#E7E2D6;padding:1px 5px;border-radius:4px">!consent.granted &amp;&amp; a door was tapped</span> — a bottom sheet over the dimmed stage, not a page: the ask happens <em>inside</em> capture. Scrim tap is &ldquo;Not now&rdquo;; dismissal must never be mistakable for consent. The interrupted action resumes on <span style="font-family:ui-monospace,monospace;font-size:11px">onDismiss</span> (450&thinsp;ms fallback timer), because iOS refuses to present the picker while this sheet is still animating away.</div>
+    </div>
+
+    <!-- C-06 declined -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-06</span><span style="font-size:13px;font-weight:500">Declined this sitting &mdash; sheet crop</span></div>
+      <div class="frame" style="width:393px;height:280px;display:flex;flex-direction:column;justify-content:flex-end;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:20px 20px 44px 44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:20px 20px 0 0;padding:16px 20px 34px">
+          <div style="font-family:'Instrument Serif',serif;font-size:24px">Photograph your closet</div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">AI processing is off, so Cinch can&rsquo;t cut out or tag photos yet.</div>
+          <div style="margin-top:12px;display:inline-flex;border:1px solid rgba(28,26,22,.25);border-radius:12px;padding:11px 18px;font-size:15px;font-weight:600">Turn it on</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px"><span style="font-family:ui-monospace,monospace;font-size:11px;background:#E7E2D6;padding:1px 5px;border-radius:4px">declinedConsent &amp;&amp; jobs.length === 0</span> — the answer to &ldquo;I tapped Not now and nothing happened&rdquo;. Local to the visit, not read off the consent record: never asked and declined must not look the same. Persistent rather than a toast, because the condition persists, and paired with the one tap back to the sheet. Announced <span style="font-family:ui-monospace,monospace;font-size:11px">accessibilityLiveRegion=&quot;polite&quot;</span>.</div>
+    </div>
+
+    <!-- C-07 capacity -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-07</span><span style="font-size:13px;font-weight:500">Closet full &mdash; the paywall takes the tap</span></div>
+      <div class="frame" style="width:393px;height:280px;display:flex;align-items:flex-end;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:20px 20px 44px 44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16);position:relative">
+        <div style="position:absolute;inset:0;background:rgba(28,26,22,.40)"></div>
+        <div style="position:relative;width:100%;background:#FBFAF6;border-radius:20px 20px 0 0;padding:10px 20px 34px">
+          <div style="display:flex;justify-content:center;padding-bottom:12px"><div style="width:36px;height:5px;border-radius:3px;background:#E7E2D6"></div></div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Superwall &middot; AddGarmentOverLimit</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.12;margin-top:8px">Your closet is full at 50 pieces</div>
+          <div style="margin-top:8px;font-size:15px;line-height:1.5;color:#6B665C">Cinch Unlimited lifts the cap. Everything already in your closet stays exactly as it is.</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px"><span style="font-family:ui-monospace,monospace;font-size:11px;background:#E7E2D6;padding:1px 5px;border-radius:4px">capacity.full</span> — the capture screen renders none of this; Superwall decides whether this user sees a paywall at all. On a grant the action is dispatched <em>directly</em>, never back through the guard, whose closure still holds the stale <span style="font-family:ui-monospace,monospace;font-size:11px">full</span>. The database trigger remains the authority — this only moves the &ldquo;no&rdquo; to before the photograph rather than after the upload.</div>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 3 · the batch ═══ -->
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">03 &middot; Shooting a batch</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:32px;margin-top:6px">The sheet, as the queue fills</div>
+    <div style="font-size:14px;color:#6B665C;margin-top:8px;max-width:780px">Everything below the control row is read off the real upload queue &mdash; never fabricated. The stage stays live throughout, so pieces are shot in sequence and the rail grows underneath them. Crops start at the control row.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;margin-bottom:56px">
+
+    <!-- C-08 -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-08</span><span style="font-size:13px;font-weight:500">First shot &mdash; one on the rail</span></div>
+      <div style="width:393px;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:20px 20px 44px 44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6;opacity:.5"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:20px 20px 0 0;padding:16px 20px 34px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <div style="font-size:16px;font-variant-numeric:tabular-nums">Processing 1 of 1 &middot; Cleaning&hellip;</div>
+            <div style="font-size:13px;font-weight:500;color:#8A8578">1 to go</div>
+          </div>
+          <div style="margin:12px 0;height:6px;border-radius:3px;background:#E7E2D6;overflow:hidden"><div style="width:8%;height:100%;background:#1C1A16"></div></div>
+          <div style="display:flex;gap:10px">
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden;position:relative"><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.7" alt=""><div style="position:absolute;inset:0;background:#FFFFFF;opacity:.30"></div></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Cleaning&hellip;</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px">Shutter inner disc drops to 50% while <span style="font-family:ui-monospace,monospace;font-size:11px">shooting</span>; the frame the user composed is the frame taken, with no second camera UI opening over the one they are looking at. The thumbnail enters with a 180&thinsp;ms fade &mdash; the app&rsquo;s loudest &ldquo;is this working?&rdquo; moment, so it never arrives in one hard frame. A light sheen breathes across it while in flight (held still under Reduce Motion; the caption still names the stage).</div>
+    </div>
+
+    <!-- C-09 -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-09</span><span style="font-size:13px;font-weight:500">Mid-batch &mdash; five in sequence</span></div>
+      <div style="width:393px;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:20px 20px 44px 44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:20px 20px 0 0;padding:16px 20px 34px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <div style="font-size:16px;font-variant-numeric:tabular-nums">Processing 3 of 5 &middot; Categorising&hellip;</div>
+            <div style="font-size:13px;font-weight:500;color:#8A8578">3 to go</div>
+          </div>
+          <div style="margin:12px 0;height:6px;border-radius:3px;background:#E7E2D6;overflow:hidden"><div style="width:40%;height:100%;background:#1C1A16"></div></div>
+          <div style="display:flex;gap:10px">
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Coat &#10003;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Knit &#10003;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden;position:relative"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.7" alt=""><div style="position:absolute;inset:0;background:#FFFFFF;opacity:.32"></div></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Categorising&hellip;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden;border:1px dashed rgba(28,26,22,.20)"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.4" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Queued</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden;border:1px dashed rgba(28,26,22,.20)"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.4" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Queued</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px">The rail reads front-to-back: finished pieces sit left, what is still coming reads right. A finished garment is <em>named</em> (&ldquo;Coat &#10003;&rdquo;) &mdash; a piece has no truthful name until the tagger has said what it is, so anything in flight shows its stage instead. The headline counts <em>settled</em> jobs, not successes: a batch whose first four failed used to read &ldquo;Processing 1 of 5&rdquo;.</div>
+    </div>
+
+    <!-- C-10 -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-10</span><span style="font-size:13px;font-weight:500">All added &mdash; the way on</span></div>
+      <div style="width:393px;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:20px 20px 44px 44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:20px 20px 0 0;padding:16px 20px 34px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <div style="font-size:16px;font-variant-numeric:tabular-nums">All added</div>
+          </div>
+          <div style="height:12px"></div>
+          <div style="display:flex;gap:10px">
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Coat &#10003;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Knit &#10003;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Trousers &#10003;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Loafers &#10003;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Blouse &#10003;</div></div>
+          </div>
+          <div style="margin-top:16px;height:52px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600">Review tags</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px"><span style="font-family:ui-monospace,monospace;font-size:11px;background:#E7E2D6;padding:1px 5px;border-radius:4px">total &gt; 0 &amp;&amp; active === 0 &amp;&amp; failed === 0</span> — the progress track unmounts rather than sitting full, and &ldquo;Review tags&rdquo; promotes from secondary to primary with a haptic. It appears the moment <em>any</em> piece is done, so a long batch can be reviewed while the tail is still uploading. Leaving a settled batch clears it; an interrupted one persists and resumes.</div>
+    </div>
+
+    <!-- C-11 -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-11</span><span style="font-size:13px;font-weight:500">Some stopped &mdash; retryable</span></div>
+      <div style="width:393px;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:20px 20px 44px 44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:20px 20px 0 0;padding:16px 20px 34px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <div style="font-size:16px;font-variant-numeric:tabular-nums">Added 3 of 5</div>
+            <div style="font-size:13px;font-weight:500;color:#8A2E28">2 couldn&rsquo;t be added</div>
+          </div>
+          <div style="height:12px"></div>
+          <div style="display:flex;gap:10px">
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Coat &#10003;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Knit &#10003;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Trousers &#10003;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.7" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#8A2E28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Failed</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.7" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#8A2E28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Failed</div></div>
+          </div>
+          <div style="margin-top:12px;border-radius:14px;background:rgba(197,138,46,.15);padding:10px 12px">
+            <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">2 pieces stopped</div>
+            <div style="margin-top:4px;font-size:13px;font-weight:500;line-height:1.4">Saved, but not tagged &mdash; the connection dropped.</div>
+            <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+              <div style="border:1px solid rgba(28,26,22,.25);border-radius:12px;padding:9px 14px;font-size:14px;font-weight:600">Try these again</div>
+              <div style="padding:9px 6px;font-size:14px;font-weight:600;color:#6B665C">Leave them untagged</div>
+            </div>
+          </div>
+          <div style="margin-top:16px;height:52px;border-radius:12px;border:1px solid rgba(28,26,22,.25);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600">Review tags</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px"><span style="font-family:ui-monospace,monospace;font-size:11px;background:#E7E2D6;padding:1px 5px;border-radius:4px">failedCount &gt; 0 &amp;&amp; canRetry</span> — the same grammar the review deck uses for a failed save: warning wash, one sentence, actions beside it. The sentence is <span style="font-family:ui-monospace,monospace;font-size:11px">userFacingFailure(job)</span>, not the raw diagnostic; <span style="font-family:ui-monospace,monospace;font-size:11px">job.error</span> stays untouched for logging. &ldquo;Leave them untagged&rdquo; names the outcome, not the gesture — without a dismissal the queue&rsquo;s persistence brought the same red line back on every launch.</div>
+    </div>
+
+    <!-- C-12 -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">C-12</span><span style="font-size:13px;font-weight:500">Stopped for good &mdash; no retry offered</span></div>
+      <div style="width:393px;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:20px 20px 44px 44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 32px">
+          <div style="min-width:64px;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Library</div>
+          <div style="width:64px;height:64px;border-radius:32px;border:3px solid #FBFAF6;display:flex;align-items:center;justify-content:center"><div style="width:50px;height:50px;border-radius:25px;background:#FBFAF6"></div></div>
+          <div style="min-width:64px;text-align:right;font-size:13px;font-weight:500;color:#FBFAF6;padding:8px 0">Describe</div>
+        </div>
+        <div style="background:#FFFFFF;border-radius:20px 20px 0 0;padding:16px 20px 34px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <div style="font-size:16px;font-variant-numeric:tabular-nums">Added 1 of 2</div>
+            <div style="font-size:13px;font-weight:500;color:#8A2E28">1 couldn&rsquo;t be added</div>
+          </div>
+          <div style="height:12px"></div>
+          <div style="display:flex;gap:10px">
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/beige-corduroy-skirt.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Skirt &#10003;</div></div>
+            <div style="width:52px"><div style="height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/cognac-leather-tote.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.7" alt=""></div><div style="margin-top:4px;font-size:11px;text-align:center;color:#8A2E28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Failed</div></div>
+          </div>
+          <div style="margin-top:12px;border-radius:14px;background:rgba(197,138,46,.15);padding:10px 12px">
+            <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">1 piece stopped</div>
+            <div style="margin-top:4px;font-size:13px;font-weight:500;line-height:1.4">Saved, but not tagged &mdash; AI processing is turned off.</div>
+            <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+              <div style="padding:9px 6px;font-size:14px;font-weight:600;color:#6B665C">Leave them untagged</div>
+            </div>
+          </div>
+          <div style="margin-top:16px;height:52px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600">Review tags</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px"><span style="font-family:ui-monospace,monospace;font-size:11px;background:#E7E2D6;padding:1px 5px;border-radius:4px">retryable === false</span> — AI processing off, or a garment that no longer exists. A retry here is a button guaranteed to disappoint, so only the dismissal shows. The garment itself is saved either way; the notice is what clears.</div>
+    </div>
+  </div>
+
+  <!-- ═══ SECTION 4 · rail ═══ -->
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">04 &middot; The rail</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:32px;margin-top:6px">Seven stages, one thumbnail</div>
+    <div style="font-size:14px;color:#6B665C;margin-top:8px;max-width:780px">Stage words live in the store beside the stages they name, so the headline and the rail cannot drift into two spellings of one moment. An ellipsis marks a stage still working; a settled stage never carries one.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;margin-bottom:72px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px 28px;width:fit-content">
+    <div style="width:76px"><div style="width:52px;height:64px;border-radius:4px;overflow:hidden;border:1px dashed rgba(28,26,22,.20)"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.4" alt=""></div><div style="margin-top:5px;width:52px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Queued</div><div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:10px;color:#8A8578">40% &middot; dashed</div></div>
+    <div style="width:76px"><div style="width:52px;height:64px;border-radius:4px;overflow:hidden;position:relative"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.7" alt=""><div style="position:absolute;inset:0;background:#FFFFFF;opacity:.25"></div></div><div style="margin-top:5px;width:52px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Preparing&hellip;</div><div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:10px;color:#8A8578">sheen</div></div>
+    <div style="width:76px"><div style="width:52px;height:64px;border-radius:4px;overflow:hidden;position:relative"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.7" alt=""><div style="position:absolute;inset:0;background:#FFFFFF;opacity:.38"></div></div><div style="margin-top:5px;width:52px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Cleaning&hellip;</div><div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:10px;color:#8A8578">sheen</div></div>
+    <div style="width:76px"><div style="width:52px;height:64px;border-radius:4px;overflow:hidden;position:relative"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.7" alt=""><div style="position:absolute;inset:0;background:#FFFFFF;opacity:.25"></div></div><div style="margin-top:5px;width:52px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Uploading&hellip;</div><div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:10px;color:#8A8578">sheen</div></div>
+    <div style="width:76px"><div style="width:52px;height:64px;border-radius:4px;overflow:hidden;position:relative"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.7" alt=""><div style="position:absolute;inset:0;background:#FFFFFF;opacity:.32"></div></div><div style="margin-top:5px;width:52px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Categorising&hellip;</div><div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:10px;color:#8A8578">sheen</div></div>
+    <div style="width:76px"><div style="width:52px;height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover" alt=""></div><div style="margin-top:5px;width:52px;font-size:11px;text-align:center;color:#6B665C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Blouse &#10003;</div><div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:10px;color:#8A8578">named</div></div>
+    <div style="width:76px"><div style="width:52px;height:64px;border-radius:4px;overflow:hidden"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover;opacity:.7" alt=""></div><div style="margin-top:5px;width:52px;font-size:11px;text-align:center;color:#8A2E28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Failed</div><div style="margin-top:6px;font-family:ui-monospace,monospace;font-size:10px;color:#8A8578">critical</div></div>
+  </div>
+
+  <!-- ═══ SECTION 5 · notes ═══ -->
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">05 &middot; The control row</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:32px;margin-top:6px">Three doors, and the one that isn&rsquo;t flip</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:stretch;max-width:1240px">
+    <div style="flex:1 1 280px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Third slot</div>
+      <div style="font-family:'Instrument Serif',serif;font-size:24px;margin-top:6px">Describe, where flip was drawn</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">The handoff puts &ldquo;Flip&rdquo; opposite Library. A front-camera photograph of a garment held at arm&rsquo;s length is not a garment photograph, so flip would be a control for a shot nobody wants. Describe is the door for the pieces somebody will never get round to photographing at all &mdash; and it passes the same gates, because it ends in the same insert and the same model call.</div>
+    </div>
+    <div style="flex:1 1 280px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Sizing</div>
+      <div style="font-family:'Instrument Serif',serif;font-size:24px;margin-top:6px">Labels take the width they need</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">A fixed 64pt box sliced &ldquo;Library&rdquo; to &ldquo;Libra&rdquo; at AX-1. Both labels carry a <span style="font-family:ui-monospace,monospace;font-size:12px">minWidth</span> and shrink to fit rather than clip &mdash; the label is the only thing that says what the control does. The shutter is a fixed 64pt ring with a 50pt disc at all sizes.</div>
+    </div>
+    <div style="flex:1 1 280px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Feedback</div>
+      <div style="font-family:'Instrument Serif',serif;font-size:24px;margin-top:6px">Haptics are best-effort</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">A selection tap fires on all three doors, but haptics no-op during a camera session and in Low Power Mode &mdash; the pressed state is the real feedback, and nothing waits on the taptic call.</div>
+    </div>
+    <div style="flex:1 1 280px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Leaving</div>
+      <div style="font-family:'Instrument Serif',serif;font-size:24px;margin-top:6px">&ldquo;Done&rdquo;, not &ldquo;Close&rdquo;</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">An import keeps running in the queue after this screen goes away, so the tap ends the user&rsquo;s session at the stage rather than closing anything down. A settled batch is cleared on the way out; anything still moving persists and resumes on the next launch.</div>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+</body>
+</html>

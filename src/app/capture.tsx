@@ -316,7 +316,11 @@ export default function CaptureScreen() {
   // four failed was reading "Processing 1 of 5" while it worked on the fifth,
   // which is a count of nothing anybody could see.
   const settledCount = doneCount + failedCount;
-  const fraction = total ? doneCount / total : 0;
+  // Floored at a sliver, not zero: the first shot sits at 0 done for its whole
+  // first pass, and an empty track under "Processing 1 of 1" reads as a bar
+  // that failed to start rather than one that has. The track unmounts on
+  // settle, so the floor never lies about a finished batch.
+  const fraction = total ? Math.max(doneCount / total, 0.08) : 0;
   // What the batch is actually doing this second — "cleaning up…",
   // "categorising…". Named rather than implied, because a long tagging pass over
   // a slow connection is otherwise indistinguishable from nothing happening.
@@ -395,7 +399,7 @@ export default function CaptureScreen() {
             symbol="camera.fill"
             tone="blocked"
             title="Camera access is off"
-            body="Cinch can't show the viewfinder without it. Turn the camera on in Settings, or add clothes from your library instead."
+            body="Cinch can’t show the viewfinder without it. Turn the camera on in Settings, or add clothes from your library instead."
             actionTitle="Open Settings"
             onAction={openSettings}
           />
@@ -429,21 +433,25 @@ export default function CaptureScreen() {
           <Corner canvas={theme.canvas} pos="bl" />
           <Corner canvas={theme.canvas} pos="br" />
           <Text
-            variant="caption"
+            variant="label"
             className="absolute"
-            style={{
-              bottom: 22,
-              color: theme.canvas,
-              opacity: 0.75,
+            style={[
+              { bottom: 22, color: theme.canvas, opacity: 0.75 },
               // Over a live scene the hint has no fixed backdrop to be legible
               // against — a white shirt fills the frame and the line vanishes.
               // Warm ink at 55%, not pure black: a neutral black shadow reads
               // cold against the warm canvas type it sits under, and the
-              // palette has no true black in it anywhere else.
-              textShadowColor: 'rgba(28,26,22,0.55)',
-              textShadowOffset: { width: 0, height: 1 },
-              textShadowRadius: 4,
-            }}>
+              // palette has no true black in it anywhere else. The shadow
+              // belongs to the live preview alone; on the instructional frame
+              // there is nothing bright to defend against.
+              live
+                ? {
+                    textShadowColor: 'rgba(28,26,22,0.55)',
+                    textShadowOffset: { width: 0, height: 1 },
+                    textShadowRadius: 4,
+                  }
+                : null,
+            ]}>
             One garment, plain background
           </Text>
         </View>
@@ -588,19 +596,26 @@ export default function CaptureScreen() {
                     : 'All added'
                   : `Processing ${Math.min(settledCount + 1, total)} of ${total}${phase ? ` · ${phase}` : ''}`}
               </Text>
+              {/* `label`, not `caption`: the count is a sibling of the headline,
+                  not a footnote under a thumbnail — 11px beside 17px read as
+                  debris. Colour rides inline; the variant's own `muted` loses
+                  to it, which is the one precedence that holds. */}
               {!allDone ? (
-                <Text variant="caption" style={{ color: theme.faint }}>{`${active} to go`}</Text>
+                <Text variant="label" style={{ color: theme.faint }}>{`${active} to go`}</Text>
               ) : failedCount > 0 ? (
-                <Text variant="caption" style={{ color: theme.critical }}>
-                  {`${failedCount} couldn't be added`}
+                <Text variant="label" style={{ color: theme.critical }}>
+                  {`${failedCount} couldn’t be added`}
                 </Text>
               ) : null}
             </View>
 
+            {/* Ink fill, not accent: this sheet's promoted action ("Review
+                tags") is already ink, and an oxblood bar above an ink button
+                spends the accent on a meter. */}
             {allDone ? (
               <View className="mt-3" />
             ) : (
-              <ProgressTrack value={fraction} height={6} className="my-3" />
+              <ProgressTrack value={fraction} tone="ink" height={6} className="my-3" />
             )}
 
             <UploadQueueList jobs={jobs} />
@@ -632,7 +647,10 @@ export default function CaptureScreen() {
                     couldn't verify your account"); `userFacingFailure` reduces
                     them to the three things a person can act on, and
                     `job.error` stays untouched for logging. */}
-                <Text variant="label" className="mt-1">
+                {/* Ink, inline: `label` ships `muted`, and the sentence is the
+                    banner's actual content — the eyebrow above it is the quiet
+                    layer, not this. */}
+                <Text variant="label" className="mt-1" style={{ color: theme.ink }}>
                   {userFacingFailure(failed[0])}
                 </Text>
                 {/*
@@ -665,10 +683,16 @@ export default function CaptureScreen() {
               </View>
             ) : null}
 
+            {/* `ink`, not `primary`: the atlas draws the promoted state as the
+                ink fill — this screen has no oxblood on it anywhere, and the
+                way onward should not be the place it appears. It stays
+                secondary while a retry is on offer: "Try these again" is the
+                promoted decision in that state, and two filled buttons on one
+                sheet is a screen arguing with itself. */}
             {doneCount > 0 ? (
               <Button
                 title="Review tags"
-                variant={allDone ? 'primary' : 'secondary'}
+                variant={allDone && !(failedCount > 0 && canRetry) ? 'ink' : 'secondary'}
                 onPress={() => router.replace('/review')}
                 haptic
                 className="mt-4"

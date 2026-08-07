@@ -104,8 +104,8 @@ export function ConsentSheet({
                 did win, but it won by accident and a palette reshuffle would
                 silently flip it. An inline style is the only tone that holds.*/}
             <Text variant="body" className="mt-3" style={{ color: theme.muted }}>
-              To turn your photos into a wardrobe, Cinch processes each image. Here&apos;s exactly what
-              that means.
+              To turn your photos into a wardrobe, Cinch processes each image. Here&rsquo;s exactly
+              what that means.
             </Text>
 
             <View className="mt-7 gap-4">
