@@ -323,6 +323,10 @@ export default function ClosetScreen() {
           setMenuOpen(false);
           screen.enterSelection();
         }}
+        onStorage={() => {
+          setMenuOpen(false);
+          router.push('/storage');
+        }}
         onProfileSettings={() => {
           setMenuOpen(false);
           router.navigate('/profile');
@@ -367,7 +371,7 @@ function EyebrowHeader({
             <HeaderIcon
               name="ellipsis"
               label="More closet actions"
-              hint="Review tags, select pieces, or open your profile"
+              hint="Review tags, select pieces, open storage, or open your profile"
               onPress={onMenu}
             />
           ) : null}

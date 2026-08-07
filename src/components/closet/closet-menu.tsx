@@ -14,8 +14,8 @@ import { motion, shadow, useTheme } from '@/theme/tokens';
  * scrim — the DIMMING IS THE SCREEN'S JOB (it owns the content that dims); this
  * component contributes only the card and the tap-outside catcher.
  *
- * Three rows, no submenus. `Review tags` carries the app's only badge and
- * disappears entirely at zero, so the menu is two items for most users.
+ * Four rows, no submenus. `Review tags` carries the app's only badge and
+ * disappears entirely at zero, so the menu is three items for most users.
  */
 
 export type ClosetMenuProps = {
@@ -31,6 +31,8 @@ export type ClosetMenuProps = {
   reviewCount: number;
   onReviewTags: () => void;
   onSelectPieces: () => void;
+  /** Opens the list of pieces taken out of rotation — the way back from archive. */
+  onStorage: () => void;
   onProfileSettings: () => void;
   /** Tap anywhere outside the card. */
   onDismiss: () => void;
@@ -108,6 +110,7 @@ export function ClosetMenu({
   reviewCount,
   onReviewTags,
   onSelectPieces,
+  onStorage,
   onProfileSettings,
   onDismiss,
 }: ClosetMenuProps) {
@@ -160,6 +163,12 @@ export function ClosetMenu({
             <MenuRow label="Review tags" badge={reviewCount} separated onPress={onReviewTags} />
           ) : null}
           <MenuRow label="Select pieces" separated onPress={onSelectPieces} />
+          {/* Above Profile rather than below it: storage is a closet action,
+              and the menu reads closet-first with the way off this screen
+              last. Always present, even at zero stored pieces — the empty
+              state is how someone learns the drawer exists, and a row that
+              appears only once you have used it teaches nothing. */}
+          <MenuRow label="Storage" separated onPress={onStorage} />
           <MenuRow label="Profile & settings" onPress={onProfileSettings} />
         </View>
       </View>
