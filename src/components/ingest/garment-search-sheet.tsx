@@ -51,6 +51,13 @@ const MAX_LINK_CHARS = 2_048;
 /** Mirrors `MAX_TITLE_CHARS` in the function's bounds.ts. */
 const MAX_NAME_CHARS = 120;
 
+/**
+ * The flow object the body renders from. Named so a fixture can build one by
+ * hand: the sheet's whole appearance is a function of this shape, which is what
+ * lets the Describe State Atlas pose every state without a network in sight.
+ */
+export type GarmentSearchFlowView = ReturnType<typeof useGarmentSearchFlow>;
+
 export function GarmentSearchSheet({
   visible,
   onClose,
@@ -58,7 +65,6 @@ export function GarmentSearchSheet({
   visible: boolean;
   onClose: () => void;
 }) {
-  const theme = useTheme();
   const flow = useGarmentSearchFlow();
 
   // A sheet that reopens holding the last search would be showing results for a
@@ -71,6 +77,30 @@ export function GarmentSearchSheet({
     // listing it would clear the results in the same tick they arrive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <GarmentSearchSheetBody flow={flow} onClose={onClose} />
+    </Modal>
+  );
+}
+
+/**
+ * Everything inside the modal, taking the flow as a prop rather than owning it.
+ *
+ * The split is the posable body: the real sheet hands this the live hook, and
+ * the dev fixture hands it hand-built flow objects so every state the atlas
+ * frames can be put on screen without a search actually running. Nothing else
+ * changes — the Modal, the hook, and the reset-on-open stay with the sheet.
+ */
+export function GarmentSearchSheetBody({
+  flow,
+  onClose,
+}: {
+  flow: GarmentSearchFlowView;
+  onClose: () => void;
+}) {
+  const theme = useTheme();
 
   const isLink = flow.link !== null;
   const busy = flow.searching || flow.resolving;
@@ -96,147 +126,185 @@ export function GarmentSearchSheet({
     else void flow.run();
   };
 
+  // The footer caption, and when the sheet has room to say it. It exists only
+  // while the lower half is empty — no results, no preview, no error, nothing
+  // in flight — because that is the moment a person is deciding, and the moment
+  // there is a bottom edge with nothing on it. The describe line names what the
+  // swatch is *for*, so attaching one never feels mandatory (and before one is
+  // attached, the quiet camera row already says everything — no footer on the
+  // bare door). The link line explains why an option that was on screen a
+  // moment ago vanished: the colour-photo row's disappearance should read as
+  // intent, not a glitch.
+  const lowerHalfEmpty =
+    flow.results === null && !flow.preview && !flow.errorMessage && !flow.searching && !flow.resolving;
+  const footer: 'link' | 'describe' | null = !lowerHalfEmpty
+    ? null
+    : isLink
+      ? 'link'
+      : flow.swatch
+        ? 'describe'
+        : null;
+
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
-        <View className="flex-row items-start justify-between px-gutter pt-6">
-          <View className="flex-1 pr-4">
-            <Text variant="title" trim>
-              Describe it instead
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            hitSlop={12}
-            onPress={onClose}
-            className="py-1 active:opacity-60">
-            <Text variant="body" className="font-semibold">
-              Close
-            </Text>
-          </Pressable>
+    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+      <View className="flex-row items-start justify-between px-gutter pt-6">
+        <View className="flex-1 pr-4">
+          <Text variant="title" trim>
+            Describe it instead
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          hitSlop={12}
+          onPress={onClose}
+          className="py-1 active:opacity-60">
+          <Text variant="body" className="font-semibold">
+            Close
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* With a footer on screen the container grows to fill the sheet, so the
+          caption's `marginTop: 'auto'` lands it on the bottom edge — 24px
+          clear of it, per the atlas — while short content stays at the top.
+          Without one, the paddings are exactly what they always were. */}
+      <ScrollView
+        contentContainerClassName={footer ? 'grow px-gutter pb-6 pt-4' : 'px-gutter pb-10 pt-4'}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
+        <Text variant="body" className="text-muted dark:text-muted-dark">
+          Say what it is — the brand, the kind of garment, the colour. Or paste the link to it
+          from a shop. Cinch finds the picture; you say whether it{'’'}s the right one.
+        </Text>
+
+        <View className="mt-5 rounded-plate border border-rule px-4 py-3 dark:border-rule-dark">
+          <TextInput
+            accessibilityLabel="What is the garment, or a link to it"
+            value={flow.description}
+            onChangeText={flow.setDescription}
+            placeholder={PLACEHOLDER}
+            placeholderTextColor={theme.faint}
+            // A pasted product URL is far longer than any description. The
+            // ceiling follows whichever the field is currently holding, so
+            // pasting is never silently truncated mid-URL — which would
+            // produce a link that resolves to the wrong page rather than to
+            // none, the one failure the user cannot see.
+            maxLength={isLink ? MAX_LINK_CHARS : MAX_DESCRIPTION_CHARS}
+            multiline
+            autoCapitalize={isLink ? 'none' : 'sentences'}
+            autoCorrect={!isLink}
+            returnKeyType="search"
+            submitBehavior="blurAndSubmit"
+            onSubmitEditing={submit}
+            // The field carries body type like everything else; the colour is
+            // inline because NativeWind gives no guaranteed precedence
+            // between two text utilities on one element.
+            style={{ color: theme.ink, fontSize: 17, minHeight: 66, textAlignVertical: 'top' }}
+          />
         </View>
 
-        <ScrollView
-          contentContainerClassName="px-gutter pb-10 pt-4"
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag">
-          <Text variant="body" className="text-muted dark:text-muted-dark">
-            Say what it is — the brand, the kind of garment, the colour. Or paste the link to it
-            from a shop. Cinch finds the picture; you say whether it{'’'}s the right one.
-          </Text>
-
-          <View className="mt-5 rounded-plate border border-rule px-4 py-3 dark:border-rule-dark">
-            <TextInput
-              accessibilityLabel="What is the garment, or a link to it"
-              value={flow.description}
-              onChangeText={flow.setDescription}
-              placeholder={PLACEHOLDER}
-              placeholderTextColor={theme.faint}
-              // A pasted product URL is far longer than any description. The
-              // ceiling follows whichever the field is currently holding, so
-              // pasting is never silently truncated mid-URL — which would
-              // produce a link that resolves to the wrong page rather than to
-              // none, the one failure the user cannot see.
-              maxLength={isLink ? MAX_LINK_CHARS : MAX_DESCRIPTION_CHARS}
-              multiline
-              autoCapitalize={isLink ? 'none' : 'sentences'}
-              autoCorrect={!isLink}
-              returnKeyType="search"
-              submitBehavior="blurAndSubmit"
-              onSubmitEditing={submit}
-              // The field carries body type like everything else; the colour is
-              // inline because NativeWind gives no guaranteed precedence
-              // between two text utilities on one element.
-              style={{ color: theme.ink, fontSize: 17, minHeight: 66, textAlignVertical: 'top' }}
-            />
+        {/* The recognition line. It appears only when the field holds a URL,
+            and it names the shop rather than echoing the link back — the host
+            is the part a person can actually check at a glance, and a
+            wrapped 200-character tracking URL is noise they cannot read. */}
+        {isLink ? (
+          <View className="mt-3 flex-row items-center gap-2">
+            <SymbolView name="link" size={14} tintColor={theme.muted} resizeMode="scaleAspectFit" />
+            <Text variant="label" className="flex-1" numberOfLines={1}>
+              Link from {flow.link?.host}
+            </Text>
           </View>
+        ) : null}
 
-          {/* The recognition line. It appears only when the field holds a URL,
-              and it names the shop rather than echoing the link back — the host
-              is the part a person can actually check at a glance, and a
-              wrapped 200-character tracking URL is noise they cannot read. */}
-          {isLink ? (
-            <View className="mt-3 flex-row items-center gap-2">
-              <SymbolView name="link" size={14} tintColor={theme.muted} resizeMode="scaleAspectFit" />
-              <Text variant="label" className="flex-1" numberOfLines={1}>
-                Link from {flow.link?.host}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* The colour photo is genuinely optional and reads that way: a quiet
-              row, not a second call to action. It exists because "navy" covers
-              a dozen navies and a photograph of the actual fabric settles it.
-              Hidden on the link path: there is nothing for a colour reference to
-              disambiguate when the shop's own photograph is the answer. */}
-          {isLink ? null : flow.swatch ? (
-            <View className="mt-3 flex-row items-center gap-3">
-              <Image
-                source={stableImageSource(flow.swatch.uri)}
-                contentFit="cover"
-                style={{ width: 44, height: 44, borderRadius: 8 }}
-                accessibilityIgnoresInvertColors
-              />
-              <Text variant="label" className="flex-1">
-                Colour photo attached
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Remove colour photo"
-                hitSlop={12}
-                onPress={flow.clearSwatch}
-                className="active:opacity-60">
-                <Text variant="label">Remove</Text>
-              </Pressable>
-            </View>
-          ) : (
+        {/* The colour photo is genuinely optional and reads that way: a quiet
+            row, not a second call to action. It exists because "navy" covers
+            a dozen navies and a photograph of the actual fabric settles it.
+            Hidden on the link path: there is nothing for a colour reference to
+            disambiguate when the shop's own photograph is the answer. */}
+        {isLink ? null : flow.swatch ? (
+          <View className="mt-3 flex-row items-center gap-3">
+            <Image
+              source={stableImageSource(flow.swatch.uri)}
+              contentFit="cover"
+              style={{ width: 44, height: 44, borderRadius: 8 }}
+              accessibilityIgnoresInvertColors
+            />
+            <Text variant="label" className="flex-1">
+              Colour photo attached
+            </Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Add a photo of the colour"
-              onPress={() => void flow.attachSwatch()}
-              style={{ minHeight: MIN_TAP_TARGET }}
-              className="mt-2 flex-row items-center gap-2 active:opacity-70">
-              <SymbolView name="camera" size={15} tintColor={theme.muted} resizeMode="scaleAspectFit" />
-              <Text variant="label">Add a photo of the colour</Text>
+              accessibilityLabel="Remove colour photo"
+              hitSlop={12}
+              onPress={flow.clearSwatch}
+              className="active:opacity-60">
+              <Text variant="label">Remove</Text>
             </Pressable>
-          )}
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add a photo of the colour"
+            onPress={() => void flow.attachSwatch()}
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="mt-2 flex-row items-center gap-2 active:opacity-70">
+            <SymbolView name="camera" size={15} tintColor={theme.muted} resizeMode="scaleAspectFit" />
+            <Text variant="label">Add a photo of the colour</Text>
+          </Pressable>
+        )}
 
-          {/* One primary at a time. While a preview is on screen the Add button
-              inside it is the call to action, so this one steps back to a
-              secondary rather than competing with it in oxblood. */}
-          <Button
-            title={
-              flow.resolving
-                ? 'Opening'
-                : flow.searching
-                  ? 'Looking'
-                  : isLink
-                    ? 'Open this link'
-                    : 'Find it'
-            }
-            variant={flow.preview ? 'secondary' : 'primary'}
-            onPress={submit}
-            disabled={!canSubmit}
-            loading={busy}
-            haptic
-            className="mt-4 self-stretch"
-          />
+        {/* One primary at a time. While a preview is on screen the Add button
+            inside it is the call to action, so this one steps back to a
+            secondary rather than competing with it in oxblood. */}
+        <Button
+          title={
+            flow.resolving
+              ? 'Opening'
+              : flow.searching
+                ? 'Looking'
+                : isLink
+                  ? 'Open this link'
+                  : 'Find it'
+          }
+          variant={flow.preview ? 'secondary' : 'primary'}
+          onPress={submit}
+          // Never `loading`: the spinner would eat the label, and the label IS
+          // the progress — "Looking" and "Opening" say what is happening in
+          // present tense while the dimmed pill holds its place in the layout.
+          disabled={!canSubmit}
+          haptic
+          className="mt-4 self-stretch"
+        />
 
-          {flow.errorMessage ? (
-            <Text variant="caption" className="mt-3" style={{ color: theme.critical }}>
-              {flow.errorMessage}
-            </Text>
-          ) : null}
+        {flow.errorMessage ? (
+          <Text variant="caption" className="mt-3" style={{ color: theme.critical }}>
+            {flow.errorMessage}
+          </Text>
+        ) : null}
 
-          {flow.preview ? (
-            <LinkPreview flow={flow} onConfirm={confirm} />
-          ) : (
-            <Results flow={flow} onChoose={choose} />
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
+        {flow.preview ? (
+          <LinkPreview flow={flow} onConfirm={confirm} />
+        ) : (
+          <Results flow={flow} onChoose={choose} />
+        )}
+
+        {/* `faint`, not `muted`, and inline as ever: this line is an aside
+            about an affordance already on screen, the one register quiet
+            enough for it. The `pt-6` is the floor between it and the button
+            when the sheet is short. */}
+        {footer === 'describe' ? (
+          <Text variant="caption" className="pt-6" style={{ marginTop: 'auto', color: theme.faint }}>
+            A photo is optional. {'“'}Navy{'”'} covers a dozen navies; the fabric settles it.
+          </Text>
+        ) : footer === 'link' ? (
+          <Text variant="caption" className="pt-6" style={{ marginTop: 'auto', color: theme.faint }}>
+            The colour-photo row is gone: there is nothing for a colour reference to settle when
+            the shop{'’'}s own photograph is the answer.
+          </Text>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -256,7 +324,7 @@ function LinkPreview({
   flow,
   onConfirm,
 }: {
-  flow: ReturnType<typeof useGarmentSearchFlow>;
+  flow: GarmentSearchFlowView;
   onConfirm: () => void;
 }) {
   const theme = useTheme();
@@ -348,7 +416,7 @@ function Results({
   flow,
   onChoose,
 }: {
-  flow: ReturnType<typeof useGarmentSearchFlow>;
+  flow: GarmentSearchFlowView;
   onChoose: (candidate: GarmentCandidate) => void;
 }) {
   if (flow.searching) {
