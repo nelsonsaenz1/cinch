@@ -54,3 +54,8 @@ supabase/.branches/
 # Design handoff archives — extracted into docs/, the zips stay local
 *.zip
 handoff/
+
+# Founder design drops — raw Claude Design exports live locally, canon is docs/design/
+/Design zips:pngs/
+/*Atlas-selection*.png
+/*StateAtlas/
