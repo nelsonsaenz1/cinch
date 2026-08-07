@@ -12,7 +12,7 @@ import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { MIN_TAP_TARGET, useTheme, type ThemeColors } from '@/theme/tokens';
 
-type Variant = 'primary' | 'secondary' | 'ghost';
+type Variant = 'primary' | 'ink' | 'secondary' | 'ghost';
 
 /** `rounded-md` in tailwind.config.js — pills belong to the glass chrome layer. */
 const RADIUS = 12;
@@ -33,6 +33,10 @@ const RADIUS = 12;
 function ground(variant: Variant, theme: ThemeColors): ViewStyle {
   const base: ViewStyle = { borderRadius: RADIUS };
   if (variant === 'primary') return { ...base, backgroundColor: theme.accent };
+  // The ink fill — the atlases' workhorse action ("Add clothes", "New event",
+  // "Going"). Louder than an outline, but it does NOT spend the accent: a
+  // screen keeps its one oxblood action even with an ink button on it.
+  if (variant === 'ink') return { ...base, backgroundColor: theme.ink };
   if (variant === 'secondary') return { ...base, borderWidth: 1, borderColor: theme.rule };
   return base;
 }
@@ -48,6 +52,7 @@ function ground(variant: Variant, theme: ThemeColors): ViewStyle {
  */
 const labelKey: Record<Variant, 'canvas' | 'ink' | 'muted'> = {
   primary: 'canvas',
+  ink: 'canvas',
   secondary: 'ink',
   ghost: 'muted',
 };

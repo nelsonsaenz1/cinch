@@ -152,11 +152,16 @@ export function describeTrip(trip: Trip): string {
   );
 }
 
-/** `5 DAYS · WITH FRIENDS · CITY BREAK` — the colophon under the masthead. */
+/**
+ * `LISBON · 5 DAYS · CITY BREAK` — the kicker over the packed trip.
+ *
+ * The destination leads because the serif line under this kicker belongs to
+ * the brief's read of the place, not to the place name — so the kicker is
+ * where "Lisbon" gets said at all. Companions are deliberately absent: they
+ * travel to the model in `describeTrip`, but the atlas prints three fragments
+ * here, and who you're with is the one answer that doesn't change what the
+ * page shows.
+ */
 export function tripColophon(trip: Trip): string {
-  return [
-    `${trip.days} days`,
-    companionOf(trip.companions).label,
-    vibeOf(trip.vibe).label,
-  ].join(' · ');
+  return [trip.destination.name, `${trip.days} days`, vibeOf(trip.vibe).label].join(' · ');
 }

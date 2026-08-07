@@ -82,7 +82,11 @@ function PackingLocked({
           "See membership" still reads as something the user failed to earn.
         */}
         {unavailable ? (
-          <Text variant="body" className="mt-6 text-faint dark:text-faint-dark">
+          // `muted`, not `faint`: this line is the only statement of why there
+          // is no button, so it is real content, and `faint` on canvas fails
+          // AA (see the contrast note in ui/text.tsx). Quiet is the voice, not
+          // the contrast.
+          <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
             Membership opens soon — Packing unlocks with it.
           </Text>
         ) : (
@@ -131,6 +135,7 @@ export function PackingTab({
     return stalled ? (
       <ErrorState
         compact
+        kicker="Couldn’t reach it"
         title="Couldn’t check your membership"
         body="Cinch couldn’t read your membership just now, so it won’t guess. This is a connection problem — nothing about your account has changed."
         onRetry={() => void qc.invalidateQueries({ queryKey: ['subscription'] })}

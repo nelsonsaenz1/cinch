@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
 import { DayRow } from '@/components/plan/day-row';
-import { EmptyState, ErrorState, ListSkeleton, Notice, SectionHeader } from '@/components/ui';
+import { EmptyState, ErrorState, SectionHeader, Skeleton, SkeletonLead } from '@/components/ui';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
@@ -48,6 +48,62 @@ const daysFromToday = (d: Date) => {
 
 type Mode = 'week' | 'events' | 'packing';
 const MODES: Mode[] = ['week', 'events', 'packing'];
+
+// A skeleton whose bars vary in length reads as sentences about to arrive; a
+// uniform column reads as a loading graphic (skeleton.tsx's ROW_WIDTHS rule).
+const WEEK_BAR_WIDTHS = [200, 236, 180, 214, 190, 224, 196] as const;
+
+/**
+ * The week's own skeleton — one row per day the screen is about to show, in
+ * the day row's exact geometry (42pt day slot, 18pt vertical, rule beneath)
+ * so nothing jumps when the plan lands. `ListSkeleton`'s two-line roster rows
+ * are the wrong anatomy here.
+ */
+function WeekSkeleton() {
+  return (
+    <View accessibilityLabel="Laying out your week">
+      <SkeletonLead label="Laying out your week…" />
+      {Array.from({ length: WEEK_DAYS }).map((_, i) => (
+        <View
+          key={i}
+          className={[
+            'flex-row items-center gap-3.5 px-gutter py-[18px]',
+            i === WEEK_DAYS - 1 ? '' : 'border-b border-rule dark:border-rule-dark',
+          ].join(' ')}>
+          <Skeleton className="h-3.5 rounded-sm" style={{ width: 42 }} />
+          <Skeleton
+            className="h-3.5 flex-1 rounded-sm"
+            style={{ maxWidth: WEEK_BAR_WIDTHS[i % WEEK_BAR_WIDTHS.length] }}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * Card-shaped skeletons for the events feed — the shape of `EventCard`
+ * (bordered plate, a serif title's bar, a metadata bar), three deep, with the
+ * header actions staying live above them.
+ */
+function EventListSkeleton() {
+  return (
+    <View accessibilityLabel="Reading your plans">
+      <SkeletonLead label="Reading your plans…" />
+      {(['62%', '48%', '70%'] as const).map((titleWidth, i) => (
+        <View
+          key={i}
+          className="mx-gutter mb-3 rounded-plate border border-rule p-4 dark:border-rule-dark">
+          <Skeleton className="h-[18px] rounded-sm" style={{ width: titleWidth }} />
+          <Skeleton
+            className="mt-2.5 h-3 rounded-sm"
+            style={{ width: (['80%', '70%', '64%'] as const)[i] }}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
 
 /**
  * One segment of the pill toggle: sand track, cream label on ink for the
@@ -82,7 +138,14 @@ function Segment({
       <Text variant="label" style={{ color: active ? theme.canvas : theme.muted }}>
         {label}
       </Text>
-      {showDot ? <View className="ml-1.5 h-1.5 w-1.5 rounded-full bg-accent" /> : null}
+      {/* Oxblood on the sand track; warm clay once the ink pill is under it —
+          the accent reads as a hole punched in ink, and the atlas swaps it
+          for `accentWarm` the moment the segment is active. */}
+      {showDot ? (
+        <View
+          className={`ml-1.5 h-1.5 w-1.5 rounded-full ${active ? 'bg-accent-warm' : 'bg-accent'}`}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -318,9 +381,10 @@ export default function PlanScreen() {
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
       <View className="flex-row items-baseline justify-between px-gutter pb-3 pt-2">
         <Text variant="display">Plan</Text>
-        <Text variant="label" className="text-faint dark:text-faint-dark">
-          {weekRangeLabel}
-        </Text>
+        {/* The tracked caps register, same as Today's day line. The atlas
+            sets it in `faint`; it stays `muted` per the 2026-08-06 contrast
+            pass — faint fails AA as text on canvas. */}
+        <Text variant="eyebrow">{weekRangeLabel}</Text>
       </View>
 
       <SegmentedControl mode={mode} onChange={setMode} inviteCount={inviteCount} />
@@ -344,9 +408,15 @@ export default function PlanScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="New event"
                 style={{ minHeight: 52 }}
-                className="flex-row items-center rounded-md bg-ink px-5 active:opacity-70">
+                className="flex-row items-center gap-3 rounded-md bg-ink px-5 active:opacity-70">
+                {/* The plus is its own glyph, a step larger than the label
+                    and set off by a real gap — not two spaces inside the
+                    string, which track with the font instead of the layout. */}
                 <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
-                  +  New event
+                  +
+                </Text>
+                <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                  New event
                 </Text>
               </Pressable>
               <Pressable
@@ -371,6 +441,7 @@ export default function PlanScreen() {
             {myEvents.isError || invites.isError ? (
               <ErrorState
                 compact
+                kicker="Couldn’t reach it"
                 title="Couldn't load your plans"
                 body="Something went wrong reaching your events. Check your connection and try again."
                 onRetry={() => {
@@ -380,7 +451,7 @@ export default function PlanScreen() {
                 retrying={myEvents.isRefetching || invites.isRefetching}
               />
             ) : myEvents.isLoading || invites.isLoading ? (
-              <ListSkeleton count={3} label="Reading your plans…" />
+              <EventListSkeleton />
             ) : (
               <>
                 {(invites.data?.length ?? 0) > 0 ? (
@@ -446,6 +517,7 @@ export default function PlanScreen() {
           exiting={FadeOut.duration(motion.duration.fast)}>
           {weekFailed || weekStalled ? (
             <ErrorState
+              kicker="Couldn’t reach it"
               title="Couldn’t lay out your week"
               body="Cinch couldn’t read everything the days ahead need — your closet, or this week’s weather. That’s a connection problem, not a change to your things: nothing in your wardrobe has moved."
               onRetry={retryWeek}
@@ -453,7 +525,7 @@ export default function PlanScreen() {
             />
           ) : weekLoading ? (
             <Animated.View key="week-loading" exiting={FadeOut.duration(motion.duration.fast)}>
-              <ListSkeleton count={WEEK_DAYS} avatar={false} label="Laying out your week…" />
+              <WeekSkeleton />
             </Animated.View>
           ) : closetEmpty ? (
             <EmptyState
@@ -489,17 +561,23 @@ export default function PlanScreen() {
                   />
                 ) : (
                   <>
+                    {/* `plate`, not `title`: the atlas sets the mode heading
+                        at the compact serif size — the page's H1 is "Plan". */}
                     <View className="mb-2 px-gutter">
-                      <Text variant="title">This week</Text>
+                      <Text variant="plate">This week</Text>
                     </View>
                     {/* The engine PREFERS spreading wear (REUSE_BOOST is a
                         soft scorer, not a cap) — with a small closet the same
                         shirt can honestly appear five times. The old line,
                         "No piece worn more than twice", printed a promise
                         the week below it visibly broke. */}
+                    {/* The tracked caps kicker, in oxblood — inline style,
+                        not a second text-* class on top of the variant's own
+                        (no precedence between two; see button.tsx). */}
                     <Text
-                      variant="label"
-                      className="mb-2 px-gutter text-accent dark:text-accent-dark">
+                      variant="eyebrow"
+                      className="mb-2 px-gutter"
+                      style={{ color: theme.accent }}>
                       Repeats kept to a minimum
                     </Text>
                     {weekDays.map((day, i) => {
@@ -529,13 +607,22 @@ export default function PlanScreen() {
                     })}
                     {/* `polite` rather than a modal or a toast: the failure
                         belongs to the one row that triggered it, and nothing
-                        else on the screen should interrupt to say so. */}
+                        else on the screen should interrupt to say so. The
+                        atlas draws this as its own shape — a bordered card
+                        with an oxblood mark, not the bare `Notice` line — so
+                        it is hand-built here, like the review deck's banner. */}
                     {planError ? (
-                      <Notice
-                        message="That day didn’t save. Check your connection and try again."
-                        tone="critical"
-                        className="mt-3 px-gutter"
-                      />
+                      <View
+                        accessibilityLiveRegion="polite"
+                        className="mx-gutter mt-3 flex-row items-start gap-2.5 rounded-lg border border-rule bg-canvas p-3.5 dark:border-rule-dark dark:bg-canvas-dark">
+                        <View
+                          className="h-2 w-2 rounded-full bg-accent"
+                          style={{ marginTop: 5 }}
+                        />
+                        <Text variant="label" className="flex-1" style={{ color: theme.ink }}>
+                          That day didn’t save. Check your connection and try again.
+                        </Text>
+                      </View>
                     ) : null}
                   </>
                 )}

@@ -1,18 +1,20 @@
+import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { ClosetGrid } from '@/components/closet/closet-grid';
 import { PlateThumb } from '@/components/closet/plate-thumb';
-import { Card, EmptyState, ErrorState, ListSkeleton, Rule, SectionHeader, Text } from '@/components/ui';
+import { Button, EmptyState, ErrorState, ListSkeleton, Rule, SectionHeader, Text } from '@/components/ui';
 import { useCloset } from '@/features/closet/queries';
-import { useSignedUrls } from '@/features/closet/use-image-urls';
+import { stableImageSource, useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { fetchForecast } from '@/features/context/weather';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { DEFAULT_WEIGHTS } from '@/lib/styling';
 import type { Item } from '@/schemas/item';
+import { GUTTER, useTheme } from '@/theme/tokens';
 
 import { buildPackingList } from './packing';
 import { dayPartOf, formalityFor, tripColophon, type Trip } from './trip';
@@ -23,45 +25,94 @@ import { usePackingBrief, type PackingBriefError } from './use-packing-brief';
  *
  * THREE LAYERS, IN THIS ORDER, and the order is the argument.
  *
- *   1. The brief — the only part that costs a model call. What the place is
- *      like, in one serif line, a spec line and one observation.
- *   2. The day-parts — mornings, days, nights, each with a sentence and real
+ *   1. The brief — the only part that costs a model call. The trip's facts in
+ *      a caps kicker, then what the place is like: one serif line, a spec line
+ *      and one observation, set straight on the page rather than in a card.
+ *   2. The capsule and its day-parts — "THE CAPSULE · 11 PIECES" over
+ *      mornings, days, nights, each a serif header, a sentence and real
  *      garments out of this closet.
- *   3. The closet itself, whole and browsable, underneath all of it.
+ *   3. The closet itself, whole and browsable, underneath all of it — three
+ *      columns of square thumbs, with "Start again" beside its header.
  *
  * Layer 3 renders whatever happens above it. A brief that fails, a function
  * that is not deployed yet, a model that is offline — none of them may take the
  * closet away, because the closet is the thing the user owns and the brief is
- * only an opinion about it. That is why this is a `ClosetGrid` with everything
- * else in its header, rather than a scroll view with a grid awkwardly inside:
- * the closet is the page, and the reading sits on top of it.
+ * only an opinion about it. That is why this is one virtualised list with
+ * everything else in its header, rather than a scroll view with a grid
+ * awkwardly inside: the closet is the page, and the reading sits on top of it.
  */
 
-const briefCopy = (error: unknown): { title: string; body: string } => {
-  const kind = (error as PackingBriefError | null)?.kind;
-  if (kind === 'consent') {
-    return {
-      title: 'Cinch needs your go-ahead first.',
-      body: 'Reading a destination is an AI feature, and AI processing is switched off for your account. Turn it on in Profile and the brief will come through. Your closet below is unaffected.',
-    };
-  }
-  if (kind === 'quota') {
-    return {
-      title: 'You’ve used this month’s styling allowance.',
-      body: 'Reading a destination draws on the same allowance as the stylist, and yours is spent for now. It comes back when the month rolls over — the capsule and your closet below don’t use it at all.',
-    };
-  }
-  if (kind === 'unavailable') {
-    return {
-      title: 'The destination brief isn’t live yet.',
-      body: 'This part of packing has not been switched on for your build. Everything below still works — the capsule and your closet are read from your own wardrobe, not from a server.',
-    };
-  }
-  return {
+/**
+ * The brief's four failures, each one sitting exactly where the brief would
+ * have been: a caps kicker naming the cause, one serif line, one honest body.
+ * Only the network case carries a retry — the other three are answered
+ * somewhere else, and a button that cannot fix anything is worse than a
+ * sentence that says so.
+ */
+const BRIEF_FAILURES: Record<
+  PackingBriefError['kind'],
+  { kicker: string; title: string; body: string }
+> = {
+  consent: {
+    kicker: 'Consent',
+    title: 'Cinch needs your go-ahead first.',
+    body: 'Reading a destination is an AI feature, and AI processing is switched off for your account. Turn it on in Profile and the brief will come through. Your closet below is unaffected.',
+  },
+  quota: {
+    kicker: 'Quota',
+    title: 'You’ve used this month’s styling allowance.',
+    body: 'Reading a destination draws on the same allowance as the stylist, and yours is spent for now. It comes back when the month rolls over — the capsule and your closet below don’t use it at all.',
+  },
+  unavailable: {
+    kicker: 'Unavailable',
+    title: 'The destination brief isn’t live yet.',
+    body: 'This part of packing has not been switched on for your build. Everything below still works — the capsule and your closet are read from your own wardrobe, not from a server.',
+  },
+  offline: {
+    kicker: 'Network',
     title: 'The brief didn’t come back.',
     body: 'Cinch couldn’t read this destination just now — a connection problem, not a change to your things. The capsule and your closet below are unaffected.',
-  };
+  },
 };
+
+function BriefFailure({
+  error,
+  onRetry,
+  retrying,
+}: {
+  error: unknown;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  const kind = (error as PackingBriefError | null)?.kind ?? 'offline';
+  const copy = BRIEF_FAILURES[kind] ?? BRIEF_FAILURES.offline;
+
+  return (
+    // `alert`, matching ErrorState: a failure that appears after a wait should
+    // be announced, not merely findable by swiping to it.
+    <View accessibilityRole="alert">
+      <Text variant="eyebrow">{copy.kicker}</Text>
+      <View className="mt-2">
+        <Text variant="plate" trim>
+          {copy.title}
+        </Text>
+      </View>
+      <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+        {copy.body}
+      </Text>
+      {kind === 'offline' ? (
+        <Button
+          title="Try again"
+          variant="secondary"
+          onPress={onRetry}
+          loading={retrying}
+          haptic
+          className="mt-4 self-start px-6"
+        />
+      ) : null}
+    </View>
+  );
+}
 
 /**
  * One suggested garment: the plate thumb the closet already renders, its
@@ -79,7 +130,7 @@ function SuggestionRow({ item, uri }: { item: Item; uri?: string }) {
       accessibilityRole="button"
       accessibilityLabel={`${colour} ${item.subcategory ?? item.category}`}
       className="flex-row items-center gap-3 py-2 active:opacity-60">
-      <PlateThumb item={item} uri={uri} size={44} showFallbackLabel={false} />
+      <PlateThumb item={item} uri={uri} size={44} radius={8} showFallbackLabel={false} />
       <View className="flex-1">
         <Text variant="body" numberOfLines={1}>
           {`${colour} ${item.subcategory ?? item.category}`.trim()}
@@ -91,6 +142,7 @@ function SuggestionRow({ item, uri }: { item: Item; uri?: string }) {
 
 export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: () => void }) {
   const router = useRouter();
+  const theme = useTheme();
 
   const closet = useCloset();
   const wardrobeQuery = useWardrobe();
@@ -163,6 +215,22 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
     [brief.data, byId],
   );
 
+  /**
+   * The capsule's own pieces, as closet Items, for the days the brief cannot
+   * speak. The day-part sections are the capsule's dressed presentation, but
+   * they are written by the brief — and the brief failing must not empty the
+   * capsule layer (the failure copy above points at it by name). So while the
+   * brief is out, the capsule lists its pieces plainly, with the day counts
+   * the engine computed.
+   */
+  const capsuleRows = useMemo(
+    () =>
+      (capsule?.items ?? [])
+        .map(({ garment, days }) => ({ item: byId.get(garment.id), days }))
+        .filter((r): r is { item: Item; days: number } => Boolean(r.item)),
+    [capsule, byId],
+  );
+
   // One signing request for everything on the page — the grid's thumbs and the
   // suggestion rows' plates. `useSignedUrls` dedupes and sorts, so the grid's
   // paths appearing twice costs nothing.
@@ -172,39 +240,31 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
 
   /**
    * The shared state components carry their own `px-gutter`, and this header
-   * already sits inside `ClosetGrid`'s 20pt content padding — so they land at
-   * 40 and every other line on the page at 20. The negative margin cancels the
-   * container's padding for exactly those three, leaving them where their own
+   * already sits inside the list's content padding — so they land at 40 and
+   * every other line on the page at 20. The negative margin cancels the
+   * container's padding for exactly those, leaving them where their own
    * gutter puts them: aligned with everything else.
+   *
+   * The list's own padding is `GUTTER - 4` (see the container style: the grid
+   * cells wear a p-1 of their own), so the header and the empty state each
+   * carry a `px-1` shim that puts their text back on the 20pt gutter line —
+   * and this margin plus that shim is what re-zeroes the shared states.
    */
   const gutterless = '-mx-gutter';
 
+  // Whether anything stands between the brief and the closet. Guards the
+  // second rule: two rules with nothing between them read as a printing error.
+  const hasMiddle = Boolean(capsule) || suggested.length > 0;
+
   const header = (
-    <View className="pb-2">
-      {/* The masthead, in the guide's Plan grammar: caps status label, serif
-          name, one spec line of `·` fragments. */}
-      <Text variant="eyebrow">Packing</Text>
-      <View className="mt-2">
-        <Text variant="title" trim>
-          {trip.destination.name}
-        </Text>
-      </View>
-      <Text variant="colophon" className="mt-3">
-        {tripColophon(trip)}
-      </Text>
-      <Pressable
-        onPress={onStartAgain}
-        accessibilityRole="button"
-        accessibilityLabel="Answer the packing questions again"
-        hitSlop={12}
-        className="mt-3 self-start active:opacity-60">
-        <Text variant="label" className="underline">
-          Start again
-        </Text>
-      </Pressable>
+    <View className="px-1 pb-2">
+      {/* The masthead, in the guide's Plan grammar: the trip's facts as a caps
+          kicker — LISBON · 5 DAYS · CITY BREAK — because the serif line below
+          belongs to the brief's read of the place, not the place name. */}
+      <Text variant="eyebrow">{tripColophon(trip)}</Text>
 
       {/* ── The read on the place ─────────────────────────────────────────── */}
-      <View className="mt-6">
+      <View className="mt-2">
         {closetTooThin ? (
           // The brief query is disabled with nothing to pack from, and a
           // disabled query is `isPending` forever — a skeleton that never
@@ -219,51 +279,69 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
             <ListSkeleton count={3} avatar={false} label={`Reading ${trip.destination.name}…`} />
           </View>
         ) : brief.isError ? (
-          <View className={gutterless}>
-            <ErrorState
-              compact
-              {...briefCopy(brief.error)}
-              onRetry={() => void brief.refetch()}
-              retrying={brief.isRefetching}
-            />
-          </View>
+          <BriefFailure
+            error={brief.error}
+            onRetry={() => void brief.refetch()}
+            retrying={brief.isRefetching}
+          />
         ) : brief.data ? (
-          <Card padding="xl">
-            <Text variant="plate" trim>
+          <>
+            <Text variant="title" trim>
               {brief.data.headline}
             </Text>
             {brief.data.spec.length ? (
-              <Text variant="colophon" className="mt-3">
+              // Sentence case, not the tracked colophon: the atlas sets this
+              // meta line — "Feels 68–79° · Light rain Tue" — as quiet prose
+              // under the headline, a caption rather than a data stamp.
+              <Text variant="label" className="mt-3">
                 {brief.data.spec.join(' · ')}
               </Text>
             ) : null}
-            <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+            <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
               {brief.data.observation}
             </Text>
             {brief.data.gaps ? (
               <>
-                <View className="my-4">
-                  <Rule />
-                </View>
-                <SectionHeader title="What you don’t have" className="mb-2" />
+                <SectionHeader title="What you don’t have" className="mt-4 mb-2" />
                 <Text variant="body" className="text-muted dark:text-muted-dark">
                   {brief.data.gaps}
                 </Text>
               </>
             ) : null}
-          </Card>
+          </>
         ) : null}
       </View>
 
-      {/* ── The day-parts ─────────────────────────────────────────────────── */}
+      {hasMiddle ? (
+        <View className="mt-6">
+          <Rule />
+        </View>
+      ) : null}
+
+      {/* ── The capsule, computed on device ───────────────────────────────── */}
+      {capsule ? (
+        <View className="mt-4">
+          <SectionHeader
+            title={`The capsule · ${capsule.items.length} ${capsule.items.length === 1 ? 'piece' : 'pieces'}`}
+          />
+          <Text variant="label" className="mt-1.5">
+            The smallest set that still gives a different outfit each day,
+            computed from your closet and the forecast — no model, no network.
+          </Text>
+        </View>
+      ) : null}
+
+      {/* ── The day-parts — the capsule dressed, in the brief's voice ─────── */}
       {suggested.map((part) => (
-        <View key={part.part} className="mt-8">
-          <SectionHeader title={dayPartOf(part.part).title} />
-          <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+        <View key={part.part} className="mt-6">
+          <Text variant="plate" trim>
+            {dayPartOf(part.part).title}
+          </Text>
+          <Text variant="label" className="mt-2">
             {part.note}
           </Text>
           {part.items.length ? (
-            <View className="mt-3">
+            <View className="mt-2">
               {part.items.map((item) => (
                 <SuggestionRow key={item.id} item={item} uri={resolve(item.platePath, item.cutoutPath)} />
               ))}
@@ -276,49 +354,102 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
         </View>
       ))}
 
-      {/* ── The capsule, computed on device ───────────────────────────────── */}
-      {capsule ? (
-        <Card padding="xl" fill="none" className="mt-8">
-          <SectionHeader title="The capsule" />
-          <Text variant="statFigure" className="mt-2">
-            {capsule.items.length} pieces
-          </Text>
-          <Text variant="colophon" className="mt-2">
-            {trip.days} days · covers every day · nothing worn twice running
-          </Text>
-          <View className="mt-4 gap-1.5">
-            {capsule.items.map(({ garment, days }) => (
-              <View key={garment.id} className="flex-row items-baseline gap-2">
-                <Text variant="body" className="flex-1" numberOfLines={1}>
-                  {`${garment.colors[0]?.name ?? ''} ${garment.subcategory ?? garment.category}`.trim()}
-                </Text>
-                <Text variant="label">
-                  {days === trip.days ? 'every day' : `${days} ${days === 1 ? 'day' : 'days'}`}
-                </Text>
+      {/* While the brief is out — pending, or one of its four failures — the
+          capsule layer still shows its pieces, so the promise the failure copy
+          makes ("the capsule below is unaffected") is kept in pixels. */}
+      {capsule && suggested.length === 0 ? (
+        <View className="mt-3">
+          {capsuleRows.map(({ item, days }) => (
+            <View key={item.id} className="flex-row items-center gap-2">
+              <View className="flex-1">
+                <SuggestionRow item={item} uri={resolve(item.platePath, item.cutoutPath)} />
               </View>
-            ))}
-          </View>
-        </Card>
+              <Text variant="label">
+                {days === trip.days ? 'every day' : `${days} ${days === 1 ? 'day' : 'days'}`}
+              </Text>
+            </View>
+          ))}
+        </View>
       ) : null}
 
       {/* ── And then the closet, whichever way the above went ─────────────── */}
-      <View className="mt-10 mb-3">
-        <SectionHeader title="Your closet" />
-        <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
-          Everything you own, to add anything the brief missed.
-        </Text>
+      <View className="mt-8">
+        <Rule />
+      </View>
+      <View className="mt-4 mb-3">
+        <SectionHeader
+          title="Your closet"
+          trailing={
+            /* The way back through the questions lives beside the layer it
+               resets — an oxblood link, not a second button. Inline colour,
+               never a second `text-*` class: NativeWind gives no precedence
+               between two of them on one element (chip.tsx L40-44). */
+            <Pressable
+              onPress={onStartAgain}
+              accessibilityRole="button"
+              accessibilityLabel="Answer the packing questions again"
+              hitSlop={12}
+              className="active:opacity-60">
+              <Text variant="label" style={{ color: theme.accent }}>
+                Start again
+              </Text>
+            </Pressable>
+          }
+        />
       </View>
     </View>
   );
 
   return (
-    <ClosetGrid
-      items={items}
-      resolveImage={resolve}
-      onItemPress={(item) => router.push(`/item/${item.id}`)}
+    /*
+     * The closet layer is its own three-column grid of square thumbs, per the
+     * atlas, rather than the Closet tab's two-column `ItemCard` grid: down
+     * here the closet is a reference shelf under the reading, not the page of
+     * record — names, prices and wear counts are one tap away on the piece.
+     */
+    <FlashList
+      data={items}
+      numColumns={3}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => {
+        const uri = resolve(item.thumbPath, item.cutoutPath);
+        return (
+          <Pressable
+            onPress={() => router.push(`/item/${item.id}`)}
+            accessibilityRole="button"
+            accessibilityLabel={[item.colors[0]?.name, item.subcategory ?? item.category]
+              .filter(Boolean)
+              .join(' ')}
+            className="p-1 active:opacity-60"
+            style={{ flex: 1 }}>
+            <View
+              className="w-full overflow-hidden rounded border border-hairline bg-tray dark:border-hairline-dark dark:bg-tray-dark"
+              style={{ aspectRatio: 1 }}>
+              {uri ? (
+                <Image
+                  source={stableImageSource(uri)}
+                  recyclingKey={item.id}
+                  contentFit="cover"
+                  transition={180}
+                  cachePolicy="memory-disk"
+                  style={{ flex: 1 }}
+                  accessibilityIgnoresInvertColors
+                />
+              ) : (
+                // No render yet — the honest swatch, same rule as PlateThumb:
+                // the garment's tagged colour when it has one, the bare tray
+                // when it does not, never a broken-image glyph.
+                <View
+                  style={{ flex: 1, backgroundColor: item.colors[0]?.hex ?? undefined }}
+                />
+              )}
+            </View>
+          </Pressable>
+        );
+      }}
       ListHeaderComponent={header}
       ListEmptyComponent={
-        <View className={gutterless}>
+        <View className={`${gutterless} px-1`}>
           {closet.isError ? (
             <ErrorState
               compact
@@ -340,6 +471,13 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
           )}
         </View>
       }
+      // Plain style, deliberately: FlashList is not wrapped by NativeWind, so
+      // a contentContainerClassName here is silently dropped. `GUTTER` is the
+      // measure `px-gutter` gives every other page; the extra 4 backs out the
+      // cells' own p-1 so the grid's edges sit on the gutter line. 96 = pb-24.
+      contentContainerStyle={{ paddingHorizontal: GUTTER - 4, paddingBottom: 96 }}
+      ItemSeparatorComponent={() => <View className="h-1" />}
+      showsVerticalScrollIndicator={false}
     />
   );
 }

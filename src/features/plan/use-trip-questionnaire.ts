@@ -56,8 +56,32 @@ const PART_ORDER = DAY_PARTS.map((p) => p.key);
  */
 type Run = { index: number; draft: TripDraft };
 
+const FRESH: Run = { index: 0, draft: EMPTY };
+
+/**
+ * The run, held at module level so it outlives the component.
+ *
+ * `PackingTab` unmounts the moment another segment is chosen, and the atlas is
+ * explicit that answers survive a glance at Week — three questions in, a look
+ * at the calendar must not cost three taps. The *finished* trip is already
+ * held by the Plan screen; this slot does the same for the half-answered one.
+ * One questionnaire exists per app, which is what makes a module slot honest
+ * rather than sneaky shared state. Cleared on completion, so the next trip
+ * opens on question one.
+ */
+let heldRun: Run = FRESH;
+
 export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
-  const [{ index, draft }, setRun] = useState<Run>({ index: 0, draft: EMPTY });
+  const [{ index, draft }, setRunState] = useState<Run>(heldRun);
+
+  /** Every write lands in the module slot too, so unmounting loses nothing. */
+  const setRun = useCallback((update: (run: Run) => Run) => {
+    setRunState((run) => {
+      const next = update(run);
+      heldRun = next;
+      return next;
+    });
+  }, []);
 
   const step: TripStepKey = TRIP_STEPS[index] ?? TRIP_STEPS[0]!;
 
@@ -71,7 +95,7 @@ export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
             draft: { ...run.draft, ...patch },
           },
     );
-  }, []);
+  }, [setRun]);
 
   /**
    * The one question that does not advance on tap.
@@ -88,13 +112,13 @@ export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
         .sort((a, b) => PART_ORDER.indexOf(a) - PART_ORDER.indexOf(b));
       return { ...run, draft: { ...run.draft, parts } };
     });
-  }, []);
+  }, [setRun]);
 
   const back = useCallback(() => {
     setRun((run) => ({ ...run, index: Math.max(0, run.index - 1) }));
-  }, []);
+  }, [setRun]);
 
-  const reset = useCallback(() => setRun({ index: 0, draft: EMPTY }), []);
+  const reset = useCallback(() => setRun(() => FRESH), [setRun]);
 
   /**
    * Hand the finished trip up.
@@ -106,6 +130,8 @@ export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
   const complete = useCallback(() => {
     const { destination, companions, vibe, days, parts } = draft;
     if (!destination || !companions || !vibe || !days || !parts.length) return;
+    // The trip is the Plan screen's from here; the held run has done its job.
+    heldRun = FRESH;
     onComplete({ destination, companions, vibe, days, parts });
   }, [draft, onComplete]);
 

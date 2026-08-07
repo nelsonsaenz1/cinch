@@ -103,9 +103,12 @@ export function EmptyState({
           title={actionTitle}
           onPress={onAction}
           haptic
-          // A section-level empty must not spend the screen's one oxblood
-          // action; the primary belongs to whatever the page is really for.
-          variant={compact ? 'secondary' : 'primary'}
+          // Ink, not oxblood: every atlas sets the empty state's way forward
+          // as an ink fill (Plan's "Add clothes", Closet's "Add pieces") and
+          // keeps the accent for the screen's one true commitment. A
+          // section-level empty is quieter still — a secondary outline, so it
+          // never competes with whatever the page is really for.
+          variant={compact ? 'secondary' : 'ink'}
           className={compact ? 'mt-6 self-start px-6' : 'mt-8 self-stretch'}
         />
       ) : null}

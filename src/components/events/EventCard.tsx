@@ -1,10 +1,10 @@
 import { Pressable, View } from 'react-native';
 
-import { Avatar } from '@/components/ui';
 import { Text } from '@/components/ui/text';
+import { formatTemp } from '@/features/context/weather';
+import { useRespondToInvite } from '@/features/events/mutations';
 import type { EventSummary } from '@/features/events/types';
 import type { WeatherContext } from '@/lib/styling';
-import { formatTemp } from '@/features/context/weather';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -13,27 +13,32 @@ import { useTheme } from '@/theme/tokens';
  * not a second one — because this line sits on the same Plan tab.
  */
 function conditionWord(w: WeatherContext): string {
-  if (w.precipitationChance >= 0.5) return 'rain likely';
-  if (w.precipitationChance >= 0.25) return 'maybe rain';
-  if (w.windKph >= 25) return 'windy';
-  if (w.feelsLikeC >= 24) return 'warm';
-  if (w.feelsLikeC <= 4) return 'cold';
-  return 'clear';
+  if (w.precipitationChance >= 0.5) return 'Rain likely';
+  if (w.precipitationChance >= 0.25) return 'Maybe rain';
+  if (w.windKph >= 25) return 'Windy';
+  if (w.feelsLikeC >= 24) return 'Warm';
+  if (w.feelsLikeC <= 4) return 'Cold';
+  return 'Clear';
 }
 
-/** "19° clear" — the display-only weather clause on event surfaces. */
+/** "Feels 72° · Clear" — the display-only weather clause on event surfaces. */
 export function weatherLineFor(w: WeatherContext, units: 'C' | 'F' = 'F'): string {
-  return `${formatTemp(w.feelsLikeC, units)} ${conditionWord(w)}`;
+  return `Feels ${formatTemp(w.feelsLikeC, units)} · ${conditionWord(w)}`;
+}
+
+/** True when the occasion starts and ends on one calendar day. */
+function isSameDay(startsAt: Date, endsAt: Date | null): boolean {
+  return (
+    !endsAt ||
+    (endsAt.getFullYear() === startsAt.getFullYear() &&
+      endsAt.getMonth() === startsAt.getMonth() &&
+      endsAt.getDate() === startsAt.getDate())
+  );
 }
 
 /** "Fri 8 Aug", or "12–16 Sep" for a multi-day occasion. */
 function whenLabel(startsAt: Date, endsAt: Date | null): string {
-  const sameDay =
-    !endsAt ||
-    (endsAt.getFullYear() === startsAt.getFullYear() &&
-      endsAt.getMonth() === startsAt.getMonth() &&
-      endsAt.getDate() === startsAt.getDate());
-  if (sameDay) {
+  if (isSameDay(startsAt, endsAt)) {
     return startsAt.toLocaleDateString(undefined, {
       weekday: 'short',
       day: 'numeric',
@@ -41,44 +46,49 @@ function whenLabel(startsAt: Date, endsAt: Date | null): string {
     });
   }
   const month = (d: Date) => d.toLocaleDateString(undefined, { month: 'short' });
-  return startsAt.getMonth() === endsAt.getMonth()
-    ? `${startsAt.getDate()}–${endsAt.getDate()} ${month(endsAt)}`
-    : `${startsAt.getDate()} ${month(startsAt)} – ${endsAt.getDate()} ${month(endsAt)}`;
+  return startsAt.getMonth() === endsAt!.getMonth()
+    ? `${startsAt.getDate()}–${endsAt!.getDate()} ${month(endsAt!)}`
+    : `${startsAt.getDate()} ${month(startsAt)} – ${endsAt!.getDate()} ${month(endsAt!)}`;
 }
 
-/** True when this occasion is dressed by packing, not by a single look. */
-function isPackingEvent(event: EventSummary): boolean {
-  if (event.occasion === 'travel') return true;
-  if (!event.endsAt) return false;
-  return whenLabel(event.startsAt, event.endsAt).includes('–');
+/** "4:00pm" — set close and lowercase, the atlas's register; 24-hour locales
+ *  come through untouched ("16:00" has no dayPeriod to fold). */
+function timeLabel(d: Date): string {
+  return d
+    .toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    .replace(/\s/g, '')
+    .toLowerCase();
 }
-
-type ChipTone = 'sand' | 'accent';
 
 /**
- * The per-VIEWER status chip — the card's one decision. `NEEDS A LOOK` is the
- * single loud element on the Events page (oxblood, spent here and nowhere
- * else); everything settled is quiet sand. LOOK SET currently means "the
- * viewer has shared at least one look" — the closest honest reading of the
- * schema, which has no crowned/chosen state yet (see EventSummary.myLookState).
+ * Mirrors `WEEK_DAYS` in plan.tsx — the Plan tab fetches a seven-day
+ * forecast, so any day past that horizon has no honest weather to print.
  */
-function statusChip(event: EventSummary): { label: string; tone: ChipTone } | null {
-  if (event.myState === 'invited') return { label: 'Invited', tone: 'sand' };
-  if (isPackingEvent(event)) return { label: 'Packing', tone: 'sand' };
-  if (event.myLookState === 'posted') return { label: 'Look set', tone: 'sand' };
-  return { label: 'Needs a look', tone: 'accent' };
+const FORECAST_WINDOW_DAYS = 7;
+
+/** Whole days between today and `d`, local calendar. */
+function daysFromToday(d: Date): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(d);
+  day.setHours(0, 0, 0, 0);
+  return Math.round((day.getTime() - today.getTime()) / 86_400_000);
 }
 
-/** How many faces the cluster shows before collapsing into the count. */
-const MAX_AVATARS = 3;
-
 /**
- * An occasion, as a list cell — the founder's event-card mock: serif title
- * with the date set right, a quiet metadata line, then the people row with
- * the status chip. Venue (and the weather beside it) renders for members
- * only; an invitee's card stays coarse until she joins — §7.1 is a product
- * rule, so the withholding happens at the surface even though RLS already
- * handed an invitee the row.
+ * An occasion, as a list cell — the Plan atlas's event card (P-06): serif
+ * title with a quiet caps tag set right (INVITED in oxblood for an unanswered
+ * invitation, "4 GOING" in the muted register once that question is settled),
+ * a metadata line, a weather line that prints only inside the forecast window
+ * and says "Outside the forecast window" beyond it rather than guessing, the
+ * Going / Can't-make-it pair on an invitation, and the ruled "Your look" foot
+ * once the viewer has shared one.
+ *
+ * Venue, time and weather render for members only; an invitee's card stays
+ * coarse until she joins — §7.1 is a product rule, so the withholding happens
+ * at the surface even though RLS already handed an invitee the row. (The
+ * atlas draws the invitation card with its venue in view; the product rule
+ * wins until the spec says otherwise.)
  */
 export function EventCard({
   event,
@@ -93,24 +103,39 @@ export function EventCard({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const respond = useRespondToInvite();
 
   const isMember = event.isHost || event.myState === 'joined';
-  const chip = statusChip(event);
-
-  // "Shoreditch · 19° clear" for members; for an invitee just the occasion
-  // word — enough to say what kind of night it is, nothing about where.
-  const metadata = isMember
-    ? [event.venueName, weather ? weatherLineFor(weather, units) : null].filter(Boolean).join(' · ')
-    : event.occasion
-      ? event.occasion[0]!.toUpperCase() + event.occasion.slice(1)
-      : 'You’re invited';
+  const isInvited = event.myState === 'invited';
 
   const going =
     event.invitedCount > event.memberCount
       ? `${event.memberCount} of ${event.invitedCount} going`
       : `${event.memberCount} going`;
 
-  const faces = event.attendees.slice(0, MAX_AVATARS);
+  // "Sat 9 Aug · 4:00pm · The Stanley, Denver" for members; for an invitee
+  // just the date and the occasion word — enough to say what kind of night it
+  // is, nothing about where.
+  const when = whenLabel(event.startsAt, event.endsAt);
+  const metadata = isMember
+    ? [when, isSameDay(event.startsAt, event.endsAt) ? timeLabel(event.startsAt) : null, event.venueName]
+        .filter(Boolean)
+        .join(' · ')
+    : [
+        when,
+        event.occasion ? event.occasion[0]!.toUpperCase() + event.occasion.slice(1) : 'You’re invited',
+      ].join(' · ');
+
+  // Weather prints only when the day falls inside the seven-day window; past
+  // it the card says so plainly instead of guessing. An in-window day whose
+  // forecast simply hasn't arrived yet prints nothing — absence, not a claim.
+  const contextLine = isMember
+    ? weather
+      ? weatherLineFor(weather, units)
+      : daysFromToday(event.startsAt) >= FORECAST_WINDOW_DAYS
+        ? 'Outside the forecast window'
+        : null
+    : going;
 
   return (
     <Pressable
@@ -118,10 +143,11 @@ export function EventCard({
       accessibilityRole="button"
       accessibilityLabel={[
         event.title,
-        whenLabel(event.startsAt, event.endsAt),
+        isInvited ? 'Invited' : null,
         metadata,
+        contextLine,
         going,
-        chip?.label,
+        isMember && event.myLookState === 'posted' ? 'Your look shared' : null,
       ]
         .filter(Boolean)
         .join('. ')}
@@ -130,52 +156,86 @@ export function EventCard({
         <Text variant="plate" className="flex-1" numberOfLines={1}>
           {event.title}
         </Text>
-        <Text variant="label" className="text-muted dark:text-muted-dark">
-          {whenLabel(event.startsAt, event.endsAt)}
+        {/* The card's one decision. An unanswered invitation is the loud
+            state — oxblood, spent here and nowhere else on the card; a
+            settled card carries only its headcount, in the quiet register.
+            Inline colour, not a className — the colophon variant carries
+            text-muted, and NativeWind gives no precedence between two
+            text-* utilities on one element (see button.tsx). */}
+        <Text
+          variant="colophon"
+          style={{ color: isInvited ? theme.accent : theme.faint }}>
+          {isInvited ? 'Invited' : `${event.memberCount} going`}
         </Text>
       </View>
 
       {metadata ? (
-        <Text variant="label" className="mt-1.5 text-muted dark:text-muted-dark" numberOfLines={1}>
+        <Text variant="label" className="mt-2" numberOfLines={1}>
           {metadata}
         </Text>
       ) : null}
 
-      <View className="mt-3.5 flex-row items-center">
-        {/* The overlapping cluster. Each chip after the first pulls left; the
-            surface-coloured ring is what keeps the overlap legible. `name` is
-            null exactly for the caller's own chip (`social_profiles` excludes
-            self), which `Avatar`'s fallback reads as "ME". */}
-        <View className="flex-row">
-          {faces.map((a, i) => (
-            <View key={a.userId} style={i > 0 ? { marginLeft: -8 } : undefined}>
-              <Avatar name={a.name} size={28} fallback="ME" ring />
-            </View>
-          ))}
-        </View>
-
-        <Text variant="label" className="ml-2 flex-1 text-muted dark:text-muted-dark">
-          {going}
+      {contextLine ? (
+        <Text variant="label" className="mt-1.5" style={{ color: theme.faint }} numberOfLines={1}>
+          {contextLine}
         </Text>
+      ) : null}
 
-        {chip ? (
-          <View
-            className={
-              chip.tone === 'accent'
-                ? 'rounded-md bg-accent px-2.5 py-1 dark:bg-accent-dark'
-                : 'rounded-md bg-sand px-2.5 py-1'
-            }>
-            {/* Inline colour, not a className — the colophon variant carries
-                text-faint, and NativeWind gives no precedence between two
-                text-* utilities on one element (see button.tsx). */}
-            <Text
-              variant="colophon"
-              style={{ color: chip.tone === 'accent' ? theme.canvas : theme.muted }}>
-              {chip.label}
-            </Text>
+      {isInvited ? (
+        <>
+          <View className="mt-3.5 flex-row gap-2">
+            {/* Ink and outline, never oxblood: accepting a plan is the card's
+                primary but not the screen's. hitSlop tops the 40pt row up to
+                the 44pt floor. */}
+            <Pressable
+              onPress={() => respond.mutate({ eventId: event.id, response: 'joined' })}
+              disabled={respond.isPending}
+              hitSlop={{ top: 4, bottom: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Going to ${event.title}`}
+              accessibilityState={{ disabled: respond.isPending }}
+              style={{ minHeight: 40, backgroundColor: theme.ink }}
+              className="flex-1 items-center justify-center rounded-md active:opacity-70">
+              <Text variant="label" className="font-semibold" style={{ color: theme.canvas }}>
+                Going
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => respond.mutate({ eventId: event.id, response: 'declined' })}
+              disabled={respond.isPending}
+              hitSlop={{ top: 4, bottom: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Can’t make it to ${event.title}`}
+              accessibilityState={{ disabled: respond.isPending }}
+              style={{ minHeight: 40 }}
+              className="flex-1 items-center justify-center rounded-md border border-rule active:opacity-60 dark:border-rule-dark">
+              <Text variant="label">Can’t make it</Text>
+            </Pressable>
           </View>
-        ) : null}
-      </View>
+          {/* The refused RSVP says so under the pair it belongs to — quiet,
+              inline, announced (the audit's silent-failure note). */}
+          {respond.isError ? (
+            <View accessibilityLiveRegion="polite">
+              <Text variant="caption" className="mt-2" style={{ color: theme.critical }}>
+                That didn’t save. Check your connection and try again.
+              </Text>
+            </View>
+          ) : null}
+        </>
+      ) : null}
+
+      {isMember && event.myLookState === 'posted' ? (
+        // The atlas foot draws the chosen look's swatch trio and "Chosen";
+        // EventSummary carries neither the look's colours nor a crowned state
+        // yet (see types.ts on myLookState), so until the schema widens this
+        // prints the honest half: the row, and the fact a look is shared.
+        <View className="mt-3 flex-row items-center gap-2 border-t border-rule pt-3 dark:border-rule-dark">
+          <Text variant="eyebrow">Your look</Text>
+          <Text variant="label" className="ml-auto" style={{ color: theme.faint }}>
+            Shared
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }

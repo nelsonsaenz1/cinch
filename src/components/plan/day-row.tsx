@@ -82,9 +82,12 @@ export function DayRow({
     .filter(Boolean)
     .join('. ');
 
+  // `rule`, not `hairline`: the atlas separates day rows at the card-border
+  // weight (ink at 12%), keeping the whisper hairline for the tab bar above
+  // the home indicator. py is the atlas's exact 18.
   const containerClassName = [
-    'flex-row items-center gap-3.5 px-gutter py-5',
-    isLast ? '' : 'border-b border-hairline dark:border-hairline-dark',
+    'flex-row items-center gap-3.5 px-gutter py-[18px]',
+    isLast ? '' : 'border-b border-rule dark:border-rule-dark',
     onPlan ? 'active:opacity-60' : '',
   ].join(' ');
 
@@ -104,7 +107,12 @@ export function DayRow({
   const rowContent = (
     <>
       <View style={{ width: 42 }}>
-        <Text variant="stat">{day.date.toLocaleDateString(undefined, { weekday: 'short' })}</Text>
+        {/* Grotesque, not serif: the atlas sets the weekday as a 15px
+            semibold label — it is a calendar coordinate, not a data figure,
+            so it does not take the serif `stat` voice. */}
+        <Text variant="callout" className="font-semibold">
+          {day.date.toLocaleDateString(undefined, { weekday: 'short' })}
+        </Text>
         {day.weather ? (
           <View className="mt-0.5 flex-row items-center gap-1">
             <Text variant="caption">{formatTemp(day.weather.feelsLikeC, units)}</Text>
@@ -132,7 +140,10 @@ export function DayRow({
         </View>
       ) : null}
 
-      <View className="flex-1">
+      {/* While the write is in flight the row's words step back (the atlas
+          dims them to 60%) so the spinner reads as "this day, saving" —
+          the day label and swatches stay full-strength, still the row. */}
+      <View className="flex-1" style={planning ? { opacity: 0.6 } : undefined}>
         {day.outfit ? (
           <>
             <Text variant="callout" numberOfLines={1}>
@@ -160,6 +171,9 @@ export function DayRow({
       accessibilityRole="button"
       accessibilityState={{ disabled: planning, selected: Boolean(planned) }}
       accessibilityLabel={a11yLabel}
+      // The faintest ink wash while committing — warm ink at 3.5%, the
+      // atlas's own value; too quiet for a token, spent only here.
+      style={planning ? { backgroundColor: 'rgba(28,26,22,0.035)' } : undefined}
       className={containerClassName}>
       {rowContent}
     </Pressable>

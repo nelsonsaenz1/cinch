@@ -13,7 +13,7 @@ export type ErrorStateProps = {
   /** Wire this to the query's `refetch`. Without it the screen is a dead end. */
   onRetry?: () => void;
   retryTitle?: string;
-  /** True while the retry is in flight — the button takes its own spinner. */
+  /** True while the retry is in flight — the button reads "Trying…". */
   retrying?: boolean;
   /**
    * For an error inside an already-drawn container — a card with a heading
@@ -24,6 +24,13 @@ export type ErrorStateProps = {
    */
   compact?: boolean;
   symbol?: SFSymbol;
+  /**
+   * The caps oxblood lead-in the Plan atlas sets above the headline —
+   * "COULDN'T REACH IT" — in place of the glyph. Opt-in per screen: the Today
+   * and Closet atlases keep the bare warning glyph, so the glyph stays the
+   * default and a kicker replaces it only where an atlas draws one.
+   */
+  kicker?: string;
 };
 
 /**
@@ -56,6 +63,7 @@ export function ErrorState({
   retrying = false,
   compact = false,
   symbol = 'exclamationmark.triangle',
+  kicker,
 }: ErrorStateProps) {
   const theme = useTheme();
 
@@ -65,12 +73,18 @@ export function ErrorState({
       // announced, not merely findable by swiping to it.
       accessibilityRole="alert"
       className={compact ? 'px-gutter py-6' : 'flex-1 justify-center px-gutter'}>
-      <SymbolView
-        name={symbol}
-        size={22}
-        tintColor={theme.warning}
-        resizeMode="scaleAspectFit"
-      />
+      {kicker ? (
+        <Text variant="eyebrow" style={{ color: theme.accent }}>
+          {kicker}
+        </Text>
+      ) : (
+        <SymbolView
+          name={symbol}
+          size={22}
+          tintColor={theme.warning}
+          resizeMode="scaleAspectFit"
+        />
+      )}
 
       <View style={{ marginTop: 16 }}>
         <Text variant={compact ? 'plate' : 'title'} trim>
@@ -84,11 +98,17 @@ export function ErrorState({
 
       {onRetry ? (
         <Button
-          title={retryTitle}
+          // The atlases' error grammar: the retry is BORDERED at every size,
+          // full-screen included — an oxblood fill here would spend the
+          // screen's one accent action on a recovery step. While the refetch
+          // runs the button says so in words ("Trying…", per the Plan atlas)
+          // rather than swapping its label for a spinner, so the frame stays
+          // put and the promise stays legible.
+          title={retrying ? 'Trying…' : retryTitle}
           onPress={onRetry}
-          loading={retrying}
+          disabled={retrying}
           haptic
-          variant={compact ? 'secondary' : 'primary'}
+          variant="secondary"
           className={compact ? 'mt-6 self-start px-6' : 'mt-8 self-stretch'}
         />
       ) : null}

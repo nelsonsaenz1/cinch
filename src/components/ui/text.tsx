@@ -67,7 +67,7 @@ const variants: Record<Variant, string> = {
   // element, so those renders were a coin toss: the item-detail hero figure was
   // as likely to come out at `stat`'s 20px as at the 28px it was asking for.
   // Same hazard the label colours hit in button.tsx L18-25. Name the size.
-  /** The default data figure — plate cost-per-wear, day-row weekday. 20px. */
+  /** The default data figure — plate cost-per-wear. 20px. */
   stat: 'font-title text-heading text-ink',
   /** The figure inside a card, set beside caption text. 13px. */
   statSmall: 'font-title text-label text-ink',

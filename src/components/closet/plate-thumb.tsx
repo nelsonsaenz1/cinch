@@ -43,18 +43,25 @@ export function PlateThumb({
   size,
   /** Suppress the fallback caption at sizes where 11px type cannot fit. */
   showFallbackLabel = true,
+  /**
+   * Corner radius. Defaults to the card radius (16); the Plan atlas sets its
+   * 44px suggestion thumbs at 8 — at that scale 16 reads as a circle-ish blob
+   * rather than a plate.
+   */
+  radius = 16,
 }: {
   item: Item;
   uri?: string;
   size: number;
   showFallbackLabel?: boolean;
+  radius?: number;
 }) {
   const theme = useTheme();
 
   return (
     <View
-      style={{ width: size, height: size }}
-      className="items-center justify-center overflow-hidden rounded-lg bg-tray">
+      style={{ width: size, height: size, borderRadius: radius }}
+      className="items-center justify-center overflow-hidden bg-tray">
       {uri ? (
         <Image
           source={stableImageSource(uri)}
