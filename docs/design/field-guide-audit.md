@@ -134,6 +134,15 @@ single piece of evidence that this app was built from the guide.
   the `accentWarm` dot. No change.
 
 ### 03 · Closet — STRUCTURAL
+
+> **SUPERSEDED 2026-08-07.** The Closet was rebuilt to the founder's **Closet
+> State Atlas** (`docs/design/closet-atlas/Closet State Atlas.dc.html`,
+> renderings in `closet-atlas/renderings/`), transcribed as build spec in
+> `docs/design/closet-redesign-spec.md`. Everything below describes the
+> pre-atlas screen and is kept as history. The gaps this section flags are
+> closed: the category chip row ships (with live counts, ink-selected), and
+> errors render `ErrorState` with retry, never an empty state.
+
 `src/app/(tabs)/closet.tsx`, `src/components/closet/*`, `src/components/ui/skeleton.tsx`
 
 Rebuilt from a later founder mock into profile-as-closet. Identity block, stat
