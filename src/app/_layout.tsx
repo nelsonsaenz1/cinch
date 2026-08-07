@@ -160,7 +160,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       // exists, and the handoff (W-14) is the held beat between "session
       // written" and the tabs. Bouncing either would tear the flow down
       // mid-sentence; both exit via their own router.replace.
-      if (segments[1] === 'handoff' || segments[1] === 'name') return;
+      // Typed routes narrow `segments` to per-route tuples, and the shortest
+      // is `[string]` — indexing [1] is a type error there though it is just
+      // `undefined` at runtime. Widen once rather than switch on every shape.
+      const authLeaf = (segments as string[])[1];
+      if (authLeaf === 'handoff' || authLeaf === 'name') return;
       // Any other (auth) route with a live session goes to the handoff, not
       // straight to the tabs. This is what makes the end of the flow immune
       // to the race between a screen's own success navigation and this
