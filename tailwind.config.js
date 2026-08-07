@@ -46,6 +46,12 @@ module.exports = {
         // that points away. Credit lines, never body copy; the same AA caveat
         // as `faint` applies, harder.
         byline: { DEFAULT: '#A29C90', dark: '#A29C90' },
+        // Lighter again than `byline` — the Plan atlas's example-content
+        // voice: the ghost weekday, the ghost trip label, the placeholder
+        // date on an example card. Content that is explicitly NOT the user's
+        // data, so it must read as furniture even at a glance; never used for
+        // anything real, so the AA caveat is moot by construction.
+        ghost: { DEFAULT: '#C7C1B4', dark: '#C7C1B4' },
         // Divider between list rows — a whisper. `rule` is a touch stronger,
         // for the card borders and section rules that carry the plate grammar.
         // Both are warm ink at low alpha so they composite over canvas and tray.

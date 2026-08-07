@@ -15,7 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
 import { DayRow } from '@/components/plan/day-row';
-import { EmptyState, ErrorState, SectionHeader, Skeleton, SkeletonLead } from '@/components/ui';
+import { ExamplePlans, ExampleWeek } from '@/components/plan/example-ghosts';
+import { Button, ErrorState, SectionHeader, Skeleton, SkeletonLead } from '@/components/ui';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
@@ -483,16 +484,20 @@ export default function PlanScreen() {
                     ))}
                   </View>
                 ) : (invites.data?.length ?? 0) === 0 ? (
-                  <View className="px-gutter pt-6">
-                    <Text variant="title" trim>
-                      Nothing planned together yet
-                    </Text>
-                    <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
-                      Post a dinner, a wedding, a trip — invite your friends, and
-                      everyone picks their look before the night. Occasions are
-                      invite-only, always.
-                    </Text>
-                  </View>
+                  <>
+                    <View className="px-gutter pb-6 pt-6">
+                      <Text variant="title" trim>
+                        Nothing planned together yet
+                      </Text>
+                      <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                        Post a dinner, a wedding, a trip — invite your friends, and
+                        everyone picks their look before the night. Occasions are
+                        invite-only, always.
+                      </Text>
+                    </View>
+                    {/* P-07's ghost cards, trailing off below the copy. */}
+                    <ExamplePlans />
+                  </>
                 ) : null}
               </>
             )}
@@ -528,13 +533,40 @@ export default function PlanScreen() {
               <WeekSkeleton />
             </Animated.View>
           ) : closetEmpty ? (
-            <EmptyState
-              symbol="calendar"
-              title="Plan the week ahead"
-              body="Lay out outfits for the days coming up, one for each day, with no piece worn more than twice. Add about ten pieces and the week lays itself out."
-              actionTitle="Add clothes"
-              onAction={() => router.push('/capture')}
-            />
+            // P-03 composes the invitation ABOVE an example of the surface it
+            // is inviting the user into; the ghost week fills whatever is left.
+            <View className="flex-1">
+              {/* EmptyState's grammar, hand-built: its `flex-1 justify-center`
+                  collapses to zero height above the example section (flex
+                  basis 0 in an auto-height slot), and P-03 sets the plate at
+                  the top with the ink action at full width regardless. */}
+              <View className="px-gutter pb-6 pt-2" accessibilityRole="summary">
+                <SymbolView
+                  name="calendar"
+                  size={22}
+                  tintColor={theme.muted}
+                  resizeMode="scaleAspectFit"
+                />
+                <View style={{ marginTop: 16 }}>
+                  <Text variant="title" trim>
+                    Plan the week ahead
+                  </Text>
+                </View>
+                <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                  Lay out outfits for the days coming up, one for each day, with
+                  no piece worn more than twice. Add about ten pieces and the
+                  week lays itself out.
+                </Text>
+                <Button
+                  title="Add clothes"
+                  onPress={() => router.push('/capture')}
+                  haptic
+                  variant="ink"
+                  className="mt-6 self-stretch"
+                />
+              </View>
+              <ExampleWeek />
+            </View>
           ) : (
             // Animated.View wraps a plain ScrollView rather than animating
             // Animated.ScrollView itself: `contentContainerClassName` is a

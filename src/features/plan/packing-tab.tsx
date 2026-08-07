@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { View } from 'react-native';
 
+import { ExampleTrips } from '@/components/plan/example-ghosts';
 import { Button, Card, ErrorState, ListSkeleton, Rule, SectionHeader, Text } from '@/components/ui';
 
 import { PackingTrip } from './packing-trip';
@@ -67,6 +68,13 @@ function PackingLocked({
           Your closet, your week and your occasions stay free, exactly as they
           are.
         </Text>
+
+        {/* P-10: what packing produces, sketched in the ghost voice above
+            the plate's one action — so the ask comes after a glimpse of the
+            thing being asked for. */}
+        <View className="mt-[18px]">
+          <ExampleTrips />
+        </View>
 
         {/*
           THE CTA IS NEVER ALLOWED TO DEAD-END.
