@@ -15,7 +15,12 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { pieceName } from '@/features/closet/item-name';
-import { useRemoveItems, useRetagItem, useVerifyItem } from '@/features/closet/mutations';
+import {
+  useRemoveItems,
+  useRetagItem,
+  useUnverifyItem,
+  useVerifyItem,
+} from '@/features/closet/mutations';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls, stableImageSource } from '@/features/closet/use-image-urls';
 import { useSetBorrowable } from '@/features/social-graph/mutations';
@@ -124,13 +129,15 @@ export default function ItemDetailScreen() {
   const [saveFailed, setSaveFailed] = useState(false);
   const save = useVerifyItem();
 
-  // The two things you can do TO a piece rather than with it. `retagError`
+  // The things you can do TO a piece rather than with it. `maintenanceError`
   // holds the server's refusal — the allowance is enforced server-side, and a
   // refusal that vanishes into a console log is a feature the user thinks is
-  // broken rather than one they have run out of.
+  // broken rather than one they have run out of. One line for the whole plate:
+  // only one of these rows can be in flight at a time.
   const retag = useRetagItem();
+  const sendBack = useUnverifyItem();
   const remove = useRemoveItems();
-  const [retagError, setRetagError] = useState<string | null>(null);
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
 
   // The lending flag. Read separately from the closet query on purpose: the
   // generated `Item` type predates the `borrowable` column, and this is the
@@ -202,13 +209,36 @@ export default function ItemDetailScreen() {
   const retagging = retag.isPending || item.status === 'pending_tag';
 
   const startRetag = () => {
-    setRetagError(null);
+    setMaintenanceError(null);
     retag.mutate(
       { item },
       {
         onError: (err) =>
-          setRetagError(
+          setMaintenanceError(
             err instanceof Error ? err.message : 'Cinch couldn’t re-read this piece. Try again.',
+          ),
+      },
+    );
+  };
+
+  /**
+   * Reopen a question already answered.
+   *
+   * No dialog: this undoes a confirmation rather than destroying anything, and
+   * it says so in its own caption. The row disappears on success — the piece is
+   * back in the queue, so there is nothing left to send — which is the same
+   * feedback the closet grid gives with its "needs review" badge.
+   */
+  const startSendBack = () => {
+    setMaintenanceError(null);
+    sendBack.mutate(
+      { item },
+      {
+        onError: (err) =>
+          setMaintenanceError(
+            err instanceof Error
+              ? err.message
+              : 'Cinch couldn’t put this piece back in the deck. Try again.',
           ),
       },
     );
@@ -514,12 +544,28 @@ export default function ItemDetailScreen() {
           </View>
         ) : null}
 
-        {/* Maintenance — the two things done TO a piece rather than with it,
-            in the same spec-line plate the account screen uses for the same
-            grammar: named rows, a hairline between them, the destructive one
-            in the accent, and the sentence that qualifies them underneath
-            rather than inside a dialog nobody has opened yet. */}
+        {/* Maintenance — the things done TO a piece rather than with it, in the
+            same spec-line plate the account screen uses for the same grammar:
+            named rows, a hairline between them, the destructive one in the
+            accent, and the sentence that qualifies them underneath rather than
+            inside a dialog nobody has opened yet. */}
         <View className="mt-8 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+          {/* Only for a piece that has been confirmed — an item still in the
+              queue cannot be sent anywhere it is not already. It sits above
+              "Re-read" because it is the cheaper half of the same idea: this
+              one reopens the question, the one below pays to ask the model
+              again. */}
+          {item.userVerified ? (
+            <>
+              <SpecRow
+                label="Send back to review"
+                caption="It returns to the review deck with the tags it has now. Nothing is re-read."
+                onPress={startSendBack}
+                loading={sendBack.isPending}
+              />
+              <Rule tone="hairline" />
+            </>
+          ) : null}
           <SpecRow
             label={retagging ? 'Reading this piece…' : 'Re-read this piece'}
             caption={
@@ -544,12 +590,12 @@ export default function ItemDetailScreen() {
           />
         </View>
 
-        {retagError ? (
+        {maintenanceError ? (
           <Text
             variant="label"
             accessibilityLiveRegion="polite"
             className="mt-2 text-critical dark:text-critical">
-            {retagError}
+            {maintenanceError}
           </Text>
         ) : null}
       </KeyboardAwareScrollView>

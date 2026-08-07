@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { ReviewCard } from '@/components/review/review-card';
 import { useReviewQueue } from '@/features/closet/queries';
-import { useVerifyItem } from '@/features/closet/mutations';
+import { useUnverifyItem, useVerifyItem } from '@/features/closet/mutations';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import {
   describeGaps,
@@ -30,6 +30,16 @@ import type { Item, ItemCategory } from '@/schemas/item';
 const PIP_LIMIT = 12;
 
 /**
+ * How long the undo line stays up after a confirm.
+ *
+ * Long enough to notice a mis-swipe and reach for it, short enough that it has
+ * retired before the next card is settled — the line is a footnote to the
+ * gesture that just happened, and one that outlived that gesture would start
+ * reading as a claim about the card now on top of the stack.
+ */
+const UNDO_WINDOW_MS = 5_000;
+
+/**
  * The tag-review deck.
  *
  * Target interaction cost: under 2 seconds per item. Common case is one
@@ -40,6 +50,7 @@ export default function ReviewScreen() {
   const router = useRouter();
   const query = useReviewQueue();
   const verify = useVerifyItem();
+  const unverify = useUnverifyItem();
 
   /**
    * The top inset, taken from the hook rather than from `<SafeAreaView>`.
@@ -143,6 +154,51 @@ export default function ReviewScreen() {
     });
   }, []);
 
+  /**
+   * The confirm that can still be taken back, and the window it lives in.
+   *
+   * A swipe is a fast gesture on a stack of cards, and the one thing it cannot
+   * do on its own is admit it went the wrong way. This holds the item as it
+   * stood BEFORE the write — its pre-confirm `status` is what `useUnverifyItem`
+   * restores, and after the confirm the server no longer remembers it.
+   *
+   * The offer is retired by the timer, by the next card being dealt with, or by
+   * the undo itself. There is no toast layer in this app, so it renders as an
+   * inline caption line in the same live-region grammar as the failure banner
+   * below.
+   */
+  const [undoItem, setUndoItem] = useState<Item | null>(null);
+  const [undoError, setUndoError] = useState<string | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearUndo = useCallback(() => {
+    if (undoTimer.current) {
+      clearTimeout(undoTimer.current);
+      undoTimer.current = null;
+    }
+    setUndoItem(null);
+    setUndoError(null);
+  }, []);
+
+  const offerUndo = useCallback((item: Item) => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndoError(null);
+    setUndoItem(item);
+    undoTimer.current = setTimeout(() => {
+      undoTimer.current = null;
+      setUndoItem(null);
+    }, UNDO_WINDOW_MS);
+  }, []);
+
+  // The deck is a modal and "Close" is one tap away, so an in-flight timer
+  // outliving the screen is the ordinary case, not the edge one.
+  useEffect(
+    () => () => {
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    },
+    [],
+  );
+
   /** Only send fields the user actually changed — an unchanged patch is noise. */
   const patchFor = useCallback(
     (item: Item) => {
@@ -170,6 +226,10 @@ export default function ReviewScreen() {
       if (inFlightRef.current.has(item.id)) return;
       inFlightRef.current.add(item.id);
       setFailure(null);
+      // The previous card's offer expires here rather than on a timer: two undo
+      // lines cannot be on screen at once, and "Confirmed" must always name the
+      // most recent confirm.
+      clearUndo();
 
       // Advance the visible deck first so the animation isn't waiting on the
       // network. The write is still awaited — if it fails the card comes back.
@@ -187,6 +247,9 @@ export default function ReviewScreen() {
         // it is the tagging model's error rate as experienced by real users.
         track('garment_reviewed', { corrected: patch !== undefined });
         setConfirmedCount((n) => n + 1);
+        // Offered only after the write landed. A confirm that failed already
+        // puts the card back by itself, and there is nothing there to undo.
+        offerUndo(item);
       } catch (err) {
         // Never let a failed write look like a successful confirm. Put the item
         // back in the deck and say so, because the alternative is an item that
@@ -200,7 +263,52 @@ export default function ReviewScreen() {
         inFlightRef.current.delete(item.id);
       }
     },
-    [patchFor, resolve, unresolve, verify],
+    [clearUndo, offerUndo, patchFor, resolve, unresolve, verify],
+  );
+
+  /**
+   * Take the last confirm back.
+   *
+   * `useUnverifyItem` returns the row to the exact state the deck draws from —
+   * `user_verified = false` and the status it held before the confirm — and
+   * invalidates the queue, so the piece is handed back by the server in its own
+   * queue order rather than spliced into the stack at a position nothing agrees
+   * on. `unresolve` is what lets it through the local filter again; the ordinal
+   * is decremented with it so the progress line does not claim a confirm that
+   * no longer exists.
+   *
+   * The order matters: the write is awaited first. Returning the card and then
+   * discovering the update failed would be the same lie the failure banner
+   * exists to prevent, in the other direction.
+   */
+  const undoConfirm = useCallback(
+    async (item: Item) => {
+      if (undoTimer.current) {
+        clearTimeout(undoTimer.current);
+        undoTimer.current = null;
+      }
+      setUndoError(null);
+      try {
+        await unverify.mutateAsync({ item });
+        // Wait for the queue to hand the piece back before letting it through
+        // the local filter. The mutation's invalidation would get there on its
+        // own, but a beat later — long enough for the deck to be briefly empty
+        // and for the last undo of a sitting to flash "All caught up" on its
+        // way home.
+        await query.refetch();
+        unresolve(item.id);
+        setConfirmedCount((n) => Math.max(0, n - 1));
+        setUndoItem(null);
+      } catch (err) {
+        // The offer stays on screen with the reason attached, so the tap can be
+        // repeated. It has already outlived its window at this point, which is
+        // right: a failure is not something to take away after five seconds.
+        setUndoError(
+          err instanceof Error ? err.message : 'Could not put that piece back. Check your connection.',
+        );
+      }
+    },
+    [query, unresolve, unverify],
   );
 
   /**
@@ -224,6 +332,10 @@ export default function ReviewScreen() {
     async (settled: Item[]) => {
       setConfirmingAll(true);
       setFailure(null);
+      // No undo offer for the bulk action, and the pending one is retired.
+      // "Confirmed. Undo." can only name one garment, and naming one of forty
+      // would be an offer to take back a piece the user cannot see.
+      clearUndo();
       try {
         for (const it of settled) {
           resolve(it.id);
@@ -244,7 +356,7 @@ export default function ReviewScreen() {
         setConfirmingAll(false);
       }
     },
-    [patchFor, resolve, unresolve, verify],
+    [clearUndo, patchFor, resolve, unresolve, verify],
   );
 
   // Only used to keep the end-of-deck copy honest — "these are ready to wear"
@@ -256,10 +368,11 @@ export default function ReviewScreen() {
       // No mutation, by design. Skipping is "ask me later", and the only way to
       // mean that is to leave the row untouched.
       setFailure(null);
+      clearUndo();
       setSkippedCount((n) => n + 1);
       resolve(item.id);
     },
-    [resolve],
+    [clearUndo, resolve],
   );
 
   if (query.isLoading) {
@@ -421,6 +534,37 @@ export default function ReviewScreen() {
               </Text>
             ) : null}
           </View>
+        </View>
+      ) : null}
+
+      {/*
+        The undo offer, under the ordinal it corrects.
+
+        Not gated on `!done`: the confirm most worth taking back is the one that
+        emptied the deck, and hiding the line at exactly that moment would be
+        the mis-swipe with no way home. A `caption` and a ghost control, in the
+        same live-region grammar as the failure banner below — there is no toast
+        layer in this app and this is not the place to invent one.
+      */}
+      {undoItem ? (
+        <View
+          accessibilityLiveRegion="polite"
+          className="flex-row items-center justify-between gap-3 px-gutter pb-1 pt-1">
+          {/* The failed case takes the critical colour rather than staying a
+              muted footnote: at that point the line is no longer a receipt for
+              something that worked. */}
+          <Text
+            variant="caption"
+            className={undoError ? 'flex-1 text-critical dark:text-critical' : 'flex-1'}>
+            {undoError ?? 'Confirmed.'}
+          </Text>
+          <Button
+            title="Undo"
+            variant="ghost"
+            loading={unverify.isPending}
+            onPress={() => void undoConfirm(undoItem)}
+            accessibilityHint="Puts the piece you just confirmed back in the deck, with any corrections you made."
+          />
         </View>
       ) : null}
 

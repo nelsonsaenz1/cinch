@@ -104,6 +104,97 @@ export function useVerifyItem() {
 }
 
 // ---------------------------------------------------------------------------
+// Unverify — the one reverse transition
+// ---------------------------------------------------------------------------
+
+/**
+ * Put a confirmed garment back in the review deck.
+ *
+ * ── The status machine, as the migrations and the pipeline actually write it ──
+ *
+ * `item_status` (migrations/20260803154431:20) is five values, and the column
+ * defaults to `pending_upload` (:82). No trigger touches it: the only two on
+ * `items` are `items_set_updated_at` (:329) and `items_enforce_limit`
+ * (migrations/20260805160000:283, a BEFORE INSERT count), neither of which
+ * reads or writes `status`. So every transition below is an explicit write:
+ *
+ *   pending_upload → pending_tag → tagged ──────┐
+ *   (row inserted)   (media up)   (tagger won)  ├→ verified  (a human confirmed)
+ *                                 needs_review ─┘  (tagging failed, still usable)
+ *
+ * `upload-queue` writes `pending_upload` then `pending_tag` (and the
+ * `garment-search` function does the same two server-side); `tag-item` writes
+ * `tagged` on success and `needs_review` on failure; the client writes
+ * `verified` (`useVerifyItem` above) and `pending_tag` (`useRetagItem` below,
+ * which clears `user_verified` with it). Nothing else moves the column.
+ *
+ * ── Why clearing the flag is not enough ───────────────────────────────────
+ *
+ * The deck and its count both read `user_verified = false AND status in
+ * ('tagged', 'needs_review')` (features/closet/queries.ts). `verified` is
+ * therefore not a sixth state layered on top — it is the *erasure* of which of
+ * the two the row was in. Writing `user_verified = false` alone would leave the
+ * row at `verified`, outside the `in` filter, and the piece would be neither
+ * confirmed nor reviewable. This takes the whole item rather than an id
+ * precisely because the caller is the only one still holding that record.
+ *
+ * `needs_review` is restored only for a row that was in it. `sweepPendingTags`
+ * (features/ingest/upload-queue.ts) re-requests tagging for every `pending_tag`
+ * and `needs_review` row on launch, so writing it speculatively would book a
+ * billed re-read nobody asked for. An already-`verified` row arriving here —
+ * item detail, where the pre-confirm status is long gone — lands on `tagged`,
+ * which is also the truer claim: its tags exist and a person signed off on them
+ * once. Asking for fresh tags is `useRetagItem`, and it is a different sentence.
+ *
+ * The confirm's corrections are deliberately NOT rolled back. `useVerifyItem`
+ * sends the patch and the flag in one update, but the patch is the user's own
+ * typing rather than the machine's guess, and discarding "this coat cost £240"
+ * because they also undid the confirm would throw away the only part of that
+ * write they authored. The piece goes back to the deck with their corrections
+ * on it.
+ *
+ * RLS: `items: owner can update` (migrations/20260803154431:131) scopes USING
+ * and WITH CHECK to `auth.uid() = user_id`, so a row that is not the caller's
+ * matches nothing and PostgREST answers 200 with zero rows. The update selects
+ * back what it changed and treats an empty result as the failure it is — an
+ * undo that silently changed nothing must not be reported as an undo.
+ */
+export function useUnverifyItem() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ item }: { item: Item }) => {
+      const userId = await getUserId();
+      if (!userId) throw new Error('Not signed in.');
+
+      const update: ItemUpdate = {
+        user_verified: false,
+        status: item.status === 'needs_review' ? 'needs_review' : 'tagged',
+      };
+
+      const { data, error } = await supabase
+        .from('items')
+        .update(update)
+        .eq('id', item.id)
+        .eq('user_id', userId)
+        .select('id');
+
+      if (error) throw error;
+      if (!data?.length) throw new Error('Cinch couldn’t put that piece back in the deck.');
+
+      return { id: item.id, status: update.status };
+    },
+    onSuccess: () => {
+      // Same pair `useVerifyItem` invalidates, for the same reason in reverse:
+      // the deck re-reads and the piece reappears in its queue order rather
+      // than being spliced back in at a position the server never agreed to.
+      void qc.invalidateQueries({ queryKey: ['review-queue'] });
+      void qc.invalidateQueries({ queryKey: ['closet'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Removal
 // ---------------------------------------------------------------------------
 
