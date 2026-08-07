@@ -1,81 +1,145 @@
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
-
-export type SelectionBarProps = {
-  /** How many pieces are picked. Zero is a real state — everything can be unpicked. */
-  count: number;
-  /** True while the removal is in flight; both controls go inert. */
-  busy?: boolean;
-  onCancel: () => void;
-  onRemove: () => void;
-};
+import { usePressFeedback } from '@/components/ui/use-press-feedback';
+import { useTheme } from '@/theme/tokens';
 
 /**
- * The closet's selection header — Cancel, the count, and Remove.
+ * C-04 — the multi-select mode's sticky bottom action bar.
  *
- * PINNED above the grid rather than folded into the closet's own masthead, and
- * that is the whole reason this is a separate component. The masthead rides in
- * the FlashList's `ListHeaderComponent` (it scrolls away with the identity
- * page, per 03a), so a Remove control placed there would be somewhere up the
- * page — invisible at the exact moment a long press two hundred rows down
- * creates a selection. A destructive control the user cannot find is worse
- * than no bulk removal at all.
+ * Two 44pt buttons over a near-opaque canvas wash: `Recategorise` (rule
+ * border) and `Delete {n}` (oxblood, the destructive one reads its own count
+ * so the confirm that follows is about a number the user already believes).
  *
- * Top rather than bottom: the tab bar owns the bottom edge, and a floating bar
- * over it either covers the tabs or sits at an arbitrary height above them.
+ * Bottom, not top, this time: in select mode the masthead and chips collapse
+ * and the grid becomes the whole page under a Cancel/Select-all header — the
+ * bottom edge is free (the atlas draws the bar over where the tab bar was)
+ * and thumbs live there.
  *
- * Remove reads its own count ("Remove 3"), because the confirmation that
- * follows is about a number the user has to already believe — a bare "Remove"
- * over a scrolled-away selection is how people delete four things meaning two.
+ * The atlas backs the bar with canvas at 96% + an 8px blur. expo-blur is not
+ * a dependency, so the blur half is dropped and the wash runs near-opaque —
+ * at 96–98% over a paper-toned grid the difference is imperceptible, and
+ * adding a native module for it is not this component's call. The wash is its
+ * own absolute-fill layer so its opacity never dims the buttons.
  */
-export function SelectionBar({ count, busy = false, onCancel, onRemove }: SelectionBarProps) {
+
+export type SelectionBarProps = {
+  /** How many pieces are picked. Zero is a real state — both buttons go inert. */
+  count: number;
+  /** True while a mutation is in flight; both controls go inert. */
+  busy?: boolean;
+  /** Bottom padding in pt — the atlas's 26 when over the home indicator, less when floating clear of it. */
+  bottomPadding?: number;
+  onRecategorise: () => void;
+  onDelete: () => void;
+};
+
+function BarButton({
+  label,
+  kind,
+  disabled,
+  busy = false,
+  onPress,
+  accessibilityLabel,
+}: {
+  label: string;
+  kind: 'outline' | 'destructive';
+  disabled: boolean;
+  busy?: boolean;
+  onPress: () => void;
+  accessibilityLabel: string;
+}) {
   const theme = useTheme();
-  const nothingPicked = count === 0;
+  const { style, onPressIn, onPressOut } = usePressFeedback(!disabled);
 
   return (
-    <View className="flex-row items-center justify-between border-b border-hairline px-gutter py-2">
-      <Pressable
-        onPress={onCancel}
-        disabled={busy}
-        accessibilityRole="button"
-        accessibilityLabel="Cancel selection"
-        hitSlop={8}
-        style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-        className="active:opacity-60">
-        <Text variant="label" className="text-ink">
-          Cancel
-        </Text>
-      </Pressable>
-
-      {/* The count in the serif, small — the same "a number is a fact" idiom
-          the profile stats use, at label size so it never outweighs the two
-          controls it sits between. */}
-      <Text variant="label" className="text-muted" accessibilityLiveRegion="polite">
-        {nothingPicked ? 'Select pieces' : `${count} selected`}
-      </Text>
-
-      <Pressable
-        onPress={onRemove}
-        disabled={busy || nothingPicked}
-        accessibilityRole="button"
-        accessibilityLabel={nothingPicked ? 'Remove' : `Remove ${count}`}
-        accessibilityState={{ disabled: busy || nothingPicked, busy }}
-        hitSlop={8}
-        style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-        className="active:opacity-60">
-        {busy ? (
-          <ActivityIndicator size="small" color={theme.accent} />
+    <Pressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled, busy }}
+      className="flex-1">
+      {/* Inline styles throughout: className has no effect on Reanimated
+          components in this project (use-press-feedback.ts L32-35). The
+          disabled 50% sits after the animated style so it wins the opacity. */}
+      <Animated.View
+        style={[
+          style,
+          {
+            height: 44,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          kind === 'destructive'
+            ? { backgroundColor: theme.accent }
+            : { borderWidth: 1, borderColor: theme.rule },
+          disabled ? { opacity: 0.5 } : null,
+        ]}>
+        {busy && kind === 'destructive' ? (
+          <ActivityIndicator size="small" color={theme.canvas} />
         ) : (
-          // Dimmed rather than hidden when nothing is picked: the control is
-          // what explains why the mode exists, and a header that changes shape
-          // as you tick the first piece reads as a glitch.
-          <Text variant="label" className={nothingPicked ? 'text-accent opacity-40' : 'text-accent'}>
-            {nothingPicked ? 'Remove' : `Remove ${count}`}
+          // 15/600 per the atlas; `font-medium` is the family this face maps
+          // 600 to (tailwind.config semibold → HelveticaNeue-Medium). Size via
+          // `style` — a second text-* class would race the variant's own.
+          <Text
+            variant="label"
+            style={{
+              fontSize: 15,
+              lineHeight: 20,
+              color: kind === 'destructive' ? theme.canvas : theme.ink,
+            }}>
+            {label}
           </Text>
         )}
-      </Pressable>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+export function SelectionBar({
+  count,
+  busy = false,
+  bottomPadding = 26,
+  onRecategorise,
+  onDelete,
+}: SelectionBarProps) {
+  const nothingPicked = count === 0;
+  const inert = busy || nothingPicked;
+
+  return (
+    <View className="border-t border-hairline">
+      {/* The canvas wash — its own layer so the 96% never dims the buttons. */}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: 0.96 }]} className="bg-canvas" />
+
+      {/* 12 / 20 / 26 padding and the 10pt gap are the atlas's, literal. The
+          atlas's 26 bottom assumes the bar sits over the home indicator; the
+          shipping bar floats above the native tab bar, so the screen passes
+          the padding that fits where it actually landed. */}
+      <View
+        className="flex-row px-gutter"
+        style={{ paddingTop: 12, paddingBottom: bottomPadding, gap: 10 }}
+        accessibilityLiveRegion="polite">
+        <BarButton
+          label="Recategorise"
+          kind="outline"
+          disabled={inert}
+          onPress={onRecategorise}
+          accessibilityLabel={nothingPicked ? 'Recategorise' : `Recategorise ${count} pieces`}
+        />
+        <BarButton
+          label={nothingPicked ? 'Delete' : `Delete ${count}`}
+          kind="destructive"
+          disabled={inert}
+          busy={busy}
+          onPress={onDelete}
+          accessibilityLabel={nothingPicked ? 'Delete' : `Delete ${count} pieces`}
+        />
+      </View>
     </View>
   );
 }

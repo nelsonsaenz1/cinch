@@ -24,6 +24,13 @@ export type ChipProps = {
    * radius grammar beats a 2px match to a mock that broke its own scale.
    */
   tone?: 'outline' | 'fill';
+  /**
+   * What the selected outline chip fills with. `accent` is the app-wide
+   * default; the Closet State Atlas draws its category row's active chip in
+   * ink (C-01), so the closet passes `ink`. Additive — no existing call site
+   * changes meaning.
+   */
+  selectedGround?: 'accent' | 'ink';
 };
 
 /**
@@ -38,9 +45,11 @@ export function Chip({
   count,
   accessibilityHint,
   tone = 'outline',
+  selectedGround = 'accent',
 }: ChipProps) {
   const theme = useTheme();
   const filled = tone === 'fill';
+  const inkGround = selectedGround === 'ink';
 
   // The selection tick every other control in the app gives a tap. Best-effort:
   // haptics no-op in Low Power Mode, and a failure must never eat the press.
@@ -65,7 +74,9 @@ export function Chip({
         filled
           ? 'bg-sand dark:bg-sand-dark'
           : selected
-            ? 'border border-accent bg-accent dark:border-accent-dark dark:bg-accent-dark'
+            ? inkGround
+              ? 'border border-ink bg-ink dark:border-ink-dark dark:bg-ink-dark'
+              : 'border border-accent bg-accent dark:border-accent-dark dark:bg-accent-dark'
             : 'border border-hairline bg-transparent dark:border-hairline-dark',
       ].join(' ')}>
       {/* Inline style, not a className: `variant="label"` already carries

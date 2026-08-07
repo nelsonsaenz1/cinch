@@ -114,8 +114,8 @@ export function useCloset() {
     queryFn: async ({ signal }): Promise<Item[]> => {
       const userId = await closetUserId();
       // No session is not the same fact as "zero items" — resolving to `[]`
-      // used to hand a session hiccup straight to `EmptyCloset`'s ghost slots,
-      // telling someone with a full wardrobe "Add your closet". An empty
+      // used to hand a session hiccup straight to the empty state's ghost
+      // slots, telling someone with a full wardrobe "Add your closet". An empty
       // design makes a claim about the data (see ui/empty-state.tsx's own
       // docblock): only render it once that claim is verified true, and "the
       // session lookup came back empty" verifies nothing about the closet.

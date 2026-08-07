@@ -1,4 +1,4 @@
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { View } from 'react-native';
 
 import { ItemCard } from '@/components/closet/item-card';
@@ -26,6 +26,8 @@ export type ClosetGridProps = {
   ListFooterComponent?: React.ComponentType | React.ReactElement | null;
   /** Passed straight to FlashList — pull-to-refresh for the closet. */
   refreshControl?: React.ReactElement<import('react-native').RefreshControlProps>;
+  /** The underlying FlashList, for callers that need to scroll it ("See all"). */
+  listRef?: React.Ref<FlashListRef<Item>>;
 };
 
 /**
@@ -43,9 +45,11 @@ export function ClosetGrid({
   ListHeaderComponent,
   ListFooterComponent,
   refreshControl,
+  listRef,
 }: ClosetGridProps) {
   return (
     <FlashList
+      ref={listRef}
       data={items}
       numColumns={2}
       keyExtractor={(item) => item.id}

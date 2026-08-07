@@ -1,87 +1,184 @@
-import { Image, type ImageContentPosition } from 'expo-image';
-import { View } from 'react-native';
+import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
+
+import { Text } from '@/components/ui/text';
+import { PRESSED_OPACITY, useTheme } from '@/theme/tokens';
 
 /**
- * The empty closet's grid — the real two-column closet rendered as blank
- * slots, each with a licensed garment photograph ghosted through it. The
- * founder's ask, verbatim: "the blank boxes with example ghosted garments".
+ * C-05 — the empty closet (Closet State Atlas).
  *
- * This is `ui/ghosted-rail.tsx`'s approach applied to the closet grid's own
- * geometry, and every ghosting decision is that component's documented
- * contract, not a new derivation:
+ * The ghosted grid shows the shape the screen wants to take rather than a
+ * blank field: four dashed cells in the real grid's geometry, a canvas
+ * gradient pooling over them, and the invitation — serif line, one sentence,
+ * one ink button — centred in the pool.
  *
- * - **Alpha over `sand`.** Each photo composites at {@link GHOST_ALPHA} inside
- *   a `sand` well, the token for "a tile that needs to sit BACK from the
- *   tray". The photographs' near-white grounds dissolve into sand at this
- *   weight, so only the garment's tonal mass survives — texture, not
- *   inventory that a new user could mistake for her own clothes.
- * - **2pt blur** ({@link GHOST_BLUR}): enough to lose the weave, not the
- *   silhouette. Heavier blur reads as a loading placeholder — the exact thing
- *   this screen is being fixed away from.
- * - **The contrast rule.** Ink (10.9:1 over the worst-case composite) may sit
- *   on these cells; `muted` copy (3.6:1 there) may NOT. Callers overlay serif
- *   ink or opaque fills only, and keep muted body copy on plain canvas.
- * - **No border, no radius change.** Cell geometry tracks the real grid —
- *   `aspect-[4/5] rounded-lg` inside `w-1/2 p-1.5` (see `item-card.tsx` L52
- *   and `ClosetGridSkeleton`) — so when garments arrive, the real cards land
- *   in exactly these frames and the page reads as filling in, not replacing.
+ * The previous version of this file ghosted licensed garment photographs
+ * through the cells. The atlas supersedes that: cells are plain near-canvas
+ * fills with dashed borders, and the atlas wins.
  *
- * Hidden from VoiceOver and from touch entirely: announcing decorative
- * garments in an empty closet is the "whose are these?" confusion in audio
- * form, and none of it is tappable.
+ * Composition contract: this component renders the GRID BLOCK ONLY (cells +
+ * gradient + centred copy + button). The screen composes the rest of C-05
+ * itself — eyebrow header, then the identity row using {@link GhostAvatar}
+ * exported below next to the real name and the `0 pieces · nothing computed
+ * yet` sub-line — because the name comes from `useClosetIdentity`, which is
+ * the screen's business, not this component's.
  *
- * The photographs are drawn only from the licensed set in `assets/garments/`
- * (MANIFEST.md); `require` points at the same bytes the ghosted rail already
- * ships, so no new bundle weight for the first five.
+ * The button is ink, not oxblood — the atlas draws it `#1C1A16` on `#FBFAF6`,
+ * so it is deliberately NOT `ui/button.tsx`'s accent primary; a local
+ * pressable keeps the atlas's ground without teaching Button a fourth variant.
  */
 
-/** Composite weight over the `sand` well — the ghosted rail's documented value. */
-const GHOST_ALPHA = 0.22;
+/** `theme.*` hexes are always `#RRGGBB`; alpha variants derive, never retype. */
+function withAlpha(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
-/** Points of blur. Silhouette survives; weave and fittings do not. */
-const GHOST_BLUR = 2;
+/** Atlas cell height — pt-for-px at 393pt width, used literally. */
+const CELL_HEIGHT = 170;
 
 /**
- * Four slots — two rows of the real grid. Chosen from the manifest on the
- * rail's own criteria (a vertical garment on a light neutral ground, tonal
- * mass that survives 22%): the coat, the mohair knit, the crochet poncho, the
- * tote. The linen blouse ghosts to almost nothing at this alpha and earns a
- * slot only where an affordance covers it, which no slot here guarantees.
- * Top-left runs outerwear first, the way a wardrobe is hung.
+ * The dashed empty avatar circle for C-05's identity row — 66pt, `tray` fill,
+ * dashed border. Exported for the screen to place beside the real name; kept
+ * here so both dashed-ghost treatments (avatar and cells) live in one file.
  */
-const GHOSTS: { source: number; position: ImageContentPosition }[] = [
-  // The coat hangs in the lower half of its frame; centre-cropping it leaves
-  // rack and wall, so the crop biases to the bottom (same note as the rail).
-  { source: require('@/assets/garments/cognac-shearling-coat.jpg'), position: 'bottom' },
-  { source: require('@/assets/garments/cream-mohair-sweater.jpg'), position: 'center' },
-  { source: require('@/assets/garments/cream-crochet-poncho.jpg'), position: 'center' },
-  { source: require('@/assets/garments/cognac-leather-tote.jpg'), position: 'center' },
-];
-
-export function GhostSlotGrid() {
+export function GhostAvatar({ size = 66 }: { size?: number }) {
+  const theme = useTheme();
   return (
     <View
-      pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      className="flex-row flex-wrap px-gutter">
-      {GHOSTS.map((ghost, i) => (
-        <View key={i} className="w-1/2 p-1.5">
-          <View className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-sand dark:bg-sand-dark">
-            <Image
-              source={ghost.source}
-              contentFit="cover"
-              contentPosition={ghost.position}
-              blurRadius={GHOST_BLUR}
-              // Never an `alt` — naming these garments is the confusion this
-              // component exists to prevent.
-              accessible={false}
-              focusable={false}
-              style={{ width: '100%', height: '100%', opacity: GHOST_ALPHA }}
-            />
+      className="bg-tray dark:bg-tray-dark"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: theme.rule,
+      }}
+    />
+  );
+}
+
+/** One dashed ghost cell — near-canvas fill (tray thinned over canvas). */
+function GhostCell() {
+  const theme = useTheme();
+  return (
+    <View
+      className="rounded-md"
+      style={{
+        height: CELL_HEIGHT,
+        backgroundColor: withAlpha(theme.tray, 0.6),
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: theme.rule,
+      }}
+    />
+  );
+}
+
+export type GhostSlotGridProps = {
+  /** Routes to the capture flow — the existing add-pieces destination. */
+  onAddPieces: () => void;
+};
+
+export function GhostSlotGrid({ onAddPieces }: GhostSlotGridProps) {
+  const theme = useTheme();
+  const [size, setSize] = useState({ w: 0, h: 0 });
+
+  return (
+    <View className="px-gutter">
+      <View
+        onLayout={(e) =>
+          setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
+        }>
+        {/* The four ghost cells — two rows of the real grid's geometry
+            (14pt row gap / 12pt column gap, 12pt radius). Decorative: hidden
+            from VoiceOver and from touch entirely. */}
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={{ gap: 14 }}>
+          <View className="flex-row" style={{ gap: 12 }}>
+            <View className="flex-1">
+              <GhostCell />
+            </View>
+            <View className="flex-1">
+              <GhostCell />
+            </View>
+          </View>
+          <View className="flex-row" style={{ gap: 12 }}>
+            <View className="flex-1">
+              <GhostCell />
+            </View>
+            <View className="flex-1">
+              <GhostCell />
+            </View>
           </View>
         </View>
-      ))}
+
+        {/* Canvas gradient pooling over the cells so the copy sits on what
+            reads as paper, not on top of furniture. Skia, same reasoning as
+            sign-in's HeroScrim: it is already in the bundle, and
+            expo-linear-gradient would be a dependency for one rectangle.
+            Stops transcribed from the atlas overlay. */}
+        {size.h > 0 ? (
+          <Canvas
+            pointerEvents="none"
+            style={{ position: 'absolute', top: 0, left: 0, width: size.w, height: size.h }}>
+            <Rect x={0} y={0} width={size.w} height={size.h}>
+              <LinearGradient
+                start={vec(0, 0)}
+                end={vec(0, size.h)}
+                colors={[
+                  withAlpha(theme.canvas, 0.15),
+                  withAlpha(theme.canvas, 0.86),
+                  withAlpha(theme.canvas, 0.94),
+                  withAlpha(theme.canvas, 0.86),
+                ]}
+                positions={[0, 0.34, 0.7, 1]}
+              />
+            </Rect>
+          </Canvas>
+        ) : null}
+
+        {/* The invitation, centred in the pool. */}
+        <View
+          className="absolute inset-0 items-center justify-center"
+          style={{ paddingBottom: 24 }}>
+          <Text variant="title" className="text-center">
+            Add your closet
+          </Text>
+          <Text
+            variant="callout"
+            className="mt-3 text-center text-muted dark:text-muted-dark"
+            style={{ maxWidth: 270 }}>
+            Photograph what you own and Cinch starts counting wears, colours and cost-per-wear
+            from day one.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add pieces"
+            onPress={onAddPieces}
+            className="mt-6 items-center justify-center rounded-md px-6"
+            style={({ pressed }) => ({
+              height: 44,
+              backgroundColor: theme.ink,
+              opacity: pressed ? PRESSED_OPACITY : 1,
+            })}>
+            {/* Inline colour, never a second `text-*` class — the Button
+                precedence lesson (ui/button.tsx `labelKey`) applies here too. */}
+            <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+              Add pieces
+            </Text>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }

@@ -1,7 +1,7 @@
-import * as Haptics from 'expo-haptics';
+import type { FlashListRef } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useMemo, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -11,711 +11,373 @@ import {
   ScrollView,
   View,
 } from 'react-native';
-import Animated, { FadeInUp, FadeOut, FadeOutUp } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ClosetGrid } from '@/components/closet/closet-grid';
-import { GhostSlotGrid } from '@/components/closet/ghost-slot-grid';
-import { PlateThumb } from '@/components/closet/plate-thumb';
+import { ClosetMenu } from '@/components/closet/closet-menu';
+import { ClosetSkeleton } from '@/components/closet/closet-skeleton';
+import { GhostAvatar, GhostSlotGrid } from '@/components/closet/ghost-slot-grid';
+import { InsightCard } from '@/components/closet/insight-card';
+import { RailCard } from '@/components/closet/rail-card';
 import { SelectionBar } from '@/components/closet/selection-bar';
+import { StatRow } from '@/components/closet/stat-row';
+import { Avatar, Chip, EmptyState, ErrorState, SearchField, Text } from '@/components/ui';
 import {
-  Avatar,
-  Chip,
-  ClosetGridSkeleton,
-  EmptyState,
-  ErrorState,
-  ProgressTrack,
-  SearchField,
-  SectionHeader,
-  Text,
-} from '@/components/ui';
-import { useRemoveItems } from '@/features/closet/mutations';
-import {
-  closetStats,
-  mostWornItems,
-  pieceName,
-  useClosetIdentity,
-  useOutfitCount,
-  wearsLabel,
-} from '@/features/closet/profile';
-import { useCloset, useReviewCount } from '@/features/closet/queries';
-import { useSignedUrls } from '@/features/closet/use-image-urls';
+  useClosetScreen,
+  type CategoryFilter,
+  type ClosetScreenModel,
+} from '@/features/closet/use-closet-screen';
 import { EditProfileSheet } from '@/features/profile/edit-profile-sheet';
-import { useFollowerCount } from '@/features/profile/queries';
-import { useStyleProfile } from '@/features/styling/queries';
 import type { Item } from '@/schemas/item';
-import { GUTTER, MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { GUTTER, MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
 /**
- * The field guide's sticky browsing row — Tops / Bottoms / Outerwear / Shoes /
- * Accessories — lifted from `dev-closet.tsx` and wired to the real category
- * column. Rendered above the full grid both on the identity view (03a lists
- * the category chips and the full grid as part of the same page, not a mode
- * behind search) and inside search mode, where it narrows the same grid
- * further by the typed query. One `category` state, shared by both.
- */
-type CategoryFilter = 'All' | 'Tops' | 'Bottoms' | 'Outerwear' | 'Shoes' | 'Accessories';
-const CATEGORIES: CategoryFilter[] = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
-
-/** Which of the five browsing chips a stored `ItemCategory` falls under. Total: every value maps somewhere. */
-function chipFor(category: Item['category']): CategoryFilter {
-  switch (category) {
-    case 'top':
-    case 'dress':
-      return 'Tops';
-    case 'bottom':
-      return 'Bottoms';
-    case 'outerwear':
-      return 'Outerwear';
-    case 'footwear':
-      return 'Shoes';
-    default:
-      return 'Accessories';
-  }
-}
-
-/**
- * The closet as the founder's mock draws it: the user's own profile page.
+ * The closet, per the founder's Closet State Atlas (C-01…C-06; see
+ * docs/design/closet-redesign-spec.md). Every derivation lives in
+ * `useClosetScreen` — this file is the render tree and nothing else.
  *
- * Not a grid with a masthead any more — the page IS the person: monogram
- * avatar, the three wardrobe numbers, name and handle, the cost-per-wear
- * sentence spoken as prose, style tags, a highlights rail, the category chips,
- * then the full two-column grid — one continuous scroll, per 03a. Every
- * number on screen derives from rows the user owns; nothing is invented (see
- * features/closet/profile.ts for each derivation).
- *
- * The highlights rail is FAVOURITE PIECES + MOST WORN when the closet has any
- * wear data, and LATEST PIECES (newest first) when it does not — a fresh
- * closet full of just-photographed pieces has zero wears on every item, and
- * a rail whose only entry condition is `wearCount > 0` would show nothing at
- * all for exactly the user at her most delighted. The grid below it never
- * shares that condition: it is the whole closet, unconditionally, filtered
- * only by the category chip and (in search mode) the typed query.
- *
- * The search icon does not gate the grid into existing — it adds a text
- * field above the SAME grid, for narrowing by more than a category chip can.
- * The field sits OUTSIDE the FlashList (see the `searching` branch) because a
- * controlled `TextInput` inside a virtualised `ListHeaderComponent` remounts,
- * and loses focus, on every keystroke; the rest of the identity content has
- * no such input and lives in `ListHeaderComponent` instead, so it scrolls
- * away with the grid exactly as 03a draws it.
+ * The search `TextInput` sits OUTSIDE the FlashList: a controlled input in a
+ * virtualised `ListHeaderComponent` remounts, and loses focus, on every
+ * keystroke. The rest of the masthead has no input and rides in the header so
+ * it scrolls away with the grid.
  */
 
-/** Top-N cutoffs. Small enough to stay highlights, not an inventory. */
-const MOST_WORN_LIMIT = 5;
-const FAVOURITE_LIMIT = 8;
-
-/** Rail plate side, in points — three-and-a-bit visible on a 390pt screen. */
-const RAIL_PLATE = 124;
-/**
- * The gap between plates on a horizontal rail, and the gap between the browsing
- * chips. Named because they are two different measures that were both typed
- * inline and so read as though they had to agree.
- */
+/** The rail gap and the chip gap — two measures that need not agree. */
 const RAIL_GAP = 14;
 const CHIP_GAP = 7;
 
 /**
- * How many reactions the style engine wants before it will say anything about
- * taste. Mirrors the constant of the same name in app/profile.tsx — the chips
- * below fall back to the learned style summary, and showing a "taste" the
- * engine itself would disown breaks the app's honesty rule.
+ * Every stored category the recategorise sheet can file a piece under, with
+ * the label a person would say. Values are the schema's `itemCategory` enum —
+ * a label without a value here is a choice the mutation cannot apply.
  */
-const TASTE_THRESHOLD = 8;
-
-/** Chips and captions open with a capital; tags arrive lowercase from the DB. */
-function sentenceCase(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/** "1 Piece", not "1 Pieces". The stats row is the app's most-read line of
- *  type and it was ungrammatical at n=1 on three of its four numbers. */
-function plural(count: number, singular: string): string {
-  return count === 1 ? singular : `${singular}s`;
-}
+const CATEGORY_CHOICES: { label: string; value: Item['category'] }[] = [
+  { label: 'Top', value: 'top' },
+  { label: 'Bottom', value: 'bottom' },
+  { label: 'Outerwear', value: 'outerwear' },
+  { label: 'Dress', value: 'dress' },
+  { label: 'Footwear', value: 'footwear' },
+  { label: 'Bag', value: 'bag' },
+  { label: 'Headwear', value: 'headwear' },
+  { label: 'Jewelry', value: 'jewelry' },
+  { label: 'Accessory', value: 'accessory' },
+  { label: 'Other', value: 'other' },
+];
 
 export default function ClosetScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const [searching, setSearching] = useState(false);
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<CategoryFilter>('All');
-  const [editing, setEditing] = useState(false);
-  /** The picked pieces, or `null` when the grid is not in selection mode. */
-  const [picked, setPicked] = useState<ReadonlySet<string> | null>(null);
-  const remove = useRemoveItems();
+  const screen = useClosetScreen();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const insets = useSafeAreaInsets();
+  const listRef = useRef<FlashListRef<Item>>(null);
 
-  // The same query Profile's delete-account warning reads, so the two screens
-  // can never disagree about what the user owns.
-  const closet = useCloset();
-  const identity = useClosetIdentity();
-  const outfitCount = useOutfitCount();
-  const followerCount = useFollowerCount();
-  // The number only — the masthead menu needs an integer, not the rows (see
-  // `useReviewCount`). It shares the `review-queue` key prefix, so every
-  // existing invalidation already keeps it current.
-  const reviewWaiting = useReviewCount();
-  const style = useStyleProfile();
-  const items = useMemo(() => closet.data ?? [], [closet.data]);
+  const selecting = screen.picked !== null;
 
-  // One signing batch covers both regimes: plates and cutouts for the profile
-  // sections, thumbs for the search grid. Paths are private — sign or nothing.
-  const { resolve } = useSignedUrls(
-    items.flatMap((i) => [i.platePath, i.cutoutPath, i.thumbPath]),
-  );
-
-  // The headline numbers, computed over the WHOLE closet — they are facts
-  // about the wardrobe, never about a search in progress.
-  const stats = useMemo(() => closetStats(items), [items]);
-  const mostWorn = useMemo(() => mostWornItems(items, MOST_WORN_LIMIT), [items]);
-
-  // SEAM — favourites. No favourite flag exists in the schema yet and the DB
-  // agent owns migrations, so the rail is driven by wear data (the pieces the
-  // user demonstrably reaches for) and the Edit affordance below renders
-  // disabled. When an `items.is_favourite` lands, swap this derivation for the
-  // flagged set and enable Edit; nothing else on the page changes.
-  const favourites = useMemo(() => mostWornItems(items, FAVOURITE_LIMIT), [items]);
-
-  // FAVOURITE PIECES and MOST WORN both derive from `wearCount > 0`
-  // (`mostWornItems` above) — so a closet nobody has worn yet, most notably a
-  // brand-new user's just-photographed wardrobe, empties BOTH rails at once.
-  // That is peak delight rendered as a blank page. When there is no wear data
-  // to show, the highlight rail falls back to recency instead of vanishing —
-  // `items` already arrives newest-first from `useCloset`'s own ORDER BY, so
-  // no re-sort is needed.
-  const hasWearData = favourites.length > 0;
-  const latestPieces = useMemo(
-    () => (hasWearData ? [] : items.slice(0, FAVOURITE_LIMIT)),
-    [items, hasWearData],
-  );
-
-  // Live search over the words a person would actually type: what it is, its
-  // colour, the brand — narrowed first by the category chip, same as the
-  // guide's browsing row. Empty query and "All" = the whole closet, newest
-  // first.
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const matches = (i: Item) => {
-      if (category !== 'All' && chipFor(i.category) !== category) return false;
-      if (!q) return true;
-      return [i.subcategory, i.category, i.brand, ...i.colors.map((c) => c.name)]
-        .filter(Boolean)
-        .some((s) => s!.toLowerCase().includes(q));
-    };
-    return items.filter(matches).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [items, query, category]);
-
-  const name = identity.data?.name ?? '';
-
-  // "@handle · City". The handle is claimed in the edit-profile sheet and the
-  // city is not editable anywhere yet, so this often renders one half or
-  // neither — the join collapses around whatever is missing.
-  const handleLine = [
-    identity.data?.username ? `@${identity.data.username}` : null,
-    identity.data?.homeCity,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-
-  // The bio, ending in the computed average cost-per-wear as prose. The
-  // sentence is only spoken when at least one piece has both a price and a
-  // wear — an average over nothing is not a fact, so it goes unsaid.
-  const bioLine = [
-    identity.data?.bio,
-    stats.avgCostPerWear !== null ? `Averages $${stats.avgCostPerWear.toFixed(2)} a wear.` : null,
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  // Style-tag chips: the profile's own tags when the user has set them, else
-  // the engine's learned summary — but only past the honesty threshold, the
-  // same line Profile's "What Cinch has learned" card draws.
-  const chips = useMemo(() => {
-    const tags = identity.data?.styleTags ?? [];
-    if (tags.length > 0) return tags.map(sentenceCase);
-    if ((style.data?.feedbackCount ?? 0) >= TASTE_THRESHOLD) {
-      return (style.data?.summary ?? []).map(sentenceCase);
-    }
-    return [];
-  }, [identity.data?.styleTags, style.data]);
-
-  const openItem = (item: Item) =>
-    router.push({ pathname: '/item/[id]', params: { id: item.id } });
-
-  // Tapping a tile opens it; holding one starts picking them. `null` is "not
-  // selecting" — one piece of state rather than a boolean and a set that can
-  // disagree about whether the mode is on.
-  const togglePicked = (item: Item) =>
-    setPicked((current) => {
-      const next = new Set(current ?? []);
-      if (!next.delete(item.id)) next.add(item.id);
-      return next;
+  // "See all" on the Latest rail: the grid IS the all, so the affordance
+  // clears the one filter that could hide pieces from it and brings the first
+  // row of cards to the top (spec §5's sanctioned reading of "scrolls to").
+  const seeAllPieces = () => {
+    screen.setCategory('All');
+    // Next frame, so the scroll measures the grid the cleared filter produces.
+    requestAnimationFrame(() => {
+      if (screen.items.length > 0)
+        listRef.current?.scrollToIndex({ index: 0, animated: true, viewPosition: 0 });
     });
-
-  const beginSelection = (item: Item) => {
-    // Long press has no visual until the mode arrives, so the tick alone is
-    // late feedback; the same `selectionAsync` the rest of the app uses.
-    void Haptics.selectionAsync().catch(() => {});
-    togglePicked(item);
   };
 
   /**
-   * Bulk removal. One confirmation, naming the count and both consequences —
-   * same sentence as item detail's, because it is the same promise: the pieces
-   * leave the closet and their photographs are deleted from storage.
+   * C-04's Recategorise: the native sheet, not a custom picker — ten rows of
+   * plain text is exactly what an action sheet is for. Android's Alert caps
+   * at three buttons, so it gets the same rows knowing the platform truncates;
+   * the app ships iOS-first and the old menu accepted the same trade.
    */
-  const confirmRemovePicked = () => {
-    const ids = [...(picked ?? [])];
-    if (ids.length === 0) return;
-
-    Alert.alert(
-      ids.length === 1 ? 'Remove this piece?' : `Remove ${ids.length} pieces?`,
-      ids.length === 1
-        ? 'It leaves your closet and its photos are deleted. This can’t be undone.'
-        : 'They leave your closet and their photos are deleted. This can’t be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () =>
-            remove.mutate(
-              { ids },
-              {
-                onSuccess: () => setPicked(null),
-                onError: (err) =>
-                  Alert.alert(
-                    ids.length === 1 ? 'Could not remove this piece' : 'Could not remove these pieces',
-                    err instanceof Error
-                      ? err.message
-                      : 'Something went wrong. Nothing has been removed.',
-                  ),
-              },
-            ),
-        },
-      ],
-    );
-  };
-
-  const refresh = () => {
-    void closet.refetch();
-    void identity.refetch();
-    void outfitCount.refetch();
-    // Nobody tells this device that someone followed you, so the pull is the
-    // only thing that ever makes the FOLLOWERS numeral current.
-    void followerCount.refetch();
-    void reviewWaiting.refetch();
-  };
-
-  /**
-   * The masthead's overflow menu.
-   *
-   * REVIEW IS THE REASON THIS EXISTS. `/review` was reachable from exactly one
-   * place — the "Review tags" button inside capture's progress sheet — so
-   * leaving capture, or killing the app mid-import, stranded every untagged
-   * piece in a deck with no door. The badge on the tile said "Needs review" and
-   * nothing in the app could act on it.
-   *
-   * `ActionSheetIOS`, not a popover library: the app ships no menu dependency
-   * and this is three rows of plain text. The review row is omitted entirely
-   * when the count is zero — an always-present "Review tags (0)" teaches people
-   * to stop reading the menu.
-   */
-  const openMenu = () => {
-    const reviewCount = reviewWaiting.data ?? 0;
-    const rows: { label: string; run: () => void }[] = [];
-    if (reviewCount > 0) {
-      rows.push({ label: `Review tags (${reviewCount})`, run: () => router.push('/review') });
-    }
-    // Long press is the fast way in and stays the fast way in; this is the
-    // discoverable one. An empty `picked` set IS selection mode with nothing
-    // picked, which SelectionBar already draws ("Select pieces", Remove dimmed).
-    rows.push({ label: 'Select pieces', run: () => setPicked(new Set()) });
-    rows.push({ label: 'Profile and settings', run: () => router.navigate('/profile') });
-
+  const chooseCategory = () => {
     if (Platform.OS !== 'ios') {
-      // Android and the web preview have no action sheet; an Alert offers the
-      // same three choices in the platform's own furniture.
-      Alert.alert('Closet', undefined, [
-        ...rows.map((r) => ({ text: r.label, onPress: r.run })),
+      Alert.alert('Move to', undefined, [
+        ...CATEGORY_CHOICES.map((c) => ({
+          text: c.label,
+          onPress: () => void screen.recategorise(c.value),
+        })),
         { text: 'Cancel', style: 'cancel' as const },
       ]);
       return;
     }
-
     ActionSheetIOS.showActionSheetWithOptions(
-      { options: [...rows.map((r) => r.label), 'Cancel'], cancelButtonIndex: rows.length },
-      (index) => rows[index]?.run(),
+      {
+        title: 'Move to',
+        options: [...CATEGORY_CHOICES.map((c) => c.label), 'Cancel'],
+        cancelButtonIndex: CATEGORY_CHOICES.length,
+      },
+      (index) => {
+        const choice = CATEGORY_CHOICES[index];
+        if (choice) void screen.recategorise(choice.value);
+      },
     );
   };
 
-  const header = (
-    <View className="flex-row items-center justify-between pl-gutter pr-2 pt-2">
-      <Text variant="display" trim accessibilityRole="header">
-        Closet
-      </Text>
-      <View className="flex-row items-center">
-        <HeaderIcon
-          name="magnifyingglass"
-          label={searching ? 'Close search' : 'Search your wardrobe'}
-          onPress={() => {
-            setSearching((s) => !s);
-            // The typed query belongs to the field and goes with it. The
-            // CATEGORY does not: the same browsing row is drawn above the grid
-            // in BOTH modes, so resetting it here silently threw away a filter
-            // the user could still see selected on the other side of the tap.
-            setQuery('');
-          }}
-        />
-        <HeaderIcon
-          name="ellipsis"
-          label="More closet actions"
-          hint="Review tags, select pieces, or open your profile"
-          onPress={openMenu}
-        />
-      </View>
-    </View>
+  const refreshControl = (
+    <RefreshControl
+      refreshing={screen.refreshing}
+      onRefresh={screen.refresh}
+      tintColor={theme.muted}
+    />
   );
+
+  // ── The six atlas states, one branch each ─────────────────────────────────
+
+  let body: React.ReactNode;
+
+  if (screen.loading) {
+    // C-06. Eyebrow stays put so nothing shifts when the data lands; the
+    // fade-out is the crossfade — Reanimated keeps the exiting skeleton
+    // mounted while the wardrobe arrives over it.
+    body = (
+      // `style`, NOT `className`: NativeWind's interop skips Reanimated
+      // components, so `flex-1` as a class would be silently dropped and the
+      // skeleton would collapse to nothing.
+      <Animated.View style={{ flex: 1 }} exiting={FadeOut.duration(motion.duration.fast)}>
+        <EyebrowHeader />
+        <ClosetSkeleton />
+      </Animated.View>
+    );
+  } else if (screen.error && screen.items.length === 0) {
+    // A failed fetch is not an empty wardrobe: rendering the ghost slots here
+    // would tell someone with 200 garments "add your closet" over a network
+    // error that has nothing to do with what she owns. Gated on `items` being
+    // empty because React Query keeps cached data through a failed refetch —
+    // a closet that IS on hand renders normally and retry rides pull-to-refresh.
+    body = (
+      <>
+        <EyebrowHeader />
+        <ErrorState
+          title="Couldn't read your closet"
+          body="Check your connection and try again."
+          retrying={screen.refreshing}
+          onRetry={screen.refresh}
+        />
+      </>
+    );
+  } else if (screen.items.length === 0) {
+    // C-05. Eyebrow only — search and the menu have nothing to act on. The
+    // ScrollView exists for pull-to-refresh, which must survive every state.
+    body = (
+      <ScrollView refreshControl={refreshControl} contentContainerStyle={{ paddingBottom: 96 }}>
+        <EyebrowHeader />
+        <View className="mt-6 flex-row items-center gap-4 px-gutter">
+          <GhostAvatar />
+          <View className="flex-1">
+            {screen.name ? (
+              <Text variant="title" trim numberOfLines={1} accessibilityRole="header">
+                {screen.name}
+              </Text>
+            ) : null}
+            <Text variant="label" className={screen.name ? 'mt-2.5' : ''}>
+              0 pieces · nothing computed yet
+            </Text>
+          </View>
+        </View>
+        {/* Stat row suppressed entirely — four zeroes are not facts worth
+            ruling off. The ghost grid carries the whole invitation. */}
+        <View className="mt-8">
+          <GhostSlotGrid onAddPieces={() => router.push('/capture')} />
+        </View>
+      </ScrollView>
+    );
+  } else if (selecting) {
+    // C-04. Masthead, rails, insight and chips collapse — the grid is the
+    // whole page under the count header. The grid shows the UNFILTERED closet
+    // so `Select all` and what's on screen can never disagree.
+    body = (
+      <View className="flex-1">
+        <SelectionHeader screen={screen} />
+        <ClosetGrid
+          items={screen.items}
+          onItemPress={screen.togglePicked}
+          onItemLongPress={screen.beginSelection}
+          selectedIds={screen.picked}
+          resolveImage={screen.resolve}
+          refreshControl={refreshControl}
+          // The floating bar covers ~155pt of the grid's tail; without this
+          // spacer the last row's tick zone can never scroll clear of it.
+          ListFooterComponent={<View style={{ height: insets.bottom + 160 }} />}
+        />
+        {/* Pinned over the grid's bottom edge — a Delete control that scrolls
+            away with the list is a Delete control nobody can reach. The atlas
+            seats this bar where the tab bar was, but the native Liquid Glass
+            bar cannot be dismissed from JS and draws over anything at
+            bottom: 0 — so the bar floats just clear of it instead, and the
+            atlas's 26pt home-indicator padding shrinks to its 12pt top. */}
+        <View className="absolute inset-x-0" style={{ bottom: insets.bottom + 52 }}>
+          <SelectionBar
+            count={screen.picked?.size ?? 0}
+            busy={screen.removePending || screen.recategorisePending}
+            bottomPadding={12}
+            onRecategorise={chooseCategory}
+            onDelete={screen.confirmRemovePicked}
+          />
+        </View>
+      </View>
+    );
+  } else if (screen.searching) {
+    // C-02. The tray field replaces the whole header block and the masthead
+    // collapses — results start at the top, chips stay usable (query + chip
+    // compose in the hook), and the footer note keeps the matcher honest.
+    const n = screen.visible.length;
+    body = (
+      <Animated.View style={{ flex: 1 }} entering={FadeIn.duration(motion.duration.fast)}>
+        <View className="flex-row items-center gap-3 pl-gutter pr-gutter pt-2">
+          <View className="flex-1">
+            <SearchField
+              value={screen.query}
+              onChangeText={screen.setQuery}
+              autoFocus
+              placeholder="Search your wardrobe"
+            />
+          </View>
+          <Pressable
+            onPress={screen.toggleSearch}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel search"
+            hitSlop={{ top: 14, bottom: 14, left: 12, right: 12 }}
+            className="active:opacity-60">
+            {/* 15/500 in the accent, per the atlas. Inline colour, never a
+                second `text-*` class (button.tsx precedence lesson). */}
+            <Text variant="label" style={{ fontSize: 15, lineHeight: 20, color: theme.accent }}>
+              Cancel
+            </Text>
+          </Pressable>
+        </View>
+
+        <View className="px-gutter pt-4">
+          <Text variant="eyebrow" accessibilityLiveRegion="polite">
+            {`${n} ${n === 1 ? 'piece' : 'pieces'}`}
+          </Text>
+        </View>
+
+        <CategoryChipsRow screen={screen} />
+
+        <ClosetGrid
+          listRef={listRef}
+          items={screen.visible}
+          onItemPress={screen.openItem}
+          onItemLongPress={screen.beginSelection}
+          selectedIds={null}
+          resolveImage={screen.resolve}
+          refreshControl={refreshControl}
+          ListEmptyComponent={<EmptySearch query={screen.query} category={screen.category} />}
+          ListFooterComponent={
+            <Text variant="caption" className="px-1.5 pt-4" style={{ fontSize: 12, lineHeight: 17 }}>
+              Searching matches name, colour and fabric — nothing you don’t own.
+            </Text>
+          }
+        />
+      </Animated.View>
+    );
+  } else {
+    // C-01. Masthead sections ride in the FlashList header — no TextInput
+    // lives among them, so the focus hazard that exiles the search field
+    // doesn't apply here.
+    body = (
+      <ClosetGrid
+        listRef={listRef}
+        items={screen.visible}
+        onItemPress={screen.openItem}
+        onItemLongPress={screen.beginSelection}
+        selectedIds={null}
+        resolveImage={screen.resolve}
+        refreshControl={refreshControl}
+        ListHeaderComponent={
+          <Masthead screen={screen} onSeeAll={seeAllPieces} onMenu={() => setMenuOpen(true)} />
+        }
+        ListEmptyComponent={
+          // The closet has pieces, but none under the chosen chip — the honest
+          // "nothing filed under X yet", never the ghost-slot composition.
+          <EmptySearch query="" category={screen.category} />
+        }
+      />
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      {/* Pinned above everything while selecting — the masthead scrolls away
-          with the identity page, and a Remove control that scrolls away with
-          it is a Remove control nobody can reach (see SelectionBar). */}
-      {picked !== null ? (
-        // Entering/exiting rather than simply appearing: the bar pushes the
-        // whole page down by its own height, and an instant appearance reads as
-        // the grid jumping. The `layout` props below carry the other half.
-        <Animated.View entering={FadeInUp.duration(180)} exiting={FadeOutUp.duration(140)}>
-          <SelectionBar
-            count={picked.size}
-            busy={remove.isPending}
-            onCancel={() => setPicked(null)}
-            onRemove={confirmRemovePicked}
-          />
-        </Animated.View>
-      ) : null}
+      {/* C-03's dimming is the screen's own render — the menu draws no scrim.
+          `pointerEvents` gates the page so a dimmed control can't be tapped. */}
+      <View style={{ flex: 1, opacity: menuOpen ? 0.4 : 1 }} pointerEvents={menuOpen ? 'none' : 'auto'}>
+        {body}
+      </View>
 
-      {closet.isLoading ? (
-        // Just the title standing above the skeleton — the page has nothing to
-        // say about a wardrobe it has not read yet, and keeping the title put
-        // stops the screen jumping when the data lands.
-        //
-        // The fade-out is the crossfade: Reanimated keeps an exiting view
-        // mounted while its replacement appears, so the wardrobe arrives OVER
-        // the skeleton rather than swapping with it in one hard frame — which
-        // is what the skeleton's shape was promising all along.
-        //
-        // `style`, NOT `className`: NativeWind's interop registers React Native
-        // primitives only, so a class on a Reanimated component is silently
-        // dropped — `flex-1` here would vanish and the skeleton would collapse
-        // to nothing. Same reason upload-queue-list.tsx keeps its layout on a
-        // plain View inside the animated one.
-        <Animated.View style={{ flex: 1 }} exiting={FadeOut.duration(140)}>
-          <View className="px-gutter pt-2">
-            <Text variant="display" trim accessibilityRole="header">
-              Closet
-            </Text>
-          </View>
-          <ClosetGridSkeleton />
-        </Animated.View>
-      ) : closet.isError ? (
-        // A failed fetch is not an empty wardrobe. Falling through to
-        // EmptyCloset here used to tell someone with 200 garments "An empty
-        // rail" over a network error that has nothing to do with what she owns.
-        <>
-          <View className="px-gutter pt-2">
-            <Text variant="display" trim accessibilityRole="header">
-              Closet
-            </Text>
-          </View>
-          <ErrorState
-            title="Couldn't read your closet"
-            body="Check your connection and try again."
-            onRetry={refresh}
-          />
-        </>
-      ) : searching ? (
-        // The browse-everything mode: search over the full grid. The input sits
-        // OUTSIDE the list for the same reason the old masthead did — a
-        // controlled TextInput in a virtualised header remounts, and loses
-        // focus, on every keystroke.
-        <>
-          {header}
-          <SearchField
-            value={query}
-            onChangeText={setQuery}
-            autoFocus
-            placeholder="Search your wardrobe"
-            className="mx-gutter mt-3"
-          />
-
-          {/* The field guide's browsing row. Narrows the same full-wardrobe
-              grid the identity view shows below it — see CategoryChipsRow. */}
-          <CategoryChipsRow category={category} onSelect={setCategory} />
-
-          <ClosetGrid
-            items={visible}
-            onItemPress={picked !== null ? togglePicked : openItem}
-            onItemLongPress={beginSelection}
-            selectedIds={picked}
-            resolveImage={resolve}
-            refreshControl={
-              <RefreshControl
-                refreshing={closet.isRefetching}
-                onRefresh={refresh}
-                tintColor={theme.muted}
-              />
-            }
-            ListEmptyComponent={<EmptySearch query={query} category={category} />}
-          />
-        </>
-      ) : (
-        // The identity view — 03a's whole page as one continuous scroll. The
-        // grid is the FlashList itself; everything above it (masthead,
-        // profile row, identity, highlights rail, category chips) rides in
-        // `ListHeaderComponent` so it scrolls away with the grid rather than
-        // sitting pinned above it. No `TextInput` lives here, so the focus
-        // hazard that keeps the search field outside the list doesn't apply.
-        <ClosetGrid
-          items={visible}
-          onItemPress={picked !== null ? togglePicked : openItem}
-          onItemLongPress={beginSelection}
-          selectedIds={picked}
-          resolveImage={resolve}
-          refreshControl={
-            <RefreshControl
-              refreshing={closet.isRefetching}
-              onRefresh={refresh}
-              tintColor={theme.muted}
-            />
-          }
-          ListHeaderComponent={
-            <View>
-              {header}
-
-              {/* Identity — the face, the name, and the way in to changing
-                  both. The stats row used to sit here beside the monogram,
-                  three cells wide; a fourth number does not fit next to a
-                  76pt disc (FOLLOWERS alone is wider than the cell), so the
-                  numbers moved down to their own full-width line and the name
-                  came up to stand beside the face where it reads better. */}
-              <View className="mt-6 flex-row items-center gap-4 px-gutter">
-                {/* The shared Avatar, not a hand-built disc: it carries the
-                    photo-then-initials fallback and the oxblood-on-sand
-                    monogram this screen used to draw itself. */}
-                <Avatar
-                  name={name}
-                  size={76}
-                  tone="accent"
-                  imageUri={identity.data?.avatarUrl}
-                  fallback="?"
-                />
-                <View className="flex-1">
-                  {name ? (
-                    // One line: `trim` collapses the line box to the cap
-                    // height, which a wrapped second line would clip.
-                    <Text variant="title" trim numberOfLines={1} accessibilityRole="header">
-                      {name}
-                    </Text>
-                  ) : null}
-                  {handleLine ? (
-                    <Text variant="label" className="mt-2.5 text-muted">
-                      {handleLine}
-                    </Text>
-                  ) : null}
-                  {/* Quiet, in ink rather than the accent: this page already
-                      spends its accent on the unworn numeral, and a second
-                      one turns a spend into a spray. */}
-                  <Pressable
-                    onPress={() => setEditing(true)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Edit your profile"
-                    accessibilityHint="Change your name, handle, bio and photo"
-                    hitSlop={10}
-                    className="mt-2 flex-row items-center gap-1.5 self-start active:opacity-60">
-                    <SymbolView
-                      name="pencil"
-                      size={11}
-                      tintColor={theme.muted}
-                      resizeMode="scaleAspectFit"
-                    />
-                    <Text variant="colophon">Edit profile</Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* The spec line — the wardrobe in four numbers, full width.
-                  FOLLOWERS is a real count of `follows` rows pointing at this
-                  user (friends plus anyone whose follow she has not returned),
-                  which is exactly the two lists /friends shows. */}
-              <View className="mt-5 flex-row px-gutter">
-                <Stat value={`${stats.pieces}`} label={plural(stats.pieces, 'Piece')} />
-                <Stat
-                  value={outfitCount.data !== undefined ? `${outfitCount.data}` : '—'}
-                  label={plural(outfitCount.data ?? 0, 'Outfit')}
-                />
-                {/* The mock sets the unworn numeral in oxblood — the "get more
-                    from what you own" pitch as a colour. Zero stays ink: an
-                    accent celebrating the absence of a problem reads as an alarm
-                    that failed to clear. */}
-                <Stat value={`${stats.unworn}`} label="Unworn" accent={stats.unworn > 0} />
-                <Stat
-                  value={followerCount.data !== undefined ? `${followerCount.data}` : '—'}
-                  label={plural(followerCount.data ?? 0, 'Follower')}
-                  onPress={() => router.push('/friends')}
-                  hint="Opens your friends and requests"
-                />
-              </View>
-
-              <View className="px-gutter">
-                {bioLine ? (
-                  <Text variant="callout" className="mt-6 text-ink">
-                    {bioLine}
-                  </Text>
-                ) : null}
-                {chips.length > 0 ? (
-                  // Closer to the prose it qualifies than to the spec line it
-                  // would otherwise be crowding when there is no bio.
-                  <View className={`${bioLine ? 'mt-4' : 'mt-6'} flex-row flex-wrap gap-2`}>
-                    {/* The ui kit's own `Chip`, not a hand-rolled capsule — a
-                        labelled control is `rounded-md` square-cornered per
-                        the "capsules only on glass chrome" rule
-                        (tailwind.config.js borderRadius). No `onPress`: these
-                        describe the wardrobe, they don't filter it, so the
-                        chip renders `accessibilityRole="text"`.
-
-                        `tone="fill"` for the same reason: the approved frame
-                        draws these as sand-filled tags, and a chip with no
-                        press has no selected state for an outline to carry.
-                        The browsing row below stays outlined — that one does. */}
-                    {chips.map((chip) => (
-                      <Chip key={chip} label={chip} tone="fill" />
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-
-              {items.length > 0 ? (
-                <>
-                  {hasWearData ? (
-                    <>
-                      <View className="mt-6">
-                        <View className="flex-row items-baseline justify-between px-gutter">
-                          <Text variant="eyebrow">Favourite pieces</Text>
-                          {/* NO "Edit" HERE. It shipped permanently disabled,
-                              waiting on the favourite flag the SEAM note above
-                              describes — and a coloured control that never
-                              responds is a broken affordance, not a preview of
-                              one. It comes back with the flag; until then the
-                              rail says what it is and nothing else. */}
-                        </View>
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          contentContainerStyle={{
-                            paddingHorizontal: GUTTER,
-                            gap: RAIL_GAP,
-                            paddingTop: 12,
-                          }}>
-                          {favourites.map((item) => (
-                            <Pressable
-                              key={item.id}
-                              onPress={() => openItem(item)}
-                              accessibilityRole="button"
-                              accessibilityLabel={`${pieceName(item)}, ${wearsLabel(item.wearCount)}`}
-                              className="active:opacity-80"
-                              style={{ width: RAIL_PLATE }}>
-                              {/* Plate → cutout only; the raw photo never stands in
-                                  for a plate (see PlateThumb). */}
-                              <PlateThumb
-                                item={item}
-                                uri={resolve(item.platePath, item.cutoutPath)}
-                                size={RAIL_PLATE}
-                              />
-                              <Text variant="label" numberOfLines={1} className="mt-2 text-ink">
-                                {pieceName(item)}
-                              </Text>
-                              <Text variant="caption" className="mt-0.5 text-muted">
-                                {wearsLabel(item.wearCount)}
-                              </Text>
-                            </Pressable>
-                          ))}
-                        </ScrollView>
-                      </View>
-
-                      <View className="mt-6 px-gutter">
-                        <SectionHeader title="Most worn" />
-                        <View className="mt-1.5">
-                          {mostWorn.map((item) => (
-                            <MostWornRow
-                              key={item.id}
-                              item={item}
-                              max={mostWorn[0]?.wearCount ?? 1}
-                              uri={resolve(item.platePath, item.cutoutPath)}
-                              onPress={() => openItem(item)}
-                            />
-                          ))}
-                        </View>
-                      </View>
-                    </>
-                  ) : (
-                    <LatestPiecesRail items={latestPieces} resolve={resolve} onPress={openItem} />
-                  )}
-
-                  {/* 03a's category chips, above the full grid — the SAME
-                      full closet the search field narrows further, not a
-                      separate mode reached only through it (see F5). */}
-                  <CategoryChipsRow category={category} onSelect={setCategory} />
-                </>
-              ) : null}
-            </View>
-          }
-          ListEmptyComponent={
-            items.length === 0 ? (
-              <EmptyCloset onAdd={() => router.push('/capture')} />
-            ) : (
-              // The closet has pieces, but none in the chosen category —
-              // the same honest "nothing filed under X yet" the search grid
-              // uses, not the ghost-slot "you own nothing" composition.
-              <EmptySearch query="" category={category} />
-            )
-          }
-        />
-      )}
+      <ClosetMenu
+        visible={menuOpen}
+        // Overlay coordinates are safe-area-relative here, so the component's
+        // screen-relative default would float the card too low: 8pt header
+        // padding + the 34pt button + 8pt of air puts it just under the row.
+        anchor={{ top: 50, right: GUTTER }}
+        reviewCount={screen.reviewCount}
+        onReviewTags={() => {
+          setMenuOpen(false);
+          router.push('/review');
+        }}
+        onSelectPieces={() => {
+          setMenuOpen(false);
+          screen.enterSelection();
+        }}
+        onProfileSettings={() => {
+          setMenuOpen(false);
+          router.navigate('/profile');
+        }}
+        onDismiss={() => setMenuOpen(false)}
+      />
 
       {/* Mounted only while open, so its read of `profiles` costs nothing on
           a screen the user is only scrolling. */}
-      {editing ? <EditProfileSheet visible onClose={() => setEditing(false)} /> : null}
+      {screen.editing ? (
+        <EditProfileSheet visible onClose={() => screen.setEditing(false)} />
+      ) : null}
     </SafeAreaView>
   );
 }
 
 /**
- * The field guide's category row, shared by the identity view (over the full
- * grid) and search mode (narrowing it further) — one row, one `category`
- * state, so the two can never disagree about which chip is selected.
+ * The header row every state opens with: the tracked eyebrow, and — when the
+ * state has anything for them to do — the two 34pt circular icon buttons.
+ * C-05 and C-06 pass no handlers and get the eyebrow alone.
  */
-function CategoryChipsRow({
-  category,
-  onSelect,
+function EyebrowHeader({
+  onSearch,
+  onMenu,
 }: {
-  category: CategoryFilter;
-  onSelect: (c: CategoryFilter) => void;
+  onSearch?: () => void;
+  onMenu?: () => void;
 }) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: CHIP_GAP, paddingHorizontal: GUTTER, paddingVertical: 10 }}>
-      {CATEGORIES.map((c) => (
-        <Chip key={c} label={c} selected={category === c} onPress={() => onSelect(c)} />
-      ))}
-    </ScrollView>
+    <View
+      className="flex-row items-center justify-between px-gutter pt-2"
+      style={{ minHeight: 34 }}>
+      <Text variant="eyebrow" accessibilityRole="header">
+        Your closet
+      </Text>
+      {onSearch || onMenu ? (
+        <View className="flex-row items-center" style={{ gap: 10 }}>
+          {onSearch ? (
+            <HeaderIcon name="magnifyingglass" label="Search your wardrobe" onPress={onSearch} />
+          ) : null}
+          {onMenu ? (
+            <HeaderIcon
+              name="ellipsis"
+              label="More closet actions"
+              hint="Review tags, select pieces, or open your profile"
+              onPress={onMenu}
+            />
+          ) : null}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
-/** One header icon at the accessibility floor — the title row's quiet chrome. */
+/** A 34pt hairline circle; the hit slop pads it out to the 44pt floor. */
 function HeaderIcon({
   name,
   label,
@@ -735,250 +397,237 @@ function HeaderIcon({
       accessibilityLabel={label}
       accessibilityHint={hint}
       onPress={onPress}
-      style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}
-      className="items-center justify-center active:opacity-60">
-      <SymbolView name={name} size={17} tintColor={theme.ink} resizeMode="scaleAspectFit" />
+      hitSlop={(MIN_TAP_TARGET - 34) / 2}
+      style={{ width: 34, height: 34 }}
+      className="items-center justify-center rounded-full border border-hairline active:opacity-60">
+      <SymbolView name={name} size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
     </Pressable>
   );
 }
 
-/**
- * One profile stat: a serif numeral over a small-caps label.
- *
- * Three of the four are facts about the wardrobe and do nothing when tapped;
- * FOLLOWERS is a fact about people, and people are somewhere you can go. It
- * gets the button role only when it is given an `onPress`, so VoiceOver never
- * announces a control that isn't one.
- */
-function Stat({
-  value,
-  label,
-  accent = false,
-  onPress,
-  hint,
+/** C-01's masthead — atlas sections 1–8, in order, inside the list header. */
+function Masthead({
+  screen,
+  onSeeAll,
+  onMenu,
 }: {
-  value: string;
-  label: string;
-  accent?: boolean;
-  onPress?: () => void;
-  hint?: string;
+  screen: ClosetScreenModel;
+  onSeeAll: () => void;
+  onMenu: () => void;
 }) {
-  const theme = useTheme();
+  return (
+    // The grid's contentContainer already pads by GUTTER; pull the masthead
+    // back out so its own `px-gutter`/margins measure from the screen edge.
+    <View style={{ marginHorizontal: -GUTTER }}>
+      <EyebrowHeader onSearch={screen.toggleSearch} onMenu={onMenu} />
 
-  const body = (
-    <>
-      <Text variant="title" style={accent ? { color: theme.accent } : undefined}>
-        {value}
-      </Text>
-      {/* One line, always: "Followers" is the widest label on the row and a
-          wrapped second line would push its numeral out of alignment with the
-          other three. Because it genuinely can't wrap, it takes the same
-          tighter 1.4 cap `text.tsx` reserves for content pinned to a fixed
-          cell rather than the variant's default 1.8 — at 1.8 "Followers" was
-          clipping to "FOLLOWER" and "Unworn" to "UNWOR" under the numeral. */}
-      <Text
-        variant="colophon"
-        numberOfLines={1}
-        maxFontSizeMultiplier={1.4}
-        className="mt-1">
-        {label}
-      </Text>
-    </>
-  );
-
-  if (!onPress) {
-    return (
-      <View className="flex-1 items-center" accessibilityLabel={`${value} ${label}`}>
-        {body}
+      {/* Identity — the face and the name. Sub-line is the hook's derived
+          handle-and-city join, collapsing around whatever is missing. */}
+      <View className="mt-5 flex-row items-center gap-4 px-gutter">
+        <Avatar
+          name={screen.name}
+          size={66}
+          tone="accent"
+          imageUri={screen.avatarUrl ?? undefined}
+          fallback="?"
+        />
+        <View className="flex-1">
+          {screen.name ? (
+            <Text variant="title" trim numberOfLines={1} accessibilityRole="header">
+              {screen.name}
+            </Text>
+          ) : null}
+          {screen.handleLine ? (
+            <Text variant="label" className={screen.name ? 'mt-2.5' : ''}>
+              {screen.handleLine}
+            </Text>
+          ) : null}
+        </View>
       </View>
-    );
-  }
 
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${value} ${label}`}
-      accessibilityHint={hint}
-      className="flex-1 items-center active:opacity-60">
-      {body}
-    </Pressable>
-  );
-}
-
-/**
- * One most-worn row: plate thumb, name, the wear bar, the count in the serif.
- *
- * The bar is scaled to the section's own maximum so the top piece always fills
- * the track and the rest read as ratios of it — the mock's "dusty rose" maps
- * to the accent-warm token, the palette's designated data highlight, rather
- * than a new colour.
- */
-function MostWornRow({
-  item,
-  max,
-  uri,
-  onPress,
-}: {
-  item: Item;
-  max: number;
-  uri?: string;
-  onPress: () => void;
-}) {
-  // Floor at 5% so the fifth-place bar is still a bar, not a rounding error.
-  const fraction = Math.max(item.wearCount / Math.max(max, 1), 0.05);
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${pieceName(item)}, ${wearsLabel(item.wearCount)}`}
-      className="flex-row items-center gap-3 py-2.5 active:opacity-70">
-      <PlateThumb item={item} uri={uri} size={48} showFallbackLabel={false} />
-      <View className="flex-1">
-        <Text variant="label" numberOfLines={1} className="text-ink">
-          {pieceName(item)}
+      {/* Edit profile — full-width, 34pt, rule border, per the atlas. Quiet on
+          purpose: the page spends its accent on the unworn numeral. */}
+      <Pressable
+        onPress={() => screen.setEditing(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Edit your profile"
+        accessibilityHint="Change your name, handle, bio and photo"
+        hitSlop={{ top: 5, bottom: 5 }}
+        style={{ height: 34 }}
+        className="mx-gutter mt-4 items-center justify-center rounded-[10px] border border-rule active:opacity-60">
+        <Text variant="label" className="text-ink">
+          Edit profile
         </Text>
-        <ProgressTrack value={fraction} tone="accentWarm" className="mt-2" />
+      </Pressable>
+
+      <View className="mt-5 px-gutter">
+        <StatRow
+          pieces={screen.stats.pieces}
+          outfits={screen.stats.outfits}
+          unworn={screen.stats.unworn}
+          followers={screen.stats.followers}
+        />
       </View>
-      {/* Same serif-at-label-size idiom as the item card's cost-per-wear.
-          `statSmall` names that 13px size once, rather than `variant="stat"`
-          plus an inline `fontSize` override — see text.tsx. */}
-      <Text variant="statSmall" className="text-ink">
-        {wearsLabel(item.wearCount)}
-      </Text>
-    </Pressable>
+
+      {/* Both rails, per atlas C-01 — Latest is recency, Favourites is wear
+          data. A closet with no wear data yet shows Latest alone; the
+          Favourites rail hides rather than rendering empty. */}
+      {screen.latestPieces.length > 0 ? (
+        <Rail
+          title="Latest pieces"
+          aside={
+            <Pressable
+              onPress={onSeeAll}
+              accessibilityRole="button"
+              accessibilityLabel="See all pieces"
+              hitSlop={{ top: 14, bottom: 14, left: 12, right: 12 }}
+              className="active:opacity-60">
+              <Text variant="caption">See all</Text>
+            </Pressable>
+          }>
+          {screen.latestPieces.map((item) => (
+            <RailCard
+              key={item.id}
+              item={item}
+              variant="latest"
+              imageUri={screen.resolve(item.platePath, item.cutoutPath)}
+              onPress={screen.openItem}
+            />
+          ))}
+        </Rail>
+      ) : null}
+
+      {screen.favourites.length > 0 ? (
+        <Rail
+          title="Favourites"
+          aside={
+            <Text variant="caption">
+              {`${screen.favourites.length} ${screen.favourites.length === 1 ? 'piece' : 'pieces'}`}
+            </Text>
+          }>
+          {screen.favourites.map((item) => (
+            <RailCard
+              key={item.id}
+              item={item}
+              variant="favourite"
+              imageUri={screen.resolve(item.platePath, item.cutoutPath)}
+              onPress={screen.openItem}
+            />
+          ))}
+        </Rail>
+      ) : null}
+
+      <View className="mt-6 px-gutter">
+        <InsightCard
+          worn={screen.insight.worn}
+          total={screen.insight.total}
+          unworn={screen.insight.unworn}
+        />
+      </View>
+
+      <CategoryChipsRow screen={screen} />
+    </View>
   );
 }
 
-/**
- * The highlights rail's recency fallback — a closet with pieces but no wear
- * data yet (see `hasWearData` in `ClosetScreen`). Same plate-then-caption
- * shape as FAVOURITE PIECES, but with nothing under the name: there is no
- * wear count to report, and inventing one ("0 wears" on every single piece)
- * would be noise the field guide's honesty rule doesn't allow. `LATEST
- * PIECES` renders in the guide's caps-kicker grammar via the `eyebrow`
- * variant's own `uppercase` class, same as `FAVOURITE PIECES`/`MOST WORN`.
- */
-function LatestPiecesRail({
-  items,
-  resolve,
-  onPress,
+/** A masthead rail: eyebrow + right-aligned aside over a horizontal scroll. */
+function Rail({
+  title,
+  aside,
+  children,
 }: {
-  items: Item[];
-  resolve: (...paths: (string | null | undefined)[]) => string | undefined;
-  onPress: (item: Item) => void;
+  title: string;
+  aside: React.ReactNode;
+  children: React.ReactNode;
 }) {
-  if (items.length === 0) return null;
-
   return (
     <View className="mt-6">
-      <View className="px-gutter">
-        <SectionHeader title="Latest pieces" />
+      <View className="flex-row items-baseline justify-between px-gutter">
+        <Text variant="eyebrow">{title}</Text>
+        {aside}
       </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: GUTTER, gap: RAIL_GAP, paddingTop: 12 }}>
-        {items.map((item) => (
-          <Pressable
-            key={item.id}
-            onPress={() => onPress(item)}
-            accessibilityRole="button"
-            accessibilityLabel={pieceName(item)}
-            className="active:opacity-80"
-            style={{ width: RAIL_PLATE }}>
-            <PlateThumb item={item} uri={resolve(item.platePath, item.cutoutPath)} size={RAIL_PLATE} />
-            <Text variant="label" numberOfLines={1} className="mt-2 text-ink">
-              {pieceName(item)}
-            </Text>
-          </Pressable>
-        ))}
+        {children}
       </ScrollView>
     </View>
   );
 }
 
 /**
- * The empty closet, per the founder's own wording: "the blank boxes with
- * example ghosted garments and on top of them say 'add your closet'".
- *
- * The page above this is already the profile top the founder asked for —
- * monogram avatar, the three wardrobe numbers at zero, the name. What this
- * section adds is the closet grid itself, rendered as blank slots: the real
- * two-column geometry (`GhostSlotGrid` tracks `item-card.tsx` cell for cell)
- * with licensed garment photography ghosted through each slot, and the
- * invitation set over them. When the first pieces land, the real cards land in
- * exactly these frames — the page fills in rather than being replaced.
- *
- * Composition rules, all inherited rather than invented:
- * - Hard-left on the gutter, serif title, ink CTA — the Plate's empty-state
- *   grammar (frame 03c carried the copy; the centred hero frame it carried is
- *   superseded by the founder's grid-of-slots direction).
- * - Only ink type and the opaque ink button sit over the ghost cells; ink
- *   holds 10.9:1 over the worst-case composite. The `muted` body line drops to
- *   ~3.6:1 there, so it sits BELOW the grid on plain canvas — the contrast
- *   contract documented in `ui/ghosted-rail.tsx`, which `GhostSlotGrid`
- *   restates.
- * - Nothing ghosted is tappable or audible; VoiceOver hears title, button,
- *   body, in that order.
+ * The browsing row with live counts — one `category` state shared by the
+ * identity view and search mode, so the two can never disagree about which
+ * chip is selected. Zero-count categories are already dropped by the hook.
  */
-function EmptyCloset({ onAdd }: { onAdd: () => void }) {
+function CategoryChipsRow({ screen }: { screen: ClosetScreenModel }) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      // A ScrollView grows to fill its parent by default; as a flex child of
+      // the search column that stretched every chip screen-tall. The row's
+      // height is its content's, nothing more.
+      style={{ flexGrow: 0 }}
+      contentContainerStyle={{ gap: CHIP_GAP, paddingHorizontal: GUTTER, paddingVertical: 10 }}>
+      {screen.categories.map(({ category, count }) => (
+        <Chip
+          key={category}
+          label={category}
+          count={count}
+          selected={screen.category === category}
+          // C-01's active chip is ink, not the accent — oxblood on this screen
+          // is reserved for the unworn figure and the never-worn flags.
+          selectedGround="ink"
+          onPress={() => screen.setCategory(category)}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+
+/** C-04's header: Cancel / "{n} selected" / Select all (Deselect when full). */
+function SelectionHeader({ screen }: { screen: ClosetScreenModel }) {
   const theme = useTheme();
+  const count = screen.picked?.size ?? 0;
+
+  const sideButton = (label: string, onPress: () => void) => (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={{ top: 14, bottom: 14, left: 12, right: 12 }}
+      className="active:opacity-60">
+      <Text variant="label" style={{ fontSize: 15, lineHeight: 20, color: theme.accent }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
 
   return (
-    <View className="mt-6">
-      {/* Rendered first so RN paints it first — the type stands on the slots. */}
-      <View>
-        <GhostSlotGrid />
-        <View className="absolute inset-0 justify-center px-gutter">
-          <Text variant="title" accessibilityRole="header">
-            Add your closet
-          </Text>
-          <Pressable
-            onPress={onAdd}
-            accessibilityRole="button"
-            accessibilityLabel="Add clothes"
-            // `min-h-12`, not `h-12`: a fixed height held the button to 48pt
-            // regardless of the label's own size, so a large Dynamic Type
-            // setting grew "Add clothes" past its box instead of the box
-            // growing to fit it.
-            style={{ minHeight: 48 }}
-            className="mt-5 items-center justify-center self-start rounded-md bg-ink px-7 py-3 active:opacity-90">
-            {/* `theme.canvas`, not the hex it happens to be: the palette lives
-                in one file, and a literal here is a second copy a token change
-                cannot reach. Inline rather than a `text-canvas` class for the
-                usual reason — two `text-*` utilities on one element have no
-                defined precedence (see button.tsx L18-25). */}
-            <Text variant="callout" className="font-semibold" style={{ color: theme.canvas }}>
-              Add clothes
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {/* The 03c line, spoken as the grid's caption — on canvas, never over a
-          ghost cell (see the contrast note above). */}
-      <Text variant="body" className="mt-2 px-gutter text-muted">
-        Add a few pieces and this fills with your real wardrobe — what you wear, and what it costs
-        you to wear it.
+    <View
+      className="flex-row items-center justify-between px-gutter pt-2"
+      style={{ minHeight: 34 }}>
+      {sideButton('Cancel', screen.cancelSelection)}
+      {/* 15/600 in ink; a live region so VoiceOver counts along. */}
+      <Text
+        variant="label"
+        accessibilityLiveRegion="polite"
+        style={{ fontSize: 15, lineHeight: 20 }}
+        className="text-ink">
+        {`${count} selected`}
       </Text>
+      {screen.allSelected
+        ? sideButton('Deselect all', screen.deselectAll)
+        : sideButton('Select all', screen.selectAll)}
     </View>
   );
 }
 
 /**
- * The grid's nothing-found state — honest about which filter emptied it.
- * Both the search field and a category chip with nothing filed under it land
- * here, and (with an empty query and "All") so does the true empty closet
- * reached by opening search before ever adding a piece.
- *
- * `EmptyState`, not a hand-rolled centred composition: the sibling
- * `EmptyCloset` is hard-left on the gutter per the field guide's caps-kicker
- * empty-state grammar, and this one was centred against it — the one empty
- * state on the page that didn't match the other. `compact` drops the
- * `flex-1` centring `EmptyState` otherwise applies, which needs a flex
- * parent and collapses to nothing inside a FlashList's `ListEmptyComponent`.
+ * The grid's nothing-found state — honest about which filter emptied it. Both
+ * the search field and a category chip with nothing filed under it land here.
  */
 function EmptySearch({ query, category }: { query: string; category: CategoryFilter }) {
   const filtered = category !== 'All';
@@ -989,5 +638,7 @@ function EmptySearch({ query, category }: { query: string; category: CategoryFil
       ? `Nothing filed under ${category.toLowerCase()} yet.`
       : 'Add a few pieces and your whole wardrobe becomes searchable here.';
 
+  // `compact` drops the flex-1 centring, which needs a flex parent and
+  // collapses to nothing inside a FlashList's ListEmptyComponent.
   return <EmptyState compact symbol="magnifyingglass" title={title} body={body} />;
 }
