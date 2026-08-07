@@ -155,8 +155,23 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       if (router.canDismiss()) router.dismissAll();
       router.replace('/(auth)/sign-in');
     } else if (session.userId && inAuthGroup) {
+      // The tail of the sign-in flow runs signed IN by definition: the name
+      // screen (W-13) writes the greeting name onto a session that already
+      // exists, and the handoff (W-14) is the held beat between "session
+      // written" and the tabs. Bouncing either would tear the flow down
+      // mid-sentence; both exit via their own router.replace.
+      if (segments[1] === 'handoff' || segments[1] === 'name') return;
+      // Any other (auth) route with a live session goes to the handoff, not
+      // straight to the tabs. This is what makes the end of the flow immune
+      // to the race between a screen's own success navigation and this
+      // effect firing on the session write: whichever runs first, the user
+      // lands on W-14, which sends nameless new accounts through W-13 and
+      // gives everyone else the held beat. It also covers the signed-in
+      // cold start that hydrates while the cover is up — that user gets the
+      // "Welcome back" beat instead of a hard cut. The guarantee that a
+      // signed-in user can never SIT on the sign-in cover is unchanged.
       if (router.canDismiss()) router.dismissAll();
-      router.replace('/(tabs)');
+      router.replace('/(auth)/handoff');
     }
   }, [session, segments, router]);
 

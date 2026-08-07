@@ -3,24 +3,23 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Your Cinch sign-in link</title>
+    <title>Your Cinch sign-in code</title>
   </head>
   <!--
-    Cinch — Magic Link / Confirm Signup
+    Cinch — Magic Link / Confirm Signup (six-digit code)
 
-    Paste into Supabase Dashboard → Authentication → Email Templates, for BOTH
-    "Magic Link" and "Confirm signup". The app calls signInWithOtp with
-    shouldCreateUser: true, so a first-time address gets Confirm signup and a
-    returning one gets Magic Link — customise only one and half your users get
-    the stock Supabase email.
+    Pushed to Supabase for BOTH "Magic Link" and "Confirm signup" (see
+    scripts/build-email-templates.py, or push by hand via the management API).
+    The app calls signInWithOtp with shouldCreateUser: true, so a first-time
+    address gets Confirm signup and a returning one gets Magic Link —
+    customise only one and half your users get the stock Supabase email.
 
-    Subject line for both:  Your Cinch sign-in link
+    Subject line for both:  Your Cinch sign-in code
 
-    Do NOT change {{ .ConfirmationURL }} to {{ .SiteURL }} or {{ .RedirectTo }}.
-    ConfirmationURL points at Supabase first so the one-time token is verified,
-    and only then redirects to cinch://auth-callback with the PKCE code. A
-    direct RedirectTo link opens the app without verifying the email at all; a
-    SiteURL link is what strands people on the website.
+    {{ .Token }} is the six-digit code the app's code screen (W-08) expects.
+    There is deliberately NO link in this email: the app verifies the code in
+    place, nothing needs to round-trip through a browser, and a code cannot
+    strand anyone on the website the way a Site-URL link could.
 
     Table layout and inline styles are not old-fashioned here — they are the
     only things that survive Outlook and Gmail. No web fonts: Instrument Serif
@@ -30,7 +29,7 @@
   <body style="margin:0; padding:0; background:#F2F0EA; color:#1C1A16;">
     <!-- Preheader: the grey line the inbox shows next to the subject. Hidden in the body. -->
     <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
-      Tap to sign in to Cinch. The link works once and expires shortly.
+      Your six-digit Cinch sign-in code. It works once and expires shortly.
     </div>
 
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#F2F0EA;">
@@ -53,37 +52,32 @@
                 </div>
 
                 <h1 style="margin:26px 0 10px 0; font-family:'Instrument Serif',Georgia,'Times New Roman',serif; font-size:30px; line-height:1.15; font-weight:400; color:#1C1A16;">
-                  Your closet is waiting.
+                  Check your mail — oh, you just did.
                 </h1>
 
                 <p style="margin:0 0 28px 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:16px; line-height:1.6; color:#6B665C;">
-                  Tap below to sign in. This link works once, and only on the device
+                  Here is your six-digit code. Type it into Cinch on the screen
                   that asked for it.
                 </p>
 
-                <!-- Bulletproof button: the td carries the colour so Outlook renders it. -->
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <!-- The code, set like a printed reference number. -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                   <tr>
-                    <td bgcolor="#1C1A16" style="border-radius:12px;">
-                      <a href="{{ .ConfirmationURL }}"
-                         style="display:inline-block; padding:15px 26px; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:15px; line-height:1; font-weight:600; color:#FBFAF6; text-decoration:none; border-radius:12px;">
-                        Sign in to Cinch
-                      </a>
-                    </td>
+                    <td align="center" bgcolor="#F2F0EA" style="background-color:#F2F0EA; border-radius:12px; padding-top:22px; padding-bottom:22px; font-family:'Instrument Serif',Georgia,'Times New Roman',serif; font-size:34px; line-height:38px; letter-spacing:8px; color:#1C1A16;">{{ .Token }}</td>
                   </tr>
                 </table>
 
                 <p style="margin:26px 0 0 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:13px; line-height:1.55; color:#6B665C;">
-                  If the button does not work, copy this address into your browser:<br>
-                  <span style="color:#6E2B2B; word-break:break-all;">{{ .ConfirmationURL }}</span>
+                  The code works once and expires in an hour. Requesting a new
+                  one retires this one.
                 </p>
 
                 <div style="height:1px; background:rgba(28,26,22,0.12); margin:28px 0 16px 0; font-size:0; line-height:0;">&nbsp;</div>
 
                 <p style="margin:0 0 6px 0; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:13px; line-height:1.55; color:#6B665C;">
-                  Did not ask for this? Ignore it and nothing happens — the link is
-                  useless without your device. Cinch will never ask you to forward
-                  it to anyone.
+                  Did not ask for this? Ignore it and nothing happens — the code
+                  is useless outside the app on your device. Cinch will never
+                  ask you to share it with anyone.
                 </p>
 
                 <!-- Colophon, set exactly like the one printed under an outfit. -->

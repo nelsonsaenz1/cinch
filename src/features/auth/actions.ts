@@ -1,6 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 
+import { isValidEmail, normalizeEmail } from '@/features/auth/email';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -19,9 +20,32 @@ import { supabase } from '@/lib/supabase';
  *     right here, inside the same sign-in call, or the name is gone.
  */
 
+export type SignInFailureReason =
+  | 'canceled'
+  | 'unavailable'
+  | 'failed'
+  /** Supabase's mailer said no more codes for now (429). */
+  | 'rate-limited'
+  /** The request never reached the server — the screens' offline copy. */
+  | 'network'
+  /** The code was right once, but its window has closed. */
+  | 'expired-code'
+  /** The code never matched. */
+  | 'wrong-code';
+
 export type SignInResult =
-  | { ok: true }
-  | { ok: false; reason: 'canceled' | 'unavailable' | 'failed'; message?: string };
+  | {
+      ok: true;
+      /**
+       * A first name for the handoff greeting, when the provider handed one
+       * over. `null` means "signed in, but no name is known" — the email path
+       * for a returning account created before names were collected.
+       */
+      name?: string | null;
+      /** Whether this sign-in appears to have created the account. */
+      isNew?: boolean;
+    }
+  | { ok: false; reason: SignInFailureReason; message?: string };
 
 export async function signInWithApple(): Promise<SignInResult> {
   try {
@@ -44,7 +68,7 @@ export async function signInWithApple(): Promise<SignInResult> {
       return { ok: false, reason: 'failed', message: 'Apple did not return an identity token.' };
     }
 
-    const { error } = await supabase.auth.signInWithIdToken({
+    const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: credential.identityToken,
     });
@@ -71,7 +95,20 @@ export async function signInWithApple(): Promise<SignInResult> {
       }
     }
 
-    return { ok: true };
+    // The handoff screen wants a first name and whether this created the
+    // account. Apple only populates `fullName` on the very first
+    // authorization, which makes it the honest "new account" signal; a
+    // returning user's name comes from the metadata written the first time.
+    const metadata = (data.user?.user_metadata ?? {}) as {
+      given_name?: string | null;
+      full_name?: string | null;
+    };
+    const name =
+      credential.fullName?.givenName ??
+      metadata.given_name ??
+      metadata.full_name?.trim().split(/\s+/)[0] ??
+      null;
+    return { ok: true, name, isNew: credential.fullName?.givenName != null };
   } catch (err) {
     // ERR_REQUEST_CANCELED is the user tapping cancel; that is not an error
     // condition and should never surface as one in the UI.
@@ -96,85 +133,100 @@ export async function signOut(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * Send a sign-in link to any email address.
+ * Send a six-digit sign-in code to any email address.
  *
  * This is the answer to "I want to sign in with Gmail or Yahoo" without binding
- * the app to one company's OAuth: a link to an inbox works for every provider
+ * the app to one company's OAuth: a code to an inbox works for every provider
  * there is, needs no client IDs, no extra native module, and adds no new
  * third-party processor to the privacy policy.
  *
- * It is a LINK rather than a six-digit code, and that is a platform constraint
- * rather than a choice — Supabase only substitutes `{{ .Token }}` into a custom
- * email template, and template editing requires custom SMTP. The moment SMTP is
- * configured this becomes a code, and `verifyEmailCode` below already handles
- * that shape.
+ * A CODE rather than a link: no `emailRedirectTo` means Supabase issues a pure
+ * OTP, and the email template carries `{{ .Token }}` (updated separately, with
+ * custom SMTP). The deep-link machinery below stays for old link emails still
+ * in flight. Calling this again invalidates any previously issued code
+ * server-side, which is exactly what the resend flow (W-10) relies on.
+ *
+ * Failures the server can name come back as `{ ok: false, reason }` so the
+ * screens choose their own copy; anything thrown (the storage layer, above
+ * all) is deliberately NOT caught here — the screens surface it via
+ * `describeThrownSignInError` and no failure is ever silent.
  */
-export async function sendEmailLink(email: string): Promise<SignInResult> {
-  const address = email.trim().toLowerCase();
+export async function sendEmailCode(email: string): Promise<SignInResult> {
+  const address = normalizeEmail(email);
 
   // Cheap client-side shape check. The real validation is the email arriving.
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(address)) {
+  if (!isValidEmail(address)) {
     return { ok: false, reason: 'failed', message: 'That does not look like an email address.' };
   }
 
   const { error } = await supabase.auth.signInWithOtp({
     email: address,
-    options: {
-      shouldCreateUser: true,
-      // Where the link returns to, and the only URL `completeSessionFromUrl`
-      // will act on. Three separate things have to agree or the link dead-ends
-      // in a browser tab that cannot hand the session back:
-      //
-      //  1. `cinch` is registered as a scheme in app.config.ts (it is);
-      //  2. this exact string is on the allow-list under Supabase Dashboard →
-      //     Authentication → URL Configuration → Redirect URLs. It is NOT
-      //     configurable from this repository — if it is missing, Supabase
-      //     silently substitutes the project Site URL and the link opens the
-      //     website instead of the app;
-      //  3. the email template links `{{ .ConfirmationURL }}`, so Supabase
-      //     verifies the one-time token before redirecting here.
-      //
-      // Under PKCE this callback carries `?code=`, which is redeemable only on
-      // the device that made this call.
-      emailRedirectTo: CALLBACK_URL,
-    },
+    options: { shouldCreateUser: true },
   });
 
   if (error) {
-    // Supabase's built-in mailer is rate limited to a couple of sends an hour.
-    // Saying so is far better than a generic failure the user will read as the
-    // app being broken.
-    const rateLimited = /rate limit|too many/i.test(error.message);
-    return {
-      ok: false,
-      reason: 'failed',
-      message: rateLimited
-        ? 'Too many sign-in emails just now. Try again in a few minutes.'
-        : error.message,
-    };
+    // Supabase's mailer is rate limited. Saying so — machine-readably — is far
+    // better than a generic failure the user will read as the app being broken.
+    if (/rate limit|too many/i.test(error.message)) {
+      return {
+        ok: false,
+        reason: 'rate-limited',
+        message: 'Too many sign-in emails just now. Try again in a few minutes.',
+      };
+    }
+    if (/network|fetch|connect|timed? ?out/i.test(error.message)) {
+      return { ok: false, reason: 'network', message: error.message };
+    }
+    return { ok: false, reason: 'failed', message: error.message };
   }
 
   return { ok: true };
 }
 
-/** Verify a numeric code, for once custom SMTP makes codes possible. */
+/**
+ * Verify a six-digit code. Expired and wrong are kept apart machine-readably
+ * because the code screen says different things for each (W-09 vs W-10): a
+ * wrong code costs an attempt, an expired one only needs a fresh send.
+ *
+ * On success the result carries the greeting name and whether this account
+ * still needs one — the router's cue to visit the name screen (W-13).
+ */
 export async function verifyEmailCode(email: string, token: string): Promise<SignInResult> {
-  const { error } = await supabase.auth.verifyOtp({
-    email: email.trim().toLowerCase(),
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: normalizeEmail(email),
     token: token.trim(),
     type: 'email',
   });
 
   if (error) {
+    // Supabase answers a WRONG code with "Token has expired or is invalid" —
+    // the same sentence it uses for a genuinely expired one. Treating that
+    // ambiguous shape as expired would misread every typo as expiry and skip
+    // the attempts countdown (W-09), so the ambiguous case counts as wrong;
+    // only an unambiguous expiry message (no "invalid") reads as expired.
+    if (/expired/i.test(error.message) && !/invalid/i.test(error.message)) {
+      return {
+        ok: false,
+        reason: 'expired-code',
+        message: 'That code has expired. Send a new one.',
+      };
+    }
+    if (/network|fetch|connect|timed? ?out/i.test(error.message)) {
+      return { ok: false, reason: 'network', message: error.message };
+    }
     return {
       ok: false,
-      reason: 'failed',
-      message: /expired/i.test(error.message)
-        ? 'That code has expired. Send a new one.'
-        : 'That code was not right. Check it and try again.',
+      reason: 'wrong-code',
+      message: 'That code was not right. Check it and try again.',
     };
   }
-  return { ok: true };
+
+  const metadata = (data.user?.user_metadata ?? {}) as {
+    given_name?: string | null;
+    full_name?: string | null;
+  };
+  const name = metadata.given_name ?? metadata.full_name?.trim().split(/\s+/)[0] ?? null;
+  return { ok: true, name, isNew: name == null };
 }
 
 // ---------------------------------------------------------------------------
