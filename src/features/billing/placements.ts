@@ -87,6 +87,19 @@ export const Placement = {
    * client gets a 402 rather than a brief.
    */
   PackingAccess: 'packing_access',
+
+  /**
+   * "See plans", offered from The Repeat's third-wear panel and its exhausted
+   * state (Directive 5).
+   *
+   * Same shape as `EventHostingOverLimit`: nothing has been refused by a
+   * server here, because a repeat is not a refusal — it is a true fact about a
+   * ten-piece closet's arithmetic (docs/design/free-tier-contract.md). This
+   * placement is the door the copy offers once it has honestly explained why
+   * the outfit repeated; if no campaign matches it yet, the tap simply does
+   * nothing, same as any other unmatched placement.
+   */
+  RepeatUpsell: 'repeat_upsell',
 } as const;
 
 export type PlacementName = (typeof Placement)[keyof typeof Placement];
