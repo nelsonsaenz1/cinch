@@ -3,72 +3,65 @@ import { SymbolView } from 'expo-symbols';
 import { View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { stableImageSource } from '@/features/closet/use-image-urls';
-import { profileName, type BorrowThread } from '@/features/social-graph/types';
 import { useTheme } from '@/theme/tokens';
 
 export type BorrowRequestRowProps = {
-  thread: BorrowThread;
   /** Signed URL for the garment thumb — storage paths are not URLs. */
   imageUri?: string;
-  /** Any lifecycle write for this row is in flight. */
+  /** The whole sentence — "Iris asked for your linen blouse". Composed by the caller. */
+  headline: string;
+  /** The quiet line under it — a relative time, "Lent 9 days ago", a weekday. */
+  meta: string;
+  /** A settled row: dimmed, smaller thumb, and the caller passes no actions. */
+  settled?: boolean;
+  /** A lifecycle write for this row is in flight: the verbs spin/refuse. */
   busy?: boolean;
-  onLend?: (thread: BorrowThread) => void;
-  onDecline?: (thread: BorrowThread) => void;
-  onReturned?: (thread: BorrowThread) => void;
-  onCancel?: (thread: BorrowThread) => void;
+  /** The filled-ink verb. With a secondary present the two split the width. */
+  primaryAction?: { title: string; onPress: () => void };
+  /** The outlined verb. Alone, it runs full width. */
+  secondaryAction?: { title: string; onPress: () => void };
 };
 
 /**
- * One borrow request through its whole life. The lifecycle verbs are canned
- * and one-tap on purpose — softening rejection is the reason this flow is
- * structured at all — and the settled states read as facts, not verdicts:
- * a decline says "Not this time", an expiry never says anything.
+ * One borrow request as a card — BR-01/BR-02's row. Deliberately dumb: the
+ * caller composes the sentence, the meta line and at most two verbs, so this
+ * file has no opinion about statuses, directions or thread types and none of
+ * the lifecycle semantics can drift in here.
  *
- * Only the owner gets "Mark returned" (the transition trigger allows her side
- * alone); the borrower's row shows the loan as a state instead.
+ * A settled row renders NO buttons at all — not disabled ones, not invisible
+ * ones — so assistive tech has nothing dead to land on. The dim is the atlas's
+ * .62 over the whole card, which keeps the settled stack legible as history
+ * rather than as broken pending rows.
  */
 export function BorrowRequestRow({
-  thread,
   imageUri,
+  headline,
+  meta,
+  settled = false,
   busy = false,
-  onLend,
-  onDecline,
-  onReturned,
-  onCancel,
+  primaryAction,
+  secondaryAction,
 }: BorrowRequestRowProps) {
   const theme = useTheme();
-  const { request, direction, counterpart, item } = thread;
 
-  const name = counterpart ? profileName(counterpart) : 'A former friend';
-  const garment = item?.subcategory ?? item?.category ?? 'a piece';
+  // BR-02: live thumbs are 56 at r10, settled ones 44 at r9 — the settled
+  // stack recedes by size as well as by opacity. Neither radius has a token
+  // (md is 12), so the atlas values stay inline, the sheet-parts precedent.
+  const thumb = settled ? { width: 44, height: 44, borderRadius: 9 } : { width: 56, height: 56, borderRadius: 10 };
 
-  const headline =
-    direction === 'incoming' ? `${name} asked to borrow` : `You asked ${name} for`;
-
-  // The settled states, as quiet colophon lines. Pending/approved get controls.
-  const stateLine: string | null =
-    request.status === 'approved'
-      ? direction === 'incoming'
-        ? `On loan to ${name}`
-        : `Borrowed from ${name}`
-      : request.status === 'declined'
-        ? 'Not this time'
-        : request.status === 'canceled'
-          ? 'Withdrawn'
-          : request.status === 'returned'
-            ? 'Returned'
-            : null;
+  const hasBoth = Boolean(primaryAction && secondaryAction);
 
   return (
-    <View className="px-4 py-3.5">
-      <View className="flex-row gap-3">
-        <View className="h-16 w-16 items-center justify-center overflow-hidden rounded-md bg-tray">
+    <Card padding="md" style={settled ? { opacity: 0.62 } : undefined}>
+      <View className="flex-row items-center gap-3">
+        <View className="items-center justify-center overflow-hidden bg-tray" style={thumb}>
           {imageUri ? (
             <Image
               source={stableImageSource(imageUri)}
-              contentFit="contain"
+              contentFit="cover"
               transition={150}
               cachePolicy="memory-disk"
               style={{ width: '100%', height: '100%' }}
@@ -85,65 +78,51 @@ export function BorrowRequestRow({
         </View>
 
         <View className="flex-1">
-          <Text variant="caption" className="text-faint">
+          {/* The atlas's 15px/600 sentence. `callout` is the nearest step (16);
+              `font-semibold` follows `body` in tailwind.config.js's
+              `fontFamily`, so the class wins deterministically — the same
+              stacking direction button.tsx ships on every label. */}
+          <Text variant="callout" className="font-semibold">
             {headline}
           </Text>
-          <Text variant="body" numberOfLines={1} className="mt-0.5">
-            {garment}
+          {/* 12.5px grey — `note` (13, regular, muted). The atlas draws #8A8578
+              here, but `faint` fails AA on small text; `muted` is the settled
+              substitution for every secondary line. */}
+          <Text variant="note" className="mt-0.5">
+            {meta}
           </Text>
-          {request.message ? (
-            <Text variant="caption" numberOfLines={2} className="mt-1 text-muted">
-              &ldquo;{request.message}&rdquo;
-            </Text>
-          ) : null}
-          {stateLine ? (
-            <Text variant="colophon" className="mt-1.5">
-              {stateLine}
-            </Text>
-          ) : null}
         </View>
       </View>
 
-      {/* The live states' one-tap responses. */}
-      {direction === 'incoming' && request.status === 'pending' ? (
-        <View className="mt-3 flex-row gap-2">
+      {/* The verb area. Two verbs split the width, filled beside outlined
+          (BR-02's pending row); one verb runs the width alone. No capsules —
+          the Button's own radius is the control shape here. */}
+      {hasBoth ? (
+        <View className="mt-3 flex-row gap-2.5">
           <Button
-            title="Lend it"
-            variant="secondary"
+            title={primaryAction!.title}
+            variant="ink"
             loading={busy}
-            haptic
-            onPress={() => onLend?.(thread)}
+            onPress={primaryAction!.onPress}
             className="flex-1"
           />
           <Button
-            title="Not this time"
-            variant="ghost"
+            title={secondaryAction!.title}
+            variant="secondary"
             disabled={busy}
-            onPress={() => onDecline?.(thread)}
+            onPress={secondaryAction!.onPress}
             className="flex-1"
           />
         </View>
-      ) : null}
-
-      {direction === 'incoming' && request.status === 'approved' ? (
+      ) : primaryAction || secondaryAction ? (
         <Button
-          title="Mark returned"
-          variant="ghost"
+          title={(primaryAction ?? secondaryAction)!.title}
+          variant={primaryAction ? 'ink' : 'secondary'}
           loading={busy}
-          onPress={() => onReturned?.(thread)}
-          className="mt-2 self-start"
+          onPress={(primaryAction ?? secondaryAction)!.onPress}
+          className="mt-3"
         />
       ) : null}
-
-      {direction === 'outgoing' && request.status === 'pending' ? (
-        <Button
-          title="Never mind"
-          variant="ghost"
-          loading={busy}
-          onPress={() => onCancel?.(thread)}
-          className="mt-2 self-start"
-        />
-      ) : null}
-    </View>
+    </Card>
   );
 }

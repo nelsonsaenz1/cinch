@@ -856,6 +856,27 @@ export type Database = {
         }
         Relationships: []
       }
+      moderation_terms: {
+        Row: {
+          created_at: string
+          match_squeezed: boolean
+          note: string | null
+          term: string
+        }
+        Insert: {
+          created_at?: string
+          match_squeezed?: boolean
+          note?: string | null
+          term: string
+        }
+        Update: {
+          created_at?: string
+          match_squeezed?: boolean
+          note?: string | null
+          term?: string
+        }
+        Relationships: []
+      }
       outfit_calendar: {
         Row: {
           created_at: string
@@ -1127,6 +1148,7 @@ export type Database = {
           ai_consent_version: number | null
           avatar_url: string | null
           bio: string | null
+          closet_hidden: boolean
           color_season: string | null
           created_at: string
           deletion_requested_at: string | null
@@ -1139,6 +1161,11 @@ export type Database = {
           preference_summary: string | null
           preference_summary_updated_at: string | null
           sizes: Json
+          social_terms_at: string | null
+          social_terms_version: number | null
+          stat_cost_per_wear_hidden: boolean
+          stat_pieces_hidden: boolean
+          stat_wears_hidden: boolean
           style_tags: string[]
           units: string
           updated_at: string
@@ -1152,6 +1179,7 @@ export type Database = {
           ai_consent_version?: number | null
           avatar_url?: string | null
           bio?: string | null
+          closet_hidden?: boolean
           color_season?: string | null
           created_at?: string
           deletion_requested_at?: string | null
@@ -1164,6 +1192,11 @@ export type Database = {
           preference_summary?: string | null
           preference_summary_updated_at?: string | null
           sizes?: Json
+          social_terms_at?: string | null
+          social_terms_version?: number | null
+          stat_cost_per_wear_hidden?: boolean
+          stat_pieces_hidden?: boolean
+          stat_wears_hidden?: boolean
           style_tags?: string[]
           units?: string
           updated_at?: string
@@ -1177,6 +1210,7 @@ export type Database = {
           ai_consent_version?: number | null
           avatar_url?: string | null
           bio?: string | null
+          closet_hidden?: boolean
           color_season?: string | null
           created_at?: string
           deletion_requested_at?: string | null
@@ -1189,6 +1223,11 @@ export type Database = {
           preference_summary?: string | null
           preference_summary_updated_at?: string | null
           sizes?: Json
+          social_terms_at?: string | null
+          social_terms_version?: number | null
+          stat_cost_per_wear_hidden?: boolean
+          stat_pieces_hidden?: boolean
+          stat_wears_hidden?: boolean
           style_tags?: string[]
           units?: string
           updated_at?: string
@@ -1666,6 +1705,17 @@ export type Database = {
           },
         ]
       }
+      friend_closet_meta: {
+        Row: {
+          bio: string | null
+          closet_hidden: boolean | null
+          cost_per_wear: number | null
+          pieces: number | null
+          user_id: string | null
+          wears_logged: number | null
+        }
+        Relationships: []
+      }
       friend_items: {
         Row: {
           borrowable: boolean | null
@@ -1676,6 +1726,7 @@ export type Database = {
           cutout_path: string | null
           description: string | null
           id: string | null
+          last_worn_at: string | null
           material: string | null
           occasions: string[] | null
           pattern: string | null
@@ -1684,6 +1735,7 @@ export type Database = {
           subcategory: string | null
           thumb_path: string | null
           user_id: string | null
+          wear_count: number | null
         }
         Insert: {
           borrowable?: boolean | null
@@ -1694,6 +1746,7 @@ export type Database = {
           cutout_path?: string | null
           description?: string | null
           id?: string | null
+          last_worn_at?: string | null
           material?: string | null
           occasions?: string[] | null
           pattern?: string | null
@@ -1702,6 +1755,7 @@ export type Database = {
           subcategory?: string | null
           thumb_path?: string | null
           user_id?: string | null
+          wear_count?: number | null
         }
         Update: {
           borrowable?: boolean | null
@@ -1712,6 +1766,7 @@ export type Database = {
           cutout_path?: string | null
           description?: string | null
           id?: string | null
+          last_worn_at?: string | null
           material?: string | null
           occasions?: string[] | null
           pattern?: string | null
@@ -1720,6 +1775,7 @@ export type Database = {
           subcategory?: string | null
           thumb_path?: string | null
           user_id?: string | null
+          wear_count?: number | null
         }
         Relationships: []
       }
@@ -1881,18 +1937,21 @@ export type Database = {
       social_profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           display_name: string | null
           user_id: string | null
           username: string | null
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           display_name?: string | null
           user_id?: string | null
           username?: string | null
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           display_name?: string | null
           user_id?: string | null
           username?: string | null
@@ -1918,6 +1977,7 @@ export type Database = {
         Returns: Json
       }
       blocked_between: { Args: { p_a: string; p_b: string }; Returns: boolean }
+      blocked_term_in: { Args: { p_text: string }; Returns: string }
       can_see_event: { Args: { p_event: string }; Returns: boolean }
       claim_ai_quota: {
         Args: {
@@ -1936,6 +1996,7 @@ export type Database = {
         }[]
       }
       current_ai_consent_version: { Args: never; Returns: number }
+      current_social_terms_version: { Args: never; Returns: number }
       effective_plan: {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["subscription_plan"]
@@ -1944,6 +2005,7 @@ export type Database = {
         Args: { p_plan: Database["public"]["Enums"]["subscription_plan"] }
         Returns: number
       }
+      has_accepted_social_terms: { Args: never; Returns: boolean }
       is_event_host: { Args: { p_event: string }; Returns: boolean }
       is_event_member: { Args: { p_event: string }; Returns: boolean }
       is_friend: { Args: { p_other: string }; Returns: boolean }
@@ -1955,6 +2017,7 @@ export type Database = {
       item_owned_by_friend: { Args: { p_item: string }; Returns: boolean }
       item_posted_to_my_event: { Args: { p_item: string }; Returns: boolean }
       log_outfit_wear: { Args: { p_outfit_id: string }; Returns: undefined }
+      normalize_for_moderation: { Args: { p_text: string }; Returns: string }
       plan_outfit_tx: {
         Args: {
           p_context?: Json
@@ -1966,6 +2029,7 @@ export type Database = {
         }
         Returns: string
       }
+      squeeze_for_moderation: { Args: { p_text: string }; Returns: string }
       username_available: { Args: { p_username: string }; Returns: boolean }
       wear_outfit_tx: {
         Args: {

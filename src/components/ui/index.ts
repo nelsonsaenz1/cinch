@@ -35,4 +35,5 @@ export {
   type SkeletonProps,
 } from '@/components/ui/skeleton';
 export { Swatch, type SwatchProps } from '@/components/ui/swatch';
+export { Toast, type ToastProps } from '@/components/ui/toast';
 export { Text, type TextProps } from '@/components/ui/text';
