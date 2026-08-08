@@ -59,14 +59,14 @@ export default function GapDetailScreen() {
       <ScreenHeader align="leading" onBack={() => router.back()} />
 
       <ScrollView contentContainerClassName="px-gutter pb-10">
-        <Text variant="eyebrow" className="text-faint">
+        <Text variant="eyebrow" className="mb-1.5">
           {`The gap · ${kind}`}
         </Text>
-        <Text variant="title" trim className="mt-1.5" style={{ fontSize: 32, lineHeight: 36 }}>
+        <Text variant="title" trim style={{ fontSize: 32, lineHeight: 36 }}>
           {model.ready ? gapLabel(model.tally, kind) : '…'}
         </Text>
         {gain ? (
-          <Text variant="body" className="mt-2 text-muted">
+          <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
             {`${gain.gain} ${gain.gain === 1 ? 'outfit you' : 'outfits you'} don't have yet — here ${
               rows.shown.length === 1 ? 'is one of them' : `are ${rows.shown.length} of them`
             }.`}
@@ -100,14 +100,14 @@ export default function GapDetailScreen() {
                 </Text>
               </View>
               <View className="flex-1 items-end">
-                <Text variant="caption" className="text-muted" style={{ textAlign: 'right' }}>
+                <Text variant="caption" style={{ textAlign: 'right' }}>
                   {row.map((p) => p.name).join(' & ')}
                 </Text>
               </View>
             </View>
           ))}
           {rows.more > 0 ? (
-            <Text variant="label" className="pl-1 text-faint">
+            <Text variant="label" className="pl-1" style={{ color: theme.faint }}>
               {`and ${rows.more} more`}
             </Text>
           ) : null}
@@ -116,14 +116,14 @@ export default function GapDetailScreen() {
         <View className="mt-6 rounded-[16px] border border-rule bg-surface px-4 py-4">
           {model.capacity.full ? (
             <>
-              <Text variant="body" className="text-muted">
+              <Text variant="body" style={{ color: theme.muted }}>
                 {`Your closet is full at ${model.capacity.limit}. Adding this needs room for the ${ordinal(model.capacity.limit + 1)} piece.`}
               </Text>
               <Button title="See plans" variant="primary" className="mt-3" loading={gatePresenting} onPress={() => setLocked(true)} />
             </>
           ) : (
             <>
-              <Text variant="body" className="text-muted">
+              <Text variant="body" style={{ color: theme.muted }}>
                 There's room in your closet for this one.
               </Text>
               <Button
@@ -149,6 +149,7 @@ export default function GapDetailScreen() {
           setLocked(false);
           router.push(`/wall-swap?add=${kind}`);
         }}
+        footnote={`Swapping keeps your ${model.capacity.limit} at ${model.capacity.limit}. The suggestion stays here either way.`}
         onDismiss={() => setLocked(false)}
       />
     </SafeAreaView>

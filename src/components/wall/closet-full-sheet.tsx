@@ -39,6 +39,14 @@ export type ClosetFullContentProps = {
   /** Camera and listing paths offer it; the Gap Feed's sheet does not. */
   tertiaryLabel?: string;
   onTertiary?: () => void;
+  /**
+   * The closing reassurance under the buttons — G-04's "Swapping keeps your
+   * ten at ten. The suggestion stays here either way." Optional: W-02 and
+   * W-03 carry their own closing lines outside this panel instead (a live
+   * photo's "nothing is taken or lost", the held-import note under the
+   * search sheet), so a shared default here would be one of them said twice.
+   */
+  footnote?: string;
 };
 
 export function ClosetFullPanel({
@@ -51,16 +59,19 @@ export function ClosetFullPanel({
   onSecondary,
   tertiaryLabel,
   onTertiary,
+  footnote,
 }: ClosetFullContentProps) {
   const theme = useTheme();
 
   return (
     <View>
-      <Text variant="eyebrow">{eyebrow}</Text>
-      <Text variant="title" trim className="mt-1.5" style={{ fontSize: 26, lineHeight: 32 }}>
+      <Text variant="eyebrow" className="mb-1.5">
+        {eyebrow}
+      </Text>
+      <Text variant="title" trim style={{ fontSize: 26, lineHeight: 32 }}>
         {title}
       </Text>
-      <Text variant="body" className="mt-2 text-muted">
+      <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
         {body}
       </Text>
 
@@ -79,6 +90,12 @@ export function ClosetFullPanel({
           </Pressable>
         ) : null}
       </View>
+
+      {footnote ? (
+        <Text variant="caption" className="mt-3.5" style={{ color: theme.faint }}>
+          {footnote}
+        </Text>
+      ) : null}
     </View>
   );
 }

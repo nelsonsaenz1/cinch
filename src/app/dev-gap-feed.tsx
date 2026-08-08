@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GapCard } from '@/components/gap-feed/gap-card';
 import { ClosetFullSheet } from '@/components/wall/closet-full-sheet';
+import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
 import {
@@ -18,6 +19,7 @@ import {
   type PairablePiece,
 } from '@/features/closet/gap-feed';
 import { rankGaps, type CountedKind, type Tally } from '@/features/closet/outfit-count';
+import { useTheme } from '@/theme/tokens';
 
 /**
  * The Gap Feed fixture — `cinch://dev-gap-feed`.
@@ -74,6 +76,7 @@ const FRAMES = ['G-01', 'G-02', 'G-03', 'G-04', 'G-05'] as const;
 type Frame = (typeof FRAMES)[number];
 
 export default function DevGapFeed() {
+  const theme = useTheme();
   const [frame, setFrame] = useState<Frame>('G-01');
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -97,13 +100,13 @@ export default function DevGapFeed() {
         {frame === 'G-01' ? (
           <ScrollView contentContainerClassName="px-gutter pb-24" contentContainerStyle={{ gap: 10 }}>
             <View className="pt-2">
-              <Text variant="eyebrow" className="text-faint">
+              <Text variant="eyebrow" className="mb-1.5">
                 Your closet · 10 pieces · 14 outfits
               </Text>
-              <Text variant="title" trim className="mt-1.5" style={{ fontSize: 30, lineHeight: 34 }}>
+              <Text variant="title" trim style={{ fontSize: 30, lineHeight: 34 }}>
                 What one more piece would do
               </Text>
-              <Text variant="body" className="mt-2 text-muted">
+              <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
                 Worked out from what you own. Ranked by how many new outfits each would actually
                 make.
               </Text>
@@ -119,9 +122,10 @@ export default function DevGapFeed() {
                 onAddAnyway={() => setSheetOpen(true)}
               />
             ))}
-            <Text variant="label" className="mt-2 border-t border-rule pt-4 text-muted">
-              Adding an eleventh piece needs a larger closet.
-            </Text>
+            <View className="mt-2 border-t border-rule pt-4" style={{ gap: 8 }}>
+              <Text variant="label">Adding an eleventh piece needs a larger closet.</Text>
+              <Button title="See plans" variant="primary" onPress={() => {}} />
+            </View>
           </ScrollView>
         ) : null}
 
@@ -133,10 +137,10 @@ export default function DevGapFeed() {
 
         {frame === 'G-04' ? (
           <View className="flex-1 px-gutter pt-2" style={{ opacity: 0.35 }}>
-            <Text variant="eyebrow" className="text-faint">
+            <Text variant="eyebrow" className="mb-1.5">
               Your closet · 10 pieces · 14 outfits
             </Text>
-            <Text variant="title" trim className="mt-1.5" style={{ fontSize: 30 }}>
+            <Text variant="title" trim style={{ fontSize: 30 }}>
               What one more piece would do
             </Text>
           </View>
@@ -145,13 +149,13 @@ export default function DevGapFeed() {
         {frame === 'G-05' && dominant ? (
           <ScrollView contentContainerClassName="px-gutter pb-24" contentContainerStyle={{ gap: 10 }}>
             <View className="pt-2">
-              <Text variant="eyebrow" className="text-faint">
+              <Text variant="eyebrow" className="mb-1.5">
                 Your closet · 10 pieces · 8 outfits
               </Text>
-              <Text variant="title" trim className="mt-1.5" style={{ fontSize: 30, lineHeight: 34 }}>
+              <Text variant="title" trim style={{ fontSize: 30, lineHeight: 34 }}>
                 One piece is doing all the work
               </Text>
-              <Text variant="body" className="mt-2 text-muted">
+              <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
                 Nearly every outfit you have runs through the same piece.
               </Text>
             </View>
@@ -164,9 +168,15 @@ export default function DevGapFeed() {
               onAddAnyway={() => setSheetOpen(true)}
             />
             <View className="mt-2 border-t border-rule pt-4" style={{ gap: 8 }}>
-              <Text variant="label" className="text-muted">
-                {swapAdvice(EIGHT_TOPS, dominant[0].kind) ?? 'Swap a top for something else'}
-              </Text>
+              {swapAdvice(EIGHT_TOPS, dominant[0].kind) ? (
+                <Button
+                  title={swapAdvice(EIGHT_TOPS, dominant[0].kind)!}
+                  variant="secondary"
+                  onPress={() => {}}
+                />
+              ) : null}
+              <Text variant="label">Adding an eleventh piece needs a larger closet.</Text>
+              <Button title="See plans" variant="primary" onPress={() => {}} />
             </View>
           </ScrollView>
         ) : null}
@@ -180,6 +190,7 @@ export default function DevGapFeed() {
         onSeePlans={() => {}}
         secondaryLabel="Swap a piece out instead"
         onSecondary={() => {}}
+        footnote={`Swapping keeps your ${CAPACITY.limit} at ${CAPACITY.limit}. The suggestion stays here either way.`}
         onDismiss={() => setSheetOpen(false)}
       />
 
@@ -212,6 +223,7 @@ function G02({
   ranked: ReturnType<typeof rankGaps>;
   pairable: PairablePiece<Piece>[];
 }) {
+  const theme = useTheme();
   const gain = ranked[0];
   const byKind: Partial<Record<CountedKind, Piece[]>> = {
     tops: pairable.filter((p) => p.kind === 'tops').map((p) => p.piece),
@@ -223,13 +235,13 @@ function G02({
 
   return (
     <ScrollView contentContainerClassName="px-gutter pb-24">
-      <Text variant="eyebrow" className="text-faint">
+      <Text variant="eyebrow" className="mb-1.5">
         {`The gap · ${gain.kind}`}
       </Text>
-      <Text variant="title" trim className="mt-1.5" style={{ fontSize: 32, lineHeight: 36 }}>
+      <Text variant="title" trim style={{ fontSize: 32, lineHeight: 36 }}>
         {gapLabel(tally, gain.kind)}
       </Text>
-      <Text variant="body" className="mt-2 text-muted">
+      <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
         {`${gain.gain} outfits you don't have yet — here are ${rows.shown.length} of them.`}
       </Text>
       <View className="mt-4" style={{ gap: 8 }}>
@@ -239,23 +251,23 @@ function G02({
               <View key={p.id} className="h-[54px] w-[54px] overflow-hidden rounded-lg bg-tray" />
             ))}
             <View className="h-[54px] w-[54px] items-center justify-center rounded-lg border border-dashed border-accent bg-blush">
-              <Text variant="caption" style={{ fontSize: 11, textAlign: 'center' }} className="text-accent">
+              <Text variant="caption" style={{ fontSize: 11, textAlign: 'center', color: theme.accent }}>
                 {`the\n${gain.kind === 'shoes' ? 'shoes' : gain.kind.slice(0, -1)}`}
               </Text>
             </View>
             <View className="flex-1 items-end">
-              <Text variant="caption" className="text-muted" style={{ textAlign: 'right' }}>
+              <Text variant="caption" style={{ textAlign: 'right' }}>
                 {row.map((p) => p.name).join(' & ')}
               </Text>
             </View>
           </View>
         ))}
         {rows.more > 0 ? (
-          <Text variant="label" className="pl-1 text-faint">{`and ${rows.more} more`}</Text>
+          <Text variant="label" className="pl-1" style={{ color: theme.faint }}>{`and ${rows.more} more`}</Text>
         ) : null}
       </View>
       <View className="mt-6 rounded-[16px] border border-rule bg-surface px-4 py-4">
-        <Text variant="body" className="text-muted">
+        <Text variant="body" style={{ color: theme.muted }}>
           Your closet is full at ten. Adding this needs room for an eleventh piece.
         </Text>
       </View>
@@ -264,13 +276,14 @@ function G02({
 }
 
 function G03({ tally, ranked }: { tally: Tally; ranked: ReturnType<typeof rankGaps> }) {
+  const theme = useTheme();
   const gain = ranked[0];
   return (
     <View className="px-gutter pt-6">
-      <Text variant="eyebrow" className="text-faint">
+      <Text variant="eyebrow" className="mb-1.5">
         Detail · the lock
       </Text>
-      <Text variant="title" trim className="mt-1.5" style={{ fontSize: 26 }}>
+      <Text variant="title" trim style={{ fontSize: 26 }}>
         Legible, specific, out of reach
       </Text>
       <View className="mt-4">
@@ -284,7 +297,7 @@ function G03({ tally, ranked }: { tally: Tally; ranked: ReturnType<typeof rankGa
         />
       </View>
       <View className="mt-3 rounded-[16px] border border-dashed border-rule-strong bg-ink/[0.03] px-4 py-3.5">
-        <Text variant="caption" style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4 }} className="text-faint">
+        <Text variant="caption" style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4 }}>
           NOT THIS
         </Text>
         <View className="mt-2 flex-row items-baseline justify-between" style={{ opacity: 0.6 }}>
@@ -293,7 +306,7 @@ function G03({ tally, ranked }: { tally: Tally; ranked: ReturnType<typeof rankGa
           </Text>
           <Text variant="title">{`+${gain.gain}`}</Text>
         </View>
-        <Text variant="caption" className="mt-2 text-muted">
+        <Text variant="caption" className="mt-2" style={{ color: theme.muted }}>
           Blur implies there is something behind it. There isn't — the whole recommendation is
           already shown.
         </Text>

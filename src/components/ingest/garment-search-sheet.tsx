@@ -291,10 +291,14 @@ export function GarmentSearchSheetBody({
         />
 
         {/* The closet-full case gets its own W-03 panel instead of the raw
-            error line — see closet-full-sheet.tsx's header for why this is
-            the bare `ClosetFullPanel` rather than the modal `ClosetFullSheet`
-            (this screen is already a modal sheet). */}
-        {flow.errorMessage && !flow.closetFull ? (
+            error line — but only on the LINK path, where there's a held
+            preview for the panel to sit under (see the block below). The
+            describe/candidate-tile path can hit the same server refusal with
+            no preview to hold, and that case keeps the plain error line
+            rather than going silent. See closet-full-sheet.tsx's header for
+            why this is the bare `ClosetFullPanel` rather than the modal
+            `ClosetFullSheet` (this screen is already a modal sheet). */}
+        {flow.errorMessage && !(flow.closetFull && flow.preview) ? (
           <Text variant="caption" className="mt-3" style={{ color: theme.critical }}>
             {flow.errorMessage}
           </Text>
@@ -335,7 +339,7 @@ export function GarmentSearchSheetBody({
                 router.push(`/wall-swap?add=${best}`);
               }}
             />
-            <Text variant="caption" className="mt-3 text-faint">
+            <Text variant="caption" className="mt-3" style={{ color: theme.faint }}>
               The import is held, not cancelled. It's here when there's room.
             </Text>
           </View>
@@ -428,6 +432,11 @@ function LinkPreview({
       <Button
         title="Add to closet"
         onPress={onConfirm}
+        // Demoted off the accent while the closet-full panel is showing below
+        // — that panel's "See plans" is the one oxblood action on screen then
+        // (rule 9). Re-pressing this still retries the same import; it just
+        // isn't the loudest control on the sheet while it's expected to fail.
+        variant={flow.closetFull ? 'secondary' : 'primary'}
         loading={flow.importingPreview}
         disabled={flow.importingPreview}
         haptic

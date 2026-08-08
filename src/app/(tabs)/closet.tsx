@@ -672,6 +672,7 @@ function EmptySearch({ query, category }: { query: string; category: CategoryFil
  * 10' entirely").
  */
 function CapacityColophon() {
+  const theme = useTheme();
   const capacity = useCapacity();
   if (capacity.loading) return null;
 
@@ -682,10 +683,12 @@ function CapacityColophon() {
 
   return (
     <View className="mt-2 px-gutter">
+      {/* `style`, never a second `text-*` class: `caption` already carries
+          `text-muted`, and NativeWind resolves two colour utilities on one
+          element by key order, not by intent. */}
       <Text
         variant="caption"
-        style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4 }}
-        className="text-faint">
+        style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4, color: theme.faint }}>
         {label}
       </Text>
     </View>

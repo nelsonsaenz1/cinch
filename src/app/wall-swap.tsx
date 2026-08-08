@@ -64,9 +64,7 @@ export default function WallSwapScreen() {
   } else if (model.loading) {
     body = (
       <View className="flex-1 items-center justify-center">
-        <Text variant="label" className="text-muted">
-          Reading your closet…
-        </Text>
+        <Text variant="label">Reading your closet…</Text>
       </View>
     );
   } else if (candidates.length === 0) {
@@ -83,7 +81,7 @@ export default function WallSwapScreen() {
         <Text variant="title" trim style={{ fontSize: 30, lineHeight: 34 }}>
           Which piece goes away?
         </Text>
-        <Text variant="body" className="mt-2 text-muted">
+        <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
           Stored pieces leave your styling, not your account. Least-worn first — the numbers are
           your own.
         </Text>
@@ -108,7 +106,7 @@ export default function WallSwapScreen() {
                   ) : null}
                 </View>
                 <View className="flex-1">
-                  <Text variant="label" className="text-ink" numberOfLines={1}>
+                  <Text variant="label" numberOfLines={1} style={{ color: theme.ink }}>
                     {c.piece.name}
                   </Text>
                   <Text
@@ -141,14 +139,14 @@ export default function WallSwapScreen() {
           className="absolute inset-x-0 bottom-0 border-t border-rule bg-surface px-gutter pb-8 pt-4"
           style={{ paddingBottom: 34 }}>
           <View className="flex-row items-baseline justify-between">
-            <Text variant="body" className="text-muted">
+            <Text variant="body" style={{ color: theme.muted }}>
               {`${selected.piece.name} out, room for ${nounWithArticle(add)}`}
             </Text>
             <Text variant="title" trim style={{ fontSize: 24 }}>
               {`${selected.outcome.from} → ${selected.outcome.swapped}`}
             </Text>
           </View>
-          <Text variant="caption" className="mt-1.5 text-faint">
+          <Text variant="caption" className="mt-1.5" style={{ color: theme.faint }}>
             {selected.outcome.swapped > selected.outcome.from
               ? `${selected.outcome.swapped - selected.outcome.from} more than you have now`
               : selected.outcome.swapped === selected.outcome.from

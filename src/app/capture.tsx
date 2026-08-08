@@ -1071,7 +1071,7 @@ export default function CaptureScreen() {
       */}
       <ClosetFullSheet
         visible={closetFullAction !== null}
-        eyebrow="Photographed · not added yet"
+        eyebrow="Before you shoot · closet full"
         title={`Your closet is full at ${capacity.limit}.`}
         body={(() => {
           const tally = tallyOf(wardrobe.data ?? []);

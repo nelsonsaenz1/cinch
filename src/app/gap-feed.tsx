@@ -11,6 +11,7 @@ import { useGate } from '@/features/billing/use-gate';
 import { gapLabelLower, ordinal, swapAdvice } from '@/features/closet/gap-feed';
 import type { CountedKind } from '@/features/closet/outfit-count';
 import { useGapFeed } from '@/features/closet/use-gap-feed';
+import { useTheme } from '@/theme/tokens';
 
 /**
  * The Gap Feed — Directive 3, states G-01 through G-05.
@@ -27,6 +28,7 @@ import { useGapFeed } from '@/features/closet/use-gap-feed';
  */
 export default function GapFeedScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const model = useGapFeed();
   const gate = useGate();
   const [gatePresenting, setGatePresenting] = useState(false);
@@ -61,9 +63,7 @@ export default function GapFeedScreen() {
   } else if (model.loading && !model.ready) {
     body = (
       <View className="flex-1 items-center justify-center px-gutter">
-        <Text variant="label" className="text-muted">
-          Reading your closet…
-        </Text>
+        <Text variant="label">Reading your closet…</Text>
       </View>
     );
   } else if (model.outfitsToday === 0 && model.ranked.every((g) => g.gain === 0)) {
@@ -88,16 +88,24 @@ export default function GapFeedScreen() {
     body = (
       <ScrollView contentContainerClassName="px-gutter pb-10" contentContainerStyle={{ gap: 10 }}>
         <View className="pt-2">
+          {/* `muted`, not the atlas's literal `faint` — `faint` is ~3.5:1 on
+              canvas and fails AA as text (standing refusal #1); `eyebrow`'s
+              own colour already carries `muted`. */}
           <Text
             variant="eyebrow"
             style={{ fontFamily: 'ui-monospace', letterSpacing: 1.2 }}
-            className="text-faint">
+            className="mb-1.5">
             {`Your closet · ${model.capacity.used} ${model.capacity.used === 1 ? 'piece' : 'pieces'} · ${model.outfitsToday} ${model.outfitsToday === 1 ? 'outfit' : 'outfits'}`}
           </Text>
-          <Text variant="title" trim className="mt-1.5" style={{ fontSize: 30, lineHeight: 34 }}>
+          {/* No `mt-*` here — it cancels against the trim on a serif Text.
+              The gap lives on the eyebrow's `mb-1.5` above instead. */}
+          <Text variant="title" trim style={{ fontSize: 30, lineHeight: 34 }}>
             {isDominant ? 'One piece is doing all the work' : 'What one more piece would do'}
           </Text>
-          <Text variant="body" className="mt-2 text-muted">
+          {/* `style`, never a second `text-*` class: `variant="body"` already
+              carries `text-ink`, and NativeWind resolves two colour utilities
+              on one element by key order, not by intent. */}
+          <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
             {isDominant
               ? 'Nearly every outfit you have runs through the same piece.'
               : 'Worked out from what you own. Ranked by how many new outfits each would actually make.'}
@@ -119,7 +127,7 @@ export default function GapFeedScreen() {
 
         {isDominant ? (
           <View className="mt-1">
-            <Text variant="caption" className="text-muted">
+            <Text variant="caption">
               Nothing else comes close: {gapLabelLower(model.tally, nextWeakestKind(model))} adds
               nothing at all until there's something new to wear it with.
             </Text>
@@ -136,18 +144,22 @@ export default function GapFeedScreen() {
                   variant="secondary"
                   onPress={() => router.push(`/wall-swap?add=${cards[0].kind}`)}
                 />
-              ) : (
-                <Text variant="label" className="text-muted">
-                  Adding an eleventh piece needs a larger closet.
-                </Text>
-              );
+              ) : null;
             })()
+          ) : null}
+
+          {/* The paywall CTA only belongs on screen when it's actually the
+              next step — a paying user with room left sees the identical
+              ranking (rule: "same advice, paid or free") and no "See plans"
+              spent on nothing, per the one-oxblood-action rule. */}
+          {model.capacity.full ? (
+            <>
+              <Text variant="label">Adding an eleventh piece needs a larger closet.</Text>
+              <Button title="See plans" variant="primary" loading={gatePresenting} onPress={seePlans} />
+            </>
           ) : (
-            <Text variant="label" className="text-muted">
-              Adding an eleventh piece needs a larger closet.
-            </Text>
+            <Text variant="label">{`Room for ${model.capacity.remaining} more in your closet.`}</Text>
           )}
-          <Button title="See plans" variant="primary" loading={gatePresenting} onPress={seePlans} />
         </View>
       </ScrollView>
     );
@@ -172,6 +184,7 @@ export default function GapFeedScreen() {
         seePlansBusy={gatePresenting}
         secondaryLabel="Swap a piece out instead"
         onSecondary={swapInstead}
+        footnote={`Swapping keeps your ${model.capacity.limit} at ${model.capacity.limit}. The suggestion stays here either way.`}
         onDismiss={() => setLockedKind(null)}
       />
     </SafeAreaView>

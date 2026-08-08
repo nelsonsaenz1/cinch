@@ -94,7 +94,7 @@ function Grid({ uris, highlightFirst }: { uris: string[]; highlightFirst?: boole
       <View
         className="items-center justify-center rounded-[10px] border border-dashed border-rule-strong"
         style={{ width: '31%', aspectRatio: 1 }}>
-        <Text variant="label" className="text-faint">
+        <Text variant="label" style={{ color: theme.faint }}>
           + Add
         </Text>
       </View>
@@ -104,6 +104,7 @@ function Grid({ uris, highlightFirst }: { uris: string[]; highlightFirst?: boole
 
 /** W-01 — the closet at 10 of 10, full read as a stated count, never a disabled control. */
 function W01() {
+  const theme = useTheme();
   const today = countOutfits(THE_TEN);
   return (
     <View className="flex-1">
@@ -111,16 +112,20 @@ function W01() {
         <Text variant="title" trim style={{ fontSize: 34 }}>
           Closet
         </Text>
-        <Text variant="caption" style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4 }} className="text-faint">
+        <Text
+          variant="caption"
+          style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.faint }}>
           10 OF 10 · FULL
         </Text>
       </View>
-      <Text variant="body" className="mt-2 px-gutter text-muted">
+      <Text variant="body" className="mt-2 px-gutter" style={{ color: theme.muted }}>
         {`Ten pieces, ${today} outfits. Adding an eleventh needs a larger closet or a piece put away.`}
       </Text>
       <Grid uris={TEN_GRID} />
       <View className="mt-auto border-t border-rule px-gutter pb-8 pt-3.5">
-        <Text variant="caption" style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4 }} className="text-faint">
+        <Text
+          variant="caption"
+          style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.faint }}>
           {`${today} OUTFITS · 10 PIECES`}
         </Text>
       </View>
@@ -130,6 +135,7 @@ function W01() {
 
 /** W-02 — the camera path. Dark stage; the shutter is never disabled. */
 function W02() {
+  const theme = useTheme();
   const [sheetOpen, setSheetOpen] = useState(true);
   const today = countOutfits(THE_TEN);
   const best = rankGaps(THE_TEN)[0];
@@ -139,7 +145,7 @@ function W02() {
       <View className="mx-4 mt-2 flex-1 items-center justify-center rounded-plate bg-black/40" />
       <ClosetFullSheet
         visible={sheetOpen}
-        eyebrow="Photographed · not added yet"
+        eyebrow="Before you shoot · closet full"
         title="Your closet is full at 10."
         body={`Your 10 pieces make ${today} outfits today. The right ${ordinal(11)} piece could take that as high as ${best.total}. Nothing is taken or lost by waiting.`}
         onSeePlans={() => {}}
@@ -150,7 +156,7 @@ function W02() {
       />
       {!sheetOpen ? (
         <View className="absolute bottom-24 left-0 right-0 items-center">
-          <Text variant="label" style={{ color: '#FBFAF6' }} onPress={() => setSheetOpen(true)}>
+          <Text variant="label" style={{ color: theme.canvas }} onPress={() => setSheetOpen(true)}>
             Reopen the sheet
           </Text>
         </View>
@@ -161,6 +167,7 @@ function W02() {
 
 /** W-03 — the listing-link path. The import is held, never cancelled. */
 function W03() {
+  const theme = useTheme();
   const [sheetOpen, setSheetOpen] = useState(true);
   const today = countOutfits(THE_TEN);
   const best = rankGaps(THE_TEN)[0];
@@ -172,12 +179,12 @@ function W03() {
           <Text variant="title" trim style={{ fontSize: 26 }}>
             Add from a link
           </Text>
-          <Text variant="body" className="text-muted">
+          <Text variant="body" style={{ color: theme.muted }}>
             Cancel
           </Text>
         </View>
         <View className="mt-3.5 rounded-xl border border-rule px-3 py-3">
-          <Text variant="caption" style={{ fontFamily: 'ui-monospace' }} className="text-muted">
+          <Text variant="caption" style={{ fontFamily: 'ui-monospace', color: theme.muted }}>
             https://…/black-leather-ankle-boot
           </Text>
         </View>
@@ -186,10 +193,10 @@ function W03() {
             <Image source={{ uri: LOAFERS }} contentFit="cover" style={{ flex: 1 }} accessibilityIgnoresInvertColors />
           </View>
           <View className="flex-1">
-            <Text variant="label" className="text-ink">
+            <Text variant="label" style={{ color: theme.ink }}>
               Black leather ankle boot
             </Text>
-            <Text variant="caption" className="mt-0.5 text-muted">
+            <Text variant="caption" className="mt-0.5">
               Read from the listing · shoes
             </Text>
           </View>
@@ -207,7 +214,7 @@ function W03() {
           onSecondary={() => {}}
           onDismiss={() => setSheetOpen(false)}
         />
-        <Text variant="caption" className="px-gutter pb-6 text-faint">
+        <Text variant="caption" className="px-gutter pb-6" style={{ color: theme.faint }}>
           The import is held, not cancelled. It's here when there's room.
         </Text>
       </View>
@@ -242,7 +249,7 @@ function W04() {
       <Text variant="title" trim className="px-gutter pt-2" style={{ fontSize: 30 }}>
         Which piece goes away?
       </Text>
-      <Text variant="body" className="mt-2 px-gutter text-muted">
+      <Text variant="body" className="mt-2 px-gutter" style={{ color: theme.muted }}>
         Stored pieces leave your styling, not your account. Least-worn first — the numbers are
         your own.
       </Text>
@@ -259,7 +266,7 @@ function W04() {
                 <Image source={{ uri: c.piece.uri }} contentFit="cover" style={{ flex: 1 }} accessibilityIgnoresInvertColors />
               </View>
               <View className="flex-1">
-                <Text variant="label" className="text-ink">
+                <Text variant="label" style={{ color: theme.ink }}>
                   {c.piece.name}
                 </Text>
                 <Text
@@ -283,14 +290,14 @@ function W04() {
       {selected ? (
         <View className="mt-auto border-t border-rule bg-surface px-gutter pb-8 pt-4">
           <View className="flex-row items-baseline justify-between">
-            <Text variant="body" className="text-muted">
+            <Text variant="body" style={{ color: theme.muted }}>
               {selected.kind ? `${selected.piece.name} out, boots in` : `${selected.piece.name} stored, boots in`}
             </Text>
             <Text variant="title" trim style={{ fontSize: 24 }}>
               {`${selected.outcome.from} → ${selected.outcome.swapped}`}
             </Text>
           </View>
-          <Text variant="caption" className="mt-1.5 text-faint">
+          <Text variant="caption" className="mt-1.5" style={{ color: theme.faint }}>
             {selected.outcome.costOfSwap > 0
               ? `${selected.outcome.swapped - selected.outcome.from} more than you have now, ${selected.outcome.costOfSwap} fewer than keeping both. Storing is reversible at any time.`
               : `${selected.outcome.swapped - selected.outcome.from} more than you have now — storing this costs the count nothing. Storing is reversible at any time.`}
@@ -303,6 +310,7 @@ function W04() {
 
 /** W-05 — after upgrading, the counter stops saying "of 10" entirely. */
 function W05() {
+  const theme = useTheme();
   const eleven: Tally = { ...THE_TEN, shoes: THE_TEN.shoes + 1 };
   const before = countOutfits(THE_TEN);
   const after = countOutfits(eleven);
@@ -313,24 +321,29 @@ function W05() {
         <Text variant="title" trim style={{ fontSize: 34 }}>
           Closet
         </Text>
-        <Text variant="caption" style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4 }} className="text-faint">
+        <Text
+          variant="caption"
+          style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.faint }}>
           11 PIECES
         </Text>
       </View>
-      <Text variant="body" className="mt-2 px-gutter text-muted">
+      <Text variant="body" className="mt-2 px-gutter" style={{ color: theme.muted }}>
         Room for the rest of your wardrobe. Photograph as much or as little as you like — the more
         Cinch sees, the better the mornings get.
       </Text>
       <Grid uris={[BOOTS, ...TEN_GRID]} highlightFirst />
       <View className="mt-auto px-gutter pb-8">
         <View className="rounded-[16px] border border-rule bg-surface px-4 py-4">
-          <Text variant="caption" style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4 }} className="text-faint">
+          <Text
+            variant="caption"
+            className="mb-1"
+            style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.faint }}>
             The boots are in
           </Text>
-          <Text variant="title" trim className="mt-1" style={{ fontSize: 26 }}>
+          <Text variant="title" trim style={{ fontSize: 26 }}>
             {`Eleven pieces. ${after} outfits.`}
           </Text>
-          <Text variant="body" className="mt-1.5 text-muted">
+          <Text variant="body" className="mt-1.5" style={{ color: theme.muted }}>
             {`${after - before} of them are new this morning.`}
           </Text>
         </View>
