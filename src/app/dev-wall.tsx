@@ -134,20 +134,38 @@ function W01() {
 }
 
 /** W-02 — the camera path. Dark stage; the shutter is never disabled. */
+/**
+ * W-02 — the closet-full sheet, over the shot that was just taken.
+ *
+ * The shutter is never disabled and the photograph is never discarded: this
+ * fixture holds a real garment photo (the coat, standing in for whatever was
+ * just shot) behind the sheet exactly as `capture.tsx` does once
+ * `settleCapture` finds the closet full. The eyebrow is the atlas's own —
+ * "Photographed · not added yet" — because the photo genuinely exists by the
+ * time this state is reached; nothing here needed to be softened.
+ *
+ * THE NUMBER: no per-garment gain is quoted. The photo isn't tagged, so its
+ * kind is genuinely unknown, and printing `rankGaps`'s best case would be
+ * exactly the substitution the atlas forbids ("a second coat would honestly
+ * read 'fourteen either way' rather than borrowing the best case from a
+ * different piece"). The body states what's true without naming a garment.
+ */
 function W02() {
   const theme = useTheme();
   const [sheetOpen, setSheetOpen] = useState(true);
   const today = countOutfits(THE_TEN);
-  const best = rankGaps(THE_TEN)[0];
 
   return (
     <View className="flex-1">
-      <View className="mx-4 mt-2 flex-1 items-center justify-center rounded-plate bg-black/40" />
+      <View className="mx-4 mt-2 flex-1 overflow-hidden rounded-plate">
+        <Image source={{ uri: COAT }} style={{ flex: 1 }} contentFit="cover" accessibilityIgnoresInvertColors />
+        <View style={{ position: 'absolute', inset: 0, backgroundColor: theme.scrim }} />
+      </View>
       <ClosetFullSheet
         visible={sheetOpen}
-        eyebrow="Before you shoot · closet full"
+        eyebrow="Photographed · not added yet"
         title="Your closet is full at 10."
-        body={`Your 10 pieces make ${today} outfits today. The right ${ordinal(11)} piece could take that as high as ${best.total}. Nothing is taken or lost by waiting.`}
+        body={`Your 10 pieces make ${today} outfits today. What this would add depends on what it is — Cinch can't say until it's tagged. It's saved on your phone either way — nothing here deletes a photograph.`}
         onSeePlans={() => {}}
         secondaryLabel="Make room for it"
         onSecondary={() => {}}
