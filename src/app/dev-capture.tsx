@@ -409,8 +409,11 @@ function ConsentReplica() {
         </View>
 
         <View className="px-gutter pt-4" style={{ paddingBottom: insets.bottom + 16 }}>
-          <Text variant="eyebrow">Before we send anything</Text>
-          <Text variant="title" trim className="mt-4">
+          {/* Gap on the eyebrow, not the trimmed title — see consent-sheet. */}
+          <Text variant="eyebrow" className="mb-4">
+            Before we send anything
+          </Text>
+          <Text variant="title" trim>
             Cinch can tag your clothes for you.
           </Text>
           <Text variant="callout" className="mt-3" style={{ color: theme.muted }}>

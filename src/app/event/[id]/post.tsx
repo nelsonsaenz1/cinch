@@ -127,8 +127,10 @@ export default function PostLookScreen() {
           onAction={() => router.back()}
         />
       ) : (
-        <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-24">
-          <Text variant="title" trim className="mt-5">
+        // Top gap on the container: the trimmed title cannot carry `mt-*`
+        // without stacking against trim's negative margins.
+        <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-24 pt-5">
+          <Text variant="title" trim>
             Which one for the table?
           </Text>
 

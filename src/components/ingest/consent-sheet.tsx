@@ -152,8 +152,13 @@ export function ConsentSheet({
           <ScrollView
             contentContainerClassName="px-gutter pt-4"
             contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
-            <Text variant="eyebrow">Before we send anything</Text>
-            <Text variant="title" trim className="mt-4">
+            {/* Gap lives on the eyebrow: a `mt-*` stacked on the trimmed
+                title resolves against trim's style-prop negative margins by
+                merge order, and the designed gap collapses to nearly zero. */}
+            <Text variant="eyebrow" className="mb-4">
+              Before we send anything
+            </Text>
+            <Text variant="title" trim>
               Cinch can tag your clothes for you.
             </Text>
             {/* Tone as an inline style, not a stacked `text-muted`. Two colour

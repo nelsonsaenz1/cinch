@@ -377,8 +377,10 @@ export default function EventOutfitBoardScreen() {
         {/* ── Back row: chevron + small-caps EVENT (founder-mocks §1b) ── */}
         {backRow}
 
-        <View className="px-gutter">
-          <Text variant="title" trim className="mt-5">
+        {/* Top gap on the container: the trimmed title cannot carry `mt-*`
+            without stacking against trim's negative margins. */}
+        <View className="px-gutter pt-5">
+          <Text variant="title" trim>
             {detail.title}
           </Text>
           {/* Metadata line. Weather is display-only enrichment with no venue

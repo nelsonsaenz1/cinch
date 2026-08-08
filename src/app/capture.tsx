@@ -99,8 +99,12 @@ export function DeclineExplainer({
         {/* The whole page is the announcement of a state change the user just
             made — read it out once, politely. */}
         <View accessibilityLiveRegion="polite">
-          <Text variant="eyebrow">Photos stay on this phone</Text>
-          <Text variant="title" trim className="mt-4">
+          {/* Gap lives on the eyebrow: a `mt-*` stacked on the trimmed title
+              resolves against trim's negative margins by merge order. */}
+          <Text variant="eyebrow" className="mb-4">
+            Photos stay on this phone
+          </Text>
+          <Text variant="title" trim>
             Done. Nothing was sent.
           </Text>
           <Text variant="callout" className="mt-3" style={{ color: theme.muted }}>
