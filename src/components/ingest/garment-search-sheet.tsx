@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,8 +10,15 @@ import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { ClosetFullPanel } from '@/components/wall/closet-full-sheet';
+import { Placement } from '@/features/billing/placements';
+import { useCapacity } from '@/features/billing/use-capacity';
+import { useGate } from '@/features/billing/use-gate';
+import { ordinal } from '@/features/closet/gap-feed';
+import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import { useGarmentSearchFlow, type GarmentCandidate } from '@/features/ingest/use-garment-search';
+import { useWardrobe } from '@/features/styling/queries';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -101,6 +109,11 @@ export function GarmentSearchSheetBody({
   onClose: () => void;
 }) {
   const theme = useTheme();
+  const router = useRouter();
+  const gate = useGate();
+  const capacity = useCapacity();
+  const wardrobe = useWardrobe();
+  const [gatePresenting, setGatePresenting] = useState(false);
 
   const isLink = flow.link !== null;
   const busy = flow.searching || flow.resolving;
@@ -277,7 +290,11 @@ export function GarmentSearchSheetBody({
           className="mt-4 self-stretch"
         />
 
-        {flow.errorMessage ? (
+        {/* The closet-full case gets its own W-03 panel instead of the raw
+            error line — see closet-full-sheet.tsx's header for why this is
+            the bare `ClosetFullPanel` rather than the modal `ClosetFullSheet`
+            (this screen is already a modal sheet). */}
+        {flow.errorMessage && !flow.closetFull ? (
           <Text variant="caption" className="mt-3" style={{ color: theme.critical }}>
             {flow.errorMessage}
           </Text>
@@ -288,6 +305,41 @@ export function GarmentSearchSheetBody({
         ) : (
           <Results flow={flow} onChoose={choose} />
         )}
+
+        {/* The parsed import is held, not cancelled — `flow.preview` above is
+            untouched by the failed confirm, so the picture and name stay on
+            screen and this panel is simply what replaces the generic error. */}
+        {flow.preview && flow.closetFull ? (
+          <View className="mt-6 border-t border-rule pt-5">
+            <ClosetFullPanel
+              eyebrow="Ready to import · closet full"
+              title="This is the piece your closet is missing."
+              body={(() => {
+                const tally = tallyOf(wardrobe.data ?? []);
+                const best = rankGaps(tally)[0];
+                const today = countOutfits(tally);
+                return best && best.gain > 0
+                  ? `The right ${ordinal(capacity.limit + 1)} piece could take you from ${today} outfits to ${best.total} — your ${capacity.limit} are already at ${capacity.limit}.`
+                  : `Your ${capacity.limit} are already at ${capacity.limit}. Nothing here is lost while you decide.`;
+              })()}
+              onSeePlans={() => {
+                setGatePresenting(true);
+                void gate.present(Placement.AddGarmentOverLimit).finally(() => setGatePresenting(false));
+              }}
+              seePlansBusy={gatePresenting}
+              secondaryLabel="Make room for it"
+              onSecondary={() => {
+                const tally = tallyOf(wardrobe.data ?? []);
+                const best = rankGaps(tally)[0]?.kind ?? 'tops';
+                onClose();
+                router.push(`/wall-swap?add=${best}`);
+              }}
+            />
+            <Text variant="caption" className="mt-3 text-faint">
+              The import is held, not cancelled. It's here when there's room.
+            </Text>
+          </View>
+        ) : null}
 
         {/* `faint`, not `muted`, and inline as ever: this line is an aside
             about an affordance already on screen, the one register quiet

@@ -17,13 +17,17 @@ import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { GarmentSearchSheet } from '@/components/ingest/garment-search-sheet';
 import { UploadQueueList } from '@/components/ingest/upload-queue-list';
 import { ListingOffer } from '@/components/match/listing-offer';
+import { ClosetFullSheet } from '@/components/wall/closet-full-sheet';
 import { useAiConsent, useGrantAiConsent } from '@/features/auth/use-consent';
 import { useCloset } from '@/features/closet/queries';
+import { ordinal } from '@/features/closet/gap-feed';
+import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count';
 import { Placement } from '@/features/billing/placements';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { useGate } from '@/features/billing/use-gate';
 import { useCameraAccess } from '@/features/ingest/use-camera-access';
 import { useCapture } from '@/features/ingest/use-capture';
+import { useWardrobe } from '@/features/styling/queries';
 import {
   useQueueStore,
   selectActiveCount,
@@ -254,6 +258,19 @@ export default function CaptureScreen() {
   const qc = useQueryClient();
   const capacity = useCapacity();
   const gate = useGate();
+  const wardrobe = useWardrobe();
+
+  /**
+   * W-02 — the closet-full sheet, shown instead of jumping straight to
+   * Superwall. The shutter is never disabled (the shot has not been taken at
+   * this point — the gate still fires before the picker, for the same
+   * "don't waste an upload on a doomed capture" reason the block above this
+   * one gives) and the photograph is never discarded, because none exists
+   * yet to discard: "Not now" just dismisses the sheet, and "Make room for
+   * it" is a real, working path rather than a dead end.
+   */
+  const [closetFullAction, setClosetFullAction] = useState<CaptureAction | null>(null);
+  const [gatePresenting, setGatePresenting] = useState(false);
 
   const jobs = useQueueStore((s) => s.jobs);
   const hydrate = useQueueStore((s) => s.hydrate);
@@ -431,25 +448,9 @@ export default function CaptureScreen() {
   const guarded = useCallback(
     (action: CaptureAction) => {
       if (capacity.full) {
-        // Superwall decides whether this particular user sees a paywall. On a
-        // grant, dispatch the picker DIRECTLY — not back through this guard.
-        // The refreshed `capacity` lives in a re-render this callback's closure
-        // will never see (the await resumes as a microtask, before React
-        // re-renders), so re-entering the gate would read the stale `full` and
-        // show a paying user the paywall a second time. Skipping the client
-        // check is safe because it was never the authority: the database
-        // trigger still refuses the insert if the plan somehow didn't change.
-        void gate.present(Placement.AddGarmentOverLimit, async () => {
-          await Promise.all([
-            qc.invalidateQueries({ queryKey: ['subscription'] }),
-            qc.invalidateQueries({ queryKey: ['closet-count'] }),
-          ]);
-          // Deferred, not immediate: a paywall is a presented view controller
-          // like the consent sheet, and the picker cannot open over one that is
-          // still leaving. Superwall gives no dismissal callback to hang this
-          // on, so it waits out the animation.
-          deferResume(action);
-        });
+        // The Wall's W-02: the app's own explanation of the limit, not the
+        // paywall directly — Superwall is one tap further on, from the sheet.
+        setClosetFullAction(action);
         return;
       }
 
@@ -470,8 +471,45 @@ export default function CaptureScreen() {
       setPendingAction(action);
       setConsentVisible(true);
     },
-    [capacity.full, gate, qc, granted, declinedMode, run, deferResume],
+    [capacity.full, granted, declinedMode, run],
   );
+
+  /**
+   * W-02's "See plans" — the sheet's own tap-through to the same Superwall
+   * gate the old direct call used, moved one step later so the app's own
+   * explanation of the limit is what the user meets first.
+   */
+  const seePlansForClosetFull = useCallback(() => {
+    const action = closetFullAction;
+    setGatePresenting(true);
+    void gate
+      .present(Placement.AddGarmentOverLimit, async () => {
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ['subscription'] }),
+          qc.invalidateQueries({ queryKey: ['closet-count'] }),
+        ]);
+        setClosetFullAction(null);
+        // Deferred, not immediate — a paywall is a presented view controller
+        // like the consent sheet, and the picker cannot open over one that is
+        // still leaving.
+        if (action) deferResume(action);
+      })
+      .finally(() => setGatePresenting(false));
+  }, [closetFullAction, gate, qc, deferResume]);
+
+  /**
+   * W-02's "Make room for it" — the real, working swap flow, not a token
+   * link. The kind offered is whichever the real wardrobe's own ranking says
+   * gains the most (`rankGaps`, the same routine every free-tier surface
+   * reads) rather than a fixed guess, since the camera path has no specific
+   * garment identified yet to quote a number for.
+   */
+  const makeRoomForClosetFull = useCallback(() => {
+    setClosetFullAction(null);
+    const tally = tallyOf(wardrobe.data ?? []);
+    const best = rankGaps(tally)[0]?.kind ?? 'tops';
+    router.push(`/wall-swap?add=${best}`);
+  }, [wardrobe.data, router]);
 
   const onAcceptConsent = async () => {
     await grantConsent.mutateAsync();
@@ -1020,6 +1058,35 @@ export default function CaptureScreen() {
             setExplainerVisible(true);
           }
         }}
+      />
+
+      {/*
+        W-02 — the closet-full sheet. No photograph exists to hold behind it
+        yet (the gate still fires before the picker; see `guarded`'s own
+        docblock for why), so the copy never claims one is "saved either
+        way" — it says plainly that nothing has been taken or lost. The
+        eleventh-piece number is the real wardrobe's own best case
+        (`rankGaps`), not a figure typed for one illustrative coat, because
+        the camera path has no specific garment identified at gate time.
+      */}
+      <ClosetFullSheet
+        visible={closetFullAction !== null}
+        eyebrow="Photographed · not added yet"
+        title={`Your closet is full at ${capacity.limit}.`}
+        body={(() => {
+          const tally = tallyOf(wardrobe.data ?? []);
+          const best = rankGaps(tally)[0];
+          const today = countOutfits(tally);
+          return best && best.gain > 0
+            ? `Your ${capacity.used} pieces make ${today} outfits today. The right ${ordinal(capacity.limit + 1)} piece could take that as high as ${best.total}. Nothing is taken or lost by waiting.`
+            : `Your ${capacity.used} pieces make ${today} outfits today. Adding an eleventh needs room. Nothing is taken or lost by waiting.`;
+        })()}
+        onSeePlans={seePlansForClosetFull}
+        seePlansBusy={gatePresenting}
+        secondaryLabel="Make room for it"
+        onSecondary={makeRoomForClosetFull}
+        tertiaryLabel="Not now"
+        onDismiss={() => setClosetFullAction(null)}
       />
     </>
   );

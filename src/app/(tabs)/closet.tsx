@@ -19,6 +19,7 @@ import { ClosetMenu } from '@/components/closet/closet-menu';
 import { ClosetSkeleton } from '@/components/closet/closet-skeleton';
 import { GhostAvatar, GhostSlotGrid } from '@/components/closet/ghost-slot-grid';
 import { InsightCard } from '@/components/closet/insight-card';
+import { useCapacity } from '@/features/billing/use-capacity';
 import { RailCard } from '@/components/closet/rail-card';
 import { SelectionBar } from '@/components/closet/selection-bar';
 import { StatRow } from '@/components/closet/stat-row';
@@ -327,6 +328,10 @@ export default function ClosetScreen() {
           setMenuOpen(false);
           router.push('/storage');
         }}
+        onGapFeed={() => {
+          setMenuOpen(false);
+          router.push('/gap-feed');
+        }}
         onProfileSettings={() => {
           setMenuOpen(false);
           router.navigate('/profile');
@@ -472,6 +477,11 @@ function Masthead({
           followers={screen.stats.followers}
         />
       </View>
+
+      {/* The Wall, W-01/W-05 — full reads as a stated count, never a
+          disabled control, and the ceiling disappears the moment it stops
+          being one. */}
+      <CapacityColophon />
 
       {/* Both rails, per atlas C-01 — Latest is recency, Favourites is wear
           data. A closet with no wear data yet shows Latest alone; the
@@ -645,4 +655,39 @@ function EmptySearch({ query, category }: { query: string; category: CategoryFil
   // `compact` drops the flex-1 centring, which needs a flex parent and
   // collapses to nothing inside a FlashList's ListEmptyComponent.
   return <EmptyState compact symbol="magnifyingglass" title={title} body={body} />;
+}
+
+/**
+ * The Wall's W-01/W-05 — "10 OF 10 · FULL" while the free ceiling is the
+ * live constraint, plain "N PIECES" once it stops being one. Full reads as a
+ * stated fact here, never a disabled control: nothing on this screen greys
+ * out or blocks the add tile at the limit (the closet-full sheet lives at
+ * the moment of the attempt — capture.tsx's W-02 — not as a standing warning
+ * on the masthead).
+ *
+ * The 10-piece threshold is the free plan's own ceiling
+ * (`PLANS.free.items`), not a magic number re-typed here: once a plan's
+ * limit rises past it, the "of N" ceiling nobody will reach stops being
+ * printed at all, exactly as W-05 requires ("the counter stops saying 'of
+ * 10' entirely").
+ */
+function CapacityColophon() {
+  const capacity = useCapacity();
+  if (capacity.loading) return null;
+
+  const label =
+    capacity.limit <= 10
+      ? `${capacity.used} OF ${capacity.limit}${capacity.full ? ' · FULL' : ''}`
+      : `${capacity.used} ${capacity.used === 1 ? 'PIECE' : 'PIECES'}`;
+
+  return (
+    <View className="mt-2 px-gutter">
+      <Text
+        variant="caption"
+        style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4 }}
+        className="text-faint">
+        {label}
+      </Text>
+    </View>
+  );
 }
