@@ -30,7 +30,6 @@ export function useAiConsent() {
   return useQuery({
     queryKey: ['ai-consent'],
     queryFn: async (): Promise<{
-      granted: boolean;
       version: number | null;
       /** When the current consent was recorded — "On since", "Consent recorded". */
       grantedAt: string | null;
@@ -38,7 +37,7 @@ export function useAiConsent() {
       revokedAt: string | null;
     }> => {
       const userId = await getUserId();
-      if (!userId) return { granted: false, version: null, grantedAt: null, revokedAt: null };
+      if (!userId) return { version: null, grantedAt: null, revokedAt: null };
 
       const { data, error } = await supabase
         .from('profiles')
@@ -48,14 +47,22 @@ export function useAiConsent() {
 
       if (error) throw error;
 
-      const version = data?.ai_consent_version ?? null;
       return {
-        granted: version !== null && version >= CURRENT_CONSENT_VERSION,
-        version,
+        version: data?.ai_consent_version ?? null,
         grantedAt: data?.ai_consent_at ?? null,
         revokedAt: data?.ai_consent_revoked_at ?? null,
       };
     },
+    // `granted` is derived AT READ TIME, never stored. The cache holds only
+    // the raw facts (the version the server has on record); the verdict is
+    // recomputed against CURRENT_CONSENT_VERSION on every read. A cached
+    // result written under an older bundle therefore can never claim
+    // `granted: true` after an OTA bumps the constant — the exact stale-truth
+    // window a version bump opens if the verdict travels with the data.
+    select: (data) => ({
+      ...data,
+      granted: data.version !== null && data.version >= CURRENT_CONSENT_VERSION,
+    }),
   });
 }
 

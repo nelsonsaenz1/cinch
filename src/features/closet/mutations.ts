@@ -405,7 +405,9 @@ function refusalMessage(status: number | null, body: TagResponseBody | null): st
   const detail = body?.error;
 
   if (status === 403 && detail === 'ai_consent_required') {
-    return 'AI processing is off for your account, so Cinch can’t read this piece. Turn it back on in Profile.';
+    // Also reached by a user whose consent predates a policy-version bump —
+    // they never turned anything off, so this names the fix, not a state.
+    return 'Reading this piece needs your OK on AI tagging — you can give it in Profile.';
   }
   if (status === 401 || status === 403) {
     return 'Cinch couldn’t verify your account. That one is on us — try again in a bit.';

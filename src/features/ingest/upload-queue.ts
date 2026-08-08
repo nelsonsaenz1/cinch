@@ -71,8 +71,17 @@ const MAX_TAG_ATTEMPTS = 3;
 const TAG_RETRY_DELAY_MS = 1200;
 const BUCKET = 'garments';
 
+/**
+ * The one consent-refusal sentence, written to be TRUE for both people who
+ * can receive it. `ai_consent_required` covers a user who turned tagging off
+ * AND a user whose recorded consent predates a policy-version bump (their
+ * version is non-null but below current — they never opted out, the text
+ * changed under them). "Turned off for your account" was a lie to the second
+ * group; "needs your OK in Settings" is a fact and an invitation for both,
+ * without an async profile read inside sync classification.
+ */
 const CONSENT_WITHDRAWN_MESSAGE =
-  'Saved, but not tagged — AI processing is turned off for your account.';
+  'Saved, but not tagged — AI tagging needs your OK in Settings.';
 
 /**
  * What a stopped garment is called ON SCREEN.
@@ -99,9 +108,12 @@ export function userFacingFailure(job: Pick<UploadJob, 'error'> | undefined): st
   const raw = job?.error ?? '';
 
   // The one failure a retry cannot help and the user can genuinely fix: the
-  // consent record the Edge Function checks is absent or withdrawn.
+  // consent record the Edge Function checks is absent, withdrawn, or from an
+  // older policy version. Phrased as the fix rather than a state claim —
+  // "off" was false for a version-bump user who never opted out (see
+  // CONSENT_WITHDRAWN_MESSAGE).
   if (raw === CONSENT_WITHDRAWN_MESSAGE || raw.includes('ai_consent_required')) {
-    return 'AI processing is off, so this one stayed untagged.';
+    return 'Tagging needs your OK in Settings, so this one stayed untagged.';
   }
 
   // A photograph that could not be decoded, downscaled or cut out never became

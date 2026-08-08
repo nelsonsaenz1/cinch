@@ -70,7 +70,7 @@ async function readErrorBody(error: unknown): Promise<ErrorBody | null> {
 
 /** Sentences in the app's voice, keyed by the server's stable codes. */
 const MESSAGES: Record<string, string> = {
-  ai_consent_required: 'Turn on AI features to search for a garment.',
+  ai_consent_required: 'Searching needs your OK on AI features — you can give it in Profile.',
   ai_quota_exceeded: "You've used this month's searches.",
   quota_unavailable: "Cinch couldn't check your allowance. Try again shortly.",
   plan_upgrade_required: 'Searching by description is part of Standard and Pro.',
