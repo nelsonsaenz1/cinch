@@ -304,7 +304,9 @@ export default function EventOutfitBoardScreen() {
         mine ? 'Take this look off the board?' : 'Retire this look?',
         'Its picks and comments go with it.',
         [
-          { text: 'Cancel', style: 'cancel' },
+          // Contract §3: "its keep-option is named for the thing being
+          // kept — never 'Cancel'."
+          { text: 'Keep it on the board', style: 'cancel' },
           {
             text: mine ? 'Take it off' : 'Retire',
             style: 'destructive',
@@ -344,10 +346,10 @@ export default function EventOutfitBoardScreen() {
     (look: PostedLook) => {
       const who = nameOf(look.userId) ?? 'this person';
       Alert.alert(
-        `Block ${who}`,
+        `Block ${who}?`,
         'Their looks, picks and comments leave your board — here and everywhere else in Cinch. They won’t be told.',
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: `Keep seeing ${who}`, style: 'cancel' },
           {
             text: 'Block',
             style: 'destructive',
@@ -575,6 +577,7 @@ export default function EventOutfitBoardScreen() {
         pickCount={openCommentsFor ? (votesById.get(openCommentsFor.id) ?? openCommentsFor.votes) : 0}
         isHost={detail.isHost}
         hostName={hostName}
+        memberCount={members.data?.length ?? null}
         resolveImage={resolveImage}
         nameOf={nameOf}
       />

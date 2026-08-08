@@ -107,8 +107,8 @@ export default function EventCommentsScreen() {
   const confirmDeleteComment = useCallback(
     (comment: ThreadComment) => {
       if (!eventId) return;
-      Alert.alert('Delete this comment?', undefined, [
-        { text: 'Cancel', style: 'cancel' },
+      Alert.alert('Delete this comment?', 'This can’t be undone.', [
+        { text: 'Keep it', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
@@ -211,11 +211,20 @@ export default function EventCommentsScreen() {
             </Text>
           </View>
         ) : (
-          <CommentComposer
-            replyToName={thread.replyTo?.firstName ?? null}
-            onCancelReply={() => thread.setReplyTo(null)}
-            onSend={thread.send}
-          />
+          <>
+            <CommentComposer
+              replyToName={thread.replyTo?.firstName ?? null}
+              onCancelReply={() => thread.setReplyTo(null)}
+              onSend={thread.send}
+            />
+            {/* The audience line — the last thing before typing, and it
+                names people, not a setting. */}
+            <Text variant="caption" className="px-gutter pb-3">
+              {members.data
+                ? `Only the ${members.data.length} people at this event can read this.`
+                : 'Only the people at this event can read this.'}
+            </Text>
+          </>
         )}
       </KeyboardAvoidingScreen>
 

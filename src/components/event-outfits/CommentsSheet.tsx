@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentComposer } from '@/components/event-outfits/CommentComposer';
 import { CommentRow, type ThreadComment } from '@/components/event-outfits/CommentRow';
-import { lookDescriptor, lookName, PlateTriptych } from '@/components/event-outfits/OutfitPostCard';
+import { lookName, PlateTriptych } from '@/components/event-outfits/OutfitPostCard';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -42,6 +42,7 @@ export function CommentsSheet({
   pickCount,
   isHost,
   hostName,
+  memberCount,
   resolveImage,
   nameOf,
 }: {
@@ -54,6 +55,8 @@ export function CommentsSheet({
   isHost: boolean;
   /** Who hid a comment, if any — always the host. */
   hostName: string | null;
+  /** For the audience line under the composer — "Only the five people…" */
+  memberCount: number | null;
   resolveImage: ResolveImage;
   nameOf: (userId: string) => string | null;
 }) {
@@ -95,8 +98,8 @@ export function CommentsSheet({
 
   const confirmDeleteComment = useCallback(
     (comment: ThreadComment) => {
-      Alert.alert('Delete this comment?', undefined, [
-        { text: 'Cancel', style: 'cancel' },
+      Alert.alert('Delete this comment?', 'This can’t be undone.', [
+        { text: 'Keep it', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
@@ -211,9 +214,6 @@ export function CommentsSheet({
                   />
                 ))
               )}
-              <Text variant="caption" className="mt-2">
-                Only the people at this event can read this.
-              </Text>
             </ScrollView>
           )}
 
@@ -222,6 +222,11 @@ export function CommentsSheet({
             onCancelReply={() => thread.setReplyTo(null)}
             onSend={thread.send}
           />
+          {/* The audience line — the last thing before typing, and it names
+              people, not a setting. */}
+          <Text variant="caption" className="px-gutter pb-3">
+            {memberCount ? `Only the ${memberCount} people at this event can read this.` : 'Only the people at this event can read this.'}
+          </Text>
         </KeyboardAvoidingScreen>
         {thread.termsSheet}
       </SafeAreaView>
