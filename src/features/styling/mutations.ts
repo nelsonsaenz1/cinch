@@ -194,6 +194,10 @@ export function useWearOutfit() {
       track('outfit_worn');
       void qc.invalidateQueries({ queryKey: ['wardrobe'] });
       void qc.invalidateQueries({ queryKey: ['closet'] });
+      // The Repeat reads this to know whether today's suggestion is a real
+      // repeat and, eventually, an exhausted closet — it must see a wear the
+      // moment it is logged, not on the next natural refetch.
+      void qc.invalidateQueries({ queryKey: ['worn-outfits'] });
     },
   });
 }
