@@ -20,8 +20,22 @@ export type Plan = 'free' | 'standard' | 'pro';
 
 export interface PlanCopy {
   readonly name: string;
-  /** Closet size. Mirrors item_limit_for_plan(). */
+  /**
+   * The ACTIVE closet — what Cinch styles from and what the grid shows.
+   * Archived pieces are excluded. Mirrors item_limit_for_plan().
+   */
   readonly items: number;
+  /**
+   * Every row the account holds, stored pieces included. Mirrors
+   * item_total_limit_for_plan().
+   *
+   * Two numbers rather than one because storing a piece has to genuinely make
+   * room — a closet whose only exit is payment is the failure The Wall was
+   * designed to avoid — while "archive everything" must not become unlimited
+   * free storage. Three times the active limit is the compromise: curating ten
+   * out of a real wardrobe works, holding a thousand does not.
+   */
+  readonly storedItems: number;
   /**
    * What the UI promises for outfit suggestions. Deliberately BELOW the server
    * ceiling — the server keeps slack so a failed provider call does not spend a
@@ -47,6 +61,7 @@ export const PLANS: Record<Plan, PlanCopy> = {
   free: {
     name: 'Free',
     items: 10,
+    storedItems: 30,
     outfits: 'A few each week',
     stylist: 'Not included',
     eventHosting: 2,
@@ -55,6 +70,7 @@ export const PLANS: Record<Plan, PlanCopy> = {
   standard: {
     name: 'Standard',
     items: 150,
+    storedItems: 450,
     outfits: 'A fresh outfit every day',
     stylist: '30 messages a month',
     eventHosting: 15,
@@ -63,6 +79,7 @@ export const PLANS: Record<Plan, PlanCopy> = {
   pro: {
     name: 'Pro',
     items: 1000,
+    storedItems: 3000,
     outfits: 'Unlimited',
     stylist: 'Unlimited',
     eventHosting: 100,

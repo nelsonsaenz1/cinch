@@ -13,15 +13,26 @@ type ItemRow = Database['public']['Tables']['items']['Row'];
  *
  * ── What storage costs, said plainly ──────────────────────────────────────
  *
- * A stored piece STILL SPENDS A CLOSET SLOT. `enforce_item_limit`
- * (migrations/20260805160000:271) runs `select count(*) from items where
- * user_id = $1` with no archive filter, and the comment above it says why in
- * so many words: excluding archived rows would make "archive everything" an
- * unlimited free closet. `useCapacity` already mirrors that count exactly, so
- * moving thirty pieces to storage moves the "24 of 30" figure by nothing.
- * Nowhere in this feature — not the screen copy, not a hook name, not a toast —
- * may imply otherwise. The user is trading grid clutter for nothing but grid
- * clutter, and that is a fair trade only if they are told it is the trade.
+ * A stored piece FREES AN ACTIVE SLOT and still occupies a stored one.
+ *
+ * This reverses what this file said until 2026-08-08, and the reversal is the
+ * point. `enforce_item_limit` used to count every row with no archive filter,
+ * so storing a piece moved the capacity figure by nothing and the user traded
+ * grid clutter for grid clutter. That made The Wall's "make room" exit
+ * impossible: past ten, the only way forward was payment, which is the failure
+ * the design set out to avoid.
+ *
+ * Migration 20260808170000 splits the ceiling in two. The ACTIVE limit counts
+ * unarchived rows — what Cinch styles from — and storing lowers it, so making
+ * room genuinely works. The TOTAL limit counts everything and is what now stops
+ * "archive everything" becoming an unlimited free closet; it sits at three
+ * times the active limit. `useCapacity` returns both, and `storageFull` is the
+ * state where storing another piece does not help.
+ *
+ * What has NOT changed: nothing here may imply a photograph, a wear record or a
+ * cost figure is lost. Storing is reversible, restoring is refused only when
+ * the active closet is full (there is a second trigger for that), and delete
+ * remains a separate, explicit act.
  *
  * ── Why a Storage SCREEN, and not just an archive action ──────────────────
  *
