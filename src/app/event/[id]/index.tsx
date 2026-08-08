@@ -380,7 +380,18 @@ export default function EventDetailScreen() {
     }
   };
 
-  const goPost = () => router.push({ pathname: '/event/[id]/post', params: { id: event.id } });
+  /**
+   * `edit` is what separates the atlas's two paths. "Swapping a piece edits in
+   * place and keeps the picks, because the look is the same look. Replacing
+   * every piece is a new post, and says so." Without the param both buttons
+   * opened the same blank compose flow, so swapping one garment silently threw
+   * away the votes and the comment thread the look had already earned.
+   */
+  const goPost = (editPostId?: string) =>
+    router.push({
+      pathname: '/event/[id]/post',
+      params: editPostId ? { id: event.id, edit: editPostId } : { id: event.id },
+    });
   const goComments = (postId?: string) =>
     router.push({
       pathname: '/event/[id]/comments',
@@ -479,7 +490,7 @@ export default function EventDetailScreen() {
               <StatePill label="Going" />
             ) : event.myState === 'invited' ? (
               <>
-                {/* The one accent on this screen for an invitee: she has
+                {/* The one accent on this screen for an invitee: they have
                     exactly one thing to do here, and this is it. */}
                 <Button
                   title="Join"
@@ -557,8 +568,8 @@ export default function EventDetailScreen() {
                     leading={myLeading}
                     resolveImage={resolve}
                     locked={locked || Boolean(event.canceledAt)}
-                    onSwap={goPost}
-                    onShare={goPost}
+                    onSwap={() => goPost(myLeading?.id)}
+                    onShare={() => goPost()}
                   />
                 </View>
 

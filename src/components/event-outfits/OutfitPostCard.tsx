@@ -18,6 +18,7 @@ import { LookPlate } from '@/components/look/look-plate';
 import { Text } from '@/components/ui/text';
 import { joinWithAnd, type PickLine } from '@/features/event-outfits/board-logic';
 import { boardLeader, type AttendeeBoard, type PostedLook } from '@/features/event-outfits/types';
+import { lookDescriptor, lookName } from '@/features/events/look-copy';
 import type { Garment } from '@/lib/styling';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -34,31 +35,18 @@ type ResolveImage = (...paths: (string | null | undefined)[]) => string | undefi
  * are the values the engine actually scored — honest, like every printed
  * number in the app.
  */
-export function lookName(garments: Garment[], caption: string | null): string {
-  if (caption) return caption;
-  const names: string[] = [];
-  for (const g of [...garments].sort((a, b) => b.visualWeight - a.visualWeight)) {
-    const n = g.colors[0]?.name;
-    if (!n) continue;
-    const cased = n.charAt(0).toUpperCase() + n.slice(1);
-    if (!names.includes(cased)) names.push(cased);
-    if (names.length === 2) break;
-  }
-  return names.length ? names.join(' & ') : 'A look';
-}
-
-/** "Navy overshirt, tan boots" — the one-line muted descriptor under a card. */
-export function lookDescriptor(garments: Garment[]): string {
-  return [...garments]
-    .sort((a, b) => b.visualWeight - a.visualWeight)
-    .slice(0, 2)
-    .map((g) => {
-      const colour = g.colors[0]?.name;
-      const piece = g.subcategory ?? g.category;
-      return colour ? `${colour} ${piece}` : piece;
-    })
-    .join(', ');
-}
+/**
+ * A look's title and its one-line descriptor.
+ *
+ * Re-exported, not defined. An identical copy of both lived here and in
+ * `features/events/look-copy.ts` after two units built the same thing — the
+ * board, the comments header and the comments sheet read this one, the event
+ * page read that one, and nothing forced them to agree. They happened to be
+ * identical on the day they merged, which is the most dangerous version of
+ * this bug: the drift would have shown up later as one look carrying two
+ * different names depending on which screen you opened it from.
+ */
+export { lookDescriptor, lookName } from '@/features/events/look-copy';
 
 /** The look's three key pieces, heaviest first — what the triptych prints. */
 export function keyPieces(garments: Garment[], count = 3): Garment[] {
@@ -362,7 +350,13 @@ export function OutfitPostCard({
   return (
     <View
       className="overflow-hidden rounded-plate bg-surface"
-      style={{ borderWidth: 1, borderColor: cardBorder }}>
+      style={{ borderWidth: 1, borderColor: cardBorder }}
+      // The label was computed and never attached, so the card announced its
+      // children one by one and never said whose look it was — the single fact
+      // the atlas insists comes before the clothes ("the person is named before
+      // the clothes so a vote is never cast blind").
+      accessible
+      accessibilityLabel={a11y}>
       <View style={{ position: 'relative' }}>
         <LookPlate pieces={look.garments} width={width} resolveImage={resolveImage} padding={0} />
         {badge ? <LeaderBadge label={badge === 'favourite' ? 'The favourite' : 'Ahead'} /> : null}
@@ -515,7 +509,7 @@ export function YourLookCard({
   onSwap,
   onShare,
 }: {
-  /** The viewer's pick-leading look, or null when she has shared nothing. */
+  /** The viewer's pick-leading look, or null when they have shared nothing. */
   leading: PostedLook | null;
   resolveImage: ResolveImage;
   /** Board locked (the evening started): the card is a record, not a control. */
@@ -650,7 +644,7 @@ function anchorOf(look: PostedLook): Garment | null {
  * Computed, never authored. The convergence is the hue FAMILY of each
  * attendee's leading look's heaviest garment — family, not colour name, so
  * "ecru" and "cream" count as the same room — and the colour it names is the
- * commonest name inside that family. The viewer's difference is her own
+ * commonest name inside that family. The viewer's difference is their own
  * heaviest piece outside it.
  *
  * Returns null whenever there is nothing true to say: fewer than two boards,

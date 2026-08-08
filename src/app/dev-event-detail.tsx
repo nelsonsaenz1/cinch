@@ -135,7 +135,7 @@ function Frame({ title, children }: { title: string; children: React.ReactNode }
 const STATES = [
   { id: 'E-01', name: 'Host — masthead + RSVP row' },
   { id: 'E-02', name: 'Venue, Every option, Table talk, guests, destructive' },
-  { id: 'E-03', name: 'Invited — coarse until she joins' },
+  { id: 'E-03', name: 'Invited — coarse until they join' },
   { id: 'E-04', name: 'Going — the guest’s foot' },
   { id: 'E-05', name: 'Canceled' },
   { id: 'E-06', name: 'Your look — the three states' },
@@ -247,7 +247,7 @@ function DevEventDetailInner() {
         ) : null}
 
         {active === 'E-03' ? (
-          <Frame title="E-03 · Invited — coarse until she joins">
+          <Frame title="E-03 · Invited — coarse until they join">
             <Text variant="title" trim>
               Dana’s birthday dinner
             </Text>

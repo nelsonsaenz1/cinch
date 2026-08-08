@@ -251,10 +251,10 @@ export function useEventMembers(eventId: string): UseQueryResult<EventMember[]> 
  * list's product rule: "a decline is silent, and the surest way to never
  * render one is to never hold one"). The invite sheet is the opposite
  * surface: its whole job is deciding who to (re)invite, which means it has to
- * know who already said no in order to offer her a deliberate second ask
- * (IF-02/IF-04 — "selectable again, once, with the reason stated on her
- * row"). `removed` stays excluded: a host who removed someone may invite her
- * again exactly as if she had never been asked.
+ * know who already said no in order to offer them a deliberate second ask
+ * (IF-02/IF-04 — "selectable again, once, with the reason stated on their
+ * row"). `removed` stays excluded: a host who removed someone may invite them
+ * again exactly as if they had never been asked.
  */
 export function useEventInviteRoster(eventId: string) {
   return useQuery({

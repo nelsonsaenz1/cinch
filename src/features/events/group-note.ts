@@ -5,7 +5,7 @@
  * attendee's leading look's heaviest garment — family, not colour name, so
  * "ecru" and "cream" count as the same room — and the colour it names is the
  * commonest name inside that family. The viewer's own difference is read off
- * her own heaviest piece outside that family.
+ * their own heaviest piece outside that family.
  *
  * Three sentences for three situations — you're in the set, you're the
  * exception, you haven't picked — and silence for the fourth: fewer than two

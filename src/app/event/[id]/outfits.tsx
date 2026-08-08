@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentsSheet } from '@/components/event-outfits/CommentsSheet';
 import { lookName, OutfitPostCard } from '@/components/event-outfits/OutfitPostCard';
+import { ConfirmSheet } from '@/components/events/ConfirmSheet';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 // Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
@@ -181,17 +182,37 @@ export default function EventOutfitBoardScreen() {
     [displayLooks],
   );
 
-  // The board's one crown — sticky through a tie (board-logic.ts). The ref
-  // carries the previous answer across renders; a fresh mount starts blank,
-  // which is honest (nothing was watched climbing yet).
-  const crownRef = useRef<string | null>(null);
-  const crownId = useMemo(() => {
+  /**
+   * The board's one crown — sticky through a tie (board-logic.ts).
+   *
+   * The tie rule needs the PREVIOUS crown to decide the next one ("a tie holds
+   * the crown where it was"), which makes this derived-from-history rather than
+   * derived-from-props, and neither of the obvious shapes is correct. A ref read
+   * inside `useMemo` is a ref read during render: untracked, so the crown can be
+   * computed from a stale value and disagree with what is on screen — on the one
+   * rule that exists to stop the crown moving when it should not. Recomputing in
+   * an effect instead paints the old crown for a frame and trips
+   * `set-state-in-effect`.
+   *
+   * So it adjusts during render, which is the pattern React documents for state
+   * that depends on its own previous value: compare a key, and if it changed,
+   * set the new state before returning. React re-renders immediately without
+   * committing the intermediate paint, so nothing flickers and nothing is stale.
+   */
+  const tallyKey = useMemo(
+    () => displayLooks.map((l) => `${l.id}:${l.votes}`).join('|'),
+    [displayLooks],
+  );
+  const [crownState, setCrownState] = useState<{ key: string; id: string | null }>({
+    key: '',
+    id: null,
+  });
+  let crownId = crownState.id;
+  if (crownState.key !== tallyKey) {
     const tallies: LookTally[] = displayLooks.map((l) => ({ id: l.id, votes: l.votes }));
-    return favouriteId(tallies, crownRef.current);
-  }, [displayLooks]);
-  useEffect(() => {
-    crownRef.current = crownId;
-  }, [crownId]);
+    crownId = favouriteId(tallies, crownState.id);
+    setCrownState({ key: tallyKey, id: crownId });
+  }
 
   const badgeFor = useCallback(
     (look: PostedLook): 'ahead' | 'favourite' | null =>
@@ -297,31 +318,31 @@ export default function EventOutfitBoardScreen() {
     );
   }, [moveToast, eventId, currentPickId, castVote]);
 
-  const confirmDelete = useCallback(
-    (look: PostedLook) => {
-      if (!eventId) return;
-      const mine = look.userId === me;
-      Alert.alert(
-        mine ? 'Take this look off the board?' : 'Retire this look?',
-        'Its picks and comments go with it.',
-        [
-          // Contract §3: "its keep-option is named for the thing being
-          // kept — never 'Cancel'."
-          { text: 'Keep it on the board', style: 'cancel' },
-          {
-            text: mine ? 'Take it off' : 'Retire',
-            style: 'destructive',
-            onPress: () =>
-              deletePost.mutate(
-                { eventId, postId: look.id },
-                { onError: (error) => Alert.alert('That didn’t work', socialErrorMessage(error)) },
-              ),
-          },
-        ],
-      );
-    },
-    [eventId, deletePost, me],
-  );
+  /**
+   * Taking a look off the board, in the sheet the rest of the feature uses.
+   *
+   * This was a native `Alert.alert`. Event detail's three confirmations (E-09)
+   * are the app's own sheet, and Share a Look built a third treatment for the
+   * same act — three ways of asking the same question inside one feature, which
+   * is the failure no single worktree can see. The sheet wins: it is the one
+   * the atlas draws, and an OS alert cannot carry the keep-option naming rule.
+   */
+  const [pendingDelete, setPendingDelete] = useState<PostedLook | null>(null);
+  const confirmDelete = useCallback((look: PostedLook) => setPendingDelete(look), []);
+
+  const runDelete = useCallback(() => {
+    if (!eventId || !pendingDelete) return;
+    deletePost.mutate(
+      { eventId, postId: pendingDelete.id },
+      {
+        onSuccess: () => setPendingDelete(null),
+        onError: (error) => {
+          setPendingDelete(null);
+          Alert.alert('That didn\u2019t work', socialErrorMessage(error));
+        },
+      },
+    );
+  }, [eventId, deletePost, pendingDelete]);
 
   const reportLook = useCallback(
     (look: PostedLook) => {
@@ -612,6 +633,23 @@ export default function EventOutfitBoardScreen() {
       ) : null}
 
       {terms.sheet}
+
+      <ConfirmSheet
+        visible={pendingDelete !== null}
+        title={
+          pendingDelete && pendingDelete.userId === me
+            ? 'Take this look off the board?'
+            : 'Retire this look?'
+        }
+        body="Its picks and comments go with it. The pieces stay in your closet."
+        keepLabel="Keep it on the board"
+        destructiveLabel={
+          pendingDelete && pendingDelete.userId === me ? 'Take it off' : 'Retire'
+        }
+        destructiveBusy={deletePost.isPending}
+        onKeep={() => setPendingDelete(null)}
+        onConfirm={runDelete}
+      />
     </SafeAreaView>
   );
 }

@@ -36,9 +36,9 @@ export interface InviteRow {
    *  a checkbox instead. Never both — "a word or a checkbox, never both". */
   standing: 'Hosting' | 'Going' | 'Still deciding' | "Can't make it" | null;
   /** True when the row ends in a checkbox: a plain friend, or someone who
-   *  declined (re-invitable once, the decline stated on her own row). */
+   *  declined (re-invitable once, the decline stated on their own row). */
   selectable: boolean;
-  /** True once this person already has a roster row of any kind — she
+  /** True once this person already has a roster row of any kind — they
    *  belongs in "Already invited", not "Your friends". */
   alreadyInvited: boolean;
 }
@@ -50,7 +50,7 @@ const STANDING: Record<InviteRosterState, InviteRow['standing']> = {
   declined: "Can't make it",
 };
 
-/** One friend + her roster row (if any) → the row the sheet draws for her. */
+/** One friend + their roster row (if any) → the row the sheet draws for them. */
 export function inviteRowFor(friend: InviteFriend, roster: InviteRosterEntry | undefined): InviteRow {
   if (!roster) {
     return { ...friend, standing: null, selectable: true, alreadyInvited: false };

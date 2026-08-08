@@ -91,7 +91,7 @@ export function PiecePicker({
  * one garment is a piece, not a look. Kept separate from the wizard's header
  * `Next` (which advances the same step) because the atlas draws both: the
  * header is the step-nav grammar every screen in the flow shares, and this
- * tray is S-01's own — the one place a poster can see the stack she is
+ * tray is S-01's own — the one place a poster can see the stack they are
  * building without leaving the grid.
  */
 export function PickerFooterTray({

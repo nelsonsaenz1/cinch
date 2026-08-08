@@ -43,7 +43,7 @@ export function YourLookCard({
   onSwap,
   onShare,
 }: {
-  /** The viewer's pick-leading look, or null when she has shared nothing. */
+  /** The viewer's pick-leading look, or null when they have shared nothing. */
   leading: YourLookLeading | null;
   resolveImage: ResolveImage;
   /** Board locked — the card is a record, not a control. */
