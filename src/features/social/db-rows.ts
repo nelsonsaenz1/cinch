@@ -9,13 +9,26 @@ export type EventMemberState = 'invited' | 'joined' | 'declined' | 'removed';
 export type BorrowStatus = 'pending' | 'approved' | 'declined' | 'canceled' | 'returned';
 export type ReportSubject = 'profile' | 'item' | 'outfit_post' | 'comment' | 'event';
 
+/**
+ * The jsonb bag on `events.venue_meta` — a place-search payload, not a
+ * managed entity (Migration B, 20260807101000). Typed as an open record
+ * rather than the `{ latitude, longitude, source }` the place field writes:
+ * the column has held whatever any writer put there since the day it was
+ * created, and a row read today may predate that shape or come from a client
+ * two versions behind. So the type promises only "some JSON object", and
+ * `parseVenueMeta` in features/events/types.ts is what turns it into
+ * coordinates or into null — never a cast.
+ */
+export type EventVenueMetaRow = Record<string, unknown>;
+
 export interface EventRow {
   id: string; host_id: string; title: string; note: string | null;
   occasion: string | null; dress_code: string | null;
-  starts_at: string; ends_at: string | null; party_size: number | null;
+  /** Null since 20260808130000 — an occasion may be named and not yet dated. */
+  starts_at: string | null; ends_at: string | null; party_size: number | null;
   visibility: EventVisibility;
   venue_name: string | null; venue_address: string | null;
-  venue_meta: unknown | null; reservation_url: string | null;
+  venue_meta: EventVenueMetaRow | null; reservation_url: string | null;
   canceled_at: string | null; created_at: string; updated_at: string;
 }
 

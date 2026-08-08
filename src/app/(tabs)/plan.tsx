@@ -373,7 +373,10 @@ export default function PlanScreen() {
   };
 
   /** The event day's forecast, when the day is inside the week window. */
-  const weatherFor = (startsAt: Date) => {
+  // An occasion with no date has no day to read a forecast for — the card
+  // prints no weather clause at all rather than borrowing today's.
+  const weatherFor = (startsAt: Date | null) => {
+    if (!startsAt) return null;
     const i = daysFromToday(startsAt);
     return i >= 0 && i < WEEK_DAYS ? (weekForecast.data?.[i] ?? null) : null;
   };

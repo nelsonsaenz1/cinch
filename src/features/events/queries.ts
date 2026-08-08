@@ -37,7 +37,7 @@ type SocialQuery = PromiseLike<SocialResult> & {
   is(column: string, value: null): SocialQuery;
   gte(column: string, value: unknown): SocialQuery;
   or(filters: string): SocialQuery;
-  order(column: string, options?: { ascending?: boolean }): SocialQuery;
+  order(column: string, options?: { ascending?: boolean; nullsFirst?: boolean }): SocialQuery;
   limit(count: number): SocialQuery;
   maybeSingle(): SocialQuery;
   single(): SocialQuery;
@@ -85,11 +85,22 @@ async function fetchUpcomingEvents(): Promise<EventSummary[]> {
   // and a multi-day trip that started yesterday is still on until it ends.
   const today = dateKey(new Date());
 
+  // `starts_at.is.null` is the third arm because a dateless occasion has no
+  // date to compare and would otherwise be filtered out of the only list it
+  // appears in — an occasion the host created and then could not find. It
+  // cannot be in the past either, so "upcoming" is the honest bucket for it.
+  //
+  // Sorted soonest first with the dateless ones LAST. Ascending order puts
+  // NULLs last in Postgres anyway; `nullsFirst: false` is spelled out because
+  // this is a product decision, not a default worth inheriting — a list that
+  // opened with every undated occasion would bury the thing happening
+  // tonight, and the day someone flips this sort to descending, the default
+  // would quietly do exactly that.
   const { data, error } = await socialFrom('events')
     .select('*, event_members(user_id, role, state)')
     .is('canceled_at', null)
-    .or(`starts_at.gte.${today},ends_at.gte.${today}`)
-    .order('starts_at', { ascending: true });
+    .or(`starts_at.gte.${today},ends_at.gte.${today},starts_at.is.null`)
+    .order('starts_at', { ascending: true, nullsFirst: false });
   if (error) throw error;
 
   const rows = (data ?? []) as EventWithMembersRow[];

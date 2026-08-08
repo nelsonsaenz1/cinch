@@ -498,10 +498,24 @@ export function YourLookCard({
           ) : null}
         </>
       ) : (
-        <Text variant="callout" className="mt-3 text-muted">
-          Nothing shared yet — pick a look from your closet and let the table
-          weigh in.
-        </Text>
+        // N-09's empty card: a serif line, a sentence, and one thing to do.
+        //
+        // The atlas writes that sentence as "Cinch can pull three from your
+        // closet that read cocktail and hold up outdoors at 75°." It does not
+        // ship, and the reason is not effort: picking a look for an occasion
+        // is choosing from outfits already saved (see `./post`), with no
+        // ranking by dress code and no reading of the venue's weather. A card
+        // that offers to do both would be the app promising a feature the
+        // button underneath cannot deliver. The geometry is the atlas's; the
+        // claim is the one the app can actually keep.
+        <>
+          <Text variant="plate" className="mt-3">
+            Nothing picked yet
+          </Text>
+          <Text variant="callout" className="mt-2 text-muted">
+            Pick a look from your closet and let the table weigh in.
+          </Text>
+        </>
       )}
 
       {!locked ? (
@@ -510,7 +524,7 @@ export function YourLookCard({
             <Button title="Swap a piece" variant="secondary" haptic onPress={onSwap} className="flex-1" />
           ) : null}
           <Button
-            title={leading ? 'Share another' : 'Share with group'}
+            title={leading ? 'Share another' : 'Pick a look'}
             variant="secondary"
             haptic
             onPress={onShare}

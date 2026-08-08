@@ -13,6 +13,8 @@
 --   * the host rewriting a member's words instead of flipping `hidden`
 --     (the column-level grant is the fence);
 --   * the definer-view write hole reopening on ANY projection view;
+--   * a dateless occasion dropping out of the hosting cap, which would make
+--     the free tier unlimited for anyone who skipped the date;
 --   * anon acquiring any privilege on the feature's tables or views.
 --
 -- Seeds that cross RLS run as the acting user on purpose: the write paths
@@ -23,7 +25,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(28);
+select plan(31);
 
 -- ---------------------------------------------------------------------------
 -- Seed people. Helen hosts; Maria and Nina attend; Ida stays invited;
@@ -438,6 +440,51 @@ select is(
     where id = 'e5e5e5e5-e5e5-4e5e-8e5e-e5e5e5e5e5e5'),
   1::bigint,
   'the auto-hidden comment remains visible to its author'
+);
+
+-- ---------------------------------------------------------------------------
+-- The dateless occasion (20260808130000). A name alone creates one, so an
+-- event with no `starts_at` has to be storable, visible to the person whose
+-- event it is, and — the one that actually costs money if it slips — still
+-- counted by `enforce_event_limit()`. An undated occasion has no expiry to
+-- compare against, and a cap that skipped it would be no cap at all.
+--
+-- Sasha hosts these. She owns no events above, so the free tier's two slots
+-- are filled by exactly the two rows below and the third insert is the probe.
+-- ---------------------------------------------------------------------------
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}',
+  true
+);
+
+select lives_ok(
+  $$insert into events (id, host_id, title, starts_at)
+    values ('7a7a7a7a-7a7a-4a7a-8a7a-7a7a7a7a7a7a',
+            '55555555-5555-4555-8555-555555555555',
+            'Sam''s birthday', null)$$,
+  'an occasion with no date is storable — the atlas''s thinnest event'
+);
+
+select is(
+  (select count(*) from events where id = '7a7a7a7a-7a7a-4a7a-8a7a-7a7a7a7a7a7a'),
+  1::bigint,
+  'a dateless occasion is visible to its host'
+);
+
+-- The second fills Sasha's free tier; the third has to meet the trigger.
+insert into events (id, host_id, title, starts_at)
+values ('8b8b8b8b-8b8b-4b8b-8b8b-8b8b8b8b8b8b',
+        '55555555-5555-4555-8555-555555555555',
+        'Housewarming, date to come', null);
+
+select throws_ok(
+  $$insert into events (host_id, title, starts_at)
+    values ('55555555-5555-4555-8555-555555555555', 'A third, still undated', null)$$,
+  '23514',
+  null,
+  'a dateless occasion counts against the hosting limit — undated is not expired'
 );
 
 reset role;

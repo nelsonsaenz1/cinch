@@ -10,7 +10,16 @@ import {
   YourLookCard,
   groupStyleNote,
 } from '@/components/event-outfits/OutfitPostCard';
-import { weatherLineFor } from '@/components/events/EventCard';
+import {
+  daysFromToday,
+  isSameDay,
+  timeLabel,
+  weatherLineFor,
+  whenLabel,
+} from '@/components/events/EventCard';
+import { DateSheet } from '@/components/events/date-sheet';
+import { PlaceSheet } from '@/components/events/place-sheet';
+import { DEFAULT_TIME_MINUTES, TimeSheet } from '@/components/events/time-sheet';
 import { RosterRow } from '@/components/events/RosterRow';
 import { VenueCard } from '@/components/events/VenueCard';
 import { Button } from '@/components/ui/button';
@@ -18,6 +27,8 @@ import { Button } from '@/components/ui/button';
 // `ErrorState` the title/body/retry sibling of `EmptyState`.
 import { ErrorState } from '@/components/ui/error-state';
 import { Card } from '@/components/ui/card';
+import { Chip } from '@/components/ui/chip';
+import { Rule } from '@/components/ui/rule';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,7 +45,9 @@ import {
   useLeaveEvent,
   useRemoveMember,
   useRespondToInvite,
+  useUpdateEvent,
 } from '@/features/events/mutations';
+import { useOccasionWeather } from '@/features/events/occasion-weather';
 import { useEvent, useEventMembers } from '@/features/events/queries';
 import { useEventChannel } from '@/features/events/use-event-channel';
 import type { EventDetail } from '@/features/events/types';
@@ -43,27 +56,22 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 /** Open-Meteo's free forecast horizon; past it the metadata simply omits weather. */
 const FORECAST_DAYS = 16;
 
-/** Whole days between today and `d`, in the user's own calendar. */
-function daysFromToday(d: Date): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const day = new Date(d);
-  day.setHours(0, 0, 0, 0);
-  return Math.round((day.getTime() - today.getTime()) / 86_400_000);
-}
-
-/** "Fri, Aug 8, 7:30 PM" — or the span for a multi-day occasion. */
-function whenLine(event: EventDetail): string {
-  const dayOf = (d: Date) =>
-    d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  const multiDay = event.endsAt && daysFromToday(event.endsAt) !== daysFromToday(event.startsAt);
-  if (multiDay) return `${dayOf(event.startsAt)} – ${dayOf(event.endsAt!)}`;
-
-  const time = event.startsAt.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-  return `${dayOf(event.startsAt)}, ${time}`;
+/**
+ * "Sat 9 Aug · 4:00pm" — the atlas's metadata register (N-09).
+ *
+ * Composed from `EventCard`'s own two helpers rather than formatted again
+ * here: the card and the page it opens are the same occasion, and the app used
+ * to print "Fri, Aug 8, 7:30 PM" on one and "Fri 8 Aug · 7:30pm" on the other.
+ * A multi-day occasion has no single time to print, which `timeLabel` already
+ * knows; an undated one prints "No date yet" and nothing after it.
+ */
+function whenLine(event: EventDetail): string | null {
+  // An undated occasion says so in the N-10 block below, in a full sentence
+  // that offers to fix it — so the metadata line stays quiet rather than
+  // printing "No date yet" immediately above the same words.
+  if (!event.startsAt) return null;
+  const time = isSameDay(event.startsAt, event.endsAt) ? timeLabel(event.startsAt) : null;
+  return [whenLabel(event.startsAt, event.endsAt), time].filter(Boolean).join(' · ');
 }
 
 /**
@@ -185,6 +193,7 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const session = useSession();
+  const theme = useTheme();
   const me = session.userId;
 
   const eventQuery = useEvent(id ?? null);
@@ -194,6 +203,14 @@ export default function EventDetailScreen() {
   const leave = useLeaveEvent();
   const cancel = useCancelEvent();
   const removeMember = useRemoveMember();
+  // N-10's two chips write straight through this — the mutation has existed
+  // since the events slice shipped and has never had a call site, because
+  // until now there was no way for an occasion to be missing anything.
+  const update = useUpdateEvent();
+
+  const [dateSheet, setDateSheet] = useState(false);
+  const [timeSheet, setTimeSheet] = useState(false);
+  const [placeSheet, setPlaceSheet] = useState(false);
 
   // Live votes/comments for the board now composed onto this page (build
   // plan §2) — the channel exists the moment the event page is open.
@@ -209,10 +226,16 @@ export default function EventDetailScreen() {
   const posts = useEventPosts(boardEventId);
   const comments = useEventComments(boardEventId);
 
-  // Display-only weather for the metadata line, from the app's existing
-  // forecast source at the USER's coordinates — an honest stand-in while the
-  // venue has no coordinates of its own. TODO(SOCIAL-VENUE): when venue
-  // search lands, venue_meta carries coords and this fetch should use them.
+  // Display-only weather for the metadata line, read at the VENUE's own
+  // coordinates when the place was resolved through the gazetteer — the
+  // forecast an occasion in Denver deserves, rather than the phone's.
+  const venueWeather = useOccasionWeather(event?.startsAt ?? null, event?.venueMeta ?? null);
+
+  // The fallback, for every occasion created before `venue_meta` was ever
+  // written: the user's own coordinates, which is what this page has always
+  // shown. Disabled the moment the venue has coordinates of its own, so the
+  // two never race — and an occasion with a resolved place somewhere else
+  // never quietly falls back to the weather where the reader is standing.
   const { coords } = useStyleContext();
   const dayIndex = event ? daysFromToday(event.startsAt) : -1;
   const forecast = useQuery({
@@ -222,12 +245,14 @@ export default function EventDetailScreen() {
       coords.longitude.toFixed(2),
       FORECAST_DAYS,
     ],
-    enabled: isMember && dayIndex >= 0 && dayIndex < FORECAST_DAYS,
+    enabled:
+      isMember && !event?.venueMeta && dayIndex >= 0 && dayIndex < FORECAST_DAYS,
     staleTime: 30 * 60_000,
     queryFn: ({ signal }) =>
       fetchForecast(coords.latitude, coords.longitude, FORECAST_DAYS, signal),
   });
-  const weather = dayIndex >= 0 ? (forecast.data?.[dayIndex] ?? null) : null;
+  const weather =
+    venueWeather ?? (!event?.venueMeta && dayIndex >= 0 ? (forecast.data?.[dayIndex] ?? null) : null);
 
   const roster = useMemo(() => members.data ?? [], [members.data]);
   const boards = useMemo(() => posts.data?.boards ?? [], [posts.data]);
@@ -317,26 +342,19 @@ export default function EventDetailScreen() {
   // §7.1, enforced at the surface: coarse before joined, precise after. RLS
   // hands an invitee the full row (she needs the date to decide), but venue,
   // time and logistics stay off her screen until she is on the list.
+  //
+  // Weather is no longer a third clause here: N-09 sets it on its own quieter
+  // line beneath, so the metadata reads as one fact about the occasion and the
+  // forecast reads as the app's own remark about it.
   const metadata = isMember
-    ? [
-        whenLine(event),
-        event.venueName ?? event.venueAddress,
-        weather ? weatherLineFor(weather) : null,
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : event.startsAt.toLocaleDateString(undefined, {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-      });
+    ? [whenLine(event), event.venueName ?? event.venueAddress].filter(Boolean).join(' · ')
+    : (whenLine(event) ?? '');
 
+  // The dress code moved up to the eyebrow (N-09), so what is left down here
+  // is the two columns the form no longer collects — printed for the occasions
+  // that already carry them, and simply absent on everything created since.
   const colophonBits = isMember
-    ? [
-        event.occasion,
-        event.partySize ? `table for ${event.partySize}` : null,
-        event.dressCode,
-      ].filter(Boolean)
+    ? [event.occasion, event.partySize ? `table for ${event.partySize}` : null].filter(Boolean)
     : [];
 
   const confirmLeave = () =>
@@ -388,7 +406,9 @@ export default function EventDetailScreen() {
       params: postId ? { id: event.id, post: postId } : { id: event.id },
     });
 
-  const locked = openedAt >= event.startsAt.getTime();
+  // An undated occasion never locks: the evening the tallies would freeze at
+  // has not been chosen yet.
+  const locked = event.startsAt ? openedAt >= event.startsAt.getTime() : false;
 
   /**
    * Venue, reservation link and the map affordance — logistics, printed once
@@ -413,21 +433,74 @@ export default function EventDetailScreen() {
       {backRow}
 
       <ScrollView contentContainerClassName="px-gutter pb-16" showsVerticalScrollIndicator={false}>
-        {/* 28px, not the 40px display: the guide sets 27 here, and a long
-            title at display size crowds the metadata line off its own page. */}
+        {/* N-09's masthead: the dress code as the eyebrow, the name as the
+            page's hero. `display` (40) rather than the atlas's 36 — the scale
+            has no 36, and the atlas itself draws 32 on the thin occasion, so
+            what is being asked for is the step up from `title`, not a new one.
+            Margins live on the wrapper and the sibling: `trim` carries
+            negative margins and a stacked `mt-*` cancels against them. */}
         <View className="mt-5">
-          <Text variant="title" trim>
+          {isMember && event.dressCode ? (
+            <View className="mb-2">
+              {/* The screen's one oxblood. An invitee never reaches this branch
+                  — §7.1 keeps the dress code off her page until she joins — so
+                  it can never collide with the accent on her Join button. */}
+              <Text variant="eyebrow" style={{ color: theme.accent }}>
+                {event.dressCode}
+              </Text>
+            </View>
+          ) : null}
+          <Text variant="display" trim>
             {event.title}
           </Text>
         </View>
 
-        <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+        <Text variant="body" className="mt-4" style={{ color: theme.muted }}>
           {metadata}
         </Text>
+        {weather ? (
+          <Text variant="note" className="mt-1.5">
+            {weatherLineFor(weather)}
+          </Text>
+        ) : null}
         {colophonBits.length > 0 ? (
           <Text variant="colophon" className="mt-2">
             {colophonBits.join(' · ')}
           </Text>
+        ) : null}
+
+        {/* The note becomes a plate (N-09) — the first time this column has
+            ever been rendered. Shown to everyone on the roster, invitees
+            included: it is the host's message to the group, and N-11 says so
+            plainly ("shown to everyone invited"). */}
+        {event.note && (isMember || event.myState === 'invited') ? (
+          <View className="mt-4 rounded-lg border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
+            <Text variant="body" style={{ color: theme.muted }}>
+              {event.note}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* N-10, the thinnest occasion: a name is enough to create one, so the
+            page has to be honest about a nearly empty event. The missing
+            pieces become two quiet chips — not an error, and not a checklist
+            with a progress bar. Everyone on the roster reads the sentence;
+            only the host can act on it. */}
+        {!event.startsAt && !event.canceledAt ? (
+          <View className="mt-4">
+            <Text variant="body" style={{ color: theme.muted }}>
+              No date yet. Add one and Cinch can read the weather and plan a look for it.
+            </Text>
+            {event.isHost ? (
+              <View className="mt-4 flex-row flex-wrap gap-2">
+                <Chip label="Add a date" size="tap" onPress={() => setDateSheet(true)} />
+                {!event.venueName ? (
+                  <Chip label="Add a place" size="tap" onPress={() => setPlaceSheet(true)} />
+                ) : null}
+              </View>
+            ) : null}
+            <Rule className="mt-5" />
+          </View>
         ) : null}
 
         {event.canceledAt ? (
@@ -437,15 +510,16 @@ export default function EventDetailScreen() {
         ) : (
           <View className="mt-5 flex-row gap-3">
             {event.isHost ? (
-              <>
-                <StatePill label="Hosting" />
-                <Button
-                  title="Invite"
-                  variant="secondary"
-                  haptic
-                  onPress={() => router.push(`/event/${event.id}/invite`)}
-                />
-              </>
+              // N-09 gives the host one action, full width and in ink: with an
+              // occasion just created, inviting people is the whole page. The
+              // "Hosting" pill it replaces was a label, not a thing to do.
+              <Button
+                title="Invite friends"
+                variant="ink"
+                haptic
+                className="flex-1"
+                onPress={() => router.push(`/event/${event.id}/invite`)}
+              />
             ) : event.myState === 'joined' ? (
               <StatePill label="Going" />
             ) : event.myState === 'invited' ? (
@@ -480,6 +554,16 @@ export default function EventDetailScreen() {
             ) : null}
           </View>
         )}
+        {/* N-10's reassurance, under the button it is about: an occasion with
+            no date is still worth inviting people to, and saying so is what
+            keeps the two chips above from reading as a checklist to finish
+            first. Host-only, because only the host can invite. */}
+        {!event.startsAt && !event.canceledAt && event.isHost ? (
+          <Text variant="note" className="mt-3">
+            Friends can be invited to an occasion with no date — the details fill in later, and
+            everyone sees the change.
+          </Text>
+        ) : null}
         {!isMember && event.myState === 'invited' ? (
           <Text variant="caption" className="mt-3 text-muted dark:text-muted-dark">
             Joining puts it on your Plan — and shows you where and when.
@@ -678,6 +762,65 @@ export default function EventDetailScreen() {
           </Pressable>
         ) : null}
       </ScrollView>
+
+      {/* The same three sheets the form uses, so filling a gap after the fact
+          is the same interaction as answering it in the first place. Each
+          writes once, on Done: the row is live and other people are already
+          looking at it. */}
+      <DateSheet
+        visible={dateSheet}
+        value={event.startsAt}
+        onChange={(picked) => {
+          // A day with no time is not storable as an instant, so the picker's
+          // own default rides along — the same 7:00pm the form seats.
+          const at = new Date(picked);
+          at.setHours(Math.floor(DEFAULT_TIME_MINUTES / 60), DEFAULT_TIME_MINUTES % 60, 0, 0);
+          update.mutate(
+            { eventId: event.id, patch: { startsAt: at } },
+            { onError: writeFailed('That date didn’t save') },
+          );
+        }}
+        onClose={() => setDateSheet(false)}
+      />
+      <TimeSheet
+        visible={timeSheet}
+        value={event.startsAt ? event.startsAt.getHours() * 60 + event.startsAt.getMinutes() : null}
+        onChange={(minutes) => {
+          if (!event.startsAt) return;
+          const at = new Date(event.startsAt);
+          at.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+          update.mutate(
+            { eventId: event.id, patch: { startsAt: at } },
+            { onError: writeFailed('That time didn’t save') },
+          );
+        }}
+        onClose={() => setTimeSheet(false)}
+      />
+      <PlaceSheet
+        visible={placeSheet}
+        onDone={(selection) => {
+          setPlaceSheet(false);
+          if (!selection) return;
+          update.mutate(
+            {
+              eventId: event.id,
+              patch:
+                selection.kind === 'resolved'
+                  ? {
+                      venueName: selection.name,
+                      venueAddress: selection.address,
+                      venueMeta: {
+                        latitude: selection.latitude,
+                        longitude: selection.longitude,
+                      },
+                    }
+                  : { venueName: selection.name, venueAddress: null, venueMeta: null },
+            },
+            { onError: writeFailed('That place didn’t save') },
+          );
+        }}
+        onClose={() => setPlaceSheet(false)}
+      />
     </SafeAreaView>
   );
 }

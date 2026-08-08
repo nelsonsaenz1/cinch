@@ -5,7 +5,7 @@ import { useGate } from '@/features/billing/use-gate';
 import { getUserId } from '@/lib/supabase';
 
 import { socialFrom } from './queries';
-import type { EventMemberState, EventVisibility } from './types';
+import type { EventMemberState, EventVisibility, VenueCoords } from './types';
 
 /**
  * Event writes are plain inserts and updates — RLS and the database triggers
@@ -80,27 +80,79 @@ function invalidateEvent(qc: QueryClient, eventId?: string) {
 }
 
 // ---------------------------------------------------------------------------
+// What the client normalizes before writing
+// ---------------------------------------------------------------------------
+
+/**
+ * The two lengths the new-occasion form draws (§3.2), both well inside what
+ * the schema allows — `title` takes 80, `note` takes 1000. The tighter number
+ * is a design decision about what fits on a card and reads as a note rather
+ * than an essay, so it is enforced here as well as at the keyboard: a
+ * `maxLength` prop is a courtesy, not a boundary, and it does not survive a
+ * paste on every platform or a second call site written later.
+ */
+const TITLE_MAX = 60;
+const NOTE_MAX = 280;
+
+/** Trim, then cap — in that order, so trailing spaces never spend the budget. */
+function capped(value: string, max: number): string {
+  return value.trim().slice(0, max);
+}
+
+/** The same, for a nullable column. Empty after trimming becomes null, because
+ *  a column of blank strings is a column of values every reader then has to
+ *  re-check. An empty TITLE is not routed through here on purpose: that column
+ *  is `not null` with its own length CHECK, and the server is the one that
+ *  gets to refuse a nameless occasion. */
+function cappedOrNull(value: string | null | undefined, max: number): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed ? trimmed.slice(0, max) : null;
+}
+
+/**
+ * Coordinates → the `venue_meta` blob, with the geocoder stamped on.
+ *
+ * The vendor name is written here rather than passed in by the screen: the
+ * data layer is what knows where the coordinates came from, and a column that
+ * records its own provenance is the only way a future reader can tell an
+ * Open-Meteo gazetteer hit from whatever writes this column next (MKLocalSearch
+ * is the deferred one — see features/events/venue-search.ts).
+ */
+function venueMetaJson(coords: VenueCoords | null): Record<string, unknown> | null {
+  return coords
+    ? { latitude: coords.latitude, longitude: coords.longitude, source: 'open-meteo' }
+    : null;
+}
+
+// ---------------------------------------------------------------------------
 // Create / update / cancel
 // ---------------------------------------------------------------------------
 
 export interface CreateEventInput {
   title: string;
-  startsAt: Date;
-  endsAt: Date | null;
-  partySize: number | null;
-  occasion: string | null;
+  /** Null is a real answer: a named occasion with no date yet (N-10). */
+  startsAt: Date | null;
   dressCode: string | null;
-  visibility: EventVisibility;
+  note: string | null;
   venueName: string | null;
   venueAddress: string | null;
-  /** Stored verbatim — the founder's call. The schema insists on https. */
-  reservationUrl: string | null;
+  /** Coordinates from a resolved place, or null for a value typed verbatim —
+   *  only the resolved one carries a forecast (new-occasion-spec.md §5). */
+  venueMeta: VenueCoords | null;
 }
 
 /**
  * Create an occasion. The `handle_new_event` trigger seats the host as a
  * joined member in the same transaction, so the returned id can be routed to
  * immediately with a complete roster of one.
+ *
+ * The input is exactly the five fields the redesigned form collects, and
+ * nothing else is written. `occasion`, `party_size`, `reservation_url` and
+ * `ends_at` were dropped from the form (spec §0.4) and their columns stay for
+ * the occasions that already carry them; `visibility` is deliberately omitted
+ * so the column default — `invite_only`, the strictest option — applies
+ * without the client having to name it. An omitted value cannot be the wrong
+ * value.
  */
 export function useCreateEvent() {
   const qc = useQueryClient();
@@ -114,16 +166,13 @@ export function useCreateEvent() {
       const { data, error } = await socialFrom('events')
         .insert({
           host_id: userId,
-          title: input.title.trim(),
-          starts_at: input.startsAt.toISOString(),
-          ends_at: input.endsAt ? input.endsAt.toISOString() : null,
-          party_size: input.partySize,
-          occasion: input.occasion,
+          title: capped(input.title, TITLE_MAX),
+          starts_at: input.startsAt?.toISOString() ?? null,
           dress_code: input.dressCode?.trim() || null,
-          visibility: input.visibility,
+          note: cappedOrNull(input.note, NOTE_MAX),
           venue_name: input.venueName?.trim() || null,
           venue_address: input.venueAddress?.trim() || null,
-          reservation_url: input.reservationUrl?.trim() || null,
+          venue_meta: venueMetaJson(input.venueMeta),
         })
         .select('id')
         .single();
@@ -146,20 +195,49 @@ export function useCreateEvent() {
   });
 }
 
-/** Fields the host may change after creation. */
-export type UpdateEventPatch = Partial<
-  Omit<CreateEventInput, 'startsAt' | 'endsAt'> & { startsAt: Date; endsAt: Date | null }
->;
+/**
+ * Fields the host may change after creation.
+ *
+ * Spelled out rather than derived from `CreateEventInput`, which it used to
+ * be: the create path shrank to the five fields the redesigned form collects,
+ * and the edit path did not. Occasions created before this pass still carry
+ * `occasion`, `party_size`, `visibility`, `ends_at` and `reservation_url`,
+ * and a host who wants to clear or change one must still be able to. Every
+ * key is optional and `undefined` means "not part of this patch" — the only
+ * way `null` can keep meaning "clear this column".
+ */
+export interface UpdateEventPatch {
+  title?: string;
+  /** Null clears the date, returning the occasion to N-10's thin state. */
+  startsAt?: Date | null;
+  endsAt?: Date | null;
+  partySize?: number | null;
+  occasion?: string | null;
+  dressCode?: string | null;
+  visibility?: EventVisibility;
+  venueName?: string | null;
+  venueAddress?: string | null;
+  venueMeta?: VenueCoords | null;
+  note?: string | null;
+  /** Stored verbatim — the founder's call. The schema insists on https. */
+  reservationUrl?: string | null;
+}
 
-/** Host edits — RLS refuses anyone else's touch outright. */
+/**
+ * Host edits — RLS refuses anyone else's touch outright.
+ *
+ * This is what N-10's "Add a date" and "Add a place" chips write through: the
+ * detail page fills the missing pieces in place, so a one-key patch is the
+ * common case and every key has to be independently omissible.
+ */
 export function useUpdateEvent() {
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ eventId, patch }: { eventId: string; patch: UpdateEventPatch }) => {
       const update: Record<string, unknown> = {};
-      if (patch.title !== undefined) update.title = patch.title.trim();
-      if (patch.startsAt !== undefined) update.starts_at = patch.startsAt.toISOString();
+      if (patch.title !== undefined) update.title = capped(patch.title, TITLE_MAX);
+      if (patch.startsAt !== undefined) update.starts_at = patch.startsAt?.toISOString() ?? null;
       if (patch.endsAt !== undefined) update.ends_at = patch.endsAt?.toISOString() ?? null;
       if (patch.partySize !== undefined) update.party_size = patch.partySize;
       if (patch.occasion !== undefined) update.occasion = patch.occasion;
@@ -168,6 +246,11 @@ export function useUpdateEvent() {
       if (patch.venueName !== undefined) update.venue_name = patch.venueName?.trim() || null;
       if (patch.venueAddress !== undefined)
         update.venue_address = patch.venueAddress?.trim() || null;
+      // Coordinates travel with the name they were resolved for: a patch that
+      // sets one and not the other is how a venue ends up carrying the last
+      // place's weather, so the place field always sends both.
+      if (patch.venueMeta !== undefined) update.venue_meta = venueMetaJson(patch.venueMeta);
+      if (patch.note !== undefined) update.note = cappedOrNull(patch.note, NOTE_MAX);
       if (patch.reservationUrl !== undefined)
         update.reservation_url = patch.reservationUrl?.trim() || null;
       if (Object.keys(update).length === 0) return;

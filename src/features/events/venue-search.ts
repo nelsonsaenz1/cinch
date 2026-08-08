@@ -6,6 +6,18 @@
  * here is (a) the snapshot shape the event row stores, (b) the reservation-link
  * hostname reader that powers the "Open in OpenTable" text button, and (c) a
  * clearly-marked seam where device-local venue search plugs in later.
+ *
+ * AMENDED (2026-08-08, new-occasion-spec.md §5): half of that scope has been
+ * answered, from a direction this file did not anticipate. The Where field now
+ * searches the Open-Meteo GAZETTEER — `searchPlaces()` in
+ * features/context/weather.ts, the same vendor as the forecast, already in the
+ * repo and already in the privacy policy — so a resolved place carries
+ * coordinates and therefore a forecast. That is a place search, not a venue
+ * search: it resolves cities and landmarks, so "The Stanley" still falls
+ * through to the field's "Use as typed" row, which is the atlas's own designed
+ * fallback rather than a gap. Reservation links below are unchanged and still
+ * render on the occasions that carry them, although the redesigned create form
+ * no longer collects one.
  */
 
 /** What a venue is to an event: a snapshot of context, not a managed entity.
@@ -17,14 +29,20 @@ export interface VenueSnapshot {
 }
 
 /**
- * Device-local venue search — the seam, not the feature.
+ * Device-local venue search — still the seam, still not the feature.
  *
- * TODO(SOCIAL-VENUE): non-blocking. The build plan reserves this signature for
- * MapKit local search via a small module in `modules/` (MKLocalSearch is free
- * and on-device; see docs/social/reservations-research.md). Deliberately out of
- * this pass by founder decision — manual entry is the product. Returning an
- * empty list is the graceful fallback the create screen is built against: it
- * renders plain text fields and never shows a search affordance while
+ * TODO(SOCIAL-VENUE): non-blocking, and now narrower than it was. The build
+ * plan reserves this signature for MapKit local search via a small module in
+ * `modules/` (MKLocalSearch is free and on-device; see
+ * docs/social/reservations-research.md). It stays deferred for a mechanical
+ * reason as well as a scope one: it is native, so it cannot ride an OTA
+ * update, and shipping it means cutting a store build (spec §0.2).
+ *
+ * What filled the gap in the meantime is POI-blind. The gazetteer answers
+ * "which Denver?", not "which restaurant?" — so this constant still reads
+ * false, and the place field's own "Use as typed" row is what a venue name
+ * lands in until MKLocalSearch arrives. Returning an empty list remains the
+ * graceful fallback: nothing renders a venue-search affordance while
  * `VENUE_SEARCH_AVAILABLE` is false.
  */
 export const VENUE_SEARCH_AVAILABLE = false;

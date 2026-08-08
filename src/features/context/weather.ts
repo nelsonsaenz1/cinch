@@ -134,11 +134,25 @@ export async function fetchForecast(
   });
 }
 
-export type Place = { name: string; country: string; latitude: number; longitude: number };
+export type Place = {
+  name: string;
+  country: string;
+  /** The first-level region — "Colorado", "Île-de-France". Empty string when
+   *  the gazetteer has none, which is common for city-states and small
+   *  countries; the field is always present so callers format rather than
+   *  branch. */
+  admin1: string;
+  latitude: number;
+  longitude: number;
+};
 
 /**
- * Place lookup for packing. Open-Meteo's geocoding API, same provider as the
- * forecast — no key, and no second vendor to name in the privacy policy.
+ * Place lookup for packing, and for an occasion's Where field.
+ *
+ * Open-Meteo's geocoding API, same provider as the forecast — no key, and no
+ * second vendor to name in the privacy policy. Two callers now share it, so
+ * it only ever grows: the packing questionnaire reads `name` and `country`
+ * and is untouched by `admin1` arriving beside them.
  */
 export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
   const q = query.trim();
@@ -151,12 +165,19 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   if (!res.ok) return [];
 
   const json = (await res.json()) as {
-    results?: { name: string; country?: string; latitude: number; longitude: number }[];
+    results?: {
+      name: string;
+      country?: string;
+      admin1?: string;
+      latitude: number;
+      longitude: number;
+    }[];
   };
 
   return (json.results ?? []).map((r) => ({
     name: r.name,
     country: r.country ?? '',
+    admin1: r.admin1 ?? '',
     latitude: r.latitude,
     longitude: r.longitude,
   }));

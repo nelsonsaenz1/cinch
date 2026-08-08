@@ -57,6 +57,15 @@ module.exports = {
         // Both are warm ink at low alpha so they composite over canvas and tray.
         hairline: { DEFAULT: 'rgba(28,26,22,0.09)', dark: 'rgba(28,26,22,0.09)' },
         rule: { DEFAULT: 'rgba(28,26,22,0.12)', dark: 'rgba(28,26,22,0.12)' },
+        // The answered-field border, and nothing else. The New Occasion atlas
+        // states the rule in prose — "Answered fields darken their border
+        // rather than growing a checkmark" — so a field's own progress is
+        // carried entirely by this ramp: `rule` while empty, `rule-strong`
+        // once there is something in it, solid `ink` at 1.5px under the
+        // cursor. It is a designed state, which is why it earns a token
+        // instead of a literal alpha. Not a divider: a row rule drawn this
+        // hard stops reading as a rule and starts reading as a box.
+        'rule-strong': { DEFAULT: 'rgba(28,26,22,0.28)', dark: 'rgba(28,26,22,0.28)' },
 
         // The accent — oxblood. One primary action per screen.
         accent: {

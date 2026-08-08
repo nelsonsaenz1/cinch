@@ -22,6 +22,39 @@ import type {
 // its own dependency on the DB seam module.
 export type { EventMemberRole, EventMemberState, EventVisibility };
 
+/**
+ * Where an occasion is, as a pair of numbers.
+ *
+ * The only part of `venue_meta` the app has any use for: a resolved place
+ * carries coordinates and therefore earns a forecast, a typed one does not
+ * (new-occasion-spec.md §5). Kept as its own type because both directions
+ * need it — `EventDetail` reads it and `CreateEventInput` writes it.
+ */
+export interface VenueCoords {
+  latitude: number;
+  longitude: number;
+}
+
+/**
+ * `venue_meta` → coordinates, or null for anything else.
+ *
+ * The column is jsonb and has never been written until now, so every row that
+ * reaches this function is either the shape the place field writes or
+ * something nobody has seen. Validating rather than casting is the difference
+ * between an occasion with no forecast and an occasion whose forecast is
+ * fetched for `NaN, NaN`: the weather module's rule is that weather is
+ * printed or dropped, never estimated, and that rule starts here. Anything
+ * missing, non-numeric, non-finite or out of range is not a coordinate.
+ */
+export function parseVenueMeta(raw: unknown): VenueCoords | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const { latitude, longitude } = raw as { latitude?: unknown; longitude?: unknown };
+  if (typeof latitude !== 'number' || !Number.isFinite(latitude)) return null;
+  if (typeof longitude !== 'number' || !Number.isFinite(longitude)) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  return { latitude, longitude };
+}
+
 /** One person on an event's roster, identity hydrated from `social_profiles`. */
 export interface EventMember {
   userId: string;
@@ -40,12 +73,16 @@ export interface EventDetail {
   note: string | null;
   occasion: string | null;
   dressCode: string | null;
-  startsAt: Date;
+  /** Null for the atlas's thinnest occasion: named, not yet dated (N-10). */
+  startsAt: Date | null;
   endsAt: Date | null;
   partySize: number | null;
   visibility: EventVisibility;
   venueName: string | null;
   venueAddress: string | null;
+  /** Coordinates when the place was resolved by the geocoder, else null —
+   *  parsed, never the raw jsonb, so no screen can read a shape off it. */
+  venueMeta: VenueCoords | null;
   reservationUrl: string | null;
   canceledAt: Date | null;
   /** Derived against the current user, so screens never re-derive it. */
@@ -70,7 +107,9 @@ export interface AttendeeChip {
 export interface EventSummary {
   id: string;
   title: string;
-  startsAt: Date;
+  /** Null for a dateless occasion — every date-rendering surface branches on
+   *  it rather than printing a placeholder day (new-occasion-spec.md §8). */
+  startsAt: Date | null;
   venueName: string | null;
   myState: EventMemberState | null;
   isHost: boolean;
@@ -121,12 +160,13 @@ export function toEvent(row: EventWithMembersRow, currentUserId: string | null):
     note: row.note,
     occasion: row.occasion,
     dressCode: row.dress_code,
-    startsAt: new Date(row.starts_at),
+    startsAt: row.starts_at ? new Date(row.starts_at) : null,
     endsAt: row.ends_at ? new Date(row.ends_at) : null,
     partySize: row.party_size,
     visibility: row.visibility,
     venueName: row.venue_name,
     venueAddress: row.venue_address,
+    venueMeta: parseVenueMeta(row.venue_meta),
     reservationUrl: row.reservation_url,
     canceledAt: row.canceled_at ? new Date(row.canceled_at) : null,
     isHost: currentUserId !== null && row.host_id === currentUserId,
@@ -156,7 +196,7 @@ export function toEventSummary(
   return {
     id: row.id,
     title: row.title,
-    startsAt: new Date(row.starts_at),
+    startsAt: row.starts_at ? new Date(row.starts_at) : null,
     venueName: row.venue_name,
     myState: myMemberState(row.event_members, currentUserId),
     isHost: currentUserId !== null && row.host_id === currentUserId,

@@ -49,6 +49,24 @@ export type ChipProps = {
    * chip with no hex is simply a labelled chip. Never an invented colour.
    */
   swatchHex?: string | null;
+  /**
+   * How much of the 44pt floor the chip draws rather than borrows.
+   *
+   * `compact` (default) is what every existing call site gets: a 32pt chip
+   * whose touch target is padded out to 44 with `hitSlop`. Right for a filter
+   * rail or a row of tags, where the chips are a texture and drawing them all
+   * at 44 would make a wall.
+   *
+   * `tap` is 44pt of REAL geometry with roomier padding — the New Occasion
+   * atlas's dress-code row (N-04) and the two chips on a dateless occasion
+   * (N-10). The atlas argues for it directly: "44pt of real geometry, wrapped,
+   * never a scrolling row that hides the fourth option." Four chips that wrap
+   * onto two lines only stay comfortable if the lines are far enough apart to
+   * aim between, which invisible hitSlop cannot give you — overlapping slop
+   * between wrapped rows makes the boundary a coin toss. Border and label size
+   * are untouched: this is geometry, not a second chip style.
+   */
+  size?: 'compact' | 'tap';
 };
 
 /**
@@ -65,11 +83,13 @@ export function Chip({
   tone = 'outline',
   selectedGround = 'accent',
   swatchHex,
+  size = 'compact',
 }: ChipProps) {
   const theme = useTheme();
   const filled = tone === 'fill';
   const dashed = tone === 'dashed';
   const inkGround = selectedGround === 'ink';
+  const tapSized = size === 'tap';
 
   // The selection tick every other control in the app gives a tap. Best-effort:
   // haptics no-op in Low Power Mode, and a failure must never eat the press.
@@ -89,17 +109,26 @@ export function Chip({
       accessibilityState={onPress ? { selected } : undefined}
       accessibilityHint={accessibilityHint}
       onPress={onPress ? press : undefined}
-      // Visual height stays compact; the touch target is padded out to 44pt.
-      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+      // A compact chip's visual height stays 32 and the touch target is padded
+      // out to 44pt. A `tap` chip already IS 44, so it takes no vertical slop:
+      // in a wrapped row the slop of one line would reach into the next and
+      // leave the boundary between them ambiguous.
+      hitSlop={
+        tapSized
+          ? { top: 0, bottom: 0, left: 4, right: 4 }
+          : { top: 8, bottom: 8, left: 4, right: 4 }
+      }
       style={{
-        minHeight: MIN_TAP_TARGET - 12,
+        minHeight: tapSized ? MIN_TAP_TARGET : MIN_TAP_TARGET - 12,
         // The one alpha the atlas raises above `rule`, and inline because no
         // token holds it: a dashed ring at 12% breaks into dots that read as
         // dirt rather than as an outline. I-01 draws it at warm ink 30%.
         ...(dashed ? { borderColor: 'rgba(28,26,22,0.30)' } : null),
       }}
       className={[
-        'flex-row items-center justify-center rounded-chip px-3.5',
+        // 16px of padding at `tap`, the atlas's own figure — a taller chip with
+        // the tighter 14 would read as a stretched compact one.
+        `flex-row items-center justify-center rounded-chip ${tapSized ? 'px-4' : 'px-3.5'}`,
         onPress ? 'active:opacity-60' : '',
         filled
           ? 'bg-sand dark:bg-sand-dark'
@@ -109,7 +138,14 @@ export function Chip({
               ? inkGround
                 ? 'border border-ink bg-ink dark:border-ink-dark dark:bg-ink-dark'
                 : 'border border-accent bg-accent dark:border-accent-dark dark:bg-accent-dark'
-              : 'border border-hairline bg-transparent dark:border-hairline-dark',
+              : // A `tap` chip carries `rule`, not `hairline`. The New Occasion
+                // atlas draws the dress-code row a step STRONGER than the
+                // fields above it (.18 against the fields' .12), and at
+                // `hairline` (.09) the app rendered it weaker — an inversion
+                // of the emphasis the row is supposed to have. `rule` is the
+                // nearest token and the one the plate grammar already uses for
+                // a defined edge; the compact chip is untouched.
+                `border bg-transparent ${tapSized ? 'border-rule dark:border-rule-dark' : 'border-hairline dark:border-hairline-dark'}`,
       ].join(' ')}>
       {/* Inline geometry rather than a class: 9px has no spacing step, and it
           should not get one for a single dot. `mr-1.5` is the atlas's 6px gap. */}

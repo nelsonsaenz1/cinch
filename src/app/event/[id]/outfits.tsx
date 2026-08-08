@@ -41,8 +41,11 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * client's to keep consistent, and a reviewer reading the queue should see one
  * set of words whatever surface a report came from.
  */
-/** "Fri 8 Aug, 7:30pm" — the mock's metadata line. */
-function whenLabel(d: Date): string {
+/** "Fri 8 Aug, 7:30pm" — the mock's metadata line. `null` for an occasion that
+ *  has no date yet, so the caller's `filter(Boolean)` simply drops the clause
+ *  rather than printing a date nobody chose. */
+function whenLabel(d: Date | null): string | null {
+  if (!d) return null;
   const day = d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
   const time = d
     .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -116,8 +119,12 @@ export default function EventOutfitBoardScreen() {
   // moment updates on its next focus/refetch, which is honest enough; a
   // ticking clock during render is a purity violation the linter rightly
   // refuses.
+  //
+  // An occasion with no date never locks: the evening it would freeze at has
+  // not been chosen yet, and freezing the tallies of an event that may still
+  // be months away would be a lock with nothing behind it.
   const [openedAt] = useState(() => Date.now());
-  const locked = detail ? openedAt >= detail.startsAt.getTime() : false;
+  const locked = detail?.startsAt ? openedAt >= detail.startsAt.getTime() : false;
 
   const nameOf = useMemo(() => {
     const map = new Map<string, string | null>();

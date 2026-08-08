@@ -12,7 +12,7 @@ import { useTheme } from '@/theme/tokens';
  * components/plan/day-row.tsx exactly — one interpretation of the numbers,
  * not a second one — because this line sits on the same Plan tab.
  */
-function conditionWord(w: WeatherContext): string {
+export function conditionWord(w: WeatherContext): string {
   if (w.precipitationChance >= 0.5) return 'Rain likely';
   if (w.precipitationChance >= 0.25) return 'Maybe rain';
   if (w.windKph >= 25) return 'Windy';
@@ -26,9 +26,11 @@ export function weatherLineFor(w: WeatherContext, units: 'C' | 'F' = 'F'): strin
   return `Feels ${formatTemp(w.feelsLikeC, units)} · ${conditionWord(w)}`;
 }
 
-/** True when the occasion starts and ends on one calendar day. */
-function isSameDay(startsAt: Date, endsAt: Date | null): boolean {
+/** True when the occasion starts and ends on one calendar day. A dateless
+ *  occasion spans nothing, so it is trivially one day. */
+export function isSameDay(startsAt: Date | null, endsAt: Date | null): boolean {
   return (
+    !startsAt ||
     !endsAt ||
     (endsAt.getFullYear() === startsAt.getFullYear() &&
       endsAt.getMonth() === startsAt.getMonth() &&
@@ -36,8 +38,15 @@ function isSameDay(startsAt: Date, endsAt: Date | null): boolean {
   );
 }
 
-/** "Fri 8 Aug", or "12–16 Sep" for a multi-day occasion. */
-function whenLabel(startsAt: Date, endsAt: Date | null): string {
+/**
+ * "Fri 8 Aug", "12–16 Sep" for a multi-day occasion, or "No date yet".
+ *
+ * The dateless case says so rather than falling back to today: a placeholder
+ * date is a claim about when something is happening, and the whole point of
+ * an undated occasion is that nobody has made that claim yet.
+ */
+export function whenLabel(startsAt: Date | null, endsAt: Date | null): string {
+  if (!startsAt) return 'No date yet';
   if (isSameDay(startsAt, endsAt)) {
     return startsAt.toLocaleDateString(undefined, {
       weekday: 'short',
@@ -52,8 +61,11 @@ function whenLabel(startsAt: Date, endsAt: Date | null): string {
 }
 
 /** "4:00pm" — set close and lowercase, the atlas's register; 24-hour locales
- *  come through untouched ("16:00" has no dayPeriod to fold). */
-function timeLabel(d: Date): string {
+ *  come through untouched ("16:00" has no dayPeriod to fold). Null in, null
+ *  out: no date means no time, and callers drop the segment rather than
+ *  printing an hour nobody chose. */
+export function timeLabel(d: Date | null): string | null {
+  if (!d) return null;
   return d
     .toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
     .replace(/\s/g, '')
@@ -64,10 +76,13 @@ function timeLabel(d: Date): string {
  * Mirrors `WEEK_DAYS` in plan.tsx — the Plan tab fetches a seven-day
  * forecast, so any day past that horizon has no honest weather to print.
  */
-const FORECAST_WINDOW_DAYS = 7;
+export const FORECAST_WINDOW_DAYS = 7;
 
-/** Whole days between today and `d`, local calendar. */
-function daysFromToday(d: Date): number {
+/** Whole days between today and `d`, local calendar. A dateless occasion is
+ *  -1 — the same answer as a day already gone, and for the same reason: both
+ *  are outside every forecast, so every caller's `>= 0` gate refuses them. */
+export function daysFromToday(d: Date | null): number {
+  if (!d) return -1;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const day = new Date(d);
@@ -129,13 +144,18 @@ export function EventCard({
   // Weather prints only when the day falls inside the seven-day window; past
   // it the card says so plainly instead of guessing. An in-window day whose
   // forecast simply hasn't arrived yet prints nothing — absence, not a claim.
-  const contextLine = isMember
-    ? weather
-      ? weatherLineFor(weather, units)
-      : daysFromToday(event.startsAt) >= FORECAST_WINDOW_DAYS
-        ? 'Outside the forecast window'
-        : null
-    : going;
+  // A dateless occasion prints nothing either, and not even "outside the
+  // window": there is no day for weather to belong to, so any forecast handed
+  // in for it would be some other day's.
+  const contextLine = !isMember
+    ? going
+    : !event.startsAt
+      ? null
+      : weather
+        ? weatherLineFor(weather, units)
+        : daysFromToday(event.startsAt) >= FORECAST_WINDOW_DAYS
+          ? 'Outside the forecast window'
+          : null;
 
   return (
     <Pressable

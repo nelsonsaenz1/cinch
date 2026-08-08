@@ -25,9 +25,35 @@ export type ThemeColors = {
   faint: string;
   /** Lighter still — the Lately attribution voice: bylines, elapsed marks, pointing chevrons. */
   byline: string;
+  /**
+   * The deepest sand — a tile that sits BACK from the tray without becoming a
+   * border. Needed in JS because a Button's ground is painted on an
+   * `Animated.View`, and NativeWind's interop is registered for the React
+   * Native primitives, not for Reanimated's wrappers: `bg-sand` on that layer
+   * would silently do nothing. See `disabledTone` in components/ui/button.tsx.
+   */
+  sand: string;
+  /**
+   * Lighter than `byline` — furniture that is explicitly not the user's data:
+   * the Plan atlas's example cards, and the unpickable past days in the date
+   * sheet. Needed in JS for the same reason `faint` is: a `text-ghost` class
+   * on a `<Text variant="body">` is two `text-*` colours on one element, which
+   * NativeWind resolves by key order in tailwind.config.js rather than by
+   * intent. Set it with an inline `style` instead.
+   */
+  ghost: string;
   hairline: string;
   /** Structural rules of the plate grammar — ink at 12%, works over canvas and tray. */
   rule: string;
+  /**
+   * The answered-field border — ink at 28%. The New Occasion atlas darkens a
+   * field's border rather than growing a checkmark, so `rule` → `ruleStrong` →
+   * 1.5px `ink` is the whole of a field's state. In JS as well as Tailwind
+   * because the field draws its border from a computed style, not a class:
+   * three of the four states differ in width or padding too, and a class per
+   * state would be four `border-*` utilities racing each other.
+   */
+  ruleStrong: string;
   accent: string;
   /** The second accent. Warm tan — used where blue would read as a link. */
   accentWarm: string;
@@ -65,8 +91,11 @@ const light: ThemeColors = {
   muted: '#6B665C',
   faint: '#8A8578',
   byline: '#A29C90',
+  sand: '#EAE5DB',
+  ghost: '#C7C1B4',
   hairline: 'rgba(28,26,22,0.09)',
   rule: 'rgba(28,26,22,0.12)',
+  ruleStrong: 'rgba(28,26,22,0.28)',
   accent: '#6E2B2B',
   accentWarm: '#B08A76',
   blush: '#F7EDE8',
