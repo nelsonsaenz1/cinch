@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -18,15 +19,28 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 const GUESS_TTL = 2500;
 
 /**
- * The pick control on one posted look: tally + cast/retract in one pill.
+ * Past this long still `pending`, the pill dims — Look Board State Atlas
+ * "02 · The Vote pill": "Still in flight past 2s. Only then does it dim — a
+ * spinner on a one-tap vote is theatre." Everything before this is drawn
+ * already-settled: the optimistic fill happens on touch-up, not after a
+ * delay, so the two-second floor is purely about when an unusually slow
+ * round trip is allowed to start looking unusual.
+ */
+const DIM_AFTER = 2000;
+
+/**
+ * The pick control on one posted look: tally + cast/retract/error in one
+ * pill. Six states (atlas "02 · The Vote pill"): rest, pressed, picked
+ * (optimistic), picked-still-in-flight (dimmed past 2s), refused ("Try
+ * again"), and closed.
  *
- * Grammar rules this component enforces by construction:
+ * Grammar this component enforces by construction:
  * - Picks render in INK, never the accent — accent is reserved for the one
  *   primary CTA per screen, and a vote is participation, not the page's call
  *   to action (design-direction §11).
- * - There is no down state of any kind. The only verbs are "pick", "move"
- *   (handled upstream — casting on another look moves the one pick), and
- *   "take it back".
+ * - There is no down state of any kind. Downvotes do not exist (contract
+ *   §3) — the only verbs are "vote", "move" (handled upstream — casting on
+ *   another look moves the one pick) and "take it back".
  * - On the caller's own look the pill is a plain tally: you cannot vote for
  *   yourself (the DB refuses with 22023 anyway), and rendering a dead button
  *   would read as a broken one.
@@ -34,14 +48,11 @@ const GUESS_TTL = 2500;
  * ── Optimistic, but only in the UI ─────────────────────────────────────────
  * The pill answers the tap before the network does: `guess` holds the state
  * the tap asked for and the label flips to it immediately, while `pending`
- * keeps its dim as the "still working" signal. What it deliberately does NOT
- * do is write to the query cache. This codebase's rule is invalidate, don't
- * patch — an `onMutate`/rollback pair would put a second, divergent copy of
- * the truth in the cache and make the vote mutation own a rollback path it
- * does not have. TanStack documents this exact split and calls it the UI-only
- * variant: local state, reconciled the moment the real `picked` prop lands.
- * The tally is left alone while the guess is outstanding — the count is other
- * people's data and this component is only entitled to guess about its own.
+ * (past `DIM_AFTER`) is the "still working" signal. What it deliberately does
+ * NOT do is write to the query cache — this codebase's rule is invalidate,
+ * don't patch, and the tally is left alone while the guess is outstanding:
+ * the count is other people's data and this component is only entitled to
+ * guess about its own.
  */
 export function VotePill({
   votes,
@@ -49,7 +60,9 @@ export function VotePill({
   mine,
   locked,
   pending,
+  failed,
   onToggle,
+  onRetry,
 }: {
   votes: number;
   /** The caller's one movable pick is on this look. */
@@ -59,7 +72,11 @@ export function VotePill({
   /** Board locked (event started): tallies stay, controls go. */
   locked: boolean;
   pending: boolean;
+  /** The last cast/move on THIS look was refused — "Try again". */
+  failed?: boolean;
   onToggle: () => void;
+  /** Required when `failed` — retries the same move. */
+  onRetry?: () => void;
 }) {
   const theme = useTheme();
   const tally = votes === 1 ? '1 pick' : `${votes} picks`;
@@ -72,20 +89,79 @@ export function VotePill({
   const expiry = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => void (expiry.current && clearTimeout(expiry.current)), []);
 
+  // The two-second floor before a still-pending pill dims.
+  const [dim, setDim] = useState(false);
+  const dimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!pending) {
+      setDim(false);
+      if (dimTimer.current) clearTimeout(dimTimer.current);
+      return;
+    }
+    dimTimer.current = setTimeout(() => setDim(true), DIM_AFTER);
+    return () => {
+      if (dimTimer.current) clearTimeout(dimTimer.current);
+    };
+  }, [pending]);
+
   const shown = guess && guess.from === picked ? guess.want : picked;
 
-  if (mine || locked) {
-    return (
+  if (mine) {
+    // "Zero is quiet" (contract §3) applies here too — the tally-only pill on
+    // your own look must not become the one place "0 picks" still prints.
+    return votes > 0 ? (
       <View className="flex-row items-center" style={{ minHeight: MIN_TAP_TARGET - 12 }}>
         <Text variant="colophon">{tally}</Text>
       </View>
+    ) : (
+      <View style={{ minHeight: MIN_TAP_TARGET - 12 }} />
+    );
+  }
+
+  // Locked and not mine: "Voting closed" — atlas L-06, "after the occasion
+  // starts. Inert, not hidden — the counts stay readable." A pill shape, so
+  // the row doesn't jump when it stops being a button, but no press handler:
+  // the tally itself moves to the voter line below the card.
+  if (locked) {
+    return (
+      <View
+        style={{ minHeight: MIN_TAP_TARGET - 8 }}
+        className="flex-row items-center justify-center rounded-md border border-hairline px-3.5">
+        {/* `muted`, not the atlas's literal `#8A8578` (== `faint`) — hard rule
+            #3 is that `faint` is never body/label text (~3.5:1, fails AA).
+            `Button`'s disabled `filled` tone is the one place this app
+            accepts a sub-AA disabled label, and only because WCAG exempts
+            disabled controls outright; this is a plain inert pill with no
+            such exemption on file, so it takes the AA-clean step instead. */}
+        <Text variant="label" className="font-medium" style={{ color: theme.muted }}>
+          Voting closed
+        </Text>
+      </View>
+    );
+  }
+
+  if (failed) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Your pick didn’t go through — try again"
+        onPress={onRetry}
+        // Inline: the atlas's refused ring is `critical` at 45%, which has no
+        // token of its own — `theme.critical` is opaque and `rule` is the
+        // wrong hue for a refusal.
+        style={{ minHeight: MIN_TAP_TARGET - 8, borderColor: `${theme.critical}73` }}
+        className="flex-row items-center justify-center gap-1.5 rounded-md border px-3.5 active:opacity-70">
+        <Text variant="label" className="font-medium" style={{ color: theme.critical }}>
+          Try again
+        </Text>
+      </Pressable>
     );
   }
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={shown ? `Picked, ${tally}. Take your pick back` : `Pick this look, ${tally}`}
+      accessibilityLabel={shown ? `Picked, ${tally}. Take your pick back` : `Vote for this look, ${tally}`}
       accessibilityState={{ selected: shown, disabled: pending, busy: pending }}
       disabled={pending}
       onPress={() => {
@@ -99,16 +175,25 @@ export function VotePill({
       className={[
         'flex-row items-center justify-center gap-1.5 rounded-md px-3.5 active:opacity-70',
         shown ? 'bg-ink' : 'border border-rule',
-        // The dim IS the working signal — it used to sit under a spinner that
-        // had replaced the label, so a tap on "Pick" showed nothing readable
-        // as "picked" until the round trip settled.
-        pending ? 'opacity-40' : '',
+        // The dim IS the working signal, and only past the two-second floor —
+        // it used to sit under a spinner that had replaced the label, so a
+        // tap on "Vote" showed nothing readable as "picked" until the round
+        // trip settled.
+        dim ? 'opacity-40' : '',
       ].join(' ')}>
+      {shown ? (
+        <SymbolView
+          name="checkmark"
+          size={12}
+          tintColor={theme.canvas}
+          resizeMode="scaleAspectFit"
+        />
+      ) : null}
       <Text
         variant="label"
         className="font-medium"
         style={{ color: shown ? theme.canvas : theme.ink }}>
-        {shown ? 'Picked' : 'Pick'}
+        {shown ? 'Picked' : 'Vote'}
       </Text>
       {votes > 0 ? (
         // Canvas at 70% on the ink fill — the tally is subordinate to the
@@ -118,6 +203,27 @@ export function VotePill({
           {votes}
         </Text>
       ) : null}
+    </Pressable>
+  );
+}
+
+/**
+ * "Add yours" — the one-look board's pill (L-06): "A vote against nothing is
+ * not a vote, and a lone crowned card is not a favourite." Replaces the Vote
+ * pill entirely rather than disabling it, on every card, whoever posted it.
+ */
+export function AddYoursPill({ onPress }: { onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Add your own look to the board"
+      onPress={onPress}
+      style={{ minHeight: MIN_TAP_TARGET - 8 }}
+      className="flex-row items-center justify-center rounded-md border border-rule px-3.5 active:opacity-70">
+      <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+        Add yours
+      </Text>
     </Pressable>
   );
 }
