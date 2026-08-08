@@ -6,6 +6,9 @@ import { TenCameraChrome } from '@/components/onboarding/ten-camera-chrome';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useCameraAccess } from '@/features/ingest/use-camera-access';
 import { useCapture } from '@/features/ingest/use-capture';
+// Aliased: `track` below is this screen's job-tracking helper, and the two
+// would otherwise shadow each other.
+import { track as trackEvent } from '@/lib/posthog';
 import { selectPhaseLabel, useQueueStore } from '@/features/ingest/queue-store';
 import type { TenSlot } from '@/features/onboarding/ten-slots';
 
@@ -31,7 +34,13 @@ export function TenCamera({
   onCancel: () => void;
 }) {
   const { access, openSettings } = useCameraAccess();
-  const { addPhoto, pickFromLibrary, takePhoto } = useCapture();
+  /**
+   * Acquiring and committing are two steps (see the header of use-capture.ts).
+   * The Ten commits immediately: the tenth slot IS the free ceiling, so a
+   * guided capture can never be the piece that overflows it — the eleventh is
+   * T-06's stop, which happens after this screen, not inside it.
+   */
+  const { pickFromLibrary, takePhoto, commit } = useCapture();
   const cameraRef = useRef<CameraView>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
@@ -69,15 +78,20 @@ export function TenCamera({
     // No in-app preview to shoot from — a simulator, or a mount that failed.
     // The system camera is the same fallback capture.tsx uses.
     if (!live || !camera || !cameraReady) {
-      const n = await takePhoto();
-      if (n > 0) track();
+      // `takePhoto` fires the analytics event itself, on its way through the
+      // system camera.
+      if (commit(await takePhoto()) > 0) track();
       return;
     }
     setShooting(true);
     try {
       const picture = await camera.takePictureAsync({ quality: 0.9, exif: false });
       if (picture?.uri) {
-        addPhoto(picture);
+        // The in-app preview never goes through `takePhoto`, so nothing has
+        // counted this shot yet. Reported with the same name and source as the
+        // system-camera path, or The Ten would look like a flow nobody uses.
+        trackEvent('clothes_import_selected', { source: 'camera', count: 1 });
+        commit([{ uri: picture.uri, width: picture.width, height: picture.height }]);
         track();
       }
     } catch {
@@ -85,13 +99,13 @@ export function TenCamera({
     } finally {
       setShooting(false);
     }
-  }, [live, cameraReady, addPhoto, takePhoto, track]);
+  }, [live, cameraReady, commit, takePhoto, track]);
 
   const library = useCallback(() => {
-    void pickFromLibrary().then((n) => {
-      if (n > 0) track();
+    void pickFromLibrary().then((assets) => {
+      if (commit(assets) > 0) track();
     });
-  }, [pickFromLibrary, track]);
+  }, [pickFromLibrary, commit, track]);
 
   return (
     <TenCameraChrome
