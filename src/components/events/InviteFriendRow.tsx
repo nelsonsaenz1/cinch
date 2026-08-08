@@ -73,11 +73,11 @@ export function InviteFriendRow({
           {row.name}
         </Text>
         {secondLine ? (
-          <Text
-            variant="caption"
-            numberOfLines={1}
-            className="mt-0.5"
-            style={{ color: theme.faint }}>
+          // `caption` already carries `text-muted` — no override needed, and
+          // none reaching for `faint`: a handle or a decline reason is real
+          // content someone reads, and `faint` is ~3.5:1 on canvas, an AA
+          // failure the redesign rules refuse to add another instance of.
+          <Text variant="caption" numberOfLines={1} className="mt-0.5">
             {secondLine}
           </Text>
         ) : null}

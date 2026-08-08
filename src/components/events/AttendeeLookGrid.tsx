@@ -5,6 +5,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Text } from '@/components/ui/text';
 import { lookDescriptor } from '@/features/events/look-copy';
 import type { Garment } from '@/lib/styling';
+import { useTheme } from '@/theme/tokens';
 
 /** The 96pt "card thumb" size — the composed look at grid-cell scale. */
 const THUMB = 96;
@@ -35,6 +36,7 @@ function AttendeeLookCell({
   resolveImage: ResolveImage;
   onPress: () => void;
 }) {
+  const theme = useTheme();
   const firstName = attendeeName?.split(/\s+/)[0] ?? 'Friend';
 
   return (
@@ -46,7 +48,10 @@ function AttendeeLookCell({
       <LookPlate pieces={look.garments} width={THUMB} resolveImage={resolveImage} />
       <View className="mt-2.5 flex-row items-center gap-2">
         <Avatar name={attendeeName} size={24} tone="accent" />
-        <Text variant="label" numberOfLines={1} className="flex-1 text-ink">
+        {/* Inline style, not a stacked `text-ink` className: `label` already
+            carries `text-muted`, and NativeWind gives no guaranteed
+            precedence between two `text-*` utilities on one element. */}
+        <Text variant="label" numberOfLines={1} className="flex-1" style={{ color: theme.ink }}>
           {firstName}
         </Text>
       </View>

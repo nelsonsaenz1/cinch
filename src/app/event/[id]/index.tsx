@@ -77,7 +77,7 @@ function whenLine(event: EventDetail): string | null {
  * to see what it did got a leave prompt. The exit now lives where the host's
  * own exit lives, as a quiet `critical` link at the foot of the page.
  */
-function StatePill({ label }: { label: string }) {
+export function StatePill({ label }: { label: string }) {
   const theme = useTheme();
   return (
     <View
@@ -93,7 +93,7 @@ function StatePill({ label }: { label: string }) {
 }
 
 /** A quiet push-row into the surfaces that keep their own route. */
-function NavRow({
+export function NavRow({
   label,
   hint,
   trailing,
@@ -128,7 +128,7 @@ function NavRow({
  * and the first row of the grid (Event Detail State Atlas E-10) — rather than
  * a spinner in the middle of an empty screen.
  */
-function DetailSkeleton() {
+export function DetailSkeleton() {
   return (
     <View className="px-gutter" accessibilityLabel="Opening this occasion">
       <Skeleton className="mt-5 h-9 w-2/3 rounded-md" />
@@ -460,7 +460,7 @@ export default function EventDetailScreen() {
             action beside Hosting is Invite; a going guest's exit lives at
             the foot, not here. */}
         {event.canceledAt ? (
-          <Text variant="label" className="mt-4 text-critical dark:text-critical">
+          <Text variant="label" className="mt-4" style={{ color: theme.critical }}>
             This occasion was canceled.
           </Text>
         ) : (
@@ -574,8 +574,14 @@ export default function EventDetailScreen() {
                   title="Who’s wearing what"
                   className="mt-8"
                   trailing={
+                    // The denominator is everyone who could plausibly share a
+                    // look — joined and still-deciding both — matching E-08's
+                    // "0 of 5 shared" against a roster of one host, three
+                    // joined and one still deciding. `roster` already carries
+                    // exactly that set (useEventMembers filters to joined |
+                    // invited), so it needs no re-derivation here.
                     <Text variant="colophon">
-                      {sharedCount} of {Math.max(joinedCount, sharedCount)} shared
+                      {sharedCount} of {Math.max(roster.length, sharedCount)} shared
                     </Text>
                   }
                 />
@@ -687,7 +693,7 @@ export default function EventDetailScreen() {
             accessibilityLabel="Cancel this occasion"
             style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
             className="mt-10 self-start active:opacity-60">
-            <Text variant="label" className="text-critical dark:text-critical">
+            <Text variant="label" style={{ color: theme.critical }}>
               Cancel this occasion
             </Text>
           </Pressable>
@@ -699,7 +705,7 @@ export default function EventDetailScreen() {
             accessibilityLabel="Leave this occasion"
             style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
             className="mt-10 self-start active:opacity-60">
-            <Text variant="label" className="text-critical dark:text-critical">
+            <Text variant="label" style={{ color: theme.critical }}>
               Leave this occasion
             </Text>
           </Pressable>
