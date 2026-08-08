@@ -4,7 +4,7 @@
 begin;
 select plan(4);
 
-select is(item_limit_for_plan('free'),     30,   'free closet limit');
+select is(item_limit_for_plan('free'),     10,   'free closet limit');
 select is(item_limit_for_plan('standard'), 150,  'standard closet limit');
 select is(item_limit_for_plan('pro'),      1000, 'pro closet limit');
 

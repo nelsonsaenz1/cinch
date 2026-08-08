@@ -46,7 +46,7 @@ export interface PlanCopy {
 export const PLANS: Record<Plan, PlanCopy> = {
   free: {
     name: 'Free',
-    items: 30,
+    items: 10,
     outfits: 'A few each week',
     stylist: 'Not included',
     eventHosting: 2,

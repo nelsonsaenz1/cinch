@@ -124,7 +124,7 @@ export const PLAN_LIMITS: Record<Plan, Record<AiQuotaKind, Allowance>> = {
  * Change one, change the other. There is a test that asserts they agree.
  */
 export const PLAN_ITEM_LIMITS: Record<Plan, number> = {
-  free: 30,
+  free: 10,
   standard: 150,
   pro: 1000,
 } as const;

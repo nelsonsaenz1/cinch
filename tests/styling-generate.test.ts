@@ -45,8 +45,11 @@ function assertWellFormed(outfits: OutfitCandidate[]) {
         'a dress outfit must not also carry a top or a bottom',
       );
     } else {
+      // A knit counts as the top. `mid_layer` is where most knitwear lands —
+      // jumper, sweater, cardigan, fleece — and a jumper worn with trousers is
+      // an outfit, so it may anchor a look with no shirt under it.
       assert.ok(
-        o.items.some((g) => g.slot === 'base_top'),
+        o.items.some((g) => g.slot === 'base_top' || g.slot === 'mid_layer'),
         'a non-dress outfit must have a top',
       );
       assert.ok(

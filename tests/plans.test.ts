@@ -14,7 +14,7 @@ import { test } from 'node:test';
  */
 import { PLANS } from '../src/features/billing/plans';
 
-const EDGE_ITEM_LIMITS = { free: 30, standard: 150, pro: 1000 } as const;
+const EDGE_ITEM_LIMITS = { free: 10, standard: 150, pro: 1000 } as const;
 
 test('client plan copy agrees with the edge/database item limits', () => {
   for (const plan of ['free', 'standard', 'pro'] as const) {
