@@ -57,3 +57,97 @@ question the original author flagged) or whether W-04's copy/flow should be
 rebuilt around an action that genuinely frees a slot (e.g., requiring a real
 delete, which the atlas explicitly keeps off this screen and in item detail
 instead). Not decided here.
+
+---
+
+# Escalations — Unit F (Share a Look)
+
+## S-05's "Post a photo instead" has no schema or capture-flow support — not built
+
+**Found while**: rebuilding `event/[id]/post.tsx` to the Share a Look State
+Atlas's three-step compose flow.
+
+**The conflict.** S-05 draws an escape hatch on the empty-closet state:
+"Post a photo instead," beside "Add a piece," for "the person getting dressed
+in ten minutes." The plate grammar's own rules section is explicit about what
+that means — *"Cover is only used for a plain photo post, which is marked as
+one"* — i.e. a single un-composed photograph, rendered `cover` rather than
+`contain`, distinguishable on the board from a normal composed look.
+
+Nothing in the schema or the existing capture flow supports posting a bare
+photograph as a look:
+
+- `event_outfit_posts.outfit_id` is `not null references outfits(id)`, and
+  every `outfits` row is built from `outfit_items`, which in turn references
+  `items(id)` — a real, tagged closet piece. There is no column anywhere
+  (`outfits`, `event_outfit_posts`, `event_post_items`) that would mark a
+  post as "this is a raw photo, render it `cover`, don't run it through the
+  plate."
+- `/capture` (the ingest flow other dev-*/wall-*/ghost-slot screens push to
+  for "add a piece") adds a piece to the closet generally — it has no
+  "return here with the piece you just made" handoff, and even if it did,
+  its output is a normal closet item, not a marked plain-photo post.
+- The board that would need to render this differently
+  (`event/[id]/outfits.tsx`, `OutfitPostCard.tsx`) belongs to Unit E's files,
+  not mine — so even a schema fix on my side would need a second unit to
+  consume the new column before the feature actually shows up anywhere.
+
+**Why I didn't build a fake version.** A button that routes to `/capture`
+and then silently expects the normal S-01→S-03 flow to pick up the new piece
+is not the ten-minute one-tap escape hatch the atlas describes — it's the
+"Add a piece" button under a different label, which would be worse than
+omitting it: a second control that promises something the first one already
+does is the kind of UI a person learns to distrust.
+
+**What I did instead.** `EmptyClosetPrompt`
+(`src/components/share-look/edge-states.tsx`) takes an optional
+`onPostPhoto` callback and renders the second button only when a caller
+supplies one; `post.tsx` does not, so today's empty-closet state offers only
+"Add a piece" — honest about what actually works. `dev-share-look.tsx`'s S-05
+frame likewise omits it.
+
+**Ask**: a decision on where the marker lives — a `post_kind` (or similar)
+column on `event_outfit_posts`, or a sibling table for photo-only posts —
+and, separately, a capture-flow entry point that returns control to the
+poster instead of dropping her back in the closet. Both are schema/
+cross-surface calls this unit shouldn't make unilaterally. Once the column
+exists, `LookPlate`/`GarmentCell` growing a `cover`-fit mode is the one
+primitive request that would follow (see
+`.redesign/primitive-requests/share-look.md`).
+
+## "Swap a piece" and "Take it off the board" are built as reusable pieces, not wired into Unit E's files
+
+**Found while**: covering S-05's remaining two edge states.
+
+**The conflict.** Both states are described from the *poster's* side, but
+their triggers live on cards Unit E owns: `YourLookCard`'s "Swap a piece"
+button and `OutfitPostCard`'s overflow menu (`components/event-outfits/**`,
+explicitly Unit E's per the event & social contract's unit-boundary table).
+I can't edit those files from this worktree without reaching outside my
+assigned surface.
+
+**What I did instead.**
+
+- `post.tsx` accepts an optional `?edit=<postId>` param: when present, it
+  loads that look's current garments, opens straight to S-02 (compose), and
+  its last step calls `useSwapLookPieces`
+  (`src/features/share-look/mutations.ts`) — a wholesale
+  delete-then-reinsert of `outfit_items` in the new order, same `post_id`,
+  same picks, same thread — instead of creating a new post. This is my best
+  guess at the entry-point contract; if `YourLookCard`'s "Swap a piece"
+  wires to a different param name or route, it needs to be reconciled with
+  this one on merge.
+- `TakeOffBoardConfirm`
+  (`src/components/share-look/edge-states.tsx`) is the destructive
+  confirmation the contract's §3 rule requires (names what is lost, keep-
+  option named for the thing being kept, never "Cancel") built as a
+  presentational component ready to be wired to the existing
+  `useDeletePost` (`features/event-outfits/mutations.ts`, read-only import,
+  not edited) — today `OutfitPostCard`'s overflow menu skips straight to an
+  `ActionSheetIOS` "Retire this look" row with no such confirmation.
+  Wiring it is Unit E's call, since it means editing
+  `OutfitPostCard.tsx`.
+
+**Ask**: Unit E confirm (or correct) the `?edit=` contract when wiring
+"Swap a piece," and decide whether `TakeOffBoardConfirm` replaces the bare
+`ActionSheetIOS` destructive row or the two coexist.

@@ -1,220 +1,367 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LookStack, PlateTriptych, lookName } from '@/components/event-outfits/OutfitPostCard';
-import { PostComposer } from '@/components/event-outfits/PostComposer';
-import { EmptyState } from '@/components/ui/empty-state';
-// Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
-// `ErrorState` the title/body/retry sibling of `EmptyState`.
+import { CaptionStep } from '@/components/share-look/caption-step';
+import { EmptyClosetPrompt, FailedDraftBanner } from '@/components/share-look/edge-states';
+import { PickerFooterTray, PiecePicker } from '@/components/share-look/piece-picker';
+import { StackComposer } from '@/components/share-look/stack-composer';
+import { Card } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
-import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { useSession } from '@/features/auth/use-session';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
-import { useEventPosts, useMyPostableOutfits } from '@/features/event-outfits/queries';
-import { socialErrorMessage, usePostOutfit } from '@/features/event-outfits/mutations';
+import { useEventPosts } from '@/features/event-outfits/queries';
 import { MAX_LOOKS_PER_BOARD } from '@/features/event-outfits/types';
+import { useEvent, useEventMembers } from '@/features/events/queries';
+import { canCompose, captionFromPieces, titleFromPieces } from '@/features/share-look/compose';
+import { useComposeAndPostLook, useSwapLookPieces } from '@/features/share-look/mutations';
 import { useWardrobe } from '@/features/styling/queries';
 import type { Garment } from '@/lib/styling';
-import { useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+
+type Step = 1 | 2 | 3;
+
+/** "Sat, Aug 8" — the atlas's date line, on the event's own start time. */
+function shortDateLine(d: Date | null): string | null {
+  if (!d) return null;
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
 
 /**
- * Pick one of MY outfits to share with the event — never a camera, never an
- * upload. The list is the caller's own saved outfits read under owner RLS;
- * the garments come from the wardrobe cache the styling engine already keeps
- * warm. Posting is publication to the event's audience, and the composer
- * says so in words before the button.
+ * Share a Look — S-01…S-03, one screen, three steps.
+ *
+ * Rebuilt entirely from the picking-an-existing-outfit flow it used to be:
+ * this composes a FRESH stack straight from the closet, in the order it will
+ * post, and only touches `outfits`/`outfit_items` once, at the end
+ * (`useComposeAndPostLook`). Every field a step collects lives in this
+ * component's own state and none of it is cleared on a failed write — "It
+ * didn't post" (S-05) reuses the exact same state the next attempt sends.
+ *
+ * `?edit=<postId>` is the "Swap a piece" entry point (S-05): the stack starts
+ * from that look's current garments and the last step calls
+ * `useSwapLookPieces` in place of a fresh post — the look stays the same
+ * look, just re-composed.
  */
 export default function PostLookScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
   const eventId = id ?? null;
   const router = useRouter();
   const theme = useTheme();
-  const session = useSession();
 
-  const outfits = useMyPostableOutfits();
+  const event = useEvent(eventId);
+  const members = useEventMembers(eventId ?? '');
   const wardrobe = useWardrobe();
   const posts = useEventPosts(eventId);
-  const postOutfit = usePostOutfit();
   const terms = useSocialTermsGate();
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const postLook = useComposeAndPostLook();
+  const swapPieces = useSwapLookPieces();
 
-  const garmentById = useMemo(
-    () => new Map((wardrobe.data ?? []).map((g) => [g.id, g])),
-    [wardrobe.data],
-  );
+  const editingLook = edit ? (posts.data?.looks ?? []).find((l) => l.id === edit) ?? null : null;
 
-  /** Outfit id -> its garments, dropping pieces that left the closet. */
-  const garmentsFor = (itemIds: string[]): Garment[] =>
-    itemIds.map((iid) => garmentById.get(iid)).filter((g): g is Garment => Boolean(g));
+  const [step, setStep] = useState<Step>(edit ? 2 : 1);
+  const [stack, setStack] = useState<Garment[]>([]);
+  const [hydratedEdit, setHydratedEdit] = useState(false);
+  const [title, setTitle] = useState('');
+  const [titleEdited, setTitleEdited] = useState(false);
+  const [caption, setCaption] = useState('');
+  const [captionEdited, setCaptionEdited] = useState(false);
+  const [saveToLately, setSaveToLately] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [plateWidth, setPlateWidth] = useState(0);
 
-  const myLooks = (posts.data?.looks ?? []).filter((l) => l.userId === session.userId);
-  const postedOutfitIds = new Set((posts.data?.looks ?? []).map((l) => l.outfitId));
-  const atCap = myLooks.length >= MAX_LOOKS_PER_BOARD;
+  // Hydrate the stack from the look being edited once its garments are known
+  // (garments arrive from the board query, not this screen's own wardrobe
+  // read, since a piece may have left the closet since the look was posted).
+  useEffect(() => {
+    if (editingLook && !hydratedEdit) {
+      setStack(editingLook.garments);
+      setTitle(editingLook.caption ?? titleFromPieces(editingLook.garments));
+      setHydratedEdit(true);
+    }
+  }, [editingLook, hydratedEdit]);
 
-  const candidates = (outfits.data ?? []).filter((o) => garmentsFor(o.itemIds).length > 0);
-  const selected = candidates.find((o) => o.id === selectedId) ?? null;
-  const selectedGarments = selected ? garmentsFor(selected.itemIds) : [];
+  const candidates = wardrobe.data ?? [];
 
   const { resolve } = useSignedUrls(
-    candidates.flatMap((o) =>
-      garmentsFor(o.itemIds).flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath]),
-    ),
+    candidates.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath]),
   );
 
-  const submit = (caption: string | null) => {
-    if (!eventId || !selected) return;
-    postOutfit.mutate(
-      { eventId, outfitId: selected.id, caption },
+  // The 1–3-looks-per-board cap is presentation only (product-spec §3.4's
+  // screen stops offering the CTA; the schema carries no such constraint), so
+  // it applies to fresh posts and never blocks editing a look already on the
+  // board.
+  const atCap = !editingLook && (posts.data?.looks ?? []).length >= MAX_LOOKS_PER_BOARD;
+  const peopleCount = (members.data ?? []).filter((m) => m.state === 'joined').length;
+
+  const goToStep2 = () => setStep(2);
+
+  const goToStep3 = () => {
+    if (!titleEdited) setTitle(titleFromPieces(stack));
+    if (!captionEdited) setCaption(captionFromPieces(stack));
+    setStep(3);
+  };
+
+  const submit = () => {
+    if (!eventId) return;
+    setFailed(false);
+    const itemIds = stack.map((g) => g.id);
+    const finalTitle = title.trim() ? title.trim() : null;
+    const finalCaption = caption.trim() ? caption.trim() : null;
+
+    if (editingLook) {
+      swapPieces.mutate(
+        { eventId, outfitId: editingLook.outfitId, itemIds, title: finalTitle },
+        {
+          onSuccess: () => router.back(),
+          onError: (error) => {
+            if (terms.intercept(error, submit)) return;
+            setFailed(true);
+          },
+        },
+      );
+      return;
+    }
+
+    postLook.mutate(
+      { eventId, itemIds, title: finalTitle, caption: finalCaption, saveToLately },
       {
-        onSuccess: () => router.back(),
+        onSuccess: ({ postId }) => {
+          // Lands back on the board, not a success screen (S-04) — the board
+          // owns scrolling to the new card and decaying its "Just posted" mark.
+          router.replace({
+            pathname: '/event/[id]/outfits',
+            params: { id: eventId, justPosted: postId },
+          });
+        },
         onError: (error) => {
-          // The terms gate is not a failure to report — it raises the sheet,
-          // and agreeing posts the look the user already chose.
-          if (terms.intercept(error, () => submit(caption))) return;
-          Alert.alert('That didn’t post', socialErrorMessage(error));
+          if (terms.intercept(error, submit)) return;
+          setFailed(true);
         },
       },
     );
   };
 
-  const loading = outfits.isLoading || wardrobe.isLoading || posts.isLoading;
-  // Any one of the three failing leaves this list wrong rather than empty: a
-  // failed wardrobe read drops every garment, so every outfit filters out and
-  // the screen would say "No saved looks yet" to a woman with fifty.
-  const failed = outfits.isError || wardrobe.isError || posts.isError;
+  const pending = postLook.isPending || swapPieces.isPending;
+  const loading = event.isLoading || wardrobe.isLoading || (Boolean(edit) && posts.isLoading);
+  const errored = event.isError || wardrobe.isError;
   const retry = () => {
-    void outfits.refetch();
+    void event.refetch();
     void wardrobe.refetch();
     void posts.refetch();
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas">
-      <ScreenHeader align="leading" title="Share a look" />
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
+      <WizardHeader
+        step={step}
+        editing={Boolean(editingLook)}
+        canAdvance={step === 1 ? canCompose(stack) : true}
+        submitting={pending}
+        onBack={() => {
+          if (step === 1) router.back();
+          else setStep((s) => (s === 3 ? 2 : 1) as Step);
+        }}
+        onNext={() => {
+          if (step === 1) goToStep2();
+          else if (step === 2) goToStep3();
+          else submit();
+        }}
+      />
 
-      {failed ? (
+      {errored ? (
         <ErrorState
-          title="Your looks didn’t load"
-          body="Your saved outfits are still there — the connection dropped on the way."
+          title="Your closet didn’t load"
+          body="Your pieces are still there — the connection dropped on the way."
           onRetry={retry}
         />
       ) : loading ? (
-        <View className="px-gutter" accessibilityLabel="Reading your saved looks">
-          <Skeleton className="mt-5 h-9 w-3/4 rounded-md" />
-          <View className="mt-5 gap-3">
-            {[0, 1, 2].map((i) => (
-              <View
-                key={i}
-                className="flex-row items-center gap-3 rounded-plate border border-hairline p-3.5">
-                <Skeleton className="h-11 w-11 rounded-md" />
-                <Skeleton className="h-11 w-11 rounded-md" />
-                <Skeleton className="h-11 w-11 rounded-md" />
-                <View className="flex-1">
-                  <Skeleton className="h-4 w-2/3 rounded-sm" />
-                  <Skeleton className="mt-2 h-3 w-1/2 rounded-sm" />
-                </View>
+        <View className="px-gutter pt-5" accessibilityLabel="Reading your closet">
+          <Skeleton className="h-9 w-3/4 rounded-md" />
+          <View className="mt-6 flex-row flex-wrap" style={{ marginHorizontal: -5 }}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <View key={i} style={{ width: '33.333%', padding: 5 }}>
+                <Skeleton className="aspect-square rounded-md" />
               </View>
             ))}
           </View>
         </View>
-      ) : candidates.length === 0 ? (
-        <EmptyState
-          symbol="hanger"
-          title="No saved looks yet"
-          body="Save an outfit from Today or build one in your closet, then share it with the table."
-          actionTitle="Back"
-          onAction={() => router.back()}
-        />
+      ) : candidates.length === 0 && !editingLook ? (
+        <View className="px-gutter pt-6">
+          <EmptyClosetPrompt onAddPiece={() => router.push('/capture')} />
+        </View>
+      ) : failed ? (
+        <View className="px-gutter pt-6">
+          <FailedDraftBanner retrying={pending} onRetry={submit} onKeepDraft={() => setFailed(false)} />
+        </View>
       ) : (
-        // Top gap on the container: the trimmed title cannot carry `mt-*`
-        // without stacking against trim's negative margins.
-        <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-24 pt-5">
-          <Text variant="title" trim>
-            Which one for the table?
-          </Text>
+        <View style={{ flex: 1 }}>
+          <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-10 pt-5">
+            {atCap ? (
+              <Card border="hairline" padding="md" className="mb-4">
+                <Text variant="caption">
+                  Three looks is the board’s limit — retire one first to share another.
+                </Text>
+              </Card>
+            ) : null}
 
-          {atCap ? (
-            <Text variant="label" className="mt-3" style={{ color: theme.warning }}>
-              Three looks is the board’s limit — retire one first to share
-              another.
-            </Text>
-          ) : null}
-
-          <View className="mt-5 gap-3">
-            {candidates.map((outfit) => {
-              const garments = garmentsFor(outfit.itemIds);
-              const posted = postedOutfitIds.has(outfit.id);
-              const isSelected = selectedId === outfit.id;
-              return (
-                <Pressable
-                  key={outfit.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected, disabled: posted }}
-                  accessibilityLabel={outfit.name ?? lookName(garments, null)}
-                  disabled={posted}
-                  onPress={() => setSelectedId(isSelected ? null : outfit.id)}
-                  className={[
-                    'rounded-plate border bg-surface p-3.5 active:opacity-70',
-                    isSelected ? 'border-ink' : 'border-hairline',
-                    posted ? 'opacity-40' : '',
-                  ].join(' ')}>
-                  <View className="flex-row items-center gap-3">
-                    <PlateTriptych garments={garments} resolveImage={resolve} cell={44} />
-                    <View className="flex-1">
-                      <Text variant="body" numberOfLines={1}>
-                        {outfit.name ?? lookName(garments, null)}
-                      </Text>
-                      <Text variant="caption" numberOfLines={1} className="mt-0.5">
-                        {posted
-                          ? 'Already on the board'
-                          : outfit.occasion ?? `${garments.length} pieces`}
-                      </Text>
-                    </View>
-                    {isSelected ? (
-                      <SymbolView
-                        name="checkmark.circle.fill"
-                        size={18}
-                        tintColor={theme.ink}
-                        resizeMode="scaleAspectFit"
-                      />
-                    ) : null}
-                  </View>
-
-                  {isSelected ? (
-                    <View className="mt-4">
-                      <LookStack
-                        garments={garments}
-                        resolveImage={resolve}
-                        label={`Preview: ${outfit.name ?? lookName(garments, null)}`}
-                      />
-                    </View>
+            {step === 1 ? (
+              <>
+                <Text variant="title" trim>
+                  What are you wearing?
+                </Text>
+                <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+                  Pick from your closet. Three to six pieces reads best on the board.
+                </Text>
+                <View className="mt-4">
+                  <PiecePicker
+                    candidates={candidates}
+                    stack={stack}
+                    resolveImage={resolve}
+                    onChangeStack={setStack}
+                  />
+                </View>
+              </>
+            ) : step === 2 ? (
+              <>
+                <Text variant="title" trim>
+                  The stack
+                </Text>
+                <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+                  Drag to reorder. Top piece first — that’s what shows on the board.
+                </Text>
+                <View className="mt-4" onLayout={(e) => setPlateWidth(e.nativeEvent.layout.width)}>
+                  {stack.length > 0 && plateWidth > 0 ? (
+                    <StackComposer
+                      stack={stack}
+                      resolveImage={resolve}
+                      plateWidth={plateWidth}
+                      onReorder={setStack}
+                      onAddAnother={() => setStep(1)}
+                    />
                   ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text variant="title" trim>
+                  Say what it is
+                </Text>
+                <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+                  A name and a line. Both optional — the pieces already say most of it.
+                </Text>
+                <View className="mt-4">
+                  <CaptionStep
+                    stack={stack}
+                    resolveImage={resolve}
+                    title={title}
+                    onChangeTitle={(t) => {
+                      setTitleEdited(true);
+                      setTitle(t);
+                    }}
+                    caption={caption}
+                    onChangeCaption={(t) => {
+                      setCaptionEdited(true);
+                      setCaption(t);
+                    }}
+                    eventTitle={event.data?.title ?? 'This event'}
+                    eventDateLine={shortDateLine(event.data?.startsAt ?? null)}
+                    peopleCount={peopleCount}
+                    saveToLately={saveToLately}
+                    onChangeSaveToLately={setSaveToLately}
+                  />
+                </View>
 
-          {selected && selectedGarments.length > 0 ? (
-            <View className="mt-6">
-              <PostComposer
-                pending={postOutfit.isPending}
-                disabled={atCap || postOutfit.isPending}
-                onSubmit={submit}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={editingLook ? 'Save changes' : 'Post to the board'}
+                  accessibilityState={{ disabled: pending || atCap }}
+                  disabled={pending || atCap}
+                  onPress={submit}
+                  style={{ minHeight: 52, opacity: pending || atCap ? 0.4 : 1 }}
+                  className="mt-6 items-center justify-center rounded-md bg-ink active:opacity-80">
+                  <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                    {pending ? 'Posting…' : editingLook ? 'Save changes' : 'Post to the board'}
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </KeyboardAwareScrollView>
+
+          {step === 1 ? (
+            <View className="px-gutter">
+              <PickerFooterTray
+                stack={stack}
+                resolveImage={resolve}
+                canCompose={canCompose(stack)}
+                onCompose={goToStep2}
               />
             </View>
           ) : null}
-        </KeyboardAwareScrollView>
+        </View>
       )}
 
       {terms.sheet}
     </SafeAreaView>
+  );
+}
+
+function WizardHeader({
+  step,
+  editing,
+  canAdvance,
+  submitting,
+  onBack,
+  onNext,
+}: {
+  step: Step;
+  editing: boolean;
+  canAdvance: boolean;
+  submitting: boolean;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const theme = useTheme();
+  const nextLabel = step === 3 ? (editing ? 'Save' : 'Post') : 'Next';
+  const disabled = step === 1 ? !canAdvance : submitting;
+
+  return (
+    <View
+      className="flex-row items-center justify-between px-gutter pt-2"
+      style={{ minHeight: MIN_TAP_TARGET }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={step === 1 ? 'Cancel' : 'Back'}
+        onPress={onBack}
+        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+        className="active:opacity-60">
+        <Text variant="body" style={{ color: theme.muted }}>
+          {step === 1 ? 'Cancel' : 'Back'}
+        </Text>
+      </Pressable>
+
+      <Text variant="colophon">{`Step ${step} of 3`}</Text>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={nextLabel}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onNext}
+        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+        className="active:opacity-60"
+        style={{ opacity: disabled ? 0.4 : 1 }}>
+        <Text
+          variant="body"
+          className="font-semibold"
+          style={{ color: step === 3 ? theme.accent : theme.ink }}>
+          {nextLabel}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
