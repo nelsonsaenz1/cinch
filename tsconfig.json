@@ -24,6 +24,10 @@
     // (`Deno`), different module resolution (`npm:` and `.ts` specifiers).
     // They are typechecked by `deno check` via `npm run check:functions`,
     // not by this config.
-    "supabase/functions"
+    "supabase/functions",
+    // Reference snapshots for external handoffs (`*.current`, partial file
+    // sets), not bundled app code — they don't carry their imports and are
+    // not meant to compile.
+    "handoff"
   ]
 }
