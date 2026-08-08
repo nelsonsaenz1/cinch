@@ -235,8 +235,14 @@ export const CommentRow = memo(function CommentRow({
 
   const compliment = !reply && isCompliment(comment.body);
 
+  // EC-03 · hidden, but seen by the two people the schema still lets read it
+  // — the author ("only you can see this") and the host who hid it. Not an
+  // early return: the row is the same content, dimmed, with one caption line
+  // added below it.
+  const hiddenButVisible = comment.hidden && (isMine || isHost);
+
   return (
-    <View className="flex-row gap-3 py-3" style={{ paddingLeft: indent }}>
+    <View className="flex-row gap-3 py-3" style={{ paddingLeft: indent, opacity: hiddenButVisible ? 0.55 : 1 }}>
       <Avatar name={isMine ? 'You' : authorName} size={30} tone="accent" fallback="ME" />
 
       <View className="flex-1">
@@ -256,6 +262,14 @@ export const CommentRow = memo(function CommentRow({
             )}
           </Text>
         )}
+
+        {hiddenButVisible ? (
+          <Text variant="caption" className="mt-0.5" style={{ color: theme.critical }}>
+            {isMine
+              ? `Hidden by ${hiddenByName ?? 'the host'} · only you can see this`
+              : `Hidden · only you and ${authorName ?? 'its author'} can see this`}
+          </Text>
+        ) : null}
 
         <View className="mt-1.5 flex-row items-center gap-3.5">
           <Text variant="caption">{timeLabel(comment.createdAt)}</Text>
