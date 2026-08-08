@@ -1,4 +1,5 @@
 import { Pressable, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/ui/text';
 import { slotCopy, slotOrdinalWithinKind } from '@/features/onboarding/ten-copy';
@@ -64,8 +65,13 @@ export function TenCameraChrome({
   const filled = settledCount(slots);
 
   return (
-    <View className="flex-1 bg-ink">
-      <View className="flex-row items-center justify-between px-gutter pt-3">
+    // A real SafeAreaView, not a plain View — capture.tsx's own reasoning:
+    // the dark stage is the one screen where the status bar sits directly on
+    // the app's content rather than on the light masthead, and this render
+    // happens on top of the-ten.tsx's own screen rather than as a routed
+    // page, so it never inherited a SafeAreaView from anywhere upstream.
+    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-ink">
+      <View className="flex-row items-center justify-between px-gutter pt-1">
         <Text variant="plate" style={{ color: theme.canvas, fontSize: 26 }}>
           {`Slot ${slot.id} · ${phrase}`}
         </Text>
@@ -210,6 +216,6 @@ export function TenCameraChrome({
             : 'Frame one garment against a plain background, then shoot.'}
         </Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

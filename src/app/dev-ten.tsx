@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SlotCard } from '@/components/onboarding/slot-card';
@@ -90,7 +90,7 @@ function PageT01() {
   const { slots } = fixtureT01();
   const slot = nextSlot(slots)!;
   return (
-    <View className="flex-1 px-gutter pt-2">
+    <ScrollView contentContainerClassName="px-gutter pt-2 pb-10">
       <View className="flex-row items-baseline justify-between">
         <Text variant="display" trim>
           The Ten
@@ -108,7 +108,7 @@ function PageT01() {
       <View className="mt-4">
         <SlotCard slot={slot} slots={slots} isFirstSuggestion onPhotograph={() => {}} />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -116,7 +116,7 @@ function PageT02() {
   const { slots, names, images } = fixtureT02();
   const slot = nextSlot(slots)!;
   return (
-    <View className="flex-1 px-gutter pt-2">
+    <ScrollView contentContainerClassName="px-gutter pt-2 pb-10">
       <View className="flex-row items-baseline justify-between">
         <Text variant="display" trim>
           The Ten
@@ -134,7 +134,7 @@ function PageT02() {
       <View className="mt-4">
         <SlotCard slot={slot} slots={slots} isFirstSuggestion={false} onPhotograph={() => {}} onSkip={() => {}} />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -193,7 +193,7 @@ function PageT05() {
   const { slots, names, images } = fixtureT05();
   const slot = nextSlot(slots)!;
   return (
-    <View className="flex-1 px-gutter pt-2">
+    <ScrollView contentContainerClassName="px-gutter pt-2 pb-10">
       <View className="flex-row items-baseline justify-between">
         <Text variant="display" trim>
           The Ten
@@ -210,7 +210,7 @@ function PageT05() {
       <View className="mt-4">
         <SlotCard slot={slot} slots={slots} isFirstSuggestion={false} onPhotograph={() => {}} />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
