@@ -2,12 +2,12 @@ import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useTheme } from '@/theme/tokens';
+import { canvasAlpha, useTheme } from '@/theme/tokens';
 
-/** `theme.canvas` is always `#RRGGBB`; alpha reads derive from it, never retype. */
-export function canvasAlpha(alpha: number): string {
-  return `rgba(251,250,246,${alpha})`;
-}
+// `canvasAlpha` used to live here. It is in the theme now — the camera chrome
+// and three older screens wanted the same thing — and is re-exported so this
+// unit's call sites keep importing it from where they always did.
+export { canvasAlpha };
 
 /**
  * The Reveal's dark stage — the one screen in the free-tier wave besides the
