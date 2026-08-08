@@ -5,9 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentComposer } from '@/components/event-outfits/CommentComposer';
 import { CommentRow, type ThreadComment } from '@/components/event-outfits/CommentRow';
-import { OutfitPostCard, PlateTriptych, lookName } from '@/components/event-outfits/OutfitPostCard';
+import { OutfitPostCard, lookName } from '@/components/event-outfits/OutfitPostCard';
 import { AddYoursPill, VotePill } from '@/components/event-outfits/VotePill';
 import { Button } from '@/components/ui/button';
+import { LookPlate } from '@/components/look/look-plate';
 import { Chip } from '@/components/ui/chip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -247,9 +248,7 @@ function L03() {
   return (
     <View className="mt-4 overflow-hidden rounded-plate border border-hairline bg-surface">
       <View className="flex-row items-center gap-3 border-b border-hairline px-4 py-3.5">
-        <View className="h-11 w-11 overflow-hidden rounded-md bg-tray">
-          <PlateTriptych garments={l.garments.slice(0, 4)} resolveImage={resolveImage} cell={44} />
-        </View>
+        <LookPlate pieces={l.garments} width={44} resolveImage={resolveImage} padding={3} gap={2} />
         <View className="flex-1">
           <Text variant="plate" trim numberOfLines={1}>
             {lookName(l.garments, l.caption)}

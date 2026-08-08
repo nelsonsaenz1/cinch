@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentComposer } from '@/components/event-outfits/CommentComposer';
 import { CommentRow, type ThreadComment } from '@/components/event-outfits/CommentRow';
-import { lookName, PlateTriptych } from '@/components/event-outfits/OutfitPostCard';
+import { lookName } from '@/components/event-outfits/OutfitPostCard';
+import { LookPlate } from '@/components/look/look-plate';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -140,9 +141,11 @@ export function CommentsSheet({
 
           {look ? (
             <View className="flex-row items-center gap-3 border-b border-hairline px-gutter pb-4 pt-3">
-              <View className="h-11 w-11 overflow-hidden rounded-md bg-tray">
-                <PlateTriptych garments={look.garments.slice(0, 4)} resolveImage={resolveImage} cell={44} />
-              </View>
+              {/* The 44pt thumb size the contract names for "the composed
+                  look" — `LookPlate`, not `PlateTriptych`: a 44px box is too
+                  narrow for a row of 44px tiles (it would clip to the first
+                  garment), where the grid scales itself to fit. */}
+              <LookPlate pieces={look.garments} width={44} resolveImage={resolveImage} padding={3} gap={2} />
               <View className="flex-1">
                 <Text variant="plate" trim numberOfLines={1}>
                   {lookName(look.garments, look.caption)}
