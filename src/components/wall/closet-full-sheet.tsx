@@ -84,7 +84,7 @@ export function ClosetFullPanel({
             accessibilityRole="button"
             accessibilityLabel={tertiaryLabel}
             className="items-center py-1.5 active:opacity-60">
-            <Text variant="body" style={{ color: theme.faint }}>
+            <Text variant="body" style={{ color: theme.muted }}>
               {tertiaryLabel}
             </Text>
           </Pressable>
@@ -92,7 +92,7 @@ export function ClosetFullPanel({
       </View>
 
       {footnote ? (
-        <Text variant="caption" className="mt-3.5" style={{ color: theme.faint }}>
+        <Text variant="caption" className="mt-3.5" style={{ color: theme.muted }}>
           {footnote}
         </Text>
       ) : null}

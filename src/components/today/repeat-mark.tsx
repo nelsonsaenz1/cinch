@@ -99,7 +99,7 @@ export function RepeatMark({
             See plans
           </Text>
         </Pressable>
-        <Text variant="label" style={{ color: theme.faint }}>
+        <Text variant="label" style={{ color: theme.muted }}>
           ·
         </Text>
         <Pressable

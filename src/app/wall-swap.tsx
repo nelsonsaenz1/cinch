@@ -112,7 +112,7 @@ export default function WallSwapScreen() {
                   <Text
                     variant="caption"
                     className="mt-0.5"
-                    style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4, color: theme.faint }}>
+                    style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4, color: theme.muted }}>
                     {`${wornLabel(c.wearCount)} · IN ${c.outfitCount} ${c.outfitCount === 1 ? 'OUTFIT' : 'OUTFITS'}`}
                   </Text>
                 </View>
@@ -146,7 +146,7 @@ export default function WallSwapScreen() {
               {`${selected.outcome.from} → ${selected.outcome.swapped}`}
             </Text>
           </View>
-          <Text variant="caption" className="mt-1.5" style={{ color: theme.faint }}>
+          <Text variant="caption" className="mt-1.5" style={{ color: theme.muted }}>
             {selected.outcome.swapped > selected.outcome.from
               ? `${selected.outcome.swapped - selected.outcome.from} more than you have now`
               : selected.outcome.swapped === selected.outcome.from
