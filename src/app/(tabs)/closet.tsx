@@ -494,7 +494,7 @@ function Masthead({
               key={item.id}
               item={item}
               variant="latest"
-              imageUri={screen.resolve(item.platePath, item.cutoutPath)}
+              imageUri={screen.resolve(item.listingPath, item.platePath, item.cutoutPath)}
               onPress={screen.openItem}
             />
           ))}
@@ -514,7 +514,7 @@ function Masthead({
               key={item.id}
               item={item}
               variant="favourite"
-              imageUri={screen.resolve(item.platePath, item.cutoutPath)}
+              imageUri={screen.resolve(item.listingPath, item.platePath, item.cutoutPath)}
               onPress={screen.openItem}
             />
           ))}

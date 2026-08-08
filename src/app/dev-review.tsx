@@ -31,6 +31,7 @@ const BASE: Omit<Item, 'id' | 'category' | 'subcategory' | 'colors' | 'material'
   cutoutPath: null,
   platePath: null,
   thumbPath: null,
+  listingPath: null,
   formalityScore: 3,
   warmthScore: 3,
   waterResistant: false,

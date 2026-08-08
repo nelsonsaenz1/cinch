@@ -8,7 +8,11 @@ import { recordAiCall } from '../_shared/ai-calls.ts';
 import { BoundsError, readBoundedJson } from '../_shared/input-bounds.ts';
 import { OpenRouterError } from '../_shared/openrouter.ts';
 import { enforceAiQuota } from '../_shared/quota.ts';
-import { parseGarmentSearchRequest } from './bounds.ts';
+import {
+  parseGarmentSearchRequest,
+  type ValidatedAttachRequest,
+  type ValidatedMatchRequest,
+} from './bounds.ts';
 import { assertSafeUrl, guardedFetch, UnsafeUrlError } from './net.ts';
 import {
   extractImageUrl,
@@ -29,7 +33,7 @@ import { openRouterWebProvider } from './provider.ts';
  * size 2, navy", optionally attaches a quick photo of the actual colour, and
  * picks their garment out of a handful of product images found on the web.
  *
- * THREE ACTIONS, ONE FUNCTION
+ * FIVE ACTIONS, ONE FUNCTION
  *
  *   search   costs a model call and a web search — quota'd, consent-gated.
  *   resolve  reads ONE page the user pasted and returns its og:image and
@@ -39,11 +43,21 @@ import { openRouterWebProvider } from './provider.ts';
  *   import   downloads the chosen image and creates the item — no model, no
  *            quota unit. Charging twice for one garment would be charging the
  *            user for changing their mind, and the expensive half already ran.
+ *   match    the same search, entered from the other side: the garment is
+ *            already photographed and in the closet, and the question is who
+ *            made it and where it is sold. The item's own picture and tags are
+ *            the query. Costs a model call and a web search — quota'd and
+ *            gated exactly like `search`, on the same workload.
+ *   attach   the confirm step for `match`: downloads the chosen listing image
+ *            and records it ON the existing item rather than creating one.
+ *            No model, no quota unit — the same rule `import` lives by.
  *
  * `search` and `resolve` are the two doors into the same room. One is for
  * somebody who knows what the garment is called; the other is for somebody who
  * is already looking at it in a shop's app and can share the link. They meet at
- * `import`, which is the only code path that writes anything.
+ * `import`, which creates the item. `match` and `attach` are the same pair for
+ * a garment that already exists — the search and its confirmation — except the
+ * confirmation decorates a row instead of creating one.
  *
  * THE DOWNLOAD HAPPENS HERE, NEVER ON THE CLIENT. Three reasons, in order of
  * how quickly they bite: a retailer's CDN does not send CORS headers, so the
@@ -58,6 +72,10 @@ import { openRouterWebProvider } from './provider.ts';
  */
 
 const BUCKET = 'garments';
+
+/** Signed URL lifetime for the item's own photograph — only needs to outlive
+ *  the model call. Same figure tag-item uses, for the same reason. */
+const SIGNED_URL_TTL_SECONDS = 300;
 
 /**
  * The workload's own enum value, added by migration 20260806091000.
@@ -159,10 +177,10 @@ export default {
 
       // ── AI processing consent (App Store Guideline 5.1.2(i)) ──────────────
       // Server-side, like every sibling: a client-side gate is trivially
-      // bypassed and the rule is about what actually leaves the device. Both
-      // actions are gated, not just the search — the import exists only to
-      // complete a search, and an item created here is tagged by a model
-      // moments later.
+      // bypassed and the rule is about what actually leaves the device. Every
+      // action is gated, not just the searches — `import` and `attach` exist
+      // only to complete one, and `match` sends the user's own photograph to a
+      // model, which is precisely what the consent is about.
       const { data: profile } = await db
         .from('profiles')
         .select('ai_consent_version')
@@ -184,6 +202,14 @@ export default {
 
       if (request.action === 'resolve') {
         return await resolveLink(admin, userId, request.pageUrl);
+      }
+
+      if (request.action === 'attach') {
+        return await attachListing(db, admin, userId, request);
+      }
+
+      if (request.action === 'match') {
+        return await matchListing(db, admin, userId, apiKey, request);
       }
 
       // ── Model config, read at call time so a model swap is a DB update ────
@@ -518,4 +544,323 @@ async function importImage(
   // calling each other, and the client's own sweep already drives `pending_tag`
   // rows through tagging. Same pipeline as a photographed garment, from here on.
   return Response.json({ ok: true, itemId: item.id, status: 'pending_tag' });
+}
+
+/** The columns `match` reads. A pick so a renamed column fails the compile
+ *  here, at the one place that depends on it. */
+type MatchableItem = Pick<
+  Database['public']['Tables']['items']['Row'],
+  'category' | 'subcategory' | 'colors' | 'brand' | 'ai_tags' | 'description'
+>;
+
+/**
+ * One line of what the closet already knows about a garment.
+ *
+ * The tags were written by `tag-item` and the columns are its output, so the
+ * shapes here mirror what that function stores: `colors` is `[{ name }]`, and
+ * `ai_tags` is the whole `TagResult` object, read defensively because a row
+ * that predates a schema change is still a row somebody wants matched. The
+ * photograph is the ground truth; this line only tells the model which words
+ * to search with.
+ */
+function describeItem(item: MatchableItem): string {
+  const tags =
+    typeof item.ai_tags === 'object' && item.ai_tags !== null && !Array.isArray(item.ai_tags)
+      ? (item.ai_tags as Record<string, unknown>)
+      : {};
+
+  const colorNames = (Array.isArray(item.colors) ? item.colors : [])
+    .map((entry) =>
+      typeof entry === 'object' && entry !== null && !Array.isArray(entry) &&
+        typeof (entry as { name?: unknown }).name === 'string'
+        ? (entry as { name: string }).name
+        : null,
+    )
+    .filter((name): name is string => name !== null);
+
+  const pattern = typeof tags.pattern === 'string' ? tags.pattern : null;
+  const material = typeof tags.material === 'string' ? tags.material : null;
+
+  const line = [
+    item.brand,
+    colorNames.slice(0, 3).join(' and '),
+    material,
+    // "solid" is the absence of a pattern; searching for it finds nothing.
+    pattern && pattern !== 'solid' ? pattern : null,
+    item.subcategory ?? item.category,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .join(' ');
+
+  // The model's own sentence about the garment beats a user-typed title here,
+  // because it was written from the same photograph the model is about to see.
+  const description =
+    typeof tags.description === 'string' && tags.description ? tags.description : item.description;
+
+  const full = description ? `${line}. ${description}` : line;
+  // A belt against a description column edited by hand: the descriptor is
+  // prompt text billed by the token, and 500 characters says everything a
+  // search query can use.
+  return full.slice(0, 500);
+}
+
+/**
+ * Find listings for a garment the user already photographed.
+ *
+ * `search` starts from words because no photograph exists yet; this starts from
+ * the photograph because one does. The item's picture — the cutout when the
+ * background has been removed, since a clean silhouette is the best evidence,
+ * else the thumb, else the original — is signed for just long enough to show
+ * the model, and the tags become the search terms.
+ *
+ * The optional `brand` narrows the hunt to one maker's listings. Its ABSENCE is
+ * the near-identical fallback, not a degraded mode: the model proposes up to
+ * five brands from the photograph and returns lookalike listings unscoped, and
+ * the client can re-run with one of those brands if the user confirms a guess.
+ * One action, one quota unit either way.
+ *
+ * Loaded through the RLS-scoped client, so another user's item id is
+ * indistinguishable from a missing one — a 404 either way, which is the honest
+ * answer and leaks nothing.
+ */
+async function matchListing(
+  db: SupabaseClient<Database>,
+  admin: SupabaseClient<Database>,
+  userId: string,
+  apiKey: string,
+  request: ValidatedMatchRequest,
+): Promise<Response> {
+  const { data: item } = await db
+    .from('items')
+    .select('id, category, subcategory, colors, brand, ai_tags, description, cutout_path, thumb_path, image_path')
+    .eq('id', request.itemId)
+    .maybeSingle();
+
+  if (!item) {
+    return fail('item_not_found', "That garment isn't in your closet.", 404);
+  }
+
+  const imagePath = item.cutout_path ?? item.thumb_path ?? item.image_path;
+  if (!imagePath) {
+    return fail('item_no_image', "That garment doesn't have a photo yet.", 409);
+  }
+
+  // ── Model config, read at call time so a model swap is a DB update ────────
+  // Same workload as `search`: matching is searching, entered from a
+  // photograph, and splitting the counter would let one door drain what the
+  // other advertises.
+  const { data: config } = await admin
+    .from('ai_config')
+    .select('model_id, params, max_tokens, enabled, provider')
+    .eq('workload', WORKLOAD)
+    .maybeSingle();
+
+  if (config && !config.enabled) {
+    return fail('search_disabled', 'Search is turned off right now.', 503);
+  }
+
+  // The signed URL comes before the quota claim on purpose: `claim_ai_quota`
+  // does not refund, and an unreadable image would otherwise burn a unit on a
+  // request that was never going to reach the model. tag-item orders these the
+  // same way, for the same reason.
+  const { data: signed, error: signError } = await admin.storage
+    .from(BUCKET)
+    .createSignedUrl(imagePath, SIGNED_URL_TTL_SECONDS);
+
+  if (signError || !signed?.signedUrl) {
+    return fail('item_image_unreadable', "That garment's photo couldn't be read.", 500);
+  }
+
+  const quotaResponse = await enforceAiQuota(admin, userId, 'garment_search');
+  if (quotaResponse) return quotaResponse;
+
+  const provider = openRouterWebProvider({
+    apiKey,
+    model: config?.model_id ?? DEFAULT_MODEL,
+    maxTokens: config?.max_tokens ?? DEFAULT_MAX_TOKENS,
+    params: (config?.params ?? DEFAULT_PARAMS) as Record<string, unknown>,
+  });
+
+  let result: Awaited<ReturnType<typeof provider.match>> | null = null;
+  let failure: string | null = null;
+
+  try {
+    result = await provider.match({
+      descriptor: describeItem(item),
+      photoUrl: signed.signedUrl,
+      brand: request.brand,
+      maxCandidates: MAX_CANDIDATES,
+    });
+  } catch (err) {
+    // `OpenRouterError` messages are already URL-redacted; they go to the
+    // accounting table for whoever is debugging cost, and never to the
+    // client, which gets a code and a sentence.
+    failure = err instanceof Error ? err.message : String(err);
+  }
+
+  // ── Accounting. Written for failures too, exactly as the search records
+  //    its own — a failed match still costs a web-search charge. ────────────
+  await recordAiCall(admin, {
+    user_id: userId,
+    workload: WORKLOAD,
+    provider: config?.provider ?? provider.id,
+    model_id: config?.model_id ?? DEFAULT_MODEL,
+    prompt_tokens: result?.promptTokens ?? null,
+    completion_tokens: result?.completionTokens ?? null,
+    cost_usd: result?.costUsd ?? null,
+    latency_ms: result?.latencyMs ?? null,
+    succeeded: result !== null,
+    error: failure,
+  });
+
+  if (!result) {
+    return fail('match_failed', 'The search did not come back. Try again in a moment.', 502);
+  }
+
+  return Response.json({
+    ok: true,
+    brands: result.brands,
+    // Confidence stays server-side — it ordered the list, and that is its job.
+    // `pageUrl` rides along because `attach` needs it back.
+    candidates: result.candidates.map(({ title, imageUrl, pageUrl, source }) => ({
+      title,
+      imageUrl,
+      pageUrl,
+      source,
+    })),
+  });
+}
+
+/**
+ * The confirm step for `match`: pin the chosen listing to the existing item.
+ *
+ * `import` creates a garment; this decorates one the user already owns, so
+ * nothing here touches `status` or the tagging pipeline — the item keeps
+ * whatever life it had, plus a listing photograph and a provenance line.
+ *
+ * NO QUOTA UNIT, for the same reason `import` charges none: the expensive half
+ * (the match) already ran, and charging the confirmation would be charging the
+ * user for making up their mind. The outbound fetch is not the unbounded
+ * primitive `resolve` worries about, because it can only follow a `match` the
+ * user already paid a unit for.
+ *
+ * The object lives under a `listing/` segment of the item's own prefix, at a
+ * fixed filename, so re-confirming a different listing overwrites rather than
+ * accumulates. The one wrinkle is the extension: a jpg replaced by a png lands
+ * at a sibling path, so the previous object is removed best-effort — an
+ * orphaned image in a private bucket is a few wasted kilobytes, never worth
+ * failing a confirmation the user watched succeed.
+ */
+async function attachListing(
+  db: SupabaseClient<Database>,
+  admin: SupabaseClient<Database>,
+  userId: string,
+  request: ValidatedAttachRequest,
+): Promise<Response> {
+  // Ownership through RLS, before any bytes move: another user's item id reads
+  // as missing, and a 404 up front beats discovering it after a download.
+  const { data: item } = await db
+    .from('items')
+    .select('id, listing_path')
+    .eq('id', request.itemId)
+    .maybeSingle();
+
+  if (!item) {
+    return fail('item_not_found', "That garment isn't in your closet.", 404);
+  }
+
+  // The page URL is stored, not fetched — but a stored URL the app will render
+  // as a tappable link deserves the same vetting as one we would fetch.
+  let page: URL;
+  try {
+    page = assertSafeUrl(request.pageUrl);
+  } catch {
+    return fail(
+      'link_rejected',
+      "Cinch can't open that link. Paste the product page from the shop's own site.",
+      400,
+    );
+  }
+
+  // Same limits as `import`, because it is the same job: `guardedFetch`
+  // re-vets the image URL itself, every redirect included.
+  let downloaded;
+  try {
+    downloaded = await guardedFetch(request.imageUrl, {
+      accept: 'image/*',
+      maxBytes: MAX_IMAGE_BYTES,
+      timeoutMs: IMAGE_TIMEOUT_MS,
+    });
+  } catch (err) {
+    if (err instanceof UnsafeUrlError) {
+      return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+    }
+    return fail('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
+  }
+
+  if (downloaded.status !== 200) {
+    return fail('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
+  }
+
+  // `image/jpeg; charset=binary` is a real header in the wild.
+  const contentType = downloaded.contentType.split(';')[0].trim();
+  const extension = IMAGE_EXTENSIONS[contentType];
+  if (!extension || !looksLikeImage(downloaded.body)) {
+    return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+  }
+
+  // Inside the `{user_id}/{item_id}/` prefix the bucket policy authorizes on,
+  // one level down so a listing can never collide with the garment's own
+  // photographs. `upsert` is what makes re-confirmation an overwrite.
+  const path = `${userId}/${request.itemId}/listing/original.${extension}`;
+
+  const { error: uploadError } = await admin.storage
+    .from(BUCKET)
+    .upload(path, downloaded.body, { contentType, upsert: true });
+
+  if (uploadError) {
+    return fail('attach_failed', "That listing couldn't be saved. Try again.", 500);
+  }
+
+  const confirmedAt = new Date().toISOString();
+
+  // The select-back is the guard: an RLS-refused update is a silent no-op, and
+  // a confirmation that "succeeded" without writing anything is exactly the
+  // kind of auth bug that hides for months. Zero rows back means fail loudly.
+  const { data: updated, error: updateError } = await db
+    .from('items')
+    .update({
+      listing_path: path,
+      // The vetted, parsed form — normalized by the URL parser, not the raw
+      // string off the wire.
+      listing_source_url: page.toString(),
+      listing_source_label: hostLabel(page),
+      listing_confirmed_at: confirmedAt,
+    })
+    .eq('id', request.itemId)
+    .select('id');
+
+  if (updateError || !updated || updated.length !== 1) {
+    // The row still points wherever it pointed before, so a freshly-written
+    // object at a NEW path is litter — remove it. At the SAME path the old
+    // bytes are already gone and the row is still consistent; nothing to undo.
+    if (item.listing_path !== path) {
+      await admin.storage.from(BUCKET).remove([path]);
+    }
+    return fail('attach_failed', "That listing couldn't be saved. Try again.", 500);
+  }
+
+  // Best-effort, after the row is safely updated: a previous listing at a
+  // different extension is now unreachable and merely costs storage.
+  if (item.listing_path && item.listing_path !== path) {
+    await admin.storage.from(BUCKET).remove([item.listing_path]);
+  }
+
+  return Response.json({
+    ok: true,
+    itemId: request.itemId,
+    listingPath: path,
+    source: hostLabel(page),
+    confirmedAt,
+  });
 }

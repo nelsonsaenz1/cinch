@@ -24,6 +24,19 @@ const MIN_DESCRIPTION_CHARS = 3;
 const MAX_SWATCH_CHARS = 40_000;
 const MAX_URL_CHARS = 2_048;
 const MAX_TITLE_CHARS = 120;
+/** "Comme des Garçons Comme des Garçons" fits; a smuggled paragraph does not. */
+const MAX_BRAND_CHARS = 80;
+
+/** Mirrors the check in `_shared/input-bounds.ts` (tag-item): the id becomes a
+ *  lookup key, and a malformed uuid should be a 400 naming the field rather
+ *  than an opaque error from Postgres. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function itemUuid(value: unknown): string {
+  const id = requiredString(value, 'itemId', 40);
+  if (!UUID.test(id)) throw new BoundsError('itemId must be a uuid.');
+  return id;
+}
 
 /** Only the encodings a phone camera roll produces, and only base64. */
 const SWATCH_PREFIX = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
@@ -53,10 +66,38 @@ export type ValidatedResolveRequest = {
   pageUrl: string;
 };
 
+/**
+ * A garment the user already photographed, to be matched against the web.
+ *
+ * `brand` is the only optional lever: when the user knows who made the piece,
+ * the hunt narrows to that brand's listings; when they leave it out, the model
+ * proposes brands itself, and that unscoped run IS the near-identical fallback.
+ */
+export type ValidatedMatchRequest = {
+  action: 'match';
+  itemId: string;
+  brand?: string;
+};
+
+/**
+ * The confirm step for `match`: the tile the user tapped, pinned to their item.
+ *
+ * Both URLs are shape-checked here and destination-checked by `assertSafeUrl`
+ * at the moment of use, exactly as `import` splits those duties.
+ */
+export type ValidatedAttachRequest = {
+  action: 'attach';
+  itemId: string;
+  imageUrl: string;
+  pageUrl: string;
+};
+
 export type ValidatedRequest =
   | ValidatedSearchRequest
   | ValidatedImportRequest
-  | ValidatedResolveRequest;
+  | ValidatedResolveRequest
+  | ValidatedMatchRequest
+  | ValidatedAttachRequest;
 
 function asObject(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -116,8 +157,27 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
     };
   }
 
+  if (action === 'match') {
+    return {
+      action: 'match',
+      itemId: itemUuid(body.itemId),
+      brand: optionalString(body.brand, 'brand', MAX_BRAND_CHARS),
+    };
+  }
+
+  if (action === 'attach') {
+    return {
+      action: 'attach',
+      itemId: itemUuid(body.itemId),
+      // Shape only, both of them — `assertSafeUrl` is the security boundary,
+      // and it runs again on the server at the moment each URL is used.
+      imageUrl: requiredString(body.imageUrl, 'imageUrl', MAX_URL_CHARS),
+      pageUrl: requiredString(body.pageUrl, 'pageUrl', MAX_URL_CHARS),
+    };
+  }
+
   if (action !== 'search') {
-    throw new BoundsError('action must be "search", "resolve" or "import".');
+    throw new BoundsError('action must be "search", "resolve", "import", "match" or "attach".');
   }
 
   const swatch = optionalString(body.swatch, 'swatch', MAX_SWATCH_CHARS);

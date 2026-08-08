@@ -190,8 +190,10 @@ export function useClosetScreen() {
 
   // One signing batch covers both regimes: plates and cutouts for the profile
   // sections, thumbs for the search grid. Paths are private — sign or nothing.
+  // A confirmed listing photo is signed alongside them and offered first at
+  // every card site, because it is the picture the user chose for the piece.
   const { resolve } = useSignedUrls(
-    items.flatMap((i) => [i.platePath, i.cutoutPath, i.thumbPath]),
+    items.flatMap((i) => [i.listingPath, i.platePath, i.cutoutPath, i.thumbPath]),
   );
 
   // The headline numbers, computed over the WHOLE closet — they are facts

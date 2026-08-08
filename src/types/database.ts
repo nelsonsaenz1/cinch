@@ -615,7 +615,7 @@ export type Database = {
           occasion: string | null
           party_size: number | null
           reservation_url: string | null
-          starts_at: string
+          starts_at: string | null
           title: string
           updated_at: string
           venue_address: string | null
@@ -634,7 +634,7 @@ export type Database = {
           occasion?: string | null
           party_size?: number | null
           reservation_url?: string | null
-          starts_at: string
+          starts_at?: string | null
           title: string
           updated_at?: string
           venue_address?: string | null
@@ -653,7 +653,7 @@ export type Database = {
           occasion?: string | null
           party_size?: number | null
           reservation_url?: string | null
-          starts_at?: string
+          starts_at?: string | null
           title?: string
           updated_at?: string
           venue_address?: string | null
@@ -753,6 +753,10 @@ export type Database = {
           is_for_sale: boolean
           is_public: boolean
           last_worn_at: string | null
+          listing_confirmed_at: string | null
+          listing_path: string | null
+          listing_source_label: string | null
+          listing_source_url: string | null
           material: string | null
           occasions: string[]
           pattern: string | null
@@ -793,6 +797,10 @@ export type Database = {
           is_for_sale?: boolean
           is_public?: boolean
           last_worn_at?: string | null
+          listing_confirmed_at?: string | null
+          listing_path?: string | null
+          listing_source_label?: string | null
+          listing_source_url?: string | null
           material?: string | null
           occasions?: string[]
           pattern?: string | null
@@ -833,6 +841,10 @@ export type Database = {
           is_for_sale?: boolean
           is_public?: boolean
           last_worn_at?: string | null
+          listing_confirmed_at?: string | null
+          listing_path?: string | null
+          listing_source_label?: string | null
+          listing_source_url?: string | null
           material?: string | null
           occasions?: string[]
           pattern?: string | null

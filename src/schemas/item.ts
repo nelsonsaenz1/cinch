@@ -91,6 +91,15 @@ export const item = z.object({
    */
   platePath: z.string().nullable(),
   thumbPath: z.string().nullable(),
+  /**
+   * The retailer's own product shot, downloaded into our bucket after the user
+   * confirmed it is their piece (features/match). It takes precedence over
+   * every path above wherever a garment is shown, because it is the one image
+   * the user chose as the truest picture of what they own — but the
+   * photograph they took is never deleted, so a listing image can always be
+   * removed and the closet still has its garment.
+   */
+  listingPath: z.string().nullable(),
   status: itemStatus,
   category: itemCategory,
   subcategory: z.string().nullable(),

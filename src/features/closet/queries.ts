@@ -68,6 +68,7 @@ function toItem(row: ItemRow): Item {
     imagePath: row.image_path,
     cutoutPath: row.cutout_path,
     platePath: row.plate_path,
+    listingPath: row.listing_path,
     thumbPath: row.thumb_path,
     status: row.status,
     category: row.category,

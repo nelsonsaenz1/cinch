@@ -48,6 +48,8 @@ import { useCloset } from '@/features/closet/queries';
 import { useArchiveItems } from '@/features/closet/storage';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useLocalPhoto } from '@/features/ingest/local-photos';
+import { MatchSheet } from '@/features/match/match-sheet';
+import { useItemListing } from '@/features/match/use-match';
 import { useSetBorrowable } from '@/features/social-graph/mutations';
 import { useItemBorrowable } from '@/features/social-graph/queries';
 import { pairHarmony, toGarmentColors } from '@/lib/color';
@@ -197,16 +199,22 @@ export default function ItemDetailScreen() {
    * sorts, so the same set in a different order is a cache hit.
    */
   const { resolve } = useSignedUrls([
+    item?.listingPath,
     item?.cutoutPath,
     item?.thumbPath,
-    ...railSource.flatMap((r) => [r.piece.cutoutPath, r.piece.thumbPath]),
+    ...railSource.flatMap((r) => [r.piece.listingPath, r.piece.cutoutPath, r.piece.thumbPath]),
   ]);
-  const imageUri = resolve(item?.cutoutPath, item?.thumbPath);
+  // The confirmed listing photo is the hero when there is one: the user looked
+  // at it beside their own photograph and said that is the piece. It is read
+  // off the closet row rather than the dedicated listing query so the hero and
+  // the grid can never disagree, and the photograph stays signed above — so
+  // removing the listing image restores it with no second fetch.
+  const imageUri = resolve(item?.listingPath, item?.cutoutPath, item?.thumbPath);
 
   const rail: RailPiece[] = railSource.slice(0, RAIL_LIMIT).map(({ piece, count }) => ({
     id: piece.id,
     name: pieceName(piece),
-    imageUri: resolve(piece.cutoutPath, piece.thumbPath) ?? null,
+    imageUri: resolve(piece.listingPath, piece.cutoutPath, piece.thumbPath) ?? null,
     coWearCount: count,
   }));
 
@@ -234,6 +242,12 @@ export default function ItemDetailScreen() {
   // one screen that can flip it.
   const borrowable = useItemBorrowable(id ?? null);
   const setBorrowable = useSetBorrowable();
+
+  // The listing columns, read the same way and for the same reason as the
+  // lending flag above: the `Item` shape predates them, and this screen is the
+  // one place that offers to fill them.
+  const listing = useItemListing(id ?? null);
+  const [matching, setMatching] = useState(false);
 
   const isLocal = item ? item.imagePath === null : false;
   const inflight =
@@ -521,6 +535,21 @@ export default function ItemDetailScreen() {
             caption: 'Returns it to the tag queue for a second pass. Nothing is re-read.',
             onPress: startSendBack,
             loading: sendBack.isPending,
+          } satisfies MaintenanceRow,
+        ]
+      : []),
+    // The listing photo lives with the settled composition only: an in-flight
+    // piece has no confirmed identity for the shops to be searched against,
+    // and a local piece's photograph never left the phone, so the function has
+    // nothing to match. The MatchSheet below is rendered by that branch alone.
+    ...(!isLocal && !inflight
+      ? [
+          {
+            label: listing.data?.listingPath
+              ? 'Replace the listing photo'
+              : 'Find the listing photo',
+            caption: 'Cinch searches the shops for the product shot. Your photo stays either way.',
+            onPress: () => setMatching(true),
           } satisfies MaintenanceRow,
         ]
       : []),
@@ -842,6 +871,8 @@ export default function ItemDetailScreen() {
         onCancel={() => setTagging(false)}
         busy={save.isPending}
       />
+
+      <MatchSheet visible={matching} itemId={item.id} onClose={() => setMatching(false)} />
     </View>
   );
 }

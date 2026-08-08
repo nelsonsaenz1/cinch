@@ -63,7 +63,7 @@ export function ClosetGrid({
           onLongPress={onItemLongPress}
           selecting={selectedIds !== null}
           selected={selectedIds?.has(item.id) ?? false}
-          imageUri={resolveImage?.(item.thumbPath, item.cutoutPath)}
+          imageUri={resolveImage?.(item.listingPath, item.thumbPath, item.cutoutPath)}
         />
       )}
       ListEmptyComponent={ListEmptyComponent}

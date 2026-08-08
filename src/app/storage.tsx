@@ -44,7 +44,7 @@ export default function StorageScreen() {
 
   const items = stored.data ?? [];
   const { resolve } = useSignedUrls(
-    items.flatMap((item) => [item.platePath, item.cutoutPath, item.thumbPath]),
+    items.flatMap((item) => [item.listingPath, item.platePath, item.cutoutPath, item.thumbPath]),
   );
 
   const onError = (title: string) => (err: unknown) =>
@@ -133,7 +133,7 @@ export default function StorageScreen() {
               {i > 0 ? <Rule tone="hairline" /> : null}
               <StoredRow
                 item={item}
-                imageUri={resolve(item.platePath, item.cutoutPath, item.thumbPath)}
+                imageUri={resolve(item.listingPath, item.platePath, item.cutoutPath, item.thumbPath)}
                 busy={busyId === item.id}
                 onRestore={restoreItem}
                 onDelete={confirmDelete}

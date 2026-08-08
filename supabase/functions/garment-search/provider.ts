@@ -44,6 +44,12 @@ import {
  * A candidate whose page URL is not in the citation list is dropped before any
  * of that: it is a URL the model produced from memory rather than from the
  * search, and it is the one class of answer we can cheaply prove untrustworthy.
+ *
+ * `match` is the same machinery entered from the other side: instead of words
+ * that describe a garment nobody has photographed, it takes the photograph of a
+ * garment the closet already holds and asks two questions — who plausibly made
+ * this, and where is it sold. Same web plugin, same citation check, same
+ * server-side og:image resolution; the only new ingredient is the image part.
  */
 
 export type GarmentCandidate = {
@@ -55,6 +61,18 @@ export type GarmentCandidate = {
   source: string;
   /** The model's own 0–1 confidence. Used for ordering, never as a gate. */
   confidence: number;
+};
+
+/**
+ * A candidate that keeps its page URL, because the caller needs it back.
+ *
+ * `search` ends at the image — the user imports the picture and the page is
+ * disposable. `match` ends at `attach`, which records WHERE the listing lives
+ * on the item, so the page URL is part of the answer rather than plumbing.
+ */
+export type ListingCandidate = GarmentCandidate & {
+  /** The product page the image was resolved from. Handed back to `attach`. */
+  pageUrl: string;
 };
 
 export type ProviderResult = {
@@ -74,6 +92,27 @@ export type ProviderInput = {
   maxCandidates: number;
 };
 
+export type MatchInput = {
+  /** What the closet already knows, rendered as one line by the caller. */
+  descriptor: string;
+  /** Short-lived signed URL of the item's own photograph. Never logged. */
+  photoUrl: string;
+  /** The user's brand, when they gave one. Absence IS the unscoped fallback. */
+  brand?: string;
+  /** How many tiles the client will show. */
+  maxCandidates: number;
+};
+
+export type MatchResult = {
+  /** Up to five brand names, most likely first. May be empty, never padded. */
+  brands: string[];
+  candidates: ListingCandidate[];
+  promptTokens: number | null;
+  completionTokens: number | null;
+  costUsd: number | null;
+  latencyMs: number;
+};
+
 /**
  * The seam a dedicated image-search API slots into later.
  *
@@ -85,6 +124,7 @@ export interface GarmentImageProvider {
   /** Stable identifier, written to `ai_calls.provider` for cost attribution. */
   readonly id: string;
   search(input: ProviderInput): Promise<ProviderResult>;
+  match(input: MatchInput): Promise<MatchResult>;
 }
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -93,6 +133,10 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const SEARCH_TIMEOUT_MS = 45_000;
 /** Pages are resolved in parallel; this bounds the fan-out, not the results. */
 const MAX_PAGES_RESOLVED = 10;
+/** Enough guesses to be useful, few enough that each one means something. */
+const MAX_BRANDS = 5;
+/** Mirrors the title cap: a brand longer than this is not a brand name. */
+const MAX_BRAND_CHARS = 80;
 
 const SYSTEM_PROMPT = [
   'You identify clothing from a shopper\'s description and the web search results provided to you.',
@@ -102,6 +146,19 @@ const SYSTEM_PROMPT = [
   'Prefer the brand\'s own site over resellers, and a product page over a listicle or a blog post.',
   'confidence is your honest 0-1 estimate that this page shows the described garment.',
   'Return fewer candidates rather than padding the list with near-misses.',
+].join(' ');
+
+const MATCH_SYSTEM_PROMPT = [
+  'You are shown a photograph of a garment somebody owns, together with what their wardrobe app',
+  'already knows about it. You have two jobs.',
+  'First, name up to five brands that plausibly made this piece, most likely first. Read a label or',
+  'wordmark if the photograph shows one; otherwise judge from construction, hardware and styling.',
+  'Return fewer names rather than padding the list with guesses.',
+  'Second, return product or retailer pages from the web search results that show this garment or',
+  'one nearly identical to it — the same silhouette, the same colour, the same details.',
+  'Never invent a URL: every pageUrl you return must be one of the URLs in the search results.',
+  'Prefer the brand\'s own site over resellers, and a product page over a listicle or a blog post.',
+  'confidence is your honest 0-1 estimate that this page shows this garment.',
 ].join(' ');
 
 const candidateSchema = {
@@ -125,6 +182,24 @@ const candidateSchema = {
   additionalProperties: false,
 } as const;
 
+/** Same candidate rows as `candidateSchema`, plus the brand guesses. Sharing
+ *  the inner definition is what keeps the two shapes from drifting apart. */
+const matchSchema = {
+  type: 'object',
+  properties: {
+    brands: {
+      type: 'array',
+      items: {
+        type: 'string',
+        description: 'A brand name, e.g. "Reformation". Most likely first.',
+      },
+    },
+    candidates: candidateSchema.properties.candidates,
+  },
+  required: ['brands', 'candidates'],
+  additionalProperties: false,
+} as const;
+
 type ModelCandidate = { pageUrl: string; title: string; confidence: number };
 
 type Annotation = {
@@ -143,6 +218,204 @@ function citationKey(raw: string): string {
   }
 }
 
+type ProviderOpts = {
+  apiKey: string;
+  model: string;
+  maxTokens: number;
+  params: Record<string, unknown>;
+};
+
+type WebCompletion = {
+  /** The model's parsed JSON object. Shape-checked by the caller, not here. */
+  parsed: unknown;
+  /** Every page the plugin actually retrieved, keyed for comparison. */
+  cited: Map<string, string>;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  costUsd: number | null;
+  latencyMs: number;
+};
+
+/**
+ * One web-searching model call: fetch, error mapping, citation harvest,
+ * accounting. `search` and `match` differ only in what they ask and what shape
+ * the answer takes, so everything that must NOT differ between them lives here.
+ */
+async function completeWithWebSearch(
+  opts: ProviderOpts,
+  messages: ChatMessage[],
+  schemaName: string,
+  schema: unknown,
+): Promise<WebCompletion> {
+  const started = Date.now();
+
+  let response: Response;
+  try {
+    response = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${opts.apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://cinch.app',
+        'X-Title': 'Cinch',
+      },
+      signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
+      body: JSON.stringify({
+        model: opts.model,
+        messages,
+        max_tokens: opts.maxTokens,
+        ...opts.params,
+        // Exa named explicitly rather than left to `auto`: it is the engine
+        // whose citations carry page extracts, which is what the model is
+        // being asked to judge. `max_results` is the search's own cost knob
+        // ($0.005 covers ten; each further result is another $0.001).
+        plugins: [
+          {
+            id: 'web',
+            engine: 'exa',
+            max_results: MAX_PAGES_RESOLVED,
+            search_prompt: 'Shopping results for this garment:',
+          },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: schemaName,
+            strict: true,
+            schema,
+          },
+        },
+        usage: { include: true },
+      }),
+    });
+  } catch (err) {
+    const name = err instanceof Error ? err.name : '';
+    throw new OpenRouterError(
+      name === 'TimeoutError'
+        ? `Search did not finish within ${SEARCH_TIMEOUT_MS}ms.`
+        : `Search request failed: ${redactUrls(err instanceof Error ? err.message : String(err))}`,
+      undefined,
+      true,
+    );
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new OpenRouterError(
+      `OpenRouter ${response.status}: ${redactUrls(body).slice(0, 400)}`,
+      response.status,
+      response.status === 429 || response.status >= 500,
+    );
+  }
+
+  const json = await response.json();
+  const message = json?.choices?.[0]?.message;
+
+  if (json?.choices?.[0]?.finish_reason === 'length') {
+    throw new OpenRouterError('Model output hit max_tokens before completing the object.');
+  }
+
+  const raw = message?.content;
+  if (typeof raw !== 'string' || raw.length === 0) {
+    throw new OpenRouterError('Model returned no content.');
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new OpenRouterError(`Model returned non-JSON content: ${redactUrls(raw).slice(0, 200)}`);
+  }
+
+  // The citation set. Every page the plugin actually retrieved, and
+  // therefore the only pages a candidate may point at.
+  const cited = new Map<string, string>();
+  for (const annotation of (message?.annotations ?? []) as Annotation[]) {
+    const url = annotation?.url_citation?.url;
+    if (annotation?.type === 'url_citation' && typeof url === 'string') {
+      cited.set(citationKey(url), url);
+    }
+  }
+
+  const usage = json?.usage ?? {};
+  return {
+    parsed,
+    cited,
+    promptTokens: usage.prompt_tokens ?? null,
+    completionTokens: usage.completion_tokens ?? null,
+    costUsd: typeof usage.cost === 'number' ? usage.cost : null,
+    latencyMs: Date.now() - started,
+  };
+}
+
+/**
+ * Verify the model's candidates against the citations, then turn each surviving
+ * page into a tile with a proven image.
+ */
+async function resolveAgainstCitations(
+  modelCandidates: ModelCandidate[] | undefined,
+  cited: Map<string, string>,
+  maxCandidates: number,
+): Promise<ListingCandidate[]> {
+  const verified = (modelCandidates ?? [])
+    .filter((candidate) => typeof candidate?.pageUrl === 'string')
+    // The citation check. Dropping rather than trusting is the whole
+    // anti-hallucination story of this file.
+    .filter((candidate) => cited.has(citationKey(candidate.pageUrl)))
+    .sort((a, b) => (Number(b.confidence) || 0) - (Number(a.confidence) || 0))
+    .slice(0, MAX_PAGES_RESOLVED);
+
+  const resolved = await Promise.all(
+    verified.map(async (candidate): Promise<ListingCandidate | null> => {
+      try {
+        const page = await guardedFetch(candidate.pageUrl, {
+          accept: PAGE_ACCEPT,
+          maxBytes: PAGE_MAX_BYTES,
+          timeoutMs: PAGE_TIMEOUT_MS,
+        });
+        if (page.status !== 200 || !page.contentType.includes('html')) return null;
+
+        const html = new TextDecoder('utf-8', { fatal: false }).decode(page.body);
+        const imageUrl = extractImageUrl(html, page.url);
+        if (!imageUrl) return null;
+
+        // Vetted here so a candidate that could never be imported is never
+        // offered — the import call re-checks, because that is the one that
+        // downloads bytes.
+        const image = new URL(imageUrl);
+
+        return {
+          imageUrl: image.toString(),
+          // The page actually reached, after redirects — not the model's string.
+          pageUrl: page.url.toString(),
+          title: String(candidate.title ?? '').slice(0, 120),
+          source: hostLabel(page.url),
+          confidence: Math.min(Math.max(Number(candidate.confidence) || 0, 0), 1),
+        };
+      } catch (err) {
+        // A retailer that blocks bots, times out, or redirects somewhere
+        // unsafe is a dropped tile, never a failed search.
+        if (err instanceof UnsafeUrlError) return null;
+        return null;
+      }
+    }),
+  );
+
+  const seen = new Set<string>();
+  const candidates: ListingCandidate[] = [];
+  for (const candidate of resolved) {
+    if (!candidate) continue;
+    // Retailers syndicate the same asset across pages; two identical tiles
+    // read as a broken grid.
+    if (seen.has(candidate.imageUrl)) continue;
+    seen.add(candidate.imageUrl);
+    candidates.push(candidate);
+    if (candidates.length >= maxCandidates) break;
+  }
+
+  return candidates;
+}
+
 /**
  * The default provider: OpenRouter's web plugin, then server-side resolution.
  *
@@ -151,18 +424,11 @@ function citationKey(raw: string): string {
  * is how you end up with `qwen/qwen3-vl:online:online` after one careless UPDATE.
  * The two are documented as equivalent.
  */
-export function openRouterWebProvider(opts: {
-  apiKey: string;
-  model: string;
-  maxTokens: number;
-  params: Record<string, unknown>;
-}): GarmentImageProvider {
+export function openRouterWebProvider(opts: ProviderOpts): GarmentImageProvider {
   return {
     id: 'openrouter-web',
 
     async search(input: ProviderInput): Promise<ProviderResult> {
-      const started = Date.now();
-
       const parts: ContentPart[] = [];
       if (input.swatchDataUrl) {
         parts.push({ type: 'image_url', image_url: { url: input.swatchDataUrl } });
@@ -178,157 +444,94 @@ export function openRouterWebProvider(opts: {
         { role: 'user', content: parts },
       ];
 
-      let response: Response;
-      try {
-        response = await fetch(OPENROUTER_URL, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${opts.apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://cinch.app',
-            'X-Title': 'Cinch',
-          },
-          signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
-          body: JSON.stringify({
-            model: opts.model,
-            messages,
-            max_tokens: opts.maxTokens,
-            ...opts.params,
-            // Exa named explicitly rather than left to `auto`: it is the engine
-            // whose citations carry page extracts, which is what the model is
-            // being asked to judge. `max_results` is the search's own cost knob
-            // ($0.005 covers ten; each further result is another $0.001).
-            plugins: [
-              {
-                id: 'web',
-                engine: 'exa',
-                max_results: MAX_PAGES_RESOLVED,
-                search_prompt: 'Shopping results for this garment:',
-              },
-            ],
-            response_format: {
-              type: 'json_schema',
-              json_schema: {
-                name: 'garment_candidates',
-                strict: true,
-                schema: candidateSchema,
-              },
-            },
-            usage: { include: true },
-          }),
-        });
-      } catch (err) {
-        const name = err instanceof Error ? err.name : '';
-        throw new OpenRouterError(
-          name === 'TimeoutError'
-            ? `Search did not finish within ${SEARCH_TIMEOUT_MS}ms.`
-            : `Search request failed: ${redactUrls(err instanceof Error ? err.message : String(err))}`,
-          undefined,
-          true,
-        );
-      }
-
-      if (!response.ok) {
-        const body = await response.text().catch(() => '');
-        throw new OpenRouterError(
-          `OpenRouter ${response.status}: ${redactUrls(body).slice(0, 400)}`,
-          response.status,
-          response.status === 429 || response.status >= 500,
-        );
-      }
-
-      const json = await response.json();
-      const message = json?.choices?.[0]?.message;
-
-      if (json?.choices?.[0]?.finish_reason === 'length') {
-        throw new OpenRouterError('Model output hit max_tokens before completing the object.');
-      }
-
-      const raw = message?.content;
-      if (typeof raw !== 'string' || raw.length === 0) {
-        throw new OpenRouterError('Model returned no content.');
-      }
-
-      let parsed: { candidates?: ModelCandidate[] };
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        throw new OpenRouterError(`Model returned non-JSON content: ${redactUrls(raw).slice(0, 200)}`);
-      }
-
-      // The citation set. Every page the plugin actually retrieved, and
-      // therefore the only pages a candidate may point at.
-      const cited = new Map<string, string>();
-      for (const annotation of (message?.annotations ?? []) as Annotation[]) {
-        const url = annotation?.url_citation?.url;
-        if (annotation?.type === 'url_citation' && typeof url === 'string') {
-          cited.set(citationKey(url), url);
-        }
-      }
-
-      const usage = json?.usage ?? {};
-      const accounting = {
-        promptTokens: usage.prompt_tokens ?? null,
-        completionTokens: usage.completion_tokens ?? null,
-        costUsd: typeof usage.cost === 'number' ? usage.cost : null,
-        latencyMs: Date.now() - started,
-      };
-
-      const verified = (parsed.candidates ?? [])
-        .filter((candidate) => typeof candidate?.pageUrl === 'string')
-        // The citation check. Dropping rather than trusting is the whole
-        // anti-hallucination story of this file.
-        .filter((candidate) => cited.has(citationKey(candidate.pageUrl)))
-        .sort((a, b) => (Number(b.confidence) || 0) - (Number(a.confidence) || 0))
-        .slice(0, MAX_PAGES_RESOLVED);
-
-      const resolved = await Promise.all(
-        verified.map(async (candidate): Promise<GarmentCandidate | null> => {
-          try {
-            const page = await guardedFetch(candidate.pageUrl, {
-              accept: PAGE_ACCEPT,
-              maxBytes: PAGE_MAX_BYTES,
-              timeoutMs: PAGE_TIMEOUT_MS,
-            });
-            if (page.status !== 200 || !page.contentType.includes('html')) return null;
-
-            const html = new TextDecoder('utf-8', { fatal: false }).decode(page.body);
-            const imageUrl = extractImageUrl(html, page.url);
-            if (!imageUrl) return null;
-
-            // Vetted here so a candidate that could never be imported is never
-            // offered — the import call re-checks, because that is the one that
-            // downloads bytes.
-            const image = new URL(imageUrl);
-
-            return {
-              imageUrl: image.toString(),
-              title: String(candidate.title ?? '').slice(0, 120),
-              source: hostLabel(page.url),
-              confidence: Math.min(Math.max(Number(candidate.confidence) || 0, 0), 1),
-            };
-          } catch (err) {
-            // A retailer that blocks bots, times out, or redirects somewhere
-            // unsafe is a dropped tile, never a failed search.
-            if (err instanceof UnsafeUrlError) return null;
-            return null;
-          }
-        }),
+      const completion = await completeWithWebSearch(
+        opts,
+        messages,
+        'garment_candidates',
+        candidateSchema,
       );
 
+      const parsed = completion.parsed as { candidates?: ModelCandidate[] };
+      const listings = await resolveAgainstCitations(
+        parsed.candidates,
+        completion.cited,
+        input.maxCandidates,
+      );
+
+      return {
+        // `search` never needed the page URL — the user imports the picture and
+        // the page is disposable — so its wire shape stays exactly as shipped.
+        candidates: listings.map(({ imageUrl, title, source, confidence }) => ({
+          imageUrl,
+          title,
+          source,
+          confidence,
+        })),
+        promptTokens: completion.promptTokens,
+        completionTokens: completion.completionTokens,
+        costUsd: completion.costUsd,
+        latencyMs: completion.latencyMs,
+      };
+    },
+
+    async match(input: MatchInput): Promise<MatchResult> {
+      const parts: ContentPart[] = [
+        // The photograph leads: it is the ground truth the descriptor merely
+        // summarizes, and a vision model weighs what it sees first.
+        { type: 'image_url', image_url: { url: input.photoUrl } },
+        {
+          type: 'text',
+          text: `The photograph shows the garment. What the closet already knows about it: ${input.descriptor}`,
+        },
+      ];
+      if (input.brand) {
+        parts.push({
+          type: 'text',
+          text:
+            `The owner says the brand is ${input.brand}. ` +
+            `Search for ${input.brand} listings and return only pages selling ${input.brand} pieces.`,
+        });
+      }
+      parts.push({ type: 'text', text: 'Find product listings for this garment.' });
+
+      const messages: ChatMessage[] = [
+        { role: 'system', content: MATCH_SYSTEM_PROMPT },
+        { role: 'user', content: parts },
+      ];
+
+      const completion = await completeWithWebSearch(opts, messages, 'garment_match', matchSchema);
+
+      const parsed = completion.parsed as { brands?: unknown; candidates?: ModelCandidate[] };
+
+      // Deduplicated case-insensitively, because "Levi's" and "levi's" are one
+      // guess, and a repeated name is padding wearing a disguise.
       const seen = new Set<string>();
-      const candidates: GarmentCandidate[] = [];
-      for (const candidate of resolved) {
-        if (!candidate) continue;
-        // Retailers syndicate the same asset across pages; two identical tiles
-        // read as a broken grid.
-        if (seen.has(candidate.imageUrl)) continue;
-        seen.add(candidate.imageUrl);
-        candidates.push(candidate);
-        if (candidates.length >= input.maxCandidates) break;
+      const brands: string[] = [];
+      for (const entry of Array.isArray(parsed.brands) ? parsed.brands : []) {
+        if (typeof entry !== 'string') continue;
+        const name = entry.trim().slice(0, MAX_BRAND_CHARS);
+        if (!name) continue;
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        brands.push(name);
+        if (brands.length >= MAX_BRANDS) break;
       }
 
-      return { candidates, ...accounting };
+      const candidates = await resolveAgainstCitations(
+        parsed.candidates,
+        completion.cited,
+        input.maxCandidates,
+      );
+
+      return {
+        brands,
+        candidates,
+        promptTokens: completion.promptTokens,
+        completionTokens: completion.completionTokens,
+        costUsd: completion.costUsd,
+        latencyMs: completion.latencyMs,
+      };
     },
   };
 }
