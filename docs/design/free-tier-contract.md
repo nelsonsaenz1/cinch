@@ -229,7 +229,23 @@ it surfaces as a generic failure.
 
 ---
 
-## 6 · Unit boundaries
+## 6 · Where wear history comes from
+
+The Repeat quotes dates ("you wore this on Tuesday") and The Wall orders the
+swap sheet least-worn first. Both must read what was **worn**, and there is a
+table that looks right and is not.
+
+- **`outfits.worn_at`** (timestamptz, null until logged), joined through
+  `outfit_items` — this is the wear log. Use it.
+- **`items.wear_count`** — the per-garment count the closet and item detail
+  already quote. Prefer it over recomputing so two screens cannot disagree.
+- **`outfit_calendar` is NOT a wear log.** Its column is `planned_date` and the
+  schema calls it "planned outfits by date (week planner, packing)". It records
+  what someone intended to wear. Reading a plan as a wear manufactures a claim
+  about the user's history, which is the dishonesty these atlases exist to
+  avoid. An unmarked day produces no claim at all.
+
+## 7 · Unit boundaries
 
 | Unit | Surfaces | Owns |
 |---|---|---|
