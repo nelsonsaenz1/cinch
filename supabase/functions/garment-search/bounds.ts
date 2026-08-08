@@ -92,12 +92,24 @@ export type ValidatedAttachRequest = {
   pageUrl: string;
 };
 
+/**
+ * Undo for `attach`: the listing photo comes off and the user's own photograph
+ * is what the closet shows again. It takes nothing but the item, because the
+ * paths it clears are the ones already recorded on the row — a caller cannot
+ * name an object to delete.
+ */
+export type ValidatedDetachRequest = {
+  action: 'detach';
+  itemId: string;
+};
+
 export type ValidatedRequest =
   | ValidatedSearchRequest
   | ValidatedImportRequest
   | ValidatedResolveRequest
   | ValidatedMatchRequest
-  | ValidatedAttachRequest;
+  | ValidatedAttachRequest
+  | ValidatedDetachRequest;
 
 function asObject(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -176,8 +188,17 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
     };
   }
 
+  if (action === 'detach') {
+    return {
+      action: 'detach',
+      itemId: itemUuid(body.itemId),
+    };
+  }
+
   if (action !== 'search') {
-    throw new BoundsError('action must be "search", "resolve", "import", "match" or "attach".');
+    throw new BoundsError(
+      'action must be "search", "resolve", "import", "match", "attach" or "detach".',
+    );
   }
 
   const swatch = optionalString(body.swatch, 'swatch', MAX_SWATCH_CHARS);

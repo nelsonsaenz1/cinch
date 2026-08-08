@@ -13,6 +13,14 @@ export type ItemHeroProps = {
   onBack: () => void;
   /** Absent = no edit affordance (e.g. while loading). */
   onEdit?: () => void;
+  /**
+   * True when `imageUri` is a confirmed listing photo rather than the user's
+   * own photograph. A shop's product shot is already framed on white, so it is
+   * shown contained on white; cropping it to fill would cut the composition the
+   * retailer chose. The block's shape, radius and controls never change — only
+   * what is inside it (M-11).
+   */
+  listing?: boolean;
 };
 
 /**
@@ -53,7 +61,7 @@ const GLYPH_ON_TRAY = 'rgba(28,26,22,0.45)';
  * the whole point of the ratio being on the container rather than the photo —
  * the name and the figures underneath must never jump when the image decodes.
  */
-export function ItemHero({ imageUri, label, onBack, onEdit }: ItemHeroProps) {
+export function ItemHero({ imageUri, label, onBack, onEdit, listing = false }: ItemHeroProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const onPhoto = imageUri !== null;
@@ -95,12 +103,16 @@ export function ItemHero({ imageUri, label, onBack, onEdit }: ItemHeroProps) {
 
   return (
     <View
-      className="w-full overflow-hidden bg-tray dark:bg-tray-dark"
+      className={
+        listing
+          ? 'w-full overflow-hidden bg-surface p-5 dark:bg-surface-dark'
+          : 'w-full overflow-hidden bg-tray dark:bg-tray-dark'
+      }
       style={{ aspectRatio: HERO_ASPECT }}>
       {source ? (
         <Image
           source={source}
-          contentFit="cover"
+          contentFit={listing ? 'contain' : 'cover'}
           transition={200}
           cachePolicy="memory-disk"
           style={{ width: '100%', height: '100%' }}

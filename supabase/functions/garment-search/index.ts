@@ -11,6 +11,7 @@ import { enforceAiQuota } from '../_shared/quota.ts';
 import {
   parseGarmentSearchRequest,
   type ValidatedAttachRequest,
+  type ValidatedDetachRequest,
   type ValidatedMatchRequest,
 } from './bounds.ts';
 import { assertSafeUrl, guardedFetch, UnsafeUrlError } from './net.ts';
@@ -174,6 +175,16 @@ export default {
       // authenticated caller. Keep this untyped-cast-free so the compiler checks it.
       const userId = ctx.userClaims?.id;
       if (!userId) return fail('not_signed_in', 'Not signed in.', 401);
+
+      // Above the consent gate, and deliberately the only action that is.
+      // Taking a listing photo off sends nothing anywhere and calls no model:
+      // it clears four columns and deletes one of our own objects. An account
+      // that has since switched AI processing OFF must still be able to undo
+      // what it did while it was on — a consent withdrawal that stranded a
+      // listing photo in place would make the promise reversible in name only.
+      if (request.action === 'detach') {
+        return await detachListing(db, admin, request);
+      }
 
       // ── AI processing consent (App Store Guideline 5.1.2(i)) ──────────────
       // Server-side, like every sibling: a client-side gate is trivially
@@ -717,6 +728,60 @@ async function matchListing(
     return fail('match_failed', 'The search did not come back. Try again in a moment.', 502);
   }
 
+  /**
+   * Widening, declared rather than silent.
+   *
+   * When the user named a brand and that brand has nothing that lines up, the
+   * useful answer is not an empty page — it is the wider web's resemblances,
+   * SAID to be resemblances. The atlas states the rule in so many words: "If
+   * <brand> has nothing that lines up, Cinch says so rather than widening
+   * quietly." So the second pass runs, and `lookalike` travels with it so the
+   * client cannot present these as the user's garment; `scopedBrand` names the
+   * brand that came up empty, because the sentence on that screen has to.
+   *
+   * No second quota claim. The user asked once, and `claim_ai_quota` does not
+   * refund — charging twice for one question would make the honest path cost
+   * more than the quiet one. The provider call is still recorded in full, so
+   * the accounting shows what it actually cost us.
+   */
+  let lookalike = false;
+  const scopedBrand = request.brand ?? null;
+
+  if (result.candidates.length === 0 && scopedBrand) {
+    let wide: Awaited<ReturnType<typeof provider.match>> | null = null;
+    let wideFailure: string | null = null;
+
+    try {
+      wide = await provider.match({
+        descriptor: describeItem(item),
+        photoUrl: signed.signedUrl,
+        maxCandidates: MAX_CANDIDATES,
+      });
+    } catch (err) {
+      wideFailure = err instanceof Error ? err.message : String(err);
+    }
+
+    await recordAiCall(admin, {
+      user_id: userId,
+      workload: WORKLOAD,
+      provider: config?.provider ?? provider.id,
+      model_id: config?.model_id ?? DEFAULT_MODEL,
+      prompt_tokens: wide?.promptTokens ?? null,
+      completion_tokens: wide?.completionTokens ?? null,
+      cost_usd: wide?.costUsd ?? null,
+      latency_ms: wide?.latencyMs ?? null,
+      succeeded: wide !== null,
+      error: wideFailure,
+    });
+
+    // A failed widening is not an error the user needs: the honest answer is
+    // still "nothing at that brand", which is what an empty list already says.
+    if (wide && wide.candidates.length > 0) {
+      result = { ...wide, brands: result.brands.length ? result.brands : wide.brands };
+      lookalike = true;
+    }
+  }
+
   return Response.json({
     ok: true,
     brands: result.brands,
@@ -728,6 +793,8 @@ async function matchListing(
       pageUrl,
       source,
     })),
+    lookalike,
+    scopedBrand,
   });
 }
 
@@ -863,4 +930,60 @@ async function attachListing(
     source: hostLabel(page),
     confirmedAt,
   });
+}
+
+/**
+ * Undo for `attach` — the listing photo comes off, and the closet shows the
+ * user's own photograph again.
+ *
+ * The whole flow is defensible only because this exists. Confirming a listing
+ * is a promotion rather than a replacement, which is a claim about what the
+ * user can take back: their photograph was never touched by `attach`, so
+ * clearing four columns is genuinely all it takes to restore what they had.
+ *
+ * The caller names an item, never a path. The object removed is whatever the
+ * row itself recorded, so no request can reach an object the row does not
+ * already own — and the row is cleared BEFORE the bytes go, because a cleared
+ * row with an orphaned object is a few wasted kilobytes while the reverse is a
+ * closet pointing at an image that is gone.
+ */
+async function detachListing(
+  db: SupabaseClient<Database>,
+  admin: SupabaseClient<Database>,
+  request: ValidatedDetachRequest,
+): Promise<Response> {
+  const { data: item } = await db
+    .from('items')
+    .select('id, listing_path')
+    .eq('id', request.itemId)
+    .maybeSingle();
+
+  if (!item) {
+    return fail('item_not_found', "That garment isn't in your closet.", 404);
+  }
+
+  // Already bare. Not an error: two taps on a slow connection should read as
+  // one, and the end state the caller asked for is the state it is in.
+  if (!item.listing_path) {
+    return Response.json({ ok: true, itemId: request.itemId });
+  }
+
+  const { data: updated, error: updateError } = await db
+    .from('items')
+    .update({
+      listing_path: null,
+      listing_source_url: null,
+      listing_source_label: null,
+      listing_confirmed_at: null,
+    })
+    .eq('id', request.itemId)
+    .select('id');
+
+  if (updateError || !updated || updated.length !== 1) {
+    return fail('detach_failed', "That listing photo couldn't be removed. Try again.", 500);
+  }
+
+  await admin.storage.from(BUCKET).remove([item.listing_path]);
+
+  return Response.json({ ok: true, itemId: request.itemId });
 }

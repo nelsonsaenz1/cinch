@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   Switch,
@@ -53,6 +54,7 @@ import { useItemListing } from '@/features/match/use-match';
 import { useSetBorrowable } from '@/features/social-graph/mutations';
 import { useItemBorrowable } from '@/features/social-graph/queries';
 import { pairHarmony, toGarmentColors } from '@/lib/color';
+import { supabase } from '@/lib/supabase';
 import { costPerWear, type Item } from '@/schemas/item';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -144,7 +146,15 @@ function sinceLastWorn(item: Item): string {
  *   page, chips instead of returned tags.
  */
 export default function ItemDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  /**
+   * `match=1` opens the listing-photo flow on arrival.
+   *
+   * The ingest offer (M-03) is the only caller: it hands the user straight into
+   * the search rather than depositing them on a screen with a row to find. The
+   * flag is READ ONCE, into the sheet's initial state below, so dismissing the
+   * sheet does not immediately reopen it from a param still sitting in the URL.
+   */
+  const { id, match } = useLocalSearchParams<{ id: string; match?: string }>();
   const router = useRouter();
   const theme = useTheme();
 
@@ -202,6 +212,11 @@ export default function ItemDetailScreen() {
     item?.listingPath,
     item?.cutoutPath,
     item?.thumbPath,
+    // The full uploaded frame, signed alongside the rest so "View original
+    // photograph" (M-02/M-11) opens on an image rather than on a spinner. One
+    // extra path in a batched signing request; nothing is fetched until the
+    // sheet actually renders it.
+    item?.imagePath,
     ...railSource.flatMap((r) => [r.piece.listingPath, r.piece.cutoutPath, r.piece.thumbPath]),
   ]);
   // The confirmed listing photo is the hero when there is one: the user looked
@@ -247,7 +262,25 @@ export default function ItemDetailScreen() {
   // lending flag above: the `Item` shape predates them, and this screen is the
   // one place that offers to fill them.
   const listing = useItemListing(id ?? null);
-  const [matching, setMatching] = useState(false);
+  const [matching, setMatching] = useState(match === '1');
+  // The plain presentation of the user's own photograph, behind M-02's second
+  // row. Closed is the only resting state; nothing on this screen opens it
+  // except that row.
+  const [viewingOriginal, setViewingOriginal] = useState(false);
+  const [removingListing, setRemovingListing] = useState(false);
+
+  /**
+   * Whether a listing photo is on file, and where it came from.
+   *
+   * Existence is read from EITHER source — the closet row carries `listingPath`
+   * and the hero already prefers it, so a row that says "Find" over a hero that
+   * is already a listing shot would be the screen contradicting itself. The
+   * host label only exists on the dedicated read, so the hint and the colophon
+   * appear a beat later than the verb does; that is the honest order, since
+   * naming a source before it is known would be inventing one.
+   */
+  const hasListing = Boolean(listing.data?.listingPath ?? item?.listingPath);
+  const listingSource = listing.data?.listingPath ? listing.data.listingSourceLabel : null;
 
   const isLocal = item ? item.imagePath === null : false;
   const inflight =
@@ -394,6 +427,41 @@ export default function ItemDetailScreen() {
           ),
       },
     );
+  };
+
+  /**
+   * M-11 — putting the photograph back in front.
+   *
+   * One tap and no dialog, because nothing here is destroyed: the listing image
+   * was only ever how the piece was DISPLAYED, and the photograph it falls back
+   * to is the one that has been on the row the whole time. The server nulls the
+   * four listing columns and drops the stored object; running the flow again is
+   * the way back, which is why this is reversible in the sense that matters.
+   *
+   * Invalidating `['closet']` is what makes the fallback immediate — the hero
+   * and the grid both read `listingPath` off that query — and the feature's own
+   * `['item-listing']` read is what returns the row to its "Find" verb.
+   */
+  const removeListing = async () => {
+    setMaintenanceError(null);
+    setRemovingListing(true);
+    try {
+      const { error } = await supabase.functions.invoke('garment-search', {
+        body: { action: 'detach', itemId: item.id },
+      });
+      if (error) throw error;
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['closet'] }),
+        qc.invalidateQueries({ queryKey: ['item-listing', item.id] }),
+      ]);
+    } catch {
+      // The server's own text is never shown: it can quote the request back.
+      setMaintenanceError(
+        'Cinch couldn’t remove the listing photo. Your own photograph is untouched.',
+      );
+    } finally {
+      setRemovingListing(false);
+    }
   };
 
   /**
@@ -545,11 +613,30 @@ export default function ItemDetailScreen() {
     ...(!isLocal && !inflight
       ? [
           {
-            label: listing.data?.listingPath
-              ? 'Replace the listing photo'
-              : 'Find the listing photo',
-            caption: 'Cinch searches the shops for the product shot. Your photo stays either way.',
+            // M-01/M-02: one row, two verbs, decided by whether a listing photo
+            // is already on file. The hint names the source when there is one,
+            // so nobody has to open the flow to learn where the image on their
+            // own screen came from.
+            label: hasListing ? 'Replace the listing photo' : 'Find the listing photo',
+            caption: hasListing
+              ? listingSource
+                ? `From ${listingSource}`
+                : 'The source of the current image wasn’t recorded.'
+              : 'Cinch looks for the retailer’s own shot of this piece',
             onPress: () => setMatching(true),
+          } satisfies MaintenanceRow,
+        ]
+      : []),
+    // M-02's sibling row. It exists only while a listing photo is what the
+    // screen is showing — with no listing on file the hero IS the photograph,
+    // and a row that opens the picture already filling the top of the page
+    // would be a control that appears to do nothing.
+    ...(!isLocal && !inflight && hasListing
+      ? [
+          {
+            label: 'View original photograph',
+            caption: 'The photograph you took. It has been on this piece all along.',
+            onPress: () => setViewingOriginal(true),
           } satisfies MaintenanceRow,
         ]
       : []),
@@ -744,6 +831,9 @@ export default function ItemDetailScreen() {
           label={pieceName(item)}
           onBack={() => router.back()}
           onEdit={() => setEditing(true)}
+          // `imageUri` prefers the listing path, so this is the same condition
+          // that chose the picture — not a second guess at what is on screen.
+          listing={item.listingPath !== null}
         />
 
         <View className="px-gutter pt-5">
@@ -772,6 +862,17 @@ export default function ItemDetailScreen() {
               {priced ?? <Text className="text-accent dark:text-accent-dark">Add what you paid</Text>}
             </Text>
           </Pressable>
+
+          {/* M-11: the source, printed as a colophon under the metadata — the
+              same setting as $/wear and the weather line, because it is the
+              same kind of thing. A fact about the record, never a badge: there
+              is no chip, no tint and nothing that marks this piece as improved
+              beside the ones still wearing their own photograph. The atlas sets
+              it in `faint`; `colophon`'s `muted` is one step darker and is what
+              the app uses everywhere, because faint on canvas fails AA. */}
+          {listingSource ? (
+            <Text variant="colophon" className="mt-2">{`Listing photo · ${listingSource}`}</Text>
+          ) : null}
         </View>
 
         <View className="pt-4">
@@ -830,6 +931,30 @@ export default function ItemDetailScreen() {
           <MaintenancePlate rows={maintenanceRows} />
         </View>
 
+        {/* M-11's third control, and deliberately not a fourth plate row: this
+            undoes a display choice rather than doing something TO the garment,
+            so it sits outside the frame the plate draws around the destructive
+            work. Quiet oxblood text at 13/500 — the atlas's own setting, which
+            `label` already is — never a filled button, because a removal that
+            costs nothing should not look like a decision. */}
+        {hasListing ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Remove listing photo"
+            accessibilityHint="Shows your own photograph again. You can search for a listing photo any time."
+            accessibilityState={{ busy: removingListing, disabled: removingListing }}
+            disabled={removingListing}
+            onPress={() => void removeListing()}
+            hitSlop={8}
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="mx-gutter mt-1 flex-row items-center gap-2 active:opacity-60">
+            {removingListing ? <ActivityIndicator size="small" color={theme.accent} /> : null}
+            <Text variant="label" style={{ color: theme.accent }}>
+              Remove listing photo
+            </Text>
+          </Pressable>
+        ) : null}
+
         {maintenanceError ? (
           <Text
             variant="label"
@@ -873,7 +998,80 @@ export default function ItemDetailScreen() {
       />
 
       <MatchSheet visible={matching} itemId={item.id} onClose={() => setMatching(false)} />
+
+      <OriginalPhotoSheet
+        visible={viewingOriginal}
+        imageUri={resolve(item.imagePath, item.cutoutPath, item.thumbPath) ?? null}
+        onClose={() => setViewingOriginal(false)}
+      />
     </View>
+  );
+}
+
+/**
+ * M-02/M-11's "View original photograph" — the user's own frame, plainly.
+ *
+ * The atlas never draws this page, so it is the simplest honest thing rather
+ * than an invented one: the signed original at full width, contained rather
+ * than cropped, on the tray tone the rest of the app rests photographs on, and
+ * one way out. Nothing is offered here — no share, no edit, no comparison —
+ * because the only question the row asks is "what does my photograph look
+ * like", and the answer is the whole screen.
+ *
+ * `contain`, not `cover`: this is the photograph being INSPECTED rather than
+ * used as furniture, and a crop that hides the collar of a coat would defeat
+ * the one reason anybody opens it.
+ */
+function OriginalPhotoSheet({
+  visible,
+  imageUri,
+  onClose,
+}: {
+  visible: boolean;
+  imageUri: string | null;
+  onClose: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top', 'bottom']}>
+        <StatusBar style="dark" />
+        <ScreenHeader title="Your photograph" align="leading" onBack={onClose} backLabel="Close" />
+
+        <View className="flex-1 justify-center px-gutter pb-4 pt-4">
+          <View
+            className="w-full overflow-hidden rounded-plate bg-tray dark:bg-tray-dark"
+            style={{ aspectRatio: 3 / 4 }}>
+            {imageUri ? (
+              <Image
+                source={{ uri: imageUri }}
+                contentFit="contain"
+                transition={200}
+                style={{ width: '100%', height: '100%' }}
+                accessibilityIgnoresInvertColors
+                accessibilityLabel="Your own photograph of this piece"
+              />
+            ) : (
+              // The signed URL has not landed, or the object is gone. The same
+              // considered placeholder the grid shows, never a broken image.
+              <View className="flex-1 items-center justify-center">
+                <SymbolView
+                  name="tshirt"
+                  size={30}
+                  tintColor={theme.hairline}
+                  resizeMode="scaleAspectFit"
+                />
+              </View>
+            )}
+          </View>
+
+          <Text variant="label" className="mt-4">
+            Kept. It stays on this piece whatever the closet shows.
+          </Text>
+        </View>
+      </SafeAreaView>
+    </Modal>
   );
 }
 

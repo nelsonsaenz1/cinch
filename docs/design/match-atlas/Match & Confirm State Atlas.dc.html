@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#EFEBE1; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:#1C1A16; -webkit-font-smoothing:antialiased; }
+  a { color:#6E2B2B; } a:hover { color:#8A3A35; }
+  .frame { scrollbar-width:none; -ms-overflow-style:none; }
+  .frame::-webkit-scrollbar { width:0; height:0; }
+  @keyframes breathe { 0%{opacity:.5} 50%{opacity:.95} 100%{opacity:.5} }
+</style>
+</helmet>
+
+<div style="padding:56px 64px 96px;max-width:3400px">
+
+  <div style="max-width:860px;margin-bottom:56px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Cinch · Match &amp; confirm · build reference</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:52px;line-height:1.08;margin-top:10px">The Match &amp; confirm state atlas</div>
+    <div style="font-size:16px;line-height:1.55;color:#6B665C;margin-top:14px">A photographed garment becomes a listing photo. Cinch has already tagged the piece; this flow finds the retailer's own photograph of it, and on confirmation that image becomes how the garment is displayed in the closet. The user's photograph never leaves. Confirming is a promotion, not a replacement &mdash; and declining is a fully working outcome.</div>
+  </div>
+
+  <!-- ══ 01 · THE INVITATION ══ -->
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">01 · The invitation</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:32px;margin-top:6px">Offered, never imposed</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:72px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-01</span><span style="font-size:13px;font-weight:500">Item detail &mdash; the quiet row</span></div>
+      <div class="frame" style="width:393px;height:640px;display:flex;flex-direction:column;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10)">
+        <div style="margin:20px 20px 0;height:280px;border-radius:12px;background:#F0ECE3;overflow:hidden"><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+        <div style="padding:18px 20px 0">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.12">Cognac shearling coat</div>
+          <div style="margin-top:8px;font-size:13px;font-weight:500;color:#6B665C">Outerwear · cognac, cream · worn 4 times</div>
+        </div>
+        <div style="padding:22px 20px 0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:12px 0;border-bottom:1px solid rgba(28,26,22,.09)">
+            <div><div style="font-size:17px;line-height:1.4">Find the listing photo</div><div style="margin-top:2px;font-size:11px;font-weight:500;color:#8A8578">Cinch looks for the retailer's own shot of this piece</div></div>
+            <svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5 6.5 6.5 1.5 11.5" fill="none" stroke="#8A8578" stroke-width="1.6" stroke-linecap="round"></path></svg>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:12px 0;border-bottom:1px solid rgba(28,26,22,.09)">
+            <div style="font-size:17px;line-height:1.4">Edit tags</div>
+            <svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5 6.5 6.5 1.5 11.5" fill="none" stroke="#8A8578" stroke-width="1.6" stroke-linecap="round"></path></svg>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">A push row among the item's other push rows &mdash; the same weight as Edit tags, because it is the same kind of thing: an optional improvement to a record that is already complete. The hint line says what will happen before anything happens.</div>
+
+      <div style="display:flex;align-items:baseline;gap:8px;margin:34px 0 10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-02</span><span style="font-size:13px;font-weight:500">Already matched &mdash; the row changes verb</span></div>
+      <div style="width:393px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:20px;box-shadow:0 10px 30px rgba(28,26,22,.10);padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:12px 0;border-bottom:1px solid rgba(28,26,22,.09)">
+          <div><div style="font-size:17px;line-height:1.4">Replace the listing photo</div><div style="margin-top:2px;font-size:11px;font-weight:500;color:#8A8578">From arket.com</div></div>
+          <svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5 6.5 6.5 1.5 11.5" fill="none" stroke="#8A8578" stroke-width="1.6" stroke-linecap="round"></path></svg>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:12px 0">
+          <div style="font-size:17px;line-height:1.4">View original photograph</div>
+          <svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5 6.5 6.5 1.5 11.5" fill="none" stroke="#8A8578" stroke-width="1.6" stroke-linecap="round"></path></svg>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">One row, two verbs, decided by whether a listing photo is already on file. The source is printed in the hint rather than in a badge &mdash; the user should never have to open the flow to learn where the current image came from.</div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-03</span><span style="font-size:13px;font-weight:500">In ingest &mdash; right after tagging</span></div>
+      <div class="frame" style="width:393px;height:640px;display:flex;flex-direction:column;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10)">
+        <div style="padding:24px 20px 0">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#8A8578">Tagged</div>
+          <div style="margin-top:8px;font-family:'Instrument Serif',serif;font-size:28px;line-height:1.12">Cognac shearling coat</div>
+          <div style="margin-top:8px;font-size:13px;font-weight:500;color:#6B665C">Outerwear · cognac, cream · Arket, most likely</div>
+        </div>
+        <div style="margin:20px 20px 0;display:flex;gap:10px">
+          <div style="width:96px;height:120px;border-radius:12px;background:#F0ECE3;overflow:hidden;flex:none"><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+          <div style="flex:1;font-size:15px;line-height:1.5;color:#6B665C">Your photograph is in the closet. Nothing else is needed.</div>
+        </div>
+        <div style="margin:22px 20px 0;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:12px;padding:18px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+            <div style="font-family:'Instrument Serif',serif;font-size:22px;line-height:1.2">Want the listing photo instead?</div>
+            <div style="width:28px;height:28px;border-radius:14px;border:1px solid rgba(28,26,22,.12);display:flex;align-items:center;justify-content:center;flex:none"><svg width="10" height="10" viewBox="0 0 10 10" stroke="#8A8578" stroke-width="1.6" stroke-linecap="round"><path d="M1 1 9 9M9 1 1 9"></path></svg></div>
+          </div>
+          <div style="margin-top:10px;font-size:15px;line-height:1.5;color:#6B665C">Cinch can look for Arket's own shot of this coat and use it in your closet. Your photograph stays either way.</div>
+          <div style="margin-top:16px;min-height:44px;border-radius:12px;background:{{ action }};color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600">Find the listing photo</div>
+        </div>
+        <div style="margin-top:auto;padding:20px;border-top:1px solid rgba(28,26,22,.09)">
+          <div style="min-height:44px;border-radius:12px;border:1px solid rgba(28,26,22,.25);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600">Done</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">One card, inline in the ingest flow, dismissible forever &mdash; never a modal ambush over a screen the user was reading. The close glyph is the second affordance and the sentence names the retailer the tagger already guessed, so the offer is specific rather than speculative. Dismissed once, this card does not return; the item-detail row remains the way in.</div>
+
+      <div style="display:flex;align-items:baseline;gap:8px;margin:34px 0 10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-04</span><span style="font-size:13px;font-weight:500">The search wait</span></div>
+      <div class="frame" style="width:393px;height:640px;display:flex;flex-direction:column;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10)">
+        <div style="padding:24px 20px 0">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#8A8578">Looking</div>
+          <div style="margin-top:8px;font-family:'Instrument Serif',serif;font-size:28px;line-height:1.12">Reading your coat</div>
+          <div style="margin-top:10px;font-size:17px;line-height:1.5;color:#6B665C">Cognac shearling, cream collar, hip length. Searching Arket and the wider web.</div>
+        </div>
+        <div style="margin:22px 14px 0;display:flex;flex-wrap:wrap">
+          <div style="width:50%;box-sizing:border-box;padding:6px"><div style="aspect-ratio:4/5;border-radius:12px;background:#F0ECE3;animation:breathe 1.8s ease-in-out infinite"></div></div>
+          <div style="width:50%;box-sizing:border-box;padding:6px"><div style="aspect-ratio:4/5;border-radius:12px;background:#F0ECE3;animation:breathe 1.8s ease-in-out .3s infinite"></div></div>
+          <div style="width:50%;box-sizing:border-box;padding:6px"><div style="aspect-ratio:4/5;border-radius:12px;background:#F0ECE3;animation:breathe 1.8s ease-in-out .6s infinite"></div></div>
+          <div style="width:50%;box-sizing:border-box;padding:6px"><div style="aspect-ratio:4/5;border-radius:12px;background:#F0ECE3;animation:breathe 1.8s ease-in-out .9s infinite"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">The wait describes the piece in the app's own words &mdash; the one honest thing there is to say while a search runs &mdash; and holds the shape of the grid it is about to fill. No percentage, no spinner, no fake stages counting up: the paper-and-ink patience of the rest of the app.</div>
+    </div>
+
+    <!-- CANDIDATES -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-05</span><span style="font-size:13px;font-weight:500">The candidates &mdash; a lookbook page</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:4px 20px 0;display:flex;align-items:center;gap:12px">
+          <div style="width:36px;height:36px;border-radius:18px;border:1px solid rgba(28,26,22,.12);display:flex;align-items:center;justify-content:center"><svg width="9" height="14" viewBox="0 0 9 14" fill="none" stroke="#1C1A16" stroke-width="1.8" stroke-linecap="round"><path d="M7.4 1.4 1.6 7l5.8 5.6"></path></svg></div>
+          <span style="font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Listing photo</span>
+        </div>
+        <div style="padding:14px 20px 0">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.12">Is one of these your coat?</div>
+          <div style="margin-top:8px;font-size:13px;font-weight:500;color:#6B665C">Six close listings. Pick one, or keep your photograph.</div>
+        </div>
+        <div style="margin:16px 14px 0;display:flex;flex-wrap:wrap">
+          <div style="width:50%;box-sizing:border-box;padding:6px">
+            <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:12px;overflow:hidden">
+              <div style="aspect-ratio:1;background:#FFFFFF;padding:10px"><div style="width:100%;height:100%;border-radius:6px;background:repeating-linear-gradient(135deg,#F6F3EE 0 5px,#FFFFFF 5px 10px);display:flex;align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:9px;line-height:1.5;color:#8A8578;padding:10px">listing shot<br>shearling-collar coat</div></div>
+              <div style="padding:10px 12px 12px;border-top:1px solid rgba(28,26,22,.09)">
+                <div style="font-size:13px;font-weight:500;line-height:1.35">Shearling-Collar Coat</div>
+                <div style="margin-top:4px;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">arket.com</div>
+              </div>
+            </div>
+          </div>
+          <div style="width:50%;box-sizing:border-box;padding:6px">
+            <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:12px;overflow:hidden">
+              <div style="aspect-ratio:1;background:#FFFFFF;padding:10px"><div style="width:100%;height:100%;border-radius:6px;background:repeating-linear-gradient(135deg,#F6F3EE 0 5px,#FFFFFF 5px 10px);display:flex;align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:9px;line-height:1.5;color:#8A8578;padding:10px">listing shot<br>faux shearling jacket</div></div>
+              <div style="padding:10px 12px 12px;border-top:1px solid rgba(28,26,22,.09)">
+                <div style="font-size:13px;font-weight:500;line-height:1.35">Faux Shearling Jacket</div>
+                <div style="margin-top:4px;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">arket.com</div>
+              </div>
+            </div>
+          </div>
+          <div style="width:50%;box-sizing:border-box;padding:6px">
+            <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:12px;overflow:hidden">
+              <div style="aspect-ratio:1;background:#FFFFFF;padding:10px"><div style="width:100%;height:100%;border-radius:6px;background:repeating-linear-gradient(135deg,#F6F3EE 0 5px,#FFFFFF 5px 10px);display:flex;align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:9px;line-height:1.5;color:#8A8578;padding:10px">listing shot<br>shearling aviator</div></div>
+              <div style="padding:10px 12px 12px;border-top:1px solid rgba(28,26,22,.09)">
+                <div style="font-size:13px;font-weight:500;line-height:1.35">Shearling Aviator</div>
+                <div style="margin-top:4px;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">mrporter.com</div>
+              </div>
+            </div>
+          </div>
+          <div style="width:50%;box-sizing:border-box;padding:6px">
+            <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:12px;overflow:hidden">
+              <div style="aspect-ratio:1;background:#FFFFFF;padding:10px"><div style="width:100%;height:100%;border-radius:6px;background:repeating-linear-gradient(135deg,#F6F3EE 0 5px,#FFFFFF 5px 10px);display:flex;align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:9px;line-height:1.5;color:#8A8578;padding:10px">listing shot<br>teddy collar coat</div></div>
+              <div style="padding:10px 12px 12px;border-top:1px solid rgba(28,26,22,.09)">
+                <div style="font-size:13px;font-weight:500;line-height:1.35">Teddy Collar Coat</div>
+                <div style="margin-top:4px;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">cos.com</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:auto;padding:16px 20px 20px;border-top:1px solid rgba(28,26,22,.09);background:rgba(251,250,246,.96)">
+          <div style="min-height:44px;border-radius:12px;background:#E7E2D6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#A9A296">Use this photo</div>
+          <div style="margin-top:10px;text-align:center;font-size:13px;font-weight:500;color:#6B665C">Choose a listing, or keep your photograph.</div>
+          <div style="margin:14px auto 0;width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.35)"></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">A lookbook page, not a results list: the retailer's photograph is large and on white, the title and source are set as a catalogue caption beneath it, and there is no price, no rating, no buy link. One oxblood action for the whole screen, disabled with a reason until a candidate is chosen. The copy asks a question &mdash; the app does not know which of these is hers.</div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-06</span><span style="font-size:13px;font-weight:500">One selected &mdash; at a time</span></div>
+      <div style="width:393px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:20px;box-shadow:0 10px 30px rgba(28,26,22,.10);padding:20px">
+        <div style="display:flex;flex-wrap:wrap;margin:-6px">
+          <div style="width:50%;box-sizing:border-box;padding:6px">
+            <div style="background:#FFFFFF;border:1.5px solid {{ action }};border-radius:12px;overflow:hidden;box-shadow:0 0 0 3px rgba(110,43,43,.10)">
+              <div style="aspect-ratio:1;background:#FFFFFF;padding:10px;position:relative"><div style="width:100%;height:100%;border-radius:6px;background:repeating-linear-gradient(135deg,#F6F3EE 0 5px,#FFFFFF 5px 10px);display:flex;align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:9px;line-height:1.5;color:#8A8578;padding:10px">listing shot<br>shearling-collar coat</div><span style="position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:11px;background:{{ action }};display:flex;align-items:center;justify-content:center"><svg width="11" height="9" viewBox="0 0 11 9" fill="none" stroke="#FBFAF6" stroke-width="1.8" stroke-linecap="round"><path d="M1 4.6 4 7.6 10 1.4"></path></svg></span></div>
+              <div style="padding:10px 12px 12px;border-top:1px solid rgba(28,26,22,.09)">
+                <div style="font-size:13px;font-weight:500;line-height:1.35">Shearling-Collar Coat</div>
+                <div style="margin-top:4px;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">arket.com</div>
+              </div>
+            </div>
+          </div>
+          <div style="width:50%;box-sizing:border-box;padding:6px">
+            <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:12px;overflow:hidden;opacity:.72">
+              <div style="aspect-ratio:1;background:#FFFFFF;padding:10px"><div style="width:100%;height:100%;border-radius:6px;background:repeating-linear-gradient(135deg,#F6F3EE 0 5px,#FFFFFF 5px 10px);display:flex;align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:9px;line-height:1.5;color:#8A8578;padding:10px">listing shot<br>faux shearling jacket</div></div>
+              <div style="padding:10px 12px 12px;border-top:1px solid rgba(28,26,22,.09)">
+                <div style="font-size:13px;font-weight:500;line-height:1.35">Faux Shearling Jacket</div>
+                <div style="margin-top:4px;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">arket.com</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:16px;min-height:44px;border-radius:12px;background:{{ action }};color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600">Use this photo</div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">Selection is a border, a ring and a mark in the corner &mdash; three quiet signals rather than one loud fill, so the photograph itself is never tinted or dimmed. Choosing a second candidate releases the first; there is no multi-select, because the garment has one listing photo. Tapping the selected card again clears it and the button returns to its disabled sentence.</div>
+
+      <div style="display:flex;align-items:baseline;gap:8px;margin:34px 0 10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-07</span><span style="font-size:13px;font-weight:500">Brand refinement</span></div>
+      <div style="width:393px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:20px;box-shadow:0 10px 30px rgba(28,26,22,.10);padding:20px">
+        <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#8A8578">Narrow it to a brand</div>
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+          <div style="min-height:44px;display:flex;align-items:center;padding:0 16px;border-radius:12px;background:{{ action }};border:1px solid {{ action }};color:#FBFAF6;font-size:15px;font-weight:500">Arket</div>
+          <div style="min-height:44px;display:flex;align-items:center;padding:0 16px;border-radius:12px;border:1px solid rgba(28,26,22,.18);font-size:15px">COS</div>
+          <div style="min-height:44px;display:flex;align-items:center;padding:0 16px;border-radius:12px;border:1px solid rgba(28,26,22,.18);font-size:15px">Mango</div>
+          <div style="min-height:44px;display:flex;align-items:center;padding:0 16px;border-radius:12px;border:1px solid rgba(28,26,22,.18);font-size:15px">&amp; Other Stories</div>
+        </div>
+        <input value="{{ brand }}" onInput="{{ onBrand }}" placeholder="Or type a brand" style="margin-top:12px;width:100%;box-sizing:border-box;height:52px;border:1px solid rgba(28,26,22,.28);border-radius:12px;padding:0 14px;font-size:15px;font-family:inherit;color:#1C1A16;background:#FFFFFF;outline:none">
+        <div style="margin-top:14px;min-height:44px;border-radius:12px;border:1px solid rgba(28,26,22,.25);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;opacity:{{ searchOpacity }}">{{ searchLabel }}</div>
+        <div style="margin-top:12px;font-size:13px;line-height:1.5;color:#6B665C">{{ brandNote }}</div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">The chips are the tagger's own guesses, ranked, and the field is for the brand it did not guess &mdash; 12px radius like every other labelled control, never a capsule. Either path re-runs the same search scoped to one brand. On re-search the grid dims to 60% and holds its geometry while the new candidates arrive, so the page does not jump back to a skeleton the user has already sat through.</div>
+    </div>
+
+    <!-- CONFIRM -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-08</span><span style="font-size:13px;font-weight:500">The confirm moment</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:4px 20px 0;display:flex;align-items:center;gap:12px">
+          <div style="width:36px;height:36px;border-radius:18px;border:1px solid rgba(28,26,22,.12);display:flex;align-items:center;justify-content:center"><svg width="9" height="14" viewBox="0 0 9 14" fill="none" stroke="#1C1A16" stroke-width="1.8" stroke-linecap="round"><path d="M7.4 1.4 1.6 7l5.8 5.6"></path></svg></div>
+          <span style="font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Confirm</span>
+        </div>
+        <div style="padding:14px 20px 0">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.12">Is this yours?</div>
+        </div>
+        <div style="margin:16px 20px 0;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:12px;overflow:hidden">
+          <div style="aspect-ratio:5/4;background:#FFFFFF;padding:16px"><div style="width:100%;height:100%;border-radius:8px;background:repeating-linear-gradient(135deg,#F6F3EE 0 6px,#FFFFFF 6px 12px);display:flex;align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:10px;line-height:1.5;color:#8A8578;padding:12px">listing shot<br>shearling-collar coat · arket</div></div>
+          <div style="padding:14px 16px;border-top:1px solid rgba(28,26,22,.09)">
+            <div style="font-family:'Instrument Serif',serif;font-size:22px;line-height:1.2">Shearling-Collar Coat</div>
+            <div style="margin-top:6px;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">arket.com · listing photo</div>
+          </div>
+        </div>
+        <div style="margin:18px 20px 0;display:flex;align-items:center;gap:14px">
+          <div style="width:76px;height:96px;border-radius:12px;background:#F0ECE3;overflow:hidden;flex:none"><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+          <div>
+            <div style="font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Your photograph</div>
+            <div style="margin-top:6px;font-size:15px;line-height:1.5;color:#6B665C">Kept. It stays on this item and you can go back to it any time.</div>
+          </div>
+        </div>
+        <div style="margin-top:auto;padding:16px 20px 20px;border-top:1px solid rgba(28,26,22,.09)">
+          <div style="min-height:44px;border-radius:12px;background:{{ action }};color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600">Yes, use this photo</div>
+          <div style="margin-top:10px;min-height:44px;border-radius:12px;border:1px solid rgba(28,26,22,.25);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600">Keep my photo</div>
+          <div style="margin:14px auto 0;width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.35)"></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">The listing is large and the user's photograph small beside it &mdash; a comparison, not a verdict, and the small one is labelled &ldquo;Kept&rdquo; rather than &ldquo;Replaced&rdquo;. The source line sits under the title where a catalogue would print it. Keep my photo is a full-width outline button of the same height as the oxblood one: declining is a working outcome, not an escape.</div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-09</span><span style="font-size:13px;font-weight:500">The honest failures</span></div>
+      <div style="width:393px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:20px;box-shadow:0 10px 30px rgba(28,26,22,.10);padding:20px;display:flex;flex-direction:column;gap:18px">
+
+        <div>
+          <div style="font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578;margin-bottom:10px">Nothing close</div>
+          <div style="background:#F0ECE3;border-radius:12px;padding:18px">
+            <div style="font-family:'Instrument Serif',serif;font-size:22px;line-height:1.2">Nothing close enough</div>
+            <div style="margin-top:8px;font-size:15px;line-height:1.5;color:#6B665C">Your photo stays. It is already a good record of this coat &mdash; and you can try again with a brand name.</div>
+            <div style="margin-top:16px;display:flex;gap:8px">
+              <div style="flex:1;min-height:44px;border-radius:12px;border:1px solid rgba(28,26,22,.25);background:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500">Try a brand</div>
+              <div style="flex:1;min-height:44px;border-radius:12px;border:1px solid rgba(28,26,22,.25);background:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500">Keep my photo</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578;margin-bottom:10px">Lookalikes only</div>
+          <div style="background:#F0ECE3;border-radius:12px;padding:18px">
+            <div style="font-family:'Instrument Serif',serif;font-size:22px;line-height:1.2">No Arket match &mdash; these only look like it</div>
+            <div style="margin-top:8px;font-size:15px;line-height:1.5;color:#6B665C">Nothing at Arket lines up with your coat. These are other brands' coats that resemble it. Using one means your closet shows a photo of a different garment.</div>
+            <div style="margin-top:14px;display:flex;gap:8px">
+              <div style="flex:1;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:12px;overflow:hidden">
+                <div style="aspect-ratio:1;padding:8px"><div style="width:100%;height:100%;border-radius:6px;background:repeating-linear-gradient(135deg,#F6F3EE 0 5px,#FFFFFF 5px 10px);display:flex;align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:9px;line-height:1.5;color:#8A8578;padding:8px">lookalike<br>cos teddy coat</div></div>
+                <div style="padding:8px 10px 10px;border-top:1px solid rgba(28,26,22,.09);font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">cos.com · lookalike</div>
+              </div>
+              <div style="flex:1;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:12px;overflow:hidden">
+                <div style="aspect-ratio:1;padding:8px"><div style="width:100%;height:100%;border-radius:6px;background:repeating-linear-gradient(135deg,#F6F3EE 0 5px,#FFFFFF 5px 10px);display:flex;align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:9px;line-height:1.5;color:#8A8578;padding:8px">lookalike<br>mango shearling coat</div></div>
+                <div style="padding:8px 10px 10px;border-top:1px solid rgba(28,26,22,.09);font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">mango.com · lookalike</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578;margin-bottom:10px">Turned off · spent · dropped</div>
+          <div style="background:#F0ECE3;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:16px">
+            <div>
+              <div style="font-size:15px;font-weight:600;line-height:1.4">Cinch's AI is off for this account</div>
+              <div style="margin-top:6px;font-size:15px;line-height:1.5;color:#6B665C">Nothing is searched and nothing is sent. Turn it on in Settings if you want listing photos.</div>
+              <div style="margin-top:12px;min-height:44px;width:150px;border-radius:12px;border:1px solid rgba(28,26,22,.25);background:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500">Open Settings</div>
+            </div>
+            <div style="height:1px;background:rgba(28,26,22,.12)"></div>
+            <div>
+              <div style="font-size:15px;font-weight:600;line-height:1.4">This month's searches are used up</div>
+              <div style="margin-top:6px;font-size:15px;line-height:1.5;color:#6B665C">40 of 40. It resets on 1 September, and your photographs are unaffected.</div>
+            </div>
+            <div style="height:1px;background:rgba(28,26,22,.12)"></div>
+            <div>
+              <div style="font-size:15px;font-weight:600;line-height:1.4">The search couldn't reach the web</div>
+              <div style="margin-top:6px;font-size:15px;line-height:1.5;color:#6B665C">Nothing was found or lost &mdash; the connection dropped on the way.</div>
+              <div style="margin-top:12px;min-height:44px;width:120px;border-radius:12px;border:1px solid rgba(28,26,22,.25);background:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500">Try again</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">Every failure is a title, a sentence about what is still true, and a way onward &mdash; never an empty state with a shrug. The lookalike frame is the important one: it says outright that these are not her coat and names the cost of using one, because a lookalike presented as a match would put a garment she does not own in her closet. None of these sentences disparage the photograph she took.</div>
+    </div>
+
+    <!-- AFTER -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-10</span><span style="font-size:13px;font-weight:500">After &mdash; live: the closet grid</span></div>
+      <div style="width:393px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:20px;box-shadow:0 10px 30px rgba(28,26,22,.10);padding:20px">
+        <div style="display:flex;gap:8px">
+          <button onClick="{{ showListing }}" style="flex:1;min-height:40px;border-radius:12px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:1px solid rgba(28,26,22,.12);background:{{ listingBg }};color:{{ listingFg }}">Listing photo</button>
+          <button onClick="{{ showOwn }}" style="flex:1;min-height:40px;border-radius:12px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:1px solid rgba(28,26,22,.12);background:{{ ownBg }};color:{{ ownFg }}">Own photograph</button>
+        </div>
+        <div style="margin-top:18px;display:flex;flex-wrap:wrap;margin-left:-6px;margin-right:-6px">
+          <div style="width:50%;box-sizing:border-box;padding:6px">
+            <div style="aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:1px solid rgba(28,26,22,.09);background:{{ tileBg }};padding:{{ tilePad }}"><div style="width:100%;height:100%;border-radius:6px;background:repeating-linear-gradient(135deg,#F6F3EE 0 5px,#FFFFFF 5px 10px);align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:9px;line-height:1.5;color:#8A8578;padding:10px;display:{{ listingShot }}">listing shot<br>shearling-collar coat</div><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:cover;display:{{ ownShot }}"></div>
+            <div style="margin-top:8px;font-size:13px;font-weight:500">Cognac shearling coat</div>
+            <div style="margin-top:2px;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">{{ tileCredit }}</div>
+          </div>
+          <div style="width:50%;box-sizing:border-box;padding:6px">
+            <div style="aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:1px solid rgba(28,26,22,.09);background:#F0ECE3"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover;display:block"></div>
+            <div style="margin-top:8px;font-size:13px;font-weight:500">Cream mohair sweater</div>
+            <div style="margin-top:2px;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Your photograph</div>
+          </div>
+        </div>
+        <div style="margin-top:16px;font-size:15px;line-height:1.55;color:#6B665C">{{ afterNote }}</div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">A listing-dressed tile sits on white and contains its garment; a photographed one fills its tray-toned frame. The two read as the same closet because the frame, the radius and the caption never change &mdash; only what is inside them. There is no badge, no sparkle, no &ldquo;enhanced&rdquo; label distinguishing the improved tiles from the honest ones.</div>
+
+      <div style="display:flex;align-items:baseline;gap:8px;margin:34px 0 10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-11</span><span style="font-size:13px;font-weight:500">After &mdash; item detail, and the path back</span></div>
+      <div style="width:393px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:20px;box-shadow:0 10px 30px rgba(28,26,22,.10);padding:20px">
+        <div style="height:260px;border-radius:12px;background:#FFFFFF;border:1px solid rgba(28,26,22,.09);padding:16px"><div style="width:100%;height:100%;border-radius:8px;background:repeating-linear-gradient(135deg,#F6F3EE 0 6px,#FFFFFF 6px 12px);display:flex;align-items:center;justify-content:center;text-align:center;font-family:ui-monospace,monospace;font-size:10px;line-height:1.5;color:#8A8578;padding:12px">listing shot<br>shearling-collar coat · arket</div></div>
+        <div style="margin-top:16px;font-family:'Instrument Serif',serif;font-size:28px;line-height:1.12">Cognac shearling coat</div>
+        <div style="margin-top:8px;font-size:13px;font-weight:500;color:#6B665C">Outerwear · cognac, cream · worn 4 times</div>
+        <div style="margin-top:8px;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Listing photo · arket.com</div>
+        <div style="margin-top:18px">
+          <div style="display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:12px 0;border-bottom:1px solid rgba(28,26,22,.09)"><span style="font-size:17px">View original photograph</span><svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5 6.5 6.5 1.5 11.5" fill="none" stroke="#8A8578" stroke-width="1.6" stroke-linecap="round"></path></svg></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:12px 0;border-bottom:1px solid rgba(28,26,22,.09)"><span style="font-size:17px">Replace the listing photo</span><svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5 6.5 6.5 1.5 11.5" fill="none" stroke="#8A8578" stroke-width="1.6" stroke-linecap="round"></path></svg></div>
+          <div style="min-height:44px;display:flex;align-items:center;font-size:13px;font-weight:500;color:#6E2B2B;padding-top:14px">Remove listing photo</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C">The source credit is a colophon under the metadata, in the same type as $/wear and weather &mdash; a fact about the record, not a badge. Removal is one tap, it is reversible by running the flow again, and the photograph it falls back to is the one that was there all along: the promotion was never a deletion.</div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">M-12</span><span style="font-size:13px;font-weight:500">The flow, in one column</span></div>
+      <div style="width:393px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:20px;box-shadow:0 10px 30px rgba(28,26,22,.10);padding:22px 20px">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;gap:12px;align-items:baseline"><span style="width:88px;flex:none;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Invite</span><span style="font-size:14px;line-height:1.45">A push row on item detail; one dismissible card in ingest. Never a modal.</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline"><span style="width:88px;flex:none;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Wait</span><span style="font-size:14px;line-height:1.45">The piece described in the app's own words, over the grid's own shape.</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline"><span style="width:88px;flex:none;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Candidates</span><span style="font-size:14px;line-height:1.45">A lookbook page. Retailer's photo large, title and source beneath. One selected at a time.</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline"><span style="width:88px;flex:none;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Brand</span><span style="font-size:14px;line-height:1.45">Chips above a field. Either one re-runs the search scoped to that brand.</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline"><span style="width:88px;flex:none;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Confirm</span><span style="font-size:14px;line-height:1.45">Listing large, her photograph small and labelled Kept. Oxblood yes, outline Keep my photo.</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline"><span style="width:88px;flex:none;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">Failures</span><span style="font-size:14px;line-height:1.45">Five, each a title, a sentence and a way on. A lookalike always says it is one.</span></div>
+          <div style="display:flex;gap:12px;align-items:baseline"><span style="width:88px;flex:none;font-size:10px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#8A8578">After</span><span style="font-size:14px;line-height:1.45">Same tile, same caption, a source colophon. Original one tap away, removable.</span></div>
+        </div>
+        <div style="margin:20px 0;height:1px;background:rgba(28,26,22,.12)"></div>
+        <div style="font-size:15px;line-height:1.55;color:#6B665C">One oxblood action per screen and never two. The word &ldquo;better&rdquo; appears nowhere in this flow: the offer is a listing photo, not a repair, and the photograph the user took is described as kept, original and hers &mdash; never as the thing that was wrong.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;action&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#6E2B2B&quot;,&quot;options&quot;:[&quot;#6E2B2B&quot;,&quot;#1C1A16&quot;,&quot;#8A2E28&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Action&quot;}}">
+class Component extends DCLogic {
+  state = { brand: '', mode: 'listing' };
+  renderVals() {
+    const b = this.state.brand.trim();
+    const listing = this.state.mode === 'listing';
+    return {
+      action: this.props.action ?? '#6E2B2B',
+      brand: this.state.brand,
+      onBrand: (e) => this.setState({ brand: e.target.value }),
+      searchLabel: b ? `Search ${b} only` : 'Search this brand only',
+      searchOpacity: b ? 1 : 0.45,
+      brandNote: b
+        ? `The same search, scoped to ${b}. If ${b} has nothing that lines up, Cinch says so rather than widening quietly.`
+        : 'Arket is the tagger\u2019s guess, not a fact. Typing a brand overrides it.',
+      showListing: () => this.setState({ mode: 'listing' }),
+      showOwn: () => this.setState({ mode: 'own' }),
+      listingBg: listing ? '#1C1A16' : '#FFFFFF',
+      listingFg: listing ? '#FBFAF6' : '#1C1A16',
+      ownBg: listing ? '#FFFFFF' : '#1C1A16',
+      ownFg: listing ? '#1C1A16' : '#FBFAF6',
+      tileBg: listing ? '#FFFFFF' : '#F0ECE3',
+      tilePad: listing ? '12px' : '0px',
+      listingShot: listing ? 'flex' : 'none',
+      ownShot: listing ? 'none' : 'block',
+      tileCredit: listing ? 'arket.com' : 'Your photograph',
+      afterNote: listing
+        ? 'Confirmed: the tile shows Arket\u2019s photograph, credited underneath. The coat still has her photograph on file.'
+        : 'Declined, or removed later: the tile is her own photograph and the row on item detail reads \u201cFind the listing photo\u201d again. Nothing about the record is diminished.',
+    };
+  }
+}
+</script>
+</body>
+</html>

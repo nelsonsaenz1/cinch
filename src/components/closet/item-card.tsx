@@ -47,6 +47,14 @@ function ItemCardComponent({
   selecting = false,
   selected = false,
 }: ItemCardProps) {
+  /**
+   * Whether the picture on this card is the shop's rather than the user's.
+   *
+   * Read off the row instead of taken as a prop: every caller already resolves
+   * `listingPath` first, so a separate flag would be a second source of truth
+   * that could disagree with the URI actually being drawn.
+   */
+  const wearsListing = item.listingPath !== null;
   const theme = useTheme();
   const press = usePressFeedback();
   // A local item — `imagePath` null, its photo never uploaded — has no signed
@@ -96,7 +104,15 @@ function ItemCardComponent({
       className="px-1.5 pb-2.5">
       <Animated.View style={press.style}>
         <View
-          className={`h-[196px] w-full overflow-hidden rounded-md bg-tray dark:bg-tray-dark ${
+          className={`h-[196px] w-full overflow-hidden rounded-md ${
+            // A confirmed listing photo is a product shot the retailer already
+            // set on white, so it sits on white and is CONTAINED — cropping it
+            // to fill would cut the garment the shop framed deliberately. A
+            // photograph the user took keeps the warm tray it has always had.
+            // Same frame, same radius, same caption either way: the atlas asks
+            // for one closet, not two (M-10).
+            wearsListing ? 'bg-surface dark:bg-surface-dark p-3' : 'bg-tray dark:bg-tray-dark'
+          } ${
             // Selection is the border, not just the tick — readable at a glance
             // across a whole grid where a 22pt glyph is not. Drawn as a border,
             // which RN insets rather than adding to the box, so a selected cell
@@ -110,7 +126,7 @@ function ItemCardComponent({
             <Image
               source={stableImageSource(displayUri)}
               recyclingKey={item.id}
-              contentFit="cover"
+              contentFit={wearsListing ? 'contain' : 'cover'}
               transition={180}
               cachePolicy="memory-disk"
               style={{ flex: 1 }}

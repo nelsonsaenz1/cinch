@@ -16,7 +16,9 @@ import { Text } from '@/components/ui/text';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { GarmentSearchSheet } from '@/components/ingest/garment-search-sheet';
 import { UploadQueueList } from '@/components/ingest/upload-queue-list';
+import { ListingOffer } from '@/components/match/listing-offer';
 import { useAiConsent, useGrantAiConsent } from '@/features/auth/use-consent';
+import { useCloset } from '@/features/closet/queries';
 import { Placement } from '@/features/billing/placements';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { useGate } from '@/features/billing/use-gate';
@@ -43,6 +45,15 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 const DECLINED_KEY = 'cinch.ai-consent.declined.v1';
 /** A-04 is shown once, at the moment of decline — never re-shown ("no second ask"). */
 const EXPLAINER_SEEN_KEY = 'cinch.ai-consent.decline-explainer-seen.v1';
+/**
+ * M-03's card is dismissible FOREVER, so the dismissal is persisted in the same
+ * kv-store the two flags above use — one read on mount, one write on the tap,
+ * no server round trip for a preference the server has no opinion about. Like
+ * those flags this is per install rather than truly per account; the item
+ * detail row is the permanent way in either way, so the worst case of a
+ * reinstall is one more offer, never a lost door.
+ */
+const LISTING_OFFER_DISMISSED_KEY = 'cinch.listing-offer.dismissed.v1';
 
 function readFlag(key: string): boolean {
   try {
@@ -538,6 +549,44 @@ export default function CaptureScreen() {
   const canRetry = failed.some((j) => j.retryable !== false);
   const [retrying, setRetrying] = useState(false);
 
+  /**
+   * M-03 — the listing-photo offer, once the batch has finished arguing.
+   *
+   * OFFERED FOR A BATCH OF ONE, and only then. The card's whole claim is
+   * specific — it names the retailer the tagger guessed and the kind of thing
+   * the piece is — and a card that said that about one garment out of twelve
+   * would be picking a favourite the user never nominated. Anyone importing in
+   * batches meets the same offer as a row on each piece's own screen, which is
+   * where the atlas puts the permanent way in regardless.
+   *
+   * A local job is excluded because its photograph never left the phone: there
+   * is nothing server-side for the search to read, and the item detail row
+   * hides itself for exactly the same reason.
+   */
+  const [offerDismissed, setOfferDismissed] = useState(() =>
+    readFlag(LISTING_OFFER_DISMISSED_KEY),
+  );
+  const offerJob =
+    granted && !offerDismissed && allDone && doneCount === 1
+      ? jobs.find((j) => j.stage === 'done' && !j.local && j.itemId)
+      : undefined;
+  /**
+   * The tagged row itself, for the two words the sentence needs.
+   *
+   * Read from the live closet query rather than the job, which knows only what
+   * kind of garment it is: the brand is the whole reason the offer is specific
+   * rather than speculative. The queue invalidates `['closet']` as each item
+   * settles, so by the time a batch is done this is a cache hit carrying the
+   * tagger's own answer.
+   */
+  const closet = useCloset();
+  const offerItem = offerJob ? closet.data?.find((i) => i.id === offerJob.itemId) : undefined;
+  // The bare kind, in the tagger's lowercase word. Never `category` when that
+  // is 'other' — "this other" is not a sentence, and a card that cannot name
+  // the piece has no business making a specific offer about it.
+  const offerPiece =
+    offerItem?.subcategory ?? (offerItem?.category === 'other' ? null : offerItem?.category);
+
   const retryFailed = useCallback(async () => {
     setRetrying(true);
     try {
@@ -889,6 +938,23 @@ export default function CaptureScreen() {
                       />
                     </View>
                   </View>
+                ) : null}
+
+                {/* M-03. Inline in the flow and below the rail that names what
+                just landed, so the offer reads as a remark about the piece the
+                user is already looking at. It carries the screen's only
+                oxblood; "Review tags" underneath is ink, which is why the two
+                can sit together at all. */}
+                {offerJob?.itemId && offerPiece ? (
+                  <ListingOffer
+                    brand={offerItem?.brand ?? null}
+                    piece={offerPiece}
+                    onFind={() => router.push(`/item/${offerJob.itemId}?match=1`)}
+                    onDismiss={() => {
+                      setOfferDismissed(true);
+                      writeFlag(LISTING_OFFER_DISMISSED_KEY, true);
+                    }}
+                  />
                 ) : null}
 
                 {/* `ink`, not `primary`: the atlas draws the promoted state as the

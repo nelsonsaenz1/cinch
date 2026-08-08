@@ -2,6 +2,8 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useCloset } from '@/features/closet/queries';
+import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { GarmentSearchError } from '@/features/ingest/use-garment-search';
 import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
@@ -39,9 +41,65 @@ export type MatchResult = {
   /** Brand suggestions the function derived, for the refinement chips. */
   brands: string[];
   candidates: MatchCandidate[];
+  /**
+   * The brand-scoped search found nothing, and these candidates are wider-web
+   * resemblances rather than that brand's own listings.
+   *
+   * It is a separate flag rather than an empty result because the two are
+   * different things to say to somebody: an empty answer is "nothing close
+   * enough", and this is "these are not your garment, and using one would put a
+   * photograph of somebody else's coat in your closet". The screen has to be
+   * able to tell them apart before it can be honest about either.
+   */
+  lookalike: boolean;
+  /** The brand the search was scoped to, as the function understood it. */
+  scopedBrand: string | null;
 };
 
-type ErrorBody = { error?: string; message?: string };
+/**
+ * The numbers behind a 429, as `_shared/quota.ts` sends them.
+ *
+ * Read rather than assumed: the allowance and its period are per-plan and are
+ * decided server-side, so a screen that types "40 of 40" for everybody is
+ * telling most users about a limit that is not theirs.
+ */
+export type QuotaDetail = {
+  used: number | null;
+  limit: number | null;
+  /** 'day' | 'week' | 'month' in practice; kept open because the server owns it. */
+  period: string | null;
+  /** Seconds until the allowance comes back, which is how the reset date is derived. */
+  retryAfterSeconds: number | null;
+};
+
+type ErrorBody = {
+  error?: string;
+  message?: string;
+  period?: string;
+  used?: number;
+  limit?: number;
+  retryAfterSeconds?: number;
+};
+
+/**
+ * A refusal that still carries the server's own figures.
+ *
+ * `GarmentSearchError` is the class every caller in both features already
+ * branches on and it stays the base, so nothing that catches one stops working.
+ * The quota body is attached rather than formatted into the message because the
+ * sentence differs by state — the failure frame names the numbers, the inline
+ * notice does not — and a pre-baked string can only be one of them.
+ */
+export class MatchError extends GarmentSearchError {
+  constructor(
+    code: string,
+    message: string,
+    readonly quota: QuotaDetail | null,
+  ) {
+    super(code, message);
+    this.name = 'MatchError';
+  }
+}
 
 /**
  * Read the JSON body off a non-2xx invoke.
@@ -91,9 +149,18 @@ async function invokeOrThrow<T>(body: Record<string, unknown>): Promise<T> {
   if (error) {
     const parsed = await readErrorBody(error);
     const code = parsed?.error ?? 'match_failed';
-    throw new GarmentSearchError(code, MESSAGES[code] ?? parsed?.message ?? FALLBACK_MESSAGE);
+    const quota: QuotaDetail | null =
+      code === 'ai_quota_exceeded'
+        ? {
+            used: parsed?.used ?? null,
+            limit: parsed?.limit ?? null,
+            period: parsed?.period ?? null,
+            retryAfterSeconds: parsed?.retryAfterSeconds ?? null,
+          }
+        : null;
+    throw new MatchError(code, MESSAGES[code] ?? parsed?.message ?? FALLBACK_MESSAGE, quota);
   }
-  if (!data) throw new GarmentSearchError('match_failed', MESSAGES.match_failed);
+  if (!data) throw new MatchError('match_failed', MESSAGES.match_failed, null);
 
   return data;
 }
@@ -153,7 +220,16 @@ export function useMatchGarment() {
         itemId,
         brand: brand ?? undefined,
       });
-      return { brands: data.brands ?? [], candidates: data.candidates ?? [] };
+      return {
+        brands: data.brands ?? [],
+        candidates: data.candidates ?? [],
+        // Defaulted to the safe half of each pair: an absent flag means these
+        // are ordinary candidates, and an absent scope means nothing was
+        // narrowed. A missing field must never be able to caption a real
+        // listing "lookalike", or to name a brand the search never used.
+        lookalike: data.lookalike ?? false,
+        scopedBrand: data.scopedBrand ?? null,
+      };
     },
     onSuccess: (result, variables) => {
       // Counts and flags only. The brand is user-adjacent content and stays on
@@ -216,6 +292,76 @@ export function listingFirst(
 }
 
 /**
+ * What the sheet is allowed to say about the garment, and the photograph the
+ * user took of it.
+ *
+ * Every string here is derived from columns the item already carries. The
+ * atlas's wait state (M-04) and its questions ("Is one of these your coat?")
+ * are written in the app's own words about the piece precisely so that nothing
+ * on screen is a guess dressed as a fact — which is also why `brandGuess` is
+ * nullable and never falls back to anything. A brand the tagger did not
+ * produce is a brand nobody may print.
+ *
+ * The closet cache is the source, the same `.find()` item detail makes, so
+ * opening this sheet is a cache hit rather than a second read of a row the
+ * caller already has on screen.
+ */
+export type MatchSubject = {
+  /** The bare kind word — "shearling coat". Never "other", never empty. */
+  noun: string;
+  /** Its plural, for the lookalike sentence. */
+  plural: string;
+  /** Colour words and kind: "Cognac, cream shearling coat". */
+  description: string;
+  /** The tagger's brand guess, or null when it did not make one. */
+  brandGuess: string | null;
+  /** A signed URL for the user's own photograph, once the batch has signed it. */
+  photoUri: string | undefined;
+};
+
+/** The word for a garment with no usable kind on record. */
+const UNNAMED_PIECE = 'piece';
+
+export function useMatchSubject(itemId: string | null): MatchSubject {
+  const closet = useCloset();
+  const item = closet.data?.find((piece) => piece.id === itemId) ?? null;
+
+  // The cutout and the thumbnail only. `listingPath` is deliberately absent:
+  // this photograph is the thing the confirm step labels "Kept", and resolving
+  // it through a listing image would show somebody a shop's photo under the
+  // words "your photograph" — on the one screen whose entire job is telling the
+  // two apart.
+  const { resolve } = useSignedUrls([item?.cutoutPath, item?.thumbPath]);
+
+  const kind = item?.subcategory ?? (item && item.category !== 'other' ? item.category : null);
+  const noun = kind ?? UNNAMED_PIECE;
+  const colours = (item?.colors ?? []).map((colour) => colour.name).filter(Boolean);
+  const described = [colours.join(', '), kind].filter(Boolean).join(' ');
+
+  return {
+    noun,
+    plural: `${noun}s`,
+    description: described
+      ? described.charAt(0).toUpperCase() + described.slice(1)
+      : 'This piece, as Cinch has it on record',
+    brandGuess: item?.brand ?? null,
+    photoUri: resolve(item?.cutoutPath, item?.thumbPath),
+  };
+}
+
+/** Which of the atlas's honest failures a refusal is, with the server's own figures. */
+export type MatchFailure = {
+  /** The stable code, unchanged. The sheet picks its frame from this. */
+  code: string;
+  /** The existing mapped sentence, for the codes the atlas draws no frame for. */
+  message: string;
+  quota: QuotaDetail | null;
+};
+
+/** Which half of the flow is on screen. Confirm is a step, never an inline button. */
+export type MatchStep = 'candidates' | 'confirm';
+
+/**
  * The sheet's whole state in one place, mirroring `useGarmentSearchFlow`: the
  * screen stays a rendering of what has come back, what is chosen and what went
  * wrong. `candidates` is null before the first search (and after a failed one)
@@ -228,6 +374,9 @@ export function useMatchFlow(itemId: string) {
   const [selected, setSelected] = useState<MatchCandidate | null>(null);
   const [activeBrand, setActiveBrand] = useState<string | null>(null);
   const [brandQuery, setBrandQuery] = useState('');
+  const [lookalike, setLookalike] = useState(false);
+  const [scopedBrand, setScopedBrand] = useState<string | null>(null);
+  const [step, setStep] = useState<MatchStep>('candidates');
 
   const match = useMatchGarment();
   const attach = useAttachListing();
@@ -235,6 +384,9 @@ export function useMatchFlow(itemId: string) {
   const runMatch = useCallback(
     async (brand: string | null) => {
       setSelected(null);
+      // A re-search from the confirm step would leave somebody looking at a
+      // listing that is no longer among the candidates behind it.
+      setStep('candidates');
       attach.reset();
       const result = await match.mutateAsync({ itemId, brand }).catch(() => null);
       // null on failure, NOT an empty array: the mutation already holds the
@@ -242,9 +394,13 @@ export function useMatchFlow(itemId: string) {
       // and much more discouraging sentence than "the search didn't come back".
       if (!result) {
         setCandidates(null);
+        setLookalike(false);
+        setScopedBrand(null);
         return;
       }
       setCandidates(result.candidates);
+      setLookalike(result.lookalike);
+      setScopedBrand(result.scopedBrand);
       // Merged rather than replaced: a brand-scoped re-search returns fewer
       // suggestions, and chips that vanish under the finger aiming at them are
       // a moving target. Once offered, a brand stays offered.
@@ -266,6 +422,9 @@ export function useMatchFlow(itemId: string) {
     setSelected(null);
     setActiveBrand(null);
     setBrandQuery('');
+    setLookalike(false);
+    setScopedBrand(null);
+    setStep('candidates');
     match.reset();
     attach.reset();
     void runMatch(null);
@@ -300,6 +459,26 @@ export function useMatchFlow(itemId: string) {
     setSelected((current) => (current?.imageUrl === candidate.imageUrl ? null : candidate));
   }, []);
 
+  /**
+   * Move to the confirm step, and back out of it.
+   *
+   * Confirming is its own screen rather than a second press of the same button
+   * because the thing being decided there is not "which picture" but "is this
+   * the garment I own" — and that question is unanswerable next to five other
+   * candidates at thumbnail size. Backing out keeps the selection: the user
+   * looked closely and said not this one, which is an answer about this
+   * listing, not about the search.
+   */
+  const toConfirm = useCallback(() => {
+    if (!selected) return;
+    setStep('confirm');
+  }, [selected]);
+
+  const backToCandidates = useCallback(() => {
+    attach.reset();
+    setStep('candidates');
+  }, [attach]);
+
   /** Returns true when the attach landed, so the sheet knows to close. */
   const confirm = useCallback(async (): Promise<boolean> => {
     if (!selected) return false;
@@ -318,7 +497,21 @@ export function useMatchFlow(itemId: string) {
     }
   }, [attach, itemId, selected]);
 
-  const error = attach.error ?? match.error;
+  // The two errors are kept apart rather than collapsed with `??`. A search
+  // that was refused is a whole state — one of the atlas's five honest failures
+  // — and an attach that was refused is a line under a button on a screen the
+  // user should stay on, with their chosen listing still in front of them.
+  // Collapsing them would put a download failure where the consent frame goes.
+  const failure: MatchFailure | null =
+    match.error instanceof GarmentSearchError
+      ? {
+          code: match.error.code,
+          message: match.error.message,
+          quota: match.error instanceof MatchError ? match.error.quota : null,
+        }
+      : match.error
+        ? { code: 'match_failed', message: MESSAGES.match_failed, quota: null }
+        : null;
 
   return {
     candidates,
@@ -326,15 +519,22 @@ export function useMatchFlow(itemId: string) {
     selected,
     activeBrand,
     brandQuery,
+    lookalike,
+    scopedBrand,
+    step,
     setBrandQuery,
     start,
     refine,
     submitBrandQuery,
     choose,
+    toConfirm,
+    backToCandidates,
     confirm,
     retry: useCallback(() => void runMatch(activeBrand), [activeBrand, runMatch]),
     searching: match.isPending,
     attaching: attach.isPending,
-    errorMessage: error instanceof Error ? error.message : null,
+    failure,
+    /** The attach refusal only — the search's own refusals are `failure`. */
+    attachMessage: attach.error instanceof Error ? attach.error.message : null,
   };
 }
