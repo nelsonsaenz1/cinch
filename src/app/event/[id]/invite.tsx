@@ -1,215 +1,467 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { RosterRow } from '@/components/events/RosterRow';
-import { Avatar } from '@/components/ui/avatar';
+import { InviteFriendRow } from '@/components/events/InviteFriendRow';
+import { LeaveWithoutInvitingSheet } from '@/components/events/leave-without-inviting-sheet';
+import { isSocialTermsError } from '@/features/auth/use-social-terms';
+import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { Button } from '@/components/ui/button';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { RowSkeleton } from '@/components/ui/skeleton';
+import { SearchField } from '@/components/ui/search-field';
 import { SectionHeader } from '@/components/ui/section-header';
-// Batch-1 seam: the shared states kit.
-import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { useSession } from '@/features/auth/use-session';
-import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
-import { socialDenialCopy, useInviteMember } from '@/features/events/mutations';
-import { useEventMembers, useInviteCandidates } from '@/features/events/queries';
+import { whenLabel } from '@/components/events/EventCard';
+import {
+  buildInviteRows,
+  everyoneAlreadyInvited,
+  failedSends,
+  filterInviteRows,
+  partitionInviteRows,
+  sendResultBody,
+  sendResultTitle,
+  standingSummary,
+  type InviteFriend,
+  type SendOutcome,
+} from '@/features/events/invite-rows';
+import { useInviteMembers } from '@/features/events/mutations';
+import { useEvent, useEventInviteRoster } from '@/features/events/queries';
+import { profileName } from '@/features/social-graph/types';
+import { useFriends } from '@/features/social-graph/queries';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
- * The invite sheet. Search runs over `social_profiles` — the view already
- * limits results to people the caller is legitimately related to and screens
- * blocked pairs, so this screen adds nothing but a typeahead over it. The
- * insert is what actually invites; RLS pins every column of it to "the host,
- * inviting" and the database rate limit has the final word on volume.
+ * Invite Friends State Atlas — IF-01…IF-06.
+ *
+ * A batch picker over the friendship graph and nothing else: no contact
+ * upload, no phone number, no directory search. Checkmarks are a draft;
+ * nothing is sent until Done, and the send is reported per person, never as
+ * one rolled-up error (event-social-contract.md §3).
  */
 export default function InviteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const theme = useTheme();
-  const session = useSession();
-
-  const [search, setSearch] = useState('');
-  const candidates = useInviteCandidates(search);
-  const members = useEventMembers(id ?? '');
-  const invite = useInviteMember();
+  const insets = useSafeAreaInsets();
   const terms = useSocialTermsGate();
 
-  // Who was invited from THIS sheet, so a fresh invite reads "Invited" in
-  // place rather than vanishing when the roster refetch reclassifies them.
-  const [justInvited, setJustInvited] = useState<Set<string>>(new Set());
+  const eventQuery = useEvent(id ?? null);
+  const friendsQuery = useFriends();
+  const rosterQuery = useEventInviteRoster(id ?? '');
+  const inviteMembers = useInviteMembers();
 
-  const onList = new Set((members.data ?? []).map((m) => m.userId));
+  const [query, setQuery] = useState('');
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [sending, setSending] = useState(false);
+  const [outcomes, setOutcomes] = useState<SendOutcome[] | null>(null);
+  const [askLeave, setAskLeave] = useState(false);
 
-  const rows = (candidates.data ?? []).filter((p) => p.user_id !== session.userId);
+  const friends: InviteFriend[] = useMemo(
+    () =>
+      (friendsQuery.data ?? []).map((f) => ({
+        userId: f.userId,
+        name: profileName(f),
+        username: f.username,
+      })),
+    [friendsQuery.data],
+  );
 
-  /** Named so the terms gate has something to re-run once the user agrees. */
-  const sendInvite = (userId: string) => {
+  const nameByUserId = useMemo(() => {
+    const map = new Map(friends.map((f) => [f.userId, f.name]));
+    return (userId: string) => map.get(userId) ?? 'A friend';
+  }, [friends]);
+
+  const allRows = useMemo(
+    () => buildInviteRows(friends, rosterQuery.data ?? []),
+    [friends, rosterQuery.data],
+  );
+  const filteredRows = useMemo(() => filterInviteRows(allRows, query), [allRows, query]);
+  const { alreadyInvited, yourFriends } = useMemo(
+    () => partitionInviteRows(filteredRows),
+    [filteredRows],
+  );
+
+  const subtitle = useMemo(() => {
+    const event = eventQuery.data;
+    if (!event) return '';
+    return [event.occasion ?? event.title, event.startsAt ? whenLabel(event.startsAt, event.endsAt) : null]
+      .filter(Boolean)
+      .join(' · ');
+  }, [eventQuery.data]);
+
+  const toggle = (userId: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+
+  const closeWithoutSending = () => router.back();
+
+  const requestClose = () => {
+    if (picked.size > 0) {
+      setAskLeave(true);
+      return;
+    }
+    closeWithoutSending();
+  };
+
+  const send = () => {
     if (!id) return;
-    invite.mutate(
-      { eventId: id, userId },
+    const userIds = [...picked];
+    setSending(true);
+    inviteMembers.mutate(
+      { eventId: id, userIds },
       {
-        onSuccess: () => setJustInvited((prev) => new Set(prev).add(userId)),
-        // `reset()` on decline clears `invite.isError`, so the line below does
-        // not appear a beat later saying the invite failed — it did not fail,
-        // it was never sent.
-        onError: (error) => terms.intercept(error, () => sendInvite(userId), invite.reset),
+        onSuccess: (results) => {
+          // A terms refusal is not a per-person send failure — every row in
+          // the batch will have hit the same gate, and reporting it as N
+          // failed invitations would be inventing N different reasons for
+          // one cause. Intercept once and retry the whole batch on accept.
+          const gated = results.find((r) => !r.ok && isSocialTermsError(r.error));
+          if (gated) {
+            setSending(false);
+            terms.intercept(
+              gated.error,
+              () => send(),
+              () => setSending(false),
+            );
+            return;
+          }
+          setOutcomes(
+            results.map((r) => ({ userId: r.userId, name: nameByUserId(r.userId), ok: r.ok })),
+          );
+          setSending(false);
+        },
+        onError: () => {
+          setOutcomes(userIds.map((userId) => ({ userId, name: nameByUserId(userId), ok: false })));
+          setSending(false);
+        },
       },
     );
   };
 
+  const retryOne = (userId: string) => {
+    if (!id) return;
+    inviteMembers.mutate(
+      { eventId: id, userIds: [userId] },
+      {
+        onSuccess: (results) => {
+          const [result] = results;
+          if (!result) return;
+          setOutcomes((prev) =>
+            (prev ?? []).map((o) =>
+              o.userId === userId ? { ...o, ok: result.ok } : o,
+            ),
+          );
+        },
+      },
+    );
+  };
+
+  // IF-06 — no friends at all. Says the opposite of a contacts-permission
+  // prompt, out loud, where that prompt would have sat.
+  if (friendsQuery.isSuccess && friends.length === 0) {
+    return (
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={[]}>
+        <View className="flex-row items-center justify-between px-gutter pt-2">
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel"
+            hitSlop={12}
+            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+            className="active:opacity-60">
+            <Text variant="body" style={{ color: theme.muted }}>
+              Cancel
+            </Text>
+          </Pressable>
+        </View>
+
+        <View className="px-gutter pt-3">
+          <Text variant="display" trim>
+            Invite friends
+          </Text>
+          {subtitle ? (
+            <Text variant="label" className="mt-1.5">
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+
+        <View className="flex-1 items-center justify-center px-10">
+          <Text variant="title" trim className="text-center">
+            Nobody to invite yet
+          </Text>
+          <Text variant="body" className="mt-2.5 text-center" style={{ color: theme.muted }}>
+            Invitations go to friends on Cinch. Add someone by their username, and once they add
+            you back you can put them on the list.
+          </Text>
+          <Button
+            title="Add a friend"
+            variant="ink"
+            haptic
+            className="mt-5"
+            onPress={() => router.push('/friends')}
+          />
+          <Pressable
+            onPress={() => router.push('/friends')}
+            hitSlop={8}
+            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+            className="mt-3.5 active:opacity-60">
+            <Text variant="label" style={{ color: theme.accent }}>
+              Share your username
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* `caption` already carries `text-muted` — real content, not
+            `faint`, which fails AA on canvas. */}
+        <Text
+          variant="caption"
+          className="px-10 text-center"
+          style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
+          Cinch doesn’t read your contacts, and an occasion can’t be shared as a link.
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  // Once every send has resolved: IF-05's "Sent" / "Partly failed" panel
+  // replaces the picker. A failure lists who failed with a retry beside
+  // them, never one rolled-up error.
+  if (outcomes) {
+    const failed = failedSends(outcomes);
+    return (
+      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={[]}>
+        <View className="flex-1 items-center justify-center px-gutter">
+          <View className="w-full rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
+            <Text variant="body" className="font-semibold">
+              {sendResultTitle(outcomes)}
+            </Text>
+            {sendResultBody(outcomes) ? (
+              <Text variant="label" className="mt-1.5">
+                {sendResultBody(outcomes)}
+              </Text>
+            ) : null}
+
+            {failed.length > 0 ? (
+              <View className="mt-3 -mx-5 border-t border-hairline dark:border-hairline-dark">
+                {failed.map((f, i) => (
+                  <View
+                    key={f.userId}
+                    className={[
+                      'flex-row items-center gap-3 px-5 py-3',
+                      i === failed.length - 1 ? '' : 'border-b border-hairline dark:border-hairline-dark',
+                    ].join(' ')}>
+                    <View className="flex-1">
+                      <Text variant="body" numberOfLines={1}>
+                        {f.name}
+                      </Text>
+                      <Text variant="caption" className="mt-0.5" style={{ color: theme.critical }}>
+                        Couldn’t invite just now
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => retryOne(f.userId)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Retry inviting ${f.name}`}
+                      style={{
+                        minHeight: 36,
+                        borderColor: theme.ruleStrong,
+                        borderWidth: 1,
+                      }}
+                      className="items-center justify-center rounded-md px-3.5 active:opacity-60">
+                      <Text variant="label">Retry</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+
+          <Button title="Done" variant="ink" haptic className="mt-5 self-stretch" onPress={() => router.back()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const nothingFiltered = query.trim().length > 0 && filteredRows.length === 0;
+  const allInvited = query.trim().length === 0 && everyoneAlreadyInvited(allRows);
+
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={[]}>
-      <View className="flex-row items-baseline justify-between px-gutter pt-6">
-        <Text variant="title" trim>
-          Invite friends
-        </Text>
-        {/* Ink, not the accent. This sheet's one oxblood action is Invite, on
-            the rows; a dismiss control that shares the accent with it spends
-            the colour twice on one screen against the house rule. */}
+      <View className="flex-row items-center justify-between px-gutter pt-2">
         <Pressable
-          onPress={() => router.back()}
+          onPress={requestClose}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+          hitSlop={12}
+          style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+          className="active:opacity-60">
+          <Text variant="body" style={{ color: theme.muted }}>
+            Cancel
+          </Text>
+        </Pressable>
+        {/* Present but dimmed at zero — the same target as Cancel in
+            outcome, so it never disappears and moves the header around. */}
+        <Pressable
+          onPress={picked.size > 0 ? send : closeWithoutSending}
+          disabled={sending}
           accessibilityRole="button"
           accessibilityLabel="Done"
           hitSlop={12}
-          className="py-2 active:opacity-60">
-          <Text variant="body" className="font-semibold">
+          style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+          className="active:opacity-60">
+          <Text
+            variant="body"
+            className={picked.size > 0 ? 'font-semibold' : ''}
+            style={{ color: picked.size > 0 ? theme.ink : theme.byline }}>
             Done
           </Text>
         </Pressable>
       </View>
 
-      <View className="mt-4 px-gutter">
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search by name or username"
-          placeholderTextColor={theme.muted}
-          autoFocus
-          autoCapitalize="none"
-          autoCorrect={false}
-          accessibilityLabel="Search people to invite"
-          className="rounded-md border border-hairline px-3.5 py-2.5 font-body text-body text-ink dark:border-hairline-dark dark:text-ink-dark"
+      <View className="px-gutter pt-3">
+        <Text variant="display" trim>
+          Invite friends
+        </Text>
+        {subtitle ? (
+          <Text variant="label" className="mt-1.5">
+            {subtitle}
+          </Text>
+        ) : null}
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Filter your friends"
+          className="mt-3.5 h-11"
         />
       </View>
-
-      {invite.isError && !terms.blocked ? (
-        <Text
-          variant="label"
-          accessibilityLiveRegion="polite"
-          className="mt-3 px-gutter text-critical dark:text-critical">
-          {socialDenialCopy(invite.error) ?? 'That invite didn’t send. Try again.'}
-        </Text>
-      ) : null}
 
       <KeyboardAwareScrollView
         contentContainerClassName="px-gutter pb-10"
         showsVerticalScrollIndicator={false}>
-        {candidates.isError ? (
-          // A failed search is not "nobody by that name" — that sentence tells
-          // a woman her friend isn't on Cinch when the network simply blinked.
-          <View className="mt-6">
-            <Text variant="body">That search didn’t go through</Text>
-            <Text variant="caption" className="mt-1.5">
-              Your friends are still there. Try again in a moment.
+        {friendsQuery.isLoading || rosterQuery.isLoading ? (
+          <View className="mt-5" accessibilityLabel="Reading your friends">
+            <RowSkeleton />
+            <RowSkeleton />
+            <RowSkeleton isLast />
+          </View>
+        ) : allInvited ? (
+          // IF-03 — every friend is already on the list. No empty checkbox
+          // list, no prompt to invite more people from elsewhere.
+          <View className="mt-5 rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
+            <Text variant="plate">
+              {allRows.length === 1 ? 'Your one friend is in' : `All ${allRows.length} are in`}
             </Text>
-            <Button
-              title="Try again"
-              variant="secondary"
-              onPress={() => void candidates.refetch()}
-              className="mt-4 self-start"
-            />
+            <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
+              Every friend you have is on the list for this one. {standingSummary(allRows)}
+            </Text>
           </View>
-        ) : candidates.isLoading ? (
-          <View className="mt-4" accessibilityLabel="Searching your friends">
-            {[0, 1, 2].map((i) => (
-              <View key={i} className="flex-row items-center gap-3 py-2.5">
-                <Skeleton className="h-8 w-8 rounded-full" />
-                <View className="flex-1">
-                  <Skeleton className="h-4 w-1/2 rounded-sm" />
-                  <Skeleton className="mt-1.5 h-3 w-1/3 rounded-sm" />
-                </View>
-              </View>
-            ))}
+        ) : nothingFiltered ? (
+          // IF-03 — the filter matches nobody. The way out is a link, not a
+          // button: leaving this sheet loses the checkmarks.
+          <View className="mt-5 items-center rounded-plate border border-rule bg-surface p-6 dark:border-rule-dark dark:bg-surface-dark">
+            <Text variant="body" className="font-semibold text-center">
+              No friend called “{query.trim()}”
+            </Text>
+            <Text variant="label" className="mt-2 text-center">
+              You can only invite people you’re already friends with on Cinch.
+            </Text>
+            <Pressable
+              onPress={() => router.push('/friends')}
+              hitSlop={8}
+              style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+              className="mt-3 active:opacity-60">
+              <Text variant="label" className="font-semibold" style={{ color: theme.accent }}>
+                Add a friend
+              </Text>
+            </Pressable>
           </View>
-        ) : rows.length > 0 ? (
-          <View className="mt-4">
-            {rows.map((p, i) => {
-              const already = onList.has(p.user_id) || justInvited.has(p.user_id);
-              const sending = invite.isPending && invite.variables?.userId === p.user_id;
-              return (
-                <View
-                  key={p.user_id}
-                  style={{ minHeight: MIN_TAP_TARGET }}
-                  className={[
-                    'flex-row items-center gap-3 py-2.5',
-                    i === rows.length - 1 ? '' : 'border-b border-hairline dark:border-hairline-dark',
-                  ].join(' ')}>
-                  <Avatar name={p.display_name ?? p.username} size={32} tone="sand" />
-                  <View className="flex-1">
-                    <Text variant="body" numberOfLines={1}>
-                      {p.display_name ?? p.username ?? 'A friend'}
-                    </Text>
-                    {p.username && p.display_name ? (
-                      <Text variant="caption" className="text-faint dark:text-faint-dark">
-                        @{p.username}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {already ? (
-                    <Text variant="label" className="text-faint dark:text-faint-dark">
-                      Invited
-                    </Text>
-                  ) : sending ? (
-                    <ActivityIndicator size="small" color={theme.muted} />
-                  ) : (
-                    <Pressable
-                      onPress={() => sendInvite(p.user_id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Invite ${p.display_name ?? p.username ?? 'this friend'}`}
-                      hitSlop={8}
-                      style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-                      className="active:opacity-60">
-                      <Text variant="label" className="text-accent dark:text-accent-dark">
-                        Invite
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        ) : search.trim().length >= 2 && candidates.isFetched ? (
-          // Empty copy on the `EmptyState` scale (17px), not the 13px label
-          // this screen used to whisper it at.
-          <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
-            Nobody by that name yet. Friends appear here once you’re connected
-            on Cinch.
-          </Text>
         ) : (
-          <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
-            Search your friends by name or username. Only people you invite can
-            see this occasion.
-          </Text>
-        )}
-
-        {(members.data ?? []).length > 0 ? (
           <>
-            <SectionHeader title="On the list" className="mb-1 mt-8" />
-            {(members.data ?? []).map((m, i, list) => (
-              <RosterRow
-                key={m.userId}
-                member={m}
-                isSelf={m.userId === session.userId}
-                isLast={i === list.length - 1}
-              />
-            ))}
+            {alreadyInvited.length > 0 ? (
+              <>
+                <SectionHeader
+                  title="Already invited"
+                  className="mb-2 mt-5"
+                  trailing={<Text variant="label">{alreadyInvited.length}</Text>}
+                />
+                <View className="overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+                  {alreadyInvited.map((row, i) => (
+                    <InviteFriendRow
+                      key={row.userId}
+                      row={row}
+                      selected={picked.has(row.userId)}
+                      isLast={i === alreadyInvited.length - 1}
+                      onToggle={() => toggle(row.userId)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            {yourFriends.length > 0 ? (
+              <>
+                <SectionHeader
+                  title="Your friends"
+                  className="mb-2 mt-6"
+                  trailing={<Text variant="label">{yourFriends.length}</Text>}
+                />
+                <View className="overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+                  {yourFriends.map((row, i) => (
+                    <InviteFriendRow
+                      key={row.userId}
+                      row={row}
+                      selected={picked.has(row.userId)}
+                      isLast={i === yourFriends.length - 1}
+                      onToggle={() => toggle(row.userId)}
+                    />
+                  ))}
+                </View>
+                <Text variant="caption" className="mt-4">
+                  Only friends can be invited. To add someone new, add them as a friend first.
+                </Text>
+              </>
+            ) : null}
           </>
-        ) : null}
+        )}
       </KeyboardAwareScrollView>
 
+      {picked.size > 0 ? (
+        <View
+          className="border-t border-hairline bg-canvas px-gutter pt-3 dark:border-hairline-dark dark:bg-canvas-dark"
+          style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
+          <Pressable
+            onPress={send}
+            disabled={sending}
+            accessibilityRole="button"
+            accessibilityLabel={`Invite ${picked.size} ${picked.size === 1 ? 'friend' : 'friends'}`}
+            accessibilityState={{ busy: sending }}
+            style={{ minHeight: 50, backgroundColor: theme.ink, opacity: sending ? 0.7 : 1 }}
+            className="flex-row items-center justify-center rounded-md active:opacity-80">
+            <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+              {sending ? 'Inviting…' : `Invite ${picked.size} ${picked.size === 1 ? 'friend' : 'friends'}`}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {terms.sheet}
+
+      <LeaveWithoutInvitingSheet
+        visible={askLeave}
+        pickedCount={picked.size}
+        onKeepChoosing={() => setAskLeave(false)}
+        onDiscard={() => {
+          setAskLeave(false);
+          closeWithoutSending();
+        }}
+      />
     </SafeAreaView>
   );
 }

@@ -312,6 +312,64 @@ export function useInviteMember() {
 }
 
 /**
+ * Put several people on the list in one Done tap — the Invite Friends State
+ * Atlas's batch picker (IF-01…IF-05). Nothing sends until this fires; the
+ * checkmarks up to that point are a draft the caller owns entirely.
+ *
+ * Sent as N individual inserts via `Promise.allSettled`, not one multi-row
+ * insert: Postgres commits or fails a single INSERT statement atomically, and
+ * IF-05's whole point is that a partial failure is reported *per person* —
+ * "Two of three went out", never one rolled-up error. Splitting the request
+ * client-side is what makes that honest instead of invented after the fact.
+ *
+ * Resolves with one outcome per user, in input order, and never throws —
+ * a caller checking `.ok` per row is the only way to render "who failed"
+ * without also having to unpack a `Promise.allSettled` shape.
+ */
+export interface InviteMemberOutcome {
+  userId: string;
+  ok: boolean;
+  error?: unknown;
+}
+
+export function useInviteMembers() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      eventId,
+      userIds,
+    }: {
+      eventId: string;
+      userIds: string[];
+    }): Promise<InviteMemberOutcome[]> => {
+      const inviterId = await getUserId();
+      if (!inviterId) throw new Error('Not signed in.');
+
+      const settled = await Promise.allSettled(
+        userIds.map((userId) =>
+          socialFrom('event_members').insert({
+            event_id: eventId,
+            user_id: userId,
+            role: 'attendee',
+            state: 'invited',
+            invited_by: inviterId,
+          }),
+        ),
+      );
+
+      return settled.map((result, i) => {
+        const userId = userIds[i]!;
+        if (result.status === 'rejected') return { userId, ok: false, error: result.reason };
+        const { error } = result.value as { error: unknown };
+        return error ? { userId, ok: false, error } : { userId, ok: true };
+      });
+    },
+    onSuccess: (_data, { eventId }) => invalidateEvent(qc, eventId),
+  });
+}
+
+/**
  * Answer an invitation. `joined` puts the occasion on the member's Plan;
  * `declined` is silent by design — no other member is ever told, and the
  * roster query never even fetches declined rows.
