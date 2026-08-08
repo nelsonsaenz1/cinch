@@ -33,6 +33,8 @@ export type ClosetMenuProps = {
   onSelectPieces: () => void;
   /** Opens the list of pieces taken out of rotation — the way back from archive. */
   onStorage: () => void;
+  /** Directive 3 — "What one more piece would do", ranked and computed. */
+  onGapFeed: () => void;
   onProfileSettings: () => void;
   /** Tap anywhere outside the card. */
   onDismiss: () => void;
@@ -111,6 +113,7 @@ export function ClosetMenu({
   onReviewTags,
   onSelectPieces,
   onStorage,
+  onGapFeed,
   onProfileSettings,
   onDismiss,
 }: ClosetMenuProps) {
@@ -169,6 +172,7 @@ export function ClosetMenu({
               state is how someone learns the drawer exists, and a row that
               appears only once you have used it teaches nothing. */}
           <MenuRow label="Storage" separated onPress={onStorage} />
+          <MenuRow label="What one more piece would do" separated onPress={onGapFeed} />
           <MenuRow label="Profile & settings" onPress={onProfileSettings} />
         </View>
       </View>

@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { CameraView } from 'expo-camera';
+import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
@@ -17,13 +18,16 @@ import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { GarmentSearchSheet } from '@/components/ingest/garment-search-sheet';
 import { UploadQueueList } from '@/components/ingest/upload-queue-list';
 import { ListingOffer } from '@/components/match/listing-offer';
+import { ClosetFullSheet } from '@/components/wall/closet-full-sheet';
 import { useAiConsent, useGrantAiConsent } from '@/features/auth/use-consent';
 import { useCloset } from '@/features/closet/queries';
+import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count';
 import { Placement } from '@/features/billing/placements';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { useGate } from '@/features/billing/use-gate';
 import { useCameraAccess } from '@/features/ingest/use-camera-access';
-import { useCapture } from '@/features/ingest/use-capture';
+import { useCapture, type CapturedAsset } from '@/features/ingest/use-capture';
+import { useWardrobe } from '@/features/styling/queries';
 import {
   useQueueStore,
   selectActiveCount,
@@ -176,6 +180,43 @@ export function DeclineExplainer({
   );
 }
 
+/**
+ * The held photograph, shown behind W-02 exactly as the atlas draws it — the
+ * shot that was just taken, translucent, on the dark stage. `scrim` is the
+ * app's own token for "a gradient over garment photography" (see
+ * tailwind.config.js), not a literal alpha typed here.
+ */
+function HeldPhotoStage({
+  uri,
+  count,
+  theme,
+}: {
+  uri: string;
+  count: number;
+  theme: ReturnType<typeof useTheme>;
+}) {
+  return (
+    <View className="mx-4 my-2 flex-1 overflow-hidden rounded-plate">
+      <Image
+        source={{ uri }}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        accessibilityIgnoresInvertColors
+      />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.scrim }]} />
+      {count > 1 ? (
+        <View
+          className="absolute right-3 top-3 rounded-full px-2.5 py-1"
+          style={{ backgroundColor: theme.scrim }}>
+          <Text variant="caption" style={{ color: theme.canvas }}>
+            {`+${count - 1} more`}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 /** One L of the framing guide. Light lines on the dark stage, per the design. */
 function Corner({ canvas, pos }: { canvas: string; pos: 'tl' | 'tr' | 'bl' | 'br' }) {
   const edges = {
@@ -217,7 +258,7 @@ export default function CaptureScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { pickFromLibrary, takePhoto, addPhoto, selectionLimit } = useCapture();
+  const { pickFromLibrary, takePhoto, commit, selectionLimit } = useCapture();
 
   /**
    * Camera permission is asked for HERE, on the way in — see `useCameraAccess`.
@@ -254,6 +295,37 @@ export default function CaptureScreen() {
   const qc = useQueryClient();
   const capacity = useCapacity();
   const gate = useGate();
+  const wardrobe = useWardrobe();
+
+  /**
+   * W-02 — the closet-full sheet.
+   *
+   * THE SHUTTER IS NEVER DISABLED AND THE PHOTOGRAPH IS NEVER DISCARDED — the
+   * atlas states both plainly, and "the limit applies to the closet, not the
+   * camera" is the whole shape of this state. So the camera and library doors
+   * open unconditionally (see `guarded`, which no longer reads `capacity` at
+   * all): a full closet only changes what happens to the picture ONCE IT
+   * EXISTS. `heldCapture` is that picture, kept in plain component state —
+   * deliberately not persisted, so a dropped hold on backgrounding is an
+   * accepted, disclosed delta rather than a reason to invent a second
+   * storage layer for a photo that may never be added. `closetFullVisible`
+   * is a separate flag from "is something held": "Make room for it" hides
+   * the sheet to navigate to the swap screen while KEEPING the hold, so the
+   * user who stores a piece and comes back is resumed with the photograph
+   * they already took rather than sent to shoot the same coat twice.
+   */
+  type HeldCapture = { assets: CapturedAsset[]; local: boolean };
+  const [heldCapture, setHeldCapture] = useState<HeldCapture | null>(null);
+  const [closetFullVisible, setClosetFullVisible] = useState(false);
+  const [gatePresenting, setGatePresenting] = useState(false);
+
+  // `HeldPhotoStage` replaces `<CameraView>` in the tree while a photo is
+  // held, which unmounts the live session. Reset readiness so a shutter tap
+  // in the instant the view remounts waits for a real `onCameraReady` rather
+  // than trusting a flag left over from before the hold.
+  useEffect(() => {
+    if (heldCapture) setCameraReady(false);
+  }, [heldCapture]);
 
   const jobs = useQueueStore((s) => s.jobs);
   const hydrate = useQueueStore((s) => s.hydrate);
@@ -307,6 +379,28 @@ export default function CaptureScreen() {
   }, [hydrate]);
 
   /**
+   * Decide whether newly acquired photos go straight to the queue or wait
+   * behind W-02.
+   *
+   * Capacity is read fresh HERE — after the photograph already exists —
+   * rather than at the moment the shutter is tapped, which is the entire
+   * point: the only thing worth avoiding is the paid upload and tagging
+   * call, never the shot itself.
+   */
+  const settleCapture = useCallback(
+    (assets: CapturedAsset[], local: boolean) => {
+      if (assets.length === 0) return;
+      if (capacity.full) {
+        setHeldCapture({ assets, local });
+        setClosetFullVisible(true);
+        return;
+      }
+      commit(assets, { local });
+    },
+    [capacity.full, commit],
+  );
+
+  /**
    * The shutter, on whichever camera this device actually has.
    *
    * In-app when the preview is live: the frame the user composed is the frame
@@ -318,37 +412,41 @@ export default function CaptureScreen() {
   const shoot = useCallback(async () => {
     const camera = cameraRef.current;
     // The mode is read at the moment of the shot, not closed over: the same
-    // shutter serves both modes, and only the enqueue differs.
-    const opts = { local: localModeRef.current };
+    // shutter serves both modes, and only the settlement differs.
+    const local = localModeRef.current;
     if (!live || !camera || !cameraReady) {
-      await takePhoto(opts);
+      settleCapture(await takePhoto(), local);
       return;
     }
     setShooting(true);
     try {
       const picture = await camera.takePictureAsync({ quality: 0.9, exif: false });
-      if (picture?.uri) addPhoto(picture, opts);
+      if (picture?.uri) settleCapture([picture], local);
     } catch {
       // Whatever went wrong with the session, the garment in front of the user
       // still has to be photographable. Drop to the system camera and stay
       // there for the rest of this visit.
       setPreviewFailed(true);
-      await takePhoto(opts);
+      settleCapture(await takePhoto(), local);
     } finally {
       setShooting(false);
     }
-  }, [live, cameraReady, addPhoto, takePhoto]);
+  }, [live, cameraReady, takePhoto, settleCapture]);
 
   // All three ways in dispatch from one place. The gate below reaches for this
   // twice, and inlining a ternary at each site is how the second entry point
   // was written — a third would have made that three copies of one decision.
   const run = useCallback(
     (action: CaptureAction) => {
-      if (action === 'library') void pickFromLibrary({ local: localModeRef.current });
-      else if (action === 'camera') void shoot();
-      else setDescribeVisible(true);
+      if (action === 'library') {
+        void pickFromLibrary().then((assets) => settleCapture(assets, localModeRef.current));
+      } else if (action === 'camera') {
+        void shoot();
+      } else {
+        setDescribeVisible(true);
+      }
     },
-    [pickFromLibrary, shoot],
+    [pickFromLibrary, shoot, settleCapture],
   );
 
   /**
@@ -413,46 +511,13 @@ export default function CaptureScreen() {
   }, []);
 
   /**
-   * Gate every capture entry point, in the order the user should meet the gates.
-   *
-   * CAPACITY BEFORE CONSENT, deliberately. A full closet means this garment
-   * cannot be added at all, so asking for AI permission first collects a
-   * decision we have no use for — and it asks for something invasive
-   * (photographs going to a model) moments before refusing the thing they
-   * asked for. Whichever gate the user cannot pass should be the only one they
-   * are shown.
-   *
-   * BOTH BEFORE THE PICKER. `items_enforce_limit` refuses the INSERT, which
-   * happens after the photograph is taken, cut out and uploaded. Letting the
-   * user get that far and then failing is the thing worth avoiding: the server
-   * is still the authority, this just moves the "no" to before the work rather
-   * than after it.
+   * Gate every capture entry point on consent alone. Capacity is NOT checked
+   * here any more — Camera and Library both open unconditionally, at any
+   * capacity, per the Wall's W-02: the limit is decided once a photograph
+   * exists (`settleCapture`), never at the door.
    */
   const guarded = useCallback(
     (action: CaptureAction) => {
-      if (capacity.full) {
-        // Superwall decides whether this particular user sees a paywall. On a
-        // grant, dispatch the picker DIRECTLY — not back through this guard.
-        // The refreshed `capacity` lives in a re-render this callback's closure
-        // will never see (the await resumes as a microtask, before React
-        // re-renders), so re-entering the gate would read the stale `full` and
-        // show a paying user the paywall a second time. Skipping the client
-        // check is safe because it was never the authority: the database
-        // trigger still refuses the insert if the plan somehow didn't change.
-        void gate.present(Placement.AddGarmentOverLimit, async () => {
-          await Promise.all([
-            qc.invalidateQueries({ queryKey: ['subscription'] }),
-            qc.invalidateQueries({ queryKey: ['closet-count'] }),
-          ]);
-          // Deferred, not immediate: a paywall is a presented view controller
-          // like the consent sheet, and the picker cannot open over one that is
-          // still leaving. Superwall gives no dismissal callback to hang this
-          // on, so it waits out the animation.
-          deferResume(action);
-        });
-        return;
-      }
-
       if (granted) {
         run(action);
         return;
@@ -470,7 +535,72 @@ export default function CaptureScreen() {
       setPendingAction(action);
       setConsentVisible(true);
     },
-    [capacity.full, gate, qc, granted, declinedMode, run, deferResume],
+    [granted, declinedMode, run],
+  );
+
+  /**
+   * W-02's "See plans" — the sheet's own tap-through to Superwall. On a
+   * grant, commits the SAME held photograph rather than sending the user
+   * back to shoot again: "resume with that photograph" is the whole point of
+   * holding it in the first place.
+   */
+  const seePlansForHeldCapture = useCallback(() => {
+    setGatePresenting(true);
+    void gate
+      .present(Placement.AddGarmentOverLimit, async () => {
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ['subscription'] }),
+          qc.invalidateQueries({ queryKey: ['closet-count'] }),
+        ]);
+        if (heldCapture) commit(heldCapture.assets, { local: heldCapture.local });
+        setHeldCapture(null);
+        setClosetFullVisible(false);
+      })
+      .finally(() => setGatePresenting(false));
+  }, [gate, qc, commit, heldCapture]);
+
+  /**
+   * W-02's "Make room for it" — the real, working swap flow, not a token
+   * link. Hides the sheet to navigate but deliberately does NOT clear
+   * `heldCapture`: the photograph is still held, and the focus effect below
+   * resumes with it the moment the user comes back with room made.
+   *
+   * The kind offered to the swap screen is a heuristic — whichever the real
+   * wardrobe's own ranking says gains the most (`rankGaps`) — because the
+   * photograph in hand is not tagged yet and genuinely cannot be identified
+   * for free at this point (see the same reasoning in the sheet's body copy
+   * below).
+   */
+  const makeRoomForHeldCapture = useCallback(() => {
+    setClosetFullVisible(false);
+    const tally = tallyOf(wardrobe.data ?? []);
+    const best = rankGaps(tally)[0]?.kind ?? 'tops';
+    router.push(`/wall-swap?add=${best}`);
+  }, [wardrobe.data, router]);
+
+  /**
+   * The resume, on the far side of a swap.
+   *
+   * `wall-swap.tsx` calls `router.back()` after storing, which returns focus
+   * here without unmounting `CaptureScreen` — `heldCapture` was never lost.
+   * Capacity is re-checked FRESH rather than assumed freed: storing a piece
+   * does not by itself change what `items_enforce_limit` counts (it counts
+   * every row regardless of `is_archived` — see the escalation in
+   * `.redesign/escalations.md`), so this only commits when the closet
+   * genuinely has room, and simply re-opens the sheet otherwise rather than
+   * attempting a commit the server would refuse anyway.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (!heldCapture || capacity.loading) return;
+      if (!capacity.full) {
+        commit(heldCapture.assets, { local: heldCapture.local });
+        setHeldCapture(null);
+        setClosetFullVisible(false);
+      } else {
+        setClosetFullVisible(true);
+      }
+    }, [heldCapture, capacity.loading, capacity.full, commit]),
   );
 
   const onAcceptConsent = async () => {
@@ -660,8 +790,12 @@ export default function CaptureScreen() {
           {/* The framed stage — a LIVE viewfinder, per 07a. It was an instructional
           frame with a garment glyph in it, which on a dark screen reads as a
           camera that has failed to start; the corner guides and the hint now
-          sit over the real preview they were always drawn for. */}
-          {access === 'blocked' ? (
+          sit over the real preview they were always drawn for. `heldCapture`
+          takes priority over all of it: W-02's atlas draws the shot just
+          taken, not the live feed, behind its sheet. */}
+          {heldCapture ? (
+            <HeldPhotoStage uri={heldCapture.assets[0]!.uri} count={heldCapture.assets.length} theme={theme} />
+          ) : access === 'blocked' ? (
             /* Declined, and on iOS that decision is final until Settings — so this
            is a plate rather than a prompt. It is drawn on canvas, not on the
            ink stage: the states kit sets ink type, and ink on ink is the black
@@ -1019,6 +1153,47 @@ export default function CaptureScreen() {
             writeFlag(EXPLAINER_SEEN_KEY, true);
             setExplainerVisible(true);
           }
+        }}
+      />
+
+      {/*
+        W-02 — the closet-full sheet. The photograph exists now (it was
+        taken before this sheet ever appears — see `settleCapture`), so the
+        atlas's own eyebrow is literally true and needs no softening.
+
+        THE NUMBER: the atlas says the gain quoted here is for the specific
+        garment ("a second coat would honestly read 'fourteen either
+        way'"). The photograph in hand is not tagged — tagging is exactly
+        the paid call this state exists to avoid spending on a garment that
+        cannot yet be added — so its kind is genuinely unknown, and quoting
+        `rankGaps`'s best case here would be the exact substitution the
+        atlas forbids: printing a gain that belongs to a different piece.
+        The body below says what IS true without naming a garment — today's
+        real count, and that the eventual gain depends on what this is —
+        rather than inventing an affordance to ask.
+      */}
+      <ClosetFullSheet
+        visible={closetFullVisible}
+        eyebrow={heldCapture && heldCapture.assets.length > 1 ? `${heldCapture.assets.length} photographed · not added yet` : 'Photographed · not added yet'}
+        title={`Your closet is full at ${capacity.limit}.`}
+        body={(() => {
+          const tally = tallyOf(wardrobe.data ?? []);
+          const today = countOutfits(tally);
+          const plural = (heldCapture?.assets.length ?? 1) > 1;
+          return `Your ${capacity.used} pieces make ${today} outfits today. What ${plural ? 'these would' : 'this would'} add depends on what ${plural ? 'they are' : 'it is'} — Cinch can't say until ${plural ? "they're" : "it's"} tagged. ${plural ? "They're" : "It's"} saved on your phone either way — nothing here deletes a photograph.`;
+        })()}
+        onSeePlans={seePlansForHeldCapture}
+        seePlansBusy={gatePresenting}
+        secondaryLabel="Make room for it"
+        onSecondary={makeRoomForHeldCapture}
+        tertiaryLabel="Not now"
+        onDismiss={() => {
+          setClosetFullVisible(false);
+          // Discarding the HOLD, not the file: nothing here calls a delete —
+          // the temp photo simply stops being tracked, same as if the app
+          // were closed without acting on it. See the `heldCapture` docblock
+          // above for why component state, not persistence, is the design.
+          setHeldCapture(null);
         }}
       />
     </>

@@ -99,6 +99,7 @@ const IDLE: GarmentSearchFlowView = {
   choose: async () => null,
   importingUrl: null,
   errorMessage: null,
+  closetFull: false,
   reset: () => {},
   link: null,
   readLink: async () => {},
