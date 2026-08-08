@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CommentsSheet } from '@/components/event-outfits/CommentsSheet';
 import { lookName, OutfitPostCard } from '@/components/event-outfits/OutfitPostCard';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 // Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
 // `ErrorState` the title/body/retry sibling of `EmptyState`.
 import { ErrorState } from '@/components/ui/error-state';
@@ -420,11 +421,12 @@ export default function EventOutfitBoardScreen() {
   if (!detail) {
     return (
       <SafeAreaView className="flex-1 bg-canvas">
-        <ErrorState
+        <EmptyState
+          symbol="calendar.badge.exclamationmark"
           title="This event is gone"
           body="It may have been canceled, or you may have been removed."
-          onRetry={() => router.back()}
-          retryTitle="Back"
+          actionTitle="Back"
+          onAction={() => router.back()}
         />
       </SafeAreaView>
     );
