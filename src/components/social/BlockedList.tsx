@@ -97,6 +97,7 @@ export function BlockedList() {
                   username: null,
                   displayName: 'A private member',
                   avatarUrl: null,
+                  bio: null,
                 }
               }
               subtitle="Blocked"

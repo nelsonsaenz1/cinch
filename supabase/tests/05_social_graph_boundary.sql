@@ -168,15 +168,20 @@ select is(
 
 reset role;
 
+-- wear_count and last_worn_at cross since 20260808110000 — the Friend Closet
+-- atlas overrode the original no-wear-history rule ("wear counts stay, because
+-- they are the part of the number that is about wearing rather than
+-- spending"). Prices, originals and raw AI output still never travel; tests/09
+-- owns the wear-column and hidden-closet assertions.
 select is(
   (select array_agg(column_name::text order by column_name)
      from information_schema.columns
     where table_schema = 'public'
       and table_name = 'friend_items'
-      and column_name in ('purchase_price', 'purchase_date', 'wear_count',
-                          'last_worn_at', 'image_path', 'ai_tags')),
+      and column_name in ('purchase_price', 'purchase_date',
+                          'image_path', 'ai_tags')),
   null,
-  'friend_items projects no price, no wear history, no original image, no raw AI output'
+  'friend_items projects no price, no original image, no raw AI output'
 );
 
 -- ---------------------------------------------------------------------------

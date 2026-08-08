@@ -1,34 +1,29 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Share } from 'react-native';
 
-import { BlockedList } from '@/components/social/BlockedList';
-import { ProfileRow } from '@/components/social/ProfileRow';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { EmptyState } from '@/components/ui/empty-state';
-import { ErrorState } from '@/components/ui/error-state';
-import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
-import { Rule } from '@/components/ui/rule';
-import { ScreenHeader } from '@/components/ui/screen-header';
-import { SearchField } from '@/components/ui/search-field';
-import { SectionHeader } from '@/components/ui/section-header';
-// Pre-declared seam (docs/design/field-guide-audit.md, Batch 1): `RowSkeleton`
-// lands alongside `Skeleton`'s export. Code against the contract.
-import { ListSkeleton, RowSkeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
-import { REPORT_REASONS, useBlockUser, useReportContent } from '@/features/social-graph/moderation';
+import {
+  BlockConfirmSheet,
+  FriendOverflowSheet,
+  RemoveFriendDialog,
+  ReportSheet,
+} from '@/components/social/friend-sheets';
+import { FriendsPage, type RequestRowModel } from '@/components/social/friends-page';
+import type { RequestRowState, SearchRelation } from '@/components/social/friend-rows';
+import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
+import { useMutedIds } from '@/features/social-graph/muted';
+import { useFollow, useUnfollow } from '@/features/social-graph/mutations';
 import {
   useFollowing,
   useFriendRequests,
   useFriends,
   useProfileSearch,
+  useSentRequests,
 } from '@/features/social-graph/queries';
-import { useFollow } from '@/features/social-graph/mutations';
-import { profileName, type SocialProfile } from '@/features/social-graph/types';
-import { useTheme } from '@/theme/tokens';
+import { useMyProfile } from '@/features/profile/queries';
+import { type SocialProfile } from '@/features/social-graph/types';
 
 /**
  * Requests the recipient has waved off, kept on the device and nowhere else.
@@ -42,8 +37,30 @@ import { useTheme } from '@/theme/tokens';
  */
 const DISMISSED_KEY = 'cinch.friends.dismissedRequests.v1';
 
+/** The one beat the accepted row holds its confirmation before sliding away. */
+const ACCEPTED_BEAT_MS = 1400;
+/** How long Undo lives on a waved-off row. */
+const UNDO_WINDOW_MS = 5000;
 /**
- * Friends — the circle, its requests, and the door in.
+ * The gap between one transparent Modal fading out and the next fading in —
+ * iOS refuses to present while a dismissal is still animating, so a follow-on
+ * sheet opened in the same commit sometimes never appears.
+ */
+const SHEET_HANDOFF_MS = 280;
+
+/** The queries' own people sort — named before nameless, then alphabetical. */
+function byName(a: SocialProfile, b: SocialProfile): number {
+  const an = a.displayName ?? a.username ?? '';
+  const bn = b.displayName ?? b.username ?? '';
+  if (!an && bn) return 1;
+  if (an && !bn) return -1;
+  return an.localeCompare(bn);
+}
+
+type RequestProfile = SocialProfile & { requestedAt: string };
+
+/**
+ * Friends — the circle, its requests, and the door in (atlas F-01…F-05).
  *
  * The vocabulary here is deliberately "friend", never "follow": under the hood
  * a request is one follow edge and accepting is following back (the mutual
@@ -51,29 +68,36 @@ const DISMISSED_KEY = 'cinch.friends.dismissedRequests.v1';
  * phase this screen predates. Requests sit above friends because they are the
  * only thing here that asks for a decision; ignoring one is doing nothing,
  * which is exactly what the product promises the sender can't detect.
+ *
+ * This file is the state machine and the mutations; the render tree lives in
+ * `FriendsPage` (components/social/friends-page.tsx), which `dev-friends`
+ * mounts over fixtures.
  */
 export default function FriendsScreen() {
   const router = useRouter();
-  const theme = useTheme();
-  // Profile's "Blocked users" row lands here with ?blocked=1 — same screen,
-  // scrolled to the section it named rather than a fourth route.
-  const { blocked: blockedParam } = useLocalSearchParams<{ blocked?: string }>();
-  const scrollRef = useRef<ScrollView>(null);
+  const qc = useQueryClient();
 
   const [query, setQuery] = useState('');
 
   const friends = useFriends();
   const requests = useFriendRequests();
+  const sent = useSentRequests();
   const following = useFollowing();
   const search = useProfileSearch(query);
+  const myProfile = useMyProfile();
   const follow = useFollow();
+  const unfollow = useUnfollow();
   const block = useBlockUser();
   const report = useReportContent();
+  const { isMuted, setMuted } = useMutedIds();
 
-  // Waved-off requests, read once on mount and written back on each change.
-  // A read that fails leaves the set empty, which shows every request — the
-  // safe direction to fail in: a request nobody can see is worse than one
-  // somebody has to wave off twice.
+  // -------------------------------------------------------------------------
+  // Waved-off requests — local, persisted, silent
+  // -------------------------------------------------------------------------
+
+  // Read once on mount, written back on each change. A read that fails leaves
+  // the set empty, which shows every request — the safe direction to fail in:
+  // a request nobody can see is worse than one somebody has to wave off twice.
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     let alive = true;
@@ -89,305 +113,464 @@ export default function FriendsScreen() {
     };
   }, []);
 
-  const dismissRequest = useCallback((userId: string) => {
+  const writeDismissed = useCallback((mutate: (next: Set<string>) => void) => {
     setDismissed((prev) => {
-      const next = new Set(prev).add(userId);
+      const next = new Set(prev);
+      mutate(next);
       void AsyncStorage.setItem(DISMISSED_KEY, JSON.stringify([...next])).catch(() => {});
       return next;
     });
   }, []);
 
-  const friendIds = new Set((friends.data ?? []).map((p) => p.userId));
-  const followingIds = new Set(following.data ?? []);
-  const openRequests = (requests.data ?? []).filter((p) => !dismissed.has(p.userId));
+  // -------------------------------------------------------------------------
+  // The request-row state machine (F-04) — per-row, no toasts, no alerts
+  // -------------------------------------------------------------------------
 
-  // All three, because `refresh` refetches all three — a pull that reports
-  // done while one of its queries is still arriving is a lie about the data.
-  const refreshing =
-    friends.isRefetching || requests.isRefetching || following.isRefetching;
-  const refresh = () => {
-    void friends.refetch();
-    void requests.refetch();
-    void following.refetch();
-  };
+  const [rowStates, setRowStates] = useState<Record<string, RequestRowState>>({});
+  // Rows the accepted beat is still holding on screen after the queries have
+  // already moved the person to Your friends — the invalidation must not be
+  // allowed to snatch the confirmation line away early.
+  const [held, setHeld] = useState<Record<string, RequestProfile>>({});
+  // Accepts that have finished their beat, keyed userId → that request's
+  // `requestedAt`. The timestamp matters: the entry hides only the exact
+  // request that was accepted while the cache is stale — a later re-request
+  // is a new edge with a new birth, so "either of you can ask again later"
+  // stays true in this same session without any cache-watching effect.
+  const [settledAccepts, setSettledAccepts] = useState<Record<string, string>>({});
 
-  const addFriend = (profile: SocialProfile) => {
-    follow.mutate(
-      { userId: profile.userId },
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const t of pending.values()) clearTimeout(t);
+      pending.clear();
+    };
+  }, []);
+
+  const setRowState = useCallback((id: string, state: RequestRowState | null) => {
+    setRowStates((prev) => {
+      const next = { ...prev };
+      if (state === null) delete next[id];
+      else next[id] = state;
+      return next;
+    });
+  }, []);
+
+  const armTimer = useCallback((id: string, ms: number, fire: () => void) => {
+    const existing = timers.current.get(id);
+    if (existing) clearTimeout(existing);
+    timers.current.set(
+      id,
+      setTimeout(() => {
+        timers.current.delete(id);
+        fire();
+      }, ms),
+    );
+  }, []);
+
+  const acceptRequest = useCallback(
+    (model: RequestRowModel) => {
+      const id = model.profile.userId;
+      const row: RequestProfile = { ...model.profile, requestedAt: model.requestedAt };
+      setHeld((prev) => ({ ...prev, [id]: row }));
+      setRowState(id, 'adding');
+      follow.mutate(
+        { userId: id },
+        {
+          onSuccess: () => {
+            setRowState(id, 'accepted');
+            void qc.invalidateQueries({ queryKey: ['sent-requests'] });
+            armTimer(id, ACCEPTED_BEAT_MS, () => {
+              setSettledAccepts((prev) => ({ ...prev, [id]: row.requestedAt }));
+              setHeld((prev) => {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+              });
+              setRowState(id, null);
+            });
+          },
+          // The row reverts to unanswered and says so on itself. A failed
+          // accept must never leave the user believing a friendship exists.
+          onError: () => setRowState(id, 'failed'),
+        },
+      );
+    },
+    [follow, qc, setRowState, armTimer],
+  );
+
+  const notNowRequest = useCallback(
+    (profile: SocialProfile) => {
+      const id = profile.userId;
+      setRowState(id, 'dismissed');
+      writeDismissed((next) => next.add(id));
+      armTimer(id, UNDO_WINDOW_MS, () => setRowState(id, null));
+    },
+    [setRowState, writeDismissed, armTimer],
+  );
+
+  const undoNotNow = useCallback(
+    (profile: SocialProfile) => {
+      const id = profile.userId;
+      const t = timers.current.get(id);
+      if (t) {
+        clearTimeout(t);
+        timers.current.delete(id);
+      }
+      writeDismissed((next) => next.delete(id));
+      setRowState(id, null);
+    },
+    [writeDismissed, setRowState],
+  );
+
+  /**
+   * What the requests card renders: the query's rows plus any the accepted
+   * beat is still holding, re-sorted with the queries' own comparator so a
+   * held row keeps its place instead of jumping while the cache refetches.
+   */
+  const requestRows: RequestRowModel[] = useMemo(() => {
+    const byId = new Map<string, RequestProfile>();
+    for (const row of requests.data ?? []) byId.set(row.userId, row);
+    for (const row of Object.values(held)) if (!byId.has(row.userId)) byId.set(row.userId, row);
+
+    return [...byId.values()]
+      .filter((row) => {
+        if (settledAccepts[row.userId] === row.requestedAt) return false;
+        const state = rowStates[row.userId];
+        // Dismissed and past its undo window — gone from this device.
+        if (dismissed.has(row.userId) && state !== 'dismissed') return false;
+        return true;
+      })
+      .sort(byName)
+      .map((row) => ({
+        profile: row,
+        requestedAt: row.requestedAt,
+        state: rowStates[row.userId] ?? 'waiting',
+      }));
+  }, [requests.data, held, settledAccepts, rowStates, dismissed]);
+
+  // -------------------------------------------------------------------------
+  // Search (F-05)
+  // -------------------------------------------------------------------------
+
+  const searching = query.trim().replace(/^@/, '').length >= 2;
+
+  // Requests sent from this screen's search, so the After-Add row can state
+  // the mutual rule ("Asked · nothing opens until they say yes") rather than
+  // the resting "Requested" a pre-existing pending edge gets.
+  const [justAsked, setJustAsked] = useState<Set<string>>(() => new Set());
+  const [searchPendingId, setSearchPendingId] = useState<string | null>(null);
+
+  const friendIds = useMemo(
+    () => new Set((friends.data ?? []).map((p) => p.userId)),
+    [friends.data],
+  );
+  const followingIds = useMemo(() => new Set(following.data ?? []), [following.data]);
+  const inboxIds = useMemo(
+    () => new Set((requests.data ?? []).map((p) => p.userId)),
+    [requests.data],
+  );
+
+  const relationFor = useCallback(
+    (profile: SocialProfile & { isSelf: boolean }): SearchRelation => {
+      if (profile.isSelf) return 'self';
+      if (friendIds.has(profile.userId)) return 'friends';
+      // They already asked — the same friendship must never be requested
+      // twice, so the row offers Accept, not Add. Both edges present means
+      // the friends query just hasn't caught up.
+      if (inboxIds.has(profile.userId)) {
+        return followingIds.has(profile.userId) ? 'friends' : 'accept';
+      }
+      if (justAsked.has(profile.userId)) return 'asked';
+      if (followingIds.has(profile.userId)) return 'requested';
+      return 'add';
+    },
+    [friendIds, inboxIds, followingIds, justAsked],
+  );
+
+  const searchRows = useMemo(
+    () => (search.data ?? []).map((p) => ({ profile: p, relation: relationFor(p) })),
+    [search.data, relationFor],
+  );
+
+  const addFromSearch = useCallback(
+    (profile: SocialProfile) => {
+      setSearchPendingId(profile.userId);
+      follow.mutate(
+        { userId: profile.userId },
+        {
+          onSuccess: () => {
+            setJustAsked((prev) => new Set(prev).add(profile.userId));
+            void qc.invalidateQueries({ queryKey: ['sent-requests'] });
+          },
+          // The mutation has already translated the errcodes (rate limits and
+          // the rest) into a sentence; pass it through untouched.
+          onError: (err) =>
+            Alert.alert(
+              'Could not send that request',
+              err instanceof Error ? err.message : 'Something went wrong. Try again.',
+            ),
+          onSettled: () => setSearchPendingId(null),
+        },
+      );
+    },
+    [follow, qc],
+  );
+
+  const acceptFromSearch = useCallback(
+    (profile: SocialProfile) => {
+      setSearchPendingId(profile.userId);
+      follow.mutate(
+        { userId: profile.userId },
+        {
+          onError: (err) =>
+            Alert.alert(
+              'Could not accept just now',
+              err instanceof Error ? err.message : 'Something went wrong. Try again.',
+            ),
+          onSettled: () => setSearchPendingId(null),
+        },
+      );
+    },
+    [follow],
+  );
+
+  /** Withdraw a just-sent ask. Silent, like every retreat here. */
+  const cancelAsk = useCallback(
+    (profile: SocialProfile) => {
+      unfollow.mutate(
+        { userId: profile.userId },
+        {
+          onSuccess: () => {
+            setJustAsked((prev) => {
+              const next = new Set(prev);
+              next.delete(profile.userId);
+              return next;
+            });
+            void qc.invalidateQueries({ queryKey: ['sent-requests'] });
+          },
+          onError: (err) =>
+            Alert.alert(
+              'Could not cancel that request',
+              err instanceof Error ? err.message : 'Something went wrong. Try again.',
+            ),
+        },
+      );
+    },
+    [unfollow, qc],
+  );
+
+  // -------------------------------------------------------------------------
+  // The leaving sheets (F-06…F-08)
+  // -------------------------------------------------------------------------
+
+  const [overflowFor, setOverflowFor] = useState<
+    (SocialProfile & { friendsSince?: string }) | null
+  >(null);
+  const [blockFor, setBlockFor] = useState<SocialProfile | null>(null);
+  const [removeFor, setRemoveFor] = useState<SocialProfile | null>(null);
+  const [reportFor, setReportFor] = useState<SocialProfile | null>(null);
+  const [reportSent, setReportSent] = useState(false);
+
+  /** One sheet at a time: the overflow fades out fully before its follow-on opens. */
+  const afterOverflow = useCallback((open: () => void) => {
+    setOverflowFor(null);
+    setTimeout(open, SHEET_HANDOFF_MS);
+  }, []);
+
+  const openFriend = useCallback(
+    (profile: SocialProfile) => {
+      router.push({ pathname: '/friends/[userId]', params: { userId: profile.userId } });
+    },
+    [router],
+  );
+
+  const removeFriend = useCallback(() => {
+    if (!removeFor) return;
+    unfollow.mutate(
+      { userId: removeFor.userId },
       {
+        onSuccess: () => setRemoveFor(null),
         onError: (err) =>
           Alert.alert(
-            'Could not send that request',
+            'Could not remove',
             err instanceof Error ? err.message : 'Something went wrong. Try again.',
           ),
       },
     );
-  };
+  }, [removeFor, unfollow]);
 
-  const promptReport = (profile: SocialProfile) => {
-    Alert.alert('Report', `Report ${profileName(profile)}'s profile?`, [
-      ...REPORT_REASONS.map((reason) => ({
-        text: reason,
-        onPress: () =>
-          report.mutate(
-            {
-              subject: 'profile' as const,
-              subjectId: profile.userId,
-              subjectUserId: profile.userId,
-              reason,
-            },
-            {
-              // One promise, everywhere, and one the operator can keep: the
-              // app used to say "reviewed within 24 hours" on two surfaces
-              // and "we review every report" on two others.
-              onSuccess: () => Alert.alert('Thank you', 'Every report is reviewed.'),
-              onError: (err) =>
-                Alert.alert(
-                  'Could not send that report',
-                  err instanceof Error ? err.message : 'Something went wrong. Try again.',
-                ),
-            },
+  const blockUser = useCallback(() => {
+    if (!blockFor) return;
+    block.mutate(
+      { userId: blockFor.userId },
+      {
+        onSuccess: () => setBlockFor(null),
+        onError: (err) =>
+          Alert.alert(
+            'Could not block',
+            err instanceof Error ? err.message : 'Something went wrong. Try again.',
           ),
-      })),
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
-  };
-
-  const promptBlock = (profile: SocialProfile) => {
-    const name = profileName(profile);
-    Alert.alert(
-      `Block ${name}`,
-      'They won’t be able to find you, message you, or see your closet — and they won’t be told. This also ends any friendship.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Block',
-          style: 'destructive',
-          onPress: () =>
-            block.mutate(
-              { userId: profile.userId },
-              {
-                onError: (err) =>
-                  Alert.alert(
-                    'Could not block',
-                    err instanceof Error ? err.message : 'Something went wrong. Try again.',
-                  ),
-              },
-            ),
-        },
-      ],
+      },
     );
-  };
+  }, [blockFor, block]);
 
-  /**
-   * "Not now" is the option this screen was missing.
-   *
-   * The docblock above is right that ignoring a request is doing nothing, and
-   * right that the sender must not be able to tell — but that left the
-   * recipient with a row they could never clear, forever, and the only ways
-   * out of it were Report and Block, which are both accusations. "Not now"
-   * writes nothing to the server: it hides the row on this device and keeps
-   * every promise the paragraph above makes.
-   */
-  const requestOptions = (profile: SocialProfile) => {
-    Alert.alert(profileName(profile), 'Wants to be friends.', [
-      { text: 'Accept', onPress: () => addFriend(profile) },
-      { text: 'Not now', onPress: () => dismissRequest(profile.userId) },
-      { text: 'Report', onPress: () => promptReport(profile) },
-      { text: 'Block', style: 'destructive', onPress: () => promptBlock(profile) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
+  const submitReport = useCallback(
+    ({ reason, blockToo }: { reason: string; blockToo: boolean }) => {
+      if (!reportFor) return;
+      const userId = reportFor.userId;
+      // Block FIRST. Either failure leaves the form open with nothing
+      // half-claimed, and a retry is safe end to end (re-blocking is a
+      // swallowed 23505). Report-first could show a receipt promising a block
+      // that then failed — a lie on a safety surface.
+      const run = async () => {
+        if (blockToo) await block.mutateAsync({ userId });
+        await report.mutateAsync({
+          subject: 'profile',
+          subjectId: userId,
+          subjectUserId: userId,
+          reason,
+        });
+        setReportSent(true);
+      };
+      run().catch((err: unknown) =>
+        Alert.alert(
+          'Could not send that report',
+          err instanceof Error ? err.message : 'Something went wrong. Try again.',
+        ),
+      );
+    },
+    [reportFor, block, report],
+  );
 
-  /** What the right edge of a search result says about where things stand. */
-  const searchTrailing = (profile: SocialProfile) => {
-    if (friendIds.has(profile.userId)) {
-      return <Text variant="caption" className="text-muted">Friends</Text>;
-    }
-    if (followingIds.has(profile.userId)) {
-      return <Text variant="caption" className="text-muted">Requested</Text>;
-    }
-    return (
-      <Button
-        title="Add"
-        variant="secondary"
-        disabled={follow.isPending}
-        haptic
-        onPress={() => addFriend(profile)}
-      />
-    );
-  };
+  // -------------------------------------------------------------------------
+  // Page-level derivations
+  // -------------------------------------------------------------------------
 
-  const searching = query.trim().replace(/^@/, '').length >= 2;
-  const hasCircle = (friends.data ?? []).length > 0 || (requests.data ?? []).length > 0;
+  // All of them, because `refresh` refetches all of them — a pull that reports
+  // done while one of its queries is still arriving is a lie about the data.
+  const refreshing =
+    friends.isRefetching || requests.isRefetching || sent.isRefetching || following.isRefetching;
+  const refresh = useCallback(() => {
+    void friends.refetch();
+    void requests.refetch();
+    void sent.refetch();
+    void following.refetch();
+  }, [friends, requests, sent, following]);
+
+  const queriesSettled = !friends.isLoading && !requests.isLoading && !sent.isLoading;
+  const showEmpty =
+    queriesSettled &&
+    !friends.isError &&
+    !requests.isError &&
+    !sent.isError &&
+    !searching &&
+    (friends.data ?? []).length === 0 &&
+    requestRows.length === 0 &&
+    (sent.data ?? []).length === 0;
+
+  const username = myProfile.data?.username ?? '';
+  const shareUsername = useCallback(() => {
+    if (!username) return;
+    void Share.share({ message: `Add me on Cinch — I’m @${username}.` }).catch(() => {});
+  }, [username]);
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <ScreenHeader title="Your circle" />
+    <>
+      <FriendsPage
+        query={query}
+        onQueryChange={setQuery}
+        searching={searching}
+        searchLoading={search.isLoading}
+        searchError={search.isError}
+        searchRetrying={search.isRefetching}
+        onRetrySearch={() => void search.refetch()}
+        searchRows={searchRows}
+        onAddFromSearch={addFromSearch}
+        onAcceptFromSearch={acceptFromSearch}
+        onCancelAsk={cancelAsk}
+        searchPendingId={searchPendingId}
+        requests={requestRows}
+        requestsError={requests.isError}
+        requestsRetrying={requests.isRefetching}
+        onRetryRequests={() => void requests.refetch()}
+        onAccept={acceptRequest}
+        onNotNow={notNowRequest}
+        onUndo={undoNotNow}
+        onRetryAccept={acceptRequest}
+        friends={friends.data ?? []}
+        friendsLoading={friends.isLoading}
+        friendsError={friends.isError}
+        friendsRetrying={friends.isRefetching}
+        onRetryFriends={() => void friends.refetch()}
+        onOpenFriend={openFriend}
+        onOverflow={(p) => setOverflowFor(p)}
+        sent={sent.data ?? []}
+        showEmpty={showEmpty}
+        canShareUsername={username.length > 0}
+        onShareUsername={shareUsername}
+        refreshing={refreshing}
+        onRefresh={refresh}
+      />
 
-      <View className="px-gutter pt-3">
-        <Text variant="display" trim accessibilityRole="header">
-          Friends
-        </Text>
+      <FriendOverflowSheet
+        profile={overflowFor}
+        onClose={() => setOverflowFor(null)}
+        isMuted={overflowFor ? isMuted(overflowFor.userId) : false}
+        onViewCloset={() => {
+          const p = overflowFor;
+          setOverflowFor(null);
+          if (p) openFriend(p);
+        }}
+        onMute={() => {
+          if (overflowFor) setMuted(overflowFor.userId, !isMuted(overflowFor.userId));
+          setOverflowFor(null);
+        }}
+        onRemove={() => {
+          const p = overflowFor;
+          afterOverflow(() => setRemoveFor(p));
+        }}
+        onReport={() => {
+          const p = overflowFor;
+          afterOverflow(() => {
+            setReportSent(false);
+            setReportFor(p);
+          });
+        }}
+        onBlock={() => {
+          const p = overflowFor;
+          afterOverflow(() => setBlockFor(p));
+        }}
+      />
 
-        {/* Find by username — the second door in, after invite links. */}
-        <SearchField
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Find a friend by username"
-          autoCapitalize="none"
-          autoCorrect={false}
-          className="mt-4"
-        />
-      </View>
+      <RemoveFriendDialog
+        profile={removeFor}
+        onClose={() => setRemoveFor(null)}
+        onRemove={removeFriend}
+        pending={unfollow.isPending}
+      />
 
-      <KeyboardAwareScrollView
-        ref={scrollRef}
-        contentContainerClassName="px-gutter pb-24"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
-        }
-        onContentSizeChange={() => {
-          if (blockedParam === '1') scrollRef.current?.scrollToEnd({ animated: false });
-        }}>
-        {searching ? (
-          <>
-            <SectionHeader title="People" className="mb-2.5 mt-6" />
-            <Card>
-              {search.isLoading ? (
-                <View className="px-4 py-3.5">
-                  <RowSkeleton />
-                </View>
-              ) : search.isError ? (
-                <ErrorState
-                  compact
-                  title="Couldn’t search just now."
-                  body="This is a connection problem, not an answer about who is on Cinch."
-                  onRetry={() => void search.refetch()}
-                  retrying={search.isRefetching}
-                />
-              ) : (search.data ?? []).length === 0 ? (
-                <Text variant="body" className="px-4 py-3.5 text-muted">
-                  No one by that username.
-                </Text>
-              ) : (
-                (search.data ?? []).map((profile, i) => (
-                  <View key={profile.userId}>
-                    {i > 0 ? <Rule tone="hairline" /> : null}
-                    <ProfileRow
-                      profile={profile}
-                      subtitle={profile.username ? `@${profile.username}` : null}
-                      onPress={
-                        friendIds.has(profile.userId)
-                          ? (p) =>
-                              router.push({
-                                pathname: '/friends/[userId]',
-                                params: { userId: p.userId },
-                              })
-                          : undefined
-                      }
-                      trailing={searchTrailing(profile)}
-                    />
-                  </View>
-                ))
-              )}
-            </Card>
-          </>
-        ) : null}
+      <BlockConfirmSheet
+        profile={blockFor}
+        onClose={() => setBlockFor(null)}
+        onBlock={blockUser}
+        pending={block.isPending}
+      />
 
-        {/* A failed requests fetch used to hide the whole section — the same
-            shape of bug as the empty-on-error problem, just invisible instead
-            of misleading. It gets a row now, same as everything else. */}
-        {openRequests.length > 0 || requests.isError ? (
-          <>
-            <SectionHeader title="Requests" className="mb-2.5 mt-6" />
-            <Card>
-              {requests.isError ? (
-                <ErrorState
-                  compact
-                  title="Couldn’t load your requests."
-                  body="This didn’t load. It doesn’t mean nobody has asked."
-                  onRetry={() => void requests.refetch()}
-                  retrying={requests.isRefetching}
-                />
-              ) : (
-                openRequests.map((profile, i) => (
-                  <View key={profile.userId}>
-                    {i > 0 ? <Rule tone="hairline" /> : null}
-                    <ProfileRow
-                      profile={profile}
-                      subtitle="Wants to be friends"
-                      onPress={requestOptions}
-                      trailing={
-                        <Button
-                          title="Accept"
-                          variant="secondary"
-                          disabled={follow.isPending}
-                          haptic
-                          onPress={() => addFriend(profile)}
-                        />
-                      }
-                    />
-                  </View>
-                ))
-              )}
-            </Card>
-          </>
-        ) : null}
-
-        <SectionHeader title="Friends" className="mb-2.5 mt-6" />
-        <Card>
-          {friends.isError ? (
-            <ErrorState
-              compact
-              title="Couldn’t load your friends."
-              body="This is a connection problem. It doesn’t mean your circle is empty — nothing has changed."
-              onRetry={() => void friends.refetch()}
-              retrying={friends.isRefetching}
-            />
-          ) : friends.isLoading ? (
-            // The shared list skeleton, ragged-width, instead of two identical
-            // bars: a column of matching bars reads as a loading graphic, a
-            // ragged one reads as names about to arrive.
-            <View className="-mx-gutter py-2">
-              <ListSkeleton count={2} />
-            </View>
-          ) : (friends.data ?? []).length === 0 ? (
-            <EmptyState
-              compact
-              symbol="person.2"
-              title={hasCircle ? 'No friends yet' : 'Nobody here yet'}
-              body={
-                hasCircle
-                  ? 'Accept a request above and your circle starts here.'
-                  : 'Search a username above. A friendship is mutual: when they add you back, their closet opens to you and yours to them.'
-              }
-            />
-          ) : (
-            (friends.data ?? []).map((profile, i) => (
-              <View key={profile.userId}>
-                {i > 0 ? <Rule tone="hairline" /> : null}
-                <ProfileRow
-                  profile={profile}
-                  subtitle={profile.username ? `@${profile.username}` : null}
-                  onPress={(p) =>
-                    router.push({ pathname: '/friends/[userId]', params: { userId: p.userId } })
-                  }
-                  showsChevron
-                />
-              </View>
-            ))
-          )}
-        </Card>
-
-        {/* Blocked lives at the bottom of the same page — findable (Apple asks
-            that blocks be manageable) without giving the unhappy path its own
-            room in the house. */}
-        <SectionHeader title="Blocked" className="mb-2.5 mt-7" />
-        <Card>
-          <BlockedList />
-        </Card>
-      </KeyboardAwareScrollView>
-    </SafeAreaView>
+      <ReportSheet
+        profile={reportFor}
+        onClose={() => {
+          setReportFor(null);
+          setReportSent(false);
+        }}
+        onSubmit={submitReport}
+        pending={block.isPending || report.isPending}
+        sent={reportSent}
+        onDone={() => {
+          setReportFor(null);
+          setReportSent(false);
+        }}
+      />
+    </>
   );
 }

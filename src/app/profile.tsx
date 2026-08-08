@@ -572,7 +572,7 @@ export default function ProfileScreen() {
             <Rule tone="hairline" />
             <AccountRow
               label="Blocked people"
-              onPress={() => router.push({ pathname: '/friends', params: { blocked: '1' } })}
+              onPress={() => router.push('/friends/blocked')}
             />
           </Card>
 

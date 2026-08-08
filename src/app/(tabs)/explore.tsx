@@ -25,6 +25,7 @@ import {
 import { NewAdditionRow, NewAdditionsSkeleton } from '@/features/explore/new-addition-row';
 import { useNewAdditions, type NewAddition } from '@/features/explore/queries';
 import { groupByDay } from '@/features/explore/timeline';
+import { useMutedIds } from '@/features/social-graph/muted';
 import { useFollow } from '@/features/social-graph/mutations';
 import { useFollowing, useFriends, useProfileSearch } from '@/features/social-graph/queries';
 import { profileName, type SocialProfile } from '@/features/social-graph/types';
@@ -209,8 +210,19 @@ export default function ExploreScreen() {
   const following = useFollowing();
   const search = useProfileSearch(query);
   const follow = useFollow();
+  const { muted } = useMutedIds();
 
-  const entries = useMemo(() => additions.data ?? [], [additions.data]);
+  // "Mute in Lately" — device-local, silent, reversible from the friend's
+  // overflow on the Friends page. Applied here at the read edge, before the
+  // day grouping and the signed-URL work, so a muted friend's rows simply
+  // never exist for this page: no day header survives with only their entries
+  // behind it, and the query cache keeps the server's unfiltered truth, which
+  // is what makes unmuting instant. Your own pieces are never filtered — the
+  // control is per-friend and you are not one.
+  const entries = useMemo(
+    () => (additions.data ?? []).filter((e) => e.isSelf || !muted.has(e.ownerId)),
+    [additions.data, muted],
+  );
 
   // Plates first, cutouts next, the photograph last. The storage policies allow
   // friends exactly these three derivatives and never the original.

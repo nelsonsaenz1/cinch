@@ -46,6 +46,27 @@ export const REPORT_REASONS = [
   'Other',
 ] as const;
 
+/**
+ * The profile-report vocabulary, in the reporter's own words rather than the
+ * taxonomy's ("Photos that aren't theirs", not "Impersonation") — reporting a
+ * person is a different moment from reporting a comment, and the Friends page
+ * asks in plain speech. Same funnel underneath: these go through
+ * `useReportContent` with subject 'profile' like any other reason string.
+ *
+ * Server-side, nothing constrains the choice of words: `content_reports.reason`
+ * is free text with only a length check (`char_length between 1 and 100`,
+ * 20260807100000), and `useReportContent` truncates to 100 chars to match. So
+ * a second vocabulary costs no migration — but it IS a second set of strings
+ * the operator's triage queue will group by, which is why it lives here next
+ * to the first, not inline in a screen.
+ */
+export const PROFILE_REPORT_REASONS = [
+  'Photos that aren’t theirs',
+  'Harassment',
+  'Pretending to be someone',
+  'Something else',
+] as const;
+
 export interface ReportInput {
   subject: ReportSubject;
   /** Id in the subject's table. */

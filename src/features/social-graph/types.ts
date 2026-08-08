@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type {
   BorrowRequestRow,
   BorrowStatus,
+  FriendClosetMetaRow,
   FriendItemRow,
   SocialProfileRow,
 } from '@/features/social/db-rows';
@@ -25,6 +26,7 @@ export interface SocialProfile {
   username: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  bio: string | null;
 }
 
 /** What the UI calls a person: display name, else username, else a neutral noun. */
@@ -38,6 +40,7 @@ export function toSocialProfile(row: SocialProfileRow): SocialProfile {
     username: row.username,
     displayName: row.display_name,
     avatarUrl: row.avatar_url,
+    bio: row.bio,
   };
 }
 
@@ -60,6 +63,8 @@ export interface FriendItem {
   platePath: string | null;
   borrowable: boolean;
   createdAt: string;
+  wearCount: number;
+  lastWornAt: string | null;
 }
 
 const itemColorList = z.array(itemColor);
@@ -110,6 +115,35 @@ export function toFriendItem(row: FriendItemRow): FriendItem {
     platePath: row.plate_path,
     borrowable: row.borrowable,
     createdAt: row.created_at,
+    wearCount: row.wear_count,
+    lastWornAt: row.last_worn_at,
+  };
+}
+
+/**
+ * The Friend's Closet header, from `friend_closet_meta`. NULL stats are not
+ * missing data: they are the owner declining to show that number (all three go
+ * NULL together when `closetHidden` is set), so the mapping preserves nulls
+ * rather than defaulting to zero — the UI renders a withheld stat differently
+ * from an empty closet.
+ */
+export interface FriendClosetMeta {
+  userId: string;
+  bio: string | null;
+  closetHidden: boolean;
+  pieces: number | null;
+  wearsLogged: number | null;
+  costPerWear: number | null;
+}
+
+export function toFriendClosetMeta(row: FriendClosetMetaRow): FriendClosetMeta {
+  return {
+    userId: row.user_id,
+    bio: row.bio,
+    closetHidden: row.closet_hidden,
+    pieces: row.pieces,
+    wearsLogged: row.wears_logged,
+    costPerWear: row.cost_per_wear,
   };
 }
 

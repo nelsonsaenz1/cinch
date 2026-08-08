@@ -58,7 +58,7 @@ export interface BorrowRequestRow {
 
 export interface SocialProfileRow {
   user_id: string; username: string | null; display_name: string | null;
-  avatar_url: string | null;
+  avatar_url: string | null; bio: string | null;
 }
 
 export interface FriendItemRow {
@@ -68,6 +68,17 @@ export interface FriendItemRow {
   description: string | null; thumb_path: string | null;
   cutout_path: string | null; plate_path: string | null;
   borrowable: boolean; created_at: string;
+  wear_count: number; last_worn_at: string | null;
+}
+
+// One row per friend from `friend_closet_meta` — the header of the Friend's
+// Closet page. Friendship-gated server-side; a NULL stat means the owner hid
+// that stat (all three are NULL when the whole closet is hidden), so NULL and
+// zero are different answers and must stay distinguishable.
+export interface FriendClosetMetaRow {
+  user_id: string; bio: string | null; closet_hidden: boolean;
+  pieces: number | null; wears_logged: number | null;
+  cost_per_wear: number | null;
 }
 
 export interface UserBlockRow {
