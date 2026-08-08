@@ -1,14 +1,7 @@
 import { Canvas, Image as SkiaImage, Shadow, useImage } from '@shopify/react-native-skia';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useMemo, useState } from 'react';
-import { ActionSheetIOS, Pressable, StyleSheet, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withSpring,
-} from 'react-native-reanimated';
+import { useMemo, useState } from 'react';
+import { ActionSheetIOS, Pressable, StyleSheet, Text as RNText, View } from 'react-native';
 
 import {
   GarmentCell,
@@ -18,14 +11,15 @@ import {
   stackRegime,
   type StackedPiece,
 } from '@/components/today/garment-cell';
-import { VotePill } from '@/components/event-outfits/VotePill';
+import { AddYoursPill, VotePill } from '@/components/event-outfits/VotePill';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { LookPlate } from '@/components/look/look-plate';
 import { Text } from '@/components/ui/text';
+import { joinWithAnd, type PickLine } from '@/features/event-outfits/board-logic';
 import { boardLeader, type AttendeeBoard, type PostedLook } from '@/features/event-outfits/types';
 import type { Garment } from '@/lib/styling';
-import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /** Same contact shadow the Today plate casts — one light source app-wide. */
 const CONTACT = { dx: 0, dy: 5, blur: 11, color: 'rgba(28,26,22,0.16)' } as const;
@@ -188,119 +182,161 @@ function PlateStackLayer({ piece, uri }: { piece: StackedPiece; uri?: string }) 
 }
 
 /**
- * The crown landing on the winning look — an event, not a texture. accentWarm,
- * not oxblood: celebration, never a call to action.
+ * The leading badge on the poster — L-01's "Ahead" before the board locks,
+ * L-05's "The favourite" once it has. Same visual object both times (only
+ * the label and a11y change): the atlas draws them as one badge whose copy
+ * swaps at lock, not two different treatments, because the pill IS the
+ * promise that the crown is the same thing you were watching climb.
  *
- * `snappy`, not `bouncy`. tokens.ts is explicit that `bouncy` is spent EXACTLY
- * ONCE in the app, on the final garment landing in Today's plate, and a second
- * bounce is what turns the first one from a signature into a mannerism. The
- * crown keeps everything that makes it an arrival — the 250ms delay, the
- * scale-and-drop, the accentWarm tint — and lands on the control spring the
- * rest of the app's discrete moments use.
+ * Blush-filled, and the ONE place on the card blush is allowed to keep its
+ * fill when the card is also the caller's own pick — see `cardBorder` below
+ * and the contract: "when they land on the same card, only the crown keeps
+ * the fill."
  */
-function Crown() {
+function LeaderBadge({ label }: { label: 'Ahead' | 'The favourite' }) {
   const theme = useTheme();
-  const reduced = useReducedMotion();
-  const progress = useSharedValue(reduced ? 1 : 0);
-
-  useEffect(() => {
-    if (reduced) return;
-    progress.value = withDelay(250, withSpring(1, spring.snappy));
-  }, [progress, reduced]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: Math.min(progress.value * 1.6, 1),
-    transform: [{ translateY: (1 - progress.value) * -10 }, { scale: 0.8 + progress.value * 0.2 }],
-  }));
-
   return (
-    <Animated.View style={style}>
-      <SymbolView name="crown.fill" size={14} tintColor={theme.accentWarm} resizeMode="scaleAspectFit" />
-    </Animated.View>
+    <View
+      style={{
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        backgroundColor: theme.blush,
+        borderColor: theme.blushRule,
+        borderWidth: 1,
+      }}
+      className="flex-row items-center gap-1.5 rounded-chip px-2.5 py-1.5">
+      <SymbolView name="crown.fill" size={10} tintColor={theme.accent} resizeMode="scaleAspectFit" />
+      <RNText
+        style={{
+          fontFamily: 'HelveticaNeue-Bold',
+          fontSize: 10,
+          fontWeight: '600',
+          letterSpacing: 1.1,
+          textTransform: 'uppercase',
+          color: theme.accent,
+        }}>
+        {label}
+      </RNText>
+    </View>
   );
 }
 
 /**
- * One posted look on an attendee's board: the composed stack, the colophon
- * (poster + picks, printed quietly the way weather and $/wear are), the
- * caption, and the vote pill. The crown appears only once the board is
- * locked, and only on the pick-leader of THIS board — winners exist per
- * attendee, never across attendees.
+ * One posted look on the board: the poster (`LookPlate` — see the contract's
+ * "one object, four sizes", the reason `stackLayout` is gone from here),
+ * whose look it is, the caption, the vote pill, comments and the voter line.
+ * Order follows the atlas exactly: "Poster on top, then whose look it is,
+ * then the caption, then the stack" — the person is named before the clothes
+ * so a vote is never cast blind.
+ *
+ * The leading badge (`badge`) and the crown/pick border (`cardBorder` below)
+ * are computed by the caller across the WHOLE board, never per poster — see
+ * `board-logic.ts`'s header for why this board is one rail, not one per
+ * attendee.
  *
  * The ⋯ carries the App Store UGC minimum set on the post itself, not only on
  * its comments (Guideline 1.2: every piece of user content is reportable, and
- * its author blockable). Same grammar as `CommentRow`'s menu — report always,
- * block for someone else's look, retire for the owner or host — because a
- * woman who has learned the ⋯ on a comment should not have to learn a second
- * gesture six inches higher up the same screen.
+ * its author blockable) — L-04's two menus, someone else's look vs your own.
  */
 export function OutfitPostCard({
   look,
   posterName,
-  voterNames,
+  pickLine: line,
   isMine,
-  crowned,
+  badge,
   locked,
   picked,
   votePending,
+  voteFailed,
   resolveImage,
   onToggleVote,
+  onRetryVote,
   onReport,
   onBlock,
+  onShare,
+  onShareAnother,
   onDelete,
   onOpenComments,
   commentCount,
+  width,
+  onAddYours,
 }: {
   look: PostedLook;
   posterName: string | null;
-  /** First names of signed picks, for "Picked by Dana, Maria". */
-  voterNames: string[];
+  /** Full signed-pick names, "you" carried apart — `null` prints no line at all. */
+  pickLine: PickLine | null;
   isMine: boolean;
-  crowned: boolean;
+  /** The board's one leading look — never computed per poster. */
+  badge: 'ahead' | 'favourite' | null;
   locked: boolean;
   picked: boolean;
   votePending: boolean;
+  /** The last cast/move on THIS look was refused. */
+  voteFailed?: boolean;
   resolveImage: ResolveImage;
   onToggleVote: () => void;
+  onRetryVote?: () => void;
   /** Present on someone else's look — you cannot report or block yourself. */
   onReport?: () => void;
   onBlock?: () => void;
+  /** Present on someone else's look. */
+  onShare?: () => void;
+  /** Present on your own look, when another option can still be shared. */
+  onShareAnother?: () => void;
   /** Present when the caller may retire this look (owner or host). */
   onDelete?: () => void;
   onOpenComments: () => void;
   commentCount: number;
+  /** The card's own width — the poster (`LookPlate`) draws at exactly this. */
+  width: number;
+  /**
+   * L-06's one-look board: "the Vote pill is replaced by `Add yours`... a
+   * vote against nothing is not a vote." Present only when this is the only
+   * look on the whole board, whoever posted it — replaces the pill entirely.
+   */
+  onAddYours?: () => void;
 }) {
   const theme = useTheme();
   const name = lookName(look.garments, look.caption);
   const a11y = `${posterName ?? 'A friend'}'s look: ${lookDescriptor(look.garments)}`;
+  const firstName = posterName?.split(/\s+/)[0];
 
   /**
-   * The overflow, as an action sheet rather than an `Alert` with buttons in it.
-   *
-   * `ActionSheetIOS` is what iOS itself uses for content overflow — it rises
-   * from the bottom, it can mark the destructive row red, and it costs no new
-   * dependency (RN ships it). An `Alert` is for a question; this is a list of
-   * things you can do to a look, which is a different grammar.
+   * The overflow, as an action sheet rather than an `Alert` with buttons in
+   * it — L-04. Two exclusive menus: someone else's look offers Share/Report/
+   * Block; your own offers Share another/Take it off. A host holding both
+   * `onDelete` and `onReport/onBlock` (someone else's look, moderated) gets
+   * the union of the two.
    */
   const openMenu = () => {
     const actions: { label: string; destructive: boolean; run: () => void }[] = [];
-    if (onReport) actions.push({ label: 'Report', destructive: true, run: onReport });
+    if (onShare) actions.push({ label: 'Share this look', destructive: false, run: onShare });
+    if (onShareAnother) {
+      actions.push({ label: 'Share another option', destructive: false, run: onShareAnother });
+    }
+    if (onReport) actions.push({ label: 'Report this look', destructive: true, run: onReport });
     if (onBlock) {
       actions.push({
-        label: posterName ? `Block ${posterName.split(/\s+/)[0]}` : 'Block this person',
+        label: firstName ? `Block ${firstName}` : 'Block this person',
         destructive: true,
         run: onBlock,
       });
     }
     if (onDelete) {
-      actions.push({ label: 'Retire this look', destructive: true, run: onDelete });
+      actions.push({
+        label: isMine ? 'Take it off the board' : 'Retire this look',
+        destructive: true,
+        run: onDelete,
+      });
     }
     if (actions.length === 0) return;
 
     // One destructive index is all iOS will tint. Every row here ends
-    // something, so the tint goes to the one that ends the most: retiring the
-    // look outright when it is on offer, otherwise the block.
-    const destructiveLabel = onDelete ? 'Retire this look' : actions[0]?.label;
+    // something, so the tint goes to the one that ends the most: retiring
+    // the look outright when it is on offer, then block, then report —
+    // pushed in that order above, so the last destructive row wins.
+    const destructiveLabel = [...actions].reverse().find((a) => a.destructive)?.label;
 
     ActionSheetIOS.showActionSheetWithOptions(
       {
@@ -313,80 +349,104 @@ export function OutfitPostCard({
     );
   };
 
-  const hasMenu = Boolean(onReport || onBlock || onDelete);
+  const hasMenu = Boolean(onShare || onShareAnother || onReport || onBlock || onDelete);
+
+  /**
+   * "Blush is spent twice and both times means chosen — the hairline on the
+   * card you picked, and the crown pill. When they land on the same card,
+   * only the crown keeps the fill." (contract §2) So: badge present → plain
+   * hairline regardless of `picked`; no badge + picked → blush hairline.
+   */
+  const cardBorder = badge ? theme.hairline : picked ? theme.blushRule : theme.hairline;
 
   return (
-    <Card padding="lg">
-      {crowned ? (
-        // The tint stays on the crown glyph, where it is a mark; the words
-        // stay in the colophon's own muted, where they are readable.
-        // accentWarm on 10px small-caps was 2.6:1 on surface — a celebration
-        // nobody with ordinary eyesight could actually read.
-        <View className="mb-2 flex-row items-center gap-2">
-          <Crown />
-          <Text variant="colophon">The look · Chosen by the table</Text>
+    <View
+      className="overflow-hidden rounded-plate bg-surface"
+      style={{ borderWidth: 1, borderColor: cardBorder }}>
+      <View style={{ position: 'relative' }}>
+        <LookPlate pieces={look.garments} width={width} resolveImage={resolveImage} padding={0} />
+        {badge ? <LeaderBadge label={badge === 'favourite' ? 'The favourite' : 'Ahead'} /> : null}
+      </View>
+
+      <View className="p-4">
+        <View className="flex-row items-center gap-2">
+          <Avatar name={isMine ? 'You' : posterName} size={24} tone="accent" />
+          <Text variant="label" className="flex-1 text-ink" numberOfLines={1}>
+            {isMine ? 'You' : (posterName ?? 'A friend')}
+          </Text>
+          {hasMenu ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Look options"
+              accessibilityHint="Share, report, block or retire this look"
+              hitSlop={10}
+              onPress={openMenu}
+              style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}
+              className="active:opacity-60">
+              <SymbolView
+                name="ellipsis"
+                size={14}
+                tintColor={theme.faint}
+                resizeMode="scaleAspectFit"
+              />
+            </Pressable>
+          ) : null}
         </View>
-      ) : null}
 
-      <LookStack garments={look.garments} resolveImage={resolveImage} label={a11y} />
-
-      <View className="mt-3 flex-row items-baseline justify-between gap-3">
-        <Text variant="plate" numberOfLines={1} className="flex-1">
+        <Text variant="plate" trim numberOfLines={1} className="mt-2.5">
           {name}
         </Text>
-        {hasMenu ? (
+
+        {look.caption ? (
+          <Text variant="caption" numberOfLines={2} className="mt-1">
+            {look.caption}
+          </Text>
+        ) : null}
+
+        <View className="mt-3 flex-row items-center justify-between gap-2 border-t border-rule pt-3">
+          {onAddYours ? (
+            <AddYoursPill onPress={onAddYours} />
+          ) : (
+            <VotePill
+              votes={look.votes}
+              picked={picked}
+              mine={isMine}
+              locked={locked}
+              pending={votePending}
+              failed={voteFailed}
+              onToggle={onToggleVote}
+              onRetry={onRetryVote}
+            />
+          )}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Look options"
-            accessibilityHint="Report this look, block its author, or retire it"
-            hitSlop={10}
-            onPress={openMenu}
-            style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}
-            className="active:opacity-60">
-            <SymbolView
-              name="ellipsis"
-              size={14}
-              tintColor={theme.faint}
-              resizeMode="scaleAspectFit"
-            />
+            accessibilityLabel={
+              commentCount > 0 ? `Comments, ${commentCount}` : 'Comment on this look'
+            }
+            onPress={onOpenComments}
+            hitSlop={8}
+            style={{ minHeight: MIN_TAP_TARGET - 12 }}
+            className="flex-row items-center gap-1.5 active:opacity-60">
+            <SymbolView name="text.bubble" size={14} tintColor={theme.muted} resizeMode="scaleAspectFit" />
+            {commentCount > 0 ? <Text variant="label">{commentCount}</Text> : null}
           </Pressable>
+        </View>
+
+        {line ? (
+          // "Zero is quiet" — this whole block is absent when `line` is null,
+          // never printed as "0 picks".
+          <Text variant="caption" numberOfLines={1} className="mt-2.5">
+            {line.count === 1 ? '1 pick' : `${line.count} picks`}
+            {' · '}
+            {line.iVoted ? (
+              <RNText style={{ color: theme.accent, fontWeight: '500' }}>you</RNText>
+            ) : null}
+            {line.iVoted && line.otherNames.length > 0 ? ', ' : ''}
+            {joinWithAnd(line.otherNames)}
+          </Text>
         ) : null}
       </View>
-
-      <Text variant="caption" numberOfLines={1} className="mt-1">
-        {lookDescriptor(look.garments)}
-      </Text>
-
-      <View className="mt-3 flex-row items-center justify-between gap-3 border-t border-rule pt-3">
-        <VotePill
-          votes={look.votes}
-          picked={picked}
-          mine={isMine}
-          locked={locked}
-          pending={votePending}
-          onToggle={onToggleVote}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={
-            commentCount > 0 ? `Comments, ${commentCount}` : 'Comment on this look'
-          }
-          onPress={onOpenComments}
-          hitSlop={8}
-          style={{ minHeight: MIN_TAP_TARGET - 12 }}
-          className="flex-row items-center gap-1.5 active:opacity-60">
-          <SymbolView name="text.bubble" size={14} tintColor={theme.muted} resizeMode="scaleAspectFit" />
-          <Text variant="label">{commentCount > 0 ? String(commentCount) : 'Comment'}</Text>
-        </Pressable>
-      </View>
-
-      {voterNames.length > 0 ? (
-        // Signed picks, printed as social warmth — "Dana picked this one".
-        <Text variant="caption" numberOfLines={1} className="mt-2">
-          Picked by {voterNames.join(', ')}
-        </Text>
-      ) : null}
-    </Card>
+    </View>
   );
 }
 

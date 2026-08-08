@@ -1,12 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useCallback } from 'react';
+import { Alert, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CommentRow } from '@/components/event-outfits/CommentRow';
+import { CommentComposer } from '@/components/event-outfits/CommentComposer';
+import { CommentRow, type ThreadComment } from '@/components/event-outfits/CommentRow';
 import { lookName } from '@/components/event-outfits/OutfitPostCard';
-import { Chip } from '@/components/ui/chip';
 // Batch-1 seam: the shared states kit.
 import { ErrorState } from '@/components/ui/error-state';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
@@ -14,22 +13,12 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
-import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
-import { useEventComments, useEventPosts } from '@/features/event-outfits/queries';
-import {
-  socialErrorMessage,
-  useAddComment,
-  useDeleteComment,
-  useHideComment,
-} from '@/features/event-outfits/mutations';
-import { COMPLIMENTS, type EventComment } from '@/features/event-outfits/types';
+import { useEventPosts } from '@/features/event-outfits/queries';
+import { socialErrorMessage, useDeleteComment, useHideComment } from '@/features/event-outfits/mutations';
+import { useCommentThread } from '@/features/event-outfits/use-comment-thread';
 import { useEvent, useEventMembers } from '@/features/events/queries';
 import { useEventChannel } from '@/features/events/use-event-channel';
 import { REPORT_REASONS, useReportContent } from '@/features/social-graph/moderation';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
-
-/** The comment box cap — product-spec §3.5. The schema allows more; the UI doesn't. */
-const COMMENT_MAX = 500;
 
 /** Three comment rows' worth of shape — avatar disc, name, two lines of body. */
 function ThreadSkeleton() {
@@ -50,22 +39,22 @@ function ThreadSkeleton() {
 }
 
 /**
- * The thread — event-level ("table talk", no `post` param) or one look's
- * (`post` param set). One cache serves both: `useEventComments` filters
- * client-side, so the realtime invalidation from EVENTS' channel keeps every
- * variant of this screen honest at once.
+ * Event Comments — EC-01…EC-04 (renumbered from the atlas's own M-01…M-04
+ * per `docs/design/event-social-contract.md` §5, to avoid the collision with
+ * the shipped Match & Confirm atlas's own M-01…M-12).
  *
- * Compliments live here as one-tap chips over the composer, per-look only:
- * a fixed positive-only vocabulary in the stylist's voice, sent as signed
- * comments. There is no down-reaction and no free-emoji anywhere on this
- * screen — accountability is the moderation, and the ⋯ menu carries the App
- * Store minimum set (report always, delete for author/host, hide for host).
+ * The primary way a look's own thread opens is `CommentsSheet` (L-03), a
+ * modal over the Look Board — this route stays standalone for a deep link
+ * and for the event-level thread ("Table talk", no `post` param), sharing
+ * `useCommentThread` with the sheet so the optimistic-row rules live once.
+ *
+ * Rows sit directly on the canvas, no card, no bubble (contract: "a card per
+ * comment would make four sentences look like a forum").
  */
 export default function EventCommentsScreen() {
   const { id, post } = useLocalSearchParams<{ id: string; post?: string }>();
   const eventId = id ?? null;
   const postId = post ?? null;
-  const theme = useTheme();
   const session = useSession();
 
   useEventChannel(eventId);
@@ -73,64 +62,39 @@ export default function EventCommentsScreen() {
   const event = useEvent(eventId);
   const members = useEventMembers(eventId ?? '');
   const posts = useEventPosts(eventId);
-  const comments = useEventComments(eventId, postId);
 
-  const addComment = useAddComment();
-  const terms = useSocialTermsGate();
+  const thread = useCommentThread(eventId, postId);
   const deleteComment = useDeleteComment();
   const hideComment = useHideComment();
   const report = useReportContent();
 
-  const [draft, setDraft] = useState('');
-
-  const nameOf = useMemo(() => {
-    const map = new Map<string, string | null>();
-    for (const m of members.data ?? []) map.set(m.userId, m.displayName ?? m.username);
-    return (userId: string): string | null => map.get(userId) ?? null;
-  }, [members.data]);
+  const nameOf = (userId: string): string | null => {
+    const m = (members.data ?? []).find((mm) => mm.userId === userId);
+    return m?.displayName ?? m?.username ?? null;
+  };
+  const authorNameOf = (comment: ThreadComment) =>
+    comment.userId === session.userId ? 'You' : nameOf(comment.userId);
 
   const look = postId ? (posts.data?.looks ?? []).find((l) => l.id === postId) : null;
   const isHost = event.data?.isHost ?? false;
+  // Always the host — the schema's only "who can hide" role (Server ground
+  // truth: `event_comments: host can moderate`). Resolved by role, not by a
+  // stored actor, since the row itself carries no "hidden by" column.
+  const hostName = event.data?.hostId ? nameOf(event.data.hostId) : null;
 
-  const send = (body: string) => {
-    if (!eventId) return;
-    addComment.mutate(
-      { eventId, postId, body },
-      {
-        onSuccess: () => setDraft(''),
-        onError: (error) => {
-          // The draft is deliberately still in the composer here — agreeing
-          // sends the comment the user already wrote, unchanged.
-          if (terms.intercept(error, () => send(body))) return;
-          Alert.alert('That didn’t send', socialErrorMessage(error));
-        },
-      },
-    );
-  };
+  const mutateErr = (error: unknown) => Alert.alert('That didn’t work', socialErrorMessage(error));
 
-  /**
-   * The thank-you promises review, not a deadline — the same sentence every
-   * other reporting surface in the app now prints. "Reviewed within 24 hours"
-   * was an SLA nobody had committed to operationally, and the one surface
-   * whose whole value is being believed is the wrong place to overpromise.
-   */
   const reportComment = useCallback(
-    (comment: EventComment) => {
+    (comment: ThreadComment) => {
       Alert.alert('Report this comment', 'What’s wrong with it?', [
         ...REPORT_REASONS.map((reason) => ({
           text: reason,
           onPress: () =>
             report.mutate(
-              {
-                subject: 'comment' as const,
-                subjectId: comment.id,
-                subjectUserId: comment.userId,
-                reason,
-              },
+              { subject: 'comment' as const, subjectId: comment.id, subjectUserId: comment.userId, reason },
               {
                 onSuccess: () => Alert.alert('Thank you', 'Every report is reviewed.'),
-                onError: (error: unknown) =>
-                  Alert.alert('That didn’t go through', socialErrorMessage(error)),
+                onError: (error: unknown) => Alert.alert('That didn’t go through', socialErrorMessage(error)),
               },
             ),
         })),
@@ -140,22 +104,15 @@ export default function EventCommentsScreen() {
     [report],
   );
 
-  const mutateErr = (error: unknown) =>
-    Alert.alert('That didn’t work', socialErrorMessage(error));
-
-  // Stable handlers, so `CommentRow`'s memo survives the composer's keystrokes
-  // and the thread's realtime invalidations. Each takes the comment rather
-  // than closing over one.
   const confirmDeleteComment = useCallback(
-    (comment: EventComment) => {
+    (comment: ThreadComment) => {
       if (!eventId) return;
       Alert.alert('Delete this comment?', undefined, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () =>
-            deleteComment.mutate({ eventId, commentId: comment.id }, { onError: mutateErr }),
+          onPress: () => deleteComment.mutate({ eventId, commentId: comment.id }, { onError: mutateErr }),
         },
       ]);
     },
@@ -163,19 +120,25 @@ export default function EventCommentsScreen() {
   );
 
   const toggleHidden = useCallback(
-    (comment: EventComment) => {
+    (comment: ThreadComment) => {
       if (!eventId) return;
-      hideComment.mutate(
-        { eventId, commentId: comment.id, hidden: !comment.hidden },
-        { onError: mutateErr },
-      );
+      hideComment.mutate({ eventId, commentId: comment.id, hidden: !comment.hidden }, { onError: mutateErr });
     },
     [eventId, hideComment],
   );
 
-  const title = look
-    ? lookName(look.garments, look.caption)
-    : (event.data?.title ?? 'Table talk');
+  const startReply = useCallback(
+    (comment: ThreadComment) => {
+      const name = authorNameOf(comment);
+      if (!name) return;
+      thread.setReplyTo({ userId: comment.userId, firstName: name.split(/\s+/)[0]! });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [members.data, session.userId, thread],
+  );
+
+  const title = look ? lookName(look.garments, look.caption) : (event.data?.title ?? 'Table talk');
+  const afterOccasion = Boolean(event.data?.startsAt && event.data.startsAt.getTime() < Date.now());
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">
@@ -186,113 +149,77 @@ export default function EventCommentsScreen() {
           <Text variant="title" trim numberOfLines={1} className="mt-4">
             {title}
           </Text>
-          {look ? (
-            <Text variant="caption" className="mt-1.5">
-              {nameOf(look.userId) ?? 'A friend'}’s look — which one for the
-              night?
-            </Text>
-          ) : null}
         </View>
 
-        {comments.isError ? (
-          // A thread that failed to arrive is not a quiet table. The composer
-          // below stays live — sending still works when reading didn't, which
-          // is why this is `compact`: the page has more on it than the error.
+        {event.isError || posts.isError ? (
+          <View className="flex-1 pt-4">
+            <ErrorState
+              compact
+              title="This thread didn’t load"
+              body="Nothing was lost — the connection dropped on the way."
+              onRetry={() => {
+                void event.refetch();
+                void posts.refetch();
+              }}
+            />
+          </View>
+        ) : thread.comments.isError ? (
           <View className="flex-1 pt-4">
             <ErrorState
               compact
               title="This thread didn’t load"
               body="Nothing was lost — the connection dropped on the way. You can still say something below."
-              onRetry={() => void comments.refetch()}
-              retrying={comments.isRefetching}
+              onRetry={() => void thread.comments.refetch()}
+              retrying={thread.comments.isRefetching}
             />
           </View>
-        ) : comments.isLoading ? (
+        ) : thread.comments.isLoading ? (
           <ThreadSkeleton />
         ) : (
           <ScrollView contentContainerClassName="px-gutter pb-4 pt-2">
-            {(comments.data ?? []).length === 0 ? (
+            {thread.rows.length === 0 ? (
               <Text variant="body" className="mt-6 text-muted">
-                {look
-                  ? 'Nothing yet — say the helpful thing. “Wear the gold hoops with it.”'
-                  : 'Nothing yet. Start the table talking.'}
+                Nobody’s said anything yet.
               </Text>
             ) : (
-              (comments.data ?? []).map((comment, i) => (
-                <View key={comment.id}>
-                  {i > 0 ? <View className="h-hair w-full bg-hairline" /> : null}
-                  <CommentRow
-                    comment={comment}
-                    authorName={
-                      comment.userId === session.userId ? 'You' : nameOf(comment.userId)
-                    }
-                    isMine={comment.userId === session.userId}
-                    isHost={isHost}
-                    onReport={reportComment}
-                    onDelete={confirmDeleteComment}
-                    onToggleHidden={toggleHidden}
-                  />
-                </View>
+              thread.rows.map((comment) => (
+                <CommentRow
+                  key={comment.id}
+                  comment={comment}
+                  authorName={authorNameOf(comment)}
+                  isMine={comment.userId === session.userId}
+                  isHost={isHost}
+                  hiddenByName={hostName}
+                  onReply={startReply}
+                  onReport={reportComment}
+                  onDelete={confirmDeleteComment}
+                  onToggleHidden={toggleHidden}
+                  onRetry={thread.retry}
+                  onDeletePending={thread.deletePending}
+                />
               ))
             )}
           </ScrollView>
         )}
 
-        {/* Compliments — one tap, positive-only, on a look's thread only, and
-            never on your own look (praising yourself is a strange sentence to
-            put in someone's mouth). */}
-        {look && look.userId !== session.userId ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="gap-2 px-gutter pb-2">
-            {COMPLIMENTS.map((c) => (
-              <Chip
-                key={c}
-                label={c}
-                onPress={() => send(c)}
-                accessibilityHint="Sends this compliment as a comment"
-              />
-            ))}
-          </ScrollView>
-        ) : null}
-
-        <View className="flex-row items-end gap-2 border-t border-hairline px-gutter pb-2 pt-2">
-          <View
-            className="flex-1 flex-row items-center rounded-md border border-rule px-3"
-            style={{ minHeight: MIN_TAP_TARGET }}>
-            <TextInput
-              value={draft}
-              onChangeText={(t) => setDraft(t.slice(0, COMMENT_MAX))}
-              placeholder={look ? 'Say the helpful thing…' : 'Message the table…'}
-              placeholderTextColor={theme.faint}
-              accessibilityLabel="Write a comment"
-              multiline
-              className="flex-1 font-body text-callout"
-              style={{ color: theme.ink, maxHeight: 96, paddingVertical: 10 }}
-            />
+        {afterOccasion ? (
+          // EC-04 · after the occasion — the composer is removed, not
+          // disabled, and the rows keep their overflow menus.
+          <View className="mx-gutter mb-3 rounded-md bg-tray px-3.5 py-3">
+            <Text variant="callout" className="text-muted">
+              The dinner’s been and gone. The thread stays readable.
+            </Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Send"
-            accessibilityState={{ disabled: !draft.trim() || addComment.isPending }}
-            disabled={!draft.trim() || addComment.isPending}
-            onPress={() => send(draft)}
-            style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}
-            className={[
-              'items-center justify-center rounded-md bg-ink active:opacity-70',
-              !draft.trim() || addComment.isPending ? 'opacity-40' : '',
-            ].join(' ')}>
-            {addComment.isPending ? (
-              <ActivityIndicator size="small" color={theme.canvas} />
-            ) : (
-              <SymbolView name="arrow.up" size={16} tintColor={theme.canvas} resizeMode="scaleAspectFit" />
-            )}
-          </Pressable>
-        </View>
+        ) : (
+          <CommentComposer
+            replyToName={thread.replyTo?.firstName ?? null}
+            onCancelReply={() => thread.setReplyTo(null)}
+            onSend={thread.send}
+          />
+        )}
       </KeyboardAvoidingScreen>
 
-      {terms.sheet}
+      {thread.termsSheet}
     </SafeAreaView>
   );
 }
