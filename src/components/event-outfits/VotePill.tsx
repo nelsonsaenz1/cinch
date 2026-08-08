@@ -107,10 +107,14 @@ export function VotePill({
   const shown = guess && guess.from === picked ? guess.want : picked;
 
   if (mine) {
-    return (
+    // "Zero is quiet" (contract §3) applies here too — the tally-only pill on
+    // your own look must not become the one place "0 picks" still prints.
+    return votes > 0 ? (
       <View className="flex-row items-center" style={{ minHeight: MIN_TAP_TARGET - 12 }}>
         <Text variant="colophon">{tally}</Text>
       </View>
+    ) : (
+      <View style={{ minHeight: MIN_TAP_TARGET - 12 }} />
     );
   }
 
