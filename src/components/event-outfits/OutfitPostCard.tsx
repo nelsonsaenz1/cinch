@@ -370,7 +370,7 @@ export function OutfitPostCard({
 
       <View className="p-4">
         <View className="flex-row items-center gap-2">
-          <Avatar name={isMine ? 'You' : posterName} size={24} tone="accent" />
+          <Avatar name={isMine ? null : posterName} size={24} tone="accent" fallback="ME" />
           <Text variant="label" className="flex-1 text-ink" numberOfLines={1}>
             {isMine ? 'You' : (posterName ?? 'A friend')}
           </Text>

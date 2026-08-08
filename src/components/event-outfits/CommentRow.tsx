@@ -121,7 +121,7 @@ export const CommentRow = memo(function CommentRow({
   if (comment.pending || comment.failed) {
     return (
       <View className="flex-row gap-3 py-3" style={{ opacity: comment.pending ? 0.55 : 1 }}>
-        <Avatar name="You" size={30} tone="accent" fallback="ME" />
+        <Avatar name={null} size={30} tone="accent" fallback="ME" />
         <View className="flex-1">
           <Text variant="callout">
             <RNText style={{ fontWeight: '600' }}>You</RNText> {comment.body}
@@ -243,7 +243,7 @@ export const CommentRow = memo(function CommentRow({
 
   return (
     <View className="flex-row gap-3 py-3" style={{ paddingLeft: indent, opacity: hiddenButVisible ? 0.55 : 1 }}>
-      <Avatar name={isMine ? 'You' : authorName} size={30} tone="accent" fallback="ME" />
+      <Avatar name={isMine ? null : authorName} size={30} tone="accent" fallback="ME" />
 
       <View className="flex-1">
         {compliment ? (

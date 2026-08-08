@@ -59,7 +59,7 @@ export function CommentComposer({
       ) : null}
 
       <View className="flex-row items-end gap-2.5 px-gutter pb-2 pt-1">
-        <Avatar name="You" size={30} tone="accent" fallback="ME" />
+        <Avatar name={null} size={30} tone="accent" fallback="ME" />
         <View
           className="flex-1 flex-row items-center rounded-md border border-hairline bg-tray px-3.5"
           style={{ minHeight: MIN_TAP_TARGET }}>
