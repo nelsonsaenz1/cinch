@@ -58,4 +58,12 @@ handoff/
 # Founder design drops — raw Claude Design exports live locally, canon is docs/design/
 /Design zips:pngs/
 /*Atlas-selection*.png
+/*Atlas*.png
 /*StateAtlas/
+
+# Extracted references for the redesign wave. 68MB of PNG sheets and per-atlas
+# garment photography, reproducible from the zips beside them, so the bytes stay
+# out of history. Agents read them by absolute path — a worktree checkout does
+# not need them, and MANIFEST.md (tracked) is the part worth keeping.
+/design-refs/html/
+/design-refs/png/
