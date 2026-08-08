@@ -17,6 +17,7 @@ import { useTheme } from '@/theme/tokens';
 export function TenTile({
   slot,
   size,
+  height,
   foregrounded,
   isLast,
   garmentName,
@@ -24,7 +25,16 @@ export function TenTile({
   onPress,
 }: {
   slot: TenSlot;
+  /** Column width, measured by the grid. */
   size: number;
+  /**
+   * Tile height. NOT equal to `size`: the atlas draws these cells 112 wide by
+   * 80 tall, and squaring them costs about 44% more vertical space than the
+   * grid has — enough to push the tenth slot and the reasoning card off the
+   * first screen, which breaks the one rule T-01 states outright: all ten are
+   * visible before the first photograph.
+   */
+  height: number;
   /** This slot is the one the bottom card currently argues for. */
   foregrounded: boolean;
   /** Only one slot remains — the tile reads "Last" instead of "Next". */
@@ -42,7 +52,7 @@ export function TenTile({
       return (
         <View
           className="overflow-hidden rounded-md bg-sand dark:bg-sand-dark"
-          style={{ width: size, height: size }}>
+          style={{ width: size, height }}>
           {imageUri ? (
             <Image
               source={{ uri: imageUri }}
@@ -59,7 +69,7 @@ export function TenTile({
       return (
         <View
           className="items-center justify-center rounded-md bg-blush dark:bg-blush-dark"
-          style={{ width: size, height: size, borderWidth: 2, borderColor: theme.accent }}>
+          style={{ width: size, height, borderWidth: 2, borderColor: theme.accent }}>
           <Text variant="label" className="font-semibold" style={{ color: theme.accent, fontSize: 12 }}>
             {isLast ? 'Last' : 'Next'}
           </Text>
@@ -75,7 +85,7 @@ export function TenTile({
         className="rounded-md"
         style={{
           width: size,
-          height: size,
+          height,
           borderWidth: 1,
           borderStyle: 'dashed',
           borderColor: theme.ruleStrong,
