@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentsSheet } from '@/components/event-outfits/CommentsSheet';
-import { OutfitPostCard } from '@/components/event-outfits/OutfitPostCard';
+import { lookName, OutfitPostCard } from '@/components/event-outfits/OutfitPostCard';
 import { Button } from '@/components/ui/button';
 // Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
 // `ErrorState` the title/body/retry sibling of `EmptyState`.
@@ -162,6 +162,15 @@ export default function EventOutfitBoardScreen() {
   const [optimisticMove, setOptimisticMove] = useState<PickMove | null>(null);
   const [failedVotePostId, setFailedVotePostId] = useState<string | null>(null);
 
+  // L-02's five-second undo toast — "Your pick moved to X" on a move, and
+  // (per the Vote pill states: "pressing Picked again returns you to no
+  // pick, which is the one case where the count falls with nothing rising,
+  // so it takes the toast") the retraction gets one too. A first cast never
+  // does: the pill itself is already the way to change your mind for that.
+  const [moveToast, setMoveToast] = useState<{ message: string; fromPostId: string } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (toastTimer.current && clearTimeout(toastTimer.current)), []);
+
   const displayLooks = useMemo(
     () => (optimisticMove ? applyPickMove(looks, optimisticMove) : looks),
     [looks, optimisticMove],
@@ -222,6 +231,12 @@ export default function EventOutfitBoardScreen() {
     [router, eventId],
   );
 
+  const showUndoToast = useCallback((fromPostId: string, message: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setMoveToast({ message, fromPostId });
+    toastTimer.current = setTimeout(() => setMoveToast(null), 5000);
+  }, []);
+
   const toggleVote = useCallback(
     (look: PostedLook) => {
       if (!eventId) return;
@@ -230,8 +245,23 @@ export default function EventOutfitBoardScreen() {
 
       const run = () => {
         setFailedVotePostId(null);
+        setMoveToast(null);
         setOptimisticMove({ fromPostId: from, toPostId: to });
         const opts = {
+          onSuccess: () => {
+            // An existing pick changing state gets the five-second undo
+            // toast — moving to a new look, or being taken back to nothing
+            // ("the one case where the count falls with nothing rising, so
+            // it takes the toast"). A first cast doesn't: the pill itself is
+            // already the way to change your mind for that one.
+            if (!from) return;
+            showUndoToast(
+              from,
+              to
+                ? `Your pick moved to ${lookName(look.garments, look.caption)}.`
+                : 'Your pick was taken back.',
+            );
+          },
           onError: (error: unknown) => {
             setOptimisticMove(null);
             if (terms.intercept(error, run)) return;
@@ -248,8 +278,23 @@ export default function EventOutfitBoardScreen() {
       };
       run();
     },
-    [eventId, myVote.data?.postId, retractVote, castVote, terms],
+    [eventId, myVote.data?.postId, retractVote, castVote, terms, showUndoToast],
   );
+
+  const undoMove = useCallback(() => {
+    if (!moveToast || !eventId) return;
+    const backTo = moveToast.fromPostId;
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setMoveToast(null);
+    setOptimisticMove({ fromPostId: currentPickId, toPostId: backTo });
+    castVote.mutate(
+      { eventId, postId: backTo },
+      {
+        onError: (error: unknown) => Alert.alert('That didn’t undo', socialErrorMessage(error)),
+        onSettled: () => setOptimisticMove(null),
+      },
+    );
+  }, [moveToast, eventId, currentPickId, castVote]);
 
   const confirmDelete = useCallback(
     (look: PostedLook) => {
@@ -389,6 +434,8 @@ export default function EventOutfitBoardScreen() {
     ? `Voting closed. ${displayLooks.length === 1 ? '1 look' : `${displayLooks.length} looks`}, ${totalPicks} ${totalPicks === 1 ? 'pick' : 'picks'} between them.`
     : `${displayLooks.length === 1 ? '1 look' : `${displayLooks.length} looks`} on the table. You have one pick${until ? ` — you can move it until ${until}` : ''}.`;
 
+  const myLookCount = looks.filter((l) => l.userId === me).length;
+
   const crownedLook = crownId ? displayLooks.find((l) => l.id === crownId) : null;
   const closingNote = locked
     ? crownedLook
@@ -468,7 +515,7 @@ export default function EventOutfitBoardScreen() {
             onBlock={confirmBlock}
             onDelete={confirmDelete}
             onShare={shareLook}
-            onShareAnother={goPost}
+            onShareAnother={myLookCount < MAX_LOOKS_PER_BOARD ? goPost : undefined}
             onAddYours={goPost}
             onOpenComments={setOpenCommentsFor}
           />
@@ -480,6 +527,24 @@ export default function EventOutfitBoardScreen() {
               {closingNote}
             </Text>
           </View>
+        ) : null}
+
+        {locked && looks.length > 0 ? (
+          // L-05's closing pair. "Save mine to Lately" stays unbuilt — Cinch
+          // has no save-to-Lately mutation anywhere yet, and this screen
+          // isn't the place to invent one; see
+          // .redesign/primitive-requests/board-comments.md.
+          <Button
+            title="Share the board"
+            variant="secondary"
+            haptic
+            onPress={() =>
+              void Share.share({
+                message: `${detail.title} — the board's closed and the picks are in. Take a look on Cinch.`,
+              })
+            }
+            className="mx-gutter mt-3 self-stretch"
+          />
         ) : null}
 
         {/* ── Table talk — the event-level thread, still its own route ── */}
@@ -513,6 +578,32 @@ export default function EventOutfitBoardScreen() {
         resolveImage={resolveImage}
         nameOf={nameOf}
       />
+
+      {moveToast ? (
+        // L-02's undo toast — five seconds, not a permanent control, because
+        // the pill itself is already the way to change your mind.
+        <View
+          pointerEvents="box-none"
+          className="absolute bottom-6 left-0 right-0 px-gutter">
+          <View
+            className="flex-row items-center gap-2.5 rounded-plate px-4 py-3.5"
+            style={{ backgroundColor: theme.blush, borderColor: theme.blushRule, borderWidth: 1 }}>
+            <Text variant="callout" className="flex-1">
+              {moveToast.message}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Undo — move your pick back"
+              onPress={undoMove}
+              hitSlop={8}
+              style={{ minHeight: MIN_TAP_TARGET - 20 }}>
+              <Text variant="label" className="font-semibold" style={{ color: theme.accent }}>
+                Undo
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       {terms.sheet}
     </SafeAreaView>
@@ -571,7 +662,7 @@ const BoardRail = memo(function BoardRail({
   onBlock: (look: PostedLook) => void;
   onDelete: (look: PostedLook) => void;
   onShare: (look: PostedLook) => void;
-  onShareAnother: () => void;
+  onShareAnother?: () => void;
   onAddYours: () => void;
   onOpenComments: (look: PostedLook) => void;
 }) {
