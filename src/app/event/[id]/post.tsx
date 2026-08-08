@@ -15,6 +15,7 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
+import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useEventPosts, useMyPostableOutfits } from '@/features/event-outfits/queries';
 import { socialErrorMessage, usePostOutfit } from '@/features/event-outfits/mutations';
@@ -41,6 +42,7 @@ export default function PostLookScreen() {
   const wardrobe = useWardrobe();
   const posts = useEventPosts(eventId);
   const postOutfit = usePostOutfit();
+  const terms = useSocialTermsGate();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -73,7 +75,12 @@ export default function PostLookScreen() {
       { eventId, outfitId: selected.id, caption },
       {
         onSuccess: () => router.back(),
-        onError: (error) => Alert.alert('That didn’t post', socialErrorMessage(error)),
+        onError: (error) => {
+          // The terms gate is not a failure to report — it raises the sheet,
+          // and agreeing posts the look the user already chose.
+          if (terms.intercept(error, () => submit(caption))) return;
+          Alert.alert('That didn’t post', socialErrorMessage(error));
+        },
       },
     );
   };
@@ -206,6 +213,8 @@ export default function PostLookScreen() {
           ) : null}
         </KeyboardAwareScrollView>
       )}
+
+      {terms.sheet}
     </SafeAreaView>
   );
 }

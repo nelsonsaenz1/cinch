@@ -26,6 +26,7 @@ import { NewAdditionRow, NewAdditionsSkeleton } from '@/features/explore/new-add
 import { useNewAdditions, type NewAddition } from '@/features/explore/queries';
 import { groupByDay } from '@/features/explore/timeline';
 import { useMutedIds } from '@/features/social-graph/muted';
+import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { useFollow } from '@/features/social-graph/mutations';
 import { useFollowing, useFriends, useProfileSearch } from '@/features/social-graph/queries';
 import { profileName, type SocialProfile } from '@/features/social-graph/types';
@@ -210,6 +211,7 @@ export default function ExploreScreen() {
   const following = useFollowing();
   const search = useProfileSearch(query);
   const follow = useFollow();
+  const terms = useSocialTermsGate();
   const { muted } = useMutedIds();
 
   // "Mute in Lately" — device-local, silent, reversible from the friend's
@@ -262,11 +264,13 @@ export default function ExploreScreen() {
     follow.mutate(
       { userId: profile.userId },
       {
-        onError: (err) =>
+        onError: (err) => {
+          if (terms.intercept(err, () => addFriend(profile))) return;
           Alert.alert(
             'Could not send that request',
             err instanceof Error ? err.message : 'Something went wrong. Try again.',
-          ),
+          );
+        },
       },
     );
   };
@@ -586,6 +590,8 @@ export default function ExploreScreen() {
           </View>
         )}
       </KeyboardAwareScrollView>
+
+      {terms.sheet}
     </SafeAreaView>
   );
 }

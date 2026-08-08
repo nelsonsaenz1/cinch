@@ -18,6 +18,7 @@ import { Avatar, Button, Chip, ScreenHeader, Skeleton, Text } from '@/components
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
+import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { useRequestBorrow, useUnfollow } from '@/features/social-graph/mutations';
 import { useMutedIds } from '@/features/social-graph/muted';
 import {
@@ -463,6 +464,7 @@ export default function FriendClosetScreen() {
   const { resolve } = useSignedUrls(items.flatMap((i) => [i.thumbPath, i.cutoutPath]));
 
   const requestBorrow = useRequestBorrow();
+  const terms = useSocialTermsGate();
   const unfollow = useUnfollow();
   const block = useBlockUser();
   const report = useReportContent();
@@ -543,11 +545,15 @@ export default function FriendClosetScreen() {
           setAsking(null);
           Alert.alert('Asked', `${name} will see your request. No pressure either way.`);
         },
-        onError: (err) =>
+        onError: (err) => {
+          // The compose sheet stays open with the note still in it, so
+          // agreeing sends the request she already wrote.
+          if (terms.intercept(err, () => sendAsk())) return;
           Alert.alert(
             'Could not ask',
             err instanceof Error ? err.message : 'Something went wrong. Try again.',
-          ),
+          );
+        },
       },
     );
   };
@@ -783,6 +789,8 @@ export default function FriendClosetScreen() {
           onClose={() => setAsking(null)}
         />
       </Modal>
+
+      {terms.sheet}
     </>
   );
 }

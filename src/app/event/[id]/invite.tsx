@@ -12,6 +12,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
+import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { socialDenialCopy, useInviteMember } from '@/features/events/mutations';
 import { useEventMembers, useInviteCandidates } from '@/features/events/queries';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -33,6 +34,7 @@ export default function InviteScreen() {
   const candidates = useInviteCandidates(search);
   const members = useEventMembers(id ?? '');
   const invite = useInviteMember();
+  const terms = useSocialTermsGate();
 
   // Who was invited from THIS sheet, so a fresh invite reads "Invited" in
   // place rather than vanishing when the roster refetch reclassifies them.
@@ -41,6 +43,21 @@ export default function InviteScreen() {
   const onList = new Set((members.data ?? []).map((m) => m.userId));
 
   const rows = (candidates.data ?? []).filter((p) => p.user_id !== session.userId);
+
+  /** Named so the terms gate has something to re-run once the user agrees. */
+  const sendInvite = (userId: string) => {
+    if (!id) return;
+    invite.mutate(
+      { eventId: id, userId },
+      {
+        onSuccess: () => setJustInvited((prev) => new Set(prev).add(userId)),
+        // `reset()` on decline clears `invite.isError`, so the line below does
+        // not appear a beat later saying the invite failed — it did not fail,
+        // it was never sent.
+        onError: (error) => terms.intercept(error, () => sendInvite(userId), invite.reset),
+      },
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={[]}>
@@ -77,7 +94,7 @@ export default function InviteScreen() {
         />
       </View>
 
-      {invite.isError ? (
+      {invite.isError && !terms.blocked ? (
         <Text
           variant="label"
           accessibilityLiveRegion="polite"
@@ -148,16 +165,7 @@ export default function InviteScreen() {
                     <ActivityIndicator size="small" color={theme.muted} />
                   ) : (
                     <Pressable
-                      onPress={() =>
-                        id &&
-                        invite.mutate(
-                          { eventId: id, userId: p.user_id },
-                          {
-                            onSuccess: () =>
-                              setJustInvited((prev) => new Set(prev).add(p.user_id)),
-                          },
-                        )
-                      }
+                      onPress={() => sendInvite(p.user_id)}
                       accessibilityRole="button"
                       accessibilityLabel={`Invite ${p.display_name ?? p.username ?? 'this friend'}`}
                       hitSlop={8}
@@ -200,6 +208,8 @@ export default function InviteScreen() {
           </>
         ) : null}
       </KeyboardAwareScrollView>
+
+      {terms.sheet}
     </SafeAreaView>
   );
 }

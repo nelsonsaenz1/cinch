@@ -14,6 +14,7 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
+import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { useEventComments, useEventPosts } from '@/features/event-outfits/queries';
 import {
   socialErrorMessage,
@@ -75,6 +76,7 @@ export default function EventCommentsScreen() {
   const comments = useEventComments(eventId, postId);
 
   const addComment = useAddComment();
+  const terms = useSocialTermsGate();
   const deleteComment = useDeleteComment();
   const hideComment = useHideComment();
   const report = useReportContent();
@@ -96,7 +98,12 @@ export default function EventCommentsScreen() {
       { eventId, postId, body },
       {
         onSuccess: () => setDraft(''),
-        onError: (error) => Alert.alert('That didn’t send', socialErrorMessage(error)),
+        onError: (error) => {
+          // The draft is deliberately still in the composer here — agreeing
+          // sends the comment the user already wrote, unchanged.
+          if (terms.intercept(error, () => send(body))) return;
+          Alert.alert('That didn’t send', socialErrorMessage(error));
+        },
       },
     );
   };
@@ -284,6 +291,8 @@ export default function EventCommentsScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingScreen>
+
+      {terms.sheet}
     </SafeAreaView>
   );
 }

@@ -12,6 +12,7 @@ import {
 } from '@/components/social/friend-sheets';
 import { FriendsPage, type RequestRowModel } from '@/components/social/friends-page';
 import type { RequestRowState, SearchRelation } from '@/components/social/friend-rows';
+import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
 import { useMutedIds } from '@/features/social-graph/muted';
 import { useFollow, useUnfollow } from '@/features/social-graph/mutations';
@@ -86,6 +87,7 @@ export default function FriendsScreen() {
   const search = useProfileSearch(query);
   const myProfile = useMyProfile();
   const follow = useFollow();
+  const terms = useSocialTermsGate();
   const unfollow = useUnfollow();
   const block = useBlockUser();
   const report = useReportContent();
@@ -172,31 +174,43 @@ export default function FriendsScreen() {
     (model: RequestRowModel) => {
       const id = model.profile.userId;
       const row: RequestProfile = { ...model.profile, requestedAt: model.requestedAt };
-      setHeld((prev) => ({ ...prev, [id]: row }));
-      setRowState(id, 'adding');
-      follow.mutate(
-        { userId: id },
-        {
-          onSuccess: () => {
-            setRowState(id, 'accepted');
-            void qc.invalidateQueries({ queryKey: ['sent-requests'] });
-            armTimer(id, ACCEPTED_BEAT_MS, () => {
-              setSettledAccepts((prev) => ({ ...prev, [id]: row.requestedAt }));
-              setHeld((prev) => {
-                const next = { ...prev };
-                delete next[id];
-                return next;
+      // `run` rather than re-entering `acceptRequest`: a useCallback const
+      // cannot be referenced from inside its own factory.
+      const run = () => {
+        setHeld((prev) => ({ ...prev, [id]: row }));
+        setRowState(id, 'adding');
+        follow.mutate(
+          { userId: id },
+          {
+            onSuccess: () => {
+              setRowState(id, 'accepted');
+              void qc.invalidateQueries({ queryKey: ['sent-requests'] });
+              armTimer(id, ACCEPTED_BEAT_MS, () => {
+                setSettledAccepts((prev) => ({ ...prev, [id]: row.requestedAt }));
+                setHeld((prev) => {
+                  const next = { ...prev };
+                  delete next[id];
+                  return next;
+                });
+                setRowState(id, null);
               });
-              setRowState(id, null);
-            });
+            },
+            // The row reverts to unanswered and says so on itself. A failed
+            // accept must never leave the user believing a friendship exists.
+            //
+            // The terms gate is not that kind of failure: it raises the sheet,
+            // and the row only falls back to 'failed' if she declines — so
+            // agreeing accepts the request she was already accepting.
+            onError: (error) => {
+              if (terms.intercept(error, run, () => setRowState(id, 'failed'))) return;
+              setRowState(id, 'failed');
+            },
           },
-          // The row reverts to unanswered and says so on itself. A failed
-          // accept must never leave the user believing a friendship exists.
-          onError: () => setRowState(id, 'failed'),
-        },
-      );
+        );
+      };
+      run();
     },
-    [follow, qc, setRowState, armTimer],
+    [follow, qc, setRowState, armTimer, terms],
   );
 
   const notNowRequest = useCallback(
@@ -295,44 +309,54 @@ export default function FriendsScreen() {
 
   const addFromSearch = useCallback(
     (profile: SocialProfile) => {
-      setSearchPendingId(profile.userId);
-      follow.mutate(
-        { userId: profile.userId },
-        {
-          onSuccess: () => {
-            setJustAsked((prev) => new Set(prev).add(profile.userId));
-            void qc.invalidateQueries({ queryKey: ['sent-requests'] });
+      const run = () => {
+        setSearchPendingId(profile.userId);
+        follow.mutate(
+          { userId: profile.userId },
+          {
+            onSuccess: () => {
+              setJustAsked((prev) => new Set(prev).add(profile.userId));
+              void qc.invalidateQueries({ queryKey: ['sent-requests'] });
+            },
+            // The mutation has already translated the errcodes (rate limits and
+            // the rest) into a sentence; pass it through untouched.
+            onError: (err) => {
+              if (terms.intercept(err, run)) return;
+              Alert.alert(
+                'Could not send that request',
+                err instanceof Error ? err.message : 'Something went wrong. Try again.',
+              );
+            },
+            onSettled: () => setSearchPendingId(null),
           },
-          // The mutation has already translated the errcodes (rate limits and
-          // the rest) into a sentence; pass it through untouched.
-          onError: (err) =>
-            Alert.alert(
-              'Could not send that request',
-              err instanceof Error ? err.message : 'Something went wrong. Try again.',
-            ),
-          onSettled: () => setSearchPendingId(null),
-        },
-      );
+        );
+      };
+      run();
     },
-    [follow, qc],
+    [follow, qc, terms],
   );
 
   const acceptFromSearch = useCallback(
     (profile: SocialProfile) => {
-      setSearchPendingId(profile.userId);
-      follow.mutate(
-        { userId: profile.userId },
-        {
-          onError: (err) =>
-            Alert.alert(
-              'Could not accept just now',
-              err instanceof Error ? err.message : 'Something went wrong. Try again.',
-            ),
-          onSettled: () => setSearchPendingId(null),
-        },
-      );
+      const run = () => {
+        setSearchPendingId(profile.userId);
+        follow.mutate(
+          { userId: profile.userId },
+          {
+            onError: (err) => {
+              if (terms.intercept(err, run)) return;
+              Alert.alert(
+                'Could not accept just now',
+                err instanceof Error ? err.message : 'Something went wrong. Try again.',
+              );
+            },
+            onSettled: () => setSearchPendingId(null),
+          },
+        );
+      };
+      run();
     },
-    [follow],
+    [follow, terms],
   );
 
   /** Withdraw a just-sent ask. Silent, like every retreat here. */
@@ -571,6 +595,8 @@ export default function FriendsScreen() {
           setReportSent(false);
         }}
       />
+
+      {terms.sheet}
     </>
   );
 }

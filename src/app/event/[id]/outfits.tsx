@@ -17,6 +17,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
+import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import {
   useEventComments,
@@ -104,6 +105,7 @@ export default function EventOutfitBoardScreen() {
   const myVote = useMyVote(eventId);
   const comments = useEventComments(eventId);
 
+  const terms = useSocialTermsGate();
   const castVote = useCastVote();
   const retractVote = useRetractVote();
   const deletePost = useDeletePost();
@@ -218,17 +220,28 @@ export default function EventOutfitBoardScreen() {
   const toggleVote = useCallback(
     (look: PostedLook) => {
       if (!eventId) return;
-      const opts = {
-        onError: (error: unknown) =>
-          Alert.alert('That pick didn’t land', socialErrorMessage(error)),
+      // `run` rather than re-entering `toggleVote`: a useCallback const cannot
+      // be referenced from inside its own factory, and re-running the tap is
+      // what "agree, then pick" means anyway.
+      const run = () => {
+        const opts = {
+          // Only casting inserts, so only casting can meet the terms gate —
+          // retracting is a delete and passes straight through. Both share the
+          // handler because the guard costs nothing on the path that never trips.
+          onError: (error: unknown) => {
+            if (terms.intercept(error, run)) return;
+            Alert.alert('That pick didn’t land', socialErrorMessage(error));
+          },
+        };
+        if (myVote.data?.postId === look.id) {
+          retractVote.mutate({ eventId }, opts);
+        } else {
+          castVote.mutate({ eventId, postId: look.id }, opts);
+        }
       };
-      if (myVote.data?.postId === look.id) {
-        retractVote.mutate({ eventId }, opts);
-      } else {
-        castVote.mutate({ eventId, postId: look.id }, opts);
-      }
+      run();
     },
-    [eventId, myVote.data?.postId, retractVote, castVote],
+    [eventId, myVote.data?.postId, retractVote, castVote, terms],
   );
 
   const confirmDelete = useCallback(
@@ -464,6 +477,8 @@ export default function EventOutfitBoardScreen() {
           </Text>
         </Pressable>
       </ScrollView>
+
+      {terms.sheet}
     </SafeAreaView>
   );
 }
