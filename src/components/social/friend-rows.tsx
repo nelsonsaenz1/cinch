@@ -105,11 +105,20 @@ function Identity({
   profile,
   subtitle,
   subtitleColor,
+  subtitleLines = 1,
 }: {
   profile: SocialProfile;
   subtitle: string | null;
   /** Inline override for the one accent case (F-04 failed). */
   subtitleColor?: string;
+  /**
+   * Handles are one line — a truncated @name is still recognisable. Sentences
+   * are not: the after-add line (F-05) is the page's statement of the mutual
+   * rule, so it wraps rather than ends in an ellipsis. The atlas fits it on one
+   * line only because it writes "she says yes"; our they/them wording is a
+   * character wider than the row has.
+   */
+  subtitleLines?: number;
 }) {
   return (
     <View className="flex-1 flex-row items-center gap-3">
@@ -121,7 +130,7 @@ function Identity({
         {subtitle ? (
           <Text
             variant="note"
-            numberOfLines={1}
+            numberOfLines={subtitleLines}
             className="mt-0.5"
             style={subtitleColor ? { color: subtitleColor } : undefined}>
             {subtitle}
@@ -424,7 +433,7 @@ export function SearchResultRow({
 
   const row = (
     <View className="flex-row items-center gap-3 px-4 py-3" style={{ minHeight: MIN_TAP_TARGET }}>
-      <Identity profile={profile} subtitle={subtitle} />
+      <Identity profile={profile} subtitle={subtitle} subtitleLines={relation === 'asked' ? 2 : 1} />
       {trailing}
     </View>
   );
