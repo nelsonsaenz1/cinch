@@ -69,15 +69,16 @@ export function TenCameraChrome({
         <Text variant="plate" style={{ color: theme.canvas, fontSize: 26 }}>
           {`Slot ${slot.id} · ${phrase}`}
         </Text>
-        <Text
+        <Pressable
           onPress={onCancel}
           accessibilityRole="button"
           accessibilityLabel="Cancel"
-          variant="body"
-          className="font-semibold"
-          style={{ color: theme.canvas }}>
-          Cancel
-        </Text>
+          hitSlop={12}
+          className="py-2">
+          <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+            Cancel
+          </Text>
+        </Pressable>
       </View>
 
       {/* `ink`, not the atlas's `#100F0D` — the reconciliation table calls

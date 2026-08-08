@@ -1,9 +1,9 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { canvasAlpha } from '@/components/reveal/reveal-stage';
 import { Text } from '@/components/ui/text';
 import type { MissingRow } from '@/features/onboarding/reveal-copy';
-import { useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
  * R-05 — the honest failure. Zero is a legitimate count and gets the exact
@@ -63,21 +63,20 @@ export function RevealEmpty({
 
       {fix ? (
         <View style={{ marginTop: 28 }}>
-          <Text
+          <Pressable
             onPress={onFix}
             accessibilityRole="button"
             accessibilityLabel={fix}
             style={{
+              minHeight: MIN_TAP_TARGET,
               backgroundColor: theme.canvas,
-              color: theme.ink,
               borderRadius: 12,
-              textAlign: 'center',
-              paddingVertical: 15,
-              fontSize: 16,
-              fontWeight: '500',
-            }}>
-            {fix}
-          </Text>
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            className="active:opacity-70">
+            <Text style={{ color: theme.ink, fontSize: 16, fontWeight: '500' }}>{fix}</Text>
+          </Pressable>
           <Text
             style={{
               marginTop: 10,
