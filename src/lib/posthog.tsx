@@ -1,3 +1,4 @@
+import * as Updates from 'expo-updates';
 import { PostHog, PostHogProvider } from 'posthog-react-native';
 import { useEffect } from 'react';
 
@@ -93,6 +94,83 @@ if (__DEV__ && !token) {
       'Every feature still works; nothing is measured.',
   );
 }
+
+/**
+ * Which JS bundle is actually running, stamped onto every event.
+ *
+ * WHY THIS EXISTS. `eas update` reports "Published", and the update server will
+ * confirm it serves that update to a client claiming the right channel and
+ * runtime — but neither says a single real phone ever ran it. An OTA can be
+ * published perfectly and reach nobody, and the failure is silent on both
+ * sides. The most common cause is the runtime gate: `app.config.ts` sets
+ * `runtimeVersion: { policy: 'appVersion' }`, so an update only ever reaches a
+ * build whose app version matches EXACTLY. The day a store build ships as
+ * 1.0.1, every update published at 1.0.0 stops arriving, with no error
+ * anywhere. Stamping the update id on events turns that from a thing we reason
+ * about into a thing we can query: filter to an update id and count devices.
+ *
+ * SUPER PROPERTIES, NOT AN EVENT. These ride along on every capture — including
+ * PostHog's own lifecycle events from `captureAppLifecycleEvents` — so adoption
+ * is a filter on data that already exists rather than a bespoke event that has
+ * to be joined against everything else.
+ *
+ * NEVER OMIT A KEY. Super properties persist to local storage across launches,
+ * so a key left unset keeps LAST launch's value and quietly lies — exactly
+ * backwards, since the interesting case is a device falling back to the
+ * embedded bundle. Every field below is therefore always written, with an
+ * explicit sentinel instead of a hole.
+ *
+ * PRIVACY. All of this is build identity: ids the server already assigned and
+ * booleans about which bundle loaded. No user, no content, nothing that
+ * narrows to a person — so it stays inside the line this file draws above, and
+ * needs no privacy-manifest change. `Updates.emergencyLaunchReason` is
+ * deliberately NOT sent: it is unbounded SDK error text, and unbounded strings
+ * in event properties are the thing this file exists to refuse. The boolean is
+ * the signal; if the reason is ever needed it is a bounded enum, not a raw
+ * passthrough.
+ */
+function registerBuildIdentity(client: PostHog): void {
+  // `??` is not enough. expo-updates reports some of these as an EMPTY STRING
+  // rather than null — `channel` does exactly that in a dev client, verified
+  // against live events. An empty string is the worst possible value to store:
+  // it survives every null check, renders as a blank cell, and silently matches
+  // nothing when filtered, so a query looks answered when it is not.
+  const orElse = (value: string | null | undefined, fallback: string): string =>
+    value !== null && value !== undefined && value !== '' ? value : fallback;
+
+  client
+    .register({
+      // The running update, or the bundle compiled into the binary. `updateId`
+      // is null on an embedded launch, which is a real state worth naming
+      // rather than a missing value.
+      update_id: orElse(Updates.updateId, 'embedded'),
+      update_channel: orElse(Updates.channel, 'none'),
+      runtime_version: orElse(Updates.runtimeVersion, 'unknown'),
+      // When the running update was published — lets "how fast does an update
+      // roll out" be answered without looking anything up in EAS.
+      update_created_at: Updates.createdAt?.toISOString() ?? 'embedded',
+      is_embedded_launch: Updates.isEmbeddedLaunch,
+      // True when the update failed to load and the app fell back to the
+      // embedded bundle. A nonzero count here means a bad publish is being
+      // survived silently by users — the one number worth alerting on.
+      is_emergency_launch: Updates.isEmergencyLaunch,
+      // Whether the updates system is active at all. NOT a reliable dev/prod
+      // discriminator — a dev client reports `true` here while reporting an
+      // empty channel and a runtime of "1", checked against real events. The
+      // honest way to count adoption is to filter `update_id` to the specific
+      // update UUID being measured; dev and embedded launches both collapse
+      // into the 'embedded' bucket and stay out of that count by construction.
+      updates_enabled: Updates.isEnabled,
+    })
+    // `register` resolves once the SDK's storage bootstrap has run; a rejection
+    // here must not take the app down, for the same reason the whole client is
+    // optional — analytics is not load-bearing.
+    .catch(() => {});
+}
+
+// At module load, immediately after the client exists, so the properties are
+// queued ahead of the first lifecycle capture rather than racing it.
+if (posthog) registerBuildIdentity(posthog);
 
 /**
  * Every event the app may emit.
