@@ -9,7 +9,7 @@ import { TenCamera } from '@/components/onboarding/ten-camera';
 import { TenGrid } from '@/components/onboarding/ten-grid';
 import { TenStopSheet } from '@/components/onboarding/ten-stop-sheet';
 import { Text } from '@/components/ui/text';
-import { countOutfits } from '@/features/closet/outfit-count';
+import { countOutfits, rankGaps } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import {
   declineSlot,
@@ -197,7 +197,17 @@ export default function TheTenScreen() {
             dressSlot && dressSlot.kind !== 'dresses' ? dressSlot.kind : '';
           router.replace({ pathname: '/reveal', params: { redirectedDressTo } });
         }}
-        onSwapPiece={() => setShowStop(false)}
+        onSwapPiece={() => {
+          setShowStop(false);
+          // Built as a no-op because no swap flow existed when this screen was
+          // written; The Wall built one in parallel (W-04). The kind passed is
+          // the closet's own highest-gain gap, computed by the same routine the
+          // gap feed ranks with — so the swap sheet can quote real arithmetic
+          // for what would come in. Nothing is chosen on the user's behalf: the
+          // screen names the kind and they pick what goes out.
+          const best = rankGaps(plannedTally(slots))[0];
+          router.push({ pathname: '/wall-swap', params: { add: best?.kind ?? 'shoes' } });
+        }}
       />
     </SafeAreaView>
   );
