@@ -2,6 +2,9 @@
 
 # dependencies
 node_modules/
+# No trailing slash: worktrees symlink node_modules rather than installing it,
+# and a directory pattern does not match a symlink of the same name.
+node_modules
 
 # Expo
 .expo/
