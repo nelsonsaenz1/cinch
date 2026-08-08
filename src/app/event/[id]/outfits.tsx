@@ -578,6 +578,7 @@ export default function EventOutfitBoardScreen() {
         isHost={detail.isHost}
         hostName={hostName}
         memberCount={members.data?.length ?? null}
+        afterOccasion={locked}
         resolveImage={resolveImage}
         nameOf={nameOf}
       />

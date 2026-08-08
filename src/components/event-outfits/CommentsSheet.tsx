@@ -44,6 +44,8 @@ export function CommentsSheet({
   isHost,
   hostName,
   memberCount,
+  /** EC-04 · after the occasion — the composer is removed, not disabled. */
+  afterOccasion = false,
   resolveImage,
   nameOf,
 }: {
@@ -58,6 +60,7 @@ export function CommentsSheet({
   hostName: string | null;
   /** For the audience line under the composer — "Only the five people…" */
   memberCount: number | null;
+  afterOccasion?: boolean;
   resolveImage: ResolveImage;
   nameOf: (userId: string) => string | null;
 }) {
@@ -220,16 +223,28 @@ export function CommentsSheet({
             </ScrollView>
           )}
 
-          <CommentComposer
-            replyToName={thread.replyTo?.firstName ?? null}
-            onCancelReply={() => thread.setReplyTo(null)}
-            onSend={thread.send}
-          />
-          {/* The audience line — the last thing before typing, and it names
-              people, not a setting. */}
-          <Text variant="caption" className="px-gutter pb-3">
-            {memberCount ? `Only the ${memberCount} people at this event can read this.` : 'Only the people at this event can read this.'}
-          </Text>
+          {afterOccasion ? (
+            <View className="mx-gutter mb-3 rounded-md bg-tray px-3.5 py-3">
+              <Text variant="callout" className="text-muted">
+                The evening’s been and gone. The thread stays readable.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <CommentComposer
+                replyToName={thread.replyTo?.firstName ?? null}
+                onCancelReply={() => thread.setReplyTo(null)}
+                onSend={thread.send}
+              />
+              {/* The audience line — the last thing before typing, and it
+                  names people, not a setting. */}
+              <Text variant="caption" className="px-gutter pb-3">
+                {memberCount
+                  ? `Only the ${memberCount} people at this event can read this.`
+                  : 'Only the people at this event can read this.'}
+              </Text>
+            </>
+          )}
         </KeyboardAvoidingScreen>
         {thread.termsSheet}
       </SafeAreaView>
