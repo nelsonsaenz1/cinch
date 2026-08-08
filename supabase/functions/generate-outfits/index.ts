@@ -44,9 +44,6 @@ import { enforceAiQuota } from '../_shared/quota.ts';
  * both checked in `_shared/input-bounds.ts` before the provider is called.
  */
 
-/** Text-only re-rank; the shared default is the right budget. */
-const OUTFIT_TIMEOUT_MS = 30_000;
-
 type Candidate = ValidatedCandidate;
 
 const describeCandidate = (c: Candidate): string => {
@@ -134,7 +131,7 @@ export default {
 
       const { data: config } = await admin
         .from('ai_config')
-        .select('model_id, params, max_tokens, enabled, provider')
+        .select('model_id, params, max_tokens, enabled, provider, timeout_ms')
         .eq('workload', 'outfit_generation')
         .single();
 
@@ -164,13 +161,18 @@ export default {
 
       let picks: OutfitRerank | null = null;
       let failure: string | null = null;
+      let timedOut = false;
       let promptTokens: number | null = null;
       let completionTokens: number | null = null;
       let costUsd: number | null = null;
       let latencyMs = 0;
+      // Provider calls actually made, failures included. Recorded, because a
+      // retry that nobody can see in ai_calls is a cost that silently doubles.
+      let attempts = 0;
       const startedAt = Date.now();
 
       for (let attempt = 0; attempt < 2; attempt++) {
+        attempts = attempt + 1;
         try {
           const result = await completeStructured<OutfitRerank>({
             apiKey,
@@ -183,7 +185,7 @@ export default {
             schemaName: 'outfit_picks',
             maxTokens: config.max_tokens,
             params: (config.params ?? {}) as Record<string, unknown>,
-            timeoutMs: OUTFIT_TIMEOUT_MS,
+            timeoutMs: config.timeout_ms,
           });
 
           picks = result.parsed;
@@ -192,9 +194,11 @@ export default {
           costUsd = result.costUsd;
           latencyMs = result.latencyMs;
           failure = null;
+          timedOut = false;
           break;
         } catch (err) {
           failure = err instanceof Error ? err.message : String(err);
+          timedOut = err instanceof OpenRouterError && err.timedOut;
           // Wall clock across the failed attempts. The provider only reports
           // latency on a response, so failures used to be logged as 0 ms —
           // which read as instant and free, and they are neither.
@@ -214,6 +218,7 @@ export default {
         completion_tokens: completionTokens,
         cost_usd: costUsd,
         latency_ms: latencyMs,
+        attempts,
         succeeded: picks !== null,
         error: failure,
       });
@@ -222,7 +227,18 @@ export default {
         // 200, not 5xx. The client has perfectly good outfits already — this is
         // a degraded response, not a failed request, and modelling it as an
         // error would push the client into a retry loop for no benefit.
-        return Response.json({ ok: false, reason: 'styling_offline', error: failure });
+        //
+        // The reason is split because the two are not the same news. An outage
+        // is over when it is over; a model that ran out of time is a model that
+        // was working and too slow, and the person who pulled to refresh is
+        // owed that distinction rather than one sentence covering both. It is
+        // also the shape this failure took in production — 7 of 13 calls, every
+        // one of them the deadline — and it was indistinguishable from the rest.
+        return Response.json({
+          ok: false,
+          reason: timedOut ? 'styling_timeout' : 'styling_offline',
+          error: failure,
+        });
       }
 
       // Drop anything that does not correspond to a real candidate. Strict

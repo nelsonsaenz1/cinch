@@ -44,12 +44,6 @@ const BUCKET = 'garments';
 /** Signed URL lifetime — only needs to outlive the model call. */
 const SIGNED_URL_TTL_SECONDS = 300;
 
-/**
- * Vision calls with a fetched image are the slowest workload here, so they get
- * more room than the shared default before the request is abandoned.
- */
-const TAG_TIMEOUT_MS = 45_000;
-
 /** Statuses that mean the garment already has tags worth keeping. */
 const SETTLED: readonly string[] = ['tagged', 'verified'];
 
@@ -184,10 +178,14 @@ export default {
         );
       }
 
-      // ── Model config, read at call time so a model swap is a DB update ────
+      // ── Model config, read at call time so a model swap is a DB update.
+      //    `timeout_ms` rides along for the same reason: a vision call with a
+      //    fetched image is the slowest workload here and wants more room than
+      //    the shared default, and how much more is a tuning decision that
+      //    should not need a deploy. ────────────────────────────────────────
       const { data: config } = await admin
         .from('ai_config')
-        .select('model_id, params, max_tokens, enabled, provider')
+        .select('model_id, params, max_tokens, enabled, provider, timeout_ms')
         .eq('workload', 'tagging')
         .single();
 
@@ -232,15 +230,22 @@ export default {
 
       let tags: TagResult | null = null;
       let failure: string | null = null;
+      let timedOut = false;
       let promptTokens: number | null = null;
       let completionTokens: number | null = null;
       let costUsd: number | null = null;
       let latencyMs = 0;
+      // Provider calls actually made, failures included. Recorded, because a
+      // retry that nobody can see in ai_calls is a cost that silently doubles —
+      // and tagging is the most expensive thing this app does.
+      let attempts = 0;
       const startedAt = Date.now();
 
-      // Two attempts. A retryable failure (429 / 5xx) is worth one more try;
-      // anything else will fail identically and retrying only burns budget.
+      // Two attempts. A retryable failure (429 / 5xx / the deadline) is worth
+      // one more try; anything else will fail identically and retrying only
+      // burns budget.
       for (let attempt = 0; attempt < 2; attempt++) {
+        attempts = attempt + 1;
         try {
           const result = await completeStructured<TagResult>({
             apiKey,
@@ -253,7 +258,7 @@ export default {
             schemaName: 'garment_tags',
             maxTokens: config.max_tokens,
             params: (config.params ?? {}) as Record<string, unknown>,
-            timeoutMs: TAG_TIMEOUT_MS,
+            timeoutMs: config.timeout_ms,
           });
 
           tags = normalizeTags(result.parsed);
@@ -262,9 +267,11 @@ export default {
           costUsd = result.costUsd;
           latencyMs = result.latencyMs;
           failure = null;
+          timedOut = false;
           break;
         } catch (err) {
           failure = err instanceof Error ? err.message : String(err);
+          timedOut = err instanceof OpenRouterError && err.timedOut;
           // Wall clock, including the failed attempts and the backoff between
           // them. The provider reports latency only on a response, so this used
           // to be logged as 0 — which read as "free and instant" for exactly
@@ -288,6 +295,7 @@ export default {
         completion_tokens: completionTokens,
         cost_usd: costUsd,
         latency_ms: latencyMs,
+        attempts,
         succeeded: tags !== null,
         error: failure,
       });
@@ -303,8 +311,17 @@ export default {
         // is what lets the user press retry on the needs_review badge.
         await releaseItemJob(admin, itemId);
 
+        // `reason` separates "too slow" from "refused", the same split
+        // generate-outfits makes. The upload queue does not branch on it today,
+        // but the field is what makes a stalled provider legible in a client
+        // log instead of arriving as the same shrug as everything else.
         return Response.json(
-          { ok: false, status: 'needs_review', error: failure },
+          {
+            ok: false,
+            status: 'needs_review',
+            reason: timedOut ? 'tagging_timeout' : 'tagging_failed',
+            error: failure,
+          },
           { status: 200 },
         );
       }

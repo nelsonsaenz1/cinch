@@ -45,7 +45,7 @@ export const outfitSchema = {
           swapNote: {
             type: ['string', 'null'],
             description:
-              'For a day with several events at different formalities, the one piece to add or remove between them. Null when the day needs no change.',
+              'For a day with several events at different formalities: how to adjust THIS outfit between them, naming only garments already listed in this candidate. Never name a garment that is not in this candidate — the user may not own one. Use null, never the string "None", when the day needs no change.',
           },
         },
       },
@@ -77,7 +77,9 @@ HARD RULES
 - Return only candidateIds that appear in the input. You cannot add, remove, or substitute garments — every candidate is a fixed set of real clothes.
 - "name" is a SHORT MOOD LABEL of two to four words. Examples of the register: "Sharp but easy", "Quiet confidence", "Off-duty tailoring". NEVER list the garments in the name; the user can already see them.
 - "reasoning" is one or two sentences, second person, naming the actual pieces and the real weather or plans. Under 220 characters. Write "the camel trench over the navy knit", not "this outfit".
-- "swapNote": when the day's events differ in formality by 2 or more points, this MUST NOT be null. Name the single piece to add or remove, and when. It may only reference pieces belonging to THAT SAME candidate — never a garment from another candidate, and never a candidate id. Only use null when the day genuinely needs no change.
+- "swapNote": when the day's events differ in formality by 2 or more points, this MUST NOT be null. Say how to adjust THIS outfit between them — removing, tucking, rolling, layering off — and when.
+- A swapNote may name ONLY garments listed in that same candidate. Never a garment from another candidate, never a candidate id, and never a garment you were not given at all. "Add a blazer", "bring a light jacket", "throw on a coat" are forbidden: you have not been told this person owns one, and Cinch never suggests clothes someone does not have. If the day genuinely needs a piece that is not in the candidate, say the outfit does not cover that part of the day — do not name the missing garment.
+- Write null for swapNote when the day needs no change. Never the string "None", "N/A", or "No change" — those are printed to the user verbatim.
 - The engine's scores and bracketed notes are grounded facts about colour harmony, warmth, formality and silhouette. Trust them for those judgements. Use your own judgement for what the user said about their day.
 - Never invent a brand, garment, colour, or plan you were not given. Do not describe the weather as anything the numbers do not support.
 - No emoji. No exclamation marks. No "elevate your look", "effortlessly chic", "perfect for any occasion", or similar filler.`;

@@ -41,6 +41,7 @@ export type Database = {
     Tables: {
       ai_calls: {
         Row: {
+          attempts: number | null
           completion_tokens: number | null
           cost_usd: number | null
           created_at: string
@@ -56,6 +57,7 @@ export type Database = {
           workload: Database["public"]["Enums"]["ai_workload"]
         }
         Insert: {
+          attempts?: number | null
           completion_tokens?: number | null
           cost_usd?: number | null
           created_at?: string
@@ -71,6 +73,7 @@ export type Database = {
           workload: Database["public"]["Enums"]["ai_workload"]
         }
         Update: {
+          attempts?: number | null
           completion_tokens?: number | null
           cost_usd?: number | null
           created_at?: string
@@ -116,6 +119,7 @@ export type Database = {
           model_id: string
           params: Json
           provider: string
+          timeout_ms: number
           updated_at: string
           workload: Database["public"]["Enums"]["ai_workload"]
         }
@@ -125,6 +129,7 @@ export type Database = {
           model_id: string
           params?: Json
           provider?: string
+          timeout_ms?: number
           updated_at?: string
           workload: Database["public"]["Enums"]["ai_workload"]
         }
@@ -134,6 +139,7 @@ export type Database = {
           model_id?: string
           params?: Json
           provider?: string
+          timeout_ms?: number
           updated_at?: string
           workload?: Database["public"]["Enums"]["ai_workload"]
         }

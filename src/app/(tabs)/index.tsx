@@ -332,8 +332,12 @@ export default function TodayScreen() {
   // global flag, so keying off it froze and spun every plate at once when one
   // was tapped — and a failed write left no trace at all.
   const [wearState, setWearState] = useState<Record<string, 'pending' | 'failed'>>({});
-  // An explicit pull-to-refresh that came back with nothing to show for itself.
-  const [refreshFailed, setRefreshFailed] = useState(false);
+  // An explicit pull-to-refresh that came back with nothing to show for itself,
+  // and which kind of nothing it was. `timeout` earns its own line: the model
+  // was answering and ran out of road, which is a different fact from the
+  // request having failed, and the one that was actually happening — the whole
+  // of the re-rank's production failure rate was the deadline elapsing.
+  const [refreshFailed, setRefreshFailed] = useState<null | 'offline' | 'timeout'>(null);
 
   const firstName = useFirstName();
 
@@ -498,14 +502,30 @@ export default function TodayScreen() {
     // someone who merely opened the tab — but a pull-to-refresh is an explicit
     // request for a fresh outfit, and refusing that one deserves an answer.
     userAskedRef.current = true;
-    setRefreshFailed(false);
+    setRefreshFailed(null);
     void qc.invalidateQueries({ queryKey: ['wardrobe'] });
     void qc.invalidateQueries({ queryKey: ['weather'] });
     // `refetch`, not an invalidation: the re-rank's key is content-derived
     // (['outfit-rerank', shortlist…]), so with an unchanged shortlist no key
     // ever goes stale and an invalidation of a guessed name is a no-op. This
     // is the hook's own handle for exactly this moment.
-    void refetchRerank();
+    //
+    // The result is read here rather than watched from an effect, because a
+    // failed re-rank is not an error the query ever throws. `generate-outfits`
+    // answers one with HTTP 200 and `ok: false` on purpose — the client already
+    // holds real outfits, so it is a degraded response, not a failed request —
+    // which leaves `aiError` null and the classifier below with nothing to run
+    // on. That is the path the production failure took, all of it, so an
+    // explicit pull during it used to retract the spinner and say nothing at
+    // all. `refetch` resolving IS the answer to this particular pull, so no
+    // later background failure can be mistaken for it.
+    void refetchRerank().then((result) => {
+      // A thrown query (quota, outage, 4xx) still belongs to the effect below,
+      // which is the only place that can tell a refusal from an outage.
+      if (result.error || !result.data || result.data.ok) return;
+      userAskedRef.current = false;
+      setRefreshFailed(result.data.reason === 'styling_timeout' ? 'timeout' : 'offline');
+    });
   }, [qc, refetchRerank]);
 
   useEffect(() => {
@@ -520,7 +540,7 @@ export default function TodayScreen() {
       // Anything else — an outage, a timeout — used to produce nothing at
       // all: the spinner retracted and the same outfits sat there. An
       // explicit request always gets an answer.
-      else setRefreshFailed(true);
+      else setRefreshFailed('offline');
     });
   }, [outfits.aiError, gate]);
 
@@ -823,12 +843,23 @@ export default function TodayScreen() {
           )}
 
           {/* An explicit pull always gets an answer, even when the answer is
-              that nothing changed. Gated on the error still standing, so a
-              re-rank that later comes back clean retires the line without
-              anyone having to remember to clear it. */}
-          {refreshFailed && outfits.aiError ? (
+              that nothing changed. Gated on the re-rank still being in a failed
+              state, so one that later comes back clean retires the line without
+              anyone having to remember to clear it (T-03).
+
+              Two sentences, because there are two truths. "Couldn't refresh"
+              over a model that was working and ran past its budget is the app
+              blaming the network for its own slowness — the same mistake the
+              offline banner exists to avoid on the closet. Neither line
+              promises a retry, and both end on the same reassurance: what is on
+              screen is still today's. */}
+          {refreshFailed && (outfits.status === 'offline' || outfits.status === 'timeout') ? (
             <Notice
-              message="Couldn’t refresh just now — these are still today’s."
+              message={
+                refreshFailed === 'timeout'
+                  ? 'Styling took too long just now — these are still today’s.'
+                  : 'Couldn’t refresh just now — these are still today’s.'
+              }
               className="mt-2 px-gutter"
             />
           ) : null}

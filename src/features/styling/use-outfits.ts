@@ -16,7 +16,7 @@ import type { StyleProfile } from './queries';
 /** How many candidates go up for re-ranking. */
 const SHORTLIST = 12;
 
-export type StylingStatus = 'ai' | 'enhancing' | 'offline' | 'consent_required';
+export type StylingStatus = 'ai' | 'enhancing' | 'offline' | 'timeout' | 'consent_required';
 
 export type StyledOutfit = {
   candidate: OutfitCandidate;
@@ -147,6 +147,13 @@ export function useOutfits({
       return data as {
         ok?: boolean;
         error?: string;
+        /**
+         * Why the re-rank came back empty. `styling_timeout` is the model
+         * having run out of time rather than the request having been refused —
+         * the function separates them because they are not the same news, and
+         * this screen is where the difference is worth a different sentence.
+         */
+        reason?: 'styling_offline' | 'styling_timeout';
         picks?: { candidateId: string; name: string; reasoning: string; swapNote: string | null }[];
       };
     },
@@ -157,11 +164,14 @@ export function useOutfits({
     if (ai.data?.error === 'ai_consent_required') {
       return { outfits: base, status: 'consent_required' as StylingStatus };
     }
+    // A transport error never reaches the function, so it can only be an
+    // outage — the timeout is something the function itself reports back.
     if (ai.isError) return { outfits: base, status: 'offline' as StylingStatus };
     if (!ai.data?.ok || !ai.data.picks?.length) {
+      const failed = ai.data?.reason === 'styling_timeout' ? 'timeout' : 'offline';
       return {
         outfits: base,
-        status: (ai.isFetching ? 'enhancing' : 'offline') as StylingStatus,
+        status: (ai.isFetching ? 'enhancing' : failed) as StylingStatus,
       };
     }
 
