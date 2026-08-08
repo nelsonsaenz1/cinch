@@ -50,16 +50,17 @@ export function RosterRow({
           {name}
         </Text>
         {member.username && member.displayName && !isSelf ? (
-          <Text variant="caption" className="text-faint dark:text-faint-dark" numberOfLines={1}>
+          // `caption` already carries `text-muted` — no second `text-*` class
+          // stacked on it, and `muted` (not `faint`) is the AA-clean choice
+          // for real content (event-social-contract.md §4.1).
+          <Text variant="caption" numberOfLines={1}>
             @{member.username}
           </Text>
         ) : null}
       </View>
 
       {standing ? (
-        <Text variant="label" className="text-faint dark:text-faint-dark">
-          {standing}
-        </Text>
+        <Text variant="label">{standing}</Text>
       ) : null}
 
       {onRemove ? (
