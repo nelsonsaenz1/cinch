@@ -635,7 +635,10 @@ export function Plate({
               tintColor={theme.muted}
               resizeMode="scaleAspectFit"
             />
-            <Text variant="label" className="flex-1 text-ink dark:text-ink-dark">
+            {/* Inline `style`, not a second `text-*` class: `label` already
+                bakes in `text-muted`, and stacking `text-ink` on top of it is
+                resolved by tailwind.config.js's key order, not by intent. */}
+            <Text variant="label" className="flex-1" style={{ color: theme.ink }}>
               {outfit.swapNote}
             </Text>
           </View>

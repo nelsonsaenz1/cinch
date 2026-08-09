@@ -36,7 +36,9 @@ export function closetGap(items: Garment[], minCount: number): ClosetGap {
   if (items.length === 0) return { kind: 'virgin' };
 
   const has = (slot: Garment['slot']) => items.some((g) => g.slot === slot);
-  const hasTop = has('base_top') || has('dress');
+  // `mid_layer` (a knit worn alone) counts as a top, matching `canGenerate`
+  // (queries.ts) and the engine's own `knitsMayAnchor` — see either's comment.
+  const hasTop = has('base_top') || has('mid_layer') || has('dress');
   const hasBottom = has('bottom') || has('dress');
 
   if (!hasTop && !hasBottom) return { kind: 'both' };
@@ -200,11 +202,14 @@ export function SamplePlate({ gap }: { gap: ClosetGap }) {
                     },
               ]}>
               {dashed ? (
+                // `muted`, not `faint`: this is the dashed tile's only content,
+                // not a label duplicated beside an icon — `faint` on canvas is
+                // 3.52:1, an AA failure (see cinch-atlas-vs-design-system).
                 <Text
                   variant="colophon"
                   maxFontSizeMultiplier={1}
                   className="text-center"
-                  style={{ fontSize: 7, lineHeight: 10, letterSpacing: 1, color: theme.faint }}>
+                  style={{ fontSize: 7, lineHeight: 10, letterSpacing: 1, color: theme.muted }}>
                   {dashed}
                 </Text>
               ) : (

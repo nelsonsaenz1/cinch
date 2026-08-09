@@ -127,9 +127,23 @@ export function useWardrobe() {
 /** Enough of a closet to generate something worth showing. */
 export const MIN_CLOSET_FOR_OUTFITS = 8;
 
+/**
+ * `base_top` OR `mid_layer` counts as a top.
+ *
+ * `generateOutfits` (lib/styling/generate.ts) lets a knit anchor its own core
+ * now — "a knit worn on its own is an outfit" — and `outfit-count.ts`'s
+ * `kindOfSlot` already counts `mid_layer` as a top for exactly that reason,
+ * with its own comment that counting it there and refusing it here is the
+ * divergence the Reveal forbids. Before this, a closet of jumpers and
+ * trousers read as having no top at all and never reached this gate.
+ */
+function hasTop(wardrobe: Garment[]): boolean {
+  return wardrobe.some((g) => g.slot === 'base_top' || g.slot === 'mid_layer');
+}
+
 export function canGenerate(wardrobe: Garment[]): boolean {
   const hasCore =
-    (wardrobe.some((g) => g.slot === 'base_top') && wardrobe.some((g) => g.slot === 'bottom')) ||
+    (hasTop(wardrobe) && wardrobe.some((g) => g.slot === 'bottom')) ||
     wardrobe.some((g) => g.slot === 'dress');
   return hasCore && wardrobe.length >= MIN_CLOSET_FOR_OUTFITS;
 }
