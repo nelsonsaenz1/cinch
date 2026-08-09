@@ -70,7 +70,7 @@ const idOf = (items: { id: string }[]) => items.map((g) => g.id).join('.');
  * a constant; it reads as the fallback city only when location is off, and the
  * strip below says so and offers to turn it on.
  */
-function dayLine(city: string) {
+export function dayLine(city: string) {
   const now = new Date();
   const weekday = now.toLocaleDateString('en-US', { weekday: 'short' });
   const month = now.toLocaleDateString('en-US', { month: 'short' });
@@ -87,7 +87,7 @@ function dayLine(city: string) {
  * is no longer today's. With no successful fetch ever recorded there is no time
  * to print, and the line simply doesn't claim one.
  */
-function syncedLine(updatedAt: number): string {
+export function syncedLine(updatedAt: number): string {
   if (!updatedAt) return 'Last synced';
 
   const at = new Date(updatedAt);
@@ -189,7 +189,7 @@ function StylistButton() {
  * (the same oxblood mark the stylist screen carries); the profile is the ink
  * avatar well.
  */
-function Masthead({ city, name }: { city: string; name?: string | null }) {
+export function Masthead({ city, name }: { city: string; name?: string | null }) {
   const router = useRouter();
   const theme = useTheme();
 
@@ -238,7 +238,7 @@ function Masthead({ city, name }: { city: string; name?: string | null }) {
  * the profile avatar drops — there is no fresh morning to attribute to
  * anyone.
  */
-function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
+export function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
   return (
     <View className="px-gutter pt-2">
       <View className="flex-row items-start justify-between gap-3">
@@ -269,10 +269,14 @@ function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
  * wardrobe and weather rather than inventing a scenario the way a canned
  * "a formal lunch in heavy rain" line would.
  */
-function nothingWorksReason(items: Garment[], weather: WeatherContext | null): string {
+export function nothingWorksReason(items: Garment[], weather: WeatherContext | null): string {
   const has = (slot: Garment['slot']) => items.some((g) => g.slot === slot);
 
-  if (!has('base_top') && !has('dress')) {
+  // `mid_layer`, not just `base_top`, counts as a top — a knit worn alone is
+  // an outfit (see `canGenerate` in queries.ts). This branch is only reached
+  // once `canGenerate` has already passed, so without this a wardrobe of
+  // jumpers and trousers would land here and be told it has no top at all.
+  if (!has('base_top') && !has('mid_layer') && !has('dress')) {
     return "Your closet doesn't have a top or a dress in it yet — every outfit needs one of the two.";
   }
   if (!has('bottom') && !has('dress')) {
@@ -294,7 +298,7 @@ function nothingWorksReason(items: Garment[], weather: WeatherContext | null): s
  * actually change the answer — ask the stylist, add the missing kind of piece,
  * or try again. Small icon circles are affordances, not an empty-state hero.
  */
-function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () => void }) {
+export function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () => void }) {
   const router = useRouter();
   const theme = useTheme();
 
