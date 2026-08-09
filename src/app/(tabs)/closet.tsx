@@ -680,10 +680,16 @@ function CapacityColophon() {
     <View className="mt-2 px-gutter">
       {/* `style`, never a second `text-*` class: `caption` already carries
           `text-muted`, and NativeWind resolves two colour utilities on one
-          element by key order, not by intent. */}
+          element by key order, not by intent.
+
+          `muted`, not `faint`. This line is where a person learns their closet
+          is full, at 11px, and `faint` measures about 3.5:1 on canvas — the
+          standing refusal. The whole point of The Wall is that the limit is
+          stated plainly rather than discovered at the camera, which it cannot
+          be if the sentence is the hardest thing on the screen to read. */}
       <Text
         variant="caption"
-        style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4, color: theme.faint }}>
+        style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4, color: theme.muted }}>
         {label}
       </Text>
     </View>
