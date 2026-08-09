@@ -38,28 +38,37 @@ type ItemRow = Database['public']['Tables']['items']['Row'];
  *
  * `useRemoveItems` (features/closet/mutations.ts) rejects `is_archived` as the
  * implementation of Remove, and its first reason is exactly the cost above:
- * *"Nothing in the app can unarchive, so an archived row would burn one of
- * thirty slots permanently."* That objection is about a one-way door, not about
- * the flag. A door with a handle on both sides is a different object: the slot
- * is occupied while the piece is stored and released the moment they delete it
- * for good, and they can always see what is holding their slots and get it back.
+ * *"Nothing in the app can unarchive, so an archived row would burn a closet
+ * slot permanently."* That objection was about a one-way door, not about the
+ * flag, and this screen is the handle on the other side. Since migration
+ * 20260808170000 the objection is weaker still: storing frees the active slot
+ * outright and only spends against the larger total, and a stored piece is
+ * always visible here and always retrievable.
  *
  * So this file does not overturn that docblock, it satisfies the condition in
  * it. Remove stays a hard delete that destroys the photographs; storage keeps
  * every byte, because the photographs are the entire reason to keep a piece you
  * are not currently wearing.
  *
- * ── Restoring is not gated, and this was checked ──────────────────────────
+ * ── Restoring IS gated now, and this is the comment coming back to itself ──
  *
- * `create trigger items_enforce_limit before insert on items`
- * (migrations/20260805160000:283) — INSERT only, no `or update`, and the
- * function body reads only `new.user_id`. An UPDATE back to
- * `is_archived = false` therefore cannot be refused for capacity, which is the
- * correct behaviour rather than a loophole: the row was already counted the
- * whole time it sat in storage, so restoring it consumes nothing new. Should
- * that trigger ever grow `or update`, restore would begin failing with
- * `closet_limit_reached` and the mutation's error would surface it verbatim —
- * this comment is the thing to come back to.
+ * This section used to say restoring could never be refused: the limit was
+ * `before insert` only, and a stored row had been counted the whole time it sat
+ * here, so bringing it back consumed nothing new. It ended by naming the exact
+ * condition that would change that — "should that trigger ever grow `or
+ * update`, restore would begin failing with `closet_limit_reached`".
+ *
+ * It grew one. Migration 20260808170000 added
+ * `items_enforce_limit_on_restore`, `before update of is_archived`, because
+ * once storing frees an active slot the ceiling is otherwise skipped in three
+ * moves: store a piece, fill the freed slot, bring the stored piece back and
+ * hold eleven. The insert trigger cannot see that — nothing is inserted.
+ *
+ * So a restore into a full active closet now fails with
+ * `closet_limit_reached`, and the mutation surfaces the message verbatim, which
+ * is the behaviour the old comment predicted and asked for. The user is not
+ * stuck: storing something else frees the slot, and the piece waits here
+ * intact in the meantime.
  */
 
 const itemColorList = z.array(itemColor);

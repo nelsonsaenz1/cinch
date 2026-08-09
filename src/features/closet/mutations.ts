@@ -273,13 +273,14 @@ async function garmentObjects(
  * like the gentler answer. It isn't, for two reasons that only show up in the
  * schema:
  *
- * 1. **Archived rows still spend the closet allowance.** `enforce_item_limit`
- *    (migrations/20260805160000) counts `select count(*) from items where
- *    user_id = $1` with no archive filter, deliberately — otherwise "archive
- *    everything" would be an unlimited free closet. Nothing in the app can
- *    unarchive, so an archived row would burn one of thirty slots permanently,
- *    and a user who removed ten pieces would still be told her closet is full.
- *    A removal that costs the user capacity forever is not a removal.
+ * 1. **Archived rows spend the ACCOUNT allowance, not the closet one.** This
+ *    said "still spend the closet allowance" until migration 20260808170000
+ *    split the ceiling: the active limit now counts unarchived rows only, so
+ *    storing frees a slot, while a larger total still stops "archive
+ *    everything" becoming an unlimited free closet. The original objection
+ *    stands for THIS function regardless — nothing here can unarchive, and a
+ *    removal that costs the user capacity forever is not a removal, which is
+ *    why Remove is a hard delete and storage is a separate, reversible act.
  *
  * 2. **The cascade does not destroy the history that matters.** The learning
  *    and accounting tables — `style_feedback`, `tag_corrections`, `ai_calls`,
