@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
 import { Button, KeyboardAwareScrollView, Text } from '@/components/ui';
-import { searchPlaces, type Place } from '@/features/context/weather';
+import { useFriends } from '@/features/social-graph/queries';
+import { fetchClimateBand, searchPlaces, type Place } from '@/features/context/weather';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 import { DateRangePicker } from '@/components/plan/date-range-picker';
@@ -13,12 +14,17 @@ import {
   COMPANIONS,
   DAY_PARTS,
   TRIP_QUESTIONS,
+  TRIP_STEPS,
   VIBES,
+  companionOf,
   daysBetween,
   describeDates,
+  toIsoDate,
   type Trip,
+  type TripStepKey,
 } from './trip';
-import { useTripQuestionnaire } from './use-trip-questionnaire';
+import { useRecentDestinations } from './use-trips';
+import { useTripQuestionnaire, type TripDraft, type TripQuestionnaireDevSeed } from './use-trip-questionnaire';
 
 /**
  * Four questions before anything is packed.
@@ -37,7 +43,7 @@ import { useTripQuestionnaire } from './use-trip-questionnaire';
  * tapped.
  */
 
-function AnswerChip({
+export function AnswerChip({
   label,
   selected = false,
   onPress,
@@ -68,10 +74,93 @@ function AnswerChip({
   );
 }
 
+/**
+ * One destination result — the geocoder's answer, plus the climate band that
+ * tells two same-named places apart (K-02).
+ *
+ * Presentational and exported, so the dev route can drive it with a fixture
+ * band and no network call — the same split `dev-comments.tsx` uses for
+ * `CommentRow`.
+ */
+export function PlaceRow({
+  place,
+  band,
+  onPick,
+}: {
+  place: Place;
+  band: { lowC: number; highC: number } | null;
+  onPick: (place: Place) => void;
+}) {
+  // No band resolved (the archive has nothing for this place) falls back to
+  // the region rather than a guessed range — never a guessed number here.
+  const subtitle = band
+    ? `${Math.round(band.lowC)}–${Math.round(band.highC)}°C`
+    : place.admin1 || place.country || null;
+
+  return (
+    <Pressable
+      onPress={() => onPick(place)}
+      accessibilityRole="button"
+      style={{ minHeight: MIN_TAP_TARGET }}
+      className="flex-row items-center justify-between gap-3 border-b border-hairline px-4 py-2.5 active:opacity-60 dark:border-hairline-dark">
+      <View className="flex-1">
+        <Text variant="body">{place.name}</Text>
+        {place.country ? <Text variant="label">{place.country}</Text> : null}
+      </View>
+      {subtitle ? <Text variant="label">{subtitle}</Text> : null}
+    </Pressable>
+  );
+}
+
+/** `PlaceRow` wired to the real archive read — today's date, aborted on unmount. */
+function PlaceRowLive({ place, onPick }: { place: Place; onPick: (place: Place) => void }) {
+  const today = useMemo(() => toIsoDate(new Date()), []);
+  const climate = useQuery({
+    queryKey: ['packing-climate-band', place.name, place.latitude, place.longitude, today],
+    queryFn: ({ signal }) => fetchClimateBand(place.latitude, place.longitude, today, signal),
+    staleTime: 60 * 60_000,
+  });
+  return <PlaceRow place={place} band={climate.data ?? null} onPick={onPick} />;
+}
+
+/**
+ * K-02's "Recent" row. Presentational and exported for the same reason as
+ * `PlaceRow` — a fixture list, no network, for the dev route.
+ */
+export function RecentChips({ places, onPick }: { places: Place[]; onPick: (place: Place) => void }) {
+  if (!places.length) return null;
+  return (
+    <View className="mt-6">
+      <Text variant="label">Recent</Text>
+      <View className="mt-3 flex-row flex-wrap gap-2">
+        {places.map((place) => (
+          <AnswerChip
+            key={`${place.name}-${place.latitude}-${place.longitude}`}
+            label={place.name}
+            onPress={() => onPick(place)}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** The last three distinct destinations. Absent for a first trip — no placeholders. */
+function RecentRow({ onPick }: { onPick: (place: Place) => void }) {
+  const recent = useRecentDestinations();
+  return <RecentChips places={recent.data ?? []} onPick={onPick} />;
+}
+
 /** The place search — the one keyboard in the flow. */
-function DestinationStep({ onPick }: { onPick: (place: Place) => void }) {
+function DestinationStep({
+  initialQuery = '',
+  onPick,
+}: {
+  initialQuery?: string;
+  onPick: (place: Place) => void;
+}) {
   const theme = useTheme();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
 
   const places = useQuery({
     queryKey: ['places', query],
@@ -97,20 +186,16 @@ function DestinationStep({ onPick }: { onPick: (place: Place) => void }) {
       {(places.data?.length ?? 0) > 0 ? (
         <View className="mt-3 overflow-hidden rounded-md border border-hairline dark:border-hairline-dark">
           {places.data!.map((place) => (
-            <Pressable
+            <PlaceRowLive
               key={`${place.name}-${place.latitude}-${place.longitude}`}
-              onPress={() => onPick(place)}
-              accessibilityRole="button"
-              style={{ minHeight: MIN_TAP_TARGET }}
-              className="justify-center border-b border-hairline px-4 active:opacity-60 dark:border-hairline-dark">
-              <Text variant="body">
-                {place.name}
-                <Text variant="label">{place.country ? `  ${place.country}` : ''}</Text>
-              </Text>
-            </Pressable>
+              place={place}
+              onPick={onPick}
+            />
           ))}
         </View>
       ) : null}
+
+      <RecentRow onPick={onPick} />
 
       {/* No spinner and no "no results": a two-letter query mid-typing is not a
           failed search, and a place lookup that fails leaves the field exactly
@@ -123,12 +208,127 @@ function DestinationStep({ onPick }: { onPick: (place: Place) => void }) {
   );
 }
 
-export function TripQuestionnaire({ onComplete }: { onComplete: (trip: Trip) => void }) {
-  const q = useTripQuestionnaire(onComplete);
+/**
+ * Cinch friends attached on top of the closed companion vocabulary.
+ *
+ * Optional, and absent for anyone with no friends yet — the social graph's
+ * own read path, reused rather than duplicated. A friend tapped here changes
+ * only the summary row's display name (`draft.friendNames`); the engine still
+ * reads the vocabulary key.
+ */
+function FriendsAttach({
+  friendIds,
+  onChange,
+}: {
+  friendIds: string[];
+  onChange: (ids: string[], names: string[]) => void;
+}) {
+  const friends = useFriends();
+  const named = (friends.data ?? []).filter((f) => f.displayName || f.username);
+  if (!named.length) return null;
+
+  function toggle(id: string) {
+    const nextIds = friendIds.includes(id) ? friendIds.filter((x) => x !== id) : [...friendIds, id];
+    const nextNames = nextIds
+      .map((fid) => named.find((f) => f.userId === fid)?.displayName || named.find((f) => f.userId === fid)?.username)
+      .filter((n): n is string => Boolean(n));
+    onChange(nextIds, nextNames);
+  }
+
+  return (
+    <View className="mt-6">
+      <Text variant="label">Add friends (optional)</Text>
+      <Text variant="body" className="mt-1 text-muted dark:text-muted-dark">
+        Names their trip summary, not what gets packed.
+      </Text>
+      <View className="mt-3 flex-row flex-wrap gap-2">
+        {named.map((f) => (
+          <AnswerChip
+            key={f.userId}
+            label={(f.displayName || f.username)!}
+            selected={friendIds.includes(f.userId)}
+            onPress={() => toggle(f.userId)}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** `describeCompanions`'s list joiner, without the leading "with". */
+function joinNames(names: string[]): string {
+  if (names.length === 1) return names[0]!;
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+type SummaryRow = { step: TripStepKey; label: string; value: string };
+
+/** The three rows K-03 keeps visible at the top, tappable to revise. */
+function summaryRows(draft: TripDraft): SummaryRow[] {
+  const rows: SummaryRow[] = [];
+
+  if (draft.destination) {
+    rows.push({
+      step: 'destination',
+      label: 'Where',
+      value: [draft.destination.name, draft.destination.country].filter(Boolean).join(', '),
+    });
+  }
+  if (draft.companions) {
+    rows.push({
+      step: 'companions',
+      label: 'Who with',
+      // Friend names, when any were attached, else the vocabulary label —
+      // never a typed or invented name.
+      value: draft.friendNames.length ? joinNames(draft.friendNames) : companionOf(draft.companions).label,
+    });
+  }
+  if (draft.startsOn && draft.endsOn) {
+    rows.push({ step: 'dates', label: 'Dates', value: describeDates(draft.startsOn, draft.endsOn) });
+  }
+
+  return rows;
+}
+
+function AnsweredSummary({ rows, onRevise }: { rows: SummaryRow[]; onRevise: (step: TripStepKey) => void }) {
+  if (!rows.length) return null;
+  return (
+    <View className="mb-5 overflow-hidden rounded-md border border-hairline dark:border-hairline-dark">
+      {rows.map((row, i) => (
+        <Pressable
+          key={row.step}
+          onPress={() => onRevise(row.step)}
+          accessibilityRole="button"
+          accessibilityLabel={`${row.label}: ${row.value}. Tap to revise.`}
+          className={[
+            'flex-row items-center justify-between px-4 py-3 active:opacity-60',
+            i < rows.length - 1 ? 'border-b border-hairline dark:border-hairline-dark' : '',
+          ].join(' ')}>
+          <Text variant="label">{row.label}</Text>
+          <Text variant="body">{row.value}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+export function TripQuestionnaire({
+  onComplete,
+  devSeed,
+}: {
+  onComplete: (trip: Trip) => void;
+  /** Dev-only: opens the questionnaire already partway answered. See the hook. */
+  devSeed?: TripQuestionnaireDevSeed;
+}) {
+  const q = useTripQuestionnaire(onComplete, devSeed);
 
   /** Null until the dates are answered, which is what the arithmetic waits on. */
   const tripLength =
     q.draft.startsOn && q.draft.endsOn ? daysBetween(q.draft.startsOn, q.draft.endsOn) : null;
+
+  const answered = summaryRows(q.draft).filter(
+    (row) => TRIP_STEPS.indexOf(row.step) < TRIP_STEPS.indexOf(q.step),
+  );
 
   return (
     <KeyboardAwareScrollView
@@ -138,6 +338,12 @@ export function TripQuestionnaire({ onComplete }: { onComplete: (trip: Trip) => 
         Packing · {q.position} of {q.total}
       </Text>
 
+      {answered.length > 0 ? (
+        <View className="mt-4">
+          <AnsweredSummary rows={answered} onRevise={q.goTo} />
+        </View>
+      ) : null}
+
       <View className="mt-3">
         <Text variant="title" trim>
           {TRIP_QUESTIONS[q.step]}
@@ -146,19 +352,27 @@ export function TripQuestionnaire({ onComplete }: { onComplete: (trip: Trip) => 
 
       <View className="mt-6">
         {q.step === 'destination' ? (
-          <DestinationStep onPick={(place) => q.answer('destination', { destination: place })} />
+          <DestinationStep
+            initialQuery={q.draft.destination?.name ?? ''}
+            onPick={(place) => q.answer('destination', { destination: place })}
+          />
         ) : null}
 
         {q.step === 'companions' ? (
-          <View className="flex-row flex-wrap gap-2">
-            {COMPANIONS.map((c) => (
-              <AnswerChip
-                key={c.key}
-                label={c.label}
-                onPress={() => q.answer('companions', { companions: c.key })}
-              />
-            ))}
-          </View>
+          <>
+            <View className="flex-row flex-wrap gap-2">
+              {COMPANIONS.map((c) => (
+                <AnswerChip
+                  key={c.key}
+                  label={c.label}
+                  selected={q.draft.companions === c.key}
+                  onPress={() => q.answer('companions', { companions: c.key })}
+                />
+              ))}
+            </View>
+
+            <FriendsAttach friendIds={q.draft.friendIds} onChange={q.setCompanionFriends} />
+          </>
         ) : null}
 
         {q.step === 'dates' ? (

@@ -1,14 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { View } from 'react-native';
 
-import { ExampleTrips } from '@/components/plan/example-ghosts';
-import { Button, Card, ErrorState, ListSkeleton, Rule, SectionHeader, Text } from '@/components/ui';
+import { Button, ErrorState, ListSkeleton, Text } from '@/components/ui';
+import { PLANS } from '@/features/billing/plans';
 
 import { PackingTrip } from './packing-trip';
-import type { Trip } from './trip';
+import { daysBetween, type Trip } from './trip';
 import { TripQuestionnaire } from './trip-questionnaire';
 import { usePackingAccess, type UnlockState } from './use-packing-access';
 import { STALL_DEADLINE_MS, useStalled } from './use-stalled';
+import { useLastPackedTrip, useStartTrip, type SavedTrip } from './use-trips';
 
 /**
  * Packing, end to end: the gate, the questions, the trip.
@@ -19,26 +20,71 @@ import { STALL_DEADLINE_MS, useStalled } from './use-stalled';
  * Packing tab was the camera, which is the founder's complaint in one sentence:
  * the screen asked for work before it offered any thinking. The camera entry
  * point is gone from packing entirely (the Week mode keeps it, where "add
- * clothes" is genuinely the next step), and what opens instead is five
+ * clothes" is genuinely the next step), and what opens instead is four
  * questions.
  */
 
+/** The fields K-01's history line actually reads — not a full `SavedTrip`. */
+type LastTripSummary = Pick<SavedTrip, 'destination' | 'startsOn' | 'endsOn' | 'pieceCount' | 'lookCount'>;
+
+const GATE_BULLETS = [
+  'Four questions, then destination weather for your actual dates.',
+  'A look for every day part — not a pile of clothes.',
+  'Repeats counted, so the bag stays small.',
+];
+
 /**
- * The locked state.
- *
- * Composed the way the guide's other "you can't have this yet" moments are —
- * caps kicker, one serif line, one honest paragraph, one action — and set in a
- * plate rather than centred, because a centred badge-and-illustration empty is
- * the AI-slop pattern `empty-state.tsx` exists to avoid.
- *
- * It says what packing IS before it asks for money. A lock with no description
- * of what is behind it converts nothing and reads as a toll gate; the founder's
- * whole objection to nagging is that it costs trust the app cannot re-earn.
+ * Spelled out, matching the atlas ("four days in Lisbon", "eleven pieces and
+ * nine looks") and `packing-math.ts`'s own private `word()` table — that
+ * module is Phase 1's and read-only here, so this is a second, small copy
+ * rather than an edit to a shared file. Filed as a primitive request
+ * (`.redesign/primitive-requests/q.md`) since two identical tables in one
+ * repo is exactly the kind of drift the shared layer exists to prevent.
  */
-function PackingLocked({
+const NUMBER_WORDS = [
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+  'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen',
+  'nineteen', 'twenty',
+];
+const numberWord = (n: number): string => NUMBER_WORDS[n] ?? String(n);
+
+/**
+ * K-01's history line — "Your last trip — four days in Lisbon — came out at
+ * eleven pieces and nine looks." Renders nothing if either count is somehow
+ * unset (defensive: `useLastPackedTrip` already filters to trips with
+ * `saved_at`, which in practice always carries both counts together).
+ */
+function LastTripLine({ trip }: { trip: LastTripSummary }) {
+  if (trip.pieceCount == null || trip.lookCount == null) return null;
+  const days = daysBetween(trip.startsOn, trip.endsOn);
+
+  return (
+    <View className="rounded-md bg-tray px-3.5 py-3 dark:bg-tray-dark">
+      <Text variant="body">
+        Your last trip — {numberWord(days)} {days === 1 ? 'day' : 'days'} in {trip.destination.name} — came
+        out at {numberWord(trip.pieceCount)} pieces and {numberWord(trip.lookCount)} looks.
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * K-01 — the gate a free user sees, showing exactly the thing it is gating
+ * (docs/design/membership-packing-contract.md §2.4). Composed straight on the
+ * page rather than inside a card — the atlas draws no plate here, just the
+ * headline, the paragraph, the three bullets and (when there is one) the
+ * user's own history.
+ *
+ * Presentational and exported so the dev route can drive both the "history"
+ * and "first trip" states without a network round trip — the same split
+ * `dev-comments.tsx` uses for `CommentRow`.
+ */
+export function PackingGate({
+  lastTrip,
   onUnlock,
   unlockState,
 }: {
+  lastTrip: LastTripSummary | null;
   onUnlock: () => void;
   unlockState: UnlockState;
 }) {
@@ -46,70 +92,92 @@ function PackingLocked({
 
   return (
     <View className="px-gutter pt-2">
-      <Card padding="xl">
-        <SectionHeader title="Membership" />
-        <View className="mt-3">
-          <Text variant="title" trim>
-            Packing is part of Cinch membership.
-          </Text>
+      <Text variant="title" trim>
+        Pack from the closet you already own.
+      </Text>
+
+      <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+        Tell Cinch where you’re going and who with. It checks the weather
+        there, then builds the bag day by day — wearing the same trousers
+        three ways instead of packing three pairs.
+      </Text>
+
+      <View className="mt-5 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+        {GATE_BULLETS.map((line, i) => (
+          <View
+            key={line}
+            className={[
+              'flex-row gap-2.5 px-4 py-3.5',
+              i < GATE_BULLETS.length - 1 ? 'border-b border-hairline dark:border-hairline-dark' : '',
+            ].join(' ')}>
+            <Text variant="body">•</Text>
+            <Text variant="body" className="flex-1">
+              {line}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* A first-time user gets no line at all — never an invented Lisbon. */}
+      {lastTrip ? (
+        <View className="mt-4">
+          <LastTripLine trip={lastTrip} />
         </View>
-        <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
-          Tell Cinch where you are going, who with and what kind of trip it is,
-          and it reads the place — how warm, how dressed-up, what people
-          actually wear there — then packs it from the clothes already in your
-          closet. That part comes with Standard and Pro.
+      ) : null}
+
+      {/*
+        THE CTA IS NEVER ALLOWED TO DEAD-END.
+
+        The membership sheet behind this button is not live yet, and a button
+        that opens nothing is worse than one that admits it — the user taps,
+        judges the app broken, and is right. When `unlock()` comes back having
+        shown nobody anything, the action is replaced by one quiet line in the
+        page's own grammar. No alert, no toast: this is information, and the
+        guide sets information in the surface it belongs to.
+      */}
+      {unavailable ? (
+        // `muted`, not `faint`: this line is the only statement of why there
+        // is no button, so it is real content, and `faint` on canvas fails
+        // AA (see the contrast note in ui/text.tsx). Quiet is the voice, not
+        // the contrast.
+        <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
+          Membership opens soon — Packing unlocks with it.
         </Text>
-
-        <View className="my-4">
-          <Rule />
-        </View>
-
-        <Text variant="body" className="text-muted dark:text-muted-dark">
-          Your closet, your week and your occasions stay free, exactly as they
-          are.
-        </Text>
-
-        {/* P-10: what packing produces, sketched in the ghost voice above
-            the plate's one action — so the ask comes after a glimpse of the
-            thing being asked for. */}
-        <View className="mt-[18px]">
-          <ExampleTrips />
-        </View>
-
-        {/*
-          THE CTA IS NEVER ALLOWED TO DEAD-END.
-
-          The membership sheet behind this button is not live yet, and a button
-          that opens nothing is worse than one that admits it — the user taps,
-          judges the app broken, and is right. When `unlock()` comes back having
-          shown nobody anything, the action is replaced by one quiet line in the
-          plate's own grammar. No alert, no toast: this is information, and the
-          guide sets information in the surface it belongs to.
-
-          Replaced rather than disabled-with-a-note, because a greyed-out
-          "See membership" still reads as something the user failed to earn.
-        */}
-        {unavailable ? (
-          // `muted`, not `faint`: this line is the only statement of why there
-          // is no button, so it is real content, and `faint` on canvas fails
-          // AA (see the contrast note in ui/text.tsx). Quiet is the voice, not
-          // the contrast.
-          <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
-            Membership opens soon — Packing unlocks with it.
-          </Text>
-        ) : (
-          /* The screen's one oxblood action. */
+      ) : (
+        <>
+          {/* The screen's one oxblood action. */}
           <Button
-            title="See membership"
+            title="Pack a trip with Pro"
             onPress={onUnlock}
             loading={unlockState === 'opening'}
             haptic
             className="mt-6 self-stretch"
           />
-        )}
-      </Card>
+          {/* Only the monthly price the client actually knows
+              (`PLANS.pro.monthlyPriceHint`). The atlas also prints a yearly
+              figure; there is no yearly price anywhere in the client, and
+              StoreKit prices are the paywall's job, not this gate's. */}
+          {PLANS.pro.monthlyPriceHint ? (
+            <Text variant="label" className="mt-2 text-center text-muted dark:text-muted-dark">
+              {PLANS.pro.monthlyPriceHint}/mo
+            </Text>
+          ) : null}
+        </>
+      )}
     </View>
   );
+}
+
+/** Reads the real history, then hands off to the presentational gate above. */
+function PackingLocked({
+  onUnlock,
+  unlockState,
+}: {
+  onUnlock: () => void;
+  unlockState: UnlockState;
+}) {
+  const lastPacked = useLastPackedTrip();
+  return <PackingGate lastTrip={lastPacked.data ?? null} onUnlock={onUnlock} unlockState={unlockState} />;
 }
 
 /**
@@ -130,6 +198,22 @@ export function PackingTab({
   const access = usePackingAccess(active);
   const qc = useQueryClient();
   const stalled = useStalled(access.loading, STALL_DEADLINE_MS);
+  const startTrip = useStartTrip();
+
+  /**
+   * A finished questionnaire is recorded immediately, before anything is
+   * packed — so K-06's "your answers are saved" is true after a later
+   * timeout, and so K-01's own history line has something to quote next time.
+   *
+   * The write is fire-and-forget on purpose. Packing proceeds from the
+   * answers already in memory either way; a failed insert here costs only the
+   * ability to reopen this trip later, which is not worth turning a finished
+   * questionnaire into an error screen over.
+   */
+  const handleComplete = (finished: Trip) => {
+    startTrip.mutate(finished, { onError: () => {} });
+    onTrip(finished);
+  };
 
   // The entitlement is unknown for one round trip on a cold start. Drawing the
   // lock during it would flash "you have not paid" at a paying subscriber —
@@ -157,7 +241,7 @@ export function PackingTab({
     return <PackingLocked onUnlock={access.unlock} unlockState={access.unlockState} />;
   }
 
-  if (!trip) return <TripQuestionnaire onComplete={onTrip} />;
+  if (!trip) return <TripQuestionnaire onComplete={handleComplete} />;
 
   return <PackingTrip trip={trip} onStartAgain={() => onTrip(null)} />;
 }
