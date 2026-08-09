@@ -151,7 +151,7 @@ export default function StorageScreen() {
 
       {/* The honest line. It used to say the unpleasant thing — a stored piece
           still spent a closet slot — because that was true. Migration
-          20260808170000 split the ceiling in two and made storing actually free
+          20260808190100 split the ceiling in two and made storing actually free
           an active slot, so the sentence had to change with the behaviour or it
           would have become the one place the app lied about its own limit. The
           second ceiling is still named, because a person putting pieces away to

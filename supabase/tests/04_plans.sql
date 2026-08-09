@@ -8,7 +8,7 @@ select is(item_limit_for_plan('free'),     10,   'free closet limit');
 select is(item_limit_for_plan('standard'), 150,  'standard closet limit');
 select is(item_limit_for_plan('pro'),      1000, 'pro closet limit');
 
--- The total ceiling: every row, stored pieces included (20260808170000).
+-- The total ceiling: every row, stored pieces included (20260808190100).
 select is(item_total_limit_for_plan('free'),     30,   'free stored limit');
 select is(item_total_limit_for_plan('standard'), 450,  'standard stored limit');
 select is(item_total_limit_for_plan('pro'),      3000, 'pro stored limit');

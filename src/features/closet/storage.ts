@@ -22,7 +22,7 @@ type ItemRow = Database['public']['Tables']['items']['Row'];
  * impossible: past ten, the only way forward was payment, which is the failure
  * the design set out to avoid.
  *
- * Migration 20260808170000 splits the ceiling in two. The ACTIVE limit counts
+ * Migration 20260808190100 splits the ceiling in two. The ACTIVE limit counts
  * unarchived rows — what Cinch styles from — and storing lowers it, so making
  * room genuinely works. The TOTAL limit counts everything and is what now stops
  * "archive everything" becoming an unlimited free closet; it sits at three
@@ -41,7 +41,7 @@ type ItemRow = Database['public']['Tables']['items']['Row'];
  * *"Nothing in the app can unarchive, so an archived row would burn a closet
  * slot permanently."* That objection was about a one-way door, not about the
  * flag, and this screen is the handle on the other side. Since migration
- * 20260808170000 the objection is weaker still: storing frees the active slot
+ * 20260808190100 the objection is weaker still: storing frees the active slot
  * outright and only spends against the larger total, and a stored piece is
  * always visible here and always retrievable.
  *
@@ -58,7 +58,7 @@ type ItemRow = Database['public']['Tables']['items']['Row'];
  * condition that would change that — "should that trigger ever grow `or
  * update`, restore would begin failing with `closet_limit_reached`".
  *
- * It grew one. Migration 20260808170000 added
+ * It grew one. Migration 20260808190100 added
  * `items_enforce_limit_on_restore`, `before update of is_archived`, because
  * once storing frees an active slot the ceiling is otherwise skipped in three
  * moves: store a piece, fill the freed slot, bring the stored piece back and

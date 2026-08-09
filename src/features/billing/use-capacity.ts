@@ -32,7 +32,7 @@ export interface Capacity {
  * How much room is left in the closet.
  *
  * TWO counts, because the database enforces two ceilings (migration
- * 20260808170000) and they have different remedies.
+ * 20260808190100) and they have different remedies.
  *
  * `used` is the ACTIVE closet — unarchived rows, what Cinch styles from and
  * what the grid shows. Storing a piece lowers it, which is what makes The

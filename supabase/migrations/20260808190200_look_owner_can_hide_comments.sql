@@ -31,7 +31,7 @@ create policy "event_comments: look owner or host can hide" on event_comments
   using (
     public.is_event_host(event_id)
     or exists (
-      select 1 from public.event_posts p
+      select 1 from public.event_outfit_posts p
        where p.id = event_comments.post_id
          and p.user_id = (select auth.uid())
     )
@@ -39,7 +39,7 @@ create policy "event_comments: look owner or host can hide" on event_comments
   with check (
     public.is_event_host(event_id)
     or exists (
-      select 1 from public.event_posts p
+      select 1 from public.event_outfit_posts p
        where p.id = event_comments.post_id
          and p.user_id = (select auth.uid())
     )

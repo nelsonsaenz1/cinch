@@ -131,7 +131,7 @@ export const PLAN_ITEM_LIMITS: Record<Plan, number> = {
 
 /**
  * Every row an account may hold, stored pieces included. Mirrors
- * `item_total_limit_for_plan()` in migration 20260808170000.
+ * `item_total_limit_for_plan()` in migration 20260808190100.
  *
  * The active limit above is what Cinch styles from; this is the ceiling that
  * stops "archive everything" becoming unlimited free storage. Storing a piece

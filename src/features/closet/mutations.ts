@@ -274,7 +274,7 @@ async function garmentObjects(
  * schema:
  *
  * 1. **Archived rows spend the ACCOUNT allowance, not the closet one.** This
- *    said "still spend the closet allowance" until migration 20260808170000
+ *    said "still spend the closet allowance" until migration 20260808190100
  *    split the ceiling: the active limit now counts unarchived rows only, so
  *    storing frees a slot, while a larger total still stops "archive
  *    everything" becoming an unlimited free closet. The original objection
