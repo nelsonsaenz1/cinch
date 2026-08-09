@@ -90,7 +90,7 @@ function buildPrompt(body: ValidatedPackingRequest): string {
     `  month: ${trip.month || 'unspecified'}`,
     `  length: ${trip.days} days`,
     `  travelling: ${trip.companionsLabel || trip.companions}`,
-    `  kind of trip: ${trip.vibeLabel || trip.vibe}`,
+    `  kind of trip: ${(trip.vibeLabels.length ? trip.vibeLabels : trip.vibes).join(', ')}`,
     `  parts of the day to dress: ${trip.parts.join(', ')}`,
   ];
   parts.push(`THE TRIP\n${tripLines.join('\n')}`);
@@ -191,6 +191,30 @@ export default {
 
       if (config && !config.enabled) {
         return fail('packing_disabled', 'Packing briefs are turned off right now.', 503);
+      }
+
+      // ── Membership. Packing is Pro. ───────────────────────────────────────
+      //
+      // The `stylist_chat` allowance below already excludes free, which is why
+      // this function could rely on it alone while packing was "any paying
+      // plan". Packing became Pro-only on 2026-08-09
+      // (docs/design/membership-packing-contract.md §2.4) and Standard still
+      // has 30 stylist messages a month, so the allowance would now let a
+      // Standard client straight through. The boundary has to be stated where
+      // it is enforced.
+      //
+      // `effective_plan` folds the 14-day trial into `pro`, exactly as
+      // `usePlan()` does on the client, so a trialing account packs and neither
+      // side has to know about trials separately.
+      const { data: effectivePlan } = await admin.rpc('effective_plan', {
+        p_user_id: userId,
+      });
+
+      if (effectivePlan !== 'pro') {
+        return Response.json(
+          { error: 'plan_upgrade_required', requiredPlan: 'pro' },
+          { status: 402 },
+        );
       }
 
       // ── Allowance. After the free rejections, before the provider — a unit

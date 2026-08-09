@@ -142,7 +142,20 @@ export function usePackingAccess(active: boolean): PackingAccess {
    * adding a second way to hang.
    */
   const loading = session.loading || planLoading;
-  const allowed = plan !== 'free';
+  /**
+   * PRO, not "any paying plan".
+   *
+   * This read `plan !== 'free'` until 2026-08-09, which let Standard pack. The
+   * atlas prices packing as the thing Pro adds, and the founder moved the
+   * product rather than the copy — nothing had shipped, so nobody was sold a
+   * Standard subscription with packing in it. `usePlan()` folds the 14-day
+   * trial into `pro`, so a trialing account still packs.
+   *
+   * The server enforces the same boundary independently (`packing-brief`
+   * checks the plan before spending anything), so a patched client that got
+   * past this gets a 402 rather than a brief.
+   */
+  const allowed = plan === 'pro';
 
   /** Guards the async `unlock` against setting state on an unmounted tab. */
   const live = useRef(true);

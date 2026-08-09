@@ -6,22 +6,26 @@ import { Button, KeyboardAwareScrollView, Text } from '@/components/ui';
 import { searchPlaces, type Place } from '@/features/context/weather';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
+import { DateRangePicker } from '@/components/plan/date-range-picker';
+
+import { looksSentence } from './packing-math';
 import {
   COMPANIONS,
   DAY_PARTS,
-  TRIP_LENGTHS,
   TRIP_QUESTIONS,
   VIBES,
+  daysBetween,
+  describeDates,
   type Trip,
 } from './trip';
 import { useTripQuestionnaire } from './use-trip-questionnaire';
 
 /**
- * Five questions before anything is packed.
+ * Four questions before anything is packed.
  *
  * Set the way every other hard-left composition in the app is set — eyebrow,
  * one serif line, the controls, nothing centred and no progress furniture
- * beyond the honest "2 of 5". The answers are chips because a chip is one tap
+ * beyond the honest "2 of 4". The answers are chips because a chip is one tap
  * and a text field is a small essay; the only keyboard in the flow is the place
  * search, and even there what is kept is the geocoder's answer rather than the
  * string typed.
@@ -122,6 +126,10 @@ function DestinationStep({ onPick }: { onPick: (place: Place) => void }) {
 export function TripQuestionnaire({ onComplete }: { onComplete: (trip: Trip) => void }) {
   const q = useTripQuestionnaire(onComplete);
 
+  /** Null until the dates are answered, which is what the arithmetic waits on. */
+  const tripLength =
+    q.draft.startsOn && q.draft.endsOn ? daysBetween(q.draft.startsOn, q.draft.endsOn) : null;
+
   return (
     <KeyboardAwareScrollView
       contentContainerClassName="px-gutter pb-16 pt-2"
@@ -153,33 +161,51 @@ export function TripQuestionnaire({ onComplete }: { onComplete: (trip: Trip) => 
           </View>
         ) : null}
 
-        {q.step === 'vibe' ? (
-          <View className="flex-row flex-wrap gap-2">
-            {VIBES.map((v) => (
-              <AnswerChip
-                key={v.key}
-                label={v.label}
-                onPress={() => q.answer('vibe', { vibe: v.key })}
-              />
-            ))}
-          </View>
-        ) : null}
-
-        {q.step === 'length' ? (
-          <View className="flex-row flex-wrap gap-2">
-            {TRIP_LENGTHS.map((n) => (
-              <AnswerChip
-                key={n}
-                label={`${n} days`}
-                onPress={() => q.answer('length', { days: n })}
-              />
-            ))}
-          </View>
-        ) : null}
-
-        {q.step === 'parts' ? (
+        {q.step === 'dates' ? (
           <>
-            <View className="flex-row flex-wrap gap-2">
+            <DateRangePicker
+              startsOn={q.draft.startsOn}
+              endsOn={q.draft.endsOn}
+              onChange={(range) =>
+                q.setDates(range.startsOn, range.endsOn)
+              }
+            />
+            <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
+              Real dates, not a length — Cinch pulls the forecast for the days
+              you are actually there.
+            </Text>
+            <Button
+              title={
+                q.draft.startsOn && q.draft.endsOn
+                  ? describeDates(q.draft.startsOn, q.draft.endsOn)
+                  : 'Pick your dates'
+              }
+              onPress={() => q.answer('dates', {})}
+              disabled={!q.draft.startsOn || !q.draft.endsOn}
+              haptic
+              className="mt-8 self-stretch"
+            />
+          </>
+        ) : null}
+
+        {q.step === 'shape' ? (
+          <>
+            <Text variant="label">Vibe</Text>
+            <View className="mt-3 flex-row flex-wrap gap-2">
+              {VIBES.map((v) => (
+                <AnswerChip
+                  key={v.key}
+                  label={v.label}
+                  selected={q.draft.vibes.includes(v.key)}
+                  onPress={() => q.toggleVibe(v.key)}
+                />
+              ))}
+            </View>
+
+            <View className="mt-6">
+              <Text variant="label">Day parts</Text>
+            </View>
+            <View className="mt-3 flex-row flex-wrap gap-2">
               {DAY_PARTS.map((p) => (
                 <AnswerChip
                   key={p.key}
@@ -189,16 +215,28 @@ export function TripQuestionnaire({ onComplete }: { onComplete: (trip: Trip) => 
                 />
               ))}
             </View>
-            <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
-              Pick as many as apply. A beach week is mornings and days; a wedding
-              weekend is days and nights.
-            </Text>
+
+            {/* The running arithmetic — how the questionnaire stays honest
+                about what it is about to produce. The look count, and nothing
+                else: a predicted piece count would be a promise made before
+                the search that produces it (packing-math.ts). */}
+            {tripLength !== null && q.draft.parts.length > 0 ? (
+              <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                {looksSentence(tripLength, q.draft.parts)}
+              </Text>
+            ) : (
+              <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                Pick as many as are true. This decides how many looks the bag has
+                to carry.
+              </Text>
+            )}
+
             {/* The screen's one oxblood action, and the only button in the
                 flow — every other answer commits on the tap that gives it. */}
             <Button
-              title="Pack for this"
+              title="Pack the bag"
               onPress={q.complete}
-              disabled={q.draft.parts.length === 0 || !q.draft.destination}
+              disabled={q.draft.vibes.length === 0 || q.draft.parts.length === 0}
               haptic
               className="mt-8 self-stretch"
             />

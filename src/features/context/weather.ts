@@ -114,9 +114,80 @@ export async function fetchForecast(
   const res = await fetch(`${ENDPOINT}?${params}`, { signal });
   if (!res.ok) throw new Error(`Forecast request failed: ${res.status}`);
 
-  const json = (await res.json()) as OpenMeteoResponse & {
-    daily?: { wind_speed_10m_max?: number[] };
-  };
+  // Shared with `fetchForecastRange` and the archive reader below. Three copies
+  // of this mapping is how one of them silently stops applying apparent
+  // temperature.
+  return dailyToContexts((await res.json()) as OpenMeteoResponse);
+}
+
+// ---------------------------------------------------------------------------
+// Forecasting a trip that has not started yet
+// ---------------------------------------------------------------------------
+
+/**
+ * How far ahead Open-Meteo will actually forecast.
+ *
+ * The number matters to the product, not just to this module: it is the exact
+ * line between K-05 quoting a real forecast and K-06's first failure quoting a
+ * normal September instead. Booking a trip three months out is the common case,
+ * so that failure is not an edge — it is most first trips.
+ */
+export const FORECAST_HORIZON_DAYS = 16;
+
+/** Whole days from today, in the local calendar, to a `YYYY-MM-DD`. */
+function daysAhead(isoDate: string): number {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const target = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1, 12, 0, 0, 0);
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+}
+
+/** True when the whole range is inside the forecast horizon. */
+export const hasForecastFor = (startsOn: string, endsOn: string): boolean =>
+  daysAhead(startsOn) >= 0 && daysAhead(endsOn) <= FORECAST_HORIZON_DAYS;
+
+/**
+ * The forecast for a specific date range rather than for the next N days.
+ *
+ * `fetchForecast` above counts forward from today, which is right for the week
+ * planner and useless for a trip: "12–15 September" is not "the next four
+ * days". Open-Meteo takes the range directly, so this is the same endpoint with
+ * two more parameters and none of the arithmetic.
+ *
+ * Returns an empty array when the range is outside the horizon, rather than a
+ * silently wrong one — the caller is expected to fall back to
+ * `fetchSeasonalNormals` and to SAY that it did.
+ */
+export async function fetchForecastRange(
+  latitude: number,
+  longitude: number,
+  startsOn: string,
+  endsOn: string,
+  signal?: AbortSignal,
+): Promise<WeatherContext[]> {
+  if (!hasForecastFor(startsOn, endsOn)) return [];
+
+  const params = new URLSearchParams({
+    latitude: latitude.toFixed(2),
+    longitude: longitude.toFixed(2),
+    daily:
+      'temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_probability_max,wind_speed_10m_max',
+    temperature_unit: 'celsius',
+    wind_speed_unit: 'kmh',
+    timezone: 'auto',
+    start_date: startsOn,
+    end_date: endsOn,
+  });
+
+  const res = await fetch(`${ENDPOINT}?${params}`, { signal });
+  if (!res.ok) throw new Error(`Forecast request failed: ${res.status}`);
+
+  return dailyToContexts((await res.json()) as OpenMeteoResponse);
+}
+
+/** The shared shape of every daily Open-Meteo payload, in one place. */
+function dailyToContexts(json: OpenMeteoResponse & { daily?: { wind_speed_10m_max?: number[] } }) {
   const d = json.daily;
   if (!d?.temperature_2m_max?.length) return [];
 
@@ -132,6 +203,140 @@ export async function fetchForecast(
       swing: highC - lowC >= 8,
     };
   });
+}
+
+/**
+ * What that place is normally like on those dates.
+ *
+ * NOT A FORECAST, AND THE SCREEN HAS TO SAY SO. This reads Open-Meteo's ARCHIVE
+ * — what the weather actually was on the same dates in previous years — rather
+ * than a climate model's projection. "Lisbon is 18 to 27° in September" is then
+ * a fact with a provenance, which is the difference between K-06's honest
+ * fallback and an invented range.
+ *
+ * Three years, because two is an accident and ten is a request that takes long
+ * enough to feel like the app hung. `years` comes back with the numbers so the
+ * caller can attribute them if it wants to.
+ */
+const ARCHIVE_ENDPOINT = 'https://archive-api.open-meteo.com/v1/archive';
+
+const NORMALS_YEARS = 3;
+
+export type SeasonalNormals = {
+  /** One entry per day of the range, so the packing engine can run unchanged. */
+  perDay: WeatherContext[];
+  lowC: number;
+  highC: number;
+  /** How many previous years were averaged. */
+  years: number;
+};
+
+export async function fetchSeasonalNormals(
+  latitude: number,
+  longitude: number,
+  startsOn: string,
+  endsOn: string,
+  signal?: AbortSignal,
+): Promise<SeasonalNormals | null> {
+  const startYear = Number(startsOn.slice(0, 4));
+  const runs = await Promise.all(
+    Array.from({ length: NORMALS_YEARS }, (_, i) =>
+      fetchArchiveRange(
+        latitude,
+        longitude,
+        `${startYear - i - 1}${startsOn.slice(4)}`,
+        `${startYear - i - 1}${endsOn.slice(4)}`,
+        signal,
+      ).catch(() => [] as WeatherContext[]),
+    ),
+  );
+
+  const usable = runs.filter((r) => r.length > 0);
+  if (!usable.length) return null;
+
+  // Averaged across years, day by day. A range that crossed a leap day in one
+  // year and not another comes back a day short; the shortest run bounds it
+  // rather than padding with a repeat of the last day.
+  const length = Math.min(...usable.map((r) => r.length));
+  const perDay: WeatherContext[] = [];
+
+  for (let i = 0; i < length; i++) {
+    const highC = mean(usable.map((r) => r[i]!.highC));
+    const lowC = mean(usable.map((r) => r[i]!.lowC));
+    perDay.push({
+      feelsLikeC: (highC + lowC) / 2,
+      highC,
+      lowC,
+      // Deliberately zero. "It rained on the 14th three Septembers ago" is not
+      // a reason to pack a raincoat for the 14th, and the memo must not claim a
+      // wet afternoon it cannot know about.
+      precipitationChance: 0,
+      windKph: mean(usable.map((r) => r[i]!.windKph)),
+      swing: highC - lowC >= 8,
+    });
+  }
+
+  if (!perDay.length) return null;
+
+  return {
+    perDay,
+    lowC: Math.round(Math.min(...perDay.map((d) => d.lowC))),
+    highC: Math.round(Math.max(...perDay.map((d) => d.highC))),
+    years: usable.length,
+  };
+}
+
+const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
+
+async function fetchArchiveRange(
+  latitude: number,
+  longitude: number,
+  startsOn: string,
+  endsOn: string,
+  signal?: AbortSignal,
+): Promise<WeatherContext[]> {
+  const params = new URLSearchParams({
+    latitude: latitude.toFixed(2),
+    longitude: longitude.toFixed(2),
+    daily:
+      'temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,wind_speed_10m_max',
+    temperature_unit: 'celsius',
+    wind_speed_unit: 'kmh',
+    timezone: 'auto',
+    start_date: startsOn,
+    end_date: endsOn,
+  });
+
+  const res = await fetch(`${ARCHIVE_ENDPOINT}?${params}`, { signal });
+  if (!res.ok) throw new Error(`Archive request failed: ${res.status}`);
+  return dailyToContexts((await res.json()) as OpenMeteoResponse);
+}
+
+/**
+ * The band that tells two Lisbons apart (K-02).
+ *
+ * Portugal in September is 18–24°; Ohio is 6–14°. Nothing else in a geocoder
+ * result distinguishes them for someone deciding what to pack, which is why the
+ * atlas puts the climate where a subtitle would normally go.
+ *
+ * Returns null rather than a guess when the archive has nothing — the row then
+ * falls back to the region, which is the ordinary disambiguation.
+ */
+export async function fetchClimateBand(
+  latitude: number,
+  longitude: number,
+  onIsoDate: string,
+  signal?: AbortSignal,
+): Promise<{ lowC: number; highC: number } | null> {
+  const normals = await fetchSeasonalNormals(
+    latitude,
+    longitude,
+    onIsoDate,
+    onIsoDate,
+    signal,
+  ).catch(() => null);
+
+  return normals ? { lowC: normals.lowC, highC: normals.highC } : null;
 }
 
 export type Place = {

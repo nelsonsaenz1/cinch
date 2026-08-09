@@ -10,14 +10,15 @@ import { Button, EmptyState, ErrorState, ListSkeleton, Rule, SectionHeader, Text
 import { useCloset } from '@/features/closet/queries';
 import { stableImageSource, useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
-import { fetchForecast } from '@/features/context/weather';
+import { fetchForecastRange } from '@/features/context/weather';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { DEFAULT_WEIGHTS } from '@/lib/styling';
 import type { Item } from '@/schemas/item';
 import { GUTTER, useTheme } from '@/theme/tokens';
 
+import { lookSchedule, repeatLabel } from './packing-math';
 import { buildPackingList } from './packing';
-import { dayPartOf, formalityFor, tripColophon, type Trip } from './trip';
+import { dayPartOf, formalityForPart, tripColophon, tripDays, type Trip } from './trip';
 import { usePackingBrief, type PackingBriefError } from './use-packing-brief';
 
 /**
@@ -160,11 +161,18 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
       'forecast',
       trip.destination.latitude.toFixed(2),
       trip.destination.longitude.toFixed(2),
-      trip.days,
+      trip.startsOn,
+      trip.endsOn,
     ],
     staleTime: 30 * 60_000,
     queryFn: ({ signal }) =>
-      fetchForecast(trip.destination.latitude, trip.destination.longitude, trip.days, signal),
+      fetchForecastRange(
+        trip.destination.latitude,
+        trip.destination.longitude,
+        trip.startsOn,
+        trip.endsOn,
+        signal,
+      ),
   });
 
   const brief = usePackingBrief({
@@ -182,18 +190,17 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
    */
   const capsule = useMemo(() => {
     if (!forecast.data?.length || !canGenerate(wardrobe)) return null;
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
     return buildPackingList({
       wardrobe,
+      schedule: lookSchedule(trip.startsOn, tripDays(trip), trip.parts),
       forecasts: forecast.data,
-      startDate: start,
       baseContext: context,
       weights: profileQuery.data?.weights ?? DEFAULT_WEIGHTS,
-      // The tapped vibe, not each day's own guess: a wedding trip is a 5 on the
-      // Tuesday it rains too, and the number travelled with the chip precisely
-      // so it would not have to be re-inferred here.
-      formality: formalityFor(trip),
+      // The tapped vibes, not each day's own guess: a wedding trip is a 5 on
+      // the Tuesday it rains too, and the number travelled with the chip
+      // precisely so it would not have to be re-inferred here. The part shifts
+      // it — an evening out is dressier than the same trip's afternoon.
+      formalityForPart: (part) => formalityForPart(trip, part),
     });
   }, [forecast.data, wardrobe, context, profileQuery.data?.weights, trip]);
 
@@ -226,8 +233,8 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
   const capsuleRows = useMemo(
     () =>
       (capsule?.items ?? [])
-        .map(({ garment, days }) => ({ item: byId.get(garment.id), days }))
-        .filter((r): r is { item: Item; days: number } => Boolean(r.item)),
+        .map(({ garment, looks, worn }) => ({ item: byId.get(garment.id), looks, worn }))
+        .filter((r): r is { item: Item; looks: number; worn: boolean } => Boolean(r.item)),
     [capsule, byId],
   );
 
@@ -359,14 +366,12 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
           makes ("the capsule below is unaffected") is kept in pixels. */}
       {capsule && suggested.length === 0 ? (
         <View className="mt-3">
-          {capsuleRows.map(({ item, days }) => (
+          {capsuleRows.map(({ item, looks, worn }) => (
             <View key={item.id} className="flex-row items-center gap-2">
               <View className="flex-1">
                 <SuggestionRow item={item} uri={resolve(item.platePath, item.cutoutPath)} />
               </View>
-              <Text variant="label">
-                {days === trip.days ? 'every day' : `${days} ${days === 1 ? 'day' : 'days'}`}
-              </Text>
+              <Text variant="label">{repeatLabel(looks, worn)}</Text>
             </View>
           ))}
         </View>

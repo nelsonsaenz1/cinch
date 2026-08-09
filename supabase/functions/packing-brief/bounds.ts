@@ -34,7 +34,22 @@ const MAX_GARMENT_FIELD_CHARS = 120;
 const MAX_ID_CHARS = 64;
 const MAX_DAYS = 30;
 
-const PARTS = ['morning', 'day', 'night'] as const;
+/**
+ * The day parts the questionnaire asks for.
+ *
+ * Was `morning, day, night` until 2026-08-09, when atlas 28 replaced them with
+ * these four. Both vocabularies are accepted: an old build sending `day` must
+ * not 400, and `LEGACY_PARTS` maps it onto the closest new key rather than
+ * dropping it — a brief with no day parts at all is a worse answer than a brief
+ * for the daytime.
+ */
+const PARTS = ['daytime', 'evening', 'gym', 'travel'] as const;
+
+const LEGACY_PARTS: Record<string, (typeof PARTS)[number]> = {
+  morning: 'daytime',
+  day: 'daytime',
+  night: 'evening',
+};
 export type PartKey = (typeof PARTS)[number];
 
 export type ValidatedGarment = {
@@ -53,8 +68,9 @@ export type ValidatedPackingRequest = {
     days: number;
     companions: string;
     companionsLabel: string;
-    vibe: string;
-    vibeLabel: string;
+    /** At least one. Multi-select since atlas 28 — "pick as many as are true". */
+    vibes: string[];
+    vibeLabels: string[];
     parts: PartKey[];
     partLabels: string[];
     month: string;
@@ -114,6 +130,7 @@ function parsePart(value: unknown, field: string): PartKey {
   if (typeof value === 'string' && (PARTS as readonly string[]).includes(value)) {
     return value as PartKey;
   }
+  if (typeof value === 'string' && LEGACY_PARTS[value]) return LEGACY_PARTS[value]!;
   throw new BoundsError(`${field} must be one of ${PARTS.join(', ')}.`);
 }
 
@@ -125,6 +142,28 @@ export function parsePackingRequest(raw: unknown): ValidatedPackingRequest {
     parsePart(p, `trip.parts[${i}]`),
   );
   if (!parts.length) throw new BoundsError('trip.parts is required.');
+
+  /**
+   * The vibe went from one choice to a set on 2026-08-09.
+   *
+   * A build older than that sends `vibe`/`vibeLabel` as strings, and the
+   * function has to keep answering it — the bounds module's whole premise is
+   * that a shape change must not 400 every user on yesterday's binary. The
+   * array wins when both arrive.
+   */
+  const MAX_VIBES = 6;
+  const rawVibes = trip.vibes ?? (trip.vibe === undefined ? undefined : [trip.vibe]);
+  const rawVibeLabels =
+    trip.vibeLabels ?? (trip.vibeLabel === undefined ? undefined : [trip.vibeLabel]);
+
+  const vibes = boundedArray(rawVibes, 'trip.vibes', MAX_VIBES).map((v, i) =>
+    requiredString(v, `trip.vibes[${i}]`, MAX_KEY_CHARS),
+  );
+  if (!vibes.length) throw new BoundsError('trip.vibes is required.');
+
+  const vibeLabels = boundedArray(rawVibeLabels ?? [], 'trip.vibeLabels', MAX_VIBES).map((v, i) =>
+    requiredString(v, `trip.vibeLabels[${i}]`, MAX_LABEL_CHARS),
+  );
 
   const garments = boundedArray(body.garments, 'garments', MAX_GARMENTS).map((entry, i) => {
     const g = asObject(entry, `garments[${i}]`);
@@ -158,8 +197,8 @@ export function parsePackingRequest(raw: unknown): ValidatedPackingRequest {
       days: Math.round(boundedNumber(trip.days, 'trip.days', 1, MAX_DAYS)),
       companions: requiredString(trip.companions, 'trip.companions', MAX_KEY_CHARS),
       companionsLabel: optionalString(trip.companionsLabel, 'trip.companionsLabel', MAX_LABEL_CHARS),
-      vibe: requiredString(trip.vibe, 'trip.vibe', MAX_KEY_CHARS),
-      vibeLabel: optionalString(trip.vibeLabel, 'trip.vibeLabel', MAX_LABEL_CHARS),
+      vibes,
+      vibeLabels,
       parts,
       partLabels: boundedArray(trip.partLabels, 'trip.partLabels', PARTS.length).map((p, i) =>
         requiredString(p, `trip.partLabels[${i}]`, MAX_LABEL_CHARS),

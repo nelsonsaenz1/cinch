@@ -5,8 +5,10 @@ import type { Place } from '@/features/context/weather';
 import {
   DAY_PARTS,
   TRIP_STEPS,
+  VIBES,
   type CompanionKey,
   type DayPartKey,
+  type IsoDate,
   type Trip,
   type TripStepKey,
   type VibeKey,
@@ -31,8 +33,13 @@ import {
 export type TripDraft = {
   destination: Place | null;
   companions: CompanionKey | null;
-  vibe: VibeKey | null;
-  days: number | null;
+  /** Cinch friends coming too. Optional everywhere — most trips name nobody. */
+  friendIds: string[];
+  friendNames: string[];
+  startsOn: IsoDate | null;
+  endsOn: IsoDate | null;
+  /** Multi-select, kept in `VIBES` order however it was tapped. */
+  vibes: VibeKey[];
   /** Multi-select, kept in `DAY_PARTS` order however it was tapped. */
   parts: DayPartKey[];
 };
@@ -40,12 +47,16 @@ export type TripDraft = {
 const EMPTY: TripDraft = {
   destination: null,
   companions: null,
-  vibe: null,
-  days: null,
+  friendIds: [],
+  friendNames: [],
+  startsOn: null,
+  endsOn: null,
+  vibes: [],
   parts: [],
 };
 
 const PART_ORDER = DAY_PARTS.map((p) => p.key);
+const VIBE_ORDER = VIBES.map((v) => v.key);
 
 /**
  * Index and answers in ONE state value, deliberately.
@@ -98,11 +109,13 @@ export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
   }, [setRun]);
 
   /**
-   * The one question that does not advance on tap.
+   * The last question does not advance on tap, and asks two things.
    *
-   * Mornings, days and nights are a set, not a choice, so the step needs an
-   * explicit finish — which is also the only place a primary button appears in
-   * the whole flow.
+   * The vibes are a set and the day parts are a set — "pick as many as are
+   * true" — so the step needs an explicit finish, which is also the only place
+   * a primary button appears in the whole flow. Both toggles keep their answer
+   * in vocabulary order however it was tapped, so the summary row reads the
+   * same way twice.
    */
   const togglePart = useCallback((key: DayPartKey) => {
     setRun((run) => {
@@ -113,6 +126,37 @@ export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
       return { ...run, draft: { ...run.draft, parts } };
     });
   }, [setRun]);
+
+  const toggleVibe = useCallback((key: VibeKey) => {
+    setRun((run) => {
+      const has = run.draft.vibes.includes(key);
+      const vibes = (has ? run.draft.vibes.filter((v) => v !== key) : [...run.draft.vibes, key])
+        .slice()
+        .sort((a, b) => VIBE_ORDER.indexOf(a) - VIBE_ORDER.indexOf(b));
+      return { ...run, draft: { ...run.draft, vibes } };
+    });
+  }, [setRun]);
+
+  /**
+   * The date range, which is two answers to one question.
+   *
+   * Does not advance: the picker is a calendar, and a first tap is a start, not
+   * a finished answer. The step's button is what moves on.
+   */
+  const setDates = useCallback(
+    (startsOn: IsoDate | null, endsOn: IsoDate | null) => {
+      setRun((run) => ({ ...run, draft: { ...run.draft, startsOn, endsOn } }));
+    },
+    [setRun],
+  );
+
+  /** Friends coming along. Ids and names move together or not at all. */
+  const setCompanionFriends = useCallback(
+    (friendIds: string[], friendNames: string[]) => {
+      setRun((run) => ({ ...run, draft: { ...run.draft, friendIds, friendNames } }));
+    },
+    [setRun],
+  );
 
   const back = useCallback(() => {
     setRun((run) => ({ ...run, index: Math.max(0, run.index - 1) }));
@@ -128,11 +172,22 @@ export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
    * throw from a press handler would be a red box over a questionnaire.
    */
   const complete = useCallback(() => {
-    const { destination, companions, vibe, days, parts } = draft;
-    if (!destination || !companions || !vibe || !days || !parts.length) return;
+    const { destination, companions, friendIds, friendNames, startsOn, endsOn, vibes, parts } =
+      draft;
+    if (!destination || !companions || !startsOn || !endsOn) return;
+    if (!vibes.length || !parts.length) return;
     // The trip is the Plan screen's from here; the held run has done its job.
     heldRun = FRESH;
-    onComplete({ destination, companions, vibe, days, parts });
+    onComplete({
+      destination,
+      companions,
+      friendIds,
+      friendNames,
+      startsOn,
+      endsOn,
+      vibes,
+      parts,
+    });
   }, [draft, onComplete]);
 
   return useMemo(
@@ -145,10 +200,25 @@ export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
       canGoBack: index > 0,
       answer,
       togglePart,
+      toggleVibe,
+      setDates,
+      setCompanionFriends,
       back,
       reset,
       complete,
     }),
-    [step, index, draft, answer, togglePart, back, reset, complete],
+    [
+      step,
+      index,
+      draft,
+      answer,
+      togglePart,
+      toggleVibe,
+      setDates,
+      setCompanionFriends,
+      back,
+      reset,
+      complete,
+    ],
   );
 }

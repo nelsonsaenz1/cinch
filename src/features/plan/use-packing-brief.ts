@@ -4,7 +4,15 @@ import { closetDigest } from '@/features/stylist/intent';
 import type { Garment, WeatherContext } from '@/lib/styling';
 import { supabase } from '@/lib/supabase';
 
-import { companionOf, dayPartOf, vibeOf, type DayPartKey, type Trip } from './trip';
+import {
+  companionOf,
+  dayPartOf,
+  fromIsoDate,
+  tripDays,
+  vibeOf,
+  type DayPartKey,
+  type Trip,
+} from './trip';
 
 /**
  * The destination brief — the only part of packing that costs a model call.
@@ -152,8 +160,9 @@ export function usePackingBrief({
       'packing-brief',
       trip?.destination.name,
       trip?.destination.country,
-      trip?.days,
-      trip?.vibe,
+      trip?.startsOn,
+      trip?.endsOn,
+      trip?.vibes.join('-'),
       trip?.companions,
       trip?.parts.join('-'),
       garments.length,
@@ -174,16 +183,22 @@ export function usePackingBrief({
           trip: {
             destination: t.destination.name,
             country: t.destination.country,
-            days: t.days,
+            days: tripDays(t),
             companions: t.companions,
             companionsLabel: companionOf(t.companions).label,
-            vibe: t.vibe,
-            vibeLabel: vibeOf(t.vibe).label,
+            vibes: t.vibes,
+            vibeLabels: t.vibes.map((v) => vibeOf(v).label),
             parts: t.parts,
             partLabels: t.parts.map((p) => dayPartOf(p).title),
-            // The month is what decides the packing, and it is a fact about the
-            // calendar rather than about the user — no timestamp, no location.
-            month: new Date().toLocaleDateString('en-US', { month: 'long' }),
+            // The month of the TRIP, not of today. This used to send the
+            // current month, which was right only while the questionnaire asked
+            // for a length instead of dates — a trip booked in August for
+            // September was researched as August.
+            //
+            // A month name, not the dates: it is a fact about the calendar
+            // rather than about the user, and the model is being asked what a
+            // place is like in a season.
+            month: fromIsoDate(t.startsOn).toLocaleDateString('en-US', { month: 'long' }),
           },
           digest: closetDigest(wardrobe),
           styleSummary,

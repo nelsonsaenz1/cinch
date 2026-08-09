@@ -8,16 +8,48 @@ import {
   type WeatherContext,
 } from '@/lib/styling';
 
+import type { Look } from './packing-math';
+import { fromIsoDate, type DayPartKey, type IsoDate } from './trip';
+
 export type PlannedDay = {
   date: Date;
   weather: WeatherContext | null;
   outfit: OutfitCandidate | null;
 };
 
+/** One dressed moment: a day of the trip, and a part of that day. */
+export type PackedLook = {
+  dayIndex: number;
+  date: IsoDate;
+  part: DayPartKey;
+  weather: WeatherContext | null;
+  outfit: OutfitCandidate | null;
+};
+
+export type PackedPiece = {
+  garment: Garment;
+  /** How many looks it appears in — the `×3` on the piece. */
+  looks: number;
+  /**
+   * On your feet on the plane, so not in the bag. Exactly one piece at most,
+   * and it prints `worn` where the others print a count.
+   */
+  worn: boolean;
+};
+
 export type PackingResult = {
-  days: PlannedDay[];
-  /** Every distinct garment needed, ordered by how many days it covers. */
-  items: { garment: Garment; days: number }[];
+  looks: PackedLook[];
+  /** Every distinct garment needed, ordered by how many looks it covers. */
+  items: PackedPiece[];
+  /**
+   * Looks the closet could not fill.
+   *
+   * K-06's second failure is the honest sentence built from this: "Six looks,
+   * not eight — you don't own anything that works for a warm evening out."
+   * Counting them is the only way that sentence can be true, so the search is
+   * never quietly given a smaller target.
+   */
+  unfilled: number;
 };
 
 /**
@@ -53,66 +85,84 @@ const REUSE_BOOST: Partial<Record<Garment['slot'], number>> = {
 
 export function buildPackingList({
   wardrobe,
+  schedule,
   forecasts,
-  startDate,
   baseContext,
   weights,
-  formality,
+  formalityForPart,
 }: {
   wardrobe: Garment[];
-  /** One entry per day of the trip. */
-  forecasts: WeatherContext[];
-  startDate: Date;
+  /** Every look the trip needs, from `lookSchedule`. */
+  schedule: readonly Look[];
+  /** Indexed by `dayIndex`. A day with no weather is dressed without one. */
+  forecasts: readonly (WeatherContext | null)[];
   baseContext: StyleContext;
   weights: StyleWeights;
-  /** Target formality for the trip, or null to let each day decide. */
-  formality: number | null;
+  /**
+   * Target formality for a part of the day, or null to let the day decide.
+   *
+   * A function rather than a number because the evening is dressier than the
+   * afternoon of the same trip, and the gym is neither — see
+   * `formalityForPart` in trip.ts, which is what callers pass.
+   */
+  formalityForPart: (part: DayPartKey) => number | null;
 }): PackingResult {
   const packed: Affinities = { colorPairs: {}, slotPairs: {}, items: {}, brands: {} };
   const packingWeights: StyleWeights = { ...weights, affinity: 1.6 };
 
-  const days: PlannedDay[] = [];
-  const usage = new Map<string, { garment: Garment; days: number }>();
+  const looks: PackedLook[] = [];
+  const usage = new Map<string, { garment: Garment; looks: number }>();
 
-  forecasts.forEach((weather, i) => {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
+  for (const look of schedule) {
+    const weather = forecasts[look.dayIndex] ?? null;
 
     const ctx: StyleContext = {
       ...baseContext,
       weather,
       events: [],
       note: null,
-      targetFormality: formality,
-      now: date.getTime(),
+      targetFormality: formalityForPart(look.part),
+      now: fromIsoDate(look.date).getTime(),
     };
 
     const [outfit] = generateOutfits(wardrobe, ctx, {
       weights: packingWeights,
       affinities: packed,
       count: 1,
-      // Variety across days comes from the scorer, not from forcing difference
-      // between candidates within a single day.
+      // Variety across looks comes from the scorer, not from forcing difference
+      // between candidates within a single look.
       diversity: 0,
     });
 
-    days.push({ date, weather, outfit: outfit ?? null });
+    looks.push({ ...look, weather, outfit: outfit ?? null });
 
     for (const g of outfit?.items ?? []) {
       const boost = REUSE_BOOST[g.slot] ?? 0.5;
       packed.items[g.id] = Math.min(1, (packed.items[g.id] ?? 0) + boost);
 
       const entry = usage.get(g.id);
-      if (entry) entry.days += 1;
-      else usage.set(g.id, { garment: g, days: 1 });
+      if (entry) entry.looks += 1;
+      else usage.set(g.id, { garment: g, looks: 1 });
     }
-  });
+  }
+
+  /**
+   * The shoes you leave the house in.
+   *
+   * "The loafers stay on your feet on the plane" is the memo's own line, and it
+   * is the reason the bag is one piece smaller than the piece count suggests.
+   * The departure look decides it — the first look of the trip — and only
+   * footwear qualifies, because nothing else is unambiguously not in the bag.
+   */
+  const wornId =
+    looks[0]?.outfit?.items.find((g) => g.slot === 'footwear')?.id ?? null;
 
   return {
-    days,
-    items: [...usage.values()].sort(
-      (a, b) => b.days - a.days || a.garment.slot.localeCompare(b.garment.slot),
-    ),
+    looks,
+    items: [...usage.values()]
+      .sort((a, b) => b.looks - a.looks || a.garment.slot.localeCompare(b.garment.slot))
+      .map((entry) => ({ ...entry, worn: entry.garment.id === wornId })),
+    unfilled: looks.filter((l) => !l.outfit).length,
   };
 }
 
