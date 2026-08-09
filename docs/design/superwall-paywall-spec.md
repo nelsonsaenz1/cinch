@@ -64,14 +64,15 @@ Two gaps, both real:
    Standard all match; Pro does not. (A trialing account never registers the placement, because
    `usePackingAccess` folds the trial into Pro.)
 
-3. **Campaign 100436 has the same shape and has NOT been changed — deliberately.** Its audience
-   (168899) is also `no_active_entitlements`, so a **Standard** subscriber who hits the 150-item
-   ceiling, the 15-a-day outfit ceiling, the 30-a-month stylist ceiling or the 15-event hosting
-   ceiling matches nothing and is never offered Pro. That is a lost upsell rather than a broken
-   button — those call sites all carry their own refusal copy — and it cannot be fixed here
-   alone, because `context-lines.ts` keys its line on the PLACEMENT and not on the caller's
-   current plan. Widen that audience today and a Standard user at 150 garments reads "Ten pieces
-   is where the free closet stops. You have ten." The client change comes first.
+3. ~~**Campaign 100436 has the same shape.**~~ **FIXED 2026-08-09, client first.** Audience
+   168899 had the same rule, so a **Standard** subscriber who hit the 150-item ceiling, the
+   daily outfit ceiling, the monthly stylist ceiling or the 15-event hosting ceiling matched
+   nothing and was never offered Pro. It could not be widened on its own: `context-lines.ts`
+   keyed its line on the PLACEMENT alone, so a Standard user at 150 garments would have read
+   "Ten pieces is where the free closet stops. You have ten." `contextLineFor` now takes the
+   caller's plan — `use-gate.ts` reads it from `usePlan()` so no call site had to learn about
+   billing — and four paid-tier lines were added that quote `PLANS` rather than frozen numbers.
+   The audience was widened only after that shipped.
 
 ---
 

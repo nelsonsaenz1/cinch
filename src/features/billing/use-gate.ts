@@ -6,6 +6,7 @@ import { useCallback, useId, useMemo } from 'react';
 import { track } from '@/lib/posthog';
 
 import { contextLineFor, type ContextLineOpts } from './context-lines';
+import { usePlan } from './use-plan';
 import type { PlacementName } from './placements';
 import { recordPaywallOrigin } from './paywall-origin';
 import { PAYWALLS_ENABLED } from './superwall';
@@ -300,6 +301,8 @@ function useSuperwallGate(): Gate {
 
   const { dismiss } = useSuperwall((state) => ({ dismiss: state.dismiss }));
 
+  const { plan } = usePlan();
+
   // Captured fresh on every render so `present()` always closes over the
   // route it was actually called from, not a stale one from a gate mounted
   // higher up and never re-rendered.
@@ -474,7 +477,11 @@ function useSuperwallGate(): Gate {
       // than rendering the literal word "null". `trigger` rides along too:
       // useful on the dashboard side for a campaign that wants to branch on
       // more than the placement name alone.
-      const context = contextLineFor(placement, contextOpts);
+      // The plan is read here rather than asked of every call site: seven
+      // places register placements, and six of them have no reason to know
+      // about billing at all. `usePlan` folds the trial into `pro`, so a
+      // trialing account never reads as Standard.
+      const context = contextLineFor(placement, { ...contextOpts, plan });
       const params: Record<string, unknown> = { trigger: placement };
       if (context) params.context = context;
 
@@ -496,7 +503,7 @@ function useSuperwallGate(): Gate {
 
       return outcome;
     },
-    [arm, ownerId, pathname, registerPlacement, settle],
+    [arm, ownerId, pathname, plan, registerPlacement, settle],
   );
 
   // Memoized so the Gate is stable across renders: consumers put it in effect
