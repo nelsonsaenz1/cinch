@@ -191,9 +191,11 @@ only part of the page that changes between the six ways in.
 The six strings live in `src/features/billing/context-lines.ts` and are versioned in git. Do not
 retype them into the editor; a copy in a dashboard is a copy that drifts.
 
-MB-02 also shows Standard carrying a disclaimer — `Doesn't include packing.` — which the app
-sends as a second param and which appears **only for the `packing_access` trigger**. For the
-stylist trigger there is no disclaimer, because Standard includes the stylist.
+MB-02 also shows Standard carrying a disclaimer — `Doesn't include packing.` The app sends
+`trigger` alongside `context`, so the document shows that disclaimer **only when
+`trigger == "packing_access"`**. For the stylist trigger there is no disclaimer at all, because
+Standard includes the stylist — the atlas's "Doesn't include the stylist" describes tiers this
+app does not sell.
 
 ---
 
