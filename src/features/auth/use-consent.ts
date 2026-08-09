@@ -20,9 +20,12 @@ import { getUserId, supabase } from '@/lib/supabase';
  * forces every existing user to re-consent.
  *
  * v2 is the 2026-08 rewrite of the disclosure: it names the AI partner,
- * states the no-retention/no-training claim and the face-recognition claim in
- * so many words, and introduces local mode as a real alternative. The text
- * changed materially, so consent given to v1 does not cover it.
+ * states in so many words what does and does not travel with the photo and
+ * that face recognition never runs, and introduces local mode as a real
+ * alternative. Per system-safety-contract.md §3 it does NOT claim the
+ * partner retains nothing or trains on nothing — nobody has verified that,
+ * and a consent sheet is the wrong place to guess. The text changed
+ * materially, so consent given to v1 does not cover it.
  */
 export const CURRENT_CONSENT_VERSION = 2;
 

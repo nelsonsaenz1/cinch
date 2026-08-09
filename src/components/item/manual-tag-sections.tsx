@@ -197,7 +197,7 @@ export function ManualTagSections({
               hitSlop={8}
               style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
               className="active:opacity-60">
-              <Text variant="label" style={{ color: theme.faint }}>
+              <Text variant="label" style={{ color: theme.muted }}>
                 More
               </Text>
             </Pressable>

@@ -748,7 +748,7 @@ export default function ItemDetailScreen() {
                     <Text
                       variant="title"
                       className="mt-3"
-                      style={manual?.name.trim() ? undefined : { color: theme.faint }}>
+                      style={manual?.name.trim() ? undefined : { color: theme.muted }}>
                       {manual?.name.trim() ? manual.name : 'Untitled item'}
                     </Text>
                   </Pressable>

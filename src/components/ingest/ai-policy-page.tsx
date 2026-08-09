@@ -28,7 +28,7 @@ const SECTIONS = [
   },
   {
     eyebrow: 'Stored by them',
-    body: 'Nothing, past the seconds it takes to answer. Under our agreement the photo is not retained and is not used to train models.',
+    body: 'That is between Cinch and our AI partner, and it is governed by our agreement with them rather than by anything Cinch can enforce on your behalf. We send the least we can — one photo, at reduced resolution, with nothing attached to it.',
   },
   {
     eyebrow: 'Never',

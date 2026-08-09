@@ -993,12 +993,13 @@ export default function CaptureScreen() {
                   </Text>
                   {/* `label`, not `caption`: the count is a sibling of the headline,
                   not a footnote under a thumbnail — 11px beside 17px read as
-                  debris. Colour rides inline; the variant's own `muted` loses
-                  to it, which is the one precedence that holds. Once settled,
-                  nothing rides here: a failure count already leads the banner
-                  below as its eyebrow, and saying it twice is nagging. */}
+                  debris. Colour rides inline as `muted` — `faint` is under AA
+                  on canvas and this is text, not a decorative mark. Once
+                  settled, nothing rides here: a failure count already leads
+                  the banner below as its eyebrow, and saying it twice is
+                  nagging. */}
                   {!allDone ? (
-                    <Text variant="label" style={{ color: theme.faint }}>{`${active} to go`}</Text>
+                    <Text variant="label" style={{ color: theme.muted }}>{`${active} to go`}</Text>
                   ) : null}
                 </View>
 

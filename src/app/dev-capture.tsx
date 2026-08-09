@@ -388,8 +388,8 @@ function ConsentReplica() {
       rest: ' which returns a category, colour and fabric.',
     },
     {
-      lead: 'They don’t keep it and don’t train on it.',
-      rest: ' It’s deleted once the tags come back.',
+      lead: 'It goes to one AI partner and comes straight back.',
+      rest: ' We don’t send your name, your email, your location, or anything else from your closet.',
     },
     {
       lead: 'We keep the photo and the tags',

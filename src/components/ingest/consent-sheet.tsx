@@ -18,10 +18,17 @@ import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
  * redesigned per the 2026-08 consent atlas (frame A-01).
  *
  * The disclosure is four numbered facts, stated plainly rather than buried
- * behind a policy link: where the photo goes, that the partner keeps nothing
- * and trains on nothing, what Cinch itself keeps, and that face recognition
- * never runs. Consent is also enforced server-side on every Edge Function
- * call; this is the "ask first" half.
+ * behind a policy link: where the photo goes and what does NOT travel with
+ * it, what Cinch itself keeps, and that face recognition never runs. Consent
+ * is also enforced server-side on every Edge Function call; this is the "ask
+ * first" half.
+ *
+ * Every claim here is one this app can prove about ITS OWN behaviour.
+ * system-safety-contract.md §3 is explicit: a retention or no-training
+ * promise about the AI partner is not something Cinch has verified, and
+ * printing it in a consent sheet would be the single worst sentence the app
+ * could contain. Restore a stronger claim only once the provider terms are
+ * confirmed in writing.
  *
  * PRESENTED AS A BOTTOM SHEET OVER THE DIMMED SCREEN, not a pageSheet — the
  * shot the decision is about is still visible, dimmed, behind the ask.
@@ -44,8 +51,8 @@ const FACTS = [
     rest: ' which returns a category, colour and fabric.',
   },
   {
-    lead: 'They don’t keep it and don’t train on it.',
-    rest: ' It’s deleted once the tags come back.',
+    lead: 'It goes to one AI partner and comes straight back.',
+    rest: ' We don’t send your name, your email, your location, or anything else from your closet.',
   },
   {
     lead: 'We keep the photo and the tags',

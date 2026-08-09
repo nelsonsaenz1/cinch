@@ -337,7 +337,7 @@ export default function PrivacyScreen() {
             disabled={!sentCount}
             style={{ minHeight: MIN_TAP_TARGET }}
             className="mt-7 justify-center border-t border-rule pt-5 active:opacity-60">
-            <Text variant="caption" className="text-faint">
+            <Text variant="caption" className="text-muted">
               {`Consent recorded ${recordedDate(consent.data!.grantedAt!)}, policy v${consent.data!.version}. `}
               {sentCount ? (
                 <Text variant="caption" style={{ color: theme.accent }}>
