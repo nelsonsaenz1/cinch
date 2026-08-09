@@ -55,6 +55,18 @@ export interface PlanCopy {
   readonly eventHosting: number;
   /** Null on free; filled from StoreKit once billing ships, not hard-coded. */
   readonly monthlyPriceHint: string | null;
+  /**
+   * The yearly price, for surfaces that quote both — K-01's gate says
+   * "$14.99/mo · $119/yr" exactly as the atlas draws it.
+   *
+   * A HINT, like the monthly one, and for the same reason: the paywall itself
+   * reads StoreKit and formats in the device locale, because a price typed
+   * into a layout is wrong in every country but one. These two exist so a
+   * screen can name the tier without a round trip. Verified against the
+   * Superwall products on 2026-08-09 — cinch.pro.annual $119.00,
+   * cinch.standard.annual $59.00.
+   */
+  readonly annualPriceHint: string | null;
 }
 
 export const PLANS: Record<Plan, PlanCopy> = {
@@ -66,6 +78,7 @@ export const PLANS: Record<Plan, PlanCopy> = {
     stylist: 'Not included',
     eventHosting: 2,
     monthlyPriceHint: null,
+    annualPriceHint: null,
   },
   standard: {
     name: 'Standard',
@@ -75,6 +88,7 @@ export const PLANS: Record<Plan, PlanCopy> = {
     stylist: '30 messages a month',
     eventHosting: 15,
     monthlyPriceHint: '$7.99',
+    annualPriceHint: '$59',
   },
   pro: {
     name: 'Pro',
@@ -84,5 +98,6 @@ export const PLANS: Record<Plan, PlanCopy> = {
     stylist: 'Unlimited',
     eventHosting: 100,
     monthlyPriceHint: '$14.99',
+    annualPriceHint: '$119',
   },
 } as const;

@@ -4,7 +4,7 @@ import { Pressable, TextInput, View } from 'react-native';
 
 import { Button, KeyboardAwareScrollView, Text } from '@/components/ui';
 import { useFriends } from '@/features/social-graph/queries';
-import { fetchClimateBand, searchPlaces, type Place } from '@/features/context/weather';
+import { fetchClimateBand, formatTemp, searchPlaces, type Place } from '@/features/context/weather';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 import { DateRangePicker } from '@/components/plan/date-range-picker';
@@ -61,8 +61,13 @@ export function AnswerChip({
       style={{ minHeight: MIN_TAP_TARGET }}
       className={[
         'justify-center rounded-md border px-4 active:opacity-60',
+        // INK when selected, not oxblood — the atlas draws it that way and the
+        // reason is the standing one: one oxblood action per screen. The vibe
+        // and day-part questions went multi-select in this wave, so an accent
+        // ground would put up to six oxblood chips on K-03 competing with
+        // "Pack the bag", which is the only thing on the screen that acts.
         selected
-          ? 'border-accent bg-accent dark:border-accent-dark dark:bg-accent-dark'
+          ? 'border-ink bg-ink dark:border-ink-dark dark:bg-ink-dark'
           : 'border-rule dark:border-rule-dark',
       ].join(' ')}>
       {/* Inline colour, never a second `text-*` class: NativeWind gives no
@@ -86,16 +91,20 @@ export function PlaceRow({
   place,
   band,
   onPick,
+  units = 'F',
 }: {
   place: Place;
   band: { lowC: number; highC: number } | null;
   onPick: (place: Place) => void;
+  /** The app's own scale, not the atlas's. See `packing-memo.ts`. */
+  units?: 'C' | 'F';
 }) {
   // No band resolved (the archive has nothing for this place) falls back to
   // the region rather than a guessed range — never a guessed number here.
+  const where = [place.admin1, place.country].filter(Boolean).join(', ');
   const subtitle = band
-    ? `${Math.round(band.lowC)}–${Math.round(band.highC)}°C`
-    : place.admin1 || place.country || null;
+    ? `${formatTemp(band.lowC, units).replace('°', '')}–${formatTemp(band.highC, units)}`
+    : null;
 
   return (
     <Pressable
@@ -105,7 +114,10 @@ export function PlaceRow({
       className="flex-row items-center justify-between gap-3 border-b border-hairline px-4 py-2.5 active:opacity-60 dark:border-hairline-dark">
       <View className="flex-1">
         <Text variant="body">{place.name}</Text>
-        {place.country ? <Text variant="label">{place.country}</Text> : null}
+        {/* "Ohio, United States" — the region carries most of the
+            disambiguation for same-named places inside one country, which is
+            the case the climate band cannot help with. */}
+        {where ? <Text variant="label">{where}</Text> : null}
       </View>
       {subtitle ? <Text variant="label">{subtitle}</Text> : null}
     </Pressable>

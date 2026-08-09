@@ -153,13 +153,15 @@ export function PackingGate({
             haptic
             className="mt-6 self-stretch"
           />
-          {/* Only the monthly price the client actually knows
-              (`PLANS.pro.monthlyPriceHint`). The atlas also prints a yearly
-              figure; there is no yearly price anywhere in the client, and
-              StoreKit prices are the paywall's job, not this gate's. */}
+          {/* "$14.99/mo · $119/yr", as the atlas draws it. Both are hints
+              (`plans.ts`) verified against the Superwall products, not live
+              StoreKit reads — formatting a real price in the device's own
+              locale is the paywall's job, and this gate only names the tier.
+              Either half is dropped rather than guessed if it is ever null. */}
           {PLANS.pro.monthlyPriceHint ? (
             <Text variant="label" className="mt-2 text-center text-muted dark:text-muted-dark">
               {PLANS.pro.monthlyPriceHint}/mo
+              {PLANS.pro.annualPriceHint ? ` · ${PLANS.pro.annualPriceHint}/yr` : ''}
             </Text>
           ) : null}
         </>

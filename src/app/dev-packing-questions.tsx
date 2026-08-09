@@ -113,7 +113,7 @@ function K02Results() {
   const theme = useTheme();
   return (
     <View className="px-gutter">
-      <Text variant="eyebrow">Where are you going?</Text>
+      <Text variant="eyebrow">Packing · 1 of 4</Text>
       <View className="mt-3">
         <Text variant="title" trim>
           Where are you going?
@@ -141,7 +141,7 @@ function K02NoResults() {
   const theme = useTheme();
   return (
     <View className="px-gutter">
-      <Text variant="eyebrow">Where are you going?</Text>
+      <Text variant="eyebrow">Packing · 1 of 4</Text>
       <View className="mt-3">
         <Text variant="title" trim>
           Where are you going?
@@ -168,7 +168,7 @@ function K02Recents() {
   const theme = useTheme();
   return (
     <View className="px-gutter">
-      <Text variant="eyebrow">Where are you going?</Text>
+      <Text variant="eyebrow">Packing · 1 of 4</Text>
       <View className="mt-3">
         <Text variant="title" trim>
           Where are you going?
