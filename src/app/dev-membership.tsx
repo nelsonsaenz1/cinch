@@ -21,11 +21,11 @@ import { PLANS } from '@/features/billing/plans';
  */
 
 const CONTEXT_LINE_ROWS: readonly { placement: PlacementName; label: string }[] = [
-  { placement: Placement.OpenStylist, label: 'M-02 · Entered from the stylist' },
-  { placement: Placement.AddGarmentOverLimit, label: 'M-03 · Garment limit' },
-  { placement: Placement.GenerateOutfitOverLimit, label: 'M-03 · Generation limit' },
-  { placement: Placement.TrialExpired, label: 'M-03 · Trial expiry' },
-  { placement: Placement.EventHostingOverLimit, label: 'M-03 · Event hosting' },
+  { placement: Placement.OpenStylist, label: 'MB-02 · Entered from the stylist' },
+  { placement: Placement.AddGarmentOverLimit, label: 'MB-03 · Garment limit' },
+  { placement: Placement.GenerateOutfitOverLimit, label: 'MB-03 · Generation limit' },
+  { placement: Placement.TrialExpired, label: 'MB-03 · Trial expiry' },
+  { placement: Placement.EventHostingOverLimit, label: 'MB-03 · Event hosting' },
 ];
 
 function LineRow({ label, line }: { label: string; line: string | null }) {
@@ -60,13 +60,13 @@ export default function DevMembershipScreen() {
               <LineRow key={row.placement} label={row.label} line={contextLineFor(row.placement)} />
             ))}
             <LineRow
-              label="M-03 · Packing — a trip has been answered"
+              label="MB-03 · Packing — a trip has been answered"
               line={contextLineFor(Placement.PackingAccess, {
                 trip: { destinationName: 'Lisbon', days: 4 },
               })}
             />
             <LineRow
-              label="M-03 · Packing — reached from K-01, before any trip"
+              label="MB-03 · Packing — reached from K-01, before any trip"
               line={contextLineFor(Placement.PackingAccess)}
             />
             <LineRow
