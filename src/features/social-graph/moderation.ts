@@ -116,9 +116,14 @@ export function useReportContent(): UseMutationResult<void, Error, ReportInput> 
 
 /**
  * Block. Account-level and absolute: the server trigger deletes both follow
- * edges, and every social read path screens the pair out from then on. The
- * blocked woman sees nothing and is told nothing — the invalidations below are
- * only the blocker's own screens catching up with what is already true.
+ * edges, and every social read path screens the pair out from then on. As of
+ * `20260809160000_block_retracts_votes`, the trigger also deletes their votes
+ * on the blocker's own looks and removes them (`event_members.state =
+ * 'removed'`) from every event the blocker hosts — the two side effects
+ * BL-01's headline claims, exactly and no further (see
+ * `docs/design/system-safety-contract.md` §2). The blocked woman sees
+ * nothing and is told nothing — the invalidations below are only the
+ * blocker's own screens catching up with what is already true.
  */
 export function useBlockUser(): UseMutationResult<void, Error, { userId: string }> {
   const qc = useQueryClient();
@@ -150,9 +155,10 @@ export function useBlockUser(): UseMutationResult<void, Error, { userId: string 
         'event-comments',
         'event-posts',
         'event-members',
-        // A block retracts the picks between the pair server-side
-        // (20260807120000): one pick per event, and leaving it on a look she
-        // can no longer see would spend it forever.
+        // `20260809160000` deletes their votes on the blocker's own looks
+        // outright (not just hides them): one pick per event, and leaving
+        // the row in place would spend it forever on a look she can no
+        // longer see.
         'my-vote',
       ]) {
         void qc.invalidateQueries({ queryKey: [key] });

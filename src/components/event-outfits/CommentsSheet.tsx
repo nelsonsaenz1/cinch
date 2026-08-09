@@ -6,6 +6,7 @@ import { CommentComposer } from '@/components/event-outfits/CommentComposer';
 import { CommentRow, type ThreadComment } from '@/components/event-outfits/CommentRow';
 import { lookName } from '@/components/event-outfits/OutfitPostCard';
 import { LookPlate } from '@/components/look/look-plate';
+import { ReportFlowSheets } from '@/components/report/ReportFlowSheets';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -17,7 +18,7 @@ import {
 } from '@/features/event-outfits/mutations';
 import type { PostedLook } from '@/features/event-outfits/types';
 import { useCommentThread } from '@/features/event-outfits/use-comment-thread';
-import { REPORT_REASONS, useReportContent } from '@/features/social-graph/moderation';
+import { useReportFlow } from '@/features/social-graph/use-report-flow';
 import { useTheme } from '@/theme/tokens';
 
 type ResolveImage = (...paths: (string | null | undefined)[]) => string | undefined;
@@ -71,7 +72,7 @@ export function CommentsSheet({
   const thread = useCommentThread(eventId, postId);
   const deleteComment = useDeleteComment();
   const hideComment = useHideComment();
-  const report = useReportContent();
+  const reportFlow = useReportFlow();
 
   const mutateErr = (error: unknown) => Alert.alert('That didn’t work', socialErrorMessage(error));
 
@@ -80,24 +81,21 @@ export function CommentsSheet({
     [nameOf, session.userId],
   );
 
+  // RP-01…RP-04 — the same three sheets a look or a profile reports through
+  // (contract: "reporting is a flow, not a page"). The header names exactly
+  // what is being acted on: "Comment by {name}".
   const reportComment = useCallback(
     (comment: ThreadComment) => {
-      Alert.alert('Report this comment', 'What’s wrong with it?', [
-        ...REPORT_REASONS.map((reason) => ({
-          text: reason,
-          onPress: () =>
-            report.mutate(
-              { subject: 'comment' as const, subjectId: comment.id, subjectUserId: comment.userId, reason },
-              {
-                onSuccess: () => Alert.alert('Thank you', 'Every report is reviewed.'),
-                onError: (error: unknown) => Alert.alert('That didn’t go through', socialErrorMessage(error)),
-              },
-            ),
-        })),
-        { text: 'Cancel', style: 'cancel' as const },
-      ]);
+      const authorName = nameOf(comment.userId) ?? 'this person';
+      reportFlow.open({
+        subject: 'comment',
+        subjectId: comment.id,
+        subjectUserId: comment.userId,
+        label: `Comment by ${authorName}`,
+        handle: authorName,
+      });
     },
-    [report],
+    [nameOf, reportFlow],
   );
 
   const confirmDeleteComment = useCallback(
@@ -247,6 +245,7 @@ export function CommentsSheet({
           )}
         </KeyboardAvoidingScreen>
         {thread.termsSheet}
+        <ReportFlowSheets flow={reportFlow} />
       </SafeAreaView>
     </Modal>
   );

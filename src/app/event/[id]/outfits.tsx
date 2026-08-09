@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CommentsSheet } from '@/components/event-outfits/CommentsSheet';
 import { lookName, OutfitPostCard } from '@/components/event-outfits/OutfitPostCard';
 import { ConfirmSheet } from '@/components/events/ConfirmSheet';
+import { ReportFlowSheets } from '@/components/report/ReportFlowSheets';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 // Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
@@ -50,7 +51,8 @@ import {
 import { MAX_LOOKS_PER_BOARD, type PostedLook } from '@/features/event-outfits/types';
 import { useEvent, useEventMembers } from '@/features/events/queries';
 import { useEventChannel } from '@/features/events/use-event-channel';
-import { REPORT_REASONS, useBlockUser, useReportContent } from '@/features/social-graph/moderation';
+import { useBlockUser } from '@/features/social-graph/moderation';
+import { useReportFlow } from '@/features/social-graph/use-report-flow';
 import { GUTTER, MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -119,7 +121,7 @@ export default function EventOutfitBoardScreen() {
   const castVote = useCastVote();
   const retractVote = useRetractVote();
   const deletePost = useDeletePost();
-  const report = useReportContent();
+  const reportFlow = useReportFlow();
   const block = useBlockUser();
 
   const detail = event.data;
@@ -344,24 +346,22 @@ export default function EventOutfitBoardScreen() {
     );
   }, [eventId, deletePost, pendingDelete]);
 
+  // RP-01…RP-04 — the same three sheets a comment or a profile reports
+  // through (contract: "reporting is a flow, not a page"). `reportFlow.open`
+  // is all this callback does now; the reason picker, the confirmation and
+  // the once-only block offer live in `ReportFlowSheets`, mounted below.
   const reportLook = useCallback(
     (look: PostedLook) => {
-      Alert.alert('Report this look', 'What’s wrong with it?', [
-        ...REPORT_REASONS.map((reason) => ({
-          text: reason,
-          onPress: () =>
-            report.mutate(
-              { subject: 'outfit_post' as const, subjectId: look.id, subjectUserId: look.userId, reason },
-              {
-                onSuccess: () => Alert.alert('Thank you', 'Every report is reviewed.'),
-                onError: (error: unknown) => Alert.alert('That didn’t go through', socialErrorMessage(error)),
-              },
-            ),
-        })),
-        { text: 'Cancel', style: 'cancel' as const },
-      ]);
+      const posterName = nameOf(look.userId) ?? 'this person';
+      reportFlow.open({
+        subject: 'outfit_post',
+        subjectId: look.id,
+        subjectUserId: look.userId,
+        label: `Look by ${posterName}`,
+        handle: posterName,
+      });
     },
-    [report],
+    [nameOf, reportFlow],
   );
 
   const confirmBlock = useCallback(
@@ -650,6 +650,8 @@ export default function EventOutfitBoardScreen() {
         onKeep={() => setPendingDelete(null)}
         onConfirm={runDelete}
       />
+
+      <ReportFlowSheets flow={reportFlow} />
     </SafeAreaView>
   );
 }
