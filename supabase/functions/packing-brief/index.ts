@@ -110,6 +110,20 @@ function buildPrompt(body: ValidatedPackingRequest): string {
     );
   }
 
+  // What the on-device engine already decided, before the model is asked
+  // anything. When present, this is a stronger signal than the digest: the
+  // model's job shrinks from "propose a bag" to "describe this exact one".
+  if (body.packed?.length) {
+    parts.push(
+      `THE BAG, ALREADY PACKED (talk about these exact pieces and counts)\n${body.packed
+        .map(
+          (p) =>
+            `  ${`${p.color} ${p.name}`.trim()} — ${p.worn ? 'worn on the plane, not packed' : `${p.repeatCount} of the trip's looks`}`,
+        )
+        .join('\n')}`,
+    );
+  }
+
   if (body.digest) parts.push(`THEIR CLOSET, IN SHAPE\n${body.digest}`);
 
   if (body.styleSummary.length) {

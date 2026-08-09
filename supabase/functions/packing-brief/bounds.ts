@@ -61,6 +61,27 @@ export type ValidatedGarment = {
   warmth: number;
 };
 
+/**
+ * A piece already chosen by the on-device packing engine, with how many looks
+ * it covers.
+ *
+ * Added 2026-08-09 alongside K-05's memo redesign: the deterministic capsule
+ * (`buildPackingList` in `packing.ts`) now decides the actual bag before the
+ * model is ever asked anything, so what the model can usefully do is describe
+ * THAT bag rather than propose its own. Optional, and additive — an older
+ * client that never sends this still gets a general observation about the
+ * destination, which is the behaviour this endpoint always had.
+ */
+export type ValidatedPackedPiece = {
+  name: string;
+  color: string;
+  slot: string;
+  /** How many looks this piece appears in — the memo's own `×3`. */
+  repeatCount: number;
+  /** On the traveller's feet on the plane, not in the bag. */
+  worn: boolean;
+};
+
 export type ValidatedPackingRequest = {
   trip: {
     destination: string;
@@ -79,6 +100,8 @@ export type ValidatedPackingRequest = {
   styleSummary: string[];
   forecast?: { lowC: number; highC: number; rainDays: number };
   garments: ValidatedGarment[];
+  /** The already-decided bag, when the client computed one before asking. */
+  packed?: ValidatedPackedPiece[];
 };
 
 function asObject(value: unknown, field: string): Record<string, unknown> {
@@ -190,6 +213,23 @@ export function parsePackingRequest(raw: unknown): ValidatedPackingRequest {
     };
   }
 
+  // A bag this size never happens without a carry-on-shaming closet: the
+  // real ceiling is somewhere near a garment's own slot count, so this is a
+  // request-shape guard, not a product limit.
+  const MAX_PACKED = 60;
+  const packed = body.packed === undefined || body.packed === null
+    ? undefined
+    : boundedArray(body.packed, 'packed', MAX_PACKED).map((entry, i) => {
+        const p = asObject(entry, `packed[${i}]`);
+        return {
+          name: requiredString(p.name, `packed[${i}].name`, MAX_GARMENT_FIELD_CHARS),
+          color: optionalString(p.color, `packed[${i}].color`, MAX_GARMENT_FIELD_CHARS),
+          slot: requiredString(p.slot, `packed[${i}].slot`, MAX_GARMENT_FIELD_CHARS),
+          repeatCount: Math.round(boundedNumber(p.repeatCount, `packed[${i}].repeatCount`, 1, MAX_DAYS)),
+          worn: Boolean(p.worn),
+        };
+      });
+
   return {
     trip: {
       destination: requiredString(trip.destination, 'trip.destination', MAX_PLACE_CHARS),
@@ -211,5 +251,6 @@ export function parsePackingRequest(raw: unknown): ValidatedPackingRequest {
     ),
     forecast,
     garments,
+    packed,
   };
 }

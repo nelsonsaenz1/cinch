@@ -4,6 +4,7 @@ import { closetDigest } from '@/features/stylist/intent';
 import type { Garment, WeatherContext } from '@/lib/styling';
 import { supabase } from '@/lib/supabase';
 
+import type { PackedPiece } from './packing';
 import {
   companionOf,
   dayPartOf,
@@ -127,6 +128,24 @@ function summariseForecast(forecasts: WeatherContext[] | undefined) {
   };
 }
 
+/**
+ * The already-decided bag, as the wire shape `packing-brief` reads.
+ *
+ * `PackedPiece` carries a full `Garment`; the model gets the same reduced
+ * shape `wireGarments` gives every other piece — a name and a colour, never a
+ * photo or an id it could parrot back into prose.
+ */
+function wirePacked(items: PackedPiece[] | undefined) {
+  if (!items?.length) return undefined;
+  return items.map((p) => ({
+    name: p.garment.subcategory ?? p.garment.category,
+    color: p.garment.colors[0]?.name ?? '',
+    slot: p.garment.slot,
+    repeatCount: p.looks,
+    worn: p.worn,
+  }));
+}
+
 /** A failure the screen can say something true about. */
 export class PackingBriefError extends Error {
   constructor(
@@ -143,14 +162,25 @@ export function usePackingBrief({
   wardrobe,
   styleSummary,
   forecasts,
+  packed,
 }: {
   trip: Trip | null;
   wardrobe: Garment[];
   styleSummary: string[];
   /** The destination forecast, when it resolved. */
   forecasts: WeatherContext[] | undefined;
+  /**
+   * The deterministic capsule (`buildPackingList`'s `items`), when it has
+   * been computed. K-04's "Writing the memo" is the last of the four research
+   * steps for exactly this reason — the model is describing a bag that
+   * already exists, so it cannot start before the bag does. `undefined` while
+   * the capsule is still building keeps the query disabled rather than
+   * racing it with a stale, general-purpose brief.
+   */
+  packed: PackedPiece[] | undefined;
 }) {
   const garments = trip ? wireGarments(wardrobe) : [];
+  const packedWire = wirePacked(packed);
 
   return useQuery({
     // Keyed on the answers, not on the object: re-running the same trip after a
@@ -166,8 +196,9 @@ export function usePackingBrief({
       trip?.companions,
       trip?.parts.join('-'),
       garments.length,
+      packed?.map((p) => `${p.garment.id}:${p.looks}:${p.worn}`).join(',') ?? '',
     ],
-    enabled: Boolean(trip) && garments.length > 0,
+    enabled: Boolean(trip) && garments.length > 0 && Boolean(packed),
     // A brief for a trip does not go stale while the trip is being packed.
     staleTime: 60 * 60_000,
     // One retry, not the app-wide three. The two failures that actually happen
@@ -204,6 +235,7 @@ export function usePackingBrief({
           styleSummary,
           forecast: summariseForecast(forecasts),
           garments,
+          packed: packedWire,
         },
       });
 
