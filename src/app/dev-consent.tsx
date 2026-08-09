@@ -124,11 +124,20 @@ export default function DevConsentScreen() {
               1 photo ready
             </Text>
           </View>
-          <ConsentSheet visible busy={false} onAccept={() => {}} onDecline={() => {}} />
+          {/* Both buttons move the switcher on rather than doing nothing.
+              A posed modal with dead handlers covers the chip row, which
+              made every state after this one unreachable without relaunching
+              — the dev route's whole job is to let someone look at all six. */}
+          <ConsentSheet
+            visible
+            busy={false}
+            onAccept={() => setFrame('AC-03 Accepted')}
+            onDecline={() => setFrame('AC-04 Declined')}
+          />
         </View>
       ) : null}
 
-      {frame === 'AC-02 Policy' ? <AiPolicyPage onBack={() => {}} /> : null}
+      {frame === 'AC-02 Policy' ? <AiPolicyPage onBack={() => setFrame('AC-01 Ask')} /> : null}
 
       {frame === 'AC-03 Accepted' ? (
         <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
@@ -140,7 +149,10 @@ export default function DevConsentScreen() {
       ) : null}
 
       {frame === 'AC-04 Declined' ? (
-        <DeclineExplainer onAddItem={() => {}} onTurnOnAi={() => {}} />
+        <DeclineExplainer
+          onAddItem={() => setFrame('AC-05 Manual')}
+          onTurnOnAi={() => setFrame('AC-06 Settings')}
+        />
       ) : null}
 
       {frame === 'AC-05 Manual' ? (

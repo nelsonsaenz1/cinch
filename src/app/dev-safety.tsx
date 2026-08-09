@@ -87,9 +87,15 @@ export default function DevSafety() {
           {frame === 'BL-02' ? <BL02 /> : null}
           {frame === 'BL-03' ? <BL03 /> : null}
           {frame === 'RP-01' ? <RP01 /> : null}
-          {frame === 'RP-02' ? <ReportFramePose step="reason" /> : null}
-          {frame === 'RP-03' ? <ReportFramePose step="confirmation" /> : null}
-          {frame === 'RP-04' ? <ReportFramePose step="blockOffer" /> : null}
+          {frame === 'RP-02' ? (
+            <ReportFramePose step="reason" onClose={() => setFrame('RP-01')} />
+          ) : null}
+          {frame === 'RP-03' ? (
+            <ReportFramePose step="confirmation" onClose={() => setFrame('RP-01')} />
+          ) : null}
+          {frame === 'RP-04' ? (
+            <ReportFramePose step="blockOffer" onClose={() => setFrame('RP-01')} />
+          ) : null}
           {frame === 'NF-01' || frame === 'NF-02' ? (
             <Text variant="body" className="mt-4 text-muted">
               Full-screen shell shown below the switcher.
@@ -210,7 +216,22 @@ function RP01() {
  * `confirmBlock` just advance the local step, never `useReportContent` /
  * `useBlockUser`.
  */
-function ReportFramePose({ step }: { step: 'reason' | 'confirmation' | 'blockOffer' }) {
+function ReportFramePose({
+  step,
+  onClose,
+}: {
+  step: 'reason' | 'confirmation' | 'blockOffer';
+  /**
+   * Cancel has to actually close something.
+   *
+   * `close` was a no-op here, which posed the sheet faithfully and then made
+   * the whole dev route a dead end — the switcher sits UNDER the sheet, so
+   * once RP-02 was showing, none of the other eight states could be reached
+   * again without relaunching. A state nobody can navigate back out of is
+   * only marginally better than a state with no dev route at all.
+   */
+  onClose: () => void;
+}) {
   const [reason, setReason] = useState<string | null>(step === 'reason' ? null : 'Spam');
   const [note, setNote] = useState('');
 
@@ -228,7 +249,7 @@ function ReportFramePose({ step }: { step: 'reason' | 'confirmation' | 'blockOff
     acknowledge: () => {},
     confirmBlock: () => {},
     blocking: false,
-    close: () => {},
+    close: onClose,
     open: () => {},
     reasons: REPORT_REASONS,
   };
