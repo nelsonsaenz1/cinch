@@ -1,10 +1,13 @@
+import { router, usePathname } from 'expo-router';
 import { usePlacement, useSuperwall, useSuperwallEvents } from 'expo-superwall';
 import type { SuperwallEventInfo } from 'expo-superwall';
 import { useCallback, useId, useMemo } from 'react';
 
 import { track } from '@/lib/posthog';
 
+import { contextLineFor, type ContextLineOpts } from './context-lines';
 import type { PlacementName } from './placements';
+import { recordPaywallOrigin } from './paywall-origin';
 import { PAYWALLS_ENABLED } from './superwall';
 
 /**
@@ -109,10 +112,16 @@ export type Gate = {
    *
    * Resolves with what happened. It never rejects and it never hangs: see the
    * fail-safe contract below.
+   *
+   * `contextOpts` feeds `contextLineFor` (`context-lines.ts`) — the one line
+   * above the paywall headline that the app writes rather than Superwall.
+   * Every call site may omit it; only `packing_access`, when a trip has
+   * already been answered, has anything to pass.
    */
   present: (
     placement: PlacementName,
     onGranted?: () => void | Promise<void>,
+    contextOpts?: ContextLineOpts,
   ) => Promise<GateOutcome>;
 };
 
@@ -231,10 +240,21 @@ type Presentation = {
   placement: PlacementName;
   /** Identifies the gate instance that started this one. */
   owner: string;
+  /** The route `present()` was called from — MB-06's "back to…", verbatim. */
+  route: string;
   settle: (outcome: GateOutcome) => void;
   timer: ReturnType<typeof setTimeout> | null;
   /** True once the paywall has produced any sign of life. */
   alive: boolean;
+  /**
+   * Set from `onDismiss` the instant a REAL purchase or restore is
+   * confirmed — never from a silent skip. This is what tells `settle()`
+   * whether the grant it is about to report is one MB-06 should show up
+   * for: a skip is the campaign letting an already-entitled user through
+   * with no paywall ever drawn, and showing "You're in." for that would be
+   * printing a receipt for a purchase that never happened.
+   */
+  purchase: 'purchased' | 'restored' | null;
 };
 
 /**
@@ -280,6 +300,11 @@ function useSuperwallGate(): Gate {
 
   const { dismiss } = useSuperwall((state) => ({ dismiss: state.dismiss }));
 
+  // Captured fresh on every render so `present()` always closes over the
+  // route it was actually called from, not a stale one from a gate mounted
+  // higher up and never re-rendered.
+  const pathname = usePathname();
+
   const settle = useCallback(
     (target: Presentation, outcome: GateOutcome, reason: string) => {
       // Identity check, not a null check: a timer armed for an earlier
@@ -288,6 +313,15 @@ function useSuperwallGate(): Gate {
       inFlight = null;
       if (target.timer) clearTimeout(target.timer);
       target.timer = null;
+
+      if (outcome === 'granted' && target.purchase) {
+        // MB-06 — contract §7. Only a REAL purchase or restore earns the
+        // thanks screen; a silent skip (already entitled, holdout) also
+        // settles 'granted' but never sets `purchase`, and takes the caller
+        // straight back to `onGranted` with no interruption, same as today.
+        recordPaywallOrigin({ placement: target.placement, route: target.route });
+        router.push('/membership-thanks');
+      }
 
       if (outcome === 'unavailable') {
         // THE GUARANTEE. `dismiss()` is a no-op when nothing is presented, so
@@ -377,6 +411,14 @@ function useSuperwallGate(): Gate {
     onDismiss: (_info, result) => {
       const target = owned(ownerId);
       if (!target) return;
+      // The only place a genuine purchase or restore is distinguishable from
+      // an ordinary grant — `result` only exists because a paywall was
+      // actually presented and closed. Recorded before arming so `settle()`
+      // has it by the time the grace timer (or a race with `feature()`)
+      // fires.
+      if (result.type === 'purchased' || result.type === 'restored') {
+        target.purchase = result.type;
+      }
       // A purchase or a restore also resolves `registerPlacement`, and that is
       // the path that runs `onGranted`; let it win rather than reporting an
       // outcome the caller's own callback would contradict.
@@ -401,6 +443,7 @@ function useSuperwallGate(): Gate {
     async (
       placement: PlacementName,
       onGranted?: () => void | Promise<void>,
+      contextOpts?: ContextLineOpts,
     ): Promise<GateOutcome> => {
       // One paywall at a time. A second request while one is in flight would put
       // two settlements on one modal; the honest answer for the newcomer is that
@@ -415,13 +458,25 @@ function useSuperwallGate(): Gate {
       const target: Presentation = {
         placement,
         owner: ownerId,
+        route: pathname,
         settle: resolveOutcome,
         timer: null,
         alive: false,
+        purchase: null,
       };
       inFlight = target;
 
       arm(target, PRESENT_TIMEOUT_MS, 'unavailable', 'no_response');
+
+      // The one line the app writes onto Superwall's own document (contract
+      // §3.1) — `context` is present only when there is one to show, so the
+      // paywall's `{{context}}` block collapses for `repeat_upsell` rather
+      // than rendering the literal word "null". `trigger` rides along too:
+      // useful on the dashboard side for a campaign that wants to branch on
+      // more than the placement name alone.
+      const context = contextLineFor(placement, contextOpts);
+      const params: Record<string, unknown> = { trigger: placement };
+      if (context) params.context = context;
 
       // NOT awaited. expo-superwall's own source says the native side does not
       // resolve this promise when a paywall errors, so `await registerPlacement`
@@ -430,6 +485,7 @@ function useSuperwallGate(): Gate {
       // never the only one.
       void registerPlacement({
         placement,
+        params,
         feature() {
           void onGranted?.();
         },
@@ -440,7 +496,7 @@ function useSuperwallGate(): Gate {
 
       return outcome;
     },
-    [arm, ownerId, registerPlacement, settle],
+    [arm, ownerId, pathname, registerPlacement, settle],
   );
 
   // Memoized so the Gate is stable across renders: consumers put it in effect
