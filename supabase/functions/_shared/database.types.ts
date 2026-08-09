@@ -41,6 +41,7 @@ export type Database = {
     Tables: {
       ai_calls: {
         Row: {
+          attempts: number | null
           completion_tokens: number | null
           cost_usd: number | null
           created_at: string
@@ -56,6 +57,7 @@ export type Database = {
           workload: Database["public"]["Enums"]["ai_workload"]
         }
         Insert: {
+          attempts?: number | null
           completion_tokens?: number | null
           cost_usd?: number | null
           created_at?: string
@@ -71,6 +73,7 @@ export type Database = {
           workload: Database["public"]["Enums"]["ai_workload"]
         }
         Update: {
+          attempts?: number | null
           completion_tokens?: number | null
           cost_usd?: number | null
           created_at?: string
@@ -116,6 +119,7 @@ export type Database = {
           model_id: string
           params: Json
           provider: string
+          timeout_ms: number
           updated_at: string
           workload: Database["public"]["Enums"]["ai_workload"]
         }
@@ -125,6 +129,7 @@ export type Database = {
           model_id: string
           params?: Json
           provider?: string
+          timeout_ms?: number
           updated_at?: string
           workload: Database["public"]["Enums"]["ai_workload"]
         }
@@ -134,6 +139,7 @@ export type Database = {
           model_id?: string
           params?: Json
           provider?: string
+          timeout_ms?: number
           updated_at?: string
           workload?: Database["public"]["Enums"]["ai_workload"]
         }
@@ -1459,6 +1465,78 @@ export type Database = {
           },
         ]
       }
+      trips: {
+        Row: {
+          companions: string
+          created_at: string
+          ends_on: string
+          friend_ids: string[]
+          id: string
+          item_ids: string[]
+          latitude: number
+          longitude: number
+          look_count: number | null
+          memo: Json | null
+          parts: string[]
+          piece_count: number | null
+          place_admin1: string
+          place_country: string
+          place_name: string
+          saved_at: string | null
+          starts_on: string
+          updated_at: string
+          user_id: string
+          vibes: string[]
+          weather_source: string
+        }
+        Insert: {
+          companions: string
+          created_at?: string
+          ends_on: string
+          friend_ids?: string[]
+          id?: string
+          item_ids?: string[]
+          latitude: number
+          longitude: number
+          look_count?: number | null
+          memo?: Json | null
+          parts: string[]
+          piece_count?: number | null
+          place_admin1?: string
+          place_country?: string
+          place_name: string
+          saved_at?: string | null
+          starts_on: string
+          updated_at?: string
+          user_id: string
+          vibes: string[]
+          weather_source?: string
+        }
+        Update: {
+          companions?: string
+          created_at?: string
+          ends_on?: string
+          friend_ids?: string[]
+          id?: string
+          item_ids?: string[]
+          latitude?: number
+          longitude?: number
+          look_count?: number | null
+          memo?: Json | null
+          parts?: string[]
+          piece_count?: number | null
+          place_admin1?: string
+          place_country?: string
+          place_name?: string
+          saved_at?: string | null
+          starts_on?: string
+          updated_at?: string
+          user_id?: string
+          vibes?: string[]
+          weather_source?: string
+        }
+        Relationships: []
+      }
       user_blocks: {
         Row: {
           blocked_id: string
@@ -2028,6 +2106,10 @@ export type Database = {
       }
       item_owned_by_friend: { Args: { p_item: string }; Returns: boolean }
       item_posted_to_my_event: { Args: { p_item: string }; Returns: boolean }
+      item_total_limit_for_plan: {
+        Args: { p_plan: Database["public"]["Enums"]["subscription_plan"] }
+        Returns: number
+      }
       log_outfit_wear: { Args: { p_outfit_id: string }; Returns: undefined }
       normalize_for_moderation: { Args: { p_text: string }; Returns: string }
       plan_outfit_tx: {

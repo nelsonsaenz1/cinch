@@ -323,13 +323,17 @@ Carried forward unchanged from [`cinch-atlas-vs-design-system`]:
 ## 10. Unit boundaries
 
 Phase 1 (shared, built before any unit starts) is mine: `trip.ts`, `packing.ts`,
-`packing-math.ts`, `weather.ts`, the `trips` migration, the `packing-brief` plan check, and
-`usePackingAccess`'s move to Pro.
+`packing-math.ts`, `weather.ts`, `use-trips.ts`, `components/plan/date-range-picker.tsx`, the
+`trips` migration, the `packing-brief` plan check, and `usePackingAccess`'s move to Pro.
+
+`use-trips.ts` in particular exists so three units do not each write their own `.from('trips')` —
+K-01 reads the last packed trip, K-05 saves onto it, K-06 reopens it. It is read-only to all
+three.
 
 | Unit | Owns | Must not touch |
 |---|---|---|
-| **P — Membership** | `src/features/billing/*`, the trigger-line module, MB-06 handoff, the locked plate in `packing-tab.tsx` | `src/features/plan/trip*`, `packing-trip.tsx` |
-| **Q — Questionnaire** | K-01 gate, K-02, K-03, `trip-questionnaire.tsx`, `use-trip-questionnaire.ts`, the date range picker | `src/features/billing/*`, `packing-trip.tsx` |
+| **P — Membership** | `src/features/billing/*`, the trigger-line module, MB-06 handoff | anything under `src/features/plan/`, including `packing-tab.tsx` |
+| **Q — Questionnaire** | K-01 gate (`packing-tab.tsx`), K-02, K-03, `trip-questionnaire.tsx`, `use-trip-questionnaire.ts` | `src/features/billing/*`, `packing-trip.tsx` |
 | **L — The memo** | K-04, K-05, K-06, `packing-trip.tsx`, `use-packing-brief.ts`, the share artifact | `src/features/billing/*`, `trip-questionnaire.tsx` |
 
 Shared layer (`src/components/ui/*`, `src/theme/*`, everything from Phase 1) is **read-only** to
