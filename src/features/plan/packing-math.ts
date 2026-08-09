@@ -109,7 +109,18 @@ const WORDS = [
   'nineteen', 'twenty',
 ];
 
-const word = (n: number): string => WORDS[n] ?? String(n);
+/**
+ * `4` → `"four"`.
+ *
+ * Exported because three surfaces spell the same numbers: K-03's running
+ * arithmetic, K-01's history line ("four days in Lisbon… eleven pieces and
+ * nine looks") and K-05's memo. Unit Q had to keep a second copy of this table
+ * while it was private, which is the beginning of the drift that put the same
+ * function in two files last wave.
+ */
+export const spellOut = (n: number): string => WORDS[n] ?? String(n);
+
+const word = spellOut;
 
 const sentenceCase = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
