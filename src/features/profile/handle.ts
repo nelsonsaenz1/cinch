@@ -1,3 +1,5 @@
+import type { HandleAvailability } from './queries';
+
 /**
  * The `@handle` rules, in one place.
  *
@@ -8,6 +10,10 @@
  *
  * This is a separate module from `mutations.ts` because both the write path
  * and the availability read need it, and the read must not import the write.
+ *
+ * `import type { HandleAvailability } from './queries'` above is erased at
+ * compile time, so it does not create a runtime cycle even though
+ * `queries.ts` imports `handleProblem`/`normaliseHandle` from this file.
  */
 
 /** `profiles_username_format`, verbatim (20260803210000). */
@@ -41,4 +47,63 @@ export function handleProblem(raw: string): string | null {
   if (handle.length > HANDLE_MAX) return `Handles are at most ${HANDLE_MAX} characters.`;
   if (!HANDLE_PATTERN.test(handle)) return 'Letters, numbers and underscores only.';
   return null;
+}
+
+export type HandleHint = { text: string; tone: 'error' | 'quiet' };
+
+/**
+ * The line under the handle field (EP-02). One line, four things it can say,
+ * in order of how much the user needs to hear it: what is malformed
+ * ("not-allowed" characters), what is taken, that the check is in flight, and
+ * — when there is nothing to report — what the field is for.
+ *
+ * Pure, so `edit-profile-sheet.tsx` and `dev-account.tsx`'s deterministic
+ * fixture strip compute the identical sentence from the identical inputs
+ * rather than one of them hand-retyping the copy.
+ */
+export function handleHintFor(
+  handle: string,
+  handleError: string | null,
+  availability: HandleAvailability,
+): HandleHint {
+  if (handleError !== null) {
+    const normal = normaliseHandle(handle);
+    // If the length is fine, the problem `handleProblem` found is the characters.
+    const formatProblem = normal.length >= HANDLE_MIN && normal.length <= HANDLE_MAX;
+    return {
+      text: formatProblem
+        ? 'Spaces and punctuation will not work here. Letters, numbers and underscores only.'
+        : handleError,
+      tone: 'error',
+    };
+  }
+  if (availability === 'taken') {
+    return { text: 'Someone has this one. Try adding a word or a number.', tone: 'error' };
+  }
+  if (availability === 'checking') {
+    return { text: 'Hold on a second.', tone: 'quiet' };
+  }
+  return {
+    text: 'Letters, numbers and underscores. This is how friends find your closet.',
+    tone: 'quiet',
+  };
+}
+
+/**
+ * A handful of alternatives when the handle she wants is held.
+ *
+ * Derived locally — a compressed display name, the `_wears` suffix, a short
+ * number — and NOT availability-checked here: the field's own live check
+ * answers for whatever is typed, including a tapped suggestion. The number is
+ * a deterministic function of the base so the rail does not reshuffle on
+ * every keystroke.
+ */
+export function suggestHandles(taken: string, displayName: string): string[] {
+  const base = normaliseHandle(taken);
+  const fromName = displayName.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const digits = String(((base.charCodeAt(0) || 0) + base.length) % 90 + 10);
+  const candidates = [fromName, `${base}_wears`, `${base}${digits}`];
+  return [...new Set(candidates)]
+    .filter((c) => c !== base && handleProblem(c) === null && c.length > 0)
+    .slice(0, 3);
 }

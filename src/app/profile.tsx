@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -23,12 +23,11 @@ import { Text } from '@/components/ui/text';
 import { signOut } from '@/features/auth/actions';
 import { useAiConsent } from '@/features/auth/use-consent';
 import { useDeleteAccount } from '@/features/auth/use-delete-account';
-import { Placement } from '@/features/billing/placements';
-import { useGate } from '@/features/billing/use-gate';
 import { usePlan } from '@/features/billing/use-plan';
 import { useCloset } from '@/features/closet/queries';
 import { DeleteAccountCard } from '@/features/profile/delete-account-card';
 import { EditProfileSheet } from '@/features/profile/edit-profile-sheet';
+import { membershipCopyFor } from '@/features/profile/membership-copy';
 import { useMyProfile } from '@/features/profile/queries';
 import { useRestorePurchases } from '@/features/profile/use-restore-purchases';
 import { useBorrowRequests } from '@/features/social-graph/queries';
@@ -122,12 +121,10 @@ async function fetchProfileHeader(): Promise<{
 export default function ProfileScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const qc = useQueryClient();
   const closet = useCloset();
   const style = useStyleProfile();
   const deleteAccount = useDeleteAccount();
   const plan = usePlan();
-  const gate = useGate();
   const restore = useRestorePurchases();
   const profileHeader = useQuery({ queryKey: ['profile-header'], queryFn: fetchProfileHeader });
   // Only for the @handle under the display name — the header query above owns
@@ -187,23 +184,19 @@ export default function ProfileScreen() {
       : `Learned from ${feedbackCount} reactions, but no clear pattern yet.`;
   }, [feedbackCount, style.data?.summary]);
 
-  const learnedProgress = Math.max(4, Math.min(100, Math.round((feedbackCount / TASTE_THRESHOLD) * 100)));
-
-  // What the Membership card can honestly say. The mock shows a renewal date
-  // and a price; neither exists client-side — the server learns the plan from
-  // App Store Server Notifications and stores no renewal date, and
-  // `monthlyPriceHint` is display copy, not what this user is actually
-  // charged. The trial end date is the one date the client really has.
-  const planTitle = plan.trialing
-    ? `${plan.copy.name} trial`
-    : plan.plan === 'free'
-      ? 'Free plan'
-      : `Cinch ${plan.copy.name}`;
-  const planSubtitle =
-    plan.trialing && plan.trialEndsAt
-      ? `Trial ends ${plan.trialEndsAt.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}`
-      : `Up to ${plan.copy.items} pieces in your closet`;
-  const paidPlan = !plan.trialing && plan.plan !== 'free';
+  // What the Membership card can honestly say (contract §4.1) — see
+  // `membership-copy.ts`. Free has no membership row at all; a paid tier
+  // names itself and its price, with the renewal date only once
+  // `current_period_end` is known. `dev-account.tsx` drives the identical
+  // function against fixture plans so this can never drift from its fixture.
+  const membership = membershipCopyFor({
+    plan: plan.plan,
+    copy: plan.copy,
+    trialing: plan.trialing,
+    trialEndsAt: plan.trialEndsAt,
+    currentPeriodEnd: plan.currentPeriodEnd,
+  });
+  const paidPlan = membership.paidPlan;
 
   const confirmSignOut = () => {
     Alert.alert('Sign out', 'You can sign back in anytime — your closet stays put.', [
@@ -360,98 +353,73 @@ export default function ProfileScreen() {
                 />
               </>
             ) : (
-              <>
-                <Text variant="body" className="mt-2.5 text-ink">
-                  {learnedSentence}
-                </Text>
-                {/* Ink fill on the 12% ink track, per the atlas — this bar is
-                    inked by hand rather than through ProgressTrack because the
-                    shared primitive's two tones (accent, accentWarm) both mean
-                    something else, and teaching it a third is a ui/* change
-                    this screen does not own. `rule` IS ink at 12%, exactly. */}
-                <View className="mt-3.5 flex-row items-center gap-2.5">
-                  <View
-                    accessibilityRole="progressbar"
-                    accessibilityValue={{ min: 0, max: 100, now: learnedProgress }}
-                    className="flex-1 overflow-hidden rounded-full"
-                    style={{ height: 5, backgroundColor: theme.rule }}>
-                    <View
-                      className="h-full rounded-full bg-ink"
-                      style={{ width: `${learnedProgress}%` }}
-                    />
-                  </View>
-                  <Text variant="caption" className="text-muted">
-                    {learnedProgress}%
-                  </Text>
-                </View>
-              </>
+              // The sentence is the real learned-style summary. No percentage
+              // beside it (contract §4.3): there is no confidence, coverage or
+              // completeness metric anywhere in the style profile, and a bar
+              // or a number here would invent one to fill the slot the same
+              // way a guessed temperature would.
+              <Text variant="body" className="mt-2.5 text-ink">
+                {learnedSentence}
+              </Text>
             )}
           </Card>
 
-          {/* Membership. What the client really knows: the plan tier, the
-              trial clock, and the closet ceiling — see `planTitle` above for
-              why there is no price or renewal date here. "Manage" hands a
-              paying user to the App Store, which owns the subscription;
-              "Upgrade" opens the trial-expired placement, the one placement
-              not tied to a refused action. A mid-trial user gets neither: the
-              App Store has nothing of theirs to manage, and upselling someone
-              who is already trying the top tier is noise. */}
-          <SectionHeader title="Membership" className="mb-2.5 mt-6" />
-          <Card>
-            <View
-              className="flex-row items-center justify-between gap-3 px-4 py-3.5"
-              style={{ minHeight: MIN_TAP_TARGET }}>
-              {plan.loading ? (
+          {/* Membership. No such row exists at all for a free account
+              (contract §4.1) — there is nothing to summarise, and this app
+              sells Standard and Pro, never the atlas's invented "Unlimited"
+              tier. A trial names its clock; a paid tier names itself and its
+              price from `plans.ts`, with the renewal date only once
+              `current_period_end` is known — see `planSubtitle` above.
+              "Manage" hands a paying user to the App Store, which owns the
+              subscription. A mid-trial user gets no action here: the App
+              Store has nothing of theirs to manage yet. */}
+          {plan.loading ? (
+            <>
+              <SectionHeader title="Membership" className="mb-2.5 mt-6" />
+              <Card>
                 <View
-                  accessibilityLabel="Loading your membership"
-                  className="flex-1 gap-2 py-0.5">
-                  <Skeleton className="h-4 w-28 rounded-chip" />
-                  <Skeleton className="h-3 w-44 rounded-chip" />
+                  className="flex-row items-center justify-between gap-3 px-4 py-3.5"
+                  style={{ minHeight: MIN_TAP_TARGET }}>
+                  <View accessibilityLabel="Loading your membership" className="flex-1 gap-2 py-0.5">
+                    <Skeleton className="h-4 w-28 rounded-chip" />
+                    <Skeleton className="h-3 w-44 rounded-chip" />
+                  </View>
                 </View>
-              ) : (
-                <View className="flex-1 pr-2">
-                  <Text variant="body">{planTitle}</Text>
-                  <Text variant="caption" className="mt-1 text-muted">
-                    {planSubtitle}
-                  </Text>
+              </Card>
+            </>
+          ) : !membership.visible ? null : (
+            <>
+              <SectionHeader title="Membership" className="mb-2.5 mt-6" />
+              <Card>
+                <View
+                  className="flex-row items-center justify-between gap-3 px-4 py-3.5"
+                  style={{ minHeight: MIN_TAP_TARGET }}>
+                  <View className="flex-1 pr-2">
+                    <Text variant="body">{membership.title}</Text>
+                    {membership.subtitle ? (
+                      <Text variant="caption" className="mt-1 text-muted">
+                        {membership.subtitle}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {membership.paidPlan ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Manage subscription"
+                      accessibilityHint="Opens your App Store subscriptions"
+                      onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}
+                      hitSlop={8}
+                      style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+                      className="active:opacity-60">
+                      <Text variant="label" className="text-accent">
+                        Manage
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
-              )}
-              {plan.loading ? null : paidPlan ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Manage subscription"
-                  accessibilityHint="Opens your App Store subscriptions"
-                  onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}
-                  hitSlop={8}
-                  style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-                  className="active:opacity-60">
-                  <Text variant="label" className="text-accent">
-                    Manage
-                  </Text>
-                </Pressable>
-              ) : plan.plan === 'free' && !plan.trialing && restore.available ? (
-                // `restore.available` doubles as "paywalls exist in this
-                // build" — both come from the same PAYWALLS_ENABLED constant,
-                // and a keyless build showing an Upgrade button that resolves
-                // to nothing is a dead control.
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Upgrade"
-                  onPress={() =>
-                    void gate.present(Placement.TrialExpired, () =>
-                      qc.invalidateQueries({ queryKey: ['subscription'] }),
-                    )
-                  }
-                  hitSlop={8}
-                  style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-                  className="active:opacity-60">
-                  <Text variant="label" className="text-accent">
-                    Upgrade
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </Card>
+              </Card>
+            </>
+          )}
 
           <SectionHeader title="Styling" className="mb-2.5 mt-6" />
           <Card>
