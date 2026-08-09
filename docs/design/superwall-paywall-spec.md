@@ -55,15 +55,23 @@ Two gaps, both real:
 
 1. **`repeat_upsell` has no campaign.** The Repeat's "See plans" therefore does nothing. An
    unmatched placement proceeds silently — nothing is given away, the moment is simply undesigned.
-2. **`packing_access` now targets the wrong people.** Its audience is
+2. ~~**`packing_access` now targets the wrong people.**~~ **FIXED 2026-08-09.** Its audience was
    `size(device.activeEntitlements) == 0`, which was right while packing was "any paying plan".
-   Packing became **Pro-only** on 2026-08-09, so a **Standard** subscriber who opens Packing has
-   an active entitlement, does not match the audience, and gets no paywall at all — while the
-   app's own gate correctly keeps them locked. The result is a dead "See membership" button.
-   **Fix:** change audience 169159's entitlement rule from `no_active_entitlements` to an
-   entitlement condition on identifier `pro` not being active. Nothing is given away in the
-   meantime — `usePackingAccess` fails closed and reports `unavailable` for a tap that produced
-   nothing — but the sale is lost, and Standard is the tier most likely to buy Pro.
+   Packing became **Pro-only**, so a **Standard** subscriber matched nothing and got a dead
+   "See membership" button. Audience 169159 now carries an `entitlement_conditions` rule on
+   `pro` / `inactive`, which Superwall compiles to
+   `["pro"].all(identifier, !device.activeEntitlements.contains(identifier))` — free, lapsed and
+   Standard all match; Pro does not. (A trialing account never registers the placement, because
+   `usePackingAccess` folds the trial into Pro.)
+
+3. **Campaign 100436 has the same shape and has NOT been changed — deliberately.** Its audience
+   (168899) is also `no_active_entitlements`, so a **Standard** subscriber who hits the 150-item
+   ceiling, the 15-a-day outfit ceiling, the 30-a-month stylist ceiling or the 15-event hosting
+   ceiling matches nothing and is never offered Pro. That is a lost upsell rather than a broken
+   button — those call sites all carry their own refusal copy — and it cannot be fixed here
+   alone, because `context-lines.ts` keys its line on the PLACEMENT and not on the caller's
+   current plan. Widen that audience today and a Standard user at 150 garments reads "Ten pieces
+   is where the free closet stops. You have ten." The client change comes first.
 
 ---
 
