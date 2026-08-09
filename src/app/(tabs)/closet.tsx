@@ -17,7 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ClosetGrid } from '@/components/closet/closet-grid';
 import { ClosetMenu } from '@/components/closet/closet-menu';
 import { ClosetSkeleton } from '@/components/closet/closet-skeleton';
-import { GhostAvatar, GhostSlotGrid } from '@/components/closet/ghost-slot-grid';
+import { ExampleCloset } from '@/components/closet/example-closet';
 import { InsightCard } from '@/components/closet/insight-card';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { RailCard } from '@/components/closet/rail-card';
@@ -163,26 +163,21 @@ export default function ClosetScreen() {
   } else if (screen.items.length === 0) {
     // C-05. Eyebrow only — search and the menu have nothing to act on. The
     // ScrollView exists for pull-to-refresh, which must survive every state.
+    // No identity row: the atlas dropped it for this state entirely — "Six
+    // photos from now" replaces the name-and-count line, because there is no
+    // name-worthy fact yet ("0 pieces" was never one). Stat row stays
+    // suppressed for the same reason it always was — four zeroes under an
+    // example grid would undercut the example rather than excuse it.
     body = (
       <ScrollView refreshControl={refreshControl} contentContainerStyle={{ paddingBottom: 96 }}>
         <EyebrowHeader />
-        <View className="mt-6 flex-row items-center gap-4 px-gutter">
-          <GhostAvatar />
-          <View className="flex-1">
-            {screen.name ? (
-              <Text variant="title" trim numberOfLines={1} accessibilityRole="header">
-                {screen.name}
-              </Text>
-            ) : null}
-            <Text variant="label" className={screen.name ? 'mt-2.5' : ''}>
-              0 pieces · nothing computed yet
-            </Text>
-          </View>
+        <View className="mt-3 px-gutter">
+          <Text variant="title" trim numberOfLines={1} accessibilityRole="header">
+            Six photos from now
+          </Text>
         </View>
-        {/* Stat row suppressed entirely — four zeroes are not facts worth
-            ruling off. The ghost grid carries the whole invitation. */}
-        <View className="mt-8">
-          <GhostSlotGrid onAddPieces={() => router.push('/capture')} />
+        <View className="mt-4">
+          <ExampleCloset onAddPieces={() => router.push('/capture')} />
         </View>
       </ScrollView>
     );
