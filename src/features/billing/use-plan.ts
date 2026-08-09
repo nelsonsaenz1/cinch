@@ -25,6 +25,20 @@ export interface PlanState {
    */
   readonly currentPeriodEnd: Date | null;
   readonly loading: boolean;
+  /**
+   * The subscription row could not be READ — not "this account is free".
+   *
+   * `plan` still resolves to `free` when this is true, because least privilege
+   * is the right default for anything that decides what to draw. But a surface
+   * that has to fail OPEN needs the two cases distinguished, and until this
+   * existed the only way to tell them apart was to reach into react-query's
+   * cache from outside and match on this hook's own key — a coupling to an
+   * implementation detail that could break silently. K-06's third failure
+   * ("Membership can't be confirmed") is the caller this exists for: a member
+   * whose entitlement cannot be verified is treated as a member, and the
+   * server checks independently, so the exposure is bounded.
+   */
+  readonly unconfirmed: boolean;
 }
 
 /**
@@ -48,7 +62,7 @@ export function usePlan(): PlanState {
   const session = useSession();
   const userId = session.userId;
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError } = useQuery({
     queryKey: ['subscription', userId],
     enabled: Boolean(userId),
     // The plan changes on purchase, on trial expiry, and essentially never
@@ -102,5 +116,6 @@ export function usePlan(): PlanState {
     trialEndsAt,
     currentPeriodEnd,
     loading: isPending && Boolean(userId),
+    unconfirmed: isError,
   };
 }

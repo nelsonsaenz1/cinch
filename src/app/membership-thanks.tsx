@@ -59,7 +59,12 @@ export default function MembershipThanksScreen() {
       router.back();
       return;
     }
-    router.replace(origin?.route ?? '/');
+    // `origin.route` came out of `usePathname()`, so it is a real route by
+    // construction — but typed routes only accept literals it can see in the
+    // route tree, and a value read at runtime is never one of those. The cast
+    // is the narrowest possible: a bad string here lands on `+not-found`,
+    // which is a worse screen than "back" and not a crash.
+    router.replace((origin?.route ?? '/') as '/');
   };
 
   const planKnown = !plan.loading && plan.plan !== 'free';

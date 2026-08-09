@@ -14,6 +14,7 @@ import {
   hasForecastFor,
 } from '@/features/context/weather';
 import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
+import { usePlan } from '@/features/billing/use-plan';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { oklchToHex } from '@/lib/color';
 import { DEFAULT_WEIGHTS } from '@/lib/styling';
@@ -21,7 +22,7 @@ import type { Item } from '@/schemas/item';
 import { useTheme } from '@/theme/tokens';
 import type { Json } from '@/types/database';
 
-import { buildPackingList, type PackedLook, type PackedPiece, type PackingResult } from './packing';
+import { buildPackingList, swapDay, type PackedLook, type PackedPiece, type PackingResult } from './packing';
 import { lookSchedule, repeatLabel } from './packing-math';
 import {
   bagHeaderLine,
@@ -425,14 +426,15 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
   const forecasts = withinHorizon ? forecastQuery.data : normalsQuery.data?.perDay;
   const forecastsReady = withinHorizon ? forecastQuery.isSuccess : normalsQuery.isSuccess;
 
-  // ── K-06 · Failure 3 — read-only: is the subscription read in an error
-  // state right now? Never edited from here (`use-plan.ts` is billing's), and
-  // never gates anything — a failed read here only ever adds a banner. ──────
+  // ── K-06 · Failure 3 — did the subscription READ fail, as opposed to
+  // coming back free? `usePlan` now distinguishes them (`unconfirmed`), which
+  // it did not when this screen was written — the first version matched on
+  // react-query's key from outside, a coupling to another module's internals.
+  // Never gates anything: a failed read only ever adds a banner, because a
+  // member who cannot be verified is treated as a member and the server
+  // checks independently. ──────────────────────────────────────────────────
   const [membershipRetrying, setMembershipRetrying] = useState(false);
-  const membershipUnconfirmed = qc
-    .getQueryCache()
-    .findAll({ queryKey: ['subscription'] })
-    .some((q) => q.state.status === 'error');
+  const membershipUnconfirmed = usePlan().unconfirmed;
 
   const retryMembership = useCallback(() => {
     setMembershipRetrying(true);
@@ -443,13 +445,24 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
   const [viewingSaved, setViewingSaved] = useState(false);
 
   // ── The deterministic capsule ──────────────────────────────────────────
-  const [excludedItemIds, setExcludedItemIds] = useState<ReadonlySet<string>>(new Set());
-  const [swapCursor, setSwapCursor] = useState(0);
+  /**
+   * The result after a swap.
+   *
+   * Carries the computed result it was derived FROM, so a fresh search
+   * discards it without an effect: a new forecast or a changed closet makes a
+   * swapped list a statement about a trip that no longer exists, and resetting
+   * that from `useEffect` is a cascading render the lint rightly refuses.
+   */
+  const [swap, setSwap] = useState<{
+    from: PackingResult;
+    result: PackingResult;
+    cursor: number;
+  } | null>(null);
 
-  const packing = useMemo<PackingResult | null>(() => {
+  const computed = useMemo<PackingResult | null>(() => {
     if (!forecasts?.length || wardrobeQuery.isLoading) return null;
     const schedule = lookSchedule(trip.startsOn, days, trip.parts);
-    const pool = excludedItemIds.size ? wardrobe.filter((g) => !excludedItemIds.has(g.id)) : wardrobe;
+    const pool = wardrobe;
 
     // A closet too thin to attempt a search at all is not a reason to wait
     // forever — it is the same honest shortfall Failure 2 already names,
@@ -472,7 +485,10 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
       weights: profileQuery.data?.weights ?? DEFAULT_WEIGHTS,
       formalityForPart: (part) => formalityForPart(trip, part),
     });
-  }, [forecasts, wardrobe, wardrobeQuery.isLoading, context, profileQuery.data?.weights, trip, days, excludedItemIds]);
+  }, [forecasts, wardrobe, wardrobeQuery.isLoading, context, profileQuery.data?.weights, trip, days]);
+
+  const live = swap && swap.from === computed ? swap : null;
+  const packing = live?.result ?? computed;
 
   const closetTooThin = !wardrobeQuery.isLoading && wardrobe.length === 0;
 
@@ -564,17 +580,35 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
     setSavedNotice(true);
   }, [packing, tripId, startTrip, trip, brief.data, weatherSource, days, saveTrip]);
 
+  /**
+   * Re-dress one day, and only that day.
+   *
+   * `swapDay` replays the existing result — every other look keeps its outfit
+   * and still contributes its affinity — so the swap cannot ripple into
+   * Sunday. The earlier version re-ran the whole trip with the day's pieces
+   * removed, which changed neighbouring days for reasons the user never asked
+   * for.
+   */
   const handleSwapDay = useCallback(() => {
     if (!packing) return;
     const groups = groupLooksByDay(packing.looks);
     if (!groups.length) return;
-    const target = groups[swapCursor % groups.length]!;
-    const targetIds = new Set(
-      target.looks.flatMap((l) => l.outfit?.items.map((g) => g.id) ?? []),
-    );
-    setExcludedItemIds((prev) => new Set([...prev, ...targetIds]));
-    setSwapCursor((c) => c + 1);
-  }, [packing, swapCursor]);
+    const cursor = live?.cursor ?? 0;
+    const target = groups[cursor % groups.length]!;
+
+    setSwap({
+      from: computed!,
+      result: swapDay({
+        previous: packing,
+        dayIndex: target.dayIndex,
+        wardrobe,
+        baseContext: context,
+        weights: profileQuery.data?.weights ?? DEFAULT_WEIGHTS,
+        formalityForPart: (part: DayPartKey) => formalityForPart(trip, part),
+      }),
+      cursor: cursor + 1,
+    });
+  }, [packing, computed, live, wardrobe, context, profileQuery.data?.weights, trip]);
 
   // ── Share — the same offscreen-capture pattern the outfit plate uses ────
   const [shareMounted, setShareMounted] = useState(false);

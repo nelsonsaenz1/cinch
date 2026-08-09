@@ -111,7 +111,6 @@ export function buildPackingList({
   const packingWeights: StyleWeights = { ...weights, affinity: 1.6 };
 
   const looks: PackedLook[] = [];
-  const usage = new Map<string, { garment: Garment; looks: number }>();
 
   for (const look of schedule) {
     const weather = forecasts[look.dayIndex] ?? null;
@@ -139,23 +138,114 @@ export function buildPackingList({
     for (const g of outfit?.items ?? []) {
       const boost = REUSE_BOOST[g.slot] ?? 0.5;
       packed.items[g.id] = Math.min(1, (packed.items[g.id] ?? 0) + boost);
+    }
+  }
 
+  // The tally — including "the loafers stay on your feet on the plane", which
+  // is the reason the bag is one piece smaller than the piece count suggests —
+  // is shared with `swapDay` below rather than written twice.
+  return tallyLooks(looks);
+}
+
+/**
+ * Re-dress ONE day, and leave the rest of the trip alone.
+ *
+ * "Swap a day" (K-05) has to mean the day it names. Re-running
+ * `buildPackingList` over the whole trip with that day's pieces removed
+ * satisfies the letter of it and breaks the promise: the affinity table
+ * rebuilds from nothing, so the pieces day 3 leaned on can move because day 2
+ * was swapped, and a user who asked to change Saturday watches Sunday change
+ * too.
+ *
+ * So this replays the existing result instead. Every other look keeps the
+ * outfit it already had — and still contributes its affinity, in order, so the
+ * one look being re-searched is biased towards what is already in the bag,
+ * which is the whole point of the packing regime. Only the target day is
+ * searched again, with its own current pieces excluded.
+ *
+ * The counts are then recomputed from the new set of looks, because a swap
+ * genuinely changes them: dropping the linen blouse from Saturday makes it a
+ * ×2 rather than a ×3.
+ */
+export function swapDay({
+  previous,
+  dayIndex,
+  wardrobe,
+  baseContext,
+  weights,
+  formalityForPart,
+}: {
+  previous: PackingResult;
+  /** Which day of the trip to re-dress. Every look on it is re-searched. */
+  dayIndex: number;
+  wardrobe: Garment[];
+  baseContext: StyleContext;
+  weights: StyleWeights;
+  formalityForPart: (part: DayPartKey) => number | null;
+}): PackingResult {
+  /** What that day is wearing now — the thing the user is asking to be rid of. */
+  const excluded = new Set(
+    previous.looks
+      .filter((l) => l.dayIndex === dayIndex)
+      .flatMap((l) => l.outfit?.items ?? [])
+      .map((g) => g.id),
+  );
+
+  const pool = wardrobe.filter((g) => !excluded.has(g.id));
+  const packed: Affinities = { colorPairs: {}, slotPairs: {}, items: {}, brands: {} };
+  const packingWeights: StyleWeights = { ...weights, affinity: 1.6 };
+
+  const looks: PackedLook[] = [];
+
+  for (const look of previous.looks) {
+    let outfit = look.outfit;
+
+    if (look.dayIndex === dayIndex) {
+      const ctx: StyleContext = {
+        ...baseContext,
+        weather: look.weather,
+        events: [],
+        note: null,
+        targetFormality: formalityForPart(look.part),
+        now: fromIsoDate(look.date).getTime(),
+      };
+
+      // No fallback to the unfiltered pool on purpose. A day that cannot be
+      // re-dressed without repeating itself should come back empty and say so,
+      // rather than quietly handing back the same outfit and reading as a
+      // button that did nothing.
+      [outfit] = generateOutfits(pool, ctx, {
+        weights: packingWeights,
+        affinities: packed,
+        count: 1,
+        diversity: 0,
+      });
+    }
+
+    looks.push({ ...look, outfit: outfit ?? null });
+
+    for (const g of outfit?.items ?? []) {
+      const boost = REUSE_BOOST[g.slot] ?? 0.5;
+      packed.items[g.id] = Math.min(1, (packed.items[g.id] ?? 0) + boost);
+    }
+  }
+
+  return tallyLooks(looks);
+}
+
+/** Distinct pieces, how many looks each covers, and which one is worn out. */
+function tallyLooks(looks: PackedLook[]): PackingResult {
+  const usage = new Map<string, { garment: Garment; looks: number }>();
+
+  for (const look of looks) {
+    for (const g of look.outfit?.items ?? []) {
       const entry = usage.get(g.id);
       if (entry) entry.looks += 1;
       else usage.set(g.id, { garment: g, looks: 1 });
     }
   }
 
-  /**
-   * The shoes you leave the house in.
-   *
-   * "The loafers stay on your feet on the plane" is the memo's own line, and it
-   * is the reason the bag is one piece smaller than the piece count suggests.
-   * The departure look decides it — the first look of the trip — and only
-   * footwear qualifies, because nothing else is unambiguously not in the bag.
-   */
-  const wornId =
-    looks[0]?.outfit?.items.find((g) => g.slot === 'footwear')?.id ?? null;
+  const wornId = looks[0]?.outfit?.items.find((g) => g.slot === 'footwear')?.id ?? null;
 
   return {
     looks,

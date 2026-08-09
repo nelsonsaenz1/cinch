@@ -78,13 +78,25 @@ export function memoHeadline(pieceCount: number, lookCount: number): string {
 // K-04 — the research lines
 // ---------------------------------------------------------------------------
 
-/** "19–27°C, one wet day." — the real range, and how many days need a coat for rain. */
-export function forecastSummaryLine(forecasts: readonly WeatherContext[]): string {
-  const lowC = Math.round(Math.min(...forecasts.map((f) => f.lowC)));
-  const highC = Math.round(Math.max(...forecasts.map((f) => f.highC)));
+/**
+ * "66–81°, one wet day." — the real range, and how many days need a coat.
+ *
+ * FAHRENHEIT, like every other temperature in this app, not the atlas's °C.
+ * The atlas is a mock rendered in the designer's own units; the app shows
+ * Today's weather, the week planner and the stylist in `'F'`, and a user who
+ * reads 72° on Today and 22° on Packing is being shown two scales in one app.
+ * Same precedent as every other atlas-versus-design-system conflict: the
+ * running app wins. `formatTemp` already appends the degree sign.
+ */
+export function forecastSummaryLine(
+  forecasts: readonly WeatherContext[],
+  units: 'C' | 'F' = 'F',
+): string {
+  const lowC = Math.min(...forecasts.map((f) => f.lowC));
+  const highC = Math.max(...forecasts.map((f) => f.highC));
   const wet = forecasts.filter((f) => f.precipitationChance >= 0.4).length;
   const wetPhrase = wet === 0 ? 'no wet days' : wet === 1 ? 'one wet day' : `${word(wet)} wet days`;
-  return `${lowC}–${highC}°C, ${wetPhrase}.`;
+  return `${formatTemp(lowC, units).replace('°', '')}–${formatTemp(highC, units)}, ${wetPhrase}.`;
 }
 
 /**
@@ -97,8 +109,10 @@ export function normalsSummaryLine(
   monthName: string,
   lowC: number,
   highC: number,
+  units: 'C' | 'F' = 'F',
 ): string {
-  return `No real forecast yet — this is what ${placeName} is normally like in ${monthName}: ${Math.round(lowC)}–${Math.round(highC)}°C.`;
+  const range = `${formatTemp(lowC, units).replace('°', '')}–${formatTemp(highC, units)}`;
+  return `No real forecast yet — this is what ${placeName} is normally like in ${monthName}: ${range}.`;
 }
 
 const warmthForTemp = (c: number): number => {
@@ -174,9 +188,12 @@ export function lookGarmentNames(look: PackedLook): string {
   return look.outfit.items.map(garmentLabel).join(', ');
 }
 
-/** "24°" — the day's representative feel, or null when no weather reached it. */
-export function dayTempLabel(weather: WeatherContext | null): string | null {
-  return weather ? formatTemp(weather.feelsLikeC, 'C') : null;
+/** "75°" — the day's representative feel, or null when no weather reached it. */
+export function dayTempLabel(
+  weather: WeatherContext | null,
+  units: 'C' | 'F' = 'F',
+): string | null {
+  return weather ? formatTemp(weather.feelsLikeC, units) : null;
 }
 
 /**

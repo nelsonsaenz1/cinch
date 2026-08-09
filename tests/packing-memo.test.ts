@@ -144,12 +144,15 @@ test('forecastSummaryLine states the real range and counts wet days honestly', (
     weather({ lowC: 19, highC: 24, precipitationChance: 0.1 }),
     weather({ lowC: 20, highC: 27, precipitationChance: 0.6 }),
   ];
-  assert.equal(forecastSummaryLine(forecasts), '19–27°C, one wet day.');
+  // Fahrenheit, like every other temperature in the app — the atlas's °C is a
+  // mock in the designer's units, and two scales in one app is the bug.
+  assert.equal(forecastSummaryLine(forecasts), '66–81°, one wet day.');
+  assert.equal(forecastSummaryLine(forecasts, 'C'), '19–27°, one wet day.');
 });
 
 test('forecastSummaryLine says "no wet days" rather than "zero"', () => {
   const forecasts = [weather({ lowC: 10, highC: 15, precipitationChance: 0 })];
-  assert.equal(forecastSummaryLine(forecasts), '10–15°C, no wet days.');
+  assert.equal(forecastSummaryLine(forecasts, 'C'), '10–15°, no wet days.');
 });
 
 test('closetWeatherFit counts only the pieces whose warmth suits the real forecast', () => {
