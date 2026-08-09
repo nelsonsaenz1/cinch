@@ -23,6 +23,7 @@ export { Rule } from '@/components/ui/rule';
 export { SearchField, type SearchFieldProps } from '@/components/ui/search-field';
 export { BackButton, ScreenHeader, type ScreenHeaderProps } from '@/components/ui/screen-header';
 export { SectionHeader, type SectionHeaderProps } from '@/components/ui/section-header';
+export { SettingsRow } from '@/components/ui/settings-row';
 export { ProgressTrack, type ProgressTrackProps } from '@/components/ui/progress-track';
 export {
   ClosetGridSkeleton,

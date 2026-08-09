@@ -1,10 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -19,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Rule } from '@/components/ui/rule';
 import { SectionHeader } from '@/components/ui/section-header';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { signOut } from '@/features/auth/actions';
@@ -108,73 +107,6 @@ async function fetchProfileHeader(): Promise<{
     memberSince: profileRow?.created_at ?? null,
     avatarUrl: profileRow?.avatar_url ?? null,
   };
-}
-
-/**
- * One settings row: label, chevron, tap target. `tone="accent"` is spent on
- * exactly one row (Delete account) — the same one-accent-per-screen rule the
- * rest of the app follows, just applied inside a list instead of to a button.
- */
-function AccountRow({
-  label,
-  onPress,
-  tone = 'ink',
-  loading = false,
-  detail,
-  /**
-   * `chevron.right` means "further in". A row that hands you to Safari is not
-   * further in — it is out of the app entirely, and iOS's own settings mark
-   * that with the up-right arrow. Two glyphs for two different promises.
-   */
-  external = false,
-}: {
-  label: string;
-  onPress: () => void;
-  tone?: 'ink' | 'accent';
-  loading?: boolean;
-  /**
-   * Quiet fact before the chevron — "2 waiting". Data, not decoration, and
-   * set in `muted` like every trailing value in the atlas: a single quiet
-   * number here is the Plate's whole tolerance for unread-count anxiety, and
-   * an oxblood one would be a badge wearing a disguise.
-   */
-  detail?: string;
-  external?: boolean;
-}) {
-  const theme = useTheme();
-  const iconColor = tone === 'accent' ? theme.accent : external ? theme.byline : theme.faint;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ busy: loading }}
-      accessibilityHint={external ? 'Opens in your browser' : undefined}
-      onPress={onPress}
-      disabled={loading}
-      style={{ minHeight: MIN_TAP_TARGET }}
-      className="flex-row items-center justify-between px-4 py-3.5 active:opacity-60">
-      <Text variant="body" className={tone === 'accent' ? 'text-accent' : 'text-ink'}>
-        {label}
-      </Text>
-      <View className="flex-row items-center gap-2">
-        {detail ? (
-          <Text variant="caption" className="text-muted">
-            {detail}
-          </Text>
-        ) : null}
-        {loading ? (
-          <ActivityIndicator size="small" color={iconColor} />
-        ) : (
-          <SymbolView
-            name={external ? 'arrow.up.right' : 'chevron.right'}
-            size={13}
-            tintColor={iconColor}
-            resizeMode="scaleAspectFit"
-          />
-        )}
-      </View>
-    </Pressable>
-  );
 }
 
 /**
@@ -550,7 +482,7 @@ export default function ProfileScreen() {
                 switch: the control moved to a screen with room to say what
                 actually leaves the phone, and this row only reports the
                 state and leads there. */}
-            <AccountRow
+            <SettingsRow
               label="AI tagging"
               detail={consent.data ? (consent.data.granted ? 'On' : 'Off') : undefined}
               onPress={() => router.push('/privacy')}
@@ -562,15 +494,15 @@ export default function ProfileScreen() {
               them over rows that don't deliver is a small lie. */}
           <SectionHeader title="People" className="mb-2.5 mt-6" />
           <Card>
-            <AccountRow label="Friends" onPress={() => router.push('/friends')} />
+            <SettingsRow label="Friends" onPress={() => router.push('/friends')} />
             <Rule tone="hairline" />
-            <AccountRow
+            <SettingsRow
               label="Borrow requests"
               detail={pendingAsks > 0 ? `${pendingAsks} waiting` : undefined}
               onPress={() => router.push('/borrow')}
             />
             <Rule tone="hairline" />
-            <AccountRow
+            <SettingsRow
               label="Blocked people"
               onPress={() => router.push('/friends/blocked')}
             />
@@ -583,7 +515,7 @@ export default function ProfileScreen() {
           <Card className="mt-6">
             {restore.available ? (
               <>
-                <AccountRow
+                <SettingsRow
                   label="Restore purchases"
                   onPress={restore.restore}
                   loading={restore.restoring}
@@ -591,13 +523,13 @@ export default function ProfileScreen() {
                 <Rule tone="hairline" />
               </>
             ) : null}
-            <AccountRow
+            <SettingsRow
               label="Privacy Policy"
               external
               onPress={() => void Linking.openURL(PRIVACY_URL)}
             />
             <Rule tone="hairline" />
-            <AccountRow
+            <SettingsRow
               label="Support"
               external
               onPress={() => void Linking.openURL(SUPPORT_URL)}
@@ -610,9 +542,9 @@ export default function ProfileScreen() {
               and takes a typed DELETE — see delete-account-card.tsx for why
               that replaced the two-Alert chain. */}
           <Card className="mt-6">
-            <AccountRow label="Sign out" onPress={confirmSignOut} />
+            <SettingsRow label="Sign out" onPress={confirmSignOut} />
             <Rule tone="hairline" />
-            <AccountRow
+            <SettingsRow
               label="Delete account"
               tone="accent"
               onPress={() => {
