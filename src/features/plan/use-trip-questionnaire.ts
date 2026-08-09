@@ -82,8 +82,28 @@ const FRESH: Run = { index: 0, draft: EMPTY };
  */
 let heldRun: Run = FRESH;
 
-export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
-  const [{ index, draft }, setRunState] = useState<Run>(heldRun);
+/**
+ * Seeds the run on first mount only, and only in dev.
+ *
+ * `dev-packing-questions.tsx` needs a real, honest K-03 — the summary rows and
+ * the running arithmetic computed by the actual state machine, not a redrawn
+ * approximation — so it has to be able to open the questionnaire already
+ * partway answered. Gated on `heldRun === FRESH` so it can never clobber a
+ * user's in-progress trip, and on `__DEV__` so the seam does not exist in a
+ * shipping build at all.
+ */
+export type TripQuestionnaireDevSeed = { index: number; draft: Partial<TripDraft> };
+
+export function useTripQuestionnaire(
+  onComplete: (trip: Trip) => void,
+  devSeed?: TripQuestionnaireDevSeed,
+) {
+  const [{ index, draft }, setRunState] = useState<Run>(() => {
+    if (__DEV__ && devSeed && heldRun === FRESH) {
+      return { index: devSeed.index, draft: { ...EMPTY, ...devSeed.draft } };
+    }
+    return heldRun;
+  });
 
   /** Every write lands in the module slot too, so unmounting loses nothing. */
   const setRun = useCallback((update: (run: Run) => Run) => {
@@ -162,6 +182,24 @@ export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
     setRun((run) => ({ ...run, index: Math.max(0, run.index - 1) }));
   }, [setRun]);
 
+  /**
+   * "Tap to revise" (K-03): jump straight to an already-answered step.
+   *
+   * Only ever moves backward — a summary row for a step ahead of the current
+   * one cannot exist, since that step has not been rendered yet, so a forward
+   * or unknown target is simply ignored rather than trusted. Re-answering the
+   * step you land on then advances one step at a time as normal; it does not
+   * restore whatever step you were on before, the same trade-off any linear
+   * wizard makes when you go back to fix something.
+   */
+  const goTo = useCallback((target: TripStepKey) => {
+    setRun((run) => {
+      const targetIndex = TRIP_STEPS.indexOf(target);
+      if (targetIndex < 0 || targetIndex >= run.index) return run;
+      return { ...run, index: targetIndex };
+    });
+  }, [setRun]);
+
   const reset = useCallback(() => setRun(() => FRESH), [setRun]);
 
   /**
@@ -204,6 +242,7 @@ export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
       setDates,
       setCompanionFriends,
       back,
+      goTo,
       reset,
       complete,
     }),
@@ -217,6 +256,7 @@ export function useTripQuestionnaire(onComplete: (trip: Trip) => void) {
       setDates,
       setCompanionFriends,
       back,
+      goTo,
       reset,
       complete,
     ],
