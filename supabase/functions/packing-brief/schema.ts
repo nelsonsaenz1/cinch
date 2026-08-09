@@ -43,7 +43,7 @@ export const packingSchema = {
     observation: {
       type: 'string',
       description:
-        'One paragraph, 2–4 sentences, under 400 characters, in the stylist\'s voice and second person. What the place is actually like to dress for and what that means for this person\'s closet. Specific over general: how formal restaurants really are, what the evenings do, what the ground is like underfoot. Name real pieces from their closet where it helps.',
+        'One paragraph, 2–4 sentences, under 400 characters, in the stylist\'s voice and second person. What the place is actually like to dress for and what that means for this person\'s closet. Specific over general: how formal restaurants really are, what the evenings do, what the ground is like underfoot. Name real pieces from their closet where it helps. When you were told what has already been packed and how many looks each piece covers, say so in these terms — "the linen blouse does three of your four dinners" — rather than speaking generally about the destination.',
     },
     gaps: {
       type: ['string', 'null'],
@@ -59,7 +59,7 @@ export const packingSchema = {
         properties: {
           part: {
             type: 'string',
-            enum: ['morning', 'day', 'night'],
+            enum: ['daytime', 'evening', 'gym', 'travel'],
             description: 'Which part of the day. Only the parts you were asked for.',
           },
           note: {
@@ -86,7 +86,7 @@ export type PackingResult = {
   spec: string[];
   observation: string;
   gaps: string | null;
-  parts: { part: 'morning' | 'day' | 'night'; note: string; itemIds: string[] }[];
+  parts: { part: 'daytime' | 'evening' | 'gym' | 'travel'; note: string; itemIds: string[] }[];
 };
 
 export const PACKING_SYSTEM_PROMPT = `You are the stylist inside Cinch, a wardrobe app. Someone is going away and you are packing for them out of the clothes they already own.
