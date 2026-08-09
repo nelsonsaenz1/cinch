@@ -1,10 +1,11 @@
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { PRESSED_OPACITY, canvasAlpha, useTheme } from '@/theme/tokens';
+import { canvasAlpha, useTheme } from '@/theme/tokens';
 
 /**
  * C-05 — the empty closet (Closet State Atlas, 2026-08-08 cut).
@@ -109,6 +110,18 @@ export type ExampleClosetProps = {
 export function ExampleCloset({ onAddPieces }: ExampleClosetProps) {
   const theme = useTheme();
   const [size, setSize] = useState({ w: 0, h: 0 });
+  /**
+   * How tall the invitation actually is, measured rather than guessed.
+   *
+   * The invitation is pinned to the bottom of this tile and the tile's height
+   * comes from the photo grid, so without room reserved for it the copy lands
+   * on top of the second row of photographs — which is exactly what happened
+   * once the button started rendering and got its 52pt back. Reserving a fixed
+   * number would break the moment the body copy wrapped to a different number
+   * of lines on a narrower phone, so the block reports its own height and the
+   * grid pads by it.
+   */
+  const [invitationHeight, setInvitationHeight] = useState(0);
 
   return (
     <View
@@ -123,7 +136,7 @@ export function ExampleCloset({ onAddPieces }: ExampleClosetProps) {
         accessibilityLabel="Sample closet: a cognac shearling coat worn 9 times, a cream mohair sweater at $4.20 a wear, charcoal tailored trousers in 4 looks, and brown leather loafers. Sample data."
         pointerEvents="none"
         className="px-gutter"
-        style={{ gap: 12 }}>
+        style={{ gap: 12, paddingBottom: invitationHeight }}>
         <View className="flex-row" style={{ gap: 12 }}>
           <ExampleCellView cell={CELLS[0]} />
           <ExampleCellView cell={CELLS[1]} />
@@ -155,7 +168,10 @@ export function ExampleCloset({ onAddPieces }: ExampleClosetProps) {
       ) : null}
 
       {/* The invitation, pinned to the bottom of the fade. */}
-      <View className="absolute inset-x-0 bottom-0 items-center px-gutter" style={{ paddingBottom: 22 }}>
+      <View
+        onLayout={(e) => setInvitationHeight(e.nativeEvent.layout.height)}
+        className="absolute inset-x-0 bottom-0 items-center px-gutter"
+        style={{ paddingBottom: 22 }}>
         <View
           className="flex-row items-center rounded-full bg-blush dark:bg-blush-dark"
           style={{ gap: 7, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: theme.blushRule }}>
@@ -171,22 +187,26 @@ export function ExampleCloset({ onAddPieces }: ExampleClosetProps) {
           counted from the first one.
         </Text>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add your first piece"
+        {/*
+          The shared Button, not a hand-rolled Pressable.
+
+          This was a `Pressable` carrying both a `className` and a FUNCTION
+          `style`, and it did not render at all on device — no ground, no
+          label, not tappable, just the gap where it should have been. That
+          combination is the same NativeWind interop hole the theme documents
+          for `Animated.*`: the class list and a computed style cannot both win,
+          and what survives is neither. It typechecked, it linted, and it passed
+          every test, because none of those run a layout pass.
+
+          `variant="ink"` is the atlas's black fill and deliberately does not
+          spend the accent, which this screen has already spent on the pill.
+        */}
+        <Button
+          title="Add your first piece"
+          variant="ink"
           onPress={onAddPieces}
-          className="mt-[18px] w-full items-center justify-center rounded-[14px]"
-          style={({ pressed }) => ({
-            minHeight: 52,
-            backgroundColor: theme.ink,
-            opacity: pressed ? PRESSED_OPACITY : 1,
-          })}>
-          {/* Inline colour, never a second `text-*` class — the Button
-              precedence lesson (ui/button.tsx `labelKey`) applies here too. */}
-          <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
-            Add your first piece
-          </Text>
-        </Pressable>
+          className="mt-[18px] w-full"
+        />
 
         <View className="mt-3 flex-row items-center justify-center" style={{ gap: 8 }}>
           <View
