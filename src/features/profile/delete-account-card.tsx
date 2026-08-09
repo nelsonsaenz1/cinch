@@ -153,7 +153,7 @@ export function DeleteAccountCard({
             <View className="mt-4 gap-2.5">
               <Button
                 title="Delete everything"
-                variant="primary"
+                variant="critical"
                 disabled={!armed}
                 loading={pending}
                 onPress={onDelete}

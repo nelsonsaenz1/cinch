@@ -1,6 +1,5 @@
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, TextInput, View } from 'react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { SymbolView } from 'expo-symbols';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -15,7 +14,9 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 import { AvatarCropSheet, type CropAsset } from './avatar-crop-sheet';
 import { pickAvatar } from './avatar';
-import { HANDLE_MAX, HANDLE_MIN, handleProblem, normaliseHandle } from './handle';
+import { fieldFrame } from './field-frame';
+import { handleProblem, normaliseHandle, suggestHandles } from './handle';
+import { HandleField } from './handle-field';
 import { BIO_MAX, NAME_MAX, saveProfileDenialCopy, useSaveProfile } from './mutations';
 import { useHandleAvailability, useMyProfile } from './queries';
 
@@ -40,25 +41,6 @@ const AVATAR_SIZE = 88;
 
 /** Field height, per the atlas. */
 const FIELD_HEIGHT = 46;
-
-/**
- * A handful of alternatives when the handle she wants is held.
- *
- * Derived locally — a compressed display name, the `_wears` suffix, a short
- * number — and NOT availability-checked here: tapping one fills the field,
- * and the real check answers as it does for anything typed. The number is a
- * deterministic function of the base so the rail does not reshuffle on every
- * keystroke.
- */
-function suggestHandles(taken: string, displayName: string): string[] {
-  const base = normaliseHandle(taken);
-  const fromName = displayName.toLowerCase().replace(/[^a-z0-9_]/g, '');
-  const digits = String(((base.charCodeAt(0) || 0) + base.length) % 90 + 10);
-  const candidates = [fromName, `${base}_wears`, `${base}${digits}`];
-  return [...new Set(candidates)]
-    .filter((c) => c !== base && handleProblem(c) === null && c.length > 0)
-    .slice(0, 3);
-}
 
 export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const theme = useTheme();
@@ -111,38 +93,9 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
     !save.isPending &&
     profile.isSuccess;
 
-  /**
-   * The line under the handle field. One line, four things it can say, in
-   * order of how much the user needs to hear it: what is malformed, what is
-   * taken, that the check is in flight, and — when there is nothing to
-   * report — what the field is for.
-   *
-   * The last one is the important one. Eleven screens READ `username` and
-   * until now nothing could write it, so friend search has been searching a
-   * column nobody could fill. This sentence is what tells a user why claiming
-   * one matters. (A free handle says so INSIDE the field — the check mark —
-   * so the helper keeps explaining rather than repeating it.)
-   */
-  const normal = normaliseHandle(handle);
-  // If the length is fine, the problem handleProblem found is the characters.
-  const formatProblem =
-    handleError !== null && normal.length >= HANDLE_MIN && normal.length <= HANDLE_MAX;
-  const handleHint: { text: string; tone: 'error' | 'quiet' } = handleError
-    ? {
-        text: formatProblem
-          ? 'Spaces and punctuation will not work here. Letters, numbers and underscores only.'
-          : handleError,
-        tone: 'error',
-      }
-    : availability === 'taken'
-      ? { text: 'Someone has this one. Try adding a word or a number.', tone: 'error' }
-      : availability === 'checking'
-        ? { text: 'Hold on a second.', tone: 'quiet' }
-        : {
-            text: 'Letters, numbers and underscores. This is how friends find your closet.',
-            tone: 'quiet',
-          };
-
+  // EP-02's four validation states (checking / taken / not-allowed / the
+  // quiet default) and the helper sentence under the field both live in
+  // `HandleField` now — this component only supplies the data.
   const suggestions = useMemo(
     () => (availability === 'taken' ? suggestHandles(handle, name) : []),
     [availability, handle, name],
@@ -200,21 +153,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
     ]);
   };
 
-  /**
-   * The one border, in its three states: a 1px rule at rest, 1.5px ink while
-   * focused, 1.5px oxblood when the field holds something that cannot save.
-   * Inline because the width changes with the state — a class pair would
-   * leave a seam where NativeWind resolves precedence, not the state.
-   */
-  const frame = (state: 'rest' | 'focus' | 'error') =>
-    state === 'error'
-      ? { borderWidth: 1.5, borderColor: theme.accent }
-      : state === 'focus'
-        ? { borderWidth: 1.5, borderColor: theme.ink }
-        : { borderWidth: 1, borderColor: theme.rule };
-
-  const handleState =
-    handleError || availability === 'taken' ? 'error' : focused === 'handle' ? 'focus' : 'rest';
+  // The one border, in its three states — see `field-frame.ts`.
 
   // Fields share one shape — white ground, the same 12px radius as buttons.
   const fieldClassName = 'rounded-md bg-surface dark:bg-surface-dark';
@@ -357,102 +296,24 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
               autoCorrect={false}
               accessibilityLabel="Display name"
               className={`${fieldClassName} px-3.5 font-body text-callout text-ink dark:text-ink-dark`}
-              style={[{ minHeight: FIELD_HEIGHT }, frame(focused === 'name' ? 'focus' : 'rest')]}
+              style={[{ minHeight: FIELD_HEIGHT }, fieldFrame(theme, focused === 'name' ? 'focus' : 'rest')]}
             />
 
-            <SectionHeader title="Handle" className="mb-2 mt-5" />
-            <View
-              className={`${fieldClassName} flex-row items-center px-3.5`}
-              style={[{ minHeight: FIELD_HEIGHT }, frame(handleState)]}>
-              {/* The `@` belongs to the field, not to the value — storing it
-                  would break the format constraint on the column. */}
-              <Text variant="callout" className="text-faint dark:text-faint-dark">
-                @
-              </Text>
-              <TextInput
-                value={handle}
-                // Normalised as it is typed, not on save: uniqueness is
-                // enforced on lower(username), so showing the user a capital
-                // she is not going to keep is a small lie the field can
-                // simply not tell.
-                onChangeText={(next) => setHandle(normaliseHandle(next))}
-                onFocus={() => setFocused('handle')}
-                onBlur={() => setFocused(null)}
-                placeholder="handle"
-                placeholderTextColor={theme.faint}
-                maxLength={HANDLE_MAX}
-                autoCapitalize="none"
-                autoCorrect={false}
-                accessibilityLabel="Handle"
-                style={{
-                  flex: 1,
-                  minHeight: FIELD_HEIGHT - 3, // inside the widest border
-                  paddingLeft: 2,
-                  fontFamily: 'HelveticaNeue',
-                  fontSize: 16,
-                  color: theme.ink,
-                }}
-              />
-              {/* The verdict lives IN the field — a check, a spinner, or the
-                  one word "Taken" — with the helper below carrying the fix. */}
-              {availability === 'free' ? (
-                <View className="flex-row items-center gap-1.5" accessibilityLiveRegion="polite">
-                  <SymbolView
-                    name="checkmark"
-                    size={12}
-                    tintColor={theme.ink}
-                    resizeMode="scaleAspectFit"
-                  />
-                  <Text variant="label" className="text-ink dark:text-ink-dark">
-                    Available
-                  </Text>
-                </View>
-              ) : availability === 'checking' ? (
-                <View className="flex-row items-center gap-1.5" accessibilityLiveRegion="polite">
-                  <ActivityIndicator size="small" color={theme.faint} />
-                  <Text variant="label" className="text-faint dark:text-faint-dark">
-                    Checking
-                  </Text>
-                </View>
-              ) : availability === 'taken' ? (
-                <Text variant="label" accessibilityLiveRegion="polite" style={{ color: theme.accent }}>
-                  Taken
-                </Text>
-              ) : null}
-            </View>
-            <Text
-              variant="caption"
-              accessibilityLiveRegion={handleHint.tone === 'quiet' ? 'none' : 'polite'}
-              className={handleHint.tone === 'error' ? 'mt-2' : 'mt-2 text-muted dark:text-muted-dark'}
-              style={handleHint.tone === 'error' ? { color: theme.accent } : undefined}>
-              {handleHint.text}
-            </Text>
-            {suggestions.length > 0 ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                className="mt-2.5"
-                contentContainerStyle={{ gap: 7 }}>
-                {/* Alternatives that fill the field on tap. `rounded-chip`
-                    rather than the atlas's 15px capsule: labelled controls in
-                    this app are 12px rectangles by rule (tailwind.config.js on
-                    `full`), and one radius grammar beats a 3px match. */}
-                {suggestions.map((s) => (
-                  <Pressable
-                    key={s}
-                    onPress={() => setHandle(s)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Use handle ${s}`}
-                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                    style={{ height: 30, justifyContent: 'center' }}
-                    className="rounded-chip border border-rule px-3 active:opacity-60 dark:border-rule-dark">
-                    <Text variant="label" style={{ color: theme.ink }}>
-                      @{s}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            ) : null}
+            <HandleField
+              value={handle}
+              // Normalised as it is typed, not on save: uniqueness is
+              // enforced on lower(username), so showing the user a capital
+              // she is not going to keep is a small lie the field can simply
+              // not tell.
+              onChangeText={(next) => setHandle(normaliseHandle(next))}
+              focused={focused === 'handle'}
+              onFocus={() => setFocused('handle')}
+              onBlur={() => setFocused(null)}
+              handleError={handleError}
+              availability={availability}
+              suggestions={suggestions}
+              onPressSuggestion={setHandle}
+            />
 
             <SectionHeader
               title="Bio"
@@ -483,7 +344,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
               className={`${fieldClassName} px-3.5 py-3 font-body text-callout text-ink dark:text-ink-dark`}
               style={[
                 { minHeight: 104, textAlignVertical: 'top' },
-                frame(bioOver ? 'error' : focused === 'bio' ? 'focus' : 'rest'),
+                fieldFrame(theme, bioOver ? 'error' : focused === 'bio' ? 'focus' : 'rest'),
               ]}
             />
             {bioOver ? (
