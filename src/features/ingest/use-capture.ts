@@ -18,6 +18,20 @@ import { drainQueue } from './upload-queue';
  * need and lose every user who taps "Don't Allow" — and, because Apple now
  * auto-rejects Info.plist keys declaring resources the app never uses, the
  * unused `NSPhotoLibraryUsageDescription` is suppressed in app.config.ts too.
+ *
+ * ── Acquiring a photo is separate from committing it (Directive 4, W-02) ───
+ *
+ * Every door below used to enqueue the moment a picture existed. None of them
+ * do any more: `commit` is the one function in this module that touches the
+ * upload/tag queue, and `pickFromLibrary`/`takePhoto` now only ever hand back
+ * the assets they acquired. The split exists because the Wall's W-02 forbids
+ * disabling the shutter on a full closet — its atlas is explicit that "the
+ * limit applies to the closet, not the camera" — while the app still has a
+ * real reason to refuse the EXPENSIVE half of a capture on a garment that
+ * cannot be added: the upload and the paid tagging call, not the act of
+ * taking the picture. `capture.tsx`'s `settleCapture` decides, per photo,
+ * whether the result of a door below goes straight to `commit` or waits —
+ * held in component state, never persisted — behind the closet-full sheet.
  */
 
 /**
@@ -35,14 +49,19 @@ const SELECTION_LIMIT = 60;
  * `CameraCapturedPicture`, which is the same three fields and no `assetId` —
  * a photograph that has just been taken is not in any library yet.
  */
-type CapturedAsset = { uri: string; width: number; height: number; assetId?: string | null };
+export type CapturedAsset = {
+  uri: string;
+  width: number;
+  height: number;
+  assetId?: string | null;
+};
 
 /**
  * The mode a batch is enqueued in. `local: true` is declined-consent local
  * mode (frame A-04): the same pipeline minus the upload and the tag — photos
  * stay on this phone. Stamped on the job at enqueue so it survives a crash.
  */
-type CaptureOptions = { local?: boolean };
+export type CaptureOptions = { local?: boolean };
 
 function toJobs(assets: CapturedAsset[], opts?: CaptureOptions) {
   return assets.map((asset, index) => ({
@@ -85,49 +104,41 @@ export function useCapture() {
     clearSettled();
   }, [clearSettled]);
 
-  const pickFromLibrary = useCallback(
-    async (opts?: CaptureOptions) => {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'], // Excludes livePhotos deliberately — real libraries
-        // are full of them and we want stills only.
-        allowsMultipleSelection: true,
-        selectionLimit: SELECTION_LIMIT,
-        // NEVER `base64: true` alongside multi-select. It materializes every
-        // image as a JS string and is the single most common iOS EXC_RESOURCE
-        // memory crash in exactly this flow. Upload from the file URI instead.
-        quality: 0.9,
-        exif: false,
-      });
-
-      if (result.canceled || !result.assets?.length) return 0;
-
-      // Count and source only — never asset ids or file paths.
-      track('clothes_import_selected', { source: 'library', count: result.assets.length });
-      sweepOnce();
-      enqueue(toJobs(result.assets, opts));
-      void drainQueue();
-      return result.assets.length;
-    },
-    [sweepOnce, enqueue],
-  );
-
   /**
-   * A frame off the in-app viewfinder, straight onto the queue.
-   *
-   * The file lives in the cache directory and is read from there by
-   * `prepareForUpload`, exactly as a picked asset is — nothing downstream knows
-   * or cares which of the two doors the garment came through.
+   * Commit already-acquired photos to the upload/tag queue — the only
+   * function in this module that calls `enqueue`. See the file header for why
+   * "acquire" and "commit" are two different steps now.
    */
-  const addPhoto = useCallback(
-    (picture: CapturedAsset, opts?: CaptureOptions) => {
-      track('clothes_import_selected', { source: 'camera', count: 1 });
+  const commit = useCallback(
+    (assets: CapturedAsset[], opts?: CaptureOptions) => {
+      if (assets.length === 0) return 0;
       sweepOnce();
-      enqueue(toJobs([picture], opts));
+      enqueue(toJobs(assets, opts));
       void drainQueue();
-      return 1;
+      return assets.length;
     },
     [sweepOnce, enqueue],
   );
+
+  const pickFromLibrary = useCallback(async (): Promise<CapturedAsset[]> => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], // Excludes livePhotos deliberately — real libraries
+      // are full of them and we want stills only.
+      allowsMultipleSelection: true,
+      selectionLimit: SELECTION_LIMIT,
+      // NEVER `base64: true` alongside multi-select. It materializes every
+      // image as a JS string and is the single most common iOS EXC_RESOURCE
+      // memory crash in exactly this flow. Upload from the file URI instead.
+      quality: 0.9,
+      exif: false,
+    });
+
+    if (result.canceled || !result.assets?.length) return [];
+
+    // Count and source only — never asset ids or file paths.
+    track('clothes_import_selected', { source: 'library', count: result.assets.length });
+    return result.assets;
+  }, []);
 
   /**
    * The system camera, kept as the fallback for the devices where the in-app
@@ -136,44 +147,38 @@ export function useCapture() {
    * route because on that path there is no stage-level blocked state to lean
    * on: the user tapped a shutter and something has to answer them.
    */
-  const takePhoto = useCallback(
-    async (opts?: CaptureOptions) => {
-      // The camera genuinely does need permission, unlike the library picker.
-      if (!cameraPermission?.granted) {
-        const next = await requestCameraPermission();
-        if (!next.granted) {
-          // Once denied with canAskAgain false, the prompt never appears again
-          // and Settings is the only route. Say so rather than silently no-oping.
-          if (!next.canAskAgain) {
-            Alert.alert(
-              'Camera access is off',
-              'Turn on camera access in Settings to photograph clothes directly. You can still add photos from your library.',
-              [
-                { text: 'Not now', style: 'cancel' },
-                { text: 'Open Settings', onPress: () => void Linking.openSettings() },
-              ],
-            );
-          }
-          return 0;
+  const takePhoto = useCallback(async (): Promise<CapturedAsset[]> => {
+    // The camera genuinely does need permission, unlike the library picker.
+    if (!cameraPermission?.granted) {
+      const next = await requestCameraPermission();
+      if (!next.granted) {
+        // Once denied with canAskAgain false, the prompt never appears again
+        // and Settings is the only route. Say so rather than silently no-oping.
+        if (!next.canAskAgain) {
+          Alert.alert(
+            'Camera access is off',
+            'Turn on camera access in Settings to photograph clothes directly. You can still add photos from your library.',
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+            ],
+          );
         }
+        return [];
       }
+    }
 
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        quality: 0.9,
-        exif: false,
-      });
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.9,
+      exif: false,
+    });
 
-      if (result.canceled || !result.assets?.length) return 0;
+    if (result.canceled || !result.assets?.length) return [];
 
-      track('clothes_import_selected', { source: 'camera', count: result.assets.length });
-      sweepOnce();
-      enqueue(toJobs(result.assets, opts));
-      void drainQueue();
-      return result.assets.length;
-    },
-    [cameraPermission, requestCameraPermission, sweepOnce, enqueue],
-  );
+    track('clothes_import_selected', { source: 'camera', count: result.assets.length });
+    return result.assets;
+  }, [cameraPermission, requestCameraPermission]);
 
-  return { pickFromLibrary, takePhoto, addPhoto, selectionLimit: SELECTION_LIMIT };
+  return { pickFromLibrary, takePhoto, commit, selectionLimit: SELECTION_LIMIT };
 }

@@ -525,6 +525,10 @@ export function useGarmentSearchFlow() {
     choose,
     importingUrl: importing,
     errorMessage: error instanceof Error ? error.message : null,
+    // The Wall's W-03 branches on this specifically — a full closet gets its
+    // own designed sheet rather than the generic error line. Checked by code,
+    // never by matching `errorMessage`'s prose, which is free to change.
+    closetFull: error instanceof GarmentSearchError && error.code === 'closet_limit_reached',
     reset,
 
     // ── The link door ─────────────────────────────────────────────────────

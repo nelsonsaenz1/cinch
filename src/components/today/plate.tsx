@@ -31,6 +31,7 @@ import {
   type StackedPiece,
 } from '@/components/today/garment-cell';
 import { ReactionBar, type ReactionValue } from '@/components/today/reaction-bar';
+import { RepeatMark } from '@/components/today/repeat-mark';
 import { Swatch } from '@/components/ui/swatch';
 import { Text } from '@/components/ui/text';
 import { formatTemp } from '@/features/context/weather';
@@ -40,8 +41,12 @@ import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
 import { MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
 
-/** Order pieces the way a look is read aloud: outer layers, then core, then feet. */
-const LAYOUT_ORDER: Garment['slot'][] = [
+/**
+ * Order pieces the way a look is read aloud: outer layers, then core, then
+ * feet. Exported for `repeat-outfit.tsx` (P-05), which credits a look the
+ * same way without pulling in the rest of the plate.
+ */
+export const LAYOUT_ORDER: Garment['slot'][] = [
   'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
 ];
 
@@ -57,7 +62,7 @@ export type PlateColophon = {
  * "Mohair sweater · Penny loafers", and a lowercase "shirt · loafers"
  * reads as debug output next to them.
  */
-const labelFor = (g: Garment) => {
+export const labelFor = (g: Garment) => {
   const s = g.subcategory ?? g.category;
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
@@ -406,6 +411,7 @@ export function Plate({
   worn,
   enhancing,
   offline = false,
+  repeat = null,
 }: {
   outfit: StyledOutfit;
   /** Position in the day's set — only the first card gets the landing haptic. */
@@ -431,6 +437,24 @@ export function Plate({
    * than shown dead. Default false: every online caller is unchanged.
    */
   offline?: boolean;
+  /**
+   * The Repeat (Directive 5) — real previous wears of this exact core, when
+   * there are any. Null on every plate that is not a repeat, and always null
+   * offline: "See plans" is a paywall placement, which is exactly the kind of
+   * network-dependent chrome the offline cut already drops.
+   */
+  repeat?: {
+    previousWears: Date[];
+    pieceCount: number;
+    totalCores: number;
+    onSeePlans: () => void;
+    onShowAnother: () => void;
+    /** "Now", for the panel's date prose. Defaults to the real time; a fixed
+     * value is only ever passed by `dev-repeat.tsx` so its fixture dates read
+     * against the narrative date they were written for, not whenever the
+     * preview happens to be opened. */
+    now?: Date;
+  } | null;
 }) {
   const theme = useTheme();
   const reduced = useReducedMotion();
@@ -611,10 +635,27 @@ export function Plate({
               tintColor={theme.muted}
               resizeMode="scaleAspectFit"
             />
-            <Text variant="label" className="flex-1 text-ink dark:text-ink-dark">
+            {/* Inline `style`, not a second `text-*` class: `label` already
+                bakes in `text-muted`, and stacking `text-ink` on top of it is
+                resolved by tailwind.config.js's key order, not by intent. */}
+            <Text variant="label" className="flex-1" style={{ color: theme.ink }}>
               {outfit.swapNote}
             </Text>
           </View>
+        ) : null}
+
+        {/* ── The Repeat (Directive 5): a line at the first repeat, a panel
+               from the third wear on. Never offline — see the `repeat` prop's
+               own doc for why. ── */}
+        {!offline && repeat ? (
+          <RepeatMark
+            previousWears={repeat.previousWears}
+            pieceCount={repeat.pieceCount}
+            totalCores={repeat.totalCores}
+            now={repeat.now}
+            onSeePlans={repeat.onSeePlans}
+            onShowAnother={repeat.onShowAnother}
+          />
         ) : null}
 
         {offline ? (

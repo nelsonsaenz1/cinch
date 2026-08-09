@@ -17,8 +17,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ClosetGrid } from '@/components/closet/closet-grid';
 import { ClosetMenu } from '@/components/closet/closet-menu';
 import { ClosetSkeleton } from '@/components/closet/closet-skeleton';
-import { GhostAvatar, GhostSlotGrid } from '@/components/closet/ghost-slot-grid';
+import { ExampleCloset } from '@/components/closet/example-closet';
 import { InsightCard } from '@/components/closet/insight-card';
+import { useCapacity } from '@/features/billing/use-capacity';
 import { RailCard } from '@/components/closet/rail-card';
 import { SelectionBar } from '@/components/closet/selection-bar';
 import { StatRow } from '@/components/closet/stat-row';
@@ -162,26 +163,21 @@ export default function ClosetScreen() {
   } else if (screen.items.length === 0) {
     // C-05. Eyebrow only — search and the menu have nothing to act on. The
     // ScrollView exists for pull-to-refresh, which must survive every state.
+    // No identity row: the atlas dropped it for this state entirely — "Six
+    // photos from now" replaces the name-and-count line, because there is no
+    // name-worthy fact yet ("0 pieces" was never one). Stat row stays
+    // suppressed for the same reason it always was — four zeroes under an
+    // example grid would undercut the example rather than excuse it.
     body = (
       <ScrollView refreshControl={refreshControl} contentContainerStyle={{ paddingBottom: 96 }}>
         <EyebrowHeader />
-        <View className="mt-6 flex-row items-center gap-4 px-gutter">
-          <GhostAvatar />
-          <View className="flex-1">
-            {screen.name ? (
-              <Text variant="title" trim numberOfLines={1} accessibilityRole="header">
-                {screen.name}
-              </Text>
-            ) : null}
-            <Text variant="label" className={screen.name ? 'mt-2.5' : ''}>
-              0 pieces · nothing computed yet
-            </Text>
-          </View>
+        <View className="mt-3 px-gutter">
+          <Text variant="title" trim numberOfLines={1} accessibilityRole="header">
+            Six photos from now
+          </Text>
         </View>
-        {/* Stat row suppressed entirely — four zeroes are not facts worth
-            ruling off. The ghost grid carries the whole invitation. */}
-        <View className="mt-8">
-          <GhostSlotGrid onAddPieces={() => router.push('/capture')} />
+        <View className="mt-4">
+          <ExampleCloset onAddPieces={() => router.push('/capture')} />
         </View>
       </ScrollView>
     );
@@ -326,6 +322,10 @@ export default function ClosetScreen() {
         onStorage={() => {
           setMenuOpen(false);
           router.push('/storage');
+        }}
+        onGapFeed={() => {
+          setMenuOpen(false);
+          router.push('/gap-feed');
         }}
         onProfileSettings={() => {
           setMenuOpen(false);
@@ -472,6 +472,11 @@ function Masthead({
           followers={screen.stats.followers}
         />
       </View>
+
+      {/* The Wall, W-01/W-05 — full reads as a stated count, never a
+          disabled control, and the ceiling disappears the moment it stops
+          being one. */}
+      <CapacityColophon />
 
       {/* Both rails, per atlas C-01 — Latest is recency, Favourites is wear
           data. A closet with no wear data yet shows Latest alone; the
@@ -645,4 +650,48 @@ function EmptySearch({ query, category }: { query: string; category: CategoryFil
   // `compact` drops the flex-1 centring, which needs a flex parent and
   // collapses to nothing inside a FlashList's ListEmptyComponent.
   return <EmptyState compact symbol="magnifyingglass" title={title} body={body} />;
+}
+
+/**
+ * The Wall's W-01/W-05 — "10 OF 10 · FULL" while the free ceiling is the
+ * live constraint, plain "N PIECES" once it stops being one. Full reads as a
+ * stated fact here, never a disabled control: nothing on this screen greys
+ * out or blocks the add tile at the limit (the closet-full sheet lives at
+ * the moment of the attempt — capture.tsx's W-02 — not as a standing warning
+ * on the masthead).
+ *
+ * The 10-piece threshold is the free plan's own ceiling
+ * (`PLANS.free.items`), not a magic number re-typed here: once a plan's
+ * limit rises past it, the "of N" ceiling nobody will reach stops being
+ * printed at all, exactly as W-05 requires ("the counter stops saying 'of
+ * 10' entirely").
+ */
+function CapacityColophon() {
+  const theme = useTheme();
+  const capacity = useCapacity();
+  if (capacity.loading) return null;
+
+  const label =
+    capacity.limit <= 10
+      ? `${capacity.used} OF ${capacity.limit}${capacity.full ? ' · FULL' : ''}`
+      : `${capacity.used} ${capacity.used === 1 ? 'PIECE' : 'PIECES'}`;
+
+  return (
+    <View className="mt-2 px-gutter">
+      {/* `style`, never a second `text-*` class: `caption` already carries
+          `text-muted`, and NativeWind resolves two colour utilities on one
+          element by key order, not by intent.
+
+          `muted`, not `faint`. This line is where a person learns their closet
+          is full, at 11px, and `faint` measures about 3.5:1 on canvas — the
+          standing refusal. The whole point of The Wall is that the limit is
+          stated plainly rather than discovered at the camera, which it cannot
+          be if the sentence is the hardest thing on the screen to read. */}
+      <Text
+        variant="caption"
+        style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4, color: theme.muted }}>
+        {label}
+      </Text>
+    </View>
+  );
 }

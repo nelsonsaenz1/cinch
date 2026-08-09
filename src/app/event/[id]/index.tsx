@@ -5,11 +5,9 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  AttendeeLookGrid,
-  YourLookCard,
-  groupStyleNote,
-} from '@/components/event-outfits/OutfitPostCard';
+import { AttendeeLookGrid, type AttendeeLook } from '@/components/events/AttendeeLookGrid';
+import { ConfirmSheet } from '@/components/events/ConfirmSheet';
+import { YourLookCard } from '@/components/events/YourLookCard';
 import {
   daysFromToday,
   isSameDay,
@@ -23,8 +21,6 @@ import { DEFAULT_TIME_MINUTES, TimeSheet } from '@/components/events/time-sheet'
 import { RosterRow } from '@/components/events/RosterRow';
 import { VenueCard } from '@/components/events/VenueCard';
 import { Button } from '@/components/ui/button';
-// Batch-1 seam: the shared states kit. `Skeleton` is the loading primitive,
-// `ErrorState` the title/body/retry sibling of `EmptyState`.
 import { ErrorState } from '@/components/ui/error-state';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
@@ -39,6 +35,7 @@ import { fetchForecast } from '@/features/context/weather';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useEventComments, useEventPosts } from '@/features/event-outfits/queries';
 import { boardLeader } from '@/features/event-outfits/types';
+import { groupStyleNote } from '@/features/events/group-note';
 import {
   socialDenialCopy,
   useCancelEvent,
@@ -57,43 +54,30 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 const FORECAST_DAYS = 16;
 
 /**
- * "Sat 9 Aug · 4:00pm" — the atlas's metadata register (N-09).
- *
- * Composed from `EventCard`'s own two helpers rather than formatted again
- * here: the card and the page it opens are the same occasion, and the app used
- * to print "Fri, Aug 8, 7:30 PM" on one and "Fri 8 Aug · 7:30pm" on the other.
- * A multi-day occasion has no single time to print, which `timeLabel` already
- * knows; an undated one prints "No date yet" and nothing after it.
+ * "Sat, Aug 8, 7:30 PM" — the date+time half of the metadata line. Weather
+ * and the venue join it at the call site (E-01 draws all three on one line);
+ * this stays its own function because the date+time pair is also what an
+ * invitee's coarse line is built from (minus the time — §7.1).
  */
 function whenLine(event: EventDetail): string | null {
-  // An undated occasion says so in the N-10 block below, in a full sentence
-  // that offers to fix it — so the metadata line stays quiet rather than
-  // printing "No date yet" immediately above the same words.
   if (!event.startsAt) return null;
   const time = isSameDay(event.startsAt, event.endsAt) ? timeLabel(event.startsAt) : null;
   return [whenLabel(event.startsAt, event.endsAt), time].filter(Boolean).join(' · ');
 }
 
 /**
- * The viewer's standing RSVP state — "Going", "Hosting" — as the founder mock
- * draws it: an ink fill beside the outline action.
+ * The viewer's standing RSVP state — "Hosting", "Going" — as the Event Detail
+ * State Atlas draws it: an ink fill beside the outline action, never a
+ * button. E-01 draws Hosting beside Invite; E-04 draws Going beside nothing
+ * (the exit lives at the foot instead).
  *
- * Not the shared `Button`, and deliberately: `Button` has three variants, none
- * of them ink (primary is the accent, and the accent is spent once per screen
- * on an ACTION — a standing state is not one). Its props omit `style`, so ink
- * cannot be reached from outside either. What this does share is the house
- * radius: `rounded-md`, not the `rounded-full` this control used to carry
- * against `tailwind.config.js`'s "capsules are glass chrome only".
- *
- * Inert, and that is the whole point of it. "Going" used to be a button whose
- * press opened "Leave this occasion?" — the most emphatic, most button-shaped
- * thing on the page silently carried the one destructive action on it, which
- * is a trap in both directions: nobody looking to leave would think to press
- * the badge that says they are going, and anyone pressing it to see what it
- * did got a leave prompt. Leaving now lives where the host's own exit lives,
- * as a quiet `critical` link at the foot of the page.
+ * Inert on purpose. "Going" used to be a button whose press opened "Leave
+ * this occasion?" — a trap in both directions: nobody looking to leave would
+ * think to press the badge that says they are going, and anyone pressing it
+ * to see what it did got a leave prompt. The exit now lives where the host's
+ * own exit lives, as a quiet `critical` link at the foot of the page.
  */
-function StatePill({ label }: { label: string }) {
+export function StatePill({ label }: { label: string }) {
   const theme = useTheme();
   return (
     <View
@@ -109,7 +93,7 @@ function StatePill({ label }: { label: string }) {
 }
 
 /** A quiet push-row into the surfaces that keep their own route. */
-function NavRow({
+export function NavRow({
   label,
   hint,
   trailing,
@@ -131,11 +115,7 @@ function NavRow({
       className="flex-row items-center justify-between gap-3 border-b border-hairline py-3 active:opacity-60 dark:border-hairline-dark">
       <View className="flex-1">
         <Text variant="body">{label}</Text>
-        {hint ? (
-          <Text variant="caption" className="text-muted dark:text-muted-dark">
-            {hint}
-          </Text>
-        ) : null}
+        {hint ? <Text variant="caption">{hint}</Text> : null}
       </View>
       {trailing ? <Text variant="colophon">{trailing}</Text> : null}
       <SymbolView name="chevron.right" size={12} tintColor={theme.faint} resizeMode="scaleAspectFit" />
@@ -144,11 +124,11 @@ function NavRow({
 }
 
 /**
- * The page's shape while it loads — title, metadata, RSVP row, venue, the
- * blush card and the first row of the grid — rather than a spinner in the
- * middle of an empty screen. The occasion arrives into its own outline.
+ * The page's shape while it loads — title, metadata, RSVP row, the blush card
+ * and the first row of the grid (Event Detail State Atlas E-10) — rather than
+ * a spinner in the middle of an empty screen.
  */
-function DetailSkeleton() {
+export function DetailSkeleton() {
   return (
     <View className="px-gutter" accessibilityLabel="Opening this occasion">
       <Skeleton className="mt-5 h-9 w-2/3 rounded-md" />
@@ -171,23 +151,21 @@ function DetailSkeleton() {
   );
 }
 
+/** The one destructive confirmation up at a time. */
+type ConfirmState =
+  | { kind: 'cancel' }
+  | { kind: 'leave' }
+  | { kind: 'remove'; userId: string; name: string }
+  | null;
+
 /**
- * Occasion detail — the group dinner page, composed as one page.
+ * Occasion detail — Event Detail State Atlas E-01…E-10.
  *
- * ── the composition point, resolved ────────────────────────────────────────
- * This screen used to hand the look boards off by route: two nav rows under a
- * "Who's wearing what" eyebrow, with a note saying to swap them for the
- * event-outfits slice's own components "at integration if one page is wanted".
- * One page is wanted — it is what the founder drew (founder-mocks §1b) and
- * what the field guide's frame 05b composes — so the rows are gone and the
- * YOUR LOOK card and the WHO'S WEARING WHAT grid render here, from that
- * slice's components.
- *
- * The route-string decoupling was a BUILD-TIME seam between two agents, not a
- * product decision; with both slices in the tree it costs a tap and hides the
- * screen's whole premise. What stays behind a route is what genuinely wants
- * its own surface: every option with its picks (`./outfits`), the composer
- * (`./post`) and the threads (`./comments`).
+ * The fixed order: title, metadata line, colophon, the RSVP row, then
+ * straight into the blush "Your look" card — nothing logistical between the
+ * RSVP row and that card. Everything below it is logistics and people: the
+ * group note, the venue card, "Every option", "Table talk", the guest list,
+ * and last the page's one destructive line.
  */
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -203,39 +181,30 @@ export default function EventDetailScreen() {
   const leave = useLeaveEvent();
   const cancel = useCancelEvent();
   const removeMember = useRemoveMember();
-  // N-10's two chips write straight through this — the mutation has existed
-  // since the events slice shipped and has never had a call site, because
-  // until now there was no way for an occasion to be missing anything.
   const update = useUpdateEvent();
 
   const [dateSheet, setDateSheet] = useState(false);
   const [timeSheet, setTimeSheet] = useState(false);
   const [placeSheet, setPlaceSheet] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmState>(null);
 
-  // Live votes/comments for the board now composed onto this page (build
-  // plan §2) — the channel exists the moment the event page is open.
+  // Live votes/comments for the board composed onto this page.
   useEventChannel(id ?? null);
 
   const event = eventQuery.data ?? null;
   const isMember = Boolean(event && (event.isHost || event.myState === 'joined'));
 
-  // The board itself. Gated on membership rather than on `id`: a still-
-  // deciding invitee sees the coarse page (§7.1), and firing a read RLS is
-  // certain to refuse would only manufacture an error branch for her.
+  // The board itself. Gated on MEMBERSHIP, not on `id`: event-social-
+  // contract.md §3 — "the gate is membership, not the route." An invitee's
+  // page fires no board read at all, rather than firing one the server is
+  // certain to refuse and inventing an error branch for it.
   const boardEventId = isMember ? (id ?? null) : null;
   const posts = useEventPosts(boardEventId);
   const comments = useEventComments(boardEventId);
 
   // Display-only weather for the metadata line, read at the VENUE's own
-  // coordinates when the place was resolved through the gazetteer — the
-  // forecast an occasion in Denver deserves, rather than the phone's.
+  // coordinates when the place was resolved through the gazetteer.
   const venueWeather = useOccasionWeather(event?.startsAt ?? null, event?.venueMeta ?? null);
-
-  // The fallback, for every occasion created before `venue_meta` was ever
-  // written: the user's own coordinates, which is what this page has always
-  // shown. Disabled the moment the venue has coordinates of its own, so the
-  // two never race — and an occasion with a resolved place somewhere else
-  // never quietly falls back to the weather where the reader is standing.
   const { coords } = useStyleContext();
   const dayIndex = event ? daysFromToday(event.startsAt) : -1;
   const forecast = useQuery({
@@ -245,8 +214,7 @@ export default function EventDetailScreen() {
       coords.longitude.toFixed(2),
       FORECAST_DAYS,
     ],
-    enabled:
-      isMember && !event?.venueMeta && dayIndex >= 0 && dayIndex < FORECAST_DAYS,
+    enabled: isMember && !event?.venueMeta && dayIndex >= 0 && dayIndex < FORECAST_DAYS,
     staleTime: 30 * 60_000,
     queryFn: ({ signal }) =>
       fetchForecast(coords.latitude, coords.longitude, FORECAST_DAYS, signal),
@@ -281,24 +249,27 @@ export default function EventDetailScreen() {
     looks.flatMap((l) => l.garments.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath])),
   );
 
-  const groupNote = useMemo(() => groupStyleNote(orderedBoards, me), [orderedBoards, me]);
+  // Every board's leading look, reduced to the shape both the grid and the
+  // group note need — computed once so neither re-derives "which look counts"
+  // on its own.
+  const attendeeLooks: AttendeeLook[] = useMemo(
+    () =>
+      orderedBoards.flatMap((b) => {
+        const leading = boardLeader(b.looks) ?? b.looks[0];
+        return leading ? [{ userId: b.userId, id: leading.id, garments: leading.garments }] : [];
+      }),
+    [orderedBoards],
+  );
+
+  const groupNote = useMemo(() => groupStyleNote(attendeeLooks, me), [attendeeLooks, me]);
 
   // The evening starts, the board locks: tallies freeze into crowns and the
-  // share controls go. "Now" is sampled once per mount rather than per render
-  // — a page left open across the moment corrects itself on its next focus,
-  // and a clock read during render is the impurity the linter rightly refuses.
+  // share controls go. "Now" is sampled once per mount rather than per render.
   const [openedAt] = useState(() => Date.now());
 
-  // A refused write is a sentence, never a silence. `socialDenialCopy` names
-  // the two refusals the server issues on purpose; everything else is an
-  // ordinary failure and says so.
   const writeFailed = (title: string) => (error: unknown) =>
     Alert.alert(title, socialDenialCopy(error) ?? 'Check your connection and try again.');
 
-  // Drawn in every branch, loading and failed included: a screen you cannot
-  // leave is the one state worse than a screen with nothing on it. The header
-  // itself is now the shared `ScreenHeader` — same disc, same `hitSlop`, one
-  // copy of the accessibility contract instead of nine.
   const backRow = <ScreenHeader align="leading" title="Event" />;
 
   if (eventQuery.isLoading) {
@@ -310,9 +281,6 @@ export default function EventDetailScreen() {
     );
   }
 
-  // A failed fetch is not a canceled occasion. These were one branch; the
-  // first says "this didn't load, here is another go", the second is the
-  // honest empty result the server actually returned.
   if (eventQuery.isError) {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
@@ -339,67 +307,91 @@ export default function EventDetailScreen() {
   const sharedCount = orderedBoards.length;
   const openComments = (comments.data ?? []).filter((c) => !c.hidden).length;
 
-  // §7.1, enforced at the surface: coarse before joined, precise after. RLS
-  // hands an invitee the full row (she needs the date to decide), but venue,
-  // time and logistics stay off her screen until she is on the list.
-  //
-  // Weather is no longer a third clause here: N-09 sets it on its own quieter
-  // line beneath, so the metadata reads as one fact about the occasion and the
-  // forecast reads as the app's own remark about it.
+  // §7.1: coarse before joined, precise after. An invitee gets the day and
+  // nothing else — no time, no venue, no weather — printed on one line;
+  // members get date, time, venue and weather together on that same line,
+  // the register E-01 draws ("Sat, Aug 8, 7:30 PM · Bar Ideale · Feels 70°,
+  // clear evening").
   const metadata = isMember
-    ? [whenLine(event), event.venueName ?? event.venueAddress].filter(Boolean).join(' · ')
-    : (whenLine(event) ?? '');
+    ? [whenLine(event), event.venueName ?? event.venueAddress, weather ? weatherLineFor(weather) : null]
+        .filter(Boolean)
+        .join(' · ')
+    : event.startsAt
+      ? whenLabel(event.startsAt, event.endsAt)
+      : '';
 
-  // The dress code moved up to the eyebrow (N-09), so what is left down here
-  // is the two columns the form no longer collects — printed for the occasions
-  // that already carry them, and simply absent on everything created since.
+  // The colophon: occasion, party size, dress code — in that order, the way
+  // E-01 draws "Birthday dinner · table for 6 · something festive". Member-
+  // only, same as the metadata's precise half.
   const colophonBits = isMember
-    ? [event.occasion, event.partySize ? `table for ${event.partySize}` : null].filter(Boolean)
+    ? [event.occasion, event.partySize ? `table for ${event.partySize}` : null, event.dressCode].filter(
+        Boolean,
+      )
     : [];
 
-  const confirmLeave = () =>
-    Alert.alert('Leave this occasion?', 'Your looks and comments go with you.', [
-      { text: 'Stay', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: () =>
-          leave.mutate(
-            { eventId: event.id },
-            { onSuccess: () => router.back(), onError: writeFailed('You’re still on the list') },
-          ),
-      },
-    ]);
+  const confirmLeave = () => setConfirm({ kind: 'leave' });
+  const confirmCancel = () => setConfirm({ kind: 'cancel' });
+  const confirmRemove = (userId: string, name: string) => setConfirm({ kind: 'remove', userId, name });
 
-  const confirmCancel = () =>
-    Alert.alert('Cancel this occasion?', 'Everyone on the list will see it as canceled.', [
-      { text: 'Keep it', style: 'cancel' },
-      {
-        text: 'Cancel it',
-        style: 'destructive',
-        onPress: () =>
-          cancel.mutate(
-            { eventId: event.id },
-            { onSuccess: () => router.back(), onError: writeFailed('It’s still on') },
-          ),
-      },
-    ]);
+  const closeConfirm = () => setConfirm(null);
 
-  const confirmRemove = (userId: string, name: string) =>
-    Alert.alert(`Remove ${name}?`, 'They lose access to the occasion. Nobody else is told.', [
-      { text: 'Keep them', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () =>
-          removeMember.mutate(
-            { eventId: event.id, userId },
-            { onError: writeFailed(`${name} is still on the list`) },
-          ),
-      },
-    ]);
+  const runConfirm = () => {
+    if (!confirm) return;
+    if (confirm.kind === 'cancel') {
+      cancel.mutate(
+        { eventId: event.id },
+        {
+          onSuccess: () => {
+            closeConfirm();
+            router.back();
+          },
+          onError: () => {
+            closeConfirm();
+            writeFailed('It’s still on')(cancel.error);
+          },
+        },
+      );
+    } else if (confirm.kind === 'leave') {
+      leave.mutate(
+        { eventId: event.id },
+        {
+          onSuccess: () => {
+            closeConfirm();
+            router.back();
+          },
+          onError: () => {
+            closeConfirm();
+            writeFailed('You’re still on the list')(leave.error);
+          },
+        },
+      );
+    } else {
+      removeMember.mutate(
+        { eventId: event.id, userId: confirm.userId },
+        {
+          onSuccess: closeConfirm,
+          onError: () => {
+            const name = confirm.name;
+            closeConfirm();
+            writeFailed(`${name} is still on the list`)(removeMember.error);
+          },
+        },
+      );
+    }
+  };
 
-  const goPost = () => router.push({ pathname: '/event/[id]/post', params: { id: event.id } });
+  /**
+   * `edit` is what separates the atlas's two paths. "Swapping a piece edits in
+   * place and keeps the picks, because the look is the same look. Replacing
+   * every piece is a new post, and says so." Without the param both buttons
+   * opened the same blank compose flow, so swapping one garment silently threw
+   * away the votes and the comment thread the look had already earned.
+   */
+  const goPost = (editPostId?: string) =>
+    router.push({
+      pathname: '/event/[id]/post',
+      params: editPostId ? { id: event.id, edit: editPostId } : { id: event.id },
+    });
   const goComments = (postId?: string) =>
     router.push({
       pathname: '/event/[id]/comments',
@@ -412,11 +404,10 @@ export default function EventDetailScreen() {
 
   /**
    * Venue, reservation link and the map affordance — logistics, printed once
-   * and placed after the decision rather than in front of it (see the board
-   * comment below). Held in a const because the board has three branches and
-   * the venue belongs to two of them: it must survive a failed posts fetch,
-   * since a dropped board is exactly when someone is standing outside needing
-   * the address. Only the skeleton branch omits it, and that resolves.
+   * and placed after the group note rather than in front of it. Held in a
+   * const because the board has three branches and the venue belongs to two
+   * of them: it must survive a failed posts fetch, since a dropped board is
+   * exactly when someone is standing outside needing the address.
    */
   const venueBlock = (
     <View className="mt-6">
@@ -433,34 +424,18 @@ export default function EventDetailScreen() {
       {backRow}
 
       <ScrollView contentContainerClassName="px-gutter pb-16" showsVerticalScrollIndicator={false}>
-        {/* N-09's masthead: the dress code as the eyebrow, the name as the
-            page's hero. `display` (40) rather than the atlas's 36 — the scale
-            has no 36, and the atlas itself draws 32 on the thin occasion, so
-            what is being asked for is the step up from `title`, not a new one.
-            Margins live on the wrapper and the sibling: `trim` carries
-            negative margins and a stacked `mt-*` cancels against them. */}
         <View className="mt-5">
-          {isMember && event.dressCode ? (
-            <View className="mb-2">
-              {/* The screen's one oxblood. An invitee never reaches this branch
-                  — §7.1 keeps the dress code off her page until she joins — so
-                  it can never collide with the accent on her Join button. */}
-              <Text variant="eyebrow" style={{ color: theme.accent }}>
-                {event.dressCode}
-              </Text>
-            </View>
-          ) : null}
-          <Text variant="display" trim>
+          <Text
+            variant="title"
+            trim
+            style={event.canceledAt ? { color: theme.muted } : undefined}>
             {event.title}
           </Text>
         </View>
 
-        <Text variant="body" className="mt-4" style={{ color: theme.muted }}>
-          {metadata}
-        </Text>
-        {weather ? (
-          <Text variant="note" className="mt-1.5">
-            {weatherLineFor(weather)}
+        {metadata ? (
+          <Text variant="body" className="mt-4" style={{ color: theme.muted }}>
+            {metadata}
           </Text>
         ) : null}
         {colophonBits.length > 0 ? (
@@ -469,23 +444,11 @@ export default function EventDetailScreen() {
           </Text>
         ) : null}
 
-        {/* The note becomes a plate (N-09) — the first time this column has
-            ever been rendered. Shown to everyone on the roster, invitees
-            included: it is the host's message to the group, and N-11 says so
-            plainly ("shown to everyone invited"). */}
-        {event.note && (isMember || event.myState === 'invited') ? (
-          <View className="mt-4 rounded-lg border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
-            <Text variant="body" style={{ color: theme.muted }}>
-              {event.note}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* N-10, the thinnest occasion: a name is enough to create one, so the
-            page has to be honest about a nearly empty event. The missing
-            pieces become two quiet chips — not an error, and not a checklist
-            with a progress bar. Everyone on the roster reads the sentence;
-            only the host can act on it. */}
+        {/* N-10's thinnest occasion: a name is enough to create one, so the
+            page has to be honest about a nearly empty event. Two quiet chips,
+            not an error and not a checklist. Sits before the RSVP row, not
+            after — the fixed order after the RSVP row belongs to the blush
+            card alone. */}
         {!event.startsAt && !event.canceledAt ? (
           <View className="mt-4">
             <Text variant="body" style={{ color: theme.muted }}>
@@ -503,29 +466,32 @@ export default function EventDetailScreen() {
           </View>
         ) : null}
 
+        {/* The RSVP row. Hosting and Going are inert ink states, never
+            buttons (Event Detail State Atlas E-01/E-04) — the host's only
+            action beside Hosting is Invite; a going guest's exit lives at
+            the foot, not here. */}
         {event.canceledAt ? (
-          <Text variant="label" className="mt-4 text-critical dark:text-critical">
+          <Text variant="label" className="mt-4" style={{ color: theme.critical }}>
             This occasion was canceled.
           </Text>
         ) : (
           <View className="mt-5 flex-row gap-3">
             {event.isHost ? (
-              // N-09 gives the host one action, full width and in ink: with an
-              // occasion just created, inviting people is the whole page. The
-              // "Hosting" pill it replaces was a label, not a thing to do.
-              <Button
-                title="Invite friends"
-                variant="ink"
-                haptic
-                className="flex-1"
-                onPress={() => router.push(`/event/${event.id}/invite`)}
-              />
+              <>
+                <StatePill label="Hosting" />
+                <Button
+                  title="Invite"
+                  variant="secondary"
+                  haptic
+                  onPress={() => router.push(`/event/${event.id}/invite`)}
+                />
+              </>
             ) : event.myState === 'joined' ? (
               <StatePill label="Going" />
             ) : event.myState === 'invited' ? (
               <>
-                {/* The one accent on this screen: an invitee has exactly one
-                    thing to do here, and it is this. */}
+                {/* The one accent on this screen for an invitee: they have
+                    exactly one thing to do here, and this is it. */}
                 <Button
                   title="Join"
                   haptic
@@ -554,10 +520,6 @@ export default function EventDetailScreen() {
             ) : null}
           </View>
         )}
-        {/* N-10's reassurance, under the button it is about: an occasion with
-            no date is still worth inviting people to, and saying so is what
-            keeps the two chips above from reading as a checklist to finish
-            first. Host-only, because only the host can invite. */}
         {!event.startsAt && !event.canceledAt && event.isHost ? (
           <Text variant="note" className="mt-3">
             Friends can be invited to an occasion with no date — the details fill in later, and
@@ -565,25 +527,16 @@ export default function EventDetailScreen() {
           </Text>
         ) : null}
         {!isMember && event.myState === 'invited' ? (
-          <Text variant="caption" className="mt-3 text-muted dark:text-muted-dark">
+          <Text variant="caption" className="mt-3">
             Joining puts it on your Plan — and shows you where and when.
           </Text>
         ) : null}
 
         {isMember ? (
           <>
-            {/* ── The board, composed onto this page ───────────────────────
-                RSVP row straight into YOUR LOOK, per the approved frame
-                (02-event). The venue card used to sit here, ~90pt of logistics
-                between the decision and the thing being decided, which on a
-                6.1" pushed the blush card — the whole point of the social
-                layer — under the fold. It is not deleted (it carries the
-                reservation-URL affordance) and the venue facts are already in
-                the metadata line above; it simply follows the group note. */}
+            {/* Straight into the blush card — nothing logistical between the
+                RSVP row and here (event-social-contract.md §2). */}
             {posts.isError ? (
-              // `-mx-gutter` because `ErrorState compact` sets its own gutter
-              // and this scroll container already has one — the same
-              // gutterless trick `packing-trip.tsx` uses.
               <>
                 <View className="-mx-gutter mt-4">
                   <ErrorState
@@ -615,32 +568,45 @@ export default function EventDetailScreen() {
                     leading={myLeading}
                     resolveImage={resolve}
                     locked={locked || Boolean(event.canceledAt)}
-                    onSwap={goPost}
-                    onShare={goPost}
+                    onSwap={() => goPost(myLeading?.id)}
+                    onShare={() => goPost()}
                   />
                 </View>
+
+                {event.note ? (
+                  <View className="mt-4 rounded-lg border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
+                    <Text variant="body" style={{ color: theme.muted }}>
+                      {event.note}
+                    </Text>
+                  </View>
+                ) : null}
 
                 <SectionHeader
                   title="Who’s wearing what"
                   className="mt-8"
                   trailing={
+                    // The denominator is everyone who could plausibly share a
+                    // look — joined and still-deciding both — matching E-08's
+                    // "0 of 5 shared" against a roster of one host, three
+                    // joined and one still deciding. `roster` already carries
+                    // exactly that set (useEventMembers filters to joined |
+                    // invited), so it needs no re-derivation here.
                     <Text variant="colophon">
-                      {sharedCount} of {Math.max(joinedCount, sharedCount)} shared
+                      {sharedCount} of {Math.max(roster.length, sharedCount)} shared
                     </Text>
                   }
                 />
 
-                {orderedBoards.length === 0 ? (
+                {attendeeLooks.length === 0 ? (
                   <Card border="hairline" padding="xl" className="mt-3">
-                    <Text variant="body" className="text-muted dark:text-muted-dark">
-                      Be the first to the mirror — share a look and the table
-                      follows.
+                    <Text variant="body" style={{ color: theme.muted }}>
+                      Be the first to the mirror — share a look and the table follows.
                     </Text>
                   </Card>
                 ) : (
                   <View className="mt-3">
                     <AttendeeLookGrid
-                      boards={orderedBoards}
+                      boards={attendeeLooks}
                       nameOf={nameOf}
                       resolveImage={resolve}
                       onOpen={(look) => goComments(look.id)}
@@ -648,14 +614,12 @@ export default function EventDetailScreen() {
                   </View>
                 )}
 
-                {/* The stylist's group note — the tray-filled line the field
-                    guide puts under this grid. Computed from what is actually
-                    on the board, and absent when there is nothing true. */}
+                {/* The stylist's group note — computed, never authored
+                    (Event Detail State Atlas E-07). Absent when there is
+                    nothing true to say. */}
                 {groupNote ? (
                   // `body` (17), not `callout` (16): this is the stylist
-                  // speaking, and every other sentence the stylist says on a
-                  // page sits at 17. The half-step down read as a caption for
-                  // the grid above rather than a line of its own.
+                  // speaking, and the stylist sits at 17 everywhere else.
                   <View className="mt-4 rounded-plate bg-tray p-4">
                     <Text variant="body">{groupNote}</Text>
                   </View>
@@ -682,11 +646,7 @@ export default function EventDetailScreen() {
               title="The guests"
               className="mt-8"
               trailing={
-                members.isError ? null : (
-                  <Text variant="label" className="text-muted dark:text-muted-dark">
-                    {joinedCount} going
-                  </Text>
-                )
+                members.isError ? null : <Text variant="label">{joinedCount} going</Text>
               }
             />
             {members.isError ? (
@@ -727,16 +687,16 @@ export default function EventDetailScreen() {
             )}
           </>
         ) : (
-          <Text variant="label" className="mt-6 text-muted dark:text-muted-dark">
+          <Text variant="label" className="mt-6">
             {joinedCount > 0
               ? `${joinedCount} going so far.`
               : 'The list is still coming together.'}
           </Text>
         )}
 
-        {/* The page's one destructive line, in the place a destructive line
-            belongs: the foot, quiet, in `critical`. The host cancels; everyone
-            else leaves. Neither is ever the biggest control on the screen. */}
+        {/* The page's one destructive line: the foot, quiet, left-aligned,
+            in `critical` — never the biggest control on the screen. The host
+            cancels; everyone else leaves. */}
         {!event.canceledAt && event.isHost ? (
           <Pressable
             onPress={confirmCancel}
@@ -744,7 +704,7 @@ export default function EventDetailScreen() {
             accessibilityLabel="Cancel this occasion"
             style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
             className="mt-10 self-start active:opacity-60">
-            <Text variant="label" className="text-critical dark:text-critical">
+            <Text variant="label" style={{ color: theme.critical }}>
               Cancel this occasion
             </Text>
           </Pressable>
@@ -756,23 +716,52 @@ export default function EventDetailScreen() {
             accessibilityLabel="Leave this occasion"
             style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
             className="mt-10 self-start active:opacity-60">
-            <Text variant="label" className="text-critical dark:text-critical">
+            <Text variant="label" style={{ color: theme.critical }}>
               Leave this occasion
             </Text>
           </Pressable>
         ) : null}
       </ScrollView>
 
+      {/* The three confirmations (E-09). Each says what is lost in one
+          sentence; each keep-option is named for the thing being kept. */}
+      <ConfirmSheet
+        visible={confirm?.kind === 'cancel'}
+        title="Cancel this occasion?"
+        body="Everyone on the list will see it as canceled."
+        keepLabel="Keep it"
+        destructiveLabel="Cancel it"
+        destructiveBusy={cancel.isPending}
+        onKeep={closeConfirm}
+        onConfirm={runConfirm}
+      />
+      <ConfirmSheet
+        visible={confirm?.kind === 'leave'}
+        title="Leave this occasion?"
+        body="Your looks and comments go with you."
+        keepLabel="Stay"
+        destructiveLabel="Leave"
+        destructiveBusy={leave.isPending}
+        onKeep={closeConfirm}
+        onConfirm={runConfirm}
+      />
+      <ConfirmSheet
+        visible={confirm?.kind === 'remove'}
+        title={confirm?.kind === 'remove' ? `Remove ${confirm.name}?` : ''}
+        body="They lose access to the occasion. Nobody else is told."
+        keepLabel="Keep them"
+        destructiveLabel="Remove"
+        destructiveBusy={removeMember.isPending}
+        onKeep={closeConfirm}
+        onConfirm={runConfirm}
+      />
+
       {/* The same three sheets the form uses, so filling a gap after the fact
-          is the same interaction as answering it in the first place. Each
-          writes once, on Done: the row is live and other people are already
-          looking at it. */}
+          is the same interaction as answering it in the first place. */}
       <DateSheet
         visible={dateSheet}
         value={event.startsAt}
         onChange={(picked) => {
-          // A day with no time is not storable as an instant, so the picker's
-          // own default rides along — the same 7:00pm the form seats.
           const at = new Date(picked);
           at.setHours(Math.floor(DEFAULT_TIME_MINUTES / 60), DEFAULT_TIME_MINUTES % 60, 0, 0);
           update.mutate(

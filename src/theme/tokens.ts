@@ -111,6 +111,27 @@ const palette: Record<ColorSchemeName, ThemeColors> = {
   dark: light,
 };
 
+/**
+ * Canvas at an opacity, for type and rules sitting ON a dark ground.
+ *
+ * The app is light-only, but three surfaces are not: the camera's live preview,
+ * The Ten's capture chrome, and The Reveal's first two beats. `muted`, `faint`,
+ * `byline` and `ghost` are all tuned against `canvas` and go muddy on ink, so
+ * there was no answer to "the secondary line under a headline, when the
+ * headline is white on black" — and the app had answered it three separate
+ * times with three hand-typed literals (dev-screens, auth/chrome,
+ * garment-search-sheet) before anyone noticed it was the same question.
+ *
+ * This introduces no colour. It is the `canvas` token composited at an alpha,
+ * the same move `scrim` already makes in the other direction — ink at 40% over
+ * paper. The palette stays locked.
+ *
+ * Keep to a small set of steps in practice: ~0.7 for secondary copy, ~0.45 for
+ * a control's ground, ~0.16 for a rule. A ramp with twelve values is a second
+ * palette wearing a function's clothes.
+ */
+export const canvasAlpha = (alpha: number) => `rgba(251,250,246,${alpha})`;
+
 export function useTheme(): ThemeColors & { scheme: ColorSchemeName } {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   return { ...palette[scheme], scheme };

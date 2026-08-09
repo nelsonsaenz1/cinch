@@ -101,7 +101,39 @@ export function generateOutfits(
     ? pinned.filter((g) => g.slot === 'bottom')
     : slots.bottom;
 
-  for (const top of tops) {
+  /**
+   * A knit worn on its own is an outfit.
+   *
+   * `mid_layer` is inferred from the subcategory — sweater, jumper, cardigan,
+   * hoodie, fleece, knit, turtleneck (garment.ts) — so it is not a niche slot
+   * holding cardigans worn over shirts. It is where most knitwear lands, and
+   * for the half of the year people wear knitwear it is what they put on
+   * first. Building cores only from `base_top` meant a jumper and trousers was
+   * not an outfit this engine could produce: a wardrobe of five jumpers and
+   * two pairs of trousers generated NOTHING, and the free tier's canonical ten
+   * — whose second top is a mohair jumper — reached ten outfits where the
+   * design promises fourteen.
+   *
+   * Gated on `allowsMidLayer` rather than offered unconditionally, because a
+   * core cannot be dropped later the way an added layer can, and mohair in a
+   * heatwave is a worse failure than a hot day showing fewer options. The
+   * counting function stays weather-independent by counting cores
+   * arithmetically (docs/design/free-tier-contract.md) — this gate narrows
+   * what is offered today, never what the closet is said to make.
+   */
+  const midsAsTops = pinnedSlots.has('mid_layer')
+    ? pinned.filter((g) => g.slot === 'mid_layer')
+    : slots.mid_layer;
+
+  // Only when the caller has pinned no top of either kind. A pinned shirt means
+  // "build around this shirt", and letting knits anchor their own cores would
+  // produce looks the pinned garment is absent from; a pinned knit means "layer
+  // this over something", which is Stage C's job, not a core.
+  const knitsMayAnchor =
+    allowsMidLayer && !pinnedSlots.has('base_top') && !pinnedSlots.has('mid_layer');
+  const coreTops = knitsMayAnchor ? [...tops, ...midsAsTops] : tops;
+
+  for (const top of coreTops) {
     for (const bottom of bottoms) cores.push([top, bottom]);
   }
 
@@ -124,9 +156,7 @@ export function generateOutfits(
   const rankedShod = topBy(shod, BEAM_SHOD, (c) => coreScore(c, ctx, weights));
 
   // --- Stage C: layers -----------------------------------------------------
-  const mids = pinnedSlots.has('mid_layer')
-    ? pinned.filter((g) => g.slot === 'mid_layer')
-    : slots.mid_layer;
+  const mids = midsAsTops;
   const outers = pinnedSlots.has('outerwear')
     ? pinned.filter((g) => g.slot === 'outerwear')
     : slots.outerwear;
@@ -134,17 +164,22 @@ export function generateOutfits(
   const layered: Garment[][] = [];
   for (const base of rankedShod) {
     const hasDress = base.some((g) => g.slot === 'dress');
+    // A core anchored by a knit already occupies the mid-layer slot. Adding
+    // another would put two jumpers in one outfit and break the one-per-slot
+    // invariant the generator tests assert.
+    const hasMid = base.some((g) => g.slot === 'mid_layer');
+    const canLayerMid = !hasDress && !hasMid;
 
     // Unlayered is only a valid option when the forecast permits it.
     if (!wantsOuterwear) layered.push(base);
 
-    if (allowsMidLayer && !hasDress) {
+    if (allowsMidLayer && canLayerMid) {
       for (const mid of mids) layered.push([...base, mid]);
     }
     if (allowsOuterwear) {
       for (const outer of outers) {
         layered.push([...base, outer]);
-        if (wantsMidLayer && !hasDress) {
+        if (wantsMidLayer && canLayerMid) {
           for (const mid of mids) layered.push([...base, mid, outer]);
         }
       }

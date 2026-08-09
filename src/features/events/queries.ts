@@ -243,6 +243,39 @@ export function useEventMembers(eventId: string): UseQueryResult<EventMember[]> 
   });
 }
 
+/**
+ * The roster as the Invite Friends sheet needs to see it — host-only, and the
+ * one place `declined` is fetched at all.
+ *
+ * `useEventMembers` above deliberately never fetches a decline (the guest
+ * list's product rule: "a decline is silent, and the surest way to never
+ * render one is to never hold one"). The invite sheet is the opposite
+ * surface: its whole job is deciding who to (re)invite, which means it has to
+ * know who already said no in order to offer them a deliberate second ask
+ * (IF-02/IF-04 — "selectable again, once, with the reason stated on their
+ * row"). `removed` stays excluded: a host who removed someone may invite them
+ * again exactly as if they had never been asked.
+ */
+export function useEventInviteRoster(eventId: string) {
+  return useQuery({
+    queryKey: ['event-invite-roster', eventId],
+    enabled: Boolean(eventId),
+    queryFn: async (): Promise<{ userId: string; state: 'joined' | 'invited' | 'declined' | 'host' }[]> => {
+      const { data, error } = await socialFrom('event_members')
+        .select('user_id, role, state')
+        .eq('event_id', eventId)
+        .in('state', ['joined', 'invited', 'declined']);
+      if (error) throw error;
+
+      const rows = (data ?? []) as { user_id: string; role: EventMember['role']; state: string }[];
+      return rows.map((r) => ({
+        userId: r.user_id,
+        state: r.role === 'host' ? ('host' as const) : (r.state as 'joined' | 'invited' | 'declined'),
+      }));
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Invite search
 // ---------------------------------------------------------------------------

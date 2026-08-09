@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Plate } from '@/components/today/plate';
 import type { ReactionValue } from '@/components/today/reaction-bar';
+import { RepeatExhausted } from '@/components/today/repeat-exhausted';
 import { closetGap, gapBody, SamplePlate } from '@/components/today/sample-plate';
 import { WeatherStrip } from '@/components/today/weather-strip';
 import { Button } from '@/components/ui/button';
@@ -18,17 +19,47 @@ import { Rule } from '@/components/ui/rule';
 import { SectionHeader } from '@/components/ui/section-header';
 import { PlateSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { startTagSweeper } from '@/features/ingest/upload-queue';
 import { Placement } from '@/features/billing/placements';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
+import { exhaustionProgress, wearsOfCore } from '@/features/styling/repeat';
 import { canGenerate, MIN_CLOSET_FOR_OUTFITS, useStyleProfile, useWardrobe } from '@/features/styling/queries';
-import { useOutfits } from '@/features/styling/use-outfits';
-import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES, targetWarmth, type Garment, type WeatherContext } from '@/lib/styling';
+import { useOutfits, type StyledOutfit } from '@/features/styling/use-outfits';
+import { useWornOutfits } from '@/features/styling/use-worn-outfits';
+import {
+  DEFAULT_WEIGHTS,
+  EMPTY_AFFINITIES,
+  explain,
+  targetWarmth,
+  type Garment,
+  type OutfitCandidate,
+  type WeatherContext,
+} from '@/lib/styling';
 import { supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
+
+/**
+ * The Repeat's local fallback naming for a "show me another" swap.
+ *
+ * `useOutfits`'s own `fromEngine` does exactly this and is not exported, so
+ * this is a deliberate, minimal duplicate of its naming rule rather than a
+ * reach into a private helper — same fallback name ("From your closet"), same
+ * `explain()` call, no AI re-rank (a local swap is instant; waiting fifteen
+ * seconds for a name defeats the point of "show me another").
+ */
+function localStyledOutfit(candidate: OutfitCandidate): StyledOutfit {
+  return {
+    candidate,
+    name: candidate.notes.weather ?? 'From your closet',
+    reasoning: explain(candidate),
+    swapNote: null,
+    source: 'engine',
+  };
+}
 
 /** Stable identity for a candidate: the exact set of garments in it. */
 const idOf = (items: { id: string }[]) => items.map((g) => g.id).join('.');
@@ -39,7 +70,7 @@ const idOf = (items: { id: string }[]) => items.map((g) => g.id).join('.');
  * a constant; it reads as the fallback city only when location is off, and the
  * strip below says so and offers to turn it on.
  */
-function dayLine(city: string) {
+export function dayLine(city: string) {
   const now = new Date();
   const weekday = now.toLocaleDateString('en-US', { weekday: 'short' });
   const month = now.toLocaleDateString('en-US', { month: 'short' });
@@ -56,7 +87,7 @@ function dayLine(city: string) {
  * is no longer today's. With no successful fetch ever recorded there is no time
  * to print, and the line simply doesn't claim one.
  */
-function syncedLine(updatedAt: number): string {
+export function syncedLine(updatedAt: number): string {
   if (!updatedAt) return 'Last synced';
 
   const at = new Date(updatedAt);
@@ -158,7 +189,7 @@ function StylistButton() {
  * (the same oxblood mark the stylist screen carries); the profile is the ink
  * avatar well.
  */
-function Masthead({ city, name }: { city: string; name?: string | null }) {
+export function Masthead({ city, name }: { city: string; name?: string | null }) {
   const router = useRouter();
   const theme = useTheme();
 
@@ -207,7 +238,7 @@ function Masthead({ city, name }: { city: string; name?: string | null }) {
  * the profile avatar drops — there is no fresh morning to attribute to
  * anyone.
  */
-function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
+export function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
   return (
     <View className="px-gutter pt-2">
       <View className="flex-row items-start justify-between gap-3">
@@ -238,10 +269,14 @@ function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
  * wardrobe and weather rather than inventing a scenario the way a canned
  * "a formal lunch in heavy rain" line would.
  */
-function nothingWorksReason(items: Garment[], weather: WeatherContext | null): string {
+export function nothingWorksReason(items: Garment[], weather: WeatherContext | null): string {
   const has = (slot: Garment['slot']) => items.some((g) => g.slot === slot);
 
-  if (!has('base_top') && !has('dress')) {
+  // `mid_layer`, not just `base_top`, counts as a top — a knit worn alone is
+  // an outfit (see `canGenerate` in queries.ts). This branch is only reached
+  // once `canGenerate` has already passed, so without this a wardrobe of
+  // jumpers and trousers would land here and be told it has no top at all.
+  if (!has('base_top') && !has('mid_layer') && !has('dress')) {
     return "Your closet doesn't have a top or a dress in it yet — every outfit needs one of the two.";
   }
   if (!has('bottom') && !has('dress')) {
@@ -263,7 +298,7 @@ function nothingWorksReason(items: Garment[], weather: WeatherContext | null): s
  * actually change the answer — ask the stylist, add the missing kind of piece,
  * or try again. Small icon circles are affordances, not an empty-state hero.
  */
-function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () => void }) {
+export function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () => void }) {
   const router = useRouter();
   const theme = useTheme();
 
@@ -388,6 +423,42 @@ export default function TodayScreen() {
 
   const shown = outfits.outfits;
 
+  // The Repeat's "show me another" — a plate index swapped for the next
+  // shortlist candidate not already on screen. Purely local: the shortlist
+  // was already computed synchronously by the engine, so there is nothing to
+  // wait on and nothing to ask the network for.
+  const [shownOverride, setShownOverride] = useState<Record<number, OutfitCandidate>>({});
+  const shortlistKey = outfits.shortlist.map((c) => idOf(c.items)).join('|');
+  // Retiring a stale override belongs to render, not an Effect — this is
+  // React's own "adjusting state when a prop changes" pattern, not a
+  // synchronisation with anything external. A new shortlist (a new day, a new
+  // note, a changed wardrobe) retires every override in the SAME commit that
+  // shows the new shortlist, rather than one render later.
+  const [seenShortlistKey, setSeenShortlistKey] = useState(shortlistKey);
+  if (shortlistKey !== seenShortlistKey) {
+    setSeenShortlistKey(shortlistKey);
+    setShownOverride({});
+  }
+
+  const effectiveShown = useMemo(
+    () => shown.map((o, i) => (shownOverride[i] ? localStyledOutfit(shownOverride[i]!) : o)),
+    [shown, shownOverride],
+  );
+
+  const handleShowAnother = useCallback(
+    (i: number) => {
+      const onScreen = new Set(effectiveShown.map((o) => idOf(o.candidate.items)));
+      const next = outfits.shortlist.find((c) => !onScreen.has(idOf(c.items)));
+      // Never withhold — if the shortlist has nothing left to offer, the tap
+      // simply does nothing rather than repeating the same outfit under a
+      // "new" label.
+      if (!next) return;
+      void Haptics.selectionAsync().catch(() => {});
+      setShownOverride((prev) => ({ ...prev, [i]: next }));
+    },
+    [effectiveShown, outfits.shortlist],
+  );
+
   // Offline, honestly sourced. There is no NetInfo/onlineManager in this app,
   // so the truest network signal on this screen is the weather fetch failing:
   // when it errors (after its retry) the device could not reach the forecast,
@@ -405,14 +476,37 @@ export default function TodayScreen() {
   // calendar event. Carried into each plate's share artifact.
   const occasion = committedNote || context.events[0]?.title || null;
 
-  // Sign every garment image in one request rather than one per card.
+  // Sign every image the shortlist could ever show, not just today's three —
+  // "show me another" swaps in a candidate from further down the same list,
+  // and its garments need to already be resolvable the moment it appears.
+  // The wardrobe is small enough (free and paid alike) that this dedupes to
+  // roughly one signed URL per garment, not per candidate.
   const { resolve } = useSignedUrls(
-    shown.flatMap((o) => o.candidate.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath])),
+    outfits.shortlist.flatMap((c) =>
+      c.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath]),
+    ),
   );
+
+  // The Repeat (Directive 5): real marked wears, read once per screen and
+  // matched per plate below. `wornOutfits.data` starts undefined before the
+  // first fetch, and an empty array is the honest default — no repeat mark
+  // can be true before real history has loaded.
+  const wornOutfits = useWornOutfits();
+  // Memoised so a fresh `[]` identity on every render doesn't invalidate the
+  // `exhaustionProgress` memo just below it.
+  const wornRecords = useMemo(() => wornOutfits.data ?? [], [wornOutfits.data]);
+  const currentTally = useMemo(() => tallyOf(items), [items]);
+  const totalCores = useMemo(() => countOutfits(currentTally), [currentTally]);
+  const exhaustion = useMemo(
+    () => exhaustionProgress(items, wornRecords),
+    [items, wornRecords],
+  );
+  const topGap = useMemo(() => rankGaps(currentTally)[0] ?? null, [currentTally]);
 
   const react = useReactToOutfit();
   const wear = useWearOutfit();
   const gate = useGate();
+  const openRepeatUpsell = useCallback(() => void gate.present(Placement.RepeatUpsell), [gate]);
 
   // The pull kicks off three fetches — the re-rank, the closet and the
   // forecast — and the control used to retract when only the first of them
@@ -426,7 +520,10 @@ export default function TodayScreen() {
 
   const handleReact = useCallback(
     (index: number, value: ReactionValue) => {
-      const outfit = shown[index];
+      // `effectiveShown`, not `shown` — after a "show me another" tap the
+      // plate at this index is the swapped-in candidate, and a reaction has
+      // to be recorded against what the user is actually looking at.
+      const outfit = effectiveShown[index];
       if (!outfit) return;
 
       const key = idOf(outfit.candidate.items);
@@ -458,12 +555,12 @@ export default function TodayScreen() {
         },
       );
     },
-    [shown, profile, outfits.shortlist, react],
+    [effectiveShown, profile, outfits.shortlist, react],
   );
 
   const handleWear = useCallback(
     (index: number) => {
-      const outfit = shown[index];
+      const outfit = effectiveShown[index];
       if (!outfit) return;
       const key = idOf(outfit.candidate.items);
 
@@ -489,7 +586,7 @@ export default function TodayScreen() {
         },
       );
     },
-    [shown, context, wear],
+    [effectiveShown, context, wear],
   );
 
   const refresh = useCallback(() => {
@@ -700,7 +797,12 @@ export default function TodayScreen() {
             /* Dimmed as one block: the set is real, but it is this morning's,
                and so is the note under it. */
             <View className="mt-5" style={{ opacity: 0.62 }}>
-              {shown.map((outfit, i) => (
+              {/* `effectiveShown`, not `shown` — `handleWear`/`handleReact`
+                  always look up the swapped-in candidate at this index (see
+                  their own comments above), so this render has to agree with
+                  them even on the rare transition from an online "show me
+                  another" tap straight into offline. */}
+              {effectiveShown.map((outfit, i) => (
                 <Plate
                   key={idOf(outfit.candidate.items)}
                   outfit={outfit}
@@ -833,12 +935,44 @@ export default function TodayScreen() {
             />
           ) : null}
 
+          {/* The Repeat's exhausted state (P-03) — every core this closet can
+              build already has a real worn record. Additive, above the day's
+              plates rather than instead of them: Cinch keeps suggesting
+              outfits below this card either way. */}
+          {!nothingWorks && exhaustion.exhausted ? (
+            <RepeatExhausted
+              total={exhaustion.total}
+              since={exhaustion.since}
+              gap={topGap}
+              currentCountOfKind={topGap ? currentTally[topGap.kind] : 0}
+              topOutfitName={effectiveShown[0]?.name ?? null}
+              topOutfitWearCount={
+                effectiveShown[0]
+                  ? wearsOfCore(
+                      wornRecords,
+                      items,
+                      effectiveShown[0].candidate.items.map((g) => g.id),
+                    ).length
+                  : 0
+              }
+              onSeePlans={openRepeatUpsell}
+              onSwapInstead={() => router.push('/closet')}
+            />
+          ) : null}
+
           <View className="mt-4">
             {nothingWorks ? (
               <NothingWorks reason={nothingWorksReason(items, context.weather)} onRetry={refresh} />
             ) : (
-              shown.map((outfit, i) => {
+              effectiveShown.map((outfit, i) => {
                 const key = idOf(outfit.candidate.items);
+                // Real previous wears of THIS exact core — null when this is
+                // not a repeat, so the plate renders no mark at all.
+                const previousWears = wearsOfCore(
+                  wornRecords,
+                  items,
+                  outfit.candidate.items.map((g) => g.id),
+                );
                 return (
                   <Plate
                     key={key}
@@ -854,6 +988,17 @@ export default function TodayScreen() {
                     enhancing={outfits.isEnhancing}
                     onWear={() => handleWear(i)}
                     onReact={(value) => handleReact(i, value)}
+                    repeat={
+                      previousWears.length > 0
+                        ? {
+                            previousWears,
+                            pieceCount: items.length,
+                            totalCores,
+                            onSeePlans: openRepeatUpsell,
+                            onShowAnother: () => handleShowAnother(i),
+                          }
+                        : null
+                    }
                   />
                 );
               })

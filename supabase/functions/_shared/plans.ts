@@ -124,9 +124,24 @@ export const PLAN_LIMITS: Record<Plan, Record<AiQuotaKind, Allowance>> = {
  * Change one, change the other. There is a test that asserts they agree.
  */
 export const PLAN_ITEM_LIMITS: Record<Plan, number> = {
-  free: 30,
+  free: 10,
   standard: 150,
   pro: 1000,
+} as const;
+
+/**
+ * Every row an account may hold, stored pieces included. Mirrors
+ * `item_total_limit_for_plan()` in migration 20260808190100.
+ *
+ * The active limit above is what Cinch styles from; this is the ceiling that
+ * stops "archive everything" becoming unlimited free storage. Storing a piece
+ * has to genuinely free an active slot — a closet whose only exit is payment is
+ * the failure The Wall exists to avoid — so the anti-abuse job moved here.
+ */
+export const PLAN_STORED_ITEM_LIMITS: Record<Plan, number> = {
+  free: 30,
+  standard: 450,
+  pro: 3000,
 } as const;
 
 export function allowanceFor(plan: Plan, kind: AiQuotaKind): Allowance {

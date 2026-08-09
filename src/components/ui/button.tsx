@@ -14,7 +14,7 @@ import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { MIN_TAP_TARGET, motion, useTheme, type ThemeColors } from '@/theme/tokens';
 
-type Variant = 'primary' | 'ink' | 'secondary' | 'ghost';
+type Variant = 'primary' | 'ink' | 'secondary' | 'ghost' | 'critical';
 
 /**
  * How a disabled button looks.
@@ -57,6 +57,17 @@ function ground(variant: Variant, theme: ThemeColors): ViewStyle {
   // screen keeps its one oxblood action even with an ink button on it.
   if (variant === 'ink') return { ...base, backgroundColor: theme.ink };
   if (variant === 'secondary') return { ...base, borderWidth: 1, borderColor: theme.rule };
+  // Undoing something other people can already see: cancelling an occasion,
+  // leaving one, removing a guest, taking a look off the board. Oxblood is the
+  // accent and already means "the one thing to do here", so a destructive
+  // action wearing it reads as the recommendation — which is why `critical` is
+  // a distinct, deeper brick rather than a shade of the accent.
+  //
+  // NOT for every irreversible act. Discarding a half-written occasion stays
+  // `primary`, because nobody else has seen it; the line is whether the thing
+  // being undone was ever public. Two units hand-built this fill independently
+  // before it lived here.
+  if (variant === 'critical') return { ...base, backgroundColor: theme.critical };
   return base;
 }
 
@@ -74,6 +85,7 @@ const labelKey: Record<Variant, 'canvas' | 'ink' | 'muted'> = {
   ink: 'canvas',
   secondary: 'ink',
   ghost: 'muted',
+  critical: 'canvas',
 };
 
 export type ButtonProps = Omit<PressableProps, 'children' | 'style'> & {

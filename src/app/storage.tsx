@@ -149,15 +149,18 @@ export default function StorageScreen() {
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScreenHeader align="center" title="Storage" />
 
-      {/* The honest line, and the reason the screen is not merely a nicety.
-          Two of these three facts are pleasant and the third is not; saying the
-          third is the whole point, because `enforce_item_limit` counts every
-          row a user owns and a person who stores thirty pieces to make room
-          will otherwise discover that at the camera. */}
+      {/* The honest line. It used to say the unpleasant thing — a stored piece
+          still spent a closet slot — because that was true. Migration
+          20260808190100 split the ceiling in two and made storing actually free
+          an active slot, so the sentence had to change with the behaviour or it
+          would have become the one place the app lied about its own limit. The
+          second ceiling is still named, because a person putting pieces away to
+          make room should learn where that stops here rather than at the
+          camera. */}
       <View className="px-gutter pt-4">
         <Text variant="label" className="text-muted dark:text-muted-dark">
-          Stored pieces stay out of your closet grid and out of your plans — but they still count
-          toward your closet limit.
+          Stored pieces stay out of your closet grid and out of your plans, and they free up room
+          for something new. They still count toward what your account can hold.
         </Text>
       </View>
 
