@@ -14,6 +14,16 @@ export interface PlanState {
   readonly trialing: boolean;
   /** When the trial ends, if one is running. */
   readonly trialEndsAt: Date | null;
+  /**
+   * When the current billing period renews — MB-06's Renews row.
+   *
+   * NULL UNTIL THE WEBHOOK FILLS IT (`supabase/functions/superwall-webhook`),
+   * which can genuinely lag a purchase by a few seconds. `membership-thanks.tsx`
+   * treats null as "not known yet" and drops the row rather than computing or
+   * guessing a date — the contract's own words are "the single most important
+   * honesty rule on the screen" (§7).
+   */
+  readonly currentPeriodEnd: Date | null;
   readonly loading: boolean;
 }
 
@@ -48,7 +58,7 @@ export function usePlan(): PlanState {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('subscriptions')
-        .select('plan, trial_ends_at')
+        .select('plan, trial_ends_at, current_period_end')
         // RLS already scopes this to the owner; the filter makes single-ness
         // not depend on that, so a future policy widening cannot turn
         // maybeSingle into a runtime error.
@@ -73,11 +83,15 @@ export function usePlan(): PlanState {
         plan: (data?.plan as Plan | undefined) ?? 'free',
         trialEndsAt: trialEnds,
         trialing: trialEnds !== null && new Date(trialEnds).getTime() > Date.now(),
+        // Stays an ISO string (or null) for the same dehydration reason
+        // `trialEndsAt` does, above.
+        currentPeriodEnd: data?.current_period_end ?? null,
       };
     },
   });
 
   const trialEndsAt = data?.trialEndsAt ? new Date(data.trialEndsAt) : null;
+  const currentPeriodEnd = data?.currentPeriodEnd ? new Date(data.currentPeriodEnd) : null;
   const trialing = data?.trialing ?? false;
   const plan: Plan = trialing ? 'pro' : (data?.plan ?? 'free');
 
@@ -86,6 +100,7 @@ export function usePlan(): PlanState {
     copy: PLANS[plan],
     trialing,
     trialEndsAt,
+    currentPeriodEnd,
     loading: isPending && Boolean(userId),
   };
 }
