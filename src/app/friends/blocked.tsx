@@ -1,46 +1,31 @@
-import { ScrollView, View } from 'react-native';
+import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BlockedList } from '@/components/social/BlockedList';
-import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
-import { Text } from '@/components/ui/text';
 
 /**
- * Blocked — its own room now, off the Friends page.
+ * BL-01…BL-03 — Blocked people, its own room off Profile.
  *
- * The list used to sit at the foot of Friends, on the argument that the
- * unhappy path shouldn't get its own room in the house. The rebuilt Friends
- * page evicts it entirely, which is the stronger version of the same
- * argument: a page about your circle should not end on the people you removed
- * from it. Guideline 1.2 still requires blocks to be manageable somewhere
- * findable, so Profile's "Blocked people" row now lands here directly instead
- * of deep-linking to a section that no longer exists.
+ * The screen is a frame; `BlockedList` owns every state (loading, failed,
+ * nobody blocked, rows) because which sentence belongs on screen changes with
+ * which state that is — BL-01's claim about what blocking did has no business
+ * on BL-03's empty room, and a static header printing it unconditionally is
+ * how that happened before. `contentContainerClassName="flex-grow"` is what
+ * lets the empty state centre itself in the space a populated list would
+ * otherwise fill top-down.
  *
- * The screen is a frame; `BlockedList` owns the states (loading, failed,
- * empty, rows) and their claims discipline. The one line this page adds is
- * the promise the row-level UI has no room for — what a block actually does —
- * because on its own route the list no longer inherits context from the
- * sections above it.
+ * `ScreenHeader`'s back chevron stands in for the atlas's "Done": this route
+ * is reached by `router.push` from Profile, not a modal presentation, and
+ * "headers are the screens' own" is the house rule for every pushed route.
  */
 export default function BlockedScreen() {
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <ScreenHeader title="Your circle" />
+      <ScreenHeader title="Blocked people" />
 
-      <View className="px-gutter pt-3">
-        <Text variant="display" trim accessibilityRole="header">
-          Blocked
-        </Text>
-        <Text variant="caption" className="mt-2 text-muted">
-          Blocked people can’t find you, message you, or see your closet — and they aren’t told.
-        </Text>
-      </View>
-
-      <ScrollView contentContainerClassName="px-gutter pb-24 pt-6">
-        <Card>
-          <BlockedList />
-        </Card>
+      <ScrollView className="flex-1" contentContainerClassName="flex-grow px-gutter pb-10 pt-4">
+        <BlockedList />
       </ScrollView>
     </SafeAreaView>
   );
