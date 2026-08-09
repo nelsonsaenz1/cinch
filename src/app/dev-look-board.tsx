@@ -1,5 +1,5 @@
 import { Asset } from 'expo-asset';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -33,17 +33,51 @@ import { useTheme } from '@/theme/tokens';
  * instead, so the components under test are still the shipped ones.
  */
 
-const uri = (name: string) => Asset.fromModule(require(`@/assets/garments/${name}.jpg`)).uri;
+/**
+ * Static requires, one per file. Metro resolves `require` at build time by
+ * walking the module graph, so a template literal inside one resolves to
+ * nothing and the route throws "Invalid call" the moment it mounts — which
+ * neither the type checker nor the test suite can see, because both stop short
+ * of the bundler. Found on the simulator; `dev-share-look.tsx` already had it
+ * right.
+ */
+/**
+ * Fixture photographs, resolved through `downloadAsync` before they are shown.
+ *
+ * `GarmentCell` caches by the URL with its query string stripped, which is
+ * right for the signed storage URLs production hands it — the signature rotates
+ * while the photograph does not. Metro's dev asset server puts the identity IN
+ * the query (`/assets/?unstable_path=…`), so every fixture garment strips to
+ * the same key and the first to decode is drawn for all of them: eight
+ * garments, one blouse, eight times. `localUri` is a plain `file://` path with
+ * no query — but it is null until the asset is downloaded, which is why this
+ * waits rather than reading it at module scope. `dev-share-look.tsx` does the
+ * same, and `components/item/item-hero.tsx` is where the trap was first paid
+ * for.
+ */
+const ASSETS = {
+  coat: Asset.fromModule(require('@/assets/garments/cognac-shearling-coat.jpg')),
+  blouse: Asset.fromModule(require('@/assets/garments/white-linen-blouse.jpg')),
+  trousers: Asset.fromModule(require('@/assets/garments/charcoal-tailored-trousers.jpg')),
+  loafers: Asset.fromModule(require('@/assets/garments/brown-leather-loafers.jpg')),
+  sweater: Asset.fromModule(require('@/assets/garments/cream-mohair-sweater.jpg')),
+  skirt: Asset.fromModule(require('@/assets/garments/beige-corduroy-skirt.jpg')),
+  tote: Asset.fromModule(require('@/assets/garments/cognac-leather-tote.jpg')),
+  boots: Asset.fromModule(require('@/assets/garments/brown-leather-boots.jpg')),
+};
 
-const IMG = {
-  coat: uri('cognac-shearling-coat'),
-  blouse: uri('white-linen-blouse'),
-  trousers: uri('charcoal-tailored-trousers'),
-  loafers: uri('brown-leather-loafers'),
-  sweater: uri('cream-mohair-sweater'),
-  skirt: uri('beige-corduroy-skirt'),
-  tote: uri('cognac-leather-tote'),
-  boots: uri('brown-leather-boots'),
+type PhotoId = keyof typeof ASSETS;
+
+/** A stable synthetic path per fixture garment — resolved to a file at render. */
+const IMG: Record<PhotoId, string> = {
+  coat: 'fixture/coat',
+  blouse: 'fixture/blouse',
+  trousers: 'fixture/trousers',
+  loafers: 'fixture/loafers',
+  sweater: 'fixture/sweater',
+  skirt: 'fixture/skirt',
+  tote: 'fixture/tote',
+  boots: 'fixture/boots',
 };
 
 let seq = 0;
@@ -110,7 +144,7 @@ const look = (
   userId,
   outfitId: `o-${id}`,
   caption,
-  createdAt: new Date(Date.now() - createdAtOffsetMin * 60_000),
+  createdAt: new Date(FIXTURE_NOW - createdAtOffsetMin * 60_000),
   garments,
   votes,
   voterIds,
@@ -123,13 +157,65 @@ const NAMES: Record<string, string> = {
   me: 'You',
 };
 const nameOf = (userId: string) => (userId === 'me' ? 'You' : (NAMES[userId] ?? null));
-const resolveImage = (...paths: (string | null | undefined)[]) => paths.find(Boolean) ?? undefined;
+/**
+ * One timestamp for the whole fixture set, read once at module scope.
+ *
+ * `FIXTURE_NOW` inside render is an impure call: React may re-render at any
+ * moment and the "2h ago" marks would drift a little each time. Fixture data
+ * should be identical on every render, which is also what makes a screenshot
+ * of this route comparable with the last one.
+ */
+const FIXTURE_NOW = Date.now();
 
 const FRAMES = ['L-01', 'L-02', 'L-03', 'L-04', 'L-05', 'L-06', 'Pill'] as const;
 type Frame = (typeof FRAMES)[number];
 
+/**
+ * One line of the overflow menu (L-04).
+ *
+ * Module scope, not inside the frame that uses it: a component declared during
+ * render is a new type on every pass, so React unmounts and remounts the whole
+ * subtree instead of updating it. It also shadowed the unrelated `Row` further
+ * down this file, which is why it carries a longer name now.
+ */
+function OverflowRow({ label, destructive }: { label: string; destructive?: boolean }) {
+  const theme = useTheme();
+  return (
+    <View className="min-h-11 justify-center border-b border-hairline px-4 last:border-b-0">
+      <Text variant="callout" style={destructive ? { color: theme.critical } : undefined}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+const BY_PATH = new Map(
+  (Object.keys(ASSETS) as PhotoId[]).map((id) => [IMG[id], ASSETS[id]] as const),
+);
+
+/** Reads `localUri` at call time — it is null until `downloadAsync` resolves. */
+const resolveFixtureImage = (...paths: (string | null | undefined)[]): string | undefined => {
+  for (const path of paths) {
+    const asset = path ? BY_PATH.get(path) : undefined;
+    if (asset) return asset.localUri ?? asset.uri;
+  }
+  return undefined;
+};
+
 export default function DevLookBoard() {
   const [frame, setFrame] = useState<Frame>('L-01');
+
+  // One re-render once the files exist on disk; the resolver below reads them.
+  const [, setReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all(Object.values(ASSETS).map((a) => a.downloadAsync())).then(() => {
+      if (!cancelled) setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!__DEV__) {
     return (
@@ -189,7 +275,7 @@ function L01() {
           locked={false}
           picked={false}
           votePending={false}
-          resolveImage={resolveImage}
+          resolveImage={resolveFixtureImage}
           width={353}
           onToggleVote={() => {}}
           onOpenComments={() => {}}
@@ -218,7 +304,7 @@ function L02() {
           locked={false}
           picked
           votePending={false}
-          resolveImage={resolveImage}
+          resolveImage={resolveFixtureImage}
           width={353}
           onToggleVote={() => {}}
           onOpenComments={() => {}}
@@ -236,11 +322,11 @@ function L03() {
     {
       id: '1', eventId: 'ev1', postId: 'b', userId: 'dana', reported: false, hidden: false,
       body: 'The skirt is the whole thing. Wear the tote, not the clutch.',
-      createdAt: new Date(Date.now() - 2 * 3_600_000),
+      createdAt: new Date(FIXTURE_NOW - 2 * 3_600_000),
     },
     {
       id: '2', eventId: 'ev1', postId: 'b', userId: 'me', reported: false, hidden: false,
-      body: 'Both, honestly. Bring the loafers.', createdAt: new Date(Date.now() - 4 * 60_000),
+      body: 'Both, honestly. Bring the loafers.', createdAt: new Date(FIXTURE_NOW - 4 * 60_000),
     },
   ]);
   const l = look('b', 'mel', MELS_LOOK, 3, ['dana', 'me', 'ben'], null, 60);
@@ -248,7 +334,7 @@ function L03() {
   return (
     <View className="mt-4 overflow-hidden rounded-plate border border-hairline bg-surface">
       <View className="flex-row items-center gap-3 border-b border-hairline px-4 py-3.5">
-        <LookPlate pieces={l.garments} width={44} resolveImage={resolveImage} padding={3} gap={2} />
+        <LookPlate pieces={l.garments} width={44} resolveImage={resolveFixtureImage} padding={3} gap={2} />
         <View className="flex-1">
           <Text variant="plate" trim numberOfLines={1}>
             {lookName(l.garments, l.caption)}
@@ -291,13 +377,6 @@ function L03() {
 /** L-04 — overflow, someone else's look vs your own. Static, since ActionSheetIOS can't be screenshotted. */
 function L04() {
   const theme = useTheme();
-  const Row = ({ label, destructive }: { label: string; destructive?: boolean }) => (
-    <View className="min-h-11 justify-center border-b border-hairline px-4 last:border-b-0">
-      <Text variant="callout" style={destructive ? { color: theme.critical } : undefined}>
-        {label}
-      </Text>
-    </View>
-  );
   return (
     <View className="mt-4 gap-6">
       <View>
@@ -305,9 +384,9 @@ function L04() {
           Someone else’s look
         </Text>
         <View className="overflow-hidden rounded-plate border border-hairline bg-surface">
-          <Row label="Share this look" />
-          <Row label="Report this look" destructive />
-          <Row label="Block Mel" destructive />
+          <OverflowRow label="Share this look" />
+          <OverflowRow label="Report this look" destructive />
+          <OverflowRow label="Block Mel" destructive />
         </View>
       </View>
       <View>
@@ -315,8 +394,8 @@ function L04() {
           Your own look
         </Text>
         <View className="overflow-hidden rounded-plate border border-hairline bg-surface">
-          <Row label="Share another option" />
-          <Row label="Take it off the board" destructive />
+          <OverflowRow label="Share another option" />
+          <OverflowRow label="Take it off the board" destructive />
         </View>
       </View>
       <View className="rounded-plate border border-hairline bg-surface p-4">
@@ -354,7 +433,7 @@ function L05() {
           locked
           picked
           votePending={false}
-          resolveImage={resolveImage}
+          resolveImage={resolveFixtureImage}
           width={353}
           onToggleVote={() => {}}
           onOpenComments={() => {}}
@@ -406,7 +485,7 @@ function L06() {
             locked={false}
             picked={false}
             votePending={false}
-            resolveImage={resolveImage}
+            resolveImage={resolveFixtureImage}
             width={300}
             onToggleVote={() => {}}
             onAddYours={() => {}}

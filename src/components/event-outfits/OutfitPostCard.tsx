@@ -391,11 +391,21 @@ export function OutfitPostCard({
           {name}
         </Text>
 
-        {look.caption ? (
-          <Text variant="caption" numberOfLines={2} className="mt-1">
-            {look.caption}
-          </Text>
-        ) : null}
+        {/*
+          The line under the title, and never the title again.
+
+          `lookName` returns the caption when there is one — `event_posts` has a
+          caption column and no title column — so printing `look.caption` here
+          unconditionally rendered the same sentence twice, once truncated as a
+          heading and once in full beneath it. The atlas draws a name and then a
+          different line under it ("The Long Cognac" / "Shearling over the linen
+          blouse"). Until a post can carry both, the second line is what the
+          garments say: the caption when the title did not already consume it,
+          the descriptor otherwise.
+        */}
+        <Text variant="caption" numberOfLines={2} className="mt-1">
+          {look.caption && name !== look.caption ? look.caption : lookDescriptor(look.garments)}
+        </Text>
 
         <View className="mt-3 flex-row items-center justify-between gap-2 border-t border-rule pt-3">
           {onAddYours ? (
