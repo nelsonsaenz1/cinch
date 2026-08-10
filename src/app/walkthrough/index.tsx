@@ -42,12 +42,23 @@ type Phase =
   | 'heard' // V-05
   | 'failed'; // V-13
 
-/** The four V-13 causes, kept apart on purpose. */
+/**
+ * The V-13 causes, kept apart on purpose.
+ *
+ * `signed_out` is a fifth the directive's table does not list, and it exists
+ * because the first simulator walk found the failure it describes: with no
+ * session, `begin()` returned silently after the microphone prompt and left
+ * the user tapping Start against a screen that never changed. The directive's
+ * rule — "four distinct causes, four distinct screens, never one generic
+ * failure" — is really a rule about never failing without a name, so a fifth
+ * named cause is the fix rather than an exception to it.
+ */
 type Failure =
   | { cause: 'denied' }
   | { cause: 'silent' }
   | { cause: 'unparsed'; transcript: string }
-  | { cause: 'offline'; retry: () => void };
+  | { cause: 'offline'; retry: () => void }
+  | { cause: 'signed_out' };
 
 /** V-01's teaching device. Deliberately imperfect phrasing. */
 const EXAMPLES = ['"white linen shirt"', '"those brown loafers"', '"a heavy grey coat"'];
@@ -95,7 +106,12 @@ export default function WalkthroughScreen() {
     }
 
     const userId = await getUserId();
-    if (!userId) return;
+    if (!userId) {
+      // Never a bare return. See the `signed_out` note on `Failure`.
+      setFailure({ cause: 'signed_out' });
+      setPhase('failed');
+      return;
+    }
 
     // The session row exists before the microphone opens, so a recording can
     // never be orphaned from the row that owns its storage path.
@@ -179,7 +195,21 @@ export default function WalkthroughScreen() {
 
   // ── V-13 ────────────────────────────────────────────────────────────────
   if (phase === 'failed' && failure) {
-    return <FailureScreen failure={failure} onPhotograph={() => router.replace('/the-ten')} />;
+    return (
+      <FailureScreen
+        failure={failure}
+        onPhotograph={() => router.replace('/the-ten')}
+        onRetake={() => {
+          setFailure(null);
+          setTranscript('');
+          setDrafts([]);
+          setParseComplete(false);
+          sessionId.current = null;
+          setPhase('invitation');
+        }}
+        onSignIn={() => router.replace('/(auth)/sign-in')}
+      />
+    );
   }
 
   // ── V-02 / V-03 ─────────────────────────────────────────────────────────
@@ -330,12 +360,25 @@ export default function WalkthroughScreen() {
  * locates the fault honestly, where swallowing it makes the app look broken
  * and unaccountable.
  */
-function FailureScreen({ failure, onPhotograph }: { failure: Failure; onPhotograph: () => void }) {
+function FailureScreen({
+  failure,
+  onPhotograph,
+  onRetake,
+  onSignIn,
+}: {
+  failure: Failure;
+  onPhotograph: () => void;
+  /** Back to V-01 with a clean slate — "Try again" means another take, not
+   *  another app. Routing this to The Ten was the first walk's second bug. */
+  onRetake: () => void;
+  onSignIn: () => void;
+}) {
   const copy = {
     denied: 'Cinch needs the microphone to hear you.',
     silent: 'I didn’t catch anything.',
     unparsed: 'I heard you, but I couldn’t find any clothes in it.',
     offline: 'I can’t reach the transcriber. Your recording is safe.',
+    signed_out: 'You’ll need to be signed in first.',
   }[failure.cause];
 
   return (
@@ -359,7 +402,10 @@ function FailureScreen({ failure, onPhotograph }: { failure: Failure; onPhotogra
             <Button title="Retry" onPress={failure.retry} haptic />
           ) : null}
           {failure.cause === 'silent' || failure.cause === 'unparsed' ? (
-            <Button title="Try again" onPress={onPhotograph} haptic />
+            <Button title="Try again" onPress={onRetake} haptic />
+          ) : null}
+          {failure.cause === 'signed_out' ? (
+            <Button title="Sign in" onPress={onSignIn} haptic />
           ) : null}
           <View className="items-center">
             <Text

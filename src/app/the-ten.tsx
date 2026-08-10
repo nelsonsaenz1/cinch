@@ -238,6 +238,26 @@ export default function TheTenScreen() {
             />
           </View>
         ) : null}
+
+        {/* THE SECOND DOOR. The Walkthrough's V-01 offers "Photograph instead"
+            and routes here; this is the return leg, and without it the voice
+            path is reachable only by deep link. The directive's tenth standing
+            refusal — "two front doors, permanently" — is a promise about both
+            directions, not just one.
+
+            Text-only and below the fold on purpose: this screen already has
+            its one oxblood action, and a second filled button here would read
+            as the app being unsure which way it wants you to go. */}
+        <View className="items-center" style={{ marginTop: 28 }}>
+          <Text
+            variant="body"
+            className="text-muted dark:text-muted-dark"
+            accessibilityRole="button"
+            accessibilityHint="Describe your closet out loud instead of photographing it"
+            onPress={() => router.push('/walkthrough')}>
+            Talk instead
+          </Text>
+        </View>
       </ScrollView>
 
       <SubstitutionSheet

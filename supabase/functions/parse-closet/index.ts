@@ -130,7 +130,21 @@ export default {
           .select('*')
           .eq('session_id', sessionId)
           .order('ordinal');
-        return Response.json({ garments: existing ?? [], unconsumed: [], reused: true });
+        // `unconsumed` is READ BACK here rather than answered `[]`. This is the
+        // resume path — taken whenever a session is reopened after a cold start
+        // — and returning an empty list silently emptied V-05's "things I
+        // didn't catch" disclosure, losing the record of what the app failed to
+        // understand. Refusal 7 covers the spans as much as the garments.
+        const { data: session2 } = await db
+          .from('intake_sessions')
+          .select('unconsumed')
+          .eq('id', sessionId)
+          .maybeSingle();
+        return Response.json({
+          garments: existing ?? [],
+          unconsumed: session2?.unconsumed ?? [],
+          reused: true,
+        });
       }
 
       const transcript = session.transcript.slice(0, MAX_TRANSCRIPT_CHARS);
@@ -212,7 +226,7 @@ export default {
         // the transcript is intact, so the session stays reviewable and the
         // screen shows the words with nothing pulled out of them.
         await db.from('intake_sessions')
-          .update({ status: 'reviewing' })
+          .update({ status: 'reviewing', unconsumed: parsed.unconsumed })
           .eq('id', sessionId);
         return Response.json({ garments: [], unconsumed: parsed.unconsumed });
       }
@@ -262,7 +276,7 @@ export default {
       }
 
       await db.from('intake_sessions')
-        .update({ status: 'reviewing', cursor: 0 })
+        .update({ status: 'reviewing', cursor: 0, unconsumed: parsed.unconsumed })
         .eq('id', sessionId);
 
       return Response.json({
