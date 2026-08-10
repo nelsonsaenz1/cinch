@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { supabase } from '@/lib/supabase';
+import type { Database } from '@/types/database';
 
 /**
  * Reading a walkthrough back.
@@ -12,56 +12,14 @@ import { supabase } from '@/lib/supabase';
  * speak them again. Everything here exists so that never costs more than a
  * scroll position.
  *
- * `intake_sessions` and `intake_drafts` are not in the generated `Database`
- * type yet — that file is regenerated from PRODUCTION after a migration ships,
- * and these tables have only been applied to a verification branch so far. So
- * they go through an untyped client and cast at the boundary, the pattern
- * `features/privacy/use-data-export.ts:23` already documents. Cast the CLIENT,
- * never the method: pulling `rpc` off the object detaches its `this` and the
- * builder throws before reaching the network. Delete the cast after the next
- * `npm run gen:types` and every call site keeps working.
+ * These went through an untyped client while the tables existed only on a
+ * verification branch. The migrations reached production on 2026-08-10 and
+ * `npm run gen:types` picked them up, so the rows below are the generated ones
+ * and the cast is gone.
  */
-const intakeDb = supabase as unknown as SupabaseClient;
 
-/** The columns the procession actually reads. Replaced by the generated row
- *  type once the migration reaches production. */
-export type IntakeSessionRow = {
-  id: string;
-  user_id: string;
-  status:
-    | 'recording'
-    | 'transcribing'
-    | 'parsing'
-    | 'reviewing'
-    | 'committed'
-    | 'abandoned'
-    | 'failed';
-  transcript: string | null;
-  duration_ms: number | null;
-  cursor: number;
-  error_code: string | null;
-  created_at: string;
-};
-
-export type IntakeDraftRow = {
-  id: string;
-  session_id: string;
-  user_id: string;
-  ordinal: number;
-  utterance: string;
-  name: string;
-  slot: string;
-  colour_term: string;
-  colour_oklch: { l: number; c: number; h: number; hex: string } | null;
-  fabric: string | null;
-  pattern: string | null;
-  formality: number | null;
-  warmth: number | null;
-  quantity: number;
-  confidence: number;
-  state: 'pending' | 'confirmed' | 'rejected' | 'ambiguous';
-  image_path: string | null;
-};
+export type IntakeSessionRow = Database['public']['Tables']['intake_sessions']['Row'];
+export type IntakeDraftRow = Database['public']['Tables']['intake_drafts']['Row'];
 
 /** The statuses a walkthrough can be picked back up from. Mirrors the partial
  *  index `intake_sessions_resumable_idx` — committed and abandoned are history,
@@ -88,7 +46,7 @@ export function useResumableSession() {
   return useQuery({
     queryKey: intakeKeys.resumable,
     queryFn: async (): Promise<IntakeSessionRow | null> => {
-      const { data, error } = await intakeDb
+      const { data, error } = await supabase
         .from('intake_sessions')
         .select('*')
         .in('status', RESUMABLE)
@@ -97,7 +55,7 @@ export function useResumableSession() {
         .maybeSingle();
 
       if (error) throw error;
-      return (data as IntakeSessionRow | null) ?? null;
+      return data ?? null;
     },
     // A resume prompt that appears three seconds after launch is worse than no
     // resume prompt — the reader has already started doing something else. This
@@ -120,14 +78,14 @@ export function useDrafts(sessionId: string | null) {
     queryKey: intakeKeys.drafts(sessionId ?? 'none'),
     enabled: Boolean(sessionId),
     queryFn: async (): Promise<IntakeDraftRow[]> => {
-      const { data, error } = await intakeDb
+      const { data, error } = await supabase
         .from('intake_drafts')
         .select('*')
         .eq('session_id', sessionId!)
         .order('ordinal', { ascending: true });
 
       if (error) throw error;
-      return (data as IntakeDraftRow[] | null) ?? [];
+      return data ?? [];
     },
     // The drafts are the procession's whole working set and it edits them
     // locally as it goes. Refetching mid-walk would overwrite an unsaved

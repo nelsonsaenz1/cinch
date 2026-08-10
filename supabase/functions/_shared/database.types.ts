@@ -461,6 +461,42 @@ export type Database = {
         }
         Relationships: []
       }
+      data_exports: {
+        Row: {
+          bytes: number | null
+          error: string | null
+          expires_at: string | null
+          id: string
+          object_path: string | null
+          ready_at: string | null
+          requested_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          bytes?: number | null
+          error?: string | null
+          expires_at?: string | null
+          id?: string
+          object_path?: string | null
+          ready_at?: string | null
+          requested_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          bytes?: number | null
+          error?: string | null
+          expires_at?: string | null
+          id?: string
+          object_path?: string | null
+          ready_at?: string | null
+          requested_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       event_comments: {
         Row: {
           body: string
@@ -738,6 +774,113 @@ export type Database = {
         }
         Relationships: []
       }
+      intake_drafts: {
+        Row: {
+          colour_oklch: Json | null
+          colour_term: string
+          confidence: number
+          created_at: string
+          fabric: string | null
+          formality: number | null
+          id: string
+          image_path: string | null
+          name: string
+          ordinal: number
+          pattern: string | null
+          quantity: number
+          session_id: string
+          slot: string
+          state: string
+          user_id: string
+          utterance: string
+          warmth: number | null
+        }
+        Insert: {
+          colour_oklch?: Json | null
+          colour_term: string
+          confidence?: number
+          created_at?: string
+          fabric?: string | null
+          formality?: number | null
+          id?: string
+          image_path?: string | null
+          name: string
+          ordinal: number
+          pattern?: string | null
+          quantity?: number
+          session_id: string
+          slot: string
+          state?: string
+          user_id: string
+          utterance: string
+          warmth?: number | null
+        }
+        Update: {
+          colour_oklch?: Json | null
+          colour_term?: string
+          confidence?: number
+          created_at?: string
+          fabric?: string | null
+          formality?: number | null
+          id?: string
+          image_path?: string | null
+          name?: string
+          ordinal?: number
+          pattern?: string | null
+          quantity?: number
+          session_id?: string
+          slot?: string
+          state?: string
+          user_id?: string
+          utterance?: string
+          warmth?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intake_drafts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "intake_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intake_sessions: {
+        Row: {
+          created_at: string
+          cursor: number
+          duration_ms: number | null
+          error_code: string | null
+          id: string
+          status: string
+          transcript: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cursor?: number
+          duration_ms?: number | null
+          error_code?: string | null
+          id?: string
+          status?: string
+          transcript?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cursor?: number
+          duration_ms?: number | null
+          error_code?: string | null
+          id?: string
+          status?: string
+          transcript?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       item_inquiries: {
         Row: {
           created_at: string
@@ -798,6 +941,7 @@ export type Database = {
           category: Database["public"]["Enums"]["item_category"]
           color_analysis: Json | null
           colors: Json
+          colour_source: string
           condition: string | null
           created_at: string
           cutout_path: string | null
@@ -806,6 +950,7 @@ export type Database = {
           formality_score: number | null
           id: string
           image_path: string | null
+          intake_method: string
           is_archived: boolean
           is_for_sale: boolean
           is_public: boolean
@@ -842,6 +987,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["item_category"]
           color_analysis?: Json | null
           colors?: Json
+          colour_source?: string
           condition?: string | null
           created_at?: string
           cutout_path?: string | null
@@ -850,6 +996,7 @@ export type Database = {
           formality_score?: number | null
           id?: string
           image_path?: string | null
+          intake_method?: string
           is_archived?: boolean
           is_for_sale?: boolean
           is_public?: boolean
@@ -886,6 +1033,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["item_category"]
           color_analysis?: Json | null
           colors?: Json
+          colour_source?: string
           condition?: string | null
           created_at?: string
           cutout_path?: string | null
@@ -894,6 +1042,7 @@ export type Database = {
           formality_score?: number | null
           id?: string
           image_path?: string | null
+          intake_method?: string
           is_archived?: boolean
           is_for_sale?: boolean
           is_public?: boolean
@@ -1297,6 +1446,8 @@ export type Database = {
           following_count: number
           gender_presentation: string | null
           home_city: string | null
+          invited_at: string | null
+          invited_by: string | null
           onboarding_complete: boolean
           preference_summary: string | null
           preference_summary_updated_at: string | null
@@ -1331,6 +1482,8 @@ export type Database = {
           following_count?: number
           gender_presentation?: string | null
           home_city?: string | null
+          invited_at?: string | null
+          invited_by?: string | null
           onboarding_complete?: boolean
           preference_summary?: string | null
           preference_summary_updated_at?: string | null
@@ -1365,6 +1518,8 @@ export type Database = {
           following_count?: number
           gender_presentation?: string | null
           home_city?: string | null
+          invited_at?: string | null
+          invited_by?: string | null
           onboarding_complete?: boolean
           preference_summary?: string | null
           preference_summary_updated_at?: string | null
@@ -1588,6 +1743,27 @@ export type Database = {
         }
         Relationships: []
       }
+      support_sends: {
+        Row: {
+          id: string
+          sent_at: string
+          topic: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          sent_at?: string
+          topic: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          sent_at?: string
+          topic?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tag_corrections: {
         Row: {
           corrected: Json
@@ -1730,6 +1906,48 @@ export type Database = {
           blocked_id?: string
           blocker_id?: string
           created_at?: string
+        }
+        Relationships: []
+      }
+      waitlist: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          notified_at: string | null
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          notified_at?: string | null
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          notified_at?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
+      waitlist_throttle: {
+        Row: {
+          client_hash: string
+          hits: number
+          window_start: string
+        }
+        Insert: {
+          client_hash: string
+          hits?: number
+          window_start?: string
+        }
+        Update: {
+          client_hash?: string
+          hits?: number
+          window_start?: string
         }
         Relationships: []
       }
@@ -2242,6 +2460,13 @@ export type Database = {
           tally: number
         }[]
       }
+      apply_invite: {
+        Args: { p_handle: string }
+        Returns: {
+          display_name: string
+          inviter_id: string
+        }[]
+      }
       apply_outfit_reaction: {
         Args: {
           p_affinities: Json
@@ -2277,6 +2502,13 @@ export type Database = {
           existing_result: string
         }[]
       }
+      commit_intake_session: {
+        Args: { p_session_id: string }
+        Returns: {
+          committed: number
+          held: number
+        }[]
+      }
       current_ai_consent_version: { Args: never; Returns: number }
       current_social_terms_version: { Args: never; Returns: number }
       effective_plan: {
@@ -2287,7 +2519,22 @@ export type Database = {
         Args: { p_plan: Database["public"]["Enums"]["subscription_plan"] }
         Returns: number
       }
+      export_invoke: { Args: never; Returns: number }
       has_accepted_social_terms: { Args: never; Returns: boolean }
+      intake_category_for: {
+        Args: { p_slot: string }
+        Returns: Database["public"]["Enums"]["item_category"]
+      }
+      invite_arrivals: {
+        Args: never
+        Returns: {
+          display_name: string
+          joined_at: string
+          user_id: string
+          username: string
+        }[]
+      }
+      invite_card: { Args: { p_handle: string }; Returns: string }
       is_event_host: { Args: { p_event: string }; Returns: boolean }
       is_event_member: { Args: { p_event: string }; Returns: boolean }
       is_friend: { Args: { p_other: string }; Returns: boolean }
@@ -2302,6 +2549,10 @@ export type Database = {
         Args: { p_plan: Database["public"]["Enums"]["subscription_plan"] }
         Returns: number
       }
+      join_waitlist: {
+        Args: { p_client_hash: string; p_email: string; p_source?: string }
+        Returns: string
+      }
       log_outfit_wear: { Args: { p_outfit_id: string }; Returns: undefined }
       normalize_for_moderation: { Args: { p_text: string }; Returns: string }
       plan_outfit_tx: {
@@ -2315,6 +2566,59 @@ export type Database = {
         }
         Returns: string
       }
+      push_claim_borrow_requests: {
+        Args: never
+        Returns: {
+          actor_name: string
+          dedupe_key: string
+          item_label: string
+          kind: string
+          user_id: string
+        }[]
+      }
+      push_claim_event_reminders: {
+        Args: never
+        Returns: {
+          dedupe_key: string
+          event_title: string
+          user_id: string
+        }[]
+      }
+      push_claim_friend_activity: {
+        Args: never
+        Returns: {
+          dedupe_key: string
+          follow_backs: number
+          lead_name: string
+          new_pieces: number
+          people: number
+          user_id: string
+        }[]
+      }
+      push_claim_morning_edit: {
+        Args: never
+        Returns: {
+          dedupe_key: string
+          user_id: string
+        }[]
+      }
+      push_claim_votes_comments: {
+        Args: never
+        Returns: {
+          comments: number
+          dedupe_key: string
+          user_id: string
+          votes: number
+        }[]
+      }
+      push_invoke: { Args: { p_channel: string }; Returns: number }
+      push_release_claims: {
+        Args: { p_channel: string; p_keys: string[]; p_user_ids: string[] }
+        Returns: number
+      }
+      push_sends_prune: { Args: never; Returns: number }
+      reap_intake_audio: { Args: never; Returns: number }
+      request_data_export: { Args: never; Returns: string }
       squeeze_for_moderation: { Args: { p_text: string }; Returns: string }
       unwear_outfit_tx: {
         Args: { p_op_id: string; p_outfit_id: string }

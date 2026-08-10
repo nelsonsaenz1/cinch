@@ -50,6 +50,9 @@ function draft(ordinal: number, over: Partial<IntakeDraftRow> = {}): IntakeDraft
     confidence: 0.9,
     state: 'pending',
     image_path: null,
+    // Required since the row type became the generated one — the migrations
+    // reached production on 2026-08-10 and `gen:types` picked the table up.
+    created_at: '2026-08-10T00:00:00Z',
     ...over,
   };
 }

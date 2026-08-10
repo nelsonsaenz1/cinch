@@ -1,14 +1,8 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-
 import { supabase } from '@/lib/supabase';
 
 import { intakeCommitted, intakeAbandoned, type AbandonState } from './analytics';
 import { resolveSpokenColour } from './colour-lexicon';
 import type { IntakeDraftRow } from './queries';
-
-/** Same untyped-client cast as `queries.ts`, for the same reason and with the
- *  same removal condition — see the note there. */
-const intakeDb = supabase as unknown as SupabaseClient;
 
 /**
  * The writes a walkthrough makes.
@@ -30,13 +24,13 @@ const intakeDb = supabase as unknown as SupabaseClient;
  * session table exists to prevent.
  */
 export async function saveDraft(draftId: string, patch: Partial<IntakeDraftRow>): Promise<void> {
-  const { error } = await intakeDb.from('intake_drafts').update(patch).eq('id', draftId);
+  const { error } = await supabase.from('intake_drafts').update(patch).eq('id', draftId);
   if (error) throw error;
 }
 
 /** Where the procession is, so a cold start reopens on the same card. */
 export async function saveCursor(sessionId: string, cursor: number): Promise<void> {
-  const { error } = await intakeDb
+  const { error } = await supabase
     .from('intake_sessions')
     .update({ cursor })
     .eq('id', sessionId);
@@ -81,7 +75,7 @@ export async function commitIntake(
 ): Promise<CommitResult> {
   await resolveDraftColours(drafts);
 
-  const { data, error } = await intakeDb.rpc('commit_intake_session', {
+  const { data, error } = await supabase.rpc('commit_intake_session', {
     p_session_id: sessionId,
   });
   if (error) throw error;
@@ -110,7 +104,7 @@ export async function abandonIntake(
   cursor: number,
   total: number,
 ): Promise<void> {
-  const { error } = await intakeDb
+  const { error } = await supabase
     .from('intake_sessions')
     .update({ status: 'abandoned' })
     .eq('id', sessionId);
