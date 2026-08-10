@@ -8,6 +8,14 @@ import {
   PAGE_MAX_BYTES,
   PAGE_TIMEOUT_MS,
 } from './page-meta.ts';
+import {
+  admitContent,
+  admitSource,
+  isPreferredSource,
+  PREFERENCE_BONUS,
+  type Declined,
+  type DeclineReason,
+} from './policy.ts';
 
 /**
  * Finding a photograph of a garment somebody described in words.
@@ -45,6 +53,12 @@ import {
  * of that: it is a URL the model produced from memory rather than from the
  * search, and it is the one class of answer we can cheaply prove untrustworthy.
  *
+ * A THIRD PARTY GETS A VOTE. Between "the model cited this page" and "we
+ * fetched it" sits `policy.ts`, which asks the site whether it wants to be read
+ * at all. Pages it refuses do not become tiles and do not become silence
+ * either — they come back as `declined[]`, one line per host, alongside
+ * whatever did survive. See that file for why this is not an allowlist.
+ *
  * `match` is the same machinery entered from the other side: instead of words
  * that describe a garment nobody has photographed, it takes the photograph of a
  * garment the closet already holds and asks two questions — who plausibly made
@@ -77,6 +91,13 @@ export type ListingCandidate = GarmentCandidate & {
 
 export type ProviderResult = {
   candidates: GarmentCandidate[];
+  /**
+   * Sources the policy refused, one entry per host, in the order they were
+   * dropped. Rides alongside the candidates rather than replacing them: a
+   * search that found four tiles and refused two is a normal search, and the
+   * screen should show four tiles and one honest line.
+   */
+  declined: Declined[];
   promptTokens: number | null;
   completionTokens: number | null;
   costUsd: number | null;
@@ -107,6 +128,8 @@ export type MatchResult = {
   /** Up to five brand names, most likely first. May be empty, never padded. */
   brands: string[];
   candidates: ListingCandidate[];
+  /** Same contract as `ProviderResult.declined`. */
+  declined: Declined[];
   promptTokens: number | null;
   completionTokens: number | null;
   costUsd: number | null;
@@ -298,6 +321,16 @@ async function completeWithWebSearch(
          * the web search is not — which is why the privacy copy names the
          * listing search as its own thing rather than folding it in with
          * tagging. See docs/ai-provider-terms.md §2.4.
+         *
+         * Exa's own terms have since been read, and the hole is wider than
+         * "uncovered": Exa's Terms of Service take a "perpetual and
+         * irrevocable" licence over User Input, and its privacy policy says
+         * query data trains its models. Neither statement has a per-request
+         * parameter that switches it off, and no field in this body reaches
+         * Exa's contract. What the search leg sends is therefore a design
+         * question, not a configuration one — which is why the descriptor
+         * built by `describeItem` is capped, tag-derived and never the user's
+         * own free text. See docs/ai-provider-terms.md §2.8.
          */
         provider: { data_collection: 'deny' },
         usage: { include: true },
@@ -363,72 +396,147 @@ async function completeWithWebSearch(
   };
 }
 
+/** One resolved candidate, or the reason its source was refused. A union
+ *  rather than a nullable, so a refusal cannot be dropped by forgetting to
+ *  look at it. */
+type Resolution =
+  | { ok: true; candidate: ListingCandidate }
+  | { ok: false; source: string; reason: DeclineReason }
+  | { ok: false; source: null; reason: null };
+
 /**
  * Verify the model's candidates against the citations, then turn each surviving
  * page into a tile with a proven image.
+ *
+ * TWO KINDS OF LOSS, KEPT APART. A page can fail to become a tile because it
+ * broke — a timeout, a JavaScript-rendered page with no Open Graph tags, an
+ * unsafe redirect — or because its owner told us not to. The first is our
+ * problem and the user gains nothing from hearing about it; the second is the
+ * site exercising a choice, and saying so is the difference between a policy
+ * and a silent filter. Only the second travels back as a `Declined`.
+ *
+ * The policy check runs BEFORE the page fetch, which is the only order that
+ * means anything: a `robots.txt` consulted after the request it governs is a
+ * receipt, not a rule.
  */
 async function resolveAgainstCitations(
   modelCandidates: ModelCandidate[] | undefined,
   cited: Map<string, string>,
   maxCandidates: number,
-): Promise<ListingCandidate[]> {
+): Promise<{ candidates: ListingCandidate[]; declined: Declined[] }> {
   const verified = (modelCandidates ?? [])
     .filter((candidate) => typeof candidate?.pageUrl === 'string')
     // The citation check. Dropping rather than trusting is the whole
     // anti-hallucination story of this file.
     .filter((candidate) => cited.has(citationKey(candidate.pageUrl)))
-    .sort((a, b) => (Number(b.confidence) || 0) - (Number(a.confidence) || 0))
+    // Confidence orders the list; a source we could hold a written
+    // relationship with gets a nudge and never a veto. See `PREFERENCE_BONUS`.
+    .sort((a, b) => rank(b) - rank(a))
     .slice(0, MAX_PAGES_RESOLVED);
 
   const resolved = await Promise.all(
-    verified.map(async (candidate): Promise<ListingCandidate | null> => {
+    verified.map(async (candidate): Promise<Resolution> => {
+      let pageUrl: URL;
+      try {
+        pageUrl = new URL(candidate.pageUrl);
+      } catch {
+        return { ok: false, source: null, reason: null };
+      }
+
+      const pageVerdict = await admitSource(pageUrl);
+      if (pageVerdict) {
+        return { ok: false, source: hostLabel(pageUrl), reason: pageVerdict };
+      }
+
       try {
         const page = await guardedFetch(candidate.pageUrl, {
           accept: PAGE_ACCEPT,
           maxBytes: PAGE_MAX_BYTES,
           timeoutMs: PAGE_TIMEOUT_MS,
         });
-        if (page.status !== 200 || !page.contentType.includes('html')) return null;
+        if (page.status !== 200 || !page.contentType.includes('html')) {
+          return { ok: false, source: null, reason: null };
+        }
 
         const html = new TextDecoder('utf-8', { fatal: false }).decode(page.body);
+
+        // The page's own directives, readable only now that it has arrived.
+        const contentVerdict = admitContent(page.headers, html);
+        if (contentVerdict) {
+          return { ok: false, source: hostLabel(page.url), reason: contentVerdict };
+        }
+
         const imageUrl = extractImageUrl(html, page.url);
-        if (!imageUrl) return null;
+        if (!imageUrl) return { ok: false, source: null, reason: null };
 
         // Vetted here so a candidate that could never be imported is never
         // offered — the import call re-checks, because that is the one that
         // downloads bytes.
         const image = new URL(imageUrl);
 
+        // The image is frequently on a different host from the page — a CDN,
+        // sometimes a shared one — and that host's rules are the ones that
+        // govern the bytes we would store. Checking only the page would be
+        // checking the wrong site.
+        const imageVerdict = await admitSource(image);
+        if (imageVerdict) {
+          return { ok: false, source: hostLabel(image), reason: imageVerdict };
+        }
+
         return {
-          imageUrl: image.toString(),
-          // The page actually reached, after redirects — not the model's string.
-          pageUrl: page.url.toString(),
-          title: String(candidate.title ?? '').slice(0, 120),
-          source: hostLabel(page.url),
-          confidence: Math.min(Math.max(Number(candidate.confidence) || 0, 0), 1),
+          ok: true,
+          candidate: {
+            imageUrl: image.toString(),
+            // The page actually reached, after redirects — not the model's string.
+            pageUrl: page.url.toString(),
+            title: String(candidate.title ?? '').slice(0, 120),
+            source: hostLabel(page.url),
+            confidence: Math.min(Math.max(Number(candidate.confidence) || 0, 0), 1),
+          },
         };
       } catch (err) {
         // A retailer that blocks bots, times out, or redirects somewhere
         // unsafe is a dropped tile, never a failed search.
-        if (err instanceof UnsafeUrlError) return null;
-        return null;
+        if (err instanceof UnsafeUrlError) return { ok: false, source: null, reason: null };
+        return { ok: false, source: null, reason: null };
       }
     }),
   );
 
   const seen = new Set<string>();
+  const declinedHosts = new Set<string>();
   const candidates: ListingCandidate[] = [];
-  for (const candidate of resolved) {
-    if (!candidate) continue;
+  const declined: Declined[] = [];
+
+  for (const entry of resolved) {
+    if (!entry.ok) {
+      // One line per host: three refused pages at one shop is one fact.
+      if (entry.reason && !declinedHosts.has(entry.source)) {
+        declinedHosts.add(entry.source);
+        declined.push({ source: entry.source, reason: entry.reason });
+      }
+      continue;
+    }
     // Retailers syndicate the same asset across pages; two identical tiles
     // read as a broken grid.
-    if (seen.has(candidate.imageUrl)) continue;
-    seen.add(candidate.imageUrl);
-    candidates.push(candidate);
+    if (seen.has(entry.candidate.imageUrl)) continue;
+    seen.add(entry.candidate.imageUrl);
+    candidates.push(entry.candidate);
     if (candidates.length >= maxCandidates) break;
   }
 
-  return candidates;
+  return { candidates, declined };
+}
+
+/** Ordering score: the model's confidence, nudged toward sources whose
+ *  affiliate programme a human could actually join. */
+function rank(candidate: ModelCandidate): number {
+  const confidence = Number(candidate.confidence) || 0;
+  try {
+    return isPreferredSource(new URL(candidate.pageUrl)) ? confidence + PREFERENCE_BONUS : confidence;
+  } catch {
+    return confidence;
+  }
 }
 
 /**
@@ -476,12 +584,13 @@ export function openRouterWebProvider(opts: ProviderOpts): GarmentImageProvider 
       return {
         // `search` never needed the page URL — the user imports the picture and
         // the page is disposable — so its wire shape stays exactly as shipped.
-        candidates: listings.map(({ imageUrl, title, source, confidence }) => ({
+        candidates: listings.candidates.map(({ imageUrl, title, source, confidence }) => ({
           imageUrl,
           title,
           source,
           confidence,
         })),
+        declined: listings.declined,
         promptTokens: completion.promptTokens,
         completionTokens: completion.completionTokens,
         costUsd: completion.costUsd,
@@ -533,7 +642,7 @@ export function openRouterWebProvider(opts: ProviderOpts): GarmentImageProvider 
         if (brands.length >= MAX_BRANDS) break;
       }
 
-      const candidates = await resolveAgainstCitations(
+      const listings = await resolveAgainstCitations(
         parsed.candidates,
         completion.cited,
         input.maxCandidates,
@@ -541,7 +650,8 @@ export function openRouterWebProvider(opts: ProviderOpts): GarmentImageProvider 
 
       return {
         brands,
-        candidates,
+        candidates: listings.candidates,
+        declined: listings.declined,
         promptTokens: completion.promptTokens,
         completionTokens: completion.completionTokens,
         costUsd: completion.costUsd,

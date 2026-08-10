@@ -5,9 +5,11 @@ Written to close the standing blocker in `docs/design/system-safety-contract.md`
 confirmed in writing."*
 
 Everything below was retrieved from OpenRouter's own documentation, privacy
-policy, terms of service, and public API on **2026-08-10**, and read against the
-code as it stands on that date. Where a fact could not be established from a
-public document, it is listed in **What remains unverified** rather than assumed.
+policy, terms of service, and public API on **2026-08-10** — and, in §2.8, from
+Exa Labs' own terms, privacy policy and crawler documentation on the same date —
+and read against the code as it stands. Where a fact could not be established
+from a public document, it is listed in **What remains unverified** rather than
+assumed.
 
 The single most important structural fact, stated once here because every
 section depends on it: **OpenRouter is a router, not a model provider.** A
@@ -362,6 +364,191 @@ Per-provider privacy and terms URLs for all 101 providers are published at
 `terms_of_service_url`, `headquarters`) — the starting point if we ever need to
 read one provider's terms in full.
 
+### 2.8 Exa — the fourth party, read at last
+
+Closes §5 item 4, which had stood as *"someone must read Exa's terms"* since
+this document was written. All quotes below retrieved **2026-08-10**.
+
+Exa is not a model provider and not OpenRouter. It is the search engine behind
+`plugins: [{ id: 'web', engine: 'exa' }]` in
+`supabase/functions/garment-search/provider.ts`, and it is reached on every
+`search` and every `match` — including the second, unscoped `match` call §1.2
+describes. §2.4 already establishes that **OpenRouter's ZDR enforcement "does
+not apply to plugins and tools"**, so nothing in §2.1–§2.7 covers this leg. What
+follows is what governs it instead.
+
+**The single most important structural fact, and it is not the one you would
+expect: Cinch has no relationship with Exa at all.** We hold no Exa key, we
+signed nothing, and we are not their customer — OpenRouter is. Everything below
+is therefore a description of the contract *OpenRouter* is operating under when
+it forwards our search, not a contract we could negotiate, invoke, or opt out
+of. There is no Cinch account to set a toggle on.
+
+#### 2.8.1 Terms of Service
+
+Source: <https://exa.ai/terms-of-service>, which serves a PDF at
+<https://exa.ai/assets/Exa_Labs_Terms_of_Service.pdf>. **The document carries no
+"Last Revised" date anywhere on its face**, although §10.2 promises one:
+
+> "We may modify these Terms from time to time in which case we will update the
+> 'Last Revised' date at the top of these Terms."
+
+So the version read on 2026-08-10 cannot be cited by date. That is a finding,
+not an omission on our part.
+
+The licence Exa takes over search input, §1.2(c) — the clause that matters most
+to us:
+
+> "You grant us a nonexclusive, royalty-free, transferable, sub-licensable,
+> worldwide, perpetual and irrevocable license to access, use, host, cache,
+> store, reproduce, transmit, display, publish, distribute, and modify any User
+> Input and Output as needed to provide, develop and improve upon our products
+> and services, including the Services, and to otherwise permit access to or
+> disclose your User Input or Output to third parties as needed to accomplish
+> the foregoing or as necessary to comply with our legal obligations."
+
+"User Input" is defined in §1.2(a):
+
+> "you and your Authorized Users can input, post, upload and submit text prompts
+> and requests ('User Input') into the Search Engine"
+
+**Read plainly: the search query is licensed perpetually and irrevocably, for
+product development, with onward disclosure permitted.** There is no per-request
+parameter that changes this and no field in `provider.ts` that reaches it.
+
+§1.2(b), which is a warranty *we* are structurally implicated in even though we
+never signed it:
+
+> "You represent and warrant that your submission of a User Input in connection
+> with your use of the Search Engine, including to generate Output, will not
+> breach any law or any third party's terms and conditions associated with such
+> User Input."
+
+§4.2(a), the restriction on what may be done with what comes back:
+
+> "download, modify, copy, distribute, transmit, display, perform, reproduce,
+> duplicate, publish, license, create derivative works from, or offer for sale
+> any information contained on, or obtained from or through, the Services,
+> except for temporary files that are automatically cached by your web browser
+> for display purposes, or as otherwise expressly permitted in these Terms or by
+> us in writing"
+
+This one deserves a paragraph rather than a line, because it is the clause a
+reader will reach for. It binds *Exa's user*, which is OpenRouter. What Cinch
+receives is an OpenRouter API response, and what Cinch downloads is fetched
+directly from the retailer by `guardedFetch` — the bytes never pass through
+Exa. The URL, however, did. Whether following a URL learned from a citation
+counts as information "obtained from or through" the Services is **not
+established** by any document read here, and it is not a question this file can
+settle. It is recorded because it is the honest shape of the exposure, and it is
+one of the reasons the posture document treats an affiliate feed as the real fix
+rather than a nicety.
+
+Governing law, §10.8: *"These Terms are governed by the laws of the State of
+California"*. Copyright complaints, §9.1: notices go to `hello@exa.ai`.
+
+#### 2.8.2 Privacy policy
+
+Source: <https://exa.ai/privacy-policy>, **Last updated: June 29, 2026**.
+
+On training, which is stated without qualification:
+
+> "Query Data is used to improve our products and technology, including by
+> training and fine-tuning models that power our Services"
+
+On what a query field is expected to contain:
+
+> "Our AI-powered Services contain open text query fields that are designed for
+> submitting informational search queries ('Query Data'). These fields are not
+> intended for the submission of personal information."
+
+> "Please note: We do not actively monitor query data for personal information"
+
+On the business-customer carve-out, which is the sentence that decides whether
+the two above even apply to us:
+
+> "This Privacy Policy does not apply to content or other information that we
+> process on behalf of customers of our business offerings, where we act as a
+> processor or service provider to our business customer. Our processing of that
+> information is governed by the relevant customer agreements covering access to
+> and use of those offerings."
+
+**So which regime covers a Cinch search is not stated.** If OpenRouter's plugin
+traffic is "content we process on behalf of customers of our business
+offerings", the training sentence does not apply and OpenRouter's unpublished
+agreement with Exa does. If it is not, the training sentence applies as written.
+We cannot tell from outside, and **no document read here resolves it** —
+recorded as unverified rather than guessed in either direction.
+
+**Retention: not stated.** The privacy policy has no retention section, no
+"how long" language, and no deletion timetable for Query Data. The only
+retention statement Exa publishes anywhere we could find is a sales gate, at
+<https://exa.ai/docs/reference/security>:
+
+> "Contact us at sales@exa.ai to discuss an Enterprise plan if you are
+> interested in Zero Data Retention."
+
+The same page states: *"We are proud to be SOC 2 Type II certified."* A Data
+Processing Addendum exists at <https://exa.ai/dpa> (served from S3); it governs
+Exa's direct customers and is therefore between Exa and OpenRouter, not us.
+
+#### 2.8.3 Does Exa's own crawling respect robots.txt?
+
+**Yes, and it says so first-party.** Source: <https://crawler.exa.ai/>, **Last
+Updated: July 30, 2026**:
+
+> "ExaSearchBot respects the Robots Exclusion Protocol. When choosing which
+> rules to follow, it looks for a group addressed to ExaSearchBot. If you
+> haven't provided one, it follows the rules you've set for major search
+> engines; otherwise it follows the * group."
+
+> "Respects robots.txt — Checked before fetch, honoring the precedence above."
+
+> "Public content only — It does not attempt to bypass logins, paywalls, or
+> CAPTCHAs, and submits no forms."
+
+> "robots.txt controls crawling, not indexing. To remove a page already in Exa's
+> index, use a `noindex` robots meta tag or an `X-Robots-Tag: noindex` header;
+> ExaSearchBot drops the page after it next re-fetches it."
+
+Its product token is `ExaSearchBot` and its user agent is
+`Mozilla/5.0 (compatible; ExaSearchBot/1.0; +https://crawler.exa.ai/)`. Requests
+are signed under RFC 9421 Web Bot Auth.
+
+This matters beyond curiosity. It means the *search* leg of `garment-search`
+already runs against an index built by a crawler that honours robots.txt and
+noindex — and, as of this change, `supabase/functions/garment-search/policy.ts`
+holds Cinch's own fetches to the same two rules, checked before the fetch, in
+the same precedence order. The chain is now consistent end to end rather than
+polite at one end and silent at the other.
+
+#### 2.8.4 Does OpenRouter send the user's query verbatim to Exa?
+
+**Not stated.** <https://openrouter.ai/docs/guides/features/plugins/web-search>
+documents `engine`, `max_results` and `search_prompt`, and documents the default
+prompt used to fold results back into the conversation:
+
+> "A web search was conducted on `date`. Incorporate the following web search
+> results into your response. IMPORTANT: Cite them using markdown links named
+> using the domain of the source."
+
+`search_prompt` governs that *re-insertion* step, not the outbound query — a
+distinction worth stating because the parameter name invites the opposite
+reading, and `provider.ts` sets it to `'Shopping results for this garment:'`,
+which is therefore **not** the text Exa receives. Nothing on that page, or on
+<https://openrouter.ai/docs/features/web-search>, says how the outbound query is
+built or whether the user's message reaches Exa unaltered.
+
+**Plan for the worst documented case, which is what the code already does.**
+Assume the whole user turn can reach Exa verbatim. For `search` that is the
+user's own typed description, capped at 240 characters by `bounds.ts`. For
+`match` it is the line `describeItem` builds — brand, colours, material,
+pattern, subcategory and the model's own description, capped at 500 characters
+— which is derived from tags rather than from anything the user wrote, and
+carries no account identifier. The signed photograph URL is an image part of the
+model call, not a search term; **whether any of it reaches the plugin is not
+established**, and that sentence should not be softened until it is.
+
 ---
 
 ## 3. What is configured today
@@ -451,6 +638,18 @@ About the provider (new, and each one is the *most* we may say):
 - ❌ Anything implying the web-search feature is covered by the same protections
   — OpenRouter states in terms that ZDR enforcement "does not apply to plugins
   and tools", and `garment-search` runs Exa on every match.
+- ❌ **Any retention claim about the listing search.** §2.8.2: Exa publishes no
+  retention period for Query Data at all. "Not kept", "deleted after", "held
+  only for the request" are all unsupportable for this flow — not because the
+  evidence points the other way, but because there is no evidence in either
+  direction and the only ZDR offer Exa publishes is behind a sales conversation
+  we have not had.
+- ❌ **"Your search isn't used to train anything."** Exa's privacy policy says
+  Query Data *is* used for "training and fine-tuning models that power our
+  Services". Whether that reaches Cinch's traffic depends on a carve-out we
+  cannot see (§2.8.2, and §5 item 4). Until OpenRouter answers in writing, this
+  sentence must not be printed about the listing search — the tagging and
+  outfit flows are a different question and §2.2 governs those.
 
 ### The honest short paragraph, if one is needed today
 
@@ -486,11 +685,27 @@ Each item is an action, with the person who must do it.
 3. **Whether any guardrail is set on the API key.** Guardrails carry their own
    `enforce_zdr_google` / `enforce_zdr_other` fields and can differ from account
    settings. Check under the workspace's guardrails.
-4. **Exa's retention for the web plugin.** OpenRouter explicitly disclaims plugin
-   coverage. Someone must read Exa's terms (linked from
-   `https://openrouter.ai/docs/guides/features/plugins/web-search`) and decide
-   whether `garment-search`'s match flow can be described honestly without a
-   named third party in the sentence.
+4. ~~**Exa's retention for the web plugin.**~~ **Read on 2026-08-10 — see §2.8.**
+   Three of the four questions are now answered and the answers are worse than
+   the open item assumed, so what remains is narrower and sharper:
+   - **Retention is *not stated* anywhere Exa publishes.** No retention section
+     in the privacy policy, no deletion timetable; the only ZDR statement is
+     "contact sales". Any sentence of ours containing a retention period for the
+     search leg is unsupportable, today and until Exa publishes one.
+   - **Training is stated, affirmatively**: *"Query Data is used to improve our
+     products and technology, including by training and fine-tuning models that
+     power our Services."* Whether that clause reaches OUR traffic turns on a
+     business-customer carve-out we cannot see the other side of.
+   - **The blocking question is now OpenRouter's, not Exa's.** Ask
+     `support@openrouter.ai`, in writing: *when the `web` plugin runs with
+     `engine: 'exa'`, (a) what text is sent to Exa, and (b) under what agreement
+     — does OpenRouter's contract with Exa place plugin traffic under Exa's
+     processor carve-out, or under its standard terms?* This is the one question
+     that decides whether §2.8.2's training sentence applies to a Cinch user's
+     search, and no public document answers it. **Founder's task.**
+   - Whether the answer changes anything is a product decision, not a legal one:
+     the honest fallback is to name the search as its own thing in the privacy
+     copy, which §4 already requires.
 5. **Whether we want a DPA.** OpenRouter's privacy policy says: "If you have a
    Data Processing Agreement with us, the terms of that agreement and our
    separate agreements with Model Providers govern how your data is handled."

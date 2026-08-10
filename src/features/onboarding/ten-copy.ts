@@ -165,9 +165,20 @@ export function tenProgressLine(slots: readonly TenSlot[]): string {
   const remaining = total - settledCount(slots);
 
   if (remaining === total) {
+    // "or pick them from your camera roll" is load-bearing, not a courtesy.
+    // The library button has always been there beside the shutter
+    // (components/onboarding/ten-camera-chrome.tsx, wired to `pickFromLibrary`
+    // in ten-camera.tsx), but the only sentence on the screen said
+    // "Photograph these" — so somebody who does not want to stand over their
+    // wardrobe with a camera read the first screen of the app as work they
+    // had already decided against, and had no way to learn otherwise.
+    //
+    // The claim is safe to print: the picker runs out of process and needs no
+    // permission (app.config.ts suppresses NSPhotoLibraryUsageDescription for
+    // exactly this reason), so the sentence cannot lead anyone into a prompt.
     return (
       `${cap(numberWord(total))} pieces is enough for Cinch to style you properly. ` +
-      'Photograph these, in any order.'
+      'Photograph them, or pick them from your camera roll — in any order.'
     );
   }
   if (remaining === 1 && nextSlot(slots)?.kind === 'bag') {

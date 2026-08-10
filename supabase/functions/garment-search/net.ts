@@ -17,6 +17,13 @@
  *   redirects by hand   — every hop re-validated, at most three
  *   bytes counted       — the cap is enforced while streaming, not after
  *
+ * WHAT THIS FILE IS NOT ABOUT. Everything here asks "can this address hurt
+ * us". Nothing here asks "does this site want us reading it" — a retailer's
+ * objection arrives as robots.txt, an `X-Robots-Tag` header or a meta element,
+ * none of which is a network property. That question lives in `policy.ts`, and
+ * the two are kept apart on purpose: relaxing a courtesy rule must never be a
+ * one-line edit away from relaxing a security one.
+ *
  * WHAT THIS DOES NOT DEFEND AGAINST, stated plainly: a public hostname whose
  * DNS answer is a private address (rebinding). Deno's fetch gives no hook
  * between resolution and connection, so the only real fix is an egress proxy.
@@ -94,6 +101,15 @@ export type GuardedResponse = {
   url: URL;
   status: number;
   contentType: string;
+  /**
+   * The response's own headers, carried out of this file so `policy.ts` can
+   * read `X-Robots-Tag`. That directive is the one place a site states its
+   * position *in the response itself* rather than in a file at the root, and it
+   * is frequently the only place a CDN serving images states anything at all —
+   * so a guard that returned only the body would be blind to the objection most
+   * likely to apply to the bytes we are about to store.
+   */
+  headers: Headers;
   body: Uint8Array;
 };
 
@@ -137,7 +153,13 @@ export async function guardedFetch(
 
     if (!response.ok) {
       await response.body?.cancel();
-      return { url, status: response.status, contentType, body: new Uint8Array() };
+      return {
+        url,
+        status: response.status,
+        contentType,
+        headers: response.headers,
+        body: new Uint8Array(),
+      };
     }
 
     // Content-Length is a hint, not a promise — a lying or absent header is
@@ -150,7 +172,7 @@ export async function guardedFetch(
     }
 
     const body = await readCapped(response, opts.maxBytes);
-    return { url, status: response.status, contentType, body };
+    return { url, status: response.status, contentType, headers: response.headers, body };
   }
 }
 

@@ -51,14 +51,25 @@ export const STORED_ROWS: readonly DisclosureRow[] = [
     title: 'Your closet photos',
     // Kept: both buckets are the user's own and are walked by name at deletion
     // (`supabase/functions/delete-account/index.ts:58`).
-    // Sent, in two cases: tagging (`supabase/functions/tag-item/index.ts`) and
-    // the listing match (`supabase/functions/garment-search/index.ts:679`,
-    // which signs the item's own photo and attaches it at
-    // `garment-search/provider.ts:434`). Naming only tagging is the sentence
-    // the contract bans by name (Appendix A.1, row 3).
+    // Sent, in THREE cases, not the two this row used to name:
+    //   1. tagging (`supabase/functions/tag-item/index.ts`);
+    //   2. the listing match — `garment-search`'s `match` action signs the
+    //      item's own photo and attaches it (`garment-search/index.ts`,
+    //      `matchListing`; the attachment is built in
+    //      `garment-search/provider.ts`, `openRouterWebProvider.match`);
+    //   3. THE COLOUR SWATCH, which nothing disclosed until 2026-08-10.
+    //      Describing a piece can carry a photograph too: `pickColourSwatch()`
+    //      (`src/features/ingest/use-garment-search.ts:151-176`) opens the
+    //      library picker, re-encodes what was tapped at 256px, and sends it as
+    //      a data URL on the SEARCH request — attached to the model message at
+    //      `garment-search/provider.ts` (`search`, the `swatchDataUrl` part).
+    //      It is a small photograph, but it is a photograph, and "two cases"
+    //      was an undercount of exactly the kind this file exists to prevent.
+    // Naming only tagging is the sentence the contract bans by name
+    // (Appendix A.1, row 3); naming only two is the same mistake one door on.
     // Sells/advertises: `docs/design/system-safety-contract.md §3` lists
     // "We never sell it or advertise against it" as a claim Cinch controls.
-    body: 'Kept on Cinch’s servers so they load on any device. A photo leaves this phone in two cases: when a piece is tagged, and when you ask Cinch to match a piece against a product listing. Cinch never sells them and never advertises against them.',
+    body: 'Kept on Cinch’s servers so they load on any device. A photo leaves this phone in three cases: when a piece is tagged, when you ask Cinch to match a piece against a product listing, and when you attach one to show the true colour of something you are describing. Cinch never sells them and never advertises against them.',
   },
   {
     title: 'Wears and plans',
@@ -164,27 +175,44 @@ export const SELLS_NOTHING_FOOTER =
  * them — this page is the disclosure, and the sheet is shown at tagging time
  * and describes only that moment.
  *
- *   5. The second photo door. `garment-search`'s `match` action signs the
+ *   5. The other photo doors. `garment-search`'s `match` action signs the
  *      user's own photo and sends it to a vision model
- *      (`garment-search/index.ts:679`, attached at `provider.ts:434`).
- *      Appendix A.1 bans by name the sentence that omits it.
+ *      (`garment-search/index.ts`, `matchListing`; attached in `provider.ts`),
+ *      and its `search` action can carry a 256px colour swatch picked from the
+ *      library (`src/features/ingest/use-garment-search.ts:151-176`). Appendix
+ *      A.1 bans by name the sentence that omits the first; the second was
+ *      simply missed until 2026-08-10 and is now named here and on the web
+ *      policy in the same release.
  *   6. What travels that is not a photograph. `generate-outfits` receives a
  *      description of the assembled pieces AND the title of each of today's
  *      calendar events (`src/features/styling/use-outfits.ts:133-137`); the
  *      stylist chat receives a digest, the assembled outfits and the typed
  *      question, never photographs (`stylist-chat/index.ts:23`, `:137`).
  *      Nothing in the app said so before this page.
+ *   7. The hole the routing pin does not close. `consent-facts.ts` promises
+ *      "only … models that are not allowed to learn from it", and
+ *      `garment-search/provider.ts` records in the `completeWithWebSearch`
+ *      body that OpenRouter's guarantees are documented as NOT applying to
+ *      plugin traffic — while the same request runs its web search through
+ *      Exa. That comment says "the privacy page names that separately", and
+ *      until this fact was added, no page did. `docs/ai-provider-terms.md` §2.4
+ *      quotes the exclusion; §4 forbids any sentence implying the search is
+ *      covered, which is why this one says the opposite in plain words.
  */
 export const CONSENT_FACTS: readonly ConsentFact[] = [
   // The four the sheet asks with, verbatim and by reference.
   ...SHEET_CONSENT_FACTS,
   {
-    lead: 'Two doors, not one.',
-    rest: ' A photo leaves this phone when a piece is tagged, and when you ask Cinch to match a piece against a product listing. Nothing else in the app sends a photograph.',
+    lead: 'Three doors, not one.',
+    rest: ' A photo leaves this phone when a piece is tagged, when you ask Cinch to match a piece against a product listing, and when you attach one to show the true colour of a piece you are describing. Nothing else in the app sends a photograph.',
   },
   {
     lead: 'And some words, without a photo.',
     rest: ' When Cinch writes about an outfit it sends a description of the pieces, and — if you have given it your calendar — the titles of today’s events, so the note can mention what you are dressing for. The stylist chat sends your question and that same description. No photograph goes with either.',
+  },
+  {
+    lead: 'The listing search is a different company, and the rule above does not cover it.',
+    rest: ' Finding where a piece is sold means running a web search, and that search is carried out by Exa rather than by our AI partner. The routing rule — only models that are not allowed to learn from what they receive — covers the model and not the search, so what the search is made of is handled under Exa’s policy rather than anything Cinch can hold anyone to for you. And while you are choosing from the results, your phone loads those pictures from the shops themselves, so each of those shops sees a request from your device.',
   },
 ];
 

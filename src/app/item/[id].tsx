@@ -280,7 +280,25 @@ export default function ItemDetailScreen() {
    * naming a source before it is known would be inventing one.
    */
   const hasListing = Boolean(listing.data?.listingPath ?? item?.listingPath);
-  const listingSource = listing.data?.listingPath ? listing.data.listingSourceLabel : null;
+  /**
+   * The credit is owed on the LABEL, not on `listingPath`.
+   *
+   * Two paths put a retailer's photograph on a garment and only one of them
+   * writes `listingPath`. `attach` re-dresses a piece the reader photographed
+   * themselves, so the listing shot sits over their own and `listingPath` is
+   * what `detach` removes. `import` — Describe, or a pasted link — creates the
+   * row from the retailer's image in the first place, so that image is
+   * `image_path`; `listingPath` stays null deliberately, because otherwise
+   * `detach` would have a path to delete the item's only picture.
+   *
+   * Gating on `listingPath` therefore printed the source for the case where
+   * the reader also has their own photograph, and stayed silent for the case
+   * where the retailer's photograph is the only one there — crediting the
+   * borrowing that mattered least. An imported garment wearing a shop's
+   * picture with no visible source is the thing this line exists to prevent,
+   * so the label alone is the condition.
+   */
+  const listingSource = listing.data?.listingSourceLabel ?? null;
 
   const isLocal = item ? item.imagePath === null : false;
   const inflight =

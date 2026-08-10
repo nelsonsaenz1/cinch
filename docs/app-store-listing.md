@@ -33,9 +33,20 @@ time, released or not.
 | Price | Free | — |
 
 **Why neither category is Shopping:** the app does not sell anything, and there
-is no shopping surface in it at all — no store, no wishlist, no product feed.
-Listing a non-commerce app under Shopping invites a reviewer to look for a store
-that is not there. Revisit only if a shopping integration actually ships.
+is no store, no wishlist, no cart and no product feed. Listing a non-commerce
+app under Shopping invites a reviewer to look for a store that is not there.
+Revisit only if a shopping integration actually ships.
+
+**The one place retailer imagery appears, and why it is still not commerce.**
+The listing-photo flow (`supabase/functions/garment-search/`) shows a grid of up
+to six product photographs from shops. It is worth being precise about this
+before a reviewer is: there are no prices, no buy buttons, no affiliate links,
+and the app never opens a retailer's site — the only `Linking.openURL` targets
+anywhere in `src/` are Cinch's own privacy/support/terms pages, App Store
+subscription management, an invite link, a help article and a venue
+reservation. The grid exists so a garment the user already owns can wear a
+better picture of itself. That is a *photo source*, not a storefront, and the
+description now says so in as many words.
 
 ### Why the title and subtitle changed (2026-08-10)
 
@@ -153,11 +164,12 @@ Photograph ten things you already own. Cinch works out what goes with what, tell
 
 ## Description
 
-*4,000 character limit. **This draft is 3,997 characters** — counted, not
+*4,000 character limit. **This draft is 3,991 characters** — counted, not
 estimated. Rewritten 2026-08-10 to lead with the ten-piece wedge
 (`docs/design/positioning-contract.md` §2). Social did not shrink in truth, only
 in position: it now sits mid-page in two full sections rather than in sentence
-one.*
+one. Amended the same day to restore `BUILT ONLY FROM WHAT YOU OWN` — see rule 4
+below, and the trims that paid for it.*
 
 **Only the first three lines are visible before "more".** They are, in order:
 `Ten pieces. That is all Cinch needs before it can dress you.` — then the blank
@@ -168,7 +180,7 @@ almost all of the work on this page; do not bury it under a feature list.
 
 **No sentence in this description asserts a fact about the app without a
 `file:line` proving it** (`docs/design/positioning-contract.md` §4). The full
-trace is below. Three rules are settled and are not up for re-argument:
+trace is below. Four rules are settled and are not up for re-argument:
 
 1. **Borrow-into-outfit-builder is banned.** An earlier draft promised that a
    borrowed garment "shows up in your own outfit builder until you give it
@@ -183,6 +195,52 @@ trace is below. Three rules are settled and are not up for re-argument:
    (§3 of the contract). Where the description wants to talk about how many
    outfits ten pieces make, it states **the arithmetic** and leaves the result to
    the app, computed on screen from the user's own closet.
+4. **"Nothing is a catalogue photo" may never be printed again.** The version of
+   this description that is live in App Store Connect today — the pre-2026-08-10
+   social-first text, still unreplaced — carries the section
+
+   > BUILT ONLY FROM WHAT YOU OWN
+   > Every suggestion — yours or a friend's — is assembled from real wardrobes.
+   > Nothing is imagined, nothing is a catalogue photo, and nothing is a piece
+   > you would have to go and buy first.
+
+   The middle clause is **false against the shipping build**. `garment-search`'s
+   `import` action downloads a retailer's `og:image` and makes it the garment's
+   own `image_path` and `thumb_path`
+   (`supabase/functions/garment-search/index.ts`, `importImage` — `:538`, the
+   write at `:641`), so a piece added through Describe or a pasted link *is*
+   wearing a catalogue photograph; the `attach` action puts one in front of a
+   photographed piece as its display image (`attachListing` — `:892`, the write
+   at `:995`). **Line numbers in that file drift** — it is under active edit —
+   so the function names are the durable half of every citation here. A reviewer
+   who reads that sentence and then opens Describe finds the contradiction in
+   about thirty seconds. That is Guideline 2.3.1 on a claim already under review.
+
+   **What survives is the half that is true and provable**, and it is the more
+   valuable half: outfits are assembled only from garments the user owns. What a
+   garment's *picture* may be is a separate question with a separate, honest
+   answer — your photograph, or, if you chose it, the retailer's, for a piece you
+   told Cinch you own. The two must never be collapsed back into one absolute.
+
+#### What changed on 2026-08-10, and what paid for it
+
+The description was at 3,997 of 4,000, so restoring the section meant finding
+room. **No traced claim was dropped** — what went was explanatory tail. In full,
+so nobody has to diff it:
+
+| Was | Is | Kind |
+|---|---|---|
+| *(no such section — the wedge-first rewrite dropped it entirely)* | `BUILT ONLY FROM WHAT YOU OWN` / "Every outfit is assembled from garments in your own closet. Cinch never invents a piece, and never suggests one you would have to go and buy — there is no shop in it. A garment's picture is your photograph, or, if you chose it, the retailer's own shot of a piece you told Cinch you own." | **added** (+287) |
+| "Garment photos go to an AI partner for identification, and Cinch asks before the first one is ever sent." | "Garment photos go to an AI partner to be identified, and — if you ask — to be matched against a product listing. Cinch asks before the first one is sent." | **corrected** — naming tagging as the only door is the sentence `src/features/privacy/copy.ts:68` bans by name |
+| "…a perceptual colour space, where equal numeric steps look like equal steps to the eye." | "…a perceptual colour space." | trimmed (explanation) |
+| "…decide that navy and camel work, and that charcoal beside navy reads as a mistake." | "…decide that navy and camel work." | trimmed (second example) |
+| "…over this knit. The stylist writes it online; the scoring notes write it when you are not." | "…over this knit." | trimmed — the offline claim already lands in `THE MATHS RUNS ON YOUR PHONE` |
+| "A client dinner at seven…" | "Dinner at seven…" | trimmed |
+| "…what it has learned, so you can correct it." | "…what it has learned." | trimmed |
+| "It reads the forecast at your destination…" | "It reads the forecast there…" | trimmed |
+| "It answers using only your real clothes, and tells you when you don't own the right thing rather than inventing one." | "It tells you when you don't own the right thing rather than inventing one." | trimmed — the first clause is now the new section's job |
+| "Nobody is ranked against anybody else — every vote is about one person's options, judged only against each other." | "Nobody is ranked against anybody else." | trimmed (the claim, without its gloss) |
+| "…everyone votes and comments…" / "what you actually spend per wear" / "Removing one is a separate, deliberate act, and it says so before it deletes anything." | "…votes and comments…" / "what you spend per wear" / "Removing one is separate and deliberate, and says so before it deletes anything." | trimmed (wording only) |
 
 #### Claim trace — every factual sentence in the description
 
@@ -194,6 +252,10 @@ trace is below. Three rules are settled and are not up for re-argument:
 | Cinch identifies what a piece is, its colours, how formal, how warm | `supabase/functions/_shared/tag-schema.ts:51-58, 90-94` (`category`, `subcategory`, colours, `formalityScore`, `warmthScore`) | **PROVED** |
 | The arithmetic is tops × bottoms × shoes, plus dresses × shoes | `src/features/closet/outfit-count.ts:110` (`countOutfits`) | **PROVED** |
 | It counts what your ten make and shows you the number | `src/app/reveal.tsx:13, 22-25` — `countOutfits` + `RevealCount`, computed on screen from that user's tally | **PROVED** (per-user computation, not a constant) |
+| Every outfit is assembled from garments in your own closet | `src/features/styling/queries.ts:110-124` (`useWardrobe` selects `items` with `.eq('user_id', userId)` and nothing else); `src/lib/styling/generate.ts:15-17` builds only from that array; `src/features/styling/use-outfits.ts:168-172` drops any model pick whose `candidateId` is not in the on-device shortlist | **PROVED** |
+| Cinch never invents a piece, and never suggests one you would have to go and buy | Same three, plus `supabase/functions/_shared/outfit-schema.ts` — the model returns a `candidateId`, never a garment. The stylist answers from the closet and says so when nothing fits (`docs/stylist-voice.md` §3 DO 2) | **PROVED** |
+| There is no shop in it | No store, wishlist, product feed or checkout exists anywhere in `src/`; the only `Linking.openURL` targets are Cinch's own privacy/support/terms URLs, App Store subscription management, an invite link, a help article and a venue reservation (`src/` audited term by term, 2026-08-10) — **a retailer product page is never opened**, which is also what keeps "Unrestricted Web Access: No" true | **PROVED** |
+| A garment's picture is your photograph, or — if you chose it — the retailer's own shot of a piece you told Cinch you own | The retailer image only ever arrives through a flow the user starts and confirms: `import` from a tile the user tapped (`supabase/functions/garment-search/index.ts`, `importImage` at `:538`, write at `:641`) and `attach` from a candidate the user picked (`attachListing` at `:892`, write at `:995`). Both are consent-gated server-side before anything is fetched (`:238-247`), and `detachListing` puts the user's own photograph back — surfaced as "Remove listing photo" at `src/app/item/[id].tsx:940-956` | **PROVED** |
 | Outfits are assembled and scored on the iPhone, in milliseconds | `src/lib/styling/generate.ts:15-17`; `src/features/styling/use-outfits.ts:64-70` | **PROVED** |
 | Colour is judged in OKLCH, a perceptual colour space | `src/lib/color/oklch.ts:1-22`; `src/lib/color/harmony.ts:28, 62-63` (`hueDistance`, `deltaE` over OKLCH) | **PROVED** |
 | Hue distance, chroma and lightness contrast decide the pairing | `src/lib/color/harmony.ts:57-172` (`pairHarmony`), `:174` (`analyzePalette`) | **PROVED** |
@@ -242,43 +304,46 @@ Then it does the arithmetic: tops times bottoms times shoes, plus dresses times 
 
 You don't have to photograph your whole wardrobe first. Ten pieces is a wardrobe, and the ten-piece closet is free.
 
+BUILT ONLY FROM WHAT YOU OWN
+Every outfit is assembled from garments in your own closet. Cinch never invents a piece, and never suggests one you would have to go and buy — there is no shop in it. A garment's picture is your photograph, or, if you chose it, the retailer's own shot of a piece you told Cinch you own.
+
 THE MATHS RUNS ON YOUR PHONE
-Outfits are assembled and scored on your iPhone, in milliseconds, from your real garments — which is why Cinch still dresses you on a plane, or with no bars at all. Colour is judged in OKLCH, a perceptual colour space, where equal numeric steps look like equal steps to the eye. Hue distance, chroma and lightness contrast are what decide that navy and camel work, and that charcoal beside navy reads as a mistake. Colour carries more weight than any other rule.
+Outfits are assembled and scored on your iPhone, in milliseconds, from your real garments — which is why Cinch still dresses you on a plane, or with no bars at all. Colour is judged in OKLCH, a perceptual colour space. Hue distance, chroma and lightness contrast are what decide that navy and camel work. Colour carries more weight than any other rule.
 
 A language model never sees your closet. It sees a shortlist of a dozen outfits the maths already built, re-ranks them on your taste, and writes the sentence underneath.
 
 EVERY OUTFIT COMES WITH ITS REASON
-Not a score, not a percentage — a sentence. Why this coat, on this day, over this knit. The stylist writes it online; the scoring notes write it when you are not.
+Not a score, not a percentage — a sentence. Why this coat, on this day, over this knit.
 
 DRESSED FOR THE ACTUAL WEATHER
 Cinch uses the apparent temperature where you are, not the forecast high. It knows a light jacket is not enough at four degrees in a strong wind, and it will not put suede shoes on you in the rain.
 
 IT UNDERSTANDS A WHOLE DAY
-A client dinner at seven and drinks at ten are not the same dress code. Type "dinner then drinks after" and Cinch finds the one outfit that carries both — or connect your calendar and it reads the day for you.
+Dinner at seven and drinks at ten are not the same dress code. Type "dinner then drinks after" and Cinch finds the one outfit that carries both — or connect your calendar and it reads the day for you.
 
 IT LEARNS YOU
-Like an outfit, skip it, or say why it is wrong — too formal, not your colours, worn too recently. Cinch adjusts from the first reaction, and shows you in plain English what it has learned, so you can correct it.
+Like an outfit, skip it, or say why it is wrong — too formal, not your colours, worn too recently. Cinch adjusts from the first reaction, and shows you in plain English what it has learned.
 
 PACK WITHOUT OVERPACKING
-Tell Cinch where you are going and for how long. It reads the forecast at your destination and works out the smallest set of clothes that still gives you a different outfit every day — and says so plainly when a day can't be filled.
+Tell Cinch where you are going and for how long. It reads the forecast there and works out the smallest set of clothes that still gives you a different outfit every day — and says so plainly when a day can't be filled.
 
 ASK THE STYLIST ANYTHING
-"Dinner at 7, drinks after?" "What am I missing?" It answers using only your real clothes, and tells you when you don't own the right thing rather than inventing one.
+"Dinner at 7, drinks after?" "What am I missing?" It tells you when you don't own the right thing rather than inventing one.
 
 STILL TORN? ASK YOUR FRIENDS
-Post the dinner, the wedding, the trip. Invite the people going. Everyone shares a couple of options from their own closet, everyone votes and comments, and each person walks in wearing the look their friends helped them choose. Nobody is ranked against anybody else — every vote is about one person's options, judged only against each other.
+Post the dinner, the wedding, the trip. Invite the people going. Everyone shares a couple of options from their own closet, votes and comments, and each person walks in wearing the look their friends helped them choose. Nobody is ranked against anybody else.
 
 BORROW FROM EACH OTHER
 Browse a friend's closet, find the black clutch they never wear, and ask to borrow it. They lend it or say not this time — one tap either way, private between the two of you.
 
 SEE YOUR OWN STORY
-Cinch records every wear: your most-worn pieces, the ones sitting untouched, and what you actually spend per wear.
+Cinch records every wear: your most-worn pieces, the ones sitting untouched, and what you spend per wear.
 
 NOTHING VANISHES BY ACCIDENT
-Taking a piece out of rotation is reversible: Storage keeps the photograph and every wear you logged, and you can bring it back. Removing one is a separate, deliberate act, and it says so before it deletes anything.
+Taking a piece out of rotation is reversible: Storage keeps the photograph and every wear you logged, and you can bring it back. Removing one is separate and deliberate, and says so before it deletes anything.
 
 PRIVATE BY DEFAULT
-Cinch never reads your photo library — iOS hands it only the pictures you tap. Garment photos go to an AI partner for identification, and Cinch asks before the first one is ever sent. Your closet stays private until you share it with a friend. There is no advertising and no tracking across other apps. You can delete your account, and everything in it, from inside the app.
+Cinch never reads your photo library — iOS hands it only the pictures you tap. Garment photos go to an AI partner to be identified, and — if you ask — to be matched against a product listing. Cinch asks before the first one is sent. Your closet stays private until you share it with a friend. There is no advertising and no tracking across other apps. You can delete your account, and everything in it, from inside the app.
 ```
 
 ## What's New (version 1.0)
@@ -375,14 +440,15 @@ Connect asking on every single upload.
 ## Notes for App Review
 
 *Last pasted into App Store Connect 2026-08-06, at 3,082 chars. **The block
-below has been rewritten since (now 3,069 of 4,000) and is NOT what ASC
+below has been rewritten since (now 3,997 of 4,000) and is NOT what ASC
 currently holds** — it must be re-pasted before submission. See the checklist.*
 
-**Three changes, all already in the block below.** The first two are from the
+**Six changes, all already in the block below.** The first two are from the
 2026-08-10 wave; the third is a stale fact that was under-claiming a safety
 control to a reviewer — `WHERE THE SAFETY CONTROLS ARE` listed reporting on
 comments and profiles only, and shared looks now carry it too
-(`src/components/event-outfits/OutfitPostCard.tsx:268-375`).
+(`src/components/event-outfits/OutfitPostCard.tsx:268-375`). The last three are
+the listing-photo disclosure, described after them.
 
 - **`SEEDING A CLOSET` was rewritten for D1.** The old paragraph told the
   reviewer a new account starts on an empty Today tab and that they should add
@@ -400,19 +466,40 @@ comments and profiles only, and shared looks now carry it too
   roughly thirty seconds into a fresh install, so the paragraph explaining the
   14-day app-side grant — the thing that makes it an offer rather than a wall —
   has to be the one they read first.
+- **`LISTING PHOTOS` is new, and it is the important one.** The app pulls
+  product imagery off the open web and can make it a garment's picture
+  (`supabase/functions/garment-search/`). A reviewer opening Describe meets six
+  retailer photographs about a minute into a fresh install, and a note that does
+  not mention it turns a legitimate feature into something that looks concealed.
+  The paragraph says what the three doors are, that each is opened by a tap,
+  that the image is chosen by the user, and that nothing is for sale — which is
+  also the answer to "why is this not in the Shopping category".
+- **`AI PROCESSING` now names the second door and the search engine.** It said
+  photographs go to OpenRouter for identification, full stop. They also go to a
+  vision model with a web-search plugin that OpenRouter runs through **Exa**
+  (`supabase/functions/garment-search/provider.ts`, the `plugins` block).
+  Declaring one processor when the binary uses two is the kind of mismatch App
+  Privacy is cross-checked for.
+- **`SIGNING IN` said "sends a sign-in link"**, which stopped being true when
+  the app moved to a six-digit code (`src/features/auth/actions.ts:136`, `:195`;
+  `src/app/(auth)/code.tsx`). A reviewer waiting for a link that never arrives
+  is a rejection over nothing.
 
 ```
 SIGNING IN
-Sign in with Apple, or with any email address. Please use any Apple ID — no invite code is required. The email option sends a sign-in link that opens the app back up via the cinch:// scheme.
+Sign in with Apple, or with any email address. Please use any Apple ID — no invite code is required. The email option sends a six-digit code, typed on the next screen.
 
 SEEDING A CLOSET
 Cinch styles you from clothes you own, so a new account is walked through photographing ten pieces. Any ten clothing photos from the device library will do. Tagging takes a few seconds each, and the screen after it shows the first complete outfit with its reasoning.
+
+LISTING PHOTOS — YOU WILL MEET THIS
+Cinch can put a retailer's own product photograph on a garment. Three doors, all opened by the user: "Describe" (they type what they own; Cinch searches and offers up to six product images); pasting a product link (Cinch reads that page's image and shows it for confirmation); and "Find the listing photo" on a piece already photographed — that photo goes to a vision model with a web search, the retailer is then named on the item screen, and "Remove listing photo" restores the user's own photograph, which is never altered or deleted. Nothing is fetched without a tap; nothing is saved without the user choosing an image. Cinch sells nothing, has no affiliate links and never opens a retailer's site. Every call here is refused server-side until AI consent is given.
 
 SUBSCRIPTIONS
 The app grants 14 days of full access on first launch. This is an app-side grant, NOT a StoreKit introductory offer, so no purchase is required to evaluate the app and no trial is started in the sandbox. A membership page is offered once, right after the closet-setup screen described above; it can be dismissed and the app is fully usable without it. All social features (friends, events, voting, comments, borrowing) are free on every tier.
 
 TESTING THE SOCIAL FEATURES — PLEASE READ
-The friends, events, voting and borrowing features described in our App Store description require TWO accounts, because they are all built around inviting someone you know. A single reviewer account cannot exercise them.
+The friends, events, voting and borrowing features require TWO accounts, because they are built around inviting someone you know. A single reviewer account cannot exercise them.
 
 We are happy to provide two pre-populated, already-connected demo accounts so you can test this immediately — please contact nelsonsaenz1@yahoo.com and we will supply credentials within a few hours.
 
@@ -429,10 +516,10 @@ Blocking: any friend or profile row -> "..." menu -> Block. Blocked users are ma
 Reporting: the "..." menu on any shared look, on any comment and on any user profile, with categorized reasons.
 
 PERMISSIONS
-Location and Calendar are both optional and the app is fully functional without either. Declining location falls back to a default city, which the app states on screen. Camera is used only to photograph garments.
+Location and Calendar are optional and the app is fully functional without either. Declining location falls back to a default city, which the app states on screen. Camera is used only to photograph garments.
 
 AI PROCESSING
-Garment photos are sent to OpenRouter for identification. The user is asked to consent in-app before the first image is ever sent (Guideline 5.1.2(i)), and the consent sheet names the processor and the data categories. Outfit generation itself runs on-device.
+Garment photos go to OpenRouter to be identified and, when the user asks for a listing photo, to a vision model with a web-search plugin that OpenRouter runs through Exa. The user is asked to consent in-app before the first image is ever sent (Guideline 5.1.2(i)), and the consent sheet names the processor and the data categories. Both doors are disclosed in our privacy policy and on the in-app Privacy page. Outfit generation itself runs on-device.
 
 ACCOUNT DELETION
 Profile tab, bottom of the screen, "Delete account". Deletion is immediate and removes all uploaded photos and data, including social content.
@@ -641,9 +728,27 @@ Metadata — done:
 - [x] Copyright
 - [x] App Review contact name / phone / email
 - [ ] **App Review notes** — rewritten 2026-08-10 for D1 and D2 (new
-      `SEEDING A CLOSET`, `SUBSCRIPTIONS` moved up) and **not yet re-pasted**.
-      ASC still holds the 2026-08-06 text, which describes a first run that no
-      longer exists
+      `SEEDING A CLOSET`, `SUBSCRIPTIONS` moved up), then again the same day for
+      the listing-photo disclosure (new `LISTING PHOTOS`, `AI PROCESSING` names
+      Exa, `SIGNING IN` says code not link) and **not yet re-pasted**. ASC still
+      holds the 2026-08-06 text, which describes a first run that no longer
+      exists
+- [ ] **Retire the catalogue-photo absolute in ASC.** The live description still
+      says "nothing is a catalogue photo" and the shipping build makes that
+      false — see rule 4 above. **Pasting the new description is what fixes it**,
+      and until it is pasted this is the single largest 2.3.1 exposure on the
+      page. Nothing in this repository pushes to ASC
+- [ ] **Record the source on imported garments.** A piece added through Describe
+      or a pasted link keeps the retailer's photograph as its own `image_path`
+      but stores **no** `listing_source_url` / `listing_source_label`
+      (`supabase/functions/garment-search/index.ts`, `importImage` — the insert
+      names only `user_id`, `status` and `description`, and the client's `source`
+      field is accepted and dropped). The item screen therefore prints its
+      "Listing photo · &lt;retailer&gt;" colophon (`src/app/item/[id].tsx:873-875`)
+      for pieces matched from the user's own photograph and prints nothing at all
+      for imported ones. An imported garment is the case where the credit matters
+      most, so this is a real gap — it is a `garment-search` change, not a copy
+      one, and no wording can stand in for it
 - [x] Age rating questionnaire (UGC declared Yes → 4+)
 - [x] App Privacy, published, 8 data types
 - [x] Pricing and availability (free, 175 regions, tax category set)

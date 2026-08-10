@@ -25,8 +25,18 @@ test('the slot list IS the free closet — the two numbers may never drift', () 
 test('T-01 — the opening line names the free closet, not a typed ten', () => {
   assert.equal(
     tenProgressLine(canonicalTen()),
-    'Ten pieces is enough for Cinch to style you properly. Photograph these, in any order.',
+    'Ten pieces is enough for Cinch to style you properly. ' +
+      'Photograph them, or pick them from your camera roll — in any order.',
   );
+});
+
+// The first screen of the app must not read as "stand over your wardrobe with
+// a camera". The library has always been wired beside the shutter and the
+// sentence used to hide it, which is the cheapest possible way to lose someone
+// who never wanted to photograph anything. Asserted separately from the exact
+// wording above so a copy edit can reword the line but cannot drop the offer.
+test('T-01 offers the camera roll, not only the camera', () => {
+  assert.match(tenProgressLine(canonicalTen()), /camera roll/);
 });
 
 test('the remaining count is the slot list less what is settled', () => {

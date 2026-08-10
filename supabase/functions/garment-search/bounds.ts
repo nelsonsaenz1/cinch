@@ -47,9 +47,26 @@ export type ValidatedSearchRequest = {
   swatchDataUrl?: string;
 };
 
+/**
+ * The chosen picture, on its way to becoming a garment.
+ *
+ * `pageUrl` is optional and should not be: the product page is what makes an
+ * imported item attributable, and the server records it as
+ * `listing_source_url`. It is optional anyway because a client that predates
+ * this field is still in people's hands, and refusing its imports would break
+ * a shipped door to fix a records problem. When it is absent the server falls
+ * back to the image URL it actually fetched — coarser, never null. See
+ * `importImage` in index.ts.
+ *
+ * `source` is accepted and DELIBERATELY IGNORED by the write path. It is a
+ * display label the client derived from a URL it already had; the row's label
+ * is derived server-side from the URL the server actually used, because a
+ * source line the client can set is a source line that can be wrong.
+ */
 export type ValidatedImportRequest = {
   action: 'import';
   imageUrl: string;
+  pageUrl?: string;
   title?: string;
   source?: string;
 };
@@ -154,6 +171,9 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
       // moment of fetching. Both are needed: this one names the field in the
       // error, that one is the security boundary.
       imageUrl: requiredString(body.imageUrl, 'imageUrl', MAX_URL_CHARS),
+      // Same 2,048-character ceiling as every other URL here, and the same
+      // division of labour: shape now, destination at the moment of use.
+      pageUrl: optionalString(body.pageUrl, 'pageUrl', MAX_URL_CHARS),
       title: optionalString(body.title, 'title', MAX_TITLE_CHARS),
       source: optionalString(body.source, 'source', MAX_TITLE_CHARS),
     };

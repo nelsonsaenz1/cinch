@@ -32,6 +32,7 @@
   <ul>
     <li>Photos of the garments you add are uploaded and stored in your private account.</li>
     <li>They are sent to an AI provider, <strong>OpenRouter</strong>, to identify what each item is. You are asked to agree to this before it happens the first time.</li>
+    <li>If you ask Cinch to find a shop's own photograph of a piece, a web search runs. It is carried out by <strong>Exa</strong>, not by OpenRouter, and the routing restriction Cinch sets on its AI requests does not cover it.</li>
     <li><strong>Cinch never reads your photo library.</strong> iOS shows you a picker and hands the app only the pictures you tap.</li>
     <li>There is no advertising, no tracking across apps or websites, and nothing is sold or shared with data brokers.</li>
     <li>You can delete your account, and everything in it, from inside the app. It happens immediately.</li>
@@ -64,6 +65,78 @@
 <p>
   Category, colours, pattern, material, brand, how formal a piece is, how warm
   it is, and a one-line description. You can correct any of it.
+</p>
+
+<h3>Searching the web for a garment's listing — only if you ask</h3>
+<p>
+  Cinch can put a shop's own photograph of a piece on your garment, so a coat
+  you photographed on a hanger looks like the coat. You can also add a piece by
+  describing it, or by pasting the link it came from, instead of photographing
+  it. Nothing here happens on its own: a search runs only when you start one,
+  and a picture is saved only when you pick it.
+</p>
+<p>
+  Two different things leave the app for this, and they are worth keeping apart.
+</p>
+<p>
+  <strong>Matching a piece you photographed.</strong> Cinch creates a link to
+  your own photograph that works for five minutes, and sends it, with a line of
+  the garment's details, to an AI model that has a web search attached, so the
+  model can look for where the piece is sold.
+</p>
+<p>
+  <strong>Describing a piece instead.</strong> The words you type — "black midi
+  dress, Reformation" — are sent as a web search query. No photograph goes with
+  them unless you attach one to show the true colour, and that one is shrunk to
+  256 pixels on your phone before it is sent and is never stored by Cinch.
+</p>
+<p>
+  <strong>The search is not run by the AI provider.</strong> It is run by
+  <strong>Exa</strong>, a search company, on OpenRouter's behalf. This matters,
+  and we would rather write it down than let it be assumed: Cinch tells
+  OpenRouter to route its AI requests only to model providers that are not
+  allowed to train on what they receive, and <strong>that restriction does not
+  extend to the search</strong>. OpenRouter says so itself — its data-retention
+  enforcement "does not apply to plugins and tools you choose to enable, such as
+  web search". So the words a search is made of, and the pages that come back,
+  are handled under Exa's own policy, not under anything Cinch can hold anyone
+  to on your behalf.
+</p>
+<p>
+  Cinch's server then reads the shop pages that came back and downloads the
+  picture you choose. While you are looking at the results, though, your phone
+  loads those pictures from the shops' own servers, exactly as a web page would
+  — so those shops see a request from your device. They are told nothing about
+  you or your closet, and Cinch has no arrangement with any of them: no
+  affiliate links, no commission, and no way to buy anything in the app.
+</p>
+<p>
+  When you match a piece you had already photographed, Cinch records which shop
+  the picture came from and prints it on the garment. Removing the listing
+  photograph brings back your own, which is never altered or deleted.
+</p>
+
+<h3>A recording of your voice — only if you describe your closet out loud</h3>
+<p>
+  Cinch lets you build your closet by talking instead of photographing. If you
+  choose to, the app records you describing your clothes and uploads that
+  recording to a private storage bucket only your account can read.
+</p>
+<p>
+  The recording is sent to a third-party model provider to be turned into text.
+  <strong>It is deleted as soon as that succeeds</strong> — Cinch keeps the
+  words, never the audio. If the transcription fails, the recording is kept so
+  you can retry without describing everything again, and it is deleted
+  automatically within 24 hours whether or not you come back. Deleting your
+  account removes any recording immediately.
+</p>
+<p>
+  The text is then read by a model to work out which garments you named. Unlike
+  outfit suggestions — where a model only ever sees a shortlist the app already
+  built on your phone — this is a path where a model does receive a description
+  of your wardrobe, because that is the whole of what you asked it to read. The
+  resulting transcript is kept as part of your closet, so each garment can show
+  you the words it came from.
 </p>
 
 <h3>Approximate location — only if you allow it</h3>
@@ -120,8 +193,18 @@
     </tr>
     <tr>
       <td><strong>OpenRouter</strong></td>
-      <td>Garment images via a link that expires after five minutes; the weather; your plans; event titles</td>
-      <td>AI tagging and outfit reasoning. OpenRouter passes requests to the underlying model provider that serves the chosen model.</td>
+      <td>Garment images via a link that expires after five minutes; the weather; your plans; event titles; and, when you ask for a listing photo, the same kind of link plus a line describing the piece</td>
+      <td>AI tagging, outfit reasoning, and matching a garment to a product listing. OpenRouter passes requests to the underlying model provider that serves the chosen model.</td>
+    </tr>
+    <tr>
+      <td><strong>Exa</strong></td>
+      <td>The web search itself — the words describing the garment. No account and no identifier</td>
+      <td>The web search inside a listing match, run by OpenRouter as a plugin. OpenRouter states that its own data-retention enforcement does not apply to plugins, so this search is governed by Exa's policy.</td>
+    </tr>
+    <tr>
+      <td><strong>The shops whose pages come back</strong></td>
+      <td>A request from Cinch's server for the page and the picture — and, while you are choosing, a request from your device for each picture shown. Nothing identifying you is sent</td>
+      <td>Showing you the product photographs, and saving the one you pick. There is no commercial relationship with any of them.</td>
     </tr>
     <tr>
       <td><strong>Open-Meteo</strong></td>
@@ -168,6 +251,13 @@
   Before any photograph is sent to an AI provider, Cinch asks you in the app and
   explains what is sent. If the providers or the categories of data change, you
   will be asked again rather than being opted in silently.
+</p>
+<p>
+  That consent covers every door a photograph can leave by: tagging, matching a
+  piece against a product listing, and the colour swatch you can attach to a
+  description. If you withdraw it, all of them stop, and so does the stylist
+  chat. Outfit suggestions carry on — those are built on your phone and never
+  needed the AI.
 </p>
 
 <h2>How long it is kept</h2>

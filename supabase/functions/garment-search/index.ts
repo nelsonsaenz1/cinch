@@ -12,6 +12,7 @@ import {
   parseGarmentSearchRequest,
   type ValidatedAttachRequest,
   type ValidatedDetachRequest,
+  type ValidatedImportRequest,
   type ValidatedMatchRequest,
 } from './bounds.ts';
 import { assertSafeUrl, guardedFetch, UnsafeUrlError } from './net.ts';
@@ -23,6 +24,13 @@ import {
   PAGE_MAX_BYTES,
   PAGE_TIMEOUT_MS,
 } from './page-meta.ts';
+import {
+  admitContent,
+  admitSource,
+  declineMessage,
+  type Declined,
+  type DeclineReason,
+} from './policy.ts';
 import { openRouterWebProvider } from './provider.ts';
 
 /**
@@ -66,6 +74,18 @@ import { openRouterWebProvider } from './provider.ts';
  * belongs on a server; and an image the app displays should come from our own
  * Storage bucket rather than a third party who can swap it later.
  *
+ * WHOSE PICTURE IT IS. Every path that ends in a stored byte passes through
+ * `policy.ts` first: the host is checked against the handful of places where
+ * "the seller published this to be shared" is not true, its `robots.txt` is
+ * read and honoured, and the response's own `X-Robots-Tag` and meta directives
+ * are read before anything is written. A refusal is never an empty result — it
+ * comes back as `source_declined` with a bounded `reason`, or as a `declined[]`
+ * entry beside the tiles that did survive, so the screen can name the shop that
+ * said no. And every stored image now records where it came from:
+ * `listing_source_url` and `listing_source_label` are written by BOTH `import`
+ * and `attach`, never left null. The reasoning for all of it is in `policy.ts`
+ * and in `docs/design/listing-imagery-posture.md`.
+ *
  * The imported item lands at `pending_tag`, which is the same state a
  * photographed garment reaches after upload — so it flows into the existing
  * tagging sweep with no new pipeline. That is the point: this function adds a
@@ -105,8 +125,23 @@ const DEFAULT_PARAMS: Record<string, unknown> = { temperature: 0.2 };
 /** Enough tiles to choose from, few enough to scan. Whering-sized grid. */
 const MAX_CANDIDATES = 6;
 
-/** Product photographs are hundreds of KB; ten megabytes is the abuse line. */
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+/**
+ * The ceiling on what one garment costs us in somebody else's bytes.
+ *
+ * Lowered from ten megabytes, which was set as an abuse line and worked as one.
+ * Five is the *policy* line, and it is a different argument: a listing
+ * photograph is a hero shot on a commerce template and virtually always under a
+ * megabyte, so anything past five is a lookbook spread, a print-resolution
+ * master or a poster — none of which is what the user asked for, and all of
+ * which are the kind of asset a retailer would be right to mind us keeping.
+ * Capping what we store is one of the few things in this whole area we can
+ * actually promise, so the number is set where the promise is easy to keep.
+ *
+ * Paired with a second cap that lives in the paths rather than a constant:
+ * exactly ONE stored object per item per role, at a fixed filename, overwritten
+ * on re-confirmation. Cinch never accumulates a retailer's catalogue.
+ */
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TIMEOUT_MS = 15_000;
 
 /** Content types worth storing, and the extension each is saved under. */
@@ -143,6 +178,29 @@ function looksLikeImage(bytes: Uint8Array): boolean {
 /** A stable code and a sentence a person can read. Never provider text. */
 function fail(code: string, message: string, status: number): Response {
   return Response.json({ error: code, message }, { status });
+}
+
+/**
+ * The one refusal that is not a failure.
+ *
+ * Every other error in this file means Cinch could not do something. This one
+ * means a site said no and we listened, which is a different thing and has to
+ * look different on the wire — hence its own code, and hence `reason` and
+ * `source` travelling with it. The client needs both: the reason to pick a
+ * sentence, and the host to name the shop in it.
+ *
+ * 403 rather than 400, because nothing about the request was malformed. The
+ * user did everything right and the answer is still no.
+ *
+ * `reason` is a closed enum on purpose (`policy.ts`). A client that meets a
+ * value it does not know can fall back to `message`, which is always present
+ * and always says something true — the enum is the upgrade, not the contract.
+ */
+function failDeclined(reason: DeclineReason, source: string): Response {
+  return Response.json(
+    { error: 'source_declined', reason, source, message: declineMessage(reason) },
+    { status: 403 },
+  );
 }
 
 export default {
@@ -208,7 +266,7 @@ export default {
       }
 
       if (request.action === 'import') {
-        return await importImage(db, admin, userId, request.imageUrl, request.title);
+        return await importImage(db, admin, userId, request);
       }
 
       if (request.action === 'resolve') {
@@ -289,7 +347,17 @@ export default {
         return fail('search_failed', 'The search did not come back. Try again in a moment.', 502);
       }
 
-      return Response.json({ ok: true, candidates: result.candidates });
+      // `declined` rides alongside the tiles rather than replacing them. A
+      // search that found four and refused two is a normal search; the client
+      // shows four tiles and one line naming the shops that said no. An empty
+      // `candidates` with a populated `declined` is the case this whole field
+      // exists for — it is the difference between "nothing matched" and "the
+      // shops that matched asked us not to".
+      return Response.json({
+        ok: true,
+        candidates: result.candidates,
+        declined: result.declined,
+      });
     },
   ),
 };
@@ -361,6 +429,30 @@ async function resolveLink(
     });
   };
 
+  // ── The site's own answer, asked before the request it governs ────────────
+  // A `robots.txt` read after the page it forbids is a receipt, not a rule, so
+  // this runs first — before the fetch, and before the quota unit is spent on
+  // a page we were never going to keep. The unit above has already been
+  // claimed; that is deliberate and unchanged, because the alternative is a
+  // free probe of arbitrary hosts through our network.
+  let target: URL;
+  try {
+    target = assertSafeUrl(pageUrl);
+  } catch {
+    await record(false, 'unsafe: pre-check');
+    return fail(
+      'link_rejected',
+      "Cinch can't open that link. Paste the product page from the shop's own site.",
+      400,
+    );
+  }
+
+  const sourceVerdict = await admitSource(target);
+  if (sourceVerdict) {
+    await record(false, `declined: ${sourceVerdict}`);
+    return failDeclined(sourceVerdict, hostLabel(target));
+  }
+
   let page;
   try {
     page = await guardedFetch(pageUrl, {
@@ -403,6 +495,13 @@ async function resolveLink(
   // has already done the extraction by hand. Handing that straight to the
   // preview is a better answer than telling them their link isn't a page.
   if (contentType.startsWith('image/')) {
+    // No HTML to read, so the header is the only directive there is — and for
+    // an image served straight off a CDN it is usually the only one anywhere.
+    const contentVerdict = admitContent(page.headers);
+    if (contentVerdict) {
+      await record(false, `declined: ${contentVerdict}`);
+      return failDeclined(contentVerdict, hostLabel(page.url));
+    }
     await record(true, null);
     return Response.json({
       ok: true,
@@ -425,6 +524,15 @@ async function resolveLink(
   // us a few replacement characters in a title, never the whole import.
   const html = new TextDecoder('utf-8', { fatal: false }).decode(page.body);
 
+  // The page's own directives. They could not be asked for before the fetch —
+  // a header arrives with the response — so this is the gate on KEEPING what
+  // came back, which is the half that produces a stored object.
+  const contentVerdict = admitContent(page.headers, html);
+  if (contentVerdict) {
+    await record(false, `declined: ${contentVerdict}`);
+    return failDeclined(contentVerdict, hostLabel(page.url));
+  }
+
   const imageUrl = extractImageUrl(html, page.url);
   if (!imageUrl) {
     await record(false, 'no image on page');
@@ -433,11 +541,21 @@ async function resolveLink(
 
   // Vetted now so a preview that could never be imported is never shown. The
   // import re-checks, because that is the call that downloads bytes.
+  let image: URL;
   try {
-    assertSafeUrl(imageUrl);
+    image = assertSafeUrl(imageUrl);
   } catch {
     await record(false, 'image url unsafe');
     return fail('link_no_image', UNREADABLE_MESSAGE, 422);
+  }
+
+  // A product page that allows us and a CDN that does not is an ordinary
+  // arrangement, not an edge case — the image often lives on a host the
+  // retailer shares with a thousand other shops, under its own rules.
+  const imageVerdict = await admitSource(image);
+  if (imageVerdict) {
+    await record(false, `declined: ${imageVerdict}`);
+    return failDeclined(imageVerdict, hostLabel(image));
   }
 
   await record(true, null);
@@ -448,6 +566,11 @@ async function resolveLink(
     // May be null. The client offers its own field rather than inventing a name.
     title: extractTitle(html, page.url),
     source: hostLabel(page.url),
+    // The page the preview came from, echoed back so `import` can record it as
+    // the item's provenance. Without this the link door produces a garment
+    // whose picture came from a shop and whose row cannot say which — the one
+    // outcome this whole feature has no answer for.
+    pageUrl: page.url.toString(),
   });
 }
 
@@ -463,14 +586,74 @@ async function resolveLink(
  * third under the `{user_id}/{item_id}/` prefix the bucket policy authorizes on.
  * A failure after the row exists deletes it — an item with no image is a tile
  * the closet cannot render and a slot the user's plan is charged for.
+ *
+ * PROVENANCE IS WRITTEN HERE, AND IT WAS NOT BEFORE. Until this change the
+ * import path stored a retailer's photograph as a garment's own picture and
+ * recorded nothing about where it came from: `listing_source_url` and
+ * `listing_source_label` existed in the schema (migration 20260808150000) and
+ * were populated only by `attach`. An item whose image came from a shop and
+ * whose row cannot name the shop is the single indefensible outcome in this
+ * whole feature — there is no answer to "where did you get that" that begins
+ * with "we did not write it down". So both columns are now written on every
+ * import, and neither can be null:
+ *
+ *   `pageUrl` given   the product page, which is the honest answer and the
+ *                     user's way back to buy the thing.
+ *   `pageUrl` absent  the image URL actually fetched, after redirects. Weaker
+ *                     — a CDN host is not a shopfront — but it is true, it is
+ *                     a URL a human can follow, and it is never nothing.
+ *
+ * The label is derived from the URL server-side and the client's own `source`
+ * string is ignored. Attribution that the client can set is attribution that
+ * can be wrong, and a wrong source line is worse than a coarse one.
+ *
+ * `listing_path` and `listing_confirmed_at` stay NULL, which is the deliberate
+ * difference between the two flows. On an imported item the retailer's picture
+ * IS the garment's picture — there is nothing underneath it to restore — so
+ * there is no listing object to detach, and claiming one would give `detach` a
+ * path to delete the item's only image.
  */
 async function importImage(
   db: SupabaseClient<Database>,
   admin: SupabaseClient<Database>,
   userId: string,
-  imageUrl: string,
-  title?: string,
+  request: ValidatedImportRequest,
 ): Promise<Response> {
+  const { imageUrl, title } = request;
+
+  // ── Policy, before the bytes ──────────────────────────────────────────────
+  // The tile the user tapped was already admitted once, during the search. It
+  // is checked again because that check happened against a page and this one
+  // downloads from an image host, because the search's verdict may be minutes
+  // old, and because `import` is reachable with any URL a caller cares to send.
+  let image: URL;
+  try {
+    image = assertSafeUrl(imageUrl);
+  } catch {
+    return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+  }
+
+  const imageVerdict = await admitSource(image);
+  if (imageVerdict) return failDeclined(imageVerdict, hostLabel(image));
+
+  // The page, when the client sent one. Vetted the same way and for the same
+  // reason `attach` vets it: a URL we will store and render as a tappable link
+  // deserves the treatment of one we would fetch.
+  let page: URL | null = null;
+  if (request.pageUrl) {
+    try {
+      page = assertSafeUrl(request.pageUrl);
+    } catch {
+      return fail(
+        'link_rejected',
+        "Cinch can't open that link. Paste the product page from the shop's own site.",
+        400,
+      );
+    }
+    const pageVerdict = await admitSource(page);
+    if (pageVerdict) return failDeclined(pageVerdict, hostLabel(page));
+  }
+
   let downloaded;
   try {
     downloaded = await guardedFetch(imageUrl, {
@@ -489,12 +672,22 @@ async function importImage(
     return fail('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
   }
 
+  // The response's own directive, which for an image host is usually the only
+  // statement it makes. Checked before anything is written, never after.
+  const contentVerdict = admitContent(downloaded.headers);
+  if (contentVerdict) return failDeclined(contentVerdict, hostLabel(downloaded.url));
+
   // `image/jpeg; charset=binary` is a real header in the wild.
   const contentType = downloaded.contentType.split(';')[0].trim();
   const extension = IMAGE_EXTENSIONS[contentType];
   if (!extension || !looksLikeImage(downloaded.body)) {
     return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
   }
+
+  // The provenance recorded on the row. `downloaded.url` rather than the string
+  // the caller sent, so a redirect chain is recorded where it ended — which is
+  // where the bytes actually came from.
+  const sourceUrl = page ?? downloaded.url;
 
   // ── The row. RLS scopes `db` to the caller, so `user_id` cannot be spoofed,
   //    and `items_enforce_limit` refuses the insert when the plan is full. ───
@@ -512,7 +705,15 @@ async function importImage(
   // needs either a column or a change in `tag-item`, both outside this file.
   const { data: item, error: insertError } = await db
     .from('items')
-    .insert({ user_id: userId, status: 'pending_upload', description: title ?? null })
+    .insert({
+      user_id: userId,
+      status: 'pending_upload',
+      description: title ?? null,
+      // Written with the row rather than in the update below, so there is no
+      // window in which an imported garment exists without its source.
+      listing_source_url: sourceUrl.toString(),
+      listing_source_label: hostLabel(sourceUrl),
+    })
     .select('id')
     .single();
 
@@ -554,7 +755,15 @@ async function importImage(
   // Deliberately does NOT call tag-item: Supabase rate-limits Edge Functions
   // calling each other, and the client's own sweep already drives `pending_tag`
   // rows through tagging. Same pipeline as a photographed garment, from here on.
-  return Response.json({ ok: true, itemId: item.id, status: 'pending_tag' });
+  return Response.json({
+    ok: true,
+    itemId: item.id,
+    status: 'pending_tag',
+    // Echoed so the confirmation screen can show the line the row now carries,
+    // rather than the client having to re-derive it from a URL it may not have.
+    source: hostLabel(sourceUrl),
+    sourceUrl: sourceUrl.toString(),
+  });
 }
 
 /** The columns `match` reads. A pick so a renamed column fails the compile
@@ -777,7 +986,16 @@ async function matchListing(
     // A failed widening is not an error the user needs: the honest answer is
     // still "nothing at that brand", which is what an empty list already says.
     if (wide && wide.candidates.length > 0) {
-      result = { ...wide, brands: result.brands.length ? result.brands : wide.brands };
+      result = {
+        ...wide,
+        brands: result.brands.length ? result.brands : wide.brands,
+        // Both passes' refusals, deduplicated by host. The narrow pass is
+        // frequently where the interesting refusal happened — it is the one
+        // that searched the brand the user named — so discarding its declines
+        // because the wide pass produced tiles would hide the very shop they
+        // asked about.
+        declined: mergeDeclined(result.declined, wide.declined),
+      };
       lookalike = true;
     }
   }
@@ -795,7 +1013,20 @@ async function matchListing(
     })),
     lookalike,
     scopedBrand,
+    declined: result.declined,
   });
+}
+
+/** Two passes' refusals as one list, one line per host, first mention wins. */
+function mergeDeclined(first: Declined[], second: Declined[]): Declined[] {
+  const seen = new Set<string>();
+  const merged: Declined[] = [];
+  for (const entry of [...first, ...second]) {
+    if (seen.has(entry.source)) continue;
+    seen.add(entry.source);
+    merged.push(entry);
+  }
+  return merged;
 }
 
 /**
@@ -849,6 +1080,22 @@ async function attachListing(
     );
   }
 
+  // Re-asked at the moment of confirmation, not inherited from the match that
+  // proposed it: the two are separate requests, minutes may have passed, and
+  // this is the one that ends in a stored object.
+  const pageVerdict = await admitSource(page);
+  if (pageVerdict) return failDeclined(pageVerdict, hostLabel(page));
+
+  let image: URL;
+  try {
+    image = assertSafeUrl(request.imageUrl);
+  } catch {
+    return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+  }
+
+  const imageVerdict = await admitSource(image);
+  if (imageVerdict) return failDeclined(imageVerdict, hostLabel(image));
+
   // Same limits as `import`, because it is the same job: `guardedFetch`
   // re-vets the image URL itself, every redirect included.
   let downloaded;
@@ -868,6 +1115,9 @@ async function attachListing(
   if (downloaded.status !== 200) {
     return fail('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
   }
+
+  const contentVerdict = admitContent(downloaded.headers);
+  if (contentVerdict) return failDeclined(contentVerdict, hostLabel(downloaded.url));
 
   // `image/jpeg; charset=binary` is a real header in the wild.
   const contentType = downloaded.contentType.split(';')[0].trim();
