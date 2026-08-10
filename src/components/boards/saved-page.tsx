@@ -65,7 +65,16 @@ export function SavedPage({
   onBack,
 }: SavedPageProps) {
   const { width } = useWindowDimensions();
-  const column = Math.floor((width - GUTTER * 2 - COLUMN_GAP) / 2);
+  // The `- 2` is the card's own hairline border, and it is load-bearing.
+  //
+  // `PlateCard`'s root carries `border border-rule` with no explicit width, so
+  // its OUTER width is the tile plus two pixels. Without this the two columns
+  // came to `2 × (column + 2) + 14`, which overflows the measure by exactly
+  // four points — and flex-wrap does not shrink, it wraps. The result was a
+  // one-column page with the right half empty: a layout that looks like a
+  // deliberate design decision rather than a rounding error, which is why it
+  // took a PNG comparison to catch rather than a glance.
+  const column = Math.floor((width - GUTTER * 2 - COLUMN_GAP) / 2) - 2;
 
   // The chip row survives every state that has anything to put in it, which is
   // the KP-05 rule stated as layout: "square skeletons in the same grid, so

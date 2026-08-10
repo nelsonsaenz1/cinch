@@ -82,7 +82,14 @@ export function EditorialFrame({
             the atlas hangs it from the upper third with the action at the
             foot. `justify-center` on a flex-1 with the action outside it is
             what produces that without hard-coding a top offset. */}
-        <View className="flex-1 justify-center px-6">
+        {/* 34pt, not the app's 24pt gutter.
+            The wider margin is not decoration — it is what produces the
+            atlas's "two or three words a line". At the gutter, "Your whole
+            closet," fits on one line and the announcement sets in two;
+            at 34 it breaks where the design breaks it, in three. The measure
+            and the type size are one decision, and this is the only screen in
+            the app set to it. */}
+        <View className="flex-1 justify-center" style={{ paddingHorizontal: 34 }}>
           {eyebrow ? (
             <Text variant="eyebrow" style={{ color: quiet }} className="mb-4">
               {eyebrow}
