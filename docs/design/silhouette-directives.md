@@ -6,7 +6,7 @@ of design work in the reframe, and the blocking dependency for atlases A (`WK`) 
 procession card has no geometry until these exist.
 
 **Deliverable:** 22 garment shapes + 4 pattern overlays + 1 fallback, as individual
-SVGs, plus one contact-sheet PNG. Detail in §10.
+SVGs, plus one contact-sheet PNG. Detail in §11.
 
 **What these are.** A garment created by voice has no photograph, and is drawn
 instead — *"a silhouette in Cinch's own hand, filled with the garment's real colour"*
@@ -14,7 +14,7 @@ instead — *"a silhouette in Cinch's own hand, filled with the garment's real c
 the garment's **body** — the thing that carries its colour. The colour is the
 information; the shape says which garment is wearing it.
 
-**Read §1 before any shape.** It is the contract all 22 obey. §§2–8 are the shapes
+**Read §1 before any shape.** It is the contract all 23 obey. §§2–9 are the shapes
 themselves, and each is self-contained enough to hand over on its own.
 
 ---
@@ -47,7 +47,7 @@ clutch's flap are structural, not decorative. Ruled on 2026-08-10: **structure s
 
 **Shading and highlights are banned; structure is not.** Each shape gets an
 **internal line budget of at most two** strokes, same 1px `rule` as the outline, and
-only where §§2–8 explicitly spends it. Nine of the 22 spend nothing. A line that
+only where §§2–9 explicitly spends it. Seventeen of the 23 spend nothing. A line that
 suggests light, depth, volume or fabric drape is shading and is banned. A line that
 says *this garment opens here* is structure and is allowed.
 
@@ -66,7 +66,7 @@ screens.
 The outline is deliberately quiet — it is the same 12% ink as every structural rule in
 the app. On a dark fill it will be nearly invisible and **that is correct**; the shape
 is carried by the fill. Its whole job is to keep a cream garment from dissolving into
-`surface`. That is the test the contact sheet in §10 exists to run.
+`surface`. That is the test the contact sheet in §11 exists to run.
 
 ### 1.4 · No shading
 
@@ -92,6 +92,7 @@ Each shape occupies this fraction of the canvas along its **longest** dimension:
 | bottom | **0.85** | trouser, jean, skirt, short |
 | footwear | **0.60** | flat, heel, boot, sneaker |
 | bag | **0.55** | tote, clutch, crossbody |
+| fallback | **0.55** | hanger (§9) |
 
 So a coat spans ~88 of 96 units; a clutch spans ~53. **Outerwear and dresses dominate,
 tops and bottoms are the middle register, shoes and bags are punctuation.** Nudge these
@@ -129,8 +130,8 @@ decision you make.
 At 110pt — a closet tile in `C-07` — a shape is roughly 40 screen pixels of garment.
 Sleeve length, hem length, and the presence or absence of a leg split survive at that
 size. A collar notch, a cuff, and a placket **do not**. So each shape must be separable
-from its siblings by at least one feature that survives 110pt, and §§2–8 name that
-feature explicitly for every one of the 22 as **Separated by**.
+from its siblings by at least one feature that survives 110pt, and §§2–9 name that
+feature explicitly for every one of the 23 as **Separated by**.
 
 Test method: render the full sheet at 110pt, look away, look back, and name each shape.
 Anything you hesitate on has failed and needs its distinguishing feature exaggerated —
@@ -153,7 +154,7 @@ bag-clutch.svg
 bag-crossbody.svg
 ```
 
-Note `base_top` and `footwear` — **not** `top` and `shoes`. §11.1 explains.
+Note `base_top` and `footwear` — **not** `top` and `shoes`. §12.1 explains.
 
 ---
 
@@ -402,7 +403,66 @@ Separated by **handle geometry**, which is the one feature that survives at 0.55
 
 ---
 
-## 9 · Pattern overlays — four tiles
+## 9 · The fallback — one shape
+
+`Slot` has nine members and §§2–8 draw seven of them. **`headwear`** and **`accessory`**
+are live in the styling engine, and *"my black beanie"* parses straight to one of them.
+Without this shape they reach `PR-01` with nothing to draw — a blank where the garment's
+body should be, on the one screen whose entire job is showing the user what was heard.
+
+### `fallback-hanger`
+
+- **Reads as** a garment, unspecified. Not a *wrong* garment — a deliberately general
+  one. It is the app's own word for *garment*, which is why it cannot look like an error.
+- **The problem it has to solve first.** Every other shape here is a garment **body**,
+  and its job is carrying colour across a broad surface. A wire hanger has almost no
+  area — a navy beanie drawn as one would show almost no navy, and the fallback would
+  fail at the single thing this library exists to do. **So draw a wooden hanger, not a
+  wire one.** A wooden hanger's shoulder bar is a genuinely solid form: it holds fill, it
+  survives 110pt, and it stays unmistakably a hanger.
+- **Outline** — one continuous filled form at **0.55** fill, so it sits in the punctuation
+  register beside the bags. A wide, shallow shoulder bar, deepest at the centre (~7 units)
+  and tapering toward tips that sweep gently upward. Rising from the centre, a slim hook
+  curving over and closing on itself, drawn as a narrow filled ribbon ~2 units thick and
+  part of the same path.
+- **Separated by** being the only shape in the library that is not a garment. That is
+  precisely the point — it should never be mistaken for a specific thing.
+- **Lines** — none.
+- **Do not draw** a garment draped over it, a trouser bar across the bottom, a shoulder
+  notch, or a wire hanger.
+
+### The one exception to §1.6
+
+§1.6 bans hangers outright. **This shape is the exception, and the only one.** Every
+garment in §§2–8 is a flat lay with no hanger; this shape is a hanger with no garment.
+There is nothing in between and there should never be — a body-on-a-hanger would read as
+a top, which is exactly the confusion this shape exists to avoid for a belt or a beanie.
+
+### The collision to draw carefully around
+
+The app **already** uses the hanger mark, for absence: `HangerGlyph`, stroked on the
+22-unit grid at 1.4, headlines empty states and sits in row fallbacks
+(`src/features/explore/glyphs.tsx`). This filled hanger means something different —
+*present, but unspecified.* Same mark, two meanings, and the fill is what separates them:
+
+| Drawing | Ink | Means |
+|---|---|---|
+| **Stroked** hanger | `HERO_GLYPH_INK` / `FALLBACK_GLYPH_INK` | there is no garment here |
+| **Filled** hanger | the garment's own colour + 1px `rule` outline | there is a garment here, and this is its colour |
+
+Give the filled hanger a visibly heavier shoulder bar than the stroked glyph's, so the
+two never read as one drawing at two weights.
+
+### When it may be used
+
+**Only when the slot has no specific shape.** It is a fallback, never a default — a
+garment resolving to `base_top` gets a tee, crewneck, button-down or blouse, never this.
+It should be the last branch in `silhouettes.tsx`. If it starts showing up often in
+analytics, that is a signal to commission more shapes, not to leave it standing in.
+
+---
+
+## 10 · Pattern overlays — four tiles
 
 Composited over the fill, **clipped to the fill path**, never overhanging the outline.
 
@@ -439,11 +499,11 @@ small / medium / large. Do not draw four versions.
 
 ---
 
-## 10 · Deliverables
+## 11 · Deliverables
 
-### 10.1 · The SVGs
+### 11.1 · The SVGs
 
-23 files, named per §1.8 — 22 shapes plus `fallback-hanger.svg` (§11.2). Each:
+23 files, named per §1.8 — the 22 garment shapes plus `fallback-hanger.svg` (§9). Each:
 
 - `viewBox="0 0 96 96"`, no `width`/`height` attributes
 - one fill path, `fill="currentColor"`
@@ -454,7 +514,7 @@ small / medium / large. Do not draw four versions.
 
 Plus 4 pattern tiles as separate SVGs, `viewBox="0 0 12 12"`, tileable.
 
-### 10.2 · The contact sheet
+### 11.2 · The contact sheet
 
 One PNG, all 23 shapes, **each drawn at three fills**, on `surface`.
 
@@ -467,20 +527,20 @@ commissions the sheet for: *can the outline still be judged against real colours
 - On **midnight**, the outline should all but vanish and the shape should still read. If
   it collapses into a blob, the silhouette is relying on its outline instead of its form.
 
-### 10.3 · The size proof
+### 11.3 · The size proof
 
 A second sheet — all 23 at **110pt**, on `surface`, unlabelled. This is §1.7's test made
 into an artifact, and it is the one that decides whether the library ships.
 
 ---
 
-## 11 · Reconciliations
+## 12 · Reconciliations
 
-Two are resolved and need no further input — they are recorded because the drawings
-depart from §5.C as written, and the reframe directive asks for deviations to be
-written down. **§11.2 is the one open question**, and it is a yes/no.
+**All three are resolved — nothing here is waiting on an answer.** They are recorded
+only because the drawings depart from §5.C as written, and the reframe directive asks
+for deviations to be written down rather than absorbed silently.
 
-### 11.1 · Slot names — the code disagrees with the directive
+### 12.1 · Slot names — the code disagrees with the directive
 
 §5.C names slots `top` and `shoes`. The app's `Slot` type
 (`src/lib/styling/types.ts:11`) has **`base_top`** and **`footwear`**, and separates
@@ -491,7 +551,7 @@ both. `silhouettes.tsx` is specified as *"SVG by slot"*, so it will key off `Slo
 the app does wins: filenames use `base_top-` and `footwear-`. Nothing about the drawings
 changes; this is naming only.
 
-### 11.2 · Two slots have no shape, and one spoken word reaches them
+### 12.2 · Two slots have no shape — RESOLVED 2026-08-10
 
 `Slot` has nine members. §5.C commissions shapes for seven and omits **`headwear`** and
 **`accessory`** — both of which are live in the styling engine and both of which have
@@ -502,23 +562,28 @@ entries in `PLATE_TARGET_FILL`.
 blank where the garment's body should be, on the one screen whose whole job is showing
 the user what was heard.
 
-**Recommendation, and it is cheap:** commission a 23rd shape, `fallback-hanger.svg` — the
-app's own coat-hanger mark, already the garment mark in the tab bar and the empty states,
-redrawn as a filled silhouette to this contract. It serves `headwear`, `accessory`, and
-any future slot, and it is the one fallback that cannot look like an error, because it is
-already the app's word for *garment*. Draw at 0.55 fill.
+**Approved: the library is 23 shapes, not 22.** `fallback-hanger.svg` — the app's own
+coat-hanger mark, already the garment mark in the tab bar and the empty states, redrawn
+as a filled silhouette to this contract. It serves `headwear`, `accessory` and any future
+slot, and it is the one fallback that cannot look like an error, because it is already
+the app's word for *garment*.
+
+**Drawn per §9**, which carries the full directive — including the two things that make
+it non-obvious: it must be a **wooden** hanger, because a wire one has too little area to
+carry a colour, and it must sit visibly apart from the existing stroked `HangerGlyph`,
+which uses the same mark to mean the opposite thing.
 
 This does not conflict with §4.3 — *a garment with no image is a complete garment*. The
 hanger is an image. It is simply the general one.
 
-### 11.3 · The internal line budget — RESOLVED 2026-08-10
+### 12.3 · The internal line budget — RESOLVED 2026-08-10
 
 §1.2 reads §5.C's *"no internal shading or highlights"* as banning shading while
 permitting structure. **Confirmed: keep the internal lines.**
 
-The budget is spent on six of 22 shapes — the button-down's placket, the jean's yoke,
-the sneaker's sole, the clutch's flap, and the centre-front closing edge on both
-outerwear shapes. Sixteen shapes spend nothing, and no shape spends more than one.
+The budget is spent on six of the 23 shapes — the button-down's placket, the jean's
+yoke, the sneaker's sole, the clutch's flap, and the centre-front closing edge on both
+outerwear shapes. Seventeen spend nothing, and no shape spends more than one.
 
 The line stays a hairline `rule` stroke at the same weight as the outline, and the test
 in §1.2 still binds: **if a shape reads without its budgeted line, drop the line.** The
