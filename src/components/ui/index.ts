@@ -11,6 +11,7 @@ export { Avatar, initialsFor, type AvatarProps } from '@/components/ui/avatar';
 export { Button, type ButtonProps } from '@/components/ui/button';
 export { Card, type CardProps } from '@/components/ui/card';
 export { Chip, type ChipProps } from '@/components/ui/chip';
+export { EditorialFrame } from '@/components/ui/editorial-frame';
 export { EmptyState, type EmptyStateProps } from '@/components/ui/empty-state';
 export { ErrorState, type ErrorStateProps } from '@/components/ui/error-state';
 export { GHOSTED_RAIL_HEIGHT, GhostedRail } from '@/components/ui/ghosted-rail';
@@ -19,6 +20,7 @@ export {
   KeyboardAwareScrollView,
 } from '@/components/ui/keyboard-aware-scroll-view';
 export { Notice, type NoticeProps } from '@/components/ui/notice';
+export { PlateTile } from '@/components/ui/plate-tile';
 export { Rule } from '@/components/ui/rule';
 export { SearchField, type SearchFieldProps } from '@/components/ui/search-field';
 export { BackButton, ScreenHeader, type ScreenHeaderProps } from '@/components/ui/screen-header';

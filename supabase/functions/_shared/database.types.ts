@@ -39,6 +39,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_dismissals: {
+        Row: {
+          dismissed_at: string
+          kind: string
+          subject_key: string
+          user_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          kind: string
+          subject_key: string
+          user_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          kind?: string
+          subject_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_calls: {
         Row: {
           attempts: number | null
@@ -165,6 +186,36 @@ export type Database = {
           kind?: string
           period?: string
           period_start?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      boards: {
+        Row: {
+          created_at: string
+          ends_on: string | null
+          id: string
+          name: string
+          starts_on: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          name: string
+          starts_on?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          name?: string
+          starts_on?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -895,6 +946,42 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_prefs: {
+        Row: {
+          borrow_requests: boolean
+          created_at: string
+          event_reminders: boolean
+          friend_activity: boolean
+          morning_edit: boolean
+          morning_edit_at: string
+          updated_at: string
+          user_id: string
+          votes_comments: boolean
+        }
+        Insert: {
+          borrow_requests?: boolean
+          created_at?: string
+          event_reminders?: boolean
+          friend_activity?: boolean
+          morning_edit?: boolean
+          morning_edit_at?: string
+          updated_at?: string
+          user_id: string
+          votes_comments?: boolean
+        }
+        Update: {
+          borrow_requests?: boolean
+          created_at?: string
+          event_reminders?: boolean
+          friend_activity?: boolean
+          morning_edit?: boolean
+          morning_edit_at?: string
+          updated_at?: string
+          user_id?: string
+          votes_comments?: boolean
+        }
+        Relationships: []
+      }
       outfit_calendar: {
         Row: {
           created_at: string
@@ -1116,51 +1203,86 @@ export type Database = {
       }
       outfits: {
         Row: {
+          board_id: string | null
           context_snapshot: Json | null
           created_at: string
           generated_by: Database["public"]["Enums"]["outfit_source"]
           id: string
           is_public: boolean
           name: string | null
+          note: string | null
           occasion: string | null
+          origin_outfit_id: string | null
           rating: number | null
           rating_reason: string | null
           reasoning: string | null
+          saved_at: string | null
           user_id: string
           worn_at: string | null
         }
         Insert: {
+          board_id?: string | null
           context_snapshot?: Json | null
           created_at?: string
           generated_by?: Database["public"]["Enums"]["outfit_source"]
           id?: string
           is_public?: boolean
           name?: string | null
+          note?: string | null
           occasion?: string | null
+          origin_outfit_id?: string | null
           rating?: number | null
           rating_reason?: string | null
           reasoning?: string | null
+          saved_at?: string | null
           user_id: string
           worn_at?: string | null
         }
         Update: {
+          board_id?: string | null
           context_snapshot?: Json | null
           created_at?: string
           generated_by?: Database["public"]["Enums"]["outfit_source"]
           id?: string
           is_public?: boolean
           name?: string | null
+          note?: string | null
           occasion?: string | null
+          origin_outfit_id?: string | null
           rating?: number | null
           rating_reason?: string | null
           reasoning?: string | null
+          saved_at?: string | null
           user_id?: string
           worn_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "outfits_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfits_origin_outfit_id_fkey"
+            columns: ["origin_outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfits_origin_outfit_id_fkey"
+            columns: ["origin_outfit_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
+          activity_seen_at: string | null
           ai_consent_at: string | null
           ai_consent_revoked_at: string | null
           ai_consent_version: number | null
@@ -1185,6 +1307,7 @@ export type Database = {
           stat_pieces_hidden: boolean
           stat_wears_hidden: boolean
           style_tags: string[]
+          toured_at: string | null
           units: string
           updated_at: string
           user_id: string
@@ -1192,6 +1315,7 @@ export type Database = {
           visibility: Database["public"]["Enums"]["profile_visibility"]
         }
         Insert: {
+          activity_seen_at?: string | null
           ai_consent_at?: string | null
           ai_consent_revoked_at?: string | null
           ai_consent_version?: number | null
@@ -1216,6 +1340,7 @@ export type Database = {
           stat_pieces_hidden?: boolean
           stat_wears_hidden?: boolean
           style_tags?: string[]
+          toured_at?: string | null
           units?: string
           updated_at?: string
           user_id: string
@@ -1223,6 +1348,7 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["profile_visibility"]
         }
         Update: {
+          activity_seen_at?: string | null
           ai_consent_at?: string | null
           ai_consent_revoked_at?: string | null
           ai_consent_version?: number | null
@@ -1247,11 +1373,60 @@ export type Database = {
           stat_pieces_hidden?: boolean
           stat_wears_hidden?: boolean
           style_tags?: string[]
+          toured_at?: string | null
           units?: string
           updated_at?: string
           user_id?: string
           username?: string | null
           visibility?: Database["public"]["Enums"]["profile_visibility"]
+        }
+        Relationships: []
+      }
+      push_sends: {
+        Row: {
+          channel: string
+          dedupe_key: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          dedupe_key: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          dedupe_key?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          last_seen_at: string
+          platform: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          platform?: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          platform?: string
+          token?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -2050,6 +2225,20 @@ export type Database = {
       }
     }
     Functions: {
+      activity_feed: {
+        Args: never
+        Returns: {
+          actor_id: string
+          event_id: string
+          item_id: string
+          kind: string
+          occurred_at: string
+          outfit_id: string
+          post_id: string
+          subject_key: string
+          tally: number
+        }[]
+      }
       apply_outfit_reaction: {
         Args: {
           p_affinities: Json
@@ -2124,13 +2313,19 @@ export type Database = {
         Returns: string
       }
       squeeze_for_moderation: { Args: { p_text: string }; Returns: string }
+      unwear_outfit_tx: {
+        Args: { p_op_id: string; p_outfit_id: string }
+        Returns: undefined
+      }
       username_available: { Args: { p_username: string }; Returns: boolean }
       wear_outfit_tx: {
         Args: {
           p_context?: Json
           p_item_ids: string[]
           p_name?: string
+          p_note?: string
           p_op_id: string
+          p_origin?: string
           p_reasoning?: string
           p_source?: Database["public"]["Enums"]["outfit_source"]
         }

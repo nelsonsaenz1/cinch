@@ -279,6 +279,23 @@ const config: ExpoConfig = {
     'expo-image',
     // Same rationale — `npx expo install expo-sharing` asked for this.
     'expo-sharing',
+    /**
+     * Push. THE ONE NATIVE CHANGE IN WAVE 5, and the reason atlas 37 cannot
+     * ride an OTA: this plugin writes the `aps-environment` entitlement, and an
+     * entitlement is part of the signed binary.
+     *
+     * Listing it here does nothing to the JS bundle. Until a store build is
+     * cut, the module is absent at runtime, `PUSH_AVAILABLE` in
+     * src/features/push/native.ts is false, and every push surface hides
+     * itself — so the same commit is safe to publish over the air and safe to
+     * build. See docs/design/diary-boards-activity-contract.md §6.
+     *
+     * No `sounds`, no custom icon, and deliberately no `mode: 'production'`
+     * override: EAS picks the APNs environment from the build profile, and
+     * pinning it here is how a TestFlight build ends up unable to receive
+     * anything.
+     */
+    'expo-notifications',
     [
       'expo-splash-screen',
       {
