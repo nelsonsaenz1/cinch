@@ -48,9 +48,14 @@ Three boundaries are worth knowing before changing anything:
   data — no React, no network, no clock except the `now` passed into the
   context. That is what makes it testable, and the tests in `tests/` are the
   contract.
-- **The model never sees your closet.** Edge Functions receive a shortlist the
-  device already generated, not the wardrobe. The API key lives in Edge Function
-  secrets and is never referenced from client code.
+- **The model never sees your closet — with one stated exception.** Edge
+  Functions receive a shortlist the device already generated, not the wardrobe.
+  The API key lives in Edge Function secrets and is never referenced from client
+  code. The exception is voice intake: if you describe your closet out loud, the
+  recording is transcribed by a model and then deleted, and the transcript is
+  parsed by a model into garments. That path is opt-in, it is the only one where
+  a model receives your wardrobe rather than a shortlist, and the audio does not
+  outlive the transcription — see `docs/design/voice-intake-directive.md` §8.
 - **Row level security is the security model.** There is no server-side
   authorization layer to fall back on. Public data is exposed *only* through the
   allowlisted projection views (`public_profiles`, `public_items`,

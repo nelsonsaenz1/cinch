@@ -23,7 +23,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(18);
+select plan(24);
 
 -- ---------------------------------------------------------------------------
 -- Seed. Dana owns a walkthrough with three confirmed drafts. Erik is a
@@ -219,6 +219,86 @@ select is(
   (select count(*)::int from intake_drafts
     where session_id = 'd0000000-0000-4000-8000-000000000001'), 3,
   'committing deletes no drafts'
+);
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- 5 · The ceiling. THE REASON intake_drafts EXISTS.
+--
+-- Dana is put on free and filled to exactly her limit, then commits a second
+-- walkthrough where nothing can fit. The requirement is not that this succeeds
+-- — it is that it FAILS GENTLY: no exception escapes, no garment is written,
+-- and above all nothing is deleted, because M-08's "keep ten for now" picker
+-- has to be able to offer the user the pieces that did not fit.
+--
+-- Without the staging table this path raises `closet_limit_reached` out of a
+-- BEFORE INSERT trigger, mid-procession, and takes the transaction with it.
+-- ---------------------------------------------------------------------------
+
+update subscriptions
+   set plan = 'free', trial_ends_at = null
+ where user_id = '44444444-4444-4444-8444-444444444444';
+
+-- Fill to exactly the free ceiling. Two are already there from the commit above.
+insert into items (user_id, category, status)
+select '44444444-4444-4444-8444-444444444444', 'top', 'verified'
+  from generate_series(1, item_limit_for_plan('free') - 2);
+
+insert into intake_sessions (id, user_id, status, transcript)
+values ('d0000000-0000-4000-8000-000000000002',
+        '44444444-4444-4444-8444-444444444444',
+        'reviewing', 'a red scarf, brown boots, a denim jacket');
+
+insert into intake_drafts (session_id, user_id, ordinal, utterance, name, slot, colour_term, state)
+values ('d0000000-0000-4000-8000-000000000002','44444444-4444-4444-8444-444444444444',0,
+        'a red scarf','scarf','accessory','red','confirmed'),
+       ('d0000000-0000-4000-8000-000000000002','44444444-4444-4444-8444-444444444444',1,
+        'brown boots','boots','footwear','brown','confirmed'),
+       ('d0000000-0000-4000-8000-000000000002','44444444-4444-4444-8444-444444444444',2,
+        'a denim jacket','jacket','outerwear','denim','confirmed');
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}',
+  true
+);
+
+-- lives_ok, not throws_ok: the whole point is that the ceiling is a return
+-- value here, not an exception.
+select lives_ok(
+  $$select * from commit_intake_session('d0000000-0000-4000-8000-000000000002')$$,
+  'the plan ceiling does not escape as an exception'
+);
+
+select is(
+  (select held from commit_intake_session('d0000000-0000-4000-8000-000000000002')), 3,
+  'all three garments are reported held'
+);
+
+select is(
+  (select count(*)::int from items where user_id = '44444444-4444-4444-8444-444444444444'),
+  item_limit_for_plan('free'),
+  'the closet is still exactly at the ceiling — nothing was forced past it'
+);
+
+select is(
+  (select count(*)::int from intake_drafts
+    where session_id = 'd0000000-0000-4000-8000-000000000002'), 3,
+  'nothing is lost: every held draft is still on the table'
+);
+
+select is(
+  (select count(*)::int from intake_drafts
+    where session_id = 'd0000000-0000-4000-8000-000000000002' and state = 'confirmed'), 3,
+  'and still confirmed, so M-08 can offer them'
+);
+
+select is(
+  (select status from intake_sessions
+    where id = 'd0000000-0000-4000-8000-000000000002'), 'committed',
+  'the session finishes — a full closet is an outcome, not a failure'
 );
 
 reset role;

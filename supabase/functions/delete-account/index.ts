@@ -54,8 +54,17 @@ import type { Database } from '../_shared/database.types.ts';
  * names; a partial run that stops after it has still removed the bulk of what
  * the user asked to be rid of. The order is otherwise arbitrary — each bucket
  * is cleared independently and each is safe to repeat.
+ *
+ * `intake-audio` holds walkthrough recordings, and in the ordinary case holds
+ * nothing at all: `transcribe-intake` deletes on success and `reap_intake_audio`
+ * sweeps hourly. It is listed here anyway, because "in the ordinary case" is
+ * not a guarantee and an account deletion that leaves a recording of someone's
+ * voice behind is the worst bug this app could have
+ * (docs/design/voice-intake-directive.md §8.4). The `intake_sessions` and
+ * `intake_drafts` rows go with the cascade on auth.users; only the objects need
+ * naming here.
  */
-const BUCKETS = ['garments', 'avatars'] as const;
+const BUCKETS = ['garments', 'avatars', 'intake-audio'] as const;
 
 type Bucket = (typeof BUCKETS)[number];
 
@@ -176,7 +185,11 @@ export default {
       // the user uploaded too). `removedByBucket` is additive detail for
       // whoever is reading a failed run; nothing client-side depends on it.
       let removed = 0;
-      const removedByBucket: Record<Bucket, number> = { garments: 0, avatars: 0 };
+      const removedByBucket: Record<Bucket, number> = {
+        garments: 0,
+        avatars: 0,
+        'intake-audio': 0,
+      };
 
       for (const bucket of BUCKETS) {
         try {

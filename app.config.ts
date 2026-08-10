@@ -13,8 +13,11 @@ import type { ExpoConfig } from 'expo/config';
  *  - NSPhotoLibraryUsageDescription is deliberately suppressed. launchImageLibraryAsync
  *    runs out-of-process via PHPickerViewController and needs no photo permission;
  *    declaring an unused key is itself a rejection risk.
- *  - NSMicrophoneUsageDescription is suppressed. A wardrobe app has no business
- *    declaring microphone access.
+ *  - NSMicrophoneUsageDescription WAS suppressed on the grounds that a wardrobe
+ *    app has no business declaring microphone access. Voice intake changes
+ *    that: describing your closet out loud is the reason the key now exists.
+ *    It is declared below, and it must not ship in a build that cannot record —
+ *    an unused permission string is the rejection risk this list is about.
  *  - NSLocationAlwaysAndWhenInUseUsageDescription must never appear, and `location`
  *    must never enter UIBackgroundModes. Both invite a justification we cannot meet.
  */
@@ -159,6 +162,13 @@ const config: ExpoConfig = {
       // owns the key and runs later. See MOTION_USAGE_DESCRIPTION above and the
       // `motionUsagePermission` entry in the expo-location plugin block.
       NSMotionUsageDescription: MOTION_USAGE_DESCRIPTION,
+
+      // Voice intake. Written in the app's voice rather than boilerplate,
+      // because this string is read at the moment of the ask and "Cinch would
+      // like to access the microphone" answers none of the question the user is
+      // actually asking, which is why.
+      NSMicrophoneUsageDescription:
+        'So you can describe your closet out loud instead of photographing it.',
     },
 
     /**
@@ -208,6 +218,27 @@ const config: ExpoConfig = {
           NSPrivacyCollectedDataTypePurposes: [
             'NSPrivacyCollectedDataTypePurposeAppFunctionality',
             'NSPrivacyCollectedDataTypePurposeProductPersonalization',
+          ],
+        },
+        {
+          // Voice intake. The recording is uploaded, transcribed by a
+          // third-party model and deleted on success — but "collected" is about
+          // whether it leaves the device, not how long it is kept, so this is
+          // Yes and linked.
+          //
+          // DO NOT SHIP THIS IN A BUILD WITHOUT VOICE INTAKE. Declaring a data
+          // type the app does not collect is the same class of mismatch as
+          // failing to declare one it does, and this file's own header says a
+          // mismatch is a review hold. It lands with the build that adds
+          // expo-audio, not before.
+          //
+          // App Functionality only: unlike the photographs, a recording is
+          // never used to personalise anything. It is transcribed and destroyed.
+          NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeAudioData',
+          NSPrivacyCollectedDataTypeLinked: true,
+          NSPrivacyCollectedDataTypeTracking: false,
+          NSPrivacyCollectedDataTypePurposes: [
+            'NSPrivacyCollectedDataTypePurposeAppFunctionality',
           ],
         },
         {
