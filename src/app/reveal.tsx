@@ -203,8 +203,10 @@ export default function RevealScreen() {
               occasion={context.events[0]?.title ?? null}
               colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
               resolveImage={resolve}
-              onWear={() => {}}
-              onReact={() => {}}
+              /* No love / not-for-me / worn here. There is no day to mark as
+                 worn yet, and the reader has not entered the app — the pills
+                 used to render live on this screen and swallow every tap. */
+              preview
             />
           </View>
           <View className="px-gutter">

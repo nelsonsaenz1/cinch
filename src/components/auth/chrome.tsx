@@ -55,8 +55,24 @@ export const atlas = {
 export const MAX_DISPLAY_SCALE = 1.4;
 export const MAX_TEXT_SCALE = 1.8;
 
-export const PRIVACY_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy';
-export const TERMS_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/terms';
+/**
+ * The two legal documents, on the real domain.
+ *
+ * These pointed at the raw `*.vercel.app` deployment host until now, which
+ * meant the app shipped TWO privacy URLs: this one on the sign-up consent
+ * line, and `cinchstyle.com/privacy` in Settings (profile.tsx). Both served
+ * the same page, so nothing looked broken — but the preview host is a
+ * deployment artifact, not an address. Rename the Vercel project, transfer it
+ * to a team, or turn on deployment protection, and the consent line 404s
+ * while Settings keeps working.
+ *
+ * That is the link a reviewer taps before they have an account, and it is the
+ * URL a user is agreeing to when they tap Continue, so it has to be the
+ * durable one. `cinchstyle.com` is where `app.config.ts` already points the
+ * universal links and where `features/invite/link.ts` builds every invite.
+ */
+export const PRIVACY_URL = 'https://cinchstyle.com/privacy';
+export const TERMS_URL = 'https://cinchstyle.com/terms';
 
 /**
  * The paper screens' header row: back chevron left, wordmark centred — or the

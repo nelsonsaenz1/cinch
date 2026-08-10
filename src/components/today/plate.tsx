@@ -397,6 +397,18 @@ function WearButton({
  * existence, from a closet they can see is real, are — and the love / not-for-me
  * / worn actions.
  */
+/**
+ * The action row is all-or-nothing, and the type says so.
+ *
+ * A plate either takes both handlers, or declares itself a preview and takes
+ * neither. There is no third shape, because the third shape is the bug:
+ * handlers that exist and do nothing, under pills that look live. Expressed as
+ * a union so the compiler rejects it instead of a reviewer having to spot it.
+ */
+type PlateActions =
+  | { preview: true; onWear?: never; onReact?: never }
+  | { preview?: false; onWear: () => void; onReact: (value: ReactionValue) => void };
+
 export function Plate({
   outfit,
   index,
@@ -411,6 +423,7 @@ export function Plate({
   worn,
   enhancing,
   offline = false,
+  preview = false,
   repeat = null,
 }: {
   outfit: StyledOutfit;
@@ -420,8 +433,6 @@ export function Plate({
   occasion?: string | null;
   colophon: PlateColophon;
   resolveImage: (...paths: (string | null | undefined)[]) => string | undefined;
-  onWear: () => void;
-  onReact: (value: ReactionValue) => void;
   reacted?: ReactionValue | null;
   wearing?: boolean;
   /** The wear write came back with an error and has not been retried. */
@@ -437,6 +448,24 @@ export function Plate({
    * than shown dead. Default false: every online caller is unchanged.
    */
   offline?: boolean;
+  /**
+   * The preview cut: the full card — reasoning, palette, cost per wear — with
+   * the action row dropped.
+   *
+   * Same rule the `offline` cut follows, for a different reason. Offline drops
+   * love / not-for-me / worn because the network cannot carry them. Preview
+   * drops them because the caller is showing the card somewhere the reaction
+   * has nowhere to go: the Reveal renders "Plate 01 · the first one" before
+   * the reader has entered the app, and there is no day yet to mark as worn.
+   *
+   * Until this existed the Reveal passed `onWear={() => {}} onReact={() => {}}`
+   * and the pills rendered fully live — tappable, haptic on press, and doing
+   * nothing at all. A dead control on the last screen of onboarding is worse
+   * than an absent one, and the props union below is what stops it coming
+   * back: a plate is either a preview and takes no handlers, or it is live and
+   * must have both.
+   */
+  preview?: boolean;
   /**
    * The Repeat (Directive 5) — real previous wears of this exact core, when
    * there are any. Null on every plate that is not a repeat, and always null
@@ -455,7 +484,7 @@ export function Plate({
      * preview happens to be opened. */
     now?: Date;
   } | null;
-}) {
+} & PlateActions) {
   const theme = useTheme();
   const reduced = useReducedMotion();
 
@@ -707,48 +736,59 @@ export function Plate({
                    The bar owns the whole row so it can stand the wear action
                    down while the reason chooser is open; `layout` carries the
                    one height change that composition still allows. ── */}
-            <Animated.View
-              layout={reduced ? undefined : LinearTransition.springify()}
-              // Inline, not `mt-3.5`: NativeWind classes do not reach
-              // Reanimated components in this project.
-              style={{ marginTop: 14 }}>
-              <ReactionBar
-                onReact={onReact}
-                reacted={reacted}
-                disabled={wearing}
-                trailing={
-                  wearFailed ? null : (
-                    <WearButton worn={Boolean(worn)} wearing={Boolean(wearing)} onPress={onWear} />
-                  )
-                }
-              />
+            {/* The non-null assertions are sound and narrow: `PlateActions`
+                makes both handlers required whenever `preview` is not true,
+                and this whole block is unreachable when it is. TypeScript
+                cannot narrow a destructured union, so the invariant is stated
+                here rather than proved. */}
+            {preview ? null : (
+              <Animated.View
+                layout={reduced ? undefined : LinearTransition.springify()}
+                // Inline, not `mt-3.5`: NativeWind classes do not reach
+                // Reanimated components in this project.
+                style={{ marginTop: 14 }}>
+                <ReactionBar
+                  onReact={onReact!}
+                  reacted={reacted}
+                  disabled={wearing}
+                  trailing={
+                    wearFailed ? null : (
+                      <WearButton
+                        worn={Boolean(worn)}
+                        wearing={Boolean(wearing)}
+                        onPress={onWear!}
+                      />
+                    )
+                  }
+                />
               {/* A failed wear is the one thing on this card that must not go
                   quiet: `wear_count` and cost-per-wear are the numbers the
                   product is about. Full width, in the grammar the reaction
                   bar's own failure used to use, so the retry is unmissable. */}
-              {wearFailed ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Wear not logged. Tap to try again."
-                  accessibilityLiveRegion="polite"
-                  onPress={() => {
-                    void Haptics.selectionAsync().catch(() => {});
-                    onWear();
-                  }}
-                  style={{ minHeight: MIN_TAP_TARGET - 4 }}
-                  className="mt-2 flex-row items-center justify-center gap-2 rounded-md border border-rule px-3 active:opacity-70">
-                  <SymbolView
-                    name="arrow.clockwise"
-                    size={14}
-                    tintColor={theme.critical}
-                    resizeMode="scaleAspectFit"
-                  />
-                  <Text variant="label" className="font-medium" style={{ color: theme.critical }}>
-                    Couldn&rsquo;t log — retry
-                  </Text>
-                </Pressable>
-              ) : null}
-            </Animated.View>
+                {wearFailed ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Wear not logged. Tap to try again."
+                    accessibilityLiveRegion="polite"
+                    onPress={() => {
+                      void Haptics.selectionAsync().catch(() => {});
+                      onWear!();
+                    }}
+                    style={{ minHeight: MIN_TAP_TARGET - 4 }}
+                    className="mt-2 flex-row items-center justify-center gap-2 rounded-md border border-rule px-3 active:opacity-70">
+                    <SymbolView
+                      name="arrow.clockwise"
+                      size={14}
+                      tintColor={theme.critical}
+                      resizeMode="scaleAspectFit"
+                    />
+                    <Text variant="label" className="font-medium" style={{ color: theme.critical }}>
+                      Couldn&rsquo;t log — retry
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </Animated.View>
+            )}
           </>
         )}
       </View>
