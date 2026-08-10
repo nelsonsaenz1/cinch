@@ -14,7 +14,7 @@ import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { MIN_TAP_TARGET, motion, useTheme, type ThemeColors } from '@/theme/tokens';
 
-type Variant = 'primary' | 'ink' | 'secondary' | 'ghost' | 'critical';
+type Variant = 'primary' | 'ink' | 'secondary' | 'ghost' | 'critical' | 'inverse';
 
 /**
  * How a disabled button looks.
@@ -68,6 +68,18 @@ function ground(variant: Variant, theme: ThemeColors): ViewStyle {
   // being undone was ever public. Two units hand-built this fill independently
   // before it lived here.
   if (variant === 'critical') return { ...base, backgroundColor: theme.critical };
+  // The action on an ink ground — a canvas pill with an ink label.
+  //
+  // Every other variant fails there and fails silently: `ink` disappears into
+  // the ground, `secondary`'s `rule` outline is invisible on it, `ghost` is
+  // unreadable, and `primary` would be oxblood-on-ink AND spend the screen's
+  // one accent on a "Next". The tour built this by hand before it lived here,
+  // which is the signal that it belonged in the kit.
+  //
+  // Rationed like the ground it sits on: the ink ground appears on the tour's
+  // first frame and nowhere else, so this variant has exactly as many correct
+  // uses as there are dark grounds in the app.
+  if (variant === 'inverse') return { ...base, backgroundColor: theme.canvas };
   return base;
 }
 
@@ -86,6 +98,7 @@ const labelKey: Record<Variant, 'canvas' | 'ink' | 'muted'> = {
   secondary: 'ink',
   ghost: 'muted',
   critical: 'canvas',
+  inverse: 'ink',
 };
 
 export type ButtonProps = Omit<PressableProps, 'children' | 'style'> & {

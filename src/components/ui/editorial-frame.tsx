@@ -32,9 +32,10 @@ export function EditorialFrame({
   /** The frame number spelled out, then the subject — "One · The promise". */
   eyebrow,
   /**
-   * Two or three words a line. The atlas sets it at 56px, which is `display`,
-   * and calls it "the largest type anywhere in the app" — so nothing else may
-   * reach for this variant.
+   * Two or three words a line, set in the `spread` step — 56px, the size the
+   * atlas asks for and calls "the largest type anywhere in the app". That
+   * claim is only true while nothing else reaches for it, which is why the
+   * step exists for this component alone. See the note in tailwind.config.js.
    */
   headline,
   /** 17/1.55, and never past three lines. Brevity is the specification. */
@@ -88,7 +89,7 @@ export function EditorialFrame({
             </Text>
           ) : null}
 
-          <Text variant="display" trim style={{ color: loud }}>
+          <Text variant="spread" trim style={{ color: loud }}>
             {headline}
           </Text>
 

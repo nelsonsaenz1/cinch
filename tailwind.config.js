@@ -134,6 +134,20 @@ module.exports = {
       fontSize: {
         // ── Instrument Serif (display + big data figures) ──────────────────
         wordmark: [`64px`, { lineHeight: `${leading('instrument', 64, 1.05)}px`, letterSpacing: '-0.6px' }],
+        // The first-run tour's headline, and NOTHING else.
+        //
+        // Atlas 36 is unusually precise and says why: "Instrument Serif, 56px,
+        // line-height 1.04, two or three words a line. It is the largest type
+        // anywhere in the app." That last clause is the whole point of the
+        // tour — three spreads visibly bigger than everything that follows —
+        // and it stays true only for as long as nothing else reaches for this
+        // step. Same rationing rule the ink ground lives under: the moment a
+        // second screen uses it, it stops meaning anything.
+        //
+        // 1.04 rather than `display`'s 1.05 because the atlas asks for it and
+        // `leading()` clamps up to the face's floor anyway, so the tighter
+        // ratio cannot clip a glyph.
+        spread: [`56px`, { lineHeight: `${leading('instrument', 56, 1.04)}px`, letterSpacing: '-0.5px' }],
         display: [`40px`, { lineHeight: `${leading('instrument', 40, 1.05)}px`, letterSpacing: '-0.3px' }],
         title: [`28px`, { lineHeight: `${leading('instrument', 28, 1.08)}px`, letterSpacing: '-0.15px' }],
         // The plate title — the serif at a compact size.

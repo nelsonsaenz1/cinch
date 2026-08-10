@@ -19,6 +19,7 @@ const tw = require('../tailwind.config.js');
 /** Which family each token is rendered in. See src/components/ui/text.tsx. */
 const FACE_OF: Record<string, FaceName> = {
   wordmark: 'instrument',
+  spread: 'instrument',
   display: 'instrument',
   title: 'instrument',
   plate: 'instrument',

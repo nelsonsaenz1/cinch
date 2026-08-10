@@ -4,6 +4,7 @@ import { capTrim, leading } from '@/theme/font-metrics';
 
 type Variant =
   | 'wordmark'
+  | 'spread'
   | 'display'
   | 'title'
   | 'plate'
@@ -37,6 +38,8 @@ type Variant =
 const variants: Record<Variant, string> = {
   // Instrument Serif — display only.
   wordmark: 'font-display text-wordmark text-ink',
+  /** The first-run tour's headline, and nothing else. See tailwind.config.js. */
+  spread: 'font-display text-spread text-ink',
   display: 'font-display text-display text-ink',
   title: 'font-title text-title text-ink',
   plate: 'font-title text-plate text-ink',
@@ -108,6 +111,7 @@ const variants: Record<Variant, string> = {
  */
 const TRIMS: Partial<Record<Variant, { marginTop: number; marginBottom: number }>> = {
   wordmark: capTrim('instrument', 64, leading('instrument', 64, 1.05)),
+  spread: capTrim('instrument', 56, leading('instrument', 56, 1.04)),
   display: capTrim('instrument', 40, leading('instrument', 40, 1.05)),
   title: capTrim('instrument', 28, leading('instrument', 28, 1.08)),
   plate: capTrim('instrument', 24, leading('instrument', 24, 1.08)),
@@ -123,6 +127,7 @@ export type TextProps = RNTextProps & {
 export function Text({ variant = 'body', className = '', trim = false, style, ...rest }: TextProps) {
   const isDisplay =
     variant === 'wordmark' ||
+    variant === 'spread' ||
     variant === 'display' ||
     variant === 'title' ||
     variant === 'plate' ||
