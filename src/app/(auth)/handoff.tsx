@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { atlas, MAX_DISPLAY_SCALE, MAX_TEXT_SCALE } from '@/components/auth/chrome';
 import { greetingForHour } from '@/features/auth/greeting';
+import { useTourGate } from '@/features/onboarding/tour-queries';
+import { shouldShowTour } from '@/features/onboarding/tour-state';
 import { supabase } from '@/lib/supabase';
 
 const HANDOFF_PHOTO = require('../../../assets/garments/cream-mohair-sweater.jpg');
@@ -44,6 +46,12 @@ export default function HandoffScreen() {
   // of being greeted namelessly. The beat below waits for this to resolve.
   const [name, setName] = useState<string | null>(params.name?.trim() || null);
   const [resolved, setResolved] = useState(Boolean(params.name?.trim()));
+
+  // Read alongside the greeting, not after it. This is the single funnel every
+  // sign-in path ends at — email, returning, Apple, and the root gate's own
+  // catch-all — which is what makes it the one place the tour can be offered
+  // "once, ever" without a profile read in front of every cold start.
+  const tourGate = useTourGate();
   useEffect(() => {
     if (resolved) return;
     let cancelled = false;
@@ -80,13 +88,22 @@ export default function HandoffScreen() {
   // screen never races the timer.
   const progress = useSharedValue(reduced ? 1 : 0);
   useEffect(() => {
-    if (!resolved) return;
+    // Two reads gate the beat, not one. The greeting has always held it; the
+    // tour gate joins it because `shouldShowTour` answers false while the read
+    // is still in flight — correctly, since it cannot know — and a timer that
+    // fires first would send a brand-new account straight past the tour it is
+    // only ever offered once. The two reads run in parallel, so waiting for
+    // both costs nothing in practice.
+    if (!resolved || tourGate.status === 'loading') return;
     const beat = reduced ? REDUCED_BEAT_MS : isNew ? NEW_BEAT_MS : RETURNING_BEAT_MS;
     if (!reduced) progress.value = withTiming(1, { duration: beat - 150 });
-    const id = setTimeout(() => router.replace('/(tabs)'), beat);
+    const id = setTimeout(
+      () => router.replace(shouldShowTour(tourGate) ? '/tour' : '/(tabs)'),
+      beat,
+    );
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolved]);
+  }, [resolved, tourGate.status]);
   const fillStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
   const greeting = greetingForHour(new Date().getHours());

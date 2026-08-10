@@ -15,6 +15,7 @@ import { Text } from '@/components/ui/text';
 import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
 import { useSession } from '@/features/auth/use-session';
 import { Superwall } from '@/features/billing/superwall';
+import { useReportTimeZone } from '@/features/push/time-zone';
 import { Analytics, identifyUser, useScreenTracking } from '@/lib/posthog';
 import {
   persistBuster,
@@ -206,6 +207,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   usePersistedCachePurge();
   useAnalyticsIdentity();
+  // The reader's IANA zone, written on every launch with a session. The morning
+  // edit and the event reminder fire on THEIR clock, and the server has no
+  // other way to know it. See features/push/time-zone.ts — deliberately not
+  // gated on push existing, so the first notification after a store build has
+  // a schedule to fire on.
+  useReportTimeZone();
 
   const [fontsLoaded, fontError] = useFonts({
     // The display face — the whole app is set in one weight of one serif. Only
@@ -335,6 +342,41 @@ export default function RootLayout() {
                     mounted underneath. */}
                 <Stack.Screen
                   name="privacy"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
+                {/* Notifications is Privacy's sibling: both are reached from
+                    Profile, which is itself a sheet, and a plain push would
+                    stack a card on top of one. Same options deliberately —
+                    they are the same kind of detour and should feel like it.
+
+                    Registered unconditionally. The route is unreachable on a
+                    binary without push because Profile does not draw the row
+                    (NOTIFICATION_SETTINGS_AVAILABLE), and a Stack.Screen for a
+                    route nobody navigates to costs nothing. */}
+                <Stack.Screen
+                  name="notifications"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
+                {/* The wear diary, in the same dialect and for the same reason
+                    — it is reached from Profile, and a card pushed from inside
+                    a sheet stacks a page on top of a sheet. `diary/[id]` is
+                    pushed from the diary and inherits this presentation, which
+                    is what keeps the entry inside the same object rather than
+                    escaping it. */}
+                <Stack.Screen
+                  name="diary"
                   options={{
                     presentation: 'formSheet',
                     sheetAllowedDetents: [1],

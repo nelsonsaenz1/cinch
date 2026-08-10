@@ -82,37 +82,6 @@ export function useWearAgain() {
 }
 
 /**
- * WD-03's second action — keep this look as a plate.
- *
- * A plain `saved_at` stamp on the row that is already on screen. No board is
- * chosen here: boards belong to the Saved plates screen, and a picker in the
- * diary would be a second place to learn the same grammar. Idempotent by
- * omission — a row that is already kept keeps its original timestamp, so
- * tapping twice cannot move a plate to the top of the saved set.
- */
-export function useKeepEntry() {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ entryId }: { entryId: string }): Promise<void> => {
-      const userId = await closetUserId();
-      if (!userId) throw new Error("Couldn't confirm your session.");
-
-      const { error } = await supabase
-        .from('outfits')
-        .update({ saved_at: new Date().toISOString() })
-        .eq('id', entryId)
-        .eq('user_id', userId)
-        .is('saved_at', null);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: DIARY_KEY });
-    },
-  });
-}
-
-/**
  * The note — the one thing that stays editable after the day has passed.
  *
  * A plain update to `outfits.note`, bounded at 500 characters by a check

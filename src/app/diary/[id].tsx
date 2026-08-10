@@ -4,15 +4,13 @@ import { Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ErrorState } from '@/components/ui/error-state';
+import { KeepSheet } from '@/components/boards/keep-sheet';
+import { useCreateBoard, useKeepPlate } from '@/features/boards/mutations';
+import { useLookbook } from '@/features/boards/use-lookbook';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { EntryMissing, EntryPage, EntrySkeleton } from '@/features/diary/entry-page';
 import { groupByMonth, isCorrectable, postgresCode, unwearRefusal } from '@/features/diary/entry';
-import {
-  useKeepEntry,
-  useSetEntryNote,
-  useUnwearEntry,
-  useWearAgain,
-} from '@/features/diary/mutations';
+import { useSetEntryNote, useUnwearEntry, useWearAgain } from '@/features/diary/mutations';
 import { NoteSheet } from '@/features/diary/note-sheet';
 import { useDiary } from '@/features/diary/queries';
 import type { DiaryPiece } from '@/features/diary/types';
@@ -37,9 +35,28 @@ export default function DiaryEntryScreen() {
   const diary = useDiary();
 
   const wearAgain = useWearAgain();
-  const keep = useKeepEntry();
   const setNote = useSetEntryNote();
   const unwear = useUnwearEntry();
+
+  /**
+   * Keeping goes through the boards Keep sheet (KP-04), not a bare `saved_at`
+   * stamp.
+   *
+   * The sheet's own specification is "raised from any plate", and until this
+   * caller existed it had none — it shipped built, exported and unreachable,
+   * which meant nothing could enter the collection at all. A diary entry IS a
+   * plate at full size, so this is the sheet's natural first caller: wear a
+   * look, open the day, keep it.
+   *
+   * It also matters that the board picker comes with it. A stamp with no board
+   * would teach the reader that keeping is boardless, and then KP-04 would be
+   * a second grammar for the same act.
+   */
+  const lookbook = useLookbook();
+  const keep = useKeepPlate();
+  const createBoard = useCreateBoard();
+  const [keeping, setKeeping] = useState(false);
+  const [keepBoardId, setKeepBoardId] = useState<string | null>(null);
 
   const [editingNote, setEditingNote] = useState(false);
   const [noteError, setNoteError] = useState<string | null>(null);
@@ -138,13 +155,8 @@ export default function DiaryEntryScreen() {
         wearingAgain={wearAgain.isPending}
         onKeep={() => {
           setActionError(null);
-          keep.mutate(
-            { entryId: entry.id },
-            {
-              onError: () =>
-                setActionError('Cinch couldn’t keep this plate. The entry itself is untouched.'),
-            },
-          );
+          setKeepBoardId(null);
+          setKeeping(true);
         }}
         keeping={keep.isPending}
         onEditNote={() => {
@@ -155,6 +167,44 @@ export default function DiaryEntryScreen() {
         onRemove={confirmRemove}
         removing={unwear.isPending}
         error={actionError}
+      />
+
+      <KeepSheet
+        visible={keeping}
+        mode="keep"
+        boards={lookbook.boards.map((b) => ({
+          id: b.id,
+          name: b.name,
+          plateCount: lookbook.plateCountFor(b.id),
+        }))}
+        selectedBoardId={keepBoardId}
+        onSelectBoard={setKeepBoardId}
+        onCreateBoard={(name) =>
+          createBoard.mutate(
+            { name },
+            {
+              // The sheet's contract: the caller creates it AND selects it, so
+              // a reader who types a board name does not then have to find it
+              // in the list they just grew.
+              onSuccess: (boardId) => setKeepBoardId(boardId),
+              onError: () =>
+                setActionError('That board wasn’t created. Nothing else has changed.'),
+            },
+          )
+        }
+        creating={createBoard.isPending}
+        busy={keep.isPending}
+        onCommit={() =>
+          keep.mutate(
+            { target: { kind: 'outfit', outfitId: entry.id }, boardId: keepBoardId },
+            {
+              onSuccess: () => setKeeping(false),
+              onError: () =>
+                setActionError('Cinch couldn’t keep this plate. The entry itself is untouched.'),
+            },
+          )
+        }
+        onDismiss={() => setKeeping(false)}
       />
 
       <NoteSheet

@@ -164,10 +164,25 @@ export function useWearOutfit() {
       candidate,
       context,
       reasoning,
+      origin = null,
     }: {
       candidate: OutfitCandidate;
       context: unknown;
       reasoning: string;
+      /**
+       * The kept plate this wearing came out of, when there was one.
+       *
+       * This is the ONLY moment the lineage can be recorded. Every confirm
+       * inserts a fresh `outfits` row — which is right, a wear is an event and
+       * two wearings are two events — so a kept plate has no way to find the
+       * wears that came out of it unless the pointer is written here.
+       * `count(*) where origin_outfit_id = <plate>` is what makes KP-01's
+       * "worn 6×" a fact rather than a wish, and it cannot be backfilled.
+       *
+       * Null for a look the stylist proposed this morning, which is most of
+       * them: nothing came before it.
+       */
+      origin?: string | null;
     }) => {
       const userId = await getUserId();
       if (!userId) throw new Error('Not signed in.');
@@ -184,6 +199,7 @@ export function useWearOutfit() {
         p_reasoning: reasoning,
         p_context: context ?? null,
         p_source: 'ai',
+        p_origin: origin,
       });
 
       opIds.settle(actionKey);

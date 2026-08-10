@@ -18,6 +18,7 @@ import { Card } from '@/components/ui/card';
 import { Rule } from '@/components/ui/rule';
 import { SectionHeader } from '@/components/ui/section-header';
 import { SettingsRow } from '@/components/ui/settings-row';
+import { NOTIFICATION_SETTINGS_AVAILABLE } from '@/features/push';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { signOut } from '@/features/auth/actions';
@@ -421,6 +422,16 @@ export default function ProfileScreen() {
             </>
           )}
 
+          {/* The two readings of the same table, and the reason wave 5 exists:
+              a wear is an `outfits` row with `worn_at`, a kept plate is one
+              with `saved_at`. They live together here because they are both
+              "what you have done", as distinct from Styling below, which is
+              what the app does. */}
+          <SectionHeader title="Your record" className="mb-2.5 mt-6" />
+          <Card>
+            <SettingsRow label="Wear diary" onPress={() => router.push('/diary')} />
+          </Card>
+
           <SectionHeader title="Styling" className="mb-2.5 mt-6" />
           <Card>
             {/* Decorative, not a preference: the beam search over the closet
@@ -457,9 +468,11 @@ export default function ProfileScreen() {
             />
           </Card>
 
-          {/* "People", not the mock's "People & notifications" — no
-              notification settings exist in the app, and a kicker promising
-              them over rows that don't deliver is a small lie. */}
+          {/* Still "People", not the mock's "People & notifications". The
+              Notifications row below is now real, but it is real only on a
+              binary that has the push module — see the comment on it — and a
+              section kicker that changes with the build is worse than one that
+              simply says less. */}
           <SectionHeader title="People" className="mb-2.5 mt-6" />
           <Card>
             <SettingsRow label="Friends" onPress={() => router.push('/friends')} />
@@ -474,6 +487,30 @@ export default function ProfileScreen() {
               label="Blocked people"
               onPress={() => router.push('/friends/blocked')}
             />
+            {/* Notifications, on the builds that can send them.
+                `NOTIFICATION_SETTINGS_AVAILABLE` is a plain boolean resolved
+                once at module scope — a binary either carries the push module
+                or it does not, and that cannot change mid-session.
+
+                This is the whole reason wave 5 could ship over the air onto a
+                binary that has no push: on that binary the flag is false, this
+                row is absent, no token is registered, and no permission is
+                ever asked for. Nothing dead ships. The same bundle grows the
+                row the moment it runs on a build that was cut with the
+                module. See docs/design/diary-boards-activity-contract.md §6.2.
+
+                Restore purchases, three cards down, is the same pattern for
+                the same reason — a row whose destination cannot work is a dead
+                end wearing a chevron. */}
+            {NOTIFICATION_SETTINGS_AVAILABLE ? (
+              <>
+                <Rule tone="hairline" />
+                <SettingsRow
+                  label="Notifications"
+                  onPress={() => router.push('/notifications')}
+                />
+              </>
+            ) : null}
           </Card>
 
           {/* The utility card — no kicker, per the atlas: these rows serve

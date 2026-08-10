@@ -1307,6 +1307,7 @@ export type Database = {
           stat_pieces_hidden: boolean
           stat_wears_hidden: boolean
           style_tags: string[]
+          time_zone: string | null
           toured_at: string | null
           units: string
           updated_at: string
@@ -1340,6 +1341,7 @@ export type Database = {
           stat_pieces_hidden?: boolean
           stat_wears_hidden?: boolean
           style_tags?: string[]
+          time_zone?: string | null
           toured_at?: string | null
           units?: string
           updated_at?: string
@@ -1373,6 +1375,7 @@ export type Database = {
           stat_pieces_hidden?: boolean
           stat_wears_hidden?: boolean
           style_tags?: string[]
+          time_zone?: string | null
           toured_at?: string | null
           units?: string
           updated_at?: string

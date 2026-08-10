@@ -30,6 +30,7 @@ import { exhaustionProgress, wearsOfCore } from '@/features/styling/repeat';
 import { canGenerate, MIN_CLOSET_FOR_OUTFITS, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits, type StyledOutfit } from '@/features/styling/use-outfits';
 import { useWornOutfits } from '@/features/styling/use-worn-outfits';
+import { useHasUnseenActivity } from '@/features/activity/queries';
 import {
   DEFAULT_WEIGHTS,
   EMPTY_AFFINITIES,
@@ -179,6 +180,63 @@ function StylistButton() {
 }
 
 /**
+ * The door to Activity, and the only badge in the app.
+ *
+ * AV-02 states the rule as a promise to the reader: "Requests, borrows,
+ * invitations and votes land here. When one does, you will see a dot on Today
+ * — and nowhere else." So the dot is here and the tab bar stays clean; a
+ * second badge on the tab icon would make the sentence false by addition.
+ *
+ * A DOT, never a number. The atlas refuses counts three separate times — "the
+ * tab shows a dot, never a number", "nothing here is scored", "no unread pill
+ * on each row" — and `useHasUnseenActivity` returns a boolean for exactly that
+ * reason: there is no count to render even if someone later wanted one.
+ *
+ * `tray.full`, not a bell. The atlas's empty state specifically refuses "a
+ * zero-state illustration of a bell ringing", and a bell is a promise of
+ * interruption that this page does not make — nothing here rings, it waits.
+ *
+ * Same 34pt-with-8pt-hitSlop geometry as its two neighbours, so the three
+ * chips read as one row of doors rather than three sizes of importance.
+ */
+function ActivityButton() {
+  const router = useRouter();
+  const theme = useTheme();
+  const unseen = useHasUnseenActivity();
+
+  return (
+    <Pressable
+      onPress={() => router.navigate('/activity')}
+      accessibilityRole="button"
+      accessibilityLabel={unseen ? 'Activity, something waiting' : 'Activity'}
+      hitSlop={8}
+      style={{ width: 34, height: 34 }}
+      className="items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
+      <SymbolView name="tray.full" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
+      {unseen ? (
+        // Oxblood, and this is the one place it is spent on Today. It is the
+        // accent's actual job — "the one thing to attend to" — and the plate's
+        // own actions below are ink, so nothing competes with it.
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 1,
+            right: 1,
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: theme.accent,
+            borderWidth: 1.5,
+            borderColor: theme.canvas,
+          }}
+        />
+      ) : null}
+    </Pressable>
+  );
+}
+
+/**
  * The page header: the day and place as a tracked eyebrow, and a serif greeting.
  *
  * No rule under it. The design sets the greeting, the weather line and the
@@ -205,6 +263,7 @@ export function Masthead({ city, name }: { city: string; name?: string | null })
           </View>
         </View>
         <View className="flex-row gap-2" style={{ marginTop: 2 }}>
+          <ActivityButton />
           <StylistButton />
           <Pressable
             onPress={() => router.navigate('/profile')}
