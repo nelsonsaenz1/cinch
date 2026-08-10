@@ -1,0 +1,73 @@
+/* Press page. Extends styles.css; mirrors home.css's locked light palette so the
+   page a journalist opens looks like the app it describes, not like the policy
+   pages. No inline styles anywhere — the site CSP is style-src 'self'. */
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/fonts/instrument-serif-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+body.press {
+  --canvas: #fbfaf6;
+  --tray: #f0ece3;
+  --ink: #1c1a16;
+  --muted: #6b665c;
+  --hairline: #e3e0d8;
+  --accent: #6e2b2b;
+  --sand: #eae5db;
+  font-family: ui-sans-serif, -apple-system, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.62;
+}
+
+.press .wrap { max-width: 52rem; }
+
+.press .eyebrow {
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 0.9rem;
+}
+.press h1 {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400; font-size: 3.4rem; line-height: 1.03;
+  letter-spacing: -0.01em; margin: 0 0 1.1rem;
+}
+.press h2 {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400; font-size: 1.85rem; line-height: 1.2;
+  margin: 3.2rem 0 0.6rem;
+}
+.press .lede { font-size: 1.24rem; line-height: 1.5; max-width: 40ch; margin: 0 0 0.5rem; }
+.press p { max-width: 62ch; }
+.press hr { border: 0; height: 1px; background: var(--hairline); margin: 2.6rem 0 0; }
+
+.press dl { display: grid; grid-template-columns: 11rem 1fr; gap: 0.6rem 1.4rem; margin: 1.2rem 0 0; font-size: 0.95rem; }
+.press dt { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); padding-top: 0.28rem; }
+.press dd { margin: 0; }
+
+.press ul { padding-left: 1.1rem; max-width: 62ch; }
+.press li { margin: 0 0 0.55rem; }
+
+.press .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 1rem; margin: 1.3rem 0 0; }
+.press figure { margin: 0; }
+.press figure img { width: 100%; border: 1px solid var(--hairline); border-radius: 0.6rem; display: block; }
+.press figcaption { font-size: 0.78rem; color: var(--muted); margin: 0.5rem 0 0; line-height: 1.4; }
+
+.press blockquote {
+  margin: 1.3rem 0; padding: 0 0 0 1.2rem; border-left: 2px solid var(--accent);
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: 1.4rem; line-height: 1.35; font-style: italic; max-width: 34ch;
+}
+
+.press .note { background: var(--sand); border-radius: 0.7rem; padding: 1.1rem 1.3rem; font-size: 0.92rem; color: var(--muted); margin: 1.5rem 0 0; }
+.press .note p { margin: 0; max-width: none; }
+
+.press code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; background: var(--tray); padding: 0.1em 0.35em; border-radius: 0.25rem; }
+
+@media (max-width: 40rem) {
+  .press h1 { font-size: 2.3rem; }
+  .press dl { grid-template-columns: 1fr; gap: 0.15rem 0; }
+  .press dd { margin: 0 0 0.85rem; }
+}
