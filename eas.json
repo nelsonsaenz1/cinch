@@ -43,7 +43,8 @@
         "EXPO_PUBLIC_POSTHOG_HOST": "https://us.i.posthog.com",
         "EXPO_PUBLIC_SUPABASE_URL": "https://dugizuswuebrmcmvinmi.supabase.co",
         "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_P-m5AyqQSi19mFWq--6nfw_UES1ECxZ",
-        "EXPO_PUBLIC_SUPERWALL_API_KEY_IOS": "pk_CPhqGhB3IX5sU3ayNmhRD"
+        "EXPO_PUBLIC_SUPERWALL_API_KEY_IOS": "pk_CPhqGhB3IX5sU3ayNmhRD",
+        "CINCH_VOICE_INTAKE": "1"
       }
     }
   },
