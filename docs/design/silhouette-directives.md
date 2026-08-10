@@ -40,12 +40,12 @@ runtime; the SVG ships with a placeholder fill. Every silhouette feature that ca
 in the outline **must** live in the outline: necklines are cut into the top edge,
 open fronts are shaped into the perimeter, a hem's flare is the path widening.
 
-**The interpretation you need before you start.** §5.C says *"no internal shading or
-highlights."* Read literally as "no internal marks at all", four of these shapes stop
-being distinguishable — a button-down's placket, a jean's yoke, a sneaker's sole and a
-clutch's flap are structural, not decorative.
+**This is settled — draw to it.** §5.C says *"no internal shading or highlights."* Read
+literally as "no internal marks at all", four of these shapes stop being
+distinguishable — a button-down's placket, a jean's yoke, a sneaker's sole and a
+clutch's flap are structural, not decorative. Ruled on 2026-08-10: **structure stays.**
 
-**So: shading and highlights are banned; structure is not.** Each shape gets an
+**Shading and highlights are banned; structure is not.** Each shape gets an
 **internal line budget of at most two** strokes, same 1px `rule` as the outline, and
 only where §§2–8 explicitly spends it. Nine of the 22 spend nothing. A line that
 suggests light, depth, volume or fabric drape is shading and is banned. A line that
@@ -474,7 +474,11 @@ into an artifact, and it is the one that decides whether the library ships.
 
 ---
 
-## 11 · Three things to confirm before drawing
+## 11 · Reconciliations
+
+Two are resolved and need no further input — they are recorded because the drawings
+depart from §5.C as written, and the reframe directive asks for deviations to be
+written down. **§11.2 is the one open question**, and it is a yes/no.
 
 ### 11.1 · Slot names — the code disagrees with the directive
 
@@ -507,13 +511,16 @@ already the app's word for *garment*. Draw at 0.55 fill.
 This does not conflict with §4.3 — *a garment with no image is a complete garment*. The
 hanger is an image. It is simply the general one.
 
-### 11.3 · The internal line budget
+### 11.3 · The internal line budget — RESOLVED 2026-08-10
 
 §1.2 reads §5.C's *"no internal shading or highlights"* as banning shading while
-permitting structure, and spends at most two lines on six of 22 shapes: the
-button-down's placket, the jean's yoke, the sneaker's sole, the clutch's flap, and the
-centre-front edge on both outerwear shapes. Sixteen shapes spend nothing.
+permitting structure. **Confirmed: keep the internal lines.**
 
-If that reading is wrong and the intent was zero internal marks, say so before drawing —
-the affected six need their outlines redesigned to compensate, particularly the
-button-down and the jean, which lose their only mid-size distinguishers.
+The budget is spent on six of 22 shapes — the button-down's placket, the jean's yoke,
+the sneaker's sole, the clutch's flap, and the centre-front closing edge on both
+outerwear shapes. Sixteen shapes spend nothing, and no shape spends more than one.
+
+The line stays a hairline `rule` stroke at the same weight as the outline, and the test
+in §1.2 still binds: **if a shape reads without its budgeted line, drop the line.** The
+budget is a ceiling, not a quota. Anything that suggests light, depth, volume or drape
+remains shading and remains banned.
