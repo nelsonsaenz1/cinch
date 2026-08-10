@@ -188,7 +188,15 @@ export default {
       { auth: { persistSession: false } },
     ) as SupabaseClient<Database>;
 
-    const rpc = admin.rpc as unknown as UntypedRpc;
+    // `.bind(admin)` is load-bearing, and its absence cost a live debugging
+    // session. `admin.rpc` is a METHOD: lifted off the client it loses `this`,
+    // and supabase-js dereferences `this.url` on the first line — so the call
+    // throws a TypeError before it ever reaches Postgres. The throw escapes the
+    // handler, so the platform answers a bare 500 "Internal Server Error"
+    // rather than this function's own JSON, which is exactly the shape that
+    // makes it look like a boot failure or a bad secret instead of a one-word
+    // bug. The claim functions were fine the whole time.
+    const rpc = admin.rpc.bind(admin) as unknown as UntypedRpc;
 
     // ── 1. Claim. The insert inside this function IS the send decision. ────
     const claimed = await rpc(CLAIM_FUNCTION[channel]);
