@@ -5,7 +5,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 import type { Database } from '../_shared/database.types.ts';
 
 import { recordAiCall } from '../_shared/ai-calls.ts';
-import { completeStructured, OpenRouterError } from '../_shared/openrouter.ts';
+import { completeStructured, OpenRouterError, redactUrls } from '../_shared/openrouter.ts';
 import {
   closetSchema,
   normalizeGarments,
@@ -48,7 +48,30 @@ const PARSE_TIMEOUT_MS = 60_000;
 /** Enough for ~120 garments of structured output plus the unconsumed spans. */
 const PARSE_MAX_TOKENS = 16_000;
 
-const MODEL = 'openai/gpt-oss-120b';
+/**
+ * `deepseek-v4-flash-0731`, not `openai/gpt-oss-120b`.
+ *
+ * The original choice was the one model this repo had already measured and
+ * rejected. `20260803220000_outfit_model.sql` records a four-way bake-off on a
+ * comparable structured-extraction task and annotates gpt-oss-120b, in those
+ * words, **"too slow"** — 45.4s against deepseek-v4-flash's 15-20s, both 3/3
+ * correct.
+ *
+ * 45 seconds is not merely slow here, it is over budget: PARSE_TIMEOUT_MS is
+ * 60s, so the margin was fifteen seconds on a good run. Verified today by
+ * failing — a 350-character transcript, nine garments, timed out. That is the
+ * shortest realistic input this function will ever see, and MAX_TRANSCRIPT_CHARS
+ * allows 24,000. The failure is not deterministic, which is worse than if it
+ * were: the same walkthrough succeeds and then fails, and the user loses a
+ * closet they spent four minutes describing to a `parse_error`.
+ *
+ * deepseek-v4-flash is already the outfit-generation model, so it is proven in
+ * production against a strict schema with `response_format` on. It costs about
+ * three times as much per call ($0.0007 vs $0.00022) — an extra half a cent per
+ * walkthrough, against a parse that currently has a real chance of not
+ * returning at all.
+ */
+const MODEL = 'deepseek/deepseek-v4-flash-0731';
 
 export default {
   fetch: withSupabase(
@@ -144,6 +167,13 @@ export default {
         });
       } catch (error) {
         const code = error instanceof OpenRouterError ? 'parse_failed' : 'parse_error';
+        // Same discipline as transcribe-intake: `parse_error` means "something
+        // that was not the provider threw", which is precisely the case nobody
+        // can diagnose from the status alone.
+        console.error(
+          `parse-closet ${code} (session=${sessionId}, user=${userId}, model=${MODEL}, chars=${transcript.length}): ` +
+            redactUrls(error instanceof Error ? `${error.name}: ${error.message}` : String(error)),
+        );
         // The transcript survives. V-13's branch for this is "we heard you, we
         // could not read it" — with the words still on screen and a retry that
         // does not need the microphone again.
@@ -210,7 +240,20 @@ export default {
       }));
 
       // Written through the user's client so the insert policy applies.
-      const { error: insertError } = await db.from('intake_drafts').insert(rows);
+      //
+      // `.select()` is not decoration. Without it this returned the payload it
+      // had just built — rows with no `id` and no `created_at`, because those
+      // are defaulted by Postgres and only exist once the row does. Every card
+      // in a freshly-parsed procession would have had `id: undefined`: nothing
+      // to key a list by, and nothing to save a correction against. The
+      // `reused` branch above already selects, so the two paths returned
+      // differently shaped garments for the same session depending on whether
+      // it was the first call or a retry.
+      const { data: inserted, error: insertError } = await db
+        .from('intake_drafts')
+        .insert(rows)
+        .select('*')
+        .order('ordinal');
       if (insertError) {
         await db.from('intake_sessions')
           .update({ status: 'failed', error_code: 'drafts_unwritable' })
@@ -223,7 +266,7 @@ export default {
         .eq('id', sessionId);
 
       return Response.json({
-        garments: rows,
+        garments: inserted ?? rows,
         unconsumed: parsed.unconsumed,
       });
     },
