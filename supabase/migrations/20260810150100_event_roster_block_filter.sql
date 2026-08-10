@@ -1,0 +1,63 @@
+-- ===========================================================================
+-- The event ROSTER, block filter. App Store Guideline 1.2, the last gap.
+--
+-- `20260807120000_event_content_block_filter.sql` fixed four of the five event
+-- read paths — posts, votes, comments, and the two projection views — and left
+-- the fifth. `event_members` still reads:
+--
+--     using ((select auth.uid()) = user_id or public.can_see_event(event_id))
+--
+-- Membership alone, exactly the shape that migration was written to remove.
+-- So two women who have blocked each other cannot see each other's looks,
+-- picks or words inside a shared event, and still see each other ON THE GUEST
+-- LIST — as a row, in the count, in the order the host arranged them.
+--
+-- WHY THIS IS NOT COSMETIC. `social_profiles` already screens the pair, so the
+-- blocked row resolves to no username, no display name and no avatar: what a
+-- blocked woman actually gets is a nameless person sitting in the roster of an
+-- event she is at, and "6 going" that counts somebody she has blocked. That is
+-- worse than the honest absence a block is supposed to produce — it tells her
+-- the person is in the room and refuses to say who. A reviewer walking
+-- Guideline 1.2 finds this in the first shared event they build.
+--
+-- THE SCREEN IS ON THE WHOLE POLICY, not just the `can_see_event` branch.
+-- `blocked_between` is symmetric and no one can block herself, so
+-- `blocked_between(uid, uid)` is false and a woman's own row is untouched by
+-- the added clause. Writing it around the whole predicate rather than inside
+-- one arm keeps it in the same shape as the three content policies, where the
+-- screen is deliberately the outermost thing after membership.
+--
+-- WHAT THIS COSTS, STATED RATHER THAN DISCOVERED LATER
+--
+--   * A woman who blocks the HOST of an event she was invited to loses the
+--     host's row from that roster. The event header still names the host —
+--     it reads `events.host_id`, not this table — so the screen is coherent,
+--     and every other thing the host says or posts in that event was already
+--     screened by the 20260807120000 policies. Losing the row is the same
+--     answer those policies already gave, applied to the one surface that was
+--     still answering differently.
+--   * A HOST who blocks an attendee loses that attendee's row too. In the
+--     ordinary case it is already gone: `on_block_sever_graph`
+--     (20260809160000) sets `state = 'removed'` for every event the blocker
+--     hosts, and neither roster query fetches `removed`. The case this adds is
+--     a row that was `declined` — which the sever trigger deliberately does not
+--     rewrite — disappearing from the invite sheet. That is the right end
+--     state: the insert policy has refused to invite a blocked user since
+--     20260807101000, so offering her a second ask was always going to fail.
+--   * The DELETE policy is untouched and still keys on `is_event_host`, so a
+--     host can still remove a row she can no longer read. Nothing becomes
+--     unmanageable, only invisible.
+--
+-- No new index. `event_members_user_idx` (btree on user_id, 20260807101000) is
+-- already behind the column this filters, which is the house rule from
+-- 20260807100000 §0.
+--
+-- Dropped and recreated rather than `alter policy`-ed, so the whole predicate
+-- reads in one place — the same pattern 20260807120000 used for the other four.
+-- ===========================================================================
+
+drop policy if exists "event_members: roster visible to participants" on event_members;
+create policy "event_members: roster visible to participants" on event_members
+  for select to authenticated
+  using (((select auth.uid()) = user_id or public.can_see_event(event_id))
+         and not public.blocked_between((select auth.uid()), user_id));
