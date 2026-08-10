@@ -139,19 +139,19 @@ end;
 $$;
 
 select cron.schedule('cinch-push-morning-edit',    '0,15,30,45 * * * *',
-                     $$select public.push_invoke('morning_edit');$$);
+                     $sql$select public.push_invoke('morning_edit');$sql$);
 
 select cron.schedule('cinch-push-borrow-requests', '*/5 * * * *',
-                     $$select public.push_invoke('borrow_requests');$$);
+                     $sql$select public.push_invoke('borrow_requests');$sql$);
 
 select cron.schedule('cinch-push-friend-activity', '5 * * * *',
-                     $$select public.push_invoke('friend_activity');$$);
+                     $sql$select public.push_invoke('friend_activity');$sql$);
 
 select cron.schedule('cinch-push-votes-comments',  '10 * * * *',
-                     $$select public.push_invoke('votes_comments');$$);
+                     $sql$select public.push_invoke('votes_comments');$sql$);
 
 select cron.schedule('cinch-push-event-reminders', '20 * * * *',
-                     $$select public.push_invoke('event_reminders');$$);
+                     $sql$select public.push_invoke('event_reminders');$sql$);
 
 select cron.schedule('cinch-push-sends-prune',     '40 3 * * *',
-                     $$select public.push_sends_prune();$$);
+                     $sql$select public.push_sends_prune();$sql$);
