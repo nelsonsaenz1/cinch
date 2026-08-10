@@ -30,6 +30,11 @@ declare module 'node:fs' {
   // declaring `process` here would put it in the app's global type space —
   // the exact thing the note above says not to do.
   export function readFileSync(path: string, encoding: 'utf8'): string;
+
+  // `migration-replay.test.ts` walks the whole migrations directory to check
+  // that every ADD CONSTRAINT is safe to run twice. Same relative-path rule as
+  // above — no `path`, no `process`.
+  export function readdirSync(path: string): string[];
 }
 
 declare module 'node:assert/strict' {
