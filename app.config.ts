@@ -13,11 +13,11 @@ import type { ExpoConfig } from 'expo/config';
  *  - NSPhotoLibraryUsageDescription is deliberately suppressed. launchImageLibraryAsync
  *    runs out-of-process via PHPickerViewController and needs no photo permission;
  *    declaring an unused key is itself a rejection risk.
- *  - NSMicrophoneUsageDescription WAS suppressed on the grounds that a wardrobe
- *    app has no business declaring microphone access. Voice intake changes
- *    that: describing your closet out loud is the reason the key now exists.
- *    It is declared below, and it must not ship in a build that cannot record —
- *    an unused permission string is the rejection risk this list is about.
+ *  - NSMicrophoneUsageDescription is suppressed UNLESS `CINCH_VOICE_INTAKE=1`.
+ *    A wardrobe app that cannot record has no business declaring microphone
+ *    access, and an unused permission string is the rejection risk this whole
+ *    list is about. Voice intake will earn the key; until its screens exist it
+ *    has not. See VOICE_INTAKE below.
  *  - NSLocationAlwaysAndWhenInUseUsageDescription must never appear, and `location`
  *    must never enter UIBackgroundModes. Both invite a justification we cannot meet.
  */
@@ -63,7 +63,30 @@ const MOTION_USAGE_DESCRIPTION =
   'Cinch reads device orientation while you photograph clothes so each picture comes out the right way up. Nothing about your movement is recorded.';
 
 /**
- * NSMicrophoneUsageDescription — a constant for exactly the reason above.
+ * Voice intake's native surface — OFF unless explicitly asked for.
+ *
+ * THE COUPLING THIS FLAG EXISTS TO ENFORCE. Three things must be true together
+ * or none of them may be true: the microphone usage string, the `Audio Data`
+ * entry in the privacy manifest, and a screen the user can actually reach that
+ * records. Today the third is missing — WK-01…WK-06 do not exist because their
+ * atlas does not — so a build carrying the first two declares a capability it
+ * cannot perform. That is the same class of mismatch as omitting a declaration
+ * for something the app DOES do, and Apple cross-checks the manifest against
+ * the App Store Connect answers either way.
+ *
+ * So the three move as one, behind this flag. `expo-audio` stays installed and
+ * autolinked — a linked module with no usage string and no importer cannot ask
+ * for anything — and Wave 1's build sets `CINCH_VOICE_INTAKE=1` to switch the
+ * declarations back on in one place rather than three.
+ *
+ * Not a build profile in eas.json, deliberately: the declarations have to be
+ * consistent between a local `expo prebuild` and the build server, and an
+ * env var is the only thing both read.
+ */
+const VOICE_INTAKE = process.env.CINCH_VOICE_INTAKE === '1';
+
+/**
+ * NSMicrophoneUsageDescription — a constant for exactly the MOTION reason above.
  *
  * expo-audio's config plugin owns this key and goes through the same
  * `createPermissionsPlugin` contract, so declaring it in `ios.infoPlist` alone
@@ -179,11 +202,11 @@ const config: ExpoConfig = {
       // `motionUsagePermission` entry in the expo-location plugin block.
       NSMotionUsageDescription: MOTION_USAGE_DESCRIPTION,
 
-      // Voice intake. Declaring it HERE is not sufficient on its own —
-      // expo-audio's plugin owns the key and runs later. See
-      // MIC_USAGE_DESCRIPTION above and the `microphonePermission` entry in the
-      // expo-audio plugin block.
-      NSMicrophoneUsageDescription: MIC_USAGE_DESCRIPTION,
+      // Voice intake, and only when it can actually record — see VOICE_INTAKE.
+      // Declaring it HERE is not sufficient on its own either: expo-audio's
+      // plugin owns the key and runs later, so the same string is passed to the
+      // plugin block below.
+      ...(VOICE_INTAKE ? { NSMicrophoneUsageDescription: MIC_USAGE_DESCRIPTION } : {}),
     },
 
     /**
@@ -235,27 +258,29 @@ const config: ExpoConfig = {
             'NSPrivacyCollectedDataTypePurposeProductPersonalization',
           ],
         },
-        {
-          // Voice intake. The recording is uploaded, transcribed by a
-          // third-party model and deleted on success — but "collected" is about
-          // whether it leaves the device, not how long it is kept, so this is
-          // Yes and linked.
-          //
-          // DO NOT SHIP THIS IN A BUILD WITHOUT VOICE INTAKE. Declaring a data
-          // type the app does not collect is the same class of mismatch as
-          // failing to declare one it does, and this file's own header says a
-          // mismatch is a review hold. It lands with the build that adds
-          // expo-audio, not before.
-          //
-          // App Functionality only: unlike the photographs, a recording is
-          // never used to personalise anything. It is transcribed and destroyed.
-          NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeAudioData',
-          NSPrivacyCollectedDataTypeLinked: true,
-          NSPrivacyCollectedDataTypeTracking: false,
-          NSPrivacyCollectedDataTypePurposes: [
-            'NSPrivacyCollectedDataTypePurposeAppFunctionality',
-          ],
-        },
+        // Voice intake. The recording is uploaded, transcribed by a third-party
+        // model and deleted on success — but "collected" is about whether it
+        // leaves the device, not how long it is kept, so this is Yes and linked.
+        //
+        // Present only when the app can actually record (VOICE_INTAKE).
+        // Declaring a data type the app does not collect is the same class of
+        // mismatch as failing to declare one it does, and this file's own
+        // header says a mismatch is a review hold.
+        //
+        // App Functionality only: unlike the photographs, a recording is never
+        // used to personalise anything. It is transcribed and destroyed.
+        ...(VOICE_INTAKE
+          ? [
+              {
+                NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeAudioData',
+                NSPrivacyCollectedDataTypeLinked: true,
+                NSPrivacyCollectedDataTypeTracking: false,
+                NSPrivacyCollectedDataTypePurposes: [
+                  'NSPrivacyCollectedDataTypePurposeAppFunctionality',
+                ],
+              },
+            ]
+          : []),
         {
           // Free-text plans and calendar event titles, both of which reach the
           // styling model. Easy to overlook precisely because it is not a
@@ -400,17 +425,23 @@ const config: ExpoConfig = {
      * the store with no NSMotionUsageDescription and two ITMS-90683s in the
      * inbox. One constant, written into both places.
      *
-     * NOTE ON SUBMITTING THIS BUILD: listing the module and declaring the
-     * permission does NOT give the app a way to record — the Walkthrough
-     * screens (WK-01…WK-06) do not exist yet, because their atlas does not.
-     * See the App Privacy note in `privacyManifests` below.
+     * Gated on VOICE_INTAKE, with the usage string and the privacy-manifest
+     * entry, because listing the module and declaring the permission does NOT
+     * give the app a way to record — WK-01…WK-06 do not exist yet. The package
+     * stays installed and autolinked either way; without this block the plugin
+     * simply never runs, so no key is written and nothing can ask for the
+     * microphone.
      */
-    [
-      'expo-audio',
-      {
-        microphonePermission: MIC_USAGE_DESCRIPTION,
-      },
-    ],
+    ...(VOICE_INTAKE
+      ? [
+          [
+            'expo-audio',
+            {
+              microphonePermission: MIC_USAGE_DESCRIPTION,
+            },
+          ] as [string, Record<string, unknown>],
+        ]
+      : []),
     [
       'expo-splash-screen',
       {
