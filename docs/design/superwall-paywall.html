@@ -1,0 +1,1087 @@
+<!--
+  ============================================================================
+  CINCH MEMBERSHIP PAYWALL — the Superwall document
+  Paywall 253377 · identifier `cinch-membership-v2` · application 52618 (iOS)
+  Built from  docs/design/superwall-paywall-spec.md  (strings + rules)
+          and design-refs/"Membership Paywall Atlas" frames M-01…M-06 (geometry).
+  States in this file:  MB-01 (default) · MB-02 (context present) ·
+                        MB-04a (loading) · MB-04b (purchasing) · MB-05 (store down).
+  MB-06 is NOT here — the success screen is native, at src/app/membership-thanks.tsx.
+
+  --------------------------------------------------------------------------
+  COMPANION NOTE — what each control must be bound to in the Superwall editor
+  --------------------------------------------------------------------------
+  Every interactive element below carries a `data-sw-action` attribute naming the
+  action the editor must attach. Nothing here purchases or dismisses on its own;
+  the only JavaScript in this file is plan selection and CTA relabelling.
+
+    ELEMENT                        data-sw-action     SUPERWALL ACTION
+    ---------------------------------------------------------------------------
+    .close  (every state)          close              Close / dismiss paywall
+    .cta    (MB-01, MB-02)         purchase           Purchase the SELECTED product.
+                                                      Selection is carried on
+                                                      #paywall[data-selected] and on
+                                                      .cta[data-product] — which is
+                                                      `proAnnual` by default and
+                                                      `standardAnnual` after the user
+                                                      taps the Standard card. Bind the
+                                                      CTA to "Purchase product" and use
+                                                      that reference name. If your
+                                                      editor cannot read a runtime
+                                                      attribute, split into two stacked
+                                                      CTAs, one per product, each shown
+                                                      by the matching selection — do NOT
+                                                      show two oxblood buttons at once.
+    .link-restore (all states)     restore            Restore purchases
+    .link-terms                    open_url           https://cinchstyle.com/terms
+    .link-privacy                  open_url           https://cinchstyle.com/privacy
+    .plan  (the two cards)         none               Selection only. Tapping a card
+                                                      MUST NOT purchase.
+    .retry (MB-05)                 restore/reload     Re-request products from StoreKit.
+                                                      This is NOT the oxblood control —
+                                                      it is an ink outline on purpose.
+
+  The close control exists and is reachable in EVERY state, including the loading
+  skeleton and behind the purchase scrim. The app cannot reach around a modal it
+  does not own, and a paywall with no way out costs a session rather than a sale.
+
+  --------------------------------------------------------------------------
+  PRODUCT BINDINGS — all four are already attached to paywall 253377
+  --------------------------------------------------------------------------
+    proAnnual        cinch.pro.annual        $119.00/yr    entitlement `pro`
+    proMonthly       cinch.pro.monthly       $14.99/mo     entitlement `pro`
+    standardAnnual   cinch.standard.annual   $59.00/yr     entitlement `standard`
+    standardMonthly  cinch.standard.monthly  $7.99/mo      entitlement `standard`
+
+  Prices are NEVER hardcoded. Every price below is a Superwall product variable,
+  each one flagged with an HTML comment naming the reference. StoreKit supplies
+  the value and the device locale supplies the formatting — a price typed into a
+  layout is a price that is wrong in every country but one.
+
+  `{{ products.<ref>.monthlyPrice }}` is the yearly-equivalent per-month figure
+  ($119 ÷ 12 = $9.92, $59 ÷ 12 = $4.92). IF IT CANNOT BE COMPUTED, THE WHOLE
+  `.equiv` BLOCK MUST DISAPPEAR rather than render a guess or an empty line.
+  Wire it to the editor's hide-when-empty rule; do not substitute a fallback.
+
+  --------------------------------------------------------------------------
+  THE CONTEXT LINE
+  --------------------------------------------------------------------------
+  `{{context}}` and `{{trigger}}` are passed by the app on registerPlacement
+  (`params: { context, trigger }`). The six strings live in
+  src/features/billing/context-lines.ts and are versioned in git — do NOT retype
+  them into the dashboard; a copy in a dashboard is a copy that drifts.
+    · `.context` block hidden entirely when `context` is empty  → that IS MB-01.
+    · `.eyebrow` ("Cinch membership") shows only when context is ABSENT.
+    · Standard's `Doesn't include packing.` disclaimer shows ONLY when
+      `trigger == "packing_access"`. Every other trigger: no disclaimer at all,
+      because Standard includes the stylist and hosts events.
+
+  --------------------------------------------------------------------------
+  LOCKED, AND NOT OPEN TO A CONVERSION ARGUMENT
+  --------------------------------------------------------------------------
+    canvas #FBFAF6 · ink #1C1A16 · muted #6B665C · oxblood #6E2B2B
+    sand   #EAE5DB · hairline #E4DFD4
+    · NEVER #8A8578 (or #A8A294) for text. ~3.5:1 on canvas, fails WCAG AA,
+      refused six waves running. Every secondary caption uses `muted`.
+    · EXACTLY ONE oxblood control per state. In MB-01/MB-02 it is the CTA. In
+      MB-05 the CTA goes inert, so Restore inherits the oxblood — still one.
+    · Forbidden: countdown timers, crossed-out prices, "limited time",
+      "you're missing out", confetti, any second accent-coloured control.
+    · Plan cards are SKELETONS until real prices arrive. Never a placeholder
+      number, never a price that changes under the user's finger.
+
+  Instrument Serif is the display face and is supplied by the editor. It is
+  referenced by name with a serif fallback stack; no @font-face, no CDN link.
+  ============================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cinch Membership</title>
+<style>
+  /* ---- tokens -------------------------------------------------------- */
+  :root{
+    --canvas:#FBFAF6;
+    --ink:#1C1A16;
+    --muted:#6B665C;
+    --oxblood:#6E2B2B;
+    --sand:#EAE5DB;
+    --hairline:#E4DFD4;
+    --serif:'Instrument Serif','Iowan Old Style',Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Helvetica,Arial,sans-serif;
+    --gutter:20px;
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  /* [hidden] must beat every display rule below it — the context block and the
+     packing disclaimer are both hidden by attribute, and both carry a display
+     declaration that would otherwise win on specificity. */
+  [hidden]{display:none !important}
+
+  html,body{height:100%}
+  body{
+    background:var(--canvas);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    -webkit-text-size-adjust:100%;
+  }
+
+  /* ---- state machinery ------------------------------------------------
+     One state visible at a time. In the editor, keep the state you are
+     assembling and delete the rest — or drive [hidden] from paywall state. */
+  .state{display:none}
+  .state[data-active]{display:block}
+
+  /* ---- the sheet ------------------------------------------------------ */
+  .sheet{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    width:100%;
+    max-width:393px;      /* iPhone 15 logical width — the atlas frame */
+    min-height:100vh;
+    min-height:100dvh;
+    margin:0 auto;
+    background:var(--canvas);
+    overflow:hidden;
+  }
+
+  /* close — top-RIGHT as the atlas draws it, 44pt target, in every state.
+     The 28px sand circle is the atlas's visual; the 44pt box around it is an
+     accessibility floor, not a design choice, so it stays. */
+  .sheet-top{
+    flex:none;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    padding:4px 8px 0;
+    padding-top:calc(4px + env(safe-area-inset-top));
+    position:relative;
+    z-index:30;              /* stays above the MB-04b purchase scrim */
+  }
+  .close{
+    width:44px;height:44px;   /* 44pt target, non-negotiable */
+    display:flex;align-items:center;justify-content:center;
+    border:0;background:transparent;
+    -webkit-appearance:none;appearance:none;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .close span{
+    width:28px;height:28px;border-radius:14px;
+    background:var(--sand);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .close svg{display:block}
+  .close:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:22px}
+
+  /* ---- scrolling body ------------------------------------------------- */
+  .scroll{
+    flex:1;min-height:0;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    padding:6px var(--gutter) 20px;
+  }
+
+  /* {{context}} — sand card. HIDDEN ENTIRELY WHEN EMPTY. That is MB-01. */
+  .context{
+    background:var(--sand);
+    border-radius:14px;
+    padding:16px;
+    font-size:16px;
+    line-height:1.5;
+    color:var(--ink);
+    text-wrap:pretty;
+  }
+  .context + .headline{margin-top:18px}
+
+  .eyebrow{
+    font-size:10px;
+    font-weight:500;
+    letter-spacing:1.4px;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+
+  .headline{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:44px;
+    line-height:1.02;         /* tight leading, two lines */
+    letter-spacing:-0.01em;
+    margin-top:10px;
+    text-wrap:pretty;
+  }
+
+  /* three benefit lines — the atlas's 5px dots, in muted rather than the
+     atlas's oxblood, so the CTA stays the only oxblood element on the page.
+     Colour is the only thing overridden here; the shape is the atlas's. */
+  .benefits{
+    list-style:none;
+    margin-top:22px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .benefits li{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    font-size:17px;
+    line-height:1.42;
+    color:var(--ink);
+    text-wrap:pretty;
+  }
+  .benefits li::before{
+    content:"";
+    flex:none;
+    margin-top:9px;          /* optically centres on the first line */
+    width:5px;height:5px;
+    border-radius:3px;
+    background:var(--muted);
+  }
+
+  /* ---- plan cards: stacked, full width, radio dot on the left ---------- */
+  .plans{
+    margin-top:26px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .plan{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    width:100%;
+    text-align:left;
+    font:inherit;
+    color:var(--ink);
+    background:var(--canvas);
+    border:1px solid var(--hairline);
+    border-radius:16px;
+    padding:15px 16px;
+    cursor:pointer;
+    -webkit-appearance:none;appearance:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  /* selected: sand ground + 1pt ink border. Pro is preselected. */
+  .plan[aria-checked="true"]{
+    background:var(--sand);
+    border:1px solid var(--ink);
+  }
+  .plan:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+  /* the radio dot. Hollow when unselected, filled when selected.
+     The unselected ring is `muted`, not the atlas's rgba(28,26,22,.28):
+     that measures ~1.9:1 on canvas and this ring is the ONLY affordance
+     telling you the card is selectable. WCAG 1.4.11 wants 3:1 for a state
+     indicator; muted gives 5.46:1. Colour only — the shape is the atlas's. */
+  .plan-dot{
+    flex:none;
+    width:20px;height:20px;
+    border-radius:10px;
+    border:1.5px solid var(--muted);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .plan[aria-checked="true"] .plan-dot{border-color:var(--ink)}
+  .plan-dot::after{
+    content:"";
+    width:10px;height:10px;
+    border-radius:5px;
+    background:transparent;
+  }
+  .plan[aria-checked="true"] .plan-dot::after{background:var(--ink)}
+
+  .plan-body{flex:1;min-width:0}
+  .plan-name{
+    display:flex;
+    align-items:baseline;
+    flex-wrap:wrap;
+    gap:8px;
+    font-size:16px;
+    font-weight:600;
+    line-height:1.2;
+  }
+  .plan-tag{
+    font-size:10px;
+    font-weight:500;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    color:var(--oxblood);   /* type, not a control — the CTA is still the one action */
+  }
+  .plan-rates{
+    display:block;
+    margin-top:3px;
+    font-size:13px;
+    line-height:1.35;
+    color:var(--muted);
+  }
+  /* the yearly-equivalent column, right-aligned on the row.
+     Disappears whole if it cannot be computed. */
+  .equiv{flex:none;text-align:right}
+  .equiv-number{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    line-height:1.3;
+    color:var(--ink);
+  }
+  .plan[data-plan="standard"] .equiv-number{color:var(--muted)}
+  .equiv-note{
+    display:block;
+    font-size:11px;
+    line-height:1.3;
+    color:var(--muted);
+  }
+  /* shown only when trigger == "packing_access" */
+  .plan-disclaimer{
+    display:block;
+    margin-top:4px;
+    font-size:11.5px;
+    line-height:1.35;
+    color:var(--muted);
+  }
+
+  .summary{
+    margin-top:12px;
+    font-size:15px;
+    line-height:1.5;
+    color:var(--muted);
+    text-wrap:pretty;
+  }
+
+  /* ---- the foot: one action, then the small print --------------------- */
+  .sheet-foot{
+    flex:none;
+    padding:14px var(--gutter) 26px;
+    padding-bottom:calc(26px + env(safe-area-inset-bottom));
+    background:var(--canvas);
+    border-top:1px solid var(--hairline);
+    position:relative;
+    z-index:10;
+  }
+  .cta{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:100%;
+    height:52px;                 /* 52pt tall, full width */
+    border:0;
+    border-radius:26px;
+    background:var(--oxblood);   /* THE one oxblood control */
+    color:var(--canvas);
+    font:inherit;
+    font-size:16px;
+    font-weight:600;
+    letter-spacing:0.1px;
+    padding:0 16px;
+    text-align:center;
+    cursor:pointer;
+    -webkit-appearance:none;appearance:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  /* the label is one block child, so the spaces around the em dash survive
+     the flex container instead of being collapsed away */
+  .cta-label{display:block;overflow-wrap:anywhere}
+  .cta:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  /* MB-05: inert rather than absent, so the page keeps its shape */
+  .cta[aria-disabled="true"]{
+    background:var(--sand);
+    color:var(--muted);
+    cursor:default;
+  }
+  .fineprint{
+    margin-top:10px;
+    text-align:center;
+    font-size:13px;
+    line-height:1.35;
+    color:var(--muted);
+  }
+  .links{
+    margin-top:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    font-size:13px;
+    color:var(--muted);
+  }
+  .links a{
+    color:var(--muted);
+    text-decoration:none;
+    padding:6px 2px;              /* keeps all three comfortably tappable */
+  }
+  .links a:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+  .links .sep{color:var(--muted);opacity:.55}
+  /* MB-05 only: the CTA is inert, so Restore inherits the single oxblood */
+  .links a.is-emphasised{color:var(--oxblood);font-weight:600}
+
+  /* ---- MB-04 skeletons ------------------------------------------------ */
+  .skel{background:var(--sand);border-radius:7px}
+  .skel-lines{margin-top:24px;display:flex;flex-direction:column;gap:12px}
+  .skel-lines .skel{height:13px}
+  .skel-cards{
+    margin-top:28px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .skel-cards .skel{height:72px;border-radius:16px}  /* measured = a real stacked card, so nothing jumps when prices land */
+  .loading-row{
+    margin-top:16px;
+    display:flex;
+    align-items:center;
+    gap:9px;
+    font-size:13px;
+    color:var(--muted);
+  }
+  .spinner{
+    flex:none;
+    width:12px;height:12px;
+    border-radius:50%;
+    border:1.8px solid var(--hairline);
+    border-top-color:var(--muted);
+    animation:spin 900ms linear infinite;
+  }
+  .spinner-lg{
+    width:22px;height:22px;
+    border:2px solid var(--hairline);
+    border-top-color:var(--oxblood);
+    margin:0 auto;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){
+    .spinner,.spinner-lg{animation-duration:2400ms}
+  }
+
+  /* MB-04b — the purchase sheet blocks the page rather than dimming the
+     button in place. The close control sits above the scrim (z-index 30). */
+  .scrim{
+    position:absolute;inset:0;
+    background:rgba(28,26,22,.34);
+    z-index:20;
+  }
+  .purchasing{
+    position:absolute;
+    left:var(--gutter);right:var(--gutter);
+    bottom:26px;
+    bottom:calc(26px + env(safe-area-inset-bottom));
+    z-index:21;
+    background:var(--canvas);
+    border-radius:20px;
+    padding:24px 20px 20px;
+    text-align:center;
+  }
+  .purchasing h2{
+    margin-top:14px;
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:24px;
+    line-height:1.15;
+  }
+  .purchasing p{
+    margin-top:8px;
+    font-size:14px;
+    line-height:1.5;
+    color:var(--muted);
+    text-wrap:pretty;
+  }
+
+  /* ---- MB-05 store unavailable ---------------------------------------- */
+  .notice{
+    margin-top:26px;
+    border:1px solid rgba(110,43,43,.30);
+    border-radius:16px;
+    background:var(--canvas);
+    padding:16px;
+  }
+  .notice h2{
+    font-size:15px;
+    font-weight:600;
+    color:var(--oxblood);   /* type, not a control */
+    line-height:1.3;
+  }
+  .notice p{
+    margin-top:7px;
+    font-size:14px;
+    line-height:1.5;
+    color:var(--ink);
+    text-wrap:pretty;
+  }
+  .retry{
+    margin-top:14px;
+    display:flex;align-items:center;justify-content:center;
+    width:100%;height:44px;
+    border:1.5px solid var(--ink);   /* ink outline — never a second oxblood */
+    border-radius:22px;
+    background:transparent;
+    color:var(--ink);
+    font:inherit;font-size:15px;font-weight:600;
+    cursor:pointer;
+    -webkit-appearance:none;appearance:none;
+  }
+  .retry:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .notice-note{
+    margin-top:20px;
+    font-size:14px;
+    line-height:1.5;
+    color:var(--muted);
+    text-wrap:pretty;
+  }
+
+  .sr-only{
+    position:absolute;width:1px;height:1px;
+    padding:0;margin:-1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap;border:0;
+  }
+
+  /* ====================================================================
+     PREVIEW-ONLY CHROME — delete this rule and the [data-preview-only]
+     element below before pasting into the Superwall editor.
+     ==================================================================== */
+  .state-switcher{
+    position:fixed;right:6px;top:6px;z-index:999;
+    display:flex;gap:3px;flex-direction:column;align-items:stretch;
+    background:rgba(28,26,22,.88);
+    border-radius:14px;padding:5px 7px;
+    opacity:.28;transition:opacity 120ms ease;
+  }
+  .state-switcher:hover{opacity:1}
+  .state-switcher button{
+    font:500 11px/1 var(--sans);
+    color:#FBFAF6;background:transparent;
+    border:0;border-radius:999px;padding:6px 9px;cursor:pointer;
+  }
+  .state-switcher button[data-on]{background:#6E2B2B}
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     MB-01 — THE PAGE. The default: no context, Pro preselected.
+     ====================================================================== -->
+<section class="state" data-state="MB-01" data-active>
+  <div class="sheet" id="paywall" data-selected="pro">
+
+    <div class="sheet-top">
+      <button class="close" type="button" data-sw-action="close" aria-label="Close">
+        <span aria-hidden="true">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"
+               stroke="#6B665C" stroke-width="1.7" stroke-linecap="round">
+            <path d="M1 1l9 9M10 1l-9 9"/>
+          </svg>
+        </span>
+      </button>
+    </div>
+
+    <div class="scroll">
+
+      <!-- {{context}} — HIDDEN ENTIRELY WHEN EMPTY. The empty state IS MB-01,
+           and this is what you are looking at. See MB-02 below for it filled.
+           Bind: text = {{context}} · visibility = hide when empty. -->
+      <div class="context" hidden data-sw-bind="context" data-sw-hide-when-empty>{{context}}</div>
+
+      <!-- Eyebrow shows only while the context block is hidden. -->
+      <p class="eyebrow">Cinch membership</p>
+
+      <h1 class="headline">Dressed well,<br>every day.</h1>
+
+      <ul class="benefits">
+        <li>A stylist that answers in your own closet, whenever you ask.</li>
+        <li>A thousand pieces, and unlimited outfits generated every morning.</li>
+        <li>Events you host, friends&rsquo; closets you can borrow from, and packing for the trip.</li>
+      </ul>
+
+      <div class="plans" role="radiogroup" aria-label="Choose a plan">
+
+        <!-- ===== PRO CARD — preselected ===== -->
+        <button class="plan" type="button" role="radio" aria-checked="true"
+                data-plan="pro" data-product="proAnnual" data-label="Pro">
+          <span class="plan-dot" aria-hidden="true"></span>
+          <span class="plan-body">
+            <span class="plan-name">
+              Pro
+              <span class="plan-tag">Everything</span>
+            </span>
+            <span class="plan-rates">
+              <!-- BIND: products.proMonthly.price  (cinch.pro.monthly, $14.99/mo) -->
+              {{ products.proMonthly.price }}/mo
+              &middot;
+              <!-- BIND: products.proAnnual.price   (cinch.pro.annual,  $119.00/yr) -->
+              <span data-annual-price>{{ products.proAnnual.price }}</span>/yr
+            </span>
+          </span>
+          <!-- Yearly equivalent, right of the row. BIND: products.proAnnual.monthlyPrice ($9.92).
+               If it cannot be computed, hide this whole .equiv block — no guess. -->
+          <span class="equiv" data-sw-hide-when-empty>
+            <span class="equiv-number">{{ products.proAnnual.monthlyPrice }}</span>
+            <span class="equiv-note">/mo billed yearly</span>
+          </span>
+        </button>
+
+        <!-- ===== STANDARD CARD ===== -->
+        <button class="plan" type="button" role="radio" aria-checked="false"
+                data-plan="standard" data-product="standardAnnual" data-label="Standard">
+          <span class="plan-dot" aria-hidden="true"></span>
+          <span class="plan-body">
+            <span class="plan-name">Standard</span>
+            <span class="plan-rates">
+              <!-- BIND: products.standardMonthly.price (cinch.standard.monthly, $7.99/mo) -->
+              {{ products.standardMonthly.price }}/mo
+              &middot;
+              <!-- BIND: products.standardAnnual.price  (cinch.standard.annual,  $59.00/yr) -->
+              <span data-annual-price>{{ products.standardAnnual.price }}</span>/yr
+            </span>
+            <!-- Shown ONLY when trigger == "packing_access". Hidden here. -->
+            <span class="plan-disclaimer" hidden data-sw-show-when='trigger == "packing_access"'>Doesn&rsquo;t include packing.</span>
+          </span>
+          <!-- BIND: products.standardAnnual.monthlyPrice ($4.92). Same rule. -->
+          <span class="equiv" data-sw-hide-when-empty>
+            <span class="equiv-number">{{ products.standardAnnual.monthlyPrice }}</span>
+            <span class="equiv-note">/mo billed yearly</span>
+          </span>
+        </button>
+
+      </div>
+
+      <p class="summary">Standard covers the closet, the daily outfits and the stylist. Pro adds packing, and takes every ceiling off.</p>
+
+    </div>
+
+    <div class="sheet-foot">
+      <!-- THE one oxblood control. Purchases the SELECTED product; see
+           data-product, which flips to standardAnnual when Standard is tapped. -->
+      <button class="cta" type="button" data-sw-action="purchase" data-product="proAnnual">
+        <span class="cta-label">Start <span data-cta-plan>Pro</span> &mdash; <span data-cta-price>{{ products.proAnnual.price }}</span>/yr</span>
+      </button>
+      <p class="fineprint">Renews yearly. Cancel any time in Settings.</p>
+      <nav class="links" aria-label="Membership links">
+        <a class="link-restore" href="#" data-sw-action="restore">Restore</a>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <a class="link-terms" href="https://cinchstyle.com/terms" data-sw-action="open_url">Terms</a>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <a class="link-privacy" href="https://cinchstyle.com/privacy" data-sw-action="open_url">Privacy</a>
+      </nav>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ======================================================================
+     MB-02 — the same page with {{context}} present. Nothing below the
+     headline changes. Shown here so the assembler can see the sand card and
+     the packing-only disclaimer in place; in the editor this is MB-01 with
+     the .context block revealed and .eyebrow suppressed.
+     The line itself comes from the app (src/features/billing/context-lines.ts).
+     The string below is a SAMPLE for layout only — do not type it into
+     the dashboard.
+     ====================================================================== -->
+<section class="state" data-state="MB-02">
+  <div class="sheet" data-selected="pro">
+
+    <div class="sheet-top">
+      <button class="close" type="button" data-sw-action="close" aria-label="Close">
+        <span aria-hidden="true">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"
+               stroke="#6B665C" stroke-width="1.7" stroke-linecap="round">
+            <path d="M1 1l9 9M10 1l-9 9"/>
+          </svg>
+        </span>
+      </button>
+    </div>
+
+    <div class="scroll">
+
+      <div class="context" data-sw-bind="context" data-sw-hide-when-empty>Four days in Lisbon. Pro packs the bag &mdash; day by day, from the closet you already own.</div>
+      <!-- .eyebrow is absent whenever the context block renders. -->
+
+      <h1 class="headline">Dressed well,<br>every day.</h1>
+
+      <ul class="benefits">
+        <li>A stylist that answers in your own closet, whenever you ask.</li>
+        <li>A thousand pieces, and unlimited outfits generated every morning.</li>
+        <li>Events you host, friends&rsquo; closets you can borrow from, and packing for the trip.</li>
+      </ul>
+
+      <div class="plans" role="radiogroup" aria-label="Choose a plan">
+        <button class="plan" type="button" role="radio" aria-checked="true"
+                data-plan="pro" data-product="proAnnual" data-label="Pro">
+          <span class="plan-dot" aria-hidden="true"></span>
+          <span class="plan-body">
+            <span class="plan-name">
+              Pro
+              <span class="plan-tag">Everything</span>
+            </span>
+            <span class="plan-rates">
+              <!-- BIND: products.proMonthly.price -->
+              {{ products.proMonthly.price }}/mo
+              &middot;
+              <!-- BIND: products.proAnnual.price -->
+              <span data-annual-price>{{ products.proAnnual.price }}</span>/yr
+            </span>
+          </span>
+          <span class="equiv" data-sw-hide-when-empty>
+            <!-- BIND: products.proAnnual.monthlyPrice -->
+            <span class="equiv-number">{{ products.proAnnual.monthlyPrice }}</span>
+            <span class="equiv-note">/mo billed yearly</span>
+          </span>
+        </button>
+
+        <button class="plan" type="button" role="radio" aria-checked="false"
+                data-plan="standard" data-product="standardAnnual" data-label="Standard">
+          <span class="plan-dot" aria-hidden="true"></span>
+          <span class="plan-body">
+            <span class="plan-name">Standard</span>
+            <span class="plan-rates">
+              <!-- BIND: products.standardMonthly.price -->
+              {{ products.standardMonthly.price }}/mo
+              &middot;
+              <!-- BIND: products.standardAnnual.price -->
+              <span data-annual-price>{{ products.standardAnnual.price }}</span>/yr
+            </span>
+            <!-- packing_access ONLY. Every other trigger: no disclaimer. -->
+            <span class="plan-disclaimer" data-sw-show-when='trigger == "packing_access"'>Doesn&rsquo;t include packing.</span>
+          </span>
+          <span class="equiv" data-sw-hide-when-empty>
+            <!-- BIND: products.standardAnnual.monthlyPrice -->
+            <span class="equiv-number">{{ products.standardAnnual.monthlyPrice }}</span>
+            <span class="equiv-note">/mo billed yearly</span>
+          </span>
+        </button>
+      </div>
+
+      <p class="summary">Standard covers the closet, the daily outfits and the stylist. Pro adds packing, and takes every ceiling off.</p>
+
+    </div>
+
+    <div class="sheet-foot">
+      <button class="cta" type="button" data-sw-action="purchase" data-product="proAnnual">
+        <span class="cta-label">Start <span data-cta-plan>Pro</span> &mdash; <span data-cta-price>{{ products.proAnnual.price }}</span>/yr</span>
+      </button>
+      <p class="fineprint">Renews yearly. Cancel any time in Settings.</p>
+      <nav class="links" aria-label="Membership links">
+        <a class="link-restore" href="#" data-sw-action="restore">Restore</a>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <a class="link-terms" href="https://cinchstyle.com/terms" data-sw-action="open_url">Terms</a>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <a class="link-privacy" href="https://cinchstyle.com/privacy" data-sw-action="open_url">Privacy</a>
+      </nav>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ======================================================================
+     MB-04a — LOADING PRICES.
+     The two plan cards are SKELETONS until real prices arrive. Never
+     placeholder numbers, never a price that changes under the finger.
+     The close control is present and reachable here too — this is the state
+     the app's 12-second silent-render timeout exists to survive.
+     ====================================================================== -->
+<section class="state" data-state="MB-04a">
+  <div class="sheet">
+
+    <div class="sheet-top">
+      <button class="close" type="button" data-sw-action="close" aria-label="Close">
+        <span aria-hidden="true">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"
+               stroke="#6B665C" stroke-width="1.7" stroke-linecap="round">
+            <path d="M1 1l9 9M10 1l-9 9"/>
+          </svg>
+        </span>
+      </button>
+    </div>
+
+    <div class="scroll">
+      <p class="eyebrow">Cinch membership</p>
+      <h1 class="headline">Dressed well,<br>every day.</h1>
+
+      <!-- benefit lines, skeletonised -->
+      <div class="skel-lines" aria-hidden="true">
+        <div class="skel" style="width:88%"></div>
+        <div class="skel" style="width:74%"></div>
+        <div class="skel" style="width:81%"></div>
+      </div>
+
+      <!-- plan cards, skeletonised — same grid, same equal widths -->
+      <div class="skel-cards" aria-hidden="true">
+        <div class="skel"></div>
+        <div class="skel"></div>
+      </div>
+
+      <p class="loading-row" role="status">
+        <span class="spinner" aria-hidden="true"></span>
+        Checking prices with the App&nbsp;Store
+      </p>
+    </div>
+
+    <!-- No CTA while there is no price to name. Restore/Terms/Privacy stay,
+         because none of them needs StoreKit to have answered. -->
+    <div class="sheet-foot">
+      <nav class="links" aria-label="Membership links">
+        <a class="link-restore" href="#" data-sw-action="restore">Restore</a>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <a class="link-terms" href="https://cinchstyle.com/terms" data-sw-action="open_url">Terms</a>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <a class="link-privacy" href="https://cinchstyle.com/privacy" data-sw-action="open_url">Privacy</a>
+      </nav>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ======================================================================
+     MB-04b — PURCHASING.
+     The sheet blocks the page rather than dimming the button in place.
+     The close control stays ABOVE the scrim: whatever else changes, there is
+     always a way out.
+     ====================================================================== -->
+<section class="state" data-state="MB-04b">
+  <div class="sheet" data-selected="pro">
+
+    <div class="sheet-top">
+      <button class="close" type="button" data-sw-action="close" aria-label="Close">
+        <span aria-hidden="true">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"
+               stroke="#6B665C" stroke-width="1.7" stroke-linecap="round">
+            <path d="M1 1l9 9M10 1l-9 9"/>
+          </svg>
+        </span>
+      </button>
+    </div>
+
+    <div class="scroll" aria-hidden="true">
+      <p class="eyebrow">Cinch membership</p>
+      <h1 class="headline">Dressed well,<br>every day.</h1>
+
+      <ul class="benefits">
+        <li>A stylist that answers in your own closet, whenever you ask.</li>
+        <li>A thousand pieces, and unlimited outfits generated every morning.</li>
+        <li>Events you host, friends&rsquo; closets you can borrow from, and packing for the trip.</li>
+      </ul>
+
+      <div class="plans">
+        <span class="plan" data-plan="pro" aria-checked="true" role="radio">
+          <span class="plan-dot" aria-hidden="true"></span>
+          <span class="plan-body">
+            <span class="plan-name">Pro <span class="plan-tag">Everything</span></span>
+            <!-- BIND: products.proMonthly.price · products.proAnnual.price -->
+            <span class="plan-rates">{{ products.proMonthly.price }}/mo &middot; {{ products.proAnnual.price }}/yr</span>
+          </span>
+          <span class="equiv" data-sw-hide-when-empty>
+            <!-- BIND: products.proAnnual.monthlyPrice -->
+            <span class="equiv-number">{{ products.proAnnual.monthlyPrice }}</span>
+            <span class="equiv-note">/mo billed yearly</span>
+          </span>
+        </span>
+        <span class="plan" data-plan="standard" aria-checked="false" role="radio">
+          <span class="plan-dot" aria-hidden="true"></span>
+          <span class="plan-body">
+            <span class="plan-name">Standard</span>
+            <!-- BIND: products.standardMonthly.price · products.standardAnnual.price -->
+            <span class="plan-rates">{{ products.standardMonthly.price }}/mo &middot; {{ products.standardAnnual.price }}/yr</span>
+          </span>
+          <span class="equiv" data-sw-hide-when-empty>
+            <!-- BIND: products.standardAnnual.monthlyPrice -->
+            <span class="equiv-number">{{ products.standardAnnual.monthlyPrice }}</span>
+            <span class="equiv-note">/mo billed yearly</span>
+          </span>
+        </span>
+      </div>
+
+      <p class="summary">Standard covers the closet, the daily outfits and the stylist. Pro adds packing, and takes every ceiling off.</p>
+    </div>
+
+    <div class="sheet-foot" aria-hidden="true">
+      <span class="cta" aria-disabled="true"><span class="cta-label">Start Pro &mdash; {{ products.proAnnual.price }}/yr</span></span>
+      <p class="fineprint">Renews yearly. Cancel any time in Settings.</p>
+      <nav class="links">
+        <span>Restore</span>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <span>Terms</span>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <span>Privacy</span>
+      </nav>
+    </div>
+
+    <div class="scrim"></div>
+    <div class="purchasing" role="status" aria-live="polite">
+      <div class="spinner spinner-lg" aria-hidden="true"></div>
+      <h2>Confirming with the App Store</h2>
+      <p>Don&rsquo;t close Cinch. This usually takes a few seconds.</p>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ======================================================================
+     MB-05 — STORE UNAVAILABLE.
+     The CTA goes INERT rather than disappearing, so the page keeps its shape.
+     Restore stays live and becomes the emphasised action — which is why it,
+     not the CTA, carries the single oxblood in this state.
+     ====================================================================== -->
+<section class="state" data-state="MB-05">
+  <div class="sheet">
+
+    <div class="sheet-top">
+      <button class="close" type="button" data-sw-action="close" aria-label="Close">
+        <span aria-hidden="true">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"
+               stroke="#6B665C" stroke-width="1.7" stroke-linecap="round">
+            <path d="M1 1l9 9M10 1l-9 9"/>
+          </svg>
+        </span>
+      </button>
+    </div>
+
+    <div class="scroll">
+      <p class="eyebrow">Cinch membership</p>
+      <h1 class="headline">Dressed well,<br>every day.</h1>
+
+      <ul class="benefits">
+        <li>A stylist that answers in your own closet, whenever you ask.</li>
+        <li>A thousand pieces, and unlimited outfits generated every morning.</li>
+        <li>Events you host, friends&rsquo; closets you can borrow from, and packing for the trip.</li>
+      </ul>
+
+      <!-- No plan cards: there are no prices, and a card without a real price
+           is a placeholder number. The notice takes their place. -->
+      <div class="notice">
+        <h2>Prices aren&rsquo;t loading</h2>
+        <p>The App Store isn&rsquo;t answering right now. This is on our side of the wire, not yours &mdash; nothing has been charged and nothing is lost.</p>
+        <button class="retry" type="button" data-sw-action="restore">Try again</button>
+      </div>
+
+      <p class="notice-note">Already a member on another device? Restore below &mdash; that works even when prices don&rsquo;t.</p>
+    </div>
+
+    <div class="sheet-foot">
+      <!-- Inert, not absent. No price is named because none is known. -->
+      <span class="cta" aria-disabled="true" role="button"><span class="cta-label">Start Pro</span></span>
+      <p class="fineprint">Unavailable until the store responds.</p>
+      <nav class="links" aria-label="Membership links">
+        <a class="link-restore is-emphasised" href="#" data-sw-action="restore">Restore</a>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <a class="link-terms" href="https://cinchstyle.com/terms" data-sw-action="open_url">Terms</a>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <a class="link-privacy" href="https://cinchstyle.com/privacy" data-sw-action="open_url">Privacy</a>
+      </nav>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ======================================================================
+     MB-06 is deliberately absent. The success screen is drawn by the app at
+     src/app/membership-thanks.tsx, because only the app knows which task the
+     user was interrupted from.
+     ====================================================================== -->
+
+
+<!-- PREVIEW-ONLY — delete this element (and the .state-switcher CSS rule)
+     before pasting into the Superwall editor. -->
+<div class="state-switcher" data-preview-only>
+  <button type="button" data-go="MB-01" data-on>MB-01</button>
+  <button type="button" data-go="MB-02">MB-02</button>
+  <button type="button" data-go="MB-04a">MB-04 loading</button>
+  <button type="button" data-go="MB-04b">MB-04 purchasing</button>
+  <button type="button" data-go="MB-05">MB-05</button>
+</div>
+
+<script>
+/* --------------------------------------------------------------------------
+   Plan selection. Tapping a card changes the selection; IT DOES NOT PURCHASE.
+   The CTA label is rebuilt from the selected plan and its real (StoreKit)
+   annual price, which is read back out of the card so no price is ever
+   duplicated or hardcoded here.
+   -------------------------------------------------------------------------- */
+(function () {
+  var sheets = document.querySelectorAll('.sheet[data-selected]');
+
+  Array.prototype.forEach.call(sheets, function (sheet) {
+    var cards = sheet.querySelectorAll('button.plan[data-plan]');
+    if (!cards.length) return;
+
+    var cta      = sheet.querySelector('.cta');
+    var ctaPlan  = sheet.querySelector('[data-cta-plan]');
+    var ctaPrice = sheet.querySelector('[data-cta-price]');
+
+    function select(card) {
+      Array.prototype.forEach.call(cards, function (c) {
+        c.setAttribute('aria-checked', String(c === card));
+      });
+      sheet.setAttribute('data-selected', card.getAttribute('data-plan'));
+
+      var priceEl = card.querySelector('[data-annual-price]');
+      if (ctaPlan)  ctaPlan.textContent  = card.getAttribute('data-label');
+      if (ctaPrice && priceEl) ctaPrice.textContent = priceEl.textContent.trim();
+      /* The editor reads this to know which product to purchase. */
+      if (cta) cta.setAttribute('data-product', card.getAttribute('data-product'));
+    }
+
+    Array.prototype.forEach.call(cards, function (card) {
+      card.addEventListener('click', function () { select(card); });
+      card.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' ||
+            e.key === 'ArrowUp'    || e.key === 'ArrowDown') {
+          e.preventDefault();
+          var other = card.nextElementSibling || card.previousElementSibling;
+          while (other && other.tagName !== 'BUTTON') {
+            other = other.nextElementSibling || other.previousElementSibling;
+          }
+          if (other) { select(other); other.focus(); }
+        }
+      });
+    });
+  });
+})();
+
+/* --------------------------------------------------------------------------
+   {{context}} — hide the block entirely when the app sent nothing, and show
+   the eyebrow instead. Superwall's own hide-when-empty rule should do this;
+   this is the belt to that braces, so the page is never wrong on its own.
+   -------------------------------------------------------------------------- */
+(function () {
+  var UNRESOLVED = /^\{\{.*\}\}$/;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-sw-bind="context"]'), function (el) {
+    var text = (el.textContent || '').trim();
+    var empty = text === '' || UNRESOLVED.test(text);
+    el.hidden = empty;
+    var eyebrow = el.parentNode.querySelector('.eyebrow');
+    if (eyebrow) eyebrow.hidden = !empty;
+  });
+})();
+
+/* --------------------------------------------------------------------------
+   PREVIEW-ONLY state switcher. Delete with the element above.
+   -------------------------------------------------------------------------- */
+(function () {
+  var bar = document.querySelector('[data-preview-only]');
+  if (!bar) return;
+  bar.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-go]');
+    if (!btn) return;
+    Array.prototype.forEach.call(bar.querySelectorAll('button'), function (b) { b.removeAttribute('data-on'); });
+    btn.setAttribute('data-on', '');
+    Array.prototype.forEach.call(document.querySelectorAll('.state'), function (s) {
+      if (s.getAttribute('data-state') === btn.getAttribute('data-go')) s.setAttribute('data-active', '');
+      else s.removeAttribute('data-active');
+    });
+    window.scrollTo(0, 0);
+  });
+})();
+</script>
+
+</body>
+</html>

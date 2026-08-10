@@ -7,6 +7,7 @@ import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
+import { CONSENT_FACTS } from '@/features/auth/consent-facts';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ProgressTrack } from '@/components/ui/progress-track';
 import { Text } from '@/components/ui/text';
@@ -382,21 +383,13 @@ function ConsentReplica() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
-  const facts = [
-    {
-      lead: 'The photo goes to our AI partner,',
-      rest: ' which returns a category, colour and fabric.',
-    },
-    {
-      lead: 'It goes to one AI partner and comes straight back.',
-      rest: ' We don’t send your name, your email, your location, or anything else from your closet.',
-    },
-    {
-      lead: 'We keep the photo and the tags',
-      rest: ' in your closet. Deleting an item deletes both.',
-    },
-    { lead: 'We never run face recognition,', rest: ' here or anywhere in Cinch.' },
-  ] as const;
+  // The four facts, imported rather than transcribed. This file held a THIRD
+  // copy of them: after the consent sheet and the privacy page were
+  // consolidated onto one array, this one stayed behind with the old wording —
+  // precisely the drift the shared module exists to stop. A fixture that shows
+  // a reviewer different words from the ones that ship is worse than no
+  // fixture; it is a review of something the app does not say.
+  const facts = CONSENT_FACTS;
 
   return (
     <View

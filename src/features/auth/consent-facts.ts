@@ -40,8 +40,37 @@ export const CONSENT_FACTS: readonly ConsentFact[] = [
     rest: ' which returns a category, colour and fabric.',
   },
   {
-    lead: 'It goes to one AI partner and comes straight back.',
-    rest: ' We don’t send your name, your email, your location, or anything else from your closet.',
+    // WAS: "It goes to one AI partner and comes straight back. We don't send
+    // your name, your email, your location, or anything else from your
+    // closet." Two halves, both wrong, both shipping since the consent sheet
+    // was written.
+    //
+    // "One AI partner" — the provider is a ROUTER. With no routing policy set
+    // it load-balanced across roughly thirty companies, so the sentence named
+    // a number nobody had. The code now pins routing to providers that do not
+    // train on what they receive (`_shared/openrouter.ts`), which is a promise
+    // we can keep; the count still is not one, so the sentence no longer
+    // claims it.
+    //
+    // "Nothing else" — the request carries a signed URL whose path contains
+    // the account id, and the outfit call sends today's calendar event titles.
+    // The name and email genuinely never travel, so that part stayed.
+    //
+    // See docs/ai-provider-terms.md for every quoted term and its source.
+    // WHY THIS DOES NOT SAY "NOT USED FOR TRAINING" EITHER.
+    //
+    // The obvious fix was to pin routing to providers that do not train, and
+    // then say so. The pin is a two-line change and it is written up in
+    // docs/ai-provider-terms.md §5 — but it could not be VERIFIED from here:
+    // OpenRouter's public endpoints API does not expose each provider's data
+    // policy, so there was no way to confirm every configured model still has
+    // a qualifying endpoint. If one does not, the call is rejected and tagging
+    // stops working for everybody.
+    //
+    // Shipping an unverified routing restriction to earn a nicer sentence is
+    // the wrong trade. The sentence waits; it costs nothing to under-claim.
+    lead: 'It goes out to be read and comes straight back.',
+    rest: ' Your name and your email never go with it.',
   },
   {
     lead: 'We keep the photo and the tags',
