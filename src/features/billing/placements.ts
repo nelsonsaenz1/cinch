@@ -100,6 +100,52 @@ export const Placement = {
    * nothing, same as any other unmatched placement.
    */
   RepeatUpsell: 'repeat_upsell',
+
+  /**
+   * The Reveal has just landed, and the user is looking at the number their
+   * own ten pieces make (founder decision D2,
+   * docs/design/positioning-contract.md §5).
+   *
+   * THE ONLY PLACEMENT IN THIS FILE THAT NO SERVER HAS REFUSED ANYTHING FOR,
+   * and every other property of it follows from that. `add_garment_over_limit`
+   * and its siblings are registered after the database has already said no, so
+   * their copy can name a ceiling the user has genuinely met. Nobody has met
+   * anything here. The user has photographed ten pieces, watched
+   * `countOutfits()` do the arithmetic, and is — by
+   * `handle_new_subscription()` in migration 20260805160000 — fourteen days
+   * into a Pro trial with no limit anywhere near them.
+   *
+   * So this placement may not borrow the ceiling story. `context-lines.ts`
+   * branches on `trialing` for exactly this moment, and the line it returns
+   * says what is true: the trial has everything open, or (for an account whose
+   * trial has since lapsed) the ten stay free and membership is for the next
+   * piece.
+   *
+   * IT MUST STAY DISMISSIBLE. D2's phrasing is load-bearing — dismissing lands
+   * on Today with the free tier intact, because the ten-pieces-free promise is
+   * the wedge and a paywall that eats it makes the positioning a lie. Two
+   * things enforce that and both matter:
+   *
+   *   - Paywall **254200** is `feature_gating: non_gated`, so Superwall runs
+   *     the `feature()` block on dismissal as well as on purchase. A gated
+   *     paywall (253377 still is one) would swallow `onGranted` on close, and
+   *     a caller that navigated from `onGranted` alone would strand the user
+   *     on the Reveal.
+   *   - `present()` resolves on every path anyway — `granted`, `declined` or
+   *     `unavailable` — so the integrator's rule is to move on whatever comes
+   *     back, never to branch navigation on the outcome. See the note above
+   *     `GateOutcome` in use-gate.ts.
+   *
+   * Campaign: **"Reveal complete" (101136)**, created 2026-08-10, audience
+   * "no active Pro entitlement", 100% to paywall 254200 — the same audience
+   * and the same document as the other three campaigns, so this cannot become
+   * the one door that behaves differently. Note the document is still
+   * unpublished (`published_at: null`), which is the standing revenue blocker
+   * in docs/design/paywall-publish-runbook.md and not specific to this
+   * placement: until it is published every placement here resolves to a sheet
+   * that never commits a frame, and the fail-safe in use-gate.ts tears it down.
+   */
+  RevealComplete: 'reveal_complete',
 } as const;
 
 export type PlacementName = (typeof Placement)[keyof typeof Placement];

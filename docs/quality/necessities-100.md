@@ -121,7 +121,7 @@ Status legend:
 89. ✅ No secrets in repo/env-public; dev routes walled in production; privacy manifest verified against generated plist
 90. ✅ Permission plist scheme verified via real prebuild (motion present; suppressed keys absent)
 91. ✅ Export compliance declared (`ITSAppUsesNonExemptEncryption: false`) — no ASC prompt
-92. ✅ Marketing site live at www.cinchstyle.com with CSP; apex 308s to www (fixed today)
+92. ✅ Marketing site live with CSP; apex `cinchstyle.com` is now primary and answers directly — `status=200 hops=0`, including on `/.well-known/apple-app-site-association` (verified 2026-08-10). The apex-308s-to-www state recorded here was fixed; see `docs/design/www-redirect-directive.md`
 93. 🔧 Listing copy: cost-per-wear is NOT a moat (Whering/Indyx ship it) — reposition to "votes on real closets"; Privacy/Support URLs → cinchstyle.com
 94. 🔧 Prune dead hosted-paywall page + its CSP block from web/
 95. 📋 Delete orphaned Cloudflare Worker "cinch" (fails every push; steps in stack report)

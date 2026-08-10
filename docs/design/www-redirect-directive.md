@@ -1,8 +1,38 @@
 # Directive — make `cinchstyle.com` the primary domain
 
 **Owner:** founder (Vercel dashboard). Nobody else has access.
-**Status:** blocking for invite links. Not blocking the store build.
+**Status: RESOLVED 2026-08-10.** Was: blocking for invite links, not blocking
+the store build.
 **Raised:** 2026-08-10, while building atlas 39.
+
+---
+
+## RESOLVED — the apex answers directly
+
+The ask below was carried out. Re-verified live 2026-08-10 15:25 UTC:
+
+```
+curl -sS -o /dev/null -w "status=%{http_code} hops=%{num_redirects}\n" -L https://cinchstyle.com/
+→ status=200 hops=0
+
+curl -sS -o /dev/null -w "status=%{http_code} hops=%{num_redirects}\n" -L https://cinchstyle.com/.well-known/apple-app-site-association
+→ status=200 hops=0
+```
+
+**Check 1 of the three below now passes.** The apex serves the association file
+itself, with no hop, which is the condition Apple's crawler requires.
+
+**This file is kept, not deleted.** Everything under "Why it breaks the invite,
+twice, in silence" is the only written record of *why* the direction has to be
+apex-primary, and it is a setting one dashboard click can reverse. Anyone who
+later proposes redirecting the apex to `www` — which looks tidier and is the
+more common convention — needs to read that section first.
+
+Checks 2 and 3 (the file parses and is scoped to `/i/*`; Apple's CDN has picked
+it up; a device opens the app on `https://cinchstyle.com/i/@ada`) are **not
+re-verified here** and still need running on a device with the new build.
+
+**Everything below describes the state before the fix.** Read it as history.
 
 ---
 
@@ -14,16 +44,17 @@ the direction that is configured today.
 
 ---
 
-## What is wrong now
+## What was wrong (fixed 2026-08-10)
 
-Every request to the apex is answered with a 308 to `www`:
+Every request to the apex was answered with a 308 to `www`:
 
 ```bash
 curl -s -o /dev/null -w "%{http_code} -> %{redirect_url}\n" https://cinchstyle.com/i/@ada
 ```
 
-Today that prints `308 -> https://www.cinchstyle.com/i/@ada`. The same is true
-of `/.well-known/apple-app-site-association`, `/privacy`, `/terms` and `/`.
+Until 2026-08-10 that printed `308 -> https://www.cinchstyle.com/i/@ada`. The
+same was true of `/.well-known/apple-app-site-association`, `/privacy`, `/terms`
+and `/`. It now prints `200` with no hop.
 
 In a browser this is invisible and harmless — it is why nobody has noticed.
 

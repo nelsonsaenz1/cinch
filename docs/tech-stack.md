@@ -113,9 +113,30 @@ purchase, and the paywall appears on day 15. This is a deliberate fork:
   paying.
 
 The cost is that trial state has to be tracked server-side rather than by
-StoreKit: a `trial_started_at` on the profile, set on first launch, read by the
-Superwall campaign rule that decides whether to present. Trial state must not
-live on the device — reinstalling to reset the clock has to fail.
+StoreKit. **What shipped is an end date, not a start date, and it is set by the
+database rather than by the client:** `subscriptions.trial_ends_at`, written
+`now() + interval '14 days'` by the `handle_new_subscription()` trigger on
+`auth.users` insert
+(`supabase/migrations/20260805160000_membership_tiers.sql:77`). Nothing on the
+client sets it. It is read by `effective_plan()` in the same migration, which
+folds the trial in — a user whose `trial_ends_at` is in the future resolves to
+`pro`, everyone else to their stored `plan` — so no caller has to remember the
+trial exists.
+
+Two consequences worth stating, because both have already caused confusion:
+
+- **Superwall does not read it.** Trials live in Postgres, not in
+  `device.activeEntitlements`, so a trialing account still matches every
+  campaign audience. The gate is the app's, not the dashboard's; the paywall
+  copy branches on `trialing` instead (`src/features/billing/context-lines.ts`).
+- **An end date is the safer shape.** Storing a start and adding fourteen days
+  at read time means every reader has to agree on the length; storing the end
+  means the length is decided once, at signup, and a change to the policy cannot
+  retroactively shorten a live trial.
+
+Trial state must not live on the device — reinstalling to reset the clock has to
+fail, and a server-side column on a row keyed to `auth.users` is what makes that
+true.
 
 **Downgrade is non-destructive.** Above the new cap the closet goes read-only;
 garments are never deleted. Deleting a user's wardrobe because they cancelled is

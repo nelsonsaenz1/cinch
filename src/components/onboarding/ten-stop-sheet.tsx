@@ -3,6 +3,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { PLANS } from '@/features/billing/plans';
+import { stopSheetCopy } from '@/features/onboarding/ten-copy';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -19,6 +21,12 @@ export function TenStopSheetBody({
   onSwapPiece: () => void;
 }) {
   const theme = useTheme();
+  // Both sentences name the size of the free closet, so both are read from the
+  // one place that defines it rather than typed (positioning-contract.md §7).
+  // Read here rather than taken as a prop: the number is not a property of
+  // this card, it is a property of the tier, and every caller would otherwise
+  // have to pass the same constant.
+  const copy = stopSheetCopy(PLANS.free.items, count);
   return (
     <View
       className="rounded-t-sheet border-t border-rule bg-surface dark:border-rule-dark dark:bg-surface-dark"
@@ -42,15 +50,15 @@ export function TenStopSheetBody({
           // `muted`, not the atlas's literal `faint` (free-tier-contract.md §4).
           color: theme.muted,
         }}>
-        Ten of ten
+        {copy.eyebrow}
       </Text>
       <View style={{ marginBottom: 8 }}>
         <Text variant="title" trim style={{ fontSize: 26, lineHeight: 30 }}>
-          That&rsquo;s the ten. There&rsquo;s room for an eleventh on a larger closet.
+          {copy.title}
         </Text>
       </View>
       <Text variant="callout" className="text-muted dark:text-muted-dark">
-        {`Your ten make ${count} outfit${count === 1 ? '' : 's'}. Nothing you’ve photographed goes anywhere — you can swap a piece out whenever you like.`}
+        {copy.body}
       </Text>
 
       <View style={{ marginTop: 18, gap: 8, paddingBottom: 24 }}>

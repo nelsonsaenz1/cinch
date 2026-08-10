@@ -620,7 +620,10 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
   }, [packing, shareMounted]);
 
   const handleCardReady = useCallback(() => {
-    void sharePlate(shareView)
+    // 'packing' picks the memo's own share sentence. The default is 'outfit'
+    // because three of the four call sites are outfits; without this argument
+    // the bag would go out described as a look.
+    void sharePlate(shareView, 'packing')
       .catch(() => {})
       .finally(() => setShareMounted(false));
   }, []);

@@ -51,8 +51,11 @@ import {
 import { MAX_LOOKS_PER_BOARD, type PostedLook } from '@/features/event-outfits/types';
 import { useEvent, useEventMembers } from '@/features/events/queries';
 import { useEventChannel } from '@/features/events/use-event-channel';
+import { useInviteLink } from '@/features/invite/queries';
+import { boardShareMessage, lookShareMessage } from '@/features/share/share-copy';
 import { useBlockUser } from '@/features/social-graph/moderation';
 import { useReportFlow } from '@/features/social-graph/use-report-flow';
+import { track } from '@/lib/posthog';
 import { GUTTER, MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -116,6 +119,12 @@ export default function EventOutfitBoardScreen() {
   const posts = useEventPosts(eventId);
   const myVote = useMyVote(eventId);
   const comments = useEventComments(eventId);
+
+  // The sharer's own invite link, for the two share sheets below. Read here
+  // rather than built at the tap because it comes off the cached profile row —
+  // `useInviteLink` is a pure function of `useMyProfile`, so this costs nothing
+  // the closet masthead has not already paid for.
+  const myLink = useInviteLink().link.url;
 
   const terms = useSocialTermsGate();
   const castVote = useCastVote();
@@ -387,12 +396,61 @@ export default function EventOutfitBoardScreen() {
     [nameOf, block],
   );
 
+  /**
+   * L-04 — one look, out of the app.
+   *
+   * `url` carries the sharer's own invite link, which is the whole point of the
+   * change: this used to send text and nothing else, so a recipient without
+   * Cinch had no route in. The link is the sharer's, never the occasion's —
+   * an occasion is not linkable and is not becoming linkable, per the refusal
+   * printed at `src/app/event/[id]/invite.tsx:227`. What the recipient can act
+   * on is "join Cinch and be someone's friend", and then be invited to the
+   * occasion in-app the way everybody else is.
+   *
+   * The link gets its own `url` slot rather than being appended to the message
+   * because there is no image competing for it here — an `NSURL` on its own is
+   * what makes Messages draw the preview card, and that card explains Cinch so
+   * the message does not have to (`share-copy.ts` has the full argument).
+   *
+   * The old message had two defects beyond the missing link. It read
+   * `"${nameOf(...)} look"` — no possessive, so it produced "Dana look on
+   * Ana's dinner" for every share ever sent from this control. And the
+   * self-share branch said "Your look", which is written from the sharer's
+   * point of view rather than the reader's; that branch is unreachable today
+   * (`onShare` is only passed for `!isMine`, below) but it was wrong waiting to
+   * be reached.
+   */
   const shareLook = useCallback(
     (look: PostedLook) => {
-      const posterFirst = (look.userId === me ? 'Your' : (nameOf(look.userId) ?? "A friend's")) + ' look';
-      void Share.share({ message: `${posterFirst} on ${detail?.title ?? 'the board'} — take a look on Cinch.` });
+      const mine = look.userId === me;
+      // Bounded state, not content. `mine` and `locked` are the two facts that
+      // change what this share IS — somebody sending their own look out versus
+      // passing on a friend's, before the evening or after it — and both are
+      // booleans the board already holds. The occasion title, the poster's
+      // name and the look's garments all travel in the message and none of
+      // them travel here.
+      track('board_shared', {
+        scope: 'look',
+        mine,
+        locked,
+        has_link: myLink != null,
+      });
+      void Share.share({
+        message: lookShareMessage({
+          // `nameOf` answers 'You' for the signed-in user, which is not a name;
+          // `mine` handles that case and this argument is only read when it is
+          // false.
+          posterName: mine ? null : nameOf(look.userId),
+          mine,
+          occasionTitle: detail?.title ?? null,
+        }),
+        // Absent rather than empty when the sharer has no handle: a share
+        // sheet handed `''` shows a broken link, and a message alone is a
+        // complete share.
+        url: myLink ?? undefined,
+      }).catch(() => {});
     },
-    [nameOf, me, detail?.title],
+    [nameOf, me, detail?.title, myLink, locked],
   );
 
   const votePendingFor = useCallback(
@@ -559,15 +617,26 @@ export default function EventOutfitBoardScreen() {
           // has no save-to-Lately mutation anywhere yet, and this screen
           // isn't the place to invent one; see
           // .redesign/primitive-requests/board-comments.md.
+          //
+          // Same shape as `shareLook`: the message says what happened, and the
+          // `url` is the sharer's invite link — not the occasion's, because
+          // occasions are not linkable. It is what makes this share a route
+          // back into the app rather than a dead end.
           <Button
             title="Share the board"
             variant="secondary"
             haptic
-            onPress={() =>
+            onPress={() => {
+              // No `mine` and no `locked`: this control only exists inside the
+              // `locked && looks.length > 0` branch, so both would be
+              // constants. A property that can only take one value is noise in
+              // every breakdown that includes it.
+              track('board_shared', { scope: 'board', has_link: myLink != null });
               void Share.share({
-                message: `${detail.title} — the board's closed and the picks are in. Take a look on Cinch.`,
-              })
-            }
+                message: boardShareMessage(detail.title),
+                url: myLink ?? undefined,
+              }).catch(() => {});
+            }}
             className="mx-gutter mt-3 self-stretch"
           />
         ) : null}

@@ -111,13 +111,28 @@ export type Gate = {
    * dismissed without purchasing, which is what makes this a gate rather than a
    * notification.
    *
+   * THE WORD "GATED" THERE IS A DASHBOARD SETTING, NOT A PROPERTY OF THIS
+   * FUNCTION, and it is the thing to check before writing a call site.
+   * Superwall's `feature_gating` is per PAYWALL: 253377 is `gated`, 254200 —
+   * which every live campaign actually points at — is `non_gated`, and a
+   * non-gated paywall runs the feature block on dismissal too. So against
+   * today's configuration `onGranted` fires and this resolves `granted` even
+   * for a user who bought nothing. That is correct for `reveal_complete`,
+   * whose whole point is that dismissing must reach the app anyway (founder
+   * decision D2), and it is a trap for anything that treats `granted` as
+   * "they paid". The one honest test of a purchase is that `settle()` pushed
+   * MB-06, which only a real `purchased`/`restored` result does.
+   *
    * Resolves with what happened. It never rejects and it never hangs: see the
    * fail-safe contract below.
    *
    * `contextOpts` feeds `contextLineFor` (`context-lines.ts`) — the one line
-   * above the paywall headline that the app writes rather than Superwall.
-   * Every call site may omit it; only `packing_access`, when a trip has
-   * already been answered, has anything to pass.
+   * above the paywall headline that the app writes rather than Superwall. Two
+   * placements have something to pass: `packing_access` once a trip has been
+   * answered, and `reveal_complete`, which MUST be given the `outfitCount` the
+   * Reveal just computed or its line silently loses the number that makes it
+   * worth showing. `plan` and `trialing` are filled in here and ignored if a
+   * caller passes them.
    */
   present: (
     placement: PlacementName,
@@ -301,7 +316,7 @@ function useSuperwallGate(): Gate {
 
   const { dismiss } = useSuperwall((state) => ({ dismiss: state.dismiss }));
 
-  const { plan } = usePlan();
+  const { plan, trialing } = usePlan();
 
   // Captured fresh on every render so `present()` always closes over the
   // route it was actually called from, not a stale one from a gate mounted
@@ -477,11 +492,20 @@ function useSuperwallGate(): Gate {
       // than rendering the literal word "null". `trigger` rides along too:
       // useful on the dashboard side for a campaign that wants to branch on
       // more than the placement name alone.
-      // The plan is read here rather than asked of every call site: seven
-      // places register placements, and six of them have no reason to know
+      // The plan is read here rather than asked of every call site: eight
+      // places register placements, and seven of them have no reason to know
       // about billing at all. `usePlan` folds the trial into `pro`, so a
       // trialing account never reads as Standard.
-      const context = contextLineFor(placement, { ...contextOpts, plan });
+      //
+      // `trialing` rides along for the same reason and undoes exactly that
+      // fold where it matters. Folding is right for the five placements that
+      // follow a refusal — a trialing account IS Pro to the server, so it
+      // never meets those ceilings — but `reveal_complete` fires without one,
+      // and every account is fourteen days into a trial when it does. Without
+      // this the Reveal's line would tell a user with Pro access that the ten
+      // stay free. Both are read here and both OVERRIDE whatever a call site
+      // passed: billing state is this hook's to know, not the caller's.
+      const context = contextLineFor(placement, { ...contextOpts, plan, trialing });
       const params: Record<string, unknown> = { trigger: placement };
       if (context) params.context = context;
 
@@ -503,7 +527,7 @@ function useSuperwallGate(): Gate {
 
       return outcome;
     },
-    [arm, ownerId, pathname, plan, registerPlacement, settle],
+    [arm, ownerId, pathname, plan, trialing, registerPlacement, settle],
   );
 
   // Memoized so the Gate is stable across renders: consumers put it in effect

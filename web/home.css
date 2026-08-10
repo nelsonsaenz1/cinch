@@ -1,0 +1,330 @@
+/* The landing page — / (the ten-piece wedge), and the two pages api/waitlist.js
+   renders back after a submission.
+
+   Loaded after styles.css, which supplies the reset, the type rhythm and the
+   header/footer rules. This file does for the front page what invite.css does
+   for the doorway: puts it on paper, gives it the display face, and adds the
+   two things no other page here has — the App Store button and the form.
+
+   NO JAVASCRIPT RUNS ON THIS PAGE. The site ships `default-src 'none'` with no
+   `script-src` at all, so the waitlist is a plain <form> POSTing to a
+   server-rendered endpoint. That is also why `form-action` had to move from
+   'none' to 'self' in vercel.json — a form with nowhere to post is not a form.
+
+   `style-src 'self'` means there is no inline `style=""` attribute anywhere in
+   the markup either. That is why the honeypot is a class here (.trap) instead
+   of a hidden attribute or an inline rule on the input, and why every state in
+   this file is static CSS. */
+
+/* Instrument Serif is the display face of the app's design direction and this
+   page is the brand off-device. Self-hosted, so `font-src 'self'` is the only
+   CSP allowance it needs and nothing is fetched from another origin.
+   SIL OFL 1.1 — see fonts/OFL.txt. */
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/fonts/instrument-serif-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The locked palette. These override the tokens styles.css sets, including its
+   dark block, because this file is loaded second and both are `:root` at the
+   same specificity. The dark block below then wins over these in turn.
+
+   Every colour used for text here was checked against its background:
+     --ink    on --paper  16.9:1
+     --muted  on --paper   7.6:1
+     --accent on --paper  10.0:1
+   Nothing lighter than --muted carries text on this page. Faint is an AA
+   failure, not a style. */
+:root {
+  --paper: #fbfaf6;
+  --canvas: #fbfaf6;
+  --ink: #1c1a16;
+  --muted: #57514a;
+  --tray: #f0ece3;
+  --hairline: #e2dccf;
+  --accent: #6e2b2b;
+  --stamp: #1c1a16;
+  --stamp-ink: #fbfaf6;
+  /* Tan is a rule and a mark, never a text colour: #b08a76 on paper is 2.5:1
+     and would fail AA the moment a word was set in it. */
+  --tan: #b08a76;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #17150f;
+    --canvas: #17150f;
+    --ink: #fbfaf6;
+    --muted: #b7afa1;
+    --tray: #221f18;
+    --hairline: #33302a;
+    /* Oxblood is 1.7:1 on the dark ground — unusable. Tan reads 5.6:1 there,
+       so the accent swaps rather than dimming. */
+    --accent: #c9a48f;
+    --stamp: #fbfaf6;
+    --stamp-ink: #17150f;
+    --tan: #6e5a4c;
+  }
+}
+
+body.home {
+  background: var(--paper);
+}
+
+/* --- Hero ---------------------------------------------------------------- */
+
+.hero {
+  padding-bottom: 0.5rem;
+}
+
+.eyebrow {
+  font-family: ui-sans-serif, -apple-system, system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 1.25rem;
+}
+
+.home h1 {
+  font-family: "Instrument Serif", ui-serif, Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: clamp(2.6rem, 10vw, 4rem);
+  line-height: 1.06;
+  letter-spacing: 0;
+  margin: 0 0 1rem;
+  text-wrap: balance;
+}
+
+.home .lede {
+  font-size: 1.2rem;
+  line-height: 1.55;
+  color: var(--ink);
+  max-width: 32rem;
+  margin-bottom: 2rem;
+}
+
+/* --- The action ---------------------------------------------------------- */
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  padding: 0 1.75rem;
+  background: var(--stamp);
+  color: var(--stamp-ink);
+  border-radius: 12px;
+  font-family: ui-sans-serif, -apple-system, system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cta:hover,
+.cta:focus-visible {
+  color: var(--stamp-ink);
+  opacity: 0.9;
+}
+
+/* The button never sits flush against the sentence above it. */
+.cta-note + .cta,
+h2 + .cta {
+  margin-top: 1.5rem;
+}
+
+.cta-note {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0.9rem 0 0;
+  max-width: 30rem;
+}
+
+.cta-note a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* The repeat of the button, further down, where the reader has the argument. */
+.closer {
+  margin-top: 3.5rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.closer h2 {
+  margin-top: 0;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(1.8rem, 6vw, 2.4rem);
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+/* --- Sections ------------------------------------------------------------ */
+
+.home section {
+  margin-top: 3rem;
+}
+
+.home section p {
+  max-width: 34rem;
+}
+
+.home h2 {
+  font-family: ui-sans-serif, -apple-system, system-ui, sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  margin: 0 0 0.6rem;
+}
+
+/* A short tan rule instead of a heavier heading. Decoration only — it carries
+   no information and no text. */
+.home section > h2::before {
+  content: "";
+  display: block;
+  width: 2.25rem;
+  height: 2px;
+  margin-bottom: 1rem;
+  background: var(--tan);
+}
+
+/* --- The waitlist -------------------------------------------------------- */
+
+.waitlist {
+  margin-top: 3.5rem;
+  padding: 1.75rem 1.5rem;
+  background: var(--tray);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+}
+
+.waitlist h2 {
+  margin-top: 0;
+}
+
+.waitlist p {
+  max-width: 34rem;
+}
+
+.wl-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin: 1.25rem 0 0;
+}
+
+.wl-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.wl-field label {
+  font-family: ui-sans-serif, -apple-system, system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.wl-field input {
+  font-family: ui-sans-serif, -apple-system, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.4;
+  min-height: 52px;
+  width: 100%;
+  padding: 0 0.9rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--muted);
+  border-radius: 10px;
+}
+
+.wl-field input:focus-visible,
+.wl-submit:focus-visible,
+.cta:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wl-submit {
+  min-height: 52px;
+  padding: 0 1.5rem;
+  background: var(--stamp);
+  color: var(--stamp-ink);
+  border: 1px solid var(--stamp);
+  border-radius: 10px;
+  font-family: ui-sans-serif, -apple-system, system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.wl-submit:hover {
+  opacity: 0.9;
+}
+
+.wl-note {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0.9rem 0 0;
+  max-width: 34rem;
+}
+
+.wl-note a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* The honeypot. A real, labelled field that no sighted or screen-reader user is
+   offered: taken out of the tab order, hidden from the accessibility tree by
+   its wrapper, and moved off-canvas rather than `display: none` so that the
+   simpler bots still fill it in. Anything that arrives with it filled is
+   answered with the confirmation page and stored nowhere. */
+.trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* --- The answer pages ---------------------------------------------------- */
+
+.answer h1 {
+  font-family: "Instrument Serif", ui-serif, Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: clamp(2.2rem, 8vw, 3rem);
+  line-height: 1.1;
+  letter-spacing: 0;
+  margin: 0 0 1rem;
+  text-wrap: balance;
+}
+
+.answer .lede {
+  color: var(--ink);
+  font-size: 1.15rem;
+  max-width: 32rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cta,
+  .wl-submit {
+    transition: opacity 120ms ease-out;
+  }
+}

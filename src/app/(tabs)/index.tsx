@@ -24,6 +24,7 @@ import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { startTagSweeper } from '@/features/ingest/upload-queue';
 import { Placement } from '@/features/billing/placements';
+import { PLANS } from '@/features/billing/plans';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
 import { exhaustionProgress, wearsOfCore } from '@/features/styling/repeat';
@@ -40,6 +41,7 @@ import {
   type OutfitCandidate,
   type WeatherContext,
 } from '@/lib/styling';
+import { track, trackOnce } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
@@ -531,6 +533,56 @@ export default function TodayScreen() {
   // runs above the card rather than the card standing alone.
   const offline = weatherFailed;
 
+  // ── Analytics: the two denominators this screen owns ──────────────────────
+  //
+  // Both live here, above every early return, because hooks cannot be called
+  // after one — and both are computed from exactly the conditions the returns
+  // below branch on, so what is measured is what is rendered rather than a
+  // re-derivation that can drift from it.
+
+  // ACTIVATION, observed from the raw-capture route. The Ten has the same
+  // observer on the same predicate; `trackOnce` guarantees one event per
+  // person across both, so a closet built by photographing garments straight
+  // into the closet counts exactly like a closet built by the guided flow.
+  useEffect(() => {
+    if (wardrobe.isLoading || wardrobe.isError || !canGenerate(items)) return;
+    trackOnce('closet_ready', { route: 'capture', pieces: items.length });
+  }, [wardrobe.isLoading, wardrobe.isError, items]);
+
+  // OUTFITS GENUINELY ON SCREEN.
+  //
+  // The condition is the exact conjunction of the four early returns below —
+  // not loading, not a failed read, past `canGenerate`, and with a non-empty
+  // set — because those are the four ways this screen renders no plates at all
+  // while still having asked the engine for some. Both surviving branches (the
+  // offline one and the normal one) then map `effectiveShown`, so a non-empty
+  // `effectiveShown` here means plates in the tree.
+  //
+  // The key is the identity of the set, so a re-render is silent and a swapped
+  // plate is a new impression. The ref is deliberately per-mount rather than
+  // persisted: seeing today's outfits tomorrow IS a new impression, which is
+  // the opposite of `closet_ready`'s once-per-person claim.
+  const viewedRef = useRef<string | null>(null);
+  const platesOnScreen =
+    !wardrobe.isLoading && !wardrobe.isError && canGenerate(items) && effectiveShown.length > 0;
+  const viewedKey = platesOnScreen
+    ? effectiveShown.map((o) => idOf(o.candidate.items)).join('|')
+    : null;
+  useEffect(() => {
+    if (!viewedKey || viewedRef.current === viewedKey) return;
+    viewedRef.current = viewedKey;
+    track('outfit_set_viewed', {
+      surface: 'today',
+      // The number of plates, never anything about what is on them.
+      count: viewedKey.split('|').length,
+      offline,
+    });
+    // `offline` is read, not depended on: the flag belongs to the moment the
+    // set first appeared, and adding it here would only re-run an effect the
+    // ref already blocks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewedKey]);
+
   // What the looks are for — the user's own words first, else the day's first
   // calendar event. Carried into each plate's share artifact.
   const occasion = committedNote || context.events[0]?.title || null;
@@ -795,10 +847,23 @@ export default function TodayScreen() {
           {/* Ink, not oxblood: the one spent accent is reserved for a loved
               look, and the shared Button has no ink variant — so this is an
               inline pill in the plate grammar, its label lit inline. */}
+          {/* THE ONLY DOOR BACK INTO THE TEN. `toured_at` is written on every
+              tour exit, so a reader who took "I'll look around first" — or who
+              backed out of The Ten — can never be offered it again by the
+              first-run gate. Without this they get raw capture forever and
+              never meet the guided ten or the Reveal, which is the whole
+              wedge (docs/design/positioning-contract.md §1).
+
+              Under the free cap, The Ten is strictly the better destination:
+              it asks for the pieces that multiply rather than whichever
+              garment is nearest, and it ends on the count. At or above it,
+              The Ten would hydrate complete and tell somebody with a full
+              closet "that's the ten", so capture stays right — the same
+              boundary `exitDestination` draws for the tour. */}
           <Pressable
             onPress={() => {
               void Haptics.selectionAsync().catch(() => {});
-              router.push('/capture');
+              router.push(items.length < PLANS.free.items ? '/the-ten' : '/capture');
             }}
             accessibilityRole="button"
             accessibilityLabel={empty ? 'Add your clothes' : 'Add more clothes'}

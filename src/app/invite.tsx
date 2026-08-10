@@ -6,7 +6,9 @@ import { InvitePage } from '@/components/invite/invite-page';
 import { Toast } from '@/components/ui/toast';
 import { arrivalName, arrivalSubtitle } from '@/features/invite/arrivals';
 import { CLIPBOARD_AVAILABLE, copyText } from '@/features/invite/clipboard';
+import { shareMessage } from '@/features/invite/link';
 import { useInviteArrivals, useInviteLink } from '@/features/invite/queries';
+import { track } from '@/lib/posthog';
 
 /**
  * Invite a friend — IV-01, IV-02 and IV-03 (atlas 39).
@@ -60,18 +62,43 @@ export default function InviteScreen() {
   /**
    * IV-02 — the OS share sheet.
    *
-   * `url` rather than `message`, so iOS raises the link-preview card the atlas
-   * draws instead of a bare string, and `title` carries the sentence the
-   * recipient reads on the landing page. The atlas is explicit that the two
-   * must match: the invite should read the same in Messages as it does in the
-   * browser, which is what `shareTitle()` in `link.ts` exists to guarantee.
+   * `url` AND `message`, where this used to send `url` and `title`.
+   *
+   * The `url` is unchanged and stays in its own slot, because an `NSURL` on its
+   * own is what makes Messages raise the link-preview card the atlas draws —
+   * and that card's headline is `shareTitle()`, served as `og:title` from
+   * `web/api/invite.js`. So the atlas's "the invite reads the same in Messages
+   * as in the browser" rule is satisfied by the page, as it always was.
+   *
+   * `title` was the bug. React Native's iOS branch never forwards it: the
+   * payload it builds is `message` / `url` / `subject`, and `content.title` is
+   * read only on Android (`Libraries/Share/Share.js`). Every invite this screen
+   * has sent went out as a bare link with no framing at all. `shareMessage()`
+   * is that framing, and `link.title` moves to `subject`, which iOS does use —
+   * it becomes the subject line when the invite goes by Mail.
    *
    * A dismissed sheet is not an error, and neither is a share that never
-   * completes — nothing was promised, so nothing is reported.
+   * completes — nothing was promised, so nothing is reported. The promise is
+   * caught rather than awaited for a second reason: RN's iOS completion handler
+   * never fires when an activity is chosen and then cancelled
+   * (`RCTActionSheetManager.mm:291-296`), so this promise can legitimately hang
+   * forever. Nothing here depends on it settling.
    */
   const share = useCallback(() => {
-    if (!link.url || !link.title) return;
-    void Share.share({ url: link.url, title: link.title }).catch(() => {});
+    if (!link.url) return;
+    // After the guard, so a tap that could not produce a share is not counted
+    // as one. `has_link` is therefore always true here and is sent anyway: it
+    // keeps this event's shape identical to `outfit_shared`'s and
+    // `board_shared`'s, so "shares that carried a link" is one query across
+    // all three rather than three queries with an exception in the middle.
+    track('invite_shared', { has_link: true, surface: 'invite_screen' });
+    void Share.share(
+      { message: shareMessage(), url: link.url },
+      // Undefined rather than an empty string when there is no display name to
+      // build it from: an email with a blank subject is better than one headed
+      // " added you on Cinch".
+      { subject: link.title ?? undefined },
+    ).catch(() => {});
   }, [link.url, link.title]);
 
   /**
@@ -89,6 +116,13 @@ export default function InviteScreen() {
     // blames themselves.
     void copyText(link.url).then((ok) => {
       if (!ok) return;
+      // Inside the `ok` branch, beside the confirmation the user sees and not
+      // beside the tap. `copyText` returns false when the pasteboard was not
+      // written, and the button deliberately keeps saying "Copy link" in that
+      // case — an event that fired anyway would claim a link is in circulation
+      // that nobody can paste, which is a referral numerator with nothing on
+      // the other end of it.
+      track('invite_copied');
       setCopied(true);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), COPIED_HOLD_MS);

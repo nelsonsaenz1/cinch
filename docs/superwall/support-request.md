@@ -3,6 +3,13 @@
 **Paste everything below the line into the support chat widget.**
 Written 2026-08-06. Delete this file once resolved.
 
+> **Stale, read as a dated record only (noted 2026-08-10).** The paste below is
+> left verbatim because it is a support-chat transcript. Two things in it are no
+> longer true: there are now **four** campaigns, not two, and they point at
+> paywall **254200** ("Cinch Membership v3"), not 253377. Do not take "that
+> paywall is the one that should go live" from this file — see
+> `docs/design/paywall-publish-runbook.md`.
+
 ---
 
 Hi — I can't publish or save any paywall in the new (Public Beta) editor. Every

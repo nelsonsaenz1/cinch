@@ -24,6 +24,7 @@ import {
 import { signInWithApple } from '@/features/auth/actions';
 import { describeThrownSignInError } from '@/features/auth/sign-in-errors';
 import { useConnectivity } from '@/features/auth/use-connectivity';
+import { track } from '@/lib/posthog';
 import { MIN_TAP_TARGET } from '@/theme/tokens';
 
 const COVER_PHOTO = require('../../../assets/garments/cognac-shearling-coat.jpg');
@@ -135,6 +136,10 @@ export default function SignInScreen() {
 
   const onApple = useCallback(async () => {
     if (busy) return;
+    // After the `busy` guard, so a double-tap on a sheet already opening is one
+    // attempt rather than two — the same care `paywall_presented` takes in
+    // firing from the presentation and not from the request for one.
+    track('auth_started', { method: 'apple' });
     void Haptics.selectionAsync().catch(() => {});
     setBusy(true);
     setToast(null);
@@ -175,6 +180,13 @@ export default function SignInScreen() {
   }, [busy, router, showToast]);
 
   const onEmail = useCallback(() => {
+    // Here rather than on the address screen's Continue. The two methods have
+    // to start at the same beat or they cannot be compared: Apple's start is
+    // the tap that opens a sheet, and email's equivalent is the tap that enters
+    // the flow. Waiting for the address to be submitted would hide everyone who
+    // chose email, saw a text field, and left — which is exactly the drop-off
+    // this event was added to find.
+    track('auth_started', { method: 'email' });
     void Haptics.selectionAsync().catch(() => {});
     router.push('/(auth)/email');
   }, [router]);

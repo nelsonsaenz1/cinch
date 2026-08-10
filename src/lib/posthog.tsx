@@ -1,3 +1,4 @@
+import Storage from 'expo-sqlite/kv-store';
 import * as Updates from 'expo-updates';
 import { PostHog, PostHogProvider } from 'posthog-react-native';
 import { useEffect } from 'react';
@@ -181,6 +182,14 @@ if (posthog) registerBuildIdentity(posthog);
  *
  * snake_case because that is what PostHog's own UI, its SQL surface and every
  * insight builder assume.
+ *
+ * OFFERS AND STARTS, NOT ONLY COMPLETIONS. Every event in the first version of
+ * this union fired on a completion, which produced conversion numerators with
+ * no denominators: likes with no impressions, sign-ins with no attempts,
+ * activation with no moment. The events marked below as denominators exist to
+ * close that, and the rule they follow is the one `paywall_presented` already
+ * set — fire when the thing is genuinely OFFERED or genuinely ON SCREEN, never
+ * when it was merely requested, fetched or registered.
  */
 export type AppEvent =
   /** Garments chosen for import — the top of the activation funnel. */
@@ -202,6 +211,25 @@ export type AppEvent =
   | 'garment_reviewed'
   /** An outfit liked or dismissed. */
   | 'outfit_reacted'
+  /**
+   * DENOMINATOR for `outfit_reacted` and `outfit_worn`: a set of outfits
+   * genuinely on screen.
+   *
+   * Fired from the commit that RENDERS plates, not from the query that fetched
+   * them. Today has five terminal states above its plates — loading, a failed
+   * wardrobe read, the empty-closet ladder, offline-with-nothing, and "nothing
+   * today feels right" — and in four of them outfits were fetched or computed
+   * and never seen. Counting the fetch would inflate the denominator with
+   * exactly the sessions where the product failed to show anything, which is
+   * the opposite of what a like rate is for.
+   *
+   * `count` is how many plates rendered, `surface` is a bounded 'today' |
+   * 'reveal', `offline` says whether the set was the stale local one (a like
+   * rate should be readable with those sessions excluded). Once per distinct
+   * set per mount: a "show me another" swap replaces a plate and counts again,
+   * because a new outfit really did arrive in front of the reader.
+   */
+  | 'outfit_set_viewed'
   /** An outfit recorded as actually worn — the habit metric. */
   | 'outfit_worn'
   /** An outfit placed on a day in the weekly plan. */
@@ -210,8 +238,111 @@ export type AppEvent =
   | 'stylist_question_answered'
   /** A guided stylist questionnaire tapped through to the end. */
   | 'stylist_questionnaire_completed'
-  /** The share sheet was opened for an outfit card. */
+  /**
+   * The share sheet was opened for a captured card. `subject` is which
+   * artifact ('outfit' | 'packing'); `has_link` is whether the sharer's own
+   * invite link made it into the message, which is the difference between a
+   * share that can recruit and one that cannot — `myInviteUrl` returns null
+   * for a user with no handle and gives up after 1.2s on a cold read.
+   */
   | 'outfit_shared'
+  /**
+   * NUMERATOR ONLY, and deliberately not a funnel denominator: a share sheet
+   * that reported an actual send.
+   *
+   * `outfit_shared` fires when the sheet is asked for, which is the honest
+   * maximum, because iOS only calls the completion handler back when
+   * `completed || activityType == nil` — pick an activity and then cancel its
+   * follow-up and nothing is ever reported. So this UNDERCOUNTS by an unknown
+   * amount and may only be read as "at least this many sends", never divided
+   * into anything.
+   *
+   * `activity_type` is Apple's own UIActivityType suffix. Every third-party
+   * share extension collapses to 'other': its raw value is the bundle id of an
+   * app the user has installed, which is neither bounded nor ours to collect.
+   */
+  | 'share_completed'
+  /**
+   * A look, or a whole occasion board, sent out of the app from the event
+   * board. `scope` separates the two, `mine` and `locked` carry the board's
+   * own state, `has_link` whether the sharer had an invite link to attach.
+   * Never the occasion title, never a member's name — the board is other
+   * people's content and none of it belongs in an event property.
+   *
+   * Separate from `outfit_shared` because it is a different artifact (text and
+   * a link, no captured card) from a different surface; merging them would
+   * make neither of the two countable.
+   */
+  | 'board_shared'
+  /**
+   * The invite screen's own share sheet was asked for. `surface` is bounded so
+   * a second invite entry point later stays distinguishable from this one.
+   */
+  | 'invite_shared'
+  /**
+   * The invite link actually reached the pasteboard.
+   *
+   * Fired only inside `copyText`'s success branch. It returns false when the
+   * write did not happen, and a copy counted that never landed is a referral
+   * numerator the recipient side can never match — the exact shape of error
+   * that makes K unfalsifiable.
+   */
+  | 'invite_copied'
+  /**
+   * An invite link was opened in the app — the K-factor denominator, and the
+   * first number in the referral loop that was previously dark end to end.
+   *
+   * ONE event for both branches with `signed_in` as a property, rather than
+   * two events, so "links tapped" stays a single number no matter who taps it.
+   * Split into `invite_opened_signed_in` / `_signed_out` and every K query
+   * would have to remember to add them back together.
+   */
+  | 'invite_opened'
+  /**
+   * `apply_invite` answered. `resolved` is whether there was anybody at the
+   * other end: false covers an unknown handle, the user's own link, and a
+   * block in either direction — three situations the server deliberately does
+   * not distinguish, and this must not pretend to either.
+   *
+   * A link tapped at a deleted account is a different failure from a link
+   * nobody ever tapped, and only the pair `invite_opened` → `invite_converted`
+   * can tell them apart. That is the whole reason this carries a boolean
+   * rather than firing only on success.
+   */
+  | 'invite_converted'
+  /**
+   * A sign-in ATTEMPT, at the moment a method is chosen: the Apple sheet is
+   * asked for, or the email route is entered.
+   *
+   * NOT screen arrival. `useScreenTracking` already emits `$screen` for
+   * (auth)/sign-in on every arrival, so an arrival event would be a second
+   * name for data that exists — and it could not carry `method`, which is the
+   * one split that decides whether the email flow's four extra screens are
+   * where people are lost. Arrival is the denominator, this is the first
+   * checkpoint, and the two together are the drop-off.
+   *
+   * `method` is 'apple' | 'email'. One per attempt, so a retry after a failed
+   * Apple sheet counts again — attempts are what convert, and PostHog funnels
+   * count unique people anyway.
+   */
+  | 'auth_started'
+  /**
+   * ACTIVATION: the first time this person's closet can actually dress them.
+   *
+   * The predicate is `canGenerate()` (features/styling/queries.ts) — a wearable
+   * core plus MIN_CLOSET_FOR_OUTFITS pieces — and NOT "finished The Ten". The
+   * Ten is one road to a usable closet; raw capture is the other, and a closet
+   * built that way is exactly as ready. Marking activation at the guided
+   * flow's finish line would have counted the road instead of the arrival, and
+   * silently scored every non-guided user as never activated.
+   *
+   * Emitted through `trackOnce`, so it fires exactly once per person however
+   * many times either surface observes the crossing. `route` says which
+   * surface saw it first; `pieces` is a count — the input to the closet-size
+   * threshold analysis in docs/analytics.md §4, and the reason this event is
+   * worth more than a timestamp.
+   */
+  | 'closet_ready'
   /** A server refusal that offered an upgrade — the paywall funnel's top. */
   | 'paywall_presented'
   /**
@@ -224,24 +355,45 @@ export type AppEvent =
   | 'paywall_unavailable'
   /**
    * A garment import that never reached `done` — the terminal failure of an
-   * upload-queue job. `stage` is the pipeline step it died at (e.g. `cutout`,
-   * `uploading`, `tagging`); `reason` is a short, bounded cause, never the raw
-   * error string. No call site exists yet: `upload-queue.ts` and its list UI
-   * are out of this change's territory. See the deferred call sites noted in
-   * `track`'s doc comment below.
+   * upload-queue job, and the counterweight to `clothes_import_selected`.
+   * Without it the activation funnel could only say that people stopped
+   * importing, never that the app dropped what they imported.
+   *
+   * `stage` is the `JobStage` it died at (`preparing`, `cutout`, `uploading`,
+   * `tagging`); `reason` is a bounded classification produced by
+   * `analyticsFailureReason` in `upload-queue.ts`, never `job.error` itself,
+   * which is free text written for a human-readable banner. `retryable` says
+   * whether the queue will offer another go, which separates "we lost it" from
+   * "we paused on it".
+   *
+   * TERMINAL ONLY. The drain loop re-queues a job that has attempts left, and
+   * that transition writes no event: an import that fails twice and then
+   * succeeds is a success, and counting its stumbles would make the failure
+   * rate a measure of network weather rather than of lost garments.
    */
-  | 'clothes_import_failed'
-  /**
-   * A generic JS exception, for manual `catch` blocks that want a typed event
-   * rather than reaching for `posthog.captureException` directly. The
-   * top-level hook below does NOT emit this — the installed SDK supports
-   * native exception autocapture, so uncaught errors and unhandled rejections
-   * are captured as PostHog's own `$exception` event instead, the same way
-   * `useScreenTracking` below emits `$screen` outside this union. `client_error`
-   * stays reserved for a deliberate, in-app `catch`, with only a bounded
-   * `name`/`message`/first stack frame — never the full stack or user content.
-   */
-  | 'client_error';
+  | 'clothes_import_failed';
+
+/*
+ * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.
+ *
+ * It was declared for "a deliberate, in-app catch that wants a typed event"
+ * and never acquired one, which made it the thing this union exists to
+ * prevent: a member that reads as measured and is permanently empty.
+ *
+ * Wiring it would have been worse than deleting it. The client option above
+ * turns on `errorTracking.autocapture`, so uncaught exceptions and unhandled
+ * rejections already arrive as PostHog's own `$exception`, and the SDK's
+ * `captureException` puts a hand-caught error into that SAME stream. A second
+ * event name for hand-caught errors would fork error volume across two names
+ * that have to be unioned back together in every query, and would put the
+ * pressure on each call site to pick the right one.
+ *
+ * So: a deliberate catch that wants telemetry calls
+ * `posthog?.captureException(err)` and lands beside every other error. A
+ * failure with a real product meaning gets its own named event with bounded
+ * properties instead — which is what `clothes_import_failed`,
+ * `paywall_unavailable` and `cutout_result` already are.
+ */
 
 /**
  * Bounded, non-identifying properties.
@@ -256,19 +408,10 @@ export type EventProps = Record<string, number | boolean | string | undefined>;
 /**
  * Emit an event. Safe to call when analytics are unconfigured.
  *
- * FOLLOW-UP OWED: `clothes_import_failed` has no call site yet.
- * `src/features/ingest/upload-queue.ts` is where a job's `stage` actually
- * flips to `'failed'` — see the `update(jobId, { stage: 'failed', error })`
- * calls around lines 286, 305, 687, 705, 805 and 876 — and
- * `src/components/ingest/upload-queue-list.tsx` is the only UI that renders
- * that state (its `Thumb`, `failed`/`job.error`). Both are out of this
- * change's territory (capture/ingest is explicitly excluded), and neither is
- * reachable from any file this change was allowed to touch, so the event is
- * declared here and unwired. The natural fix is one `track('clothes_import_failed',
- * { stage: job.stage, reason: <bounded classification of job.error> })` per
- * terminal `'failed'` transition in `upload-queue.ts` — `reason` should be a
- * short enum classifying the failure, not `job.error` itself, which is
- * free-text meant for the human-readable banner.
+ * The follow-up this comment used to owe — `clothes_import_failed` with no
+ * call site — is paid: `upload-queue.ts` now emits it at each of its eight
+ * terminal `stage: 'failed'` transitions, with a bounded `reason` produced by
+ * `analyticsFailureReason` in that file rather than the raw `job.error`.
  */
 export function track(event: AppEvent, properties?: EventProps): void {
   if (!posthog) return;
@@ -286,6 +429,75 @@ export function track(event: AppEvent, properties?: EventProps): void {
 }
 
 /**
+ * Who the current person is, for scoping the once-per-user flags below.
+ *
+ * Written only by `identifyUser`, which is itself called from exactly one
+ * place — the auth subscription in `_layout.tsx`. This is not a second source
+ * of identity, it is a local copy of the one that already exists, because
+ * `trackOnce` needs the id from outside React and PostHog's own distinct id is
+ * an anonymous UUID until `identify` lands.
+ */
+let currentUserId: string | null = null;
+
+/** Namespace for the once-per-user flags. Same kv-store the queue persists to. */
+const ONCE_PREFIX = 'cinch.analytics.once.';
+
+/**
+ * Fire an event at most once per person, ever.
+ *
+ * WHY THIS IS NOT A `useRef` AT THE CALL SITE. `closet_ready` marks a crossing
+ * that is observed by a screen the user opens every morning. A ref guards one
+ * mount; a module variable guards one launch; neither survives the app being
+ * killed, so both would re-emit activation on the second day, the third, and
+ * for as long as the closet stays usable — which is forever. The only guard
+ * that matches the claim "this person activated" has to outlive the process,
+ * so it is written to storage.
+ *
+ * THREE LAYERS, IN THIS ORDER.
+ *
+ *  1. `firedOnce`, in memory, so two observers racing inside one launch (The
+ *     Ten's stop sheet and Today's first render land in the same second) can
+ *     never both get past the check — a storage read is synchronous here, but
+ *     the set makes the intent explicit and costs nothing.
+ *  2. The user-scoped key, which is the real flag.
+ *  3. The anonymous key, read as well as the user-scoped one. `identifyUser`
+ *     runs from `onAuthStateChange`, so there is a narrow window on a cold
+ *     start where a screen behind the auth gate can render before this file
+ *     has been told who it is. An event emitted in that window is attributed
+ *     correctly anyway — PostHog merges the anonymous id into the person on
+ *     `identify` — but its flag would be filed under 'anonymous', and the next
+ *     launch would find the user-scoped key empty and emit a second one.
+ *     Reading both closes that. The anonymous key can only ever be written
+ *     while no identity exists, so it is written at most once per install.
+ *
+ * The flag is set BEFORE the capture, matching the review prompt in
+ * `features/share/capture-plate.ts`: losing one event to a crash between the
+ * two is a smaller error than emitting activation twice for the same person.
+ *
+ * A storage failure falls through to firing — an unmeasured activation is
+ * worse than a possible duplicate, and layer 1 still holds for the session.
+ */
+const firedOnce = new Set<string>();
+
+export function trackOnce(event: AppEvent, properties?: EventProps): void {
+  if (!posthog) return;
+
+  const scoped = `${ONCE_PREFIX}${event}.${currentUserId ?? 'anonymous'}`;
+  const anonymous = `${ONCE_PREFIX}${event}.anonymous`;
+  if (firedOnce.has(scoped) || firedOnce.has(anonymous)) return;
+  firedOnce.add(scoped);
+
+  try {
+    if (Storage.getItemSync(scoped) !== null || Storage.getItemSync(anonymous) !== null) return;
+    Storage.setItemSync(scoped, '1');
+  } catch {
+    // kv-store unavailable. Fire anyway; the in-memory set bounds this launch.
+  }
+
+  track(event, properties);
+}
+
+/**
  * Bind analytics to the signed-in identity, or clear it.
  *
  * Called from the single auth subscription in `_layout.tsx` rather than from a
@@ -293,11 +505,17 @@ export function track(event: AppEvent, properties?: EventProps): void {
  * `userId` is the Supabase UUID and the only identifier sent.
  */
 export function identifyUser(userId: string | null): void {
+  currentUserId = userId;
   if (!posthog) return;
   if (userId) {
     posthog.identify(userId);
     return;
   }
+  // The once-per-user flags are keyed by user id and live in storage, so the
+  // next person to sign in on this device gets their own. Only the in-memory
+  // mirror has to be dropped — keeping it would let the previous person's
+  // flags suppress the new one's first activation for the rest of the launch.
+  firedOnce.clear();
   // `reset` rotates the anonymous id so the next signed-out session is not
   // attributed to the person who just signed out — which matters on a shared
   // device and is the whole reason this is called on SIGNED_OUT.

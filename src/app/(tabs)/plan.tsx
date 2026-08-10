@@ -18,10 +18,12 @@ import { DayRow } from '@/components/plan/day-row';
 import { ExamplePlans, ExampleWeek } from '@/components/plan/example-ghosts';
 import { Button, ErrorState, SectionHeader, Skeleton, SkeletonLead } from '@/components/ui';
 import { Text } from '@/components/ui/text';
+import { PLANS } from '@/features/billing/plans';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { fetchForecast } from '@/features/context/weather';
 import { useEventInvites, useMyEvents } from '@/features/events/queries';
+import { numberWord } from '@/features/onboarding/reveal-copy';
 import { usePlanOutfit, usePlannedWeek } from '@/features/plan/mutations';
 import { PackingTab } from '@/features/plan/packing-tab';
 import { planWeek } from '@/features/plan/packing';
@@ -555,10 +557,18 @@ export default function PlanScreen() {
                     Plan the week ahead
                   </Text>
                 </View>
+                {/* "about ten" is `PLANS.free.items`, not a word typed into a
+                    sentence — the rule at `tour-copy.ts:17-28`. It is
+                    deliberately NOT `MIN_CLOSET_FOR_OUTFITS` (8), which gates
+                    the branch this copy sits in: eight is the engine's floor
+                    for producing *a* look, it is internal, and no screen has
+                    ever printed it. The number the user meets everywhere else
+                    — the tour, The Ten, Today's empty state — is the free
+                    tier's, so it is the one this asks for, hedged with "about"
+                    because the real gate is a shape (a top and a bottom, or a
+                    dress) rather than a count. */}
                 <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
-                  Lay out outfits for the days coming up, one for each day, with
-                  no piece worn more than twice. Add about ten pieces and the
-                  week lays itself out.
+                  {`Lay out outfits for the days coming up, one for each day, with no piece worn more than twice. Add about ${numberWord(PLANS.free.items)} pieces and the week lays itself out.`}
                 </Text>
                 <Button
                   title="Add clothes"

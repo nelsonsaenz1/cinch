@@ -5,7 +5,13 @@ import { useCallback, useRef, useState } from 'react';
 
 import { TourFrameView } from '@/features/onboarding/tour-frames';
 import { useMarkToured } from '@/features/onboarding/tour-queries';
-import { frameAt, nextIndex, type TourExit } from '@/features/onboarding/tour-state';
+import {
+  exitDestination,
+  frameAt,
+  nextIndex,
+  type TourExit,
+} from '@/features/onboarding/tour-state';
+import { useWardrobe } from '@/features/styling/queries';
 
 /**
  * The first-run tour — atlas 36, TR-01…TR-03.
@@ -30,10 +36,28 @@ import { frameAt, nextIndex, type TourExit } from '@/features/onboarding/tour-st
  * already been opened, which on a returning account means a frame of the
  * promise before it replaces itself away. The decision belongs to the flow
  * that hands off to the app; this route assumes it was made.
+ *
+ * WHERE IT HANDS OFF TO
+ *
+ * Here, and only here. The exit destination is a different question from the
+ * gate above: it is not "should this screen exist" but "what did the reader
+ * just choose", which is knowledge this screen and nothing else has. The
+ * mapping itself is `exitDestination` in `tour-state.ts` — a pure function, so
+ * the one routing decision the app's entire first run turns on is testable
+ * without a renderer.
  */
 export default function TourScreen() {
   const router = useRouter();
   const markToured = useMarkToured();
+  /**
+   * Read on mount, spent on the way out — see `exitDestination` for what it
+   * decides. Three frames of reading is a long time for a query that is empty
+   * for the account this screen was designed for, and for the returning
+   * account it is usually already in the persisted cache. It also warms the
+   * exact query The Ten opens on, so the handoff lands on the grid rather than
+   * on "Loading your closet…".
+   */
+  const wardrobe = useWardrobe();
   const [index, setIndex] = useState(0);
   /**
    * One exit per tour. Two taps on "Start with the camera" while the replace
@@ -66,12 +90,12 @@ export default function TourScreen() {
       markToured.mutate();
       // `replace`, never `push`: the tour must not sit under the app on the
       // back stack. The root layout anchors every stack on `(tabs)`, so
-      // replacing with `/capture` presents the camera modal over Today —
-      // dismissing it lands on the page TR-03 has just described, not back
-      // here.
-      router.replace(to === 'camera' ? '/capture' : '/(tabs)');
+      // whichever of the three destinations this resolves to sits directly
+      // over Today — dismissing `/capture`, or backing out of `/the-ten`,
+      // lands on the page TR-03 has just described rather than back here.
+      router.replace(exitDestination(to, wardrobe.data?.length ?? null));
     },
-    [markToured, router],
+    [markToured, router, wardrobe.data],
   );
 
   return (

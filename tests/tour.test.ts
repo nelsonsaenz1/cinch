@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import { PLANS } from '../src/features/billing/plans';
 import { TOUR_CLOSET_TARGET, TOUR_FRAMES } from '../src/features/onboarding/tour-copy';
 import {
+  exitDestination,
   frameAt,
   indexOfFrame,
   isLastFrame,
@@ -102,6 +103,32 @@ test('every headline is two or three words a line — none runs long', () => {
 test('once, ever — the tour shows only for an account that has never been toured', () => {
   assert.equal(shouldShowTour({ status: 'ready', touredAt: null }), true);
   assert.equal(shouldShowTour({ status: 'ready', touredAt: '2026-08-09T09:41:00Z' }), false);
+});
+
+test('D1 — the camera exit lands in The Ten, which is what gives it an entrance', () => {
+  // The whole of the wedge: before this, `/the-ten` was reachable only from
+  // the Reveal's own repair loop, so no new user could get to it at all.
+  assert.equal(exitDestination('camera', 0), '/the-ten');
+  assert.equal(exitDestination('camera', 3), '/the-ten');
+  assert.equal(exitDestination('camera', PLANS.free.items - 1), '/the-ten');
+});
+
+test('a closet already past the free ten gets the plain camera, not a guided ten', () => {
+  // `toured_at` is newer than the app, so an established account meets the
+  // tour once. Sending it into a screen that would stop on "That's the ten"
+  // over sixty garments is a false statement, not an onboarding.
+  assert.equal(exitDestination('camera', PLANS.free.items), '/capture');
+  assert.equal(exitDestination('camera', 60), '/capture');
+});
+
+test('the escape stays an escape, whatever is in the closet', () => {
+  assert.equal(exitDestination('tabs', 0), '/(tabs)');
+  assert.equal(exitDestination('tabs', 60), '/(tabs)');
+  assert.equal(exitDestination('tabs', null), '/(tabs)');
+});
+
+test('an unread closet falls to The Ten — the new account is the likely one', () => {
+  assert.equal(exitDestination('camera', null), '/the-ten');
 });
 
 test('an unresolved or failed read never shows the tour', () => {

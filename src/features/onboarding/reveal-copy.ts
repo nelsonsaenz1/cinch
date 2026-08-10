@@ -19,6 +19,40 @@ export function numberWord(n: number): string {
   return WORDS[n] ?? String(n);
 }
 
+const ORDINAL_WORDS = [
+  'zeroth', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth',
+  'ninth', 'tenth', 'eleventh', 'twelfth', 'thirteenth', 'fourteenth', 'fifteenth',
+  'sixteenth', 'seventeenth', 'eighteenth', 'nineteenth', 'twentieth',
+];
+
+/**
+ * "Fourth", "eleventh" — the ordinal half of `numberWord`, and its sibling
+ * here rather than a second table elsewhere.
+ *
+ * There were three of these before this wave: one below in
+ * `substitutionDerivation`, one private to `ten-copy.ts`, and one sentence in
+ * the stop sheet that had simply typed the word "eleventh" into prose. The
+ * third is the reason they are consolidated — the ten's eleventh piece is a
+ * derived number (it is `PLANS.free.items` plus one), and the shortest table
+ * of the three stopped at "seventh", so there was nowhere to derive it from.
+ * Same range as `WORDS`, and numerals past twenty for the same reason.
+ */
+export function ordinalWord(n: number): string {
+  return ORDINAL_WORDS[n] ?? `${n}th`;
+}
+
+/**
+ * The indefinite article for an ordinal word — "an eleventh", "a twelfth".
+ *
+ * A vowel test is enough over the range above: the only ordinals that take
+ * "an" are the ones spelled with a leading vowel (eighth, eleventh,
+ * eighteenth), and none of them is one of English's written-vowel-but-spoken-
+ * consonant traps.
+ */
+export function articleFor(word: string): string {
+  return /^[aeiou]/i.test(word) ? 'an' : 'a';
+}
+
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -48,10 +82,9 @@ export function defaultDerivation(tally: Tally): string {
 export function substitutionDerivation(tally: Tally, redirectedTo: CountedKind): string {
   const kindWord = redirectedTo === 'bottoms' ? 'bottom' : redirectedTo.slice(0, -1);
   const count = tally[redirectedTo];
-  const ordinal = ['zeroth', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth'][count] ?? `${count}th`;
   const other: CountedKind = redirectedTo === 'tops' ? 'bottoms' : 'tops';
   return (
-    `You swapped the dress for a ${ordinal} ${kindWord}, so the maths changed: ` +
+    `You swapped the dress for a ${ordinalWord(count)} ${kindWord}, so the maths changed: ` +
     `${numberWord(tally[redirectedTo])} ${redirectedTo} across ${numberWord(tally[other])} ${other} ` +
     `and ${numberWord(tally.shoes)} pair${tally.shoes === 1 ? '' : 's'} of shoes.`
   );

@@ -42,6 +42,26 @@ export interface PlanCopy {
    * free user's whole week. See the note in the server's plans.ts.
    */
   readonly outfits: string;
+  /**
+   * The same promise as a NUMBER, for the sentences that have to say it out
+   * loud rather than describe it.
+   *
+   * `outfits` above is a display phrase and cannot be interpolated into
+   * "That's this week's N outfits" — which is why that line carried a literal
+   * "three" until 2026-08-10 (positioning-contract.md §7 catalogues it). The
+   * phrase and the number are the same fact stated twice, so they move
+   * together or not at all.
+   *
+   * This is the PRODUCT PROMISE, deliberately below the enforced ceiling, for
+   * the reason spelled out at length in supabase/functions/_shared/plans.ts:
+   * free is promised three a week and allowed five, and the gap is the slack
+   * that survives a failed provider call. Quote the promise to users; never
+   * the ceiling. `tests/plans.test.ts` holds the promise under the ceiling.
+   *
+   * Null on Pro, which promises no number at all — "Unlimited" is the whole
+   * copy, and inventing a figure to fill this in would contradict it.
+   */
+  readonly outfitPromise: { readonly count: number; readonly period: 'day' | 'week' } | null;
   readonly stylist: string;
   /**
    * Upcoming, un-canceled events the user may HOST at once. Mirrors
@@ -69,12 +89,22 @@ export interface PlanCopy {
   readonly annualPriceHint: string | null;
 }
 
-export const PLANS: Record<Plan, PlanCopy> = {
+/**
+ * `satisfies` rather than a `Record<Plan, PlanCopy>` annotation, so that
+ * `PLANS.free.outfitPromise` reads as the object it is instead of
+ * `… | null`. Every tier is still checked against `PlanCopy` — the constraint
+ * is enforced, it is just not allowed to widen the free tier's promise back
+ * into a maybe that `context-lines.ts` would then have to assert away.
+ * `PLANS[plan]` still types as a `PlanCopy` for every `Plan`.
+ */
+export const PLANS = {
   free: {
     name: 'Free',
     items: 10,
     storedItems: 30,
     outfits: 'A few each week',
+    // Three a week, against an enforced five — see the field's own note.
+    outfitPromise: { count: 3, period: 'week' },
     stylist: 'Not included',
     eventHosting: 2,
     monthlyPriceHint: null,
@@ -85,6 +115,7 @@ export const PLANS: Record<Plan, PlanCopy> = {
     items: 150,
     storedItems: 450,
     outfits: 'A fresh outfit every day',
+    outfitPromise: { count: 1, period: 'day' },
     stylist: '30 messages a month',
     eventHosting: 15,
     monthlyPriceHint: '$7.99',
@@ -95,9 +126,10 @@ export const PLANS: Record<Plan, PlanCopy> = {
     items: 1000,
     storedItems: 3000,
     outfits: 'Unlimited',
+    outfitPromise: null,
     stylist: 'Unlimited',
     eventHosting: 100,
     monthlyPriceHint: '$14.99',
     annualPriceHint: '$119',
   },
-} as const;
+} as const satisfies Record<Plan, PlanCopy>;

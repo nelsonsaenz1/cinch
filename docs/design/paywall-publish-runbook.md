@@ -4,22 +4,69 @@ The one revenue blocker, reduced to the smallest set of actions that can still
 only be done by a person. Everything automatable has been done; what is left is
 listed here in order.
 
-**State as of 2026-08-10 14:02 UTC**, read live from the dashboard rather than
-from notes:
+## PUBLISH 254200. NOT 253377.
+
+**Read this before anything else on the page.** There are two Cinch membership
+paywalls in the dashboard and only one of them is wired to anybody.
+
+| | Publish this | Do NOT publish this |
+|---|---|---|
+| Id | **254200** | 253377 |
+| Name | "Cinch Membership v3" | "Cinch Membership" |
+| Identifier | `cinch-membership-v3-e738-2026-08-09` | `cinch-membership-v2` |
+| Campaigns pointing at it | **all four** | **none** |
+| `feature_gating` | `non_gated` | `gated` |
+
+254200 was created on 2026-08-09 **from 253377 as its `source_template`** and
+has been edited since (`updated_at: 2026-08-10T12:58:25Z` against 253377's
+`2026-08-06T22:43:55Z`, which has never been touched again). Every one of the
+four campaigns' variants targets 254200 at 100%; **nothing targets 253377.**
+
+**Why the wrong id is dangerous, and why it keeps getting typed.** 253377 is the
+id in the older documents, it is the *parent* of the live document, and it is
+still named "Cinch Membership" — so it reads like the real one. Publishing it
+would flip `published_at`, produce a green dashboard and a document that renders
+correctly in preview, **and turn on revenue for nobody**, because no audience
+resolves to it. The failure is silent in exactly the way the current one is: the
+app keeps reporting `unavailable`, and the obvious conclusion — "publishing
+didn't work" — is wrong. If you find yourself pointing at 253377, stop; the only
+correct reason to open it is to copy content *out* of it.
+
+There is also a third distractor, **253192** "Cinch — Membership (publish
+test)", and a fourth, **254512** "New Paywall" — both empty drafts with no
+campaign. Ignore both.
+
+---
+
+**State re-read live from the dashboard 2026-08-10 15:25 UTC**, not from notes:
 
 | | |
 |---|---|
-| Paywall | **253377** — "Cinch Membership", `cinch-membership-v2` |
-| Status | `draft` · `published_at: null` · `version: 0` |
+| Paywall | **254200** — "Cinch Membership v3", `cinch-membership-v3-e738-2026-08-09` |
+| Status | `active` · `published_at: null` · `version: 0` · `feature_gating: non_gated` |
 | Products attached | 4/4, all `READY_TO_SUBMIT` in App Store Connect |
 | Entitlements | 4/4 products linked |
-| Campaigns | 3, all with placements |
+| Campaigns | **4**, all with placements, all pointing at 254200 at 100% |
 | Webhook → Supabase | **active** (`ep_3HVlX4bjAM0Jsn4qw2MfQzllhCf`, not disabled) |
+
+The four campaigns, for completeness — the fourth is new:
+
+| Campaign | Placement(s) |
+|---|---|
+| 100436 "Limits & trial" | `open_stylist`, `add_garment_over_limit`, `generate_outfit_over_limit`, `trial_expired`, `event_hosting_over_limit` |
+| 100596 "Packing access" | `packing_access` |
+| 100973 "Repeat upsell" | `repeat_upsell` |
+| **101136 "Reveal complete"** | `reveal_complete` — created 2026-08-10, founder decision D2 |
 
 **The document has never been published. That is the whole of why Cinch cannot
 take money.** Every placement resolves to a WebView that never commits a frame,
 which is what `src/features/billing/use-gate.ts` spends two timeouts defending
 against.
+
+254200's `non_gated` setting is deliberate and must survive publishing: the
+Reveal paywall (D2, `docs/design/positioning-contract.md` §5) has to be
+dismissible, and a `gated` document swallows the SDK's feature block on close.
+That is the second reason 253377 is the wrong object — it is `gated`.
 
 ---
 
@@ -50,9 +97,12 @@ MB-06 is deliberately absent — the success screen is native
 (`src/app/membership-thanks.tsx`), because only the app knows which task the
 user was interrupted from.
 
-Paste or import it into paywall 253377. The project has **`figma_import` and
-`editor_ai_chat` enabled**; the AI chat accepts pasted HTML and is the fastest
-route in.
+Paste or import it into paywall **254200** — not 253377; see the warning at the
+top of this page. The project has **`figma_import` and `editor_ai_chat`
+enabled**; the AI chat accepts pasted HTML and is the fastest route in.
+
+254200 already carries whatever was inherited from 253377 plus the edits made on
+2026-08-09/10, so check what is there before overwriting it.
 
 ## Step 2 — bind the controls
 
@@ -73,7 +123,13 @@ when empty**; that empty state is MB-01 and it is what most users see.
 
 ## Step 3 — publish
 
-`published_at` must stop being null. This is the action that turns revenue on.
+`published_at` must stop being null **on 254200**. This is the action that turns
+revenue on. Confirm the id in the editor's URL before clicking publish;
+publishing 253377 instead produces every outward sign of success and changes
+nothing for any user.
+
+Leave `feature_gating` on `non_gated`. Publishing must not silently promote it
+to `gated`, or the Reveal paywall stops being dismissible.
 
 ## Step 4 — verify from the app
 

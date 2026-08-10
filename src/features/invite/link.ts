@@ -56,12 +56,49 @@ export function inviteUrlForDisplay(handle: string): string {
 }
 
 /**
- * What IV-02's share sheet carries. The title is the sentence the recipient
- * reads on the landing page, so the invite says the same thing in Messages as
- * it does in the browser — the atlas is explicit that these must match.
+ * The sentence the recipient reads on the landing page, and the one the link's
+ * preview card prints — `web/api/invite.js` uses it as both `<h1>` and
+ * `og:title`, so Messages renders it under the URL without the app sending it.
+ *
+ * IT IS NO LONGER THE SHARE SHEET'S `title`, because that parameter was never
+ * delivered. React Native's iOS branch builds its payload from `message`, `url`
+ * and `options.subject` only (`Libraries/Share/Share.js`, the `Platform.OS ===
+ * 'ios'` case) — `content.title` is read on the Android branch and nowhere
+ * else. Every invite this app has ever sent went out as a bare URL.
+ *
+ * It is passed as the share sheet's `subject` instead, which iOS does use
+ * (`RCTActionSheetManager.mm:281-283`): it becomes the email subject line when
+ * the invite goes by Mail. Third person is right in both of those places — a
+ * page and an email header, read without a sender beside them — and wrong in a
+ * message bubble, which is what `shareMessage()` below exists for.
  */
 export function shareTitle(displayName: string): string {
   return `${displayName} added you on Cinch`;
+}
+
+/**
+ * What IV-02's share sheet actually says.
+ *
+ * FIRST PERSON, AND SHORT. This arrives in a thread from the sender's own
+ * number, so "Sophie added you on Cinch" — correct on the landing page — reads
+ * in the bubble as a notification Sophie's phone sent about Sophie. The atlas's
+ * rule is that the invite says the same thing in Messages as in the browser;
+ * it still does, because `shareTitle()` travels with the URL as the preview
+ * card's headline. This line is the human sentence above that card, which is
+ * the thing that was missing rather than a replacement for it.
+ *
+ * No constant, no count, and no description of the app: the preview card
+ * carries "Cinch is a closet you actually use" already, and a message that says
+ * it too reads as an advertisement rather than as a person.
+ *
+ * Both clauses are provable. `apply_invite()` writes both `follows` rows on the
+ * tap — "the invite is already accepted", `20260810120100_invite_links.sql` —
+ * so there is genuinely nothing to approve afterwards. That detail is the whole
+ * reason to say anything at all: it is the one thing about this link a
+ * recipient could not guess.
+ */
+export function shareMessage(): string {
+  return 'I’m on Cinch — a closet you actually use. This link adds us both, with nothing to accept.';
 }
 
 /**

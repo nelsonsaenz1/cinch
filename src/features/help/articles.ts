@@ -5,7 +5,50 @@
  * transitive graph, because `tests/help-search.test.ts` bundles it with esbuild
  * and esbuild cannot parse React Native's Flow source. Nothing here may reach
  * for `@/lib/supabase`, a component, or a hook. The screens read it; it reads
- * nothing.
+ * two pure modules and nothing else.
+ *
+ * Those two are `features/billing/plans.ts` (no imports at all) and
+ * `features/onboarding/reveal-copy.ts`, whose only import is `countOutfits`
+ * from `features/closet/outfit-count.ts`, whose only import is `import type`
+ * from `@/lib/styling` and therefore erases at compile time. Both are already
+ * bundled by `tests/plans.test.ts` and `tests/reveal-copy.test.ts`, so the
+ * no-React rule is proved rather than assumed. One module is deliberately NOT
+ * imported and cannot be — see the `MIN_CLOSET_FOR_OUTFITS` note on the
+ * closet-size article.
+ *
+ * ── The two number registers ──────────────────────────────────────────────
+ *
+ * `docs/design/positioning-contract.md` §7 requires every count here to derive
+ * from `PLANS` rather than be typed into the prose, and the obvious mechanical
+ * fix — `numberWord()` everywhere — does not work, because `numberWord` spells
+ * 0–20 and returns numerals above that. "ten pieces in rotation, 30 in total"
+ * is the sentence that mechanical fix produces, and it is worse than the
+ * literal it replaced.
+ *
+ * So there are two registers and one rule for choosing between them:
+ *
+ *   SPOKEN → `numberWord`. A number the article is saying out loud as its
+ *   answer. "Ten, to begin with." "Cinch starts building outfits at eight
+ *   pieces." Always inside `numberWord`'s range by construction, because a
+ *   number a person says in a sentence is a small one.
+ *
+ *   QUOTED → `ceiling()`, a numeral with a thousands separator. A limit being
+ *   stated as a limit, especially in a list of them. This is already the
+ *   app's register for exactly these figures — `context-lines.ts:140` ships
+ *   "150 pieces is where Standard stops. Pro holds 1,000" — so the help page
+ *   and the paywall now agree, which they did not before.
+ *
+ * THE TWO NEVER SHARE A CLAUSE. That is the whole point of having a rule: a
+ * list containing any number above twenty is a list of numerals, or half of it
+ * spells and half of it does not. It is also why `numberWord` was left alone
+ * rather than extended to spell "one thousand" — it lives in
+ * `features/onboarding/` and sets the REVEAL's register, where a headline of
+ * "Ten pieces. Fourteen outfits." is the point and "One hundred and forty-four
+ * outfits." would not be.
+ *
+ * Rhetorical numbers are neither and derive from nothing: "beats forty you
+ * photographed once" is an argument, not a fact about the product, and there
+ * is no constant it could read from.
  *
  * ── Why every sentence carries a citation ─────────────────────────────────
  *
@@ -38,6 +81,20 @@
  * "The voice does not change at the edges": no support-desk register anywhere.
  * Every apostrophe is U+2019, as everywhere else in the app.
  */
+
+import { PLANS } from '@/features/billing/plans';
+import { numberWord } from '@/features/onboarding/reveal-copy';
+
+/**
+ * The QUOTED register — a ceiling stated as a ceiling. `toLocaleString` is what
+ * puts the comma in 1,000, and it is the same call `context-lines.ts:140`
+ * makes for the same figure, so the paywall and the help page cannot print Pro
+ * differently.
+ */
+const ceiling = (v: number) => v.toLocaleString('en-US');
+
+/** Sentence-initial spelled numbers. `reveal-copy`'s own `cap` is private. */
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export type HelpGroupId = 'getting-started' | 'friends' | 'membership';
 
@@ -109,13 +166,26 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     // (`MIN_CLOSET_FOR_OUTFITS = 8`) and :144-149 (`canGenerate`), where a
     // `base_top` or a `mid_layer` counts as the top.
     //
+    // THE ONE NUMBER IN THIS FILE THAT IS STILL A LITERAL, and it is a literal
+    // because it cannot be imported, not because it was missed. Verified
+    // against the constant on 2026-08-10: `MIN_CLOSET_FOR_OUTFITS = 8` and the
+    // prose says eight — they AGREE, so there is no copy bug here, only a
+    // missing wire. `queries.ts` imports `@tanstack/react-query` and
+    // `@/lib/supabase`, so importing the constant from it would drag React
+    // Native into this module's graph and break `tests/help-search.test.ts` at
+    // the bundler. The fix is to lift `MIN_CLOSET_FOR_OUTFITS` into a leaf
+    // module the way `plans.ts` is one — a cross-unit edit, so it is reported
+    // to the integrator rather than done here. Until then
+    // `tests/piece-counts.test.ts` reads `queries.ts` as text and fails if the
+    // constant and these three "eight"s ever drift apart.
+    //
     // Storage frees a slot: features/closet/storage.ts:16 — "a stored piece
     // FREES AN ACTIVE SLOT and still occupies a stored one" — and :32-35 for
     // nothing being lost.
     body: [
-      'Ten, to begin with. That is the free closet — ten pieces in rotation, thirty in total once you count what you have put away — and it is meant as a working number rather than a taste of one. Ten pieces you actually reach for beats forty you photographed once.',
+      `${cap(numberWord(PLANS.free.items))}, to begin with. That is the free closet: ${ceiling(PLANS.free.items)} pieces in rotation, ${ceiling(PLANS.free.storedItems)} in total once you count what you have put away — and it is meant as a working number rather than a taste of one. ${cap(numberWord(PLANS.free.items))} you actually reach for beats forty you photographed once.`,
       'Cinch starts building outfits at eight pieces, and it needs a top and a bottom, or a dress, before it can assemble anything at all. Eight jumpers is not a closet it can dress you from; eight pieces that cover you head to toe is.',
-      'Moving something to storage frees a slot in rotation, so the ten is a curation rather than a wall. Nothing is lost on the way in or out: the photograph, the wear count and the cost figure all wait for the piece to come back.',
+      `Moving something to storage frees a slot in rotation, so the ${numberWord(PLANS.free.items)} is a curation rather than a wall. Nothing is lost on the way in or out: the photograph, the wear count and the cost figure all wait for the piece to come back.`,
     ],
     related: ['photo-quality', 'what-paying-buys'],
     keywords: ['limit', 'minimum', 'how much', 'add', 'items', 'wardrobe', 'ten', 'archive'],
@@ -305,10 +375,27 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     // reads StoreKit and formats in the device locale, "because a price typed
     // into a layout is wrong in every country but one". A help article is a
     // layout.
+    // All six ceilings, both hosting rows and Standard's message allowance now
+    // interpolate. This paragraph is a comparison table said out loud, which is
+    // why it is the file's clearest case for the QUOTED register (see the
+    // module docblock): six ceilings spanning 10 to 3,000 cannot be half
+    // spelled and half not, and "a thousand and three thousand" was the
+    // hardest clause in the article to parse for the number it was quoting.
+    //
+    // Standard's messages read straight off `PLANS.standard.stylist`, which is
+    // already the phrase "30 messages a month" — the display string and the
+    // sentence are now the same characters.
+    //
+    // Pro's hundred a day is the one figure here that does NOT derive, and
+    // cannot: the client's `PLANS.pro.stylist` says "Unlimited" on purpose, and
+    // the real cap lives server-side in supabase/functions/_shared/plans.ts
+    // (`pro.stylist_chat`), which this module may not reach. It is printed as a
+    // numeral for consistency with its neighbours, and the note above already
+    // carries its citation.
     body: [
-      'Room, first of all. Free holds ten pieces in rotation and thirty in total; Standard holds a hundred and fifty in rotation and four hundred and fifty all told; Pro holds a thousand and three thousand. That is the difference you feel soonest, because it is the one that decides whether your whole wardrobe fits.',
-      'Then the styling. Free builds a few fresh sets a week. Paying makes it a fresh set every morning with real room to re-roll, and opens the stylist — the conversation, as distinct from the daily edit — which free does not include at all: thirty messages a month on Standard, and a hundred a day on Pro, which is further than any conversation about clothes has ever gone.',
-      'And hosting: two occasions running at once on free, fifteen on Standard, a hundred on Pro. What each tier costs is shown at the point of purchase in your own currency rather than typed into a page like this one, where it would be right in exactly one country.',
+      `Room, first of all. Free holds ${ceiling(PLANS.free.items)} pieces in rotation and ${ceiling(PLANS.free.storedItems)} in total; Standard holds ${ceiling(PLANS.standard.items)} and ${ceiling(PLANS.standard.storedItems)}; Pro holds ${ceiling(PLANS.pro.items)} and ${ceiling(PLANS.pro.storedItems)}. That is the difference you feel soonest, because it is the one that decides whether your whole wardrobe fits.`,
+      `Then the styling. Free builds a few fresh sets a week. Paying makes it a fresh set every morning with real room to re-roll, and opens the stylist — the conversation, as distinct from the daily edit — which free does not include at all: ${PLANS.standard.stylist} on Standard, and 100 a day on Pro, which is further than any conversation about clothes has ever gone.`,
+      `And hosting: ${ceiling(PLANS.free.eventHosting)} occasions running at once on free, ${ceiling(PLANS.standard.eventHosting)} on Standard, ${ceiling(PLANS.pro.eventHosting)} on Pro. What each tier costs is shown at the point of purchase in your own currency rather than typed into a page like this one, where it would be right in exactly one country.`,
     ],
     related: ['how-to-cancel', 'closet-size'],
     keywords: ['plan', 'pro', 'standard', 'free', 'upgrade', 'subscription', 'price', 'cost', 'tier'],

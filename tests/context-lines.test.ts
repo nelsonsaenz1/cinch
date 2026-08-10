@@ -20,18 +20,54 @@ test('open_stylist names the question the user actually asked', () => {
   );
 });
 
-test('add_garment_over_limit is ten, not fifty', () => {
+test('add_garment_over_limit is the free closet, not fifty', () => {
   assert.equal(
     contextLineFor(Placement.AddGarmentOverLimit),
-    'Ten pieces is where the free closet stops — and ten is enough to dress a fortnight. You have ten, and a coat in the camera roll.',
+    `${PLANS.free.items} pieces is where the free closet stops. Outfits come out of the combinations rather than the count, which is why a closet grows faster than it fills. There's a coat in your camera roll.`,
   );
+});
+
+test('add_garment_over_limit does not publish an outfit count as a duration', () => {
+  // Founder ruling, 2026-08-10. §3.1's line said "ten is enough to dress a
+  // fortnight", which is the canonical ten's FOURTEEN OUTFITS restated as
+  // fourteen days — the outfit count as a marketing constant with a duration
+  // worn over it, which positioning-contract.md §3 forbids outright. It is
+  // forbidden precisely because it is true of one particular ten: ten tops
+  // make no outfits at all and would have been promised a fortnight.
+  //
+  // Asserting the sentence above would not catch a *different* duration
+  // sneaking back in ("a fortnight" → "two weeks" → "a month"), so this
+  // asserts the class.
+  const line = contextLineFor(Placement.AddGarmentOverLimit)!;
+  const durations = /\bfortnight|\bweeks?\b|\bmonths?\b|\bdays?\b|\bevery (morning|day)\b/i;
+  assert.ok(!durations.test(line), `promises a span of time it cannot know: ${line}`);
+
+  // The only number in the line is the free cap. Any second one is either an
+  // outfit count (banned by §3) or a duplicate of the cap, which is what the
+  // mechanical §7 fix produced: "10 … 10 … 10".
+  const numbers = line.match(/\d+/g) ?? [];
+  assert.deepEqual(numbers, [String(PLANS.free.items)], `more than the cap is quoted: ${line}`);
 });
 
 test('generate_outfit_over_limit is this week, not today', () => {
   assert.equal(
     contextLineFor(Placement.GenerateOutfitOverLimit),
-    "That's this week's three outfits. Members get a new set whenever the day changes on them.",
+    `That's this week's ${PLANS.free.outfitPromise.count} outfits. Members get a new set whenever the day changes on them.`,
   );
+});
+
+test('the free lines quote PLANS rather than a frozen copy of it', () => {
+  // positioning-contract.md §7: these two spelled "Ten" and "three" out in
+  // words until 2026-08-10, while STANDARD_LINES two screens below already
+  // interpolated. Asserting the shape above would pass either way — this is
+  // the test that fails if the literals come back.
+  const garments = contextLineFor(Placement.AddGarmentOverLimit)!;
+  assert.ok(garments.includes(String(PLANS.free.items)), garments);
+  assert.ok(!/\bTen\b|\bten\b/.test(garments), `still spells the piece count out: ${garments}`);
+
+  const outfits = contextLineFor(Placement.GenerateOutfitOverLimit)!;
+  assert.ok(outfits.includes(String(PLANS.free.outfitPromise.count)), outfits);
+  assert.ok(!/\bthree\b/.test(outfits), `still spells the outfit promise out: ${outfits}`);
 });
 
 test('trial_expired reassures nothing was deleted', () => {
@@ -136,6 +172,77 @@ test('no plan given reads as free — the tier almost every paywall is shown to'
   for (const placement of Object.values(Placement)) {
     assert.equal(contextLineFor(placement), contextLineFor(placement, { plan: 'free' }), placement);
   }
+});
+
+// ---------------------------------------------------------------------------
+// reveal_complete
+//
+// The one line that quotes the user's own arithmetic. positioning-contract.md
+// §3 makes the outfit count a per-user computed result and forbids it as a
+// constant anywhere — so the tests that matter most here are the ones proving
+// the number came from the caller and that nothing is invented without one.
+// ---------------------------------------------------------------------------
+
+test('reveal_complete interpolates the count it was given, and only that count', () => {
+  const fourteen = contextLineFor(Placement.RevealComplete, { outfitCount: 14 })!;
+  const six = contextLineFor(Placement.RevealComplete, { outfitCount: 6 })!;
+
+  assert.ok(fourteen.startsWith('14 outfits'), fourteen);
+  assert.ok(six.startsWith('6 outfits'), six);
+  assert.notEqual(fourteen, six);
+  // A closet of six must not be told about fourteen, in either direction.
+  assert.ok(!six.includes('14'), six);
+});
+
+test('reveal_complete says "outfit" for a closet that makes one', () => {
+  const line = contextLineFor(Placement.RevealComplete, { outfitCount: 1 })!;
+  assert.ok(line.startsWith('1 outfit from'), line);
+  assert.ok(!line.includes('1 outfits'), line);
+});
+
+test('reveal_complete invents no number when it is given none', () => {
+  // R-05 is a real state — a ten-piece closet with no wearable combination —
+  // and a missing count is a caller that has not computed one yet. Neither may
+  // become a plausible-looking figure.
+  for (const opts of [{}, { outfitCount: null }, { outfitCount: 0 }, { outfitCount: Number.NaN }]) {
+    const line = contextLineFor(Placement.RevealComplete, opts)!;
+    assert.ok(typeof line === 'string' && line.length > 0, JSON.stringify(opts));
+    assert.ok(!/outfit/.test(line), `claims outfits it never counted: ${line}`);
+    assert.ok(!/NaN|null|undefined/.test(line), line);
+  }
+});
+
+test('reveal_complete tells a trialing user about the trial, not the free ceiling', () => {
+  // Every account is fourteen days into a trial when the Reveal fires
+  // (handle_new_subscription(), migration 20260805160000), and usePlan folds a
+  // live trial into `pro` — so this is the ordinary case, not the edge one.
+  const line = contextLineFor(Placement.RevealComplete, {
+    plan: 'pro',
+    trialing: true,
+    outfitCount: 14,
+  })!;
+  assert.ok(line.startsWith('14 outfits'), line);
+  assert.ok(line.includes('trial'), line);
+  assert.ok(!line.includes('free'), `promises a free ceiling to a user who has Pro: ${line}`);
+});
+
+test('reveal_complete says nothing at all to somebody already paying', () => {
+  // No honest version of this sentence exists for a subscriber, and the
+  // Standard ceiling lines are about limits a Reveal has not gone near.
+  // MB-01 collapses the block, which is the right answer.
+  for (const plan of ['standard', 'pro'] as const) {
+    assert.equal(contextLineFor(Placement.RevealComplete, { plan, outfitCount: 14 }), null, plan);
+  }
+});
+
+test('reveal_complete on a lapsed trial names what stays free', () => {
+  const line = contextLineFor(Placement.RevealComplete, {
+    plan: 'free',
+    trialing: false,
+    outfitCount: 14,
+  })!;
+  assert.ok(line.includes(String(PLANS.free.items)), line);
+  assert.ok(line.includes('free'), line);
 });
 
 test('trial expiry and packing read the same on every plan', () => {

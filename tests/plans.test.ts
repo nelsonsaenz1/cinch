@@ -17,6 +17,17 @@ import { PLANS } from '../src/features/billing/plans';
 const EDGE_ITEM_LIMITS = { free: 10, standard: 150, pro: 1000 } as const;
 const EDGE_STORED_ITEM_LIMITS = { free: 30, standard: 450, pro: 3000 } as const;
 
+/**
+ * `PLAN_LIMITS.<plan>.outfit_generation` in the Edge Functions' copy — the
+ * ENFORCED ceiling, which deliberately sits above the promise. Same literal
+ * treatment as the item limits above, for the same `npm:` specifier reason.
+ */
+const EDGE_OUTFIT_CEILINGS = {
+  free: { limit: 5, period: 'week' },
+  standard: { limit: 15, period: 'day' },
+  pro: { limit: 60, period: 'day' },
+} as const;
+
 test('client plan copy agrees with the edge/database item limits', () => {
   for (const plan of ['free', 'standard', 'pro'] as const) {
     assert.equal(
@@ -30,6 +41,30 @@ test('client plan copy agrees with the edge/database item limits', () => {
       `${plan}: client stores ${PLANS[plan].storedItems}, edge/database say ${EDGE_STORED_ITEM_LIMITS[plan]}`,
     );
   }
+});
+
+test('the outfit promise sits below the enforced ceiling, in the same period', () => {
+  // The server's plans.ts calls this the trap worth naming: the promise is
+  // what the UI says and the ceiling is an abuse control above it, and the gap
+  // is the slack that makes the promise deliverable through a failed provider
+  // call. A promise that reached the ceiling would make "this week's 3
+  // outfits" a sentence the user can disprove.
+  for (const plan of ['free', 'standard'] as const) {
+    const promise = PLANS[plan].outfitPromise;
+    assert.ok(promise, `${plan} must promise a number — context-lines.ts quotes it`);
+    assert.equal(promise.period, EDGE_OUTFIT_CEILINGS[plan].period, plan);
+    assert.ok(
+      promise.count < EDGE_OUTFIT_CEILINGS[plan].limit,
+      `${plan}: promises ${promise.count} per ${promise.period} against a ceiling of ${EDGE_OUTFIT_CEILINGS[plan].limit}`,
+    );
+  }
+});
+
+test('Pro promises no outfit number, because its copy says Unlimited', () => {
+  // A figure here would contradict the word two lines above it in the same
+  // object, and whichever one a surface picked would be the wrong one.
+  assert.equal(PLANS.pro.outfitPromise, null);
+  assert.equal(PLANS.pro.outfits, 'Unlimited');
 });
 
 test('the total ceiling leaves real room above the active one', () => {

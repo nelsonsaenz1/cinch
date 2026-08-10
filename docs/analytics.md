@@ -13,9 +13,9 @@ serve one of them. If a chart doesn't serve one of them, don't build it.
 
 | # | Question | Why it's the question |
 | --- | --- | --- |
-| 1 | **Does the closet actually get built?** | Cinch is worthless with an empty closet, and filling it costs the user real effort — photographing 30 garments is the highest-friction onboarding of any app in this category. This is where users die. |
+| 1 | **Does the closet actually get built?** | Cinch is worthless with an empty closet, and filling it costs the user real effort — photographing garments is the highest-friction onboarding of any app in this category. This is where users die. **The ask is now ten pieces, not thirty:** the free closet is ten active items (`supabase/migrations/20260808190000_free_closet_is_ten.sql:29`) and the first run walks the user through them one named slot at a time (The Ten → The Reveal, `src/app/tour.tsx` → `src/app/the-ten.tsx`). That makes the funnel shorter but does not make this question less important — it moves the death point earlier. |
 | 2 | **Does it become a morning habit?** | The product is "a lookbook that regenerates every day." If people don't come back in the morning, we've built a novelty. |
-| 3 | **Does the habit hit a wall worth paying to remove?** | Revenue here is not persuasion, it's limits. 30 garments free. If nobody reaches 30, nobody pays — and no amount of paywall design fixes that. |
+| 3 | **Does the habit hit a wall worth paying to remove?** | Revenue here is not persuasion, it's limits. **Ten active garments free**, not thirty — the limit moved on 2026-08-08. If nobody reaches ten, nobody pays, and no amount of paywall design fixes that. |
 | 4 | **Is the AI good enough to trust?** | Bad tags poison every outfit built from that garment, permanently and invisibly. Model quality is measurable, and it has a direct spend decision attached. |
 
 ### What PostHog is explicitly *not* for
@@ -147,6 +147,16 @@ Look for the knee.
 
 **N determines almost every product decision we have:**
 
+> **This table was written against a 30-item free tier and its arithmetic has
+> not been re-derived** (noted 2026-08-10). The free closet is now **ten active
+> pieces**, so every row below should be read as "N versus the limit", not "N
+> versus 30". At a limit of ten, the middle row's danger case — the wall landing
+> exactly where value lands — is the *likely* case rather than one branch of
+> three, and it is why the free tier is deliberately built so that ten pieces
+> already compute a real set of outfits (`docs/design/free-tier-contract.md`)
+> rather than being a teaser. Rewriting the thresholds honestly needs real
+> traffic; do not guess new numbers into this table.
+
 | If N is… | Then |
 | --- | --- |
 | **~12–15** | The free tier at 30 is generous — users reach real value well before the wall, so the wall converts on capacity, not on desperation. Onboarding should target ~15 garments and stop asking. |
@@ -164,9 +174,11 @@ everything else on the list.
 Numbered because they should be built in this order — each one is only
 interpretable once the ones above it are in place.
 
-1. **Activation funnel** — install → account → first garment → 10 → 30. Segment
-   by `source` (camera vs library): if camera converts far worse, the capture
-   flow is the problem, not the ask.
+1. **Activation funnel** — install → account → tour → first garment → 10 (the
+   free closet, and the end of The Ten) → 30. Segment by `source` (camera vs
+   library): if camera converts far worse, the capture flow is the problem, not
+   the ask. Note the denominators this needs mostly do not exist yet —
+   `docs/design/positioning-contract.md` §9 catalogues the gap.
 2. **The threshold analysis** (§4).
 3. **Retention curve by signup cohort**, and separately by activation bucket.
    The second is the honest one — blended retention is dominated by people who
@@ -174,8 +186,10 @@ interpretable once the ones above it are in place.
 4. **Habit depth** — `outfit_worn` per active user per week, trended. This is
    the closest thing to a "is this a daily product" number.
 5. **Paywall funnel** — `paywall_presented` → purchase, split by `placement`.
-   Expectation to test: `add_garment_over_limit` converts best, because
-   photographing 30 garments is sunk cost the user can feel.
+   Expectation to test: `add_garment_over_limit` converts best, because a closet
+   the user photographed themselves is sunk cost they can feel. `reveal_complete`
+   is the new one to watch against it — it fires with *no* sunk cost and no
+   refusal, immediately after the first outfit.
 6. **Stylist engagement** — `stylist_question_answered` per user, and the
    questionnaire completion rate. The stylist is the Standard-tier hook; if
    nobody uses it, the tier's value proposition is wrong.

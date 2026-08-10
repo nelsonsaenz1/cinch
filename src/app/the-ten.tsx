@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/ui/button';
 import { SlotCard } from '@/components/onboarding/slot-card';
 import { SubstitutionSheet } from '@/components/onboarding/substitution-sheet';
 import { TenCamera } from '@/components/onboarding/ten-camera';
@@ -11,6 +12,7 @@ import { TenStopSheet } from '@/components/onboarding/ten-stop-sheet';
 import { Text } from '@/components/ui/text';
 import { countOutfits, rankGaps } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import { tenProgressLine } from '@/features/onboarding/ten-copy';
 import {
   declineSlot,
   fillSlot,
@@ -22,7 +24,8 @@ import {
   type CountedKind,
   type TenSlot,
 } from '@/features/onboarding/ten-slots';
-import { useWardrobe } from '@/features/styling/queries';
+import { canGenerate, useWardrobe } from '@/features/styling/queries';
+import { trackOnce } from '@/lib/posthog';
 import type { Garment } from '@/lib/styling';
 
 /**
@@ -35,6 +38,37 @@ import type { Garment } from '@/lib/styling';
  * (the camera, the substitution sheet, or the stop sheet once the ten is
  * complete). See docs/design/free-tier-contract.md and
  * design-refs/html/The Ten State Atlas for the states this renders.
+ *
+ * HOW IT IS ENTERED, which is a newer question than the screen is.
+ *
+ * This was written as the first thing a brand-new account ever saw, and for
+ * most of its life it was unreachable — the tour exited to `/capture` and the
+ * only route here was the Reveal's own repair loop. Since D1
+ * (docs/design/positioning-contract.md §5) it is the default first run, so it
+ * is now opened in states it was never shown:
+ *
+ *  - EMPTY CLOSET — the state it was designed for; T-01.
+ *  - SOME PIECES ALREADY IN, from a capture before the tour, or a session
+ *    abandoned half way. `hydrateFromWardrobe` places them, so the flow
+ *    resumes at the count rather than asking for the same photographs twice.
+ *    What it cannot restore is a DECLINE: a slot kept open, or redirected to a
+ *    fourth top, is a decision that lives only in this component's state, and
+ *    a returning reader is asked about that slot again. Nothing is lost by it
+ *    — the same decline is one tap away — but it is the one part of "returning
+ *    resumes at the count" that is not yet true, and it cannot be made true
+ *    without persisting the slot list somewhere.
+ *  - A CLOSET ALREADY PAST THE TEN. `exitDestination` keeps that reader out of
+ *    here entirely, because a stop sheet reading "That's the ten" over sixty
+ *    garments is a lie. The one path that can still land here is the fallback
+ *    when the wardrobe read has not settled by the time TR-03 is tapped; the
+ *    hydration below then completes the ten immediately and the flow stops on
+ *    the sheet, which is the honest thing for it to say once it is here.
+ *  - THE REVEAL'S REPAIR LOOP, unchanged: `reveal.tsx` replaces to this route
+ *    for a closet that photographed ten pieces and made no outfit.
+ *
+ * There is no in-app door to this screen after the tour has been spent. That
+ * is a real hole and it is not this file's to close — see the note on the
+ * Today empty state in the wave report.
  */
 export default function TheTenScreen() {
   const router = useRouter();
@@ -74,6 +108,52 @@ export default function TheTenScreen() {
       setShowStop(true);
     }
   }, [slots]);
+
+  // ACTIVATION, observed from the guided route.
+  //
+  // The condition is `canGenerate` over the REAL wardrobe, not `isComplete`
+  // over the slots. Those are different claims: the ten being settled includes
+  // slots the reader declined, so a run that kept three open finishes the flow
+  // without necessarily finishing a closet — and the honest activation moment
+  // is the one the rest of the app agrees with, which is the same predicate
+  // Today uses to decide whether it has outfits to show. `trackOnce` makes
+  // this and Today's observer idempotent with each other: whichever sees the
+  // crossing first emits, the other is a no-op, forever.
+  useEffect(() => {
+    const items = wardrobe.data;
+    if (!items || !canGenerate(items)) return;
+    trackOnce('closet_ready', { route: 'the_ten', pieces: items.length });
+  }, [wardrobe.data]);
+
+  // A closet that cannot be read is not an empty closet — the same distinction
+  // Today draws at T-08, and it matters more here than it does there. Before
+  // this screen became the first run, a failed wardrobe query left it holding
+  // "Loading your closet…" forever, which for a brand-new account on a bad
+  // connection is the first minute of the app and has no way out of it.
+  if (!slots && wardrobe.isError) {
+    return (
+      <SafeAreaView className="flex-1 justify-center bg-canvas dark:bg-canvas-dark px-gutter">
+        <View accessibilityRole="alert">
+          <Text variant="title" trim>
+            Couldn&rsquo;t read your closet
+          </Text>
+          <Text variant="body" className="mt-3.5 text-muted dark:text-muted-dark">
+            Nothing you&rsquo;ve photographed is lost. Check your connection and try again.
+          </Text>
+          {/* Wrapper carries the offset: `Button` omits `style` from its props. */}
+          <View style={{ marginTop: 30 }}>
+            <Button
+              title="Try again"
+              variant="secondary"
+              loading={wardrobe.isRefetching}
+              onPress={() => void wardrobe.refetch()}
+              className="self-stretch"
+            />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!slots) {
     return (
@@ -128,15 +208,11 @@ export default function TheTenScreen() {
             variant="label"
             style={{ fontVariant: ['tabular-nums'] }}
             accessibilityLabel={`${filled} of ${slots.length} filled`}>
-            {`${filled} of 10`}
+            {`${filled} of ${slots.length}`}
           </Text>
         </View>
         <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
-          {isFirstSuggestion
-            ? 'Ten pieces is enough for Cinch to style you properly. Photograph these, in any order.'
-            : filled === 9
-              ? "One left. Cinch can't style you until the bag is in — every outfit it builds finishes with one."
-              : `${10 - filled} to go. Nothing here is final — you can swap any piece later.`}
+          {tenProgressLine(slots)}
         </Text>
 
         <View className="mt-4">

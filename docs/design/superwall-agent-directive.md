@@ -7,10 +7,19 @@ problems. When you are done, Cinch has a working purchase page for the first tim
 
 ---
 
+> **CORRECTION, 2026-08-10 — the paywall id in this document was wrong.**
+> It said **253377** / `cinch-membership-v2` throughout. The live document is
+> **254200**, "Cinch Membership v3", identifier `cinch-membership-v3-e738-2026-08-09`,
+> created 2026-08-09 from 253377 as its `source_template` and edited since. **All four
+> campaigns point at 254200; none points at 253377.** Publishing 253377 would look
+> entirely successful and reach nobody. Every id below has been corrected — if you
+> see 253377 anywhere else, it is stale. Full warning:
+> `docs/design/paywall-publish-runbook.md`.
+
 ## 0. Why this is urgent
 
-The paywall `cinch-membership-v2` (id **253377**) exists, is marked `active`, has all four
-products attached — and **has never been published** (`published_at: null`).
+The paywall `cinch-membership-v3-e738-2026-08-09` (id **254200**) exists, is marked `active`,
+has all four products attached — and **has never been published** (`published_at: null`).
 
 An unpublished document does not fail quietly. Its WKWebView never commits a frame, so what the
 user gets is a full-screen sheet of flat grey with no close control and no back gesture. The only
@@ -28,8 +37,8 @@ So: the app today has no purchase page, and reaching for one costs the user thei
 | Organisation | 26053 |
 | Project | **28319** — Cinch |
 | Application | **52618** — iOS, `com.nelsonsaenz.cinch`, ASC app 6798479578 |
-| Paywall | **253377** — "Cinch Membership", identifier `cinch-membership-v2` |
-| Campaigns | **100436** "Limits & trial", **100596** "Packing access" |
+| Paywall | **254200** — "Cinch Membership v3", identifier `cinch-membership-v3-e738-2026-08-09` |
+| Campaigns | **100436** "Limits & trial", **100596** "Packing access", **100973** "Repeat upsell", **101136** "Reveal complete" |
 
 The project has `figma_import` and `editor_ai_chat` enabled — both are fast routes through the
 layout work.
@@ -43,7 +52,7 @@ copy must be built in the web editor by hand. Do not waste time looking for an A
 
 ## 2. The products — read prices from StoreKit, never type them
 
-All four are already attached to paywall 253377. These figures are for your verification only.
+All four are already attached to paywall 254200. These figures are for your verification only.
 
 | Reference name | Identifier | Price | Entitlement |
 |---|---|---|---|
@@ -247,9 +256,9 @@ server — but the sale is being lost.
 
 ### 8.2 `repeat_upsell` has no campaign
 
-The Repeat's "See plans" button registers placement `repeat_upsell`, which matches nothing, so the
-tap does nothing. Either create a campaign for it pointing at 253377 with the same audience shape,
-or report back that it was left undesigned. Do not leave it silently broken.
+~~The Repeat's "See plans" button registers placement `repeat_upsell`, which matches nothing, so
+the tap does nothing.~~ **FIXED 2026-08-09** — campaign **100973** "Repeat upsell" now carries it,
+pointing at 254200 with the same audience shape as the others (169783). Nothing to do here.
 
 **Never rename a placement.** Placement names are a contract with `src/features/billing/placements.ts`.
 A rename does not throw — it silently means "no campaign matched" and the action proceeds

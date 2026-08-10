@@ -5,6 +5,7 @@ import { View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { numberWord } from '@/features/onboarding/reveal-copy';
 import { canvasAlpha, useTheme } from '@/theme/tokens';
 
 /**
@@ -16,7 +17,7 @@ import { canvasAlpha, useTheme } from '@/theme/tokens';
  * the wear count, cost-per-wear and look-count chips a piece earns once it has
  * history. The payoff renders before any work is done, on the same argument
  * the free tier already makes: show the product working, then ask for the
- * six photographs it takes to make it true.
+ * `PIECES_ASKED` photographs it takes to make it true.
  *
  * It is labelled "An example closet" once, truthfully, in the pill above the
  * copy — an unlabelled grid of clothes would read as someone else's wardrobe
@@ -27,10 +28,10 @@ import { canvasAlpha, useTheme } from '@/theme/tokens';
  * a person could act on, so nothing here is individually focusable.
  *
  * Composition contract: this component renders the FULL C-05 tile — grid,
- * scrim, pill, copy, the "Add your first piece" button and the six-pip
- * progress row. The screen only supplies the eyebrow header above it and the
- * `onAddPieces` handler; "0 of 6" needs no prop because this component only
- * ever mounts when the closet is empty, i.e. when it is always true.
+ * scrim, pill, copy, the "Add your first piece" button and the progress row of
+ * `PIECES_ASKED` pips. The screen only supplies the eyebrow header above it and
+ * the `onAddPieces` handler; the "0 of" needs no prop because this component
+ * only ever mounts when the closet is empty, i.e. when it is always true.
  */
 
 /** `theme.*` hexes are always `#RRGGBB`; alpha variants derive, never retype. */
@@ -44,7 +45,29 @@ function withAlpha(hex: string, alpha: number): string {
 /** Atlas cell height — the same 196pt the real grid's `ItemCard` uses. */
 const CELL_HEIGHT = 196;
 
-/** How many photographs the invitation asks for, transcribed from the atlas. */
+/**
+ * How many photographs the invitation asks for, transcribed from the atlas.
+ *
+ * THE ONE PLACE THIS NUMBER IS WRITTEN DOWN. It draws the progress pips, it is
+ * the denominator in "0 of 6", and since 2026-08-10 it is also the number in
+ * the sentence — which had been the literal word "six" while the pip row two
+ * elements below already counted from this constant. Setting it to five used to
+ * redraw the picture and leave the prose asking for six; it can no longer
+ * (`docs/design/positioning-contract.md` §7).
+ *
+ * DELIBERATELY NOT `PLANS.free.items`. Every other ask in the product is ten —
+ * the tour (`tour-copy.ts:29`), The Ten, Today's empty state — because ten is
+ * the free tier's cap and the number a user meets. This one is smaller on
+ * purpose: C-05 is the first thing an empty closet shows and its job is to get
+ * a first photograph taken, not to state a ceiling. Six is what the atlas drew
+ * and six is what the pips count, so the sentence reads from here rather than
+ * from `PLANS`, and the two constants are genuinely independent facts. If a
+ * design review ever reconciles them, it changes this line and nothing else.
+ *
+ * The four `CELLS` below are NOT this number and must not be derived from it:
+ * they are the 2×2 sample grid the atlas draws, and the sentence never counts
+ * them — it counts what it is asking the user to go and photograph.
+ */
 const PIECES_ASKED = 6;
 
 type ExampleCell = {
@@ -182,9 +205,12 @@ export function ExampleCloset({ onAddPieces }: ExampleClosetProps) {
           </Text>
         </View>
 
+        {/* The count is `PIECES_ASKED`, the same constant the pips below count
+            from, spelled out by the Reveal's `numberWord` because this is prose
+            and the pip caption's "0 of 6" is a readout. One number, two
+            registers, one source. */}
         <Text variant="body" className="mt-3.5 text-center" style={{ maxWidth: 300 }}>
-          Photograph six pieces and yours looks like this — wears, cost-per-wear and outfits
-          counted from the first one.
+          {`Photograph ${numberWord(PIECES_ASKED)} pieces and yours looks like this — wears, cost-per-wear and outfits counted from the first one.`}
         </Text>
 
         {/*

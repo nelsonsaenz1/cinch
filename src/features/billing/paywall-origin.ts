@@ -73,6 +73,12 @@ export function returnLabelFor(placement: PlacementName | null): string {
       return 'Back to the trip';
     case Placement.RepeatUpsell:
       return "Back to today's outfit";
+    case Placement.RevealComplete:
+      // The Reveal is still underneath — `router.back()` returns to it with
+      // the count and the first plate exactly as they were, which is the
+      // screen this user was in the middle of reading. Named for the thing on
+      // it rather than for the screen, which has no name a user would know.
+      return 'Back to your first outfit';
     case Placement.TrialExpired:
     case null:
       // Not tied to a single interrupted action — see placements.ts's own

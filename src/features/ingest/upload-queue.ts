@@ -125,6 +125,46 @@ export function userFacingFailure(job: Pick<UploadJob, 'error'> | undefined): st
   return 'That upload didn’t finish.';
 }
 
+/**
+ * The same failure, as a bounded value for `clothes_import_failed`.
+ *
+ * `job.error` is free text: it holds the Edge Function's sentence, a Supabase
+ * error message, or whatever a thrown `Error` carried, and any of those can
+ * embed a path, an id or a server detail. It is written for the banner and it
+ * is not something to hand an analytics vendor — see the privacy note at the
+ * top of `lib/posthog.tsx`, which exists to refuse exactly this.
+ *
+ * So the message is READ here and never SENT. The classification is by the
+ * same means `userFacingFailure` above already uses — the messages being
+ * matched are this file's own constants from `classify()` — and everything
+ * unrecognised lands on 'unknown' rather than leaking. 'unknown' rising is
+ * itself the signal that a new failure mode needs a name here.
+ *
+ * Nine values, and that is the whole vocabulary:
+ *   consent_missing · unverified_session · quota_exhausted · item_missing ·
+ *   bad_request · photo_unreadable · row_write_failed · not_signed_in · unknown
+ */
+function analyticsFailureReason(error: string | undefined): string {
+  const raw = error ?? '';
+  if (!raw) return 'unknown';
+
+  // Account-level refusals from `classify()`, in its own order.
+  if (raw === CONSENT_WITHDRAWN_MESSAGE || raw.includes('ai_consent_required')) {
+    return 'consent_missing';
+  }
+  if (raw.includes('couldn’t verify your account')) return 'unverified_session';
+  if (raw.includes('tagging allowance')) return 'quota_exhausted';
+  if (raw.includes('find this garment')) return 'item_missing';
+  if (raw.includes('read this request')) return 'bad_request';
+
+  // Local pipeline failures, thrown rather than returned.
+  if (/decode|unsupported|corrupt|read the image|prepare/i.test(raw)) return 'photo_unreadable';
+  if (/Could not create item|Could not record upload/i.test(raw)) return 'row_write_failed';
+  if (raw.includes('Not signed in')) return 'not_signed_in';
+
+  return 'unknown';
+}
+
 let running = 0;
 let draining = false;
 /** Job ids whose tagging loop is running right now — see `driveTagging`. */
@@ -337,6 +377,11 @@ async function driveTagging(
         // this stops here and says why — the garment is in the closet either way.
         update(jobId, { stage: 'failed', error: outcome.message, retryable: outcome.retryable });
         invalidateAfterItemSettled();
+        track('clothes_import_failed', {
+          stage: 'tagging',
+          reason: analyticsFailureReason(outcome.message),
+          retryable: outcome.retryable,
+        });
         return;
       }
 
@@ -359,6 +404,16 @@ async function driveTagging(
       retryable: true,
     });
     invalidateAfterItemSettled();
+    // Out of tries after MAX_TAG_ATTEMPTS, not refused. `reason` classifies the
+    // last transient message, which is usually 'unknown' — the interesting
+    // property here is `attempts`, because a queue exhausting its retries is a
+    // different fault from one being told no on the first call.
+    track('clothes_import_failed', {
+      stage: 'tagging',
+      reason: analyticsFailureReason(lastMessage),
+      retryable: true,
+      attempts: MAX_TAG_ATTEMPTS,
+    });
   } finally {
     driving.delete(jobId);
   }
@@ -740,6 +795,15 @@ export async function drainQueue(): Promise<void> {
           const message = err instanceof Error ? err.message : String(err);
           const attempts = next.attempts + 1;
           const exhausted = attempts >= MAX_ATTEMPTS;
+          // Read BEFORE the update below, because that update overwrites it:
+          // the store still holds the stage the job actually died at, which is
+          // the one fact this event exists to carry. `processJob` walks
+          // preparing → cutout → uploading → tagging and the difference between
+          // "the phone could not cut this photo out" and "the upload never
+          // landed" is the difference between a device problem and a network
+          // one.
+          const diedAt =
+            useQueueStore.getState().jobs.find((j) => j.id === next.id)?.stage ?? 'preparing';
           useQueueStore.getState().update(next.id, {
             stage: exhausted ? 'failed' : 'queued',
             error: message,
@@ -748,6 +812,19 @@ export async function drainQueue(): Promise<void> {
             // offering again rather than presenting as final.
             retryable: exhausted ? true : undefined,
           });
+          // ONLY when the job is actually finished. The other branch puts it
+          // back on the queue with attempts left, and an import that stumbles
+          // twice and then succeeds is a success — counting its stumbles would
+          // turn the import failure rate into a measure of network weather
+          // rather than of garments lost.
+          if (exhausted) {
+            track('clothes_import_failed', {
+              stage: diedAt,
+              reason: analyticsFailureReason(message),
+              retryable: true,
+              attempts,
+            });
+          }
         })
         .finally(() => {
           running -= 1;
@@ -800,6 +877,16 @@ async function resumeStalledTagging(): Promise<void> {
         error: `${job.error ?? 'Tagging didn’t finish.'} Your garment is saved — tap retry to tag it.`,
         retryable: true,
       });
+      // A job a previous launch left mid-flight with its attempts already
+      // spent. It is being failed here rather than retried, so it is terminal
+      // and counts once, on this launch — the launch that killed it never got
+      // to emit anything.
+      track('clothes_import_failed', {
+        stage: 'tagging',
+        reason: analyticsFailureReason(job.error),
+        retryable: true,
+        attempts: job.tagAttempts,
+      });
       continue;
     }
 
@@ -813,13 +900,24 @@ async function resumeStalledTagging(): Promise<void> {
       continue;
     }
 
+    const retryable = outcome.kind === 'blocked' ? outcome.retryable : true;
     update(job.id, {
       stage: 'failed',
       error:
         outcome.kind === 'blocked'
           ? outcome.message
           : `${outcome.message} Your garment is saved — tap retry to tag it.`,
-      retryable: outcome.kind === 'blocked' ? outcome.retryable : true,
+      retryable,
+    });
+    // Terminal by construction: this function's contract is that a resumed job
+    // settles, fails visibly, or is handed on with its attempts spent, and this
+    // is the failure arm of it. Reached for a `retry` outcome as well as a
+    // `blocked` one, because a resumed job gets one attempt and no loop.
+    track('clothes_import_failed', {
+      stage: 'tagging',
+      reason: analyticsFailureReason(outcome.message),
+      retryable,
+      attempts: job.tagAttempts + 1,
     });
   }
 }
@@ -922,6 +1020,15 @@ export async function sweepPendingTags(): Promise<void> {
         settleJobsForItem(row.id, {
           stage: 'failed',
           error: outcome.message,
+          retryable: outcome.retryable,
+        });
+        // The sweep's only terminal transition. Its `retry` arm below writes a
+        // message onto the job and leaves the stage alone for the next pass,
+        // so it is not a failure yet and emits nothing — the same rule the
+        // drain loop's re-queue branch follows.
+        track('clothes_import_failed', {
+          stage: 'tagging',
+          reason: analyticsFailureReason(outcome.message),
           retryable: outcome.retryable,
         });
         // An account-wide refusal — consent withdrawn, session unverifiable,
@@ -1028,13 +1135,19 @@ export async function startBackfill(): Promise<{ enqueued: number }> {
             .eq('id', row.id);
           if (updateError) throw new Error(`Could not record upload: ${updateError.message}`);
         } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
           useQueueStore
             .getState()
-            .update(jobId, {
-              stage: 'failed',
-              error: err instanceof Error ? err.message : String(err),
-              retryable: true,
-            });
+            .update(jobId, { stage: 'failed', error: message, retryable: true });
+          // The backfill's upload arm. `stage: 'uploading'` rather than the
+          // job's own stage because this try block IS the upload — the two
+          // `uploadObject` calls and the row write that records them — and
+          // there is no other step it could have died at.
+          track('clothes_import_failed', {
+            stage: 'uploading',
+            reason: analyticsFailureReason(message),
+            retryable: true,
+          });
           continue;
         }
 
@@ -1103,11 +1216,22 @@ export async function retryJob(jobId: string): Promise<void> {
     return;
   }
 
+  const retryable = outcome.kind === 'blocked' ? outcome.retryable : true;
   update(jobId, {
     stage: 'failed',
     tagAttempts: job.tagAttempts + 1,
     error: outcome.message,
-    retryable: outcome.kind === 'blocked' ? outcome.retryable : true,
+    retryable,
+  });
+  // A retry the user asked for, that failed again. Counted like any other
+  // terminal failure — `attempts` is what separates it from the first one, and
+  // a garment that fails three retries produces three events, which is the
+  // honest account of three imports that did not land.
+  track('clothes_import_failed', {
+    stage: 'tagging',
+    reason: analyticsFailureReason(outcome.message),
+    retryable,
+    attempts: job.tagAttempts + 1,
   });
 }
 

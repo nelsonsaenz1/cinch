@@ -10,15 +10,23 @@ because only the app knows which task the user was interrupted from.
 
 ---
 
-## 0. The state of the dashboard, read 2026-08-09
+## 0. The state of the dashboard, re-read live 2026-08-10 15:25 UTC
 
 | | |
 |---|---|
 | Organisation | 26053 |
 | Project | **28319** — Cinch |
 | Application | **52618** — iOS, `com.nelsonsaenz.cinch`, ASC app 6798479578 |
-| Paywall | **253377** — "Cinch Membership", identifier `cinch-membership-v2` |
-| Status | `active`, **`published_at: null`** |
+| Paywall | **254200** — "Cinch Membership v3", identifier `cinch-membership-v3-e738-2026-08-09` |
+| Status | `active`, **`published_at: null`**, `feature_gating: non_gated` |
+
+> **The paywall id changed on 2026-08-09 and this document said the wrong one until
+> 2026-08-10.** It read **253377** / `cinch-membership-v2`. That paywall still exists,
+> is still named "Cinch Membership", and is the `source_template` 254200 was created
+> from — so it looks like the live document and is not. **No campaign points at it.**
+> Publishing 253377 would flip `published_at`, look entirely successful, and reach
+> nobody. Build and publish 254200. The full warning, and the two other decoy drafts,
+> are in `docs/design/paywall-publish-runbook.md`.
 
 **`published_at` is null, and that is the whole problem.** The document has never been published,
 so every placement in the app currently resolves to a WKWebView that never commits a frame — a
@@ -46,15 +54,29 @@ wrong in every country but one.
 
 ### Campaigns
 
+**Four now, not two.** All four resolve to paywall **254200** at 100%, and all four carry the
+same audience rule — `["pro"].all(identifier, !device.activeEntitlements.contains(identifier))`,
+i.e. free, lapsed *or* Standard.
+
 | Campaign | Placements | Audience |
 |---|---|---|
-| 100436 "Limits & trial" | `open_stylist`, `add_garment_over_limit`, `generate_outfit_over_limit`, `trial_expired`, `event_hosting_over_limit` | no active entitlements → paywall 253377 at 100% |
-| 100596 "Packing access" | `packing_access` | no active entitlements → paywall 253377 at 100% |
+| 100436 "Limits & trial" | `open_stylist`, `add_garment_over_limit`, `generate_outfit_over_limit`, `trial_expired`, `event_hosting_over_limit` | audience 168899 → paywall 254200 at 100% |
+| 100596 "Packing access" | `packing_access` | audience 169159 → paywall 254200 at 100% |
+| 100973 "Repeat upsell" | `repeat_upsell` | audience 169783 → paywall 254200 at 100% |
+| **101136 "Reveal complete"** | `reveal_complete` | audience 170046 → paywall 254200 at 100% |
 
-Two gaps, both real:
+101136 is new (created 2026-08-10) and is unlike the other three: **no server has refused
+anything** when it fires. It is founder decision D2 — the dismissible offer immediately after The
+Reveal (`docs/design/positioning-contract.md` §5). Its `{{context}}` line interpolates the user's
+own computed outfit count and that number may never be typed into the dashboard as a constant
+(positioning-contract §3).
 
-1. **`repeat_upsell` has no campaign.** The Repeat's "See plans" therefore does nothing. An
-   unmatched placement proceeds silently — nothing is given away, the moment is simply undesigned.
+Two gaps, both real when written, both now closed:
+
+1. ~~**`repeat_upsell` has no campaign.**~~ **FIXED 2026-08-09** — campaign 100973 above. The
+   Repeat's "See plans" now resolves. `contextLineFor()` deliberately returns `null` for this
+   placement, so the page renders in its MB-01 default with no line above the headline; do not
+   add one in the dashboard.
 2. ~~**`packing_access` now targets the wrong people.**~~ **FIXED 2026-08-09.** Its audience was
    `size(device.activeEntitlements) == 0`, which was right while packing was "any paying plan".
    Packing became **Pro-only**, so a **Standard** subscriber matched nothing and got a dead
@@ -235,13 +257,15 @@ way out costs a session rather than a sale.
 
 ## 5. Publish checklist
 
-1. Build the layout above; bind `{{context}}` and hide-when-empty.
-2. Confirm all four products resolve real prices in the editor's preview.
-3. Check the close control in every state, including the loading skeleton.
-4. **Publish.** `published_at` must stop being null.
-5. Fix audience 169159 on campaign 100596 (§0) so Standard subscribers see the Pro offer.
-6. Create a campaign for `repeat_upsell`, or accept that The Repeat's "See plans" does nothing.
-7. Run the app against it on a simulator and watch `use-gate.ts` report `granted` / `declined`
+1. Confirm you are in paywall **254200**, not 253377 (§0).
+2. Build the layout above; bind `{{context}}` and hide-when-empty.
+3. Confirm all four products resolve real prices in the editor's preview.
+4. Check the close control in every state, including the loading skeleton. It is load-bearing
+   for the Reveal placement, which must stay dismissible — keep `feature_gating: non_gated`.
+5. **Publish.** `published_at` must stop being null.
+6. ~~Fix audience 169159 on campaign 100596~~ — done 2026-08-09.
+7. ~~Create a campaign for `repeat_upsell`~~ — done 2026-08-09, campaign 100973.
+8. Run the app against it on a simulator and watch `use-gate.ts` report `granted` / `declined`
    rather than `unavailable`. `unavailable` means the document still is not reaching anybody.
 
 The project has `figma_import` and `editor_ai_chat` enabled, which are the two fastest routes

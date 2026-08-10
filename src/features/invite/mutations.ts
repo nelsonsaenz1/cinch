@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
 import { bareHandle } from './link';
@@ -60,6 +61,17 @@ export function useApplyInvite() {
       return { inviterId, displayName: typeof name === 'string' && name ? name : null };
     },
     onSuccess: (result) => {
+      // Above the null guard, and that placement is the point. `null` here is
+      // the server saying there was nobody at the other end of a link somebody
+      // really did tap — an unknown handle, their own link, or a block. That is
+      // a completely different failure from a link nobody ever tapped, and the
+      // only way to tell them apart is for `invite_opened` → `invite_converted`
+      // to both fire and for this one to carry which way it went.
+      //
+      // `onSuccess`, not `onSettled`: a thrown RPC is a network failure rather
+      // than an answer, and counting it as an unresolved invite would blame the
+      // referral loop for the connection.
+      track('invite_converted', { resolved: result !== null });
       if (!result) return;
       // Both edges were written server-side, so every list that derives from
       // `follows` is now stale — the same set `useFollow` invalidates.

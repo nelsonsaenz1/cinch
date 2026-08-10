@@ -7,7 +7,7 @@ import { InvitePage } from '@/components/invite/invite-page';
 import { Chip, Text } from '@/components/ui';
 import { Toast } from '@/components/ui/toast';
 import { arrivalName, arrivalSubtitle, type InviteArrival } from '@/features/invite/arrivals';
-import { inviteUrl, shareTitle } from '@/features/invite/link';
+import { inviteUrl, shareMessage, shareTitle } from '@/features/invite/link';
 
 /**
  * The personal invite link, over fixtures — `cinch://dev-invite-link`.
@@ -84,7 +84,13 @@ export default function DevInviteLinkScreen() {
   // sheet rather than a drawing of one.
   useEffect(() => {
     if (state !== 'IV-02') return;
-    void Share.share({ url: LINK, title: shareTitle(DISPLAY_NAME) }).catch(() => {});
+    // Mirrors src/app/invite.tsx exactly. `title` is dropped on iOS, so a
+    // fixture that still sent it would be verifying a path production no
+    // longer runs — and IV-02 exists to show what actually leaves the phone.
+    void Share.share(
+      { message: shareMessage(), url: LINK },
+      { subject: shareTitle(DISPLAY_NAME) },
+    ).catch(() => {});
   }, [state]);
 
   useEffect(

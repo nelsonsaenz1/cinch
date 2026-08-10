@@ -4,7 +4,9 @@ import Svg, { Path } from 'react-native-svg';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { PLANS } from '@/features/billing/plans';
 import { CircledExclamationGlyph } from '@/features/explore/glyphs';
+import { numberWord } from '@/features/onboarding/reveal-copy';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -230,7 +232,15 @@ export function ClosetTooSmall({ onAddClothes }: { onAddClothes: () => void }) {
       role="summary"
       glyph={<SpeechBubblePairGlyph size={GLYPH_SIZE} color={theme.accent} />}
       title="Ask for anything"
-      body="Dinner at 7 and drinks after? A trip to pack for? Add about ten pieces first — the stylist only ever answers with clothes you actually own."
+      // The ask is `PLANS.free.items`, spelled by the Reveal's `numberWord`
+      // rather than typed as a word (positioning-contract.md §7). It is NOT
+      // `MIN_CLOSET_FOR_OUTFITS`, the eight that actually trips this state:
+      // `tour-copy.ts:17-28` settles that eight is the engine's internal floor
+      // and is never printed, while ten is the number the user has already met
+      // in the tour and in The Ten. Two numbers for "enough clothes" is how a
+      // user learns the app cannot count. "About" carries the rest — the real
+      // gate is a shape (a top and a bottom, or a dress), not a total.
+      body={`Dinner at 7 and drinks after? A trip to pack for? Add about ${numberWord(PLANS.free.items)} pieces first — the stylist only ever answers with clothes you actually own.`}
       actionTitle="Add clothes"
       onAction={onAddClothes}
     />

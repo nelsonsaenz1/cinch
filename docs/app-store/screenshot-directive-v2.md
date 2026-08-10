@@ -8,6 +8,32 @@ Read `docs/app-store/screenshots/src/base.css` first — every token below alrea
 exists there. This is not a redesign. It is a re-ordering, three new frames, and
 one measurable typographic fix.
 
+> **RE-POINTED 2026-08-10 — read this before rendering anything.**
+>
+> The set below was ordered social-first. `docs/design/positioning-contract.md`
+> §2 overrides that: social stays in the gallery but moves off slot 1, and the
+> front of the page carries the ten-piece wedge instead. **§2 of this document
+> has been rewritten to the new order; §4's frame specs are unchanged as
+> renderings and are re-mapped to their new slots there.**
+>
+> Three things are now different, and all three are corrections of fact rather
+> than taste:
+>
+> 1. **Frame 1 is The Ten, not The table.** This document's own §1.4 — the
+>    upload objection is the category's open wound — is the argument for it and
+>    was already written here; it simply landed on the wrong slot.
+> 2. **§1.2's "the app name already carries the signal" is dead.** The title is
+>    now `Cinch: Outfit Planner & Closet`. The recommendation survives on its
+>    other evidence; see the retired-reason note in §1.2.
+> 3. **The dropped Plan/week frame still has to be rendered.** Dropping it from
+>    the main gallery is still right (§2), but the week view is now the hero of
+>    a custom product page (`docs/aso/custom-product-pages.md`), so the render
+>    is needed even though the gallery slot is not.
+>
+> Everything else here — canvas, palette, type, the 140px headline minimum, the
+> squint test, "real UI only", no faces, no invented social proof — is unchanged
+> and binding.
+
 ---
 
 ## 1. What the research actually says
@@ -50,11 +76,28 @@ than an assertion:
 
 Two further reasons specific to us:
 
-1. **The app name already carries the signal.** The listing reads *Cinch: AI
-   Closet & Stylist*. Every search result already says AI before a single
-   screenshot loads. Spending headline pixels on it is redundant.
-2. **It is not differentiating.** Acloset, Alta, Pureple and Style DNA all have
+1. **It is not differentiating.** Acloset, Alta, Pureple and Style DNA all have
    AI in the app name. Saying "AI" louder puts us in a queue.
+2. **The headline slot is the scarcest surface we have, and AI is not the
+   objection.** At 140px, ≤ 5 words, seen by the ~91% who never scroll (§1.1),
+   a headline gets one job. The thing that kills installs in this category is
+   the upload ask (§1.4), and the thing that kills retention is nonsense
+   suggestions (§1.5). "AI" answers neither. The word is also indexed
+   separately in the keyword field — `ai` is in the live field
+   (`docs/app-store-listing.md`) — so search coverage is not what a headline
+   would be buying.
+
+> **A third reason was here and has been retired, 2026-08-10.** It read: *"the
+> app name already carries the signal — the listing reads Cinch: AI Closet &
+> Stylist, so every search result already says AI before a single screenshot
+> loads."* **That premise is now false.** The app name is
+> `Cinch: Outfit Planner & Closet` (`docs/app-store-listing.md`, Identity); "AI"
+> was deliberately dropped from the title, so nothing upstream of the screenshot
+> says it any more. The recommendation is unchanged — the two reasons above,
+> plus the four pieces of research, are the stronger half of the argument and
+> none of them depended on the name. But the sentence itself is dead and is not
+> to be reinstated: the *reason* to keep AI out of headlines is the measured
+> purchase-intent penalty in identity-adjacent categories, never redundancy.
 
 **So we stay aggressively AI-forward in what we SHOW and disciplined about what
 we SAY.** Frames 2 and 3 are pure machine-intelligence demonstrations — instant
@@ -62,6 +105,13 @@ recognition, instant tagging, reasoned outfit selection. The word appears once,
 in frame 3's subline, as mechanism and credibility. Never as a promise.
 
 ### 1.3 Social is unclaimed positioning, not just an unclaimed feature.
+
+> **The survey below stands; the slot-1 conclusion it drew does not.**
+> `docs/design/positioning-contract.md` §2 settles this: social is real,
+> shipped and a genuine differentiator, and it belongs in screenshots, the
+> description body and the retention loop — but not at the front of the search
+> surfaces, because nobody searches for it. The competitor findings here are
+> still the reason social earns a gallery frame at all. It is now frame 5.
 
 Across the ten competitors surveyed (Whering, Acloset, Indyx, Alta, Stylebook,
 Cladwell, Save Your Wardrobe, Pureple, Smart Closet, Style DNA):
@@ -102,26 +152,111 @@ because the engine is deterministic and grounded in real garments.
 
 ---
 
-## 2. The set
+## 2. The set — wedge-first (v3)
 
 Five frames. (78% of top-100 apps ship exactly five — Incipia.) A sixth is
 specified as optional at the end.
 
-| # | Working name | Job | Ground |
-|---|---|---|---|
-| 1 | **The table** | Differentiate instantly. Nothing else on the page looks like this. | paper |
-| 2 | **The upload** | Kill the "this will take hours" objection with a number. | paper |
-| 3 | **The morning** | Prove the intelligence by showing its output and its reasons. | paper |
-| 4 | **The no** | Trust. Position against the category's worst failure. | ink |
-| 5 | **The ledger** | Value and retention — the reason to keep it. | paper |
+Headlines and sublines below are the ones settled in
+`docs/app-store-listing.md`, "The wedge-first set (v3)". **That table is the
+source; if the two ever disagree, it wins.**
 
-Order rationale: frames 1–3 are the three visible in search results and they
-cover, in order, the three things the brief asked to emphasize — collaborative,
-effortless capture, AI-forward. Frames 4–5 reward the 11% who scroll.
+| # | Working name | Headline | Subline | Job | Ground |
+|---|---|---|---|---|---|
+| 1 | **The ten** | "Ten pieces is a *wardrobe.*" | Photograph ten things you already own. That is the whole setup. | Kill the objection that kills installs, in slot 1. | paper |
+| 2 | **The morning** | "Dressed in a *minute.*" | Built on your phone from what you own, for today's weather and today's plans. | The daily payoff, and the reason to keep it. | paper |
+| 3 | **The reason** | "Every outfit, *explained.*" | Not a score. A sentence: why this coat, on this day, over this knit. | Strike at the category's most consistent one-star complaint. | paper |
+| 4 | **The no** | "It tells you *no.*" | Nothing you own works for black tie? It says exactly that, instead of inventing a gown you don't have. | Trust. Nobody else in the category will run this frame. | ink |
+| 5 | **The table** | "Still torn? *Ask the group.*" | Post the dinner, invite the people going, and settle it between two looks you already own. | The differentiator, in full, where the 11% who scroll will meet it. | paper |
 
-**Dropped from v1:** the Plan/week frame. Packing and weekly planning appear in
-6 of 10 competitor galleries — it is pure feature parity and it was spending our
-scarcest slot on our least distinctive claim.
+**Order rationale.** Frames 1–3 are the three visible in search results, and
+they read, in order: *you only need ten pieces*, *and then you are dressed*,
+*and it tells you why*. That is the entire positioning, complete, before anyone
+taps anything. Frames 4 and 5 reward the 11% who scroll. Moving social from 1 to
+5 is a change of **position, not of claim** — it still holds two description
+sections, this frame, and a whole custom product page.
+
+**Two constraints these headlines already satisfy,** and any replacement must:
+≤ 5 words, ≤ 2 lines, ~15 characters per line at 140px in the 1080px measure
+(§3.1); and **no frame prints an outfit count.**
+`docs/design/positioning-contract.md` §3 forbids the number in every static
+surface, which is exactly why frame 1 says "a wardrobe" where the temptation is
+to say a figure. The piece count *is* allowed — ten is the free-tier cap, a fact
+about the product, provable at
+`supabase/migrations/20260808190000_free_closet_is_ten.sql:29`.
+
+**Optional sixth**, if a slot goes spare: The ledger — "54 pieces. *Nine, never
+worn.*" (spec in §4). It is the retention argument and the frame that hurts
+least to lose.
+
+**Dropped from the gallery:** the Plan/week frame. Packing and weekly planning
+appear in 6 of 10 competitor galleries — pure feature parity, spending our
+scarcest slot on our least distinctive claim. **It must still be rendered,**
+because it is now the hero of a custom product page
+(`docs/aso/custom-product-pages.md`). Dropped from the gallery is not dropped
+from the job list.
+
+### 2.1 Where §4's frame specs now land
+
+§4 was written against the old order and still holds the geometry, the copy
+strings and the real-UI references for four of the five. Read it through this
+map:
+
+| New slot | §4 spec to use | Change |
+|---|---|---|
+| 1 — The ten | **none yet** — spec'd in §4.0 below | new frame |
+| 2 — The morning | §4 "Frame 3 — The morning" | unchanged, moves up |
+| 3 — The reason | §4 "Frame 3 — The morning" | **same screen, enlarged on the reason line.** Headline and subline change; the reason sentence becomes the hero rather than one element of a full plate card |
+| 4 — The no | §4 "Frame 4 — The no" | unchanged |
+| 5 — The table | §4 "Frame 1 — The table" | unchanged, moves down |
+| optional 6 | §4 "Frame 5 — The ledger" | unchanged, now optional |
+| custom product page | §4 "Frame 6 — The week" | no longer optional; render it |
+
+**"Frame 2 — The upload" is cut from the gallery.** Frame 1 now carries the
+capture story, and it carries it better: The Ten shows a *finite, named* ask
+rather than a throughput counter. Note that its old copy — the counter reading
+`12 of 47` — is also no longer honest about the free tier, which is ten active
+pieces. Keep the before/after cut-out treatment in reserve for a custom product
+page; do not render it into the gallery.
+
+### 2.2 Frame 1 — "The ten" (new)
+
+**File** `01-ten.png` · **Ground** `paper` · **Job** kill the upload objection
+in the one slot almost everybody sees.
+
+**Headline** (140–150px, 2 lines, `em` italic oxblood on the second phrase):
+
+> Ten pieces is a
+> *wardrobe.*
+
+**Subline** (33px):
+
+> Photograph ten things you already own. That is the whole setup.
+
+**Inside the phone** — The Ten, `src/app/the-ten.tsx`. What is really on that
+screen, in order down the page:
+
+- Serif display header **The Ten**, with a right-aligned tabular counter on the
+  same baseline showing filled-of-total.
+- A muted progress line under it (`tenProgressLine()`).
+- **The ten-slot grid** (`TenGrid`) — this is the hero. Show it **six filled,
+  four still empty**, with the named empty slots legible as named: the whole
+  point is that the ask is finite and specified, not "add your closet".
+- Below the grid, the foregrounded slot's card (`SlotCard`) with its photograph
+  action.
+
+**Do not** type the counter or the progress line by hand from this document.
+Both are computed, and the piece counts in that screen are being read from
+`PLANS` rather than frozen (`docs/design/positioning-contract.md` §7) — render
+from the real strings at the time you build the frame.
+
+**Must survive the squint test:** the grid reading as *a small, countable,
+partly-finished set*. A viewer at 25% should register "that's nearly done"
+without reading a word. If it reads as an endless closet grid, the frame has
+failed and it has failed at the exact thing it exists to do.
+
+**Do not:** show a spinner, a progress bar, an "importing" state, or a grid so
+full that the finiteness is lost.
 
 ---
 
@@ -435,10 +570,16 @@ frame 5.**
 
 ## 5. What to test after launch
 
-The set above encodes one genuine bet: **frame 1 social rather than frame 1
-daily-outfit.** It is the differentiating choice, but it carries a real risk —
-a visitor with no friends on Cinch may read frame 1 as "this needs a group I
-don't have."
+The set above encodes one genuine bet: **frame 1 is the ask, not the payoff.**
+Leading with "ten pieces is all we need" answers the objection that kills
+installs (§1.4) before promising anything — but it carries a real risk, which is
+that a visitor who has not yet felt the objection reads frame 1 as *work* rather
+than as *relief*, and never gets to the payoff at frame 2.
+
+The bet this set *replaces* was frame 1 social, which carried the opposite risk:
+a visitor with no friends on Cinch reading it as "this needs a group I don't
+have." That ordering is settled by `docs/design/positioning-contract.md` §2 and
+is not what to spend a test cycle on.
 
 That is exactly what App Store Connect's Product Page Optimization is for: up to
 3 treatments plus control, 90 days, ~90% confidence flagging. Only 35% of
@@ -446,9 +587,13 @@ top-1,000 apps ran two or more screenshot tests last year, so the competitive
 bar is low.
 
 **Test 1, run it first:**
-- Control — frame 1 = The table (social)
-- Treatment A — frame 1 = The morning (daily outfit), social demoted to 2
-- Treatment B — frame 1 = The upload (six minutes), social demoted to 2
+- Control — frame 1 = The ten (the ask)
+- Treatment A — frame 1 = The morning (the daily payoff), The ten demoted to 2
+- Treatment B — frame 1 = The reason (why this outfit), The ten demoted to 2
+
+Whatever the result, **the outfit count still may not appear in any treatment**
+(§2), and social does not return to slot 1 — that is a positioning decision, not
+a variable.
 
 Calibrate expectations: a well-run screenshot test on live store traffic
 realistically yields **single-digit to low-teens percent**. The 20–35% figures
@@ -481,6 +626,10 @@ Before handing back, confirm every one of these:
 - [ ] No faces, no press logos, no ratings, no invented social proof
 - [ ] Loafer crops toe-only; all photography traced to `MANIFEST.md`
 - [ ] The word "AI" appears at most once in the whole set, and never in a headline
+- [ ] **No outfit count anywhere in the set** — not in a headline, a subline, or
+      inside a phone screen that has been hand-composed rather than rendered from
+      a real closet (`docs/design/positioning-contract.md` §3)
+- [ ] Frame order is the wedge-first one in §2, and frame 1 is The Ten
 
 **Upload note for whoever puts these in App Store Connect:** the version page
 only exposes a 6.5" slot that rejects 1290 × 2796. Use *View All Sizes in Media

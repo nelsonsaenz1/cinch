@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { handleFromUrl, inviteUrl } from '@/features/invite/link';
 import { DEFERRED_LINKS_AVAILABLE, deferredLinks } from '@/features/invite/native';
 import { rememberInvite } from '@/features/invite/pending-invite';
+import { track } from '@/lib/posthog';
 
 /**
  * Turn an incoming invite link into a destination (atlas 39, IV-06).
@@ -43,6 +44,22 @@ import { rememberInvite } from '@/features/invite/pending-invite';
  * instruction carries the journey — install, then tap the link again. See
  * `native.ts` for why the package may never ship.
  */
+/**
+ * Handles already counted as `invite_opened` this launch.
+ *
+ * Module scope, not a ref, because the effect below RE-RUNS when `signedIn`
+ * flips — and `getInitialURL()` keeps returning the launch URL forever. Without
+ * this, the most important path in the whole referral loop double-counts by
+ * construction: a link opened cold while signed out is offered once as
+ * `signed_in: false`, and again as `signed_in: true` the moment the session is
+ * written, which is precisely the journey K is supposed to be measuring.
+ *
+ * The cost is that re-tapping the same person's link later in the same launch
+ * is not counted twice. That is the right way round: one systematic doubling
+ * on the commonest path would be worse than missing a rare genuine repeat.
+ */
+const countedOpens = new Set<string>();
+
 export function useInviteDeepLink(signedIn: boolean): void {
   const router = useRouter();
 
@@ -53,6 +70,25 @@ export function useInviteDeepLink(signedIn: boolean): void {
       if (!url || cancelled) return;
       const handle = handleFromUrl(url);
       if (!handle) return;
+
+      // K's denominator, emitted ONCE, above the branch.
+      //
+      // Every URL the app receives is offered to this function and `handle` is
+      // null for all of them except invites, so this is exactly "an invite
+      // link was opened" and never a magic-link callback. `signed_in` is a
+      // property rather than the two events the branch below would suggest,
+      // because K is links-tapped over invites-sent and it must stay one
+      // number: split the event and every query has to remember to add the
+      // halves back together, and the first one that forgets under-reports K
+      // on the go/no-go date.
+      //
+      // The handle itself is never sent — it is only the dedupe key. It is
+      // another person's public username, which is theirs and not a bounded
+      // value.
+      if (!countedOpens.has(handle)) {
+        countedOpens.add(handle);
+        track('invite_opened', { signed_in: signedIn });
+      }
 
       if (signedIn) {
         router.push({ pathname: '/invite-arrival', params: { handle } });

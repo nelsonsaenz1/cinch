@@ -114,9 +114,14 @@ artifact**. The memo inside the app may carry it under the rule above.
 
 The atlas's own first line, and the decision after research (2026-08-09).
 
-**What Superwall owns:** the document at `cinch-membership-v2` (paywall id 253377, application
-52618) — layout, the plan cards, live StoreKit prices for the four attached products, the
+**What Superwall owns:** the document at `cinch-membership-v3-e738-2026-08-09` (paywall id
+**254200**, application 52618) — layout, the plan cards, live StoreKit prices for the four
+attached products, the
 purchase sheet (MB-04), the store-unavailable body (MB-05), restore, terms, privacy.
+
+*(Id corrected 2026-08-10: this read `cinch-membership-v2` / 253377 when written on 2026-08-09.
+254200 was created from 253377 later the same day and is what all four campaigns point at. 253377
+still exists and is still named "Cinch Membership" — publishing it reaches nobody.)*
 
 Note `published_at` is **null** today. Until that document is published, every placement in the
 app resolves to a grey WKWebView with no close control — the failure `use-gate.ts` is built to
