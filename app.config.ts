@@ -62,6 +62,22 @@ const FREE_SIGNING = process.env.CINCH_FREE_SIGNING === '1';
 const MOTION_USAGE_DESCRIPTION =
   'Cinch reads device orientation while you photograph clothes so each picture comes out the right way up. Nothing about your movement is recorded.';
 
+/**
+ * NSMicrophoneUsageDescription — a constant for exactly the reason above.
+ *
+ * expo-audio's config plugin owns this key and goes through the same
+ * `createPermissionsPlugin` contract, so declaring it in `ios.infoPlist` alone
+ * would leave it at the plugin's mercy — which is how builds 3 and 4 shipped
+ * without NSMotionUsageDescription. It is set in BOTH places, from here, so
+ * whichever mod runs last writes the same sentence.
+ *
+ * Written in the app's voice rather than boilerplate: this string is read at
+ * the moment of the ask, and "Cinch would like to access the microphone"
+ * answers none of the question the reader is actually asking, which is why.
+ */
+const MIC_USAGE_DESCRIPTION =
+  'So you can describe your closet out loud instead of photographing it.';
+
 const config: ExpoConfig = {
   name: 'Cinch',
   slug: 'cinch',
@@ -163,12 +179,11 @@ const config: ExpoConfig = {
       // `motionUsagePermission` entry in the expo-location plugin block.
       NSMotionUsageDescription: MOTION_USAGE_DESCRIPTION,
 
-      // Voice intake. Written in the app's voice rather than boilerplate,
-      // because this string is read at the moment of the ask and "Cinch would
-      // like to access the microphone" answers none of the question the user is
-      // actually asking, which is why.
-      NSMicrophoneUsageDescription:
-        'So you can describe your closet out loud instead of photographing it.',
+      // Voice intake. Declaring it HERE is not sufficient on its own —
+      // expo-audio's plugin owns the key and runs later. See
+      // MIC_USAGE_DESCRIPTION above and the `microphonePermission` entry in the
+      // expo-audio plugin block.
+      NSMicrophoneUsageDescription: MIC_USAGE_DESCRIPTION,
     },
 
     /**
@@ -373,6 +388,29 @@ const config: ExpoConfig = {
      * anything.
      */
     'expo-notifications',
+    /**
+     * Voice intake's recorder. THE NATIVE CHANGE IN WAVE 1, and the reason The
+     * Walkthrough cannot ride an OTA: this is a new native module, so it is
+     * absent at runtime until a store build carries it.
+     *
+     * `microphonePermission` is passed explicitly rather than left to fall
+     * through to `ios.infoPlist`. The plugin uses the same
+     * `createPermissionsPlugin` contract as expo-location, whose mod runs AFTER
+     * the infoPlist merge — relying on the fallback is what put two builds on
+     * the store with no NSMotionUsageDescription and two ITMS-90683s in the
+     * inbox. One constant, written into both places.
+     *
+     * NOTE ON SUBMITTING THIS BUILD: listing the module and declaring the
+     * permission does NOT give the app a way to record — the Walkthrough
+     * screens (WK-01…WK-06) do not exist yet, because their atlas does not.
+     * See the App Privacy note in `privacyManifests` below.
+     */
+    [
+      'expo-audio',
+      {
+        microphonePermission: MIC_USAGE_DESCRIPTION,
+      },
+    ],
     [
       'expo-splash-screen',
       {
