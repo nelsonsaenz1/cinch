@@ -28,6 +28,7 @@ import { contextLineFor } from '../src/features/billing/context-lines';
 import { Placement } from '../src/features/billing/placements';
 import { HELP_ARTICLES, articleById } from '../src/features/help/articles';
 import { numberWord } from '../src/features/onboarding/reveal-copy';
+import { MIN_CLOSET_FOR_OUTFITS } from '../src/features/styling/thresholds';
 
 /** Relative to the runner's cwd, which is the repository root. */
 const read = (p: string) => readFileSync(p, 'utf8');
@@ -99,21 +100,25 @@ test('the two number registers never share a clause', () => {
 });
 
 test('the eight in the closet-size article is the engine floor, not a guess', () => {
-  // `MIN_CLOSET_FOR_OUTFITS` cannot be imported here for the same reason
-  // `articles.ts` cannot import it — `queries.ts` pulls in react-query and
-  // `@/lib/supabase`, and esbuild would then have to parse React Native. So the
-  // constant is read out of the source as text, which is enough to fail if
-  // either side moves. When somebody lifts the constant into a leaf module,
-  // delete this and import it.
-  const source = read('src/features/styling/queries.ts');
-  const match = source.match(/MIN_CLOSET_FOR_OUTFITS\s*=\s*(\d+)/);
-  assert.ok(match, 'MIN_CLOSET_FOR_OUTFITS is gone or renamed — the article still spells it');
-
-  const floor = Number(match![1]);
+  // This used to read `queries.ts` as TEXT and regex the number out, because
+  // the constant sat in a module that drags React Native into the bundler.
+  // It lives in an import-free leaf now, so both sides are imported and
+  // compared directly — and the article interpolates the same constant, which
+  // means this can no longer drift at all. Kept as a test rather than deleted
+  // because it also pins the SHAPE of the sentence: someone rewording it away
+  // from "at N pieces" should have to notice.
   const body = bodyOf('closet-size');
   assert.ok(
-    body.includes(`at ${numberWord(floor)} pieces`),
-    `queries.ts says ${floor} and the article says something else:\n${body}`,
+    body.includes(`at ${numberWord(MIN_CLOSET_FOR_OUTFITS)} pieces`),
+    `the engine floor is ${MIN_CLOSET_FOR_OUTFITS} and the article says something else:\n${body}`,
+  );
+
+  // The floor is not the free cap and must never be printed as one — eight is
+  // internal, ten is what a person is asked for. See tour-copy.ts:17-28.
+  assert.notEqual(
+    MIN_CLOSET_FOR_OUTFITS,
+    PLANS.free.items,
+    'the engine floor and the free cap have converged — the article says both, as different things',
   );
 });
 

@@ -11,6 +11,8 @@ import {
 } from '@/lib/styling';
 import { getUserId, supabase } from '@/lib/supabase';
 
+import { MIN_CLOSET_FOR_OUTFITS } from './thresholds';
+
 export type StyleProfile = {
   weights: StyleWeights;
   affinities: Affinities;
@@ -124,8 +126,14 @@ export function useWardrobe() {
   });
 }
 
-/** Enough of a closet to generate something worth showing. */
-export const MIN_CLOSET_FOR_OUTFITS = 8;
+/**
+ * Re-exported so every existing call site keeps importing it from here, where
+ * it reads naturally beside `canGenerate`. It LIVES in `./thresholds` because
+ * the help article has to print the number and cannot reach into this module —
+ * this file pulls in react-query and supabase, and the test bundler cannot
+ * follow that as far as React Native. See the docblock there.
+ */
+export { MIN_CLOSET_FOR_OUTFITS };
 
 /**
  * `base_top` OR `mid_layer` counts as a top.

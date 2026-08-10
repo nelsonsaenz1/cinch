@@ -84,6 +84,7 @@
 
 import { PLANS } from '@/features/billing/plans';
 import { numberWord } from '@/features/onboarding/reveal-copy';
+import { MIN_CLOSET_FOR_OUTFITS } from '@/features/styling/thresholds';
 
 /**
  * The QUOTED register — a ceiling stated as a ceiling. `toLocaleString` is what
@@ -162,29 +163,24 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     // pieces included" — so thirty is the total, not thirty on top of ten, and
     // the sentence says "in total" rather than "more".
     //
-    // Eight, and a top and a bottom or a dress: features/styling/queries.ts:128
-    // (`MIN_CLOSET_FOR_OUTFITS = 8`) and :144-149 (`canGenerate`), where a
-    // `base_top` or a `mid_layer` counts as the top.
+    // Eight, and a top and a bottom or a dress: `MIN_CLOSET_FOR_OUTFITS` in
+    // features/styling/thresholds.ts, paired with `canGenerate` in
+    // features/styling/queries.ts, where a `base_top` or a `mid_layer` counts
+    // as the top.
     //
-    // THE ONE NUMBER IN THIS FILE THAT IS STILL A LITERAL, and it is a literal
-    // because it cannot be imported, not because it was missed. Verified
-    // against the constant on 2026-08-10: `MIN_CLOSET_FOR_OUTFITS = 8` and the
-    // prose says eight — they AGREE, so there is no copy bug here, only a
-    // missing wire. `queries.ts` imports `@tanstack/react-query` and
-    // `@/lib/supabase`, so importing the constant from it would drag React
-    // Native into this module's graph and break `tests/help-search.test.ts` at
-    // the bundler. The fix is to lift `MIN_CLOSET_FOR_OUTFITS` into a leaf
-    // module the way `plans.ts` is one — a cross-unit edit, so it is reported
-    // to the integrator rather than done here. Until then
-    // `tests/piece-counts.test.ts` reads `queries.ts` as text and fails if the
-    // constant and these three "eight"s ever drift apart.
+    // This was the last literal in the file, and it was one because the
+    // constant could not be imported: it lived in `queries.ts`, which pulls in
+    // react-query and supabase, and the test bundler cannot follow that as far
+    // as React Native. Lifting it into an import-free leaf closed that — the
+    // three "eight"s below are now the constant itself, so the prose cannot
+    // drift from the engine.
     //
     // Storage frees a slot: features/closet/storage.ts:16 — "a stored piece
     // FREES AN ACTIVE SLOT and still occupies a stored one" — and :32-35 for
     // nothing being lost.
     body: [
       `${cap(numberWord(PLANS.free.items))}, to begin with. That is the free closet: ${ceiling(PLANS.free.items)} pieces in rotation, ${ceiling(PLANS.free.storedItems)} in total once you count what you have put away — and it is meant as a working number rather than a taste of one. ${cap(numberWord(PLANS.free.items))} you actually reach for beats forty you photographed once.`,
-      'Cinch starts building outfits at eight pieces, and it needs a top and a bottom, or a dress, before it can assemble anything at all. Eight jumpers is not a closet it can dress you from; eight pieces that cover you head to toe is.',
+      `Cinch starts building outfits at ${numberWord(MIN_CLOSET_FOR_OUTFITS)} pieces, and it needs a top and a bottom, or a dress, before it can assemble anything at all. ${cap(numberWord(MIN_CLOSET_FOR_OUTFITS))} jumpers is not a closet it can dress you from; ${numberWord(MIN_CLOSET_FOR_OUTFITS)} pieces that cover you head to toe is.`,
       `Moving something to storage frees a slot in rotation, so the ${numberWord(PLANS.free.items)} is a curation rather than a wall. Nothing is lost on the way in or out: the photograph, the wear count and the cost figure all wait for the piece to come back.`,
     ],
     related: ['photo-quality', 'what-paying-buys'],
