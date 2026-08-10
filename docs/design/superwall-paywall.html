@@ -35,7 +35,7 @@
     .link-restore (all states)     restore            Restore purchases
     .link-terms                    open_url           https://cinchstyle.com/terms
     .link-privacy                  open_url           https://cinchstyle.com/privacy
-    .plan  (the two cards)         none               Selection only. Tapping a card
+    .plan  (the two stacked rows)  none               Selection only. Tapping a row
                                                       MUST NOT purchase.
     .retry (MB-05)                 restore/reload     Re-request products from StoreKit.
                                                       This is NOT the oxblood control —
@@ -233,7 +233,13 @@
     display:flex;
     gap:12px;
     align-items:flex-start;
-    font-size:17px;
+    /* 15px, the atlas's own value, not the spec's ~17. The 17px body rule is
+       an IN-APP standing decision (Apple's iOS Body, and the reason every
+       React Native screen in Cinch sets 17). This document is not the app —
+       it is a web page rendered in a sheet, and here the atlas is the
+       authority the founder named. Where the two disagree about this file,
+       the atlas wins. */
+    font-size:15px;
     line-height:1.42;
     color:var(--ink);
     text-wrap:pretty;
