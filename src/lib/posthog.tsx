@@ -371,7 +371,84 @@ export type AppEvent =
    * succeeds is a success, and counting its stumbles would make the failure
    * rate a measure of network weather rather than of lost garments.
    */
-  | 'clothes_import_failed';
+  | 'clothes_import_failed'
+  /**
+   * THE WALKTHROUGH — voice intake (docs/design/voice-intake-directive.md §9).
+   *
+   * These ten answer one question the rest of the union cannot: whether talking
+   * is actually faster than photographing. `intake_started` to
+   * `intake_committed` for a 30-piece closet, against the photo path's
+   * equivalent, is the entire thesis of the reframe in a single duration.
+   *
+   * NOT ONE OF THESE MAY CARRY TEXT. No transcript, no utterance, no garment
+   * name, no colour term the user spoke. A walkthrough is a recording of
+   * somebody listing everything they own, and an event property is the easiest
+   * place in the app for that to leak. Buckets and counts only — the rule the
+   * `EventProps` comment below already sets, applied where it matters most.
+   *
+   * DENOMINATOR for the whole funnel. Fired when the microphone is genuinely
+   * offered at V-01, not when the feature is reachable.
+   */
+  | 'intake_started'
+  /**
+   * The recording stopped and is on its way to transcription. `duration_bucket`
+   * is a bounded band ('under_1m' | '1_3m' | '3_6m' | '6_12m'), never the raw
+   * milliseconds — a duration to the millisecond is close to a fingerprint and
+   * the band is all any decision here needs.
+   */
+  | 'intake_recording_finished'
+  /**
+   * The parse returned. `garment_bucket` bands the count ('0' | '1_9' |
+   * '10_29' | '30_plus'); `unparsed_spans` is how many pieces of speech the
+   * model could not turn into a garment, which is the honest measure of how
+   * much the parse is missing and the reason V-05 shows them at all.
+   */
+  | 'intake_parsed'
+  /** One procession card accepted as heard. The numerator for trust. */
+  | 'intake_card_confirmed'
+  /**
+   * One card corrected. `field` is which one ('name' | 'kind' | 'colour' |
+   * 'fabric' | 'pattern' | 'formality' | 'warmth' | 'quantity') — bounded, and
+   * never the old or new value.
+   *
+   * THE NUMBER THAT JUDGES THE PARSE. Above ~25% of garments edited and the
+   * receipt line is carrying the whole experience: people are reading every
+   * card because they have learned they cannot trust it, which is slower than
+   * photographing and feels worse.
+   */
+  | 'intake_card_edited'
+  /** A card thrown away — the model heard a garment that does not exist. */
+  | 'intake_card_rejected'
+  /** V-08's optional upgrade taken: a spoken garment given a real photograph.
+   *  Watched against `colour_source` moving from 'spoken' to 'measured'. */
+  | 'intake_photo_added'
+  /**
+   * The drafts became garments. `committed` and `held` are the two counts
+   * `commit_intake_session` returns — `held` is non-zero exactly when the plan
+   * ceiling fired, which makes this the denominator for M-07 and M-08.
+   */
+  | 'intake_committed'
+  /**
+   * A walkthrough left unfinished. `state` is where it was abandoned
+   * ('recording' | 'transcribing' | 'parsing' | 'reviewing'), and `cursor_bucket`
+   * how far through the procession they got.
+   *
+   * The second of the three numbers that decide this feature: above 20%
+   * abandonment inside `reviewing` and the cards are too slow, whatever the
+   * intake time says.
+   */
+  | 'intake_abandoned'
+  /**
+   * A walkthrough that broke. `cause` is the bounded `error_code` written to
+   * `intake_sessions` ('quota_exhausted' | 'transcription_failed' | 'silent' |
+   * 'parse_failed' | 'audio_unreadable' | 'drafts_unwritable' | 'offline'),
+   * never a provider message.
+   *
+   * 'silent' and 'parse_failed' are the two worth separating: one means the
+   * microphone let the user down, the other means the model did, and they lead
+   * to completely different fixes.
+   */
+  | 'intake_failed';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.
