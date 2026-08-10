@@ -153,7 +153,7 @@ export default {
         return Response.json({ error: code }, { status: 502 });
       }
 
-      const parsed = normalizeGarments(result.value, transcript);
+      const parsed = normalizeGarments(result.parsed, transcript);
 
       // Per-garment quota, so a 40-item walkthrough costs the same 40 units a
       // 40-photo import would (§7). Claimed AFTER the call because the count is
@@ -166,11 +166,15 @@ export default {
       }
 
       await recordAiCall(admin, {
-        userId,
-        kind: 'tagging',
-        model: MODEL,
-        usage: result.usage,
-        latencyMs: result.latencyMs,
+        user_id: userId,
+        workload: 'tagging',
+        provider: 'openrouter',
+        model_id: MODEL,
+        prompt_tokens: result.promptTokens,
+        completion_tokens: result.completionTokens,
+        cost_usd: result.costUsd,
+        latency_ms: result.latencyMs,
+        succeeded: true,
       });
 
       if (parsed.garments.length === 0) {
