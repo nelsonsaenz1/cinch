@@ -285,6 +285,21 @@ async function completeWithWebSearch(
             schema,
           },
         },
+        /**
+         * Same routing restriction as `_shared/openrouter.ts`, and it matters
+         * more here than anywhere: this is the second door a photograph leaves
+         * by. `match` signs the user's own garment photo and sends it to a
+         * vision model, so the provider that receives it must be one that does
+         * not train on it.
+         *
+         * THE HOLE THIS DOES NOT CLOSE. OpenRouter documents its guarantees as
+         * not applying to plugin traffic, and the `plugins` block above sends
+         * the search leg through Exa. So the model call is covered by this and
+         * the web search is not — which is why the privacy copy names the
+         * listing search as its own thing rather than folding it in with
+         * tagging. See docs/ai-provider-terms.md §2.4.
+         */
+        provider: { data_collection: 'deny' },
         usage: { include: true },
       }),
     });

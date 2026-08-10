@@ -602,3 +602,40 @@ configuration actually deployed, and it stays true after the pin lands.
 A third transcription of these facts was also found in
 `src/app/dev-capture.tsx` and replaced with an import, so the fixture cannot
 show a reviewer words the app does not say.
+
+---
+
+## Addendum 2 — the pin is set (2026-08-10)
+
+The founder chose to ship it with eyes on the graphs, which is the mitigation
+the previous addendum said was missing. `provider: { data_collection: 'deny' }`
+is now live on both call sites and all five functions are deployed:
+`tag-item` (first, alone, per the procedure), then `generate-outfits`,
+`stylist-chat`, `packing-brief`, `garment-search`.
+
+**It still could not be pre-verified, and that has not changed.** Both the
+model-level and endpoint-level public APIs were checked again: `data_policy`
+is absent from `/models` and `null` on every endpoint from
+`/models/{id}/endpoints`. OpenRouter does not publish this outside the
+account. So the deployment is the experiment.
+
+### The query that tells you
+
+```sql
+select workload, model_id, succeeded, error, created_at
+  from ai_calls
+ where created_at > now() - interval '2 hours'
+ order by created_at desc
+ limit 50;
+```
+
+A failure caused by this change is a **provider/data-policy error** — an
+OpenRouter 404 whose body mentions no endpoints matching the data policy. That
+is unambiguous and it is not something the app produced before.
+
+### Reverting
+
+One line in each file, then redeploy the affected functions. **The consent
+sentence goes back with it** — `src/features/auth/consent-facts.ts` now claims
+routing is restricted, and that claim is only true while these two lines are
+in place. They ship and revert together, and the comment in that file says so.

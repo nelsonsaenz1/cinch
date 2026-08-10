@@ -57,20 +57,24 @@ export const CONSENT_FACTS: readonly ConsentFact[] = [
     // The name and email genuinely never travel, so that part stayed.
     //
     // See docs/ai-provider-terms.md for every quoted term and its source.
-    // WHY THIS DOES NOT SAY "NOT USED FOR TRAINING" EITHER.
+    // THE SENTENCE THE ROUTING PIN EARNS.
     //
-    // The obvious fix was to pin routing to providers that do not train, and
-    // then say so. The pin is a two-line change and it is written up in
-    // docs/ai-provider-terms.md §5 — but it could not be VERIFIED from here:
-    // OpenRouter's public endpoints API does not expose each provider's data
-    // policy, so there was no way to confirm every configured model still has
-    // a qualifying endpoint. If one does not, the call is rejected and tagging
-    // stops working for everybody.
+    // "One AI partner" was false — the provider is a router, and unpinned it
+    // load-balances across every endpoint serving the model. So the count is
+    // gone and what replaced it is a property the code now enforces:
+    // `provider: { data_collection: 'deny' }` on both call sites restricts
+    // routing to providers that do not train on what they receive.
     //
-    // Shipping an unverified routing restriction to earn a nicer sentence is
-    // the wrong trade. The sentence waits; it costs nothing to under-claim.
-    lead: 'It goes out to be read and comes straight back.',
-    rest: ' Your name and your email never go with it.',
+    // This is a claim about ROUTING, not about retention, and it is worded to
+    // stay inside what is enforced. It does not say "deleted immediately"
+    // (that is `zdr`, not set) and it does not cover the listing search's web
+    // plugin, which OpenRouter documents as outside its guarantees — the
+    // privacy page names that separately.
+    //
+    // If the pin is ever reverted, THIS SENTENCE MUST GO BACK with it.
+    // docs/ai-provider-terms.md §5 has the whole chain.
+    lead: 'It only goes to models that are not allowed to learn from it,',
+    rest: ' and comes straight back. Your name and your email never go with it.',
   },
   {
     lead: 'We keep the photo and the tags',

@@ -120,6 +120,39 @@ export async function completeStructured<T>(opts: {
             schema: opts.schema,
           },
         },
+        /**
+         * ROUTE ONLY TO PROVIDERS THAT DO NOT TRAIN ON WHAT WE SEND.
+         *
+         * OpenRouter is a router, not a model host. Its terms say it does not
+         * train on inputs or outputs — and in the same breath that "some Model
+         * Providers may use your Inputs and Outputs for model training or
+         * improvement". Without this object, routing is price-based load
+         * balancing across every endpoint serving the model: 7, 32 and 5
+         * endpoints for the three models in `ai_config` as of 2026-08-10. The
+         * app's promise was true of the router and unenforced for whoever
+         * actually receives the photograph.
+         *
+         * `data_collection: 'deny'` is the documented control for exactly
+         * that — a routing filter restricting to providers that do not collect
+         * or train on request data. `allow_fallbacks` stays on by default, so
+         * it still moves between qualifying endpoints when one is down.
+         *
+         * IF A MODEL HAS NO QUALIFYING ENDPOINT, THE CALL FAILS LOUDLY rather
+         * than quietly routing somewhere that trains. That is the correct
+         * direction to fail in, and it is why this shipped with the founder
+         * watching the graphs: OpenRouter's public endpoints API returns
+         * `data_policy: null`, so the filter could not be pre-verified from
+         * outside the account. Watch `ai_calls` for rows with `succeeded =
+         * false` whose error mentions a data policy; that is this line, and
+         * reverting it is a one-line change.
+         *
+         * WHAT THIS DOES NOT COVER: retention (that is `zdr`, which narrows
+         * the pool much further), and plugin traffic, which OpenRouter states
+         * is outside these guarantees — see garment-search/provider.ts.
+         *
+         * Every quoted term and its URL: docs/ai-provider-terms.md.
+         */
+        provider: { data_collection: 'deny' },
         // Ask OpenRouter to report what the call actually cost.
         usage: { include: true },
       }),
