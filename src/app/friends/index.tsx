@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Share } from 'react-native';
+import { Alert } from 'react-native';
 
 import {
   BlockConfirmSheet,
@@ -494,10 +494,17 @@ export default function FriendsScreen() {
     (sent.data ?? []).length === 0;
 
   const username = myProfile.data?.username ?? '';
-  const shareUsername = useCallback(() => {
-    if (!username) return;
-    void Share.share({ message: `Add me on Cinch — I’m @${username}.` }).catch(() => {});
-  }, [username]);
+
+  /**
+   * The old affordance shared a bare sentence — "Add me on Cinch, I'm
+   * @sophie" — with nothing to tap. Atlas 39 replaces it with a real link and
+   * a page that explains it, so this routes rather than sharing.
+   *
+   * Deliberately not two paths. A handle-only message and a link message
+   * would be two different invites saying different things, and the one
+   * without a link is the one that makes the recipient do the work.
+   */
+  const openInvite = useCallback(() => router.push('/invite'), [router]);
 
   return (
     <>
@@ -531,8 +538,8 @@ export default function FriendsScreen() {
         onOverflow={(p) => setOverflowFor(p)}
         sent={sent.data ?? []}
         showEmpty={showEmpty}
-        canShareUsername={username.length > 0}
-        onShareUsername={shareUsername}
+        canInvite={username.length > 0}
+        onInvite={openInvite}
         refreshing={refreshing}
         onRefresh={refresh}
       />

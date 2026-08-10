@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { atlas, MAX_DISPLAY_SCALE, MAX_TEXT_SCALE } from '@/components/auth/chrome';
 import { greetingForHour } from '@/features/auth/greeting';
+import { takePendingInvite } from '@/features/invite/pending-invite';
 import { useTourGate } from '@/features/onboarding/tour-queries';
 import { shouldShowTour } from '@/features/onboarding/tour-state';
 import { supabase } from '@/lib/supabase';
@@ -97,10 +98,25 @@ export default function HandoffScreen() {
     if (!resolved || tourGate.status === 'loading') return;
     const beat = reduced ? REDUCED_BEAT_MS : isNew ? NEW_BEAT_MS : RETURNING_BEAT_MS;
     if (!reduced) progress.value = withTiming(1, { duration: beat - 150 });
-    const id = setTimeout(
-      () => router.replace(shouldShowTour(tourGate) ? '/tour' : '/(tabs)'),
-      beat,
-    );
+    const id = setTimeout(() => {
+      // An invite outranks the tour, which is the order atlas 39 states:
+      // IV-06 is "shown after sign-in and before the tour". Someone who
+      // arrived through a friend's link is owed the fact that the friendship
+      // is already made before they are offered a walkthrough of a closet
+      // they have not filled yet.
+      //
+      // `take` clears the slot, so the handle is spent exactly once — a
+      // second sign-in on this phone does not replay somebody else's invite.
+      // `toured_at` is deliberately NOT written here: the tour is still owed
+      // and will be offered at the next sign-in, because skipping it is a
+      // consequence of the ordering rather than a decision to withhold it.
+      const invite = takePendingInvite();
+      if (invite) {
+        router.replace({ pathname: '/invite-arrival', params: { handle: invite } });
+        return;
+      }
+      router.replace(shouldShowTour(tourGate) ? '/tour' : '/(tabs)');
+    }, beat);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolved, tourGate.status]);

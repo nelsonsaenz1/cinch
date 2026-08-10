@@ -41,6 +41,14 @@ declare module 'node:assert/strict' {
     deepEqual<T>(actual: unknown, expected: T, message?: string): void;
     notDeepEqual(actual: unknown, expected: unknown, message?: string): void;
     match(value: string, regexp: RegExp, message?: string): void;
+    /**
+     * The negative of `match`, and the more useful of the pair for this
+     * codebase: the copy tests mostly assert that a sentence does NOT contain
+     * something — a banned claim, a currency symbol, a placeholder that
+     * escaped. Present in node:assert since v13; it was simply never declared
+     * here until a privacy test reached for it.
+     */
+    doesNotMatch(value: string, regexp: RegExp, message?: string): void;
     throws(fn: () => unknown, message?: string): void;
     fail(message?: string): never;
   }

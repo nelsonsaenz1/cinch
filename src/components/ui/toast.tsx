@@ -8,9 +8,20 @@ import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
 
 export type ToastProps = {
   message: string;
-  /** The trailing semibold verb — "Undo", "Retry". */
-  actionLabel: string;
-  onAction: () => void;
+  /**
+   * The trailing semibold verb — "Undo", "Retry".
+   *
+   * OPTIONAL, because not every toast is an offer. BR-06 invented this object
+   * for a reversible act, where the verb is the entire point; IV-03's toast
+   * merely repeats a confirmation the button already gave, and there is
+   * nothing to undo about a copy to the clipboard. Requiring the pair there
+   * forced a filler verb ("Done") whose only behaviour was to dismiss — a
+   * control that looks like a choice and isn't.
+   *
+   * Both or neither: a label with no handler would render a dead target.
+   */
+  actionLabel?: string;
+  onAction?: () => void;
   /** Fired once the toast has finished LEAVING, for callers that clean up. */
   onDismiss?: () => void;
   visible: boolean;
@@ -85,19 +96,21 @@ export function Toast({ message, actionLabel, onAction, onDismiss, visible }: To
         <Text variant="note" className="flex-1" style={{ color: theme.canvas }}>
           {message}
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={actionLabel}
-          onPress={onAction}
-          hitSlop={12}
-          style={{ minHeight: MIN_TAP_TARGET }}
-          className="justify-center active:opacity-60">
-          {/* Same 14px step as the message; the semibold cut alone marks it
-              as the verb, per the atlas. */}
-          <Text variant="note" className="font-semibold" style={{ color: theme.canvas }}>
-            {actionLabel}
-          </Text>
-        </Pressable>
+        {actionLabel && onAction ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}
+            onPress={onAction}
+            hitSlop={12}
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="justify-center active:opacity-60">
+            {/* Same 14px step as the message; the semibold cut alone marks it
+                as the verb, per the atlas. */}
+            <Text variant="note" className="font-semibold" style={{ color: theme.canvas }}>
+              {actionLabel}
+            </Text>
+          </Pressable>
+        ) : null}
       </Animated.View>
     </View>
   );

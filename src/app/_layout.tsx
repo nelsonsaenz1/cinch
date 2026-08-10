@@ -14,6 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Text } from '@/components/ui/text';
 import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
 import { useSession } from '@/features/auth/use-session';
+import { useInviteDeepLink } from '@/features/invite/use-invite-deep-link';
 import { Superwall } from '@/features/billing/superwall';
 import { useReportTimeZone } from '@/features/push/time-zone';
 import { Analytics, identifyUser, useScreenTracking } from '@/lib/posthog';
@@ -113,6 +114,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const session = useSession();
   const segments = useSegments();
   const router = useRouter();
+
+  // The other thing a link can be: an invite (atlas 39). Sits alongside the
+  // auth listener rather than inside it because the two want opposite things
+  // from a session — the magic link CREATES one, the invite needs one to
+  // already exist. Signed in, this deep-links straight to IV-06; signed out,
+  // it parks the handle for the handoff to spend.
+  useInviteDeepLink(Boolean(session.userId));
 
   // Manual screen views — expo-router hides its NavigationContainer, so the
   // SDK's own screen autocapture cannot see route names here. The joined
@@ -342,6 +350,26 @@ export default function RootLayout() {
                     mounted underneath. */}
                 <Stack.Screen
                   name="privacy"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
+                {/* Help (atlas 40), Privacy's sibling in every sense: reached
+                    from the same Profile card, and a plain push would stack a
+                    card on top of a sheet.
+
+                    Only `help` is registered. `help/[id]` and `help/write` are
+                    pushed FROM here and inherit this presentation, which is
+                    what keeps an article and the composer inside the same
+                    object rather than sliding a second one over it — the same
+                    arrangement `privacy/ai|export|delete` and `diary/[id]`
+                    already use. */}
+                <Stack.Screen
+                  name="help"
                   options={{
                     presentation: 'formSheet',
                     sheetAllowedDetents: [1],

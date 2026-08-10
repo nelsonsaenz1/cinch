@@ -22,7 +22,6 @@ import { NOTIFICATION_SETTINGS_AVAILABLE } from '@/features/push';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { signOut } from '@/features/auth/actions';
-import { useAiConsent } from '@/features/auth/use-consent';
 import { useDeleteAccount } from '@/features/auth/use-delete-account';
 import { usePlan } from '@/features/billing/use-plan';
 import { useCloset } from '@/features/closet/queries';
@@ -36,12 +35,18 @@ import { useStyleProfile } from '@/features/styling/queries';
 import { getUserId, supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
-// Live on Vercel. These exact URLs also go into App Store Connect, and Apple's
-// reviewers must be able to open them without signing in — Vercel's deployment
-// protection was on by default and had to be turned off for that reason.
-// Swap both if a custom domain is ever pointed at the project.
-const PRIVACY_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy';
-const SUPPORT_URL = 'https://cinch-nelsonsaenz1-3579s-projects.vercel.app/support';
+// Live on Vercel, now behind the real domain — the project's generated
+// preview URL served these for months and still does, but the branded host is
+// what belongs in front of a reviewer. This exact URL also goes into App Store
+// Connect, and Apple's reviewers must be able to open it without signing in;
+// Vercel's deployment protection was on by default and had to be turned off
+// for that reason.
+const PRIVACY_URL = 'https://cinchstyle.com/privacy';
+
+// SUPPORT_URL is deliberately gone. Atlas 40's first rule: "nothing leaves the
+// app — no web view, no external help centre, and the old link is removed in
+// the same release this ships." Help is now a native page at /help with the
+// eight articles and a composer that writes to hello@mail.cinchstyle.com.
 
 /**
  * Apple's own manage-subscriptions page. There is no StoreKit module installed
@@ -140,9 +145,6 @@ export default function ProfileScreen() {
     (t) => t.direction === 'incoming' && t.request.status === 'pending',
   ).length;
 
-  // Only for the On/Off fact on the AI tagging row — the switch itself, the
-  // consent sheet and the revoke confirmation all live on /privacy now.
-  const consent = useAiConsent();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -455,17 +457,16 @@ export default function ProfileScreen() {
               />
             </View>
             <Rule tone="hairline" />
-            {/* The doorway to Privacy (consent atlas A-06), where the
-                Guideline 5.1.2(i) switch, its honest state line, the
-                back-fill and the consent record now live. A row, not a
-                switch: the control moved to a screen with room to say what
-                actually leaves the phone, and this row only reports the
-                state and leads there. */}
-            <SettingsRow
-              label="AI tagging"
-              detail={consent.data ? (consent.data.granted ? 'On' : 'Off') : undefined}
-              onPress={() => router.push('/privacy')}
-            />
+            {/* The doorway to Privacy & data (atlas 38), which now owns three
+                things that used to be scattered: AI consent and its record,
+                the data export, and the deletion explanation.
+
+                The row lost its On/Off detail with that widening. "AI tagging
+                — Off" was a true summary of a page about one switch; "Privacy
+                & data — Off" would summarise nothing, and a detail slot that
+                reports one of three subjects is a slot that misleads about the
+                other two. The page itself states each one. */}
+            <SettingsRow label="Privacy & data" onPress={() => router.push('/privacy')} />
           </Card>
 
           {/* Still "People", not the mock's "People & notifications". The
@@ -528,16 +529,18 @@ export default function ProfileScreen() {
                 <Rule tone="hairline" />
               </>
             ) : null}
+            {/* Help is native now and leads the pair, because it is the one
+                people actually want. The policy stays below it and stays
+                external: atlas 38 says every claim is written in the app's own
+                words, and "the linked policy is the long form, never the only
+                form" — so it is a second door to more detail, not the first
+                door to any detail. */}
+            <SettingsRow label="Help" onPress={() => router.push('/help')} />
+            <Rule tone="hairline" />
             <SettingsRow
               label="Privacy Policy"
               external
               onPress={() => void Linking.openURL(PRIVACY_URL)}
-            />
-            <Rule tone="hairline" />
-            <SettingsRow
-              label="Support"
-              external
-              onPress={() => void Linking.openURL(SUPPORT_URL)}
             />
           </Card>
 

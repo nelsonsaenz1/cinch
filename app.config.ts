@@ -80,6 +80,52 @@ const config: ExpoConfig = {
     // Required for expo-apple-authentication; Sign in with Apple is an
     // App Store requirement once any social login ships.
     usesAppleSignIn: !FREE_SIGNING,
+
+    /**
+     * Universal links, for the personal invite at cinchstyle.com/i/@handle.
+     *
+     * THIS IS AN ENTITLEMENT, which is why it cannot ride an over-the-air
+     * update: entitlements live in the provisioning profile, not the bundle.
+     * The binary in the field will keep sending every invite tap to the web
+     * page until a build carrying this reaches the store.
+     *
+     * Expect the same failure the push wave hit. Adding `expo-notifications`
+     * wrote the `aps-environment` entitlement and fastlane rejected the build
+     * with "provisioning profile doesn't include the Push Notifications
+     * capability", because EAS only syncs capabilities to the App ID when it
+     * has a live Apple session and a build using the stored profile never
+     * opens one. `associatedDomains` is the same class of change. The fix is
+     * the founder running `eas credentials` and logging in, which regenerates
+     * the profile — and it is a once-per-capability tax, not a recurring one.
+     *
+     * DO NOT try to automate that login. Three attempts with `expect` last
+     * wave each mangled the pre-filled Apple ID field (it holds real text, not
+     * a placeholder, and Ctrl-U does not clear it) and one corrupted the
+     * stored credential file, which had to be repaired by hand.
+     *
+     * Scoped to the host, not to a path: the AASA file at
+     * web/.well-known/apple-app-site-association is what narrows this to `/i/*`
+     * so that /privacy, /terms and /support keep opening in the browser. Both
+     * halves are required — the entitlement claims the domain, the AASA says
+     * which paths of it the app wants.
+     */
+    /**
+     * BOTH HOSTS, and the second one is not belt-and-braces — it is a symptom.
+     *
+     * `cinchstyle.com` currently 308-redirects to `www.cinchstyle.com`. That
+     * breaks universal links twice over and reports nothing anywhere: Apple
+     * refuses to fetch an AASA through a redirect, and iOS compares the tapped
+     * URL against the entitlement BEFORE any redirect is followed, so an apex
+     * link never gets the chance to open the app. Safari would follow the 308
+     * and land on a web page, which looks like the feature simply not working.
+     *
+     * Claiming `www` here means a link someone shares in that form works. It
+     * does NOT rescue the apex, which is the form `src/features/invite/link.ts`
+     * mints and the form printed on IV-01. The actual fix is a Vercel project
+     * setting — make the apex primary and redirect `www` to it, i.e. reverse
+     * the direction — and until that is flipped, invites open Safari.
+     */
+    associatedDomains: ['applinks:cinchstyle.com', 'applinks:www.cinchstyle.com'],
     infoPlist: {
       // NOTE: `LSMinimumSystemVersion` used to sit here, intending to require
       // iOS 17. It is a macOS key and iOS ignores it entirely — the real

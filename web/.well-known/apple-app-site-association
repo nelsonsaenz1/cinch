@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["THR27ADF4P.com.nelsonsaenz.cinch"],
+        "components": [
+          {
+            "/": "/i/*",
+            "comment": "Invite links only. Everything else on this domain stays in the browser."
+          }
+        ]
+      }
+    ]
+  }
+}

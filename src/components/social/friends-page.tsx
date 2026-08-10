@@ -87,8 +87,13 @@ export type FriendsPageProps = {
   /** F-03 — no friends, no requests, no sent, not searching, queries settled. */
   showEmpty: boolean;
   /** Hidden when the signed-in user has no claimed handle — never share a blank. */
-  canShareUsername: boolean;
-  onShareUsername: () => void;
+  /**
+   * Whether there is an invite link to send at all — false until the account
+   * has a handle, because the handle IS the link (atlas 39's first rule).
+   */
+  canInvite: boolean;
+  /** Opens /invite. Replaces the old bare "share your username" message. */
+  onInvite: () => void;
 
   refreshing: boolean;
   onRefresh: () => void;
@@ -144,8 +149,8 @@ export function FriendsPage(props: FriendsPageProps) {
           <SearchSection {...props} />
         ) : props.showEmpty ? (
           <EmptySection
-            canShareUsername={props.canShareUsername}
-            onShareUsername={props.onShareUsername}
+            canInvite={props.canInvite}
+            onInvite={props.onInvite}
             onFindFriend={() => searchRef.current?.focus()}
           />
         ) : (
@@ -153,6 +158,26 @@ export function FriendsPage(props: FriendsPageProps) {
             {showRequests ? <RequestsSection {...props} count={openRequestCount} /> : null}
             <FriendsSection {...props} />
             {props.sent.length > 0 ? <SentSection sent={props.sent} /> : null}
+
+            {/* The way in for the invite link, in the resting state as well as
+                the empty one. Atlas 39 reaches IV-01 from Friends, and someone
+                with two friends is exactly as able to want a third as someone
+                with none — the empty state is not the only moment the thought
+                occurs. Quiet, at the foot, with no count and no nudge. */}
+            {props.canInvite ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Invite a friend"
+                accessibilityHint="Opens your invite link"
+                onPress={props.onInvite}
+                hitSlop={8}
+                style={{ minHeight: MIN_TAP_TARGET }}
+                className="mt-8 justify-center active:opacity-60">
+                <Text variant="label" style={{ color: theme.accent }}>
+                  Invite a friend
+                </Text>
+              </Pressable>
+            ) : null}
           </>
         )}
       </KeyboardAwareScrollView>
@@ -335,12 +360,12 @@ function SearchSection(props: FriendsPageProps) {
  * the whole remaining canvas, not a section inside a card.
  */
 function EmptySection({
-  canShareUsername,
-  onShareUsername,
+  canInvite,
+  onInvite,
   onFindFriend,
 }: {
-  canShareUsername: boolean;
-  onShareUsername: () => void;
+  canInvite: boolean;
+  onInvite: () => void;
   onFindFriend: () => void;
 }) {
   const theme = useTheme();
@@ -358,16 +383,17 @@ function EmptySection({
         you’ll see what they’ve been wearing.
       </Text>
       <Button title="Find a friend" variant="ink" onPress={onFindFriend} className="mt-6" />
-      {canShareUsername ? (
+      {canInvite ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Share your username"
-          onPress={onShareUsername}
+          accessibilityLabel="Invite a friend"
+          accessibilityHint="Opens your invite link"
+          onPress={onInvite}
           hitSlop={8}
           style={{ minHeight: MIN_TAP_TARGET }}
           className="mt-2 justify-center px-2 active:opacity-60">
           <Text variant="label" style={{ color: theme.accent }}>
-            Share your username
+            Invite a friend
           </Text>
         </Pressable>
       ) : null}

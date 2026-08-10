@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AiPolicyPage } from '@/components/ingest/ai-policy-page';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { CONSENT_FACTS } from '@/features/auth/consent-facts';
 import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
 
 /**
@@ -45,24 +46,6 @@ import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
  * this same Modal. The sheet stays mounted underneath; backing out of the
  * page returns to the ask with neither choice made.
  */
-const FACTS = [
-  {
-    lead: 'The photo goes to our AI partner,',
-    rest: ' which returns a category, colour and fabric.',
-  },
-  {
-    lead: 'It goes to one AI partner and comes straight back.',
-    rest: ' We don’t send your name, your email, your location, or anything else from your closet.',
-  },
-  {
-    lead: 'We keep the photo and the tags',
-    rest: ' in your closet. Deleting an item deletes both.',
-  },
-  {
-    lead: 'We never run face recognition,',
-    rest: ' here or anywhere in Cinch.',
-  },
-] as const;
 
 export function ConsentSheet({
   visible,
@@ -180,11 +163,11 @@ export function ConsentSheet({
                 Serif oxblood numerals; each row leads with the claim in ink
                 and lets the detail trail off in the quiet voice. */}
             <View className="mt-4">
-              {FACTS.map(({ lead, rest }, index) => (
+              {CONSENT_FACTS.map(({ lead, rest }, index) => (
                 <View
                   key={lead}
                   className={`flex-row gap-3 border-t border-rule py-2.5 dark:border-rule-dark ${
-                    index === FACTS.length - 1 ? 'border-b' : ''
+                    index === CONSENT_FACTS.length - 1 ? 'border-b' : ''
                   }`}>
                   <Text
                     variant="statSmall"
