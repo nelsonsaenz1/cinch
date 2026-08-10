@@ -1,0 +1,149 @@
+# What EAS Build does NOT need to upload.
+#
+# READ THIS BEFORE EDITING. `.easignore` does not supplement `.gitignore` — it
+# REPLACES it. Expo's own words: "If you create a .easignore file, the EAS CLI
+# prioritizes it over the .gitignore file. When creating a .easignore file,
+# include all files and directories from your .gitignore file and add
+# additional files you want to ignore."
+#
+# So everything in `.gitignore` is repeated below, verbatim and first. Deleting
+# a line from that block does not merely stop ignoring it here — it starts
+# uploading it, and `node_modules` alone is 2.5 GB. Keep the two blocks in sync:
+# anything added to `.gitignore` belongs here too.
+#
+# Why this file exists: build 23 uploaded a 308 MB archive. None of the weight
+# was code — this repository carries the design atlases, their PNG renderings
+# and the founder's raw Claude Design drops alongside the app, and a native
+# build needs none of it.
+
+# ===========================================================================
+# 1 · Mirror of .gitignore. Keep in sync.
+# ===========================================================================
+
+# dependencies
+node_modules/
+# No trailing slash: worktrees symlink node_modules rather than installing it,
+# and a directory pattern does not match a symlink of the same name.
+node_modules
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+example
+
+# generated native folders
+/ios
+/android
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
+
+# Vercel
+.vercel
+
+# Design handoff archives
+*.zip
+handoff/
+
+# Founder design drops
+/Design zips:pngs/
+/*Atlas-selection*.png
+/*Atlas*.png
+/*StateAtlas/
+
+# Extracted references for the redesign wave
+/design-refs/html/
+/design-refs/png/
+
+# marketing binaries
+marketing/**
+!marketing/**/
+!marketing/**/*.md
+!marketing/**/*.csv
+
+# ===========================================================================
+# 2 · Additionally excluded from builds only.
+#
+# Everything below is tracked in git on purpose and must stay there — it is
+# simply not part of an iOS binary. Nothing here is imported by `src/`; that is
+# the test for whether a path belongs in this block.
+# ===========================================================================
+
+# The design corpus: 49 MB of atlases, contracts and their PNG renderings. The
+# single largest thing in the repository after node_modules, and the app reads
+# none of it at runtime — Claude Code reads it, Xcode does not.
+docs/
+
+# Claude Design exports, both copies. Untracked, ~5 MB of garment photography
+# that was already extracted into docs/design/.
+exports/
+exports 2/
+
+# 23 MB, untracked, and not an app asset.
+*.pdf
+
+# The marketing site and its API routes deploy to Vercel, not to the App Store.
+web/
+
+# Migrations, Edge Functions and pgTAP. They ship to Supabase; the binary has
+# no use for them.
+supabase/
+
+# The unit suite runs in CI and locally, never on a build server.
+tests/
+
+# design-refs/MANIFEST.md is tracked (the html/ and png/ payloads are already
+# ignored above) but the manifest is documentation like everything in docs/.
+design-refs/
+
+# Editor and agent state.
+.vscode/
+.claude/
+.agents/
+.redesign/
+.superwall/
+.github/
+
+# ===========================================================================
+# 3 · What must NEVER be added here.
+#
+# assets/         — the icon and splash are compiled into the binary
+# src/            — the app
+# plugins/        — config plugins run during prebuild ON the build server
+# scripts/        — package.json lifecycle hooks resolve against these
+# app.config.ts   — the config itself
+# package*.json   — the dependency graph the build installs from
+# babel/metro/tailwind/tsconfig — the bundler needs every one
+# ===========================================================================
