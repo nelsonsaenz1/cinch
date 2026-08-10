@@ -416,3 +416,16 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # ---------------------------------------------------------------------------
 [functions.superwall-webhook]
 verify_jwt = false
+
+# ---------------------------------------------------------------------------
+# send-push is called by pg_cron through pg_net, which has no Supabase session
+# either. Same reasoning as above, one line further along: with verify_jwt on,
+# the platform would reject the sweep before the function's own gate ever ran.
+#
+# The gate is a shared secret in `x-cinch-cron`, read from Vault by
+# `push_invoke` (20260810110200) and from the environment by the function. It
+# fails closed when unset, so an unconfigured deploy sends nothing rather than
+# accepting anything.
+# ---------------------------------------------------------------------------
+[functions.send-push]
+verify_jwt = false

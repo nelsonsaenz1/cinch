@@ -22,6 +22,16 @@ declare module 'node:test' {
   export function it(name: string, fn: TestFn): void;
 }
 
+declare module 'node:fs' {
+  // `push-channels.test.ts` reads a migration as text to check that the
+  // sender's channel list still matches the constraint that governs it. Only
+  // the one call, and deliberately no `process` or `path`: a relative path
+  // resolves against the runner's cwd, which is the repository root, and
+  // declaring `process` here would put it in the app's global type space —
+  // the exact thing the note above says not to do.
+  export function readFileSync(path: string, encoding: 'utf8'): string;
+}
+
 declare module 'node:assert/strict' {
   interface Assert {
     (value: unknown, message?: string): asserts value;
