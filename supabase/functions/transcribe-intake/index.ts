@@ -4,6 +4,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
 
+import { redactUrls } from '../_shared/openrouter.ts';
 import { enforceAiQuota } from '../_shared/quota.ts';
 
 /**
@@ -164,9 +165,26 @@ export default {
         form.append('file', await audio.blob(), `${sessionId}.m4a`);
         form.append('model', MODEL);
         form.append('prompt', GARMENT_VOCABULARY);
-        // The transcript is read as prose downstream and the timings are never
-        // used, so the smallest useful response format is the right one.
-        form.append('response_format', 'text');
+        /**
+         * `json`, NOT `text`.
+         *
+         * This one word is why voice intake has never worked. OpenAI's own
+         * transcription API accepts `text` and returns a bare string, and this
+         * line was written against that documentation — but OpenRouter's
+         * implementation of the same endpoint does not:
+         *
+         *   asr 400: Unsupported response_format "text".
+         *            Only "json" and "verbose_json" are supported.
+         *
+         * Every call this function has ever made was rejected before the audio
+         * was even read, and the bare `catch {}` below meant the message was
+         * discarded rather than logged. The result looked exactly like a
+         * transcription that failed for a mundane reason.
+         *
+         * `json` is the smallest of the two supported shapes: `{ text: "…" }`,
+         * no segment timings, which are never used downstream.
+         */
+        form.append('response_format', 'json');
 
         const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
           method: 'POST',
@@ -175,9 +193,37 @@ export default {
           signal: AbortSignal.timeout(TRANSCRIBE_TIMEOUT_MS),
         });
 
-        if (!response.ok) throw new Error(`asr ${response.status}`);
-        transcript = (await response.text()).trim();
-      } catch {
+        if (!response.ok) {
+          // The BODY, not just the status. A bare status told us this function
+          // had never once succeeded and nothing else — see the catch below.
+          const detail = redactUrls(await response.text().catch(() => '')).slice(0, 500);
+          throw new Error(`asr ${response.status}: ${detail}`);
+        }
+        const body = await response.json();
+        // `{ text: "…" }`. Anything else is a provider that answered 200 with a
+        // shape we do not recognise, which must not read as a silent recording
+        // — that branch below is for a user who did not speak.
+        if (typeof body?.text !== 'string') {
+          throw new Error(`asr returned no text field: ${redactUrls(JSON.stringify(body)).slice(0, 200)}`);
+        }
+        transcript = body.text.trim();
+      } catch (error) {
+        // WHY THIS LOGS AT ALL.
+        //
+        // This was a bare `catch {}`. Every failure in the block above — a dead
+        // provider, a model identifier that does not exist, an audio container
+        // the endpoint will not accept, a timeout — arrived at the user as the
+        // same opaque `transcription_failed`, and left nothing behind. The
+        // function had, in fact, never succeeded, and it reported that state
+        // identically to a transient blip for as long as it has been deployed.
+        //
+        // Whatever else changes here, this line stays: the one thing an ASR
+        // integration cannot afford is to fail quietly, because the failure is
+        // indistinguishable from a user who did not speak.
+        console.error(
+          `transcribe-intake FAILED (session=${sessionId}, user=${userId}, model=${MODEL}, bytes=${size}): ` +
+            redactUrls(error instanceof Error ? `${error.name}: ${error.message}` : String(error)),
+        );
         // The object SURVIVES this branch, deliberately. A failed transcription
         // is the one case where keeping the audio is the kind thing to do — it
         // means the retry does not ask the user to describe their whole
