@@ -335,6 +335,23 @@ export default function RootLayout() {
                   name="review"
                   options={{ presentation: 'fullScreenModal', headerShown: false }}
                 />
+                {/* The Walkthrough — the second door into a closet, beside The
+                    Ten. A directory rather than an `(intake)` group because a
+                    group is invisible in the path, so `(intake)/review` would
+                    resolve to `/review` and collide with the photo-verification
+                    queue registered directly above. `/walkthrough/review` is
+                    the same grouping with a path that cannot collide.
+
+                    Full-screen: V-02 empties the screen out and a recording
+                    must not have a back chevron sitting over it. */}
+                <Stack.Screen
+                  name="walkthrough/index"
+                  options={{ presentation: 'fullScreenModal', headerShown: false }}
+                />
+                <Stack.Screen
+                  name="walkthrough/review"
+                  options={{ presentation: 'fullScreenModal', headerShown: false }}
+                />
                 {/* Stylist is a sheet off Today, not a tab — a chat tab is the
                     generic-AI tell, and it duplicates Today's job. It OPENS at
                     0.75 so Today stays visible behind it — the conversation is
