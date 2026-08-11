@@ -212,6 +212,40 @@ export default function AddClothesScreen() {
             </Text>
           </View>
         ) : null}
+        {/*
+          THE LEAD DOOR — The Ten, and only while the closet is under the cap.
+
+          Today's "Add your clothes" used to branch here itself, opening The Ten
+          instead of this chooser, so a new reader never saw the four doors and
+          could not reach Describe or Talk it in. Today now always opens the
+          chooser and The Ten is drawn as its first door instead, which keeps
+          both promises at once: every way in is visible, and there is still a
+          way back into The Ten for somebody who backed out of it
+          (docs/design/positioning-contract.md §1).
+
+          It is drawn ABOVE the four and not among them, because it is not a
+          fifth way to add one garment — it is a guided run at the first ten,
+          and the doors below are what it uses. That is also why this does not
+          spend the reserved AC-02 slot.
+
+          It disappears at the cap rather than dimming: The Ten would hydrate
+          complete and tell somebody with a full closet "that's the ten", which
+          is the same boundary `exitDestination` draws for the tour. `used` is
+          0 while the count loads, so this can appear briefly for an instant on
+          a cold start — harmless, and the alternative is hiding the lead door
+          from the readers who most need it.
+        */}
+        {!capacity.full && capacity.used < capacity.limit ? (
+          <DoorPlate
+            name="The Ten"
+            line="The ten pieces that make the most outfits."
+            symbol="sparkles"
+            accessibilityLabel="The Ten — a guided run at the ten pieces that make the most outfits"
+            // No consent gate: The Ten opens a list, and each of its own doors
+            // asks at the point it produces something to process.
+            onPress={() => router.push('/the-ten')}
+          />
+        ) : null}
         <DoorPlate
           name="Camera"
           line="True colour, one piece at a time."
@@ -269,11 +303,27 @@ export default function AddClothesScreen() {
           // picker would be a second copy of that flow.
           onPress={() => openContentDoor('/capture?start=library')}
         />
+        {/*
+          NAMED FOR WHAT IT DOES, NOT FOR WHAT YOU DO TO USE IT.
+
+          This door was "Describe it". It searches the licensed catalogue by
+          name and comes back with the merchant's own product photograph — which
+          is the thing a reader is looking for when they want to add a shirt
+          they own without photographing it. Reported from the App Store build:
+          the founder went hunting for a "search" door, did not find one, and
+          concluded the feature had not shipped. It had. It was called
+          "Describe it", which reads as a chore rather than a capability.
+
+          The old name is kept in the accessibility label and in the line, so
+          nobody who learned the old word loses it, and the reserved AC-02
+          "Lookup" slot is now spent — a fifth door searching by name would have
+          duplicated this one exactly.
+        */}
         <DoorPlate
-          name="Describe it"
-          line="No photo to hand — say what it is."
-          symbol="text.alignleft"
-          accessibilityLabel="Describe it — say what the piece is, without a photo"
+          name="Search for it"
+          line="Describe the piece — Cinch finds the photo."
+          symbol="magnifyingglass"
+          accessibilityLabel="Search for it — describe the piece by name and Cinch finds its photo"
           onPress={() => openContentDoor('/capture?start=describe')}
         />
         <DoorPlate

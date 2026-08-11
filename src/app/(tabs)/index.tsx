@@ -24,7 +24,6 @@ import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { startTagSweeper } from '@/features/ingest/upload-queue';
 import { Placement } from '@/features/billing/placements';
-import { PLANS } from '@/features/billing/plans';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
 import { exhaustionProgress, wearsOfCore } from '@/features/styling/repeat';
@@ -861,23 +860,28 @@ export default function TodayScreen() {
           {/* Ink, not oxblood: the one spent accent is reserved for a loved
               look, and the shared Button has no ink variant — so this is an
               inline pill in the plate grammar, its label lit inline. */}
-          {/* THE ONLY DOOR BACK INTO THE TEN. `toured_at` is written on every
-              tour exit, so a reader who took "I'll look around first" — or who
-              backed out of The Ten — can never be offered it again by the
-              first-run gate. Without this they get raw capture forever and
-              never meet the guided ten or the Reveal, which is the whole
-              wedge (docs/design/positioning-contract.md §1).
+          {/* Always the chooser, which is now also the door back into The Ten.
 
-              Under the free cap, The Ten is strictly the better destination:
-              it asks for the pieces that multiply rather than whichever
-              garment is nearest, and it ends on the count. At or above it,
-              The Ten would hydrate complete and tell somebody with a full
-              closet "that's the ten", so capture stays right — the same
-              boundary `exitDestination` draws for the tour. */}
+              This used to branch straight to `/the-ten` under the free cap. The
+              reasoning was sound — The Ten asks for the pieces that multiply
+              rather than whichever garment is nearest — but the effect was that
+              a button reading "Add your clothes" opened a guided flow offering
+              a camera and a library and nothing else, so a new reader could not
+              reach Describe or Talk it in at all. Reported from the App Store
+              build: "it didn't give me the option list."
+
+              The wedge is preserved rather than dropped: AC-01 draws The Ten as
+              its LEAD door whenever the closet is under the free cap, so it is
+              still the first and most prominent thing offered, and the
+              first-run gate's guarantee that there is always a way back into
+              The Ten (docs/design/positioning-contract.md §1) now runs through
+              the chooser instead of around it. `toured_at` is written on every
+              tour exit, so without some door here a reader who backed out could
+              never be offered it again. */}
           <Pressable
             onPress={() => {
               void Haptics.selectionAsync().catch(() => {});
-              router.push(items.length < PLANS.free.items ? '/the-ten' : '/add-clothes');
+              router.push('/add-clothes');
             }}
             accessibilityRole="button"
             accessibilityLabel={empty ? 'Add your clothes' : 'Add more clothes'}
