@@ -220,19 +220,33 @@ function ItemCardComponent({
           {/* Meta hides while selecting — name only, per C-04: the row stays
               scannable when the job is picking, not reading. */}
           {selecting ? null : (
+            // `shrink` on both children, not just `numberOfLines`. A Text that
+            // cannot shrink reports its full intrinsic width to the row, so at
+            // large Dynamic Type the row grew WIDER THAN THE CARD: the meta
+            // escaped the tile, collided with the neighbouring card's meta and
+            // ran off the right edge of the screen. `numberOfLines` does
+            // nothing until something has constrained the width. Measured at
+            // AX5 before and after — see docs/design/dynamic-type-walk.md.
+            //
+            // This contains it. It does NOT make the figures readable at the
+            // largest setting: they now ellipsize instead ("1284…", "$1.01 /…")
+            // and a truncated number does not look truncated. Wrapping the row
+            // was tried and backed out — it also wrapped at the DEFAULT size,
+            // which changes the single-line meta the atlas draws, and that is a
+            // design decision rather than a defect fix. Recorded as open.
             <View className="mt-[3px] flex-row items-baseline justify-between gap-2">
-              <Text variant="caption" numberOfLines={1}>
+              <Text variant="caption" numberOfLines={1} className="shrink">
                 {`${item.wearCount} ${item.wearCount === 1 ? 'wear' : 'wears'}`}
               </Text>
               {/* Right meta, per the atlas: cost-per-wear in ink when it exists;
                   a never-worn piece with a price shows what that price hasn't
                   earned, in muted; no price → nothing to say. */}
               {neverWorn && item.purchasePrice !== null ? (
-                <Text variant="caption" numberOfLines={1}>
+                <Text variant="caption" numberOfLines={1} className="shrink">
                   {`${formatPrice(item.purchasePrice)} unearned`}
                 </Text>
               ) : cpw !== null ? (
-                <Text variant="caption" numberOfLines={1} className="text-ink">
+                <Text variant="caption" numberOfLines={1} className="shrink text-ink">
                   {`$${cpw.toFixed(2)} / wear`}
                 </Text>
               ) : null}

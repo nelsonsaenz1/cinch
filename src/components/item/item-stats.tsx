@@ -90,7 +90,20 @@ function Cell({
       accessible
       accessibilityRole="text"
       accessibilityLabel={a11yLabel}>
-      <Text variant="statFigure" style={[FIGURE_STYLE, { textAlign: 'center' }]}>
+      {/* One line, and shrink to hold it rather than wrap or clip.
+          At the largest Dynamic Type "$1,295.00" wrapped mid-number into
+          "$1,295.0" over "0" — which reads as two different figures and pushed
+          this cell's label out of line with its neighbours. Truncating instead
+          would be worse: half a price is a plausible price, and nothing on
+          screen would say it was cut. Shrinking keeps the whole number honest,
+          and 0.7 is the floor at which 34px is still comfortably larger than
+          the 9px label under it. */}
+      <Text
+        variant="statFigure"
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+        style={[FIGURE_STYLE, { textAlign: 'center' }]}>
         {figure}
       </Text>
       <Text variant="colophon" className="mt-1" style={LABEL_STYLE}>
