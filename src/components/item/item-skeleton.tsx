@@ -152,7 +152,7 @@ export function ItemSkeleton({ onBack }: ItemSkeletonProps) {
       <View className="mt-[22px] flex-row gap-2.5 px-gutter">
         {RAIL_LABEL_WIDTHS.map((width, i) => (
           <View key={i}>
-            <Skeleton className="h-[104px] w-[88px] rounded-[10px]" delay={660 + i * 60} />
+            <Skeleton className="h-[104px] w-[88px] rounded-md" delay={660 + i * 60} />
             <Skeleton className="mt-2 h-2.5 rounded-chip" style={{ width }} delay={660 + i * 60} />
           </View>
         ))}

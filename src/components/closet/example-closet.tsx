@@ -97,7 +97,7 @@ function ExampleCellView({ cell }: { cell: ExampleCell }) {
   const theme = useTheme();
   return (
     <View
-      className="flex-1 overflow-hidden rounded-[14px] bg-tray dark:bg-tray-dark"
+      className="flex-1 overflow-hidden rounded-md bg-tray dark:bg-tray-dark"
       style={{ height: CELL_HEIGHT }}>
       <Image
         source={cell.source}

@@ -68,7 +68,7 @@ export const labelFor = (g: Garment) => {
 };
 
 /** Concentric with the tile's own corner: soft enough to be a photograph, not a chip. */
-const TILE_RADIUS = 10;
+const TILE_RADIUS = 12;
 
 /**
  * The warm contact shadow, one definition for both regimes.

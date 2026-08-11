@@ -71,7 +71,10 @@ export function ClosetSkeleton() {
         {CHIP_WIDTHS.map((width, i) => (
           <Skeleton
             key={i}
-            style={[i === 0 ? primary : secondary, { width, height: 30, borderRadius: 15 }]}
+            // 12, following the `Chip` it stands in for. A capsule-shaped
+            // skeleton promises a capsule and then resolves into a 12px chip,
+            // which is a shape change the eye reads as a re-layout.
+            style={[i === 0 ? primary : secondary, { width, height: 30, borderRadius: 12 }]}
           />
         ))}
       </View>

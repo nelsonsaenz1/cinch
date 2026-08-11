@@ -77,7 +77,7 @@ export default function GapDetailScreen() {
           {rows.shown.map((row, i) => (
             <View
               key={i}
-              className="flex-row items-center gap-2 rounded-[14px] border border-rule bg-surface px-3 py-2.5">
+              className="flex-row items-center gap-2 rounded-md border border-rule bg-surface px-3 py-2.5">
               {row.map((piece) => (
                 <View key={piece.id} className="h-[54px] w-[54px] overflow-hidden rounded-lg bg-tray">
                   {piece.imageUri ? (
@@ -130,7 +130,7 @@ export default function GapDetailScreen() {
                 title="Add clothes"
                 variant="primary"
                 className="mt-3"
-                onPress={() => router.push('/capture')}
+                onPress={() => router.push('/add-clothes')}
               />
             </>
           )}

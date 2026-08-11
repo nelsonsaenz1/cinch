@@ -223,7 +223,7 @@ export default function StylistScreen() {
     return (
       <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
         <StylistHeader />
-        <ClosetTooSmall onAddClothes={() => router.push('/capture')} />
+        <ClosetTooSmall onAddClothes={() => router.push('/add-clothes')} />
       </SafeAreaView>
     );
   }

@@ -19,7 +19,8 @@ type Variant =
   | 'colophon'
   | 'stat'
   | 'statSmall'
-  | 'statFigure';
+  | 'statFigure'
+  | 'door';
 
 /**
  * Weight is a font FAMILY for the serif, and may be a family for Helvetica too.
@@ -98,6 +99,19 @@ const variants: Record<Variant, string> = {
   statSmall: 'font-title text-label text-ink',
   /** The hero figure of a stat grid — item detail's "42×". 28px. */
   statFigure: 'font-title text-figure text-ink',
+  /**
+   * The name on a door plate — the serif at the heading step, 20/−0.2.
+   *
+   * Identical in classes to `stat`, and named separately anyway, for the
+   * reason written over the three figures above: the alternative at the call
+   * site is `variant="heading" className="font-title"`, which puts two font
+   * utilities on one element and lets key order in the generated stylesheet
+   * decide whether the door reads as a serif or as Helvetica Medium. A door
+   * name is prose, not data — it must never inherit `tabular-nums`, which is
+   * what borrowing `stat` for it would eventually do the moment that variant's
+   * figure treatment changes.
+   */
+  door: 'font-title text-heading text-ink',
 };
 
 /**

@@ -103,7 +103,7 @@ function OutfitStrip({
         // tiles' `rounded` is the 8px DEFAULT, which is exactly what the atlas
         // asks for, so it stays a token.
         className="flex-row gap-1 overflow-hidden bg-tray p-2 dark:bg-tray-dark"
-        style={{ height: 88, borderRadius: 14 }}>
+        style={{ height: 88, borderRadius: 12 }}>
         {pieces.map((g) => {
           const uri = resolveImage(g.cutoutPath, g.thumbPath);
           return (

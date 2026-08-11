@@ -373,7 +373,7 @@ export function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () 
       label: 'Ask the stylist for a way around it',
       onPress: () => router.navigate('/stylist'),
     },
-    { icon: 'plus', label: 'Add a piece Cinch is missing', onPress: () => router.push('/capture') },
+    { icon: 'plus', label: 'Add a piece Cinch is missing', onPress: () => router.push('/add-clothes') },
     { icon: 'arrow.clockwise', label: 'Try again once things change', onPress: onRetry },
   ];
 
@@ -877,7 +877,7 @@ export default function TodayScreen() {
           <Pressable
             onPress={() => {
               void Haptics.selectionAsync().catch(() => {});
-              router.push(items.length < PLANS.free.items ? '/the-ten' : '/capture');
+              router.push(items.length < PLANS.free.items ? '/the-ten' : '/add-clothes');
             }}
             accessibilityRole="button"
             accessibilityLabel={empty ? 'Add your clothes' : 'Add more clothes'}

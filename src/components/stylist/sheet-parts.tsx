@@ -67,13 +67,22 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  *
  * The atlas draws both at `border-radius:10px` (S-01's doors, S-02/S-03's
  * answers), and draws them identically, which is the point: an answer is the
- * same kind of object as a door, one step further in. The nearest token is `md`
- * at 12, and tailwind.config.js has no 10 — one screen's pair of rows does not
+ * same kind of object as a door, one step further in.
+ *
+ * WAS 10, page-local, on the ground that "one screen's pair of rows does not
  * justify minting a radius the rest of the app would then have to have an
- * opinion about, so the geometry stays page-local. Same call, same reason, as
- * the 18/4 bubble corners in message-bubble.tsx.
+ * opinion about". Reference board C settles it the other way: the app now has
+ * exactly one opinion — flat band, `md`, `plate`, `sheet` — and page-local
+ * geometry is the thing it removes. 12 is the nearest step and the one every
+ * other row-shaped container in the app already carries.
+ *
+ * The 18/4 bubble corners in message-bubble.tsx did NOT move with this. A
+ * bubble is a speech shape rather than a container, the directive's stylist
+ * pass (§3.8) names the input, the send glyph and the sparkle but not the
+ * bubbles, and that file argues its own case in writing — so it is recorded as
+ * an open conflict in docs/design/refacing/AC-HANDOVER.md, not overridden here.
  */
-const ROW_RADIUS = 10;
+const ROW_RADIUS = 12;
 
 /**
  * The step footer's own offset above itself — 18, the atlas's value in S-02 and
@@ -557,7 +566,12 @@ export function Composer({
         // height every other field carries (src/theme/font-metrics.js).
         // The bare `text-ink` this used to carry set colour only, leaving
         // the box sized off RN's undocumented default TextInput font.
-        className="flex-1 rounded-full border border-rule bg-surface px-4 py-2.5 font-body text-callout text-ink dark:border-rule-dark dark:bg-surface-dark dark:text-ink-dark"
+        // `rounded-md`, not `rounded-full`. §1.3 of the Refacing: `full` is a
+        // circle on a 1:1 box, never a capsule on a wider-than-tall one, and a
+        // text field is the widest control on the page. Named on reference
+        // board C as one of the app's three known capsule violations. The send
+        // button beside it keeps `full` — it IS 1:1 (44×44), so it is a disc.
+        className="flex-1 rounded-md border border-rule bg-surface px-4 py-2.5 font-body text-callout text-ink dark:border-rule-dark dark:bg-surface-dark dark:text-ink-dark"
       />
       <Pressable
         onPress={send}
