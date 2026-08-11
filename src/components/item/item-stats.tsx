@@ -75,7 +75,15 @@ function Cell({
   a11yLabel: string;
 }) {
   return (
-    <View style={{ flex: weight }} accessible accessibilityRole="text" accessibilityLabel={a11yLabel}>
+    // `alignItems: 'center'`, per §2.2 of the Refacing: both lines centre in an
+    // equal-width figure-over-label column. The per-column `weight` below is
+    // untouched — the widths exist so "$9.10" is not crowded by "38", and
+    // centring inside them is what the correction asks for, not equal thirds.
+    <View
+      style={{ flex: weight, alignItems: 'center' }}
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={a11yLabel}>
       <Text variant="statFigure" style={FIGURE_STYLE}>
         {figure}
       </Text>

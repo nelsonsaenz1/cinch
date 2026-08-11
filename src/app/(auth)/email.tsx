@@ -243,7 +243,12 @@ export default function EmailScreen() {
             style={[
               {
                 minHeight: Math.max(MIN_TAP_TARGET, 51),
-                borderRadius: 32,
+                // 12, not 32. §1.3 of the Refacing: a labelled control is `md`,
+                // full stop — `full` and everything approaching it belongs to
+                // circles. At 51pt tall a 32 radius is a capsule in all but
+                // name, and this page's dialect (§3.1) covers its voice and
+                // spacing, not its shape.
+                borderRadius: 12,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',

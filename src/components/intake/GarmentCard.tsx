@@ -439,7 +439,7 @@ function AttributeChip({
       accessibilityHint={accessibilityHint}
       onPress={onPress}
       hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-      style={{ minHeight: MIN_TAP_TARGET - 12, borderRadius: 14 }}
+      style={{ minHeight: MIN_TAP_TARGET - 12, borderRadius: 12 }}
       className="flex-row items-center justify-center bg-sand px-3.5 active:opacity-60 dark:bg-sand-dark">
       <Text style={{ fontSize: 12.5, lineHeight: 16, color: muted ? theme.muted : theme.ink }}>{label}</Text>
     </Pressable>

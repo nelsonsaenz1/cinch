@@ -1,11 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { CameraView } from 'expo-camera';
 import { Image } from 'expo-image';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
-import Storage from 'expo-sqlite/kv-store';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +25,12 @@ import { Placement } from '@/features/billing/placements';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { useGate } from '@/features/billing/use-gate';
 import { useCameraAccess } from '@/features/ingest/use-camera-access';
+import {
+  DECLINED_KEY,
+  EXPLAINER_SEEN_KEY,
+  readFlag,
+  writeFlag,
+} from '@/features/ingest/consent-mode';
 import { useCapture, type CapturedAsset } from '@/features/ingest/use-capture';
 import { useWardrobe } from '@/features/styling/queries';
 import {
@@ -38,42 +43,14 @@ import { drainQueue, retryFailedJobs, userFacingFailure } from '@/features/inges
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
- * Whether this account has answered the consent sheet with "Keep my photos on
- * this phone". There is no server-side "declined" record — consent that was
- * never granted and consent that was declined look identical in `profiles` —
- * so the decline is persisted here, in the same kv-store the upload queue
- * uses, with `revokedAt` from the server as corroboration for a decline (a
- * revocation) made on another device. Simple and honest: the flag only ever
- * widens local mode, never grants anything.
- */
-const DECLINED_KEY = 'cinch.ai-consent.declined.v1';
-/** A-04 is shown once, at the moment of decline — never re-shown ("no second ask"). */
-const EXPLAINER_SEEN_KEY = 'cinch.ai-consent.decline-explainer-seen.v1';
-/**
  * M-03's card is dismissible FOREVER, so the dismissal is persisted in the same
- * kv-store the two flags above use — one read on mount, one write on the tap,
+ * kv-store the consent flags use — one read on mount, one write on the tap,
  * no server round trip for a preference the server has no opinion about. Like
  * those flags this is per install rather than truly per account; the item
  * detail row is the permanent way in either way, so the worst case of a
  * reinstall is one more offer, never a lost door.
  */
 const LISTING_OFFER_DISMISSED_KEY = 'cinch.listing-offer.dismissed.v1';
-
-function readFlag(key: string): boolean {
-  try {
-    return Storage.getItemSync(key) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function writeFlag(key: string, value: boolean): void {
-  try {
-    Storage.setItemSync(key, value ? 'true' : 'false');
-  } catch {
-    // Worst case the explainer shows once more; never block the flow over it.
-  }
-}
 
 /** The three consequences, verbatim from frame A-04. */
 const DECLINE_ROWS = [
@@ -539,6 +516,39 @@ export default function CaptureScreen() {
   );
 
   /**
+   * Arriving from a door on the Add Clothes chooser (AC-01).
+   *
+   * `?start=library` and `?start=describe` open the picker and the describe
+   * sheet respectively; the Camera door sends no parameter, because the live
+   * stage IS this screen and there is nothing to open over it.
+   *
+   * THROUGH `guarded`, NEVER `run`. The chooser is a menu, not a gate — the
+   * consent sheet still fires on the door the user actually tapped, which is
+   * the whole of AC-04.
+   *
+   * The wait on `consent.data` is the load, not politeness: `granted` and
+   * `declinedMode` are both false while the query is in flight, so firing at
+   * mount would put the consent sheet in front of somebody who answered it
+   * months ago. The delay after that is the same 450ms `deferResume` uses and
+   * exists for the same reason — iOS refuses to present a view controller
+   * while another modal is still animating, and this screen arrives as one.
+   */
+  const autoStart = useLocalSearchParams<{ start?: string }>().start;
+  const autoStarted = useRef(false);
+  const guardedRef = useRef(guarded);
+  useEffect(() => {
+    guardedRef.current = guarded;
+  }, [guarded]);
+  useEffect(() => {
+    if (autoStarted.current) return;
+    if (consent.data === undefined) return;
+    if (autoStart !== 'library' && autoStart !== 'describe') return;
+    autoStarted.current = true;
+    const timer = setTimeout(() => guardedRef.current(autoStart), 450);
+    return () => clearTimeout(timer);
+  }, [autoStart, consent.data]);
+
+  /**
    * W-02's "See plans" — the sheet's own tap-through to Superwall. On a
    * grant, commits the SAME held photograph rather than sending the user
    * back to shoot again: "resume with that photograph" is the whole point of
@@ -781,7 +791,7 @@ export default function CaptureScreen() {
               hitSlop={12}
               onPress={() => router.back()}
               className="py-2">
-              <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+              <Text variant="body" style={{ color: theme.canvas }}>
                 Done
               </Text>
             </Pressable>

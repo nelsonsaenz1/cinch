@@ -43,7 +43,7 @@ export function RevealCount({
               style={{
                 borderWidth: 1,
                 borderColor: canvasAlpha(0.22),
-                borderRadius: 6,
+                borderRadius: 12,
                 paddingHorizontal: 8,
                 paddingVertical: 4,
               }}>

@@ -18,19 +18,25 @@ const LAYOUT_ORDER: Garment['slot'][] = [
 // atlas draws the pair at 18/4 (S-03, and the "The bubble pair" anatomy panel),
 // two points tighter than the 20pt a card gets. A bubble is not a plate: it
 // wraps a line of speech and is often only a few words wide, where plate radius
-// starts to round the whole thing toward a capsule. There is no 18pt radius
-// token and one frame does not justify minting one, so the geometry stays
-// page-local — same reasoning as the strip's height below.
+// starts to round the whole thing toward a capsule.
+//
+// WAS 18, page-local, on the ground that "one frame does not justify minting"
+// a token for it. Reference board C withdraws that argument: the app resolves
+// every container to the scale, and 18 is not on it. `lg` (16) is the nearest
+// step and the closest to the drawn shape — a bubble at `md` 12 would read as
+// a field. The 4 on the tail corner is `sm` and was always on-scale.
+//
+// Directive over the drawn atlas value, on the founder's call (2026-08-11).
 const STYLIST_BUBBLE = {
-  borderTopLeftRadius: 18,
-  borderTopRightRadius: 18,
-  borderBottomRightRadius: 18,
+  borderTopLeftRadius: 16,
+  borderTopRightRadius: 16,
+  borderBottomRightRadius: 16,
   borderBottomLeftRadius: 4,
 };
 const USER_BUBBLE = {
-  borderTopLeftRadius: 18,
-  borderTopRightRadius: 18,
-  borderBottomLeftRadius: 18,
+  borderTopLeftRadius: 16,
+  borderTopRightRadius: 16,
+  borderBottomLeftRadius: 16,
   borderBottomRightRadius: 4,
 };
 
@@ -103,7 +109,7 @@ function OutfitStrip({
         // tiles' `rounded` is the 8px DEFAULT, which is exactly what the atlas
         // asks for, so it stays a token.
         className="flex-row gap-1 overflow-hidden bg-tray p-2 dark:bg-tray-dark"
-        style={{ height: 88, borderRadius: 14 }}>
+        style={{ height: 88, borderRadius: 12 }}>
         {pieces.map((g) => {
           const uri = resolveImage(g.cutoutPath, g.thumbPath);
           return (

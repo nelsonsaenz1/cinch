@@ -85,7 +85,7 @@ export function Toast({ message, actionLabel, onAction, onDismiss, visible }: To
         style={[
           {
             backgroundColor: theme.ink,
-            borderRadius: 14,
+            borderRadius: 12,
             paddingVertical: 14,
             paddingHorizontal: 16,
           },

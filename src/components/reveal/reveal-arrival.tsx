@@ -43,7 +43,7 @@ export function RevealArrival({
             style={{
               width: '31.4%',
               aspectRatio: 1,
-              borderRadius: 10,
+              borderRadius: 12,
               overflow: 'hidden',
               // Canvas composited over ink at low alpha, not a new hex — the
               // atlas's `#26241F` recessed tile isn't in the reconciliation
@@ -67,7 +67,7 @@ export function RevealArrival({
         <View
           style={{
             aspectRatio: 1,
-            borderRadius: 10,
+            borderRadius: 12,
             overflow: 'hidden',
             backgroundColor: theme.canvas,
             // Warm ink, not a neutral black — the app has no true black

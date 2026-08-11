@@ -123,7 +123,7 @@ export function FriendItemSheet({
             </View>
           )}
           {item.borrowable ? (
-            <View className="absolute left-3 top-3 rounded-[5px] bg-accent px-[7px] py-[3px]">
+            <View className="absolute left-3 top-3 rounded-sm bg-accent px-[7px] py-[3px]">
               <Text
                 variant="colophon"
                 numberOfLines={1}

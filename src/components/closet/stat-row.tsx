@@ -24,8 +24,12 @@ function Stat({
   return (
     // One sentence per column for VoiceOver — "11, unworn" reads as a fact,
     // where a bare figure followed later by a bare label reads as noise.
+    // `items-center`, per §2.2 of the Refacing: in an equal-width
+    // figure-over-label column BOTH lines centre. Left-aligning them made each
+    // column's ragged right edge read as a gap between columns, which is the
+    // crowding the per-column widths were built to prevent.
     <View
-      className="flex-1"
+      className="flex-1 items-center"
       accessible
       accessibilityLabel={figure === undefined ? `${label} loading` : `${figure} ${label}`}>
       {/* `plate` is the 24pt serif; `trim` collapses Instrument Serif's tall

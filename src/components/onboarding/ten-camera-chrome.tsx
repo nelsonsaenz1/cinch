@@ -81,7 +81,9 @@ export function TenCameraChrome({
           accessibilityLabel="Cancel"
           hitSlop={12}
           className="py-2">
-          <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+          {/* Regular 17 — a text-only control, per reference board A. Hand-rolled
+              only because `ghost`'s `muted` label is unreadable on the ink stage. */}
+          <Text variant="body" style={{ color: theme.canvas }}>
             Cancel
           </Text>
         </Pressable>

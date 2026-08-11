@@ -83,16 +83,15 @@ function BarButton({
         {busy && kind === 'destructive' ? (
           <ActivityIndicator size="small" color={theme.canvas} />
         ) : (
-          // 15/600 per the atlas; `font-medium` is the family this face maps
-          // 600 to (tailwind.config semibold → HelveticaNeue-Medium). Size via
-          // `style` — a second text-* class would race the variant's own.
+          // Reference board A, both halves of it. `destructive` is a FILLED
+          // control (accent ground) and keeps Medium; the outlined sibling
+          // drops to regular. Both sit at `body` 17 — the atlas's 15/600 was
+          // the pre-refacing cut, and a bar that shouts at two volumes beside
+          // the shared Button is the drift this board exists to end.
           <Text
-            variant="label"
-            style={{
-              fontSize: 15,
-              lineHeight: 20,
-              color: kind === 'destructive' ? theme.canvas : theme.ink,
-            }}>
+            variant="body"
+            className={kind === 'destructive' ? 'font-semibold' : ''}
+            style={{ color: kind === 'destructive' ? theme.canvas : theme.ink }}>
             {label}
           </Text>
         )}

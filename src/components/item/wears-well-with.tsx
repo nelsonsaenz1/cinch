@@ -61,7 +61,7 @@ function Well({ piece }: { piece: RailPiece }) {
   const theme = useTheme();
   return (
     <View
-      className="overflow-hidden rounded-[10px] border border-hairline bg-tray dark:border-hairline-dark dark:bg-tray-dark"
+      className="overflow-hidden rounded-md border border-hairline bg-tray dark:border-hairline-dark dark:bg-tray-dark"
       style={{ width: TILE_WIDTH, height: TILE_HEIGHT }}>
       {piece.imageUri ? (
         <Image

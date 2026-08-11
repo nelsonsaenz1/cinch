@@ -88,7 +88,12 @@ export default function DevClosetScreen() {
               <Pressable
                 key={c}
                 onPress={() => setCategory(c)}
-                className={`rounded-full border px-3.5 py-1.5 active:opacity-70 ${
+                // `rounded-md`, matching the shared `Chip` the real closet
+                // draws. This fixture exists to judge the closet atlas on a
+                // device, and a fixture whose chips are capsules while the
+                // screen's are 12px is a fixture that certifies the wrong
+                // shape. §1.3 — `full` is circles only.
+                className={`rounded-md border px-3.5 py-1.5 active:opacity-70 ${
                   selected
                     ? 'border-ink bg-ink dark:border-ink-dark dark:bg-ink-dark'
                     : 'border-rule bg-transparent dark:border-rule-dark'

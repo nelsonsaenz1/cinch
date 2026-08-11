@@ -98,7 +98,7 @@ function FriendItemCardComponent({ item, imageUri, onPress }: FriendItemCardProp
               build as the owner's never-worn badge, because it is the same
               object: one small flag in the well's corner. */}
           {item.borrowable ? (
-            <View className="absolute left-2 top-2 rounded-[5px] bg-accent px-[7px] py-[3px]">
+            <View className="absolute left-2 top-2 rounded-sm bg-accent px-[7px] py-[3px]">
               <Text
                 variant="colophon"
                 numberOfLines={1}

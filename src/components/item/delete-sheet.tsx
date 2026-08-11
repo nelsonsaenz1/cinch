@@ -125,7 +125,10 @@ function OutlinedDestructiveButton({
         {loading ? (
           <ActivityIndicator size="small" color={theme.accent} />
         ) : (
-          <Text variant="body" className="font-semibold" style={{ color: theme.accent }}>
+          // Regular 17 — this control is OUTLINED (a ring, no ground), and
+          // reference board A drops the outlined group off Medium. Its twin in
+          // privacy/outlined-accent-button.tsx moved with it.
+          <Text variant="body" style={{ color: theme.accent }}>
             {title}
           </Text>
         )}

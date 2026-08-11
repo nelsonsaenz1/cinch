@@ -87,7 +87,7 @@ export function OutlinedAccentButton({
           // Inline colour, never a second `text-*` class: `variant="body"`
           // already carries `text-ink` and NativeWind resolves two colour
           // utilities on one element by key order, not by intent.
-          <Text variant="body" className="font-semibold" style={{ color: theme.accent }}>
+          <Text variant="body" style={{ color: theme.accent }}>
             {title}
           </Text>
         )}

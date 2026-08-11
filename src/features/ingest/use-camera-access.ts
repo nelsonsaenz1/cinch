@@ -28,6 +28,52 @@ import { AppState, Linking } from 'react-native';
  */
 export type CameraAccess = 'checking' | 'granted' | 'blocked';
 
+/**
+ * The same three states, READ ONLY — never a prompt.
+ *
+ * The chooser (AC-03) states the camera's condition on the door before anyone
+ * taps it, which is the opposite of what `useCameraAccess` is for: a screen
+ * that is only offering the camera as one of four ways in has no business
+ * raising the system alert on arrival. The alert belongs to the surface that
+ * actually needs the permission, and that is still the capture stage.
+ *
+ * `useCameraPermissions` defaults to a `get` on mount with no request, so this
+ * is the hook without the effect that asks. The foreground refresh stays:
+ * someone who leaves for Settings and comes back must find the door open.
+ */
+export function useCameraStatus(): { access: CameraAccess; openSettings: () => void } {
+  const [permission, , refreshPermission] = useCameraPermissions();
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshPermission();
+    });
+    return () => sub.remove();
+  }, [refreshPermission]);
+
+  const openSettings = useCallback(() => {
+    void Linking.openSettings();
+  }, []);
+
+  return { access: accessOf(permission), openSettings };
+}
+
+/**
+ * The one derivation both hooks read from. `undetermined` is deliberately
+ * folded into `checking` rather than `blocked`: a door that says "camera
+ * access is off" to somebody who has never been asked accuses them of a
+ * refusal they never made.
+ */
+function accessOf(permission: ReturnType<typeof useCameraPermissions>[0]): CameraAccess {
+  return !permission
+    ? 'checking'
+    : permission.granted
+      ? 'granted'
+      : permission.status === 'undetermined'
+        ? 'checking'
+        : 'blocked';
+}
+
 export function useCameraAccess(): { access: CameraAccess; openSettings: () => void } {
   // Default behaviour of the permission hook is `get` on mount and no request —
   // so this reads the status without prompting, and the effect below decides
@@ -72,13 +118,5 @@ export function useCameraAccess(): { access: CameraAccess; openSettings: () => v
     void Linking.openSettings();
   }, []);
 
-  const access: CameraAccess = !permission
-    ? 'checking'
-    : permission.granted
-      ? 'granted'
-      : permission.status === 'undetermined'
-        ? 'checking'
-        : 'blocked';
-
-  return { access, openSettings };
+  return { access: accessOf(permission), openSettings };
 }

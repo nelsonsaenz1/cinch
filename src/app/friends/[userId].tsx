@@ -118,8 +118,10 @@ function formatCount(n: number): string {
 
 function StatCell({ value, label, a11y }: { value: string; label: string; a11y: string }) {
   return (
+    // `items-center`, per §2.2 of the Refacing — both lines centre in an
+    // equal-width figure-over-label column, and a friend's-closet stat is one.
     <View
-      className="flex-1 px-3 py-[13px]"
+      className="flex-1 items-center px-3 py-[13px]"
       accessible
       accessibilityRole="text"
       accessibilityLabel={a11y}>

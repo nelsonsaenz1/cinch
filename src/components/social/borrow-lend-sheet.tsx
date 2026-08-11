@@ -72,7 +72,7 @@ export function BorrowLendSheet({
           <View className="mb-5 flex-row items-center gap-3">
             <View
               className="items-center justify-center overflow-hidden bg-tray"
-              style={{ width: 56, height: 56, borderRadius: 10 }}>
+              style={{ width: 56, height: 56, borderRadius: 12 }}>
               {imageUri ? (
                 <Image
                   source={stableImageSource(imageUri)}
