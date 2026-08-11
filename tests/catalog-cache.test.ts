@@ -179,15 +179,20 @@ function stub(id: string, candidates: number): GarmentImageProvider {
   };
 }
 
+const BOTH = { search: true, match: true };
+const NEITHER = { search: false, match: false };
+/** The shipped configuration: licensed images only, brand identification kept. */
+const SHIPPED = { search: false, match: true };
+
 test('the licensed provider answers before the web fallback', async () => {
-  const chain = firstLicensed([stub('licensed', 3)], stub('web', 3), true);
+  const chain = firstLicensed([stub('licensed', 3)], stub('web', 3), BOTH);
   const result = await chain.search({ description: 'anything', maxCandidates: 6 });
 
   assert.equal(result.candidates[0]?.title, 'licensed 0');
 });
 
 test('the web fallback answers only what the licensed source could not', async () => {
-  const chain = firstLicensed([stub('licensed', 0)], stub('web', 3), true);
+  const chain = firstLicensed([stub('licensed', 0)], stub('web', 3), BOTH);
   const result = await chain.search({ description: 'anything', maxCandidates: 6 });
 
   assert.equal(result.candidates.length, 3);
@@ -195,7 +200,7 @@ test('the web fallback answers only what the licensed source could not', async (
 });
 
 test('the kill switch removes the unlicensed provider from the chain entirely', async () => {
-  const chain = firstLicensed([stub('licensed', 0)], stub('web', 3), false);
+  const chain = firstLicensed([stub('licensed', 0)], stub('web', 3), NEITHER);
 
   assert.equal(chain.id, 'licensed', 'the web provider is not merely skipped, it is absent');
 
@@ -205,4 +210,155 @@ test('the kill switch removes the unlicensed provider from the chain entirely', 
     [],
     'with the switch off, no licensed answer means no answer — never an unlicensed one',
   );
+});
+
+test('the shipped configuration keeps brand identification while refusing web imagery', async () => {
+  const chain = firstLicensed([stub('licensed', 0)], stub('web', 3), SHIPPED);
+
+  const searched = await chain.search({ description: 'anything', maxCandidates: 6 });
+  assert.deepEqual(searched.candidates, [], 'no licensed image means no image at all');
+
+  const matched = await chain.match({
+    descriptor: 'anything',
+    photoUrl: 'https://example.com/a.jpg',
+    brand: undefined,
+    maxCandidates: 6,
+  });
+  assert.equal(
+    matched.candidates.length,
+    3,
+    'reading a brand off the user’s own photograph copies no image, so it survives',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// The relaxation ladder.
+//
+// Regression cover for a real report: a user searched "james perse mens white
+// button down" and got nothing usable. `name LIKE` is AND across every term,
+// and no merchant writes "mens" in that title — so all six words together match
+// zero rows while five of them match five actual James Perse shirts.
+// ---------------------------------------------------------------------------
+
+/** Captures the `name LIKE` term of every query the provider sends. */
+function fetchSpy(productsPerAttempt: number[]) {
+  const queries: string[] = [];
+  let attempt = 0;
+  const original = globalThis.fetch;
+
+  globalThis.fetch = (async (_url: string, init: { body: string }) => {
+    const body = JSON.parse(init.body) as { query: string[] };
+    const like = body.query.find((q) => q.startsWith('name LIKE '));
+    queries.push(like ? like.slice('name LIKE '.length) : '');
+    const count = productsPerAttempt[attempt++] ?? 0;
+    return {
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          products: Array.from({ length: count }, (_, i) => ({
+            id: i,
+            name: 'James Perse button-down cotton shirt',
+            merchant: 'Farfetch',
+            merchant_id: 1,
+            source: 'Rakuten US',
+            source_id: 4,
+            currency: 'USD',
+            price: 19500,
+            finalprice: 19500,
+            url: 'https://click.linksynergy.com/deeplink?id=@@@&mid=1&murl=x',
+            direct_url: `https://www.farfetch.com/shopping/item-${i}.aspx`,
+            image: `https://cdn-images.farfetch-contents.com/${i}.jpg`,
+          })),
+        }),
+    };
+  }) as unknown as typeof fetch;
+
+  return { queries, restore: () => { globalThis.fetch = original; } };
+}
+
+function relaxing(spy: Spy) {
+  return datafeedrProvider({
+    accessId: 'test-id',
+    accessKey: 'test-key',
+    affiliateIds: {},
+    claimRequest: (exact) => { spy.claims.push(exact); return Promise.resolve(true); },
+    cacheGet: (key) => { spy.reads.push(key); return Promise.resolve(undefined); },
+    cachePut: (key, mode, _q, products, ttl) => {
+      spy.writes.push({ key, mode, products, ttl });
+      return Promise.resolve();
+    },
+  });
+}
+
+test('a query that matches nothing is retried without the words merchants omit', async () => {
+  const net = fetchSpy([0, 5]); // first rung empty, second rung finds five
+  const s = spy();
+  try {
+    await relaxing(s).search({
+      description: 'james perse mens white button down',
+      maxCandidates: 6,
+    });
+
+    assert.deepEqual(net.queries, [
+      'james perse mens white button down',
+      'james perse white button down',
+    ], 'the second attempt drops "mens", which is the word that matched nothing');
+
+    // Asserted on what the provider FOUND rather than on what it returned:
+    // `admitRows` runs the real `admitSource`, which fetches robots.txt, and
+    // this test's stub owns global fetch. Whether those five rows are then
+    // admitted is the source policy's business and is measured live, not here.
+    assert.equal(s.writes.length, 1, 'one cache write, under the original phrasing');
+    assert.equal(
+      s.writes[0]?.products?.length,
+      5,
+      'five James Perse shirts found where the unrelaxed query found none',
+    );
+  } finally {
+    net.restore();
+  }
+});
+
+test('a query that works first time costs exactly one request', async () => {
+  const net = fetchSpy([5]);
+  const s = spy();
+  try {
+    await relaxing(s).search({ description: 'black wool overcoat', maxCandidates: 6 });
+    assert.equal(net.queries.length, 1, 'relaxing is for failures, not a default second call');
+    assert.equal(s.claims.length, 1);
+  } finally {
+    net.restore();
+  }
+});
+
+test('the ladder is bounded, and a genuine miss is still cached as one', async () => {
+  const net = fetchSpy([0, 0, 0, 0, 0]);
+  const s = spy();
+  try {
+    await relaxing(s).search({
+      description: 'my nan hand knitted cardigan from 1974',
+      maxCandidates: 6,
+    });
+    assert.ok(net.queries.length <= 3, `at most three metered requests, sent ${net.queries.length}`);
+    assert.equal(s.writes.length, 1, 'one cache write');
+    assert.equal(s.writes[0]?.products, null, 'and it records a miss, not an empty hit');
+  } finally {
+    net.restore();
+  }
+});
+
+test('the ladder never degrades to a single useless term', async () => {
+  const net = fetchSpy([0, 0, 0, 0]);
+  const s = spy();
+  try {
+    await relaxing(s).search({ description: 'mens white shirt', maxCandidates: 6 });
+    for (const q of net.queries) {
+      assert.ok(
+        q.split(' ').length >= 2,
+        `"${q}" is one term — a one-word query is a different question, not a looser one`,
+      );
+    }
+  } finally {
+    net.restore();
+  }
 });

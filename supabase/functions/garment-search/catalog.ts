@@ -377,6 +377,69 @@ function buildQuery(mode: LookupMode, value: string, brand?: string | null): str
   return [...base, `name LIKE ${normaliseQuery(value)}`];
 }
 
+/**
+ * Words a shopper says that a merchant rarely writes in a product title.
+ *
+ * These are not stopwords in the usual sense — they carry real meaning to a
+ * person. They are listed because `name LIKE` is AND across every term, so a
+ * single word the merchant happened not to type reduces the entire result set
+ * to zero. Gender words are the worst offenders: "James Perse mens white button
+ * down" returns NOTHING, while the same phrase without "mens" returns five
+ * actual James Perse shirts. The garment exists; the word does not.
+ *
+ * They are dropped only on the second rung of the ladder below, never on the
+ * first — if the merchant DID write "mens", matching it is better.
+ */
+const WEAK_TERMS: ReadonlySet<string> = new Set([
+  'mens', 'men', 'womens', 'women', 'woman', 'man', 'ladies', 'unisex', 'girls', 'boys',
+  'my', 'a', 'an', 'the', 'and', 'with', 'for', 'from', 'in', 'of',
+  'size', 'new', 'vintage', 'old', 'favourite', 'favorite',
+]);
+
+/**
+ * Never spend more than this many metered requests answering one description.
+ *
+ * The ladder only runs when a rung returns nothing, so the common case is one
+ * request. Three is the ceiling for the pathological case, and it is a ceiling
+ * rather than a target.
+ */
+const MAX_ATTEMPTS = 3;
+
+/**
+ * Progressively looser queries, most faithful first.
+ *
+ * `name LIKE` is AND, which makes a long natural description brittle in a way
+ * that fails silently: the user gets an empty result and concludes the app does
+ * not have their garment, when in fact it had five of them and one adjective
+ * excluded all five. Relaxing is what turns that into an answer.
+ *
+ * The ladder never goes below two terms. A one-term query ("shirt") is not a
+ * looser version of the question, it is a different and useless one, and
+ * answering it would be worse than admitting the miss.
+ */
+function relaxations(value: string): string[] {
+  const terms = normaliseQuery(value).split(' ').filter(Boolean);
+  if (terms.length === 0) return [];
+
+  const ladder: string[] = [terms.join(' ')];
+
+  // Rung two: the same request with the words merchants do not write.
+  const strong = terms.filter((t) => !WEAK_TERMS.has(t));
+  if (strong.length >= 2 && strong.length < terms.length) ladder.push(strong.join(' '));
+
+  // Rung three onward: shed trailing words. Titles lead with the brand and the
+  // garment and trail off into colour and cut, so the front of the phrase is
+  // where the identifying signal is.
+  let rest = strong.length >= 2 ? [...strong] : [...terms];
+  while (rest.length > 2 && ladder.length < MAX_ATTEMPTS) {
+    rest = rest.slice(0, -1);
+    ladder.push(rest.join(' '));
+  }
+
+  // Distinct, in order, bounded.
+  return [...new Set(ladder)].slice(0, MAX_ATTEMPTS);
+}
+
 function hostOf(raw: string): string | null {
   try {
     return new URL(raw).hostname.replace(/^www\./, '');
@@ -509,8 +572,23 @@ async function lookup(
   // re-querying is the entire point of negative caching.
   if (cached !== undefined) return cached ?? [];
 
-  const fetched = await fetchBatch(opts, mode, value, brand);
-  if (fetched === null) return []; // refused or failed: cache nothing
+  // A `url` lookup is an exact identifier and has nothing to relax; only a
+  // described garment walks the ladder.
+  const attempts = mode === 'url' ? [value] : relaxations(value);
+
+  let fetched: CatalogProduct[] | null = null;
+  for (const attempt of attempts) {
+    fetched = await fetchBatch(opts, mode, attempt, brand);
+    // A refusal or a transport failure is not evidence of absence, and looser
+    // wording will not fix a spent quota — stop rather than burn the ladder.
+    if (fetched === null) return [];
+    if (fetched.length) break;
+  }
+  if (fetched === null) return [];
+
+  // Cached under the ORIGINAL key whichever rung answered, so the relaxation is
+  // paid for once per phrasing rather than on every retry. A stored miss means
+  // "the whole ladder found nothing", which is the only honest negative.
   await opts.cachePut(
     key,
     mode,
@@ -649,29 +727,61 @@ export function datafeedrProvider(opts: DatafeedrOpts): GarmentImageProvider {
 }
 
 /**
+ * Which of the two paths the unlicensed model provider may still answer.
+ *
+ * These are separate flags because `search` and `match` ask the model for
+ * different KINDS of thing, and only one of them raises a licensing question:
+ *
+ *   search  returns PHOTOGRAPHS. The web path finds them by resolving og:image
+ *           from a page it was told about, which acquires no right to the
+ *           picture. This is the one the whole licensed catalogue exists to
+ *           replace, and it is off.
+ *
+ *   match   also returns a BRAND NAME read off a photograph the user took of
+ *           their own garment. That is a vision judgement producing TEXT — no
+ *           image is copied, so no licence is implicated. A product feed cannot
+ *           do it at all: `datafeedrProvider.match` returns an empty brand list
+ *           by construction, because inventing brands from feed titles would be
+ *           fabricating evidence.
+ *
+ * Welding both to one switch meant turning off unlicensed imagery also turned
+ * off brand identification, which no licensing argument asks for.
+ */
+export type UnlicensedFallback = {
+  /** Images from the open web. Off once feed coverage is good enough. */
+  search: boolean;
+  /** Brand identification from the user's own photograph. */
+  match: boolean;
+};
+
+/**
  * Try licensed sources first, fall back to the model path, and never the other
  * way round.
  *
  * The ordering is a legal statement, not a performance one. The web provider is
  * last because it is the only one whose images arrive without a licence, so it
- * should answer only what the licensed feeds could not. When `allowUnlicensed`
- * is false it is not consulted at all — which is the configuration to ship once
- * feed coverage is good enough, and the reason this wrapper exists rather than
- * a hardcoded chain.
+ * should answer only what the licensed feeds could not.
  */
 export function firstLicensed(
   providers: GarmentImageProvider[],
   fallback: GarmentImageProvider | null,
-  allowUnlicensed: boolean,
+  allowUnlicensed: UnlicensedFallback,
 ): GarmentImageProvider {
-  const chain = [...providers, ...(allowUnlicensed && fallback ? [fallback] : [])];
+  const searchChain = [...providers, ...(allowUnlicensed.search && fallback ? [fallback] : [])];
+  const matchChain = [...providers, ...(allowUnlicensed.match && fallback ? [fallback] : [])];
 
   return {
-    id: chain.map((p) => p.id).join('>'),
+    // Both chains, when they differ, because "which providers answered this"
+    // is recorded against every call in `ai_calls` and a single id would make
+    // the two paths indistinguishable in the accounting.
+    id:
+      searchChain.map((p) => p.id).join('>') === matchChain.map((p) => p.id).join('>')
+        ? searchChain.map((p) => p.id).join('>')
+        : `search:${searchChain.map((p) => p.id).join('>')} match:${matchChain.map((p) => p.id).join('>')}`,
 
     async search(input) {
       let last: ProviderResult | null = null;
-      for (const p of chain) {
+      for (const p of searchChain) {
         const result = await p.search(input);
         last = result;
         if (result.candidates.length) return result;
@@ -690,7 +800,7 @@ export function firstLicensed(
 
     async match(input) {
       let last: MatchResult | null = null;
-      for (const p of chain) {
+      for (const p of matchChain) {
         const result = await p.match(input);
         last = result;
         // Brands without candidates is still a useful answer — the model path

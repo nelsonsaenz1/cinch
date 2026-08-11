@@ -23,6 +23,7 @@ import {
   datafeedrProvider,
   firstLicensed,
   type LookupMode,
+  type UnlicensedFallback,
 } from './catalog.ts';
 import type { GarmentImageProvider } from './provider.ts';
 
@@ -68,17 +69,24 @@ function affiliateIdsFromEnv(): Record<number, string> {
 }
 
 /**
- * The kill switch, read once per request rather than at module load so that
- * flipping it is a secret change and a cold start, not a redeploy.
+ * The two kill switches, read per request rather than at module load so that
+ * flipping either is a secret change plus a cold start, not a redeploy.
  *
- * Defaults to TRUE: the licensed feeds do not yet answer every description, and
- * a user whose garment is not in any feed should still get a picture. Moving it
- * to `false` is the actual finish line for this work — licensed sources or
- * nothing — and it should be moved only once feed coverage has been MEASURED
- * against real descriptions, never guessed at.
+ * `GARMENT_SEARCH_ALLOW_UNLICENSED` governs IMAGES from the open web, and is
+ * `false` as of 2026-08-11: post-policy coverage measured 28/28 against real
+ * garment descriptions, every case filling all six candidate slots, so the
+ * licensed feeds answer on their own.
+ *
+ * `GARMENT_SEARCH_ALLOW_UNLICENSED_MATCH` governs BRAND IDENTIFICATION from a
+ * photograph the user took themselves, and defaults to TRUE independently — see
+ * `UnlicensedFallback` for why these are not one switch. Turning off unlicensed
+ * imagery should not silently remove a feature that copies no image.
  */
-function allowUnlicensed(): boolean {
-  return (Deno.env.get('GARMENT_SEARCH_ALLOW_UNLICENSED') ?? 'true') !== 'false';
+function allowUnlicensed(): UnlicensedFallback {
+  return {
+    search: (Deno.env.get('GARMENT_SEARCH_ALLOW_UNLICENSED') ?? 'true') !== 'false',
+    match: (Deno.env.get('GARMENT_SEARCH_ALLOW_UNLICENSED_MATCH') ?? 'true') !== 'false',
+  };
 }
 
 /**
