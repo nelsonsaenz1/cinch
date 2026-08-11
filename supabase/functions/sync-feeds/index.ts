@@ -7,6 +7,24 @@ import type { Database } from '../_shared/database.types.ts';
 /**
  * sync-feeds — pull approved merchants' product feeds into `catalog_products`.
  *
+ * DORMANT ON PURPOSE. See `docs/commerce/sync-feeds-dormant.md`.
+ *
+ * Deployed, unscheduled, and reading nothing: `catalog_merchants` and
+ * `catalog_products` are both empty, because an Awin feed is per-advertiser and
+ * requires an approved partnership, and `commerce_joined_programmes` holds zero
+ * active rows. A scheduled job that fails on every tick is worse than an
+ * unscheduled one — it trains people to ignore the logs and it would trip the
+ * `provider_failing` alert that now exists for real failures.
+ *
+ * It is not dead code. It is the second supplier: Datafeedr is breadth without
+ * approvals and a hard 10,000-request monthly ceiling, Awin is depth with
+ * approvals and no ceiling. Cinch's commerce surfaces run on one supplier today.
+ *
+ * AND IT GATES NOTHING. Shop suggestions (`gap-shop-match`) and listing
+ * photographs (`garment-search`) both read Datafeedr and work now. Believing
+ * this function was the blocker for those is what the doc above exists to stop
+ * happening twice.
+ *
  * Invoked by cron, never by a person. There is no user in this path at all,
  * which is why it authenticates with a shared secret in the same shape as
  * `send-push`'s `x-cinch-cron` and `build-export`'s sweep header, and fails
