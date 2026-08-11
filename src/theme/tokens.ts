@@ -191,37 +191,9 @@ export const motion = {
   duration: { fast: 140, base: 220, slow: 380 },
 } as const;
 
-/**
- * Apple's concentric corner rule: an inner radius is the outer radius minus
- * the inset between them. Use this instead of typing a smaller number that
- * "looks about right" — mismatched curvature is one of the quiet tells of a
- * non-native app.
- */
-export const concentric = (outer: number, inset: number) => Math.max(outer - inset, 0);
 
-/** Accessibility floor. 44pt is the Apple minimum, not a target. */
-export const MIN_TAP_TARGET = 44;
 
-/**
- * The one pressed opacity.
- *
- * The app had four (60/70/80/90) across 86 call sites — two rails on the same
- * screen disagreed. `usePressFeedback` interpolates to this value, so a control
- * that adopts the hook is by definition consistent with every other one.
- */
-export const PRESSED_OPACITY = 0.8;
 
-/**
- * The contact shadow — the one elevation in the app, for a surface that has
- * lifted off the paper rather than been drawn on it.
- *
- * Exported now, spent later: several files carry their own copy of these four
- * numbers, and consolidating them means editing across territories. Until that
- * pass lands this is the value they should converge on, not a new one.
- */
-export const shadow = {
-  contact: { dx: 0, dy: 5, blur: 11, color: 'rgba(28,26,22,0.16)' },
-} as const;
 
 /**
  * The page margin, as a number — the same 20 `spacing.gutter` gives `px-gutter`.
@@ -231,3 +203,10 @@ export const shadow = {
  * which is how a measure drifts one screen at a time.
  */
 export const GUTTER = 20;
+
+/**
+ * Re-exported from `./metrics`, which holds them so that pure modules can use
+ * them without importing this file — this one pulls in React Native, and RN's
+ * Flow source cannot be bundled by the node test runner. Audit item 49.
+ */
+export { concentric, MIN_TAP_TARGET, PRESSED_OPACITY, shadow } from './metrics';
