@@ -368,6 +368,7 @@ function buildQuery(
   value: string,
   brand?: string | null,
   category?: string | null,
+  merchantIds?: readonly number[],
 ): string[] {
   // Applied to every mode. Locale first because it is the filter that changes
   // the answer most; `instock = 1` because a garment the user cannot buy is a
@@ -384,6 +385,13 @@ function buildQuery(
   // STAND, and a shop suggestion built from a slot alone otherwise reaches into
   // Walmart's automotive feed. Measured, not assumed.
   if (category) base.push(`category LIKE ${category}`);
+
+  // A curated merchant set, when the caller has one. `gap-shop-match` passes
+  // `ALLOWED_MERCHANTS`; `garment-search` deliberately passes nothing and keeps
+  // the whole catalogue — see `_shared/merchants.ts` for why the two paths
+  // differ. Applied server-side so the 100 rows we pay for are 100 rows from
+  // shops we would actually name, rather than 100 rows we then throw away.
+  if (merchantIds?.length) base.push(`merchant_id IN ${merchantIds.join(',')}`);
 
   if (mode === 'url') return [...base, `direct_url LIKE ${value}`];
 
@@ -602,6 +610,7 @@ async function fetchBatch(
   value: string,
   brand?: string | null,
   category?: string | null,
+  merchantIds?: readonly number[],
 ): Promise<CatalogProduct[] | null> {
   const exact = mode !== 'keyword';
   if (!(await opts.claimRequest(exact))) return null;
@@ -609,7 +618,7 @@ async function fetchBatch(
   const body = {
     aid: opts.accessId,
     akey: opts.accessKey,
-    query: buildQuery(mode, value, brand, category),
+    query: buildQuery(mode, value, brand, category, merchantIds),
     // NO `sort`. This field previously read `sort: ['+finalprice']` and that was
     // actively harmful, which only shows up when you look at the rows.
     //
@@ -670,11 +679,19 @@ async function lookup(
   value: string,
   brand?: string | null,
   category?: string | null,
+  merchantIds?: readonly number[],
 ): Promise<CatalogProduct[]> {
   // The category is part of the key for the same reason the brand is: it
   // changes the result set, so two lookups differing only by it must not
   // collide on one cache row.
-  const key = await cacheKey('datafeedr', mode, `${category ?? ''} ${value}`, brand);
+  // The merchant constraint is part of the key alongside the category, and for
+  // a sharper reason: `gap-shop-match` and `garment-search` can ask the same
+  // words of the same catalogue and must NOT share a row. One is restricted to
+  // 82 shops and the other is not, so a shared row would serve one path the
+  // other's answer — the allowlist would silently leak into search results, or
+  // worse, search's open results would surface as gap suggestions.
+  const scope = merchantIds?.length ? `m${merchantIds.length}:${merchantIds.join(',')}` : '';
+  const key = await cacheKey('datafeedr', mode, `${scope} ${category ?? ''} ${value}`, brand);
 
   const cached = await opts.cacheGet(key);
   // `null` is a cached MISS and is authoritative — returning [] here without
@@ -687,7 +704,7 @@ async function lookup(
 
   let fetched: CatalogProduct[] | null = null;
   for (const attempt of attempts) {
-    fetched = await fetchBatch(opts, mode, attempt, brand, category);
+    fetched = await fetchBatch(opts, mode, attempt, brand, category, merchantIds);
     // A refusal or a transport failure is not evidence of absence, and looser
     // wording will not fix a spent quota — stop rather than burn the ladder.
     if (fetched === null) return [];

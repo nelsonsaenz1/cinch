@@ -5,6 +5,8 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 import type { Database } from '../_shared/database.types.ts';
 import { networkFamily, searchCatalogue, type CatalogProduct } from '../_shared/catalog.ts';
 import { catalogOptsFromEnv } from '../_shared/catalog-store.ts';
+import { ALLOWED_MERCHANT_IDS } from '../_shared/merchants.ts';
+import { admitProduct, type RelevanceSlot } from './relevance.ts';
 
 /**
  * gap-shop-match — commerce-directive.md §2/§3, C-01/C-02/C-04's server half.
@@ -77,27 +79,34 @@ function isCatalogSlot(value: unknown): value is CatalogSlot {
 const MAX_MERCHANTS = 3;
 
 /**
- * The word a slot is searched with, and the merchant category it must sit in.
+ * The word a slot is searched with, and whether a fixture says it may ship.
  *
  * ONE word, not several. `name LIKE` is AND across terms, so "shirt top" demands
  * both and quietly narrows to whatever happens to carry each.
  *
- * The category is what keeps a garment search inside garments. Measured on
- * 2026-08-11 against the live catalogue: `coat` alone returns a wooden coat
- * STAND from Wayfair, a keychain from Walmart's jewelry feed, and products from
- * Walmart's automotive and books feeds. 924 million products contain the word
- * "shirt" in contexts that have nothing to do with clothing.
+ * `verified` IS NOT A FREE-TEXT OPINION. A slot may only be true here if
+ * `tests/fixtures/slot-relevance.json` holds recorded catalogue rows for it and
+ * `tests/slot-relevance.test.ts` pins what survives `admitProduct` — the test
+ * fails if this table claims a slot the fixture does not cover. Turning a slot
+ * on is therefore a recorded measurement, not an edit.
+ *
+ * The merchant `category` term this table used to carry is GONE. It was a
+ * merchant-authored free-text field and it does not survive contact with the
+ * data: Wayfair files furniture under "Shoes" and a dressmaker's mannequin
+ * under "Dresses", so `category LIKE apparel` admitted a coat stand and refused
+ * nothing that mattered. Its job is done properly now by two things that
+ * actually work — the merchant allowlist and `relevance.ts`.
  */
-const SLOT_QUERY: Record<CatalogSlot, { word: string; category: string } | null> = {
-  top: { word: 'shirt', category: 'apparel' },
-  bottom: { word: 'trousers', category: 'apparel' },
-  outerwear: { word: 'coat', category: 'apparel' },
-  footwear: { word: 'shoes', category: 'apparel' },
-  dress: { word: 'dress', category: 'apparel' },
-  accessory: { word: 'scarf', category: 'accessories' },
-  bag: { word: 'handbag', category: 'accessories' },
-  headwear: { word: 'hat', category: 'accessories' },
-  jewelry: { word: 'necklace', category: 'jewelry' },
+const SLOT_QUERY: Record<CatalogSlot, { word: string; verified: boolean } | null> = {
+  top: { word: 'shirt', verified: true },
+  bottom: { word: 'trousers', verified: true },
+  outerwear: { word: 'coat', verified: true },
+  footwear: { word: 'shoes', verified: true },
+  dress: { word: 'dress', verified: true },
+  accessory: { word: 'scarf', verified: true },
+  bag: { word: 'handbag', verified: true },
+  headwear: { word: 'hat', verified: true },
+  jewelry: { word: 'necklace', verified: true },
   // Deliberately unsearchable. "other" means the closet could not classify the
   // piece, and guessing a shopping term from that would be inventing a gap.
   other: null,
@@ -289,7 +298,10 @@ export default {
       }
 
       const recipe = SLOT_QUERY[slot];
-      if (!recipe) return Response.json({ products: [] });
+      // Unsearchable, or searchable but not yet proven by a fixture. Both are
+      // the same silence to a caller, and both are deliberate: a slot with no
+      // measured evidence behind it ships nothing at all.
+      if (!recipe?.verified) return Response.json({ products: [] });
 
       // NO HINT, NO SUGGESTION.
       //
@@ -319,13 +331,40 @@ export default {
         // `brand` goes to the catalogue's own brand FIELD when the closet
         // supplied one — the same lesson as garment-search: a brand name inside
         // a merchant's free-text title is not evidence the garment is that brand.
-        rows = await searchCatalogue(opts, 'keyword', query, hints.brand ?? null, recipe.category);
+        //
+        // `ALLOWED_MERCHANT_IDS` is the suggestion path's curated shop list. It
+        // is applied in the QUERY rather than after it so the hundred rows the
+        // request buys are a hundred rows from shops we would name.
+        rows = await searchCatalogue(
+          opts,
+          'keyword',
+          query,
+          hints.brand ?? null,
+          null,
+          ALLOWED_MERCHANT_IDS,
+        );
       } catch {
         return Response.json({ products: [] });
       }
 
+      // ── Is each row actually the garment asked for? ──────────────────────
+      //
+      // Before any ranking, because ranking junk only decides which junk goes
+      // first. `name LIKE black coat` matches "Black Coated Skinny Jean" and
+      // `cream dress` matches "Ice Cream Dress"; both satisfy the query exactly
+      // and neither is the garment. Costs nothing — the rows are already here.
+      const relevant = rows.filter(
+        (p) =>
+          admitProduct(p.title, {
+            slot: slot as RelevanceSlot,
+            noun: recipe.word,
+            colour: hints.colour ?? null,
+            brand: p.brand,
+          }).admitted,
+      );
+
       // ── Rank on fit, then cap at three distinct merchants ────────────────
-      const ranked = [...rows].sort((a, b) => score(b, hints, slot) - score(a, hints, slot));
+      const ranked = [...relevant].sort((a, b) => score(b, hints, slot) - score(a, hints, slot));
 
       // Which programmes are actually joined. Empty today, which is why every
       // row below currently comes back `paid: false`.
