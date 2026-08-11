@@ -159,32 +159,127 @@ test('pinned items always appear', () => {
   }
 });
 
-/**
- * KNOWN DEFECT — see the report accompanying CIN-16.
- *
- * `generateOutfits` narrows each slot to the pinned garments only for slots
- * that were actually pinned. Dresses are their own core, so pinning a bottom
- * leaves every dress core untouched and the shortlist comes back containing
- * outfits that cannot possibly include the pinned item. "Build me something
- * around these trousers" then returns a dress.
- *
- * Skipped rather than deleted: the assertion is the specification, and the fix
- * belongs to whoever owns src/lib/styling/generate.ts.
- */
-test(
-  'pinning a bottom must not leak dress-only outfits into the results',
-  { skip: 'known defect in generateOutfits — dress cores ignore pinned bottoms' },
-  () => {
-    const closet = smallCloset();
-    const pin = closet.find((g) => g.slot === 'bottom')!;
+// ---------------------------------------------------------------------------
+// Pinning — "build me something around THIS"
+//
+// FIXED 2026-08-11. The first of these was skipped for months as a known
+// defect: `generateOutfits` narrowed each slot's candidate list to the pinned
+// garments, which constrains only cores that HAVE that slot. A dress core is
+// `[dress]` — no top, no bottom — so pinning trousers left every dress core
+// untouched and "build me something around these trousers" returned a dress.
+//
+// It was a shape mismatch, not a narrowing bug, and no candidate list can
+// express "this core cannot exist". The rest of these cover the same class in
+// the places it had also leaked, plus the guarantee that now catches all of it.
+// ---------------------------------------------------------------------------
+
+test('pinning a bottom must not leak dress-only outfits into the results', () => {
+  const closet = smallCloset();
+  const pin = closet.find((g) => g.slot === 'bottom')!;
+  const out = generateOutfits(closet, context(), {
+    count: 3,
+    pinnedItemIds: new Set([pin.id]),
+  });
+
+  assert.ok(out.length > 0, 'a closet with trousers should build something around them');
+  for (const o of out) assert.ok(ids(o).includes(pin.id), 'pinned item was dropped');
+  for (const o of out) {
+    assert.ok(!o.items.some((g) => g.slot === 'dress'), 'a dress came back for a pinned bottom');
+  }
+});
+
+test('pinning a top leaks no dress cores either', () => {
+  // Same shape, other half — a dress core has no `base_top` slot to narrow.
+  const closet = smallCloset();
+  const pin = closet.find((g) => g.slot === 'base_top')!;
+  const out = generateOutfits(closet, context(), {
+    count: 3,
+    pinnedItemIds: new Set([pin.id]),
+  });
+
+  assert.ok(out.length > 0);
+  for (const o of out) assert.ok(ids(o).includes(pin.id), 'pinned top was dropped');
+});
+
+test('pinning a dress leaks no two-piece outfits', () => {
+  // The mirror image, which had the same hole: narrowing `slots.dress` does
+  // nothing to a `[top, bottom]` core.
+  const closet = smallCloset();
+  const pin = closet.find((g) => g.slot === 'dress')!;
+  const out = generateOutfits(closet, context(), {
+    count: 3,
+    pinnedItemIds: new Set([pin.id]),
+  });
+
+  assert.ok(out.length > 0);
+  for (const o of out) {
+    assert.ok(ids(o).includes(pin.id), 'pinned dress was dropped');
+    assert.ok(!o.items.some((g) => g.slot === 'bottom'), 'trousers came back under a dress');
+  }
+});
+
+test('a pinned layer survives every weather branch', () => {
+  // Stage C emitted an unlayered variant and a mid-only variant unconditionally.
+  // On a mild day — where `wantsOuterwear` is false — a pinned coat was simply
+  // left off, and the outfit still scored well enough to be returned.
+  const closet = smallCloset();
+  for (const slot of ['mid_layer', 'outerwear'] as const) {
+    const pin = closet.find((g) => g.slot === slot)!;
+    for (const feelsLikeC of [-5, 8, 14, 22, 31]) {
+      const out = generateOutfits(closet, context({ weather: weather(feelsLikeC) }), {
+        count: 3,
+        pinnedItemIds: new Set([pin.id]),
+      });
+      for (const o of out) {
+        assert.ok(ids(o).includes(pin.id), `pinned ${slot} dropped at ${feelsLikeC}C`);
+      }
+    }
+  }
+});
+
+test('a pinned bag goes on whether or not it flatters the outfit', () => {
+  // `addAccessories` attaches a bag only when it improves the score, which is
+  // the right rule for a suggestion and the wrong one for an instruction.
+  const closet = smallCloset();
+  const pin = closet.find((g) => g.slot === 'bag')!;
+  const out = generateOutfits(closet, context(), {
+    count: 3,
+    pinnedItemIds: new Set([pin.id]),
+  });
+
+  assert.ok(out.length > 0);
+  for (const o of out) assert.ok(ids(o).includes(pin.id), 'pinned bag was dropped');
+});
+
+test('contradictory pins return nothing rather than dropping one', () => {
+  // A dress and a pair of trousers cannot both be worn. Returning an outfit
+  // with one of them silently would be worse than returning none: the caller
+  // asked for both, and "here is half of what you asked for" is not an answer.
+  const closet = smallCloset();
+  const dress = closet.find((g) => g.slot === 'dress')!;
+  const bottom = closet.find((g) => g.slot === 'bottom')!;
+  const out = generateOutfits(closet, context(), {
+    count: 3,
+    pinnedItemIds: new Set([dress.id, bottom.id]),
+  });
+
+  assert.deepEqual(out, []);
+});
+
+test('every pinned item appears in every outfit, across many closets', () => {
+  // The guarantee itself, swept rather than spot-checked. Any future stage that
+  // forgets to respect a pin fails here rather than in production.
+  const closet = smallCloset();
+  for (const pin of closet) {
     const out = generateOutfits(closet, context(), {
       count: 3,
       pinnedItemIds: new Set([pin.id]),
     });
-
-    for (const o of out) assert.ok(ids(o).includes(pin.id), 'pinned item was dropped');
-  },
-);
+    for (const o of out) {
+      assert.ok(ids(o).includes(pin.id), `pinned ${pin.slot} (${pin.id}) missing from an outfit`);
+    }
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Weather bounds

@@ -49,8 +49,29 @@ export function inferEventFormality(title: string): number {
 
 const minutesFromMidnight = (d: Date) => d.getHours() * 60 + d.getMinutes();
 
+/**
+ * SDK 57 REPLACED THIS API, AND THE OLD ONE NOW THROWS.
+ *
+ * `getCalendarsAsync`, `getEventsAsync`, `getCalendarPermissionsAsync` and
+ * `requestCalendarPermissionsAsync` are all still exported by `expo-calendar`,
+ * and every one of them is declared:
+ *
+ *   @deprecated Use `getCalendars()` … This method will throw in runtime.
+ *
+ * Not "will warn". So this was not a tidy-up — after the SDK 57 alignment the
+ * calendar feature was broken end to end, and it fails in the least visible
+ * place available: `loadTodaysEvents` runs inside a React Query `queryFn`,
+ * which catches the throw and stores it as an error state, so `events.data`
+ * is simply `undefined` and the day's context quietly has no events in it.
+ * Nothing crashes. The Morning Edit just stops knowing you have a wedding.
+ *
+ * The replacements are `getCalendars()`, `calendar.listEvents()`,
+ * `getCalendarPermissions()` and `requestCalendarPermissions()`. Events are now
+ * listed per calendar object rather than by passing an array of ids, so the
+ * fan-out happens here.
+ */
 async function loadTodaysEvents(): Promise<EventContext[]> {
-  const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+  const calendars = await Calendar.getCalendars(Calendar.EntityTypes.EVENT);
   if (!calendars.length) return [];
 
   const start = new Date();
@@ -58,11 +79,16 @@ async function loadTodaysEvents(): Promise<EventContext[]> {
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
 
-  const raw = await Calendar.getEventsAsync(
-    calendars.map((c) => c.id),
-    start,
-    end,
-  );
+  // `listEvents` is per-calendar now. `allSettled` rather than `all` because a
+  // single unreadable calendar — a shared one whose account has gone stale is
+  // the common case — must not cost the user every other calendar's events.
+  const settled = await Promise.allSettled(calendars.map((c) => c.listEvents(start, end)));
+  const raw = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+
+  const unreadable = settled.filter((r) => r.status === 'rejected').length;
+  if (unreadable) {
+    console.warn(`calendar: ${unreadable} of ${calendars.length} calendars could not be read`);
+  }
 
   return raw
     // All-day entries are birthdays, holidays and reminders — they are not
@@ -127,8 +153,15 @@ export function useStyleContext({
   useEffect(() => {
     let cancelled = false;
     const readPermission = async () => {
-      const { status } = await Calendar.getCalendarPermissionsAsync();
-      if (!cancelled) setCalendarEnabled(status === 'granted');
+      // `getCalendarPermissions()` — the `…Async` name throws on SDK 57.
+      // Wrapped because this runs on every foreground: a throw here would take
+      // down the AppState listener and stop the app noticing any later change.
+      try {
+        const { status } = await Calendar.getCalendarPermissions();
+        if (!cancelled) setCalendarEnabled(status === 'granted');
+      } catch {
+        if (!cancelled) setCalendarEnabled(false);
+      }
     };
     void readPermission();
 
@@ -207,11 +240,39 @@ export function useStyleContext({
   });
 
   const requestCalendar = useCallback(async (): Promise<PermissionStatus> => {
-    const { status } = await Calendar.requestCalendarPermissionsAsync();
+    // `requestCalendarPermissions()` — the `…Async` name throws on SDK 57.
+    //
+    // No `writeOnly` argument: Cinch reads today's events to judge the day's
+    // formality and never writes to a calendar, so write-only access would be
+    // both the wrong grant and a worse prompt to show somebody.
+    let status: string;
+    try {
+      ({ status } = await Calendar.requestCalendarPermissions());
+    } catch {
+      // A throw is not a denial — the user was never asked. Reporting
+      // `undetermined` leaves the connect CTA offering to try again, which is
+      // the truthful state.
+      return 'undetermined';
+    }
+
     if (status === 'granted') {
       setCalendarEnabled(true);
       return 'granted';
     }
+
+    // LIMITED ACCESS, on iOS 17, means "Add Only" — write-only, not a subset of
+    // calendars (that is the Photos model, and calendars do not have it).
+    // `expo-calendar` folds it in with denial:
+    //
+    //   case .restricted, .denied, .writeOnly:  status = denied
+    //     — CalendarPermissionsRequester.swift:34
+    //
+    // Which is the right answer here rather than a lossy one. Cinch reads
+    // today's events to judge the day's formality and never writes, so
+    // write-only access grants us exactly nothing. Reporting it as `denied`
+    // keeps the connect CTA offering, which is truthful; reporting it as
+    // `granted` would show a connected state that could never produce an event.
+    setCalendarEnabled(false);
     return status === 'denied' ? 'denied' : 'undetermined';
   }, []);
 

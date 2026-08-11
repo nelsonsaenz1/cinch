@@ -133,13 +133,43 @@ export function generateOutfits(
     allowsMidLayer && !pinnedSlots.has('base_top') && !pinnedSlots.has('mid_layer');
   const coreTops = knitsMayAnchor ? [...tops, ...midsAsTops] : tops;
 
-  for (const top of coreTops) {
-    for (const bottom of bottoms) cores.push([top, bottom]);
+  /**
+   * WHICH CORE SHAPES CAN EVER HOLD WHAT WAS PINNED.
+   *
+   * Narrowing each slot's candidate list — what every `pinnedSlots.has(…)`
+   * above does — only constrains cores that HAVE that slot. A dress core is
+   * `[dress]`: it has no top and no bottom, so pinning a pair of trousers left
+   * every dress core untouched and "build me something around these trousers"
+   * came back with a dress. That was the defect the skipped test in
+   * `styling-generate.test.ts` described, and it is a shape mismatch rather
+   * than a narrowing bug — no candidate list can express "this core cannot
+   * exist".
+   *
+   * A dress core can still gain footwear, outerwear and accessories later, so
+   * pinning those is compatible with it. It can never gain a `base_top` or a
+   * `bottom`, and Stage C's `canLayerMid` refuses a mid-layer over a dress —
+   * so a pinned mid-layer rules dress cores out too.
+   */
+  const dressExcludedBy = (['base_top', 'bottom', 'mid_layer'] as const).filter((s) =>
+    pinnedSlots.has(s),
+  );
+  const twoPieceExcluded = pinnedSlots.has('dress');
+
+  if (!twoPieceExcluded) {
+    for (const top of coreTops) {
+      for (const bottom of bottoms) cores.push([top, bottom]);
+    }
   }
 
-  const dresses = pinnedSlots.has('dress') ? pinned.filter((g) => g.slot === 'dress') : slots.dress;
-  for (const dress of dresses) cores.push([dress]);
+  if (dressExcludedBy.length === 0) {
+    const dresses = pinnedSlots.has('dress')
+      ? pinned.filter((g) => g.slot === 'dress')
+      : slots.dress;
+    for (const dress of dresses) cores.push([dress]);
+  }
 
+  // Contradictory pins — a dress AND trousers — leave nothing, which is the
+  // honest answer rather than quietly dropping one of them.
   if (!cores.length) return [];
 
   const rankedCores = topBy(cores, BEAM_CORE, (c) => coreScore(c, ctx, weights));
@@ -161,6 +191,14 @@ export function generateOutfits(
     ? pinned.filter((g) => g.slot === 'outerwear')
     : slots.outerwear;
 
+  // A pinned layer must be in every variant that leaves this stage. Otherwise
+  // the unlayered and mid-only branches below emit outfits without the coat
+  // somebody asked to build around, and the guarantee at the end of the
+  // function then has to throw them away — turning "here are three looks with
+  // your coat" into "no looks at all" on a mild day.
+  const mustLayerMid = pinnedSlots.has('mid_layer');
+  const mustLayerOuter = pinnedSlots.has('outerwear');
+
   const layered: Garment[][] = [];
   for (const base of rankedShod) {
     const hasDress = base.some((g) => g.slot === 'dress');
@@ -169,17 +207,20 @@ export function generateOutfits(
     // invariant the generator tests assert.
     const hasMid = base.some((g) => g.slot === 'mid_layer');
     const canLayerMid = !hasDress && !hasMid;
+    // A pinned knit that is already anchoring this core is satisfied by it.
+    const midSatisfied = !mustLayerMid || hasMid;
 
-    // Unlayered is only a valid option when the forecast permits it.
-    if (!wantsOuterwear) layered.push(base);
+    // Unlayered is only a valid option when the forecast permits it — and when
+    // nothing that has to be worn is still in hand.
+    if (!wantsOuterwear && !mustLayerOuter && midSatisfied) layered.push(base);
 
-    if (allowsMidLayer && canLayerMid) {
+    if (allowsMidLayer && canLayerMid && !mustLayerOuter) {
       for (const mid of mids) layered.push([...base, mid]);
     }
     if (allowsOuterwear) {
       for (const outer of outers) {
-        layered.push([...base, outer]);
-        if (wantsMidLayer && canLayerMid) {
+        if (midSatisfied) layered.push([...base, outer]);
+        if ((wantsMidLayer || mustLayerMid) && canLayerMid) {
           for (const mid of mids) layered.push([...base, mid, outer]);
         }
       }
@@ -193,7 +234,29 @@ export function generateOutfits(
   scored = topBy(scored, BEAM_FINAL, (c) => c.score);
 
   if (includeAccessories) {
-    scored = scored.map((c) => addAccessories(c, slots, ctx, weights, affinities));
+    scored = scored.map((c) => addAccessories(c, slots, ctx, weights, affinities, pinned));
+  }
+
+  /**
+   * THE GUARANTEE.
+   *
+   * Everything above narrows what gets BUILT. This checks what came out, and it
+   * exists because narrowing is the wrong tool for "must contain": every stage
+   * has to remember to respect the pins, and the dress-core defect was one
+   * stage forgetting. A shape mismatch, a new layer branch, a future slot — all
+   * of them fail the same way, and all of them are caught here.
+   *
+   * It is a filter and not an assertion because the honest answer to "build
+   * something around this dress and these trousers" is nothing at all. Callers
+   * already handle an empty list; `pinnedItemIds` is a request, not a promise
+   * that a wardrobe can satisfy it.
+   */
+  if (pinned.length) {
+    const required = pinned.map((g) => g.id);
+    scored = scored.filter((c) => {
+      const has = new Set(c.items.map((g) => g.id));
+      return required.every((id) => has.has(id));
+    });
   }
 
   return selectDiverse(scored, count, diversity);
@@ -210,10 +273,23 @@ function addAccessories(
   ctx: StyleContext,
   weights: StyleWeights,
   affinities: Affinities,
+  pinned: Garment[] = [],
 ): OutfitCandidate {
   let best = candidate;
 
   for (const slot of ['bag', 'accessory'] as const) {
+    // A pinned bag goes on whether or not it flatters the outfit. The score
+    // gate below is the right rule for a suggestion and the wrong one for an
+    // instruction: somebody who pinned a bag is not asking whether it works.
+    const required = pinned.filter((g) => g.slot === slot);
+    if (required.length) {
+      for (const extra of required) {
+        if (best.items.some((g) => g.id === extra.id)) continue;
+        best = scoreOutfit([...best.items, extra], ctx, weights, affinities);
+      }
+      continue;
+    }
+
     for (const extra of slots[slot]) {
       const next = scoreOutfit([...best.items, extra], ctx, weights, affinities);
       if (next.score > best.score + 0.004) best = next;
