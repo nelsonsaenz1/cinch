@@ -260,6 +260,101 @@ export type Database = {
           },
         ]
       }
+      catalog_merchants: {
+        Row: {
+          active: boolean
+          approved_at: string
+          external_id: string
+          feed_locale: string | null
+          id: string
+          name: string
+          network: string
+          sync_error: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          active?: boolean
+          approved_at?: string
+          external_id: string
+          feed_locale?: string | null
+          id?: string
+          name: string
+          network: string
+          sync_error?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          active?: boolean
+          approved_at?: string
+          external_id?: string
+          feed_locale?: string | null
+          id?: string
+          name?: string
+          network?: string
+          sync_error?: string | null
+          synced_at?: string | null
+        }
+        Relationships: []
+      }
+      catalog_products: {
+        Row: {
+          availability: string
+          brand: string | null
+          colour: string | null
+          currency: string | null
+          external_id: string
+          google_category: string | null
+          id: string
+          image_url: string
+          merchant_id: string
+          price_cents: number | null
+          product_url: string
+          slot: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          availability?: string
+          brand?: string | null
+          colour?: string | null
+          currency?: string | null
+          external_id: string
+          google_category?: string | null
+          id?: string
+          image_url: string
+          merchant_id: string
+          price_cents?: number | null
+          product_url: string
+          slot?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          availability?: string
+          brand?: string | null
+          colour?: string | null
+          currency?: string | null
+          external_id?: string
+          google_category?: string | null
+          id?: string
+          image_url?: string
+          merchant_id?: string
+          price_cents?: number | null
+          product_url?: string
+          slot?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_products_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           content: Json
