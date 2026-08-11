@@ -260,6 +260,167 @@ export type Database = {
           },
         ]
       }
+      catalog_lookups: {
+        Row: {
+          cache_key: string
+          expires_at: string
+          fetched_at: string
+          hits: number
+          mode: string
+          product_count: number
+          products: Json | null
+          provider: Database["public"]["Enums"]["catalog_provider"]
+          query: string
+        }
+        Insert: {
+          cache_key: string
+          expires_at: string
+          fetched_at?: string
+          hits?: number
+          mode: string
+          product_count?: number
+          products?: Json | null
+          provider: Database["public"]["Enums"]["catalog_provider"]
+          query: string
+        }
+        Update: {
+          cache_key?: string
+          expires_at?: string
+          fetched_at?: string
+          hits?: number
+          mode?: string
+          product_count?: number
+          products?: Json | null
+          provider?: Database["public"]["Enums"]["catalog_provider"]
+          query?: string
+        }
+        Relationships: []
+      }
+      catalog_merchants: {
+        Row: {
+          active: boolean
+          approved_at: string
+          external_id: string
+          feed_locale: string | null
+          id: string
+          name: string
+          network: string
+          sync_error: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          active?: boolean
+          approved_at?: string
+          external_id: string
+          feed_locale?: string | null
+          id?: string
+          name: string
+          network: string
+          sync_error?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          active?: boolean
+          approved_at?: string
+          external_id?: string
+          feed_locale?: string | null
+          id?: string
+          name?: string
+          network?: string
+          sync_error?: string | null
+          synced_at?: string | null
+        }
+        Relationships: []
+      }
+      catalog_products: {
+        Row: {
+          availability: string
+          brand: string | null
+          colour: string | null
+          currency: string | null
+          external_id: string
+          google_category: string | null
+          id: string
+          image_url: string
+          merchant_id: string
+          price_cents: number | null
+          product_url: string
+          slot: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          availability?: string
+          brand?: string | null
+          colour?: string | null
+          currency?: string | null
+          external_id: string
+          google_category?: string | null
+          id?: string
+          image_url: string
+          merchant_id: string
+          price_cents?: number | null
+          product_url: string
+          slot?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          availability?: string
+          brand?: string | null
+          colour?: string | null
+          currency?: string | null
+          external_id?: string
+          google_category?: string | null
+          id?: string
+          image_url?: string
+          merchant_id?: string
+          price_cents?: number | null
+          product_url?: string
+          slot?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_products_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_quota: {
+        Row: {
+          bill_day: number | null
+          cycle_start: string
+          limit_total: number | null
+          provider: Database["public"]["Enums"]["catalog_provider"]
+          reserve: number
+          updated_at: string
+          used: number
+        }
+        Insert: {
+          bill_day?: number | null
+          cycle_start: string
+          limit_total?: number | null
+          provider: Database["public"]["Enums"]["catalog_provider"]
+          reserve?: number
+          updated_at?: string
+          used?: number
+        }
+        Update: {
+          bill_day?: number | null
+          cycle_start?: string
+          limit_total?: number | null
+          provider?: Database["public"]["Enums"]["catalog_provider"]
+          reserve?: number
+          updated_at?: string
+          used?: number
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: Json
@@ -1440,6 +1601,8 @@ export type Database = {
           onboarding_complete: boolean
           preference_summary: string | null
           preference_summary_updated_at: string | null
+          shoppable: boolean
+          show_where_to_buy: boolean
           sizes: Json
           social_terms_at: string | null
           social_terms_version: number | null
@@ -1476,6 +1639,8 @@ export type Database = {
           onboarding_complete?: boolean
           preference_summary?: string | null
           preference_summary_updated_at?: string | null
+          shoppable?: boolean
+          show_where_to_buy?: boolean
           sizes?: Json
           social_terms_at?: string | null
           social_terms_version?: number | null
@@ -1512,6 +1677,8 @@ export type Database = {
           onboarding_complete?: boolean
           preference_summary?: string | null
           preference_summary_updated_at?: string | null
+          shoppable?: boolean
+          show_where_to_buy?: boolean
           sizes?: Json
           social_terms_at?: string | null
           social_terms_version?: number | null
@@ -2207,6 +2374,7 @@ export type Database = {
           pattern: string | null
           plate_path: string | null
           seasons: string[] | null
+          shoppable: boolean | null
           subcategory: string | null
           thumb_path: string | null
           user_id: string | null
@@ -2227,6 +2395,7 @@ export type Database = {
           pattern?: string | null
           plate_path?: string | null
           seasons?: string[] | null
+          shoppable?: never
           subcategory?: string | null
           thumb_path?: string | null
           user_id?: string | null
@@ -2247,6 +2416,7 @@ export type Database = {
           pattern?: string | null
           plate_path?: string | null
           seasons?: string[] | null
+          shoppable?: never
           subcategory?: string | null
           thumb_path?: string | null
           user_id?: string | null
@@ -2475,6 +2645,10 @@ export type Database = {
       blocked_between: { Args: { p_a: string; p_b: string }; Returns: boolean }
       blocked_term_in: { Args: { p_text: string }; Returns: string }
       can_see_event: { Args: { p_event: string }; Returns: boolean }
+      catalog_cycle_start: {
+        Args: { p_at?: string; p_bill_day: number }
+        Returns: string
+      }
       claim_ai_quota: {
         Args: {
           p_kind: string
@@ -2483,6 +2657,13 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      claim_catalog_request: {
+        Args: {
+          p_exact?: boolean
+          p_provider: Database["public"]["Enums"]["catalog_provider"]
+        }
+        Returns: boolean
       }
       claim_command: {
         Args: { p_kind: string; p_op_id: string; p_user_id: string }
@@ -2606,9 +2787,17 @@ export type Database = {
         Returns: number
       }
       push_sends_prune: { Args: never; Returns: number }
+      read_catalog_cache: {
+        Args: { p_cache_key: string }
+        Returns: {
+          is_hit: boolean
+          products: Json
+        }[]
+      }
       reap_intake_audio: { Args: never; Returns: number }
       request_data_export: { Args: never; Returns: string }
       squeeze_for_moderation: { Args: { p_text: string }; Returns: string }
+      sweep_catalog_cache: { Args: never; Returns: number }
       unwear_outfit_tx: {
         Args: { p_op_id: string; p_outfit_id: string }
         Returns: undefined
@@ -2634,6 +2823,7 @@ export type Database = {
         | "outfit_generation"
         | "stylist_chat"
         | "garment_search"
+      catalog_provider: "datafeedr" | "sovrn" | "amazon"
       event_member_role: "host" | "attendee"
       event_member_state: "invited" | "joined" | "declined" | "removed"
       event_visibility: "invite_only" | "friends"
@@ -2794,6 +2984,7 @@ export const Constants = {
         "stylist_chat",
         "garment_search",
       ],
+      catalog_provider: ["datafeedr", "sovrn", "amazon"],
       event_member_role: ["host", "attendee"],
       event_member_state: ["invited", "joined", "declined", "removed"],
       event_visibility: ["invite_only", "friends"],

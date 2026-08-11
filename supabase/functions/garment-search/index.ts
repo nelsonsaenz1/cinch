@@ -31,6 +31,7 @@ import {
   type Declined,
   type DeclineReason,
 } from './policy.ts';
+import { licensedFirst } from './catalog-store.ts';
 import { openRouterWebProvider } from './provider.ts';
 
 /**
@@ -304,12 +305,21 @@ export default {
       const quotaResponse = await enforceAiQuota(admin, userId, 'garment_search');
       if (quotaResponse) return quotaResponse;
 
-      const provider = openRouterWebProvider({
-        apiKey,
-        model: config?.model_id ?? DEFAULT_MODEL,
-        maxTokens: config?.max_tokens ?? DEFAULT_MAX_TOKENS,
-        params: (config?.params ?? DEFAULT_PARAMS) as Record<string, unknown>,
-      });
+      // Licensed feeds first; the web model path only answers what they could
+      // not, and not at all when GARMENT_SEARCH_ALLOW_UNLICENSED is "false".
+      // The ordering is a legal statement rather than a performance one — see
+      // `catalog.ts`. `licensedFirst` returns the web provider unchanged when
+      // Datafeedr is unconfigured, so a missing secret degrades to prior
+      // behaviour instead of to no search.
+      const provider = licensedFirst(
+        admin,
+        openRouterWebProvider({
+          apiKey,
+          model: config?.model_id ?? DEFAULT_MODEL,
+          maxTokens: config?.max_tokens ?? DEFAULT_MAX_TOKENS,
+          params: (config?.params ?? DEFAULT_PARAMS) as Record<string, unknown>,
+        }),
+      );
 
       let result: Awaited<ReturnType<typeof provider.search>> | null = null;
       let failure: string | null = null;
@@ -894,12 +904,17 @@ async function matchListing(
   const quotaResponse = await enforceAiQuota(admin, userId, 'garment_search');
   if (quotaResponse) return quotaResponse;
 
-  const provider = openRouterWebProvider({
-    apiKey,
-    model: config?.model_id ?? DEFAULT_MODEL,
-    maxTokens: config?.max_tokens ?? DEFAULT_MAX_TOKENS,
-    params: (config?.params ?? DEFAULT_PARAMS) as Record<string, unknown>,
-  });
+  // Same composition as the `search` path, from the same function so the two
+  // cannot drift apart and leave one of them on the unlicensed source.
+  const provider = licensedFirst(
+    admin,
+    openRouterWebProvider({
+      apiKey,
+      model: config?.model_id ?? DEFAULT_MODEL,
+      maxTokens: config?.max_tokens ?? DEFAULT_MAX_TOKENS,
+      params: (config?.params ?? DEFAULT_PARAMS) as Record<string, unknown>,
+    }),
+  );
 
   let result: Awaited<ReturnType<typeof provider.match>> | null = null;
   let failure: string | null = null;

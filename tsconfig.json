@@ -2,6 +2,18 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // `tests/catalog-cache.test.ts` imports the Edge Function's catalogue
+    // provider directly, because the cache state machine it asserts is the one
+    // that decides whether a metered API is affordable — testing a copy of it
+    // would test the copy. Deno requires explicit `.ts` specifiers, so pulling
+    // those modules into this program needs this flag. It is safe with
+    // `--noEmit`, which is the only way `tsc` is invoked here (Metro and Babel
+    // do the actual building), and the typecheck stays clean with it on.
+    //
+    // `supabase/functions` remains in `exclude` below: that governs which files
+    // are program ROOTS. Files reached by an import are still checked, which is
+    // exactly the coverage wanted — the tested module, and nothing else.
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": [
         "./src/*"

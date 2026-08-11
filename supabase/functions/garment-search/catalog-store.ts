@@ -1,0 +1,215 @@
+/**
+ * The plumbing between `catalog.ts` (which knows Datafeedr) and Postgres (which
+ * holds the cache and the quota ledger).
+ *
+ * `catalog.ts` takes its cache and quota as injected functions rather than
+ * reaching for a database client itself, which is what lets it be reasoned about
+ * and tested without a Postgres. This file is the only place that knows both
+ * halves, and it is deliberately small.
+ *
+ * WHY THE PROVIDER IS BUILT HERE RATHER THAN IN index.ts
+ *
+ * `index.ts` constructs a provider in two places (`search` and `match`). If the
+ * composition lived there it would have to be repeated, and the day somebody
+ * changed one and not the other, one of the two paths would silently go back to
+ * the unlicensed source. One function, called twice, cannot drift.
+ */
+
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
+
+import type { Database } from '../_shared/database.types.ts';
+import {
+  type CatalogProduct,
+  datafeedrProvider,
+  firstLicensed,
+  type LookupMode,
+} from './catalog.ts';
+import type { GarmentImageProvider } from './provider.ts';
+
+/**
+ * Datafeedr `source_id` (a NETWORK, per country) to our publisher id on that
+ * network. Not merchant id — see the note on `DatafeedrProduct.source_id`.
+ *
+ * Read from Datafeedr's own `/networks` on 2026-08-11:
+ *   310  Awin US        4  Rakuten US
+ *    10  Awin UK       48  Rakuten Australia
+ *
+ * Awin US and Awin UK share one publisher id because Awin issues one per
+ * publisher account, not per territory. Rakuten is absent on purpose: its `@@@`
+ * takes the 11-character mixed-case tracking id, which only exists once a
+ * partnership is approved, and putting the SID there yields a link that lands on
+ * an error page instead of failing loudly. A missing entry is NOT an error — the
+ * row falls back to `direct_url`, which works and earns nothing, and that is the
+ * whole reason this can ship before any approval lands.
+ */
+function affiliateIdsFromEnv(): Record<number, string> {
+  const ids: Record<number, string> = {};
+
+  const awin = Deno.env.get('AWIN_PUBLISHER_ID');
+  if (awin) {
+    ids[310] = awin; // Awin US
+    ids[10] = awin; // Awin UK
+  }
+
+  const rakuten = Deno.env.get('RAKUTEN_TRACKING_ID');
+  // Guard the shape rather than trusting it. The SID is 4–8 digits and the
+  // tracking id is 11 mixed-case characters; a digits-only value here is the
+  // known confusion, and accepting it would produce links that quietly fail.
+  if (rakuten && /^[A-Za-z0-9]{11}$/.test(rakuten) && /[A-Za-z]/.test(rakuten)) {
+    ids[4] = rakuten; // Rakuten US
+  } else if (rakuten) {
+    console.error(
+      'catalog: RAKUTEN_TRACKING_ID is not an 11-character alphanumeric tracking id ' +
+        '(a 4-8 digit value is the SID, which belongs elsewhere) — ignoring it',
+    );
+  }
+
+  return ids;
+}
+
+/**
+ * The kill switch, read once per request rather than at module load so that
+ * flipping it is a secret change and a cold start, not a redeploy.
+ *
+ * Defaults to TRUE: the licensed feeds do not yet answer every description, and
+ * a user whose garment is not in any feed should still get a picture. Moving it
+ * to `false` is the actual finish line for this work — licensed sources or
+ * nothing — and it should be moved only once feed coverage has been MEASURED
+ * against real descriptions, never guessed at.
+ */
+function allowUnlicensed(): boolean {
+  return (Deno.env.get('GARMENT_SEARCH_ALLOW_UNLICENSED') ?? 'true') !== 'false';
+}
+
+/**
+ * Compose the provider chain: licensed feeds first, the web model path only as
+ * a fallback, and not at all when the switch is off.
+ *
+ * Returns `fallback` unchanged when Datafeedr is not configured, so a missing
+ * secret degrades to exactly today's behaviour rather than to no search at all.
+ */
+export function licensedFirst(
+  admin: SupabaseClient<Database>,
+  fallback: GarmentImageProvider,
+): GarmentImageProvider {
+  const accessId = Deno.env.get('DATAFEEDR_ACCESS_ID');
+  const accessKey = Deno.env.get('DATAFEEDR_ACCESS_KEY');
+
+  if (!accessId || !accessKey) {
+    console.error('catalog: DATAFEEDR_ACCESS_ID/KEY unset — licensed path is off');
+    return fallback;
+  }
+
+  const datafeedr = datafeedrProvider({
+    accessId,
+    accessKey,
+    affiliateIds: affiliateIdsFromEnv(),
+    claimRequest: (exact) => claimRequest(admin, exact),
+    cacheGet: (key) => cacheGet(admin, key),
+    cachePut: (key, mode, query, products, ttlHours) =>
+      cachePut(admin, key, mode, query, products, ttlHours),
+  });
+
+  return firstLicensed([datafeedr], fallback, allowUnlicensed());
+}
+
+/**
+ * Claim one metered request, or refuse it.
+ *
+ * The decision is made in SQL (`claim_catalog_request`) and never reimplemented
+ * here: two concurrent lookups must not both believe they took the last request
+ * of the month, and only a `for update` inside the database can promise that.
+ *
+ * Fails CLOSED. If the ledger cannot be read we refuse the request rather than
+ * spend one — Datafeedr stops dead at the monthly limit with no overage, so the
+ * cost of a wrong "yes" near the cap is that the feature stops working for
+ * everybody until the cycle rolls, while the cost of a wrong "no" is one lookup
+ * falling back to the web path.
+ */
+async function claimRequest(
+  admin: SupabaseClient<Database>,
+  exact: boolean,
+): Promise<boolean> {
+  const { data, error } = await admin.rpc('claim_catalog_request', {
+    p_provider: 'datafeedr',
+    p_exact: exact,
+  });
+
+  if (error) {
+    console.error(`catalog: quota claim failed, refusing request: ${error.message}`);
+    return false;
+  }
+  return data === true;
+}
+
+/**
+ * Three distinct return values, and the distinction is the whole point:
+ *
+ *   undefined  no row, or expired      -> ask the provider
+ *   CatalogProduct[]  a stored answer  -> serve it
+ *   null       a stored MISS           -> serve nothing, and DO NOT ask again
+ *
+ * Collapsing the last two into "falsy" is the single most expensive bug
+ * available in this file. It costs a metered request every time anybody
+ * re-describes a garment no feed carries, and those are precisely the garments
+ * people describe more than once.
+ *
+ * A read error returns `undefined` rather than `null`: degrading to "ask the
+ * provider" spends a request, whereas degrading to "cached miss" would invent a
+ * negative answer the cache never actually held.
+ */
+async function cacheGet(
+  admin: SupabaseClient<Database>,
+  key: string,
+): Promise<CatalogProduct[] | null | undefined> {
+  const { data, error } = await admin.rpc('read_catalog_cache', { p_cache_key: key });
+
+  if (error) {
+    console.error(`catalog: cache read failed: ${error.message}`);
+    return undefined;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.is_hit) return undefined;
+  if (row.products === null) return null; // cached miss, authoritative
+
+  return row.products as unknown as CatalogProduct[];
+}
+
+/**
+ * Store an answer, including a negative one.
+ *
+ * `product_count` is derived here rather than trusted from a caller, because the
+ * table's own CHECK requires it to agree with the payload and a mismatch would
+ * reject the write at the moment we have already paid for the data.
+ */
+async function cachePut(
+  admin: SupabaseClient<Database>,
+  key: string,
+  mode: LookupMode,
+  query: string,
+  products: CatalogProduct[] | null,
+  ttlHours: number,
+): Promise<void> {
+  const now = Date.now();
+  const { error } = await admin.from('catalog_lookups').upsert(
+    {
+      cache_key: key,
+      provider: 'datafeedr',
+      mode,
+      // The column caps at 400 characters and a rejected write would throw away
+      // a request we have already spent.
+      query: query.slice(0, 400),
+      products: products as unknown as Database['public']['Tables']['catalog_lookups']['Insert']['products'],
+      product_count: products?.length ?? 0,
+      fetched_at: new Date(now).toISOString(),
+      expires_at: new Date(now + ttlHours * 3_600_000).toISOString(),
+    },
+    { onConflict: 'cache_key' },
+  );
+
+  // Not thrown. A cache that cannot be written is a cost problem, not a
+  // correctness one — the user still gets their answer from the response we
+  // already hold, and the next lookup simply pays again.
+  if (error) console.error(`catalog: cache write failed: ${error.message}`);
+}
