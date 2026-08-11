@@ -11,6 +11,7 @@ import { stableImageSource } from '@/features/closet/use-image-urls';
 import { useLocalPhoto } from '@/features/ingest/local-photos';
 import { type Item, costPerWear } from '@/schemas/item';
 import { useTheme } from '@/theme/tokens';
+import { MAX_DISPLAY_SCALE } from '@/theme/type-scale';
 
 export type ItemCardProps = {
   item: Item;
@@ -158,7 +159,7 @@ function ItemCardComponent({
               <Text
                 variant="colophon"
                 numberOfLines={1}
-                maxFontSizeMultiplier={1.4}
+                maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
                 style={{ color: theme.ink, fontSize: 9, letterSpacing: 1.1, lineHeight: 12 }}>
                 Needs review
               </Text>
@@ -171,7 +172,7 @@ function ItemCardComponent({
               <Text
                 variant="colophon"
                 numberOfLines={1}
-                maxFontSizeMultiplier={1.4}
+                maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
                 style={{ color: theme.canvas, fontSize: 9, letterSpacing: 1.1, lineHeight: 12 }}>
                 Never worn
               </Text>

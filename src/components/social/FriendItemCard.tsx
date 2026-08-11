@@ -10,6 +10,7 @@ import { wearsLabel } from '@/features/closet/item-name';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import type { FriendItem } from '@/features/social-graph/types';
 import { useTheme } from '@/theme/tokens';
+import { MAX_DISPLAY_SCALE } from '@/theme/type-scale';
 
 /**
  * What a friend's garment is CALLED — the same grammar as `pieceName` in
@@ -102,7 +103,7 @@ function FriendItemCardComponent({ item, imageUri, onPress }: FriendItemCardProp
               <Text
                 variant="colophon"
                 numberOfLines={1}
-                maxFontSizeMultiplier={1.4}
+                maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
                 style={{ color: theme.canvas, fontSize: 9, letterSpacing: 1.1, lineHeight: 12 }}>
                 Borrowable
               </Text>

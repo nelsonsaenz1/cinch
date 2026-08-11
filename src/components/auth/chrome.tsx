@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { MIN_TAP_TARGET } from '@/theme/tokens';
+import { MAX_DISPLAY_SCALE, MAX_TEXT_SCALE } from '@/theme/type-scale';
 
 /**
  * Shared chrome for the Welcome & Sign-in flow (WelcomeSignInAtlas W-01…W-14).
@@ -52,8 +53,10 @@ export const atlas = {
  * The display-class serif takes the tighter cap, everything else the looser
  * one — same numbers as text.tsx and the screen this flow replaced.
  */
-export const MAX_DISPLAY_SCALE = 1.4;
-export const MAX_TEXT_SCALE = 1.8;
+// Re-exported, not declared: these moved to `@/theme/type-scale` so a closet
+// or social component can reach them without importing auth chrome. Existing
+// importers keep working, and this file still uses them itself.
+export { MAX_DISPLAY_SCALE, MAX_TEXT_SCALE };
 
 /**
  * The two legal documents, on the real domain.

@@ -1,6 +1,7 @@
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 
 import { capTrim, leading } from '@/theme/font-metrics';
+import { MAX_DISPLAY_SCALE, MAX_TEXT_SCALE } from '@/theme/type-scale';
 
 type Variant =
   | 'wordmark'
@@ -153,7 +154,7 @@ export function Text({ variant = 'body', className = '', trim = false, style, ..
     <RNText
       // Dynamic Type: content scales with the user's system setting, but is
       // capped so a very large setting cannot destroy the plate grid.
-      maxFontSizeMultiplier={isDisplay ? 1.4 : 1.8}
+      maxFontSizeMultiplier={isDisplay ? MAX_DISPLAY_SCALE : MAX_TEXT_SCALE}
       className={`${variants[variant]} ${className}`}
       style={[
         // Tabular figures stop wear counts, temperatures and prices from

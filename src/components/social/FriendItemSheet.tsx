@@ -11,6 +11,7 @@ import { wearsLabel } from '@/features/closet/item-name';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import type { FriendItem } from '@/features/social-graph/types';
 import { useTheme } from '@/theme/tokens';
+import { MAX_DISPLAY_SCALE } from '@/theme/type-scale';
 
 /**
  * FC-03 — a friend's piece, tapped open. Only the three things a borrower
@@ -126,7 +127,7 @@ export function FriendItemSheet({
               <Text
                 variant="colophon"
                 numberOfLines={1}
-                maxFontSizeMultiplier={1.4}
+                maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
                 style={{ color: theme.canvas, fontSize: 9, letterSpacing: 1.1, lineHeight: 12 }}>
                 Borrowable
               </Text>
