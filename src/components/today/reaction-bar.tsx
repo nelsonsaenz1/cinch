@@ -13,6 +13,8 @@ import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
 import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
+import { reactionPillSpec, slotAccessibility } from './reaction-spec';
+
 /**
  * Dislike reasons, and the feature each one is really about.
  *
@@ -75,22 +77,18 @@ function ReactionPill({
   accessibilityLabel: string;
 }) {
   const theme = useTheme();
-
-  const color = selected ? theme.canvas : tone === 'accent' ? theme.ink : theme.muted;
+  const spec = reactionPillSpec({ tone, selected, disabled });
+  const color = theme[spec.label];
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ selected, disabled: Boolean(disabled) }}
+      accessibilityState={spec.accessibilityState}
       disabled={disabled}
       onPress={onPress}
-      style={{ minHeight: MIN_TAP_TARGET - 4 }}
-      className={[
-        'flex-1 items-center justify-center rounded-md px-3 active:opacity-70',
-        selected ? (tone === 'accent' ? 'bg-accent' : 'bg-ink') : 'border border-rule',
-        disabled && !selected ? 'opacity-40' : '',
-      ].join(' ')}>
+      style={{ minHeight: spec.minHeight }}
+      className={`flex-1 items-center justify-center rounded-md px-3 active:opacity-70 ${spec.ground}`}>
       <Text variant="label" className="font-medium" style={{ color }} numberOfLines={1}>
         {label}
       </Text>
@@ -116,6 +114,8 @@ function PillSlot({ visible, children }: { visible: boolean; children: React.Rea
   }, [shown, visible]);
 
   const style = useAnimatedStyle(() => ({ opacity: shown.value }));
+  // Fade is animated; the a11y half of hiding is not, and must not be.
+  const a11y = slotAccessibility(visible);
 
   return (
     // Layout is an inline style rather than `flex-1 flex-row`: NativeWind's
@@ -123,9 +123,9 @@ function PillSlot({ visible, children }: { visible: boolean; children: React.Rea
     // Reanimated component is silently dropped.
     <Animated.View
       style={[{ flex: 1, flexDirection: 'row' }, style]}
-      pointerEvents={visible ? 'auto' : 'none'}
-      accessibilityElementsHidden={!visible}
-      importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}>
+      pointerEvents={a11y.pointerEvents}
+      accessibilityElementsHidden={a11y.accessibilityElementsHidden}
+      importantForAccessibility={a11y.importantForAccessibility}>
       {children}
     </Animated.View>
   );

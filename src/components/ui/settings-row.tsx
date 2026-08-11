@@ -1,8 +1,9 @@
 import { SymbolView } from 'expo-symbols';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { useTheme } from '@/theme/tokens';
 
+import { settingsRowSpec } from './settings-row-spec';
 import { Text } from './text';
 
 /**
@@ -53,19 +54,19 @@ export function SettingsRow({
   disabled?: boolean;
 }) {
   const theme = useTheme();
-  const inert = disabled || loading;
-  const iconColor = tone === 'accent' ? theme.accent : external ? theme.byline : theme.faint;
+  const spec = settingsRowSpec({ tone, external, loading, disabled });
+  const iconColor = theme[spec.icon];
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ busy: loading, disabled: inert }}
-      accessibilityHint={external ? 'Opens in your browser' : undefined}
+      accessibilityState={spec.accessibilityState}
+      accessibilityHint={spec.accessibilityHint}
       onPress={onPress}
-      disabled={inert}
-      style={{ minHeight: MIN_TAP_TARGET, opacity: disabled ? 0.4 : 1 }}
+      disabled={spec.inert}
+      style={{ minHeight: spec.minHeight, opacity: spec.opacity }}
       className="flex-row items-center justify-between px-4 py-3.5 active:opacity-60">
-      <Text variant="body" className={tone === 'accent' ? 'text-accent' : 'text-ink'}>
+      <Text variant="body" className={spec.labelClass}>
         {label}
       </Text>
       <View className="flex-row items-center gap-2">
@@ -78,7 +79,7 @@ export function SettingsRow({
           <ActivityIndicator size="small" color={iconColor} />
         ) : (
           <SymbolView
-            name={external ? 'arrow.up.right' : 'chevron.right'}
+            name={spec.glyph}
             size={13}
             tintColor={iconColor}
             resizeMode="scaleAspectFit"

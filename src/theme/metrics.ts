@@ -44,3 +44,12 @@ export const shadow = {
  * non-native app.
  */
 export const concentric = (outer: number, inset: number) => Math.max(outer - inset, 0);
+
+/**
+ * Motion. `stagger` is the gap between two elements landing in sequence; the
+ * durations are the app's three speeds and there is deliberately no fourth.
+ */
+export const motion = {
+  stagger: 60,
+  duration: { fast: 140, base: 220, slow: 380 },
+} as const;

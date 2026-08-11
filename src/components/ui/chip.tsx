@@ -3,7 +3,9 @@ import { useCallback } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { useTheme } from '@/theme/tokens';
+
+import { chipSpec } from './chip-spec';
 
 export type ChipProps = {
   label: string;
@@ -86,10 +88,7 @@ export function Chip({
   size = 'compact',
 }: ChipProps) {
   const theme = useTheme();
-  const filled = tone === 'fill';
-  const dashed = tone === 'dashed';
-  const inkGround = selectedGround === 'ink';
-  const tapSized = size === 'tap';
+  const spec = chipSpec({ tone, selected, selectedGround, size, pressable: Boolean(onPress) });
 
   // The selection tick every other control in the app gives a tap. Best-effort:
   // haptics no-op in Low Power Mode, and a failure must never eat the press.
@@ -113,40 +112,9 @@ export function Chip({
       // out to 44pt. A `tap` chip already IS 44, so it takes no vertical slop:
       // in a wrapped row the slop of one line would reach into the next and
       // leave the boundary between them ambiguous.
-      hitSlop={
-        tapSized
-          ? { top: 0, bottom: 0, left: 4, right: 4 }
-          : { top: 8, bottom: 8, left: 4, right: 4 }
-      }
-      style={{
-        minHeight: tapSized ? MIN_TAP_TARGET : MIN_TAP_TARGET - 12,
-        // The one alpha the atlas raises above `rule`, and inline because no
-        // token holds it: a dashed ring at 12% breaks into dots that read as
-        // dirt rather than as an outline. I-01 draws it at warm ink 30%.
-        ...(dashed ? { borderColor: 'rgba(28,26,22,0.30)' } : null),
-      }}
-      className={[
-        // 16px of padding at `tap`, the atlas's own figure — a taller chip with
-        // the tighter 14 would read as a stretched compact one.
- `flex-row items-center justify-center rounded-chip ${tapSized ? 'px-4' : 'px-3.5'}`,
-        onPress ? 'active:opacity-60' : '',
-        filled
-          ? 'bg-sand'
-          : dashed
-            ? 'border border-dashed bg-transparent'
-            : selected
-              ? inkGround
-                ? 'border border-ink bg-ink'
-                : 'border border-accent bg-accent'
-              : // A `tap` chip carries `rule`, not `hairline`. The New Occasion
-                // atlas draws the dress-code row a step STRONGER than the
-                // fields above it (.18 against the fields' .12), and at
-                // `hairline` (.09) the app rendered it weaker — an inversion
-                // of the emphasis the row is supposed to have. `rule` is the
-                // nearest token and the one the plate grammar already uses for
-                // a defined edge; the compact chip is untouched.
- `border bg-transparent ${tapSized ? 'border-rule' : 'border-hairline'}`,
-      ].join(' ')}>
+      hitSlop={spec.hitSlop}
+      style={{ minHeight: spec.minHeight, ...(spec.borderColor ? { borderColor: spec.borderColor } : null) }}
+      className={`flex-row items-center justify-center rounded-chip ${spec.padding} ${spec.ground}`}>
       {/* Inline geometry rather than a class: 9px has no spacing step, and it
           should not get one for a single dot. `mr-1.5` is the atlas's 6px gap. */}
       {swatchHex ? (
@@ -161,7 +129,7 @@ export function Chip({
           lost and the selected chip read muted-on-accent. */}
       <Text
         variant="label"
-        style={{ color: selected ? theme.canvas : dashed ? theme.muted : theme.ink }}>
+        style={{ color: theme[spec.label] }}>
         {label}
       </Text>
       {/* `statSmall`, not `stat` + a `text-label` override: two size utilities
@@ -171,7 +139,7 @@ export function Chip({
         <Text
           variant="statSmall"
           className="ml-1.5"
-          style={{ color: selected ? `${theme.canvas}B3` : theme.muted }}>
+          style={{ color: `${theme[spec.count.token]}${spec.count.alpha ?? ''}` }}>
           {count}
         </Text>
       ) : null}

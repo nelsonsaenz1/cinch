@@ -186,10 +186,6 @@ export const spring = {
 } as const;
 
 
-export const motion = {
-  stagger: 60,
-  duration: { fast: 140, base: 220, slow: 380 },
-} as const;
 
 
 
@@ -209,4 +205,4 @@ export const GUTTER = 20;
  * them without importing this file — this one pulls in React Native, and RN's
  * Flow source cannot be bundled by the node test runner. Audit item 49.
  */
-export { concentric, MIN_TAP_TARGET, PRESSED_OPACITY, shadow } from './metrics';
+export { concentric, MIN_TAP_TARGET, motion, PRESSED_OPACITY, shadow } from './metrics';

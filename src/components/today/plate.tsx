@@ -34,12 +34,18 @@ import { ReactionBar, type ReactionValue } from '@/components/today/reaction-bar
 import { RepeatMark } from '@/components/today/repeat-mark';
 import { Swatch } from '@/components/ui/swatch';
 import { Text } from '@/components/ui/text';
+
+import {
+  CONTACT,
+  landingDelay,
+  paletteDots,
+  TILE_RADIUS,
+} from './plate-spec';
 import { formatTemp } from '@/features/context/weather';
 import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
 import type { StyledOutfit } from '@/features/styling/use-outfits';
-import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
-import { MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
 
 /**
  * Order pieces the way a look is read aloud: outer layers, then core, then
@@ -67,42 +73,9 @@ export const labelFor = (g: Garment) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-/** Concentric with the tile's own corner: soft enough to be a photograph, not a chip. */
-const TILE_RADIUS = 12;
 
-/**
- * The warm contact shadow, one definition for both regimes.
- *
- * On a plate it is derived from the cutout's ALPHA by Skia, so a coat casts a
- * coat-shaped shadow and the piece sits on the paper instead of floating. On a
- * tile iOS derives it from the rounded rect. Same offset and softness either
- * way, so switching regimes does not change the light.
- */
-const CONTACT = { dx: 0, dy: 5, blur: 11, color: 'rgba(28,26,22,0.16)' } as const;
 
-/** The stagger — piece n lands one `motion.stagger` after piece n-1. */
-const landingDelay = (index: number) => 120 + index * motion.stagger;
 
-/**
- * The look's palette, as the swatch dots the footer prints — the real garment
- * colours the engine actually scored, deduplicated and limited to the pieces
- * that carry the outfit (a belt does not claim a colour slot from the coat).
- */
-function paletteDots(pieces: Garment[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const g of pieces) {
-    if (g.visualWeight < 0.1) continue;
-    const c = g.colors[0];
-    if (!c) continue;
-    const hex = oklchToHex(c.oklch);
-    if (seen.has(hex)) continue;
-    seen.add(hex);
-    out.push(hex);
-    if (out.length >= 5) break;
-  }
-  return out;
-}
 
 /** One garment landing into the stack. */
 function Landing({

@@ -4,6 +4,15 @@ import { Pressable, TextInput, View, type TextInputProps } from 'react-native';
 
 import { useTheme } from '@/theme/tokens';
 
+import {
+  CLEAR_FILL,
+  CLEAR_HIT_SLOP,
+  CLEAR_SIZE,
+  INPUT_FONT_SIZE,
+  INPUT_PADDING_Y,
+  showsClear,
+} from './search-field-spec';
+
 export type SearchFieldProps = {
   value: string;
   onChangeText: (text: string) => void;
@@ -18,7 +27,6 @@ export type SearchFieldProps = {
 };
 
 /** The clear control's disc — ink at 18%, a quiet occlusion rather than chrome. */
-const CLEAR_FILL = 'rgba(28,26,22,0.18)';
 
 /**
  * The tray-filled search row — Closet, Lately and Friends each hand-typed
@@ -64,21 +72,21 @@ export function SearchField({
         accessibilityLabel={accessibilityLabel ?? placeholder}
         style={{
           flex: 1,
-          paddingVertical: 11,
+          paddingVertical: INPUT_PADDING_Y,
           fontFamily: 'HelveticaNeue',
-          fontSize: 16,
+          fontSize: INPUT_FONT_SIZE,
           color: theme.ink,
         }}
       />
-      {value.length > 0 ? (
+      {showsClear(value) ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Clear search"
           // 17pt drawn, 44pt touched.
-          hitSlop={14}
+          hitSlop={CLEAR_HIT_SLOP}
           onPress={() => onChangeText('')}
           className="items-center justify-center rounded-full active:opacity-60"
-          style={{ width: 17, height: 17, backgroundColor: CLEAR_FILL }}>
+          style={{ width: CLEAR_SIZE, height: CLEAR_SIZE, backgroundColor: CLEAR_FILL }}>
           <SymbolView
             name="xmark"
             size={8}
