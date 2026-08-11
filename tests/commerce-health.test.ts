@@ -54,7 +54,13 @@ function healthy(): Report {
       rakuten_tracking_id_set: false,
       unlicensed_fallback_on: false,
     },
-    merchants: { allowlisted: 82 },
+    merchants: {
+      allowlisted: 82,
+      owner: 'founder',
+      reviewed_on: '2026-08-11',
+      review_by: '2026-11-11',
+      review_in_days: 92,
+    },
   };
 }
 
@@ -157,6 +163,27 @@ test('claiming a paid link with no joined programme is critical and near-instant
   assert.deepEqual(keys(r), []);
 });
 
+test('the merchant allowlist alerts once its review date passes', () => {
+  // The only alert here that fires on the passage of time rather than on a
+  // measurement — which is the point. Catalogue membership drifts silently: a
+  // merchant leaves a network, a feed empties, and the suggestion row gets
+  // thinner rather than erroring. Nothing else will ever notice.
+  const r = healthy();
+  assert.deepEqual(keys(r), [], 'a list reviewed within the window is not an alert');
+
+  r.merchants.review_in_days = 0;
+  assert.deepEqual(keys(r), [], 'due today is not yet overdue');
+
+  r.merchants.review_in_days = -1;
+  const alerts = evaluate(r);
+  assert.deepEqual(alerts.map((a) => a.key), ['merchant_allowlist_stale']);
+  assert.equal(alerts[0].severity, 'warning');
+  // The owner has to be in the message; an alert nobody is responsible for is
+  // one that gets read and not acted on.
+  assert.match(alerts[0].detail, /founder/);
+  assert.match(alerts[0].detail, /2026-08-11/);
+});
+
 test('every alert key is stable and every cooldown is sane', () => {
   // A key with a number interpolated into it would defeat the cooldown — each
   // tick would look like a brand-new alert and mail again.
@@ -166,9 +193,10 @@ test('every alert key is stable and every cooldown is sane', () => {
   r.quota!.fraction_used = 0.99;
   r.quota!.cache_write_failures = 5;
   r.counters.links_paid = { value: 1, last_at: null, last_detail: null };
+  r.merchants.review_in_days = -40;
 
   const alerts = evaluate(r);
-  assert.ok(alerts.length >= 5);
+  assert.ok(alerts.length >= 6);
   for (const a of alerts) {
     assert.match(a.key, /^[a-z_]+$/, `unstable alert key: ${a.key}`);
     assert.ok(a.cooldownHours >= 1 && a.cooldownHours <= 24, `odd cooldown on ${a.key}`);

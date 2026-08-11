@@ -6,6 +6,27 @@
 
 82 apparel retailers. `gap-shop-match` will name no other shop.
 
+| | |
+| --- | --- |
+| Owner | founder (`ALLOWLIST_OWNER`) |
+| Last reviewed | 2026-08-11 (`ALLOWLIST_REVIEWED_ON`) |
+| Review due | 2026-11-11 (`ALLOWLIST_REVIEW_BY`) |
+
+**The review date is enforced, not aspirational.** `commerce-health` computes
+days-to-due and raises `merchant_allowlist_stale` once it passes — the same
+machinery as the quota alert, so it does not depend on anyone remembering. It is
+the only alert in the system that fires on the passage of time rather than on a
+measurement, because catalogue drift produces no other signal: a merchant leaves
+a network, a feed empties, and the suggestion row gets thinner rather than
+erroring.
+
+Quarterly, because that is roughly the cadence at which affiliate networks
+reshuffle their rosters, and a shorter cycle spends metered requests on a
+question that rarely changes its answer.
+
+Bumping the dates without re-running the rebuild below is possible, and is the
+one thing that would turn this into ceremony.
+
 ## Why a list at all
 
 Datafeedr aggregates 44,027 merchants with no shared taxonomy and no quality

@@ -65,54 +65,99 @@ silent failure and a bill; `>=` and `>` look equally right on the page.
 
 ---
 
-## OPEN: alert mail is not delivering
+## OPEN: alert mail is not delivering — it is the KEY, not the payload
 
-**Status as of 2026-08-11: the alert path is proven to fire and proven not to
-deliver.**
+**Status as of 2026-08-11: the alert path is proven to fire, proven to
+rate-limit, proven to release a failed claim, and proven not to deliver.**
 
-`commerce-health` reaches Resend and gets **HTTP 400 `validation_error`**. The
-request does not appear in the Resend account's own API log at all.
+`commerce-health` reaches Resend and gets **HTTP 400 `validation_error`**, and
+the request does not appear in the Resend account's API log at all.
 
-What is known:
+### The payload is not the problem — measured, not assumed
 
-- `RESEND_API_KEY` is set as an edge-function secret.
-- `mail.cinchstyle.com` is **verified**, sending enabled, on the Resend account
-  the tooling is connected to.
-- The `from` address and payload shape match a send that succeeded from that
-  account (via Auth SMTP) earlier the same day.
+The byte-identical message was sent through the same account by other means and
+was accepted:
 
-The most likely explanation is that **`RESEND_API_KEY` belongs to a different
-Resend account** from the one that owns the verified domain — which would
-produce exactly this: a 400 rejected before it is logged against the account we
-can see.
+| | |
+| --- | --- |
+| Verified | 2026-08-11 |
+| Message ID | `9de8f908-3f48-48a8-b2ed-ab83da251a91` |
+| From | `Cinch <hello@mail.cinchstyle.com>` |
+| Subject | `[warning] Cinch commerce: 1 catalogue cache writes have failed` |
+| Result | accepted, delivered |
 
-**This is a founder action.** I cannot inspect or rotate the key without
-handling the credential.
+Same `from`, same subject, same `text`/`html` shape `commerce-health/mail.ts`
+builds. The sender address, the domain, the recipient and the body are all fine.
 
-To resolve:
+### What that leaves
+
+`RESEND_API_KEY` itself. The connected account holds exactly two keys:
+
+| Key | Created |
+| --- | --- |
+| `Claude Code` | 2026-08-05 20:02 UTC |
+| `Vercel web (inbound)` | 2026-08-11 12:09 UTC |
+
+`RESEND_API_KEY` was set on the Supabase project at **2026-08-11 16:13 UTC** —
+matching neither creation time. So it is either a key from a different Resend
+account, or the `(inbound)` key, whose name suggests it was created for
+*receiving* and would therefore lack **Sending access**. Either produces exactly
+this failure: a 400 rejected before it is attributed to the account we can see.
+
+### Fix (founder — cannot be done from here)
+
+Rotating this requires the key value to pass through a transcript and a shell
+history, which is the one thing Claude does not do with credentials on this
+project. Two steps:
 
 1. In the Resend account that owns `mail.cinchstyle.com`, create an API key with
-   **Sending access** only.
-2. `supabase secrets set RESEND_API_KEY=… --project-ref dugizuswuebrmcmvinmi`
-3. Verify end to end without waiting for a real failure:
+   **Sending access**. Name it something like `cinch-edge-sending` so it is
+   never confused with the inbound key again.
+2. ```bash
+   supabase secrets set RESEND_API_KEY=<the-new-key> --project-ref dugizuswuebrmcmvinmi
+   ```
+
+### Then verify — both sends, in order
+
+The first alert must **arrive**, and the second must be suppressed **by the
+cooldown having already delivered** — not suppressed because it never sent.
 
 ```sql
+-- 1. clean slate, then trip one real condition
+delete from commerce_alert_sends;
 update catalog_quota set cache_write_failures = 1 where provider = 'datafeedr';
-delete from commerce_alert_sends where key = 'cache_write_failures';
+
+-- 2. first fire — expect mail "sent", and an email in the inbox
 select public.commerce_health_invoke();
--- then, a few seconds later:
 select content::text from net._http_response order by id desc limit 1;
--- expect: {"ok":true,"alerts":["cache_write_failures"],"mail":"sent"}
+--    {"ok":true,"alerts":["cache_write_failures"],"mail":"sent"}
+
+-- 3. second fire — expect SUPPRESSED, with the claim still held
+select public.commerce_health_invoke();
+select content::text from net._http_response order by id desc limit 1;
+--    {"ok":true,"alerts":[],"suppressed":1}
+select key, send_count, last_sent_at from commerce_alert_sends;
+--    cache_write_failures | 1 | <a timestamp from step 2, NOT a century ago>
+
+-- 4. put it back
 update catalog_quota set cache_write_failures = 0 where provider = 'datafeedr';
 delete from commerce_alert_sends;
 ```
 
-The `mail` field carries `reason:status:errorName` on failure — the error
-**class** only, never the body, which quotes the request back.
+Step 3 is the one that matters. `send_count = 1` with a recent `last_sent_at`
+means the cooldown is holding a *successful* delivery. If `last_sent_at` is a
+century in the past, `release_commerce_alert` fired — the mail failed and the
+suppression is the wrong kind.
 
-Note that `build-export`'s "your export is ready" mail uses the same key and is
-therefore also not delivering. It refuses politely rather than failing the
-export, so the archive still appears in the app; nobody is told by email.
+Then confirm both appear in Resend's log and record the **timestamp and message
+IDs** in the table above. Never the key.
+
+### And build-export
+
+The same key backs "your export is ready". It refuses politely rather than
+failing the export, so the archive still appears in the app and nobody is told by
+email. After rotating, trigger an export from the app and confirm that mail
+arrives too — same rule: record the message ID here, not the key.
 
 ## Related
 

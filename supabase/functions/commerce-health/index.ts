@@ -3,7 +3,12 @@ import { createClient } from 'npm:@supabase/supabase-js@^2';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
-import { ALLOWED_MERCHANTS } from '../_shared/merchants.ts';
+import {
+  ALLOWED_MERCHANTS,
+  ALLOWLIST_OWNER,
+  ALLOWLIST_REVIEW_BY,
+  ALLOWLIST_REVIEWED_ON,
+} from '../_shared/merchants.ts';
 
 import { evaluate, type Report, type Alert } from './thresholds.ts';
 import { alertMail } from './mail.ts';
@@ -97,6 +102,14 @@ export default {
       },
       merchants: {
         allowlisted: ALLOWED_MERCHANTS.length,
+        owner: ALLOWLIST_OWNER,
+        reviewed_on: ALLOWLIST_REVIEWED_ON,
+        review_by: ALLOWLIST_REVIEW_BY,
+        // Whole days, floored, so "0" means the review is due today rather
+        // than a few hours either side of it.
+        review_in_days: Math.floor(
+          (Date.parse(`${ALLOWLIST_REVIEW_BY}T00:00:00Z`) - Date.now()) / 86_400_000,
+        ),
       },
     };
 

@@ -29,6 +29,9 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { admitProduct, type RelevanceSlot } from '../supabase/functions/gap-shop-match/relevance.ts';
+import { SLOT_QUERY } from '../supabase/functions/gap-shop-match/policy.ts';
+
+type SlotRecipe = { word: string; verified: boolean } | null;
 
 type FixtureRow = { id: number; name: string; merchant: string; brand: string | null };
 
@@ -297,10 +300,88 @@ test('a verified slot can still fill three merchants', () => {
   );
 });
 
-test('every slot policy.ts marks verified is covered by this fixture', () => {
-  // Read as TEXT rather than imported so this test keeps working whichever
-  // module the table lives in. This is the seam that makes `verified: true`
-  // mean "a fixture backs it" instead of "somebody typed true".
+// ---------------------------------------------------------------------------
+// The gate itself. `verified: true` must mean "a fixture backs this", and the
+// AUTHORITATIVE check is the exported table run against the real fixture rows —
+// not a regex over the source. The text scan below is kept as a second,
+// independent tripwire, because the two fail in different ways: an import can
+// be satisfied by a table that has been renamed or re-exported from somewhere
+// unexpected, and a regex cannot be satisfied at all if the shape changes.
+// ---------------------------------------------------------------------------
+
+test('every verified slot is backed by fixture rows that actually admit products', () => {
+  // AUTHORITATIVE. Imports the real exported table and runs the real filter
+  // over the real recorded rows. A slot cannot be switched on unless the
+  // catalogue, as recorded, genuinely answers for it.
+  const verified = (Object.entries(SLOT_QUERY) as [string, SlotRecipe][]).flatMap(
+    ([slot, recipe]) => (recipe?.verified ? [[slot, recipe] as const] : []),
+  );
+
+  assert.ok(verified.length > 0, 'no slots are verified — has SLOT_QUERY changed shape?');
+
+  const problems: string[] = [];
+  for (const [slot, recipe] of verified) {
+    const s = slot as RelevanceSlot;
+
+    if (NOUN[s] === undefined) {
+      problems.push(`${slot}: verified but this fixture has no noun for it`);
+      continue;
+    }
+    if (recipe.word !== NOUN[s]) {
+      problems.push(`${slot}: policy searches '${recipe.word}', fixture recorded '${NOUN[s]}'`);
+    }
+
+    const covered = cells().filter(([, cellSlot]) => cellSlot === s);
+    if (covered.length < 3) {
+      problems.push(`${slot}: verified with only ${covered.length} fixture cell(s)`);
+      continue;
+    }
+
+    // The part a coverage count cannot express: the recorded rows must survive
+    // the filter. A slot with three fixture cells that all admit nothing is
+    // exactly as unshippable as one with no fixture at all.
+    const totalAdmitted = covered.reduce(
+      (n, [, cellSlot, colour, rows]) => n + admitted(cellSlot, colour, rows).length,
+      0,
+    );
+    if (totalAdmitted === 0) {
+      problems.push(`${slot}: verified but no recorded row survives the filter`);
+    }
+  }
+
+  assert.deepEqual(problems, []);
+});
+
+test('no slot is verified without a pinned measurement', () => {
+  // AUTHORITATIVE. The counts above are what make a change deliberate; a slot
+  // that is on but unpinned could drift to zero without failing anything.
+  const missing = (Object.entries(SLOT_QUERY) as [string, SlotRecipe][])
+    .filter(([, recipe]) => recipe?.verified)
+    .flatMap(([slot]) =>
+      Object.keys(fixture)
+        .filter((k) => k.startsWith(`${slot}|`))
+        .filter((k) => EXPECTED[k] === undefined)
+        .map((k) => `${k}: verified but unpinned`),
+    );
+  assert.deepEqual(missing, []);
+});
+
+test('the fixture covers every slot the policy defines, verified or not', () => {
+  // Catches the reverse mistake: a slot added to SLOT_QUERY as `verified: false`
+  // and switched on later by someone who never records rows for it. `other` is
+  // null by design and is the only permitted gap.
+  const unrecorded = Object.entries(SLOT_QUERY)
+    .filter(([slot, recipe]) => recipe !== null && !Object.keys(fixture).some((k) => k.startsWith(`${slot}|`)))
+    .map(([slot]) => slot);
+  assert.deepEqual(unrecorded, []);
+});
+
+test('the source text agrees with the imported table', () => {
+  // SECONDARY TRIPWIRE, not the enforcement — the two tests above are. This one
+  // reads the file as text, so it fails on things an import cannot see: the
+  // table being re-exported from somewhere else, a second SLOT_QUERY shadowing
+  // this one, or the literal being replaced by something computed at runtime.
+  // If it ever disagrees with the import, trust the import and fix this.
   const source = readFileSync('supabase/functions/gap-shop-match/policy.ts', 'utf8');
   const table = source.slice(
     source.indexOf('const SLOT_QUERY'),

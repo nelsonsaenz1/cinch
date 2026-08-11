@@ -47,7 +47,14 @@ export type Report = {
     rakuten_tracking_id_set: boolean;
     unlicensed_fallback_on: boolean;
   };
-  merchants: { allowlisted: number };
+  merchants: {
+    allowlisted: number;
+    owner: string;
+    reviewed_on: string;
+    review_by: string;
+    /** Days until `review_by`; negative once it has passed. */
+    review_in_days: number;
+  };
 };
 
 export type Alert = {
@@ -183,6 +190,28 @@ export function evaluate(report: Report): Alert[] {
         `${report.counters.provider_failure?.last_detail ?? 'unknown'} at ` +
         `${report.counters.provider_failure?.last_at ?? 'unknown'}.`,
       cooldownHours: 6,
+    });
+  }
+
+  // ── The merchant allowlist has gone stale ────────────────────────────────
+  //
+  // Catalogue membership drifts silently: a merchant leaves a network, a feed
+  // empties, and the suggestion row gets thinner rather than erroring. This is
+  // the only alert here that fires on the passage of time rather than on a
+  // measurement, which is the point — nothing else will ever notice.
+  if (report.merchants.review_in_days < 0) {
+    alerts.push({
+      key: 'merchant_allowlist_stale',
+      severity: 'warning',
+      title: `The merchant allowlist is ${Math.abs(report.merchants.review_in_days)} days overdue for review`,
+      detail:
+        `${report.merchants.allowlisted} merchants, last checked ` +
+        `${report.merchants.reviewed_on}, review was due ${report.merchants.review_by}. ` +
+        'Owner: ' + report.merchants.owner + '. Re-run the intersection in ' +
+        'docs/commerce/merchant-allowlist.md and bump ALLOWLIST_REVIEWED_ON / ' +
+        'ALLOWLIST_REVIEW_BY. Bumping the dates without re-running the check is ' +
+        'the one thing that makes this ceremonial.',
+      cooldownHours: 24,
     });
   }
 

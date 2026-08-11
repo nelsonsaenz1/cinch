@@ -46,6 +46,32 @@
  * so the list can be regenerated rather than guessed at.
  */
 
+/**
+ * WHO OWNS THIS LIST, AND WHEN IT GOES STALE
+ *
+ * Catalogue membership drifts and does so silently. A merchant leaves a
+ * network, a programme is retired, a feed empties — and none of it errors. The
+ * suggestion row simply gets thinner, which is indistinguishable from a rare
+ * garment.
+ *
+ * So the list carries an expiry. `commerce-health` reports `review_overdue`
+ * against `REVIEW_BY` and alerts on it, which means the review is enforced by
+ * the same machinery as the quota rather than by anyone remembering. Bumping
+ * the date without re-running the check in `docs/commerce/merchant-allowlist.md`
+ * is possible and is the one thing that would make this ceremonial.
+ *
+ * Quarterly, because that is roughly the cadence at which affiliate networks
+ * reshuffle their rosters, and because a shorter cycle spends metered requests
+ * on a question that rarely changes its answer.
+ */
+export const ALLOWLIST_OWNER = 'founder';
+
+/** When this list was last checked against the live catalogue. */
+export const ALLOWLIST_REVIEWED_ON = '2026-08-11';
+
+/** After this, `commerce-health` starts saying so. */
+export const ALLOWLIST_REVIEW_BY = '2026-11-11';
+
 export type AllowedMerchant = {
   /** Datafeedr `merchant_id`. Stable per merchant per network. */
   id: number;
