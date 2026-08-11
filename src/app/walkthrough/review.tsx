@@ -65,16 +65,24 @@ export default function WalkthroughReviewScreen() {
 
   /**
    * The end of the procession. `commit_intake_session` stops cleanly at the
-   * plan ceiling and reports what it held back, which is what makes V-12 a
+   * plan ceiling and reports what it held back, which is what makes M-07 a
    * designed screen rather than a check-violation — see the directive's §5.2 on
    * why drafts are staged instead of written straight to `items`.
+   *
+   * A `held` above zero routes to `/walkthrough/ceiling` — M-07's explainer and
+   * M-08's "keep ten for now" picker — instead of straight to `/reveal`. Reveal
+   * has no opinion about which pieces are awake; that choice belongs to the
+   * ceiling screen, and by the time it hands off, the choice has already been
+   * made (see `resolveIntakeCeiling`).
    */
   const commit = useCallback(async () => {
     if (!sessionId) return;
     setCommitting(true);
     try {
       const { committed, held } = await commitIntake(sessionId, procession.confirmed);
-      router.replace(held > 0 ? `/reveal?held=${held}&kept=${committed}` : '/reveal');
+      router.replace(
+        held > 0 ? `/walkthrough/ceiling?session=${sessionId}&committed=${committed}` : '/reveal',
+      );
     } finally {
       setCommitting(false);
     }

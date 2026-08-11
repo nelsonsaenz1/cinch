@@ -928,6 +928,7 @@ export type Database = {
           formality_score: number | null
           id: string
           image_path: string | null
+          intake_draft_id: string | null
           intake_method: string
           is_archived: boolean
           is_for_sale: boolean
@@ -974,6 +975,7 @@ export type Database = {
           formality_score?: number | null
           id?: string
           image_path?: string | null
+          intake_draft_id?: string | null
           intake_method?: string
           is_archived?: boolean
           is_for_sale?: boolean
@@ -1020,6 +1022,7 @@ export type Database = {
           formality_score?: number | null
           id?: string
           image_path?: string | null
+          intake_draft_id?: string | null
           intake_method?: string
           is_archived?: boolean
           is_for_sale?: boolean
@@ -1050,7 +1053,15 @@ export type Database = {
           water_resistant?: boolean
           wear_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "items_intake_draft_id_fkey"
+            columns: ["intake_draft_id"]
+            isOneToOne: false
+            referencedRelation: "intake_drafts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       moderation_terms: {
         Row: {
@@ -2481,7 +2492,7 @@ export type Database = {
         }[]
       }
       commit_intake_session: {
-        Args: { p_session_id: string }
+        Args: { p_draft_ids?: string[]; p_session_id: string }
         Returns: {
           committed: number
           held: number

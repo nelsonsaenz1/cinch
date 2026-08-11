@@ -68,15 +68,24 @@ export type CommitResult = { committed: number; held: number };
  * and the plan ceiling fires inside it exactly once. A `held` above zero is not
  * an error — it is M-07, and the drafts it refers to are still on the table for
  * M-08's picker to offer.
+ *
+ * `resolveDraftIds`, when passed, switches the RPC into resolve mode: instead
+ * of committing every confirmed draft in spoken order, it removes any
+ * currently-active item this session produced that isn't in the list and adds
+ * any listed draft that isn't an item yet. This is M-08's "keep ten for now"
+ * confirming its picker — see `commit_intake_session`'s own comment for why
+ * the delete happens before the insert.
  */
 export async function commitIntake(
   sessionId: string,
   drafts: IntakeDraftRow[],
+  resolveDraftIds?: string[],
 ): Promise<CommitResult> {
   await resolveDraftColours(drafts);
 
   const { data, error } = await supabase.rpc('commit_intake_session', {
     p_session_id: sessionId,
+    p_draft_ids: resolveDraftIds ?? undefined,
   });
   if (error) throw error;
 
@@ -87,6 +96,20 @@ export async function commitIntake(
 
   intakeCommitted(result.committed, result.held);
   return result;
+}
+
+/**
+ * M-08 confirming its picker. A thin, named wrapper over `commitIntake`'s
+ * resolve mode so the call site in the ceiling screen reads as what it is,
+ * rather than a bare `commitIntake` call whose third argument does something
+ * different from its first commit.
+ */
+export async function resolveIntakeCeiling(
+  sessionId: string,
+  allConfirmed: IntakeDraftRow[],
+  keptDraftIds: string[],
+): Promise<CommitResult> {
+  return commitIntake(sessionId, allConfirmed, keptDraftIds);
 }
 
 /**
