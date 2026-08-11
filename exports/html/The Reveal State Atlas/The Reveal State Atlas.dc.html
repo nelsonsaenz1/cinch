@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#EFEBE1; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:#1C1A16; -webkit-font-smoothing:antialiased; }
+  a { color:#6E2B2B; } a:hover { color:#8A3A35; }
+  .frame { scrollbar-width:none; -ms-overflow-style:none; }
+  .frame::-webkit-scrollbar { width:0; height:0; }
+</style>
+</helmet>
+
+<div style="padding:56px 64px 96px;max-width:3400px">
+
+  <div style="max-width:860px;margin-bottom:56px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Cinch &middot; Directive 2 &middot; the reveal &middot; build reference</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:52px;line-height:1.08;margin-top:10px">The Reveal state atlas</div>
+    <div style="font-size:16px;line-height:1.55;color:#6B665C;margin-top:14px">The tenth piece lands and the app says what it can now do: <span style="color:#1C1A16">ten pieces, fourteen outfits</span>, followed by the first real outfit built from clothes photographed minutes ago. Both numbers come from the counting function, not from copy. This screen never mentions upgrading &mdash; asking for money on top of a gift is how a good moment turns cheap.</div>
+  </div>
+
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">01 &middot; The sequence</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:32px;margin-top:6px">Three beats, one screen</div>
+    <div style="font-size:14px;color:#6B665C;margin-top:8px;max-width:860px">The reveal is not a modal that appears and is dismissed. It is one surface that resolves in three beats and then becomes the first Today screen the user ever sees.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:stretch;margin-bottom:72px;max-width:1660px">
+    <div style="flex:1 1 300px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-family:ui-monospace,monospace;font-size:11px;color:#8A8578">beat 1 &middot; arrival</div>
+      <div style="font-family:'Instrument Serif',serif;font-size:24px;margin-top:6px">The tenth settles</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">The last garment finishes processing and joins the other nine. The count is not known yet &mdash; the engine is still building &mdash; and the screen does not pretend otherwise or show a spinner where a number will be.</div>
+    </div>
+    <div style="flex:1 1 300px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-family:ui-monospace,monospace;font-size:11px;color:#8A8578">beat 2 &middot; the count</div>
+      <div style="font-family:'Instrument Serif',serif;font-size:24px;margin-top:6px">Ten pieces. Fourteen outfits.</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">Set in the serif at the largest size anywhere in the app. The number is whatever the engine will actually suggest &mdash; never padded with combinations it would refuse. If the honest count is nine, the screen says nine.</div>
+    </div>
+    <div style="flex:1 1 300px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-family:ui-monospace,monospace;font-size:11px;color:#8A8578">beat 3 &middot; the proof</div>
+      <div style="font-family:'Instrument Serif',serif;font-size:24px;margin-top:6px">One of them, laid out</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">A claim followed immediately by evidence: a real outfit, from their garments, with the colophon the rest of the app uses. The proof is what makes the number credible.</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">02 &middot; The states</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:32px;margin-top:6px">Five arrivals</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;margin-bottom:72px">
+
+    <!-- R-01 -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">R-01</span><span style="font-size:13px;font-weight:500">Arrival &mdash; the count is not known yet</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px">
+          <span style="font-weight:600;font-size:15px;color:#FBFAF6">9:41</span>
+          <svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#FBFAF6"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#FBFAF6"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#FBFAF6"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#FBFAF6"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(251,250,246,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#FBFAF6"></rect></svg>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 28px">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <div style="height:88px;border-radius:10px;background:#26241F;overflow:hidden"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box;opacity:.55" alt=""></div>
+            <div style="height:88px;border-radius:10px;background:#26241F;overflow:hidden"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box;opacity:.55" alt=""></div>
+            <div style="height:88px;border-radius:10px;background:#26241F;overflow:hidden"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box;opacity:.55" alt=""></div>
+            <div style="height:88px;border-radius:10px;background:#26241F;overflow:hidden"><img src="assets/garments/beige-corduroy-skirt.jpg" style="width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box;opacity:.55" alt=""></div>
+            <div style="height:88px;border-radius:10px;background:#26241F;overflow:hidden"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box;opacity:.55" alt=""></div>
+            <div style="height:88px;border-radius:10px;background:#26241F;overflow:hidden"><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:contain;padding:4px;box-sizing:border-box;opacity:.55" alt=""></div>
+          </div>
+          <div style="margin-top:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <div style="height:112px;border-radius:10px;background:#FBFAF6;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.45)"><img src="assets/garments/cognac-leather-tote.jpg" style="width:100%;height:100%;object-fit:contain;padding:6px;box-sizing:border-box" alt=""></div>
+            <div></div>
+            <div></div>
+          </div>
+          <div style="margin-top:22px;font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:rgba(251,250,246,.55)">Ten of ten</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:38px;line-height:1.1;color:#FBFAF6;margin-top:8px">That&rsquo;s your closet.</div>
+          <div style="margin-top:10px;font-size:15px;line-height:1.5;color:rgba(251,250,246,.66)">Working out what it makes&hellip;</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px">The tenth piece is the only one at full brightness and full size; the nine it joins are dimmed behind it. No number appears anywhere on this beat &mdash; not greyed, not as a skeleton &mdash; because a placeholder where a computed fact will go is the first small lie.</div>
+    </div>
+
+    <!-- R-02 -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">R-02</span><span style="font-size:13px;font-weight:500">The count revealed</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px">
+          <span style="font-weight:600;font-size:15px;color:#FBFAF6">9:41</span>
+          <svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#FBFAF6"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#FBFAF6"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#FBFAF6"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#FBFAF6"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(251,250,246,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#FBFAF6"></rect></svg>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 28px">
+          <div style="font-family:'Instrument Serif',serif;font-size:64px;line-height:1.02;color:#FBFAF6">Ten pieces.<br>Fourteen outfits.</div>
+          <div style="margin-top:20px;font-size:16px;line-height:1.55;color:rgba(251,250,246,.7)">Twelve from your tops, bottoms and shoes. Two more from the dress. Counted from what you photographed, not an estimate.</div>
+          <div style="margin-top:24px;display:flex;flex-wrap:wrap;gap:6px">
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">3 tops</span>
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">2 bottoms</span>
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">1 dress</span>
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">2 shoes</span>
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">1 coat</span>
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">1 bag</span>
+          </div>
+        </div>
+        <div style="padding:0 28px 40px">
+          <div style="font-size:13px;color:rgba(251,250,246,.5)">Scroll for the first one &darr;</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px">The largest type in the app, and the only place it appears at this size. The line under it shows the working, which is what separates a computed fact from a marketing number. The composition chips are the user&rsquo;s actual slot tally, so a substituted closet reads differently here without any special-casing.</div>
+    </div>
+
+    <!-- R-03 -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">R-03</span><span style="font-size:13px;font-weight:500">The first outfit</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px">
+          <span style="font-weight:600;font-size:15px;color:#1C1A16">9:41</span>
+          <svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.35)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg>
+        </div>
+        <div style="padding:12px 24px 0">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#8A8578">Plate 01 &middot; the first one</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:34px;line-height:1.08;margin-top:6px">Linen and charcoal</div>
+        </div>
+        <div style="flex:1;min-height:0;margin:14px 24px 0;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:18px;padding:14px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px">
+          <div style="background:#F4F1E9;border-radius:12px;overflow:hidden"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:contain;padding:8px;box-sizing:border-box" alt=""></div>
+          <div style="background:#F4F1E9;border-radius:12px;overflow:hidden"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:contain;padding:8px;box-sizing:border-box" alt=""></div>
+          <div style="background:#F4F1E9;border-radius:12px;overflow:hidden"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:contain;padding:8px;box-sizing:border-box" alt=""></div>
+          <div style="background:#F4F1E9;border-radius:12px;overflow:hidden"><img src="assets/garments/cognac-leather-tote.jpg" style="width:100%;height:100%;object-fit:contain;padding:8px;box-sizing:border-box" alt=""></div>
+        </div>
+        <div style="padding:14px 24px 0;font-size:15px;line-height:1.5;color:#6B665C">Built for 14&deg; and dry. The linen reads warm against the charcoal, and the loafers keep it from being formal.</div>
+        <div style="margin:14px 24px 0;padding-top:12px;border-top:1px solid rgba(28,26,22,.14);display:flex;flex-wrap:wrap;gap:14px;font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.4px;color:#8A8578">
+          <span>14&deg; DRY</span><span>4 PIECES</span><span>1 OF 14</span><span>NEVER WORN</span>
+        </div>
+        <div style="padding:16px 24px 34px;display:flex;gap:10px">
+          <div style="flex:1;background:#6E2B2B;color:#FBFAF6;border-radius:12px;text-align:center;padding:14px 0;font-size:16px;font-weight:500">I&rsquo;ll wear this</div>
+          <div style="flex:none;border:1px solid rgba(28,26,22,.25);border-radius:12px;padding:14px 18px;font-size:16px;font-weight:500">Next</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px">Presented exactly as every later outfit is presented &mdash; same plate, same colophon &mdash; so the first one sets the grammar rather than being a special screen. &ldquo;1 of 14&rdquo; ties the proof back to the count without repeating the claim.</div>
+    </div>
+
+    <!-- R-04 -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">R-04</span><span style="font-size:13px;font-weight:500">A closet that deviated &mdash; different number, same dignity</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px">
+          <span style="font-weight:600;font-size:15px;color:#FBFAF6">9:41</span>
+          <svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#FBFAF6"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#FBFAF6"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#FBFAF6"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#FBFAF6"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(251,250,246,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#FBFAF6"></rect></svg>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 28px">
+          <div style="font-family:'Instrument Serif',serif;font-size:64px;line-height:1.02;color:#FBFAF6">Ten pieces.<br>Sixteen outfits.</div>
+          <div style="margin-top:20px;font-size:16px;line-height:1.55;color:rgba(251,250,246,.7)">You swapped the dress for a fourth top, so the maths changed: four tops across two bottoms and two pairs of shoes.</div>
+          <div style="margin-top:24px;display:flex;flex-wrap:wrap;gap:6px">
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">4 tops</span>
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">2 bottoms</span>
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">2 shoes</span>
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">1 coat</span>
+            <span style="font-family:ui-monospace,monospace;font-size:12px;color:rgba(251,250,246,.55);border:1px solid rgba(251,250,246,.22);border-radius:6px;padding:4px 8px">1 bag</span>
+          </div>
+        </div>
+        <div style="padding:0 28px 40px"><div style="font-size:13px;color:rgba(251,250,246,.5)">Scroll for the first one &darr;</div></div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px">Sixteen is more than fourteen and the screen does not apologise for it or explain it away &mdash; the substituted closet genuinely produces more combinations, and pretending otherwise to protect the template would be the exact dishonesty the product is built against. The second line names the substitution so the number is traceable.</div>
+    </div>
+
+    <!-- R-05 -->
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">R-05</span><span style="font-size:13px;font-weight:500">The honest failure &mdash; nothing to build with</span></div>
+      <div class="frame" style="width:393px;height:852px;display:flex;flex-direction:column;background:#1C1A16;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.16)">
+        <div style="height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px 34px">
+          <span style="font-weight:600;font-size:15px;color:#FBFAF6">9:41</span>
+          <svg width="68" height="12" viewBox="0 0 68 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#FBFAF6"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#FBFAF6"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#FBFAF6"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#FBFAF6"></rect><rect x="44" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(251,250,246,.45)" fill="none"></rect><rect x="46" y="3.5" width="14" height="5" rx="1.2" fill="#FBFAF6"></rect></svg>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 28px">
+          <div style="font-family:'Instrument Serif',serif;font-size:52px;line-height:1.05;color:#FBFAF6">Ten pieces.<br>No outfits yet.</div>
+          <div style="margin-top:20px;font-size:16px;line-height:1.55;color:rgba(251,250,246,.7)">Everything you photographed goes on top. Cinch won&rsquo;t put a look together without something to wear with it &mdash; one pair of shoes and one bottom is all it needs.</div>
+          <div style="margin-top:22px;border-top:1px solid rgba(251,250,246,.16);padding-top:16px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;font-size:15px;color:#FBFAF6"><span>Tops</span><span style="font-family:ui-monospace,monospace;color:rgba(251,250,246,.6)">10</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:15px;color:#FBFAF6"><span>Bottoms</span><span style="font-family:ui-monospace,monospace;color:#C98A6B">0 &mdash; needed</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:15px;color:#FBFAF6"><span>Shoes</span><span style="font-family:ui-monospace,monospace;color:#C98A6B">0 &mdash; needed</span></div>
+          </div>
+        </div>
+        <div style="padding:0 28px 40px">
+          <div style="background:#FBFAF6;color:#1C1A16;border-radius:12px;text-align:center;padding:15px 0;font-size:16px;font-weight:500">Swap two tops for a bottom and shoes</div>
+          <div style="margin-top:10px;text-align:center;font-size:15px;color:rgba(251,250,246,.6)">Or keep them &mdash; nothing is deleted</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.5;color:#6B665C;max-width:393px">Zero is a legitimate count and gets the same typographic treatment as fourteen. The screen names exactly what is missing and offers the smallest fix that produces a real outfit &mdash; it does not manufacture a poor look to have something to show, and it does not blame the user for the ten they chose.</div>
+    </div>
+
+  </div>
+
+  <div style="margin-bottom:20px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">03 &middot; Rules for the build</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:32px;margin-top:6px">What must stay true</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:stretch;max-width:1660px">
+    <div style="flex:1 1 300px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-family:'Instrument Serif',serif;font-size:22px">No upsell on this screen</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">No price, no trial, no &ldquo;imagine with thirty&rdquo;. The gap feed and the wall exist and can wait.</div>
+    </div>
+    <div style="flex:1 1 300px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-family:'Instrument Serif',serif;font-size:22px">The count is suggestible outfits</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">Combinations the engine would refuse are not counted. The number on the reveal and the number of plates the user can actually reach must never diverge.</div>
+    </div>
+    <div style="flex:1 1 300px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-family:'Instrument Serif',serif;font-size:22px">Show the working</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">Every count is followed by the sentence that derives it. A number with no derivation is indistinguishable from a slogan.</div>
+    </div>
+    <div style="flex:1 1 300px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 24px">
+      <div style="font-family:'Instrument Serif',serif;font-size:22px">It ends in Today</div>
+      <div style="margin-top:8px;font-size:14px;line-height:1.55;color:#6B665C">The reveal is not dismissed &mdash; it becomes the first Today screen, so the app the user lands in is the app they were just shown.</div>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+</body>
+</html>

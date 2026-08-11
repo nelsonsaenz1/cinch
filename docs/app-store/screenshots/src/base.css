@@ -72,7 +72,10 @@ body { font-family: var(--grot); -webkit-font-smoothing: antialiased; }
   margin-top: 44px;
   font-family: var(--serif);
   font-weight: 400;
-  font-size: 104px;
+  /* v2 §3.1 — Apple Vision needs >=5% of frame height (140px on 2796) to read
+   * reliably, which is also a fair proxy for legibility at search-thumbnail
+   * scale. v1 shipped 104px = 3.72%. Never below 140. */
+  font-size: 148px;
   line-height: 1.1;
   letter-spacing: -1px;
   text-align: center;

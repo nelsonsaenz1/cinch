@@ -70,3 +70,12 @@ handoff/
 # not need them, and MANIFEST.md (tracked) is the part worth keeping.
 /design-refs/html/
 /design-refs/png/
+
+# marketing binaries — keep the register and specs, ignore the rest
+marketing/**
+!marketing/**/
+!marketing/**/*.md
+!marketing/**/*.csv
+
+# Nested agent worktrees — full repo checkouts, never committable.
+.worktrees/

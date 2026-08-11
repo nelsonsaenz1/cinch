@@ -2,7 +2,8 @@
   "version": "5",
   "specifiers": {
     "npm:@supabase/server@1": "1.4.1_@supabase+supabase-js@2.112.0",
-    "npm:@supabase/supabase-js@2": "2.112.0"
+    "npm:@supabase/supabase-js@2": "2.112.0",
+    "npm:fflate@~0.8.2": "0.8.3"
   },
   "npm": {
     "@supabase/auth-js@2.112.0": {
@@ -57,6 +58,9 @@
         "@supabase/storage-js"
       ]
     },
+    "fflate@0.8.3": {
+      "integrity": "sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA=="
+    },
     "iceberg-js@0.8.1": {
       "integrity": "sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA=="
     },
@@ -84,9 +88,11 @@
         "npm:eslint-config-expo@~57.0.1",
         "npm:eslint@9",
         "npm:expo-apple-authentication@~57.0.1",
+        "npm:expo-audio@~57.0.3",
         "npm:expo-build-properties@~57.0.8",
         "npm:expo-calendar@~57.0.1",
         "npm:expo-camera@~57.0.3",
+        "npm:expo-clipboard@~57.0.1",
         "npm:expo-constants@~57.0.8",
         "npm:expo-dev-client@~57.0.10",
         "npm:expo-device@~57.0.1",

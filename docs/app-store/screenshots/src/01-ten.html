@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cinch — The Ten</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* TenGrid: 3 columns, GAP 8, TILE_ASPECT 80/112.33 (landscape, not square).
+   * Gutter 20 each side of the 430 logical frame -> 390 measure.
+   * tile = (390 - 8*2)/3 = 124.67 ; height = round(124.67 * 0.7122) = 89 */
+  .tengrid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tencell { width: 124.67px; }
+  .tentile { width: 124.67px; height: 89px; border-radius: 10px; overflow: hidden; }
+  .tentile.filled { background: var(--sand); }
+  .tentile.filled img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .tentile.next {
+    background: var(--blush);
+    border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tentile.next span { font-size: 12px; font-weight: 600; color: var(--accent); letter-spacing: 0.1px; }
+  .tentile.empty { border: 1px dashed rgba(28,26,22,0.22); }
+  .tencap {
+    margin-top: 4px; font-size: 11px; line-height: 14px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cap-ink { color: var(--ink); }
+  .cap-accent { color: var(--accent); }
+  .cap-muted { color: var(--muted); }
+
+  .slotcard { border: 1px solid var(--rule); background: var(--surface); border-radius: 20px; padding: 16px; }
+  .slotcard .eyebrow {
+    font-size: 11px; font-weight: 500; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .btnrow { display: flex; gap: 10px; margin-top: 14px; }
+  .btn {
+    height: 44px; border-radius: 14px; display: flex; align-items: center;
+    justify-content: center; font-size: 15px; font-weight: 500;
+  }
+  .btn.primary { flex: 1; background: var(--ink); color: var(--canvas); }
+  .btn.secondary { padding: 0 22px; border: 1px solid var(--rule); color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="stage paper">
+  <div class="wordmark">Cinch</div>
+  <div class="headline">Ten pieces is a<br><em>wardrobe.</em></div>
+  <div class="subline">Photograph ten things you already own. That is the whole setup.</div>
+
+  <div class="device"><div class="screen"><div class="app">
+
+    <!-- iOS status bar -->
+    <div class="statusbar">
+      <span class="time">9:41</span>
+      <div class="island"></div>
+      <div class="statusglyphs">
+        <svg width="18" height="12" viewBox="0 0 18 12"><g fill="#1C1A16"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></g></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12"><path d="M8.5 12 L2 5.2 C3.8 3.6 6 2.7 8.5 2.7 C11 2.7 13.2 3.6 15 5.2 Z" fill="#1C1A16" opacity=".95"/><path d="M8.5 2.7 C6 2.7 3.8 3.6 2 5.2 L0 3.1 C2.3 1.1 5.3 0 8.5 0 C11.7 0 14.7 1.1 17 3.1 L15 5.2 C13.2 3.6 11 2.7 8.5 2.7 Z" fill="#1C1A16" opacity=".35"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" fill="none" stroke="#1C1A16" opacity=".4"/><rect x="2" y="2" width="15" height="8" rx="2" fill="#1C1A16"/><rect x="23" y="4" width="2" height="4" rx="1" fill="#1C1A16" opacity=".4"/></svg>
+      </div>
+    </div>
+
+    <!-- Masthead: display header + right-aligned tabular counter on one baseline -->
+    <div class="gutter" style="padding-top:14px; display:flex; align-items:baseline; justify-content:space-between; gap:12px;">
+      <div class="t-display">The Ten</div>
+      <div class="t-colophon" style="font-variant-numeric:tabular-nums; color:var(--muted);">6 of 10</div>
+    </div>
+
+    <!-- tenProgressLine(slots) with 4 remaining -->
+    <div class="gutter" style="margin-top:8px;">
+      <div class="t-callout" style="color:var(--muted);">4 to go. Nothing here is final &mdash; you can swap any piece later.</div>
+    </div>
+
+    <!-- TenGrid — six filled, four named-and-empty. Slot 6 (the dress) is next. -->
+    <div class="gutter" style="margin-top:18px;">
+      <div class="tengrid">
+
+        <div class="tencell">
+          <div class="tentile filled"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/cream-mohair-sweater.jpg"></div>
+          <div class="tencap cap-ink">Cream mohair sweater</div>
+        </div>
+        <div class="tencell">
+          <div class="tentile filled"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/white-linen-blouse.jpg"></div>
+          <div class="tencap cap-ink">White linen blouse</div>
+        </div>
+        <div class="tencell">
+          <div class="tentile filled"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/cream-crochet-poncho.jpg"></div>
+          <div class="tencap cap-ink">Cream crochet poncho</div>
+        </div>
+
+        <div class="tencell">
+          <div class="tentile filled"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/charcoal-tailored-trousers.jpg"></div>
+          <div class="tencap cap-ink">Charcoal trousers</div>
+        </div>
+        <div class="tencell">
+          <div class="tentile filled"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/beige-corduroy-skirt.jpg"></div>
+          <div class="tencap cap-ink">Beige corduroy skirt</div>
+        </div>
+        <div class="tencell">
+          <div class="tentile next"><span>Next</span></div>
+          <div class="tencap cap-accent">Dress</div>
+        </div>
+
+        <div class="tencell">
+          <div class="tentile filled"><img src="file:///Users/nelsonsaenz/cinch/assets/garments/brown-leather-loafers.jpg" style="object-fit:cover; object-position:22% 30%;"></div>
+          <div class="tencap cap-ink">Brown leather loafers</div>
+        </div>
+        <div class="tencell">
+          <div class="tentile empty"></div>
+          <div class="tencap cap-muted">Shoes</div>
+        </div>
+        <div class="tencell">
+          <div class="tentile empty"></div>
+          <div class="tencap cap-muted">Outerwear</div>
+        </div>
+
+        <div class="tencell">
+          <div class="tentile empty"></div>
+          <div class="tencap cap-muted">Bag</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SlotCard for the foregrounded slot — slotCopy('dresses', 1) -->
+    <div style="margin:20px 20px 0;">
+      <div class="slotcard">
+        <div class="eyebrow">Slot 6 &middot; the dress</div>
+        <div class="t-plate" style="margin-top:6px; margin-bottom:6px;">One outfit that needs only shoes</div>
+        <div class="t-callout" style="color:var(--muted);">A whole look that asks nothing else of the list but a pair of shoes.</div>
+        <div class="btnrow">
+          <div class="btn primary">Photograph it</div>
+          <div class="btn secondary">Skip</div>
+        </div>
+      </div>
+    </div>
+
+  </div></div></div>
+</div>
+</body>
+</html>

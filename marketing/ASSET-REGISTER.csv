@@ -1,0 +1,49 @@
+filename,folder,tier,status,notes
+1a-appstore-01-1320x2868.png,03-appstore,Tier1 App Store variant 1a,candidate — not shipped,"ink-and-paper variant; review verdict: device UI unreadable at thumbnail, checkerboard effect in gallery — do not ship"
+1a-appstore-02-1320x2868.png,03-appstore,Tier1 App Store variant 1a,candidate — not shipped,see 1a-01
+1a-appstore-03-1320x2868.png,03-appstore,Tier1 App Store variant 1a,candidate — not shipped,see 1a-01
+1a-appstore-04-1320x2868.png,03-appstore,Tier1 App Store variant 1a,candidate — not shipped,see 1a-01
+1a-appstore-05-1320x2868.png,03-appstore,Tier1 App Store variant 1a,candidate — not shipped,see 1a-01
+1b-appstore-01-1320x2868.png,03-appstore,Tier1 App Store variant 1b,candidate — not shipped,"paper-throughout variant; caption at bottom, best device legibility but value prop lands last"
+1b-appstore-02-1320x2868.png,03-appstore,Tier1 App Store variant 1b,candidate — not shipped,see 1b-01
+1b-appstore-03-1320x2868.png,03-appstore,Tier1 App Store variant 1b,candidate — not shipped,see 1b-01
+1b-appstore-04-1320x2868.png,03-appstore,Tier1 App Store variant 1b,candidate — not shipped,see 1b-01
+1b-appstore-05-1320x2868.png,03-appstore,Tier1 App Store variant 1b,candidate — not shipped,see 1b-01
+1c-appstore-01-1320x2868.png,03-appstore,Tier1 App Store variant 1c,SHIP — pending re-export,"numbered-plates variant, review verdict: ship this. Frame 1 needs the '14' enlarged ~2x before export; App Store gallery images not yet uploaded to ASC (current ASC listing is unrelated/legacy screenshots — this project only touched the App Description text, not screenshots)"
+1c-appstore-02-1320x2868.png,03-appstore,Tier1 App Store variant 1c,SHIP — pending reorder,"frames 2/4 both occasion, split by weather at 3 — reorder to occasion/vote/weather per review before export"
+1c-appstore-03-1320x2868.png,03-appstore,Tier1 App Store variant 1c,SHIP — pending reorder,see 1c-02
+1c-appstore-04-1320x2868.png,03-appstore,Tier1 App Store variant 1c,SHIP — pending reorder,see 1c-02
+1c-appstore-05-1320x2868.png,03-appstore,Tier1 App Store variant 1c,gap,"no packing frame exists; subtitle claims 'Packing List' with nothing in gallery to show it — either add a frame 5 or build the packing Custom Product Page"
+1d-brand-paper-specimen-1600x2000.png,02-brand,Tier2 brand kit,reference,type/paper specimen sheet
+1e-brand-reversed-plate-1600x2000.png,02-brand,Tier2 brand kit,reference,reversed (ink ground) plate
+1f-brand-two-column-1600x2000.png,02-brand,Tier2 brand kit,reference,two-column layout template
+1g-social-hookbar-01-1080x1920.png,04-social/_templates,Tier2 social template,reference,hookbar layout template
+1g-social-hookbar-02-1080x1920.png,04-social/_templates,Tier2 social template,reference,hookbar layout template
+1h-social-fullbleed-01-1080x1920.png,04-social/_templates,Tier2 social template,reference,fullbleed layout template
+1h-social-fullbleed-02-1080x1920.png,04-social/_templates,Tier2 social template,reference,fullbleed layout template
+1i-social-paperframe-01-1080x1920.png,04-social/_templates,Tier2 social template,reference,paperframe layout template
+1i-social-paperframe-02-1080x1920.png,04-social/_templates,Tier2 social template,reference,paperframe layout template
+2a-hook-01-the-math-1080x1920.png,04-social/_source,Tier3 content bank — hook,live — used by posting-kit,source asset; check posting-kit out/ for finished post referencing this id
+2a-hook-02-the-number-1080x1920.png,04-social/_source,Tier3 content bank — hook,live,214/31 first-person stat card — matches the corrected copy
+2a-hook-03-the-question-1080x1920.png,04-social/_source,Tier3 content bank — hook,live,—
+2a-hook-04-cost-per-wear-1080x1920.png,04-social/_source,Tier3 content bank — hook,NEEDS VERIFICATION,"cost-per-wear figure on this card must be a real engine output — unverified this session (see note to code)"
+2a-hook-05-the-comparison-1080x1920.png,04-social/_source,Tier3 content bank — hook,SUPERSEDED — raw/pre-fix,"still reads 'Every closet app wants you to shop...' in this raw file; fixed version lives in 04-social/corrected-creative.zip (fix-hook-05.png) — use the corrected file, not this one"
+2a-hook-06-the-demo-1080x1920.png,04-social/_source,Tier3 content bank — hook,STATUS CHANGED — now LEAD hook,"originally quarantined pending Oct voice launch (creative-review-01.md); creative-copy-fixes.md §5 reverses this — 'voice ships in 1.0,' asset promoted to lead hook. No copy change needed. Flagged to founder: current ASC App Description (just resubmitted) is photo-intake framed only and does not mention voice — confirm intentional before this goes live as the lead hook"
+2a-hook-07-the-occasion-1080x1920.png,04-social/_source,Tier3 content bank — hook,live,—
+2a-hook-08-comment-magnet-1080x1920.png,04-social/_source,Tier3 content bank — hook,live,—
+2b-pin-01-capsule-wardrobe-1000x1500.png,04-social/_source,Tier3 content bank — pin,live — verified,"14 outfits / 10 pieces arithmetic verified: 3T×2B×2S + 1D×2S = 14"
+2b-pin-02-packing-list-1000x1500.png,04-social/_source,Tier3 content bank — pin,NEEDS VERIFICATION,"'nine pieces, fifteen outfits' — reproducible on paper (3T/1B/2D/3S = 15) but must be confirmed as the app's actual countOutfits() output, not authored to look right"
+2b-pin-03-wedding-guest-1000x1500.png,04-social/_source,Tier3 content bank — pin,live,—
+2b-pin-04-closet-organisation-1000x1500.png,04-social/_source,Tier3 content bank — pin,live,—
+2b-pin-05-what-to-wear-to-work-1000x1500.png,04-social/_source,Tier3 content bank — pin,NEEDS VERIFICATION,five weekday cost-per-wear values on this pin must be real engine outputs
+2b-pin-06-outfit-calendar-1000x1500.png,04-social/_source,Tier3 content bank — pin,live,—
+2c-ig-carousel-01-1080x1350.png,04-social/_source,Tier3 content bank — IG,SUPERSEDED — raw/pre-fix,"slide 1 in this raw file has no attribution line; fixed version (with 'one real closet, photographed in March' added) lives in 04-social/corrected-creative.zip (fix-ig-carousel-01.png) — use the corrected file"
+2c-ig-carousel-02-1080x1350.png,04-social/_source,Tier3 content bank — IG,live,slide 2 of the 214/31 carousel — unchanged per creative-copy-fixes.md
+2c-ig-carousel-03-1080x1350.png,04-social/_source,Tier3 content bank — IG,live,—
+2c-ig-carousel-04-1080x1350.png,04-social/_source,Tier3 content bank — IG,live,—
+2c-ig-story-01-poll-1080x1920.png,04-social/_source,Tier3 content bank — IG,live,—
+2c-ig-story-02-question-1080x1920.png,04-social/_source,Tier3 content bank — IG,live,—
+2d-x-01-the-stat-1600x900.png,04-social/_source,Tier3 content bank — X,SUPERSEDED — raw/pre-fix,"still reads 'The average closet holds 214 items...' in this raw file (unsourced + inverted stat); fixed version lives in 04-social/corrected-creative.zip (fix-x-stat.png) — use the corrected file"
+2d-x-02-the-quote-1600x900.png,04-social/_source,Tier3 content bank — X,live,—
+2d-x-03-the-number-1600x900.png,04-social/_source,Tier3 content bank — X,live,—
+2d-x-04-the-comparison-1600x900.png,04-social/_source,Tier3 content bank — X,SUPERSEDED — raw/pre-fix,"still reads 'Every other closet app...' in this raw file; fixed version lives in 04-social/corrected-creative.zip (fix-x-comparison.png) — use the corrected file"
