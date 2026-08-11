@@ -326,6 +326,16 @@ export default {
       const opts = catalogOptsFromEnv(admin);
       if (!opts) return Response.json({ products: [] });
 
+      // Counters are fire-and-forget: a health metric that could fail a
+      // suggestion would be worse than no metric at all.
+      const note = (metric: string, detail?: string) => {
+        void admin
+          .rpc('note_commerce_metric', { p_metric: metric, p_delta: 1, p_detail: detail ?? null })
+          .then(({ error }) => {
+            if (error) console.error(`commerce-health: ${metric} not counted: ${error.message}`);
+          });
+      };
+
       let rows: CatalogProduct[];
       try {
         // `brand` goes to the catalogue's own brand FIELD when the closet
@@ -344,6 +354,10 @@ export default {
           ALLOWED_MERCHANT_IDS,
         );
       } catch {
+        // The only place the provider can fail from here. Recorded with a
+        // constant string, never the thrown message — a provider error body
+        // quotes the request back, and the request carries our query.
+        note('provider_failure', 'catalogue_lookup_threw');
         return Response.json({ products: [] });
       }
 
@@ -411,6 +425,19 @@ export default {
           paid,
         });
       }
+
+      // What actually went out. `links_direct` vs `links_paid` is the number
+      // that keeps the disclosure honest at a glance: while the first is the
+      // whole total, every row in the app truthfully reads "Open at merchant".
+      if (products.length === 0) {
+        note('suggestions_empty', slot);
+      } else {
+        note('suggestions_served', slot);
+        const paidCount = products.filter((p) => p.paid).length;
+        if (paidCount) note('links_paid');
+        if (products.length - paidCount) note('links_direct');
+      }
+      if (rows.length - relevant.length > 0) note('rows_refused_as_irrelevant', slot);
 
       return Response.json({ products });
     },

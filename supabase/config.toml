@@ -429,3 +429,16 @@ verify_jwt = false
 # ---------------------------------------------------------------------------
 [functions.send-push]
 verify_jwt = false
+
+# ---------------------------------------------------------------------------
+# commerce-health is called by pg_cron through pg_net on the hour, and by a
+# person holding the operator secret. Same reasoning as send-push directly
+# above, and the same gate: `x-cinch-cron`, failing closed when unset.
+#
+# Worth being explicit about why this one must not be open: it reports quota
+# levels, cache size, merchant counts and whether each credential is configured.
+# None of that is a secret in itself, and all of it together is a map of where
+# this system is weakest.
+# ---------------------------------------------------------------------------
+[functions.commerce-health]
+verify_jwt = false

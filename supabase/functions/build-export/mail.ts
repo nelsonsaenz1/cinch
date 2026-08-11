@@ -34,7 +34,21 @@ const TIMEOUT_MS = 15_000;
 
 export type MailOutcome =
   | { sent: true }
-  | { sent: false; reason: 'not_configured' | 'no_address' | 'send_failed' };
+  | {
+      sent: false;
+      reason: 'not_configured' | 'no_address' | 'send_failed';
+      /** Resend's HTTP status when there was one. Carried because
+       *  'send_failed' alone is not actionable: a 403 is a key that lacks
+       *  permission for the domain, a 422 is a malformed address, and a 429 is
+       *  a rate limit that will pass on its own. Absent when the request never
+       *  completed. */
+      status?: number;
+      /** Resend's `name` field only — 'validation_error', 'missing_api_key'.
+       *  The rest of the error body is deliberately dropped: it quotes the
+       *  request back, and the request carries a signed URL to somebody's
+       *  archive. A class name names the fault without reproducing the fault. */
+      errorName?: string;
+    };
 
 function escapeHtml(text: string): string {
   return text
@@ -81,10 +95,19 @@ export async function postResendEmail(payload: Record<string, unknown>): Promise
     });
 
     if (!response.ok) {
-      // Status only. A provider error body quotes the request back, and the
-      // request carries a signed URL to somebody's archive.
-      console.error(`Resend refused the message with HTTP ${response.status}.`);
-      return { sent: false, reason: 'send_failed' };
+      // Status and error CLASS only. A provider error body quotes the request
+      // back, and the request carries a signed URL to somebody's archive.
+      let errorName: string | undefined;
+      try {
+        const body = (await response.json()) as { name?: unknown };
+        if (typeof body?.name === 'string') errorName = body.name.slice(0, 60);
+      } catch {
+        // A non-JSON error body is nothing we can safely quote.
+      }
+      console.error(
+        `Resend refused the message with HTTP ${response.status}${errorName ? ` (${errorName})` : ''}.`,
+      );
+      return { sent: false, reason: 'send_failed', status: response.status, errorName };
     }
 
     return { sent: true };

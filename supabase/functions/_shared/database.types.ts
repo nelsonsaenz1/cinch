@@ -564,6 +564,75 @@ export type Database = {
         }
         Relationships: []
       }
+      commerce_alert_sends: {
+        Row: {
+          key: string
+          last_sent_at: string
+          send_count: number
+        }
+        Insert: {
+          key: string
+          last_sent_at?: string
+          send_count?: number
+        }
+        Update: {
+          key?: string
+          last_sent_at?: string
+          send_count?: number
+        }
+        Relationships: []
+      }
+      commerce_health: {
+        Row: {
+          last_at: string | null
+          last_detail: string | null
+          metric: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          last_at?: string | null
+          last_detail?: string | null
+          metric: string
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          last_at?: string | null
+          last_detail?: string | null
+          metric?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      commerce_joined_programmes: {
+        Row: {
+          active: boolean
+          joined_at: string
+          merchant_id: string
+          merchant_name: string
+          network: string
+          note: string | null
+        }
+        Insert: {
+          active?: boolean
+          joined_at?: string
+          merchant_id: string
+          merchant_name: string
+          network: string
+          note?: string | null
+        }
+        Update: {
+          active?: boolean
+          joined_at?: string
+          merchant_id?: string
+          merchant_name?: string
+          network?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       content_reports: {
         Row: {
           created_at: string
@@ -2675,6 +2744,12 @@ export type Database = {
           existing_result: string
         }[]
       }
+      claim_commerce_alert: {
+        Args: { p_cooldown_hours?: number; p_key: string }
+        Returns: boolean
+      }
+      commerce_health_invoke: { Args: never; Returns: number }
+      commerce_health_report: { Args: never; Returns: Json }
       commit_intake_session: {
         Args: { p_draft_ids?: string[]; p_session_id: string }
         Returns: {
@@ -2730,6 +2805,10 @@ export type Database = {
       normalize_for_moderation: { Args: { p_text: string }; Returns: string }
       note_catalog_cache_write_failure: {
         Args: { p_provider: Database["public"]["Enums"]["catalog_provider"] }
+        Returns: undefined
+      }
+      note_commerce_metric: {
+        Args: { p_delta?: number; p_detail?: string; p_metric: string }
         Returns: undefined
       }
       plan_outfit_tx: {
