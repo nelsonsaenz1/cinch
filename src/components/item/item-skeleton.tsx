@@ -128,7 +128,9 @@ export function ItemSkeleton({ onBack }: ItemSkeletonProps) {
           slab where a ruled band is about to be. */}
       <View className="mx-gutter mt-5 flex-row border-y border-rule py-[14px] dark:border-rule-dark">
         {STAT_CELLS.map((cell, i) => (
-          <View key={i} style={{ flex: cell.flex }}>
+          // `alignItems: 'center'` — the loaded band centres both lines per
+          // §2.2, so a left-aligned placeholder resolves with a sideways jump.
+          <View key={i} style={{ flex: cell.flex, alignItems: 'center' }}>
             <Skeleton
               className="h-[26px] rounded-chip"
               style={{ width: cell.figure }}

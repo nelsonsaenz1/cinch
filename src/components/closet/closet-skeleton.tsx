@@ -58,8 +58,9 @@ export function ClosetSkeleton() {
         className="mx-gutter flex-row border-b border-t border-hairline dark:border-hairline-dark"
         style={{ marginTop: 22, paddingVertical: 14 }}>
         {Array.from({ length: 4 }).map((_, i) => (
-          <View key={i} className="flex-1">
-            <Skeleton style={[primary, { width: 40, height: 18, borderRadius: 5 }]} />
+          // `items-center` — the loaded stat row centres both lines per §2.2.
+          <View key={i} className="flex-1 items-center">
+            <Skeleton style={[primary, { width: 40, height: 18, borderRadius: 4 }]} />
           </View>
         ))}
       </View>

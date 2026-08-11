@@ -12,6 +12,7 @@ import {
   readFlag,
   writeFlag,
 } from '@/features/ingest/consent-mode';
+import { useCapacity } from '@/features/billing/use-capacity';
 import { useCameraStatus } from '@/features/ingest/use-camera-access';
 import { useTheme } from '@/theme/tokens';
 
@@ -71,6 +72,9 @@ export default function AddClothesScreen() {
   // Read, never requested. A chooser that raises the system permission alert on
   // arrival is asking for the camera before anyone has said they want it.
   const { access, openSettings } = useCameraStatus();
+  // Read only. The chooser never gates on this — W-02 decides capacity once a
+  // photograph exists — it only states the condition before the effort.
+  const capacity = useCapacity();
 
   const consent = useAiConsent();
   const grantConsent = useGrantAiConsent();
@@ -183,6 +187,31 @@ export default function AddClothesScreen() {
       <ScrollView
         contentContainerClassName="px-gutter pt-5"
         contentContainerStyle={{ paddingBottom: insets.bottom + 20, gap: 12 }}>
+        {/*
+          AC-05 — the ceiling, stated before the effort rather than after it.
+
+          The atlas's sentence ("new pieces will ask about Standard first")
+          describes a gate order this app does not have: W-02 stands, so the
+          ask comes once a photograph exists, not at the door. Printing it
+          would promise a paywall that never fires here. This says what
+          actually happens instead — and it is the reason the notice is worth
+          drawing at all, since the whole point is not to let someone
+          photograph a jacket before finding out.
+
+          The count is `capacity.limit`, read live off the plan. Never a
+          literal: refusal 7 prints or drops a number, never estimates one,
+          and refusal 8 keeps the ten out of marketing constants.
+          `capacity.full` is false while the count is still loading, so this
+          cannot flash at someone who has room.
+        */}
+        {capacity.full ? (
+          <View className="rounded-md bg-tray p-3 dark:bg-tray-dark">
+            <Text variant="note">
+              Your {capacity.limit} active pieces are full. Adding still works — Cinch asks about
+              room once the piece is here, and stores rather than deletes.
+            </Text>
+          </View>
+        ) : null}
         <DoorPlate
           name="Camera"
           line="True colour, one piece at a time."
@@ -196,11 +225,24 @@ export default function AddClothesScreen() {
               <DoorCondition>
                 <View className="flex-1">
                   <Text variant="note">Camera access is off for Cinch.</Text>
-                  {/* The privacy sentence the atlas draws here — "Your photos
-                      stay put either way" — is a [CLAIM] with no matching
-                      sentence in privacy-invite-help-contract.md, so it is not
-                      printed. Inventing a privacy claim is the one thing the
-                      directive forbids outright (§1.9). */}
+                  {/*
+                    The atlas draws "Your photos stay put either way" here and
+                    marks it [CLAIM]. It cannot ship as drawn: for anyone who
+                    has granted processing consent it is FALSE — their photos
+                    do leave the phone, to be tagged. A privacy sentence that
+                    is true only for some readers is the worst kind.
+
+                    What the line was reaching for IS provable, and this is it:
+                    the camera permission and the processing consent are two
+                    separate gates. Granting the first sends nothing. The
+                    second is asked for explicitly (`ConsentSheet`) and is
+                    enforced server-side on every Edge Function call, so
+                    "nothing is sent without asking" is a claim about
+                    behaviour the code actually holds up.
+                  */}
+                  <Text variant="note">
+                    Turning it on only opens the viewfinder — nothing is sent without asking.
+                  </Text>
                 </View>
                 {/* This page's ONE oxblood. A link inside a condition, not a
                     door: the doors stay peers even when one of them is shut. */}

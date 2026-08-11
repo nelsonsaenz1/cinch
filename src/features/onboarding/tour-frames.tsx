@@ -218,7 +218,11 @@ function InversePill({ title, onPress }: { title: string; onPress: () => void })
           },
           press.style,
         ]}>
-        <Text variant="body" className="font-semibold" style={{ color: theme.ink }}>
+        {/* Regular 17 — `inverse` is in board A's outlined/text group. The
+            shared `Button` now carries this exact variant; this pill predates
+            it and keeps only because the tour's ink ground needs the canvas
+            fill drawn inline. */}
+        <Text variant="body" style={{ color: theme.ink }}>
           {title}
         </Text>
       </Animated.View>

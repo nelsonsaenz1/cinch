@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { useTheme } from '@/theme/tokens';
 
 /**
  * S-05 — the compose flow's edge states, as reusable presentational pieces.
@@ -167,7 +167,10 @@ function DestructiveButton({
         style={[
           press.style,
           {
-            minHeight: MIN_TAP_TARGET,
+            // 52, the grounded control height from reference board A. Was 44,
+            // the accessibility floor — which left this brick 8pt shorter than
+            // the outlined `Button` it renders beside.
+            minHeight: 52,
             borderRadius: 12,
             backgroundColor: theme.critical,
             alignItems: 'center',
@@ -177,7 +180,9 @@ function DestructiveButton({
         {loading ? (
           <ActivityIndicator size="small" color={theme.canvas} />
         ) : (
-          <Text variant="label" style={{ fontSize: 15, lineHeight: 20, color: theme.canvas }}>
+          // Medium 17 — this is a FILLED variant (the critical brick), and
+          // board A keeps the filled group on Medium at `body`. Was 15.
+          <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
             {title}
           </Text>
         )}

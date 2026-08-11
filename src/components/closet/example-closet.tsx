@@ -196,7 +196,11 @@ export function ExampleCloset({ onAddPieces }: ExampleClosetProps) {
         className="absolute inset-x-0 bottom-0 items-center px-gutter"
         style={{ paddingBottom: 22 }}>
         <View
-          className="flex-row items-center rounded-full bg-blush dark:bg-blush-dark"
+          // `rounded-md`, not `rounded-full`. The Closet atlas draws this as a
+          // pill and calls it one, but refusal 5 is absolute — `full` is
+          // circles only, and this badge is wider than it is tall. Directive
+          // over the drawn atlas value, on the founder's call (2026-08-11).
+          className="flex-row items-center rounded-md bg-blush dark:bg-blush-dark"
           style={{ gap: 7, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: theme.blushRule }}>
           <Text
             variant="colophon"

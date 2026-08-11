@@ -122,7 +122,47 @@ A judgment call, recorded here rather than made quietly.
 
 ---
 
-## 2 · Unresolved `[CLAIM]` strings — not printed, per §1.9
+## 2 · The `[CLAIM]` strings — written 2026-08-11, on the founder's call
+
+Both were left blank in the first pass because neither sentence exists in the
+contract it cites. The founder's instruction was to write them from what the
+app can prove. They are therefore **new claims, authored here**, and the next
+person to touch the contracts should fold them back in.
+
+### 2.1 AC-03 — and why the drawn sentence could not ship
+
+The atlas draws **"Your photos stay put either way"**. It cannot ship as
+written: for anyone who has granted processing consent it is **false** — their
+photos do leave the phone, to be tagged. A privacy sentence that holds only
+for some readers is worse than none.
+
+What the line was reaching for is provable, and that is what is printed:
+
+> Turning it on only opens the viewfinder — nothing is sent without asking.
+
+The camera permission and the processing consent are two separate gates.
+Granting the first sends nothing anywhere. The second is asked for explicitly
+(`ConsentSheet`) and is enforced server-side on every Edge Function call, so
+"nothing is sent without asking" is a claim about behaviour the code holds up.
+
+### 2.2 AC-05 — the ceiling notice, describing the gate this app actually has
+
+The atlas draws **"Your ten are full — new pieces will ask about Standard
+first. Nothing you add is ever lost."** The middle clause describes a gate
+order this app does not have: W-02 stands, so the ask comes once a photograph
+exists, not at the door. Printing it would promise a paywall that never fires
+on this screen. What ships instead:
+
+> Your {n} active pieces are full. Adding still works — Cinch asks about room
+> once the piece is here, and stores rather than deletes.
+
+`{n}` is `capacity.limit`, read live off the plan — never a literal, per
+refusal 7 (printed or dropped, never estimated) and refusal 8 (the count is
+not a marketing constant). "Stores rather than deletes" is refusal 3 stated in
+the app's own voice. The notice draws only when `capacity.full`, which is
+false while the count is loading, so it cannot flash at someone who has room.
+
+## 3 · Superseded — what these strings replaced
 
 Both were checked against the named contracts. Neither sentence is there, and
 §1.9 forbids shipping the placeholder or a plausible guess.
