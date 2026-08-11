@@ -307,7 +307,7 @@ function G03({ tally, ranked }: { tally: Tally; ranked: ReturnType<typeof rankGa
           <Text variant="title">{`+${gain.gain}`}</Text>
         </View>
         <Text variant="caption" className="mt-2" style={{ color: theme.muted }}>
-          Blur implies there is something behind it. There isn't — the whole recommendation is
+          Blur implies there is something behind it. There isn’t — the whole recommendation is
           already shown.
         </Text>
       </View>

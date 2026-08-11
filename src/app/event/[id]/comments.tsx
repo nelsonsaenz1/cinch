@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -138,7 +138,13 @@ export default function EventCommentsScreen() {
   );
 
   const title = look ? lookName(look.garments, look.caption) : (event.data?.title ?? 'Table talk');
-  const afterOccasion = Boolean(event.data?.startsAt && event.data.startsAt.getTime() < Date.now());
+  // `Date.now()` during render is impure — the same render could answer this
+  // question differently twice. One reading, taken when the screen mounts, is
+  // also the honest semantics: this decides which copy the thread shows, and a
+  // screen that silently changed its wording mid-session as a start time passed
+  // would be stranger than one that is a few minutes stale.
+  const [mountedAt] = useState(() => Date.now());
+  const afterOccasion = Boolean(event.data?.startsAt && event.data.startsAt.getTime() < mountedAt);
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">

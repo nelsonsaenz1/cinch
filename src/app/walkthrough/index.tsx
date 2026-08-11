@@ -96,7 +96,12 @@ export default function WalkthroughScreen() {
     return () => clearInterval(t);
   }, [showNudge]);
 
-  const begin = useCallback(async () => {
+  // Named, so the offline retry below can call it — see the note on `post` in
+  // `use-comment-thread.tsx`. Referring to the `begin` const from inside its own
+  // initialiser reads the binding while it is still in its temporal dead zone;
+  // it works only because the retry thunk runs later, and the compiler is right
+  // not to accept that.
+  const begin = useCallback(async function begin() {
     const granted =
       recorder.permission === 'granted' ? 'granted' : await recorder.requestPermission();
     if (granted !== 'granted') {

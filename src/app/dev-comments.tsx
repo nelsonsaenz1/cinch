@@ -24,7 +24,7 @@ const row = (over: Partial<ThreadComment> & { id: string; userId: string; body: 
   postId: 'b',
   reported: false,
   hidden: false,
-  createdAt: new Date(Date.now() - 2 * 3_600_000),
+  createdAt: AGO(2 * 3_600_000),
   ...over,
 });
 
@@ -85,13 +85,25 @@ const RowFrame = ({ comment }: { comment: ThreadComment }) => (
   />
 );
 
+/**
+ * Fixture timestamps, frozen at module load.
+ *
+ * These were `Date.now()` calls inside a `useState` initialiser, which makes
+ * the render impure — every re-render computed a fresh "two hours ago". For a
+ * demo screen the visible cost is nil, but the rule is worth keeping because
+ * the same shape in a real component produces a component that can never be
+ * memoised and quietly re-renders forever.
+ */
+const DEMO_NOW = Date.now();
+const AGO = (ms: number) => new Date(DEMO_NOW - ms);
+
 /** EC-01 — the thread open on a look: one indent, one reply, one compliment. */
 function EC01() {
   const [rows, setRows] = useState<ThreadComment[]>([
-    row({ id: '1', userId: 'dana', body: 'The skirt is the whole thing. Wear the tote, not the clutch.', createdAt: new Date(Date.now() - 2 * 3_600_000) }),
-    row({ id: '2', userId: 'mel', body: '@Dana tote it is.', createdAt: new Date(Date.now() - 2 * 3_600_000) }),
-    row({ id: '3', userId: 'tom', body: 'Chic', createdAt: new Date(Date.now() - 3_600_000) }),
-    row({ id: '4', userId: 'me', body: 'Both, honestly. Bring the loafers.', createdAt: new Date(Date.now() - 4 * 60_000) }),
+    row({ id: '1', userId: 'dana', body: 'The skirt is the whole thing. Wear the tote, not the clutch.', createdAt: AGO(2 * 3_600_000) }),
+    row({ id: '2', userId: 'mel', body: '@Dana tote it is.', createdAt: AGO(2 * 3_600_000) }),
+    row({ id: '3', userId: 'tom', body: 'Chic', createdAt: AGO(3_600_000) }),
+    row({ id: '4', userId: 'me', body: 'Both, honestly. Bring the loafers.', createdAt: AGO(4 * 60_000) }),
   ]);
   const [replyTo, setReplyTo] = useState<string | null>(null);
 

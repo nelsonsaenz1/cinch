@@ -77,13 +77,17 @@ export default function PostLookScreen() {
   // Hydrate the stack from the look being edited once its garments are known
   // (garments arrive from the board query, not this screen's own wardrobe
   // read, since a piece may have left the closet since the look was posted).
-  useEffect(() => {
-    if (editingLook && !hydratedEdit) {
-      setStack(editingLook.garments);
-      setTitle(editingLook.caption ?? titleFromPieces(editingLook.garments));
-      setHydratedEdit(true);
-    }
-  }, [editingLook, hydratedEdit]);
+  //
+  // Adjusted DURING RENDER rather than in an effect. React sanctions this shape
+  // for "a prop changed, derive new state from it": the re-render happens before
+  // anything is committed, so the user never sees the un-hydrated frame. The
+  // effect version painted an empty stack first and then replaced it, which is
+  // both an extra pass and a visible flash on a slow board query.
+  if (editingLook && !hydratedEdit) {
+    setStack(editingLook.garments);
+    setTitle(editingLook.caption ?? titleFromPieces(editingLook.garments));
+    setHydratedEdit(true);
+  }
 
   const candidates = wardrobe.data ?? [];
 

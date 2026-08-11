@@ -124,7 +124,7 @@ export default function GapDetailScreen() {
           ) : (
             <>
               <Text variant="body" style={{ color: theme.muted }}>
-                There's room in your closet for this one.
+                There’s room in your closet for this one.
               </Text>
               <Button
                 title="Add clothes"

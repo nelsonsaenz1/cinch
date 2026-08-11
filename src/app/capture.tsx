@@ -246,7 +246,7 @@ export default function CaptureScreen() {
   const cameraRef = useRef<CameraView>(null);
   // `takePictureAsync` before the session is up returns the last frame on iOS,
   // which for a session that never started is nothing at all.
-  const [cameraReady, setCameraReady] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
   // A device that cannot run the preview — a simulator has no camera at all —
   // falls back to the instructional frame and the system camera, rather than
   // showing a black rectangle and a shutter that does nothing.
@@ -296,13 +296,17 @@ export default function CaptureScreen() {
   const [closetFullVisible, setClosetFullVisible] = useState(false);
   const [gatePresenting, setGatePresenting] = useState(false);
 
-  // `HeldPhotoStage` replaces `<CameraView>` in the tree while a photo is
-  // held, which unmounts the live session. Reset readiness so a shutter tap
-  // in the instant the view remounts waits for a real `onCameraReady` rather
-  // than trusting a flag left over from before the hold.
-  useEffect(() => {
-    if (heldCapture) setCameraReady(false);
-  }, [heldCapture]);
+  // `HeldPhotoStage` replaces `<CameraView>` in the tree while a photo is held,
+  // which unmounts the live session — so readiness must not survive the hold. A
+  // shutter tap in the instant the view remounts has to wait for a real
+  // `onCameraReady` rather than trusting a flag left over from before.
+  //
+  // DERIVED, not reset in an effect. The effect version was a synchronous
+  // setState that ran after the frame holding the stale `true` had already been
+  // handed to React — a one-frame window in which the shutter believed a
+  // torn-down camera was live. Deriving closes the window entirely, because
+  // there is no frame in which both `heldCapture` and readiness are true.
+  const cameraReady = heldCapture ? false : sessionReady;
 
   const jobs = useQueueStore((s) => s.jobs);
   const hydrate = useQueueStore((s) => s.hydrate);
@@ -831,7 +835,7 @@ export default function CaptureScreen() {
                   facing="back"
                   mode="picture"
                   active={focused}
-                  onCameraReady={() => setCameraReady(true)}
+                  onCameraReady={() => setSessionReady(true)}
                   onMountError={() => setPreviewFailed(true)}
                 />
               ) : (

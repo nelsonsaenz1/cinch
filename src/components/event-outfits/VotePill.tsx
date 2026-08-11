@@ -90,19 +90,27 @@ export function VotePill({
   useEffect(() => () => void (expiry.current && clearTimeout(expiry.current)), []);
 
   // The two-second floor before a still-pending pill dims.
-  const [dim, setDim] = useState(false);
+  //
+  // `overdue` says only "the timer has fired since this flight began". Whether
+  // that shows is DERIVED — `dim` below — because a pill that is no longer
+  // pending is never dimmed regardless of what the timer did. Clearing it with
+  // a `setDim(false)` inside the effect instead was a synchronous set during an
+  // effect: it worked, and it cost every settled vote an extra render pass for
+  // a value the render could already work out for itself.
+  const [overdue, setOverdue] = useState(false);
   const dimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!pending) {
-      setDim(false);
-      if (dimTimer.current) clearTimeout(dimTimer.current);
-      return;
-    }
-    dimTimer.current = setTimeout(() => setDim(true), DIM_AFTER);
+    if (!pending) return;
+    dimTimer.current = setTimeout(() => setOverdue(true), DIM_AFTER);
     return () => {
       if (dimTimer.current) clearTimeout(dimTimer.current);
+      // In cleanup, not in the body: this runs when the flight ends, so the
+      // next one starts from undimmed rather than inheriting this one's state.
+      setOverdue(false);
     };
   }, [pending]);
+
+  const dim = pending && overdue;
 
   const shown = guess && guess.from === picked ? guess.want : picked;
 

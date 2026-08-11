@@ -27,8 +27,17 @@ export function useCommentThread(eventId: string | null, postId: string | null) 
   const [replyTo, setReplyTo] = useState<{ userId: string; firstName: string } | null>(null);
   const seq = useRef(0);
 
+  // A NAMED function expression, so the retry path can call it.
+  //
+  // `terms.intercept` needs a "do it again once they've accepted" thunk, and the
+  // thing to do again is this. Written as `post` — the const — that thunk closed
+  // over a binding that is still in its temporal dead zone while the callback is
+  // being built. It happened to work, because the thunk only ever runs later, but
+  // the React compiler cannot prove that and said so. A function expression's own
+  // name is in scope and initialised inside its body, which makes the recursion
+  // legal rather than merely lucky.
   const post = useCallback(
-    (clientId: string, body: string) => {
+    function post(clientId: string, body: string) {
       if (!eventId) return;
       addComment.mutate(
         { eventId, postId, body },

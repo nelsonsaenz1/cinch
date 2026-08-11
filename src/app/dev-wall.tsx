@@ -233,7 +233,7 @@ function W03() {
           onDismiss={() => setSheetOpen(false)}
         />
         <Text variant="caption" className="px-gutter pb-6" style={{ color: theme.faint }}>
-          The import is held, not cancelled. It's here when there's room.
+          The import is held, not cancelled. It’s here when there’s room.
         </Text>
       </View>
     </View>

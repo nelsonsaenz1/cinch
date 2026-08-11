@@ -186,6 +186,13 @@ export function useRecorder(): UseRecorder {
 
       setIsRecording(false);
       setIsPaused(false);
+      // A Reanimated shared value. Writing `.value` from JS IS the documented
+      // API — the compiler flags it because it cannot tell this apart from
+      // mutating a plain object it captured. Suppressed rather than worked
+      // around: the alternatives (a `runOnUI` hop, or mirroring the level in
+      // React state) would either add a frame of latency to a meter that has to
+      // track the voice, or re-render this hook sixty times a second.
+      // eslint-disable-next-line react-hooks/immutability
       amplitude.value = 0;
 
       const uri = recorder.uri;
@@ -275,6 +282,8 @@ export function useRecorder(): UseRecorder {
     accumulatedMs.current += Date.now() - startedAt.current;
     startedAt.current = 0;
     setIsPaused(true);
+    // Same as in `stop` above — Reanimated shared value, documented API.
+    // eslint-disable-next-line react-hooks/immutability
     amplitude.value = 0;
   }, [recorder, isRecording, isPaused, amplitude]);
 

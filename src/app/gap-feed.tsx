@@ -142,7 +142,7 @@ export default function GapFeedScreen() {
           <View className="mt-1">
             <Text variant="caption">
               Nothing else comes close: {gapLabelLower(model.tally, nextWeakestKind(model))} adds
-              nothing at all until there's something new to wear it with.
+              nothing at all until there’s something new to wear it with.
             </Text>
           </View>
         ) : null}

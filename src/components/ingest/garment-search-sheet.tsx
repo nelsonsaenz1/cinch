@@ -340,7 +340,7 @@ export function GarmentSearchSheetBody({
               }}
             />
             <Text variant="caption" className="mt-3" style={{ color: theme.faint }}>
-              The import is held, not cancelled. It's here when there's room.
+              The import is held, not cancelled. It’s here when there’s room.
             </Text>
           </View>
         ) : null}

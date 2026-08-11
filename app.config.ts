@@ -397,6 +397,17 @@ const config: ExpoConfig = {
     // Same rationale — `npx expo install expo-sharing` asked for this.
     'expo-sharing',
     /**
+     * Same rationale again, and this one was a real gap rather than a nicety.
+     *
+     * Twelve `dev-*` screens import `Asset`/`useAssets` from `expo-asset`
+     * directly, but the package was never a dependency of this project — it
+     * resolved only because `expo` and `expo-audio` happen to pull it in. That
+     * works until either of them stops doing so, at which point a dozen imports
+     * break on a lockfile change nobody connected to them. It is a direct
+     * dependency now, and named here so its build-time configuration runs.
+     */
+    'expo-asset',
+    /**
      * Push. THE ONE NATIVE CHANGE IN WAVE 5, and the reason atlas 37 cannot
      * ride an OTA: this plugin writes the `aps-environment` entitlement, and an
      * entitlement is part of the signed binary.
