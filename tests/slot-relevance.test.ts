@@ -41,9 +41,8 @@ const fixture: Record<string, FixtureRow[]> = JSON.parse(
   readFileSync('tests/fixtures/slot-relevance.json', 'utf8'),
 );
 
-/** The noun each slot is searched with. Mirrors `SLOT_QUERY` in index.ts, which
- *  cannot be imported here — it pulls in `npm:@supabase/server` and Deno. The
- *  final test in this file reads that file as text and checks the two agree. */
+/** The noun each slot is searched with. Mirrors `SLOT_QUERY` in `policy.ts`;
+ *  the final test in this file reads that table and checks the two agree. */
 const NOUN: Record<RelevanceSlot, string> = {
   top: 'shirt',
   bottom: 'trousers',
@@ -298,12 +297,11 @@ test('a verified slot can still fill three merchants', () => {
   );
 });
 
-test('every slot index.ts marks verified is covered by this fixture', () => {
-  // Read as TEXT rather than imported: index.ts pulls in `npm:@supabase/server`
-  // and the Deno globals, neither of which exists in the Node test runner. This
-  // is the seam that makes `verified: true` mean "a fixture backs it" instead
-  // of "somebody typed true".
-  const source = readFileSync('supabase/functions/gap-shop-match/index.ts', 'utf8');
+test('every slot policy.ts marks verified is covered by this fixture', () => {
+  // Read as TEXT rather than imported so this test keeps working whichever
+  // module the table lives in. This is the seam that makes `verified: true`
+  // mean "a fixture backs it" instead of "somebody typed true".
+  const source = readFileSync('supabase/functions/gap-shop-match/policy.ts', 'utf8');
   const table = source.slice(
     source.indexOf('const SLOT_QUERY'),
     source.indexOf('other: null'),
@@ -316,7 +314,7 @@ test('every slot index.ts marks verified is covered by this fixture', () => {
   assert.ok(verified.length > 0, 'parsed no slots out of SLOT_QUERY — has its shape changed?');
 
   for (const { slot, word } of verified) {
-    assert.equal(word, NOUN[slot], `${slot}: index.ts searches '${word}', fixture used '${NOUN[slot]}'`);
+    assert.equal(word, NOUN[slot], `${slot}: policy.ts searches '${word}', fixture used '${NOUN[slot]}'`);
     const covered = Object.keys(fixture).filter((k) => k.startsWith(`${slot}|`));
     assert.ok(covered.length >= 3, `${slot} is verified but has ${covered.length} fixture cells`);
   }
