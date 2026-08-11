@@ -65,33 +65,13 @@ silent failure and a bill; `>=` and `>` look equally right on the page.
 
 ---
 
-## CLOSED: alert and export mail are delivering
+## OPEN: alert mail is not delivering — it is the KEY, not the payload
 
-**Verified 2026-08-11:** the replacement sending-only Resend key is live. The
-alert path delivers, holds its cooldown only after a successful delivery, and
-releases a failed claim. The export sweep also builds the archive and delivers
-the ready email.
+**Status as of 2026-08-11: the alert path is proven to fire, proven to
+rate-limit, proven to release a failed claim, and proven not to deliver.**
 
-| Check | Evidence |
-| --- | --- |
-| Commerce alert | Delivered, Resend message `61139235-6546-4572-86ca-6b7cf6d54118` |
-| Cooldown | Second invocation returned `{"ok":true,"alerts":[],"suppressed":1}`; `send_count = 1` with `last_sent_at = 2026-08-11 20:00:43+00` |
-| Cleanup | `cache_write_failures = 0`; `commerce_alert_sends` empty |
-| Export | Replacement archive ready at `2026-08-11 20:38:25+00`, 3,121 bytes |
-| Export email | Delivered, Resend message `889ada13-c455-4065-b7cc-06aaf1772bdd` |
-
-The export sweep requires three Vault entries: `export_build_url`,
-`export_sweep_secret`, and `export_service_key`. The lowercase Vault
-`export_sweep_secret` must exactly match the Edge Function secret
-`EXPORT_SWEEP_SECRET`. A scheduled cron run can report `succeeded` while
-`export_invoke()` returns `NULL` when those entries are absent, so verify the
-function result—not only `cron.job_run_details`—after rotating either value.
-
-### Historical failure and diagnosis
-
-Before the rotation, `commerce-health` reached Resend and got **HTTP 400
-`validation_error`**, and the request did not appear in the Resend account's API
-log at all.
+`commerce-health` reaches Resend and gets **HTTP 400 `validation_error`**, and
+the request does not appear in the Resend account's API log at all.
 
 ### The payload is not the problem — measured, not assumed
 
@@ -109,7 +89,7 @@ was accepted:
 Same `from`, same subject, same `text`/`html` shape `commerce-health/mail.ts`
 builds. The sender address, the domain, the recipient and the body are all fine.
 
-### What that left
+### What that leaves
 
 `RESEND_API_KEY` itself. The connected account holds exactly two keys:
 
@@ -124,7 +104,7 @@ account, or the `(inbound)` key, whose name suggests it was created for
 *receiving* and would therefore lack **Sending access**. Either produces exactly
 this failure: a 400 rejected before it is attributed to the account we can see.
 
-### Rotation procedure
+### Fix (founder — cannot be done from here)
 
 Rotating this requires the key value to pass through a transcript and a shell
 history, which is the one thing Claude does not do with credentials on this
@@ -176,10 +156,8 @@ IDs** in the table above. Never the key.
 
 The same key backs "your export is ready". It refuses politely rather than
 failing the export, so the archive still appears in the app and nobody is told by
-email. After rotating, trigger an export and confirm that mail arrives too —
-same rule: record the message ID here, not the key. The 2026-08-11 verification
-above exercised the production request RPC, scheduled sweep, archive write and
-Resend delivery.
+email. After rotating, trigger an export from the app and confirm that mail
+arrives too — same rule: record the message ID here, not the key.
 
 ## Related
 
