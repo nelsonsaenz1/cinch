@@ -85,3 +85,7 @@ marketing/**
 # a bundle stops being provably equal to HEAD.
 output/
 tmp/
+
+# Screenshot matrix output (scripts/screenshot-matrix.mjs). Runs are local
+# evidence, not artifacts — a committed baseline would go stale on every OS bump.
+shots/
