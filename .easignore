@@ -147,3 +147,9 @@ design-refs/
 # package*.json   — the dependency graph the build installs from
 # babel/metro/tailwind/tsconfig — the bundler needs every one
 # ===========================================================================
+
+# Generated PDF/render output from the design sessions. Untracked artifacts that
+# would otherwise dirty the tree on every `eas update` — and a dirty tree is how
+# a bundle stops being provably equal to HEAD.
+output/
+tmp/
