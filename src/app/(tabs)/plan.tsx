@@ -664,7 +664,7 @@ export default function PlanScreen() {
                           className="h-2 w-2 rounded-full bg-accent"
                           style={{ marginTop: 5 }}
                         />
-                        <Text variant="label" className="flex-1" style={{ color: theme.ink }}>
+                        <Text variant="note" className="flex-1" style={{ color: theme.ink }}>
                           That day didn’t save. Check your connection and try again.
                         </Text>
                       </View>

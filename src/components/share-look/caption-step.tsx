@@ -62,7 +62,7 @@ export function CaptionStep({
               className="font-title text-plate text-ink"
               style={{ padding: 0 }}
             />
-            <Text variant="caption" className="mt-1.5">
+            <Text variant="noteSmall" className="mt-1.5">
               Suggested from your pieces · tap to rename
             </Text>
 

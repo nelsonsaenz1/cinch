@@ -126,7 +126,7 @@ export function SocialTermsSheet({
           {/* Declining costs nothing that isn't social: the closet, the daily
               outfit and the stylist all keep working. Saying so here is what
               makes "Not now" a real option rather than a dead end. */}
-          <Text variant="label" className="mt-3 text-center text-muted">
+          <Text variant="note" className="mt-3 text-center text-muted">
             Your closet and your daily outfits work either way.
           </Text>
         </ScrollView>

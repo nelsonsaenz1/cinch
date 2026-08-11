@@ -128,10 +128,18 @@ function StatCell({ value, label, a11y }: { value: string; label: string; a11y: 
       {/* 19/600: `heading`'s semibold family at the atlas's drawn size — an
           inline size on the named variant, never a second text-* class
           (the item-stats.tsx precedent). */}
-      <Text variant="heading" style={{ fontSize: 19, lineHeight: leading('helvetica', 19, 1.25) }}>
+      <Text
+        variant="heading"
+        style={{
+          fontSize: 19,
+          lineHeight: leading('helvetica', 19, 1.25),
+          textAlign: 'center',
+        }}>
         {value}
       </Text>
-      <Text variant="caption" className="mt-0.5">
+      {/* Centres the second line too, once a label wraps at large Dynamic
+          Type — `items-center` alone only centres the block. */}
+      <Text variant="caption" className="mt-0.5" style={{ textAlign: 'center' }}>
         {label}
       </Text>
     </View>

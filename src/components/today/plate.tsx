@@ -615,7 +615,7 @@ export function Plate({
               on a long plate it can be off-screen when the haptic fires. */}
           {shareFailed ? (
             <Text
-              variant="caption"
+              variant="noteSmall"
               className="mt-2"
               accessibilityLiveRegion="polite"
               style={{ color: theme.critical }}>

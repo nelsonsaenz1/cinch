@@ -207,7 +207,7 @@ export default function PostLookScreen() {
           <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-10 pt-5">
             {atCap ? (
               <Card border="hairline" padding="md" className="mb-4">
-                <Text variant="caption">
+                <Text variant="noteSmall">
                   Three looks is the board’s limit — retire one first to share another.
                 </Text>
               </Card>

@@ -527,7 +527,7 @@ export default function EventDetailScreen() {
           </Text>
         ) : null}
         {!isMember && event.myState === 'invited' ? (
-          <Text variant="caption" className="mt-3">
+          <Text variant="noteSmall" className="mt-3">
             Joining puts it on your Plan — and shows you where and when.
           </Text>
         ) : null}

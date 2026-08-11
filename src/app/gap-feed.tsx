@@ -167,7 +167,7 @@ export default function GapFeedScreen() {
               spent on nothing, per the one-oxblood-action rule. */}
           {model.capacity.full ? (
             <>
-              <Text variant="label">Adding an eleventh piece needs a larger closet.</Text>
+              <Text variant="note">Adding an eleventh piece needs a larger closet.</Text>
               <Button title="See plans" variant="primary" loading={gatePresenting} onPress={seePlans} />
             </>
           ) : (

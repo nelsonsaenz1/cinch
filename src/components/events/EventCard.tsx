@@ -236,7 +236,7 @@ export function EventCard({
               inline, announced (the audit's silent-failure note). */}
           {respond.isError ? (
             <View accessibilityLiveRegion="polite">
-              <Text variant="caption" className="mt-2" style={{ color: theme.critical }}>
+              <Text variant="noteSmall" className="mt-2" style={{ color: theme.critical }}>
                 That didn’t save. Check your connection and try again.
               </Text>
             </View>

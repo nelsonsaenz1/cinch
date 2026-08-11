@@ -918,7 +918,7 @@ export default function TodayScreen() {
             <View
               style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.accentWarm }}
             />
-            <Text variant="label" className="flex-1 font-medium" style={{ color: theme.canvas }}>
+            <Text variant="note" className="flex-1 font-medium" style={{ color: theme.canvas }}>
               Offline — showing this morning&rsquo;s set. Weather and plans may have moved on.
             </Text>
           </View>
@@ -962,7 +962,7 @@ export default function TodayScreen() {
 
               {/* The reactions are gone from the card because they cannot reach
                   the learner. Say what happens instead. */}
-              <Text variant="caption" className="px-gutter text-center">
+              <Text variant="noteSmall" className="px-gutter text-center">
                 Reactions will sync once you&rsquo;re back online.
               </Text>
             </View>

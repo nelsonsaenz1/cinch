@@ -264,7 +264,7 @@ export default function ClosetScreen() {
           refreshControl={refreshControl}
           ListEmptyComponent={<EmptySearch query={screen.query} category={screen.category} />}
           ListFooterComponent={
-            <Text variant="caption" className="px-1.5 pt-4" style={{ fontSize: 12, lineHeight: 17 }}>
+            <Text variant="noteSmall" className="px-1.5 pt-4" style={{ fontSize: 12, lineHeight: 17 }}>
               Searching matches name, colour and fabric — nothing you don’t own.
             </Text>
           }

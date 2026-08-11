@@ -110,7 +110,7 @@ export function MembershipThanksView({
 
       <Button title={returnLabel} variant="primary" className="mt-6" onPress={onBack} />
 
-      <Text variant="caption" className="mt-3.5 text-center" style={{ color: theme.muted }}>
+      <Text variant="noteSmall" className="mt-3.5 text-center" style={{ color: theme.muted }}>
         A receipt is on its way from Apple.
       </Text>
     </View>

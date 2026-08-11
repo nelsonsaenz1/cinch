@@ -73,7 +73,7 @@ export function TaggingHeader({ item, imageUri }: { item: Item; imageUri?: strin
           <Text variant="title" className="mt-3.5" accessibilityLiveRegion="polite">
             {title}
           </Text>
-          <Text variant="label" className="mt-2.5">
+          <Text variant="note" className="mt-2.5">
             Tags fill in as they come back. Every one of them is editable.
           </Text>
         </View>

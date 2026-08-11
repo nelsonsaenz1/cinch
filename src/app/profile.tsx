@@ -454,7 +454,7 @@ export default function ProfileScreen() {
             <View className="flex-row items-center justify-between p-4">
               <View className="flex-1 pr-3">
                 <Text variant="body">Daily outfit styling</Text>
-                <Text variant="caption" className="mt-1 text-muted">
+                <Text variant="noteSmall" className="mt-1 text-muted">
                   Built from your closet, on this phone.
                 </Text>
               </View>

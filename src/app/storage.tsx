@@ -158,7 +158,7 @@ export default function StorageScreen() {
           make room should learn where that stops here rather than at the
           camera. */}
       <View className="px-gutter pt-4">
-        <Text variant="label" className="text-muted">
+        <Text variant="note" className="text-muted">
           Stored pieces stay out of your closet grid and out of your plans, and they free up room
           for something new. They still count toward what your account can hold.
         </Text>

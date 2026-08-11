@@ -771,7 +771,7 @@ export default function ItemDetailScreen() {
                     </Text>
                   </Pressable>
                 )}
-                <Text variant="label" className="mt-2">
+                <Text variant="note" className="mt-2">
                   Name it, or leave it — the photo is enough.
                 </Text>
               </View>
@@ -787,7 +787,7 @@ export default function ItemDetailScreen() {
 
           {saveFailed ? (
             <Text
-              variant="label"
+              variant="note"
               accessibilityLiveRegion="polite"
               className="mt-2 text-critical">
               That didn&rsquo;t save. Check your connection and try again.
@@ -1084,7 +1084,7 @@ function OriginalPhotoSheet({
             )}
           </View>
 
-          <Text variant="label" className="mt-4">
+          <Text variant="note" className="mt-4">
             Kept. It stays on this piece whatever the closet shows.
           </Text>
         </View>

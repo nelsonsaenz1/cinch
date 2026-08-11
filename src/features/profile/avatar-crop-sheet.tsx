@@ -250,7 +250,7 @@ function CropStage({
               <Circle cx={cx} cy={cx} r={radius} stroke={`${theme.canvas}D9`} strokeWidth={1.5} fill="none" />
             </Svg>
             <Text
-              variant="caption"
+              variant="noteSmall"
               className="absolute bottom-3 left-0 right-0 text-center"
               style={{ color: `${theme.canvas}CC` }}>
               Drag to reposition · pinch to zoom
@@ -260,7 +260,7 @@ function CropStage({
 
         {failed ? (
           <Text
-            variant="caption"
+            variant="noteSmall"
             accessibilityLiveRegion="polite"
             className="mt-3 px-gutter"
             style={{ color: theme.accent }}>

@@ -45,7 +45,7 @@ export function PostComposer({
         />
       </View>
 
-      <Text variant="caption" className="mt-3">
+      <Text variant="noteSmall" className="mt-3">
         Sharing shows this look — and the pieces in it — to everyone in this
         event.
       </Text>

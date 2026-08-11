@@ -221,7 +221,7 @@ export default function InviteScreen() {
         {/* `caption` already carries `text-muted` — real content, not
  `faint`, which fails AA on canvas. */}
         <Text
-          variant="caption"
+          variant="noteSmall"
           className="px-10 text-center"
           style={{ paddingBottom: Math.max(insets.bottom, 24) }}>
           Cinch doesn’t read your contacts, and an occasion can’t be shared as a link.
@@ -369,7 +369,7 @@ export default function InviteScreen() {
             <Text variant="body" className="font-semibold text-center">
               No friend called “{query.trim()}”
             </Text>
-            <Text variant="label" className="mt-2 text-center">
+            <Text variant="note" className="mt-2 text-center">
               You can only invite people you’re already friends with on Cinch.
             </Text>
             <Pressable
@@ -423,7 +423,7 @@ export default function InviteScreen() {
                     />
                   ))}
                 </View>
-                <Text variant="caption" className="mt-4">
+                <Text variant="noteSmall" className="mt-4">
                   Only friends can be invited. To add someone new, add them as a friend first.
                 </Text>
               </>

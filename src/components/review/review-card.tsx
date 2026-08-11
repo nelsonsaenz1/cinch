@@ -355,7 +355,7 @@ export function ReviewCard({
             {/* Tone inline rather than a stacked `text-faint` over the label
  variant's `text-muted` — see the note on the confirm button
                 below for why a second colour class is not a reliable override.*/}
-            <Text variant="label" className="mb-4 mt-1.5" style={{ color: theme.faint }}>
+            <Text variant="note" className="mb-4 mt-1.5" style={{ color: theme.faint }}>
               My best guess — correct anything that&rsquo;s off.
             </Text>
 

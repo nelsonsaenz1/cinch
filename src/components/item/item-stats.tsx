@@ -51,6 +51,12 @@ const LABEL_STYLE = {
   fontSize: 9,
   lineHeight: leading('helvetica', 9, 1.3),
   letterSpacing: 1.2,
+  // `alignItems` on the column centres a single line; this centres the SECOND
+  // one. "Cost per wear" is the longest of the three labels in the narrowest
+  // proportion of the band, so it is the one that wraps first at large Dynamic
+  // Type — and a wrapped label whose tail sits left under a centred figure is
+  // the crowding §2 exists to prevent, reintroduced by the fix for it.
+  textAlign: 'center' as const,
 };
 
 /**
@@ -84,7 +90,7 @@ function Cell({
       accessible
       accessibilityRole="text"
       accessibilityLabel={a11yLabel}>
-      <Text variant="statFigure" style={FIGURE_STYLE}>
+      <Text variant="statFigure" style={[FIGURE_STYLE, { textAlign: 'center' }]}>
         {figure}
       </Text>
       <Text variant="colophon" className="mt-1" style={LABEL_STYLE}>

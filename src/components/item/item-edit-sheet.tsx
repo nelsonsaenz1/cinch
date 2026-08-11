@@ -116,7 +116,7 @@ export function ItemEditSheet({
           className="mx-2.5 overflow-hidden rounded-plate bg-canvas">
           <View className="px-5 pt-5">
             <Text variant="title">Edit this piece</Text>
-            <Text variant="label" className="mt-2.5 text-muted">
+            <Text variant="note" className="mt-2.5 text-muted">
               The name is what the closet, the rails and the plans call it. The price is what
               cost per wear is computed from.
             </Text>

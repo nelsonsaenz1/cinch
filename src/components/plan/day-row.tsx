@@ -156,7 +156,7 @@ export function DayRow({
             ) : null}
           </>
         ) : (
-          <Text variant="caption">Nothing in your closet works for this day&rsquo;s weather yet.</Text>
+          <Text variant="noteSmall">Nothing in your closet works for this day&rsquo;s weather yet.</Text>
         )}
       </View>
 

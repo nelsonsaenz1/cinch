@@ -98,7 +98,7 @@ export function AddTagSheet({ visible, initial, onSave, onCancel, busy = false }
           style={{ marginBottom: Math.max(insets.bottom, 10) + 10, maxHeight: '82%' }}>
           <View className="px-5 pt-5">
             <Text variant="title">Tag this piece</Text>
-            <Text variant="label" className="mt-2.5 text-muted">
+            <Text variant="note" className="mt-2.5 text-muted">
               What it suits, and when you reach for it. These are the same words the planner reads.
             </Text>
           </View>

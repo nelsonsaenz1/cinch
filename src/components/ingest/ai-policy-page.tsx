@@ -76,7 +76,7 @@ export function AiPolicyPage({ onBack }: { onBack: () => void }) {
             it is the one sentence here that qualifies a promise, so it sits
             visually apart from the four flat statements above it. */}
         <View className="mt-7 rounded-lg bg-sand p-4">
-          <Text variant="label" className="font-body" style={{ color: theme.muted }}>
+          <Text variant="note" className="font-body" style={{ color: theme.muted }}>
             Turning tagging off later stops new photos being sent. It doesn’t un-send old ones — but
             you can delete any item, and its photo and tags go with it.
           </Text>

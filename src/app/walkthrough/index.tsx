@@ -337,7 +337,7 @@ export default function WalkthroughScreen() {
           {/* Non-optional, per §8. It sits directly above the action because
               that is the moment consent is actually given. */}
           <View style={{ marginBottom: 12 }}>
-            <Text variant="caption" className="text-muted">
+            <Text variant="noteSmall" className="text-muted">
               The recording is transcribed and deleted. Cinch keeps the words, never the audio.
             </Text>
           </View>

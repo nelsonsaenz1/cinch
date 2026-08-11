@@ -146,7 +146,7 @@ export function BlockedRows({
         ))}
       </Card>
 
-      <Text variant="caption" className="mt-4 text-muted">
+      <Text variant="noteSmall" className="mt-4 text-muted">
         Unblocking does not restore the votes retracted when you blocked them. It only lets them
         find you again.
       </Text>

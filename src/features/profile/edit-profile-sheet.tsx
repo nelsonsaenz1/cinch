@@ -358,7 +358,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
                   : `${bio.length - BIO_MAX} characters past the limit.`}
               </Text>
             ) : (
-              <Text variant="caption" className="mt-2 text-muted">
+              <Text variant="noteSmall" className="mt-2 text-muted">
                 Sits under your name on your closet. Leave it empty and nothing shows.
               </Text>
             )}
@@ -374,7 +374,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
               </Text>
             ) : null}
 
-            <Text variant="caption" className="mt-7 text-muted">
+            <Text variant="noteSmall" className="mt-7 text-muted">
               Your handle and bio are visible to anyone you share a closet link with. Everything
               else stays private.
             </Text>

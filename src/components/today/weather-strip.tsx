@@ -58,7 +58,7 @@ export function WeatherStrip({
       {` · ${city}`}
     </Text>
   ) : (
-    <Text variant="label">Weather unavailable — styling on your closet alone.</Text>
+    <Text variant="note">Weather unavailable — styling on your closet alone.</Text>
   );
 
   if (weatherOnly) {
@@ -109,7 +109,7 @@ export function WeatherStrip({
           ))}
         </View>
       ) : calendarEnabled ? (
-        <Text variant="label" className="mt-1.5">
+        <Text variant="note" className="mt-1.5">
           Nothing on your calendar today.
         </Text>
       ) : onConnectCalendar ? (

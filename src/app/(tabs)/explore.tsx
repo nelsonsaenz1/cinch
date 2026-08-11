@@ -474,7 +474,7 @@ export default function ExploreScreen() {
             </Card>
 
             <Text
-              variant="caption"
+              variant="noteSmall"
               className="mt-3"
               style={{ fontSize: 12, lineHeight: 18, color: theme.faint }}>
               A friendship is mutual: when they add you back, their closet opens to you and yours

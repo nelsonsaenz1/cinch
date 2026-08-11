@@ -282,7 +282,7 @@ export function DeleteSheet({
                 indicator is drawn ON the card — the footnote has to clear it
                 itself. The atlas's own 20pt is the floor, not the answer. */}
             <View className="px-gutter pt-4" style={{ paddingBottom: Math.max(insets.bottom, 20) }}>
-              <Text variant="caption" style={{ fontSize: 12, lineHeight: 17, color: theme.muted }}>
+              <Text variant="noteSmall" style={{ fontSize: 12, lineHeight: 17, color: theme.muted }}>
                 Outfits you’ve already worn keep this piece in them either way.
               </Text>
             </View>

@@ -41,7 +41,13 @@ function Stat({
       <Text
         variant="colophon"
         numberOfLines={1}
-        style={{ fontSize: 9, letterSpacing: 1.2, lineHeight: 12, marginTop: 5 }}>
+        style={{
+          fontSize: 9,
+          letterSpacing: 1.2,
+          lineHeight: 12,
+          marginTop: 5,
+          textAlign: 'center',
+        }}>
         {label}
       </Text>
     </View>

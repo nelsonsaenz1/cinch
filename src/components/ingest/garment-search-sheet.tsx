@@ -339,7 +339,7 @@ export function GarmentSearchSheetBody({
                 router.push(`/wall-swap?add=${best}`);
               }}
             />
-            <Text variant="caption" className="mt-3" style={{ color: theme.faint }}>
+            <Text variant="noteSmall" className="mt-3" style={{ color: theme.faint }}>
               The import is held, not cancelled. It’s here when there’s room.
             </Text>
           </View>
@@ -453,7 +453,7 @@ function LinkPreview({
         <Text variant="label">Not this one</Text>
       </Pressable>
 
-      <Text variant="caption" className="mt-2">
+      <Text variant="noteSmall" className="mt-2">
         Cinch saves this picture to your closet and tags the garment for you.
       </Text>
     </View>
@@ -530,7 +530,7 @@ function Results({
         ))}
       </View>
 
-      <Text variant="caption" className="mt-4">
+      <Text variant="noteSmall" className="mt-4">
         Tap one to add it. Cinch saves the picture and tags the garment for you.
       </Text>
     </View>
