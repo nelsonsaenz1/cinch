@@ -117,3 +117,74 @@ Set the content size **before** launching. And check Metro's log for a
 `Bundled … (N modules)` line — without it the dev client may have booted its
 cached OTA bundle instead of your working tree, which is the trap that makes a
 verification walk verify the wrong code.
+
+---
+
+## The data-bearing pass — closed, with a fixture
+
+**Run 2026-08-11**, after the first walk found the account empty.
+
+`src/app/dev-truncation.tsx` (`__DEV__`-only, at `/dev-truncation`) renders the
+REAL ItemCard, ItemStats, RailCard and InsightCard — not copies — with the
+widest honest values each can take: a four-figure coat, a four-digit wear
+count, and the longest colour+subcategory pair a tagger can write. No
+production data, no credentials, deterministic.
+
+### Fixed
+
+| Site | At AX5, before | After |
+| --- | --- | --- |
+| `item-card.tsx:224–235` — wears, price, cost per wear | The meta row grew **wider than the card**: the left card's meta collided with the right card's and ran off the screen edge | Contained; ellipsizes inside the tile |
+| `item-stats.tsx` — the three-figure band | "$1,295.00" wrapped mid-number into "$1,295.0" over "0", pushing that cell's label out of line | One line, shrinking to 0.7 to hold the whole number |
+
+`numberOfLines={1}` does nothing until something constrains the width — that is
+the lesson. Each Text reported its full intrinsic width to the row, so the row
+grew instead of the text ellipsizing. `shrink` is what constrains it.
+
+### Clean at AX5
+
+- `insight-card.tsx:42` — the "86%" figure is intact; only the sentence beside
+  it ellipsizes, which is a sentence, not a figure.
+- `rail-card.tsx:103` — cost per wear ellipsizes within its card.
+
+### Open, and needing a design decision rather than a fix
+
+Containing the ItemCard meta converts the overflow into truncated **figures** —
+"1284…", "$1.01 /…" — and at AX5 even an ordinary "12 wears" is cut. A
+truncated number does not look truncated: "1284…" could be 12,840.
+
+`flex-wrap` on the row fixes it and was **backed out**: on the simulator it also
+wrapped at the DEFAULT text size, changing the single-line meta the atlas draws
+for every ordinary user. That is a design decision, not a defect fix. It needs
+the founder's eye or an atlas — the options are stacking the two figures at
+large sizes only, dropping the "/ wear" unit, or accepting the truncation.
+
+## Audit item 50 — the matrix, and what is not yet true about it
+
+`scripts/screenshot-matrix.mjs` captures four named screens × three device
+widths at a chosen Dynamic Type size, against a committed-or-not baseline, with
+an exact-hash diff.
+
+**Proven:** 12/12 captures across narrow/standard/wide; the dev client copied
+to the two simulators that lacked it so all three run the same binary; the
+status bar frozen at 9:41 so runs are byte-comparable at all (without it every
+screenshot differs on the clock and the diff is worthless); a clean run
+reporting `12 unchanged, 0 changed` and exiting 0.
+
+**NOT yet true:** the captures are of Superwall's "Test Mode Active" sheet, not
+of the app. A dev build sets `testModeBehavior: 'always'`, and the sheet covers
+every cold launch. The harness reported "12 unchanged" while having photographed
+nothing — which is the most important thing this exercise found, and why the
+warning now sits at the top of the script rather than in a doc.
+
+Two smaller defects the same investigation exposed, both fixed:
+
+- `cinch://plan` parses "plan" as the **host**, so expo-router never sees a
+  path and the app stayed where it was. Two screens had identical hashes, which
+  is what caught it. The links are `cinch:///plan` now.
+- Nothing was comparable at all until the status bar was frozen.
+
+**To finish it:** blank `EXPO_PUBLIC_SUPERWALL_API_KEY_IOS` in `.env`. Passing
+it empty on the command line is not enough — Expo's dotenv load re-exports the
+`.env` value over the inherited one. That is a change to a local developer
+environment, so this session did not make it.
