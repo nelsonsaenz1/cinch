@@ -25,11 +25,13 @@ import { test } from 'node:test';
 
 import {
   type CatalogProduct,
-  datafeedrProvider,
-  firstLicensed,
   type LookupMode,
   retainableTerms,
-} from '../supabase/functions/garment-search/catalog.ts';
+} from '../supabase/functions/_shared/catalog.ts';
+import {
+  datafeedrProvider,
+  firstLicensed,
+} from '../supabase/functions/garment-search/catalog-provider.ts';
 import type {
   GarmentImageProvider,
   MatchResult,

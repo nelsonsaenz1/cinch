@@ -7,8 +7,37 @@
  * but both equal the same two words and a grep for "Paid link" finds both.
  */
 
-/** §4 / §6 refusal 8: never abbreviated, greyed, or hidden behind an icon. */
+/**
+ * §4 / §6 refusal 8: never abbreviated, greyed, or hidden behind an icon.
+ *
+ * ONLY for a link that actually earns. `ShopMatch.paid` is computed server-side
+ * from `commerce_joined_programmes` — a table of CONFIRMED programme approvals
+ * — and not from whether a tracking URL could be built. Those are different
+ * facts: a redirect resolves for any merchant on a network we hold a publisher
+ * id for, whether or not that merchant has approved us.
+ *
+ * Until 2026-08-11 this label was rendered on every result unconditionally,
+ * while Awin reported zero joined programmes. Every one of them was a
+ * disclosure telling the user we were paid to show them something when we were
+ * not — a false claim about our own motives, made to their disadvantage.
+ */
 export const PAID_LINK_LABEL = 'Paid link';
+
+/**
+ * What an ordinary, unmonetised result says instead.
+ *
+ * It is not a quieter version of the paid label and it is not an apology. It
+ * states where the tap goes, which is all that is true about it. Showing
+ * nothing at all would be worse: the user would have no idea a tap leaves the
+ * app, and the absence of a disclosure would itself imply the presence of one
+ * elsewhere.
+ */
+export const OPEN_AT_MERCHANT_LABEL = 'Open at merchant';
+
+/** The line for one result, chosen by whether it genuinely earns. */
+export function linkDisclosure(paid: boolean): string {
+  return paid ? PAID_LINK_LABEL : OPEN_AT_MERCHANT_LABEL;
+}
 
 /**
  * C-02's header paragraph — verbatim from the directive, disclosed every

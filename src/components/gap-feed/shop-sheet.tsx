@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { floorPriceLabel, SHOP_SHEET_DISCLOSURE } from '@/features/commerce/copy';
+import { floorPriceLabel, linkDisclosure, SHOP_SHEET_DISCLOSURE } from '@/features/commerce/copy';
 import type { CatalogSlot } from '@/features/commerce/slot';
 import { useShopMatch, type ShopMatch } from '@/features/commerce/use-shop-match';
 import { shadow, useTheme } from '@/theme/tokens';
@@ -61,12 +61,22 @@ function ProductRow({ product, first }: { product: ShopMatch; first: boolean }) 
           {[product.merchantName, price].filter(Boolean).join(' · ')}
         </Text>
       </View>
-      <Button
-        title="Open"
-        variant="secondary"
-        onPress={() => void Linking.openURL(product.trackingUrl)}
-        className="px-4"
-      />
+      <View className="items-end" style={{ gap: 4 }}>
+        <Button
+          title="Open"
+          variant="secondary"
+          onPress={() => void Linking.openURL(product.url)}
+          className="px-4"
+        />
+        {/* The disclosure sits ON the link it describes, per product, because
+            that is the only place the answer is actually known — and because
+            `paid` differs row to row: two merchants in one sheet can be one
+            joined programme and one not. commerce-directive.md §4/§6 refusal 8
+            forbids abbreviating or hiding it, not stating it precisely. */}
+        <Text variant="caption" style={{ color: theme.faint }}>
+          {linkDisclosure(product.paid)}
+        </Text>
+      </View>
     </View>
   );
 }

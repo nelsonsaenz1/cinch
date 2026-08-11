@@ -31,7 +31,7 @@ import {
   type Declined,
   type DeclineReason,
 } from './policy.ts';
-import { licensedFirst } from './catalog-store.ts';
+import { licensedFirst } from './catalog-wiring.ts';
 import { openRouterWebProvider } from './provider.ts';
 
 /**

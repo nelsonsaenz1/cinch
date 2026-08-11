@@ -17,15 +17,8 @@
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
-import type { Database } from '../_shared/database.types.ts';
-import {
-  type CatalogProduct,
-  datafeedrProvider,
-  firstLicensed,
-  type LookupMode,
-  type UnlicensedFallback,
-} from './catalog.ts';
-import type { GarmentImageProvider } from './provider.ts';
+import type { Database } from './database.types.ts';
+import type { CatalogProduct, DatafeedrOpts, LookupMode } from './catalog.ts';
 
 /**
  * Datafeedr `source_id` (a NETWORK, per country) to our publisher id on that
@@ -69,66 +62,31 @@ function affiliateIdsFromEnv(): Record<number, string> {
 }
 
 /**
- * The two kill switches, read per request rather than at module load so that
- * flipping either is a secret change plus a cold start, not a redeploy.
+ * Everything a catalogue lookup needs, assembled from the environment.
  *
- * `GARMENT_SEARCH_ALLOW_UNLICENSED` governs IMAGES from the open web and
- * **defaults to FALSE**. It shipped defaulting to true, which was the wrong way
- * round in the one way that matters: the secret is what turns the unlicensed
- * path OFF, so losing it — a project restore, a secret pruned by mistake, a new
- * environment stood up from the repo — would silently re-enable exactly the
- * behaviour this module exists to replace, and nothing would report it. The
- * safe state is the default state; enabling the open web is now the act that
- * requires a deliberate `"true"`.
- *
- * Licensed-only is also what the measurement supports: post-policy coverage was
- * 28/28 against real garment descriptions on 2026-08-11, every case filling all
- * six candidate slots.
- *
- * `GARMENT_SEARCH_ALLOW_UNLICENSED_MATCH` governs BRAND IDENTIFICATION from a
- * photograph the user took themselves, and defaults to TRUE — see
- * `UnlicensedFallback` for why these are not one switch. Its default runs the
- * other way because its failure mode does too: losing the secret restores a
- * feature rather than a licensing exposure, since reading a brand off the
- * user's own picture copies no image.
+ * Returns null when Datafeedr is unconfigured, which every caller must treat as
+ * "there is no licensed catalogue today" rather than as an error:
+ * `garment-search` degrades to its fallback chain, `gap-shop-match` returns no
+ * products. The one thing nobody may do is carry on without it — fail closed is
+ * the whole posture of the licensed path.
  */
-function allowUnlicensed(): UnlicensedFallback {
-  return {
-    search: Deno.env.get('GARMENT_SEARCH_ALLOW_UNLICENSED') === 'true',
-    match: (Deno.env.get('GARMENT_SEARCH_ALLOW_UNLICENSED_MATCH') ?? 'true') !== 'false',
-  };
-}
-
-/**
- * Compose the provider chain: licensed feeds first, the web model path only as
- * a fallback, and not at all when the switch is off.
- *
- * Returns `fallback` unchanged when Datafeedr is not configured, so a missing
- * secret degrades to exactly today's behaviour rather than to no search at all.
- */
-export function licensedFirst(
-  admin: SupabaseClient<Database>,
-  fallback: GarmentImageProvider,
-): GarmentImageProvider {
+export function catalogOptsFromEnv(admin: SupabaseClient<Database>): DatafeedrOpts | null {
   const accessId = Deno.env.get('DATAFEEDR_ACCESS_ID');
   const accessKey = Deno.env.get('DATAFEEDR_ACCESS_KEY');
-
   if (!accessId || !accessKey) {
-    console.error('catalog: DATAFEEDR_ACCESS_ID/KEY unset — licensed path is off');
-    return fallback;
+    console.error('catalog: DATAFEEDR_ACCESS_ID/KEY unset — the licensed path is off');
+    return null;
   }
 
-  const datafeedr = datafeedrProvider({
+  return {
     accessId,
     accessKey,
     affiliateIds: affiliateIdsFromEnv(),
     claimRequest: (exact) => claimRequest(admin, exact),
     cacheGet: (key) => cacheGet(admin, key),
-    cachePut: (key, mode, query, products, ttlHours) =>
-      cachePut(admin, key, mode, query, products, ttlHours),
-  });
-
-  return firstLicensed([datafeedr], fallback, allowUnlicensed());
+    cachePut: (key, mode, terms, products, ttlHours) =>
+      cachePut(admin, key, mode, terms, products, ttlHours),
+  };
 }
 
 /**

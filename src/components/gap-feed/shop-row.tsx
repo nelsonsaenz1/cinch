@@ -1,7 +1,7 @@
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
-import { floorPriceLabel, merchantsClause, PAID_LINK_LABEL } from '@/features/commerce/copy';
+import { floorPriceLabel, linkDisclosure, merchantsClause } from '@/features/commerce/copy';
 import { SLOT_FOR_GAP_KIND, type CatalogSlot } from '@/features/commerce/slot';
 import { useShopMatch } from '@/features/commerce/use-shop-match';
 import { gapLabel, type Gain, type Tally } from '@/features/closet/gap-feed';
@@ -42,6 +42,9 @@ export function ShopRow({ tally, gain, onPress }: ShopRowProps) {
     null as number | null,
   );
   const currency = products.find((p) => p.priceCents !== null)?.currency ?? null;
+  // "Paid link" only if at least one of these actually is one. With no joined
+  // programmes every row reads "Open at merchant", which is the truth.
+  const disclosure = linkDisclosure(products.some((p) => p.paid));
 
   const headline = `${gapLabel(tally, gain.kind)} would give you ${gain.gain} more ${
     gain.gain === 1 ? 'outfit' : 'outfits'
@@ -53,7 +56,7 @@ export function ShopRow({ tally, gain, onPress }: ShopRowProps) {
     <Pressable
       onPress={() => onPress(slot)}
       accessibilityRole="button"
-      accessibilityLabel={`${headline} ${priceLine} ${PAID_LINK_LABEL}`}
+      accessibilityLabel={`${headline} ${priceLine} ${disclosure}`}
       accessibilityHint="Opens shop suggestions in a sheet"
       className="mt-2 border-t border-hairline pt-2 active:opacity-60">
       <Text variant="caption" style={{ color: theme.muted, lineHeight: 17 }}>
@@ -71,7 +74,7 @@ export function ShopRow({ tally, gain, onPress }: ShopRowProps) {
             weight every other trailing fact on this row already uses; nothing
             here is quieter than its neighbours. */}
         <Text variant="caption" className="font-medium" style={{ color: theme.faint }}>
-          {PAID_LINK_LABEL}
+          {disclosure}
         </Text>
       </View>
     </Pressable>

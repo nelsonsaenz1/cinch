@@ -21,9 +21,13 @@ export type ShopMatch = {
   currency: string | null;
   imageUrl: string;
   merchantName: string;
-  /** Already a tracking link — commerce-directive.md §6 refusal 7 is the edge
-   *  function's job, not this hook's; nothing here ever builds a link. */
-  trackingUrl: string;
+  /** Where the tap goes. Tracked only when `paid`; otherwise the merchant's own
+   *  URL. commerce-directive.md §6 refusal 7 is the edge function's job, not
+   *  this hook's — nothing here ever builds a link. */
+  url: string;
+  /** True only when this merchant's programme is CONFIRMED joined, so the link
+   *  really does earn. Never inferred from the link's shape. */
+  paid: boolean;
 };
 
 /**

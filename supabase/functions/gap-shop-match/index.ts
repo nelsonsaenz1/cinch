@@ -3,57 +3,54 @@ import { withSupabase } from 'npm:@supabase/server@^1';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
-import { publisherIdsFromEnv, trackingUrl, type Network } from '../_shared/commerce.ts';
+import { networkFamily, searchCatalogue, type CatalogProduct } from '../_shared/catalog.ts';
+import { catalogOptsFromEnv } from '../_shared/catalog-store.ts';
 
 /**
  * gap-shop-match — commerce-directive.md §2/§3, C-01/C-02/C-04's server half.
  *
- * ONE FUNCTION, TWO CALLERS. The request shape is a bare `slot`, in
- * `catalog_products.slot`'s own ten-value vocabulary (20260811143000) — not
- * "kind" or "gap", because this endpoint does not know or care whether the
- * caller is the Gap Feed matching a computed gap (C-01, four of the ten
- * slots, mapped client-side in `src/features/commerce/slot.ts`) or a
- * friend's closet item detail matching a specific piece's own category
- * (C-04, which needs all ten — `item_category` and `catalog_products.slot`
- * share the identical enum by design, so a friend's item passes its
- * `category` straight through with no translation). Naming the request
- * after the schema's own vocabulary is what let one function serve both
- * without either caller bending its language to fit the other's.
+ * ONE FUNCTION, TWO CALLERS: the Gap Feed matching a computed gap (C-01) and a
+ * friend's closet item detail matching a specific piece (C-04). The request is
+ * a `slot` in the ten-value vocabulary both sides already speak.
  *
- * WHY THIS IS A SERVER FUNCTION AND NOT A CLIENT QUERY
+ * WHAT CHANGED, AND WHY
  *
- * `catalog_products`/`catalog_merchants` grant nothing to `anon` or
- * `authenticated` (20260811143000) — "clients never query the catalogue
- * directly" is the schema's own rule, not a preference of this file's. So
- * neither caller has a path to the data except through here, which is also
- * the one place `trackingUrl()` runs — a publisher id never reaches the
- * client, and the two per-network reference fields commerce.ts refuses to
- * set (`clickref`, `u1`) never get a client-side call site that could set
- * them by accident later.
+ * This read `catalog_products` — the Awin FEED tables, filled by `sync-feeds`.
+ * Those tables are empty and stay empty until Awin approves a programme, so
+ * both commerce surfaces rendered nothing at all while the licensed Datafeedr
+ * catalogue sat right next to them answering garment searches across 44,027
+ * merchants without needing any approval. Catalogue access and commission are
+ * different permissions, and only the second one is blocked.
  *
- * WHAT "BEST MATCH" MEANS HERE
+ * So this now queries the same licensed provider and the same global cache
+ * `garment-search` uses. `sync-feeds` and its tables are kept as Awin
+ * redundancy for when those approvals land — not deleted, not the blocker.
  *
- * Slot, in stock, nothing more. commerce-directive.md §0 rules out ANY
- * ordering by pay rate; since this schema carries no commission column at
- * all (20260811143000), there is nothing to accidentally sort by even if the
- * query below were careless about it. C-04's "Find it" matches by the
- * piece's own category, the same coarse signal C-01 uses — it is a "shop
- * this kind of thing" match, not a reverse-image search for the exact piece
- * pictured, and the client-side copy says so rather than promising a
- * precision this endpoint does not have. A precise per-photograph match
- * would extend `garment-search`'s existing `match` action (already built
- * for exactly that, for a user's OWN items) to a friend's item under
- * `shoppable` — a real feature, deliberately left out of this pass: it needs
- * its own authorization review (whose AI consent gates a cross-account
- * search? does a declined match leak that a search was attempted?) rather
- * than an answer improvised inside an unrelated function.
+ * DISCOVERY AND MONETISATION ARE SEPARATE, AND STAY SEPARATE
  *
- * AT MOST THREE MERCHANTS
+ * Nothing on the ranking path knows what anything pays. The order of results is
+ * decided entirely by how well a product answers the gap — locale, stock,
+ * colour, brand, formality, price — and monetisation is resolved afterwards,
+ * per row, purely to decide how the link is LABELLED. There is no commission
+ * figure anywhere in this function to sort by even by accident, and
+ * `tests/commerce-isolation.test.ts` holds the other half of that line by
+ * forbidding the closet-ranking modules from importing anything commerce.
  *
- * One product per distinct merchant, freshest `updated_at` first within a
- * merchant. C-01's "at most three merchants" is enforced by construction —
- * the response can never contain two rows from the same shop — not by a
- * client-side slice that a future edit could relocate above the dedupe.
+ * THE CLOSET RANKS FIRST, THEN THE MERCHANT LOOKUP HAPPENS
+ *
+ * The caller has already decided WHAT is missing before this function is
+ * reached — that computation lives in `outfit-count.ts`/`gap-feed.ts` and reads
+ * only the closet. This endpoint is told the answer. It never gets to influence
+ * which gap was chosen, which is the property that keeps "what you are missing"
+ * an honest statement about a wardrobe rather than a dressed-up ad slot.
+ *
+ * A PAID LINK IS ONLY CALLED A PAID LINK WHEN IT IS ONE
+ *
+ * Being able to build a tracking URL is not evidence of earning from it — see
+ * `commerce_joined_programmes`. Awin reports zero joined programmes today, so
+ * every result currently ships as an ordinary link to the merchant, and says
+ * so. The label is computed from a table of confirmed approvals, never from the
+ * shape of a URL.
  */
 
 /** Mirrors `CatalogSlot` in `src/features/commerce/slot.ts` — the Deno and
@@ -78,28 +75,126 @@ function isCatalogSlot(value: unknown): value is CatalogSlot {
 }
 
 const MAX_MERCHANTS = 3;
-/** Candidates pulled before the per-merchant dedupe — generous enough that a
- *  handful of merchants selling the same slot still yields three distinct ones. */
-const CANDIDATE_POOL = 24;
 
-type CatalogProductRow = {
-  id: string;
-  title: string;
-  brand: string | null;
-  colour: string | null;
-  price_cents: number | null;
-  currency: string | null;
-  image_url: string;
-  product_url: string;
-  updated_at: string;
-  merchant: {
-    id: string;
-    name: string;
-    network: string;
-    external_id: string;
-    active: boolean;
-  } | null;
+/**
+ * The words a slot is actually searched with.
+ *
+ * A slot is a schema value, not a shopping phrase: nobody's catalogue is
+ * indexed under "outerwear" or "footwear" as such, and `other` is not a garment
+ * at all. These are the plain terms a listing title is likely to carry, which
+ * is what `name LIKE` matches against.
+ */
+const SLOT_QUERY: Record<CatalogSlot, string | null> = {
+  top: 'shirt top',
+  bottom: 'trousers pants',
+  outerwear: 'coat jacket',
+  footwear: 'shoes',
+  dress: 'dress',
+  accessory: 'scarf belt',
+  bag: 'bag',
+  headwear: 'hat',
+  jewelry: 'necklace bracelet',
+  // Deliberately unsearchable. "other" means the closet could not classify the
+  // piece, and guessing a shopping term from that would be inventing a gap.
+  other: null,
 };
+
+/**
+ * Relevance hints, all derived from the CLOSET by the caller before this
+ * function is reached. None of them identify anybody: a colour, a brand name, a
+ * formality band and a price ceiling describe a garment, not a person.
+ */
+type Hints = {
+  colour?: string;
+  brand?: string;
+  formality?: 'casual' | 'smart' | 'formal';
+  /** Minor units. A ceiling drawn from what the closet already cost. */
+  priceCeilingCents?: number;
+};
+
+function readHints(raw: unknown): Hints {
+  const h = (raw ?? {}) as Record<string, unknown>;
+  const str = (v: unknown, max: number) =>
+    typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined;
+
+  const formality = h.formality;
+  return {
+    colour: str(h.colour, 40),
+    brand: str(h.brand, 80),
+    formality:
+      formality === 'casual' || formality === 'smart' || formality === 'formal'
+        ? formality
+        : undefined,
+    priceCeilingCents:
+      typeof h.priceCeilingCents === 'number' &&
+      Number.isFinite(h.priceCeilingCents) &&
+      h.priceCeilingCents > 0
+        ? Math.min(Math.round(h.priceCeilingCents), 100_000_00)
+        : undefined,
+  };
+}
+
+/** Words that suggest a garment is dressier or plainer than average. */
+const FORMAL_WORDS = /\b(tailored|suit|blazer|silk|satin|evening|gown|oxford|dress shirt|loafer|heel)\b/i;
+const CASUAL_WORDS = /\b(hoodie|sweatshirt|jogger|sneaker|tee|t-shirt|graphic|fleece|track)\b/i;
+
+/**
+ * Score one product against the gap. Higher is better.
+ *
+ * Every term is a statement about FIT TO THE REQUEST. There is deliberately no
+ * term for what a merchant pays, no term for how new the listing is, and no
+ * term for how expensive it is in isolation — "freshest first", which this
+ * function used to rank by, is a property of our sync schedule rather than of
+ * the garment, and it put whichever merchant happened to update last at the top
+ * of every list.
+ */
+function score(p: CatalogProduct, hints: Hints, slot: CatalogSlot): number {
+  let s = 0;
+
+  // Colour is the strongest signal a closet gives: a gap is usually "another
+  // one of these but in a colour I don't own".
+  if (hints.colour && p.colour) {
+    const want = hints.colour.toLowerCase();
+    const got = p.colour.toLowerCase();
+    if (got === want) s += 5;
+    else if (got.includes(want) || want.includes(got)) s += 3;
+  }
+
+  // A brand the closet already contains is evidence of taste, not a promotion —
+  // it is the user's own history and is weighted below colour on purpose.
+  if (hints.brand && p.brand && p.brand.toLowerCase() === hints.brand.toLowerCase()) s += 2;
+
+  if (hints.formality) {
+    const text = `${p.title} ${p.brand ?? ''}`;
+    const formal = FORMAL_WORDS.test(text);
+    const casual = CASUAL_WORDS.test(text);
+    if (hints.formality === 'formal' && formal) s += 2;
+    if (hints.formality === 'casual' && casual) s += 2;
+    if (hints.formality === 'formal' && casual) s -= 2;
+    if (hints.formality === 'casual' && formal) s -= 1;
+  }
+
+  // Price relevance is a CEILING, not an ordering. Under it is fine and equal;
+  // over it is progressively less useful, because a suggestion nobody would buy
+  // is not a suggestion. Ordering by price ascending is what previously
+  // surfaced the bottom of the market.
+  if (hints.priceCeilingCents && p.priceMinor > 0) {
+    if (p.priceMinor <= hints.priceCeilingCents) s += 2;
+    else if (p.priceMinor <= hints.priceCeilingCents * 1.5) s += 1;
+    else s -= 2;
+  }
+
+  // The slot's own words appearing in the title is weak but real evidence the
+  // row is the kind of thing asked for rather than an accessory to it.
+  const words = (SLOT_QUERY[slot] ?? '').split(' ').filter(Boolean);
+  if (words.some((w) => p.title.toLowerCase().includes(w))) s += 1;
+
+  // A product with no picture cannot be shown at all; one with a second picture
+  // is marginally better presented. Tiny, and last.
+  if (p.thumbnailUrl) s += 0.5;
+
+  return s;
+}
 
 export type ShopMatch = {
   id: string;
@@ -110,16 +205,18 @@ export type ShopMatch = {
   currency: string | null;
   imageUrl: string;
   merchantName: string;
-  /** Built by trackingUrl() — never the bare product_url. See the file header. */
-  trackingUrl: string;
+  /** Where the tap goes. Tracked only when `paid` is true. */
+  url: string;
+  /**
+   * True ONLY when this merchant's programme is confirmed joined and the link
+   * therefore earns a commission. The client labels the row from this and must
+   * never assume it — see `commerce_joined_programmes`.
+   */
+  paid: boolean;
 };
 
 function fail(code: string, message: string, status: number): Response {
   return Response.json({ error: code, message }, { status });
-}
-
-function isNetwork(value: string): value is Network {
-  return value === 'awin' || value === 'rakuten';
 }
 
 export default {
@@ -133,14 +230,12 @@ export default {
         return fail('invalid_request', 'Malformed JSON body.', 400);
       }
 
-      const slot = (body as { slot?: unknown })?.slot;
-      if (!isCatalogSlot(slot)) {
-        return fail(
-          'invalid_request',
-          `slot must be one of: ${CATALOG_SLOTS.join(', ')}.`,
-          400,
-        );
+      const raw = body as { slot?: unknown; itemId?: unknown; hints?: unknown };
+      if (!isCatalogSlot(raw?.slot)) {
+        return fail('invalid_request', `slot must be one of: ${CATALOG_SLOTS.join(', ')}.`, 400);
       }
+      const slot: CatalogSlot = raw.slot;
+      const hints = readHints(raw.hints);
 
       const db = ctx.supabase as unknown as SupabaseClient<Database>;
       const admin = ctx.supabaseAdmin as unknown as SupabaseClient<Database>;
@@ -148,14 +243,12 @@ export default {
       const userId = ctx.userClaims?.id;
       if (!userId) return fail('not_signed_in', 'Not signed in.', 401);
 
-      // C-03, enforced server-side too — the same defense-in-depth posture
-      // every consent-gated function in this codebase already takes (see
-      // garment-search's ai_consent check). A client that hid its own
-      // merchant rows must not still be able to fetch the data behind them by
-      // calling this endpoint directly. This is the CALLER's own preference —
-      // for C-04 that is the person looking at a friend's closet, not the
-      // friend; a viewer who turned shop suggestions off gets none anywhere,
-      // including on someone else's piece.
+      // ── C-03 · the VIEWER's own preference ────────────────────────────────
+      // Enforced server-side as well as in the client, because a client that
+      // hid its merchant rows must not still be able to fetch the data behind
+      // them by calling this endpoint directly. For C-04 this is the person
+      // LOOKING at a friend's closet, not the friend: a viewer who turned shop
+      // suggestions off gets none anywhere, including on someone else's piece.
       const { data: profile, error: profileError } = await db
         .from('profiles')
         .select('show_where_to_buy')
@@ -163,59 +256,97 @@ export default {
         .single();
 
       if (profileError) return fail('profile_read_failed', profileError.message, 500);
-      if (profile?.show_where_to_buy === false) {
+      if (profile?.show_where_to_buy === false) return Response.json({ products: [] });
+
+      // ── C-05 · the OWNER's permission, for a friend's piece ───────────────
+      // This check did not exist server-side. `shoppable` was read only in
+      // `FriendItemSheet`, so the owner's consent was enforced by the same
+      // client that was asking — anyone calling this endpoint with a slot got
+      // matches for a friend's garment whether or not that friend had allowed
+      // it. Read through `friend_items` under the CALLER's own RLS rather than
+      // as admin, so the existing friendship and privacy layer decides
+      // visibility and this function does not reimplement it.
+      if (raw.itemId !== undefined) {
+        if (typeof raw.itemId !== 'string') {
+          return fail('invalid_request', 'itemId must be a string.', 400);
+        }
+        const { data: item, error: itemError } = await db
+          .from('friend_items')
+          .select('id, shoppable')
+          .eq('id', raw.itemId)
+          .maybeSingle();
+
+        // Not visible, not shoppable, or unreadable — all the same silence. A
+        // distinct error would tell the caller which of those it was, and
+        // "this item exists but its owner said no" is not theirs to learn.
+        if (itemError || !item || item.shoppable !== true) {
+          return Response.json({ products: [] });
+        }
+      }
+
+      const query = SLOT_QUERY[slot];
+      if (!query) return Response.json({ products: [] });
+
+      // ── The licensed catalogue, fail-closed ──────────────────────────────
+      const opts = catalogOptsFromEnv(admin);
+      if (!opts) return Response.json({ products: [] });
+
+      let rows: CatalogProduct[];
+      try {
+        // `brand` goes to the catalogue's own brand FIELD when the closet
+        // supplied one — the same lesson as garment-search: a brand name inside
+        // a merchant's free-text title is not evidence the garment is that brand.
+        rows = await searchCatalogue(opts, 'keyword', query, hints.brand ?? null);
+      } catch {
         return Response.json({ products: [] });
       }
 
-      // service_role — catalog_products/catalog_merchants grant nothing to
-      // authenticated (20260811143000). One query, an inner join so a product
-      // whose merchant lapsed (or the merchant row was deleted, cascading)
-      // never surfaces without a merchant to name.
-      const { data, error } = await admin
-        .from('catalog_products')
-        .select(
-          'id, title, brand, colour, price_cents, currency, image_url, product_url, updated_at, merchant:catalog_merchants!inner(id, name, network, external_id, active)',
-        )
-        .eq('slot', slot)
-        .eq('availability', 'in_stock')
-        .eq('merchant.active', true)
-        .order('updated_at', { ascending: false })
-        .limit(CANDIDATE_POOL);
+      // ── Rank on fit, then cap at three distinct merchants ────────────────
+      const ranked = [...rows].sort((a, b) => score(b, hints, slot) - score(a, hints, slot));
 
-      if (error) return fail('catalog_read_failed', error.message, 500);
+      // Which programmes are actually joined. Empty today, which is why every
+      // row below currently comes back `paid: false`.
+      const { data: joined } = await admin
+        .from('commerce_joined_programmes')
+        .select('network, merchant_id')
+        .eq('active', true);
+      const joinedKeys = new Set((joined ?? []).map((j) => `${j.network}:${j.merchant_id}`));
 
-      const ids = publisherIdsFromEnv();
-      const seenMerchants = new Set<string>();
+      const seen = new Set<string>();
       const products: ShopMatch[] = [];
 
-      for (const row of (data ?? []) as unknown as CatalogProductRow[]) {
+      for (const p of ranked) {
         if (products.length >= MAX_MERCHANTS) break;
-        const merchant = row.merchant;
-        if (!merchant || seenMerchants.has(merchant.id)) continue;
-        if (!isNetwork(merchant.network)) continue; // unreachable given the check constraint; narrows the type
+        // "At most three merchants" enforced by construction: the response can
+        // never hold two rows from one shop, rather than by a client-side slice
+        // a later edit could relocate above the dedupe.
+        if (seen.has(p.merchant)) continue;
+        seen.add(p.merchant);
 
-        let link: string;
-        try {
-          link = trackingUrl(merchant.network, merchant.external_id, row.product_url, ids);
-        } catch {
-          // No publisher id configured for this network yet, or a malformed
-          // stored URL — either way, never show a row whose link is not
-          // actually tracked. Skip the product, not the whole response: the
-          // other network may still be configured.
-          continue;
-        }
+        // `monetised` from the catalogue means only "a publisher id existed for
+        // this network, so a tracking URL was built". Whether it EARNS is a
+        // different fact and lives in the table above.
+        // Three things must all hold: a tracking URL was buildable, the row
+        // is on a network we hold a publisher id for, and that merchant's
+        // programme is confirmed joined. The first two are about plumbing; only
+        // the third is about money.
+        const family = networkFamily(p.sourceId);
+        const paid = p.monetised && family !== null && joinedKeys.has(`${family}:${p.merchantId}`);
 
-        seenMerchants.add(merchant.id);
         products.push({
-          id: row.id,
-          title: row.title,
-          brand: row.brand,
-          colour: row.colour,
-          priceCents: row.price_cents,
-          currency: row.currency,
-          imageUrl: row.image_url,
-          merchantName: merchant.name,
-          trackingUrl: link,
+          id: p.externalId,
+          title: p.title,
+          brand: p.brand,
+          colour: p.colour,
+          priceCents: p.priceMinor > 0 ? p.priceMinor : null,
+          currency: p.currency,
+          imageUrl: p.imageUrl,
+          merchantName: p.merchant,
+          // An unmonetised row goes to the merchant directly. Sending it through
+          // a network redirect we earn nothing from would add a hop, hand a
+          // third party the click, and still not pay — all cost, no benefit.
+          url: paid ? p.linkUrl : p.directUrl,
+          paid,
         });
       }
 
@@ -224,5 +355,5 @@ export default {
   ),
 };
 
-// Exported for a future unit test without spinning up the Deno runtime.
-export const __testables = { CATALOG_SLOTS, MAX_MERCHANTS };
+// Exported for unit tests without spinning up the Deno runtime.
+export const __testables = { CATALOG_SLOTS, MAX_MERCHANTS, SLOT_QUERY, score, readHints };

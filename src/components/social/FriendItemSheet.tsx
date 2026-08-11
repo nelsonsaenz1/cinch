@@ -6,7 +6,6 @@ import { friendPieceName } from '@/components/social/FriendItemCard';
 import { SheetOverlay } from '@/components/social/FriendOverflowSheet';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { PAID_LINK_LABEL } from '@/features/commerce/copy';
 import { useShowWhereToBuy } from '@/features/commerce/queries';
 import { wearsLabel } from '@/features/closet/item-name';
 import { stableImageSource } from '@/features/closet/use-image-urls';
@@ -153,18 +152,12 @@ export function FriendItemSheet({
             <Pressable
               onPress={() => onFindIt(item)}
               accessibilityRole="button"
-              accessibilityLabel={`Find it — ${PAID_LINK_LABEL}`}
+              accessibilityLabel="Find it"
               accessibilityHint="Opens shop suggestions in a sheet"
               className="mt-3 flex-row items-center active:opacity-60"
               style={{ gap: 6 }}>
               <Text variant="label" style={{ color: theme.accent }}>
                 Find it
-              </Text>
-              <Text variant="caption" style={{ color: theme.faint }}>
-                ·
-              </Text>
-              <Text variant="caption" className="font-medium" style={{ color: theme.faint }}>
-                {PAID_LINK_LABEL}
               </Text>
             </Pressable>
           ) : null}
