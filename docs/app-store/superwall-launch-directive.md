@@ -73,8 +73,8 @@ and reading them back.
 
 ## 3 · Task B — the App-Specific Shared Secret
 
-**Prefer that the founder does this one; it is a credential.** It is the
-remaining `p0` on the doctor.
+Do this one. It is the remaining `p0` on the doctor. It is a credential, which
+constrains how you *handle* it — not whether you do it.
 
 1. App Store Connect → **Users and Access → Integrations → App-Specific Shared
    Secrets** → generate or copy the secret for Cinch.
