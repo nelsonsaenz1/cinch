@@ -1768,6 +1768,33 @@ export type Database = {
         }
         Relationships: []
       }
+      push_receipts: {
+        Row: {
+          attempts: number
+          channel: string
+          created_at: string
+          last_attempt_at: string | null
+          ticket_id: string
+          token: string
+        }
+        Insert: {
+          attempts?: number
+          channel: string
+          created_at?: string
+          last_attempt_at?: string | null
+          ticket_id: string
+          token: string
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          created_at?: string
+          last_attempt_at?: string | null
+          ticket_id?: string
+          token?: string
+        }
+        Relationships: []
+      }
       push_sends: {
         Row: {
           channel: string
@@ -2964,6 +2991,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      push_claim_receipts: {
+        Args: { p_limit?: number }
+        Returns: {
+          ticket_id: string
+          token: string
+        }[]
+      }
       push_claim_votes_comments: {
         Args: never
         Returns: {
@@ -2974,6 +3008,8 @@ export type Database = {
         }[]
       }
       push_invoke: { Args: { p_channel: string }; Returns: number }
+      push_receipts_invoke: { Args: never; Returns: number }
+      push_receipts_prune: { Args: never; Returns: number }
       push_release_claims: {
         Args: { p_channel: string; p_keys: string[]; p_user_ids: string[] }
         Returns: number
