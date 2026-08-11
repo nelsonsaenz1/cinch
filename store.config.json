@@ -1,0 +1,87 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "version": "1.0",
+    "copyright": "2026 Nelson Saenz",
+    "release": {
+      "automaticRelease": true
+    },
+    "info": {
+      "en-US": {
+        "description": "Ten pieces. That is all Cinch needs before it can dress you.\n\nPhotograph ten things you already own — three tops, two bottoms, a dress, two pairs of shoes, a coat and a bag. Don't wear dresses? Say so, and that position becomes another top or bottom. Cinch identifies each piece: what it is, its colours, how formal it is, how warm it is.\n\nThen it does the arithmetic: tops times bottoms times shoes, plus dresses times shoes. It counts what your ten actually make, shows you the number, and dresses you in the first one.\n\nYou don't have to photograph your whole wardrobe first. Ten pieces is a wardrobe, and the ten-piece closet is free.\n\nBUILT ONLY FROM WHAT YOU OWN\nEvery outfit is assembled from garments in your own closet. Cinch never invents a piece, and never suggests one you would have to go and buy — there is no shop in it. A garment's picture is your photograph, or, if you chose it, the retailer's own shot of a piece you told Cinch you own.\n\nTHE MATHS RUNS ON YOUR PHONE\nOutfits are assembled and scored on your iPhone, in milliseconds, from your real garments — which is why Cinch still dresses you on a plane, or with no bars at all. Colour is judged in OKLCH, a perceptual colour space. Hue distance, chroma and lightness contrast are what decide that navy and camel work. Colour carries more weight than any other rule.\n\nA language model never sees your closet. It sees a shortlist of a dozen outfits the maths already built, re-ranks them on your taste, and writes the sentence underneath.\n\nEVERY OUTFIT COMES WITH ITS REASON\nNot a score, not a percentage — a sentence. Why this coat, on this day, over this knit.\n\nDRESSED FOR THE ACTUAL WEATHER\nCinch uses the apparent temperature where you are, not the forecast high. It knows a light jacket is not enough at four degrees in a strong wind, and it will not put suede shoes on you in the rain.\n\nIT UNDERSTANDS A WHOLE DAY\nDinner at seven and drinks at ten are not the same dress code. Type \"dinner then drinks after\" and Cinch finds the one outfit that carries both — or connect your calendar and it reads the day for you.\n\nIT LEARNS YOU\nLike an outfit, skip it, or say why it is wrong — too formal, not your colours, worn too recently. Cinch adjusts from the first reaction, and shows you in plain English what it has learned.\n\nPACK WITHOUT OVERPACKING\nTell Cinch where you are going and for how long. It reads the forecast there and works out the smallest set of clothes that still gives you a different outfit every day — and says so plainly when a day can't be filled.\n\nASK THE STYLIST ANYTHING\n\"Dinner at 7, drinks after?\" \"What am I missing?\" It tells you when you don't own the right thing rather than inventing one.\n\nSTILL TORN? ASK YOUR FRIENDS\nPost the dinner, the wedding, the trip. Invite the people going. Everyone shares a couple of options from their own closet, votes and comments, and each person walks in wearing the look their friends helped them choose. Nobody is ranked against anybody else.\n\nBORROW FROM EACH OTHER\nBrowse a friend's closet, find the black clutch they never wear, and ask to borrow it. They lend it or say not this time — one tap either way, private between the two of you.\n\nSEE YOUR OWN STORY\nCinch records every wear: your most-worn pieces, the ones sitting untouched, and what you spend per wear.\n\nNOTHING VANISHES BY ACCIDENT\nTaking a piece out of rotation is reversible: Storage keeps the photograph and every wear you logged, and you can bring it back. Removing one is separate and deliberate, and says so before it deletes anything.\n\nPRIVATE BY DEFAULT\nCinch never reads your photo library — iOS hands it only the pictures you tap. Garment photos go to an AI partner to be identified, and — if you ask — to be matched against a product listing. Cinch asks before the first one is sent. Your closet stays private until you share it with a friend. There is no advertising and no tracking across other apps. You can delete your account, and everything in it, from inside the app.",
+        "keywords": [
+          "digital",
+          "stylist",
+          "organizer",
+          "clothes",
+          "what",
+          "wear",
+          "ootd",
+          "style",
+          "calendar",
+          "inventory",
+          "clothing",
+          "ai",
+          "travel",
+          "weather"
+        ],
+        "marketingUrl": "https://www.cinchstyle.com",
+        "promoText": "Photograph ten things you already own. Cinch works out what goes with what, tells you why, and dresses you every morning from there. Ten pieces is a wardrobe.",
+        "supportUrl": "https://www.cinchstyle.com/support",
+        "title": "Cinch: Outfit Planner & Closet",
+        "subtitle": "Capsule Wardrobe, Packing List",
+        "privacyPolicyUrl": "https://cinch-nelsonsaenz1-3579s-projects.vercel.app/privacy",
+        "screenshots": {
+          "APP_IPHONE_67": [
+            "store/apple/screenshot/en-US/APP_IPHONE_67/01-ten.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/02-morning.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/03-reason.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/04-no.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/05-table.png"
+          ]
+        }
+      }
+    },
+    "categories": [
+      "LIFESTYLE",
+      "UTILITIES"
+    ],
+    "advisory": {
+      "ageRatingOverride": "NONE",
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gambling": false,
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "kidsAgeBand": null,
+      "koreaAgeRatingOverride": "NONE",
+      "lootBox": false,
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "unrestrictedWebAccess": false,
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "advertising": false,
+      "ageAssurance": false,
+      "ageRatingOverrideV2": "NONE",
+      "developerAgeRatingInfoUrl": null,
+      "gunsOrOtherWeapons": "NONE",
+      "healthOrWellnessTopics": false,
+      "messagingAndChat": false,
+      "parentalControls": false,
+      "userGeneratedContent": true
+    },
+    "review": {
+      "firstName": "Nelson",
+      "lastName": "Saenz",
+      "email": "nelsonsaenz1@yahoo.com",
+      "phone": "901-831-0311",
+      "demoRequired": false,
+      "notes": "SIGNING IN\nSign in with Apple, or with any email address. Please use any Apple ID — no invite code is required. The email option sends a six-digit code, typed on the next screen.\n\nSEEDING A CLOSET\nCinch styles you from clothes you own, so a new account is walked through photographing ten pieces. Any ten clothing photos from the device library will do. Tagging takes a few seconds each, and the screen after it shows the first complete outfit with its reasoning.\n\nLISTING PHOTOS — YOU WILL MEET THIS\nCinch can put a retailer's own product photograph on a garment. Three doors, all opened by the user: \"Describe\" (they type what they own; Cinch searches and offers up to six product images); pasting a product link (Cinch reads that page's image and shows it for confirmation); and \"Find the listing photo\" on a piece already photographed — that photo goes to a vision model with a web search, the retailer is then named on the item screen, and \"Remove listing photo\" restores the user's own photograph, which is never altered or deleted. Nothing is fetched without a tap; nothing is saved without the user choosing an image. Cinch sells nothing, has no affiliate links and never opens a retailer's site. Every call here is refused server-side until AI consent is given.\n\nSUBSCRIPTIONS\nThe app grants 14 days of full access on first launch. This is an app-side grant, NOT a StoreKit introductory offer, so no purchase is required to evaluate the app and no trial is started in the sandbox. A membership page is offered once, right after the closet-setup screen described above; it can be dismissed and the app is fully usable without it. All social features (friends, events, voting, comments, borrowing) are free on every tier.\n\nTESTING THE SOCIAL FEATURES — PLEASE READ\nThe friends, events, voting and borrowing features require TWO accounts, because they are built around inviting someone you know. A single reviewer account cannot exercise them.\n\nWe are happy to provide two pre-populated, already-connected demo accounts so you can test this immediately — please contact nelsonsaenz1@yahoo.com and we will supply credentials within a few hours.\n\nTo test with your own two accounts instead:\n1. Sign in on two devices/simulators with two Apple IDs. Add a few garments to each closet.\n2. Account A: Plan tab -> \"Events\" segment -> \"+ New event\" to create an event.\n3. Account A: open the event -> \"Invite\" -> share the invite link to Account B.\n4. Account B: open the link, join the event. Both now see the event on the Plan tab.\n5. Either account: from the event, share an outfit to the group, then vote on and comment on the other person's look.\n6. Friends and borrowing: Today tab -> avatar (top right) -> Profile -> \"Friends & borrowing\". Open a friend, browse their closet, and tap a borrowable item to request it. The owner responds from Profile -> Borrow requests.\n\nWHERE THE SAFETY CONTROLS ARE\nBlocking: any friend or profile row -> \"...\" menu -> Block. Blocked users are managed at Profile -> Friends & borrowing -> Blocked.\nReporting: the \"...\" menu on any shared look, on any comment and on any user profile, with categorized reasons.\n\nPERMISSIONS\nLocation and Calendar are optional and the app is fully functional without either. Declining location falls back to a default city, which the app states on screen. Camera is used only to photograph garments.\n\nAI PROCESSING\nGarment photos go to OpenRouter to be identified and, when the user asks for a listing photo, to a vision model with a web-search plugin that OpenRouter runs through Exa. The user is asked to consent in-app before the first image is ever sent (Guideline 5.1.2(i)), and the consent sheet names the processor and the data categories. Both doors are disclosed in our privacy policy and on the in-app Privacy page. Outfit generation itself runs on-device.\n\nACCOUNT DELETION\nProfile tab, bottom of the screen, \"Delete account\". Deletion is immediate and removes all uploaded photos and data, including social content."
+    }
+  }
+}

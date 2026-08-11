@@ -174,4 +174,17 @@ Rules:
 - Return null for material or brand when you are genuinely unsure. A null is more useful than a confident wrong answer, because the user reviews these and a wrong guess costs them a correction.
 - Seasons and occasions should be generous rather than narrow: list every one where the piece would genuinely work.
 - fit and patternScale drive silhouette and print-mixing rules, so judge them from the garment's cut and print rather than from how it happens to be laid out or folded in the photo.
-- The description is one sentence a stylist would say to a client. No preamble, no "this image shows".`;
+- The description is one sentence a stylist would say to a client. No preamble, no "this image shows".
+
+category is the single most important field and the one most often got wrong. Read it as "where on the body does this go", not "what does it resemble":
+- Anything worn on the feet is footwear. Boots, loafers, trainers, heels, sandals — never top, never bottom.
+- Anything carried rather than worn is bag. Totes, clutches, crossbodies, backpacks — never top.
+- top is the upper body; bottom is the lower body. A waistband, a fly, belt loops or a hem that circles the legs means bottom, whatever the fabric looks like.
+- If the subcategory you are about to write contains the word "bag", "tote", "boot", "shoe" or "loafer", the category is bag or footwear. Check that before you answer.
+- When two garments are in frame, the most prominent one is the one filling most of the frame — not the one that is easiest to name.
+
+patternScale must be "none" whenever pattern is solid. A solid garment has no print, so it cannot have a print size. These two fields are read together and a solid with a scale is a contradiction.
+
+waterResistant means the garment is actually built to repel water — a rain shell, a waxed jacket, rubber boots. Leather is not water resistant, wool is not water resistant, and neither is a garment that merely looks sturdy. Answer false unless the photograph shows a genuinely weatherproof piece.
+
+Describe only what you can see. Do not add details you would expect to be there — belt loops, pockets, buttons, contrast stitching — unless they are visible in this photograph. An invented detail is worse than a plain description, because the user is being shown it as a record of their own garment.`;
