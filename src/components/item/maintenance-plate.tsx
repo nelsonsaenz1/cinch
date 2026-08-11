@@ -19,13 +19,19 @@ export type MaintenanceRow = {
 export type MaintenancePlateProps = { rows: MaintenanceRow[] };
 
 /**
- * The plate's radius. 14px is between `md` (12) and `lg` (16) and is not a
- * token, so it is applied as an inline style on `Card` — a `rounded-[14px]`
- * class would land beside Card's own `rounded-plate` with no guaranteed
- * precedence between them, which is the same coin-toss hazard the text
- * variants document. An inline style always wins.
+ * The plate's radius — `plate`, 20, which is what `Card` draws anyway.
+ *
+ * WAS 14, on the stated ground that it "is between `md` (12) and `lg` (16) and
+ * is not a token". That was the argument for the value, and reference board C
+ * withdraws it: every container resolves to a documented flat band, `md`,
+ * `plate` or `sheet`, and there is no in-between radius to be between.
+ *
+ * Kept as an inline style rather than deleted in favour of Card's own class
+ * because a `rounded-plate` utility here would land beside Card's with no
+ * guaranteed precedence — the same coin-toss hazard the text variants
+ * document. An inline style always wins, and now it wins with the right value.
  */
-const PLATE_RADIUS = 14;
+const PLATE_RADIUS = 20;
 
 /**
  * The header strip's ground. #F5F1E9 sits between `canvas` (#FBFAF6) and

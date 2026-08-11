@@ -81,7 +81,7 @@ function Grid({ uris, highlightFirst }: { uris: string[]; highlightFirst?: boole
       {uris.map((uri, i) => (
         <View
           key={i}
-          className="overflow-hidden rounded-[10px] bg-tray"
+          className="overflow-hidden rounded-md bg-tray"
           style={{
             width: '31%',
             aspectRatio: 1,
@@ -92,7 +92,7 @@ function Grid({ uris, highlightFirst }: { uris: string[]; highlightFirst?: boole
         </View>
       ))}
       <View
-        className="items-center justify-center rounded-[10px] border border-dashed border-rule-strong"
+        className="items-center justify-center rounded-md border border-dashed border-rule-strong"
         style={{ width: '31%', aspectRatio: 1 }}>
         <Text variant="label" style={{ color: theme.faint }}>
           + Add
@@ -206,8 +206,8 @@ function W03() {
             https://…/black-leather-ankle-boot
           </Text>
         </View>
-        <View className="mt-3.5 flex-row items-center gap-3 rounded-[14px] border border-rule bg-surface p-3">
-          <View className="h-[72px] w-[72px] overflow-hidden rounded-[10px] bg-tray">
+        <View className="mt-3.5 flex-row items-center gap-3 rounded-md border border-rule bg-surface p-3">
+          <View className="h-[72px] w-[72px] overflow-hidden rounded-md bg-tray">
             <Image source={{ uri: LOAFERS }} contentFit="cover" style={{ flex: 1 }} accessibilityIgnoresInvertColors />
           </View>
           <View className="flex-1">
@@ -278,7 +278,7 @@ function W04() {
           return (
             <View
               key={c.id}
-              className="flex-row items-center gap-3 rounded-[14px] bg-surface px-3 py-2.5"
+              className="flex-row items-center gap-3 rounded-md bg-surface px-3 py-2.5"
               style={{ borderWidth: isSelected ? 2 : 1, borderColor: isSelected ? theme.accent : theme.rule }}>
               <View className="h-[60px] w-[60px] overflow-hidden rounded-lg bg-tray">
                 <Image source={{ uri: c.piece.uri }} contentFit="cover" style={{ flex: 1 }} accessibilityIgnoresInvertColors />

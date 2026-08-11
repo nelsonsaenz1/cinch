@@ -92,7 +92,7 @@ export default function WallSwapScreen() {
             return (
               <View
                 key={c.id}
-                className="flex-row items-center gap-3 rounded-[14px] bg-surface px-3 py-2.5"
+                className="flex-row items-center gap-3 rounded-md bg-surface px-3 py-2.5"
                 style={{ borderWidth: isSelected ? 2 : 1, borderColor: isSelected ? theme.accent : theme.rule }}>
                 <View className="h-[60px] w-[60px] overflow-hidden rounded-lg bg-tray">
                   {c.piece.imageUri ? (

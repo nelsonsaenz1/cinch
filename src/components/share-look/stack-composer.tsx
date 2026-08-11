@@ -148,7 +148,7 @@ function StackRow({
           gap: 12,
           paddingVertical: 10,
           paddingHorizontal: dragging ? 8 : 0,
-          borderRadius: dragging ? 10 : 0,
+          borderRadius: dragging ? 12 : 0,
           backgroundColor: dragging ? theme.blush : 'transparent',
         }}>
         <Text

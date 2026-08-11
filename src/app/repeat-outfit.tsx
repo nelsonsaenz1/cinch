@@ -153,7 +153,7 @@ export default function RepeatOutfitScreen() {
                   top: piece.y,
                   width: piece.size,
                   height: piece.size,
-                  borderRadius: 10,
+                  borderRadius: 8,
                   overflow: 'hidden',
                   backgroundColor: theme.tray,
                   borderWidth: 1,

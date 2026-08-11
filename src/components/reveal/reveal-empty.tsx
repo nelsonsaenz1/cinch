@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { canvasAlpha } from '@/components/reveal/reveal-stage';
 import { Text } from '@/components/ui/text';
 import type { MissingRow } from '@/features/onboarding/reveal-copy';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { useTheme } from '@/theme/tokens';
 
 /**
  * R-05 — the honest failure. Zero is a legitimate count and gets the exact
@@ -68,14 +68,19 @@ export function RevealEmpty({
             accessibilityRole="button"
             accessibilityLabel={fix}
             style={{
-              minHeight: MIN_TAP_TARGET,
+              // 52 and regular 17 — this is `inverse` hand-drawn (canvas
+              // ground, ink label), and board A puts it in the regular group
+              // at the grounded height. Was Medium 16 at the 44 tap floor.
+              minHeight: 52,
               backgroundColor: theme.canvas,
               borderRadius: 12,
               alignItems: 'center',
               justifyContent: 'center',
             }}
             className="active:opacity-70">
-            <Text style={{ color: theme.ink, fontSize: 16, fontWeight: '500' }}>{fix}</Text>
+            <Text variant="body" style={{ color: theme.ink }}>
+              {fix}
+            </Text>
           </Pressable>
           <Text
             style={{

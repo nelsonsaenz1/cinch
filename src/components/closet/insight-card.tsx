@@ -34,7 +34,7 @@ export function InsightCard({ worn, total, unworn }: InsightCardProps) {
     <View
       accessible
       accessibilityLabel={`${worn} of ${total} pieces worn this year, ${pct} percent. ${footer}`}
-      className="rounded-[14px] bg-tray dark:bg-tray-dark"
+      className="rounded-md bg-tray dark:bg-tray-dark"
       style={{ paddingVertical: 13, paddingHorizontal: 14 }}>
       <View className="flex-row items-baseline justify-between gap-2.5">
         {/* 13/600: `label` is 13pt and font-medium resolves to

@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -99,20 +99,16 @@ export function SocialTermsSheet({
           </Text>
 
           <View className="mt-8 gap-2">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Agree and continue"
+            {/* The shared `Button`'s `ink` variant IS this control — a filled
+                workhorse action. Hand-rolled here at plate 20 and 56 tall,
+                which reference board A puts at `md` 12 and 52, with the label
+                at `body` 17 rather than `callout` 16. */}
+            <Button
+              title="Agree and continue"
+              variant="ink"
+              loading={busy}
               onPress={onAccept}
-              disabled={busy}
-              className="h-14 items-center justify-center rounded-plate bg-ink active:opacity-90 dark:bg-ink-dark">
-              {busy ? (
-                <ActivityIndicator color={theme.canvas} />
-              ) : (
-                <Text variant="callout" className="font-semibold" style={{ color: theme.canvas }}>
-                  Agree and continue
-                </Text>
-              )}
-            </Pressable>
+            />
             <Button title="Not now" variant="ghost" onPress={onDecline} />
           </View>
 

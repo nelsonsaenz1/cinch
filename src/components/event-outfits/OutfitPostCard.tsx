@@ -25,7 +25,7 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 /** Same contact shadow the Today plate casts — one light source app-wide. */
 const CONTACT = { dx: 0, dy: 5, blur: 11, color: 'rgba(28,26,22,0.16)' } as const;
 
-const TILE_RADIUS = 10;
+const TILE_RADIUS = 12;
 
 type ResolveImage = (...paths: (string | null | undefined)[]) => string | undefined;
 

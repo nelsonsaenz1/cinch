@@ -572,7 +572,7 @@ export default function PlanScreen() {
                 </Text>
                 <Button
                   title="Add clothes"
-                  onPress={() => router.push('/capture')}
+                  onPress={() => router.push('/add-clothes')}
                   haptic
                   variant="ink"
                   className="mt-6 self-stretch"

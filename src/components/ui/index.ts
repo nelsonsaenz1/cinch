@@ -11,6 +11,7 @@ export { Avatar, initialsFor, type AvatarProps } from '@/components/ui/avatar';
 export { Button, type ButtonProps } from '@/components/ui/button';
 export { Card, type CardProps } from '@/components/ui/card';
 export { Chip, type ChipProps } from '@/components/ui/chip';
+export { DoorCondition, DoorPlate, type DoorPlateProps } from '@/components/ui/door-plate';
 export { EditorialFrame } from '@/components/ui/editorial-frame';
 export { EmptyState, type EmptyStateProps } from '@/components/ui/empty-state';
 export { ErrorState, type ErrorStateProps } from '@/components/ui/error-state';

@@ -420,7 +420,11 @@ export default function SignInScreen() {
               accessibilityLabel="Continue with email"
               style={{
                 minHeight: Math.max(MIN_TAP_TARGET, px(51)),
-                borderRadius: 32,
+                // "Continue with email" — named on reference board C as one of
+                // the three known capsule violations, and at `md` 12 per §3.1.
+                // The Apple button above keeps its own radius: §3.1 is explicit
+                // that Apple's native button stays Apple's.
+                borderRadius: 12,
                 borderWidth: 1,
                 borderColor: 'rgba(243,240,233,0.34)',
                 alignItems: 'center',
@@ -493,7 +497,10 @@ export default function SignInScreen() {
                   paddingHorizontal: 24,
                   borderWidth: 1,
                   borderColor: 'rgba(243,240,233,0.34)',
-                  borderRadius: 30,
+                  // 30 was an in-between radius on a labelled control — both
+                  // things §1.3 forbids. `md`, like every other labelled
+                  // control in the app.
+                  borderRadius: 12,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>

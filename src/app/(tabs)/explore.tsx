@@ -70,7 +70,8 @@ function LatelyButton({
   onPress,
   filled = false,
   height = 34,
-  radius = 9,
+  // `md`, per reference board A: every labelled control is 12. Was 9.
+  radius = 12,
   fontSize = 13,
   paddingX = 14,
   disabled = false,
@@ -167,7 +168,6 @@ function Hero({ glyph, title, body, actionTitle, onAction, alert = false }: Hero
           onPress={onAction}
           filled
           height={44}
-          radius={10}
           fontSize={15}
           paddingX={20}
         />
@@ -555,7 +555,6 @@ export default function ExploreScreen() {
                   <LatelyButton
                     title="Find a friend"
                     height={40}
-                    radius={10}
                     fontSize={14}
                     paddingX={16}
                     onPress={() => searchRef.current?.focus()}

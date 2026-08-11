@@ -177,7 +177,7 @@ export default function ClosetScreen() {
           </Text>
         </View>
         <View className="mt-4">
-          <ExampleCloset onAddPieces={() => router.push('/capture')} />
+          <ExampleCloset onAddPieces={() => router.push('/add-clothes')} />
         </View>
       </ScrollView>
     );
@@ -458,7 +458,7 @@ function Masthead({
         accessibilityHint="Change your name, handle, bio and photo"
         hitSlop={{ top: 5, bottom: 5 }}
         style={{ height: 34 }}
-        className="mx-gutter mt-4 items-center justify-center rounded-[10px] border border-rule active:opacity-60">
+        className="mx-gutter mt-4 items-center justify-center rounded-md border border-rule active:opacity-60">
         <Text variant="label" className="text-ink">
           Edit profile
         </Text>

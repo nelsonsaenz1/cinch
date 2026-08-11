@@ -192,7 +192,7 @@ export default function PostLookScreen() {
         </View>
       ) : candidates.length === 0 && !editingLook ? (
         <View className="px-gutter pt-6">
-          <EmptyClosetPrompt onAddPiece={() => router.push('/capture')} />
+          <EmptyClosetPrompt onAddPiece={() => router.push('/add-clothes')} />
         </View>
       ) : failed ? (
         <View className="px-gutter pt-6">

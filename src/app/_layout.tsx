@@ -327,6 +327,14 @@ export default function RootLayout() {
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="(auth)" />
                 <Stack.Screen name="(tabs)" />
+                {/* The Add Clothes chooser (AC-01) — the door before the
+                    doors. A modal, matching capture: it is the same
+                    interruption, and a door that arrives differently from the
+                    room behind it reads as a different kind of thing. */}
+                <Stack.Screen
+                  name="add-clothes"
+                  options={{ presentation: 'modal', headerShown: false }}
+                />
                 <Stack.Screen
                   name="capture"
                   options={{ presentation: 'modal', headerShown: false }}

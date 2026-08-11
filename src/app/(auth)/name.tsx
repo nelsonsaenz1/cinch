@@ -137,7 +137,9 @@ export default function NameScreen() {
           style={{
             marginTop: 30,
             minHeight: Math.max(MIN_TAP_TARGET, 51),
-            borderRadius: 32,
+            // `md`, like every other labelled control — the same capsule the
+            // sign-in and email buttons carried (§1.3, reference board C).
+            borderRadius: 12,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',

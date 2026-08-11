@@ -151,7 +151,7 @@ function ItemCardComponent({
               — in the accent — is the whole "get more from what you own" pitch
               made visible. */}
           {!selecting && needsReview ? (
-            <View className="absolute left-2 top-2 rounded-[5px] bg-warning px-[7px] py-[3px]">
+            <View className="absolute left-2 top-2 rounded-sm bg-warning px-[7px] py-[3px]">
               {/* INK on the warning fill: canvas-on-warning is 2.85:1 — below AA
                   — on the one badge whose whole job is to be noticed. The
                   never-worn badge below keeps canvas; oxblood carries it. */}
@@ -164,7 +164,7 @@ function ItemCardComponent({
               </Text>
             </View>
           ) : !selecting && neverWorn ? (
-            <View className="absolute left-2 top-2 rounded-[5px] bg-accent px-[7px] py-[3px]">
+            <View className="absolute left-2 top-2 rounded-sm bg-accent px-[7px] py-[3px]">
               {/* 9/600 tracked uppercase per the atlas. Fixed-well constraint:
                   a wrapped badge gets sliced by overflow-hidden, so one line,
                   capped multiplier. */}

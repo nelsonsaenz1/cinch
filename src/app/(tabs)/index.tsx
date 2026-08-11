@@ -43,7 +43,7 @@ import {
 } from '@/lib/styling';
 import { track, trackOnce } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
-import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
+import { motion, useTheme } from '@/theme/tokens';
 
 /**
  * The Repeat's local fallback naming for a "show me another" swap.
@@ -373,7 +373,7 @@ export function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () 
       label: 'Ask the stylist for a way around it',
       onPress: () => router.navigate('/stylist'),
     },
-    { icon: 'plus', label: 'Add a piece Cinch is missing', onPress: () => router.push('/capture') },
+    { icon: 'plus', label: 'Add a piece Cinch is missing', onPress: () => router.push('/add-clothes') },
     { icon: 'arrow.clockwise', label: 'Try again once things change', onPress: onRetry },
   ];
 
@@ -877,11 +877,13 @@ export default function TodayScreen() {
           <Pressable
             onPress={() => {
               void Haptics.selectionAsync().catch(() => {});
-              router.push(items.length < PLANS.free.items ? '/the-ten' : '/capture');
+              router.push(items.length < PLANS.free.items ? '/the-ten' : '/add-clothes');
             }}
             accessibilityRole="button"
             accessibilityLabel={empty ? 'Add your clothes' : 'Add more clothes'}
-            style={{ minHeight: MIN_TAP_TARGET }}
+            // 52, the grounded control height from reference board A — 44 is the
+            // accessibility floor, not the drawn height.
+            style={{ minHeight: 52 }}
             className="mt-7 flex-row items-center justify-center rounded-md bg-ink px-6 active:opacity-70 dark:bg-ink-dark">
             <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
               {empty ? 'Add your clothes' : 'Add more clothes'}

@@ -58,8 +58,9 @@ export function ClosetSkeleton() {
         className="mx-gutter flex-row border-b border-t border-hairline dark:border-hairline-dark"
         style={{ marginTop: 22, paddingVertical: 14 }}>
         {Array.from({ length: 4 }).map((_, i) => (
-          <View key={i} className="flex-1">
-            <Skeleton style={[primary, { width: 40, height: 18, borderRadius: 5 }]} />
+          // `items-center` — the loaded stat row centres both lines per §2.2.
+          <View key={i} className="flex-1 items-center">
+            <Skeleton style={[primary, { width: 40, height: 18, borderRadius: 4 }]} />
           </View>
         ))}
       </View>
@@ -71,7 +72,10 @@ export function ClosetSkeleton() {
         {CHIP_WIDTHS.map((width, i) => (
           <Skeleton
             key={i}
-            style={[i === 0 ? primary : secondary, { width, height: 30, borderRadius: 15 }]}
+            // 12, following the `Chip` it stands in for. A capsule-shaped
+            // skeleton promises a capsule and then resolves into a 12px chip,
+            // which is a shape change the eye reads as a re-layout.
+            style={[i === 0 ? primary : secondary, { width, height: 30, borderRadius: 12 }]}
           />
         ))}
       </View>
