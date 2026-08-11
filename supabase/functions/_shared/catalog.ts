@@ -363,7 +363,12 @@ async function cacheKey(
  * specifically, and filtering server-side means the 100 rows we paid for are
  * 100 usable rows instead of 60.
  */
-function buildQuery(mode: LookupMode, value: string, brand?: string | null): string[] {
+function buildQuery(
+  mode: LookupMode,
+  value: string,
+  brand?: string | null,
+  category?: string | null,
+): string[] {
   // Applied to every mode. Locale first because it is the filter that changes
   // the answer most; `instock = 1` because a garment the user cannot buy is a
   // dead tile, and it is the only stock signal present on every row.
@@ -373,6 +378,12 @@ function buildQuery(mode: LookupMode, value: string, brand?: string | null): str
     'instock = 1',
     'image !EMPTY',
   ];
+
+  // The merchant's own free-text category. Not a taxonomy and not trustworthy
+  // on its own, but it is the only signal that separates a coat from a coat
+  // STAND, and a shop suggestion built from a slot alone otherwise reaches into
+  // Walmart's automotive feed. Measured, not assumed.
+  if (category) base.push(`category LIKE ${category}`);
 
   if (mode === 'url') return [...base, `direct_url LIKE ${value}`];
 
@@ -590,6 +601,7 @@ async function fetchBatch(
   mode: LookupMode,
   value: string,
   brand?: string | null,
+  category?: string | null,
 ): Promise<CatalogProduct[] | null> {
   const exact = mode !== 'keyword';
   if (!(await opts.claimRequest(exact))) return null;
@@ -597,7 +609,7 @@ async function fetchBatch(
   const body = {
     aid: opts.accessId,
     akey: opts.accessKey,
-    query: buildQuery(mode, value, brand),
+    query: buildQuery(mode, value, brand, category),
     // NO `sort`. This field previously read `sort: ['+finalprice']` and that was
     // actively harmful, which only shows up when you look at the rows.
     //
@@ -657,8 +669,12 @@ async function lookup(
   mode: LookupMode,
   value: string,
   brand?: string | null,
+  category?: string | null,
 ): Promise<CatalogProduct[]> {
-  const key = await cacheKey('datafeedr', mode, value, brand);
+  // The category is part of the key for the same reason the brand is: it
+  // changes the result set, so two lookups differing only by it must not
+  // collide on one cache row.
+  const key = await cacheKey('datafeedr', mode, `${category ?? ''} ${value}`, brand);
 
   const cached = await opts.cacheGet(key);
   // `null` is a cached MISS and is authoritative — returning [] here without
@@ -671,7 +687,7 @@ async function lookup(
 
   let fetched: CatalogProduct[] | null = null;
   for (const attempt of attempts) {
-    fetched = await fetchBatch(opts, mode, attempt, brand);
+    fetched = await fetchBatch(opts, mode, attempt, brand, category);
     // A refusal or a transport failure is not evidence of absence, and looser
     // wording will not fix a spent quota — stop rather than burn the ladder.
     if (fetched === null) return [];
@@ -733,6 +749,7 @@ export async function searchCatalogue(
   mode: LookupMode,
   value: string,
   brand?: string | null,
+  category?: string | null,
 ): Promise<CatalogProduct[]> {
-  return await lookup(opts, mode, value, brand);
+  return await lookup(opts, mode, value, brand, category);
 }

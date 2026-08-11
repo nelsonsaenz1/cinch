@@ -77,23 +77,27 @@ function isCatalogSlot(value: unknown): value is CatalogSlot {
 const MAX_MERCHANTS = 3;
 
 /**
- * The words a slot is actually searched with.
+ * The word a slot is searched with, and the merchant category it must sit in.
  *
- * A slot is a schema value, not a shopping phrase: nobody's catalogue is
- * indexed under "outerwear" or "footwear" as such, and `other` is not a garment
- * at all. These are the plain terms a listing title is likely to carry, which
- * is what `name LIKE` matches against.
+ * ONE word, not several. `name LIKE` is AND across terms, so "shirt top" demands
+ * both and quietly narrows to whatever happens to carry each.
+ *
+ * The category is what keeps a garment search inside garments. Measured on
+ * 2026-08-11 against the live catalogue: `coat` alone returns a wooden coat
+ * STAND from Wayfair, a keychain from Walmart's jewelry feed, and products from
+ * Walmart's automotive and books feeds. 924 million products contain the word
+ * "shirt" in contexts that have nothing to do with clothing.
  */
-const SLOT_QUERY: Record<CatalogSlot, string | null> = {
-  top: 'shirt top',
-  bottom: 'trousers pants',
-  outerwear: 'coat jacket',
-  footwear: 'shoes',
-  dress: 'dress',
-  accessory: 'scarf belt',
-  bag: 'bag',
-  headwear: 'hat',
-  jewelry: 'necklace bracelet',
+const SLOT_QUERY: Record<CatalogSlot, { word: string; category: string } | null> = {
+  top: { word: 'shirt', category: 'apparel' },
+  bottom: { word: 'trousers', category: 'apparel' },
+  outerwear: { word: 'coat', category: 'apparel' },
+  footwear: { word: 'shoes', category: 'apparel' },
+  dress: { word: 'dress', category: 'apparel' },
+  accessory: { word: 'scarf', category: 'accessories' },
+  bag: { word: 'handbag', category: 'accessories' },
+  headwear: { word: 'hat', category: 'accessories' },
+  jewelry: { word: 'necklace', category: 'jewelry' },
   // Deliberately unsearchable. "other" means the closet could not classify the
   // piece, and guessing a shopping term from that would be inventing a gap.
   other: null,
@@ -186,8 +190,8 @@ function score(p: CatalogProduct, hints: Hints, slot: CatalogSlot): number {
 
   // The slot's own words appearing in the title is weak but real evidence the
   // row is the kind of thing asked for rather than an accessory to it.
-  const words = (SLOT_QUERY[slot] ?? '').split(' ').filter(Boolean);
-  if (words.some((w) => p.title.toLowerCase().includes(w))) s += 1;
+  const word = SLOT_QUERY[slot]?.word;
+  if (word && p.title.toLowerCase().includes(word)) s += 1;
 
   // A product with no picture cannot be shown at all; one with a second picture
   // is marginally better presented. Tiny, and last.
@@ -284,8 +288,27 @@ export default {
         }
       }
 
-      const query = SLOT_QUERY[slot];
-      if (!query) return Response.json({ products: [] });
+      const recipe = SLOT_QUERY[slot];
+      if (!recipe) return Response.json({ products: [] });
+
+      // NO HINT, NO SUGGESTION.
+      //
+      // A slot on its own is not a shopping query. Measured against the live
+      // catalogue: "coat" returns a coat stand and an automotive listing, while
+      // "black coat" returns fifteen apparel merchants and no junk at all. The
+      // colour or brand the closet supplies is the entire difference between a
+      // suggestion and a random product that shares a noun.
+      //
+      // So when the closet has told us nothing beyond the slot, this returns
+      // nothing. C-01 already states the rule that makes that safe: "if no
+      // merchant matches, the row is absent entirely" — an empty answer is a
+      // shape the surface knows how to render, and a bad suggestion is worse
+      // than no suggestion in a product whose whole claim is that it is not a
+      // shop.
+      const qualifier = hints.colour ?? hints.brand;
+      if (!qualifier) return Response.json({ products: [] });
+
+      const query = `${hints.colour ?? ''} ${recipe.word}`.trim();
 
       // ── The licensed catalogue, fail-closed ──────────────────────────────
       const opts = catalogOptsFromEnv(admin);
@@ -296,7 +319,7 @@ export default {
         // `brand` goes to the catalogue's own brand FIELD when the closet
         // supplied one — the same lesson as garment-search: a brand name inside
         // a merchant's free-text title is not evidence the garment is that brand.
-        rows = await searchCatalogue(opts, 'keyword', query, hints.brand ?? null);
+        rows = await searchCatalogue(opts, 'keyword', query, hints.brand ?? null, recipe.category);
       } catch {
         return Response.json({ products: [] });
       }
