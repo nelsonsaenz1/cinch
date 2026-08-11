@@ -173,6 +173,11 @@ export default {
       return Response.json({ error: 'Invalid signature.' }, { status: 401 });
     }
 
+    // Only after the signature holds. An unverified request must never be able
+    // to write a row, or the ledger becomes a way for a stranger to fill a
+    // table and to poison the reconciliation queue with invented aliases.
+    const svixId = req.headers.get('svix-id')!;
+
     let event: SuperwallEvent;
     try {
       event = JSON.parse(rawBody);
@@ -188,6 +193,64 @@ export default {
       return Response.json({ error: 'Missing type or originalAppUserId.' }, { status: 400 });
     }
 
+    const admin = createClient<Database>(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { persistSession: false } },
+    );
+
+    // ── The ledger (audit 23) ─────────────────────────────────────────────
+    //
+    // Svix guarantees AT-LEAST-ONCE delivery. Everything below this line is
+    // written to run exactly once per logical event, and `svix-id` is what
+    // makes that true: every retry of one event carries the same id, and two
+    // different events never share one.
+    //
+    // Claimed BEFORE any decision, so an event this handler refuses is still on
+    // record. That is the whole reason it lands before the alias work — you
+    // cannot replay a queue of refused purchases that was never written down.
+    //
+    // "Claimed" means FINISHED WITH, not merely seen: the two paths below that
+    // fail deliberately in order to be retried (`unmapped_product`, and a failed
+    // subscription write) leave the id claimable, or the ledger would answer
+    // their redelivery with 200/duplicate and quietly cancel the retry the
+    // handler asked for. See `claim_superwall_event`.
+    const expirationAt = data.expirationAt ? new Date(data.expirationAt).toISOString() : null;
+
+    const { data: firstDelivery, error: claimError } = await admin.rpc('claim_superwall_event', {
+      p_svix_id: svixId,
+      p_event_type: type,
+      p_app_user_id: userId,
+      p_product_id: data.productId ?? undefined,
+      p_original_transaction_id: data.originalTransactionId ?? undefined,
+      p_expiration_at: expirationAt ?? undefined,
+    });
+
+    if (claimError) {
+      // 500, so Svix retries. Losing the ledger row is worse than a redelivery:
+      // an unrecorded purchase is one nobody can reconcile later.
+      console.error(`Superwall ledger write failed: ${claimError.message}`);
+      return Response.json({ error: 'Ledger unavailable.' }, { status: 500 });
+    }
+
+    if (firstDelivery !== true) {
+      // Seen, and finished with. The row's `delivery_count` has been bumped and
+      // nothing else runs.
+      return Response.json({ ok: true, applied: false, reason: 'duplicate' });
+    }
+
+    type Outcome = Database['public']['Enums']['superwall_outcome'];
+    const note = (outcome: Outcome, plan?: 'free' | 'standard' | 'pro') =>
+      admin
+        .rpc('note_superwall_outcome', {
+          p_svix_id: svixId,
+          p_outcome: outcome,
+          p_plan: plan ?? undefined,
+        })
+        .then(({ error }) => {
+          if (error) console.error(`Superwall outcome not recorded: ${error.message}`);
+        });
+
     // A purchase that happened before `identify()` landed is attributed to
     // Superwall's anonymous alias, which maps to no Supabase user. Retrying will
     // never fix that, so this returns 200 — a 4xx would have Svix redeliver for
@@ -199,6 +262,9 @@ export default {
         `Superwall ${type} for an unidentified alias — no plan written. ` +
           `originalTransactionId=${data.originalTransactionId ?? 'unknown'}`,
       );
+      // Recorded as a queue entry rather than only as a log line. This row is
+      // what audit item 24 drains once the alias is bound to a real user.
+      await note('unidentified_alias');
       return Response.json({ ok: true, applied: false, reason: 'unidentified_alias' });
     }
 
@@ -208,6 +274,7 @@ export default {
     const granting = GRANTING.has(type);
     const revoking = REVOKING.has(type);
     if (!granting && !revoking) {
+      await note('no_state_change');
       return Response.json({ ok: true, applied: false, reason: 'no_state_change' });
     }
 
@@ -218,18 +285,13 @@ export default {
         // 422, not 200: this one IS worth retrying, because the fix is to add
         // the product here and redeploy, after which redelivery succeeds.
         console.error(`Unmapped Superwall productId: ${data.productId ?? 'missing'}`);
+        await note('unmapped_product');
         return Response.json({ error: 'Unknown product.' }, { status: 422 });
       }
       plan = mapped;
     }
 
-    const periodEnd = data.expirationAt ? new Date(data.expirationAt).toISOString() : null;
-
-    const admin = createClient<Database>(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { persistSession: false } },
-    );
+    const periodEnd = expirationAt;
 
     // ── Out-of-order delivery ─────────────────────────────────────────────
     //
@@ -255,6 +317,7 @@ export default {
     }
 
     if (periodEnd && current?.current_period_end && periodEnd <= current.current_period_end) {
+      await note('stale');
       return Response.json({ ok: true, applied: false, reason: 'stale_event' });
     }
 
@@ -283,8 +346,17 @@ export default {
 
     if (writeError || !written?.length) {
       console.error('Could not write subscription:', writeError?.message ?? 'no row written');
+      // Recorded as its own outcome, which is what keeps the id claimable: this
+      // returns 500 asking Svix to retry, and the retry has to be allowed to
+      // actually re-run the write. Storing `write_failed` rather than leaving
+      // the default also means an operator can find the purchases that were
+      // taken and never applied with one query, instead of inferring them from
+      // logs.
+      await note('write_failed', plan);
       return Response.json({ error: 'Write failed.' }, { status: 500 });
     }
+
+    await note('applied', plan);
 
     // Note for the operator: `effective_plan()` reports `pro` for the whole
     // 14-day trial window regardless of what is written here, so a Standard

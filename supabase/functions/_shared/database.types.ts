@@ -1971,6 +1971,48 @@ export type Database = {
         }
         Relationships: []
       }
+      superwall_events: {
+        Row: {
+          app_user_id: string
+          delivery_count: number
+          event_type: string
+          expiration_at: string | null
+          last_delivery_at: string
+          original_transaction_id: string | null
+          outcome: Database["public"]["Enums"]["superwall_outcome"]
+          plan: string | null
+          product_id: string | null
+          received_at: string
+          svix_id: string
+        }
+        Insert: {
+          app_user_id: string
+          delivery_count?: number
+          event_type: string
+          expiration_at?: string | null
+          last_delivery_at?: string
+          original_transaction_id?: string | null
+          outcome: Database["public"]["Enums"]["superwall_outcome"]
+          plan?: string | null
+          product_id?: string | null
+          received_at?: string
+          svix_id: string
+        }
+        Update: {
+          app_user_id?: string
+          delivery_count?: number
+          event_type?: string
+          expiration_at?: string | null
+          last_delivery_at?: string
+          original_transaction_id?: string | null
+          outcome?: Database["public"]["Enums"]["superwall_outcome"]
+          plan?: string | null
+          product_id?: string | null
+          received_at?: string
+          svix_id?: string
+        }
+        Relationships: []
+      }
       support_sends: {
         Row: {
           id: string
@@ -2748,6 +2790,17 @@ export type Database = {
         Args: { p_cooldown_hours?: number; p_key: string }
         Returns: boolean
       }
+      claim_superwall_event: {
+        Args: {
+          p_app_user_id: string
+          p_event_type: string
+          p_expiration_at?: string
+          p_original_transaction_id?: string
+          p_product_id?: string
+          p_svix_id: string
+        }
+        Returns: boolean
+      }
       commerce_health_invoke: { Args: never; Returns: number }
       commerce_health_report: { Args: never; Returns: Json }
       commit_intake_session: {
@@ -2809,6 +2862,14 @@ export type Database = {
       }
       note_commerce_metric: {
         Args: { p_delta?: number; p_detail?: string; p_metric: string }
+        Returns: undefined
+      }
+      note_superwall_outcome: {
+        Args: {
+          p_outcome: Database["public"]["Enums"]["superwall_outcome"]
+          p_plan?: string
+          p_svix_id: string
+        }
         Returns: undefined
       }
       plan_outfit_tx: {
@@ -2881,6 +2942,7 @@ export type Database = {
         }[]
       }
       reap_intake_audio: { Args: never; Returns: number }
+      release_commerce_alert: { Args: { p_key: string }; Returns: undefined }
       request_data_export: { Args: never; Returns: string }
       squeeze_for_moderation: { Args: { p_text: string }; Returns: string }
       sweep_catalog_cache: { Args: never; Returns: number }
@@ -2937,6 +2999,14 @@ export type Database = {
       profile_visibility: "private" | "public"
       report_subject: "profile" | "item" | "outfit_post" | "comment" | "event"
       subscription_plan: "free" | "standard" | "pro"
+      superwall_outcome:
+        | "applied"
+        | "no_state_change"
+        | "unidentified_alias"
+        | "unmapped_product"
+        | "stale"
+        | "duplicate"
+        | "write_failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3100,6 +3170,15 @@ export const Constants = {
       profile_visibility: ["private", "public"],
       report_subject: ["profile", "item", "outfit_post", "comment", "event"],
       subscription_plan: ["free", "standard", "pro"],
+      superwall_outcome: [
+        "applied",
+        "no_state_change",
+        "unidentified_alias",
+        "unmapped_product",
+        "stale",
+        "duplicate",
+        "write_failed",
+      ],
     },
   },
 } as const
