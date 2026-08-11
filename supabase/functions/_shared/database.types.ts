@@ -2873,6 +2873,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_support_send: {
+        Args: { p_topic: string; p_user_id: string }
+        Returns: {
+          booking_id: string
+          refused: string
+        }[]
+      }
       commerce_health_invoke: { Args: never; Returns: number }
       commerce_health_report: { Args: never; Returns: Json }
       commit_intake_session: {
@@ -3024,6 +3031,10 @@ export type Database = {
       }
       reap_intake_audio: { Args: never; Returns: number }
       release_commerce_alert: { Args: { p_key: string }; Returns: undefined }
+      release_support_send: {
+        Args: { p_booking_id: string; p_user_id: string }
+        Returns: boolean
+      }
       request_data_export: { Args: never; Returns: string }
       squeeze_for_moderation: { Args: { p_text: string }; Returns: string }
       sweep_catalog_cache: { Args: never; Returns: number }

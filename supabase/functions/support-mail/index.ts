@@ -33,9 +33,16 @@ import {
  * The booking is written BEFORE the send and deleted if the send does not
  * happen, which is the same trade `send-push` makes with its claims, inverted:
  * there, an unsent message must not be booked twice; here, a message that never
- * left must not cost the user one of their three. Two simultaneous requests can
- * both read a count of two and both send — a benign race for a throttle whose
- * job is to stop a loop, not to be exact.
+ * left must not cost the user one of their three.
+ *
+ * Counting and booking are ONE statement (`claim_support_send`, audit item 27).
+ * They used to be two, and the comment that stood here called the gap between
+ * them "a benign race for a throttle whose job is to stop a loop, not to be
+ * exact". That was exactly backwards. A loop is concurrency: nobody floods a
+ * mailbox by sending three messages and waiting, they open fifty connections at
+ * once — the one case a read-then-write check cannot see. Measured against the
+ * old shape, twelve simultaneous requests against a limit of three let eleven
+ * through.
  *
  * ── NO FALSE SUCCESS ───────────────────────────────────────────────────────
  *
@@ -105,9 +112,11 @@ const ALLOWED_MIME = new Set([
 /** Base64 after whitespace is stripped. Nothing else may appear. */
 const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
 
-/** Three in an hour, ten in a day. See the docblock. */
-const PER_HOUR = 3;
-const PER_DAY = 10;
+// Three in an hour, ten in a day — enforced by `claim_support_send`, which is
+// where the numbers now live (audit 27). They are deliberately NOT restated
+// here: two copies of a limit is one copy that will be wrong, and this file
+// cannot enforce it anyway. The sentences below are what remains, because copy
+// belongs with the copy.
 
 /**
  * Throttle copy, shown to the user verbatim.
@@ -320,41 +329,49 @@ export default {
         throw err;
       }
 
-      // ── 2. Throttle ──────────────────────────────────────────────────────
-      const dayAgo = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
-      const hourAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+      // ── 2. Throttle and book, in one statement ───────────────────────────
+      //
+      // Audit item 27. This was a SELECT count followed by a separate INSERT,
+      // and the comment above it called the gap "a benign race". It was not: a
+      // loop IS concurrency, and twelve simultaneous requests against a limit
+      // of three let ELEVEN through when measured. `claim_support_send` counts
+      // and books inside an advisory lock keyed on the user, so requests from
+      // one person queue behind each other and each sees the last one's
+      // booking. Requests from different people never contend.
+      //
+      // The limits now live in the function; only the sentences are here. A
+      // rule enforced by its caller is the thing that just got fixed.
+      const { data: claim, error: claimError } = await admin.rpc('claim_support_send', {
+        p_user_id: userId,
+        p_topic: topic,
+      });
 
-      const { data: recent, error: recentError } = await admin
-        .from('support_sends')
-        .select('sent_at')
-        .eq('user_id', userId)
-        .gte('sent_at', dayAgo);
-
-      if (recentError) {
-        console.error(`support-mail: could not read the throttle — ${recentError.message}`);
+      if (claimError) {
+        console.error(`support-mail: could not claim a send — ${claimError.message}`);
         return fail('We could not send that just now. Please try again in a minute.', 500);
       }
 
-      const sends = (recent ?? []) as { sent_at: string }[];
-      if (sends.length >= PER_DAY) return fail(DAY_SENTENCE, 429);
-      if (sends.filter((s) => s.sent_at >= hourAgo).length >= PER_HOUR) {
-        return fail(HOUR_SENTENCE, 429);
-      }
+      // A set-returning function comes back as an array of one row.
+      const claimed = (claim as { booking_id: string | null; refused: string | null }[] | null)?.[0];
 
-      // ── 3. Book the send before making it ────────────────────────────────
-      const { data: booked, error: bookError } = await admin
-        .from('support_sends')
-        .insert({ user_id: userId, topic })
-        .select('id')
-        .single();
+      if (claimed?.refused === 'day') return fail(DAY_SENTENCE, 429);
+      if (claimed?.refused === 'hour') return fail(HOUR_SENTENCE, 429);
 
-      if (bookError || !booked?.id) {
-        console.error(`support-mail: could not book the send — ${bookError?.message ?? 'no row'}`);
+      if (!claimed?.booking_id) {
+        // No id and no refusal is a shape this code has no reading of. Refusing
+        // is the safe direction: the alternative is sending mail that the
+        // throttle has no record of.
+        console.error('support-mail: the throttle answered with neither a booking nor a refusal.');
         return fail('We could not send that just now. Please try again in a minute.', 500);
       }
+
+      const bookingId = claimed.booking_id;
 
       const release = async () => {
-        const { error } = await admin.from('support_sends').delete().eq('id', booked.id);
+        const { error } = await admin.rpc('release_support_send', {
+          p_booking_id: bookingId,
+          p_user_id: userId,
+        });
         if (error) console.error('support-mail: a booking for an unsent message was left behind.');
       };
 
