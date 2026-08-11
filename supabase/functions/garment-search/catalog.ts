@@ -269,10 +269,14 @@ export type DatafeedrOpts = {
   /** Injected so the cache and quota ledger stay testable. */
   claimRequest: (exact: boolean) => Promise<boolean>;
   cacheGet: (key: string) => Promise<CatalogProduct[] | null | undefined>;
+  /**
+   * `terms` is the sanitised, order-free vocabulary subset — NEVER the words
+   * the user typed. See `RETAINED_TERMS`.
+   */
   cachePut: (
     key: string,
     mode: LookupMode,
-    query: string,
+    terms: string[],
     products: CatalogProduct[] | null,
     ttlHours: number,
   ) => Promise<void>;
@@ -395,6 +399,77 @@ const WEAK_TERMS: ReadonlySet<string> = new Set([
   'my', 'a', 'an', 'the', 'and', 'with', 'for', 'from', 'in', 'of',
   'size', 'new', 'vintage', 'old', 'favourite', 'favorite',
 ]);
+
+/**
+ * The only words this cache is willing to remember.
+ *
+ * WHY A CACHE ROW MAY NOT HOLD WHAT SOMEBODY TYPED
+ *
+ * `catalog_lookups` is keyed globally and deliberately not attributed to any
+ * user, which is what makes one paid request answer a question for everybody
+ * who asks it again. That same property is why the row must not hold free text:
+ * an unattributed table is not an anonymous one if the sentence inside it is
+ * "my late nan's cardigan" or names a person, a place, or an occasion. People
+ * describe clothes by what happened in them.
+ *
+ * So the row stores the SHA-256 cache key — which is what the lookup actually
+ * needs — plus the subset of words below and nothing else. Anything absent from
+ * this list is dropped before the write and never reaches Postgres.
+ *
+ * The retained terms are also SORTED AND DEDUPLICATED, which matters more than
+ * it looks: it turns a phrase into a set, so word order is destroyed and the
+ * original sentence cannot be reconstructed from the row even in principle.
+ * "black wool coat" and "coat, wool, black" both store `{black, coat, wool}`.
+ *
+ * Kept deliberately small. It exists to answer "what kinds of garment is this
+ * cache being asked about" for capacity and coverage work — not to reconstruct
+ * queries. Brands are NOT in it: a brand is not private, but keeping brands
+ * plus colours plus garment nouns starts to approach the original phrase again,
+ * and the coverage question does not need them.
+ */
+const RETAINED_TERMS: ReadonlySet<string> = new Set([
+  // Garment nouns — the ten slots and the words people reach for.
+  'shirt', 'blouse', 'top', 'tee', 't-shirt', 'tank', 'sweater', 'jumper',
+  'cardigan', 'hoodie', 'sweatshirt', 'knit', 'knitwear', 'polo',
+  'trousers', 'pants', 'jeans', 'chino', 'chinos', 'shorts', 'skirt',
+  'leggings', 'joggers', 'dress', 'gown', 'jumpsuit', 'romper',
+  'coat', 'jacket', 'blazer', 'parka', 'anorak', 'overcoat', 'trench', 'vest',
+  'shoes', 'sneakers', 'trainers', 'boots', 'loafers', 'sandals', 'heels',
+  'pumps', 'clogs', 'bag', 'handbag', 'tote', 'backpack', 'clutch', 'purse',
+  'hat', 'cap', 'beanie', 'scarf', 'belt', 'gloves', 'sunglasses', 'tie',
+  'necklace', 'bracelet', 'earrings', 'ring', 'suit', 'shirtdress',
+  // Colours.
+  'black', 'white', 'grey', 'gray', 'navy', 'blue', 'red', 'green', 'brown',
+  'beige', 'cream', 'ivory', 'tan', 'camel', 'olive', 'khaki', 'pink', 'purple',
+  'yellow', 'orange', 'burgundy', 'maroon', 'charcoal', 'silver', 'gold',
+  // Materials.
+  'wool', 'cotton', 'linen', 'silk', 'cashmere', 'denim', 'leather', 'suede',
+  'merino', 'corduroy', 'velvet', 'satin', 'tweed', 'nylon', 'fleece',
+  // Cut and length — the words that change which garment is meant.
+  'midi', 'maxi', 'mini', 'cropped', 'oversized', 'slim', 'straight', 'wide',
+  'skinny', 'relaxed', 'tailored', 'pleated', 'quilted', 'striped', 'floral',
+  'checked', 'plaid', 'ribbed', 'button', 'down', 'crewneck', 'vneck', 'collar',
+  'sleeve', 'sleeveless', 'longsleeve', 'high', 'waisted', 'long', 'short',
+]);
+
+/** At most this many terms per row. A bound, not a business rule. */
+const MAX_RETAINED_TERMS = 12;
+
+/**
+ * The sanitised, order-free record of what a lookup was about.
+ *
+ * Returns a sorted, deduplicated subset of `RETAINED_TERMS`. A description made
+ * entirely of words outside the vocabulary returns an empty array, and that is
+ * a correct answer — the row still works, because the cache is keyed on the
+ * hash and never on this.
+ */
+export function retainableTerms(raw: string): string[] {
+  const seen = new Set<string>();
+  for (const token of normaliseQuery(raw).split(' ')) {
+    if (RETAINED_TERMS.has(token)) seen.add(token);
+  }
+  return [...seen].sort().slice(0, MAX_RETAINED_TERMS);
+}
 
 /**
  * Never spend more than this many metered requests answering one description.
@@ -592,7 +667,9 @@ async function lookup(
   await opts.cachePut(
     key,
     mode,
-    value,
+    // The vocabulary subset, not `value`. The raw description is used to build
+    // the hash and to query the provider, and is then discarded.
+    retainableTerms(value),
     fetched.length ? fetched : null,
     fetched.length ? HIT_TTL_HOURS : MISS_TTL_HOURS,
   );

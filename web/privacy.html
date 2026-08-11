@@ -32,7 +32,8 @@
   <ul>
     <li>Photos of the garments you add are uploaded and stored in your private account.</li>
     <li>They are sent to an AI provider, <strong>OpenRouter</strong>, to identify what each item is. You are asked to agree to this before it happens the first time.</li>
-    <li>If you ask Cinch to find a shop's own photograph of a piece, a web search runs. It is carried out by <strong>Exa</strong>, not by OpenRouter, and the routing restriction Cinch sets on its AI requests does not cover it.</li>
+    <li>If you describe a piece so Cinch can find a shop's own photograph of it, those words go to <strong>Datafeedr</strong>, which licenses product listings from shops. No web search runs and no AI model reads them.</li>
+    <li>If you photograph a piece and ask Cinch to name its brand, a web search does run. It is carried out by <strong>Exa</strong>, not by OpenRouter, and the routing restriction Cinch sets on its AI requests does not cover it.</li>
     <li><strong>Cinch never reads your photo library.</strong> iOS shows you a picker and hands the app only the pictures you tap.</li>
     <li>There is no advertising, no tracking across apps or websites, and nothing is sold or shared with data brokers.</li>
     <li>You can delete your account, and everything in it, from inside the app. It happens immediately.</li>
@@ -86,29 +87,44 @@
 </p>
 <p>
   <strong>Describing a piece instead.</strong> The words you type — "black midi
-  dress, Reformation" — are sent as a web search query. No photograph goes with
-  them unless you attach one to show the true colour, and that one is shrunk to
-  256 pixels on your phone before it is sent and is never stored by Cinch.
+  dress, Reformation" — are sent to <strong>Datafeedr</strong>, a company that
+  licenses product listings from shops and their networks. This is not a web
+  search and no AI model reads those words. The pictures that come back are the
+  shops' own, supplied by them to be shown alongside a link to what they sell.
+  No photograph goes with your words unless you attach one to show the true
+  colour, and that one is shrunk to 256 pixels on your phone before it is sent
+  and is never stored by Cinch.
 </p>
 <p>
-  <strong>The search is not run by the AI provider.</strong> It is run by
-  <strong>Exa</strong>, a search company, on OpenRouter's behalf. This matters,
-  and we would rather write it down than let it be assumed: Cinch tells
+  <strong>One search still runs, and it is a different company.</strong> Naming
+  the brand of a piece from a photograph <em>you</em> took is a judgement a
+  product catalogue cannot make, so that request — and only that one — runs a
+  web search carried out by <strong>Exa</strong> on OpenRouter's behalf. This
+  matters, and we would rather write it down than let it be assumed: Cinch tells
   OpenRouter to route its AI requests only to model providers that are not
   allowed to train on what they receive, and <strong>that restriction does not
   extend to the search</strong>. OpenRouter says so itself — its data-retention
   enforcement "does not apply to plugins and tools you choose to enable, such as
-  web search". So the words a search is made of, and the pages that come back,
-  are handled under Exa's own policy, not under anything Cinch can hold anyone
-  to on your behalf.
+  web search". So the words that search is made of, and the pages that come
+  back, are handled under Exa's own policy, not under anything Cinch can hold
+  anyone to on your behalf.
 </p>
 <p>
-  Cinch's server then reads the shop pages that came back and downloads the
-  picture you choose. While you are looking at the results, though, your phone
-  loads those pictures from the shops' own servers, exactly as a web page would
-  — so those shops see a request from your device. They are told nothing about
-  you or your closet, and Cinch has no arrangement with any of them: no
-  affiliate links, no commission, and no way to buy anything in the app.
+  Cinch's server downloads the picture you choose. While you are looking at the
+  results, though, your phone loads those pictures from the shops' own servers,
+  exactly as a web page would — so those shops see a request from your device.
+  They are told nothing about you or your closet.
+</p>
+<p>
+  <strong>Some of those links can earn Cinch a commission.</strong> Where a shop
+  runs an affiliate programme Cinch belongs to, the link you tap carries a code
+  identifying Cinch — never a code identifying you. Cinch does not pass your
+  name, your account, or anything about your closet to the shop or to the
+  network, and it deliberately does not use the per-click tracking field both
+  networks offer for exactly that purpose. A link that pays nothing is not
+  marked differently in how it behaves; a paid one is labelled
+  <strong>Paid link</strong> where it appears. Nothing can be bought inside the
+  app, and Cinch is never paid to place a particular piece in front of you.
 </p>
 <p>
   When you match a piece you had already photographed, Cinch records which shop
@@ -203,14 +219,19 @@
       <td>AI tagging, outfit reasoning, matching a garment to a product listing, and transcribing a voice walkthrough. OpenRouter passes requests to the underlying model provider that serves the chosen model.</td>
     </tr>
     <tr>
-      <td><strong>Exa</strong></td>
-      <td>The web search itself — the words describing the garment. No account and no identifier</td>
-      <td>The web search inside a listing match, run by OpenRouter as a plugin. OpenRouter states that its own data-retention enforcement does not apply to plugins, so this search is governed by Exa's policy.</td>
+      <td><strong>Datafeedr</strong></td>
+      <td>The words describing the garment you are looking for. No account, no identifier, and nothing about your closet</td>
+      <td>Searching a licensed catalogue of product listings, so a piece you describe can be matched to a shop's own photograph of it. This is not a web search and the words are not sent to any AI model.</td>
     </tr>
     <tr>
-      <td><strong>The shops whose pages come back</strong></td>
-      <td>A request from Cinch's server for the page and the picture — and, while you are choosing, a request from your device for each picture shown. Nothing identifying you is sent</td>
-      <td>Showing you the product photographs, and saving the one you pick. There is no commercial relationship with any of them.</td>
+      <td><strong>Exa</strong></td>
+      <td>The words of one search — the descriptor used to name the brand in a photograph you took. No account and no identifier</td>
+      <td>The web search inside a brand match, run by OpenRouter as a plugin. OpenRouter states that its own data-retention enforcement does not apply to plugins, so this search is governed by Exa's policy. Describing a piece in words does not reach Exa.</td>
+    </tr>
+    <tr>
+      <td><strong>The shops, and their affiliate networks</strong></td>
+      <td>A request from Cinch's server for the picture — and, while you are choosing, a request from your device for each picture shown. On a paid link, a code identifying Cinch. Never a code identifying you</td>
+      <td>Showing you the product photographs, saving the one you pick, and — where Cinch belongs to a shop's affiliate programme — attributing a commission. The per-click field both networks offer for identifying an individual visitor is deliberately left empty.</td>
     </tr>
     <tr>
       <td><strong>Open-Meteo</strong></td>

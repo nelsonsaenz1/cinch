@@ -63,7 +63,12 @@ export const TOUR_FRAMES: readonly TourFrame[] = [
     id: 'TR-01',
     eyebrow: 'One · The promise',
     headline: 'Your whole closet, on one page.',
-    body: 'Cinch keeps a record of what you own and what you wore. No shop, no strangers, no feed to keep up with.',
+    // "No shop" was true when written and stopped being true when the commerce
+    // surfaces shipped. The replacement is the founder's own wording, and it
+    // claims something Cinch can still keep: the closet leads, and a shop is
+    // only ever offered against a gap the closet actually has. "No strangers,
+    // no feed" survives unchanged — both are still true.
+    body: 'Cinch keeps a record of what you own and what you wore. Your closet first. Shop only when something is genuinely missing. No strangers, no feed to keep up with.',
     ground: 'ink',
     plate: 'closet',
     action: 'Next',

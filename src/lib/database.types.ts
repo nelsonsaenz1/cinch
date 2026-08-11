@@ -270,7 +270,7 @@ export type Database = {
           product_count: number
           products: Json | null
           provider: Database["public"]["Enums"]["catalog_provider"]
-          query: string
+          terms: string[]
         }
         Insert: {
           cache_key: string
@@ -281,7 +281,7 @@ export type Database = {
           product_count?: number
           products?: Json | null
           provider: Database["public"]["Enums"]["catalog_provider"]
-          query: string
+          terms?: string[]
         }
         Update: {
           cache_key?: string
@@ -292,7 +292,7 @@ export type Database = {
           product_count?: number
           products?: Json | null
           provider?: Database["public"]["Enums"]["catalog_provider"]
-          query?: string
+          terms?: string[]
         }
         Relationships: []
       }
@@ -394,6 +394,7 @@ export type Database = {
       catalog_quota: {
         Row: {
           bill_day: number | null
+          cache_write_failures: number
           cycle_start: string
           limit_total: number | null
           provider: Database["public"]["Enums"]["catalog_provider"]
@@ -403,6 +404,7 @@ export type Database = {
         }
         Insert: {
           bill_day?: number | null
+          cache_write_failures?: number
           cycle_start: string
           limit_total?: number | null
           provider: Database["public"]["Enums"]["catalog_provider"]
@@ -412,6 +414,7 @@ export type Database = {
         }
         Update: {
           bill_day?: number | null
+          cache_write_failures?: number
           cycle_start?: string
           limit_total?: number | null
           provider?: Database["public"]["Enums"]["catalog_provider"]
@@ -2725,6 +2728,10 @@ export type Database = {
       }
       log_outfit_wear: { Args: { p_outfit_id: string }; Returns: undefined }
       normalize_for_moderation: { Args: { p_text: string }; Returns: string }
+      note_catalog_cache_write_failure: {
+        Args: { p_provider: Database["public"]["Enums"]["catalog_provider"] }
+        Returns: undefined
+      }
       plan_outfit_tx: {
         Args: {
           p_context?: Json

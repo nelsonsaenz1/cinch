@@ -189,15 +189,25 @@ export const SELLS_NOTHING_FOOTER =
  *      stylist chat receives a digest, the assembled outfits and the typed
  *      question, never photographs (`stylist-chat/index.ts:23`, `:137`).
  *      Nothing in the app said so before this page.
- *   7. The hole the routing pin does not close. `consent-facts.ts` promises
- *      "only … models that are not allowed to learn from it", and
- *      `garment-search/provider.ts` records in the `completeWithWebSearch`
- *      body that OpenRouter's guarantees are documented as NOT applying to
- *      plugin traffic — while the same request runs its web search through
- *      Exa. That comment says "the privacy page names that separately", and
- *      until this fact was added, no page did. `docs/ai-provider-terms.md` §2.4
- *      quotes the exclusion; §4 forbids any sentence implying the search is
- *      covered, which is why this one says the opposite in plain words.
+ *   7. Where a DESCRIBED garment's picture comes from. Rewritten 2026-08-11,
+ *      because the answer changed and a privacy page that lags the code is
+ *      worse than one that says less. Until that day every listing lookup ran
+ *      an Exa web search; `garment-search` now answers a description from
+ *      Datafeedr's licensed catalogue instead, with
+ *      `GARMENT_SEARCH_ALLOW_UNLICENSED` defaulting to false, so the web path
+ *      is not consulted at all. The old sentence described traffic that no
+ *      longer happens — it was accurate when written and became false the hour
+ *      the switch was thrown.
+ *   8. The one search that DOES still run. Naming a brand from the user's own
+ *      photograph is a vision judgement a product feed cannot make, so `match`
+ *      keeps the web provider under `GARMENT_SEARCH_ALLOW_UNLICENSED_MATCH`.
+ *      The routing-pin hole therefore still exists, on that path only:
+ *      `garment-search/provider.ts` records in `completeWithWebSearch` that
+ *      OpenRouter's guarantees are documented as NOT applying to plugin
+ *      traffic. `docs/ai-provider-terms.md` §2.4 quotes the exclusion; §4
+ *      forbids any sentence implying the search is covered, which is why this
+ *      one says the opposite in plain words — and why it now says WHICH search,
+ *      rather than implying every listing lookup is one.
  */
 export const CONSENT_FACTS: readonly ConsentFact[] = [
   // The four the sheet asks with, verbatim and by reference.
@@ -211,8 +221,12 @@ export const CONSENT_FACTS: readonly ConsentFact[] = [
     rest: ' When Cinch writes about an outfit it sends a description of the pieces, and — if you have given it your calendar — the titles of today’s events, so the note can mention what you are dressing for. The stylist chat sends your question and that same description. No photograph goes with either.',
   },
   {
-    lead: 'The listing search is a different company, and the rule above does not cover it.',
-    rest: ' Finding where a piece is sold means running a web search, and that search is carried out by Exa rather than by our AI partner. The routing rule — only models that are not allowed to learn from what they receive — covers the model and not the search, so what the search is made of is handled under Exa’s policy rather than anything Cinch can hold anyone to for you. And while you are choosing from the results, your phone loads those pictures from the shops themselves, so each of those shops sees a request from your device.',
+    lead: 'Describing a piece asks a catalogue, not the open web.',
+    rest: ' When you type what a garment is, those words go to Datafeedr, a company that licenses product listings from shops, and the pictures that come back are the shops’ own — supplied by them for this purpose. No web search runs, and no AI model sees those words. And while you are choosing from the results, your phone loads each picture from the shop itself, so those shops see a request from your device.',
+  },
+  {
+    lead: 'Photographing a piece to name its brand still runs a web search, and the rule above does not cover it.',
+    rest: ' Reading a brand off your own photograph is something a catalogue cannot do, so that one search is carried out by Exa rather than by our AI partner. The routing rule — only models that are not allowed to learn from what they receive — covers the model and not the search, so what that search is made of is handled under Exa’s policy rather than anything Cinch can hold anyone to for you.',
   },
 ];
 

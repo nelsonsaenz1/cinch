@@ -51,7 +51,11 @@ export function closetGap(items: Garment[], minCount: number): ClosetGap {
 export function gapBody(gap: ClosetGap): string {
   switch (gap.kind) {
     case 'virgin':
-      return "Photograph your wardrobe once and I'll build outfits from your real clothes each morning. No shopping, ever.";
+      // "No shopping, ever" outlived the product. See tour-copy.ts:66 — the
+      // outfits really are assembled only from clothes the closet already has,
+      // which is the claim worth keeping; "ever" is the part that stopped
+      // being true.
+      return "Photograph your wardrobe once and I'll build outfits from your real clothes each morning. Your closet first — shopping only when something is genuinely missing.";
     case 'both':
       return 'Once you add a top and a bottom — or a dress — we can begin styling you.';
     case 'top':

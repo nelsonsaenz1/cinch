@@ -32,9 +32,13 @@ test('TR-01 — the promise, on the one dark ground', () => {
   const f = frameAt(0);
   assert.equal(f.eyebrow, 'One · The promise');
   assert.equal(f.headline, 'Your whole closet, on one page.');
+  // "No shop" was replaced 2026-08-11: it was true when the tour was drawn and
+  // stopped being true when the commerce surfaces shipped. This assertion is
+  // what caught the copy change, which is the point of pinning drawn strings —
+  // the promise a new user reads first is not something to alter silently.
   assert.equal(
     f.body,
-    'Cinch keeps a record of what you own and what you wore. No shop, no strangers, no feed to keep up with.',
+    'Cinch keeps a record of what you own and what you wore. Your closet first. Shop only when something is genuinely missing. No strangers, no feed to keep up with.',
   );
   assert.equal(f.ground, 'ink');
   assert.equal(f.action, 'Next');

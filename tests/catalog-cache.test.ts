@@ -28,6 +28,7 @@ import {
   datafeedrProvider,
   firstLicensed,
   type LookupMode,
+  retainableTerms,
 } from '../supabase/functions/garment-search/catalog.ts';
 import type {
   GarmentImageProvider,
@@ -39,7 +40,13 @@ import type {
 type Spy = {
   claims: boolean[];
   reads: string[];
-  writes: Array<{ key: string; mode: LookupMode; products: CatalogProduct[] | null; ttl: number }>;
+  writes: Array<{
+    key: string;
+    mode: LookupMode;
+    terms: string[];
+    products: CatalogProduct[] | null;
+    ttl: number;
+  }>;
 };
 
 function build(cacheAnswer: CatalogProduct[] | null | undefined, spy: Spy) {
@@ -56,8 +63,8 @@ function build(cacheAnswer: CatalogProduct[] | null | undefined, spy: Spy) {
       spy.reads.push(key);
       return Promise.resolve(cacheAnswer);
     },
-    cachePut: (key, mode, _query, products, ttl) => {
-      spy.writes.push({ key, mode, products, ttl });
+    cachePut: (key, mode, terms, products, ttl) => {
+      spy.writes.push({ key, mode, terms, products, ttl });
       return Promise.resolve();
     },
   });
@@ -283,8 +290,8 @@ function relaxing(spy: Spy) {
     affiliateIds: {},
     claimRequest: (exact) => { spy.claims.push(exact); return Promise.resolve(true); },
     cacheGet: (key) => { spy.reads.push(key); return Promise.resolve(undefined); },
-    cachePut: (key, mode, _q, products, ttl) => {
-      spy.writes.push({ key, mode, products, ttl });
+    cachePut: (key, mode, terms, products, ttl) => {
+      spy.writes.push({ key, mode, terms, products, ttl });
       return Promise.resolve();
     },
   });
@@ -358,6 +365,77 @@ test('the ladder never degrades to a single useless term', async () => {
         `"${q}" is one term — a one-word query is a different question, not a looser one`,
       );
     }
+  } finally {
+    net.restore();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// What the cache is allowed to remember.
+//
+// `catalog_lookups` is keyed globally and attributed to nobody, which is what
+// makes one paid request answer a question for everybody who asks it again.
+// That is also exactly why the row must not hold free text: an unattributed
+// table is not an anonymous one when the sentence inside it is "my late nan's
+// cardigan". People describe clothes by what happened in them.
+// ---------------------------------------------------------------------------
+
+test('only vocabulary words survive into the stored terms', () => {
+  assert.deepEqual(
+    retainableTerms('black wool coat'),
+    ['black', 'coat', 'wool'],
+    'garment nouns, colours and materials are kept',
+  );
+});
+
+test('names, places and occasions are dropped', () => {
+  const terms = retainableTerms("my late nan's cardigan from Sarah's wedding in Lisbon");
+  assert.deepEqual(terms, ['cardigan']);
+  for (const leaked of ['nan', 'sarah', 'wedding', 'lisbon', 'late', 'my']) {
+    assert.ok(!terms.includes(leaked), `"${leaked}" must not reach the database`);
+  }
+});
+
+test('the stored terms are a set, so the phrase cannot be rebuilt from them', () => {
+  // Sorting is the load-bearing part: it destroys word order, so two different
+  // sentences made of the same vocabulary are indistinguishable in the row.
+  assert.deepEqual(
+    retainableTerms('black wool coat'),
+    retainableTerms('coat, wool — black'),
+    'word order is not recoverable',
+  );
+  assert.deepEqual(retainableTerms('coat coat coat wool'), ['coat', 'wool'], 'and repetition is not counted');
+});
+
+test('a description made only of unknown words stores nothing at all', () => {
+  assert.deepEqual(
+    retainableTerms('the thing Gran gave me in Perth'),
+    [],
+    'an empty array is a correct answer — the cache is keyed on the hash, not on this',
+  );
+});
+
+test('the retained terms are bounded', () => {
+  const many = retainableTerms(
+    'black white grey navy blue red green brown beige cream ivory tan camel olive khaki wool cotton linen silk coat',
+  );
+  assert.ok(many.length <= 12, `stored ${many.length} terms; the column caps at 12`);
+});
+
+test('the cache write receives sanitised terms, never the description', async () => {
+  const net = fetchSpy([5]);
+  const s = spy();
+  try {
+    await relaxing(s).search({
+      description: "my late nan's black wool coat",
+      maxCandidates: 6,
+    });
+    const written = s.writes[0];
+    assert.deepEqual(written?.terms, ['black', 'coat', 'wool']);
+    assert.ok(
+      !JSON.stringify(written?.terms).toLowerCase().includes('nan'),
+      'the provider must not hand the database anything personal',
+    );
   } finally {
     net.restore();
   }

@@ -72,19 +72,29 @@ function affiliateIdsFromEnv(): Record<number, string> {
  * The two kill switches, read per request rather than at module load so that
  * flipping either is a secret change plus a cold start, not a redeploy.
  *
- * `GARMENT_SEARCH_ALLOW_UNLICENSED` governs IMAGES from the open web, and is
- * `false` as of 2026-08-11: post-policy coverage measured 28/28 against real
- * garment descriptions, every case filling all six candidate slots, so the
- * licensed feeds answer on their own.
+ * `GARMENT_SEARCH_ALLOW_UNLICENSED` governs IMAGES from the open web and
+ * **defaults to FALSE**. It shipped defaulting to true, which was the wrong way
+ * round in the one way that matters: the secret is what turns the unlicensed
+ * path OFF, so losing it — a project restore, a secret pruned by mistake, a new
+ * environment stood up from the repo — would silently re-enable exactly the
+ * behaviour this module exists to replace, and nothing would report it. The
+ * safe state is the default state; enabling the open web is now the act that
+ * requires a deliberate `"true"`.
+ *
+ * Licensed-only is also what the measurement supports: post-policy coverage was
+ * 28/28 against real garment descriptions on 2026-08-11, every case filling all
+ * six candidate slots.
  *
  * `GARMENT_SEARCH_ALLOW_UNLICENSED_MATCH` governs BRAND IDENTIFICATION from a
- * photograph the user took themselves, and defaults to TRUE independently — see
- * `UnlicensedFallback` for why these are not one switch. Turning off unlicensed
- * imagery should not silently remove a feature that copies no image.
+ * photograph the user took themselves, and defaults to TRUE — see
+ * `UnlicensedFallback` for why these are not one switch. Its default runs the
+ * other way because its failure mode does too: losing the secret restores a
+ * feature rather than a licensing exposure, since reading a brand off the
+ * user's own picture copies no image.
  */
 function allowUnlicensed(): UnlicensedFallback {
   return {
-    search: (Deno.env.get('GARMENT_SEARCH_ALLOW_UNLICENSED') ?? 'true') !== 'false',
+    search: Deno.env.get('GARMENT_SEARCH_ALLOW_UNLICENSED') === 'true',
     match: (Deno.env.get('GARMENT_SEARCH_ALLOW_UNLICENSED_MATCH') ?? 'true') !== 'false',
   };
 }
@@ -190,12 +200,17 @@ async function cacheGet(
  * `product_count` is derived here rather than trusted from a caller, because the
  * table's own CHECK requires it to agree with the payload and a mismatch would
  * reject the write at the moment we have already paid for the data.
+ *
+ * `terms` arrives already sanitised — a sorted, order-free subset of a fixed
+ * garment vocabulary. This function does not receive the user's words at all,
+ * which is the point: there is no line here that could accidentally start
+ * writing them.
  */
 async function cachePut(
   admin: SupabaseClient<Database>,
   key: string,
   mode: LookupMode,
-  query: string,
+  terms: string[],
   products: CatalogProduct[] | null,
   ttlHours: number,
 ): Promise<void> {
@@ -205,9 +220,7 @@ async function cachePut(
       cache_key: key,
       provider: 'datafeedr',
       mode,
-      // The column caps at 400 characters and a rejected write would throw away
-      // a request we have already spent.
-      query: query.slice(0, 400),
+      terms,
       products: products as unknown as Database['public']['Tables']['catalog_lookups']['Insert']['products'],
       product_count: products?.length ?? 0,
       fetched_at: new Date(now).toISOString(),
@@ -216,8 +229,16 @@ async function cachePut(
     { onConflict: 'cache_key' },
   );
 
-  // Not thrown. A cache that cannot be written is a cost problem, not a
-  // correctness one — the user still gets their answer from the response we
-  // already hold, and the next lookup simply pays again.
-  if (error) console.error(`catalog: cache write failed: ${error.message}`);
+  // Counted, not just logged. Every failed write is a cache miss somebody pays
+  // for again on the next lookup, so a rising rate here is a bill, not noise —
+  // and a silent one, because the user still gets their answer from the
+  // response already in hand. (Audit item 28.)
+  if (error) {
+    console.error(`catalog: cache write failed: ${error.message}`);
+    await admin
+      .rpc('note_catalog_cache_write_failure', { p_provider: 'datafeedr' })
+      .then(({ error: rpcError }) => {
+        if (rpcError) console.error(`catalog: could not count the failure: ${rpcError.message}`);
+      });
+  }
 }
