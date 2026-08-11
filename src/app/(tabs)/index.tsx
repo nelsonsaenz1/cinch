@@ -826,7 +826,15 @@ export default function TodayScreen() {
             (the atlas calls this out on T-04). */}
         <ScrollView
           contentContainerClassName="flex-grow items-center justify-center px-gutter"
-          contentContainerStyle={{ paddingBottom: 48 }}>
+          // 96, matching Closet. 48 did not clear the floating tab bar, and the
+          // element it hid was this branch's PRIMARY ACTION — the "Add your
+          // clothes" button an empty first-run closet exists to offer. At the
+          // default type size the content is short enough not to scroll, so the
+          // button sat permanently in the strip the glass bar occludes and was
+          // never visible at all; at the largest Dynamic Type it scrolled but
+          // still could not clear the bar. Verified both ways on the simulator
+          // before and after this line changed.
+          contentContainerStyle={{ paddingBottom: 96 }}>
           {/* Not an empty tray: a miniature sample plate under a "What your
               mornings become" eyebrow shows the destination — the happy path
               in matchbook form, on clearly-bundled sample data. */}
