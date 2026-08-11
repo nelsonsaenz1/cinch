@@ -218,7 +218,7 @@ export default function PostLookScreen() {
                 <Text variant="title" trim>
                   What are you wearing?
                 </Text>
-                <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+                <Text variant="body" className="mt-2.5 text-muted">
                   Pick from your closet. Three to six pieces reads best on the board.
                 </Text>
                 <View className="mt-4">
@@ -235,7 +235,7 @@ export default function PostLookScreen() {
                 <Text variant="title" trim>
                   The stack
                 </Text>
-                <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+                <Text variant="body" className="mt-2.5 text-muted">
                   Drag to reorder. Top piece first — that’s what shows on the board.
                 </Text>
                 <View className="mt-4" onLayout={(e) => setPlateWidth(e.nativeEvent.layout.width)}>
@@ -255,7 +255,7 @@ export default function PostLookScreen() {
                 <Text variant="title" trim>
                   Say what it is
                 </Text>
-                <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+                <Text variant="body" className="mt-2.5 text-muted">
                   A name and a line. Both optional — the pieces already say most of it.
                 </Text>
                 <View className="mt-4">

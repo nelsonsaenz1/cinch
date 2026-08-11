@@ -157,13 +157,13 @@ const LIGHT_OUTFIT_ITEMS: Garment[] = [
 ];
 
 const FIXTURE_IMAGES: Record<string, string> = {
-  'fixture/cognac-shearling-coat': COAT,
-  'fixture/cream-mohair-sweater': KNIT,
-  'fixture/charcoal-tailored-trousers': TROUSERS,
-  'fixture/brown-leather-loafers': LOAFERS,
-  'fixture/white-linen-blouse': BLOUSE,
-  'fixture/beige-corduroy-skirt': SKIRT,
-  'fixture/cognac-leather-tote': TOTE,
+ 'fixture/cognac-shearling-coat': COAT,
+ 'fixture/cream-mohair-sweater': KNIT,
+ 'fixture/charcoal-tailored-trousers': TROUSERS,
+ 'fixture/brown-leather-loafers': LOAFERS,
+ 'fixture/white-linen-blouse': BLOUSE,
+ 'fixture/beige-corduroy-skirt': SKIRT,
+ 'fixture/cognac-leather-tote': TOTE,
 };
 
 /**
@@ -277,9 +277,9 @@ const S04_MESSAGES: ChatMessage[] = [
 const S05_MESSAGES: ChatMessage[] = [
   turn('u1', 'user', COMPOSED_ASK),
   turn(
-    'a1',
-    'assistant',
-    'Two ways to go. The shearling over the mohair is the warmer one, and the rain won’t bother it.',
+ 'a1',
+ 'assistant',
+ 'Two ways to go. The shearling over the mohair is the warmer one, and the rain won’t bother it.',
     {
       outfits: [outfit(WARM_OUTFIT_ITEMS), outfit(LIGHT_OUTFIT_ITEMS)],
       followUp: 'Want me to push it dressier?',
@@ -290,9 +290,9 @@ const S05_MESSAGES: ChatMessage[] = [
 const S06_MESSAGES: ChatMessage[] = [
   turn('u1', 'user', 'What do I pack for Rome in July?'),
   turn(
-    'a1',
-    'assistant',
-    'The stylist could not be reached. Your outfits on the Today tab still work — they are built on your phone.',
+ 'a1',
+ 'assistant',
+ 'The stylist could not be reached. Your outfits on the Today tab still work — they are built on your phone.',
     { failed: true, retryable: true },
   ),
 ];
@@ -312,9 +312,9 @@ const S07_REFUSALS: { label: string; message: ChatMessage }[] = [
   {
     label: 'Consent not granted',
     message: turn(
-      'r1',
-      'assistant',
-      'Cinch needs your permission to use AI before it can answer. You can turn it on from the Add clothes screen.',
+ 'r1',
+ 'assistant',
+ 'Cinch needs your permission to use AI before it can answer. You can turn it on from the Add clothes screen.',
       { failed: true, retryable: false },
     ),
   },
@@ -393,7 +393,7 @@ export default function DevStylistScreen() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
@@ -437,10 +437,10 @@ export default function DevStylistScreen() {
   const selected = STATES.find((s) => s.id === state)!;
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
       {/* The picker. Scaffolding, not a designed surface — plain on purpose, so
           nothing about it can be mistaken for part of the state below it. */}
-      <View className="border-b border-rule pb-2 dark:border-rule-dark">
+      <View className="border-b border-rule pb-2">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -500,7 +500,7 @@ export default function DevStylistScreen() {
             onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
             {/* The whole opening composition, closing caption and all, from the
                 real `greeting()` pinned to the atlas's own evening. No
-                `onStart`: the four doors press and dim and open nothing, which
+ `onStart`: the four doors press and dim and open nothing, which
                 is what keeps this a frame to look at rather than a flow to
                 walk. */}
             {state === 'S-01' ? (

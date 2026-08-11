@@ -50,11 +50,11 @@ export function HandleField({
     <View>
       <SectionHeader title="Handle" className="mb-2 mt-5" />
       <View
-        className="rounded-md bg-surface dark:bg-surface-dark flex-row items-center px-3.5"
+        className="rounded-md bg-surface flex-row items-center px-3.5"
         style={[{ minHeight: FIELD_HEIGHT }, fieldFrame(theme, state)]}>
         {/* The `@` belongs to the field, not to the value — storing it would
             break the format constraint on the column. */}
-        <Text variant="callout" className="text-faint dark:text-faint-dark">
+        <Text variant="callout" className="text-faint">
           @
         </Text>
         <TextInput
@@ -82,14 +82,14 @@ export function HandleField({
         {availability === 'free' ? (
           <View className="flex-row items-center gap-1.5" accessibilityLiveRegion="polite">
             <SymbolView name="checkmark" size={12} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-            <Text variant="label" className="text-ink dark:text-ink-dark">
+            <Text variant="label" className="text-ink">
               Available
             </Text>
           </View>
         ) : availability === 'checking' ? (
           <View className="flex-row items-center gap-1.5" accessibilityLiveRegion="polite">
             <ActivityIndicator size="small" color={theme.faint} />
-            <Text variant="label" className="text-faint dark:text-faint-dark">
+            <Text variant="label" className="text-faint">
               Checking
             </Text>
           </View>
@@ -102,7 +102,7 @@ export function HandleField({
       <Text
         variant="caption"
         accessibilityLiveRegion={hint.tone === 'quiet' ? 'none' : 'polite'}
-        className={hint.tone === 'error' ? 'mt-2' : 'mt-2 text-muted dark:text-muted-dark'}
+        className={hint.tone === 'error' ? 'mt-2' : 'mt-2 text-muted'}
         style={hint.tone === 'error' ? { color: theme.accent } : undefined}>
         {hint.text}
       </Text>
@@ -124,7 +124,7 @@ export function HandleField({
               accessibilityLabel={`Use handle ${s}`}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               style={{ height: 30, justifyContent: 'center' }}
-              className="rounded-chip border border-rule px-3 active:opacity-60 dark:border-rule-dark">
+              className="rounded-chip border border-rule px-3 active:opacity-60">
               <Text variant="label" style={{ color: theme.ink }}>
                 @{s}
               </Text>

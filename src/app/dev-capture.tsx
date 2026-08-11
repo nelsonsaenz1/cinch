@@ -159,7 +159,7 @@ function Stage({ kind }: { kind: 'photo' | 'photoBare' | 'instructional' | 'bloc
 
   if (kind === 'blocked') {
     return (
-      <View className="mx-4 my-2 flex-1 overflow-hidden rounded-plate bg-canvas dark:bg-canvas-dark">
+      <View className="mx-4 my-2 flex-1 overflow-hidden rounded-plate bg-canvas">
         <EmptyState
           symbol="camera.fill"
           tone="blocked"
@@ -396,9 +396,9 @@ function ConsentReplica() {
       className="absolute inset-0 justify-end"
       style={{ backgroundColor: theme.scrim }}
       pointerEvents="none">
-      <View className="rounded-t-plate bg-canvas dark:bg-canvas-dark">
+      <View className="rounded-t-plate bg-canvas">
         <View className="items-center pb-1 pt-2.5">
-          <View className="h-[5px] w-9 rounded-full bg-sand dark:bg-sand-dark" />
+          <View className="h-[5px] w-9 rounded-full bg-sand" />
         </View>
 
         <View className="px-gutter pt-4" style={{ paddingBottom: insets.bottom + 16 }}>
@@ -417,7 +417,7 @@ function ConsentReplica() {
             {facts.map(({ lead, rest }, index) => (
               <View
                 key={lead}
-                className={`flex-row gap-3 border-t border-rule py-2.5 dark:border-rule-dark ${
+                className={`flex-row gap-3 border-t border-rule py-2.5 ${
                   index === facts.length - 1 ? 'border-b' : ''
                 }`}>
                 <Text variant="statSmall" className="w-4" style={{ color: theme.accent }}>
@@ -575,9 +575,9 @@ export default function DevCaptureScreen() {
 
         {/* C-06 · declined — frame A-04, full-screen on the capture surface.
             The real exported component, so the fixture cannot drift: eyebrow,
-            "Done. Nothing was sent.", the three hairline-ruled consequences,
+ "Done. Nothing was sent.", the three hairline-ruled consequences,
             the ink pill and the way back. Nothing amber anywhere. */}
-        <View style={{ height: pageHeight }} className="bg-canvas dark:bg-canvas-dark">
+        <View style={{ height: pageHeight }} className="bg-canvas">
           <AtlasLabel id="C-06" name="Declined — what changes (A-04)" onLight />
           <DeclineExplainer onAddItem={() => {}} onTurnOnAi={() => {}} />
         </View>

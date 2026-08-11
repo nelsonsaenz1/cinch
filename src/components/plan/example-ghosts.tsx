@@ -66,7 +66,7 @@ function ExampleSection({ children }: { children: React.ReactNode }) {
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      className="flex-1 overflow-hidden border-t border-rule dark:border-rule-dark">
+      className="flex-1 overflow-hidden border-t border-rule">
       {children}
     </View>
   );
@@ -89,17 +89,17 @@ export function ExampleWeek() {
   return (
     <ExampleSection>
       <View className="px-gutter pb-1 pt-4">
-        <Text variant="eyebrow" className="text-faint dark:text-faint-dark">
+        <Text variant="eyebrow" className="text-faint">
           Example week
         </Text>
       </View>
       {WEEK_ROWS.map(({ day, bar }) => (
         <View
           key={day}
-          className="flex-row items-center border-b border-hairline px-gutter dark:border-hairline-dark"
+          className="flex-row items-center border-b border-hairline px-gutter"
           style={{ gap: 14, paddingVertical: 18 }}>
           <View style={{ width: 42 }}>
-            <Text variant="callout" className="font-semibold text-ghost dark:text-ghost-dark">
+            <Text variant="callout" className="font-semibold text-ghost">
               {day}
             </Text>
           </View>
@@ -107,13 +107,13 @@ export function ExampleWeek() {
             {[0, 1, 2].map((i) => (
               <View
                 key={i}
-                className="rounded-sm border border-hairline bg-tray dark:border-hairline-dark dark:bg-tray-dark"
+                className="rounded-sm border border-hairline bg-tray"
                 style={{ width: 16, height: 16 }}
               />
             ))}
           </View>
           <View
-            className="flex-1 rounded-sm bg-tray dark:bg-tray-dark"
+            className="flex-1 rounded-sm bg-tray"
             style={{ height: 12, maxWidth: bar }}
           />
         </View>
@@ -138,26 +138,26 @@ export function ExamplePlans() {
   return (
     <ExampleSection>
       <View className="px-gutter pb-1 pt-4">
-        <Text variant="eyebrow" className="text-faint dark:text-faint-dark">
+        <Text variant="eyebrow" className="text-faint">
           Example plans
         </Text>
       </View>
       {PLAN_CARDS.map(({ date, bar, going }) => (
         <View
           key={date}
-          className="mx-gutter mt-2 rounded-plate border border-hairline p-4 dark:border-hairline-dark">
-          <Text variant="eyebrow" className="text-ghost dark:text-ghost-dark">
+          className="mx-gutter mt-2 rounded-plate border border-hairline p-4">
+          <Text variant="eyebrow" className="text-ghost">
             {date}
           </Text>
           <View
-            className="mt-2 rounded-sm bg-tray dark:bg-tray-dark"
+            className="mt-2 rounded-sm bg-tray"
             style={{ height: 16, maxWidth: bar }}
           />
           <View className="mt-2.5 flex-row" style={{ gap: 6 }}>
             {Array.from({ length: going }, (_, i) => (
               <View
                 key={i}
-                className="rounded-full bg-tray dark:bg-tray-dark"
+                className="rounded-full bg-tray"
                 style={{ width: 22, height: 22 }}
               />
             ))}
@@ -186,26 +186,26 @@ export function ExampleTrips() {
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      className="border-t border-rule pt-[18px] dark:border-rule-dark">
-      <Text variant="eyebrow" className="text-faint dark:text-faint-dark">
+      className="border-t border-rule pt-[18px]">
+      <Text variant="eyebrow" className="text-faint">
         Example trips
       </Text>
       <View className="mt-2.5" style={{ gap: 8 }}>
         {TRIP_ROWS.map(({ label, bar }) => (
           <View
             key={label}
-            className="flex-row items-center border border-hairline dark:border-hairline-dark"
+            className="flex-row items-center border border-hairline"
             style={{ gap: 12, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14 }}>
             {/* `label`, not `stat`: the atlas sets the ghost length-of-trip in
                 the 13px grotesque, and `stat` would put a serif figure here. */}
             <Text
               variant="label"
-              className="font-semibold text-ghost dark:text-ghost-dark"
+              className="font-semibold text-ghost"
               style={{ width: 70 }}>
               {label}
             </Text>
             <View
-              className="flex-1 rounded-sm bg-tray dark:bg-tray-dark"
+              className="flex-1 rounded-sm bg-tray"
               style={{ height: 12, maxWidth: bar }}
             />
           </View>

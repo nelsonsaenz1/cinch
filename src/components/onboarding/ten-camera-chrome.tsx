@@ -91,7 +91,7 @@ export function TenCameraChrome({
 
       {/* `ink`, not the atlas's `#100F0D` — the reconciliation table calls
           this well out by name: "the 3-step delta is invisible under a
-          photo" (free-tier-contract.md §3). */}
+ photo" (free-tier-contract.md §3). */}
       <View
         style={{
           position: 'relative',
@@ -125,7 +125,7 @@ export function TenCameraChrome({
       </View>
 
       {/* Library · shutter. "Describe" is /capture's third door, not this
-          one's — the guided flow keeps to the two ways that produce a
+ one's — the guided flow keeps to the two ways that produce a
           photograph for the slot on screen. */}
       <View className="flex-row items-center justify-between px-8 py-2">
         <Pressable
@@ -193,7 +193,7 @@ export function TenCameraChrome({
       </View>
 
       <View
-        className="rounded-t-plate bg-surface px-gutter pb-8 pt-4 dark:bg-surface-dark"
+        className="rounded-t-plate bg-surface px-gutter pb-8 pt-4"
         style={{ paddingBottom: 34 }}>
         <View className="flex-row items-baseline justify-between">
           <Text variant="plate" style={{ fontSize: 24 }}>
@@ -212,7 +212,7 @@ export function TenCameraChrome({
             {`${filled} of ${slots.length} filled`}
           </Text>
         </View>
-        <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+        <Text variant="body" className="mt-2 text-muted">
           {phase
             ? `It lands in slot ${slot.id} when it’s done. Keep going — you don’t have to wait for it.`
             : 'Frame one garment against a plain background, then shoot.'}

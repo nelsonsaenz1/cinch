@@ -60,15 +60,15 @@ export function AnswerChip({
       accessibilityState={{ selected }}
       style={{ minHeight: MIN_TAP_TARGET }}
       className={[
-        'justify-center rounded-md border px-4 active:opacity-60',
+ 'justify-center rounded-md border px-4 active:opacity-60',
         // INK when selected, not oxblood — the atlas draws it that way and the
         // reason is the standing one: one oxblood action per screen. The vibe
         // and day-part questions went multi-select in this wave, so an accent
         // ground would put up to six oxblood chips on K-03 competing with
         // "Pack the bag", which is the only thing on the screen that acts.
         selected
-          ? 'border-ink bg-ink dark:border-ink-dark dark:bg-ink-dark'
-          : 'border-rule dark:border-rule-dark',
+          ? 'border-ink bg-ink'
+          : 'border-rule',
       ].join(' ')}>
       {/* Inline colour, never a second `text-*` class: NativeWind gives no
           precedence between two of them on one element (chip.tsx L40-44). */}
@@ -111,7 +111,7 @@ export function PlaceRow({
       onPress={() => onPick(place)}
       accessibilityRole="button"
       style={{ minHeight: MIN_TAP_TARGET }}
-      className="flex-row items-center justify-between gap-3 border-b border-hairline px-4 py-2.5 active:opacity-60 dark:border-hairline-dark">
+      className="flex-row items-center justify-between gap-3 border-b border-hairline px-4 py-2.5 active:opacity-60">
       <View className="flex-1">
         <Text variant="body">{place.name}</Text>
         {/* "Ohio, United States" — the region carries most of the
@@ -192,11 +192,11 @@ function DestinationStep({
         autoFocus
         autoCorrect={false}
         returnKeyType="search"
-        className="rounded-md border border-hairline px-3.5 py-3 text-ink dark:border-hairline-dark dark:text-ink-dark"
+        className="rounded-md border border-hairline px-3.5 py-3 text-ink"
       />
 
       {(places.data?.length ?? 0) > 0 ? (
-        <View className="mt-3 overflow-hidden rounded-md border border-hairline dark:border-hairline-dark">
+        <View className="mt-3 overflow-hidden rounded-md border border-hairline">
           {places.data!.map((place) => (
             <PlaceRowLive
               key={`${place.name}-${place.latitude}-${place.longitude}`}
@@ -212,7 +212,7 @@ function DestinationStep({
       {/* No spinner and no "no results": a two-letter query mid-typing is not a
           failed search, and a place lookup that fails leaves the field exactly
           where it was, which is its own retry. */}
-      <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-6 text-muted">
         Cinch reads the place — how warm it is, how dressed-up it is, what people
         actually wear there — and packs from what you already own.
       </Text>
@@ -250,7 +250,7 @@ function FriendsAttach({
   return (
     <View className="mt-6">
       <Text variant="label">Add friends (optional)</Text>
-      <Text variant="body" className="mt-1 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-1 text-muted">
         Names their trip summary, not what gets packed.
       </Text>
       <View className="mt-3 flex-row flex-wrap gap-2">
@@ -305,7 +305,7 @@ function summaryRows(draft: TripDraft): SummaryRow[] {
 function AnsweredSummary({ rows, onRevise }: { rows: SummaryRow[]; onRevise: (step: TripStepKey) => void }) {
   if (!rows.length) return null;
   return (
-    <View className="mb-5 overflow-hidden rounded-md border border-hairline dark:border-hairline-dark">
+    <View className="mb-5 overflow-hidden rounded-md border border-hairline">
       {rows.map((row, i) => (
         <Pressable
           key={row.step}
@@ -313,8 +313,8 @@ function AnsweredSummary({ rows, onRevise }: { rows: SummaryRow[]; onRevise: (st
           accessibilityRole="button"
           accessibilityLabel={`${row.label}: ${row.value}. Tap to revise.`}
           className={[
-            'flex-row items-center justify-between px-4 py-3 active:opacity-60',
-            i < rows.length - 1 ? 'border-b border-hairline dark:border-hairline-dark' : '',
+ 'flex-row items-center justify-between px-4 py-3 active:opacity-60',
+            i < rows.length - 1 ? 'border-b border-hairline' : '',
           ].join(' ')}>
           <Text variant="label">{row.label}</Text>
           <Text variant="body">{row.value}</Text>
@@ -396,7 +396,7 @@ export function TripQuestionnaire({
                 q.setDates(range.startsOn, range.endsOn)
               }
             />
-            <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
+            <Text variant="body" className="mt-6 text-muted">
               Real dates, not a length — Cinch pulls the forecast for the days
               you are actually there.
             </Text>
@@ -447,11 +447,11 @@ export function TripQuestionnaire({
                 else: a predicted piece count would be a promise made before
                 the search that produces it (packing-math.ts). */}
             {tripLength !== null && q.draft.parts.length > 0 ? (
-              <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+              <Text variant="body" className="mt-4 text-muted">
                 {looksSentence(tripLength, q.draft.parts)}
               </Text>
             ) : (
-              <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+              <Text variant="body" className="mt-4 text-muted">
                 Pick as many as are true. This decides how many looks the bag has
                 to carry.
               </Text>

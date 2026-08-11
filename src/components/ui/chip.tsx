@@ -128,16 +128,16 @@ export function Chip({
       className={[
         // 16px of padding at `tap`, the atlas's own figure — a taller chip with
         // the tighter 14 would read as a stretched compact one.
-        `flex-row items-center justify-center rounded-chip ${tapSized ? 'px-4' : 'px-3.5'}`,
+ `flex-row items-center justify-center rounded-chip ${tapSized ? 'px-4' : 'px-3.5'}`,
         onPress ? 'active:opacity-60' : '',
         filled
-          ? 'bg-sand dark:bg-sand-dark'
+          ? 'bg-sand'
           : dashed
             ? 'border border-dashed bg-transparent'
             : selected
               ? inkGround
-                ? 'border border-ink bg-ink dark:border-ink-dark dark:bg-ink-dark'
-                : 'border border-accent bg-accent dark:border-accent-dark dark:bg-accent-dark'
+                ? 'border border-ink bg-ink'
+                : 'border border-accent bg-accent'
               : // A `tap` chip carries `rule`, not `hairline`. The New Occasion
                 // atlas draws the dress-code row a step STRONGER than the
                 // fields above it (.18 against the fields' .12), and at
@@ -145,7 +145,7 @@ export function Chip({
                 // of the emphasis the row is supposed to have. `rule` is the
                 // nearest token and the one the plate grammar already uses for
                 // a defined edge; the compact chip is untouched.
-                `border bg-transparent ${tapSized ? 'border-rule dark:border-rule-dark' : 'border-hairline dark:border-hairline-dark'}`,
+ `border bg-transparent ${tapSized ? 'border-rule' : 'border-hairline'}`,
       ].join(' ')}>
       {/* Inline geometry rather than a class: 9px has no spacing step, and it
           should not get one for a single dot. `mr-1.5` is the atlas's 6px gap. */}
@@ -156,7 +156,7 @@ export function Chip({
         />
       ) : null}
       {/* Inline style, not a className: `variant="label"` already carries
-          `text-muted`, and NativeWind gives no guaranteed precedence between
+ `text-muted`, and NativeWind gives no guaranteed precedence between
           two `text-*` utilities on one element — so a `text-canvas` class here
           lost and the selected chip read muted-on-accent. */}
       <Text

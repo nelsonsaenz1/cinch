@@ -87,7 +87,7 @@ export function ListingOffer({ brand, piece, onFind, onDismiss }: ListingOfferPr
 
   return (
     <View
-      className="mt-4 border border-rule bg-surface dark:border-rule-dark"
+      className="mt-4 border border-rule bg-surface"
       style={{ borderRadius: CARD_RADIUS, padding: CARD_PADDING }}>
       <View className="flex-row items-start justify-between gap-3">
         <Text variant="plate" className="flex-1" style={TITLE_STYLE}>
@@ -102,7 +102,7 @@ export function ListingOffer({ brand, piece, onFind, onDismiss }: ListingOfferPr
           accessibilityHint="Hides this offer for good. You can still find the listing photo from the piece itself."
           onPress={onDismiss}
           hitSlop={(MIN_TAP_TARGET - CLOSE_DIAMETER) / 2}
-          className="items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark"
+          className="items-center justify-center rounded-full border border-rule active:opacity-60"
           style={{ width: CLOSE_DIAMETER, height: CLOSE_DIAMETER }}>
           <SymbolView name="xmark" size={10} tintColor={theme.faint} resizeMode="scaleAspectFit" />
         </Pressable>

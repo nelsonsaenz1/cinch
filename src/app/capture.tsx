@@ -54,9 +54,9 @@ const LISTING_OFFER_DISMISSED_KEY = 'cinch.listing-offer.dismissed.v1';
 
 /** The three consequences, verbatim from frame A-04. */
 const DECLINE_ROWS = [
-  'You’ll type the category, colour and fabric yourself. Four taps an item, roughly.',
-  'Search still works, on the words you wrote. “Something warm for Thursday” won’t.',
-  'Outfits, wear counts, cost per wear and lending to friends are unaffected.',
+ 'You’ll type the category, colour and fabric yourself. Four taps an item, roughly.',
+ 'Search still works, on the words you wrote. “Something warm for Thursday” won’t.',
+ 'Outfits, wear counts, cost per wear and lending to friends are unaffected.',
 ] as const;
 
 /**
@@ -79,7 +79,7 @@ export function DeclineExplainer({
   const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-canvas">
       {/* Centered serif wordmark — A-04's header carries no controls at all:
           the decision is made, and this page only explains it. */}
       <View className="items-center pt-1">
@@ -104,12 +104,12 @@ export function DeclineExplainer({
           </Text>
 
           {/* Three hairline-ruled rows — the same ledger grammar as the consent
-              sheet's facts, with the oxblood em-dash where its numerals sat. */}
+ sheet's facts, with the oxblood em-dash where its numerals sat. */}
           <View className="mt-6">
             {DECLINE_ROWS.map((row, index) => (
               <View
                 key={row}
-                className={`flex-row gap-3 border-t border-rule py-3 dark:border-rule-dark ${
+                className={`flex-row gap-3 border-t border-rule py-3 ${
                   index === DECLINE_ROWS.length - 1 ? 'border-b' : ''
                 }`}>
                 <Text
@@ -816,7 +816,7 @@ export default function CaptureScreen() {
            rectangle this whole change exists to remove. The two other doors
            below stay open, so a refused camera narrows the screen instead of
            ending it. */
-            <View className="mx-4 my-2 flex-1 overflow-hidden rounded-plate bg-canvas dark:bg-canvas-dark">
+            <View className="mx-4 my-2 flex-1 overflow-hidden rounded-plate bg-canvas">
               <EmptyState
                 symbol="camera.fill"
                 tone="blocked"
@@ -913,7 +913,7 @@ export default function CaptureScreen() {
             that fires an alert saying the same thing is a second, worse copy of
             it.
 
-            `!== 'granted'`, not `=== 'blocked'`: `checking` is the state while
+ `!== 'granted'`, not `=== 'blocked'`: `checking` is the state while
             iOS's own permission alert is on screen, and the shutter was live
             underneath it. A tap there fell through to the system-camera
             fallback, which requests the permission AGAIN — a second OS prompt
@@ -1018,7 +1018,7 @@ export default function CaptureScreen() {
                 </View>
 
                 {/* Ink fill, not accent: this sheet's promoted action ("Review
-                tags") is already ink, and an oxblood bar above an ink button
+ tags") is already ink, and an oxblood bar above an ink button
                 spends the accent on a meter. Stays mounted when the batch
                 settles, pinned to full — the finished bar is part of the
                 record, not scaffolding to strike. */}
@@ -1050,11 +1050,11 @@ export default function CaptureScreen() {
                     </Text>
                     {/* The mapped sentence, not the raw `job.error`. The queue's own
                     strings are diagnostic ("Saved, but not tagged — Cinch
-                    couldn't verify your account"); `userFacingFailure` reduces
+ couldn't verify your account"); `userFacingFailure` reduces
                     them to the three things a person can act on, and
-                    `job.error` stays untouched for logging. */}
+ `job.error` stays untouched for logging. */}
                     {/* Ink, inline: `label` ships `muted`, and the sentence is the
-                    banner's actual content — the eyebrow above it is the quiet
+ banner's actual content — the eyebrow above it is the quiet
                     layer, not this. */}
                     <Text variant="label" className="mt-1" style={{ color: theme.ink }}>
                       {userFacingFailure(failed[0])}
@@ -1134,7 +1134,7 @@ export default function CaptureScreen() {
         here and watches it categorise on the rail like everything else.
 
         It used to be sent straight to /review on the strength of a row at
-        `pending_tag` — a status the review query does not select. The deck
+ `pending_tag` — a status the review query does not select. The deck
         would say "Nothing to review" while the garment they had just added was
         nowhere on screen at all, and a tag failure on that path had no job to
         attach itself to and so appeared nowhere either. The division the guide
@@ -1174,14 +1174,14 @@ export default function CaptureScreen() {
       {/*
         W-02 — the closet-full sheet. The photograph exists now (it was
         taken before this sheet ever appears — see `settleCapture`), so the
-        atlas's own eyebrow is literally true and needs no softening.
+ atlas's own eyebrow is literally true and needs no softening.
 
         THE NUMBER: the atlas says the gain quoted here is for the specific
         garment ("a second coat would honestly read 'fourteen either
-        way'"). The photograph in hand is not tagged — tagging is exactly
+ way'"). The photograph in hand is not tagged — tagging is exactly
         the paid call this state exists to avoid spending on a garment that
         cannot yet be added — so its kind is genuinely unknown, and quoting
-        `rankGaps`'s best case here would be the exact substitution the
+ `rankGaps`'s best case here would be the exact substitution the
         atlas forbids: printing a gain that belongs to a different piece.
         The body below says what IS true without naming a garment — today's
         real count, and that the eventual gain depends on what this is —

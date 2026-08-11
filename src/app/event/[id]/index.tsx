@@ -112,7 +112,7 @@ export function NavRow({
       accessibilityLabel={label}
       accessibilityHint={hint}
       style={{ minHeight: MIN_TAP_TARGET }}
-      className="flex-row items-center justify-between gap-3 border-b border-hairline py-3 active:opacity-60 dark:border-hairline-dark">
+      className="flex-row items-center justify-between gap-3 border-b border-hairline py-3 active:opacity-60">
       <View className="flex-1">
         <Text variant="body">{label}</Text>
         {hint ? <Text variant="caption">{hint}</Text> : null}
@@ -209,7 +209,7 @@ export default function EventDetailScreen() {
   const dayIndex = event ? daysFromToday(event.startsAt) : -1;
   const forecast = useQuery({
     queryKey: [
-      'forecast',
+ 'forecast',
       coords.latitude.toFixed(2),
       coords.longitude.toFixed(2),
       FORECAST_DAYS,
@@ -274,7 +274,7 @@ export default function EventDetailScreen() {
 
   if (eventQuery.isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         {backRow}
         <DetailSkeleton />
       </SafeAreaView>
@@ -283,7 +283,7 @@ export default function EventDetailScreen() {
 
   if (eventQuery.isError) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         {backRow}
         <ErrorState
           title="This occasion didn’t load"
@@ -296,7 +296,7 @@ export default function EventDetailScreen() {
 
   if (!event) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="body">This occasion isn’t available.</Text>
         <Button title="Back" variant="ghost" onPress={() => router.back()} className="mt-4" />
       </SafeAreaView>
@@ -420,7 +420,7 @@ export default function EventDetailScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       {backRow}
 
       <ScrollView contentContainerClassName="px-gutter pb-16" showsVerticalScrollIndicator={false}>
@@ -574,7 +574,7 @@ export default function EventDetailScreen() {
                 </View>
 
                 {event.note ? (
-                  <View className="mt-4 rounded-lg border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
+                  <View className="mt-4 rounded-lg border border-rule bg-surface p-4">
                     <Text variant="body" style={{ color: theme.muted }}>
                       {event.note}
                     </Text>

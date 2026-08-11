@@ -328,15 +328,15 @@ export function ReviewCard({
         // swipe of the VoiceOver cursor either.
         accessibilityElementsHidden={!isTop}
         importantForAccessibility={isTop ? 'yes' : 'no-hide-descendants'}>
-        <View className="flex-1 overflow-hidden rounded-plate bg-surface dark:bg-surface-dark">
+        <View className="flex-1 overflow-hidden rounded-plate bg-surface">
           {/*
             The card's contents scroll, for one reason: the Price field.
 
             It is the last row before the buttons, which puts it within a
-            thumb's width of the bottom of the screen — and the decimal pad
+ thumb's width of the bottom of the screen — and the decimal pad
             covers roughly the bottom half. The field a person had just tapped
             was under the keyboard, with nothing on this screen able to move it.
-            `automaticallyAdjustKeyboardInsets` is UIScrollView's own answer:
+ `automaticallyAdjustKeyboardInsets` is UIScrollView's own answer:
             the focused field rises above the keyboard and the rest of the card
             keeps its composition exactly as drawn. `flexGrow: 1` on the content
             is what lets the footer's `mt-auto` still push the buttons to the
@@ -353,14 +353,14 @@ export function ReviewCard({
               Is this right?
             </Text>
             {/* Tone inline rather than a stacked `text-faint` over the label
-                variant's `text-muted` — see the note on the confirm button
+ variant's `text-muted` — see the note on the confirm button
                 below for why a second colour class is not a reliable override.*/}
             <Text variant="label" className="mb-4 mt-1.5" style={{ color: theme.faint }}>
               My best guess — correct anything that&rsquo;s off.
             </Text>
 
             {/* Cleaned-up photo */}
-            <View className="mb-4 h-44 w-full items-center justify-center overflow-hidden rounded-plate bg-tray dark:bg-tray-dark">
+            <View className="mb-4 h-44 w-full items-center justify-center overflow-hidden rounded-plate bg-tray">
               {photoSource ? (
                 <Image
                   source={photoSource}
@@ -438,7 +438,7 @@ export function ReviewCard({
 
             {/* Category / Colours / Details — a colophon label, the value
                 beneath it, and a hairline divider between rows. The accent
-                "Edit" appears only on the rows that can actually be patched
+ "Edit" appears only on the rows that can actually be patched
                 (Category, Price); Colours and Details are read-outs. */}
             <ReviewRow
               label="Category"
@@ -496,9 +496,9 @@ export function ReviewCard({
               onToggleEdit={() => setOpenEditor((cur) => (cur === 'price' ? null : 'price'))}
               expandedContent={
                 <View
-                  className="w-full flex-row items-center rounded-md border border-rule px-3 dark:border-rule-dark"
+                  className="w-full flex-row items-center rounded-md border border-rule px-3"
                   style={{ minHeight: MIN_TAP_TARGET }}>
-                  <Text variant="callout" className="text-faint dark:text-faint-dark">
+                  <Text variant="callout" className="text-faint">
                     $
                   </Text>
                   <TextInput
@@ -560,7 +560,7 @@ export function ReviewCard({
               Hints spell out the consequence because "Skip" alone does not say
               whether the item comes back.
             */}
-            <View className="mt-auto flex-row items-center gap-2.5 border-t border-hairline pt-4 dark:border-hairline-dark">
+            <View className="mt-auto flex-row items-center gap-2.5 border-t border-hairline pt-4">
               <Button
                 title="Skip"
                 variant="secondary"
@@ -574,7 +574,7 @@ export function ReviewCard({
                 something, and now its ONLY accent (the progress pip above the
                 card used to take a second helping and is ink again). The one
                 confirming action here is ink-filled instead — the
-                "ink-selected" treatment the design system reserves for exactly
+ "ink-selected" treatment the design system reserves for exactly
                 this case, hand-built rather than repurposing a component whose
                 whole job is guarding the accent.
               */}
@@ -584,7 +584,7 @@ export function ReviewCard({
                 onPress={confirmFromButton}
                 hitSlop={{ top: 4, bottom: 4 }}
                 style={{ minHeight: MIN_TAP_TARGET }}
-                className="flex-1 flex-row items-center justify-center rounded-md bg-ink px-5 active:opacity-70 dark:bg-ink-dark">
+                className="flex-1 flex-row items-center justify-center rounded-md bg-ink px-5 active:opacity-70">
                 {/* Inline style, not `text-canvas`. Two colour utilities on one
                     element are resolved by their order in the GENERATED
                     stylesheet — the order of the palette in tailwind.config.js
@@ -629,7 +629,7 @@ function ReviewRow({
   isLast?: boolean;
 }) {
   return (
-    <View className={isLast ? '' : 'mb-3 border-b border-hairline pb-3 dark:border-hairline-dark'}>
+    <View className={isLast ? '' : 'mb-3 border-b border-hairline pb-3'}>
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-3">
           <Text variant="colophon">{label}</Text>
@@ -646,7 +646,7 @@ function ReviewRow({
             // was a bare text node, so a tap that opened a chip grid below the
             // fold looked like a tap that did nothing.
             className="active:opacity-60">
-            <Text variant="label" className="text-accent dark:text-accent-dark">
+            <Text variant="label" className="text-accent">
               {expanded ? 'Done' : 'Edit'}
             </Text>
           </Pressable>

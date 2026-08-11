@@ -159,7 +159,7 @@ export function GarmentSearchSheetBody({
         : null;
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <SafeAreaView className="flex-1 bg-canvas">
       <View className="flex-row items-start justify-between px-gutter pt-6">
         <View className="flex-1 pr-4">
           <Text variant="title" trim>
@@ -179,19 +179,19 @@ export function GarmentSearchSheetBody({
       </View>
 
       {/* With a footer on screen the container grows to fill the sheet, so the
-          caption's `marginTop: 'auto'` lands it on the bottom edge — 24px
+ caption's `marginTop: 'auto'` lands it on the bottom edge — 24px
           clear of it, per the atlas — while short content stays at the top.
           Without one, the paddings are exactly what they always were. */}
       <ScrollView
         contentContainerClassName={footer ? 'grow px-gutter pb-6 pt-4' : 'px-gutter pb-10 pt-4'}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
-        <Text variant="body" className="text-muted dark:text-muted-dark">
+        <Text variant="body" className="text-muted">
           Say what it is — the brand, the kind of garment, the colour. Or paste the link to it
           from a shop. Cinch finds the picture; you say whether it{'’'}s the right one.
         </Text>
 
-        <View className="mt-5 rounded-plate border border-rule px-4 py-3 dark:border-rule-dark">
+        <View className="mt-5 rounded-plate border border-rule px-4 py-3">
           <TextInput
             accessibilityLabel="What is the garment, or a link to it"
             value={flow.description}
@@ -297,7 +297,7 @@ export function GarmentSearchSheetBody({
             no preview to hold, and that case keeps the plain error line
             rather than going silent. See closet-full-sheet.tsx's header for
             why this is the bare `ClosetFullPanel` rather than the modal
-            `ClosetFullSheet` (this screen is already a modal sheet). */}
+ `ClosetFullSheet` (this screen is already a modal sheet). */}
         {flow.errorMessage && !(flow.closetFull && flow.preview) ? (
           <Text variant="caption" className="mt-3" style={{ color: theme.critical }}>
             {flow.errorMessage}
@@ -394,7 +394,7 @@ function LinkPreview({
       <Card fill="none" className="mt-3">
         {/* Product shots arrive on white with wide margins, so the tray sits
             behind them and `contain` keeps the garment whole. */}
-        <View className="aspect-[4/5] w-full bg-tray dark:bg-tray-dark">
+        <View className="aspect-[4/5] w-full bg-tray">
           <Image
             source={stableImageSource(preview.imageUrl)}
             contentFit="contain"
@@ -410,7 +410,7 @@ function LinkPreview({
           />
         </View>
 
-        <View className="border-t border-rule px-4 py-3 dark:border-rule-dark">
+        <View className="border-t border-rule px-4 py-3">
           <TextInput
             accessibilityLabel="Name for this garment"
             value={flow.previewName}
@@ -502,7 +502,7 @@ function Results({
     return (
       <View className="mt-8">
         <Text variant="plate">Nothing matched that</Text>
-        <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+        <Text variant="body" className="mt-2 text-muted">
           Try the brand and the kind of garment — {'“'}Everlane cotton shirt{'”'} finds
           more than {'“'}blue top{'”'}. Photographing it works too, and always finds the
           right one.
@@ -562,7 +562,7 @@ function CandidateTile({
       {/* Product shots arrive on white with wide margins, so the tray sits
           behind them and `contain` keeps the garment whole rather than cropping
           a sleeve off to fill a square. */}
-      <View className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-tray dark:bg-tray-dark">
+      <View className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-tray">
         <Image
           source={stableImageSource(candidate.imageUrl)}
           contentFit="contain"

@@ -28,9 +28,9 @@ import { useLastPackedTrip, useStartTrip, type SavedTrip } from './use-trips';
 type LastTripSummary = Pick<SavedTrip, 'destination' | 'startsOn' | 'endsOn' | 'pieceCount' | 'lookCount'>;
 
 const GATE_BULLETS = [
-  'Four questions, then destination weather for your actual dates.',
-  'A look for every day part — not a pile of clothes.',
-  'Repeats counted, so the bag stays small.',
+ 'Four questions, then destination weather for your actual dates.',
+ 'A look for every day part — not a pile of clothes.',
+ 'Repeats counted, so the bag stays small.',
 ];
 
 /**
@@ -42,9 +42,9 @@ const GATE_BULLETS = [
  * repo is exactly the kind of drift the shared layer exists to prevent.
  */
 const NUMBER_WORDS = [
-  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-  'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen',
-  'nineteen', 'twenty',
+ 'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+ 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen',
+ 'nineteen', 'twenty',
 ];
 const numberWord = (n: number): string => NUMBER_WORDS[n] ?? String(n);
 
@@ -59,7 +59,7 @@ function LastTripLine({ trip }: { trip: LastTripSummary }) {
   const days = daysBetween(trip.startsOn, trip.endsOn);
 
   return (
-    <View className="rounded-md bg-tray px-3.5 py-3 dark:bg-tray-dark">
+    <View className="rounded-md bg-tray px-3.5 py-3">
       <Text variant="body">
         Your last trip — {numberWord(days)} {days === 1 ? 'day' : 'days'} in {trip.destination.name} — came
         out at {numberWord(trip.pieceCount)} pieces and {numberWord(trip.lookCount)} looks.
@@ -96,19 +96,19 @@ export function PackingGate({
         Pack from the closet you already own.
       </Text>
 
-      <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-4 text-muted">
         Tell Cinch where you’re going and who with. It checks the weather
         there, then builds the bag day by day — wearing the same trousers
         three ways instead of packing three pairs.
       </Text>
 
-      <View className="mt-5 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+      <View className="mt-5 overflow-hidden rounded-plate border border-rule">
         {GATE_BULLETS.map((line, i) => (
           <View
             key={line}
             className={[
-              'flex-row gap-2.5 px-4 py-3.5',
-              i < GATE_BULLETS.length - 1 ? 'border-b border-hairline dark:border-hairline-dark' : '',
+ 'flex-row gap-2.5 px-4 py-3.5',
+              i < GATE_BULLETS.length - 1 ? 'border-b border-hairline' : '',
             ].join(' ')}>
             <Text variant="body">•</Text>
             <Text variant="body" className="flex-1">
@@ -132,7 +132,7 @@ export function PackingGate({
         that opens nothing is worse than one that admits it — the user taps,
         judges the app broken, and is right. When `unlock()` comes back having
         shown nobody anything, the action is replaced by one quiet line in the
-        page's own grammar. No alert, no toast: this is information, and the
+ page's own grammar. No alert, no toast: this is information, and the
         guide sets information in the surface it belongs to.
       */}
       {unavailable ? (
@@ -140,7 +140,7 @@ export function PackingGate({
         // is no button, so it is real content, and `faint` on canvas fails
         // AA (see the contrast note in ui/text.tsx). Quiet is the voice, not
         // the contrast.
-        <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
+        <Text variant="body" className="mt-6 text-muted">
           Membership opens soon — Packing unlocks with it.
         </Text>
       ) : (
@@ -159,7 +159,7 @@ export function PackingGate({
               locale is the paywall's job, and this gate only names the tier.
               Either half is dropped rather than guessed if it is ever null. */}
           {PLANS.pro.monthlyPriceHint ? (
-            <Text variant="label" className="mt-2 text-center text-muted dark:text-muted-dark">
+            <Text variant="label" className="mt-2 text-center text-muted">
               {PLANS.pro.monthlyPriceHint}/mo
               {PLANS.pro.annualPriceHint ? ` · ${PLANS.pro.annualPriceHint}/yr` : ''}
             </Text>

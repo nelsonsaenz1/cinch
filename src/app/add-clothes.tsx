@@ -171,7 +171,7 @@ export default function AddClothesScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-canvas">
       {/* Serif title left, plain control right — the app's own nav grammar, not
           glass chrome. "Cancel", not "Done": nothing has been started yet, so
           there is nothing to be finished. */}
@@ -201,11 +201,11 @@ export default function AddClothesScreen() {
           The count is `capacity.limit`, read live off the plan. Never a
           literal: refusal 7 prints or drops a number, never estimates one,
           and refusal 8 keeps the ten out of marketing constants.
-          `capacity.full` is false while the count is still loading, so this
+ `capacity.full` is false while the count is still loading, so this
           cannot flash at someone who has room.
         */}
         {capacity.full ? (
-          <View className="rounded-md bg-tray p-3 dark:bg-tray-dark">
+          <View className="rounded-md bg-tray p-3">
             <Text variant="note">
               Your {capacity.limit} active pieces are full. Adding still works — Cinch asks about
               room once the piece is here, and stores rather than deletes.
@@ -271,7 +271,7 @@ export default function AddClothesScreen() {
                     separate gates. Granting the first sends nothing. The
                     second is asked for explicitly (`ConsentSheet`) and is
                     enforced server-side on every Edge Function call, so
-                    "nothing is sent without asking" is a claim about
+ "nothing is sent without asking" is a claim about
                     behaviour the code actually holds up.
                   */}
                   <Text variant="note">
@@ -312,11 +312,11 @@ export default function AddClothesScreen() {
           they own without photographing it. Reported from the App Store build:
           the founder went hunting for a "search" door, did not find one, and
           concluded the feature had not shipped. It had. It was called
-          "Describe it", which reads as a chore rather than a capability.
+ "Describe it", which reads as a chore rather than a capability.
 
           The old name is kept in the accessibility label and in the line, so
           nobody who learned the old word loses it, and the reserved AC-02
-          "Lookup" slot is now spent — a fifth door searching by name would have
+ "Lookup" slot is now spent — a fifth door searching by name would have
           duplicated this one exactly.
         */}
         <DoorPlate
@@ -339,7 +339,7 @@ export default function AddClothesScreen() {
 
       {/* AC-04. The shipped sheet, with its four contract-bound facts and its
           keep-option named for the thing kept — not the atlas's reduced
-          "Allow / Not now" pair, which drops three of the facts and renames
+ "Allow / Not now" pair, which drops three of the facts and renames
           the decline to a form refusal 13 forbids. */}
       <ConsentSheet
         visible={consentVisible}

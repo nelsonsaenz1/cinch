@@ -87,7 +87,7 @@ export function SheetShell({
           accessibilityLabel={accessibilityLabel}
           style={sheetStyle}>
           <View
-            className="w-full border-t border-rule bg-surface px-gutter pt-3.5 dark:border-rule-dark dark:bg-surface-dark"
+            className="w-full border-t border-rule bg-surface px-gutter pt-3.5"
             style={{
               // 24px is not a step on the radius scale and should not become
               // one for a single sheet dialect — the scale's neighbours are 20
@@ -101,7 +101,7 @@ export function SheetShell({
             }}>
             {grabber ? (
               <View
-                className="mb-4 self-center rounded-full bg-rule dark:bg-rule-dark"
+                className="mb-4 self-center rounded-full bg-rule"
                 style={{ width: 40, height: 4 }}
               />
             ) : null}
@@ -127,7 +127,7 @@ export function SheetHeader({ title, onDone }: { title: string; onDone: () => vo
         onPress={onDone}
         className="active:opacity-60">
         {/* The weight is an inline `fontFamily`, not a `font-medium` class:
-            `variant="body"` already names `font-body`, and two family
+ `variant="body"` already names `font-body`, and two family
             utilities on one element resolve by key order in
             tailwind.config.js rather than by intent. Colour inline for the
             same reason. */}
@@ -382,7 +382,7 @@ function MonthStep({
       disabled={disabled}
       hitSlop={8}
       onPress={onPress}
-      className={`h-9 w-9 items-center justify-center rounded-full border border-rule dark:border-rule-dark ${
+      className={`h-9 w-9 items-center justify-center rounded-full border border-rule ${
         disabled ? 'opacity-30' : 'active:opacity-60'
       }`}>
       <SymbolView name={symbol} size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />

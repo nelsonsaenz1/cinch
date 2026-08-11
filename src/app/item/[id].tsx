@@ -137,7 +137,7 @@ function sinceLastWorn(item: Item): string {
  *
  * — IN FLIGHT (A-03): the tagger is mid-read. `pending_tag` is the status both
  *   the upload queue and `useRetagItem` write while a read is out;
- *   `pending_upload` is the beat before it, when there are no tags to show
+ * `pending_upload` is the beat before it, when there are no tags to show
  *   either. Never true for a local item — nothing is coming back for those.
  *
  * — LOCAL (A-05): `imagePath` null means the photograph never left the phone —
@@ -355,7 +355,7 @@ export default function ItemDetailScreen() {
 
   if (closet.isLoading) {
     return (
-      <View className="flex-1 bg-canvas dark:bg-canvas-dark">
+      <View className="flex-1 bg-canvas">
         <StatusBar style="dark" />
         <ItemSkeleton onBack={() => router.back()} />
       </View>
@@ -367,7 +367,7 @@ export default function ItemDetailScreen() {
   // gone over a network error that never touched her closet.
   if (closet.isError) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <ErrorState
           title="Couldn't load this piece"
           body="Check your connection and try again."
@@ -381,7 +381,7 @@ export default function ItemDetailScreen() {
     // `ItemMissing` expects the route to own the safe-area top edge, matching
     // the error branch above rather than the full-bleed hero below.
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <StatusBar style="dark" />
         <ItemMissing
           onBack={() => router.back()}
@@ -475,7 +475,7 @@ export default function ItemDetailScreen() {
     } catch {
       // The server's own text is never shown: it can quote the request back.
       setMaintenanceError(
-        'Cinch couldn’t remove the listing photo. Your own photograph is untouched.',
+ 'Cinch couldn’t remove the listing photo. Your own photograph is untouched.',
       );
     } finally {
       setRemovingListing(false);
@@ -497,7 +497,7 @@ export default function ItemDetailScreen() {
         },
         onError: (err) =>
           Alert.alert(
-            'Could not move this piece to storage',
+ 'Could not move this piece to storage',
             err instanceof Error
               ? err.message
               : 'Something went wrong. The piece is still in your closet.',
@@ -522,7 +522,7 @@ export default function ItemDetailScreen() {
         },
         onError: (err) =>
           Alert.alert(
-            'Could not remove this piece',
+ 'Could not remove this piece',
             err instanceof Error
               ? err.message
               : 'Something went wrong. The piece is still in your closet.',
@@ -666,7 +666,7 @@ export default function ItemDetailScreen() {
               ? // Not "again": this row also lights up for a piece still on its
                 // FIRST tagging pass, and telling that user her garment is being
                 // re-read would be describing something that never happened.
-                'Cinch is reading the photo. This takes a moment.'
+ 'Cinch is reading the photo. This takes a moment.'
               : 'Cinch re-describes the photo and refreshes tags. It goes back in the review deck.',
             onPress: startRetag,
             loading: retagging,
@@ -685,7 +685,7 @@ export default function ItemDetailScreen() {
   // ── The two special presentations, on the old composition ─────────────────
   if (inflight || isLocal) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <StatusBar style="dark" />
         <ScreenHeader
           title={item.category}
@@ -703,7 +703,7 @@ export default function ItemDetailScreen() {
                 {save.isPending ? (
                   <ActivityIndicator size="small" color={theme.accent} />
                 ) : (
-                  <Text variant="label" className="text-accent dark:text-accent-dark">
+                  <Text variant="label" className="text-accent">
                     Save
                   </Text>
                 )}
@@ -717,7 +717,7 @@ export default function ItemDetailScreen() {
             <TaggingHeader item={item} imageUri={imageUri} />
           ) : (
             <View className="mt-2 flex-row items-start gap-4">
-              <View className="h-[136px] w-[104px] items-center justify-center overflow-hidden rounded-md bg-tray dark:bg-tray-dark">
+              <View className="h-[136px] w-[104px] items-center justify-center overflow-hidden rounded-md bg-tray">
                 {localPhoto.imageUri || localPhoto.thumbUri ? (
                   <Image
                     source={{ uri: (localPhoto.imageUri ?? localPhoto.thumbUri) as string }}
@@ -789,7 +789,7 @@ export default function ItemDetailScreen() {
             <Text
               variant="label"
               accessibilityLiveRegion="polite"
-              className="mt-2 text-critical dark:text-critical">
+              className="mt-2 text-critical">
               That didn&rsquo;t save. Check your connection and try again.
             </Text>
           ) : null}
@@ -802,7 +802,7 @@ export default function ItemDetailScreen() {
             <Text
               variant="label"
               accessibilityLiveRegion="polite"
-              className="mt-2 text-critical dark:text-critical">
+              className="mt-2 text-critical">
               {maintenanceError}
             </Text>
           ) : null}
@@ -825,7 +825,7 @@ export default function ItemDetailScreen() {
   const priced = item.purchasePrice !== null ? formatPrice(item.purchasePrice) : null;
 
   return (
-    <View className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <View className="flex-1 bg-canvas">
       {/* Light while the photograph is under the clock, dark once it is not. */}
       <StatusBar style={pastHero ? 'dark' : 'light'} />
 
@@ -857,7 +857,7 @@ export default function ItemDetailScreen() {
         <View className="px-gutter pt-5">
           {/* 36px, between the 40px `display` and 28px `title` steps. The size is
               the atlas's; it moves inline rather than into the scale because one
-              screen's hero is not a new token. Colour and family stay with the
+ screen's hero is not a new token. Colour and family stay with the
               variant — see the precedence hazard in ui/text.tsx. */}
           <Text variant="display" style={{ fontSize: 36, lineHeight: 47 }}>
             {pieceName(item)}
@@ -874,10 +874,10 @@ export default function ItemDetailScreen() {
             hitSlop={8}
             style={{ minHeight: 24, justifyContent: 'center' }}
             className="active:opacity-60">
-            <Text variant="label" className="mt-1.5 text-muted dark:text-muted-dark">
+            <Text variant="label" className="mt-1.5 text-muted">
               {added ? `Added ${added}` : 'Added'}
               {' · '}
-              {priced ?? <Text className="text-accent dark:text-accent-dark">Add what you paid</Text>}
+              {priced ?? <Text className="text-accent">Add what you paid</Text>}
             </Text>
           </Pressable>
 
@@ -927,7 +927,7 @@ export default function ItemDetailScreen() {
               {
                 onError: (err) =>
                   Alert.alert(
-                    'Could not update lending',
+ 'Could not update lending',
                     err instanceof Error
                       ? err.message
                       : 'Something went wrong. The setting has not changed.',
@@ -953,7 +953,7 @@ export default function ItemDetailScreen() {
             undoes a display choice rather than doing something TO the garment,
             so it sits outside the frame the plate draws around the destructive
             work. Quiet oxblood text at 13/500 — the atlas's own setting, which
-            `label` already is — never a filled button, because a removal that
+ `label` already is — never a filled button, because a removal that
             costs nothing should not look like a decision. */}
         {hasListing ? (
           <Pressable
@@ -977,7 +977,7 @@ export default function ItemDetailScreen() {
           <Text
             variant="label"
             accessibilityLiveRegion="polite"
-            className="mx-gutter mt-2 text-critical dark:text-critical">
+            className="mx-gutter mt-2 text-critical">
             {maintenanceError}
           </Text>
         ) : null}
@@ -1053,13 +1053,13 @@ function OriginalPhotoSheet({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top', 'bottom']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
         <StatusBar style="dark" />
         <ScreenHeader title="Your photograph" align="leading" onBack={onClose} backLabel="Close" />
 
         <View className="flex-1 justify-center px-gutter pb-4 pt-4">
           <View
-            className="w-full overflow-hidden rounded-plate bg-tray dark:bg-tray-dark"
+            className="w-full overflow-hidden rounded-plate bg-tray"
             style={{ aspectRatio: 3 / 4 }}>
             {imageUri ? (
               <Image
@@ -1117,7 +1117,7 @@ function BorrowableCard({
 
   return (
     <View
-      className="mx-gutter mt-4 flex-row items-center gap-3 bg-tray px-3.5 py-3 dark:bg-tray-dark"
+      className="mx-gutter mt-4 flex-row items-center gap-3 bg-tray px-3.5 py-3"
       // 14, from the atlas. Between `md` (12) and `lg` (16) with no token of its
       // own; inline rather than a second `rounded-*` class, which has no defined
       // precedence against the one already on this element.
@@ -1126,7 +1126,7 @@ function BorrowableCard({
         <Text variant="body" style={{ fontSize: 14, fontWeight: '600' }}>
           Borrowable
         </Text>
-        <Text variant="caption" className="mt-0.5 text-muted dark:text-muted-dark">
+        <Text variant="caption" className="mt-0.5 text-muted">
           {value === undefined
             ? 'Checking…'
             : value

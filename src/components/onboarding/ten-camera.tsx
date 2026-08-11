@@ -115,7 +115,7 @@ export function TenCamera({
       onCancel={onCancel}
       stage={
         access === 'blocked' ? (
-          <View className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+          <View className="flex-1 items-center justify-center bg-canvas">
             <EmptyState
               symbol="camera.fill"
               tone="blocked"

@@ -147,7 +147,7 @@ const BRIEF_OK: PackingMemoBriefState = {
   isRefetching: false,
   data: {
     observation:
-      "It's warm until it isn't — the evenings drop and Sunday brings rain. The linen blouse does three of your four dinners, and the loafers stay on your feet on the plane.",
+ "It's warm until it isn't — the evenings drop and Sunday brings rain. The linen blouse does three of your four dinners, and the loafers stay on your feet on the plane.",
   },
   error: null,
   refetch: () => {},
@@ -215,7 +215,7 @@ export default function DevPackingMemoScreen() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
@@ -224,7 +224,7 @@ export default function DevPackingMemoScreen() {
   const noop = () => {};
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="px-gutter pt-2 pb-1">
         <Text variant="eyebrow">Packing · K-04, K-05, K-06</Text>
       </View>

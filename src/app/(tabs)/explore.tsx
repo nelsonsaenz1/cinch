@@ -267,7 +267,7 @@ export default function ExploreScreen() {
         onError: (err) => {
           if (terms.intercept(err, () => addFriend(profile))) return;
           Alert.alert(
-            'Could not send that request',
+ 'Could not send that request',
             err instanceof Error ? err.message : 'Something went wrong. Try again.',
           );
         },
@@ -330,7 +330,7 @@ export default function ExploreScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="px-gutter pt-2">
         <Text variant="eyebrow">Between friends</Text>
         <View style={{ marginTop: 6 }}>

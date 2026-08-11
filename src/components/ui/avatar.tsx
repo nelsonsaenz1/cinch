@@ -36,9 +36,9 @@ export function initialsFor(name: string | null | undefined, fallback = '?'): st
 type Tone = 'sand' | 'accent' | 'ink';
 
 const fill: Record<Tone, string> = {
-  sand: 'bg-sand dark:bg-sand-dark',
-  accent: 'bg-sand dark:bg-sand-dark',
-  ink: 'bg-ink dark:bg-ink-dark',
+  sand: 'bg-sand',
+  accent: 'bg-sand',
+  ink: 'bg-ink',
 };
 
 export type AvatarProps = {
@@ -109,9 +109,9 @@ export function Avatar({
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       className={[
-        'items-center justify-center overflow-hidden rounded-full',
+ 'items-center justify-center overflow-hidden rounded-full',
         fill[tone],
-        ring ? 'border-2 border-surface dark:border-surface-dark' : '',
+        ring ? 'border-2 border-surface' : '',
       ].join(' ')}
       style={{ width: size, height: size }}>
       {imageUri ? (

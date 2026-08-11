@@ -34,12 +34,12 @@ const RECENTS: Place[] = [
 ];
 
 const FRAMES = [
-  'K-01 · history',
-  'K-01 · first trip',
-  'K-02 · results',
-  'K-02 · no results',
-  'K-02 · recents',
-  'K-03 · answered',
+ 'K-01 · history',
+ 'K-01 · first trip',
+ 'K-02 · results',
+ 'K-02 · no results',
+ 'K-02 · recents',
+ 'K-03 · answered',
 ] as const;
 type Frame = (typeof FRAMES)[number];
 
@@ -48,14 +48,14 @@ export default function DevPackingQuestions() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <View className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <View className="flex-1 bg-canvas">
       <SafeAreaView className="flex-1" edges={['top']}>
         <ScrollView contentContainerClassName="pb-32 pt-3">
           <View className="px-gutter">
@@ -73,7 +73,7 @@ export default function DevPackingQuestions() {
         </ScrollView>
       </SafeAreaView>
 
-      <View className="absolute bottom-0 left-0 right-0 border-t border-rule bg-canvas px-3 pb-8 pt-2.5 dark:border-rule-dark dark:bg-canvas-dark">
+      <View className="absolute bottom-0 left-0 right-0 border-t border-rule bg-canvas px-3 pb-8 pt-2.5">
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View className="flex-row gap-2">
             {FRAMES.map((f) => (
@@ -124,9 +124,9 @@ function K02Results() {
           value="Lisbo"
           editable={false}
           placeholderTextColor={theme.muted}
-          className="rounded-md border border-hairline px-3.5 py-3 text-ink dark:border-hairline-dark dark:text-ink-dark"
+          className="rounded-md border border-hairline px-3.5 py-3 text-ink"
         />
-        <View className="mt-3 overflow-hidden rounded-md border border-hairline dark:border-hairline-dark">
+        <View className="mt-3 overflow-hidden rounded-md border border-hairline">
           <PlaceRow place={LISBON_PT} band={{ lowC: 18, highC: 24 }} onPick={() => {}} />
           <PlaceRow place={LISBON_OH} band={{ lowC: 6, highC: 14 }} onPick={() => {}} />
         </View>
@@ -152,9 +152,9 @@ function K02NoResults() {
           value="Quxlandia"
           editable={false}
           placeholderTextColor={theme.muted}
-          className="rounded-md border border-hairline px-3.5 py-3 text-ink dark:border-hairline-dark dark:text-ink-dark"
+          className="rounded-md border border-hairline px-3.5 py-3 text-ink"
         />
-        <Text variant="body" className="mt-6 text-muted dark:text-muted-dark">
+        <Text variant="body" className="mt-6 text-muted">
           Cinch reads the place — how warm it is, how dressed-up it is, what people
           actually wear there — and packs from what you already own.
         </Text>
@@ -180,7 +180,7 @@ function K02Recents() {
           placeholder="Lisbon, Tokyo, Aspen…"
           editable={false}
           placeholderTextColor={theme.muted}
-          className="rounded-md border border-hairline px-3.5 py-3 text-ink dark:border-hairline-dark dark:text-ink-dark"
+          className="rounded-md border border-hairline px-3.5 py-3 text-ink"
         />
         <RecentChips places={RECENTS} onPick={() => {}} />
       </View>

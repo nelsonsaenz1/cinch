@@ -34,7 +34,7 @@ export default function DevRevealScreen() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
@@ -49,7 +49,7 @@ export default function DevRevealScreen() {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="flex-row flex-wrap gap-2 px-gutter pb-2 pt-1">
         {pages.map((p, i) => (
           <Text
@@ -111,7 +111,7 @@ function PageR02() {
 
 function PageR03() {
   return (
-    <ScrollView contentContainerClassName="pt-6 pb-16" className="bg-canvas dark:bg-canvas-dark">
+    <ScrollView contentContainerClassName="pt-6 pb-16" className="bg-canvas">
       <View className="px-gutter">
         <Text variant="eyebrow">Plate 01 · the first one</Text>
       </View>

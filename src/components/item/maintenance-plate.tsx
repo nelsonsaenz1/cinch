@@ -135,7 +135,7 @@ export function MaintenancePlate({ rows }: MaintenancePlateProps) {
       className="mx-gutter"
       style={{ borderRadius: PLATE_RADIUS }}>
       <View
-        className="border-b border-hairline dark:border-hairline-dark"
+        className="border-b border-hairline"
         style={{ backgroundColor: STRIP_GROUND, paddingVertical: 11, paddingHorizontal: 14 }}>
         {/* `colophon` IS this setting — 10px, uppercase, 1.4px tracked, muted —
             so the eyebrow needs no override at all. */}

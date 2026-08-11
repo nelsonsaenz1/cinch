@@ -55,7 +55,7 @@ export function ClosetSkeleton() {
 
       {/* Stat row — four equal columns between the hairlines. */}
       <View
-        className="mx-gutter flex-row border-b border-t border-hairline dark:border-hairline-dark"
+        className="mx-gutter flex-row border-b border-t border-hairline"
         style={{ marginTop: 22, paddingVertical: 14 }}>
         {Array.from({ length: 4 }).map((_, i) => (
           // `items-center` — the loaded stat row centres both lines per §2.2.

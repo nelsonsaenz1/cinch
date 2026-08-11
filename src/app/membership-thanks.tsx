@@ -70,7 +70,7 @@ export default function MembershipThanksScreen() {
   const planKnown = !plan.loading && plan.plan !== 'free';
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
       <View className="flex-1 justify-center px-gutter">
         <MembershipThanksView
           loading={plan.loading}

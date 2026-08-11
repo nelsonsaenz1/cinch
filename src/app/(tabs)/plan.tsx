@@ -70,8 +70,8 @@ function WeekSkeleton() {
         <View
           key={i}
           className={[
-            'flex-row items-center gap-3.5 px-gutter py-[18px]',
-            i === WEEK_DAYS - 1 ? '' : 'border-b border-rule dark:border-rule-dark',
+ 'flex-row items-center gap-3.5 px-gutter py-[18px]',
+            i === WEEK_DAYS - 1 ? '' : 'border-b border-rule',
           ].join(' ')}>
           <Skeleton className="h-3.5 rounded-sm" style={{ width: 42 }} />
           <Skeleton
@@ -96,7 +96,7 @@ function EventListSkeleton() {
       {(['62%', '48%', '70%'] as const).map((titleWidth, i) => (
         <View
           key={i}
-          className="mx-gutter mb-3 rounded-plate border border-rule p-4 dark:border-rule-dark">
+          className="mx-gutter mb-3 rounded-plate border border-rule p-4">
           <Skeleton className="h-[18px] rounded-sm" style={{ width: titleWidth }} />
           <Skeleton
             className="mt-2.5 h-3 rounded-sm"
@@ -214,7 +214,7 @@ function SegmentedControl({
       {/* NativeWind className does not reach Animated.* components (the
           babel/css-interop transform only registers plain RN primitives) —
           every property that would have been `absolute bottom-0 top-0
-          bg-ink` has to be inline style instead, same as the wrapper pattern
+ bg-ink` has to be inline style instead, same as the wrapper pattern
           in upload-queue-list.tsx. */}
       <Animated.View
         pointerEvents="none"
@@ -384,7 +384,7 @@ export default function PlanScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="flex-row items-baseline justify-between px-gutter pb-3 pt-2">
         <Text variant="display">Plan</Text>
         {/* The tracked caps register, same as Today's day line. The atlas
@@ -406,8 +406,8 @@ export default function PlanScreen() {
           <ScrollView contentContainerClassName="pb-10" showsVerticalScrollIndicator={false}>
             {/* One primary action per surface (the app's own rule everywhere
                 else): "New event" is the full-width ink control; "Invite
-                friends" is a quiet link beneath it, same grammar as Lately's
-                "Your circle" row, rather than the two sharing one container. */}
+ friends" is a quiet link beneath it, same grammar as Lately's
+ "Your circle" row, rather than the two sharing one container. */}
             <View className="mx-gutter mb-5">
               <Pressable
                 onPress={() => router.push('/event/new')}
@@ -432,7 +432,7 @@ export default function PlanScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Invite friends"
                 className="flex-row items-center gap-1.5 py-2 active:opacity-60">
-                <Text variant="label" className="text-muted dark:text-muted-dark">
+                <Text variant="label" className="text-muted">
                   Invite friends
                 </Text>
                 <SymbolView
@@ -494,7 +494,7 @@ export default function PlanScreen() {
                       <Text variant="title" trim>
                         Nothing planned together yet
                       </Text>
-                      <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                      <Text variant="body" className="mt-4 text-muted">
                         Post a dinner, a wedding, a trip — invite your friends, and
                         everyone picks their look before the night. Occasions are
                         invite-only, always.
@@ -564,10 +564,10 @@ export default function PlanScreen() {
                     for producing *a* look, it is internal, and no screen has
                     ever printed it. The number the user meets everywhere else
                     — the tour, The Ten, Today's empty state — is the free
-                    tier's, so it is the one this asks for, hedged with "about"
+ tier's, so it is the one this asks for, hedged with "about"
                     because the real gate is a shape (a top and a bottom, or a
                     dress) rather than a count. */}
-                <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                <Text variant="body" className="mt-4 text-muted">
                   {`Lay out outfits for the days coming up, one for each day, with no piece worn more than twice. Add about ${numberWord(PLANS.free.items)} pieces and the week lays itself out.`}
                 </Text>
                 <Button
@@ -614,7 +614,7 @@ export default function PlanScreen() {
                     {/* The engine PREFERS spreading wear (REUSE_BOOST is a
                         soft scorer, not a cap) — with a small closet the same
                         shirt can honestly appear five times. The old line,
-                        "No piece worn more than twice", printed a promise
+ "No piece worn more than twice", printed a promise
                         the week below it visibly broke. */}
                     {/* The tracked caps kicker, in oxblood — inline style,
                         not a second text-* class on top of the variant's own
@@ -659,7 +659,7 @@ export default function PlanScreen() {
                     {planError ? (
                       <View
                         accessibilityLiveRegion="polite"
-                        className="mx-gutter mt-3 flex-row items-start gap-2.5 rounded-lg border border-rule bg-canvas p-3.5 dark:border-rule-dark dark:bg-canvas-dark">
+                        className="mx-gutter mt-3 flex-row items-start gap-2.5 rounded-lg border border-rule bg-canvas p-3.5">
                         <View
                           className="h-2 w-2 rounded-full bg-accent"
                           style={{ marginTop: 5 }}

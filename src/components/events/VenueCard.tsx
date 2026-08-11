@@ -39,7 +39,7 @@ export function VenueCard({
       ) : null}
 
       {venueAddress ? (
-        <Text variant="label" className="mt-1 text-muted dark:text-muted-dark">
+        <Text variant="label" className="mt-1 text-muted">
           {venueAddress}
         </Text>
       ) : null}
@@ -57,7 +57,7 @@ export function VenueCard({
           hitSlop={8}
           style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
           className="mt-1 self-start active:opacity-60">
-          <Text variant="label" className="text-accent dark:text-accent-dark">
+          <Text variant="label" className="text-accent">
             {reservationLabel(reservationUrl)}
           </Text>
         </Pressable>

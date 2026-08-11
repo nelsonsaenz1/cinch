@@ -44,14 +44,14 @@ function LineRow({ label, line }: { label: string; line: string | null }) {
 export default function DevMembershipScreen() {
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScrollView contentContainerClassName="px-gutter pb-16 pt-2">
         <SectionHeader title="The six context lines" className="mb-2.5" />
         <Card padding="md">

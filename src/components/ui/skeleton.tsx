@@ -170,7 +170,7 @@ export function SkeletonLead({ label }: { label: string }) {
   return (
     <View className="flex-row items-center gap-2.5 px-gutter pb-5 pt-4">
       <Spinner />
-      <Text variant="body" className="text-muted dark:text-muted-dark">
+      <Text variant="body" className="text-muted">
         {label}
       </Text>
     </View>
@@ -225,8 +225,8 @@ export function RowSkeleton({
   return (
     <View
       className={[
-        'flex-row items-center gap-3 py-2.5',
-        isLast ? '' : 'border-b border-hairline dark:border-hairline-dark',
+ 'flex-row items-center gap-3 py-2.5',
+        isLast ? '' : 'border-b border-hairline',
       ].join(' ')}
       style={{ minHeight: 44 }}>
       {avatar ? <Skeleton className="h-8 w-8 rounded-full" /> : null}
@@ -312,7 +312,7 @@ export function PlateSkeleton({ count = 1 }: { count?: number }) {
             <Skeleton className="mt-3 h-3 w-2/3 rounded-chip" />
 
             {/* The ruled footer: label left, cost-per-wear figure right. */}
-            <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3 dark:border-rule-dark">
+            <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3">
               <Skeleton className="h-3.5 w-24 rounded-chip" />
               <Skeleton className="h-4 w-14 rounded-chip" />
             </View>

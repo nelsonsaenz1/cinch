@@ -22,7 +22,7 @@ export function Rule({
   return (
     <View
       className={`h-hair w-full ${
-        tone === 'hairline' ? 'bg-hairline dark:bg-hairline-dark' : 'bg-rule dark:bg-rule-dark'
+        tone === 'hairline' ? 'bg-hairline' : 'bg-rule'
       } ${className}`}
     />
   );

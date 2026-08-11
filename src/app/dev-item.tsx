@@ -68,12 +68,12 @@ const RAIL: RailPiece[] = [
  * behind them. Listed here so they are still looked at before they ship.
  */
 const FRAMES = [
-  'I-01 full',
-  'I-02 delete',
-  'I-03 loading',
-  'I-04 missing',
-  'Edit',
-  'Tag',
+ 'I-01 full',
+ 'I-02 delete',
+ 'I-03 loading',
+ 'I-04 missing',
+ 'Edit',
+ 'Tag',
 ] as const;
 type Frame = (typeof FRAMES)[number];
 
@@ -82,14 +82,14 @@ export default function DevItem() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <View className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <View className="flex-1 bg-canvas">
       <StatusBar style={frame === 'I-01 full' || frame === 'I-02 delete' ? 'light' : 'dark'} />
 
       {frame === 'I-01 full' || frame === 'I-02 delete' || frame === 'Edit' || frame === 'Tag' ? (
@@ -126,7 +126,7 @@ export default function DevItem() {
 
       {/* The switcher, pinned over the frame so every state is one tap away.
           Deliberately ugly-simple — it is scaffolding, not a design surface. */}
-      <View className="absolute bottom-0 left-0 right-0 border-t border-rule bg-canvas px-3 pb-8 pt-2.5 dark:border-rule-dark dark:bg-canvas-dark">
+      <View className="absolute bottom-0 left-0 right-0 border-t border-rule bg-canvas px-3 pb-8 pt-2.5">
         <View className="flex-row flex-wrap gap-2">
           {FRAMES.map((f) => (
             <Chip
@@ -156,7 +156,7 @@ function Full() {
         <Text variant="display" style={{ fontSize: 36, lineHeight: 47 }}>
           Cognac shearling coat
         </Text>
-        <Text variant="label" className="mt-1.5 text-muted dark:text-muted-dark">
+        <Text variant="label" className="mt-1.5 text-muted">
           Added 14 Mar 2025 · $346
         </Text>
       </View>
@@ -218,18 +218,18 @@ function Full() {
 function BorrowablePreview() {
   return (
     <View
-      className="mx-gutter mt-4 flex-row items-center gap-3 bg-tray px-3.5 py-3 dark:bg-tray-dark"
+      className="mx-gutter mt-4 flex-row items-center gap-3 bg-tray px-3.5 py-3"
       style={{ borderRadius: 14 }}>
       <View className="flex-1">
         <Text variant="body" style={{ fontSize: 14, fontWeight: '600' }}>
           Borrowable
         </Text>
-        <Text variant="caption" className="mt-0.5 text-muted dark:text-muted-dark">
+        <Text variant="caption" className="mt-0.5 text-muted">
           Friends following you can ask for this piece.
         </Text>
       </View>
-      <View className="h-[30px] w-[50px] justify-center rounded-full bg-ink p-[3px] dark:bg-ink-dark">
-        <View className="h-6 w-6 self-end rounded-full bg-canvas dark:bg-canvas-dark" />
+      <View className="h-[30px] w-[50px] justify-center rounded-full bg-ink p-[3px]">
+        <View className="h-6 w-6 self-end rounded-full bg-canvas" />
       </View>
     </View>
   );

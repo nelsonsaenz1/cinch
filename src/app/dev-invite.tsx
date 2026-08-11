@@ -59,11 +59,11 @@ const ALL_ROSTER: InviteRosterEntry[] = FRIENDS.map((f, i) => ({
 
 function Frame({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View className="mb-8 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
-      <View className="border-b border-rule bg-tray px-4 py-2 dark:border-rule-dark dark:bg-tray-dark">
+    <View className="mb-8 overflow-hidden rounded-plate border border-rule">
+      <View className="border-b border-rule bg-tray px-4 py-2">
         <Text variant="colophon">{title}</Text>
       </View>
-      <View className="bg-canvas dark:bg-canvas-dark">{children}</View>
+      <View className="bg-canvas">{children}</View>
     </View>
   );
 }
@@ -82,7 +82,7 @@ type StateId = (typeof STATES)[number]['id'];
 export default function DevInviteScreen() {
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
@@ -116,8 +116,8 @@ function DevInviteInner() {
   const allInvitedRows = buildInviteRows(FRIENDS, ALL_ROSTER);
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
-      <View className="border-b border-rule px-gutter py-3 dark:border-rule-dark">
+    <SafeAreaView className="flex-1 bg-canvas">
+      <View className="border-b border-rule px-gutter py-3">
         <Text variant="title" trim>
           Invite Friends
         </Text>
@@ -156,7 +156,7 @@ function DevInviteInner() {
               className="px-4 pb-2"
               trailing={<Text variant="label">{ai01.length}</Text>}
             />
-            <View className="mx-4 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+            <View className="mx-4 overflow-hidden rounded-plate border border-rule">
               {ai01.map((row, i) => (
                 <InviteFriendRow
                   key={row.userId}
@@ -178,7 +178,7 @@ function DevInviteInner() {
               className="mb-2 mt-5 px-4"
               trailing={<Text variant="label">{yf01.length}</Text>}
             />
-            <View className="mx-4 mb-4 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+            <View className="mx-4 mb-4 overflow-hidden rounded-plate border border-rule">
               {yf01.map((row, i) => (
                 <InviteFriendRow
                   key={row.userId}
@@ -203,7 +203,7 @@ function DevInviteInner() {
 
         {active === 'IF-02' ? (
           <Frame title="IF-02 · Three picked — the count lands on Done">
-            <View className="mx-4 mt-4 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+            <View className="mx-4 mt-4 overflow-hidden rounded-plate border border-rule">
               {buildInviteRows(FRIENDS, ROSTER).map((row, i, list) => (
                   <InviteFriendRow
                     key={row.userId}
@@ -239,7 +239,7 @@ function DevInviteInner() {
                 Filtering — “no”
               </Text>
               <SearchField value="no" onChangeText={() => {}} placeholder="Filter your friends" />
-              <View className="mt-3 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+              <View className="mt-3 overflow-hidden rounded-plate border border-rule">
                 {filtered.map((row, i) => (
                   <InviteFriendRow
                     key={row.userId}
@@ -254,7 +254,7 @@ function DevInviteInner() {
               <Text variant="colophon" className="mb-2 mt-6">
                 Filter matches nobody
               </Text>
-              <View className="items-center rounded-plate border border-rule p-5 dark:border-rule-dark">
+              <View className="items-center rounded-plate border border-rule p-5">
                 <Text variant="body" className="font-semibold text-center">
                   No friend called “quinn”
                 </Text>
@@ -269,7 +269,7 @@ function DevInviteInner() {
               <Text variant="colophon" className="mb-2 mt-6">
                 Everyone is already invited
               </Text>
-              <View className="rounded-plate border border-rule p-5 dark:border-rule-dark">
+              <View className="rounded-plate border border-rule p-5">
                 <Text variant="plate">All {allInvitedRows.length} are in</Text>
                 <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
                   Every friend you have is on the list for this one. {standingSummary(allInvitedRows)}
@@ -299,7 +299,7 @@ function DevInviteInner() {
                 <Text variant="colophon" className="mb-2">
                   Sent — back on the occasion
                 </Text>
-                <View className="rounded-plate border border-rule p-4 dark:border-rule-dark">
+                <View className="rounded-plate border border-rule p-4">
                   <Text variant="body" className="font-semibold">
                     {sendResultTitle(outcomesSent)}
                   </Text>
@@ -313,7 +313,7 @@ function DevInviteInner() {
                 <Text variant="colophon" className="mb-2">
                   Partly failed
                 </Text>
-                <View className="overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+                <View className="overflow-hidden rounded-plate border border-rule">
                   <View className="p-4">
                     <Text variant="body" className="font-semibold">
                       {sendResultTitle(outcomesPartial)}
@@ -325,7 +325,7 @@ function DevInviteInner() {
                   {failedSends(outcomesPartial).map((f) => (
                     <View
                       key={f.userId}
-                      className="flex-row items-center gap-3 border-t border-hairline px-4 py-3 dark:border-hairline-dark">
+                      className="flex-row items-center gap-3 border-t border-hairline px-4 py-3">
                       <View className="flex-1">
                         <Text variant="body">{f.name}</Text>
                         <Text variant="caption" style={{ color: theme.critical }}>

@@ -35,7 +35,7 @@ function Stat({
       {/* `plate` is the 24pt serif; `trim` collapses Instrument Serif's tall
           1.30 line box to the cap height so the figure sits tight over its
           label, the way the atlas draws it at line-height 1. */}
-      <Text variant="plate" trim className={accent ? 'text-accent dark:text-accent-dark' : ''}>
+      <Text variant="plate" trim className={accent ? 'text-accent' : ''}>
         {figure ?? '—'}
       </Text>
       <Text
@@ -59,7 +59,7 @@ function Stat({
  */
 export function StatRow({ pieces, outfits, unworn, followers }: StatRowProps) {
   return (
-    <View className="flex-row border-b border-t border-rule py-[12px] dark:border-rule-dark">
+    <View className="flex-row border-b border-t border-rule py-[12px]">
       <Stat figure={pieces} label="Pieces" />
       <Stat figure={outfits} label="Outfits" />
       <Stat figure={unworn} label="Unworn" accent />

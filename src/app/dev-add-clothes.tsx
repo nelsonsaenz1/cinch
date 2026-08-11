@@ -32,14 +32,14 @@ export default function DevAddClothes() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <SafeAreaView edges={['top']} className="flex-1 bg-canvas">
       <ScrollView>
         <Frame height={height} id="AC-01" name="default — four doors, equal plates">
           <Doors />
@@ -198,7 +198,7 @@ function ReservedSlot() {
 /** A fixture annotation. Never an app surface — it explains the page above it. */
 function Aside({ children }: { children: React.ReactNode }) {
   return (
-    <View className="mt-3 rounded bg-tray p-3 dark:bg-tray-dark">
+    <View className="mt-3 rounded bg-tray p-3">
       <Text variant="note">{children}</Text>
     </View>
   );

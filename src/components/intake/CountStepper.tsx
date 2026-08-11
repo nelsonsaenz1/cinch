@@ -80,7 +80,7 @@ export function CountStepper({ draft, onConfirm, busy = false }: CountStepperPro
   const increment = () => setQuantity((q) => clampQuantity(q + 1));
 
   return (
-    <View className="flex-1 bg-canvas px-gutter dark:bg-canvas-dark">
+    <View className="flex-1 bg-canvas px-gutter">
       <View className="flex-1 items-center justify-center">
         <Text
           variant="display"
@@ -100,7 +100,7 @@ export function CountStepper({ draft, onConfirm, busy = false }: CountStepperPro
             provenance note beside a decision, it IS most of the question. */}
         <Text
           variant="callout"
-          className="mb-8 mt-3 px-4 text-center italic text-ink dark:text-ink-dark">
+          className="mb-8 mt-3 px-4 text-center italic text-ink">
           you said: “{draft.utterance}”
         </Text>
 
@@ -175,7 +175,7 @@ function StepButton({
         borderRadius: MIN_TAP_TARGET / 2,
         opacity: disabled ? 0.35 : 1,
       }}
-      className="items-center justify-center border border-rule bg-surface active:opacity-60 dark:border-rule-dark dark:bg-surface-dark">
+      className="items-center justify-center border border-rule bg-surface active:opacity-60">
       <SymbolView name={symbol} size={16} tintColor={theme.ink} resizeMode="scaleAspectFit" />
     </Pressable>
   );

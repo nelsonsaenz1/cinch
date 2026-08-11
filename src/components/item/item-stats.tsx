@@ -131,7 +131,7 @@ export function ItemStats({ wears, costPerWear, sinceLast, neverWorn = false }: 
   const middleFigure = costPerWear ?? '—';
 
   return (
-    <View className="mx-gutter flex-row border-y border-rule py-[14px] dark:border-rule-dark">
+    <View className="mx-gutter flex-row border-y border-rule py-[14px]">
       <Cell
         figure={String(wears)}
         label="Wears"

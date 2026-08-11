@@ -97,13 +97,13 @@ export function DoorPlate({
           press.style,
         ]}>
         <View
-          className="overflow-hidden bg-surface p-gutter dark:bg-surface-dark"
+          className="overflow-hidden bg-surface p-gutter"
           style={{ borderRadius: PLATE_RADIUS }}>
           {/* 16 between the tile and the words — the board's gap, and 8×2 on
               the spacing scale rather than a half-step nobody else uses. */}
           <View className="flex-row items-center" style={{ gap: 16 }}>
             <View
-              className="items-center justify-center bg-sand dark:bg-sand-dark"
+              className="items-center justify-center bg-sand"
               style={{ width: TILE, height: TILE, borderRadius: TILE_RADIUS }}>
               {/* An SF Symbol, not an inline SVG — the placeholder glyphs in
                   the atlas HTML are stand-ins for these. */}
@@ -138,7 +138,7 @@ export function DoorPlate({
  */
 export function DoorCondition({ children }: { children: ReactNode }) {
   return (
-    <View className="rounded bg-tray p-3 dark:bg-tray-dark">
+    <View className="rounded bg-tray p-3">
       <View className="flex-row items-end justify-between gap-3">{children}</View>
     </View>
   );

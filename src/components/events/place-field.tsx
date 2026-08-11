@@ -169,7 +169,7 @@ export function PlaceField({
 
       {panelOpen ? (
         <View
-          className="mt-2.5 overflow-hidden rounded-md border border-rule dark:border-rule-dark"
+          className="mt-2.5 overflow-hidden rounded-md border border-rule"
           accessibilityLabel="Place results">
           {results.map((place) => (
             <PlaceRow
@@ -240,7 +240,7 @@ function PlaceRow({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       className={`flex-row items-baseline gap-2 px-4 py-3.5 active:opacity-60 ${
-        divided ? 'border-b border-rule dark:border-rule-dark' : ''
+        divided ? 'border-b border-rule' : ''
       }`}>
       {children}
     </Pressable>

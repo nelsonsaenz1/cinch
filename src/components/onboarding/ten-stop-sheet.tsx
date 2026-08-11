@@ -29,7 +29,7 @@ export function TenStopSheetBody({
   const copy = stopSheetCopy(PLANS.free.items, count);
   return (
     <View
-      className="rounded-t-sheet border-t border-rule bg-surface dark:border-rule-dark dark:bg-surface-dark"
+      className="rounded-t-sheet border-t border-rule bg-surface"
       style={{ paddingHorizontal: 22, paddingTop: 22 }}>
       <View
         style={{
@@ -57,7 +57,7 @@ export function TenStopSheetBody({
           {copy.title}
         </Text>
       </View>
-      <Text variant="callout" className="text-muted dark:text-muted-dark">
+      <Text variant="callout" className="text-muted">
         {copy.body}
       </Text>
 

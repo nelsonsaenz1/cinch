@@ -52,7 +52,7 @@ import { ColourGrid } from './ColourGrid';
 
 /** The slot union, in the order the directive's chip rows read most naturally
  *  — tops before layers before bottoms — not the schema's declaration order.
- *  `slotLabel` and `GarmentCard`'s attribute row both read off this table, so
+ * `slotLabel` and `GarmentCard`'s attribute row both read off this table, so
  *  a garment's "Top" chip and its Kind-field selection can never disagree. */
 export const SLOT_OPTIONS: { value: Slot; label: string }[] = [
   { value: 'base_top', label: 'Top' },
@@ -102,13 +102,13 @@ export function warmthLabel(value: number | null): string | null {
 }
 
 /** Which field a tap should land the sheet on. Named identically to
- *  `EditedField` in `features/intake/buckets.ts` (minus `quantity`, which
+ * `EditedField` in `features/intake/buckets.ts` (minus `quantity`, which
  *  V-07 does not carry — that correction is V-09's stepper) so a caller can
  *  feed this straight into `intakeCardEdited()` without a translation layer. */
 export type CorrectionField = 'name' | 'kind' | 'colour' | 'fabric' | 'pattern' | 'formality' | 'warmth';
 
 /** Exactly the columns V-07 can touch. Deliberately not the whole
- *  `IntakeDraftRow` — `ordinal`, `utterance`, `confidence`, `state` and the
+ * `IntakeDraftRow` — `ordinal`, `utterance`, `confidence`, `state` and the
  *  rest are the procession's business, not a form field's. */
 export type CorrectionDraft = {
   name: string;
@@ -126,7 +126,7 @@ export type CorrectionSheetProps = {
   /** Set when a specific attribute chip on V-06 opened this sheet, so the
    *  sheet can scroll straight to that field instead of making a re-check of
    *  five things for a mistake in one of them. Unset for the plain "Fix
-   *  something" action, which opens at the top. */
+   * something" action, which opens at the top. */
   focusField?: CorrectionField;
   onSave: (next: CorrectionDraft) => void;
   onDismiss: () => void;
@@ -209,7 +209,7 @@ export function CorrectionSheet({
 
         <View
           accessibilityViewIsModal
-          className="overflow-hidden rounded-t-plate bg-surface dark:bg-surface-dark"
+          className="overflow-hidden rounded-t-plate bg-surface"
           style={{ maxHeight: '88%' }}>
           {/* Grab handle — the sheet's own furniture, per every other sheet
               in the app (see borrow-lend-sheet.tsx). */}
@@ -368,7 +368,7 @@ function Field({
         {label}
       </Text>
       <View
-        className="flex-row items-center rounded-md border border-rule px-3 dark:border-rule-dark"
+        className="flex-row items-center rounded-md border border-rule px-3"
         style={{ minHeight: MIN_TAP_TARGET }}>
         {children}
       </View>

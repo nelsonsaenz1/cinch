@@ -121,9 +121,9 @@ export function ForecastHorizonFailure({
             <TextSkeleton lines={2} />
           </View>
         ) : (
-          <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+          <Text variant="body" className="mt-4 text-muted">
             {normalsLine ??
-              `There's no real forecast yet for ${placeName} in ${monthName}, and Cinch has nothing to base normals on either.`}
+ `There's no real forecast yet for ${placeName} in ${monthName}, and Cinch has nothing to base normals on either.`}
             {' '}Cinch will revise the list closer to the day.
           </Text>
         )}
@@ -164,7 +164,7 @@ export function ShortfallFailure({
     <View className="px-gutter pt-2">
       <Card padding="xl">
         <SectionHeader title="Closet too thin for the trip" />
-        <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+        <Text variant="body" className="mt-3 text-muted">
           {sentence} That’s an honest gap, not a bug.
         </Text>
         <Button title="Show the six" onPress={onShow} haptic className="mt-6 self-start px-6" />
@@ -190,9 +190,9 @@ export function MembershipUnconfirmedBanner({
   hasLastList: boolean;
 }) {
   return (
-    <View className="mb-6 rounded-md border border-rule px-4 py-3 dark:border-rule-dark">
+    <View className="mb-6 rounded-md border border-rule px-4 py-3">
       <Text variant="eyebrow">Membership can’t be confirmed</Text>
-      <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2 text-muted">
         The App Store isn’t responding, so Cinch can’t check your membership. Nothing here
         stops — a member who can’t be verified is treated as one.
       </Text>
@@ -254,7 +254,7 @@ export function MemoProseFailure({
       <Text variant="title" trim>
         {copy.title}
       </Text>
-      <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-3 text-muted">
         {copy.body}
       </Text>
       <Button
@@ -833,7 +833,7 @@ export function PackingMemo({
         ) : brief.isError ? (
           <MemoProseFailure error={brief.error} onRetry={brief.refetch} retrying={brief.isRefetching} />
         ) : brief.data ? (
-          <Text variant="body" className="text-muted dark:text-muted-dark">
+          <Text variant="body" className="text-muted">
             {brief.data.observation}
           </Text>
         ) : null}
@@ -967,7 +967,7 @@ function SavedMemoView({
                 </Text>
               </View>
               {memo.prose ? (
-                <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+                <Text variant="body" className="mt-4 text-muted">
                   {memo.prose}
                 </Text>
               ) : null}

@@ -36,8 +36,8 @@ export function RosterRow({
       accessibilityLabel={[name, standing].filter(Boolean).join(', ')}
       style={{ minHeight: MIN_TAP_TARGET }}
       className={[
-        'flex-row items-center gap-3 py-2.5',
-        isLast ? '' : 'border-b border-hairline dark:border-hairline-dark',
+ 'flex-row items-center gap-3 py-2.5',
+        isLast ? '' : 'border-b border-hairline',
       ].join(' ')}>
       <Avatar
         name={isSelf ? null : (member.displayName ?? member.username)}

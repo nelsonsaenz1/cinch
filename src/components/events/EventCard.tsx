@@ -171,7 +171,7 @@ export function EventCard({
       ]
         .filter(Boolean)
         .join('. ')}
-      className="mb-3 rounded-plate border border-rule bg-surface p-4 active:opacity-70 dark:border-rule-dark dark:bg-surface-dark">
+      className="mb-3 rounded-plate border border-rule bg-surface p-4 active:opacity-70">
       <View className="flex-row items-baseline justify-between gap-3">
         <Text variant="plate" className="flex-1" numberOfLines={1}>
           {event.title}
@@ -228,7 +228,7 @@ export function EventCard({
               accessibilityLabel={`Can’t make it to ${event.title}`}
               accessibilityState={{ disabled: respond.isPending }}
               style={{ minHeight: 40 }}
-              className="flex-1 items-center justify-center rounded-md border border-rule active:opacity-60 dark:border-rule-dark">
+              className="flex-1 items-center justify-center rounded-md border border-rule active:opacity-60">
               <Text variant="label">Can’t make it</Text>
             </Pressable>
           </View>
@@ -249,7 +249,7 @@ export function EventCard({
         // EventSummary carries neither the look's colours nor a crowned state
         // yet (see types.ts on myLookState), so until the schema widens this
         // prints the honest half: the row, and the fact a look is shared.
-        <View className="mt-3 flex-row items-center gap-2 border-t border-rule pt-3 dark:border-rule-dark">
+        <View className="mt-3 flex-row items-center gap-2 border-t border-rule pt-3">
           <Text variant="eyebrow">Your look</Text>
           <Text variant="label" className="ml-auto" style={{ color: theme.faint }}>
             Shared

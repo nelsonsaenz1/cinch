@@ -86,14 +86,14 @@ const MAX_COLOURS = 3;
  * the same casing the tagger uses for the field.
  */
 const FABRIC_OPTIONS = [
-  'cotton',
-  'linen',
-  'wool',
-  'knit',
-  'denim',
-  'leather',
-  'silk',
-  'synthetic',
+ 'cotton',
+ 'linen',
+ 'wool',
+ 'knit',
+ 'denim',
+ 'leather',
+ 'silk',
+ 'synthetic',
 ];
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -106,7 +106,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export function OnThisPhonePill() {
   const theme = useTheme();
   return (
-    <View className="flex-row items-center gap-2 self-start rounded-chip bg-sand px-2.5 py-1.5 dark:bg-sand-dark">
+    <View className="flex-row items-center gap-2 self-start rounded-chip bg-sand px-2.5 py-1.5">
       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.accent }} />
       <Text variant="colophon">On this phone</Text>
     </View>

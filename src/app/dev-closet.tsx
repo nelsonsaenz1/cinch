@@ -50,18 +50,18 @@ export default function DevClosetScreen() {
   const uris = useMemo(() => ART.map((m) => Asset.fromModule(m).uri), []);
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View style={{ paddingHorizontal: GUTTER }}>
         <View className="flex-row items-baseline justify-between pt-2">
           <Text variant="display" trim accessibilityRole="header">
             Closet
           </Text>
-          <Text variant="label" className="text-faint dark:text-faint-dark">
+          <Text variant="label" className="text-faint">
             24 pieces
           </Text>
         </View>
 
-        <View className="mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5 dark:bg-tray-dark">
+        <View className="mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5">
           <SymbolView name="magnifyingglass" size={15} tintColor={theme.faint} resizeMode="scaleAspectFit" />
           <TextInput
             value={query}
@@ -72,7 +72,7 @@ export default function DevClosetScreen() {
           />
         </View>
 
-        <View className="mt-3.5 flex-row border-y border-hairline dark:border-hairline-dark">
+        <View className="mt-3.5 flex-row border-y border-hairline">
           <StatCell value="61×" label="Most worn" />
           <StatCell value="1" label="Never worn" accent divided />
           <StatCell value="$2.40" label="Avg / wear" />
@@ -95,12 +95,12 @@ export default function DevClosetScreen() {
                 // shape. §1.3 — `full` is circles only.
                 className={`rounded-md border px-3.5 py-1.5 active:opacity-70 ${
                   selected
-                    ? 'border-ink bg-ink dark:border-ink-dark dark:bg-ink-dark'
-                    : 'border-rule bg-transparent dark:border-rule-dark'
+                    ? 'border-ink bg-ink'
+                    : 'border-rule bg-transparent'
                 }`}>
                 <Text
                   variant="label"
-                  className={selected ? 'text-canvas dark:text-canvas' : 'text-muted dark:text-muted-dark'}>
+                  className={selected ? 'text-canvas' : 'text-muted'}>
                   {c}
                 </Text>
               </Pressable>
@@ -115,7 +115,7 @@ export default function DevClosetScreen() {
         <View className="flex-row flex-wrap">
           {PIECES.map((p, i) => (
             <View key={i} style={{ width: '50%' }} className="p-1.5">
-              <View className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-tray dark:bg-tray-dark">
+              <View className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-tray">
                 <Image
                   source={{ uri: uris[p.art] }}
                   contentFit="contain"
@@ -124,23 +124,23 @@ export default function DevClosetScreen() {
                 />
                 {p.wears === 0 ? (
                   <View className="absolute left-2 top-2 rounded-sm bg-accent px-2 py-0.5">
-                    <Text variant="colophon" className="text-canvas dark:text-canvas">
+                    <Text variant="colophon" className="text-canvas">
                       Never worn
                     </Text>
                   </View>
                 ) : null}
               </View>
               <View className="mt-2 px-0.5">
-                <Text variant="label" numberOfLines={1} className="text-ink dark:text-ink-dark">
+                <Text variant="label" numberOfLines={1} className="text-ink">
                   {p.name}
                 </Text>
                 <View className="mt-1 flex-row items-baseline justify-between">
                   <Text
                     variant="caption"
-                    className={p.wears === 0 ? 'text-accent dark:text-accent-dark' : 'text-muted dark:text-muted-dark'}>
+                    className={p.wears === 0 ? 'text-accent' : 'text-muted'}>
                     {p.wears === 0 ? 'Never worn' : `${p.wears} wears`}
                   </Text>
-                  <Text variant="stat" className="text-label text-ink dark:text-ink-dark">
+                  <Text variant="stat" className="text-label text-ink">
                     {p.cpw}
                   </Text>
                 </View>
@@ -167,11 +167,11 @@ function StatCell({
   return (
     <View
       className={`flex-1 items-center py-2.5 ${
-        divided ? 'border-x border-hairline dark:border-hairline-dark' : ''
+        divided ? 'border-x border-hairline' : ''
       }`}>
       <Text
         variant="stat"
-        className={accent ? 'text-accent dark:text-accent-dark' : 'text-ink dark:text-ink-dark'}>
+        className={accent ? 'text-accent' : 'text-ink'}>
         {value}
       </Text>
       <Text variant="colophon" className="mt-0.5">

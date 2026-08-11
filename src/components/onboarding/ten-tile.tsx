@@ -51,7 +51,7 @@ export function TenTile({
     if (slot.status === 'filled') {
       return (
         <View
-          className="overflow-hidden rounded-md bg-sand dark:bg-sand-dark"
+          className="overflow-hidden rounded-md bg-sand"
           style={{ width: size, height }}>
           {imageUri ? (
             <Image
@@ -68,7 +68,7 @@ export function TenTile({
     if (foregrounded) {
       return (
         <View
-          className="items-center justify-center rounded-md bg-blush dark:bg-blush-dark"
+          className="items-center justify-center rounded-md bg-blush"
           style={{ width: size, height, borderWidth: 2, borderColor: theme.accent }}>
           <Text variant="label" className="font-semibold" style={{ color: theme.accent, fontSize: 12 }}>
             {isLast ? 'Last' : 'Next'}

@@ -44,7 +44,7 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  *
  *   - A callback that GATES an affordance (`onNewQuestion`, `onBack`) draws
  *     that affordance when present and omits it when absent. That is the real
- *     screen's own semantics — "New question" is reachable only once there is a
+ * screen's own semantics — "New question" is reachable only once there is a
  *     thread to leave, **Back** only once there is a step behind — and it lets
  *     the fixture draw either frame by passing a no-op or nothing at all.
  *   - A callback on an ALWAYS-DRAWN control (`onPress`, `onType`, `onSend`) is
@@ -131,7 +131,7 @@ function TappableRow({ label, onPress }: { label: string; onPress?: () => void }
       onPress={onPress}
       accessibilityRole="button"
       style={{ minHeight: MIN_TAP_TARGET, borderRadius: ROW_RADIUS }}
-      className="justify-center border border-rule px-4 active:opacity-60 dark:border-rule-dark">
+      className="justify-center border border-rule px-4 active:opacity-60">
       <Text variant="body">{label}</Text>
     </Pressable>
   );
@@ -240,10 +240,10 @@ export function StylistOpening<K extends string>({
       </Text>
       {/* `muted` (#6B665C), S-01's colour for this line, inline rather than as
           a `text-muted` class because `variant="body"` already carries
-          `text-ink`. NativeWind gives no precedence between two `text-*` colour
+ `text-ink`. NativeWind gives no precedence between two `text-*` colour
           utilities on one element — it breaks the tie by key order in
           tailwind.config.js's `colors`, so this line drew muted only because
-          `muted` happens to be declared after `ink` there, and reordering that
+ `muted` happens to be declared after `ink` there, and reordering that
           palette would silently have repainted it. Same collision that shipped
           every primary button ink-on-oxblood once already (button.tsx).
           This is the line the rule was actually broken on: in the screen this
@@ -345,7 +345,7 @@ export function StylistHeader({ onNewQuestion }: { onNewQuestion?: () => void })
   const theme = useTheme();
 
   return (
-    <View className="flex-row items-center gap-3 border-b border-hairline px-gutter pb-3 pt-5 dark:border-hairline-dark">
+    <View className="flex-row items-center gap-3 border-b border-hairline px-gutter pb-3 pt-5">
       <View className="h-9 w-9 items-center justify-center rounded-full bg-accent-light">
         <SymbolView name="sparkles" size={15} tintColor={theme.accent} resizeMode="scaleAspectFit" />
       </View>
@@ -451,9 +451,9 @@ export function StepFooter({
             {/* Ink, inline. The atlas's spans for both escapes (S-02 line 105,
                 S-03 line 150) are `font-size:13px;font-weight:500;text-
                 decoration:underline` with NO colour, so they inherit the
-                document's #1C1A16 — these are ink. `label` carries `text-muted`
+ document's #1C1A16 — these are ink. `label` carries `text-muted`
                 in its variant string, which drew them a step quiet, and a second
-                `text-*` class cannot reliably beat the first (see the header's
+ `text-*` class cannot reliably beat the first (see the header's
                 promise line). So the colour is a style. The underline is the
                 only thing left for `className` here, and it is not a colour, so
                 it cannot collide. */}
@@ -531,7 +531,7 @@ export function Composer({
   };
 
   return (
-    <View className="flex-row items-end gap-2 border-t border-hairline px-gutter pb-2 pt-3 dark:border-hairline-dark">
+    <View className="flex-row items-end gap-2 border-t border-hairline px-gutter pb-2 pt-3">
       <TextInput
         ref={inputRef}
         value={value}
@@ -571,7 +571,7 @@ export function Composer({
         // text field is the widest control on the page. Named on reference
         // board C as one of the app's three known capsule violations. The send
         // button beside it keeps `full` — it IS 1:1 (44×44), so it is a disc.
-        className="flex-1 rounded-md border border-rule bg-surface px-4 py-2.5 font-body text-callout text-ink dark:border-rule-dark dark:bg-surface-dark dark:text-ink-dark"
+        className="flex-1 rounded-md border border-rule bg-surface px-4 py-2.5 font-body text-callout text-ink"
       />
       <Pressable
         onPress={send}
@@ -580,7 +580,7 @@ export function Composer({
         accessibilityLabel="Send"
         style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}
         className={`items-center justify-center rounded-full active:opacity-60 ${
-          canSend ? 'bg-ink dark:bg-ink-dark' : 'bg-tray dark:bg-tray-dark'
+          canSend ? 'bg-ink' : 'bg-tray'
         }`}>
         {/* Idle: `faint` on the tray ground, both straight from the atlas's
             resting composer. Active: canvas on ink. The idle arrow was `muted`,

@@ -141,7 +141,7 @@ function StackRow({
   return (
     <Animated.View style={rowStyle}>
       <View
-        className={isLast ? '' : 'border-b border-hairline dark:border-hairline-dark'}
+        className={isLast ? '' : 'border-b border-hairline'}
         style={{
           flexDirection: 'row',
           alignItems: 'center',
@@ -166,7 +166,7 @@ function StackRow({
         </Text>
 
         <View
-          className="overflow-hidden rounded-md bg-tray dark:bg-tray-dark"
+          className="overflow-hidden rounded-md bg-tray"
           style={{ width: 40, height: 40 }}>
           <GarmentCell
             garment={piece}

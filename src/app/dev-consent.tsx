@@ -47,12 +47,12 @@ import { DeclineExplainer } from './capture';
 const KNIT = Asset.fromModule(require('@/assets/garments/cream-mohair-sweater.jpg')).uri;
 
 const FRAMES = [
-  'AC-01 Ask',
-  'AC-02 Policy',
-  'AC-03 Accepted',
-  'AC-04 Declined',
-  'AC-05 Manual',
-  'AC-06 Settings',
+ 'AC-01 Ask',
+ 'AC-02 Policy',
+ 'AC-03 Accepted',
+ 'AC-04 Declined',
+ 'AC-05 Manual',
+ 'AC-06 Settings',
 ] as const;
 type Frame = (typeof FRAMES)[number];
 
@@ -103,14 +103,14 @@ export default function DevConsentScreen() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <View className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <View className="flex-1 bg-canvas">
       <StatusBar style={frame === 'AC-01 Ask' ? 'light' : 'dark'} />
 
       {frame === 'AC-01 Ask' ? (
@@ -140,7 +140,7 @@ export default function DevConsentScreen() {
       {frame === 'AC-02 Policy' ? <AiPolicyPage onBack={() => setFrame('AC-01 Ask')} /> : null}
 
       {frame === 'AC-03 Accepted' ? (
-        <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+        <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
           <ScreenHeader title="Top" />
           <ScrollView contentContainerClassName="px-gutter pb-24">
             <TaggingHeader item={MOCK_ITEM} imageUri={KNIT} />
@@ -156,11 +156,11 @@ export default function DevConsentScreen() {
       ) : null}
 
       {frame === 'AC-05 Manual' ? (
-        <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+        <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
           <ScreenHeader title="Top" />
           <ScrollView contentContainerClassName="px-gutter pb-24">
             <View className="mt-2 flex-row items-start gap-4">
-              <View className="h-[136px] w-[104px] overflow-hidden rounded-md bg-tray dark:bg-tray-dark" />
+              <View className="h-[136px] w-[104px] overflow-hidden rounded-md bg-tray" />
               <View className="flex-1 pt-0.5">
                 <OnThisPhonePill />
                 <Text variant="title" className="mt-3">
@@ -180,7 +180,7 @@ export default function DevConsentScreen() {
 
       {/* The switcher, pinned over the frame so every state is one tap away.
           Deliberately ugly-simple — it is scaffolding, not a design surface. */}
-      <View className="absolute bottom-0 left-0 right-0 border-t border-rule bg-canvas px-3 pb-8 pt-2.5 dark:border-rule-dark dark:bg-canvas-dark">
+      <View className="absolute bottom-0 left-0 right-0 border-t border-rule bg-canvas px-3 pb-8 pt-2.5">
         <View className="flex-row flex-wrap gap-2">
           {FRAMES.map((f) => (
             <Chip

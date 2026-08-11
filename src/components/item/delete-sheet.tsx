@@ -219,14 +219,14 @@ export function DeleteSheet({
             },
             ...(Platform.OS === 'android' ? { elevation: 16 } : null),
           }}>
-          <View className="overflow-hidden rounded-plate bg-canvas dark:bg-canvas-dark">
+          <View className="overflow-hidden rounded-plate bg-canvas">
             <View className="px-gutter pt-5">
               <Text variant="title" trim>
                 Out of rotation, or gone?
               </Text>
               {/* 14/1.5 per the atlas, which falls between `label` (13) and
-                  `callout` (16). Sized by inline `style` rather than a second
-                  `text-*` class — NativeWind gives no precedence between two
+ `callout` (16). Sized by inline `style` rather than a second
+ `text-*` class — NativeWind gives no precedence between two
                   size utilities on one element (text.tsx L63-69) — and the line
                   height moves with it, since overriding one without the other
                   is what clips glyph tops. Same escape closet-menu.tsx takes.

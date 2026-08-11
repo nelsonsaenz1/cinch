@@ -5,8 +5,9 @@ import { ReduceMotion } from 'react-native-reanimated';
  * The single source of truth for colour values needed in *JavaScript* —
  * tab bar tints, icon colours, Skia canvas fills, status bar style.
  *
- * Styling itself goes through NativeWind `className` with `dark:` variants;
- * this façade exists only for the places React Native needs a literal colour.
+ * Styling itself goes through NativeWind `className`; this façade exists only
+ * for the places React Native needs a literal colour. There are no `dark:`
+ * variants — the app is light-only and audit item 51 removed the last of them.
  *
  * Keeping every consumer behind `useTheme()` is deliberate: NativeWind v5 is
  * still a preview and will eventually change how themes are expressed. When it

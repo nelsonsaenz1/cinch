@@ -33,8 +33,8 @@ type Variant =
  *
  * Never hand-write a `lineHeight` on top of these. The sizes carry line heights
  * computed from the real font metrics; a tighter override clips the tops of the
- * glyphs. See src/theme/font-metrics.js. The app is light-only, so no `dark:`
- * halves here.
+ * glyphs. See src/theme/font-metrics.js. The app is light-only, so there are no
+ * `dark:` halves here — or anywhere else, since audit item 51.
  */
 const variants: Record<Variant, string> = {
   // Instrument Serif — display only.

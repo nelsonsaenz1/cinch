@@ -34,12 +34,12 @@ export function InsightCard({ worn, total, unworn }: InsightCardProps) {
     <View
       accessible
       accessibilityLabel={`${worn} of ${total} pieces worn this year, ${pct} percent. ${footer}`}
-      className="rounded-md bg-tray dark:bg-tray-dark"
+      className="rounded-md bg-tray"
       style={{ paddingVertical: 13, paddingHorizontal: 14 }}>
       <View className="flex-row items-baseline justify-between gap-2.5">
         {/* 13/600: `label` is 13pt and font-medium resolves to
             HelveticaNeue-Medium — the face the design's "600" maps to. */}
-        <Text variant="label" numberOfLines={1} className="shrink text-ink dark:text-ink-dark">
+        <Text variant="label" numberOfLines={1} className="shrink text-ink">
           {`${worn} of ${total} pieces worn this year`}
         </Text>
         <Text variant="caption">{`${pct}%`}</Text>
@@ -50,7 +50,7 @@ export function InsightCard({ worn, total, unworn }: InsightCardProps) {
       <View
         className="mt-[9px] h-[6px] overflow-hidden rounded-[3px]"
         style={{ backgroundColor: `${theme.ink}1A` }}>
-        <View className="h-full bg-ink dark:bg-ink-dark" style={{ width: `${pct}%` }} />
+        <View className="h-full bg-ink" style={{ width: `${pct}%` }} />
       </View>
 
       {/* 12pt sits between `label` and `caption`; set inline on the caption

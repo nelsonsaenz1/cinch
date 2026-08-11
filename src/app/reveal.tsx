@@ -163,9 +163,9 @@ export default function RevealScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-canvas dark:bg-canvas-dark" contentContainerClassName="pb-16">
+    <ScrollView className="flex-1 bg-canvas" contentContainerClassName="pb-16">
       {/* Beats one and two fill exactly one screen — "scroll for the first
-          one" only reads as an instruction if there is somewhere to scroll
+ one" only reads as an instruction if there is somewhere to scroll
           FROM. */}
       <View style={{ minHeight: windowHeight }}>
         <RevealStage>

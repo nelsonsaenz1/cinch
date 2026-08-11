@@ -43,7 +43,7 @@ export default function DevTodayScreen() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
@@ -75,7 +75,7 @@ export default function DevTodayScreen() {
   const fallback = FIXTURE_ITEMS;
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScrollView contentContainerClassName="pb-16">
         {/* ── 01 · Happy path ─────────────────────────────────────────────── */}
         <StateLabel>01 · Happy path</StateLabel>
@@ -273,7 +273,7 @@ function GapState({ id, label, gap }: { id: string; label: string; gap: ClosetGa
         </View>
         <Text
           variant="body"
-          className="mt-3 text-center text-muted dark:text-muted-dark"
+          className="mt-3 text-center text-muted"
           style={{ maxWidth: 264 }}>
           {gapBody(gap)}
         </Text>
@@ -286,7 +286,7 @@ function GapState({ id, label, gap }: { id: string; label: string; gap: ClosetGa
 function ReasonCard({ label, reason }: { label: string; reason: string }) {
   return (
     <View
-      className="mx-gutter mt-2 rounded-md border border-rule bg-surface p-3.5 dark:border-rule-dark dark:bg-surface-dark">
+      className="mx-gutter mt-2 rounded-md border border-rule bg-surface p-3.5">
       <Text variant="eyebrow" style={{ marginBottom: 4 }}>
         {label}
       </Text>
@@ -310,7 +310,7 @@ function StateLabel({
     <View className={`px-gutter ${className}`} style={{ paddingTop: 8, paddingBottom: 4 }}>
       <Text
         variant="colophon"
-        className={sub ? 'text-muted dark:text-muted-dark' : 'text-accent dark:text-accent-dark'}>
+        className={sub ? 'text-muted' : 'text-accent'}>
         {children}
       </Text>
     </View>

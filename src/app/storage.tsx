@@ -70,8 +70,8 @@ export default function StorageScreen() {
    */
   const confirmDelete = (item: Item) => {
     Alert.alert(
-      `Delete ${pieceName(item)}?`,
-      'This removes the piece and deletes its photographs. It can’t be undone, and it frees the closet slot storage is still holding.',
+ `Delete ${pieceName(item)}?`,
+ 'This removes the piece and deletes its photographs. It can’t be undone, and it frees the closet slot storage is still holding.',
       [
         { text: 'Keep it', style: 'cancel' },
         {
@@ -158,7 +158,7 @@ export default function StorageScreen() {
           make room should learn where that stops here rather than at the
           camera. */}
       <View className="px-gutter pt-4">
-        <Text variant="label" className="text-muted dark:text-muted-dark">
+        <Text variant="label" className="text-muted">
           Stored pieces stay out of your closet grid and out of your plans, and they free up room
           for something new. They still count toward what your account can hold.
         </Text>
@@ -190,7 +190,7 @@ function StoredRow({
   return (
     <View className="flex-row gap-3 px-4 py-3">
       <View
-        className="overflow-hidden rounded-sm border border-hairline bg-tray dark:border-hairline-dark dark:bg-tray-dark"
+        className="overflow-hidden rounded-sm border border-hairline bg-tray"
         style={{ width: THUMB_WIDTH, height: THUMB_HEIGHT }}>
         {imageUri ? (
           <Image
@@ -218,7 +218,7 @@ function StoredRow({
       </View>
 
       <View className="flex-1">
-        <Text variant="label" numberOfLines={1} className="text-ink dark:text-ink-dark">
+        <Text variant="label" numberOfLines={1} className="text-ink">
           {name}
         </Text>
         {/* Wears survive storage — the piece was worn, and putting it away does

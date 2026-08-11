@@ -83,7 +83,7 @@ const SWIPE_THRESHOLD_RATIO = 0.28;
 /** The name's serif size the directive's V-06 table specifies — 30px. There
  *  is no `text-30` step in the type scale (the nearest, `title`, is 28), so
  *  the cap-trim this needs is computed by hand from the same face metrics
- *  `text.tsx`'s own `TRIMS` table uses, rather than borrowed from a
+ * `text.tsx`'s own `TRIMS` table uses, rather than borrowed from a
  *  neighbouring size and left very slightly wrong. */
 const NAME_SIZE = 30;
 const NAME_LINE_HEIGHT = leading('instrument', NAME_SIZE, 1.08);
@@ -207,7 +207,7 @@ export function GarmentCard({ procession, dispatch, showUndo, onCorrect, onPhoto
   const attributes = buildAttributes(draft);
 
   return (
-    <View className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <View className="flex-1 bg-canvas">
       {/* Position — a count, never a bar or a percentage (standing refusal 4). */}
       <View className="px-gutter pt-3">
         <Text
@@ -310,7 +310,7 @@ export function GarmentCard({ procession, dispatch, showUndo, onCorrect, onPhoto
       {/* The pinned footer tray — same ground and placement as every other
           primary action in this flow (V-01, V-05). */}
       <View
-        className="bg-tray px-gutter pt-3 dark:bg-tray-dark"
+        className="bg-tray px-gutter pt-3"
         style={{ paddingBottom: Math.max(insets.bottom, 12) + 10 }}>
         {canUndo ? (
           <Pressable
@@ -321,7 +321,7 @@ export function GarmentCard({ procession, dispatch, showUndo, onCorrect, onPhoto
             hitSlop={8}
             style={{ minHeight: MIN_TAP_TARGET - 12 }}
             className="mb-1 items-center justify-center active:opacity-60">
-            <Text variant="label" className="text-muted dark:text-muted-dark">
+            <Text variant="label" className="text-muted">
               Undo
             </Text>
           </Pressable>
@@ -336,7 +336,7 @@ export function GarmentCard({ procession, dispatch, showUndo, onCorrect, onPhoto
             hitSlop={8}
             style={{ minHeight: MIN_TAP_TARGET - 12 }}
             className="items-center justify-center active:opacity-60">
-            <Text variant="callout" className="text-muted dark:text-muted-dark">
+            <Text variant="callout" className="text-muted">
               Fix something
             </Text>
           </Pressable>
@@ -348,7 +348,7 @@ export function GarmentCard({ procession, dispatch, showUndo, onCorrect, onPhoto
             hitSlop={8}
             style={{ minHeight: MIN_TAP_TARGET - 12 }}
             className="items-center justify-center active:opacity-60">
-            <Text variant="callout" className="text-muted dark:text-muted-dark">
+            <Text variant="callout" className="text-muted">
               Not mine
             </Text>
           </Pressable>
@@ -440,7 +440,7 @@ function AttributeChip({
       onPress={onPress}
       hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
       style={{ minHeight: MIN_TAP_TARGET - 12, borderRadius: 12 }}
-      className="flex-row items-center justify-center bg-sand px-3.5 active:opacity-60 dark:bg-sand-dark">
+      className="flex-row items-center justify-center bg-sand px-3.5 active:opacity-60">
       <Text style={{ fontSize: 12.5, lineHeight: 16, color: muted ? theme.muted : theme.ink }}>{label}</Text>
     </Pressable>
   );

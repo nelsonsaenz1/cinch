@@ -11,7 +11,7 @@ import { explain, type Garment, type WeatherContext } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
 
 const LAYOUT_ORDER: Garment['slot'][] = [
-  'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
+ 'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
 ];
 
 /**
@@ -73,7 +73,7 @@ export function DayRow({
   const reasoning = day.outfit ? explain(day.outfit) : null;
 
   const a11yLabel = [
-    `${dayLabel(day.date)}, ${shortDate(day.date)}`,
+ `${dayLabel(day.date)}, ${shortDate(day.date)}`,
     day.weather ? formatTemp(day.weather.feelsLikeC, units) : null,
     day.outfit ? name : "Nothing in your closet works for this day's weather yet.",
     reasoning,
@@ -86,8 +86,8 @@ export function DayRow({
   // weight (ink at 12%), keeping the whisper hairline for the tab bar above
   // the home indicator. py is the atlas's exact 18.
   const containerClassName = [
-    'flex-row items-center gap-3.5 px-gutter py-[18px]',
-    isLast ? '' : 'border-b border-rule dark:border-rule-dark',
+ 'flex-row items-center gap-3.5 px-gutter py-[18px]',
+    isLast ? '' : 'border-b border-rule',
     onPlan ? 'active:opacity-60' : '',
   ].join(' ');
 

@@ -54,7 +54,7 @@ const DESCRIPTION = 'Everlane cream mohair crewneck, oversized';
 
 /** The pasted link the D-03/D-08 pages hold, tracking parameters and all. */
 const REFORMATION_URL =
-  'https://www.reformation.com/products/gemma-dress?color=navy&utm_source=ios';
+ 'https://www.reformation.com/products/gemma-dress?color=navy&utm_source=ios';
 
 /**
  * The four link-failure sentences, copied byte-for-byte from the private
@@ -64,13 +64,13 @@ const REFORMATION_URL =
  * sentences are the contract the atlas checks.
  */
 const LINK_REJECTED =
-  "Cinch can't open that link. Paste the product page from the shop's own site.";
+ "Cinch can't open that link. Paste the product page from the shop's own site.";
 const LINK_UNREACHABLE =
-  "That page didn't answer. Check the link, or photograph the item instead.";
+ "That page didn't answer. Check the link, or photograph the item instead.";
 const LINK_NOT_A_PAGE =
-  "That link isn't a product page. Open the item on the shop's site and copy that link.";
+ "That link isn't a product page. Open the item on the shop's site and copy that link.";
 const LINK_NO_IMAGE =
-  "Cinch couldn't find the picture on that page — photograph the item instead.";
+ "Cinch couldn't find the picture on that page — photograph the item instead.";
 
 /** The D-05/D-06 candidate grid, four shops and four of our own photographs. */
 function candidatesFrom(uris: readonly string[]) {
@@ -261,7 +261,7 @@ export default function DevDescribeScreen() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
@@ -271,11 +271,11 @@ export default function DevDescribeScreen() {
   // with half-fetched pictures would put the one bug this fixture caught —
   // every tile showing the same photograph — back on screen.
   if (!pages) {
-    return <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" />;
+    return <SafeAreaView className="flex-1 bg-canvas" />;
   }
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-canvas">
       <ScrollView showsVerticalScrollIndicator={false}>
         {pages.map((page) => (
           <View key={page.id} style={{ height: pageHeight }}>

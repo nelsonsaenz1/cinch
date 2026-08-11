@@ -73,7 +73,7 @@ export function ItemSkeleton({ onBack }: ItemSkeletonProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View className="flex-1 bg-canvas dark:bg-canvas-dark" accessibilityLabel="Loading this piece">
+    <View className="flex-1 bg-canvas" accessibilityLabel="Loading this piece">
       {/* The hero and the disc are SIBLINGS, not parent and child. `Skeleton`
           sets `importantForAccessibility="no-hide-descendants"` on itself, so a
           back button nested inside it would be invisible to VoiceOver — which
@@ -126,7 +126,7 @@ export function ItemSkeleton({ onBack }: ItemSkeletonProps) {
           loaded band (`item-stats.tsx`) draws the same `border-y` at the same
           14pt inset — so the placeholder keeps them rather than laying one grey
           slab where a ruled band is about to be. */}
-      <View className="mx-gutter mt-5 flex-row border-y border-rule py-[14px] dark:border-rule-dark">
+      <View className="mx-gutter mt-5 flex-row border-y border-rule py-[14px]">
         {STAT_CELLS.map((cell, i) => (
           // `alignItems: 'center'` — the loaded band centres both lines per
           // §2.2, so a left-aligned placeholder resolves with a sideways jump.

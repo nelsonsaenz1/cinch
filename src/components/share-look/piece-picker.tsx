@@ -109,13 +109,13 @@ export function PickerFooterTray({
 
   return (
     <View
-      className="flex-row items-center border-t border-hairline bg-canvas dark:border-hairline-dark dark:bg-canvas-dark"
+      className="flex-row items-center border-t border-hairline bg-canvas"
       style={{ gap: 12, paddingTop: 12, paddingBottom: 12 }}>
       <View className="flex-row" style={{ gap: 6 }}>
         {stack.slice(0, 3).map((g) => (
           <View
             key={g.id}
-            className="overflow-hidden rounded-md bg-tray dark:bg-tray-dark"
+            className="overflow-hidden rounded-md bg-tray"
             style={{ width: 36, height: 36 }}>
             <GarmentCell garment={g} uri={resolveImage(g.platePath, g.cutoutPath, g.thumbPath)} />
           </View>
@@ -168,7 +168,7 @@ function PieceCell({
       onPress={onPress}
       className="active:opacity-70">
       <View
-        className="overflow-hidden rounded-md bg-tray dark:bg-tray-dark"
+        className="overflow-hidden rounded-md bg-tray"
         style={{
           aspectRatio: 1,
           borderWidth: selected ? 2 : 1,

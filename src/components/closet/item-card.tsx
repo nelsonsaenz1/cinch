@@ -111,15 +111,15 @@ function ItemCardComponent({
             // photograph the user took keeps the warm tray it has always had.
             // Same frame, same radius, same caption either way: the atlas asks
             // for one closet, not two (M-10).
-            wearsListing ? 'bg-surface dark:bg-surface-dark p-3' : 'bg-tray dark:bg-tray-dark'
+            wearsListing ? 'bg-surface p-3' : 'bg-tray'
           } ${
             // Selection is the border, not just the tick — readable at a glance
             // across a whole grid where a 22pt glyph is not. Drawn as a border,
             // which RN insets rather than adding to the box, so a selected cell
             // never shifts its neighbours.
             selecting && selected
-              ? 'border-2 border-ink dark:border-ink-dark'
-              : 'border border-hairline dark:border-hairline-dark'
+              ? 'border-2 border-ink'
+              : 'border border-hairline'
           }`}
           style={dimmed ? { opacity: 0.55 } : undefined}>
           {displayUri ? (
@@ -180,7 +180,7 @@ function ItemCardComponent({
 
           {/* The pick disc, top RIGHT — badges own the left corner. Hidden
               entirely outside selection mode: nothing about a garment is
-              "unselected" when there is no selection. */}
+ "unselected" when there is no selection. */}
           {selecting ? (
             selected ? (
               <View className="absolute right-2 top-2 h-[22px] w-[22px] items-center justify-center rounded-full bg-ink">
@@ -213,7 +213,7 @@ function ItemCardComponent({
               what a garment is called. 13/600: `label` is 13pt and font-medium
               resolves to HelveticaNeue-Medium, the face the design's "600" maps
               to (there is no true 600 cut — see tailwind.config.js). */}
-          <Text variant="label" numberOfLines={1} className="text-ink dark:text-ink-dark">
+          <Text variant="label" numberOfLines={1} className="text-ink">
             {pieceName(item)}
           </Text>
           {/* Meta hides while selecting — name only, per C-04: the row stays
@@ -231,7 +231,7 @@ function ItemCardComponent({
                   {`${formatPrice(item.purchasePrice)} unearned`}
                 </Text>
               ) : cpw !== null ? (
-                <Text variant="caption" numberOfLines={1} className="text-ink dark:text-ink-dark">
+                <Text variant="caption" numberOfLines={1} className="text-ink">
                   {`$${cpw.toFixed(2)} / wear`}
                 </Text>
               ) : null}

@@ -166,7 +166,7 @@ export default function InviteScreen() {
   // prompt, out loud, where that prompt would have sat.
   if (friendsQuery.isSuccess && friends.length === 0) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={[]}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={[]}>
         <View className="flex-row items-center justify-between px-gutter pt-2">
           <Pressable
             onPress={() => router.back()}
@@ -219,7 +219,7 @@ export default function InviteScreen() {
         </View>
 
         {/* `caption` already carries `text-muted` — real content, not
-            `faint`, which fails AA on canvas. */}
+ `faint`, which fails AA on canvas. */}
         <Text
           variant="caption"
           className="px-10 text-center"
@@ -236,9 +236,9 @@ export default function InviteScreen() {
   if (outcomes) {
     const failed = failedSends(outcomes);
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={[]}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={[]}>
         <View className="flex-1 items-center justify-center px-gutter">
-          <View className="w-full rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
+          <View className="w-full rounded-plate border border-rule bg-surface p-5">
             <Text variant="body" className="font-semibold">
               {sendResultTitle(outcomes)}
             </Text>
@@ -249,13 +249,13 @@ export default function InviteScreen() {
             ) : null}
 
             {failed.length > 0 ? (
-              <View className="mt-3 -mx-5 border-t border-hairline dark:border-hairline-dark">
+              <View className="mt-3 -mx-5 border-t border-hairline">
                 {failed.map((f, i) => (
                   <View
                     key={f.userId}
                     className={[
-                      'flex-row items-center gap-3 px-5 py-3',
-                      i === failed.length - 1 ? '' : 'border-b border-hairline dark:border-hairline-dark',
+ 'flex-row items-center gap-3 px-5 py-3',
+                      i === failed.length - 1 ? '' : 'border-b border-hairline',
                     ].join(' ')}>
                     <View className="flex-1">
                       <Text variant="body" numberOfLines={1}>
@@ -293,7 +293,7 @@ export default function InviteScreen() {
   const allInvited = query.trim().length === 0 && everyoneAlreadyInvited(allRows);
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={[]}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={[]}>
       <View className="flex-row items-center justify-between px-gutter pt-2">
         <Pressable
           onPress={requestClose}
@@ -354,7 +354,7 @@ export default function InviteScreen() {
         ) : allInvited ? (
           // IF-03 — every friend is already on the list. No empty checkbox
           // list, no prompt to invite more people from elsewhere.
-          <View className="mt-5 rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
+          <View className="mt-5 rounded-plate border border-rule bg-surface p-5">
             <Text variant="plate">
               {allRows.length === 1 ? 'Your one friend is in' : `All ${allRows.length} are in`}
             </Text>
@@ -365,7 +365,7 @@ export default function InviteScreen() {
         ) : nothingFiltered ? (
           // IF-03 — the filter matches nobody. The way out is a link, not a
           // button: leaving this sheet loses the checkmarks.
-          <View className="mt-5 items-center rounded-plate border border-rule bg-surface p-6 dark:border-rule-dark dark:bg-surface-dark">
+          <View className="mt-5 items-center rounded-plate border border-rule bg-surface p-6">
             <Text variant="body" className="font-semibold text-center">
               No friend called “{query.trim()}”
             </Text>
@@ -391,7 +391,7 @@ export default function InviteScreen() {
                   className="mb-2 mt-5"
                   trailing={<Text variant="label">{alreadyInvited.length}</Text>}
                 />
-                <View className="overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+                <View className="overflow-hidden rounded-plate border border-rule">
                   {alreadyInvited.map((row, i) => (
                     <InviteFriendRow
                       key={row.userId}
@@ -412,7 +412,7 @@ export default function InviteScreen() {
                   className="mb-2 mt-6"
                   trailing={<Text variant="label">{yourFriends.length}</Text>}
                 />
-                <View className="overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+                <View className="overflow-hidden rounded-plate border border-rule">
                   {yourFriends.map((row, i) => (
                     <InviteFriendRow
                       key={row.userId}
@@ -434,7 +434,7 @@ export default function InviteScreen() {
 
       {picked.size > 0 ? (
         <View
-          className="border-t border-hairline bg-canvas px-gutter pt-3 dark:border-hairline-dark dark:bg-canvas-dark"
+          className="border-t border-hairline bg-canvas px-gutter pt-3"
           style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
           <Pressable
             onPress={send}

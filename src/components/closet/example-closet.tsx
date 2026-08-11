@@ -97,7 +97,7 @@ function ExampleCellView({ cell }: { cell: ExampleCell }) {
   const theme = useTheme();
   return (
     <View
-      className="flex-1 overflow-hidden rounded-md bg-tray dark:bg-tray-dark"
+      className="flex-1 overflow-hidden rounded-md bg-tray"
       style={{ height: CELL_HEIGHT }}>
       <Image
         source={cell.source}
@@ -200,7 +200,7 @@ export function ExampleCloset({ onAddPieces }: ExampleClosetProps) {
           // pill and calls it one, but refusal 5 is absolute — `full` is
           // circles only, and this badge is wider than it is tall. Directive
           // over the drawn atlas value, on the founder's call (2026-08-11).
-          className="flex-row items-center rounded-md bg-blush dark:bg-blush-dark"
+          className="flex-row items-center rounded-md bg-blush"
           style={{ gap: 7, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: theme.blushRule }}>
           <Text
             variant="colophon"
@@ -221,14 +221,14 @@ export function ExampleCloset({ onAddPieces }: ExampleClosetProps) {
           The shared Button, not a hand-rolled Pressable.
 
           This was a `Pressable` carrying both a `className` and a FUNCTION
-          `style`, and it did not render at all on device — no ground, no
+ `style`, and it did not render at all on device — no ground, no
           label, not tappable, just the gap where it should have been. That
           combination is the same NativeWind interop hole the theme documents
           for `Animated.*`: the class list and a computed style cannot both win,
           and what survives is neither. It typechecked, it linted, and it passed
           every test, because none of those run a layout pass.
 
-          `variant="ink"` is the atlas's black fill and deliberately does not
+ `variant="ink"` is the atlas's black fill and deliberately does not
           spend the accent, which this screen has already spent on the pill.
         */}
         <Button

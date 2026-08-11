@@ -66,7 +66,7 @@ export default function DevRepeatScreen() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
@@ -81,7 +81,7 @@ export default function DevRepeatScreen() {
   const p05Layout = stackLayout(p05Pieces, 340, 'tile');
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScrollView contentContainerClassName="pb-16">
         <StateLabel>P-01 · first repeat — informational</StateLabel>
         <Plate
@@ -135,8 +135,8 @@ export default function DevRepeatScreen() {
         />
 
         <StateLabel className="mt-8">P-04 · the lock-screen notification — not built</StateLabel>
-        <View className="mx-gutter rounded-plate border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
-          <Text variant="body" className="text-muted dark:text-muted-dark">
+        <View className="mx-gutter rounded-plate border border-rule bg-surface p-4">
+          <Text variant="body" className="text-muted">
             A design, not a shipping surface: this app has no expo-notifications, no APNs key, no
             permission prompt, no privacy-manifest entry. See the atlas and
             docs/design/free-tier-contract.md.
@@ -151,12 +151,12 @@ export default function DevRepeatScreen() {
               Linen and charcoal
             </Text>
           </View>
-          <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+          <Text variant="body" className="mt-2 text-muted">
             {`Worn ${joinDates(P05_PREVIOUS.map((d) => describeDate(d, P05_NOW)))}. It still fits today better than the other ${TOTAL_CORES - 1}.`}
           </Text>
         </View>
 
-        <View className="mx-gutter mt-4 rounded-plate border border-rule bg-surface p-3.5 dark:border-rule-dark dark:bg-surface-dark">
+        <View className="mx-gutter mt-4 rounded-plate border border-rule bg-surface p-3.5">
           <View style={{ width: '100%', aspectRatio: 1 / STACK_ASPECT }}>
             {p05Layout.map((piece) => (
               <View
@@ -215,7 +215,7 @@ function DevStat({ label, value }: { label: string; value: string }) {
 function StateLabel({ children, className = '' }: { children: string; className?: string }) {
   return (
     <View className={`px-gutter ${className}`} style={{ paddingTop: 8, paddingBottom: 4 }}>
-      <Text variant="colophon" className="text-accent dark:text-accent-dark">
+      <Text variant="colophon" className="text-accent">
         {children}
       </Text>
     </View>

@@ -156,7 +156,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
   // The one border, in its three states — see `field-frame.ts`.
 
   // Fields share one shape — white ground, the same 12px radius as buttons.
-  const fieldClassName = 'rounded-md bg-surface dark:bg-surface-dark';
+  const fieldClassName = 'rounded-md bg-surface';
 
   return (
     <Modal
@@ -164,7 +164,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={close}>
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         {/* Cancel · serif title · Save. Save is a text button rather than a
             bar button so the accent lands on it and nowhere else; inert it
             reads in the byline grey, not a dimmed oxblood. */}
@@ -183,7 +183,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
               <Text
                 variant="label"
                 style={{ fontSize: 15, lineHeight: 20 }}
-                className="text-muted dark:text-muted-dark">
+                className="text-muted">
                 Cancel
               </Text>
             </Pressable>
@@ -229,7 +229,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
             <Text variant="title" accessibilityRole="header">
               Couldn&rsquo;t open your profile
             </Text>
-            <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+            <Text variant="body" className="mt-3 text-muted">
               Nothing has changed. Check your connection and try again.
             </Text>
             <Button
@@ -276,7 +276,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
                   accessibilityRole="button"
                   hitSlop={8}
                   className="active:opacity-60">
-                  <Text variant="caption" className="text-muted dark:text-muted-dark">
+                  <Text variant="caption" className="text-muted">
                     Remove
                   </Text>
                 </Pressable>
@@ -295,7 +295,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
               autoCapitalize="words"
               autoCorrect={false}
               accessibilityLabel="Display name"
-              className={`${fieldClassName} px-3.5 font-body text-callout text-ink dark:text-ink-dark`}
+              className={`${fieldClassName} px-3.5 font-body text-callout text-ink`}
               style={[{ minHeight: FIELD_HEIGHT }, fieldFrame(theme, focused === 'name' ? 'focus' : 'rest')]}
             />
 
@@ -341,7 +341,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
               placeholderTextColor={theme.faint}
               multiline
               accessibilityLabel="Bio"
-              className={`${fieldClassName} px-3.5 py-3 font-body text-callout text-ink dark:text-ink-dark`}
+              className={`${fieldClassName} px-3.5 py-3 font-body text-callout text-ink`}
               style={[
                 { minHeight: 104, textAlignVertical: 'top' },
                 fieldFrame(theme, bioOver ? 'error' : focused === 'bio' ? 'focus' : 'rest'),
@@ -358,7 +358,7 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
                   : `${bio.length - BIO_MAX} characters past the limit.`}
               </Text>
             ) : (
-              <Text variant="caption" className="mt-2 text-muted dark:text-muted-dark">
+              <Text variant="caption" className="mt-2 text-muted">
                 Sits under your name on your closet. Leave it empty and nothing shows.
               </Text>
             )}
@@ -370,11 +370,11 @@ export function EditProfileSheet({ visible, onClose }: { visible: boolean; onClo
                 className="mt-6"
                 style={{ color: theme.accent }}>
                 {saveProfileDenialCopy(save.error) ??
-                  'That didn’t save. Nothing has changed — check your connection and try again.'}
+ 'That didn’t save. Nothing has changed — check your connection and try again.'}
               </Text>
             ) : null}
 
-            <Text variant="caption" className="mt-7 text-muted dark:text-muted-dark">
+            <Text variant="caption" className="mt-7 text-muted">
               Your handle and bio are visible to anyone you share a closet link with. Everything
               else stays private.
             </Text>

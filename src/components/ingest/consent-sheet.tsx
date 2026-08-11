@@ -130,13 +130,13 @@ export function ConsentSheet({
           outside a consent question is not an answer to it. */}
       <View className="flex-1 justify-end" style={{ backgroundColor: theme.scrim }}>
         <View
-          className="rounded-t-plate bg-canvas dark:bg-canvas-dark"
+          className="rounded-t-plate bg-canvas"
           style={{ maxHeight: '88%' }}>
           {/* The grabber — the sheet's own furniture, saying "this rises over
               capture and drops back into it". It no longer implies swipe-to-
               dismiss in behaviour, but the sheet still moves like a sheet. */}
           <View className="items-center pb-1 pt-2.5">
-            <View className="h-[5px] w-9 rounded-full bg-sand dark:bg-sand-dark" />
+            <View className="h-[5px] w-9 rounded-full bg-sand" />
           </View>
 
           <ScrollView
@@ -166,7 +166,7 @@ export function ConsentSheet({
               {CONSENT_FACTS.map(({ lead, rest }, index) => (
                 <View
                   key={lead}
-                  className={`flex-row gap-3 border-t border-rule py-2.5 dark:border-rule-dark ${
+                  className={`flex-row gap-3 border-t border-rule py-2.5 ${
                     index === CONSENT_FACTS.length - 1 ? 'border-b' : ''
                   }`}>
                   <Text

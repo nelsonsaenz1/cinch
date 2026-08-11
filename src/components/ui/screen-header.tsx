@@ -26,7 +26,7 @@ export function BackButton({ onPress, label = 'Back' }: { onPress?: () => void; 
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={8}
-      className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
+      className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
       <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
     </Pressable>
   );

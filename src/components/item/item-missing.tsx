@@ -51,7 +51,7 @@ export function ItemMissing({ onBack, onBackToCloset, onCheckStorage }: ItemMiss
   const theme = useTheme();
 
   return (
-    <View className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <View className="flex-1 bg-canvas">
       <ScreenHeader title="Item" align="leading" onBack={onBack} />
 
       {/* Lifted slightly off centre — 60pt of bottom padding — so the column
@@ -64,7 +64,7 @@ export function ItemMissing({ onBack, onBackToCloset, onCheckStorage }: ItemMiss
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
-          className="rounded-md bg-tray dark:bg-tray-dark"
+          className="rounded-md bg-tray"
           style={{
             width: GHOST.width,
             height: GHOST.height,

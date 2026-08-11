@@ -39,7 +39,7 @@ export function SubstitutionSheetBody({
 
   return (
     <View
-      className="rounded-t-sheet border-t border-rule bg-surface dark:border-rule-dark dark:bg-surface-dark"
+      className="rounded-t-sheet border-t border-rule bg-surface"
       style={{ paddingHorizontal: 22, paddingTop: 22 }}>
       <View
         style={{
@@ -68,7 +68,7 @@ export function SubstitutionSheetBody({
           {copy.title}
         </Text>
       </View>
-      <Text variant="callout" className="text-muted dark:text-muted-dark">
+      <Text variant="callout" className="text-muted">
         {copy.body}
       </Text>
 
@@ -98,7 +98,7 @@ export function SubstitutionSheetBody({
                 <Text variant="body" className="font-medium">
                   {label}
                 </Text>
-                <Text variant="label" className="mt-0.5 text-muted dark:text-muted-dark">
+                <Text variant="label" className="mt-0.5 text-muted">
                   {sub}
                 </Text>
               </View>

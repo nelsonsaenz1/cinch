@@ -8,7 +8,7 @@ import type { Garment, OutfitCandidate } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
 
 const LAYOUT_ORDER: Garment['slot'][] = [
-  'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
+ 'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
 ];
 
 // Corners of a chat bubble — generous everywhere except the corner nearest the
@@ -108,7 +108,7 @@ function OutfitStrip({
         // padding and 88pt height are the atlas's own numbers too; the inner
         // tiles' `rounded` is the 8px DEFAULT, which is exactly what the atlas
         // asks for, so it stays a token.
-        className="flex-row gap-1 overflow-hidden bg-tray p-2 dark:bg-tray-dark"
+        className="flex-row gap-1 overflow-hidden bg-tray p-2"
         style={{ height: 88, borderRadius: 12 }}>
         {pieces.map((g) => {
           const uri = resolveImage(g.cutoutPath, g.thumbPath);
@@ -143,20 +143,20 @@ function OutfitStrip({
           caption reads as part of the strip rather than as the next thing in
           the turn — nothing else in the reply sits this close.
 
-          `label`, not `caption`: the atlas sets this line at 13px/1.4 (S-05 and
+ `label`, not `caption`: the atlas sets this line at 13px/1.4 (S-05 and
           the anatomy panel), which is the `label` size, not `caption`'s 11px.
           The size is load-bearing rather than decorative — the anatomy panel
           says this caption "is what the accessibility label reads out, so it
           exists whether or not the photographs resolve", i.e. when the images
           fail this line IS the outfit, and 11px is too small to carry that.
 
-          `faint` (#8A8578) is the atlas's colour here, one step lighter than
+ `faint` (#8A8578) is the atlas's colour here, one step lighter than
           the `label` variant's own `muted`. This is the exception the Text
           variants call out: `faint` is for text genuinely redundant with
           something adjacent, and the four photographs directly above spell out
           the same four garments. It goes on inline as `style`, never a
-          `text-faint` className, because the variant already carries a
-          `text-muted` and NativeWind gives no precedence between two colour
+ `text-faint` className, because the variant already carries a
+ `text-muted` and NativeWind gives no precedence between two colour
           utilities on one element. */}
       {/* `note` is `label`'s 13px in the regular cut: the atlas sets no
           font-weight on this caption ("The outfit strip" panel, S-05), and
@@ -215,7 +215,7 @@ export function MessageBubble({
       // 18 has no spacing token, hence the inline value. `flush` zeroes it for
       // a caller that is placing the next element itself — see the prop's note.
       <View className="items-end px-gutter" style={{ marginBottom: flush ? 0 : 18 }}>
-        <View className="max-w-[85%] bg-ink px-4 py-2.5 dark:bg-ink-dark" style={USER_BUBBLE}>
+        <View className="max-w-[85%] bg-ink px-4 py-2.5" style={USER_BUBBLE}>
           {/* NativeWind can't reliably override a Text variant's built-in ink
               colour once another text-* class (the variant's own text-body)
               is present, so canvas-on-ink goes through the theme facade
@@ -245,7 +245,7 @@ export function MessageBubble({
         // bearing, so an 8 would sit tighter against the text than the same 8
         // does between two glyph runs.
         <View
-          className="max-w-[85%] flex-row items-center self-start bg-tray px-4 py-3 dark:bg-tray-dark"
+          className="max-w-[85%] flex-row items-center self-start bg-tray px-4 py-3"
           style={{ ...STYLIST_BUBBLE, gap: 10 }}>
           <ActivityIndicator size="small" color={theme.muted} />
           <Text variant="label">Looking through your closet…</Text>
@@ -253,7 +253,7 @@ export function MessageBubble({
       ) : (
         <>
           <View
-            className="max-w-[85%] self-start bg-tray px-4 py-2.5 dark:bg-tray-dark"
+            className="max-w-[85%] self-start bg-tray px-4 py-2.5"
             style={STYLIST_BUBBLE}>
             {/* A failed turn speaks in `muted` rather than `ink` (S-06) — the
                 apology is not the stylist's voice, so it steps back a shade.
@@ -293,7 +293,7 @@ export function MessageBubble({
                   so it inherits the document's #1C1A16 — this is the live
                   control on a screen where everything else has gone quiet, and
                   a muted control on a muted bubble is invisible. Inline
-                  `style` rather than a `text-ink` className because the variant
+ `style` rather than a `text-ink` className because the variant
                   already carries `text-muted`; see the failed-turn note above
                   for why stacking two colour utilities is never safe here. */}
               <Text variant="label" className="underline" style={{ color: theme.ink }}>

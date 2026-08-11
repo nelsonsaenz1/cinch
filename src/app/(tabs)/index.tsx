@@ -174,7 +174,7 @@ function StylistButton() {
       accessibilityLabel="Ask the stylist"
       hitSlop={8}
       style={{ width: 34, height: 34 }}
-      className="items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
+      className="items-center justify-center rounded-full border border-rule active:opacity-60">
       <SymbolView name="sparkles" size={16} tintColor={theme.accent} resizeMode="scaleAspectFit" />
     </Pressable>
   );
@@ -212,7 +212,7 @@ function ActivityButton() {
       accessibilityLabel={unseen ? 'Activity, something waiting' : 'Activity'}
       hitSlop={8}
       style={{ width: 34, height: 34 }}
-      className="items-center justify-center rounded-full border border-rule active:opacity-60 dark:border-rule-dark">
+      className="items-center justify-center rounded-full border border-rule active:opacity-60">
       <SymbolView name="tray.full" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
       {unseen ? (
         // Oxblood, and this is the one place it is spent on Today. It is the
@@ -272,7 +272,7 @@ export function Masthead({ city, name }: { city: string; name?: string | null })
             accessibilityLabel="Profile"
             hitSlop={8}
             style={{ width: 34, height: 34 }}
-            className="items-center justify-center rounded-full bg-ink active:opacity-60 dark:bg-ink-dark">
+            className="items-center justify-center rounded-full bg-ink active:opacity-60">
             <SymbolView
               name="person.fill"
               size={15}
@@ -379,7 +379,7 @@ export function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () 
   return (
     <Card padding="xl" className="mx-gutter">
       <Text variant="title">Nothing today feels right — and I won&apos;t pretend it does.</Text>
-      <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-3 text-muted">
         {reason}
       </Text>
       <View className="my-4">
@@ -749,7 +749,7 @@ export default function TodayScreen() {
 
   if (wardrobe.isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <ReducedMasthead eyebrow={dayLine(cityLabel)} />
         {/* Inline style, not `mt-6`: NativeWind's interop is registered for the
             RN primitives only, so a className on a Reanimated component is
@@ -770,7 +770,7 @@ export default function TodayScreen() {
   // form spends both.
   if (wardrobe.isError) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <ReducedMasthead eyebrow={dayLine(cityLabel)} />
         <View accessibilityRole="alert" className="px-gutter" style={{ marginTop: 88 }}>
           <SymbolView
@@ -784,7 +784,7 @@ export default function TodayScreen() {
               Couldn&rsquo;t read your closet
             </Text>
           </View>
-          <Text variant="body" className="mt-3.5 text-muted dark:text-muted-dark">
+          <Text variant="body" className="mt-3.5 text-muted">
             Check your connection and try again.
           </Text>
           {/* Wrapper carries the offset: `Button` omits `style` from its props. */}
@@ -814,7 +814,7 @@ export default function TodayScreen() {
     const pieces = `${items.length} ${items.length === 1 ? 'piece' : 'pieces'} in`;
 
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         {/* The masthead reduces to the date and the section name; the stylist
             door stays, the profile chip drops (T-04). */}
         <ReducedMasthead eyebrow={dayLine(cityLabel)} />
@@ -852,7 +852,7 @@ export default function TodayScreen() {
 
           <Text
             variant="body"
-            className="mt-3 text-center text-muted dark:text-muted-dark"
+            className="mt-3 text-center text-muted"
             style={{ maxWidth: 264 }}>
             {gapBody(gap)}
           </Text>
@@ -888,7 +888,7 @@ export default function TodayScreen() {
             // 52, the grounded control height from reference board A — 44 is the
             // accessibility floor, not the drawn height.
             style={{ minHeight: 52 }}
-            className="mt-7 flex-row items-center justify-center rounded-md bg-ink px-6 active:opacity-70 dark:bg-ink-dark">
+            className="mt-7 flex-row items-center justify-center rounded-md bg-ink px-6 active:opacity-70">
             <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
               {empty ? 'Add your clothes' : 'Add more clothes'}
             </Text>
@@ -906,7 +906,7 @@ export default function TodayScreen() {
   // plate loses the parts the network paid for.
   if (offline) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <ScrollView
           contentContainerClassName="pb-10"
           refreshControl={
@@ -945,7 +945,7 @@ export default function TodayScreen() {
                   always look up the swapped-in candidate at this index (see
                   their own comments above), so this render has to agree with
                   them even on the rare transition from an online "show me
-                  another" tap straight into offline. */}
+ another" tap straight into offline. */}
               {effectiveShown.map((outfit, i) => (
                 <Plate
                   key={idOf(outfit.candidate.items)}
@@ -979,7 +979,7 @@ export default function TodayScreen() {
   const nothingWorks = shown.length === 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       {/* `style`, not `flex-1` — NativeWind classes do not reach Reanimated
           components in this project. */}
       <Animated.View entering={FadeIn.duration(motion.duration.base)} style={{ flex: 1 }}>
@@ -1011,12 +1011,12 @@ export default function TodayScreen() {
 
           {/* The plans note, set as the design's tray pill with a leading "+".
               The multi-event differentiator, reachable without the calendar:
-              "dinner at 7 then drinks after" is the exact sentence the engine is
+ "dinner at 7 then drinks after" is the exact sentence the engine is
               built for, and typing it must not require a permission grant. Clay,
               not oxblood — the one spent accent stays reserved for a loved look. */}
           {nothingWorks ? null : (
             <>
-              <View className="mx-gutter mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5 py-2.5 dark:bg-tray-dark">
+              <View className="mx-gutter mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5 py-2.5">
                 <SymbolView
                   name="plus"
                   size={15}
@@ -1032,7 +1032,7 @@ export default function TodayScreen() {
                   placeholder="What's on today?"
                   placeholderTextColor={theme.faint}
                   accessibilityLabel="Describe your plans today"
-                  className="flex-1 font-body text-callout text-ink dark:text-ink-dark"
+                  className="flex-1 font-body text-callout text-ink"
                 />
               </View>
 
@@ -1152,7 +1152,7 @@ export default function TodayScreen() {
           {/* Say plainly how much it has actually learned (S-09/S-10). Implying
               a rich taste model after two taps is a promise the engine cannot
               keep — and gated on the profile actually having loaded, because
-              "8 more reactions" read off the placeholder profile is a claim
+ "8 more reactions" read off the placeholder profile is a claim
               about a count the app has not seen yet. */}
           {shown.length > 0 && profileQuery.data ? (
             <View className="px-gutter pt-2">

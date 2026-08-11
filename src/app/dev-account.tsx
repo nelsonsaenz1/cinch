@@ -80,7 +80,7 @@ const MOCK_HANDLE = '@mayaosei';
 // The real screen's honest sentence, with no confidence figure beside it
 // (contract §4.3) — the fixture proves the number is gone, not just the code.
 const MOCK_LEARNED_SENTENCE =
-  'Still learning. So far you lean muted, reach for wool, and rarely touch bright colour. Learned from 12 reactions.';
+ 'Still learning. So far you lean muted, reach for wool, and rarely touch bright colour. Learned from 12 reactions.';
 const MOCK_PENDING_ASKS = 2;
 
 function PS01({ onOpenEdit, onOpenDelete }: { onOpenEdit: () => void; onOpenDelete: () => void }) {
@@ -145,7 +145,7 @@ function PS01({ onOpenEdit, onOpenDelete }: { onOpenEdit: () => void; onOpenDele
 
       {/* Membership — hidden entirely for the free variant, exactly as the
           real screen does (contract §4.1: "free has no membership row at
-          all"). */}
+ all"). */}
       {!membership.visible ? (
         <Text variant="caption" className="mt-6 text-muted">
           Free — no Membership row renders here at all.
@@ -214,7 +214,7 @@ function PS01({ onOpenEdit, onOpenDelete }: { onOpenEdit: () => void; onOpenDele
       </Card>
 
       {/* Delete account is the only critical-coloured thing in the app —
-          `tone="accent"` here is the one oxblood spend on the whole page.
+ `tone="accent"` here is the one oxblood spend on the whole page.
           Tapping it jumps to the PS-02 tab, where the real confirmation
           card lives. */}
       <Card className="mt-6">
@@ -347,10 +347,10 @@ function HandleStrip({
 // enforces (`20260807110000_profile_avatars_and_bio_length`), read from
 // `mutations.ts`, never retyped as a bare number here.
 const BIO_SEED =
-  'Denim in winter, linen in summer, and a soft spot for a good boot. I mostly ' +
-  'dress for whatever the weather is doing to my mood that morning, which is ' +
-  'to say: rarely for the occasion on the invite, and always for comfort ' +
-  'first, structure second, colour a distant third.';
+ 'Denim in winter, linen in summer, and a soft spot for a good boot. I mostly ' +
+ 'dress for whatever the weather is doing to my mood that morning, which is ' +
+ 'to say: rarely for the occasion on the invite, and always for comfort ' +
+ 'first, structure second, colour a distant third.';
 
 function EP02() {
   const theme = useTheme();
@@ -418,7 +418,7 @@ function EP03() {
       <Text variant="body" className="text-muted">
         Library → square crop in one sheet, no full-screen takeover. Uploads
         at 1024×1024; a failure keeps the old photo and says so — see
-        `avatar-crop-sheet.tsx`&rsquo;s own `failed` state for that copy,
+ `avatar-crop-sheet.tsx`&rsquo;s own `failed` state for that copy,
         which only a real `ImageManipulator` error can trigger.
       </Text>
       <Button
@@ -460,7 +460,7 @@ export default function DevAccountScreen() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );

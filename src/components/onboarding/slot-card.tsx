@@ -38,7 +38,7 @@ export function SlotCard({
   const canSkip = slot.kind !== 'bag' && Boolean(onSkip);
 
   return (
-    <View className="rounded-md border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
+    <View className="rounded-md border border-rule bg-surface p-4">
       <Text
         style={{
           fontSize: 11,
@@ -56,7 +56,7 @@ export function SlotCard({
           {copy.title}
         </Text>
       </View>
-      <Text variant="callout" className="text-muted dark:text-muted-dark">
+      <Text variant="callout" className="text-muted">
         {copy.body}
       </Text>
       <View className="mt-3.5 flex-row gap-2.5">

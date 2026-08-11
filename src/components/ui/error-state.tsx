@@ -92,7 +92,7 @@ export function ErrorState({
         </Text>
       </View>
 
-      <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-4 text-muted">
         {body}
       </Text>
 

@@ -71,14 +71,14 @@ export function RepeatExhausted({
   const dayNumber = since ? Math.max(1, daysBetween(since, now) + 1) : null;
 
   return (
-    <View className="mx-gutter mt-4 rounded-plate border border-rule bg-surface p-4 dark:border-rule-dark dark:bg-surface-dark">
+    <View className="mx-gutter mt-4 rounded-plate border border-rule bg-surface p-4">
       {dayNumber != null ? (
         <Text variant="eyebrow" className="mb-1.5">
           {`Day ${dayNumber}`}
         </Text>
       ) : null}
       <Text variant="title">You&rsquo;ve now worn all {total}.</Text>
-      <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2.5 text-muted">
         Every outfit your closet makes has been out at least once. From here Cinch is choosing
         between things you&rsquo;ve already worn — that&rsquo;s the shape of a small closet, not a
         fault in your clothes.
@@ -122,7 +122,7 @@ export function RepeatExhausted({
             One more piece would give you {gap.gain} outfit{gap.gain === 1 ? '' : 's'} you&rsquo;ve
             never worn.
           </Text>
-          <Text variant="callout" className="mt-1.5 text-muted dark:text-muted-dark">
+          <Text variant="callout" className="mt-1.5 text-muted">
             A {ordinalWord(currentCountOfKind + 1)} {KIND_LABEL[gap.kind]} is the biggest change
             your closet could make — {total} to {gap.total}.
           </Text>

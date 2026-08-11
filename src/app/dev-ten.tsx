@@ -30,14 +30,14 @@ import { useTheme } from '@/theme/tokens';
 export default function DevTenScreen() {
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       {/* A plain ScrollView would fight the T-03/T-04/T-06 sub-screens'
           own SafeAreaViews; each state below manages its own scroll. */}
       <View style={{ flex: 1 }}>
@@ -99,7 +99,7 @@ function PageT01() {
           0 of 10
         </Text>
       </View>
-      <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2 text-muted">
         Ten pieces is enough for Cinch to style you properly. Photograph these, in any order.
       </Text>
       <View className="mt-3">
@@ -125,7 +125,7 @@ function PageT02() {
           {`${slots.filter((s) => s.status === 'filled').length} of 10`}
         </Text>
       </View>
-      <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2 text-muted">
         Six to go. Nothing here is final — you can swap any piece later.
       </Text>
       <View className="mt-3">
@@ -200,7 +200,7 @@ function PageT05() {
         </Text>
         <Text variant="label">9 of 10</Text>
       </View>
-      <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2 text-muted">
         One left. Cinch can&rsquo;t style you until the bag is in — every outfit it builds
         finishes with one.
       </Text>

@@ -113,10 +113,10 @@ export function ItemEditSheet({
         <Animated.View
           accessibilityViewIsModal
           style={[sheetStyle, { marginBottom: Math.max(insets.bottom, 10) + 10 }]}
-          className="mx-2.5 overflow-hidden rounded-plate bg-canvas dark:bg-canvas-dark">
+          className="mx-2.5 overflow-hidden rounded-plate bg-canvas">
           <View className="px-5 pt-5">
             <Text variant="title">Edit this piece</Text>
-            <Text variant="label" className="mt-2.5 text-muted dark:text-muted-dark">
+            <Text variant="label" className="mt-2.5 text-muted">
               The name is what the closet, the rails and the plans call it. The price is what
               cost per wear is computed from.
             </Text>
@@ -140,7 +140,7 @@ export function ItemEditSheet({
             <View className="h-2.5" />
 
             <Field label="Paid">
-              <Text variant="callout" className="text-faint dark:text-faint-dark">
+              <Text variant="callout" className="text-faint">
                 $
               </Text>
               <TextInput
@@ -163,7 +163,7 @@ export function ItemEditSheet({
             <Text
               variant="label"
               accessibilityLiveRegion="polite"
-              className="px-5 pt-3 text-critical dark:text-critical">
+              className="px-5 pt-3 text-critical">
               {error}
             </Text>
           ) : null}
@@ -177,7 +177,7 @@ export function ItemEditSheet({
               onPress={onCancel}
               style={{ height: 48 }}
               className="items-center justify-center active:opacity-60">
-              <Text variant="callout" className="text-muted dark:text-muted-dark">
+              <Text variant="callout" className="text-muted">
                 Cancel
               </Text>
             </Pressable>
@@ -196,7 +196,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
         {label}
       </Text>
       <View
-        className="flex-row items-center rounded-md border border-rule px-3 dark:border-rule-dark"
+        className="flex-row items-center rounded-md border border-rule px-3"
         style={{ minHeight: MIN_TAP_TARGET }}>
         {children}
       </View>

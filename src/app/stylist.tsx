@@ -171,9 +171,9 @@ export default function StylistScreen() {
    *     the first.
    *   - `!questionnaire.active` looked like the guard against exactly that and
    *     was not, because `useQuestionnaire.answer` calls `commit(null)` BEFORE
-   *     `onComplete`, deliberately (so the last chip row cannot render over the
+   * `onComplete`, deliberately (so the last chip row cannot render over the
    *     message it produced). `active` is therefore already false by the time
-   *     `ask()` mounts those two bubbles. It is also redundant now: a flow can
+   * `ask()` mounts those two bubbles. It is also redundant now: a flow can
    *     only be started from the opening, which requires an empty thread.
    *
    * So the test is a settled assistant turn — pending is the only state that
@@ -199,7 +199,7 @@ export default function StylistScreen() {
   // centres in, which is why it needs no wrapper.
   if (wardrobe.isError) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['bottom']}>
         <StylistHeader />
         <ClosetDidntLoad onRetry={() => void wardrobe.refetch()} retrying={wardrobe.isRefetching} />
       </SafeAreaView>
@@ -210,7 +210,7 @@ export default function StylistScreen() {
   // subline, and the four doors — as bars, in their own places.
   if (wardrobe.isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['bottom']}>
         <StylistHeader />
         <OpeningSkeleton />
       </SafeAreaView>
@@ -221,7 +221,7 @@ export default function StylistScreen() {
   // note above. Copy and composition are S-09's, in stylist-states.tsx.
   if (!canGenerate(items)) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['bottom']}>
         <StylistHeader />
         <ClosetTooSmall onAddClothes={() => router.push('/add-clothes')} />
       </SafeAreaView>
@@ -229,7 +229,7 @@ export default function StylistScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['bottom']}>
       <KeyboardAvoidingScreen className="flex-1">
         <StylistHeader onNewQuestion={messages.length > 0 ? startNewQuestion : undefined} />
 
@@ -291,10 +291,10 @@ export default function StylistScreen() {
             <View>
               {/* `flush` — and ONLY here. The atlas puts 12 between the current
                   question and its answers (S-02, S-03), which is what
-                  `AnswerGrid` carries; this bubble's own 16pt bottom margin
+ `AnswerGrid` carries; this bubble's own 16pt bottom margin
                   would stack on top of it, because React Native does not
                   collapse margins, and draw 28. The replayed turns above take no
-                  `flush`: their 16/18 rhythm is the transcript's own, and it is
+ `flush`: their 16/18 rhythm is the transcript's own, and it is
                   what makes a scripted pair read like a model one. */}
               <MessageBubble
                 message={scriptTurn('q-current', 'assistant', questionnaire.step.question)}
@@ -321,7 +321,7 @@ export default function StylistScreen() {
 
         {/* On the gate: see `hasSettledAnswer` above — S-04 draws no chip row,
             S-05 and S-06 both do. The row's own geometry, and the fact that a
-            chip's label and the sentence it sends are different strings, live
+ chip's label and the sentence it sends are different strings, live
             in `RefinementRow`. */}
         {hasSettledAnswer ? <RefinementRow onRefine={submit} /> : null}
 

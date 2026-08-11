@@ -52,7 +52,7 @@ export function TaggingHeader({ item, imageUri }: { item: Item; imageUri?: strin
   return (
     <View className="mt-2">
       <View className="flex-row items-start gap-4">
-        <View className="h-[156px] w-[120px] overflow-hidden rounded-md bg-tray dark:bg-tray-dark">
+        <View className="h-[156px] w-[120px] overflow-hidden rounded-md bg-tray">
           {photoSource ? (
             <Image
               source={photoSource}

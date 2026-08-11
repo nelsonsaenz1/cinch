@@ -38,7 +38,7 @@ export function Swatch({ hex, imageSource, size, shape = 'circle', selected = fa
         // The rule border is part of the cluster's geometry (the atlas draws
         // every 16px cell with it) — a pale garment on canvas has no edge at
         // all without one.
-        className="overflow-hidden rounded-sm bg-tray dark:bg-tray-dark"
+        className="overflow-hidden rounded-sm bg-tray"
         style={{ width: size, height: size, borderWidth: 1, borderColor: theme.rule }}>
         {hex ? (
           <View style={{ flex: 1, backgroundColor: hex }} />

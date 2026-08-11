@@ -59,8 +59,8 @@ export function InviteFriendRow({
         .join(', ')}
       style={{ minHeight: ROW_HEIGHT, backgroundColor: checked ? theme.blush : 'transparent' }}
       className={[
-        'flex-row items-center gap-3 px-4',
-        isLast ? '' : 'border-b border-hairline dark:border-hairline-dark',
+ 'flex-row items-center gap-3 px-4',
+        isLast ? '' : 'border-b border-hairline',
         row.selectable ? 'active:opacity-70' : '',
       ].join(' ')}>
       <Avatar name={row.name} size={38} />

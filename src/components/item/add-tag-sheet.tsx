@@ -94,11 +94,11 @@ export function AddTagSheet({ visible, initial, onSave, onCancel, busy = false }
 
         <View
           accessibilityViewIsModal
-          className="mx-2.5 overflow-hidden rounded-plate bg-canvas dark:bg-canvas-dark"
+          className="mx-2.5 overflow-hidden rounded-plate bg-canvas"
           style={{ marginBottom: Math.max(insets.bottom, 10) + 10, maxHeight: '82%' }}>
           <View className="px-5 pt-5">
             <Text variant="title">Tag this piece</Text>
-            <Text variant="label" className="mt-2.5 text-muted dark:text-muted-dark">
+            <Text variant="label" className="mt-2.5 text-muted">
               What it suits, and when you reach for it. These are the same words the planner reads.
             </Text>
           </View>
@@ -168,7 +168,7 @@ export function AddTagSheet({ visible, initial, onSave, onCancel, busy = false }
               onPress={onCancel}
               style={{ height: 48 }}
               className="items-center justify-center active:opacity-60">
-              <Text variant="callout" className="text-muted dark:text-muted-dark">
+              <Text variant="callout" className="text-muted">
                 Cancel
               </Text>
             </Pressable>

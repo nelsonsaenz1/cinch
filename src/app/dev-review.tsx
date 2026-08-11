@@ -168,7 +168,7 @@ export default function DevReviewScreen() {
     : null;
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <SafeAreaView className="flex-1 bg-canvas">
       <View className="flex-row items-center justify-end px-gutter pt-2">
         <Button title={done ? 'Done' : 'Close'} variant="ghost" onPress={() => {}} />
       </View>
@@ -184,7 +184,7 @@ export default function DevReviewScreen() {
             {Array.from({ length: total }).map((_, i) => (
               <View
                 key={i}
-                className={`h-1 rounded-full ${i === current ? 'bg-ink dark:bg-ink-dark' : 'bg-sand dark:bg-sand-dark'}`}
+                className={`h-1 rounded-full ${i === current ? 'bg-ink' : 'bg-sand'}`}
                 style={{ flex: 1, maxWidth: 16 }}
               />
             ))}

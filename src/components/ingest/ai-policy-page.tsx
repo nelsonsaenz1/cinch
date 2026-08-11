@@ -41,7 +41,7 @@ export function AiPolicyPage({ onBack }: { onBack: () => void }) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View className="flex-1 bg-canvas dark:bg-canvas-dark" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-canvas" style={{ paddingTop: insets.top }}>
       {/* Nav row — the circular back disc every pushed page carries, with the
           serif wordmark centred between it and a matching spacer. */}
       <View className="flex-row items-center justify-between px-gutter pt-2">
@@ -61,7 +61,7 @@ export function AiPolicyPage({ onBack }: { onBack: () => void }) {
           {SECTIONS.map(({ eyebrow, body }, index) => (
             <View
               key={eyebrow}
-              className={index === 0 ? '' : 'mt-6 border-t border-rule pt-6 dark:border-rule-dark'}>
+              className={index === 0 ? '' : 'mt-6 border-t border-rule pt-6'}>
               <Text variant="eyebrow">{eyebrow}</Text>
               {/* Tone as an inline style, not a stacked `text-muted` — same
                   precedence hazard as the sheet's lede. */}
@@ -75,7 +75,7 @@ export function AiPolicyPage({ onBack }: { onBack: () => void }) {
         {/* The caveat, in a filled card rather than another hairline section:
             it is the one sentence here that qualifies a promise, so it sits
             visually apart from the four flat statements above it. */}
-        <View className="mt-7 rounded-lg bg-sand p-4 dark:bg-sand-dark">
+        <View className="mt-7 rounded-lg bg-sand p-4">
           <Text variant="label" className="font-body" style={{ color: theme.muted }}>
             Turning tagging off later stops new photos being sent. It doesn’t un-send old ones — but
             you can delete any item, and its photo and tags go with it.

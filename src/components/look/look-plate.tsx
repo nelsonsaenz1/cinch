@@ -62,18 +62,18 @@ export function LookPlate({
   const cellSize = (inner - gap * (columns - 1)) / columns;
 
   if (pieces.length === 0 || cellSize <= 0) {
-    return <View style={{ width, height: width }} className="rounded-lg bg-tray dark:bg-tray-dark" />;
+    return <View style={{ width, height: width }} className="rounded-lg bg-tray" />;
   }
 
   return (
     <View
-      className="rounded-lg bg-tray dark:bg-tray-dark"
+      className="rounded-lg bg-tray"
       style={{ width, padding, flexDirection: 'row', flexWrap: 'wrap', gap }}>
       {cells.map((cell) =>
         cell.kind === 'garment' ? (
           <View
             key={cell.garment.id}
-            className="overflow-hidden rounded-md bg-surface dark:bg-surface-dark"
+            className="overflow-hidden rounded-md bg-surface"
             style={{ width: cellSize, height: cellSize }}>
             <GarmentCell
               garment={cell.garment}
@@ -87,7 +87,7 @@ export function LookPlate({
         ) : (
           <View
             key="more"
-            className="items-center justify-center overflow-hidden rounded-md bg-surface dark:bg-surface-dark"
+            className="items-center justify-center overflow-hidden rounded-md bg-surface"
             style={{ width: cellSize, height: cellSize }}>
             {/* `muted`, not `faint`: this is a real count of the user's own
                 garments, and the contrast refusal applies to it like any other

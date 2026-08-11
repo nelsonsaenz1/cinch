@@ -291,8 +291,9 @@ export default function RootLayout() {
         {/*
           Pinned to light, not read from `useColorScheme`. The app declares
           `userInterfaceStyle: 'light'` (app.config.ts) and the palette has one
-          set of values — the `dark:` halves in tailwind.config.js are the same
-          hexes as the light ones. Branching on the system scheme therefore
+          set of values. The `dark:` halves in tailwind.config.js held the same
+          hexes as the light ones and were removed by audit item 51; the
+          variant could never match anyway. Branching on the system scheme
           bought nothing and cost a real bug on a device set to Dark: expo-
           router's DarkTheme paints its own near-black under every navigator,
           which shows through as a dark flash between screens and behind the

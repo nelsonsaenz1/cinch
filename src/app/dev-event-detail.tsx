@@ -123,11 +123,11 @@ const nameOf = (userId: string) =>
 
 function Frame({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View className="mb-8 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
-      <View className="border-b border-rule bg-tray px-4 py-2 dark:border-rule-dark dark:bg-tray-dark">
+    <View className="mb-8 overflow-hidden rounded-plate border border-rule">
+      <View className="border-b border-rule bg-tray px-4 py-2">
         <Text variant="colophon">{title}</Text>
       </View>
-      <View className="bg-canvas p-4 dark:bg-canvas-dark">{children}</View>
+      <View className="bg-canvas p-4">{children}</View>
     </View>
   );
 }
@@ -150,7 +150,7 @@ type StateId = (typeof STATES)[number]['id'];
 export default function DevEventDetailScreen() {
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
@@ -164,8 +164,8 @@ function DevEventDetailInner() {
   const [confirmKind, setConfirmKind] = useState<'cancel' | 'leave' | 'remove' | null>(null);
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
-      <View className="border-b border-rule px-gutter py-3 dark:border-rule-dark">
+    <SafeAreaView className="flex-1 bg-canvas">
+      <View className="border-b border-rule px-gutter py-3">
         <Text variant="title" trim>
           Event Detail
         </Text>
@@ -379,7 +379,7 @@ function DevEventDetailInner() {
                     {label}
                   </Text>
                   {note ? (
-                    <View className="rounded-plate bg-tray p-4 dark:bg-tray-dark">
+                    <View className="rounded-plate bg-tray p-4">
                       <Text variant="body">{note}</Text>
                     </View>
                   ) : (

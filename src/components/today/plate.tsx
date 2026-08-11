@@ -47,7 +47,7 @@ import { MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
  * same way without pulling in the rest of the plate.
  */
 export const LAYOUT_ORDER: Garment['slot'][] = [
-  'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
+ 'outerwear', 'mid_layer', 'base_top', 'dress', 'bottom', 'footwear', 'bag', 'accessory', 'headwear',
 ];
 
 /** Context the colophon prints. Everything optional; missing fields drop out. */
@@ -281,7 +281,7 @@ function GarmentStack({
               shadowOffset: { width: CONTACT.dx, height: CONTACT.dy },
             }}>
             <View
-              className="h-full w-full overflow-hidden border border-hairline dark:border-hairline-dark"
+              className="h-full w-full overflow-hidden border border-hairline"
               style={{ borderRadius: TILE_RADIUS, backgroundColor: theme.tray }}>
               <GarmentCell
                 garment={piece.garment}
@@ -365,7 +365,7 @@ function WearButton({
       }}
       style={{ minHeight: MIN_TAP_TARGET - 4 }}
       className={[
-        'flex-none items-center justify-center rounded-md px-4 active:opacity-70',
+ 'flex-none items-center justify-center rounded-md px-4 active:opacity-70',
         worn ? 'bg-ink' : 'border border-rule',
         wearing ? 'opacity-40' : '',
       ].join(' ')}>
@@ -581,7 +581,7 @@ export function Plate({
 
   return (
     <View className="mb-section px-gutter">
-      <View className="rounded-plate border border-rule bg-surface p-3.5 dark:border-rule-dark dark:bg-surface-dark">
+      <View className="rounded-plate border border-rule bg-surface p-3.5">
         {/* Long-press the visual → the 1080×1920 artifact. The share target is
             the card's editorial half only; the action pills below stay tappable
             and the card carries no share chrome of its own.
@@ -624,7 +624,7 @@ export function Plate({
           ) : null}
 
           {!offline && outfit.reasoning ? (
-            <Text variant="callout" className="mt-2 text-muted dark:text-muted-dark">
+            <Text variant="callout" className="mt-2 text-muted">
               {outfit.reasoning}
             </Text>
           ) : null}
@@ -643,7 +643,7 @@ export function Plate({
 
           {/* ── The credit line. The row of per-cell captions the flat-lay used
                  to carry has nowhere to sit under overlapping pieces, so the
-                 engine's own name for each garment is set once, in order, the
+ engine's own name for each garment is set once, in order, the
                  way a lookbook credits a shot. ── */}
           <View className="mt-2.5 flex-row items-baseline justify-between gap-3">
             <Text variant="caption" numberOfLines={2} className="flex-1">
@@ -657,7 +657,7 @@ export function Plate({
         </Pressable>
 
         {!offline && outfit.swapNote ? (
-          <View className="mt-3 flex-row gap-2 rounded-md border border-hairline p-3 dark:border-hairline-dark">
+          <View className="mt-3 flex-row gap-2 rounded-md border border-hairline p-3">
             <SymbolView
               name="arrow.triangle.2.circlepath"
               size={14}
@@ -691,8 +691,8 @@ export function Plate({
           /* ── Offline footer: where the look came from, and what it costs to
                 wear. No palette row — the swatches are a styling argument, and
                 offline the card is a record, not an argument. ── */
-          <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3 dark:border-rule-dark">
-            <Text variant="callout" className="text-muted dark:text-muted-dark">
+          <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3">
+            <Text variant="callout" className="text-muted">
               Saved for offline
             </Text>
             <Text
@@ -710,7 +710,7 @@ export function Plate({
                    that number too now — what they don't have is a look their
                    friends actually voted on, from a closet those friends can
                    see is real. ── */}
-            <View className="mt-3 flex-row items-center justify-between border-t border-rule pt-2.5 dark:border-rule-dark">
+            <View className="mt-3 flex-row items-center justify-between border-t border-rule pt-2.5">
               <View className="flex-1 flex-row items-center gap-2">
                 <Text variant="eyebrow">Palette</Text>
                 <View className="flex-row items-center gap-1.5">
@@ -764,7 +764,7 @@ export function Plate({
               {/* A failed wear is the one thing on this card that must not go
                   quiet: `wear_count` and cost-per-wear are the numbers the
                   product is about. Full width, in the grammar the reaction
-                  bar's own failure used to use, so the retry is unmissable. */}
+ bar's own failure used to use, so the retry is unmissable. */}
                 {wearFailed ? (
                   <Pressable
                     accessibilityRole="button"

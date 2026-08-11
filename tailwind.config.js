@@ -25,12 +25,12 @@ module.exports = {
       colors: {
         // Surfaces — warm paper, warm ink. Canvas is the page; surface is a
         // card lifted off it; tray is the recessed well a garment sits in.
-        canvas: { DEFAULT: '#FBFAF6', dark: '#FBFAF6' },
-        surface: { DEFAULT: '#FFFFFF', dark: '#FFFFFF' },
-        tray: { DEFAULT: '#F0ECE3', dark: '#F0ECE3' },
+        canvas: { DEFAULT: '#FBFAF6' },
+        surface: { DEFAULT: '#FFFFFF' },
+        tray: { DEFAULT: '#F0ECE3' },
         // The deepest sand, for a tile that needs to sit BACK from the tray
         // without becoming a border (progress tracks, selected fills).
-        sand: { DEFAULT: '#EAE5DB', dark: '#EAE5DB' },
+        sand: { DEFAULT: '#EAE5DB' },
 
         // Type. Ink is a warm near-black (not a true black): on warm paper a
         // neutral black reads cold and hard, and this brown-black keeps the
@@ -38,25 +38,25 @@ module.exports = {
         // body-secondary — and, since the 2026-08-06 contrast pass, the tone
         // eyebrows and colophons are set in. `faint` fails AA as text on
         // canvas (3.5:1): reserve it for decorative marks and dark grounds.
-        ink: { DEFAULT: '#1C1A16', dark: '#1C1A16' },
-        muted: { DEFAULT: '#6B665C', dark: '#6B665C' },
-        faint: { DEFAULT: '#8A8578', dark: '#8A8578' },
+        ink: { DEFAULT: '#1C1A16' },
+        muted: { DEFAULT: '#6B665C' },
+        faint: { DEFAULT: '#8A8578' },
         // One step lighter than `faint` — the Lately ledger's attribution
         // voice: whose piece a row is, the elapsed mark beside it, the chevron
         // that points away. Credit lines, never body copy; the same AA caveat
         // as `faint` applies, harder.
-        byline: { DEFAULT: '#A29C90', dark: '#A29C90' },
+        byline: { DEFAULT: '#A29C90' },
         // Lighter again than `byline` — the Plan atlas's example-content
         // voice: the ghost weekday, the ghost trip label, the placeholder
         // date on an example card. Content that is explicitly NOT the user's
         // data, so it must read as furniture even at a glance; never used for
         // anything real, so the AA caveat is moot by construction.
-        ghost: { DEFAULT: '#C7C1B4', dark: '#C7C1B4' },
+        ghost: { DEFAULT: '#C7C1B4' },
         // Divider between list rows — a whisper. `rule` is a touch stronger,
         // for the card borders and section rules that carry the plate grammar.
         // Both are warm ink at low alpha so they composite over canvas and tray.
-        hairline: { DEFAULT: 'rgba(28,26,22,0.09)', dark: 'rgba(28,26,22,0.09)' },
-        rule: { DEFAULT: 'rgba(28,26,22,0.12)', dark: 'rgba(28,26,22,0.12)' },
+        hairline: { DEFAULT: 'rgba(28,26,22,0.09)' },
+        rule: { DEFAULT: 'rgba(28,26,22,0.12)' },
         // The answered-field border, and nothing else. The New Occasion atlas
         // states the rule in prose — "Answered fields darken their border
         // rather than growing a checkmark" — so a field's own progress is
@@ -65,27 +65,26 @@ module.exports = {
         // cursor. It is a designed state, which is why it earns a token
         // instead of a literal alpha. Not a divider: a row rule drawn this
         // hard stops reading as a rule and starts reading as a box.
-        'rule-strong': { DEFAULT: 'rgba(28,26,22,0.28)', dark: 'rgba(28,26,22,0.28)' },
+        'rule-strong': { DEFAULT: 'rgba(28,26,22,0.28)' },
 
         // The accent — oxblood. One primary action per screen.
         accent: {
           DEFAULT: '#6E2B2B',
           hover: '#8A3A35',
-          light: '#F1E7E4',
-          dark: '#6E2B2B',
+          light: '#F1E7E4'
         },
         // The second accent. Warm clay, for the places where oxblood would read
         // as an error or a link — data highlights, the warm half of a chart.
-        'accent-warm': { DEFAULT: '#B08A76', hover: '#9C7460', dark: '#B08A76' },
+        'accent-warm': { DEFAULT: '#B08A76', hover: '#9C7460' },
         // The warm rose surface — accentWarm composited over tray. It marks the
         // one card on a page that belongs to the reader ("Your look" on an
         // event). `blush-rule` is its hairline; a plain `rule` over blush goes
         // grey and kills the warmth. Spend it like the accent: one per screen.
-        blush: { DEFAULT: '#F7EDE8', dark: '#F7EDE8' },
-        'blush-rule': { DEFAULT: 'rgba(176,138,118,0.45)', dark: 'rgba(176,138,118,0.45)' },
+        blush: { DEFAULT: '#F7EDE8' },
+        'blush-rule': { DEFAULT: 'rgba(176,138,118,0.45)' },
         // The one dimming value — sheet backdrops and gradients over garment
         // photography. Warm ink at 40%, never a neutral black.
-        scrim: { DEFAULT: 'rgba(28,26,22,0.40)', dark: 'rgba(28,26,22,0.40)' },
+        scrim: { DEFAULT: 'rgba(28,26,22,0.40)' },
 
         // Semantic — used sparingly; never as decoration. Warmed to sit on
         // paper; oxblood already owns "attention", so critical is a distinct,

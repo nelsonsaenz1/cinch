@@ -177,12 +177,12 @@ function CropStage({
   // no four-rectangle seams. Ink at 55% per the atlas — derived from the
   // token, not retyped.
   const maskPath =
-    `M0 0H${VIEWPORT}V${VIEWPORT}H0Z` +
-    `M${cx - radius} ${cx}a${radius} ${radius} 0 1 0 ${radius * 2} 0` +
-    `a${radius} ${radius} 0 1 0 ${-radius * 2} 0Z`;
+ `M0 0H${VIEWPORT}V${VIEWPORT}H0Z` +
+ `M${cx - radius} ${cx}a${radius} ${radius} 0 1 0 ${radius * 2} 0` +
+ `a${radius} ${radius} 0 1 0 ${-radius * 2} 0Z`;
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       {/* Gesture handlers do not see touches inside a nested Modal without
           their own root view. */}
       <GestureHandlerRootView style={{ flex: 1 }}>
@@ -197,7 +197,7 @@ function CropStage({
               accessibilityState={{ disabled: busy }}
               style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
               className={`active:opacity-60 ${busy ? 'opacity-30' : ''}`}>
-              <Text variant="label" style={{ fontSize: 15, lineHeight: 20 }} className="text-muted dark:text-muted-dark">
+              <Text variant="label" style={{ fontSize: 15, lineHeight: 20 }} className="text-muted">
                 Back
               </Text>
             </Pressable>

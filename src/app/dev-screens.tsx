@@ -12,23 +12,23 @@ export default function DevScreens() {
   const theme = useTheme();
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScrollView contentContainerClassName="px-gutter pb-16">
         <Text variant="title" className="mt-2">
           Charcoal wool coat
         </Text>
-        <Text variant="label" className="mt-1 text-faint dark:text-faint-dark">
+        <Text variant="label" className="mt-1 text-faint">
           Owned since Oct 2023
         </Text>
 
-        <View className="mt-6 overflow-hidden rounded-plate border border-rule dark:border-rule-dark">
+        <View className="mt-6 overflow-hidden rounded-plate border border-rule">
           <View className="flex-row">
             <Box value="42×" label="Worn" edge="rb" />
             <Box value="$197" label="Paid" edge="b" />
@@ -57,7 +57,7 @@ export default function DevScreens() {
           <View className="flex-row items-center gap-2.5">
             <View className="h-6 w-6 rounded-full border border-rule" style={{ backgroundColor: '#3A3A38' }} />
             <View className="h-6 w-6 rounded-full border border-rule" style={{ backgroundColor: '#1C1A16' }} />
-            <Text variant="label" className="text-muted dark:text-muted-dark">
+            <Text variant="label" className="text-muted">
               Charcoal · Ink
             </Text>
           </View>
@@ -66,9 +66,9 @@ export default function DevScreens() {
         <View style={{ marginTop: 32 }} />
 
         {/* Nothing-works card */}
-        <View className="rounded-plate border border-rule bg-surface p-5 dark:border-rule-dark dark:bg-surface-dark">
+        <View className="rounded-plate border border-rule bg-surface p-5">
           <Text variant="title">Nothing today feels right — and I won&apos;t pretend it does.</Text>
-          <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+          <Text variant="body" className="mt-3 text-muted">
             Cinch couldn&apos;t build an outfit that holds together from what&apos;s in your closet
             right now. One more layer, or a pair of shoes, usually unlocks it.
           </Text>
@@ -114,7 +114,7 @@ function Box({
   const theme = useTheme();
   const borders = `${edge.includes('r') ? 'border-r ' : ''}${edge.includes('b') ? 'border-b ' : ''}`;
   return (
-    <View className={`flex-1 p-4 ${borders}border-rule dark:border-rule-dark ${invert ? 'bg-ink' : ''}`}>
+    <View className={`flex-1 p-4 ${borders}border-rule ${invert ? 'bg-ink' : ''}`}>
       <Text variant="stat" className="text-figure" style={{ color: invert ? theme.canvas : theme.ink }}>
         {value}
       </Text>

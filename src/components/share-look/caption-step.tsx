@@ -44,7 +44,7 @@ export function CaptionStep({
   return (
     <View>
       <View
-        className="rounded-plate bg-surface dark:bg-surface-dark"
+        className="rounded-plate bg-surface"
         style={{ borderWidth: 1, borderColor: theme.rule, padding: 16 }}>
         <View className="flex-row" style={{ gap: 14 }}>
           <View style={{ width: 96, height: 96, flexShrink: 0 }}>
@@ -93,7 +93,7 @@ export function CaptionStep({
         <Text variant="eyebrow">Posting to</Text>
 
         <View
-          className="mt-2.5 flex-row items-center rounded-lg bg-surface dark:bg-surface-dark"
+          className="mt-2.5 flex-row items-center rounded-lg bg-surface"
           style={{ gap: 12, borderWidth: 1, borderColor: theme.rule, paddingVertical: 14, paddingHorizontal: 16 }}>
           <View className="flex-1">
             <Text variant="body" numberOfLines={1}>
@@ -106,7 +106,7 @@ export function CaptionStep({
         </View>
 
         <View
-          className="mt-2.5 flex-row items-center rounded-lg bg-surface dark:bg-surface-dark"
+          className="mt-2.5 flex-row items-center rounded-lg bg-surface"
           style={{ gap: 12, borderWidth: 1, borderColor: theme.rule, paddingVertical: 14, paddingHorizontal: 16 }}>
           <View className="flex-1">
             <Text variant="body">Also save to Lately</Text>

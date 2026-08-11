@@ -77,14 +77,14 @@ export default function DevShareScreen() {
 
   if (!__DEV__) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Not available.</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+    <SafeAreaView className="flex-1 bg-canvas">
       <ScrollView contentContainerClassName="items-center gap-6 py-6">
         {/* SC-01, the reference state the atlas PNG prints. 22°C is 72°F, so
             the signature has to read "FEELS 72°F" — if it doesn't, the card
@@ -93,7 +93,7 @@ export default function DevShareScreen() {
             reference state is the one worth inspecting at full size. */}
         <Text variant="eyebrow">Five pieces, with weather</Text>
         {/* Border outside the ref so the review chrome never enters the capture. */}
-        <View className="border border-rule dark:border-rule-dark">
+        <View className="border border-rule">
           <View ref={cardRef} collapsable={false}>
             <PlateCard
               outfit={FIXTURE_OUTFIT}
@@ -110,7 +110,7 @@ export default function DevShareScreen() {
             placeholder; a dash is the app admitting it looked and found
             nothing, which is not a thing a lookbook card says. */}
         <Text variant="eyebrow">No weather</Text>
-        <View className="border border-rule dark:border-rule-dark">
+        <View className="border border-rule">
           <PlateCard
             outfit={FIXTURE_OUTFIT}
             occasion="dinner at 7"
@@ -120,7 +120,7 @@ export default function DevShareScreen() {
         </View>
 
         <Text variant="eyebrow">Long name</Text>
-        <View className="border border-rule dark:border-rule-dark">
+        <View className="border border-rule">
           <PlateCard
             outfit={FIXTURE_LONG_NAME}
             occasion="dinner at 7"
@@ -130,7 +130,7 @@ export default function DevShareScreen() {
         </View>
 
         <Text variant="eyebrow">Two pieces</Text>
-        <View className="border border-rule dark:border-rule-dark">
+        <View className="border border-rule">
           <PlateCard
             outfit={FIXTURE_TWO_PIECES}
             occasion="dinner at 7"
@@ -143,7 +143,7 @@ export default function DevShareScreen() {
             the gap but about every tile falling back to its swatch. An empty
             tile on this row is an empty tile a friend receives. */}
         <Text variant="eyebrow">No photographs</Text>
-        <View className="border border-rule dark:border-rule-dark">
+        <View className="border border-rule">
           <PlateCard
             outfit={FIXTURE_NO_PHOTOS}
             occasion="dinner at 7"

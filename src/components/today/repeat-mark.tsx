@@ -26,7 +26,7 @@ const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : 
  *                       Defends the suggestion rather than apologising for it.
  *   2+ previous wears — P-02: a panel naming every real date, the cause
  *                       stated before the door — "see plans" — is offered,
- *                       "show me another" sitting right beside it.
+ * "show me another" sitting right beside it.
  *
  * There is no third escalation. Three or more previous wears still renders
  * the same P-02 panel with all the real dates in it — "escalate once" means
@@ -66,7 +66,7 @@ export function RepeatMark({
           paddingVertical: 2,
         }}>
         <Text variant="body">You wore this on {weekdayName(register.lastWorn)}.</Text>
-        <Text variant="callout" className="mt-1 text-muted dark:text-muted-dark">
+        <Text variant="callout" className="mt-1 text-muted">
           Still the best fit your closet makes for today.
         </Text>
       </View>
@@ -83,7 +83,7 @@ export function RepeatMark({
         {capitalize(ordinalWord(register.occurrence))} time {describeSpan(first, now)} —{' '}
         {joinDates(dateParts)}.
       </Text>
-      <Text variant="callout" className="mt-1.5 text-muted dark:text-muted-dark">
+      <Text variant="callout" className="mt-1.5 text-muted">
         {pieceCount} pieces make {totalCores} outfits, and this one keeps winning. A larger
         closet is what ends the repetition.
       </Text>

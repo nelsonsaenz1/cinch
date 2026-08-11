@@ -105,8 +105,8 @@ export function ItemHero({ imageUri, label, onBack, onEdit, listing = false }: I
     <View
       className={
         listing
-          ? 'w-full overflow-hidden bg-surface p-5 dark:bg-surface-dark'
-          : 'w-full overflow-hidden bg-tray dark:bg-tray-dark'
+          ? 'w-full overflow-hidden bg-surface p-5'
+          : 'w-full overflow-hidden bg-tray'
       }
       style={{ aspectRatio: HERO_ASPECT }}>
       {source ? (
@@ -136,7 +136,7 @@ export function ItemHero({ imageUri, label, onBack, onEdit, listing = false }: I
       )}
 
       {/* Live immediately, per I-03's note: a person can leave a screen that
-          hasn't finished arriving. */}
+ hasn't finished arriving. */}
       <HeroDisc
         symbol="chevron.left"
         label="Back"

@@ -34,7 +34,7 @@ export function EmptyClosetPrompt({
       <Text variant="title" trim className="mt-2.5">
         Photograph one piece and you can post
       </Text>
-      <Text variant="body" className="mt-4 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-4 text-muted">
         The board is waiting on you, and it takes about a minute.
       </Text>
       <View className="mt-3.5 flex-row gap-2">
@@ -82,7 +82,7 @@ export function FailedDraftBanner({
       <Text variant="title" trim>
         It didn’t post
       </Text>
-      <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2 text-muted">
         The connection dropped. Your look is saved as a draft — nothing was typed twice.
       </Text>
       <View className="mt-3.5 flex-row gap-2">
@@ -123,7 +123,7 @@ export function TakeOffBoardConfirm({
       <Text variant="title" trim>
         Take it off the board?
       </Text>
-      <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2 text-muted">
         The picks and comments on it go too. The pieces stay in your closet.
       </Text>
       <View className="mt-4 flex-row gap-2">

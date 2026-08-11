@@ -132,12 +132,12 @@ export default function TheTenScreen() {
   // connection is the first minute of the app and has no way out of it.
   if (!slots && wardrobe.isError) {
     return (
-      <SafeAreaView className="flex-1 justify-center bg-canvas dark:bg-canvas-dark px-gutter">
+      <SafeAreaView className="flex-1 justify-center bg-canvas px-gutter">
         <View accessibilityRole="alert">
           <Text variant="title" trim>
             Couldn&rsquo;t read your closet
           </Text>
-          <Text variant="body" className="mt-3.5 text-muted dark:text-muted-dark">
+          <Text variant="body" className="mt-3.5 text-muted">
             Nothing you&rsquo;ve photographed is lost. Check your connection and try again.
           </Text>
           {/* Wrapper carries the offset: `Button` omits `style` from its props. */}
@@ -157,7 +157,7 @@ export default function TheTenScreen() {
 
   if (!slots) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
         <Text variant="label">Loading your closet…</Text>
       </SafeAreaView>
     );
@@ -198,7 +198,7 @@ export default function TheTenScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScrollView contentContainerClassName="px-gutter pb-8" keyboardShouldPersistTaps="handled">
         <View className="flex-row items-baseline justify-between pt-1">
           <Text variant="display" trim accessibilityRole="header">
@@ -211,7 +211,7 @@ export default function TheTenScreen() {
             {`${filled} of ${slots.length}`}
           </Text>
         </View>
-        <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+        <Text variant="body" className="mt-2 text-muted">
           {tenProgressLine(slots)}
         </Text>
 
@@ -251,7 +251,7 @@ export default function TheTenScreen() {
         <View className="items-center" style={{ marginTop: 28 }}>
           <Text
             variant="body"
-            className="text-muted dark:text-muted-dark"
+            className="text-muted"
             accessibilityRole="button"
             accessibilityHint="Describe your closet out loud instead of photographing it"
             onPress={() => router.push('/walkthrough')}>

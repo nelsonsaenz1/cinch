@@ -211,7 +211,7 @@ const weekRangeLabel = (() => {
 
 export default function DevPlanScreen() {
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="px-gutter pb-3 pt-2">
         <Text variant="display">Plan</Text>
       </View>
@@ -224,11 +224,11 @@ export default function DevPlanScreen() {
       <ScrollView contentContainerClassName="pb-10">
         <View className="mb-1 flex-row items-baseline justify-between px-gutter">
           <Text variant="title">This week</Text>
-          <Text variant="label" className="text-faint dark:text-faint-dark">
+          <Text variant="label" className="text-faint">
             {weekRangeLabel}
           </Text>
         </View>
-        <Text variant="label" className="mb-5 px-gutter text-accent dark:text-accent-dark">
+        <Text variant="label" className="mb-5 px-gutter text-accent">
           No piece worn more than twice
         </Text>
 

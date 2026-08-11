@@ -380,7 +380,7 @@ export default function ReviewScreen() {
     // version was a bare "Loading…" string — the one screen state the design
     // never drew, drawn now in the same grammar as the card it becomes.
     return (
-      <View className="flex-1 bg-canvas dark:bg-canvas-dark" style={frame}>
+      <View className="flex-1 bg-canvas" style={frame}>
         <View className="flex-row items-center justify-end px-gutter pt-2">
           <Button title="Close" variant="ghost" onPress={() => router.back()} />
         </View>
@@ -393,7 +393,7 @@ export default function ReviewScreen() {
             {[0, 1, 2].map((i) => (
               <View
                 key={i}
-                className="mb-3 border-b border-hairline pb-3 dark:border-hairline-dark">
+                className="mb-3 border-b border-hairline pb-3">
                 <Skeleton className="h-2.5 w-16 rounded-chip" />
                 <Skeleton
                   className="mt-2 h-4 rounded-chip"
@@ -412,7 +412,7 @@ export default function ReviewScreen() {
     // be read is not an empty queue, and saying so here is what keeps the
     // empty state's word good.
     return (
-      <View className="flex-1 bg-canvas dark:bg-canvas-dark" style={frame}>
+      <View className="flex-1 bg-canvas" style={frame}>
         <View className="flex-row items-center justify-end px-gutter pt-2">
           <Button title="Close" variant="ghost" onPress={() => router.back()} />
         </View>
@@ -475,12 +475,12 @@ export default function ReviewScreen() {
   const settled = deck.filter(isFullyTagged);
 
   return (
-    <View className="flex-1 bg-canvas dark:bg-canvas-dark" style={frame}>
+    <View className="flex-1 bg-canvas" style={frame}>
       {/*
         The deck is a fullScreenModal with no native header, so this ghost
         control stays as the only way out — dropping it would trap anyone who
         wants to finish reviewing later. It sits in its own slim row so it
-        doesn't compete with the colophon progress line below.
+ doesn't compete with the colophon progress line below.
 
         WHY THIS ONE IS NOT ALWAYS "DONE", unlike capture's (07a). The word
         changes because the state does: with cards left in the deck the review
@@ -523,7 +523,7 @@ export default function ReviewScreen() {
             {Array.from({ length: pipCount }).map((_, i) => (
               <View
                 key={i}
-                className={`h-1 rounded-full ${i === activePip ? 'bg-ink dark:bg-ink-dark' : 'bg-sand dark:bg-sand-dark'}`}
+                className={`h-1 rounded-full ${i === activePip ? 'bg-ink' : 'bg-sand'}`}
                 style={{ flex: 1, maxWidth: 16 }}
               />
             ))}
@@ -558,7 +558,7 @@ export default function ReviewScreen() {
             loading: unverify.isPending,
             onPress: () => void undoConfirm(undoItem),
             accessibilityHint:
-              'Puts the piece you just confirmed back in the deck, with any corrections you made.',
+ 'Puts the piece you just confirmed back in the deck, with any corrections you made.',
           }}
         />
       ) : null}
@@ -566,7 +566,7 @@ export default function ReviewScreen() {
       {/*
         The invitation to correct, aimed only where it belongs.
 
-        `gapsFor` reads what the tagger actually produced, so this line names the
+ `gapsFor` reads what the tagger actually produced, so this line names the
         rows with a hole in them and stays silent when there are none — a garment
         Cinch is sure about should read as a settled spec sheet to confirm, not
         as a form to fill in. Set as a caption because that is what the type
@@ -588,7 +588,7 @@ export default function ReviewScreen() {
           {/* `secondary`, not `ghost`. This is the shortcut that turns sixty
               gestures into one — the single most valuable control on the
               screen — and it was drawn in the register the app reserves for
-              "Close" and "Dismiss". It still isn't the oxblood primary: the
+ "Close" and "Dismiss". It still isn't the oxblood primary: the
               accent belongs to the Edit affordances inside the card. */}
           <Button
             title={`Confirm the ${settled.length} Cinch is sure about`}

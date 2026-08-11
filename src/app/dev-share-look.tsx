@@ -195,7 +195,7 @@ function FrameS01({ resolveFixtureImage }: { resolveFixtureImage: ResolveFixture
       <Text variant="title" trim>
         What are you wearing?
       </Text>
-      <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2.5 text-muted">
         Pick from your closet. Three to six pieces reads best on the board.
       </Text>
       <View className="mt-4">
@@ -221,7 +221,7 @@ function FrameS02({ resolveFixtureImage }: { resolveFixtureImage: ResolveFixture
       <Text variant="title" trim>
         The stack
       </Text>
-      <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2.5 text-muted">
         Drag to reorder. Top piece first — that’s what shows on the board.
       </Text>
       <View className="mt-4" onLayout={(e) => setPlateWidth(e.nativeEvent.layout.width)}>
@@ -249,7 +249,7 @@ function FrameS03({ resolveFixtureImage }: { resolveFixtureImage: ResolveFixture
       <Text variant="title" trim>
         Say what it is
       </Text>
-      <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2.5 text-muted">
         A name and a line. Both optional — the pieces already say most of it.
       </Text>
       <View className="mt-4">
@@ -287,12 +287,12 @@ function FrameS04({ resolveFixtureImage }: { resolveFixtureImage: ResolveFixture
       <Text variant="title" trim>
         Every option
       </Text>
-      <Text variant="body" className="mt-2.5 text-muted dark:text-muted-dark">
+      <Text variant="body" className="mt-2.5 text-muted">
         Yours is on the board. Four others to look at — illustrated (the live board is `outfits.tsx`).
       </Text>
       <View className="mt-5 flex-row gap-3">
         <View
-          className="overflow-hidden rounded-plate bg-surface dark:bg-surface-dark"
+          className="overflow-hidden rounded-plate bg-surface"
           style={{ width, borderWidth: 1, borderColor: theme.blushRule }}>
           <LookPlate pieces={stack} width={width} resolveImage={resolveFixtureImage} />
           <View className="p-4">
@@ -368,7 +368,7 @@ function FrameS05() {
 
       <View>
         <Text variant="colophon">Already posted — posting a second option</Text>
-        <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+        <Text variant="body" className="mt-3 text-muted">
           The same three steps, entered from “Share another.” Both looks sit on the board under
           your name; picks land on the look, not on you. Swapping a piece edits in place and
           keeps the picks, because the look is the same look. Replacing every piece is a new

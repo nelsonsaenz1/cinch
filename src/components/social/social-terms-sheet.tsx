@@ -62,12 +62,12 @@ export function SocialTermsSheet({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark">
+      <SafeAreaView className="flex-1 bg-canvas">
         <ScrollView contentContainerClassName="px-8 pb-8 pt-10">
           <Text variant="title" trim>
             Before you post
           </Text>
-          <Text variant="body" className="mt-3 text-muted dark:text-muted-dark">
+          <Text variant="body" className="mt-3 text-muted">
             Cinch&apos;s social side is small by design — friends you invited, events you joined.
             Four rules hold it together.
           </Text>
@@ -93,7 +93,7 @@ export function SocialTermsSheet({
           {/* The zero-tolerance clause, stated plainly. Guideline 1.2 asks for
               this sentence to exist; burying it in a linked PDF is what gets
               apps rejected. */}
-          <Text variant="body" className="mt-7 text-muted dark:text-muted-dark">
+          <Text variant="body" className="mt-7 text-muted">
             There is no tolerance for objectionable content or abusive users. Accounts that post it
             lose access to everything social in Cinch — their closet stays theirs.
           </Text>
@@ -117,7 +117,7 @@ export function SocialTermsSheet({
               accessibilityRole="link"
               onPress={() => void Linking.openURL(termsUrl)}
               className="mt-3">
-              <Text variant="label" className="text-center text-muted dark:text-muted-dark">
+              <Text variant="label" className="text-center text-muted">
                 Read the full terms
               </Text>
             </Pressable>
@@ -126,7 +126,7 @@ export function SocialTermsSheet({
           {/* Declining costs nothing that isn't social: the closet, the daily
               outfit and the stylist all keep working. Saying so here is what
               makes "Not now" a real option rather than a dead end. */}
-          <Text variant="label" className="mt-3 text-center text-muted dark:text-muted-dark">
+          <Text variant="label" className="mt-3 text-center text-muted">
             Your closet and your daily outfits work either way.
           </Text>
         </ScrollView>

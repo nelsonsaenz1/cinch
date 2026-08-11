@@ -66,7 +66,7 @@ const DRESS_CODES = ['Casual', 'Smart casual', 'Cocktail', 'Black tie'] as const
 
 /** A `YYYY-MM-DD` route param as a local calendar date, or null if malformed.
  *  Nothing passes this yet; the seam is kept because Plan's calendar is where
- *  "new occasion on this day" belongs when it ships. */
+ * "new occasion on this day" belongs when it ships. */
 function parseDateParam(raw: string | undefined): Date | null {
   if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
   const [y, m, d] = raw.split('-').map(Number);
@@ -193,7 +193,7 @@ export default function NewOccasionScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       {/* The header is local rather than `ScreenHeader`: the atlas draws a text
           Cancel where every other screen draws the circular back disc, and this
           is the one screen you leave by abandoning rather than by going back. */}
@@ -309,7 +309,7 @@ export default function NewOccasionScreen() {
             pins the button to the bottom of the frame, and a create button you
             have to scroll to find is a create button that looks conditional. */}
         <View
-          className="border-t border-hairline bg-canvas px-gutter pt-5 dark:border-hairline-dark dark:bg-canvas-dark"
+          className="border-t border-hairline bg-canvas px-gutter pt-5"
           style={{ paddingBottom: Math.max(insets.bottom, 20) }}>
           <Button
             title="Create occasion"
@@ -335,7 +335,7 @@ export default function NewOccasionScreen() {
           {create.isError && !termsBlocked ? (
             <FieldAlert>
               {socialDenialCopy(create.error) ??
-                'That didn’t save. Everything you typed is still here — check your connection and try again.'}
+ 'That didn’t save. Everything you typed is still here — check your connection and try again.'}
             </FieldAlert>
           ) : null}
         </View>

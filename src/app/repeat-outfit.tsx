@@ -122,7 +122,7 @@ export default function RepeatOutfitScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas dark:bg-canvas-dark" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="px-gutter pt-2">
         <Text variant="eyebrow">{`${weekdayName(now)} · the repeat you tapped`}</Text>
         <View style={{ marginTop: 6 }}>
@@ -131,14 +131,14 @@ export default function RepeatOutfitScreen() {
           </Text>
         </View>
         {body ? (
-          <Text variant="body" className="mt-2 text-muted dark:text-muted-dark">
+          <Text variant="body" className="mt-2 text-muted">
             {body}
           </Text>
         ) : null}
       </View>
 
       {pieces.length > 0 ? (
-        <View className="mx-gutter mt-4 rounded-plate border border-rule bg-surface p-3.5 dark:border-rule-dark dark:bg-surface-dark">
+        <View className="mx-gutter mt-4 rounded-plate border border-rule bg-surface p-3.5">
           <View
             style={{ width: '100%', aspectRatio: 1 / STACK_ASPECT }}
             accessible
@@ -187,7 +187,7 @@ export default function RepeatOutfitScreen() {
         </View>
       ) : (
         <View className="mx-gutter mt-6">
-          <Text variant="body" className="text-muted dark:text-muted-dark">
+          <Text variant="body" className="text-muted">
             This outfit isn&rsquo;t in your closet any more.
           </Text>
         </View>

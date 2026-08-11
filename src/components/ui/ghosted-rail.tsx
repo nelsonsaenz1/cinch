@@ -28,7 +28,7 @@ import { View } from 'react-native';
  *    stated in the design system's own vocabulary rather than invented.
  *
  * 2. **The photographs' backgrounds dissolve for free.** Every image in
- *    `assets/garments/` is a single garment on a near-white ground. Compositing
+ * `assets/garments/` is a single garment on a near-white ground. Compositing
  *    a near-white ground at 22% over sand lands a few points lighter than sand
  *    itself, so no photo rectangle is ever visible — only the garment's tonal
  *    mass, floating in the well. That is why no cutouts and no gradient scrim
@@ -156,7 +156,7 @@ export function GhostedRail() {
       {GHOSTS.map((ghost, i) => (
         <View
           key={i}
-          className="bg-sand dark:bg-sand-dark"
+          className="bg-sand"
           style={{
             width: CELL_W,
             height: CELL_H,

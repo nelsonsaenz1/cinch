@@ -40,7 +40,7 @@ function Well({
   const theme = useTheme();
   return (
     <View
-      className="overflow-hidden rounded-md border border-hairline bg-tray dark:border-hairline-dark dark:bg-tray-dark"
+      className="overflow-hidden rounded-md border border-hairline bg-tray"
       style={{ width, height }}>
       {imageUri ? (
         <Image
@@ -123,7 +123,7 @@ function RailCardComponent({ item, variant, imageUri, onPress }: RailCardProps) 
         <Well item={item} imageUri={imageUri} width={92} height={110} />
         {/* Name 11/500 in ink — `caption` is 11pt/HelveticaNeue-Medium; only the
             colour changes, per the file-wide override convention. */}
-        <Text variant="caption" numberOfLines={1} className="mt-[6px] text-ink dark:text-ink-dark">
+        <Text variant="caption" numberOfLines={1} className="mt-[6px] text-ink">
           {pieceName(item)}
         </Text>
         {neverWorn ? (
@@ -133,7 +133,7 @@ function RailCardComponent({ item, variant, imageUri, onPress }: RailCardProps) 
           <Text
             variant="colophon"
             numberOfLines={1}
-            className="mt-[2px] text-accent dark:text-accent-dark"
+            className="mt-[2px] text-accent"
             style={{ letterSpacing: 0.6 }}>
             Never worn
           </Text>

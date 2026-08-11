@@ -87,8 +87,8 @@ function NewAdditionRowComponent({ entry, owner, imageUri, onPress, isLast }: Ne
       disabled={!onPress}
       style={{ minHeight: MIN_TAP_TARGET }}
       className={[
-        'flex-row items-center gap-3.5 px-4 py-3.5 active:opacity-60',
-        isLast ? '' : 'border-b border-hairline dark:border-hairline-dark',
+ 'flex-row items-center gap-3.5 px-4 py-3.5 active:opacity-60',
+        isLast ? '' : 'border-b border-hairline',
       ].join(' ')}>
       {/* The well. `contain`, never `cover`: a cutout that has been scale-
           normalised by the ingest pipeline must not be cropped back out of
@@ -203,8 +203,8 @@ export function NewAdditionsSkeleton({ count = 4 }: { count?: number }) {
         <View
           key={i}
           className={[
-            'flex-row items-center gap-3.5 px-4 py-3.5',
-            i === count - 1 ? '' : 'border-b border-hairline dark:border-hairline-dark',
+ 'flex-row items-center gap-3.5 px-4 py-3.5',
+            i === count - 1 ? '' : 'border-b border-hairline',
           ].join(' ')}>
           {/* 120ms per row, per the atlas — the card reads as lines arriving
               in order rather than one graphic pulsing. */}
