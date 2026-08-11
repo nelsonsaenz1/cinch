@@ -65,6 +65,12 @@ export interface FriendItem {
   createdAt: string;
   wearCount: number;
   lastWornAt: string | null;
+  /** commerce-directive.md C-04 — whether this piece's OWNER has opted the
+   *  whole closet into "Find it" (C-05's `shoppable` flag). Whether the row
+   *  actually renders also depends on the VIEWER's own "Show where to buy"
+   *  preference (C-03), which this type does not carry — that lives on the
+   *  viewer's own profile and is read separately. */
+  shoppable: boolean;
 }
 
 const itemColorList = z.array(itemColor);
@@ -117,6 +123,7 @@ export function toFriendItem(row: FriendItemRow): FriendItem {
     createdAt: row.created_at,
     wearCount: row.wear_count,
     lastWornAt: row.last_worn_at,
+    shoppable: row.shoppable,
   };
 }
 

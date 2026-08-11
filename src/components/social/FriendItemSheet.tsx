@@ -1,11 +1,13 @@
 import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { friendPieceName } from '@/components/social/FriendItemCard';
 import { SheetOverlay } from '@/components/social/FriendOverflowSheet';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { PAID_LINK_LABEL } from '@/features/commerce/copy';
+import { useShowWhereToBuy } from '@/features/commerce/queries';
 import { wearsLabel } from '@/features/closet/item-name';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import type { FriendItem } from '@/features/social-graph/types';
@@ -16,6 +18,14 @@ import { useTheme } from '@/theme/tokens';
  * needs: what it is, how hard it has been worn, and whether it is free.
  * Price, receipts, storage status and notes never cross the privacy layer,
  * so this sheet does not even have the props to leak them.
+ *
+ * commerce-directive.md C-04 adds a fourth, conditional thing: "Find it",
+ * when — and only when — BOTH sides have opted in. `item.shoppable` is the
+ * OWNER's consent (C-05, `profiles.shoppable`, carried on `FriendItem` since
+ * 20260811150000); `showWhereToBuy` is the VIEWER's own preference (C-03) —
+ * the same switch that hides the Gap Feed's merchant rows on this device.
+ * Either one being off removes the row entirely; neither is a fact the other
+ * side ever learns from this sheet.
  */
 
 /**
@@ -52,10 +62,24 @@ export type FriendItemSheetProps = {
   onClose: () => void;
   /** Fires only from the borrowable branch — there is no other way to ask. */
   onAsk: (item: FriendItem) => void;
+  /** C-04 — fires only when the row is actually showing (both sides opted in). */
+  onFindIt: (item: FriendItem) => void;
 };
 
-export function FriendItemSheet({ item, ownerName, imageUri, onClose, onAsk }: FriendItemSheetProps) {
+export function FriendItemSheet({
+  item,
+  ownerName,
+  imageUri,
+  onClose,
+  onAsk,
+  onFindIt,
+}: FriendItemSheetProps) {
   const theme = useTheme();
+  // Only fetched while a piece is actually open — `enabled` on the hook's own
+  // query would need threading through; simpler to accept the one extra read
+  // each time the sheet opens; react-query's cache makes every open after the
+  // first free anyway.
+  const showWhereToBuy = useShowWhereToBuy();
 
   if (item === null) {
     return (
@@ -69,6 +93,10 @@ export function FriendItemSheet({ item, ownerName, imageUri, onClose, onAsk }: F
   const meta = [`${firstName}’s`, wearsLabel(item.wearCount), lastWornClause(item.lastWornAt)]
     .filter(Boolean)
     .join(' · ');
+
+  // C-04's gate: the owner's consent AND the viewer's own preference. Neither
+  // alone is enough — see the module docblock.
+  const canFindIt = item.shoppable && (showWhereToBuy.data ?? true);
 
   return (
     <SheetOverlay visible onClose={onClose}>
@@ -114,6 +142,32 @@ export function FriendItemSheet({ item, ownerName, imageUri, onClose, onAsk }: F
           <Text variant="note" className="mt-2.5">
             {meta}
           </Text>
+
+          {/* C-04 — "Find it", the same subordinate register the Gap Feed's
+              own merchant row uses (ShopRow): a plain pressable line, never a
+              button competing with "Ask to borrow"'s weight below it. Placed
+              above the borrow action rather than folded into it — asking to
+              borrow and buying your own are two different intentions, and
+              conflating their affordances would blur which one a tap means. */}
+          {canFindIt ? (
+            <Pressable
+              onPress={() => onFindIt(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`Find it — ${PAID_LINK_LABEL}`}
+              accessibilityHint="Opens shop suggestions in a sheet"
+              className="mt-3 flex-row items-center active:opacity-60"
+              style={{ gap: 6 }}>
+              <Text variant="label" style={{ color: theme.accent }}>
+                Find it
+              </Text>
+              <Text variant="caption" style={{ color: theme.faint }}>
+                ·
+              </Text>
+              <Text variant="caption" className="font-medium" style={{ color: theme.faint }}>
+                {PAID_LINK_LABEL}
+              </Text>
+            </Pressable>
+          ) : null}
 
           {item.borrowable ? (
             <>

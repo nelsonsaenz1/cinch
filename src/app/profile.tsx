@@ -25,6 +25,9 @@ import { signOut } from '@/features/auth/actions';
 import { useDeleteAccount } from '@/features/auth/use-delete-account';
 import { usePlan } from '@/features/billing/use-plan';
 import { useCloset } from '@/features/closet/queries';
+import { SHOW_WHERE_TO_BUY_DETAIL, SHOW_WHERE_TO_BUY_LABEL } from '@/features/commerce/copy';
+import { useSetShowWhereToBuy } from '@/features/commerce/mutations';
+import { useShowWhereToBuy } from '@/features/commerce/queries';
 import { DeleteAccountCard } from '@/features/profile/delete-account-card';
 import { EditProfileSheet } from '@/features/profile/edit-profile-sheet';
 import { membershipCopyFor } from '@/features/profile/membership-copy';
@@ -144,6 +147,14 @@ export default function ProfileScreen() {
   const pendingAsks = (borrow.data ?? []).filter(
     (t) => t.direction === 'incoming' && t.request.status === 'pending',
   ).length;
+
+  // C-03 — "Show where to buy". Default true, per the column's own default;
+  // the switch stays enabled while the write is in flight rather than
+  // disabling itself, because a toggle that locks the instant you touch it
+  // reads as broken on the exact gesture it exists to make feel immediate.
+  const showWhereToBuy = useShowWhereToBuy();
+  const setShowWhereToBuy = useSetShowWhereToBuy();
+  const shopPreferenceOn = showWhereToBuy.data ?? true;
 
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -454,6 +465,28 @@ export default function ProfileScreen() {
                 trackColor={{ false: theme.rule, true: theme.ink }}
                 accessibilityLabel="Daily outfit styling"
                 accessibilityHint="Always on — outfits are generated on this phone, not by AI"
+              />
+            </View>
+            <Rule tone="hairline" />
+            {/* C-03 — the one switch that turns every merchant row and
+                product sheet off app-wide (commerce-directive.md §6 refusal
+                6). A REAL toggle, unlike the decorative one above it: it
+                writes `profiles.show_where_to_buy` and the Gap Feed /
+                friend-piece "Find it" row both read it, client- and
+                server-side (gap-shop-match checks it again). */}
+            <View className="flex-row items-center justify-between p-4">
+              <View className="flex-1 pr-3">
+                <Text variant="body">{SHOW_WHERE_TO_BUY_LABEL}</Text>
+                <Text variant="caption" className="mt-1 text-muted">
+                  {SHOW_WHERE_TO_BUY_DETAIL}
+                </Text>
+              </View>
+              <Switch
+                value={shopPreferenceOn}
+                onValueChange={(value) => setShowWhereToBuy.mutate(value)}
+                trackColor={{ false: theme.rule, true: theme.ink }}
+                accessibilityLabel={SHOW_WHERE_TO_BUY_LABEL}
+                accessibilityHint={SHOW_WHERE_TO_BUY_DETAIL}
               />
             </View>
             <Rule tone="hairline" />

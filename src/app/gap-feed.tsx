@@ -4,6 +4,8 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GapCard } from '@/components/gap-feed/gap-card';
+import { ShopRow } from '@/components/gap-feed/shop-row';
+import { ShopSheet } from '@/components/gap-feed/shop-sheet';
 import { ClosetFullSheet } from '@/components/wall/closet-full-sheet';
 import { Button, EmptyState, ErrorState, ScreenHeader, Text } from '@/components/ui';
 import { Placement } from '@/features/billing/placements';
@@ -11,6 +13,7 @@ import { useGate } from '@/features/billing/use-gate';
 import { gapLabelLower, ordinal, swapAdvice } from '@/features/closet/gap-feed';
 import type { CountedKind } from '@/features/closet/outfit-count';
 import { useGapFeed } from '@/features/closet/use-gap-feed';
+import type { CatalogSlot } from '@/features/commerce/slot';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -25,6 +28,13 @@ import { useTheme } from '@/theme/tokens';
  * branching on `useGapFeed().dominant`, which is null for an ordinary
  * balanced closet and the tied leaders for an unbalanced one. The feed never
  * pads a dominant closet out with weak suggestions to look full.
+ *
+ * commerce-directive.md C-01/C-02 — each ranked card carries a `ShopRow`
+ * directly beneath it: a subordinate merchant line, absent entirely when
+ * nothing matches, that opens a `ShopSheet` on tap. `shopSlot` is this
+ * screen's own piece of state (which sheet is open) rather than something
+ * `useGapFeed` owns — the model computes the ranking; which gap's shop sheet
+ * is open is presentation state exactly like `lockedKind` below it.
  */
 export default function GapFeedScreen() {
   const router = useRouter();
@@ -33,6 +43,7 @@ export default function GapFeedScreen() {
   const gate = useGate();
   const [gatePresenting, setGatePresenting] = useState(false);
   const [lockedKind, setLockedKind] = useState<CountedKind | null>(null);
+  const [shopSlot, setShopSlot] = useState<CatalogSlot | null>(null);
 
   const openDetail = (kind: CountedKind) => router.push(`/gap-feed/${kind}`);
 
@@ -113,16 +124,18 @@ export default function GapFeedScreen() {
         </View>
 
         {cards.map((gain, i) => (
-          <GapCard
-            key={gain.kind}
-            gain={gain}
-            tally={model.tally}
-            pairings={model.pairingsFor(gain.kind)}
-            large={isDominant}
-            lock={lock}
-            onPress={() => openDetail(gain.kind)}
-            onAddAnyway={() => setLockedKind(gain.kind)}
-          />
+          <View key={gain.kind}>
+            <GapCard
+              gain={gain}
+              tally={model.tally}
+              pairings={model.pairingsFor(gain.kind)}
+              large={isDominant}
+              lock={lock}
+              onPress={() => openDetail(gain.kind)}
+              onAddAnyway={() => setLockedKind(gain.kind)}
+            />
+            <ShopRow tally={model.tally} gain={gain} onPress={setShopSlot} />
+          </View>
         ))}
 
         {isDominant ? (
@@ -187,6 +200,9 @@ export default function GapFeedScreen() {
         footnote={`Swapping keeps your ${model.capacity.limit} at ${model.capacity.limit}. The suggestion stays here either way.`}
         onDismiss={() => setLockedKind(null)}
       />
+
+      {/* C-02 — the merchant sheet, mounted once and driven by `shopSlot`. */}
+      <ShopSheet slot={shopSlot} onDismiss={() => setShopSlot(null)} />
     </SafeAreaView>
   );
 }

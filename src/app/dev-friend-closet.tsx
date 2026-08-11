@@ -72,6 +72,9 @@ function fixtureItem(
     createdAt: daysAgo(200),
     wearCount,
     lastWornAt: opts.lastWornDaysAgo == null ? null : daysAgo(opts.lastWornDaysAgo),
+    // commerce-directive.md C-04/C-05 — no fixture pose exercises "Find it"
+    // yet; false matches the column's own default (20260811150000).
+    shoppable: false,
   };
 }
 
@@ -208,6 +211,7 @@ export default function DevFriendClosetScreen() {
         }
         onClose={backToLoaded}
         onAsk={backToLoaded}
+        onFindIt={backToLoaded}
       />
       <FriendOverflowSheet
         profile={pose === 'overflow' ? ADA : null}

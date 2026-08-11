@@ -1,8 +1,9 @@
 import { SymbolView } from 'expo-symbols';
-import { Pressable, View } from 'react-native';
+import { Pressable, Switch, View } from 'react-native';
 
 import { PrivacyPage } from '@/components/privacy/privacy-page';
 import { Card, Rule, SectionHeader, Text } from '@/components/ui';
+import { SHOPPABLE_DETAIL, SHOPPABLE_LABEL } from '@/features/commerce/copy';
 import {
   LINK_HANDLING_ROW,
   SELLS_NOTHING_FOOTER,
@@ -23,6 +24,14 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * Purely presentational: props in, callbacks out. `dev-privacy.tsx` renders
  * this exact component from fixtures, so nothing verified there is an
  * approximation of what ships.
+ *
+ * commerce-directive.md C-05 adds one real switch — "Let friends find where
+ * your pieces are from" — between the two existing groups. A switch, not
+ * another `ChoiceRow`: every `ChoiceRow` here hands off to a sub-page, and
+ * this setting has no sub-page to hand off to, only a state to flip in
+ * place, the same shape `profile.tsx`'s "Show where to buy" switch already
+ * uses for C-03. The two are deliberately not the same switch — see
+ * `use-shoppable.ts`'s header.
  */
 
 /** One row of the inventory — a titled sentence, ruled off from the next. */
@@ -98,6 +107,50 @@ function ChoiceRow({
   );
 }
 
+/**
+ * The one real toggle on the page — commerce-directive.md C-05. Same anatomy
+ * as `ChoiceRow` minus the chevron, plus a `Switch`: label and description on
+ * the left, the control on the right, 44pt floor.
+ */
+function ToggleRow({
+  title,
+  detail,
+  value,
+  onValueChange,
+  disabled = false,
+}: {
+  title: string;
+  detail: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View
+      style={{ minHeight: MIN_TAP_TARGET }}
+      className="flex-row items-center gap-3 px-4 py-3.5">
+      <View className="flex-1">
+        <Text variant="body" className="font-medium">
+          {title}
+        </Text>
+        <Text variant="note" className="mt-1">
+          {detail}
+        </Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+        trackColor={{ false: theme.rule, true: theme.ink }}
+        accessibilityLabel={title}
+        accessibilityHint={detail}
+      />
+    </View>
+  );
+}
+
 export type PrivacyIndexPageProps = {
   /** "Given 12 March 2026" / "Not given" — the real state, never a placeholder. */
   consentDetail: string;
@@ -112,6 +165,11 @@ export type PrivacyIndexPageProps = {
    * Profile puts on its Notifications row with `NOTIFICATION_SETTINGS_AVAILABLE`.
    */
   deferredLinksAvailable: boolean;
+  /** C-05 — `profiles.shoppable`'s current value. */
+  shoppable: boolean;
+  onToggleShoppable: (value: boolean) => void;
+  /** True only while the write itself is in flight — the read never blocks the switch. */
+  shoppablePending?: boolean;
   onBack: () => void;
   onOpenConsent: () => void;
   onOpenExport: () => void;
@@ -121,6 +179,9 @@ export type PrivacyIndexPageProps = {
 export function PrivacyIndexPage({
   consentDetail,
   deferredLinksAvailable,
+  shoppable,
+  onToggleShoppable,
+  shoppablePending = false,
   onBack,
   onOpenConsent,
   onOpenExport,
@@ -139,6 +200,21 @@ export function PrivacyIndexPage({
         {stored.map((row, index) => (
           <InventoryRow key={row.title} row={row} first={index === 0} />
         ))}
+      </Card>
+
+      {/* commerce-directive.md C-05 — a switch, not a ChoiceRow: there is no
+          sub-page, only a state. Off by default, the opposite direction from
+          every other switch on this page, because it is consent to be sold
+          to rather than a display preference. */}
+      <SectionHeader title="Selling your pieces" className="mb-2 mt-7 px-gutter" />
+      <Card className="mx-gutter">
+        <ToggleRow
+          title={SHOPPABLE_LABEL}
+          detail={SHOPPABLE_DETAIL}
+          value={shoppable}
+          onValueChange={onToggleShoppable}
+          disabled={shoppablePending}
+        />
       </Card>
 
       <SectionHeader title="Your choices" className="mb-2 mt-7 px-gutter" />

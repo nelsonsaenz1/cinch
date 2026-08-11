@@ -2,6 +2,8 @@ import { useRouter } from 'expo-router';
 
 import { PrivacyIndexPage } from '@/components/privacy/privacy-index-page';
 import { useAiConsent } from '@/features/auth/use-consent';
+import { useSetShoppable } from '@/features/commerce/mutations';
+import { useShoppable } from '@/features/commerce/queries';
 import { DEFERRED_LINKS_AVAILABLE } from '@/features/invite/native';
 import { fullDate } from '@/features/privacy/format';
 
@@ -14,10 +16,16 @@ import { fullDate } from '@/features/privacy/format';
  * Privacy is itself reached from the Profile sheet and a plain push would
  * stack a card on top of one) — the same arrangement `diary` and `diary/[id]`
  * already use.
+ *
+ * commerce-directive.md C-05 — `shoppable` is read/written here rather than
+ * inside the page component, the same division `consent` already follows:
+ * the page stays presentational, this file owns the query and the mutation.
  */
 export default function PrivacyScreen() {
   const router = useRouter();
   const consent = useAiConsent();
+  const shoppable = useShoppable();
+  const setShoppable = useSetShoppable();
 
   const granted = consent.data?.granted ?? false;
   const grantedAt = consent.data?.grantedAt ?? null;
@@ -46,6 +54,11 @@ export default function PrivacyScreen() {
       // disclosure of something the app does not do is exactly as wrong as
       // concealing something it does.
       deferredLinksAvailable={DEFERRED_LINKS_AVAILABLE}
+      // Defaults to false while loading, matching the column's own default —
+      // a slow first paint must never read as "on" for a consent switch.
+      shoppable={shoppable.data ?? false}
+      onToggleShoppable={(value) => setShoppable.mutate(value)}
+      shoppablePending={setShoppable.isPending}
       onBack={() => router.back()}
       onOpenConsent={() => router.push('/privacy/ai')}
       onOpenExport={() => router.push('/privacy/export')}
