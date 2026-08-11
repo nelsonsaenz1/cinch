@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
+import { ALIAS_PREFIX, isStale, verdictFor } from '../_shared/superwall-plan.ts';
 
 /**
  * superwall-webhook — the one path by which `subscriptions.plan` ever changes.
@@ -32,43 +33,13 @@ import type { Database } from '../_shared/database.types.ts';
 // ---------------------------------------------------------------------------
 // Product -> plan
 // ---------------------------------------------------------------------------
-
-/**
- * The only products that grant anything, and what they grant.
- *
- * An unknown product id is treated as an error rather than as "free": a typo
- * here, or a product added in the dashboard and forgotten here, would otherwise
- * silently downgrade a paying customer at their next renewal. Loud is better.
- */
-const PRODUCT_PLANS: Record<string, 'standard' | 'pro'> = {
-  'cinch.standard.monthly': 'standard',
-  'cinch.standard.annual': 'standard',
-  'cinch.pro.monthly': 'pro',
-  'cinch.pro.annual': 'pro',
-};
-
-/**
- * Events that mean "this user is entitled right now".
- *
- * `product_change` is here because Superwall sends it with the NEW productId, so
- * it is handled by the same lookup as a fresh purchase.
- */
-const GRANTING = new Set(['initial_purchase', 'renewal', 'uncancellation', 'product_change']);
-
-/**
- * Events that mean "this user is no longer entitled".
- *
- * `cancellation` is deliberately NOT in this set, and it is the easiest mistake
- * to make in this file. Cancelling turns off auto-renew; the user keeps what
- * they paid for until `expirationAt`. Revoking on cancellation takes away time
- * somebody has already bought. `expiration` is the event that actually ends it.
- *
- * `billing_issue` is also absent: Apple retries a failed charge for days, and
- * the subscription is in a grace period throughout. Downgrading on the first
- * failed charge punishes an expired card. If the retries fail, `expiration`
- * arrives on its own.
- */
-const REVOKING = new Set(['expiration', 'subscription_paused']);
+//
+// PRODUCT_PLANS, GRANTING and REVOKING moved to `_shared/superwall-plan.ts` for
+// audit item 24. `superwall-reconcile` has to reach the same verdict about a
+// STORED event that this reaches about the live one, and two copies of that
+// table would drift — with a paying customer on the wrong tier as the failure
+// mode. Being dependency-free, the shared module is also covered by executable
+// tests, which the copy that lived here never was.
 
 // ---------------------------------------------------------------------------
 // Signature verification
@@ -257,7 +228,7 @@ export default {
     // days against a payload that cannot succeed. It is logged at error level
     // with the transaction id because it is a real paying customer with no
     // entitlement, and somebody has to reconcile it by hand.
-    if (userId.startsWith('$SuperwallAlias:')) {
+    if (userId.startsWith(ALIAS_PREFIX)) {
       console.error(
         `Superwall ${type} for an unidentified alias — no plan written. ` +
           `originalTransactionId=${data.originalTransactionId ?? 'unknown'}`,
@@ -270,27 +241,23 @@ export default {
 
     // Events outside both sets are real and expected — `cancellation` and
     // `billing_issue` most of all — and deliberately change nothing. See the
-    // comments on REVOKING.
-    const granting = GRANTING.has(type);
-    const revoking = REVOKING.has(type);
-    if (!granting && !revoking) {
+    // comments on REVOKING in the shared module.
+    const verdict = verdictFor(type, data.productId ?? null);
+
+    if (verdict.kind === 'no_change') {
       await note('no_state_change');
       return Response.json({ ok: true, applied: false, reason: 'no_state_change' });
     }
 
-    let plan: 'free' | 'standard' | 'pro' = 'free';
-    if (granting) {
-      const mapped = data.productId ? PRODUCT_PLANS[data.productId] : undefined;
-      if (!mapped) {
-        // 422, not 200: this one IS worth retrying, because the fix is to add
-        // the product here and redeploy, after which redelivery succeeds.
-        console.error(`Unmapped Superwall productId: ${data.productId ?? 'missing'}`);
-        await note('unmapped_product');
-        return Response.json({ error: 'Unknown product.' }, { status: 422 });
-      }
-      plan = mapped;
+    if (verdict.kind === 'unmapped') {
+      // 422, not 200: this one IS worth retrying, because the fix is to add the
+      // product to PRODUCT_PLANS and redeploy, after which redelivery succeeds.
+      console.error(`Unmapped Superwall productId: ${verdict.productId ?? 'missing'}`);
+      await note('unmapped_product');
+      return Response.json({ error: 'Unknown product.' }, { status: 422 });
     }
 
+    const plan = verdict.plan;
     const periodEnd = expirationAt;
 
     // ── Out-of-order delivery ─────────────────────────────────────────────
@@ -316,7 +283,7 @@ export default {
       return Response.json({ error: 'Read failed.' }, { status: 500 });
     }
 
-    if (periodEnd && current?.current_period_end && periodEnd <= current.current_period_end) {
+    if (isStale(periodEnd, current?.current_period_end)) {
       await note('stale');
       return Response.json({ ok: true, applied: false, reason: 'stale_event' });
     }

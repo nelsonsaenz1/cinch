@@ -513,11 +513,26 @@ sandbox purchase instead of trusting a test send.
 Log, at error level: `Superwall <type> for an unidentified alias — no plan written.
 originalTransactionId=…`. A purchase happened before `identify()` bound the Supabase user id to the
 Superwall session, so the purchase is attributed to a `$SuperwallAlias:` anonymous id that maps to no
-user. It returns 200 on purpose — retrying can never fix it — which means **this one will not show up
-as a failure anywhere except the logs.** It is a real paying customer with no entitlement and someone
-has to fix them by hand: find them via `originalTransactionId` in App Store Connect, then update their
-`subscriptions` row directly. If you see more than one of these, the bug is in identity timing, not
-billing.
+user. It returns 200 on purpose — retrying can never fix it.
+
+**Since audit items 23 and 24 this mostly fixes itself.** The delivery is stored in
+`superwall_events` rather than only logged, and the next time that device signs in the app offers the
+alias to `superwall-reconcile`, which binds it to the user and pays out the queue. Nobody has to do
+anything, and the user gets the tier they bought within one launch.
+
+What it cannot fix is a purchase whose device never signs in, or signs in only after a reinstall (a
+reinstall rotates the alias, so the link is gone). Those are listed by:
+
+```sql
+select * from superwall_unreconciled;
+```
+
+Each row there still needs the old manual fix: look up `original_transaction_id` in App Store
+Connect, then set the `subscriptions` row by hand. **A steadily non-empty list means `identify()` is
+running too late, not that billing is broken** — the reconciliation is a safety net, not the design.
+Note the view lists only what is still unclaimed; a row that has been reconciled keeps its
+`unidentified_alias` outcome on purpose, so `select count(*) from superwall_events where outcome =
+'unidentified_alias'` remains the honest count of how often the timing bug has happened.
 
 ### "Delivery is 200 with `applied: false, reason: stale_event`"
 

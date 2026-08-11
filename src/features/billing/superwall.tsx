@@ -3,6 +3,8 @@ import { useEffect, useRef } from 'react';
 
 import { useSession } from '@/features/auth/use-session';
 
+import { useAliasReconcile } from './use-alias-reconcile';
+
 /**
  * Superwall's iOS key is publishable by construction, exactly like the Supabase
  * anon key: it identifies the project to the paywall service and nothing more.
@@ -50,7 +52,12 @@ export const PAYWALLS_ENABLED = Boolean(iosApiKey);
  */
 function SuperwallIdentity() {
   const session = useSession();
-  const { identify, signOut } = useUser();
+  // `refresh` is the SDK's `getUserAttributes`. It is the way to read the alias:
+  // `user` is documented null whenever nobody is identified, which is precisely
+  // the state whose alias matters, whereas the attributes dictionary carries
+  // `aliasId` from SDK init onwards.
+  const { identify, signOut, refresh } = useUser();
+  const reconcileAlias = useAliasReconcile();
 
   /**
    * The last id we identified, or null for signed-out.
@@ -79,6 +86,20 @@ function SuperwallIdentity() {
     if (userId) {
       if (identified.current === userId) return;
       identified.current = userId;
+
+      // The alias is read BEFORE `identify`, not after. SuperwallKit only
+      // rotates it when moving between two *identified* users, so it would in
+      // practice survive — but the ordering that does not depend on that is
+      // free, and this is the one moment the anonymous identity still certainly
+      // exists. Whatever purchase was made while signed out is filed under this
+      // value and under nothing else.
+      const anonymous = refresh()
+        .then((attributes) => {
+          const aliasId = attributes?.aliasId;
+          return typeof aliasId === 'string' ? aliasId : null;
+        })
+        .catch(() => null);
+
       // `restorePaywallAssignments` makes the SDK hold paywall presentation
       // until the server returns this user's existing variant assignment,
       // rather than showing something now and correcting it after. Worth the
@@ -89,6 +110,13 @@ function SuperwallIdentity() {
         // rejection here surfaces as a red box in development.
         console.warn('Superwall identify failed; paywalls stay anonymous.', error);
       });
+
+      // Not awaited against `identify`, and not conditional on it succeeding.
+      // The queue on the server was written by Superwall's webhook and is
+      // reachable with the alias alone; making the payout depend on a paywall
+      // SDK call completing would mean a configure timeout also costs somebody
+      // the subscription they bought. Audit item 24.
+      void anonymous.then((alias) => reconcileAlias(userId, alias));
       return;
     }
 
@@ -100,7 +128,7 @@ function SuperwallIdentity() {
     signOut().catch((error) => {
       console.warn('Superwall signOut failed; identity may be stale.', error);
     });
-  }, [session, identify, signOut]);
+  }, [session, identify, signOut, refresh, reconcileAlias]);
 
   return null;
 }

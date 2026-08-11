@@ -1983,6 +1983,8 @@ export type Database = {
           plan: string | null
           product_id: string | null
           received_at: string
+          reconciled_at: string | null
+          reconciled_user_id: string | null
           svix_id: string
         }
         Insert: {
@@ -1996,6 +1998,8 @@ export type Database = {
           plan?: string | null
           product_id?: string | null
           received_at?: string
+          reconciled_at?: string | null
+          reconciled_user_id?: string | null
           svix_id: string
         }
         Update: {
@@ -2009,6 +2013,8 @@ export type Database = {
           plan?: string | null
           product_id?: string | null
           received_at?: string
+          reconciled_at?: string | null
+          reconciled_user_id?: string | null
           svix_id?: string
         }
         Relationships: []
@@ -2717,6 +2723,36 @@ export type Database = {
         }
         Relationships: []
       }
+      superwall_unreconciled: {
+        Row: {
+          alias: string | null
+          delivery_count: number | null
+          event_type: string | null
+          original_transaction_id: string | null
+          product_id: string | null
+          received_at: string | null
+          svix_id: string | null
+        }
+        Insert: {
+          alias?: string | null
+          delivery_count?: number | null
+          event_type?: string | null
+          original_transaction_id?: string | null
+          product_id?: string | null
+          received_at?: string | null
+          svix_id?: string | null
+        }
+        Update: {
+          alias?: string | null
+          delivery_count?: number | null
+          event_type?: string | null
+          original_transaction_id?: string | null
+          product_id?: string | null
+          received_at?: string | null
+          svix_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       activity_feed: {
@@ -2789,6 +2825,15 @@ export type Database = {
       claim_commerce_alert: {
         Args: { p_cooldown_hours?: number; p_key: string }
         Returns: boolean
+      }
+      claim_superwall_alias: {
+        Args: { p_alias: string; p_user_id: string }
+        Returns: {
+          event_type: string
+          expiration_at: string
+          product_id: string
+          svix_id: string
+        }[]
       }
       claim_superwall_event: {
         Args: {
@@ -3007,6 +3052,7 @@ export type Database = {
         | "stale"
         | "duplicate"
         | "write_failed"
+        | "reconciled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3178,6 +3224,7 @@ export const Constants = {
         "stale",
         "duplicate",
         "write_failed",
+        "reconciled",
       ],
     },
   },
