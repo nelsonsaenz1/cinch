@@ -82,6 +82,11 @@ export interface FriendItemRow {
   cutout_path: string | null; plate_path: string | null;
   borrowable: boolean; created_at: string;
   wear_count: number; last_worn_at: string | null;
+  /** commerce-directive.md C-04/C-05 — appended by 20260811150000, same
+   *  reason wear_count/last_worn_at were appended rather than inserted:
+   *  `create or replace view` refuses column reordering. The owner's own
+   *  consent to be found and sold to, never the viewer's. */
+  shoppable: boolean;
 }
 
 // One row per friend from `friend_closet_meta` — the header of the Friend's

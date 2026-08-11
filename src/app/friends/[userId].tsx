@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, RefreshControl, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ShopSheet } from '@/components/gap-feed/shop-sheet';
 import { FriendItemCard } from '@/components/social/FriendItemCard';
 import { FriendItemSheet } from '@/components/social/FriendItemSheet';
 import {
@@ -17,6 +18,7 @@ import { BlockConfirmSheet, RemoveFriendDialog } from '@/components/social/frien
 import { Avatar, Button, Chip, ScreenHeader, Skeleton, Text } from '@/components/ui';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import type { CatalogSlot } from '@/features/commerce/slot';
 import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { useRequestBorrow, useUnfollow } from '@/features/social-graph/mutations';
@@ -50,6 +52,13 @@ import { GUTTER, MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * props below, and this file's default export is the state machine and the
  * mutations wired around it. `dev-friend-closet` mounts the same view over
  * fixtures, so what the fixture shows is what this screen ships.
+ *
+ * commerce-directive.md C-04 — `shopSlot` mirrors `gap-feed.tsx`'s own piece
+ * of sheet-open state, driving the same `ShopSheet`. "Find it" fires from
+ * inside `FriendItemSheet`, which already gates the row on both the owner's
+ * `shoppable` consent and the viewer's own "Show where to buy" preference —
+ * this screen just owns which sheet is open, same division of labour as
+ * `openItem`/`asking` below it.
  */
 
 /**
@@ -478,6 +487,12 @@ export default function FriendClosetScreen() {
   // with it. `null` is closed — one piece of state, not a boolean plus a copy.
   const [asking, setAsking] = useState<FriendItem | null>(null);
   const [message, setMessage] = useState('');
+  // commerce-directive.md C-04 — which catalogue slot's ShopSheet is open.
+  // `item.category` IS a `CatalogSlot` value already (the two enums are
+  // identical by design — see `features/commerce/slot.ts`), so no lookup
+  // table is needed here, only the type assertion the shared string type
+  // requires.
+  const [shopSlot, setShopSlot] = useState<CatalogSlot | null>(null);
 
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>(null);
@@ -556,6 +571,24 @@ export default function FriendClosetScreen() {
         },
       },
     );
+  };
+
+  // -------------------------------------------------------------------------
+  // C-04 — "Find it"
+  // -------------------------------------------------------------------------
+
+  /**
+   * Same handoff pattern as `askFromSheet`: the item sheet closes fully
+   * before the shop sheet opens, because both are RN `Modal`s and iOS will
+   * not present a second one mid-dismissal of the first (the same note
+   * documents this for the borrow compose above).
+   */
+  const findItFromSheet = (item: FriendItem) => {
+    setOpenItem(null);
+    // `item.category` and `CatalogSlot` share the same ten literal values by
+    // schema design (slot.ts's header) — this assertion names that fact
+    // rather than silently trusting a `string`.
+    handOff(() => setShopSlot(item.category as CatalogSlot));
   };
 
   // -------------------------------------------------------------------------
@@ -738,7 +771,11 @@ export default function FriendClosetScreen() {
         imageUri={openItem ? resolve(openItem.thumbPath, openItem.cutoutPath) : undefined}
         onClose={() => setOpenItem(null)}
         onAsk={askFromSheet}
+        onFindIt={findItFromSheet}
       />
+
+      {/* commerce-directive.md C-02/C-04 — the merchant sheet "Find it" opens. */}
+      <ShopSheet slot={shopSlot} onDismiss={() => setShopSlot(null)} />
 
       {/* FC-02 — the same sheet as the Friends row, minus View closet: you
           are already here. */}

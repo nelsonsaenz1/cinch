@@ -201,6 +201,8 @@ export default function DevPrivacyScreen() {
         <PrivacyIndexPage
           consentDetail="Given 12 March 2026 · describing and matching"
           deferredLinksAvailable={state === 'PD-01b'}
+          shoppable={false}
+          onToggleShoppable={() => {}}
           onBack={back}
           onOpenConsent={() => setState('PD-02')}
           onOpenExport={() => setState('PD-04')}
