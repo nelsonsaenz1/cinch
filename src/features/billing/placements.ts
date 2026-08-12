@@ -146,6 +146,41 @@ export const Placement = {
    * that never commits a frame, and the fail-safe in use-gate.ts tears it down.
    */
   RevealComplete: 'reveal_complete',
+
+  /**
+   * MB-09 — Standard → Pro, offered from Manage membership.
+   *
+   * THE SECOND PLACEMENT NO SERVER HAS REFUSED ANYTHING FOR, and unlike
+   * `reveal_complete` the person on the other side of it is already paying. An
+   * existing member is not at a ceiling; they are being shown a delta, which
+   * is why MB-08 draws three entitlement rows out of `plans.ts` and stops.
+   *
+   * WHY THE TERMS ARE NOT IN THE APP. The atlas draws MB-09 with two term rows
+   * whose price positions are "live StoreKit reads", and this app has no
+   * StoreKit module — every price it has ever shown came from Superwall
+   * rendering its own document. So the app draws the deltas, which it can
+   * source, and the CTA opens this placement; the prices, the periods and the
+   * purchase itself live on paywall 254200 (Cinch Membership v3), which
+   * carries all four products. Nothing about a price or a period is typed into
+   * a layout, which is the atlas's actual requirement rather than its sketch.
+   *
+   * NO TRIAL. All four products are `trial_period_days: null` (verified against
+   * the Superwall API on 2026-08-12), and correction 06 forbids drawing a
+   * default trial anywhere regardless.
+   *
+   * Campaign: **"Membership upgrade" (101571)**, created 2026-08-12, audience
+   * "no active Pro entitlement" — the same rule as the other four, so the
+   * upgrade door is not the one door that behaves differently — 100% to
+   * paywall 254200.
+   *
+   * IT INHERITS THE PUBLISH BLOCKER. 254200 is still `published_at: null`, so
+   * this placement resolves to a sheet that never commits a frame and
+   * `use-gate.ts`'s fail-safe tears it down — exactly as every other placement
+   * does today. That is not silent here: MB-09 branches on `unavailable` and
+   * says so, rather than leaving a button that appears to do nothing. See
+   * docs/design/paywall-publish-runbook.md.
+   */
+  MembershipUpgrade: 'membership_upgrade',
 } as const;
 
 export type PlacementName = (typeof Placement)[keyof typeof Placement];

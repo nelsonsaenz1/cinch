@@ -3,8 +3,8 @@
 Source: `docs/design/wave-3-final/Wave 3 - Design · Safety, Profile, Help, Membership.dc.html`
 (unmodified; 8/8 sha256 re-verified against `MANIFEST.sha256` before the packet opened).
 
-13 drawn states. **12 built, 1 parked.** One bounded packet, no lanes. No captures,
-no visual grading — Codex owns those.
+13 drawn states. **All 13 built** — twelve in this packet, MB-09 once D-5 was
+resolved (see below). No captures, no visual grading — Codex owns those.
 
 | State | | Evidence |
 | --- | --- | --- |
@@ -20,13 +20,40 @@ no visual grading — Codex owns those.
 | HP-01 | BUILT | atlas group titles; questions wrap; four groups (see below) |
 | HP-02 | BUILT | the commerce article, per-row disclosure, support card at the end |
 | MB-08 | BUILT | measurable counters only, cancellation routed to the store, no auto-downgrade promise |
-| **MB-09** | **PARKED — D-5** | selling surface; every price and the CTA label are live StoreKit reads |
+| MB-09 | BUILT (D-5 resolved) | three delta rows from `PLANS`; terms rendered by paywall 254200, never by the layout |
 
 ## What is parked, and on whom
 
-### D-5 · StoreKit product terms — FOUNDER, then a StoreKit or Superwall surface
+### D-5 · StoreKit product terms — ✅ RESOLVED 2026-08-12
 
-MB-09 is not drawn and no fixture exists for it. This is a hard block rather than a
+**Ruling:** use the existing Cinch Membership v3 document (paywall 254200) and the four
+live products, no trial. Verified read-only against the Superwall API before any change:
+`cinch.standard.monthly` $7.99/mo, `cinch.standard.annual` $59/yr, `cinch.pro.monthly`
+$14.99/mo, `cinch.pro.annual` $119/yr — all four `trial_period_days: null`, all four
+attached to 254200, which is `status: active` and `feature_gating: non_gated`.
+
+**The one configuration change:** campaign **101571 "Membership upgrade"**, placement
+`membership_upgrade` (130497), audience 170767 (`no active Pro entitlement` — the same
+rule as the other four campaigns, so the upgrade door is not the one door that behaves
+differently), 100% to paywall 254200. Read back and confirmed after creation.
+
+**Where the terms are.** Not in the app. The reasoning below is why, and it did not
+change — what changed is that the placement now resolves. MB-09 draws the three
+entitlement deltas it can source and the CTA opens the paywall; the prices, the periods
+and the purchase are rendered by the document, from the store, in the reader's own
+currency. `tests/upgrade-delta.test.ts` fails if a currency symbol, a period, a
+price-shaped figure or a trial phrase reaches any string or either file.
+
+**IT INHERITS THE PUBLISH BLOCKER.** 254200 is still `published_at: null`, so this
+placement — like every other placement in the app today — resolves to a sheet that never
+commits a frame, and `use-gate.ts`'s fail-safe tears it down. MB-09 branches on
+`unavailable` and says so rather than leaving a button that appears to do nothing. Until
+the document is published, the upgrade cannot complete. That is a founder action in the
+dashboard; see `docs/design/paywall-publish-runbook.md`.
+
+The original record follows.
+
+MB-09 was not drawn and no fixture existed for it. This was a hard block rather than a
 scheduling one:
 
 - Every figure on it is a slot — `App Store price`, and a CTA whose label comes from the
@@ -87,9 +114,24 @@ and the crown removal. Recorded here because it closes three of the five Wave 3
 dependencies and changes two shipping sentences that had been deliberately
 withheld.
 
-**The migration is written, not applied.** No `db push`, no deploy — the
-predicate, the two triggers and `supabase/tests/11_event_lock.sql` are in the
-tree awaiting a deliberate apply.
+**The migration is written, not applied — and the apply is BLOCKED.** Checked
+2026-08-12:
+
+| | |
+| --- | --- |
+| Supabase CLI | present, `2.90.0` (`/opt/homebrew/bin/supabase`) |
+| Linkage | present, `dugizuswuebrmcmvinmi`, authenticated — `migration list --linked` returns |
+| Remote state | `20260812120000` shows local-only, as expected |
+| **Docker** | **unavailable** |
+
+The instruction is to apply *after a local DB test*, and `supabase db test` needs
+the local stack, which needs Docker. That precondition cannot be met here, so
+nothing was pushed. The SQL has therefore never been executed, linted or parsed
+by a Postgres — treat it as unverified until `supabase db test` runs.
+
+`migration list` also shows a **pre-existing divergence** unrelated to this work:
+`20260811175259` exists remote-only and `20260811175712` local-only. Worth
+resolving before any push, since `db push` will act on it.
 
 - **D-1** — `assert_comment_thread_open()`, `before insert` on `event_comments`,
   `CL001`. `closedThreadLine()` now ends *"nothing new can be added"*, which it
@@ -117,8 +159,8 @@ placement was added, and MB-09 remains unbuilt.
 
 ## Still open
 
-- **Founder, then a StoreKit or Superwall surface:** MB-09 (D-5). Being verified
-  separately; nothing about it was added here.
+- **Founder, in the Superwall dashboard:** publish paywall 254200. Every placement in
+  the app, not only the new one, resolves to a non-committing sheet until it is.
 - **Ops:** apply `20260812120000` and run `supabase/tests/11_event_lock.sql`. The
   two shipping sentences it licenses are already live in the bundle, so the
   migration and the copy must land together.

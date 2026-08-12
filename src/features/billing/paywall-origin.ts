@@ -79,6 +79,12 @@ export function returnLabelFor(placement: PlacementName | null): string {
       // screen this user was in the middle of reading. Named for the thing on
       // it rather than for the screen, which has no name a user would know.
       return 'Back to your first outfit';
+    case Placement.MembershipUpgrade:
+      // MB-09 is still underneath, and it is a real page — the delta table
+      // this member was reading when they went to look at the terms. Named for
+      // what is on it rather than for "membership", which would be ambiguous
+      // with the page one further back.
+      return 'Back to the comparison';
     case Placement.TrialExpired:
     case null:
       // Not tied to a single interrupted action — see placements.ts's own

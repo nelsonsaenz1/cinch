@@ -184,11 +184,7 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['HP-01', '/dev-w3-g6-hp-01'],
       ['HP-02', '/dev-w3-g6-hp-02'],
       ['MB-08', '/dev-w3-g6-mb-08'],
-      // MB-09 has no fixture because it has no implementation: it is the
-      // Standard → Pro selling surface, and every price and CTA label on it is
-      // a live StoreKit read this app has no module to make (D-5). A frame
-      // drawn against invented terms would be the one thing worse than an
-      // absent frame.
+      ['MB-09', '/dev-w3-g6-mb-09'],
     ],
   ],
   [

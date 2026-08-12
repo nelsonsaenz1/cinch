@@ -1,3 +1,4 @@
+import { useRouter, type Href } from 'expo-router';
 import { Linking, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,7 +12,10 @@ import {
   entitlementBand,
   isManageablePlan,
   paidAccessLine,
+  UPGRADE_ROW_LABEL,
+  upgradeRowDetail,
 } from '@/features/billing/manage-membership';
+import { canUpgrade } from '@/features/billing/upgrade-delta';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { usePlan } from '@/features/billing/use-plan';
 import { useRestorePurchases } from '@/features/profile/use-restore-purchases';
@@ -30,9 +34,12 @@ const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
  * once that row has CONFIRMED a paid plan.
  *
  * A management page, not a sales page: no price, no accent, no retention
- * attempt, and no upsell row (see `UPGRADE_ROW_PARKED` in
- * `manage-membership.ts` for why "Move to Pro" is not drawn — it would be a
- * dead control, not a deferred one).
+ * attempt. It carries ONE upsell row, "Move to Pro", and only for a member who
+ * has somewhere to move — a Pro member's page has no upsell on it at all. The
+ * row was withheld for a packet because it could only lead to an unmatched
+ * Superwall placement; campaign 101571 now routes `membership_upgrade` to
+ * Membership v3, so it leads somewhere. It still carries no price and no term:
+ * those are a live StoreKit read, and the paywall is what makes one.
  *
  * Every sentence on it comes out of `manage-membership.ts`, which carries the
  * `file:line` trace for each claim: what paid access does, what the free
@@ -45,6 +52,7 @@ const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
  * empty band about a membership nobody has.
  */
 export default function MembershipScreen() {
+  const router = useRouter();
   const plan = usePlan();
   const capacity = useCapacity();
   const restore = useRestorePurchases();
@@ -99,6 +107,20 @@ export default function MembershipScreen() {
 
             <SectionHeader title="Changing it" className="mb-2.5 mt-6" />
             <Card padding="none">
+              {/* Only for a member with somewhere to move. No price and no
+                  term in the row: the sub-line is the entitlement fact that
+                  makes the move legible, and the terms are rendered from the
+                  store two surfaces on. */}
+              {canUpgrade(plan.plan) ? (
+                <>
+                  <SettingsRow
+                    label={UPGRADE_ROW_LABEL}
+                    sublabel={upgradeRowDetail()}
+                    onPress={() => router.push('/membership-upgrade' as Href)}
+                  />
+                  <Rule tone="hairline" />
+                </>
+              ) : null}
               <SettingsRow
                 label={CANCEL_ROW_LABEL}
                 sublabel={CANCEL_ROW_DETAIL}

@@ -112,25 +112,28 @@ export function cancellationConsequence(currentPeriodEnd: Date | null): string {
 }
 
 /**
- * MB-08 asks for a "Move to Pro" row into MB-09. It is not drawn, and the
- * reason is a hard one rather than a scheduling one — see the group-6 record.
+ * MB-08's upgrade row — UNPARKED (D-5, 2026-08-12).
  *
- * MB-09 is a **selling** surface: three delta rows plus two term rows whose
- * prices and CTA label are live StoreKit reads. This app has no StoreKit
- * module (`profile.tsx` says so where it links out to Apple's own page); every
- * price it has ever shown came from Superwall rendering its own paywall. So an
- * upgrade row could only lead to a Superwall placement, and every placement
- * name in `placements.ts` is a contract with a campaign in the dashboard: an
- * unmatched name resolves silently to nothing at all. Inventing one here would
- * ship a row that looks like a door and is a wall — the exact dead control the
- * refusals forbid — and creating the campaign is production configuration, not
- * an implementation task.
+ * It was withheld for a packet because it could only lead to a Superwall
+ * placement, and every placement name is a contract with a campaign in the
+ * dashboard that an unmatched name resolves silently past. That is no longer
+ * true: the founder confirmed the existing Membership v3 document and the four
+ * live products, and campaign **101571 "Membership upgrade"** now routes
+ * placement `membership_upgrade` to paywall 254200 at 100%.
  *
- * So the row waits on D-5. Nothing about MB-08 depends on it: an existing
- * member managing their membership is a complete page without an upsell in it,
- * which is what "a management page, not a sales page" means.
+ * The row still carries NO price and NO term. Its sub-line is the one
+ * entitlement fact that makes the move legible — the Pro active ceiling, from
+ * `PLANS`, and packing — and the terms are two surfaces on, where a live
+ * StoreKit read renders them.
+ *
+ * It renders only for a member who can actually move up, which is what keeps
+ * it out of a Pro member's page.
  */
-export const UPGRADE_ROW_PARKED = true;
+export const UPGRADE_ROW_LABEL = 'Move to Pro';
+
+export function upgradeRowDetail(): string {
+  return `${PLANS.pro.items.toLocaleString('en-US')} active pieces, and packing memos`;
+}
 
 /** Plans that have anything to manage. Free never reaches this page. */
 export function isManageablePlan(plan: Plan): boolean {

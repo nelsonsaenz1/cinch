@@ -37,14 +37,14 @@ test('the fixture index names no route that no longer exists', () => {
   assert.deepEqual(stale, [], `delete these from dev-screens.tsx:\n${stale.join('\n')}`);
 });
 
-test('Wave 3 group 6 contributes twelve of its thirteen drawn states', () => {
-  // Thirteen drawn, twelve built. MB-09 has no fixture because it has no
-  // implementation: it is the Standard → Pro selling surface, and every price
-  // and CTA label on it is a live StoreKit read this app has no module to make
-  // (D-5). A frame drawn against invented terms would be worse than none.
+test('Wave 3 group 6 contributes all thirteen of its drawn states', () => {
+  // MB-09 was the thirteenth, parked on D-5 for a packet because an upgrade
+  // CTA could only lead to an unmatched Superwall placement. Campaign 101571
+  // now routes `membership_upgrade` to Membership v3, so it is built — with
+  // the terms on the paywall rather than in the layout, because a price in a
+  // layout is the one thing D-5 was ever about.
   const g6 = routes.filter((r) => r.startsWith('dev-w3-g6-'));
-  assert.equal(g6.length, 12, `group 6 fixtures: ${g6.sort().join(', ')}`);
-  assert.ok(!g6.includes('dev-w3-g6-mb-09'), 'MB-09 is parked on D-5, not built');
+  assert.equal(g6.length, 13, `group 6 fixtures: ${g6.sort().join(', ')}`);
 });
 
 test('Wave 3 group 5 contributes its twenty-one drawn states', () => {

@@ -233,6 +233,13 @@ function revealLine(opts: ContextLineOpts): string | null {
 export function contextLineFor(placement: PlacementName, opts: ContextLineOpts = {}): string | null {
   if (placement === Placement.RepeatUpsell) return null;
 
+  // MB-09 has already said everything a line here could: three delta rows and
+  // the promise that nothing already held is lost. A context line above the
+  // headline would be a fourth restatement of the same move, on the surface
+  // whose whole job is now the TERMS. Explicit rather than falling through to
+  // the `STATIC_LINES` lookup, so this reads as a decision and not an omission.
+  if (placement === Placement.MembershipUpgrade) return null;
+
   // Ahead of the plan branch below, because it does its own — a trial reads as
   // `pro` here, and this is the one placement a trialing user ever reaches.
   if (placement === Placement.RevealComplete) return revealLine(opts);
