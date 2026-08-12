@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#EFEBE1; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:#1C1A16; -webkit-font-smoothing:antialiased; }
+  a { color:#6E2B2B; } a:hover { color:#8A3A35; }
+  .frame { scrollbar-width:none; -ms-overflow-style:none; }
+  .frame::-webkit-scrollbar { width:0; height:0; }
+</style>
+</helmet>
+
+<div style="padding:56px 64px 120px;max-width:3400px">
+
+  <div style="max-width:900px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:10px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;background:#1C1A16;color:#FBFAF6;border-radius:4px;padding:4px 9px">Wave 3 - Design</span>
+      <span style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Atlas group 6 of 6 &middot; Safety, profile, notifications, help, membership</span>
+    </div>
+    <div style="font-family:'Instrument Serif',serif;font-size:56px;line-height:1.06;margin-top:14px">The settled rooms, and the last consequence explained</div>
+    <div style="font-size:16px;line-height:1.55;color:#6B665C;margin-top:16px">The final group is two systems rather than a set of unrelated screens. The settled row &mdash; a ruled 44 pt line with a Medium label, a regular value and one affordance &mdash; carries every list in profile, notifications and membership. The prose system carries help and legal: 17 pt regular paragraphs, Medium only for headings, no marketing voice.</div>
+    <div style="font-size:16px;line-height:1.55;color:#6B665C;margin-top:12px">Audit 99 adds the confirmation that was missing before Unblock, and states the two consequences plainly: the person can find you again, and votes they retracted do not come back. Unblock stays ink, because reversing a block is not destruction.</div>
+    <div style="font-size:16px;line-height:1.55;color:#6B665C;margin-top:12px">Revised against the repository review, corrections 28&ndash;37. Profile is a form sheet from Today&rsquo;s avatar, not a tab; only measured entitlements are printed; notification channels are taken verbatim from the push channel definitions; and every figure that would have to come from StoreKit or Supabase is shown as a read rather than a literal.</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:10px;max-width:900px;margin-bottom:64px">
+    <span style="font-size:11px;font-weight:500;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:12px;padding:7px 12px">Audit trace: 99, 100</span>
+    <span style="font-size:11px;font-weight:500;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:12px;padding:7px 12px">Corrections 28&ndash;37 applied</span>
+    <span style="font-size:11px;font-weight:500;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:12px;padding:7px 12px">Settled row: 44 pt, label + value + affordance</span>
+    <span style="font-size:11px;font-weight:500;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:12px;padding:7px 12px">Four native tabs: Today, Closet, Plan, Explore</span>
+    <span style="font-size:11px;font-weight:500;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:12px;padding:7px 12px">No hard-coded price anywhere</span>
+  </div>
+
+  <!-- ═══════════ 01 · SAFETY ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">01 &middot; Safety: blocked people &mdash; audit 99 &middot; corrections 28</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Reversing a block, with the consequences first</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">Unblock no longer happens on one tap. The confirmation names what changes in regular prose &mdash; not a bolded paragraph &mdash; and the option to stay blocked is named for what it does rather than labelled Cancel. Nothing here is oxblood: unblocking is a restoration, and blocking again is available from the same list.</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">Correction 28: a blocked row carries only what the block record holds &mdash; person, handle, avatar and when it happened. The &ldquo;reported&rdquo; annotation is gone; a report is a separate record and is not readable from this list. These frames are aliases of the repository&rsquo;s existing screens: <span style="font-weight:500">SF-01 = BL-01</span>, <span style="font-weight:500">SF-02 = BL-02</span>. SF-03 is a state sheet for BL-01 rather than a third screen.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:76px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">SF-01 = BL-01</span><span style="font-size:13px;font-weight:500">Blocked list</span></div>
+      <div class="frame" data-screen-label="SF-01" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:6px 20px 0;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="16" viewBox="0 0 12 16"><path d="M9 1 L3 8 L9 15" stroke="#1C1A16" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.06">Blocked people</div>
+        </div>
+        <div style="flex:none;padding:12px 24px 0">
+          <div style="font-size:17px;line-height:1.5;color:#6B665C">Three people are blocked. They cannot find you, see your looks or comment in your events, and none of them is told that you blocked them.</div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:18px 24px 0">
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:68px">
+            <div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#6B665C"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#6B665C"></path></svg></div>
+            <div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:500;line-height:1.3">Daniel Okafor</div><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Blocked in June</div></div>
+            <div style="min-height:44px;display:flex;align-items:center;font-size:16px;flex:none">Unblock</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:68px">
+            <div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#6B665C"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#6B665C"></path></svg></div>
+            <div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:500;line-height:1.3">@lmartel</div><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Blocked in April</div></div>
+            <div style="min-height:44px;display:flex;align-items:center;font-size:16px;flex:none">Unblock</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:68px">
+            <div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#6B665C"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#6B665C"></path></svg></div>
+            <div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:500;line-height:1.3">Katherine Villanueva-Ross</div><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Blocked last week</div></div>
+            <div style="min-height:44px;display:flex;align-items:center;font-size:16px;flex:none">Unblock</div>
+          </div>
+          <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:16px">To block someone new, open their profile and use the menu there.</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Settled row, 68 pt with avatar</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Unblock is ink, not oxblood</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Blocking is elsewhere, two taps deep</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The list states the whole consequence of being blocked once, at the top, in regular 17 pt prose &mdash; including the fact that the other person is not notified, which is the thing people most want to know and most often have to guess. Each row is the settled row with an avatar: name Medium, when it happened regular, one 44 pt affordance in ink. Correction 28: the row draws person, handle and blocked_at and nothing else &mdash; the earlier &ldquo;reported&rdquo; annotation implied this list could read the report table, which it cannot. A row with no display name falls back to the handle, as the second row shows. Blocking someone new is not available here; the page names where it lives, keeping report and block two taps deep. The avatar is a tray-filled placeholder rather than the person&rsquo;s picture, because a blocked person&rsquo;s photograph does not belong on this screen.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #6E2B2B;color:#6E2B2B;border-radius:6px;padding:2px 7px">SF-02 = BL-02</span><span style="font-size:13px;font-weight:500">Unblock confirmation</span></div>
+      <div class="frame" data-screen-label="SF-02" style="width:393px;height:852px;background:#EFEBE1;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px;position:absolute;top:0;left:0;right:0"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;height:520px;background:#FBFAF6;border-radius:20px 20px 44px 44px;display:flex;flex-direction:column;box-shadow:0 -5px 11px rgba(28,26,22,.10)">
+          <div style="flex:none;padding:14px 20px 0;display:flex;justify-content:flex-end"><div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 14 14"><path d="M1 1 L13 13 M13 1 L1 13" stroke="#1C1A16" stroke-width="1.8" stroke-linecap="round"></path></svg></div></div>
+          <div style="flex:none;padding:4px 24px 0">
+            <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.1">Unblock Daniel Okafor?</div>
+          </div>
+          <div style="flex:1;padding:14px 24px 0">
+            <div style="font-size:17px;line-height:1.5;color:#4A463E">He will be able to find you on Cinch again, send you a friend request, and see the looks you share with friends if you accept it.</div>
+            <div style="font-size:17px;line-height:1.5;color:#4A463E;margin-top:12px">Votes he retracted while blocked are not restored, and he is not told that you unblocked him.</div>
+            <div style="font-size:17px;line-height:1.5;color:#4A463E;margin-top:12px">You can block him again at any time from his profile.</div>
+          </div>
+          <div style="flex:none;padding:0 20px">
+            <div style="min-height:48px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500">Unblock him</div>
+            <div style="min-height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:16px;margin-top:8px">Keep him blocked</div>
+          </div>
+          <div style="flex:1"></div>
+          <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+        </div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Three regular paragraphs, no bold</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Keep option named for its effect</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">No oxblood on this sheet</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">Audit 99, drawn exactly: the sheet arrives before anything changes, the consequence comes in three regular 17 pt paragraphs rather than one bolded block, and the two facts the audit names are both stated &mdash; he can find you again, and retracted votes are not restored. The second action is &ldquo;Keep him blocked&rdquo;, which is the outcome, not &ldquo;Cancel&rdquo;. The confirming action is ink: unblocking restores a normal state, so spending the accent on it would misdescribe it. The person&rsquo;s name is used in the question and in both consequences, so nobody unblocks the wrong person from a list of three.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #6E2B2B;color:#6E2B2B;border-radius:6px;padding:2px 7px">SF-03 &middot; BL-01 states</span><span style="font-size:13px;font-weight:500">Unblocking, failed, and empty</span></div>
+      <div class="frame" data-screen-label="SF-03" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:6px 20px 0;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="16" viewBox="0 0 12 16"><path d="M9 1 L3 8 L9 15" stroke="#1C1A16" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.06">Blocked people</div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:16px 20px 0">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Unblocking</div>
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 4px;min-height:68px">
+            <div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#6B665C"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#6B665C"></path></svg></div>
+            <div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:500;line-height:1.3">Daniel Okafor</div><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Unblocking&hellip;</div></div>
+            <div style="min-height:44px;border-radius:12px;background:#F0ECE3;display:flex;align-items:center;font-size:15px;padding:0 14px;color:#4A463E;flex:none">Working</div>
+          </div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:14px">Failed</div>
+          <div style="background:#F0ECE3;border-radius:12px;padding:14px 16px;margin-top:8px">
+            <div style="display:flex;align-items:center;gap:12px;min-height:68px">
+              <div style="width:44px;height:44px;border-radius:22px;background:#FBFAF6;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#6B665C"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#6B665C"></path></svg></div>
+              <div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:500;line-height:1.3">Daniel Okafor</div><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Still blocked</div></div>
+              <div style="min-height:44px;border-radius:12px;background:#FBFAF6;border:1px solid rgba(28,26,22,.16);display:flex;align-items:center;font-size:15px;padding:0 16px;flex:none">Retry</div>
+            </div>
+            <div style="font-size:15px;line-height:1.5;color:#6B665C;margin-top:4px">The unblock did not go through, so nothing changed. He still cannot find you, and he was not told anything.</div>
+          </div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:20px">Empty</div>
+          <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:22px 20px;margin-top:8px">
+            <div style="font-family:'Instrument Serif',serif;font-size:26px;line-height:1.12">Nobody is blocked</div>
+            <div style="font-size:17px;line-height:1.5;color:#6B665C;margin-top:8px">If someone makes Cinch uncomfortable, you can block them from their profile. They are never told, and you can undo it here.</div>
+          </div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Failure states the unchanged state</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Empty explains where blocking lives</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">A pending unblock keeps the row and labels itself in the present participle; the affordance becomes a tray-filled word rather than disappearing. A failure is the important one on a safety screen: it says the block is still in force, that nothing changed and that the other person was told nothing, because a user who is unsure whether a block lapsed has a real problem. The empty state teaches the mechanism without dramatising it, and repeats the two facts that matter: nobody is notified, and it is reversible from here.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #1C1A16;border-radius:6px;padding:2px 7px">SF-02 / AX</span><span style="font-size:13px;font-weight:500">Largest Dynamic Type &mdash; consequence scrolls, actions pin</span></div>
+      <div class="frame" data-screen-label="SF-02 AX" style="width:393px;height:852px;background:#EFEBE1;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px;position:absolute;top:0;left:0;right:0"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;height:760px;background:#FBFAF6;border-radius:20px 20px 44px 44px;display:flex;flex-direction:column;box-shadow:0 -5px 11px rgba(28,26,22,.10)">
+          <div style="flex:none;padding:12px 20px 0;display:flex;justify-content:flex-end"><div style="width:48px;height:48px;border-radius:24px;background:#F0ECE3;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 14 14"><path d="M1 1 L13 13 M13 1 L1 13" stroke="#1C1A16" stroke-width="1.8" stroke-linecap="round"></path></svg></div></div>
+          <div style="flex:1;overflow:hidden;padding:4px 24px 0">
+            <div style="font-family:'Instrument Serif',serif;font-size:34px;line-height:1.08">Unblock Daniel Okafor?</div>
+            <div style="font-size:20px;line-height:1.45;color:#4A463E;margin-top:14px">He will be able to find you on Cinch again, send you a friend request, and see the looks you share with friends if you accept it.</div>
+            <div style="font-size:20px;line-height:1.45;color:#4A463E;margin-top:14px">Votes he retracted while blocked are not restored.</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:14px">
+              <span style="font-size:18px;color:#6B665C">One more thing below</span>
+              <svg width="14" height="9" viewBox="0 0 14 9"><path d="M1 1 L7 7.5 L13 1" stroke="#6B665C" stroke-width="1.8" fill="none" stroke-linecap="round"></path></svg>
+            </div>
+          </div>
+          <div style="flex:none;padding:12px 20px 0;border-top:1px solid rgba(28,26,22,.1)">
+            <div style="min-height:56px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:500">Unblock him</div>
+            <div style="min-height:56px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:20px;margin-top:8px">Keep him blocked</div>
+          </div>
+          <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+        </div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Both actions always visible</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Cut stated in words</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">On a consequential sheet the two actions must never be off screen, so at the largest supported size the consequence scrolls and the actions pin above the home indicator on a hairline. Both grow to 56 pt and neither is abbreviated. The remaining paragraph is announced in words with a chevron, so a reader knows the explanation continues &mdash; the alternative, shrinking the type to fit three paragraphs, would make a safety consequence the smallest text on the screen.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ 02 · PROFILE AND SETTINGS ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">02 &middot; Profile and settings &mdash; corrections 29, 30, 31</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">A form sheet from Today&rsquo;s avatar, not a fifth tab</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">Every list in this group is the same object: a ruled row at least 44 pt tall with a Medium label, an optional regular value on the right, and one affordance &mdash; a chevron, a toggle or nothing. No cards, no icons, no coloured sections. Group headings are 11 pt uppercase labels; explanations under a group are 14 pt regular prose.</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">Correction 29: Profile is a full-height form sheet presented from the avatar in Today&rsquo;s masthead, dismissed with Done. It is not a tab and never was &mdash; the four native tabs are Today, Closet, Plan and Explore, and the invented Today/Closet/You bar is deleted from every frame in this group. Correction 30: rows that cannot be sourced are gone &mdash; the weekly outfit usage read, the global borrowing toggle (lending is decided per item) and the Free membership row, which the frozen contract does not describe.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:76px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">PR-01</span><span style="font-size:13px;font-weight:500">Profile form sheet &mdash; membership unread</span></div>
+      <div class="frame" data-screen-label="PR-01" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:6px 20px 0;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font-size:15px;color:#6B665C">Profile</span>
+          <span style="font-size:17px;font-weight:500;min-height:44px;display:flex;align-items:center">Done</span>
+        </div>
+        <div style="flex:none;padding:6px 24px 0;display:flex;align-items:center;gap:14px">
+          <div style="width:56px;height:56px;border-radius:28px;background:#1C1A16;display:flex;align-items:center;justify-content:center;flex:none"><svg width="24" height="24" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#FBFAF6"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#FBFAF6"></path></svg></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.06">Maya Fitzgerald</div>
+            <div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:2px">@mayaf</div>
+          </div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:18px 24px 0">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 0"><span style="font-size:17px;color:#6B665C">Active pieces</span><span style="font-size:17px">10 of 10</span></div>
+          <div style="height:1px;background:rgba(28,26,22,.1)"></div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 0"><span style="font-size:17px;color:#6B665C">Stored pieces</span><span style="font-size:17px">4 of 20</span></div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:18px">Your style</div>
+          <div style="font-size:16px;line-height:1.5;color:#6B665C;margin-top:5px">Structured layers, warm neutrals, rarely sleeveless.</div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:18px">Membership</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:44px;margin-top:8px">
+            <div style="flex:1"><div style="font-size:17px;font-weight:500">Membership</div><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Checking&hellip;</div></div>
+          </div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:18px">Settings</div>
+          <div style="margin-top:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500">Notifications</span><svg width="8" height="12" viewBox="0 0 8 12"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500">Privacy and data</span><svg width="8" height="12" viewBox="0 0 8 12"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><div style="flex:1"><span style="font-size:17px;font-weight:500">Show where to buy</span><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">On &mdash; merchants under a gap</div></div><div style="width:52px;height:32px;border-radius:16px;background:#1C1A16;display:flex;align-items:center;justify-content:flex-end;padding:0 3px;flex:none"><div style="width:26px;height:26px;border-radius:13px;background:#FBFAF6"></div></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500">Blocked people</span><span style="font-size:16px;color:#6B665C;flex:none">3</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500">Help</span><svg width="8" height="12" viewBox="0 0 8 12"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+          </div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Form sheet with Done, no tab bar</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Measured counters only</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">No oxblood spent</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">Corrections 29, 30 and 31 together. The sheet is presented from Today&rsquo;s avatar and dismissed with Done at 44 pt; there is no tab bar on this frame, because Profile is not one of the four native tabs. The capacity band prints only what can be counted &mdash; active and stored pieces against the plan&rsquo;s ceilings &mdash; and the weekly outfit read is gone, since no such counter exists. Learned style is identity, not a metric, so it is prose. Membership is drawn here in its loading state to make the point that the row is a Supabase subscription read: it prints Checking&hellip; rather than assuming Free, and never claims a tier the app has not read. The borrowing toggle is removed entirely; lending is decided on the piece, in Item detail. Show where to buy remains, with its state printed as a word.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #6E2B2B;color:#6E2B2B;border-radius:6px;padding:2px 7px">PR-02 &middot; new</span><span style="font-size:13px;font-weight:500">The membership row in four states</span></div>
+      <div class="frame" data-screen-label="PR-02" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:10px 24px 0">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.06">Membership row</div>
+          <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:4px">One row shape, four reads. Only one is on screen.</div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:18px 24px 0">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Reading</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:44px;margin-top:8px">
+            <div style="flex:1"><div style="font-size:17px;font-weight:500">Membership</div><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Checking&hellip;</div></div>
+          </div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:20px">Standard, active</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:44px;margin-top:8px">
+            <div style="flex:1"><div style="font-size:17px;font-weight:500">Cinch Standard</div><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Through 3 March &middot; 150 active pieces</div></div>
+            <svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg>
+          </div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:20px">Pro, in trial</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:44px;margin-top:8px">
+            <div style="flex:1"><div style="font-size:17px;font-weight:500">Cinch Pro</div><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Trial through 12 September &middot; 1,000 active pieces</div></div>
+            <svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg>
+          </div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:20px">Read failed</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:44px;margin-top:8px">
+            <div style="flex:1"><div style="font-size:17px;font-weight:500">Membership can&rsquo;t be confirmed</div><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Nothing has changed and nothing is locked</div></div>
+            <span style="font-size:16px;flex:none">Retry</span>
+          </div>
+          <div style="background:#F0ECE3;border-radius:12px;padding:14px 16px;margin-top:20px">
+            <div style="font-size:15px;line-height:1.5;color:#4A463E">Correction 31: the row is a Supabase subscription read, not a store call. Reading is its own state rather than a silent fallback to Free. On an actual read error the row says it cannot confirm, offers a retry, and omits any renewal date &mdash; a guessed date on a failed read is worse than none. Trial is shown only when the read returns one; nothing here assumes a trial exists.</div>
+          </div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Comparison frame</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">No price, no assumed tier</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">Four reads in one row shape. The Free row is gone (correction 30): the frozen contract does not describe a Free membership object, so the row shows what the read returns and nothing more. A confirmed member gets a chevron to management, with no upsell in the row even on Standard. Paid access is described as lasting <span style="font-style:italic">through</span> a date rather than renewing on one, because renewal is the store&rsquo;s to decide. The active-piece figure comes from the plan the read names. No price appears anywhere on this page.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #1C1A16;border-radius:6px;padding:2px 7px">PR-01 / AX</span><span style="font-size:13px;font-weight:500">Largest Dynamic Type &mdash; rows grow, values wrap under</span></div>
+      <div class="frame" data-screen-label="PR-01 AX" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:10px 24px 0;display:flex;align-items:center;gap:14px">
+          <div style="width:56px;height:56px;border-radius:28px;background:#1C1A16;display:flex;align-items:center;justify-content:center;flex:none"><svg width="24" height="24" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#FBFAF6"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#FBFAF6"></path></svg></div>
+          <div style="flex:1;min-width:0"><div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.08">Maya Fitzgerald</div><div style="font-size:18px;line-height:1.4;color:#6B665C;margin-top:2px">@mayaf</div></div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:20px 24px 0">
+          <div style="padding:12px 0;border-top:1px solid rgba(28,26,22,.1)"><div style="font-size:20px;color:#6B665C">Active pieces</div><div style="font-size:20px;margin-top:2px">10 of 10</div></div>
+          <div style="padding:12px 0;border-top:1px solid rgba(28,26,22,.1)"><div style="font-size:20px;color:#6B665C">Stored pieces</div><div style="font-size:20px;margin-top:2px">4 of 20</div></div>
+          <div style="font-size:14px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:22px">Membership</div>
+          <div style="padding:14px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);margin-top:8px">
+            <div style="font-size:20px;font-weight:500">Cinch Standard</div>
+            <div style="font-size:19px;line-height:1.4;color:#6B665C;margin-top:3px">Through 3 March</div>
+            <div style="font-size:19px;line-height:1.4;color:#6B665C">150 active pieces</div>
+          </div>
+          <div style="font-size:14px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:22px">Settings</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0;border-top:1px solid rgba(28,26,22,.1);min-height:52px;margin-top:8px"><span style="font-size:20px;font-weight:500">Notifications</span><svg width="9" height="14" viewBox="0 0 8 12"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0;border-top:1px solid rgba(28,26,22,.1);min-height:52px"><span style="font-size:20px;font-weight:500">Privacy and data</span><svg width="9" height="14" viewBox="0 0 8 12"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+          <div style="padding:15px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px"><span style="font-size:20px;font-weight:500;flex:1">Show where to buy</span><div style="width:56px;height:34px;border-radius:17px;background:#1C1A16;display:flex;align-items:center;justify-content:flex-end;padding:0 3px;flex:none"><div style="width:28px;height:28px;border-radius:14px;background:#FBFAF6"></div></div></div>
+            <div style="font-size:19px;line-height:1.4;color:#6B665C;margin-top:2px">On &mdash; merchants under a gap</div>
+          </div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Value moves under its label</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Toggle keeps its row, gains a line</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Done stays reachable at 48 pt</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The settled row&rsquo;s one rule at larger type: when a label and its value can no longer share a line, the value moves underneath rather than either being truncated. Toggles keep their trailing position because they are the affordance, and their printed state takes the second line. Rows grow to 52 pt and the chevrons grow with them. The membership row shows a confirmed read here, so its three facts stack rather than compete; on a failed read the same stack carries the cannot-confirm line and the retry. Done grows to 48 pt and stays in the sheet header, which is the only way out of a form sheet.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ 03 · NOTIFICATIONS ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">03 &middot; Notification preferences &mdash; correction 32</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">The five channels that exist, named as they are named in code</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">Titles and descriptions are taken verbatim from the push channel definitions: Morning edit, Friend activity, Borrow requests, Event reminders, Votes and comments. The invented names and the invented sixth message are gone. Morning edit says the day&rsquo;s look is ready to read and never carries an outfit name; its time is chosen from the four the code offers.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:76px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">NT-01</span><span style="font-size:13px;font-weight:500">Preferences, allowed</span></div>
+      <div class="frame" data-screen-label="NT-01" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:6px 20px 0;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="16" viewBox="0 0 12 16"><path d="M9 1 L3 8 L9 15" stroke="#1C1A16" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.06">Notifications</div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:16px 24px 0">
+          <div style="font-size:17px;line-height:1.5;color:#6B665C">Cinch sends five kinds of message and nothing else. There is no digest and no re-engagement reminder.</div>
+          <div style="margin-top:18px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px">
+              <div style="flex:1"><div style="font-size:17px;font-weight:500">Morning edit</div><div style="font-size:14px;line-height:1.45;color:#6B665C;margin-top:2px">Your look for the day is ready to read</div><div style="font-size:14px;line-height:1.45;color:#6B665C">Arrives at 7:00</div></div>
+              <div style="width:52px;height:32px;border-radius:16px;background:#1C1A16;display:flex;align-items:center;justify-content:flex-end;padding:0 3px;flex:none"><div style="width:26px;height:26px;border-radius:13px;background:#FBFAF6"></div></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0 14px 0;min-height:44px">
+              <span style="font-size:15px;color:#6B665C;flex:none">Time</span>
+              <div style="display:flex;gap:6px;flex:none">
+                <span style="font-size:14px;background:#F0ECE3;border-radius:10px;padding:8px 11px;min-height:38px;display:flex;align-items:center;color:#4A463E">6:30</span>
+                <span style="font-size:14px;font-weight:500;background:#1C1A16;color:#FBFAF6;border-radius:10px;padding:8px 11px;min-height:38px;display:flex;align-items:center">7:00</span>
+                <span style="font-size:14px;background:#F0ECE3;border-radius:10px;padding:8px 11px;min-height:38px;display:flex;align-items:center;color:#4A463E">7:30</span>
+                <span style="font-size:14px;background:#F0ECE3;border-radius:10px;padding:8px 11px;min-height:38px;display:flex;align-items:center;color:#4A463E">8:00</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px">
+              <div style="flex:1"><div style="font-size:17px;font-weight:500">Friend activity</div><div style="font-size:14px;line-height:1.45;color:#6B665C;margin-top:2px">Requests and new friends</div></div>
+              <div style="width:52px;height:32px;border-radius:16px;background:#1C1A16;display:flex;align-items:center;justify-content:flex-end;padding:0 3px;flex:none"><div style="width:26px;height:26px;border-radius:13px;background:#FBFAF6"></div></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px">
+              <div style="flex:1"><div style="font-size:17px;font-weight:500">Borrow requests</div><div style="font-size:14px;line-height:1.45;color:#6B665C;margin-top:2px">When a friend asks for a piece, and when they answer yours</div></div>
+              <div style="width:52px;height:32px;border-radius:16px;background:#1C1A16;display:flex;align-items:center;justify-content:flex-end;padding:0 3px;flex:none"><div style="width:26px;height:26px;border-radius:13px;background:#FBFAF6"></div></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px">
+              <div style="flex:1"><div style="font-size:17px;font-weight:500">Event reminders</div><div style="font-size:14px;line-height:1.45;color:#6B665C;margin-top:2px">Invitations, and a reminder before an occasion starts</div></div>
+              <div style="width:52px;height:32px;border-radius:16px;background:#1C1A16;display:flex;align-items:center;justify-content:flex-end;padding:0 3px;flex:none"><div style="width:26px;height:26px;border-radius:13px;background:#FBFAF6"></div></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:44px">
+              <div style="flex:1"><div style="font-size:17px;font-weight:500">Votes and comments</div><div style="font-size:14px;line-height:1.45;color:#6B665C;margin-top:2px">Off &mdash; you will see both when you open the occasion</div></div>
+              <div style="width:52px;height:32px;border-radius:16px;background:#EAE5DB;display:flex;align-items:center;padding:0 3px;flex:none"><div style="width:26px;height:26px;border-radius:13px;background:#FBFAF6"></div></div>
+            </div>
+          </div>
+          <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:16px">A notification never contains a garment photograph. Turning everything off leaves Cinch fully usable; Activity keeps the same 30 days either way.</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Channel names verbatim from code</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Four send times, one held</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Activity, 30 days</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">Correction 32 applied in full. The five channels carry their code names and descriptions: Morning edit, Friend activity, Borrow requests, Event reminders, Votes and comments. Morning edit says the look is ready to read and does not name the outfit &mdash; naming it would put closet content in a lock-screen message. Its send time is a four-chip rail at 6:30, 7:00, 7:30 and 8:00, which is the whole set the code offers, so no chip is a mid-word peek and no time is invented. Event reminders now correctly own both invitations and the pre-start reminder, and comments have moved to the Votes and comments channel where the code puts them. The closing line says Activity and 30 days, matching correction 22.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #6E2B2B;color:#6E2B2B;border-radius:6px;padding:2px 7px">NT-02 &middot; new</span><span style="font-size:13px;font-weight:500">Denied at the system level</span></div>
+      <div class="frame" data-screen-label="NT-02" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:6px 20px 0;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="16" viewBox="0 0 12 16"><path d="M9 1 L3 8 L9 15" stroke="#1C1A16" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.06">Notifications</div>
+        </div>
+        <div style="flex:none;padding:16px 20px 0">
+          <div style="background:#F0ECE3;border-radius:12px;padding:16px">
+            <div style="font-size:17px;font-weight:500">Your phone is not letting Cinch send notifications</div>
+            <div style="font-size:15px;line-height:1.5;color:#6B665C;margin-top:4px">These preferences are remembered and will take effect if you allow notifications in Settings. Nothing is sent in the meantime.</div>
+            <div style="min-height:44px;display:flex;align-items:center;font-size:16px;color:#6E2B2B;margin-top:8px">Open Settings</div>
+          </div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:18px 24px 0">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px">
+            <div style="flex:1"><div style="font-size:17px;color:#4A463E">Morning edit</div><div style="font-size:14px;line-height:1.45;color:#4A463E;margin-top:2px">Would arrive at 7:00 &mdash; your look for the day is ready to read</div></div>
+            <div style="width:52px;height:32px;border-radius:16px;background:#EAE5DB;display:flex;align-items:center;justify-content:flex-end;padding:0 3px;flex:none"><div style="width:26px;height:26px;border-radius:13px;background:#F5F2EB"></div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px">
+            <div style="flex:1"><div style="font-size:17px;color:#4A463E">Friend activity</div><div style="font-size:14px;line-height:1.45;color:#4A463E;margin-top:2px">Would arrive on requests and new friends</div></div>
+            <div style="width:52px;height:32px;border-radius:16px;background:#EAE5DB;display:flex;align-items:center;justify-content:flex-end;padding:0 3px;flex:none"><div style="width:26px;height:26px;border-radius:13px;background:#F5F2EB"></div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:44px">
+            <div style="flex:1"><div style="font-size:17px;color:#4A463E">Event reminders</div><div style="font-size:14px;line-height:1.45;color:#4A463E;margin-top:2px">Would arrive on invitations and before a start</div></div>
+            <div style="width:52px;height:32px;border-radius:16px;background:#EAE5DB;display:flex;align-items:center;justify-content:flex-end;padding:0 3px;flex:none"><div style="width:26px;height:26px;border-radius:13px;background:#F5F2EB"></div></div>
+          </div>
+          <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:18px">Everything in Cinch still works. Requests, invitations and comments wait for you in Activity.</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Overridden rows: tray track, kept preferences</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Conditional tense states the effect</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">When the system says no, the page says so once at the top and every row below shifts to the conditional &mdash; &ldquo;would arrive&rdquo; &mdash; with its track in tray fill and its knob on paper. The labels stay at #4A463E rather than fading, because an overridden control still has to be readable. Preferences are explicitly remembered, so a user who allows notifications later does not have to set five toggles again, and the page closes by naming where the information waits instead.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ 04 · HELP ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">04 &middot; Help and support &mdash; corrections 33, 34</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Answers written as answers</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">Help is the prose system: 17 pt regular paragraphs, Medium only on headings, no illustrations and no marketing voice. Every article answers one question in the words a user would use to ask it, and audit 100 applies here as much as anywhere &mdash; nothing in help states a shopping absolute.</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">The commerce answer is now row-specific: Paid link belongs only to a confirmed joined merchant, and every other row says Open at the merchant. Support drops the one-day promise and the false &ldquo;nothing else&rdquo; claim, and discloses what a note actually carries.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:76px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">HP-01</span><span style="font-size:13px;font-weight:500">Help index</span></div>
+      <div class="frame" data-screen-label="HP-01" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:6px 20px 0;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="16" viewBox="0 0 12 16"><path d="M9 1 L3 8 L9 15" stroke="#1C1A16" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.06">Help</div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:14px 24px 0">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Getting your closet in</div>
+          <div style="margin-top:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500;flex:1">Why does Cinch start with ten pieces?</span><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500;flex:1">How do I add a piece without photographing it?</span><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500;flex:1">Cinch guessed wrong. How do I fix it?</span><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+          </div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:20px">Outfits and the week</div>
+          <div style="margin-top:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500;flex:1">How does Cinch decide what I should wear?</span><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500;flex:1">What is cost per wear, and why is it sometimes missing?</span><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+          </div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:20px">Friends, safety and privacy</div>
+          <div style="margin-top:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500;flex:1">Who can see my closet?</span><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500;flex:1">What happens when I block someone?</span><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500;flex:1">Where do buying suggestions come from?</span><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+          </div>
+          <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:18px">Cannot find it? <span style="color:#6E2B2B">Write to us</span> and two people read it.</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Titles are questions, wrapped</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Three groups, eight articles</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">Every title is the question in the user&rsquo;s words and is allowed to wrap to two lines &mdash; a truncated question is not a question. The settled row carries them: 17 pt Medium label, chevron, ruled. Group headings are the same 11 pt uppercase labels used in Profile, so the two pages read as one system. The commerce article is titled honestly rather than defensively, and nowhere in the index or its articles does a phrase like &ldquo;no shop&rdquo; appear &mdash; audit 100 sweeps help alongside the onboarding surfaces. Contact is one sentence at the foot, and it promises a person, which is the only promise this page makes.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #6E2B2B;color:#6E2B2B;border-radius:6px;padding:2px 7px">HP-02 &middot; new</span><span style="font-size:13px;font-weight:500">An article, and writing to a person</span></div>
+      <div class="frame" data-screen-label="HP-02" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:6px 20px 0"><div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center"><svg width="12" height="16" viewBox="0 0 12 16"><path d="M9 1 L3 8 L9 15" stroke="#1C1A16" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></div></div>
+        <div style="flex:1;overflow:hidden;padding:12px 24px 0">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.1">Where do buying suggestions come from?</div>
+          <div style="font-size:17px;line-height:1.5;color:#4A463E;margin-top:10px">A gap is explained from your own closet first. With suggestions on it may show up to three merchants: a row says Paid link where Cinch has a paid arrangement, every other says Open at the merchant. Commission never changes the gap or the order.</div>
+          <div style="font-size:17px;font-weight:500;margin-top:14px">Turning them off</div>
+          <div style="font-size:17px;line-height:1.5;color:#4A463E;margin-top:4px">Show where to buy lives in your settings. Gap cards still explain the gap.</div>
+          <div style="font-size:17px;font-weight:500;margin-top:14px">Your friends&rsquo; clothes</div>
+          <div style="font-size:17px;line-height:1.5;color:#4A463E;margin-top:4px">A friend&rsquo;s piece shows where to buy it only if that friend allowed it.</div>
+          <div style="background:#F0ECE3;border-radius:12px;padding:16px;margin-top:20px">
+            <div style="font-size:17px;font-weight:500">Still stuck?</div>
+            <div style="font-size:15px;line-height:1.5;color:#6B665C;margin-top:4px">Two people read hello@mail.cinchstyle.com. No ticket number.</div>
+            <div style="font-size:15px;line-height:1.5;color:#6B665C;margin-top:6px">It carries your note, any screenshot, your handle and email, the app version, and your device. No closet content is read.</div>
+            <div style="min-height:48px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;margin-top:14px">Write to us</div>
+          </div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Body 17 PROSE, headings 17 LABEL</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Article scrolls, support card at its end</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">No SLA, full disclosure list</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">Corrections 33 and 34. The commerce answer describes the mechanism as it works: up to three merchants, Paid link only on a confirmed joined merchant, Open at the merchant for everything else &mdash; the earlier blanket &ldquo;those rows are marked Paid link&rdquo; was untrue for direct rows. The commission sentence is conditional on a paid row existing and names all three things commission does not touch: gap, match and order. The support card drops the one-day promise Cinch cannot keep and the &ldquo;nothing else&rdquo; claim that was false, and lists what a note actually carries, with the one reassurance that is true: no closet content is read. It sits at the end of the article rather than pinned, because a help page has one job &mdash; the answer &mdash; and a permanently docked card was taking a third of the screen from it and cutting the friend-opt-in disclosure off the bottom.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ 05 · MEMBERSHIP MANAGEMENT ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">05 &middot; Membership &mdash; corrections 35, 36</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Managing what you already pay for</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">The first-run paywall sells; this pair does not. A member sees the entitlements that can actually be counted, how long paid access lasts, and how to change or leave, with cancellation routed to the store. An upgrading member sees the difference between tiers and live store terms &mdash; never a literal price.</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">Correction 35: no promise that cancelling auto-moves overflow to stored. No such job exists, and the Free total ceiling is 30, so the overflow would have nowhere to go. Correction 36: stylist and event consumption are removed until a real read exists.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:76px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #6E2B2B;color:#6E2B2B;border-radius:6px;padding:2px 7px">MB-08 &middot; new</span><span style="font-size:13px;font-weight:500">Manage membership &mdash; Standard, yearly</span></div>
+      <div class="frame" data-screen-label="MB-08" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;padding:6px 20px 0;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="16" viewBox="0 0 12 16"><path d="M9 1 L3 8 L9 15" stroke="#1C1A16" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.06">Your membership</div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:16px 24px 0">
+          <div style="font-size:17px;line-height:1.5;color:#6B665C">Cinch Standard. Your paid access lasts through 3 March, and everything below stays as it is until then.</div>
+          <div style="margin-top:18px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid rgba(28,26,22,.1)"><span style="font-size:17px;color:#6B665C">Active pieces</span><span style="font-size:17px">148 of 150</span></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1)"><span style="font-size:17px;color:#6B665C">Stored pieces</span><span style="font-size:17px">12 of 450</span></div>
+          </div>
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C;margin-top:22px">Changing it</div>
+          <div style="margin-top:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><div style="flex:1"><span style="font-size:17px;font-weight:500">Move to Pro</span><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">1,000 active pieces, and packing memos</div></div><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);min-height:44px"><div style="flex:1"><span style="font-size:17px;font-weight:500">Cancel or change billing</span><div style="font-size:14px;line-height:1.4;color:#6B665C;margin-top:1px">Opens the App Store, where the subscription lives</div></div><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1);min-height:44px"><span style="font-size:17px;font-weight:500;flex:1">Restore a purchase</span><svg width="8" height="12" viewBox="0 0 8 12" style="flex:none"><path d="M1 1 L7 6 L1 11" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></div>
+          </div>
+          <div style="background:#F0ECE3;border-radius:12px;padding:14px 16px;margin-top:12px">
+            <div style="font-size:15px;line-height:1.5;color:#4A463E">If you cancel, nothing is deleted and your paid access lasts through 3 March. After that Cinch Free holds 10 active pieces and 30 in total, so before the date you choose which pieces stay &mdash; Cinch will ask, and will not choose for you.</div>
+          </div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Only measurable counters</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Cancellation routed to the store</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">No auto-downgrade promise</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">A management page, not a sales page: no price, no accent, no retention attempt. Correction 36 cuts the band to the two counters that can be sourced &mdash; active and stored pieces &mdash; and removes the stylist-message and hosted-event rows, which had no read behind them. Correction 35 rewrites the downgrade consequence: paid access runs through current_period_end, and because the Free tier holds 10 active and 30 total, the member is asked to choose what stays rather than being told an automatic job will file the overflow. Cancellation is named plainly and says where it actually happens; Cinch cannot cancel a store subscription and does not pretend to.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #6E2B2B;color:#6E2B2B;border-radius:6px;padding:2px 7px">MB-09 &middot; new</span><span style="font-size:13px;font-weight:500">Standard to Pro &mdash; only the difference</span></div>
+      <div class="frame" data-screen-label="MB-09" style="width:393px;height:852px;background:#EFEBE1;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px;position:absolute;top:0;left:0;right:0"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="flex:none;height:688px;background:#FBFAF6;border-radius:20px 20px 44px 44px;display:flex;flex-direction:column;box-shadow:0 -5px 11px rgba(28,26,22,.10)">
+          <div style="flex:none;padding:14px 20px 0;display:flex;justify-content:flex-start"><div style="width:44px;height:44px;border-radius:22px;background:#F0ECE3;display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 14 14"><path d="M1 1 L13 13 M13 1 L1 13" stroke="#1C1A16" stroke-width="1.8" stroke-linecap="round"></path></svg></div></div>
+          <div style="flex:none;padding:6px 24px 0">
+            <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Standard &rarr; Pro</div>
+            <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.1;margin-top:6px">What changes if you move up</div>
+          </div>
+          <div style="flex:none;padding:16px 24px 0">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid rgba(28,26,22,.1)"><span style="font-size:17px;color:#6B665C">Active pieces</span><span style="font-size:17px">150 &rarr; 1,000</span></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid rgba(28,26,22,.1)"><span style="font-size:17px;color:#6B665C">Stored pieces</span><span style="font-size:17px">450 &rarr; 3,000</span></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid rgba(28,26,22,.1);border-bottom:1px solid rgba(28,26,22,.1)"><span style="font-size:17px;color:#6B665C">Packing memos</span><span style="font-size:17px">Not included &rarr; included</span></div>
+            <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:10px">Everything you already have stays exactly as it is.</div>
+          </div>
+          <div style="flex:none;padding:16px 20px 0;display:flex;flex-direction:column;gap:10px">
+            <div style="border:1.5px solid #1C1A16;background:#FFFFFF;border-radius:12px;padding:15px 16px;display:flex;align-items:center;justify-content:space-between;min-height:44px">
+              <div><div style="font-size:17px;font-weight:500">Annual</div><div style="font-size:14px;color:#6B665C;margin-top:2px">Billed once a year</div></div>
+              <div style="font-size:17px;font-weight:500;color:#6B665C">App Store price</div>
+            </div>
+            <div style="border:1px solid rgba(28,26,22,.18);border-radius:12px;padding:15px 16px;display:flex;align-items:center;justify-content:space-between;min-height:44px">
+              <div><div style="font-size:17px">Monthly</div><div style="font-size:14px;color:#6B665C;margin-top:2px">Cancel any month</div></div>
+              <div style="font-size:17px;color:#6B665C">App Store price</div>
+            </div>
+          </div>
+          <div style="flex:1"></div>
+          <div style="flex:none;padding:0 20px">
+            <div style="min-height:52px;border-radius:12px;background:#6E2B2B;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:500">Move to Pro annual</div>
+            <div style="min-height:44px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#6B665C;margin-top:4px">Stay on Standard</div>
+            <div style="font-size:13px;line-height:1.45;color:#6B665C;margin-top:8px;text-align:center">The App Store handles the balance of your current term.</div>
+          </div>
+          <div style="flex:1"></div>
+          <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+        </div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#F1E2E2;border-radius:4px;padding:2px 6px;color:#6E2B2B">Oxblood spent here</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Both terms above the CTA</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Price slots are live StoreKit reads</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">An upgrade for someone who already pays states only the delta: three rows, each with the current figure and the new one, so nothing has to be remembered from another screen. Packing appears as a delta row because correction 18 resolves it as Pro-only. Correction 36: the price positions are drawn as slots, not literals &mdash; the shipping screen fills them from the localized StoreKit product, and the CTA takes its label from the same read, which is why it names the term but not a figure here. No per-month arithmetic is derived, no trial is promised, and no renewal is guessed. Proration is the App Store&rsquo;s, and the sentence says so. Stay on Standard is a real 44 pt exit with no second attempt after it.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ 06 · INVENTORY ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">06 &middot; Component and state inventory</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Two systems, and the objects they are made of</div>
+  </div>
+  <div style="max-width:1500px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;margin-bottom:76px">
+    <div style="display:grid;grid-template-columns:1.1fr .5fr 1.5fr 1.5fr;gap:20px;padding:14px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">
+      <div>Component</div><div>Origin</div><div>Drawing</div><div>States drawn</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .5fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Settled row</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">Ruled 44 pt row: Medium label, regular value or sub-line, one affordance</div><div style="color:#6B665C">Chevron, value, toggle, overridden toggle, retry, avatar variant</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .5fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Toggle</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">52&times;32 ink or tray track, paper knob, state printed as a word</div><div style="color:#6B665C">On, off, overridden by the system</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .5fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Consequence sheet</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">520&ndash;760 pt sheet, regular paragraphs, two named outcomes, no accent</div><div style="color:#6B665C">Unblock, AX pinned-action variant</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .5fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Prose article</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">17 pt regular body, 17 pt Medium headings, 22 pt gaps, no imagery</div><div style="color:#6B665C">Article, article with support card</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .5fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Entitlement band</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">Ruled label-and-value pairs; only counters with a real read &mdash; active and stored</div><div style="color:#6B665C">Standard, Pro, upgrade delta</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .5fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Term row</div><div style="color:#6B665C">Inherited</div><div style="color:#6B665C">Group 1 paywall object; price and CTA label are StoreKit slots, never literals</div><div style="color:#6B665C">Selected, plain, price pending</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .5fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Notice band (tray)</div><div style="color:#6B665C">Inherited</div><div style="color:#6B665C">Now also the system-override and downgrade-consequence voice</div><div style="color:#6B665C">Denied, failed unblock, cancellation consequence, support</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .5fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Person row</div><div style="color:#6B665C">Inherited</div><div style="color:#6B665C">Group 5 object; on BL-01 it draws person, handle and blocked_at only</div><div style="color:#6B665C">Blocked, unblocking, failed</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .5fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Send-time rail</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">Four 38 pt chips inside a 44 pt row; the complete set, never scrolled</div><div style="color:#6B665C">6:30, 7:00, 7:30, 8:00 &mdash; one held</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 07 · TRANSITIONS ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">07 &middot; Transition notes</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Where each frame goes, and what it carries</div>
+  </div>
+  <div style="max-width:1500px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;margin-bottom:76px">
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:14px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">
+      <div>From</div><div>Action</div><div>To, and what survives</div><div>Motion</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">SF-01</div><div style="color:#6B665C">Unblock</div><div style="color:#6B665C">SF-02 before anything changes; the list is untouched behind the sheet</div><div style="color:#6B665C">Slow 380, sheet rise</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">SF-02</div><div style="color:#6B665C">Unblock him</div><div style="color:#6B665C">SF-01 with the row in its unblocking state, then removed; on failure the row stays blocked with Retry</div><div style="color:#6B665C">Base 220; no bouncy moment</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">SF-02</div><div style="color:#6B665C">Keep him blocked</div><div style="color:#6B665C">SF-01 unchanged; nothing is recorded and the other person is never told either way</div><div style="color:#6B665C">Fast 140</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">PR-01</div><div style="color:#6B665C">See memberships</div><div style="color:#6B665C">The frozen two-tier placement (Superwall 254200) with Pro preselected, entered not pushed</div><div style="color:#6B665C">Slow 380, sheet rise</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">PR-01</div><div style="color:#6B665C">Membership row, confirmed</div><div style="color:#6B665C">MB-08; active and stored counts are read live, so the page never shows a stale ceiling</div><div style="color:#6B665C">Base 220</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">MB-08</div><div style="color:#6B665C">Move to Pro</div><div style="color:#6B665C">MB-09 with the current tier&rsquo;s figures on the left of every arrow</div><div style="color:#6B665C">Base 220</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">MB-08</div><div style="color:#6B665C">Cancel or change billing</div><div style="color:#6B665C">The system subscription page; returning re-reads StoreKit and updates the row</div><div style="color:#6B665C">System</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">PR-01</div><div style="color:#6B665C">Notifications</div><div style="color:#6B665C">NT-01, or NT-02 when the system has denied; preferences persist across both</div><div style="color:#6B665C">Base 220</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">HP-01</div><div style="color:#6B665C">Tap a question</div><div style="color:#6B665C">HP-02; the question becomes the article title verbatim, so nothing is renamed</div><div style="color:#6B665C">Base 220</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">HP-02</div><div style="color:#6B665C">Write to us</div><div style="color:#6B665C">A composer to hello@mail.cinchstyle.com carrying exactly what the card named; no ticket is created</div><div style="color:#6B665C">Slow 380</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 08 · ACCESSIBILITY ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">08 &middot; Accessibility behaviour</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Settings that survive being read aloud</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;max-width:1500px;margin-bottom:76px">
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">VoiceOver</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:12px">A settled row announces label, then value or state, then its role: &ldquo;Notifications, button&rdquo;; &ldquo;Show where to buy, on, switch&rdquo;; &ldquo;Blocked people, 3, button&rdquo;. An overridden toggle adds &ldquo;unavailable, your phone is not allowing notifications&rdquo;. The membership row announces &ldquo;Membership, checking&rdquo; while the read is in flight and &ldquo;Membership can&rsquo;t be confirmed, retry, button&rdquo; when it fails, so neither state is silent.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">The unblock sheet announces its question, then all three consequence paragraphs, then the two actions &mdash; and the actions are last in the reading order as well as last visually, so nobody confirms before hearing the consequence.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">Help titles are announced as the questions they are. The article&rsquo;s headings are real headings, so the rotor can move between Turning them off and Your friends&rsquo; clothes.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">The entitlement band reads label-then-value per row; the upgrade deltas read &ldquo;active pieces, 150 becomes 1,000&rdquo; rather than reading the arrow as a symbol.</div>
+    </div>
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Second channels and targets</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:12px">Every toggle prints its state as a word beneath its label, so no preference is carried by the track colour alone. An overridden toggle carries tray fill, a paper knob, conditional wording and a stated cause &mdash; four channels.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">Rows are at least 44 pt and grow to 52 at larger type; every trailing affordance, including Unblock, Retry and the sheet&rsquo;s own Done, is a 44 pt target. The Morning edit time rail uses 38 pt chips inside a 44 pt row, and shows all four times &mdash; there is no partially revealed chip to mis-tap.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">Nothing in this group animates except sheet entry, and no state in it depends on motion. There is no bouncy moment anywhere in group 6 &mdash; blocking, unblocking and paying are not delights.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">The prose system never sets a factual sentence below 15 pt, and never uses Medium for one. Legal and support text is the same 17 pt as the rest of an article.</div>
+    </div>
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Largest Dynamic Type</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:12px">Two stress frames. SF-02 / AX scrolls the consequence and pins both actions, because a safety decision must never have its options off screen. PR-01 / AX moves each value under its label and keeps toggles trailing with their state on a second line.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">Help and the articles need no separate stress frame: the prose system is one column of wrapping paragraphs, which grows in height only. That is the reason help is prose rather than a set of cards.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">MB-09 follows the group 4 pattern for term rows: each row takes two lines, the CTA pins with its tier and figure, and the entitlement deltas become label-over-value pairs.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 09 · ANALYTICS AND DEVIATIONS ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">09 &middot; Analytics and deviations</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Settings changes as facts, never as content</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">No blocked person&rsquo;s identity, handle, support message or article text appears in any event. A block or unblock is recorded as a count and an outcome, never with who.</div>
+  </div>
+  <div style="max-width:1500px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;margin-bottom:32px">
+    <div style="display:grid;grid-template-columns:.8fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:14px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">
+      <div>Flow</div><div>Offer</div><div>Start</div><div>Completion</div><div>Failure and recovery</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.8fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Safety</div><div style="color:#6B665C">Blocked list opened; count only</div><div style="color:#6B665C">Unblock confirmation shown</div><div style="color:#6B665C">Unblocked, or kept blocked</div><div style="color:#6B665C">Unblock failed, retried</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.8fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Preferences</div><div style="color:#6B665C">Notifications opened; system state</div><div style="color:#6B665C">Toggle changed, by name</div><div style="color:#6B665C">Preference stored</div><div style="color:#6B665C">System denied; Settings opened</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.8fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Membership</div><div style="color:#6B665C">Row shown with tier and term</div><div style="color:#6B665C">Paywall or upgrade opened, with origin</div><div style="color:#6B665C">Purchased, upgraded, restored</div><div style="color:#6B665C">Store unavailable, canceled at the sheet</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.8fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Help</div><div style="color:#6B665C">Index opened</div><div style="color:#6B665C">Article opened, by id</div><div style="color:#6B665C">Support message sent</div><div style="color:#6B665C">Send failed, retried</div>
+    </div>
+  </div>
+  <div style="max-width:1500px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;margin-bottom:76px">
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:14px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">
+      <div>Screen</div><div>Previous behaviour</div><div>New drawing</div><div>Authority</div><div>Unresolved</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">SF-01</div><div style="color:#6B665C">Unblock acted on one tap, with no confirmation</div><div style="color:#6B665C">Confirmation sheet first; Unblock stays ink; blocking anew is elsewhere</div><div style="color:#6B665C">Audit 99</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">SF-02</div><div style="color:#6B665C">Consequence, where present, set as one bold paragraph; second action was Cancel</div><div style="color:#6B665C">Three regular paragraphs naming both consequences; &ldquo;Keep him blocked&rdquo;</div><div style="color:#6B665C">Audit 99</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">PR-01</div><div style="color:#6B665C">Drawn as a fifth tab with an invented Today/Closet/You bar; unsourced usage rows; global borrowing toggle</div><div style="color:#6B665C">Form sheet from Today&rsquo;s avatar with Done; measured counters only; lending moved to the piece</div><div style="color:#6B665C">Corrections 29, 30</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">PR-02</div><div style="color:#6B665C">Free row under a contract that has none; unknown blamed on the store</div><div style="color:#6B665C">Reading, confirmed, trial and read-failed; &ldquo;Membership can&rsquo;t be confirmed&rdquo;, no guessed date</div><div style="color:#6B665C">Corrections 30, 31</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">NT-01</div><div style="color:#6B665C">Invented channel names; morning message carried the outfit name; Lately, 7 days</div><div style="color:#6B665C">The five code channels verbatim; look is &ldquo;ready to read&rdquo;; four send times; Activity, 30 days</div><div style="color:#6B665C">Corrections 22, 32</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">NT-02</div><div style="color:#6B665C">Toggles appeared enabled while the system blocked delivery</div><div style="color:#6B665C">Cause stated once, rows in the conditional, preferences kept</div><div style="color:#6B665C">Refusals</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">HP-01/02</div><div style="color:#6B665C">Blanket &ldquo;marked Paid link&rdquo;; one-day SLA; &ldquo;email and version and nothing else&rdquo;</div><div style="color:#6B665C">Paid link only on joined merchants, Open at otherwise; hello@mail.cinchstyle.com, two readers, full disclosure list</div><div style="color:#6B665C">Corrections 33, 34</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">MB-08</div><div style="color:#6B665C">Stylist and event consumption counters with no read; promised an auto-move of overflow to stored</div><div style="color:#6B665C">Active and stored only; access through current_period_end; the member chooses what stays</div><div style="color:#6B665C">Corrections 35, 36</div><div style="color:#6B665C">Server-enforced downgrade policy not yet specified</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">MB-09</div><div style="color:#6B665C">Hard-coded $119 and $14.99, derived per-month figure, an unlimited-outfits row and a guessed proration</div><div style="color:#6B665C">Live StoreKit price slots, term-only CTA, packing as the resolved Pro delta, App Store proration</div><div style="color:#6B665C">Corrections 18, 36</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 10 · POSITIONING SWEEP AND WAVE ROLL-UP ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">10 &middot; Audit 100 &middot; positioning sweep</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Every surface the shopping absolute could have survived on</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">The approved line is &ldquo;Your closet first. Shop only when something is genuinely missing.&rdquo; It appears where positioning is being stated, and nowhere is a broader absolute stated in its place.</div>
+  </div>
+  <div style="max-width:1500px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;margin-bottom:76px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:14px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">
+      <div>Surface</div><div>Group and frame</div><div>What it says about commerce</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Welcome and Tour</div><div style="color:#6B665C">1 &middot; TR-01, TR-04</div><div style="color:#6B665C">The approved line, once, as the positioning statement</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">The Ten and Reveal</div><div style="color:#6B665C">1 &middot; T-01, R-02, R-05</div><div style="color:#6B665C">Nothing; commerce is not named on either surface</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Today, empty and nothing-works</div><div style="color:#6B665C">2 &middot; T-03, T-05</div><div style="color:#6B665C">Hands into the Gap Feed without naming shopping</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Empty closet</div><div style="color:#6B665C">3 &middot; C-05</div><div style="color:#6B665C">The approved line, verbatim</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Describe results and link intake</div><div style="color:#6B665C">3 &middot; DS-02, DS-03</div><div style="color:#6B665C">States that nothing is ordered and no link is followed; no Paid link, because nothing is affiliate</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Privacy, shopping partners</div><div style="color:#6B665C">4 &middot; PV-02</div><div style="color:#6B665C">Three flows distinguished; commission stated; no absolute</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Gap Feed and product sheet</div><div style="color:#6B665C">5 &middot; GF-01 to GF-04</div><div style="color:#6B665C">The one place commerce is offered; gap first, disclosure per merchant row, ranking unaffected</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Friend&rsquo;s piece</div><div style="color:#6B665C">3 &middot; IT-04</div><div style="color:#6B665C">No commerce action at all unless the owner opted in</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Help</div><div style="color:#6B665C">6 &middot; HP-01, HP-02</div><div style="color:#6B665C">Answers with the mechanism, row-specific Paid link vs Open at; states no absolute</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.6fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Suggestions off, throughout</div><div style="color:#6B665C">5, 6 &middot; GF-01, PR-01</div><div style="color:#6B665C">A complete closet-first product: gaps still explained, nothing else changes</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">11 &middot; Wave 3 roll-up &mdash; correction ledger</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Thirty-seven corrections, nine claims closed, five dependencies open</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">The open-claims list is retired. Nine of the eleven were answered by the repository review and are now drawn as fact; the remainder became corrections. What is left is not a copy question but a set of real implementation dependencies.</div>
+  </div>
+  <div style="max-width:1500px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;margin-bottom:32px">
+    <div style="display:grid;grid-template-columns:.4fr 1.6fr 1fr;gap:20px;padding:14px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">
+      <div>No.</div><div>Correction</div><div>Where it lands</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.4fr 1.6fr 1fr;gap:20px;padding:14px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">01&ndash;04</div><div style="color:#6B665C">On-device cutout split from model tagging; the four shared consent-fact records verbatim; SHA key plus up to 12 generic terms may remain in the catalogue cache; voice recorded, transcribed, deleted, with a 24-hour retry ceiling</div><div style="color:#6B665C">Group 4 CN-01&ndash;04, PV-02; group 3 DS-04</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.4fr 1.6fr 1fr;gap:20px;padding:14px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">05&ndash;08</div><div style="color:#6B665C">Frozen two-tier Superwall 254200 with Pro preselected; no default trial; Today&rsquo;s calendar-plus action restored to /event/new; &ldquo;Build one anyway&rdquo; deleted</div><div style="color:#6B665C">Group 1 MB-01; group 2 T-01, T-05</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.4fr 1.6fr 1fr;gap:20px;padding:14px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">09&ndash;13</div><div style="color:#6B665C">PHPicker with no blanket permission; local cutout failure copy; C-09 total-storage-full; retailer provenance with reserved attribution; no mid-word chip peeks</div><div style="color:#6B665C">Group 3 AD-01, AD-03, C-09, DS-02; all chip rails</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.4fr 1.6fr 1fr;gap:20px;padding:14px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">14&ndash;18</div><div style="color:#6B665C">Row-specific commerce disclosure; five-file export with expiring photo links; immediate cascading deletion; packing answers saved with the trip; packing resolved Pro-only</div><div style="color:#6B665C">Group 4 PV-02&ndash;04, PK-01&ndash;04</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.4fr 1.6fr 1fr;gap:20px;padding:14px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">19&ndash;23</div><div style="color:#6B665C">Per-row disclosure in the feed; no Add anyway at an active limit; silent catalogue failure; Activity at 30 days; friends rows limited to real friendship data</div><div style="color:#6B665C">Group 5 GF-01&ndash;04, FR-01&ndash;02, AV-01&ndash;02</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.4fr 1.6fr 1fr;gap:20px;padding:14px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">24&ndash;27</div><div style="color:#6B665C">Look Board as a shared rail locking at starts_at; comments closing at starts_at; cancellation promising only what happens; shared look 2&ndash;6 pieces</div><div style="color:#6B665C">Group 5 LB-01&ndash;02, CM-01&ndash;02, EV-03, SL-01&ndash;02</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.4fr 1.6fr 1fr;gap:20px;padding:14px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">28&ndash;32</div><div style="color:#6B665C">Blocked rows aliased to BL-01/BL-02 with no report field; Profile as a form sheet behind four native tabs; measured entitlements only; Supabase membership read; code-verbatim push channels</div><div style="color:#6B665C">Group 6 SF-01&ndash;03, PR-01&ndash;02, NT-01&ndash;02</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.4fr 1.6fr 1fr;gap:20px;padding:14px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">33&ndash;37</div><div style="color:#6B665C">Row-specific help answer; support disclosure without an SLA; no auto-downgrade promise; live StoreKit terms with no literal price; this ledger in place of the claim cards</div><div style="color:#6B665C">Group 6 HP-01&ndash;02, MB-08&ndash;09, sections 9&ndash;11</div>
+    </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;max-width:1500px;margin-bottom:40px">
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Claims closed by the review</div>
+      <div style="font-size:15px;line-height:1.7;color:#4A463E;margin-top:12px">Paywall tier &middot; frozen two-tier, Pro preselected<br>Trial &middot; runtime eligibility only, never a default<br>Attribution &middot; retailer provenance, configurable reserve<br>Audio retention &middot; deleted after transcription, 24 h on retry<br>Stored ceiling &middot; C-09 total-full is its own state<br>Deletion &middot; immediate and cascading<br>Packing tier &middot; Pro<br>Shared look &middot; 2 minimum, 6 maximum<br>Comment closure &middot; starts_at</div>
+      <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:12px">Each is now drawn as behaviour rather than as an assumption card.</div>
+    </div>
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid #6E2B2B;border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6E2B2B">Implementation dependencies</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:12px">These are engineering commitments the canvases now depend on. None is a copy decision.</div>
+      <div style="font-size:15px;line-height:1.7;color:#4A463E;margin-top:10px">A &middot; Server-side refusal of comment inserts after starts_at &mdash; the canvases say closure is enforced, which is only true with the server check<br>B &middot; Look Board server lock at starts_at, and one movable pick per viewer<br>C &middot; A chosen downgrade policy: the canvases ask the member to choose, so either that flow ships or a server-enforced rule replaces it<br>D &middot; Merchant join-state exposed per row, so Paid link can be row-specific<br>E &middot; StoreKit product terms surfaced to every selling and upgrade surface</div>
+    </div>
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Readiness</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:12px">All thirty-seven corrections are visible in the canvases. Five of them assert behaviour that does not exist yet &mdash; dependencies A to E &mdash; so the atlas is <span style="font-weight:500">not implementation-ready</span> until those are either built or the corresponding copy is softened.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">Everything else is simulator-checkable today: layout, states, targets, Dynamic Type and the wording of every claim.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">Nothing has been handed to Claude Code.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

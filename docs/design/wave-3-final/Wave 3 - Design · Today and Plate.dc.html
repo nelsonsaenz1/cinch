@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#EFEBE1; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; color:#1C1A16; -webkit-font-smoothing:antialiased; }
+  a { color:#6E2B2B; } a:hover { color:#8A3A35; }
+  .frame { scrollbar-width:none; -ms-overflow-style:none; }
+  .frame::-webkit-scrollbar { width:0; height:0; }
+</style>
+</helmet>
+
+<div style="padding:56px 64px 120px;max-width:3400px">
+
+  <div style="max-width:900px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:10px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;background:#1C1A16;color:#FBFAF6;border-radius:4px;padding:4px 9px">Wave 3 - Design</span>
+      <span style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Atlas group 2 of 6 &middot; Today and the daily plate</span>
+    </div>
+    <div style="font-family:'Instrument Serif',serif;font-size:56px;line-height:1.06;margin-top:14px">The outfit arrives before anything else does</div>
+    <div style="font-size:16px;line-height:1.55;color:#6B665C;margin-top:16px">Four corrections drive this group. The greeting stops consuming the first viewport. The temperature is printed once. The plate stops representing garments as overlapping colour rectangles and shows the owned photographs instead. And the three reactions stay legible, in order, at the largest supported type.</div>
+    <div style="font-size:16px;line-height:1.55;color:#6B665C;margin-top:12px">Cost-per-wear is printed only when every piece in the look carries a price; otherwise the line is dropped, never estimated and never rendered as a dash. The weekly figure is <span style="font-family:ui-monospace,monospace;font-size:13px;background:#E7E2D6;padding:1px 6px;border-radius:4px">PLANS.free.outfitPromise</span> &mdash; the promise, never the enforced ceiling.</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:10px;max-width:900px;margin-bottom:64px">
+    <span style="font-size:11px;font-weight:500;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:12px;padding:7px 12px">Audit trace: 56, 57, 58, 59</span>
+    <span style="font-size:11px;font-weight:500;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:12px;padding:7px 12px">Inherits: composed-look grid, notice band</span>
+    <span style="font-size:11px;font-weight:500;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:12px;padding:7px 12px">Masthead ceiling: 96 pt</span>
+    <span style="font-size:11px;font-weight:500;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:12px;padding:7px 12px">Plate works at 3&ndash;6 pieces</span>
+  </div>
+
+  <!-- ═══════════ 01 · HAPPY PATH ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">01 &middot; The normal day</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Masthead, then plate, and nothing between them</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">The masthead is capped at 96 pt: one context label, one greeting line, one avatar. Date, place and temperature share that label, so the weather is stated once on the screen and the plate never repeats it. At 393 pt the outfit name is visible without scrolling.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:76px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-01</span><span style="font-size:13px;font-weight:500">Normal day &mdash; reasoning arrived, prices complete</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Thu 7 Aug &middot; Denver &middot; Feels 72&deg;F, clear</div>
+            <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+          </div>
+          <div style="display:flex;gap:4px;flex:none;align-items:center">
+            <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg width="21" height="21" viewBox="0 0 22 22"><rect x="1" y="3.5" width="20" height="17.5" rx="3.5" stroke="#1C1A16" stroke-width="1.5" fill="none"></rect><path d="M1 8.5 H21 M6.5 1 V5 M15.5 1 V5" stroke="#1C1A16" stroke-width="1.5" stroke-linecap="round"></path><path d="M11 12 V18 M8 15 H14" stroke="#1C1A16" stroke-width="1.5" stroke-linecap="round"></path></svg></div>
+            <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><div style="width:34px;height:34px;border-radius:50%;background:#1C1A16;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#FBFAF6"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#FBFAF6"></path></svg></div></div>
+          </div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.08">Quiet authority</div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">Cognac and cream anchor the look while the charcoal trousers ground it. Structured enough for the dinner, soft enough for after.</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px">
+            <div style="height:104px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt="Mohair sweater"></div>
+            <div style="height:104px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Tailored trousers"></div>
+            <div style="height:104px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Penny loafers"></div>
+            <div style="height:104px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:cover" alt="Shearling coat"></div>
+            <div style="height:104px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/cognac-leather-tote.jpg" style="width:100%;height:100%;object-fit:cover" alt="Leather tote"></div>
+            <div style="height:104px;border-radius:10px;background:#F5F2EB;border:1px dashed rgba(28,26,22,.16);display:flex;align-items:center;justify-content:center"><span style="font-size:12px;color:#4A463E">Swap a piece</span></div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;line-height:1.45;color:#6B665C">Mohair sweater &middot; Tailored trousers &middot; Penny loafers &middot; Shearling coat &middot; Leather tote</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+            <span style="width:14px;height:14px;border-radius:50%;background:#C9BBA6;border:1px solid rgba(28,26,22,.12)"></span>
+            <span style="width:14px;height:14px;border-radius:50%;background:#4A463E;border:1px solid rgba(28,26,22,.12)"></span>
+            <span style="width:14px;height:14px;border-radius:50%;background:#8A5A3B;border:1px solid rgba(28,26,22,.12)"></span>
+            <span style="font-size:12px;color:#6B665C;margin-left:2px">Cream, charcoal, cognac</span>
+            <span style="flex:1"></span>
+            <span style="font-size:12px;color:#6B665C">$2.14 a wear</span>
+          </div>
+        </div>
+        <div style="padding:12px 20px 0;flex:none;display:flex;gap:8px">
+          <div style="flex:1.4;height:48px;border-radius:12px;background:#6E2B2B;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500">I wore this</div>
+          <div style="flex:1;height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:15px">Love it</div>
+          <div style="flex:1;height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:15px">Not for me</div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#F1E2E2;border-radius:4px;padding:2px 6px;color:#6E2B2B">Oxblood spent here</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Context 11 px LABEL</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Rationale 16 px PROSE</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Garment list 12 px PROSE</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Plate r20 &middot; tiles r10</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">Audit 56: the masthead is 84 pt and the plate begins at 148 pt, so the outfit name sits well inside the first viewport. Audit 57: the temperature is in the context label and nowhere else &mdash; the plate&rsquo;s old &ldquo;Feels 72&deg;F&rdquo; eyebrow is gone rather than relabelled, because the two were the same fact. Audit 58: five owned photographs on one grid at one scale; no piece overlaps another and every name is in the list beneath. The sixth cell is the swap affordance, drawn as a designed empty cell so it cannot be mistaken for a failed image.</div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C;margin-top:8px">The palette is three swatches with their names printed beside them, not colour alone. &ldquo;$2.14 a wear&rdquo; prints only because all five pieces carry a price; see T-03 for the same plate with one price missing.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-02</span><span style="font-size:13px;font-weight:500">Occasion interrupt present</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Thu 7 Aug &middot; Denver &middot; Feels 72&deg;F, clear</div>
+            <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+          </div>
+          <div style="display:flex;gap:4px;flex:none;align-items:center">
+            <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg width="21" height="21" viewBox="0 0 22 22"><rect x="1" y="3.5" width="20" height="17.5" rx="3.5" stroke="#1C1A16" stroke-width="1.5" fill="none"></rect><path d="M1 8.5 H21 M6.5 1 V5 M15.5 1 V5" stroke="#1C1A16" stroke-width="1.5" stroke-linecap="round"></path><path d="M11 12 V18 M8 15 H14" stroke="#1C1A16" stroke-width="1.5" stroke-linecap="round"></path></svg></div>
+            <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><div style="width:34px;height:34px;border-radius:50%;background:#1C1A16;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#FBFAF6"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#FBFAF6"></path></svg></div></div>
+          </div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#F0ECE3;border-radius:12px;padding:14px 16px">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">Tonight</div>
+          <div style="font-size:17px;font-weight:500;margin-top:4px">Dinner at Bar Ilios, 7pm</div>
+          <div style="font-size:15px;line-height:1.45;color:#6B665C;margin-top:3px">Four going. Today&rsquo;s look is built for the day; the occasion has its own.</div>
+          <div style="height:44px;display:flex;align-items:center;font-size:16px;color:#6E2B2B;margin-top:4px">Dress for the dinner instead</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.08">Quiet authority</div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">Cognac and cream anchor the look while the charcoal trousers ground it.</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px">
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt="Mohair sweater"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Tailored trousers"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Penny loafers"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/cognac-leather-tote.jpg" style="width:100%;height:100%;object-fit:cover" alt="Leather tote"></div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;line-height:1.45;color:#6B665C">Mohair sweater &middot; Tailored trousers &middot; Penny loafers &middot; Leather tote</div>
+        </div>
+        <div style="padding:12px 20px 0;flex:none;display:flex;gap:8px">
+          <div style="flex:1.4;height:48px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500">I wore this</div>
+          <div style="flex:1;height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:15px">Love it</div>
+          <div style="flex:1;height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:15px">Not for me</div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#F1E2E2;border-radius:4px;padding:2px 6px;color:#6E2B2B">Oxblood spent on the interrupt</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Interrupt is tray, r12</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Plate drops to 4-up</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The occasion is an interrupt, not a tab and not a second plate: it takes the tray, sits above the look it competes with, and offers exactly one action. Because it costs 96 pt, the plate composes at four pieces on one row and the rationale shortens to a single sentence &mdash; the plate is designed to work at three to six pieces, and this is that mechanism doing its job rather than a special case. The single oxblood action moves to the interrupt for this frame; the wear action falls back to ink, keeping one dominant action and one accent.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-03</span><span style="font-size:13px;font-weight:500">A piece with no price &mdash; the line is dropped</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Fri 8 Aug &middot; Denver &middot; Feels 58&deg;F, rain</div>
+            <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+          </div>
+          <div style="display:flex;gap:4px;flex:none;align-items:center">
+            <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg width="21" height="21" viewBox="0 0 22 22"><rect x="1" y="3.5" width="20" height="17.5" rx="3.5" stroke="#1C1A16" stroke-width="1.5" fill="none"></rect><path d="M1 8.5 H21 M6.5 1 V5 M15.5 1 V5" stroke="#1C1A16" stroke-width="1.5" stroke-linecap="round"></path><path d="M11 12 V18 M8 15 H14" stroke="#1C1A16" stroke-width="1.5" stroke-linecap="round"></path></svg></div>
+            <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><div style="width:34px;height:34px;border-radius:50%;background:#1C1A16;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#FBFAF6"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#FBFAF6"></path></svg></div></div>
+          </div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.08">Wet morning, dry ankles</div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">Rain until noon, so the boots lead and the overshirt takes the weather. The corduroy is the warmest thing in the wardrobe that is still clean.</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:14px">
+            <div style="height:132px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/beige-overshirt-jacket.jpg" style="width:100%;height:100%;object-fit:cover" alt="Overshirt jacket"></div>
+            <div style="height:132px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16)"><img src="assets/garments/beige-corduroy-skirt.jpg" style="width:100%;height:100%;object-fit:cover" alt="Corduroy skirt"></div>
+            <div style="height:132px;border-radius:10px;overflow:hidden;background:#F0ECE3;box-shadow:0 5px 11px rgba(28,26,22,.16);grid-column:1 / -1"><img src="assets/garments/brown-leather-boots.jpg" style="width:100%;height:100%;object-fit:cover" alt="Leather boots"></div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;line-height:1.45;color:#6B665C">Overshirt jacket &middot; Corduroy skirt &middot; Leather boots</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+            <span style="width:14px;height:14px;border-radius:50%;background:#D6C8AE;border:1px solid rgba(28,26,22,.12)"></span>
+            <span style="width:14px;height:14px;border-radius:50%;background:#8A5A3B;border:1px solid rgba(28,26,22,.12)"></span>
+            <span style="font-size:12px;color:#6B665C;margin-left:2px">Oat, tobacco</span>
+          </div>
+        </div>
+        <div style="padding:12px 20px 0;flex:none;display:flex;gap:8px">
+          <div style="flex:1.4;height:48px;border-radius:12px;background:#6E2B2B;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500">I wore this</div>
+          <div style="flex:1;height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:15px">Love it</div>
+          <div style="flex:1;height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:15px">Not for me</div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#F1E2E2;border-radius:4px;padding:2px 6px;color:#6E2B2B">Oxblood spent here</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Three pieces, 2-up + full</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Cost-per-wear absent</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The boots were photographed without a price, so cost-per-wear is not computable for this look and the line is simply absent &mdash; no dash, no &ldquo;&mdash;&rdquo;, no estimate, and no explanation demanded of the user. The palette row still prints, because colour is known. Three pieces compose as two-up plus a full-width piece rather than leaving a blank cell, which is what keeps a short look from reading as an incomplete one.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ 02 · DATA STATES ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">02 &middot; Loading, slow, offline</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Nothing pretends to know what it does not</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">The skeleton mirrors the plate&rsquo;s exact geometry so nothing shifts when the real look arrives. A slow response is additive, not a different screen. Offline names what may be stale and keeps a usable saved plate on screen.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:76px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-07</span><span style="font-size:13px;font-weight:500">Loading &mdash; skeleton mirrors the plate</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Thu 7 Aug &middot; Denver &middot; Feels 72&deg;F, clear</div>
+            <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+          </div>
+          <div style="display:flex;gap:4px;flex:none;align-items:center">
+            <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg width="21" height="21" viewBox="0 0 22 22"><rect x="1" y="3.5" width="20" height="17.5" rx="3.5" stroke="#1C1A16" stroke-width="1.5" fill="none"></rect><path d="M1 8.5 H21 M6.5 1 V5 M15.5 1 V5" stroke="#1C1A16" stroke-width="1.5" stroke-linecap="round"></path><path d="M11 12 V18 M8 15 H14" stroke="#1C1A16" stroke-width="1.5" stroke-linecap="round"></path></svg></div>
+            <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><div style="width:34px;height:34px;border-radius:50%;background:#1C1A16;display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 15 15"><circle cx="7.5" cy="5" r="2.8" fill="#FBFAF6"></circle><path d="M2 13.5 a5.5 5.5 0 0 1 11 0 Z" fill="#FBFAF6"></path></svg></div></div>
+          </div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="height:30px;width:62%;border-radius:6px;background:#F0ECE3"></div>
+          <div style="height:16px;width:100%;border-radius:6px;background:#F5F2EB;margin-top:12px"></div>
+          <div style="height:16px;width:84%;border-radius:6px;background:#F5F2EB;margin-top:6px"></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px">
+            <div style="height:104px;border-radius:10px;background:#F0ECE3"></div>
+            <div style="height:104px;border-radius:10px;background:#F0ECE3"></div>
+            <div style="height:104px;border-radius:10px;background:#F0ECE3"></div>
+            <div style="height:104px;border-radius:10px;background:#F0ECE3"></div>
+            <div style="height:104px;border-radius:10px;background:#F0ECE3"></div>
+            <div style="height:104px;border-radius:10px;background:#F5F2EB"></div>
+          </div>
+          <div style="height:12px;width:88%;border-radius:6px;background:#F5F2EB;margin-top:14px"></div>
+          <div style="height:14px;width:52%;border-radius:6px;background:#F5F2EB;margin-top:12px"></div>
+        </div>
+        <div style="padding:12px 20px 0;flex:none;display:flex;gap:8px">
+          <div style="flex:1.4;height:48px;border-radius:12px;background:#F0ECE3"></div>
+          <div style="flex:1;height:48px;border-radius:12px;background:#F5F2EB"></div>
+          <div style="flex:1;height:48px;border-radius:12px;background:#F5F2EB"></div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">No spinner, no percentage</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Geometry identical to T-01</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The masthead is real, because date, place and weather are known before the look is. Every skeleton block is the exact height and radius of the element it stands in for, including the sixth swap cell in its lighter tone, so the plate does not reflow when reasoning arrives. VoiceOver announces &ldquo;Building today&rsquo;s outfit&rdquo; once and does not read the placeholder blocks. Reduce Motion removes the shimmer; the blocks are static.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-08</span><span style="font-size:13px;font-weight:500">Slow &mdash; the notice is additive</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Thu 7 Aug &middot; Denver &middot; Feels 72&deg;F, clear</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="height:30px;width:62%;border-radius:6px;background:#F0ECE3"></div>
+          <div style="height:16px;width:100%;border-radius:6px;background:#F5F2EB;margin-top:12px"></div>
+          <div style="height:16px;width:84%;border-radius:6px;background:#F5F2EB;margin-top:6px"></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px">
+            <div style="height:104px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt="Mohair sweater"></div>
+            <div style="height:104px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Tailored trousers"></div>
+            <div style="height:104px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Penny loafers"></div>
+            <div style="height:104px;border-radius:10px;background:#F0ECE3"></div>
+            <div style="height:104px;border-radius:10px;background:#F0ECE3"></div>
+            <div style="height:104px;border-radius:10px;background:#F5F2EB"></div>
+          </div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#F0ECE3;border-radius:12px;padding:14px 16px">
+          <div style="font-size:15px;font-weight:500">Taking longer than usual</div>
+          <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:3px">The pieces are yours and already chosen. Cinch is still writing the reason it chose them.</div>
+          <div style="height:44px;display:flex;align-items:center;font-size:16px;color:#1C1A16;margin-top:2px">Show it without the reason</div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Notice band, tray, r12</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Appears at 6 s</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The garments resolve before the reasoning does, so they are shown as they arrive rather than held behind the sentence. The notice appears under the same layout instead of replacing it, which is what stops a slow response reading as a different failure. The escape hatch is real: it renders the plate with no rationale and no apology, and the reactions become live.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-09</span><span style="font-size:13px;font-weight:500">Offline &mdash; a saved plate, honestly labelled</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Thu 7 Aug &middot; Denver</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#F0ECE3;border-radius:12px;padding:14px 16px">
+          <div style="font-size:15px;font-weight:500">No connection</div>
+          <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:3px">This is yesterday&rsquo;s look, saved on the phone. Today&rsquo;s weather is not in it &mdash; that is the part that may be wrong.</div>
+          <div style="height:44px;display:flex;align-items:center;font-size:16px;color:#1C1A16;margin-top:2px">Try again</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+            <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.08">Quiet authority</div>
+            <div style="font-size:11px;font-weight:500;letter-spacing:1.2px;text-transform:uppercase;color:#6B665C;flex:none">Wed 6 Aug</div>
+          </div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">Cognac and cream anchor the look while the charcoal trousers ground it.</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px">
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt="Mohair sweater"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Tailored trousers"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Penny loafers"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cognac-leather-tote.jpg" style="width:100%;height:100%;object-fit:cover" alt="Leather tote"></div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;line-height:1.45;color:#6B665C">Mohair sweater &middot; Tailored trousers &middot; Penny loafers &middot; Leather tote</div>
+        </div>
+        <div style="padding:12px 20px 0;flex:none;display:flex;gap:8px">
+          <div style="flex:1.4;height:48px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500">I wore this</div>
+          <div style="flex:1;height:48px;border-radius:12px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;font-size:15px;color:#6B665C">Love it</div>
+          <div style="flex:1;height:48px;border-radius:12px;background:#F0ECE3;display:flex;align-items:center;justify-content:center;font-size:15px;color:#6B665C">Not for me</div>
+        </div>
+        <div style="padding:6px 20px 0;flex:none;font-size:13px;line-height:1.45;color:#6B665C">Reactions need a connection. Marking it worn is saved here and sent when you are back.</div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Temperature omitted, not guessed</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Disabled with a reason</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The context label drops the temperature entirely rather than showing a stale one &mdash; a known-unknown is omitted, never estimated. The plate carries its own date so &ldquo;yesterday&rsquo;s look&rdquo; is verifiable on the object rather than only in the notice. The two unavailable reactions are drawn as tray fills with secondary-ink labels: they read as inert by ground rather than by faintness, which keeps the label above the contrast floor and honours the rule that #8A8578 is never text. The sentence beneath is the second channel &mdash; it names why they are unavailable and what still works &mdash; and the wear action stays live because it queues locally.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ 03 · CLOSET STATES ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">03 &middot; Empty, partial, and nothing works</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Three ways to have no outfit, told apart</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">An empty closet, a closet that cannot yet make a look, and a closet that can but has nothing suitable are three different facts with three different next actions. Only the last hands into the Gap Feed, and it does so without sounding like a failure or pushing shopping early.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:76px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-10</span><span style="font-size:13px;font-weight:500">Empty closet</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Thu 7 Aug &middot; Denver &middot; Feels 72&deg;F, clear</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;padding:0 20px">
+          <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px 20px">
+            <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.12">Nothing to style from yet.</div>
+            <div style="font-size:17px;line-height:1.55;color:#6B665C;margin-top:12px">Ten pieces is enough for Cinch to style you properly. Photograph them, or pick them from your camera roll &mdash; in any order.</div>
+            <div style="height:52px;border-radius:12px;background:#6E2B2B;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:500;margin-top:20px">Start your closet</div>
+            <div style="height:44px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#6B665C;margin-top:4px">Describe it out loud instead</div>
+          </div>
+        </div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#F1E2E2;border-radius:4px;padding:2px 6px;color:#6E2B2B">Oxblood spent here</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Zero is quiet</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">Identical to the hallway&rsquo;s TR-04, deliberately: the tour-skipper and the sign-out-and-return user meet the same page, and both intake doors are on it in the same order and weights. No count is printed &mdash; &ldquo;0 pieces&rdquo; is not a sentence anybody should read. No commerce is offered here; a closet with nothing in it has no computable gap.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-11</span><span style="font-size:13px;font-weight:500">Partial closet &mdash; under the engine&rsquo;s floor</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Thu 7 Aug &middot; Denver &middot; Feels 72&deg;F, clear</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:20px">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.12">Six pieces in. Two more and Cinch can dress you.</div>
+          <div style="font-size:16px;line-height:1.55;color:#6B665C;margin-top:12px">Everything here needs something to go with it. A bottom and a pair of shoes is what turns this into outfits.</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px">
+            <div style="height:96px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/white-linen-blouse.jpg" style="width:100%;height:100%;object-fit:cover" alt="Linen blouse"></div>
+            <div style="height:96px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt="Mohair sweater"></div>
+            <div style="height:96px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cream-crochet-poncho.jpg" style="width:100%;height:100%;object-fit:cover" alt="Crochet poncho"></div>
+            <div style="height:96px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/beige-overshirt-jacket.jpg" style="width:100%;height:100%;object-fit:cover" alt="Overshirt"></div>
+            <div style="height:96px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cognac-shearling-coat.jpg" style="width:100%;height:100%;object-fit:cover" alt="Shearling coat"></div>
+            <div style="height:96px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cognac-leather-tote.jpg" style="width:100%;height:100%;object-fit:cover" alt="Leather tote"></div>
+          </div>
+          <div style="height:52px;border-radius:12px;background:#6E2B2B;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:500;margin-top:18px">Add a bottom and shoes</div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#F1E2E2;border-radius:4px;padding:2px 6px;color:#6E2B2B">Oxblood spent here</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Names the fix, not the floor</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">What is missing comes from the same routine the Reveal&rsquo;s zero state uses, so the two screens can never disagree about what a first outfit needs. The engine&rsquo;s internal floor is never printed &mdash; the sentence names the two kinds of garment, which is actionable, rather than a threshold, which is not. The pieces already photographed are shown at full size: this is a closet that is working, not a warning.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-12</span><span style="font-size:13px;font-weight:500">Nothing works &mdash; the Gap Feed handoff</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Sat 9 Aug &middot; Denver &middot; Feels 34&deg;F, snow</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:20px">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.12">Nothing in the wardrobe is warm enough for today.</div>
+          <div style="font-size:16px;line-height:1.55;color:#6B665C;margin-top:12px">Cinch will not put together a look it does not believe in. Everything clean is built for autumn, and it is 34 degrees with snow.</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px">
+            <div style="height:48px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500">See what you wore last winter</div>
+            <div style="height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:16px">What your closet is missing</div>
+          </div>
+        </div>
+        <div style="margin:14px 20px 0;flex:none;background:#F0ECE3;border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">The gap</div>
+          <div style="font-size:17px;font-weight:500;margin-top:6px">A winter coat</div>
+          <div style="font-size:15px;line-height:1.5;color:#6B665C;margin-top:4px">One warm outer layer would give you seven more outfit cores from pieces you already own.</div>
+          <div style="height:44px;display:flex;align-items:center;font-size:16px;color:#6E2B2B;margin-top:2px">Look at the gap</div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#F1E2E2;border-radius:4px;padding:2px 6px;color:#6E2B2B">Oxblood spent on the gap link</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">No merchant, no price, no shop word</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The refusal is stated as a judgement Cinch is making on the user&rsquo;s behalf, with the evidence beside it, so it reads as care rather than breakage &mdash; and the closet still offers two ways forward before the gap is mentioned at all. The gap card is computed reasoning only: it names the kind of piece and what owning one would unlock, in the &ldquo;+7 outfit cores&rdquo; form rather than a bare figure. No merchant row, price or purchase language appears on Today; that belongs to the Gap Feed, one tap away.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ 04 · REACTIONS ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">04 &middot; The action row</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Pending, saved, failed &mdash; on the row, never over it</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">A reaction is optimistic and reversible. A failure lands on its own row with a retry, does not move the layout, and never discards the decision. Marking a look worn is the one action that changes wear counts, so it says what it changed.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:76px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-13</span><span style="font-size:13px;font-weight:500">Reaction pending &mdash; and its own row</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Thu 7 Aug &middot; Denver &middot; Feels 72&deg;F, clear</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.08">Quiet authority</div>
+          <div style="margin-top:8px;font-size:16px;line-height:1.5;color:#6B665C">Cognac and cream anchor the look while the charcoal trousers ground it.</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px">
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt="Mohair sweater"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Tailored trousers"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Penny loafers"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cognac-leather-tote.jpg" style="width:100%;height:100%;object-fit:cover" alt="Leather tote"></div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;line-height:1.45;color:#6B665C">Mohair sweater &middot; Tailored trousers &middot; Penny loafers &middot; Leather tote</div>
+        </div>
+        <div style="padding:12px 20px 0;flex:none;display:flex;gap:8px">
+          <div style="flex:1.4;height:48px;border-radius:12px;background:#6E2B2B;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500">I wore this</div>
+          <div style="flex:1;height:48px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 6.5 L4.4 10 L11 2" stroke="#FBFAF6" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>Loved</div>
+          <div style="flex:1;height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:15px">Not for me</div>
+        </div>
+        <div style="padding:8px 20px 0;flex:none;display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;color:#6B665C">Saving your reaction</span>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Selected: fill + tick + verb change</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Status line 13 px PROSE</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The reaction takes effect immediately and the row shows it three ways at once &mdash; ink fill, a tick, and the label changing from &ldquo;Love it&rdquo; to &ldquo;Loved&rdquo; &mdash; so the state does not depend on colour. The saving line sits under the row rather than in a toast, and the row does not resize while the write is in flight. Tapping again clears the reaction; nothing here is a one-way door.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-14</span><span style="font-size:13px;font-weight:500">Worn, saved &mdash; and what it changed</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Thu 7 Aug &middot; Denver &middot; Feels 72&deg;F, clear</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <svg width="14" height="14" viewBox="0 0 12 12"><path d="M1 6.5 L4.4 10 L11 2" stroke="#1C1A16" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            <span style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#1C1A16">Worn today</span>
+          </div>
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.08;margin-top:6px">Quiet authority</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px">
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt="Mohair sweater"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Tailored trousers"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Penny loafers"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cognac-leather-tote.jpg" style="width:100%;height:100%;object-fit:cover" alt="Leather tote"></div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;line-height:1.45;color:#6B665C">Mohair sweater &middot; Tailored trousers &middot; Penny loafers &middot; Leather tote</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#F0ECE3;border-radius:12px;padding:14px 16px">
+          <div style="font-size:15px;font-weight:500">Four wear counts went up</div>
+          <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:3px">It is in the diary as today. You can change your mind for the next 24 hours.</div>
+          <div style="height:44px;display:flex;align-items:center;font-size:16px;color:#1C1A16;margin-top:2px">Undo</div>
+        </div>
+        <div style="padding:12px 20px 0;flex:none">
+          <div style="height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:16px">Add a note to the diary</div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">No oxblood: nothing left to do</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">24-hour rule named</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The action row is replaced rather than disabled, because after the decision there is no decision left to offer. The consequence is named as a number of counts rather than a vague success, and the 24-hour edit window is stated at the moment it starts, not discovered later in the diary. The plate keeps its status at the top, so a screenshot of this frame still says what happened.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid rgba(28,26,22,.25);border-radius:6px;padding:2px 7px">T-15</span><span style="font-size:13px;font-weight:500">Write failed &mdash; retry on the same row</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C;line-height:1.5">Thu 7 Aug &middot; Denver &middot; Feels 72&deg;F, clear</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.06;margin-top:4px">Good morning, Maya</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="font-family:'Instrument Serif',serif;font-size:28px;line-height:1.08">Quiet authority</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px">
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt="Mohair sweater"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Tailored trousers"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Penny loafers"></div>
+            <div style="height:82px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cognac-leather-tote.jpg" style="width:100%;height:100%;object-fit:cover" alt="Leather tote"></div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;line-height:1.45;color:#6B665C">Mohair sweater &middot; Tailored trousers &middot; Penny loafers &middot; Leather tote</div>
+        </div>
+        <div style="padding:12px 20px 0;flex:none;display:flex;gap:8px">
+          <div style="flex:1.4;height:48px;border-radius:12px;background:#6E2B2B;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500">I wore this</div>
+          <div style="flex:1;height:48px;border-radius:12px;border:1.5px solid #6E2B2B;display:flex;align-items:center;justify-content:center;font-size:15px;color:#6E2B2B">Loved</div>
+          <div style="flex:1;height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:15px">Not for me</div>
+        </div>
+        <div style="padding:8px 20px 0;flex:none">
+          <div style="background:#F0ECE3;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+            <div style="flex:1"><div style="font-size:14px;font-weight:500">Not saved &mdash; no connection</div><div style="font-size:14px;line-height:1.45;color:#6B665C;margin-top:2px">Your reaction is still here. Cinch will not lose it.</div></div>
+            <div style="min-width:76px;height:44px;border-radius:12px;border:1px solid rgba(28,26,22,.25);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;flex:none">Retry</div>
+          </div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:82px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:11px;font-weight:500;color:#1C1A16">Today</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px">
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Failure directly under its row</span>
+          <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Retry 76&times;44 pt</span>
+        </div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The failed reaction stays selected &mdash; outlined rather than filled, which is a third state distinct from both idle and saved &mdash; and the failure sits immediately beneath the row that produced it, not at the top of the screen and not over the plate. Retry is on the same band. Nothing about the layout moves between T-13 and this frame except the band appearing, so a retry never has to be hunted for.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ 05 · DYNAMIC TYPE ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">05 &middot; Dynamic Type stress</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Audit 59, at the size that produced it</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">Every screen in this group with a horizontal action row is drawn again at the largest supported type. Nothing is capped and nothing is ellipsised; the row stacks, the grid recomposes, and the rationale scrolls.</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;margin-bottom:76px">
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #6E2B2B;color:#6E2B2B;border-radius:6px;padding:2px 7px">T-01 / AX</span><span style="font-size:13px;font-weight:500">Normal day, largest type</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:15px;font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:#6B665C;line-height:1.4">Thu 7 Aug &middot; Denver<br>Feels 72&deg;F, clear</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="font-family:'Instrument Serif',serif;font-size:34px;line-height:1.08">Quiet authority</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px">
+            <div style="height:100px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt="Mohair sweater"></div>
+            <div style="height:100px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Tailored trousers"></div>
+            <div style="height:100px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Penny loafers"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+            <div style="height:60px;border-radius:12px;background:#6E2B2B;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:500">I wore this</div>
+            <div style="height:60px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:21px">Love it</div>
+            <div style="height:60px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:21px">Not for me</div>
+          </div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:92px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:14px;font-weight:500">Today</div>
+          <div style="flex:1;text-align:center;font-size:14px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:14px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The greeting is dropped &mdash; a name the user already knows is the first thing worth spending to keep the outfit above the fold, and the context label carries the day. The plate shows three pieces in the first viewport and the remaining two scroll; the rationale, garment list, palette and cost-per-wear follow below. Three actions stack at 60 pt in the same order, the wear action still filled.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #6E2B2B;color:#6E2B2B;border-radius:6px;padding:2px 7px">T-12 / AX</span><span style="font-size:13px;font-weight:500">Nothing works, largest type</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:15px;font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:#6B665C;line-height:1.4">Sat 9 Aug &middot; Denver<br>Feels 34&deg;F, snow</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:18px">
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.12">Nothing in the wardrobe is warm enough for today.</div>
+          <div style="font-size:19px;line-height:1.5;color:#6B665C;margin-top:12px">Everything clean is built for autumn, and it is 34 degrees with snow.</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+            <div style="height:60px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:500">See last winter</div>
+            <div style="min-height:60px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:20px;text-align:center;padding:8px 14px;line-height:1.3">See what you wore last winter</div>
+          </div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#F0ECE3;border-radius:12px;padding:16px">
+          <div style="font-size:20px;font-weight:500">A winter coat</div>
+          <div style="height:52px;display:flex;align-items:center;font-size:20px;color:#6E2B2B;margin-top:4px">Look at the gap</div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:92px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:14px;font-weight:500">Today</div>
+          <div style="flex:1;text-align:center;font-size:14px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:14px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The second action wraps to two lines rather than truncating, and grows past 60 pt to hold them. The gap card keeps its name and its link in the first viewport; the sentence explaining what a coat would unlock scrolls, because the link&rsquo;s destination explains it in full. No action is removed at this size &mdash; the ordering is what changes, never the inventory.</div>
+      </div>
+    </div>
+
+    <div style="width:393px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:500;border:1px solid #6E2B2B;color:#6E2B2B;border-radius:6px;padding:2px 7px">T-09 / AX</span><span style="font-size:13px;font-weight:500">Offline, largest type</span></div>
+      <div class="frame" style="width:393px;height:852px;background:#FBFAF6;border:1px solid rgba(28,26,22,.18);border-radius:44px;overflow:hidden;box-shadow:0 10px 30px rgba(28,26,22,.10);display:flex;flex-direction:column">
+        <div style="height:52px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 32px"><span style="font-weight:600;font-size:15px">9:41</span><svg width="66" height="12" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="4" rx="1" fill="#1C1A16"></rect><rect x="5" y="5" width="3" height="6" rx="1" fill="#1C1A16"></rect><rect x="10" y="3" width="3" height="8" rx="1" fill="#1C1A16"></rect><rect x="15" y="1" width="3" height="10" rx="1" fill="#1C1A16"></rect><rect x="42" y="1.5" width="20" height="9" rx="2.5" stroke="rgba(28,26,22,.45)" fill="none"></rect><rect x="44" y="3.5" width="14" height="5" rx="1.2" fill="#1C1A16"></rect></svg></div>
+        <div style="padding:10px 20px 0;flex:none">
+          <div style="font-size:15px;font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:#6B665C;line-height:1.4">Thu 7 Aug &middot; Denver</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#F0ECE3;border-radius:12px;padding:16px">
+          <div style="font-size:20px;font-weight:500">No connection</div>
+          <div style="font-size:19px;line-height:1.45;color:#6B665C;margin-top:6px">This is yesterday&rsquo;s look. Today&rsquo;s weather is not in it.</div>
+          <div style="height:56px;display:flex;align-items:center;font-size:20px;color:#1C1A16;margin-top:2px">Try again</div>
+        </div>
+        <div style="margin:12px 20px 0;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:16px">
+          <div style="font-size:15px;font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:#6B665C">Wed 6 Aug</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:32px;line-height:1.08;margin-top:6px">Quiet authority</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px">
+            <div style="height:100px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/cream-mohair-sweater.jpg" style="width:100%;height:100%;object-fit:cover" alt="Mohair sweater"></div>
+            <div style="height:100px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/charcoal-tailored-trousers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Tailored trousers"></div>
+            <div style="height:100px;border-radius:10px;overflow:hidden;background:#F0ECE3"><img src="assets/garments/brown-leather-loafers.jpg" style="width:100%;height:100%;object-fit:cover" alt="Penny loafers"></div>
+          </div>
+          <div style="height:60px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:500;margin-top:16px">I wore this</div>
+          <div style="font-size:17px;line-height:1.45;color:#6B665C;margin-top:10px">Reactions need a connection. Marking it worn is saved here and sent when you are back.</div>
+        </div>
+        <div style="flex:1 1 auto;min-height:0"></div>
+        <div style="height:92px;flex:none;border-top:1px solid rgba(28,26,22,.1);display:flex;align-items:flex-start;padding-top:10px">
+          <div style="flex:1;text-align:center;font-size:14px;font-weight:500">Today</div>
+          <div style="flex:1;text-align:center;font-size:14px;color:#6B665C">Closet</div>
+          <div style="flex:1;text-align:center;font-size:14px;color:#6B665C">Plan</div>
+        </div>
+        <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
+      </div>
+      <div style="width:393px;margin-top:12px">
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">The two disabled reactions are removed rather than stacked as inert 60 pt bars, and the sentence that explained the disabling now explains the absence &mdash; three dead controls at this size would push the live one off the screen. That is a change in composition, which the accessibility contract allows, not a cap on the type scale, which it does not.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ 06 · INVENTORY ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">06 &middot; Component and state inventory</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">What this group owns, and what it borrows</div>
+  </div>
+  <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;max-width:1500px;margin-bottom:76px">
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#4A463E">
+      <div>Component</div><div>Origin</div><div>Variants</div><div>States drawn, and where</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Today masthead</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">With avatar, with stylist + avatar, label-only (AX)</div><div style="color:#6B665C">Full context, no temperature (offline), stacked (AX) &mdash; T-01, T-09, T-01/AX</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Daily plate</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">3-up, 4-up, 6-cell with swap; dated (offline); worn</div><div style="color:#6B665C">Complete, loading, partial-imagery, worn &mdash; T-01, T-02, T-03, T-07, T-09, T-14</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Composed-look grid</div><div style="color:#6B665C">Inherited (group 1)</div><div style="color:#6B665C">2-up + full, 3-up, 4-up; designed empty cell</div><div style="color:#6B665C">3, 4, 5 and 6 pieces &mdash; T-01, T-02, T-03</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Palette row</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">2 or 3 swatches, names printed; with or without cost-per-wear</div><div style="color:#6B665C">Priced, price unknown &mdash; T-01, T-03</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Reaction row</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">Three across (48 pt), stacked (60 pt), reduced (offline AX)</div><div style="color:#6B665C">Idle, pending, saved, failed, disabled-with-reason &mdash; T-01, T-09, T-13, T-15, T-01/AX</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Masthead action pair</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">Two 44&times;44 targets at the trailing edge: calendar-plus to /event/new, avatar to the Profile form sheet</div><div style="color:#6B665C">Both present on every Today frame</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Occasion interrupt</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">Tonight, today, day-of</div><div style="color:#6B665C">Present, absent &mdash; T-02, T-01</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Notice band</div><div style="color:#6B665C">Inherited (group 1)</div><div style="color:#6B665C">Slow, offline, worn-confirmation, write-failed</div><div style="color:#6B665C">All four &mdash; T-08, T-09, T-14, T-15</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Gap card</div><div style="color:#6E2B2B">New &mdash; group 5 inherits</div><div style="color:#6B665C">Computed reasoning only; no merchant row on Today</div><div style="color:#6B665C">Present &mdash; T-12, T-12/AX</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Plate skeleton</div><div style="color:#6E2B2B">New</div><div style="color:#6B665C">Full, partial (garments arrived, reasoning pending)</div><div style="color:#6B665C">Both &mdash; T-07, T-08</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1.1fr .6fr 1.5fr 1.5fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Tab bar</div><div style="color:#6B665C">Inherited</div><div style="color:#6B665C">Three tabs; 82 pt, 92 pt at AX</div><div style="color:#6B665C">Today active &mdash; every full-screen frame</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 07 · TRANSITIONS ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">07 &middot; Transition notes</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Every edge out of Today</div>
+  </div>
+  <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;max-width:1500px;margin-bottom:76px">
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#4A463E">
+      <div>From</div><div>Trigger</div><div>To, and what carries over</div><div>Motion</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-07</div><div style="color:#6B665C">Look resolves</div><div style="color:#6B665C">T-01, in place; every skeleton block is replaced by the element it stood for</div><div style="color:#6B665C">Fast 140 ms cross-fade, no reflow</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-08</div><div style="color:#6B665C">Show it without the reason</div><div style="color:#6B665C">T-01 with no rationale line; the request continues and fills it if it lands</div><div style="color:#6B665C">Notice falls 220 ms</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-01</div><div style="color:#6B665C">Tap a garment tile</div><div style="color:#6B665C">Item detail, group 3; the plate&rsquo;s scroll position is kept for the return</div><div style="color:#6B665C">Base 220 ms push</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-01</div><div style="color:#6B665C">Swap a piece</div><div style="color:#6B665C">Swap sheet over the plate; the look is not regenerated, one slot changes</div><div style="color:#6B665C">Sheet rise 380 ms</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-01</div><div style="color:#6B665C">I wore this</div><div style="color:#6B665C">T-14; four wear counts increment optimistically and the diary gets today</div><div style="color:#6B665C">Row replaced 220 ms; no bounce</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-14</div><div style="color:#6B665C">Undo, within 24 hours</div><div style="color:#6B665C">T-01; counts decrement and the diary entry is removed, both named in the band</div><div style="color:#6B665C">Fast 140 ms</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-13</div><div style="color:#6B665C">Write fails</div><div style="color:#6B665C">T-15; the reaction stays selected and outlined, the band appears beneath its row</div><div style="color:#6B665C">Band appears 220 ms, layout static</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-01</div><div style="color:#6B665C">Calendar-plus</div><div style="color:#6B665C">/event/new; Today is unchanged behind it and the draft survives a cancel</div><div style="color:#6B665C">Slow 380, sheet rise</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-01</div><div style="color:#6B665C">Avatar</div><div style="color:#6B665C">The Profile form sheet (group 6 PR-01), dismissed with Done</div><div style="color:#6B665C">Slow 380, sheet rise</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-02</div><div style="color:#6B665C">Dress for the dinner</div><div style="color:#6B665C">Occasion look, group 5; Today keeps its own plate unchanged underneath</div><div style="color:#6B665C">Base 220 ms push</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-12</div><div style="color:#6B665C">Look at the gap</div><div style="color:#6B665C">Gap Feed, group 5, opened on this computed gap &mdash; not on the merchant row</div><div style="color:#6B665C">Base 220 ms push</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-10 / T-11</div><div style="color:#6B665C">Start your closet</div><div style="color:#6B665C">The Ten, group 1, resumed at the count rather than restarted</div><div style="color:#6B665C">Base 220 ms push</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1fr 1.6fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-09</div><div style="color:#6B665C">Connection returns</div><div style="color:#6B665C">T-07 then T-01; any queued wear is sent first and its band names the result</div><div style="color:#6B665C">Notice falls, plate cross-fades 220 ms</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 08 · ACCESSIBILITY ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">08 &middot; Accessibility behaviour</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">One outfit, one summary, three decisions</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;max-width:1500px;margin-bottom:76px">
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">VoiceOver</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:12px">Reading order is context label, greeting, plate, actions, tab bar. The plate&rsquo;s garment grid is one node: &ldquo;Outfit, Quiet authority, five pieces: mohair sweater, tailored trousers, penny loafers, shearling coat, leather tote.&rdquo; Individual tiles are reachable by swiping into the group, each labelled with its garment name and the hint &ldquo;opens the piece&rdquo;.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">The palette announces its names, never its hex values. Cost-per-wear announces as &ldquo;two dollars fourteen a wear&rdquo;; when it is absent nothing is announced in its place.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">Reactions announce their state as part of the label: &ldquo;Loved, selected&rdquo;, &ldquo;Not for me, button&rdquo;. A failure is a polite live region on the band, and the retry is the next focusable element after the row that failed.</div>
+    </div>
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Targets, contrast, second channels</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:12px">The reaction row is the group&rsquo;s tightest arrangement: three controls at 48 pt with 8 pt gaps, the wear action given 1.4&times; the width of the others so the dominant action is dominant by size as well as fill. At the largest type they stack at 60 pt.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">A selected reaction carries a fill, a tick and a changed verb. A failed reaction carries an outline in oxblood plus the words &ldquo;Not saved&rdquo;. A disabled reaction is greyed and accompanied by a sentence naming the reason &mdash; never greyed alone.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">Garment tiles carry a 1 px hairline at 9% ink so a pale garment on the warm plate ground still reads as a bounded object at low contrast.</div>
+    </div>
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Motion and type</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:12px">Today has no bouncy moment. The plate cross-fades in at 140 ms; the swap sheet rises at 380 ms; the reaction row replaces itself at 220 ms with no spring. Under Reduce Motion the skeleton shimmer stops and every transition becomes an opacity change.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">At the largest type the greeting is the first thing dropped, then disabled controls, then the rationale scrolls. Nothing is ellipsised and no scale is capped; the garment list wraps to as many lines as it needs.</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">There is no keyboard surface in this group. The diary note sheet, reached from T-14, carries its own and is drawn in group 4.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 09 · ANALYTICS ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">09 &middot; Analytics placement</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">The daily plate, and what its events may not carry</div>
+    <div style="font-size:15px;line-height:1.55;color:#6B665C;margin-top:10px">No garment name, photograph, plate name, rationale text, calendar title or occasion name appears in any payload. A look is identified by its own id and its piece count, and by nothing that describes the clothes.</div>
+  </div>
+  <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;max-width:1500px;margin-bottom:76px">
+    <div style="display:grid;grid-template-columns:.9fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#4A463E">
+      <div>Flow</div><div>Offer</div><div>Start</div><div>Completion</div><div>Failure / recovery</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.9fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Daily plate</div><div style="color:#6B665C">Outfit set visible (piece count)</div><div style="color:#6B665C">Plate requested</div><div style="color:#6B665C">Plate rendered with reasoning</div><div style="color:#6B665C">Slow notice shown; reasoning failed; shown without reason</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.9fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Reaction</div><div style="color:#6B665C">Row visible</div><div style="color:#6B665C">Reaction tapped (kind)</div><div style="color:#6B665C">Saved</div><div style="color:#6B665C">Write failed; retried; cleared</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.9fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Wear</div><div style="color:#6B665C">Row visible</div><div style="color:#6B665C">Wear tapped</div><div style="color:#6B665C">Worn confirmed (count of pieces affected)</div><div style="color:#6B665C">Write failed, inline retry; undone within 24 h</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.9fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Swap</div><div style="color:#6B665C">Swap cell visible</div><div style="color:#6B665C">Swap sheet opened (slot kind)</div><div style="color:#6B665C">Piece replaced</div><div style="color:#6B665C">Dismissed without a change</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.9fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Nothing works</div><div style="color:#6B665C">Refusal shown (reason code)</div><div style="color:#6B665C">Build anyway, or gap opened</div><div style="color:#6B665C">Gap Feed reached</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.9fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Occasion</div><div style="color:#6B665C">Interrupt visible</div><div style="color:#6B665C">Dress for the occasion tapped</div><div style="color:#6B665C">Occasion look opened</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.9fr 1fr 1fr 1fr 1.2fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">Empty / partial</div><div style="color:#6B665C">Empty state shown (piece count)</div><div style="color:#6B665C">Intake door chosen</div><div style="color:#6B665C">Handed to The Ten</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 10 · DEVIATIONS ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">10 &middot; Deviation ledger</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Where this group departs from the Wave 2 Today atlas</div>
+  </div>
+  <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;max-width:1500px;margin-bottom:76px">
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#4A463E">
+      <div>Screen / state</div><div>Previous</div><div>New drawing</div><div>Authority</div><div>Unresolved</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-01</div><div style="color:#6B665C">Correction 07 restores a 44&times;44 calendar-plus to the masthead&rsquo;s trailing edge, opening /event/new, inside the existing masthead height. Superseded: 40 px greeting on its own line, weather and calendar as two further lines, then a &ldquo;What&rsquo;s on today?&rdquo; field &mdash; 214 pt before the plate</div><div style="color:#6B665C">One context label plus a 30 px greeting: 84 pt, plate begins at 148</div><div style="color:#6B665C">Audit 56</div><div style="color:#6B665C">Where the occasion composer moved to &mdash; see 11</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-01</div><div style="color:#6B665C">&ldquo;Feels 72&deg;F&rdquo; in the masthead and again as the plate&rsquo;s eyebrow</div><div style="color:#6B665C">Printed once, in the context label; the plate eyebrow is removed</div><div style="color:#6B665C">Audit 57</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-01</div><div style="color:#6B665C">Five absolutely-positioned overlapping tiles at four different sizes, 380 pt tall</div><div style="color:#6B665C">One grid, one scale, no overlap; the sixth cell is the swap affordance</div><div style="color:#6B665C">Audit 58; image rule</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-01</div><div style="color:#6B665C">Three equal reactions that clipped above the second type step</div><div style="color:#6B665C">Weighted 1.4 / 1 / 1 at 48 pt, stacking at 60 pt</div><div style="color:#6B665C">Audit 59</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-03</div><div style="color:#6B665C">Cost-per-wear rendered as &ldquo;&mdash;&rdquo; when a price was missing</div><div style="color:#6B665C">The line is absent entirely</div><div style="color:#6B665C">Refusal list: never print a dash as invented data</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-09</div><div style="color:#6B665C">Offline showed the last plate with the current masthead, implying fresh weather</div><div style="color:#6B665C">Temperature dropped, plate dated, disabled reactions explained</div><div style="color:#6B665C">Acceptance: offline names what may be stale</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-12</div><div style="color:#6B665C">&ldquo;Nothing works&rdquo; ended in a merchant row on Today</div><div style="color:#6B665C">Two closet-first actions, then a computed gap card with no commerce</div><div style="color:#6B665C">Commerce directive; audit 85&rsquo;s explained-figure rule</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.7fr 1.3fr 1.3fr .9fr 1.1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">T-15</div><div style="color:#6B665C">A failed reaction reverted silently to idle</div><div style="color:#6B665C">Stays selected and outlined, with a named failure and a retry on its own band</div><div style="color:#6B665C">Refusal list: nothing is silently lost</div><div style="color:#6B665C">&mdash;</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 11 · CLAIMS ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">11 &middot; Open claims and stop conditions</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Two facts this group could not source</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;max-width:1500px;margin-bottom:76px">
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Correction 07 &middot; T-01</div>
+      <div style="font-size:19px;font-weight:500;margin-top:8px">Resolved: a 44&times;44 calendar-plus in the masthead</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">The composer is restored as a 44&times;44 calendar-plus control at the trailing edge of the masthead, opening /event/new. It sits inside the existing masthead height, so the greeting keeps every point the audit gave it &mdash; the 56 pt text field is what was wrong, not the entry point. Superseded text: <span style="color:#6B665C">The old masthead carried a &ldquo;What&rsquo;s on today?&rdquo; field, which is 56 pt of the 130 the greeting had to give back. It is not drawn here. It has to live somewhere &mdash; the stylist glyph in the masthead, the Plan tab, or the occasion interrupt itself &mdash; and that is an information-architecture decision this handoff explicitly does not authorise.</div>
+      <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:10px">Claim card retired; the correction ledger in group 6 carries it.</div>
+    </div>
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Correction 08 &middot; T-12</div>
+      <div style="font-size:19px;font-weight:500;margin-top:8px">Resolved: &ldquo;Build one anyway&rdquo; is deleted</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">A refusal that can be overridden is not a refusal, and the engine has no below-threshold mode to fall back to. The action is removed; the two honest recoveries remain &mdash; look at what you wore in comparable weather, or see what the closet is missing &mdash; and both lead somewhere real. Superseded text: <span style="color:#6B665C">The refusal offers to build a look regardless. Whether that returns the best available compromise with a caveat on the plate, or the same refusal a second time, is a behaviour question the shipping engine has to answer before the destination frame can be drawn honestly.</div>
+      <div style="font-size:14px;line-height:1.5;color:#6B665C;margin-top:10px">Claim card retired; the correction ledger in group 6 carries it.</div>
+    </div>
+    <div style="flex:1;min-width:340px;background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;padding:24px">
+      <div style="font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#6B665C">Resolved from the codebase</div>
+      <div style="font-size:15px;line-height:1.6;color:#4A463E;margin-top:10px">The free weekly figure is three, from <span style="font-family:ui-monospace,monospace;font-size:13px;background:#E7E2D6;padding:1px 5px;border-radius:4px">outfitPromise</span>, and is the promise rather than the enforced five &mdash; so &ldquo;1 of 3 this week&rdquo; is safe to print. Cost-per-wear returns nothing when any piece lacks a price, which is why T-03 drops the line rather than deciding to. The 24-hour wear-edit window is the diary&rsquo;s own rule, so T-14 may state it.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 12 · ACCEPTANCE ═══════════ -->
+  <div style="margin-bottom:22px;max-width:820px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:#6B665C">12 &middot; Acceptance</div>
+    <div style="font-family:'Instrument Serif',serif;font-size:34px;margin-top:6px">Checkable against a clean simulator, frame by frame</div>
+  </div>
+  <div style="background:#FFFFFF;border:1px solid rgba(28,26,22,.12);border-radius:20px;overflow:hidden;max-width:1500px;margin-bottom:40px">
+    <div style="display:grid;grid-template-columns:.5fr 2fr 1fr;gap:20px;padding:16px 24px;background:#F0ECE3;font-size:11px;font-weight:500;letter-spacing:1.4px;text-transform:uppercase;color:#4A463E">
+      <div>Audit</div><div>What a reviewer checks</div><div>Frames</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.5fr 2fr 1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">56</div><div style="color:#6B665C">At 393 pt the outfit name or the first garment is visible without scrolling on every state that has a look. The masthead never exceeds 96 pt.</div><div style="color:#6B665C">T-01, T-02, T-03, T-09, T-13, T-14, T-15</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.5fr 2fr 1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">57</div><div style="color:#6B665C">The temperature appears exactly once per screen, or not at all when it is unknown. No two elements state the same weather fact.</div><div style="color:#6B665C">All</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.5fr 2fr 1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">58</div><div style="color:#6B665C">No garment is a colour block. No tile covers another. Every piece in the look is named in the list beneath it.</div><div style="color:#6B665C">T-01, T-02, T-03, T-09, T-11, T-13, T-14, T-15</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.5fr 2fr 1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">59</div><div style="color:#6B665C">All three reactions are legible, 44 pt and in order at the largest supported type, with no ellipsis and no clipped control.</div><div style="color:#6B665C">T-01/AX, T-09/AX, T-12/AX</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.5fr 2fr 1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">&mdash;</div><div style="color:#6B665C">The plate is complete and balanced at three, four, five and six pieces, with no blank cell that could be mistaken for a failed image.</div><div style="color:#6B665C">T-01, T-02, T-03</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.5fr 2fr 1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">&mdash;</div><div style="color:#6B665C">Offline retains a usable saved plate, names what may be stale, and prints no temperature it cannot verify.</div><div style="color:#6B665C">T-09, T-09/AX</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.5fr 2fr 1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">&mdash;</div><div style="color:#6B665C">Every failure sits on the row that produced it, retries in place, and preserves the decision.</div><div style="color:#6B665C">T-15</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.5fr 2fr 1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">&mdash;</div><div style="color:#6B665C">No purchase affordance, merchant, price or shop word appears anywhere on Today, including the nothing-works state.</div><div style="color:#6B665C">All</div>
+    </div>
+    <div style="display:grid;grid-template-columns:.5fr 2fr 1fr;gap:20px;padding:16px 24px;border-top:1px solid rgba(28,26,22,.09);font-size:14px;line-height:1.5">
+      <div style="font-weight:500">&mdash;</div><div style="color:#6B665C">Exactly one oxblood action per frame, and none at all where nothing remains to be done.</div><div style="color:#6B665C">All; none on T-14</div>
+    </div>
+  </div>
+
+  <div style="max-width:900px;font-size:14px;line-height:1.6;color:#6B665C;padding-bottom:20px">
+    Next in sequence: <span style="font-weight:500;color:#1C1A16">Wave 3 - Design &middot; Closet and Intake</span> (audit 60&ndash;72), which inherits the garment tile, the notice band and the reaction row&rsquo;s disabled-with-reason pattern established here.
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1600,&quot;height&quot;:1000}}"></script>
+</body>
+</html>
