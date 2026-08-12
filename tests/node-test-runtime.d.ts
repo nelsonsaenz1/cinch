@@ -35,6 +35,13 @@ declare module 'node:fs' {
   // that every ADD CONSTRAINT is safe to run twice. Same relative-path rule as
   // above — no `path`, no `process`.
   export function readdirSync(path: string): string[];
+
+  // `constitution.test.ts` walks `src` looking for #8A8578 set as type, which
+  // means telling a directory from a file. Only the one predicate is declared,
+  // and still no `path`: the walker joins with a template string, because a
+  // `node:path` module in the app's type space is the thing the note above
+  // exists to prevent.
+  export function statSync(path: string): { isDirectory(): boolean };
 }
 
 declare module 'node:assert/strict' {
