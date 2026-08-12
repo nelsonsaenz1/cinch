@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   Alert,
@@ -23,17 +23,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { signOut } from '@/features/auth/actions';
 import { useDeleteAccount } from '@/features/auth/use-delete-account';
+import { membershipRowFor } from '@/features/billing/membership-row';
+import { useCapacity } from '@/features/billing/use-capacity';
 import { usePlan } from '@/features/billing/use-plan';
+import { ToggleRow, ValueRow } from '@/components/ui/settled-row';
 import { useCloset } from '@/features/closet/queries';
 import { SHOW_WHERE_TO_BUY_DETAIL, SHOW_WHERE_TO_BUY_LABEL } from '@/features/commerce/copy';
 import { useSetShowWhereToBuy } from '@/features/commerce/mutations';
 import { useShowWhereToBuy } from '@/features/commerce/queries';
 import { DeleteAccountCard } from '@/features/profile/delete-account-card';
 import { EditProfileSheet } from '@/features/profile/edit-profile-sheet';
-import { membershipCopyFor } from '@/features/profile/membership-copy';
 import { useMyProfile } from '@/features/profile/queries';
 import { useRestorePurchases } from '@/features/profile/use-restore-purchases';
-import { useBorrowRequests } from '@/features/social-graph/queries';
+import { useBlockedUsers, useBorrowRequests } from '@/features/social-graph/queries';
 import { useStyleProfile } from '@/features/styling/queries';
 import { getUserId, supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -51,13 +53,11 @@ const PRIVACY_URL = 'https://cinchstyle.com/privacy';
 // the same release this ships." Help is now a native page at /help with the
 // eight articles and a composer that writes to hello@mail.cinchstyle.com.
 
-/**
- * Apple's own manage-subscriptions page. There is no StoreKit module installed
- * to present the native sheet in-app, and adding a dependency for one settings
- * row is the wrong trade — this URL opens the App Store's subscription list,
- * which is where cancellation genuinely lives anyway.
- */
-const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
+// The manage-subscriptions URL left this file with PR-02. Cancellation is not
+// a Profile row any more: MB-08 (`/membership`) is the page that owns it, says
+// what cancelling costs before you tap, and links to Apple's own subscription
+// list — which is where a store subscription genuinely lives. The literal is in
+// `src/app/membership.tsx`.
 
 /** How many reactions the style engine wants before it will say anything about taste. */
 const TASTE_THRESHOLD = 8;
@@ -134,6 +134,10 @@ export default function ProfileScreen() {
   const style = useStyleProfile();
   const deleteAccount = useDeleteAccount();
   const plan = usePlan();
+  // PR-01's capacity band. Two counters, both with a real read behind them —
+  // correction 30 removed the weekly outfit-usage row because no such counter
+  // exists anywhere in the app or the schema.
+  const capacity = useCapacity();
   const restore = useRestorePurchases();
   const profileHeader = useQuery({ queryKey: ['profile-header'], queryFn: fetchProfileHeader });
   // Only for the @handle under the display name — the header query above owns
@@ -147,6 +151,12 @@ export default function ProfileScreen() {
   const pendingAsks = (borrow.data ?? []).filter(
     (t) => t.direction === 'incoming' && t.request.status === 'pending',
   ).length;
+
+  // PR-01's "Blocked people 3". `null` until the list has genuinely been read
+  // — see the row itself for why a zero standing in for a pending read is the
+  // one thing this number must never be.
+  const blockedUsers = useBlockedUsers();
+  const blockedCount = blockedUsers.data?.length ?? null;
 
   // C-03 — "Show where to buy". Default true, per the column's own default;
   // the switch stays enabled while the write is in flight rather than
@@ -203,14 +213,21 @@ export default function ProfileScreen() {
   // names itself and its price, with the renewal date only once
   // `current_period_end` is known. `dev-account.tsx` drives the identical
   // function against fixture plans so this can never drift from its fixture.
-  const membership = membershipCopyFor({
+  // PR-02 — one row shape, four reads, in `membership-row.ts`. It replaced
+  // `membershipCopyFor` here: that helper had no reading state and no failed
+  // state, so a member on a slow network or a failed read saw no row at all,
+  // which reads as "you are not a member" — the app asserting something about
+  // somebody's money it had not read. It also printed a price hint, and a
+  // settings row is a layout (correction 31).
+  const membership = membershipRowFor({
     plan: plan.plan,
-    copy: plan.copy,
     trialing: plan.trialing,
     trialEndsAt: plan.trialEndsAt,
     currentPeriodEnd: plan.currentPeriodEnd,
+    loading: plan.loading,
+    unconfirmed: plan.unconfirmed,
   });
-  const paidPlan = membership.paidPlan;
+  const paidPlan = !plan.trialing && plan.plan !== 'free';
 
   const confirmSignOut = () => {
     Alert.alert('Sign out', 'You can sign back in anytime — your closet stays put.', [
@@ -334,6 +351,27 @@ export default function ProfileScreen() {
         )}
 
         <View className="px-gutter">
+          {/* PR-01's capacity band. ONLY the two counters that can be counted:
+              `useCapacity` reads both off `items` against the plan's ceilings,
+              which mirror the two database triggers. Correction 30 deleted the
+              weekly outfit-usage read because there is no such counter, and the
+              rows simply do not draw while the count is in flight — "0 of 10"
+              is a claim about somebody's closet, and a pending count is not a
+              zero. */}
+          {capacity.loading ? null : (
+            <Card padding="none">
+              <ValueRow
+                label="Active pieces"
+                value={`${capacity.used} of ${capacity.limit}`}
+              />
+              <Rule tone="hairline" />
+              <ValueRow
+                label="Stored pieces"
+                value={`${capacity.stored} of ${capacity.storedLimit}`}
+              />
+            </Card>
+          )}
+
           {/* What the engine has learned, in the user's own terms — the tray
               card, recessed rather than lifted. Showing this is what makes
               the personalisation feel like a relationship rather than a black
@@ -343,7 +381,7 @@ export default function ProfileScreen() {
               fell through to feedbackCount = 0 and told a user with months of
               reactions "Nothing yet" — an error asserting something false
               about their taste. */}
-          <Card fill="none" border="none" padding="md" className="bg-tray">
+          <Card fill="none" border="none" padding="md" className="mt-6 bg-tray">
             <SectionHeader title="What Cinch has learned" />
             {style.isLoading ? (
               <View accessibilityLabel="Loading your style profile">
@@ -378,59 +416,59 @@ export default function ProfileScreen() {
             )}
           </Card>
 
-          {/* Membership. No such row exists at all for a free account
-              (contract §4.1) — there is nothing to summarise, and this app
-              sells Standard and Pro, never the atlas's invented "Unlimited"
-              tier. A trial names its clock; a paid tier names itself and its
-              price from `plans.ts`, with the renewal date only once
-              `current_period_end` is known — see `planSubtitle` above.
-              "Manage" hands a paying user to the App Store, which owns the
-              subscription. A mid-trial user gets no action here: the App
-              Store has nothing of theirs to manage yet. */}
-          {plan.loading ? (
+          {/* PR-02 — one row, four reads. `membershipRowFor` decides which; see
+              its docblock for why "reading" and "can't be confirmed" are their
+              own states rather than a silent fallback to Free, and why no price
+              appears on this row in any of them.
+
+              A confirmed member gets a chevron into MB-08 (`/membership`), with
+              no upsell in the row even on Standard. A failed read gets a Retry
+              and nothing else. A free account gets no row at all — the frozen
+              contract describes no Free membership object for one to be about. */}
+          {!membership.visible ? null : (
             <>
               <SectionHeader title="Membership" className="mb-2.5 mt-6" />
-              <Card>
-                <View
-                  className="flex-row items-center justify-between gap-3 px-4 py-3.5"
-                  style={{ minHeight: MIN_TAP_TARGET }}>
-                  <View accessibilityLabel="Loading your membership" className="flex-1 gap-2 py-0.5">
-                    <Skeleton className="h-4 w-28 rounded-chip" />
-                    <Skeleton className="h-3 w-44 rounded-chip" />
-                  </View>
-                </View>
-              </Card>
-            </>
-          ) : !membership.visible ? null : (
-            <>
-              <SectionHeader title="Membership" className="mb-2.5 mt-6" />
-              <Card>
-                <View
-                  className="flex-row items-center justify-between gap-3 px-4 py-3.5"
-                  style={{ minHeight: MIN_TAP_TARGET }}>
-                  <View className="flex-1 pr-2">
-                    <Text variant="body">{membership.title}</Text>
-                    {membership.subtitle ? (
-                      <Text variant="caption" className="mt-1 text-muted">
-                        {membership.subtitle}
-                      </Text>
+              <Card padding="none">
+                {membership.chevron ? (
+                  <SettingsRow
+                    label={membership.label}
+                    sublabel={membership.value || undefined}
+                    // `as Href`: expo-router generates its typed-route union
+                    // into `.expo/types` from a RUNNING dev server, so it does
+                    // not know about a route added in a packet that never
+                    // starts Metro. The cast is not a hole — `/membership` is
+                    // `src/app/membership.tsx`, and `tests/dev-route-index.
+                    // test.ts` already checks every route path in the app
+                    // against the filesystem in both directions.
+                    onPress={() => router.push('/membership' as Href)}
+                  />
+                ) : (
+                  <View
+                    className="flex-row items-center justify-between gap-3 px-4 py-3.5"
+                    style={{ minHeight: MIN_TAP_TARGET }}>
+                    <View className="flex-1">
+                      <Text variant="body">{membership.label}</Text>
+                      {membership.value ? (
+                        <Text variant="note" className="mt-1">
+                          {membership.value}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {membership.retry ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Retry reading your membership"
+                        onPress={() => void plan.refetch()}
+                        hitSlop={8}
+                        style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+                        className="flex-none active:opacity-60">
+                        <Text variant="label" className="text-ink">
+                          Retry
+                        </Text>
+                      </Pressable>
                     ) : null}
                   </View>
-                  {membership.paidPlan ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Manage subscription"
-                      accessibilityHint="Opens your App Store subscriptions"
-                      onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}
-                      hitSlop={8}
-                      style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-                      className="active:opacity-60">
-                      <Text variant="label" className="text-accent">
-                        Manage
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
+                )}
               </Card>
             </>
           )}
@@ -474,21 +512,15 @@ export default function ProfileScreen() {
                 writes `profiles.show_where_to_buy` and the Gap Feed /
                 friend-piece "Find it" row both read it, client- and
                 server-side (gap-shop-match checks it again). */}
-            <View className="flex-row items-center justify-between p-4">
-              <View className="flex-1 pr-3">
-                <Text variant="body">{SHOW_WHERE_TO_BUY_LABEL}</Text>
-                <Text variant="caption" className="mt-1 text-muted">
-                  {SHOW_WHERE_TO_BUY_DETAIL}
-                </Text>
-              </View>
-              <Switch
-                value={shopPreferenceOn}
-                onValueChange={(value) => setShowWhereToBuy.mutate(value)}
-                trackColor={{ false: theme.rule, true: theme.ink }}
-                accessibilityLabel={SHOW_WHERE_TO_BUY_LABEL}
-                accessibilityHint={SHOW_WHERE_TO_BUY_DETAIL}
-              />
-            </View>
+            {/* PR-01 prints the state as a WORD, not only as a track colour:
+                "On — merchants under a gap". A preference carried by colour
+                alone is one channel, and the wrong one. */}
+            <ToggleRow
+              label={SHOW_WHERE_TO_BUY_LABEL}
+              state={`${shopPreferenceOn ? 'On' : 'Off'} — ${SHOW_WHERE_TO_BUY_DETAIL}`}
+              value={shopPreferenceOn}
+              onValueChange={(value) => setShowWhereToBuy.mutate(value)}
+            />
             <Rule tone="hairline" />
             {/* The doorway to Privacy & data (atlas 38), which now owns three
                 things that used to be scattered: AI consent and its record,
@@ -517,8 +549,13 @@ export default function ProfileScreen() {
               onPress={() => router.push('/borrow')}
             />
             <Rule tone="hairline" />
+            {/* PR-01 draws the count. It is printed only when the list has
+                actually been read — a "0" standing in for a pending or failed
+                read would tell somebody their blocks are gone, which is the
+                one thing this row must never say by accident. */}
             <SettingsRow
               label="Blocked people"
+              detail={blockedCount === null ? undefined : String(blockedCount)}
               onPress={() => router.push('/friends/blocked')}
             />
             {/* Notifications, on the builds that can send them.

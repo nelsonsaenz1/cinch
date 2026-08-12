@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 
-import { BLOCK_EFFECT } from '@/components/social/friends-lines';
 import { SheetOverlay } from '@/components/social/FriendOverflowSheet';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -12,35 +11,62 @@ import { Rule } from '@/components/ui/rule';
 // lands alongside `Skeleton`'s export. Code against the contract.
 import { RowSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import {
+  BLOCK_ELSEWHERE_LINE,
+  BLOCKED_EMPTY_BODY,
+  BLOCKED_EMPTY_TITLE,
+  BLOCKED_MASTHEAD,
+  blockedCountLine,
+  blockedWhen,
+  KEEP_BLOCKED_ACTION,
+  STILL_BLOCKED_LABEL,
+  UNBLOCK_ACTION,
+  UNBLOCK_FAILED_LINE,
+  UNBLOCKING_LABEL,
+  unblockConsequences,
+  unblockQuestion,
+} from '@/features/social-graph/blocked-lines';
 import { useUnblockUser } from '@/features/social-graph/moderation';
 import { useBlockedUsers } from '@/features/social-graph/queries';
 import { profileName, type BlockedUser } from '@/features/social-graph/types';
 import { MIN_TAP_TARGET } from '@/theme/tokens';
 
 /**
- * Blocked users, manageable — the half of App Store Guideline 1.2 that is
- * easy to forget: blocking must be undoable somewhere findable.
+ * Blocked people — SF-01/02/03, which are aliases of BL-01/BL-02 plus a state
+ * sheet, not new screens (correction 28).
  *
- * Names show only for public accounts. `social_profiles` screens out blocked
- * pairs by design, so a private blocked account has no readable identity here
- * and renders as a neutral row — blocking someone must not keep a window open
- * onto their profile.
+ * Manageable blocking is the half of App Store Guideline 1.2 that is easy to
+ * forget: blocking must be undoable somewhere findable. This is that place.
  *
- * This is a moderation surface, so its four states are never allowed to
- * collapse into each other: loading must not look settled, and a failed fetch
- * must never render as "Nobody is blocked." — on this screen specifically,
- * that message tells a woman her blocks vanished, which is frightening on its
- * own and unsafe if she acts on the belief.
+ * ── WHAT AUDIT 99 CHANGED, AND WHAT IT DID NOT ────────────────────────────
  *
- * BL-01's headline claim only prints above rows that exist — BL-03 (nobody
- * blocked) says nothing about what blocking does, because there is nothing on
- * screen for the claim to be about. See `system-safety-contract.md` §2 for
- * why the claim can be printed as fact at all: `20260809160000` made it true.
+ * Its headline finding — "Unblock acted on one tap, with no confirmation" —
+ * was already false in this repository: `UnblockSheet` has stood between the
+ * row and the delete since wave 3 phase 1. What the audit genuinely adds is
+ * the SHAPE of that sheet: three regular paragraphs rather than one bolded
+ * block, both named consequences present, and a second action named for its
+ * outcome instead of "Cancel". All three are now true, in `blocked-lines.ts`.
+ *
+ * ── FOUR STATES THAT MAY NEVER COLLAPSE INTO EACH OTHER ───────────────────
+ *
+ * Loading must not look settled, and a failed fetch must never render as
+ * "Nobody is blocked" — on this screen specifically, that message tells
+ * someone their blocks vanished, which is frightening on its own and unsafe if
+ * they act on it. A failed UNBLOCK is the same class of problem in the other
+ * direction and now gets its own row state rather than an `Alert`: a modal
+ * that dismisses leaves no evidence of which person did not change, and a
+ * user who cannot tell whether a block lapsed has a real problem.
+ *
+ * `now` is passed in rather than read from the clock, so every fixture route
+ * renders byte-identical dates on every run.
  */
-export function BlockedList() {
+export function BlockedList({ now = new Date() }: { now?: Date } = {}) {
   const blocked = useBlockedUsers();
   const unblock = useUnblockUser();
   const [target, setTarget] = useState<{ userId: string; name: string } | null>(null);
+  /** The one row currently being deleted, and the one that just failed. */
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [failedId, setFailedId] = useState<string | null>(null);
 
   if (blocked.isLoading) {
     return (
@@ -67,174 +93,241 @@ export function BlockedList() {
     return <BlockedEmptyState />;
   }
 
-  const confirmUnblock = () => {
-    if (!target) return;
-    const { userId } = target;
-    setTarget(null);
+  const runUnblock = (userId: string) => {
+    setPendingId(userId);
+    setFailedId(null);
     unblock.mutate(
       { userId },
       {
-        onError: (err) =>
-          Alert.alert(
-            'Could not unblock',
-            err instanceof Error ? err.message : 'Something went wrong. Try again.',
-          ),
+        onSuccess: () => setPendingId(null),
+        // Stays on the row. See the module docblock for why this is not an
+        // Alert: the failure is a fact about one person's block, and it has to
+        // survive on screen next to that person.
+        onError: () => {
+          setPendingId(null);
+          setFailedId(userId);
+        },
       },
     );
   };
 
   return (
     <View>
-      <BlockedRows rows={rows} onUnblock={setTarget} />
+      <BlockedRows
+        rows={rows}
+        now={now}
+        pendingId={pendingId}
+        failedId={failedId}
+        onUnblock={setTarget}
+        onRetry={runUnblock}
+      />
 
       <UnblockSheet
         target={target}
-        pending={unblock.isPending}
         onKeep={() => setTarget(null)}
-        onConfirm={confirmUnblock}
+        onConfirm={() => {
+          if (!target) return;
+          const { userId } = target;
+          setTarget(null);
+          runUnblock(userId);
+        }}
       />
     </View>
   );
 }
 
 /**
- * BL-03 — the common case. One serif line, one sentence, no illustration.
- * Presentational, exported so `dev-safety.tsx` can pose it without a query.
+ * SF-03's empty room. No illustration, and no headline claim about what
+ * blocking does to somebody — there is nobody on screen for the claim to be
+ * about. It teaches the mechanism instead, and repeats the two facts that
+ * matter: nobody is told, and it is reversible from here.
  */
 export function BlockedEmptyState() {
   return (
     <View className="flex-1 items-center justify-center py-20">
       <Text variant="title" trim className="text-center">
-        Nobody is blocked
+        {BLOCKED_EMPTY_TITLE}
       </Text>
       <Text variant="body" className="mt-2.5 text-center text-muted">
-        If you block someone, they will appear here with the date, and you can undo it.
+        {BLOCKED_EMPTY_BODY}
       </Text>
     </View>
   );
 }
 
 /**
- * BL-01 — the headline claim, the count, the rows, the footer note.
- * Presentational, exported so `dev-safety.tsx` can pose it against fixture
- * rows without a query.
+ * SF-01 — the whole consequence once at the top, the count, the rows, and the
+ * note saying where blocking someone new lives.
+ *
+ * Presentational, so the fixture routes can pose every state against literal
+ * rows without a query anywhere near them.
  */
 export function BlockedRows({
   rows,
+  now,
+  pendingId = null,
+  failedId = null,
   onUnblock,
+  onRetry,
 }: {
   rows: BlockedUser[];
+  now: Date;
+  pendingId?: string | null;
+  failedId?: string | null;
   onUnblock: (target: { userId: string; name: string }) => void;
+  onRetry: (userId: string) => void;
 }) {
   return (
     <View>
-      {/* BL-01's headline — now a fact, not a hope. See the module doc.
-          THE STRING LIVES IN `friends-lines.ts` and is imported by both this
-          page and FR-02's blocked result, because a policy stated in two
-          paraphrases is two policies. */}
       <Text variant="body" className="text-muted">
-        {BLOCK_EFFECT}
+        {blockedCountLine(rows.length)} {BLOCKED_MASTHEAD}
       </Text>
 
-      <Text variant="eyebrow" className="mb-2 mt-6">
-        {rows.length} {rows.length === 1 ? 'person' : 'people'}
-      </Text>
+      {failedId ? (
+        <Text variant="note" className="mt-3.5">
+          {UNBLOCK_FAILED_LINE}
+        </Text>
+      ) : null}
 
-      <Card padding="none">
+      <Card padding="none" className="mt-5">
         {rows.map((row, i) => (
           <View key={row.userId}>
             {i > 0 ? <Rule tone="hairline" /> : null}
-            <BlockedRow row={row} onUnblock={onUnblock} />
+            <BlockedRow
+              row={row}
+              now={now}
+              pending={row.userId === pendingId}
+              failed={row.userId === failedId}
+              onUnblock={onUnblock}
+              onRetry={onRetry}
+            />
           </View>
         ))}
       </Card>
 
-      <Text variant="noteSmall" className="mt-4 text-muted">
-        Unblocking does not restore the votes retracted when you blocked them. It only lets them
-        find you again.
+      <Text variant="note" className="mt-4">
+        {BLOCK_ELSEWHERE_LINE}
       </Text>
     </View>
   );
 }
 
-/** "12 June" / "12 June 2025" — the year only when it is not this one. */
-function blockedOn(iso: string): string | null {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  const day = date.getDate();
-  const month = date.toLocaleDateString('en-US', { month: 'long' });
-  const year = date.getFullYear();
-  return year === new Date().getFullYear() ? `${day} ${month}` : `${day} ${month} ${year}`;
-}
-
 function BlockedRow({
   row,
+  now,
+  pending,
+  failed,
   onUnblock,
+  onRetry,
 }: {
   row: BlockedUser;
+  now: Date;
+  pending: boolean;
+  failed: boolean;
   onUnblock: (target: { userId: string; name: string }) => void;
+  onRetry: (userId: string) => void;
 }) {
-  const name = row.profile ? profileName(row.profile) : 'A private member';
-  const handle = row.profile?.username ? `@${row.profile.username}` : null;
-  const on = blockedOn(row.blockedAt);
-  const subtitle = [handle, on ? `blocked ${on}` : null].filter(Boolean).join(' · ');
+  // A row with no display name falls back to the HANDLE, which is the second
+  // row the atlas draws — and it draws it with its `@`, because "lmartel" bare
+  // reads as a name somebody chose and "@lmartel" reads as the handle it is.
+  // `profileName` drops the sigil (it is the app-wide "what do we call this
+  // person" helper), so the sigil is added back here rather than changed there.
+  // "A private member" is what is left when `public_profiles` returns nothing
+  // readable at all.
+  const name = row.profile
+    ? row.profile.displayName || (row.profile.username ? `@${row.profile.username}` : profileName(row.profile))
+    : 'A private member';
+  const when = blockedWhen(row.blockedAt, now);
+  const sub = pending ? UNBLOCKING_LABEL : failed ? STILL_BLOCKED_LABEL : when;
 
   return (
-    <View className="flex-row items-center gap-3 px-4 py-3.5" style={{ minHeight: MIN_TAP_TARGET }}>
-      {/* Initials only, always. "A blocked person should not get a face in
-          your app." — `imageUri` is never passed here, even though the
-          hydrated profile may carry an `avatarUrl`: `ProfileRow` (the list
-          grammar every other people-list uses) forwards that url straight to
-          `Avatar`, which is exactly the one thing this row must not do. */}
+    <View
+      className="flex-row items-center gap-3 px-4 py-3"
+      style={{ minHeight: 68 }}>
+      {/* Initials on a tray ground, always. A blocked person's photograph does
+          not belong on this screen — `imageUri` is never passed here even
+          though the hydrated profile may carry an `avatarUrl`, which is exactly
+          the one thing `ProfileRow` (the grammar every other people-list uses)
+          would do with it. */}
       <Avatar name={name} size={44} tone="sand" imageUri={null} />
       <View className="flex-1">
         <Text variant="body" numberOfLines={1}>
           {name}
         </Text>
-        {subtitle ? (
+        {sub ? (
           <Text variant="caption" numberOfLines={1} className="mt-0.5 text-muted">
-            {subtitle}
+            {sub}
           </Text>
         ) : null}
       </View>
-      {/* Ghost — ink, never oxblood. Unblocking is not destructive. */}
-      <Button title="Unblock" variant="ghost" onPress={() => onUnblock({ userId: row.userId, name })} />
+      {pending ? (
+        // A tray-filled word rather than a spinner, and rather than nothing:
+        // the affordance keeps its place so the row does not reflow, and a
+        // spinner can never reproduce its own pixels in a capture.
+        <View
+          className="flex-none rounded-md bg-tray px-3"
+          style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}>
+          <Text variant="label" className="text-muted">
+            Working
+          </Text>
+        </View>
+      ) : failed ? (
+        <Button title="Retry" variant="ghost" onPress={() => onRetry(row.userId)} />
+      ) : (
+        // Ghost — ink, never oxblood. Unblocking is a restoration.
+        <Button
+          title="Unblock"
+          variant="ghost"
+          onPress={() => onUnblock({ userId: row.userId, name })}
+        />
+      )}
     </View>
   );
 }
 
 /**
- * BL-02 — the confirm. Hand-built rather than `events/ConfirmSheet`, which
- * hard-codes its destructive button to `critical`: that is precisely the one
- * thing this confirm must not be. "Keep blocked" is the calm default the
- * atlas names in so many words, so it sits second and quiet; "Unblock" sits
- * first, filled ink.
+ * SF-02 — the confirmation, and SF-02 / AX by construction.
+ *
+ * Hand-built rather than `events/ConfirmSheet`, which hard-codes its
+ * destructive button to `critical`: that is precisely the one thing this
+ * confirm must not be.
+ *
+ * The consequence SCROLLS and the two actions PIN. Not only at the largest
+ * Dynamic Type size — always, because the alternative is a layout that is
+ * correct at the size somebody tested and wrong at the one a reader uses. On a
+ * consequential sheet the options must never be off screen, and the reading
+ * order puts them last as well, so nobody confirms before hearing why.
  */
 export function UnblockSheet({
   target,
-  pending,
   onConfirm,
   onKeep,
 }: {
   target: { userId: string; name: string } | null;
-  pending: boolean;
   onConfirm: () => void;
   onKeep: () => void;
 }) {
   return (
-    <SheetOverlay visible={target !== null} onClose={pending ? () => undefined : onKeep}>
+    <SheetOverlay visible={target !== null} onClose={onKeep}>
       {target ? (
-        <View className="overflow-hidden rounded-plate bg-canvas p-5">
-          <Text variant="plate" accessibilityRole="header">
-            Unblock {target.name}?
-          </Text>
-          <Text variant="body" className="mt-2.5 text-muted">
-            They will be able to find your closet, vote on your looks and join events you host.
-            The votes retracted when you blocked them do not come back.
-          </Text>
-          <View className="mt-4 gap-2.5">
-            <Button title="Unblock" variant="ink" loading={pending} onPress={onConfirm} />
-            <Button title="Keep blocked" variant="secondary" disabled={pending} onPress={onKeep} />
+        <View className="overflow-hidden rounded-plate bg-canvas">
+          <View className="max-h-[420px] p-5">
+            <Text variant="plate" accessibilityRole="header">
+              {unblockQuestion(target.name)}
+            </Text>
+            {/* Three REGULAR paragraphs. Nothing here is Medium and nothing is
+                oxblood: audit 99's finding was that a bolded consequence reads
+                as a warning, and unblocking is not one. */}
+            {unblockConsequences(target.name).map((line) => (
+              <Text key={line} variant="body" className="mt-2.5 text-muted">
+                {line}
+              </Text>
+            ))}
+          </View>
+          <Rule tone="hairline" />
+          <View className="gap-2.5 p-5">
+            <Button title={UNBLOCK_ACTION} variant="ink" onPress={onConfirm} />
+            <Button title={KEEP_BLOCKED_ACTION} variant="secondary" onPress={onKeep} />
           </View>
         </View>
       ) : null}

@@ -97,7 +97,7 @@ const ceiling = (v: number) => v.toLocaleString('en-US');
 /** Sentence-initial spelled numbers. `reveal-copy`'s own `cap` is private. */
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export type HelpGroupId = 'getting-started' | 'friends' | 'membership';
+export type HelpGroupId = 'getting-started' | 'outfits' | 'friends' | 'membership';
 
 export type HelpGroup = {
   readonly id: HelpGroupId;
@@ -105,10 +105,18 @@ export type HelpGroup = {
   readonly title: string;
 };
 
-/** The three groups, in the order HS-01 draws them. */
+/**
+ * The groups, in the order HP-01 draws them.
+ *
+ * Retitled to the atlas's three headings, and split so that "how the week is
+ * decided" stops sitting under "getting started" — it is what a reader asks
+ * once the closet is already in. `Membership` is a FOURTH group the atlas does
+ * not draw; see the note above the membership articles for why it stays.
+ */
 export const HELP_GROUPS: readonly HelpGroup[] = [
-  { id: 'getting-started', title: 'Getting started' },
-  { id: 'friends', title: 'Friends & borrowing' },
+  { id: 'getting-started', title: 'Getting your closet in' },
+  { id: 'outfits', title: 'Outfits and the week' },
+  { id: 'friends', title: 'Friends, safety and privacy' },
   { id: 'membership', title: 'Membership' },
 ];
 
@@ -154,7 +162,9 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   {
     id: 'closet-size',
     group: 'getting-started',
-    question: 'How many pieces should I put in?',
+    // HP-01's own wording. The body already answered exactly this; the title
+    // was asking a narrower question than the answer under it.
+    question: 'Why does Cinch start with ten pieces?',
     // Ten active / thirty total: features/billing/plans.ts:74-75 (`items: 10`,
     // `storedItems: 30`), enforced in the database by
     // 20260808190000_free_closet_is_ten.sql:29 and split into the two ceilings
@@ -214,8 +224,10 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
   },
   {
     id: 'morning-edit',
-    group: 'getting-started',
-    question: 'What is the morning edit?',
+    group: 'outfits',
+    // HP-01's wording, and the question the body was always answering: where
+    // the outfits come from, not what the notification is called.
+    question: 'How does Cinch decide what I should wear?',
     // The push carries no look: supabase/functions/send-push/copy.ts:68-78 —
     // `morningEditPayload()` is the fixed sentence "The day’s look is ready to
     // read", with the comment "Not 'your look is X'. See the docblock: the
@@ -238,7 +250,7 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     keywords: ['notification', 'push', 'today', 'suggestion', 'outfit', 'ai', 'daily'],
   },
 
-  // ── Friends & borrowing ──────────────────────────────────────────────────
+  // ── Friends, safety and privacy ──────────────────────────────────────────────────
   {
     id: 'who-sees-my-closet',
     group: 'friends',
@@ -338,7 +350,77 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     keywords: ['hide', 'private', 'storage', 'archive', 'secret', 'stored', 'remove'],
   },
 
+  {
+    id: 'blocking',
+    group: 'friends',
+    question: 'What happens when I block someone?',
+    // Every clause traces to `20260807100000_social_graph_blocks_borrow.sql`
+    // and `20260809160000_block_retracts_votes`:
+    //
+    //  * Both follow edges go, and with them the friendship —
+    //    `on_block_sever_graph()` at …blocks_borrow.sql:44-49, SECURITY DEFINER
+    //    because the blocker cannot delete the other person's edge under their
+    //    own RLS.
+    //  * Their votes on your looks are DELETED, not hidden, and they are set to
+    //    `event_members.state = 'removed'` on every event you host —
+    //    `20260809160000`, and `moderation.ts`'s own docblock names these as
+    //    "the two side effects BL-01's headline claims, exactly and no further".
+    //  * Nobody is told. Nothing in `supabase/functions/send-push` has a branch
+    //    for an insert into `user_blocks`, and `useBlockUser`'s invalidations
+    //    are the blocker's own screens catching up.
+    //  * Unblocking restores nothing. `useUnblockUser` deletes the block row
+    //    and stops; the votes were deleted and the follow edges are gone, so
+    //    both people start from zero — stated in that hook's own docblock.
+    //  * Blocking is on their profile, and undoing it is on /friends/blocked.
+    body: [
+      'They stop being able to reach you, and they are not told. The friendship comes apart in both directions at once — you are no longer following each other and neither of you is in the other’s closet — and they cannot find you by searching again.',
+      'Two things happen to what they had already done. Any votes they had cast on your looks are removed, and they are taken off every occasion you are hosting. Everything they wrote or voted on elsewhere is theirs and stays where it is; blocking is about your part of Cinch, not a way to edit theirs.',
+      'You block someone from their own profile, and you undo it in Blocked people, under your profile. Unblocking lets them find you again and nothing more: the votes do not come back, the friendship does not come back, and they are not told about that either.',
+    ],
+    related: ['who-sees-my-closet', 'hide-a-piece'],
+    keywords: ['block', 'unblock', 'report', 'harass', 'stop', 'safety', 'remove', 'ignore'],
+  },
+  {
+    id: 'buying-suggestions',
+    group: 'friends',
+    question: 'Where do buying suggestions come from?',
+    // HP-02, drawn. Corrections 33 and 34 are the reason it reads this way.
+    //
+    //  * "The gap is explained from your closet first, before any shop" —
+    //    `rankGaps` (features/closet/outfit-count.ts:142) runs over the tally
+    //    of what is already owned; the shop match is a separate call that only
+    //    happens afterwards, in `gap-shop-match`.
+    //  * Up to three merchants, per row — `features/commerce/use-shop-match.ts`;
+    //    an unmatched slot renders NO row and no error.
+    //  * PAID LINK IS PER ROW, and only where the programme is confirmed
+    //    joined. The earlier blanket "those rows are marked Paid link" was
+    //    untrue for direct rows, which is correction 19 one level up and
+    //    correction 33 here. Both labels live in `features/commerce/copy.ts`.
+    //  * Commission changes nothing about ranking: the gap comes out of the
+    //    closet and the merchant list is not reordered by payment. Stated in
+    //    `docs/design/commerce-directive.md` §6 and enforced by the ordering in
+    //    `use-shop-match.ts`.
+    //  * The switch is `profiles.show_where_to_buy`, read client- and
+    //    server-side (`gap-shop-match` checks it again), and turning it off
+    //    leaves the gap cards themselves intact.
+    //  * A friend's piece shows a merchant only if that friend opted in —
+    //    the same column, read for the owner of the piece.
+    body: [
+      'From your own closet, before any shop is consulted. A gap is worked out from what you already own — what your pieces do and do not combine into — and only then does Cinch look for something that would fill it. With suggestions switched on, a gap may show up to three merchants.',
+      'A row says Paid link where Cinch has a paid arrangement with that merchant, and may earn a commission if you buy. Every other row just says it opens the shop. It is decided one row at a time, and commission changes none of it: not which gap you are shown, not which pieces are matched, and not the order the rows are in.',
+      'Show where to buy lives in your settings, and turning it off removes the merchant rows everywhere — the gap cards still explain the gap. A friend’s piece shows you where to buy it only if that friend allowed it on their own account.',
+    ],
+    related: ['who-sees-my-closet', 'closet-size'],
+    keywords: ['shop', 'buy', 'merchant', 'affiliate', 'commission', 'paid', 'gap', 'suggestion'],
+  },
+
   // ── Membership ───────────────────────────────────────────────────────────
+  //
+  // HP-01 draws three groups and does not draw this one. It stays, and the
+  // decision is deliberate: an index frame listing eight rows is a drawing of
+  // eight rows, not an instruction to delete four accurate answers — and MB-08
+  // routes a member toward cancellation, which "How do I cancel?" is the
+  // answer to. Deleting it would leave that question answered nowhere.
   {
     id: 'what-paying-buys',
     group: 'membership',

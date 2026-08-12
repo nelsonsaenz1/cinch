@@ -24,10 +24,20 @@ const ids = (query: string) => searchHelp(query).map((a) => a.id);
 
 // ── The article set itself ────────────────────────────────────────────────
 
-test('eight articles, three groups, the split the atlas names', () => {
-  assert.equal(HELP_ARTICLES.length, 8);
-  assert.equal(articlesInGroup('getting-started').length, 3);
-  assert.equal(articlesInGroup('friends').length, 3);
+test('ten articles across the four groups HP-01 reads as one system', () => {
+  // Was eight in three. Wave 3 group 6 split "how the week is decided" out of
+  // "getting started" — it is what a reader asks once the closet is already in
+  // — and added the two articles HP-02 and SF-01 needed answers for: where
+  // buying suggestions come from, and what blocking actually does.
+  //
+  // Membership is a FOURTH group the atlas does not draw. It stays: an index
+  // frame listing eight rows is a drawing of eight rows, not an instruction to
+  // delete four accurate answers, and MB-08 routes a member toward the
+  // cancellation "How do I cancel?" is the answer to.
+  assert.equal(HELP_ARTICLES.length, 10);
+  assert.equal(articlesInGroup('getting-started').length, 2);
+  assert.equal(articlesInGroup('outfits').length, 1);
+  assert.equal(articlesInGroup('friends').length, 5);
   assert.equal(articlesInGroup('membership').length, 2);
 });
 

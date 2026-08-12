@@ -170,6 +170,28 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Group 6 · Safety, Profile, Help, Membership',
+    [
+      ['SF-01', '/dev-w3-g6-sf-01'],
+      ['SF-02', '/dev-w3-g6-sf-02'],
+      ['SF-02 / AX', '/dev-w3-g6-sf-02-ax'],
+      ['SF-03', '/dev-w3-g6-sf-03'],
+      ['PR-01', '/dev-w3-g6-pr-01'],
+      ['PR-01 / AX', '/dev-w3-g6-pr-01-ax'],
+      ['PR-02', '/dev-w3-g6-pr-02'],
+      ['NT-01', '/dev-w3-g6-nt-01'],
+      ['NT-02', '/dev-w3-g6-nt-02'],
+      ['HP-01', '/dev-w3-g6-hp-01'],
+      ['HP-02', '/dev-w3-g6-hp-02'],
+      ['MB-08', '/dev-w3-g6-mb-08'],
+      // MB-09 has no fixture because it has no implementation: it is the
+      // Standard → Pro selling surface, and every price and CTA label on it is
+      // a live StoreKit read this app has no module to make (D-5). A frame
+      // drawn against invented terms would be the one thing worse than an
+      // absent frame.
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],

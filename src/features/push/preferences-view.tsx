@@ -3,12 +3,16 @@ import { Fragment, useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
 
 import { Button, Card, Chip, Rule, SectionHeader, Text } from '@/components/ui';
+import { RETENTION_DAYS } from '@/features/activity/retention';
 import {
   allChannelsOff,
+  channelCountLine,
   channelsInGroup,
+  channelStateWord,
   MORNING_EDIT_SLOTS,
   morningEditDescription,
   NOTIFICATION_GROUPS,
+  wouldArriveDescription,
   type MorningEditTime,
   type NotificationChannel,
   type NotificationChannelKey,
@@ -81,34 +85,37 @@ export function NotificationPreferencesView({
         Notifications
       </Text>
 
-      {/* The standing sentence. Dropped under NP-03, where the banner is
-          already saying the more important thing and two paragraphs of preamble
-          would bury the way out. */}
+      {/* NT-01's standing sentence — the count comes off the channel table, so
+          a sixth channel cannot be added without this line changing to match.
+          Dropped under NT-02, where the banner is already saying the more
+          important thing and two paragraphs of preamble would bury the way out. */}
       {denied ? null : (
         // The colour is an inline style, not a `text-muted` class: `callout`
         // already carries `text-ink`, and NativeWind gives no precedence
         // between two `text-*` utilities on one element (text.tsx, button.tsx
         // L75). privacy.tsx sets its own lead paragraph the same way.
         <Text variant="callout" className="mt-3.5" style={{ color: theme.muted }}>
-          Each of these is one kind of message. Nothing here bundles two things together, and
-          nothing sends more than it says.
+          {channelCountLine()}
         </Text>
       )}
 
-      {/* NP-03. A white card, not a warning tint: the phone refusing
+      {/* NT-02. A white card, not a warning tint: the phone refusing
           notifications is a state, not a failure, and nothing is broken. The
           action is `ink`, not the accent — it is neither destructive nor this
           page's one oxblood thing (there isn't one), and the atlas draws it in
-          ink besides. */}
+          ink besides.
+
+          The cause is stated ONCE, here, and every row below then shifts to
+          the conditional rather than each repeating it. */}
       {denied ? (
         <Card padding="lg" className="mt-5">
-          <Text variant="body">Turned off in iOS Settings</Text>
+          <Text variant="body">Your phone is not letting Cinch send notifications</Text>
           <Text variant="note" className="mt-1.5">
-            Your phone is not letting Cinch send anything, so the switches below do nothing yet.
-            Everything still waits for you on Activity.
+            These preferences are remembered and will take effect if you allow notifications in
+            Settings. Nothing is sent in the meantime.
           </Text>
           <Button
-            title="Open iOS Settings"
+            title="Open Settings"
             variant="ink"
             onPress={onOpenSettings}
             accessibilityHint="Opens Cinch in the iOS Settings app"
@@ -144,9 +151,13 @@ export function NotificationPreferencesView({
                   on={prefs[channel.key]}
                   dimmed={denied}
                   description={
-                    channel.key === 'morning_edit'
-                      ? morningEditDescription(prefs.morningEditAt)
-                      : channel.description
+                    denied
+                      ? wouldArriveDescription(channel, prefs.morningEditAt)
+                      : `${channelStateWord(prefs[channel.key])} — ${
+                          channel.key === 'morning_edit'
+                            ? morningEditDescription(prefs.morningEditAt)
+                            : channel.description
+                        }`
                   }
                   expandable={channel.key === 'morning_edit' && prefs.morning_edit && !denied}
                   expanded={scheduleOpen}
@@ -165,11 +176,31 @@ export function NotificationPreferencesView({
         </Fragment>
       ))}
 
-      {/* The footnote, on every state. Cinch adds no schedule of its own, and
-          this is the only place that promise is written down. */}
-      <Text variant="note" className="mt-5">
-        Quiet hours follow your phone&rsquo;s Do Not Disturb. Cinch adds none of its own.
-      </Text>
+      {/* The closing lines. Under NT-02 the page says where the information
+          waits instead — a reader who cannot be sent anything needs the
+          destination, not the schedule policy.
+
+          "Never contains a garment photograph" is a claim about the sender, and
+          it holds: `supabase/functions/send-push/copy.ts` builds every payload
+          out of counts, names and event titles, and no branch of it can reach
+          an image. The 30 days is `RETENTION_DAYS`, which is itself the
+          `interval '30 days'` in `20260810100100_activity_feed.sql:116`. */}
+      {denied ? (
+        <Text variant="note" className="mt-5">
+          Everything in Cinch still works. Requests, invitations and comments wait for you in
+          Activity, for the same {RETENTION_DAYS} days either way.
+        </Text>
+      ) : (
+        <>
+          <Text variant="note" className="mt-5">
+            A notification never contains a garment photograph. Turning everything off leaves Cinch
+            fully usable; Activity keeps the same {RETENTION_DAYS} days either way.
+          </Text>
+          <Text variant="note" className="mt-2.5">
+            Quiet hours follow your phone&rsquo;s Do Not Disturb. Cinch adds none of its own.
+          </Text>
+        </>
+      )}
     </>
   );
 }
@@ -252,13 +283,21 @@ function ChannelRow({
         disabled={dimmed}
         // The remembered value is still drawn — an inert switch that snapped to
         // off would be the app rewriting a preference the phone merely refused
-        // to act on.
-        style={dimmed ? { opacity: 0.5 } : undefined}
-        trackColor={{ false: theme.rule, true: theme.ink }}
+        // to act on. Overridden is a TRAY TRACK and a paper knob rather than a
+        // half-opacity ink one: dropping opacity takes the label and the
+        // description down with it, and those are what a reader deciding
+        // whether to go to Settings has to be able to read.
+        trackColor={{
+          false: dimmed ? theme.tray : theme.rule,
+          true: dimmed ? theme.tray : theme.ink,
+        }}
+        thumbColor={dimmed ? theme.surface : undefined}
         accessibilityRole="switch"
         accessibilityState={{ checked: on, disabled: dimmed }}
         accessibilityLabel={channel.title}
-        accessibilityHint={dimmed ? 'Turned off in iOS Settings' : description}
+        accessibilityHint={
+          dimmed ? 'Unavailable — your phone is not allowing notifications' : description
+        }
       />
     </View>
   );

@@ -39,6 +39,12 @@ export interface PlanState {
    * server checks independently, so the exposure is bounded.
    */
   readonly unconfirmed: boolean;
+  /**
+   * Ask again. PR-02's failed read draws a Retry, and a retry that cannot
+   * retry is the dead control the refusals forbid — so the caller needs the
+   * query's own refetch rather than a page reload standing in for one.
+   */
+  readonly refetch: () => void;
 }
 
 /**
@@ -62,7 +68,7 @@ export function usePlan(): PlanState {
   const session = useSession();
   const userId = session.userId;
 
-  const { data, isPending, isError } = useQuery({
+  const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['subscription', userId],
     enabled: Boolean(userId),
     // The plan changes on purchase, on trial expiry, and essentially never
@@ -117,5 +123,6 @@ export function usePlan(): PlanState {
     currentPeriodEnd,
     loading: isPending && Boolean(userId),
     unconfirmed: isError,
+    refetch: () => void refetch(),
   };
 }

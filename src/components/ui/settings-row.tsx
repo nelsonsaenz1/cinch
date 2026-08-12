@@ -26,6 +26,7 @@ export function SettingsRow({
   tone = 'ink',
   loading = false,
   detail,
+  sublabel,
   /**
    * `chevron.right` means "further in". A row that hands you to Safari is not
    * further in — it is out of the app entirely, and iOS's own settings mark
@@ -45,6 +46,17 @@ export function SettingsRow({
    * an oxblood one would be a badge wearing a disguise.
    */
   detail?: string;
+  /**
+   * A whole sentence UNDER the label, rather than a value beside it.
+   *
+   * `detail` is a trailing value and has to stay short — it shares a line with
+   * the chevron, and a sentence there wins a fight with the label for width.
+   * The settled row's own rule (group 6) is that a value which cannot share the
+   * line goes underneath, so this is that position, made explicit for the rows
+   * whose second fact is prose: "Opens the App Store, where the subscription
+   * lives". Set one or the other, never both.
+   */
+  sublabel?: string;
   external?: boolean;
   /**
    * Inert rather than absent — AC-06's back-fill row exists before tagging is
@@ -65,11 +77,18 @@ export function SettingsRow({
       onPress={onPress}
       disabled={spec.inert}
       style={{ minHeight: spec.minHeight, opacity: spec.opacity }}
-      className="flex-row items-center justify-between px-4 py-3.5 active:opacity-60">
-      <Text variant="body" className={spec.labelClass}>
-        {label}
-      </Text>
-      <View className="flex-row items-center gap-2">
+      className="flex-row items-center justify-between gap-3 px-4 py-3.5 active:opacity-60">
+      <View className="flex-1">
+        <Text variant="body" className={spec.labelClass}>
+          {label}
+        </Text>
+        {sublabel ? (
+          <Text variant="note" className="mt-1">
+            {sublabel}
+          </Text>
+        ) : null}
+      </View>
+      <View className="flex-none flex-row items-center gap-2">
         {detail ? (
           <Text variant="caption" className="text-muted">
             {detail}

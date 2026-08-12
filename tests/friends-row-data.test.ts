@@ -159,9 +159,18 @@ test('the blocked result uses the safety page’s own words', () => {
   assert.ok(BLOCKED_BODY.startsWith(BLOCK_EFFECT));
   assert.match(BLOCKED_BODY, /they are not told/);
 
+  // BL-01 STOPPED PRINTING IT when SF-01 landed, and that is this rule being
+  // obeyed rather than broken. The atlas's masthead is the same four facts in
+  // the plural, about a list rather than about one person, and printing both
+  // one above the other would be the two paraphrases this test exists to stop.
+  // `blocked-lines.ts` carries the plural statement and cross-references this
+  // constant; `tests/blocked-lines.test.ts` pins the "not told" claim there.
   const blockedList = readFileSync('src/components/social/BlockedList.tsx', 'utf8');
-  assert.match(blockedList, /import \{ BLOCK_EFFECT \} from '@\/components\/social\/friends-lines'/);
-  assert.match(blockedList, /\{BLOCK_EFFECT\}/);
+  assert.doesNotMatch(blockedList, /\{BLOCK_EFFECT\}/, 'one policy, one place per surface');
+  assert.match(blockedList, /\{BLOCKED_MASTHEAD\}/);
+
+  const masthead = readFileSync('src/features/social-graph/blocked-lines.ts', 'utf8');
+  assert.match(masthead, /THIS REPLACES `BLOCK_EFFECT` ON THIS SCREEN/);
 });
 
 test('the empty state leads with privacy, not with an exhortation', () => {

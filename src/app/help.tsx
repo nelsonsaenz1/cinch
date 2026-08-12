@@ -89,7 +89,13 @@ export default function HelpScreen() {
             <View className="mt-8">
               <HelpContactCard
                 title="Still stuck?"
-                body={`Write to ${SUPPORT_ADDRESS}. A person reads it, usually inside a day.`}
+                // CORRECTION 34: the one-day promise is gone. Nothing behind
+                // this card can keep it — `support-mail` posts to a shared
+                // inbox and there is no queue, no rota and no SLA anywhere in
+                // `supabase/functions/support-mail` — so it was a response time
+                // invented at the layout. What is left is the two things that
+                // are true: people read it, and there is no ticket system.
+                body={`Write to ${SUPPORT_ADDRESS}. Two people read it, and there is no ticket number.`}
                 onPress={() => openComposer()}
               />
             </View>

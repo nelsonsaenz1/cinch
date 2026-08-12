@@ -166,6 +166,39 @@ export function channelsInGroup(group: NotificationChannelGroup): NotificationCh
 }
 
 /**
+ * NT-01's opening sentence, and the whole reason this file is the authority.
+ *
+ * Five channels, counted from the table rather than typed, so a sixth cannot
+ * be added without this line changing to match — which is the moment somebody
+ * would have to justify it.
+ */
+export function channelCountLine(): string {
+  const spoken = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
+  const n = NOTIFICATION_CHANNELS.length;
+  return `Cinch sends ${spoken[n] ?? n} kinds of message and nothing else. There is no digest and no re-engagement reminder.`;
+}
+
+/**
+ * NT-02 — what a channel WOULD do, if the phone were letting Cinch send.
+ *
+ * The conditional is the whole point: a row that still reads as a live promise
+ * while iOS is dropping everything is the app telling somebody they will be
+ * notified when they will not be. Built from the same description the enabled
+ * row prints, so the two can never drift into two different promises.
+ */
+export function wouldArriveDescription(channel: NotificationChannel, at: MorningEditTime): string {
+  const said =
+    channel.key === 'morning_edit' ? morningEditDescription(at) : channel.description;
+  const lower = said.charAt(0).toLowerCase() + said.slice(1);
+  return `Would arrive: ${lower}`;
+}
+
+/** The state a toggle prints as a word, so no preference rides on track colour alone. */
+export function channelStateWord(on: boolean): string {
+  return on ? 'On' : 'Off';
+}
+
+/**
  * The reader's settings, in the app's own casing. Every channel plus the one
  * schedule; nothing derived is stored here, because a derived thing stored is a
  * thing that goes stale.

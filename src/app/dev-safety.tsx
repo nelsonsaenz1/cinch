@@ -34,6 +34,14 @@ import { useTheme } from '@/theme/tokens';
 const FRAMES = ['BL-01', 'BL-02', 'BL-03', 'RP-01', 'RP-02', 'RP-03', 'RP-04', 'NF-01', 'NF-02'] as const;
 type Frame = (typeof FRAMES)[number];
 
+/**
+ * The clock these frames render against. `blockedWhen()` takes `now` as a
+ * parameter precisely so a fixture is not date-dependent — without this, the
+ * two rows below would say "Blocked in June" until June of next year and then
+ * silently start printing a year.
+ */
+const FIXED_NOW = new Date('2026-08-12T12:00:00Z');
+
 const BLOCKED_FIXTURE: BlockedUser[] = [
   {
     userId: 'u-rina',
@@ -138,7 +146,7 @@ export default function DevSafety() {
 function BL01() {
   return (
     <View className="mt-4">
-      <BlockedRows rows={BLOCKED_FIXTURE} onUnblock={() => {}} />
+      <BlockedRows rows={BLOCKED_FIXTURE} now={FIXED_NOW} onUnblock={() => {}} onRetry={() => {}} />
     </View>
   );
 }
@@ -147,10 +155,9 @@ function BL01() {
 function BL02() {
   return (
     <View className="mt-4">
-      <BlockedRows rows={BLOCKED_FIXTURE} onUnblock={() => {}} />
+      <BlockedRows rows={BLOCKED_FIXTURE} now={FIXED_NOW} onUnblock={() => {}} onRetry={() => {}} />
       <UnblockSheet
         target={{ userId: 'u-rina', name: 'Rina Lo' }}
-        pending={false}
         onConfirm={() => {}}
         onKeep={() => {}}
       />
