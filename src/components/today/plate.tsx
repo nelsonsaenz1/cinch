@@ -1,19 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  Canvas,
-  Group,
-  Image as SkiaImage,
-  Shadow,
-  useImage,
-} from '@shopify/react-native-skia';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Pressable, View, useWindowDimensions, type ViewStyle } from 'react-native';
 import Animated, {
-  LinearTransition,
   useAnimatedStyle,
-  useDerivedValue,
   useReducedMotion,
   useSharedValue,
   withDelay,
@@ -21,27 +12,25 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { PlateCard } from '@/components/share/plate-card';
-import { outfitCostPerWear } from '@/components/today/cost-per-wear';
 import {
-  GarmentCell,
-  STACK_ASPECT,
-  platePathOf,
-  stackLayout,
-  stackRegime,
-  type StackedPiece,
-} from '@/components/today/garment-cell';
-import { ReactionBar, type ReactionValue } from '@/components/today/reaction-bar';
+  costPerWearLine,
+  costPerWearSpoken,
+  platedCostPerWear,
+} from '@/components/today/cost-per-wear';
+import { GarmentCell } from '@/components/today/garment-cell';
+import { FailureBand, ReactionBar, type ReactionValue } from '@/components/today/reaction-bar';
 import { RepeatMark } from '@/components/today/repeat-mark';
 import { Swatch } from '@/components/ui/swatch';
 import { Text } from '@/components/ui/text';
 
+import { GRID_GAP, plateGrid, ROW_RATIO } from './plate-grid';
+import { AX_FONT_SCALE } from './reaction-spec';
 import {
   CONTACT,
   landingDelay,
-  paletteDots,
+  paletteEntries,
   TILE_RADIUS,
 } from './plate-spec';
-import { formatTemp } from '@/features/context/weather';
 import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
 import type { StyledOutfit } from '@/features/styling/use-outfits';
 import type { Garment } from '@/lib/styling';
@@ -115,75 +104,28 @@ function Landing({
 }
 
 /**
- * One plated garment inside the stack's canvas.
+ * THE COMPOSED-LOOK GRID — audit 58, and the biggest change in this group.
  *
- * The entrance is driven by shared values read straight by Skia, so the landing
- * runs on the UI thread exactly as the tile regime's Reanimated wrapper does —
- * no bridge hop per frame, and the two regimes are the same motion.
- */
-function PlateLayer({
-  piece,
-  uri,
-  index,
-  count,
-  still,
-}: {
-  piece: StackedPiece;
-  uri?: string;
-  index: number;
-  count: number;
-  still: boolean;
-}) {
-  const image = useImage(uri);
-  const progress = useSharedValue(still ? 1 : 0);
-
-  useEffect(() => {
-    if (still) return;
-    const last = index === count - 1;
-    progress.value = withDelay(
-      landingDelay(index),
-      withSpring(1, last ? spring.bouncy : spring.smooth),
-    );
-  }, [count, index, progress, still]);
-
-  const opacity = useDerivedValue(() => Math.min(progress.value * 1.6, 1));
-  const transform = useDerivedValue(() => [
-    { translateY: (1 - progress.value) * 18 },
-    { scale: 0.96 + progress.value * 0.04 },
-  ]);
-  const origin = { x: piece.x + piece.size / 2, y: piece.y + piece.size / 2 };
-
-  return (
-    <Group opacity={opacity} transform={transform} origin={origin}>
-      {/* `contain` on a square image in a square box is a no-op scale — which
-          is the point: the pipeline already normalized these against each
-          other, and fit must not second-guess it. */}
-      <SkiaImage
-        image={image}
-        x={piece.x}
-        y={piece.y}
-        width={piece.size}
-        height={piece.size}
-        fit="contain">
-        <Shadow dx={CONTACT.dx} dy={CONTACT.dy} blur={CONTACT.blur} color={CONTACT.color} />
-      </SkiaImage>
-    </Group>
-  );
-}
-
-/**
- * The stack — the outfit as a dressed figure rather than a row of parts.
+ * What it replaces: five absolutely-positioned cutouts at four different sizes,
+ * overlapping like worn clothes, 380 pt tall. The atlas retires that treatment
+ * on Today with a rule a reviewer can check on a simulator — "No garment is a
+ * colour block. No tile covers another. Every piece in the look is named in the
+ * list beneath it" — and one grid at one scale is what satisfies it.
  *
- * The box's height comes from `aspectRatio`, so the card reserves its space on
- * the first pass and nothing jumps when the width is measured; the measurement
- * only decides where inside that box each garment goes.
+ * Every row is the same height, so no piece is drawn larger than another; cells
+ * stretch to fill their row, so a short look never leaves a hole. The row plan
+ * itself is `plateGrid()`, which is pure and tested.
+ *
+ * The stack geometry is NOT deleted: `stackLayout` still serves the repeat
+ * screen, the event outfit post and their dev routes, all owned elsewhere.
  */
-function GarmentStack({
+function ComposedLook({
   pieces,
   resolveImage,
   still,
   withHaptic,
   label,
+  onOpenPiece,
 }: {
   pieces: Garment[];
   resolveImage: (...paths: (string | null | undefined)[]) => string | undefined;
@@ -191,79 +133,92 @@ function GarmentStack({
   /** Only the day's first card earns the landing haptic. */
   withHaptic: boolean;
   label: string;
+  /** Tapping a tile opens the piece. Omitted where there is no piece to open. */
+  onOpenPiece?: (garment: Garment) => void;
 }) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
 
-  const regime = useMemo(() => stackRegime(pieces, resolveImage), [pieces, resolveImage]);
-  const layout = useMemo(
-    () => (width > 0 ? stackLayout(pieces, width, regime) : []),
-    [pieces, regime, width],
-  );
+  // Rows of garments, not a running cursor: the plan is data, and slicing it
+  // once keeps the render a pure function of it.
+  const rows = useMemo(() => {
+    const plan = plateGrid(pieces.length);
+    // Offsets by prefix sum rather than by a running cursor: the render stays
+    // a pure function of the plan, with nothing reassigned inside it.
+    return plan.map((cells, i) => {
+      const from = plan.slice(0, i).reduce((a, b) => a + b, 0);
+      return { from, pieces: pieces.slice(from, from + cells) };
+    });
+  }, [pieces]);
+  const rowHeight = width > 0 ? width * ROW_RATIO : 0;
 
   useEffect(() => {
     if (still || !withHaptic || pieces.length === 0) return;
     // Fired for the LAST piece to land, mid-spring — the moment the look reads
-    // as assembled. Lives here rather than in the layer so the plate regime,
-    // where every layer is a Skia node and not a React Native view, still gets it.
-    const t = setTimeout(() => {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
-    }, landingDelay(pieces.length - 1) + 200);
+    // as assembled.
+    const t = setTimeout(
+      () => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
+      },
+      landingDelay(pieces.length - 1) + 200,
+    );
     return () => clearTimeout(t);
   }, [pieces.length, still, withHaptic]);
 
   return (
     <View
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-      style={{ width: '100%', aspectRatio: 1 / STACK_ASPECT }}
-      accessible
+      style={{ gap: GRID_GAP }}
+      // One node for the whole look, as the atlas's VoiceOver contract sets it:
+      // "Outfit, Quiet authority, five pieces: …". Individual tiles are reached
+      // by swiping into the group.
+      accessible={!onOpenPiece}
       accessibilityRole="image"
       accessibilityLabel={label}>
-      {regime === 'plate' ? (
-        <Canvas style={StyleSheet.absoluteFill}>
-          {layout.map((piece, i) => (
-            <PlateLayer
-              key={piece.garment.id}
-              piece={piece}
-              uri={resolveImage(platePathOf(piece.garment))}
-              index={i}
-              count={layout.length}
-              still={still}
-            />
+      {rows.map((row, rowIndex) => (
+        <View key={`row-${rowIndex}`} style={{ flexDirection: 'row', gap: GRID_GAP }}>
+          {row.pieces.map((garment, i) => (
+              <Landing
+                key={garment.id}
+                index={row.from + i}
+                count={pieces.length}
+                still={still}
+                style={{
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 0,
+                  // Height comes from the row, never from the picture: a piece
+                  // whose photograph has not arrived reserves exactly the space
+                  // it will occupy, so nothing reflows when it does.
+                  height: rowHeight,
+                  // Shadow and clip cannot share a view on iOS — a rounded rect
+                  // that clips its children also clips its own shadow away — so
+                  // the shadow is out here and the corner is on the layer below.
+                  shadowColor: '#1C1A16',
+                  shadowOpacity: 0.16,
+                  shadowRadius: CONTACT.blur,
+                  shadowOffset: { width: CONTACT.dx, height: CONTACT.dy },
+                }}>
+                <Pressable
+                  disabled={!onOpenPiece}
+                  onPress={onOpenPiece ? () => onOpenPiece(garment) : undefined}
+                  accessibilityRole={onOpenPiece ? 'button' : 'image'}
+                  accessibilityLabel={labelFor(garment)}
+                  accessibilityHint={onOpenPiece ? 'opens the piece' : undefined}
+                  // The hairline is load-bearing, not trim: "a pale garment on
+                  // the warm plate ground still reads as a bounded object at
+                  // low contrast".
+                  className="h-full w-full overflow-hidden border border-hairline active:opacity-70"
+                  style={{ borderRadius: TILE_RADIUS, backgroundColor: theme.tray }}>
+                  <GarmentCell
+                    garment={garment}
+                    uri={resolveImage(garment.platePath, garment.cutoutPath, garment.thumbPath)}
+                  />
+                </Pressable>
+            </Landing>
           ))}
-        </Canvas>
-      ) : (
-        layout.map((piece, i) => (
-          <Landing
-            key={piece.garment.id}
-            index={i}
-            count={layout.length}
-            still={still}
-            style={{
-              position: 'absolute',
-              left: piece.x,
-              top: piece.y,
-              width: piece.size,
-              height: piece.size,
-              // Shadow and clip cannot share a view on iOS — a rounded rect that
-              // clips its children also clips its own shadow away — so the
-              // shadow is out here and the corner is on the layer below.
-              shadowColor: '#1C1A16',
-              shadowOpacity: 0.16,
-              shadowRadius: CONTACT.blur,
-              shadowOffset: { width: CONTACT.dx, height: CONTACT.dy },
-            }}>
-            <View
-              className="h-full w-full overflow-hidden border border-hairline"
-              style={{ borderRadius: TILE_RADIUS, backgroundColor: theme.tray }}>
-              <GarmentCell
-                garment={piece.garment}
-                uri={resolveImage(piece.garment.cutoutPath, piece.garment.thumbPath)}
-              />
-            </View>
-          </Landing>
-        ))
-      )}
+        </View>
+      ))}
     </View>
   );
 }
@@ -310,50 +265,76 @@ function useShareHint(active: boolean) {
 }
 
 /**
- * The "I wore this" action. Not a `Button`: the design's worn state is an ink
- * FILL, and the shared button has no ink variant — so this is a small inline
- * pill in the same grammar as the reaction pills beside it. Light label colour
- * is set inline (a `text-*` class does not reliably win over the variant's).
+ * WHAT MARKING A LOOK WORN ACTUALLY CHANGED — T-14.
+ *
+ * "The action row is replaced rather than disabled, because after the decision
+ * there is no decision left to offer. The consequence is named as a number of
+ * counts rather than a vague success, and the 24-hour edit window is stated at
+ * the moment it starts, not discovered later in the diary."
+ *
+ * The count is derived, never written: `wear_outfit_tx` increments `wear_count`
+ * on every piece in the look and `unwear_outfit_tx` puts every one of them
+ * back, so the number of counts that went up IS the number of pieces. The
+ * 24-hour window is the diary's own server-enforced rule
+ * (`features/diary/entry.ts`, `CORRECTION_WINDOW_MS`), which is why this frame
+ * may state it.
+ *
+ * No oxblood: nothing is left to do here.
  */
-function WearButton({
-  worn,
-  wearing,
-  onPress,
+function WornBand({
+  pieces,
+  onUndo,
+  onAddNote,
+  undoing,
 }: {
-  worn: boolean;
-  wearing: boolean;
-  onPress: () => void;
+  pieces: number;
+  onUndo?: () => void;
+  onAddNote?: () => void;
+  undoing?: boolean;
 }) {
   const theme = useTheme();
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={worn ? 'Worn today' : 'Mark as worn today'}
-      accessibilityState={{ selected: worn, disabled: wearing, busy: wearing }}
-      disabled={wearing}
-      onPress={() => {
-        void Haptics.selectionAsync().catch(() => {});
-        onPress();
-      }}
-      style={{ minHeight: MIN_TAP_TARGET - 4 }}
-      className={[
- 'flex-none items-center justify-center rounded-md px-4 active:opacity-70',
-        worn ? 'bg-ink' : 'border border-rule',
-        wearing ? 'opacity-40' : '',
-      ].join(' ')}>
-      {wearing ? (
-        <ActivityIndicator size="small" color={theme.muted} />
-      ) : (
-        <Text
-          variant="label"
-          className="font-medium"
-          style={{ color: worn ? theme.canvas : theme.ink }}
-          numberOfLines={1}>
-          {worn ? 'Worn today' : 'I wore this'}
-        </Text>
-      )}
-    </Pressable>
+    <View className="mt-3.5 rounded-md bg-tray p-3" accessibilityLiveRegion="polite">
+      <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+        {pieces} wear {pieces === 1 ? 'count' : 'counts'} went up
+      </Text>
+      <Text variant="note" className="mt-1">
+        It is in the diary as today. You can change your mind for the next 24 hours.
+      </Text>
+      {onUndo || onAddNote ? (
+        <View className="mt-2.5 flex-row items-center gap-2">
+          {onUndo ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Undo — take today off the record"
+              accessibilityState={{ disabled: Boolean(undoing), busy: Boolean(undoing) }}
+              disabled={undoing}
+              onPress={onUndo}
+              style={{ minHeight: MIN_TAP_TARGET, minWidth: 76 }}
+              className={`items-center justify-center rounded-md border border-rule px-3 active:opacity-70 ${
+                undoing ? 'opacity-40' : ''
+              }`}>
+              <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+                Undo
+              </Text>
+            </Pressable>
+          ) : null}
+          {onAddNote ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add a note to the diary"
+              onPress={onAddNote}
+              style={{ minHeight: MIN_TAP_TARGET }}
+              className="flex-1 items-center justify-center rounded-md border border-rule px-3 active:opacity-70">
+              <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+                Add a note to the diary
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -394,10 +375,17 @@ export function Plate({
   wearing,
   wearFailed,
   worn,
-  enhancing,
   offline = false,
   preview = false,
   repeat = null,
+  still,
+  stacked,
+  accent = true,
+  dated = null,
+  hideRationale = false,
+  actionsUnavailable = null,
+  wornBand = null,
+  onOpenPiece,
 }: {
   outfit: StyledOutfit;
   /** Position in the day's set — only the first card gets the landing haptic. */
@@ -411,8 +399,6 @@ export function Plate({
   /** The wear write came back with an error and has not been retried. */
   wearFailed?: boolean;
   worn?: boolean;
-  /** The model is still working. Distinct from having given up on it. */
-  enhancing?: boolean;
   /**
    * The offline cut of the card: name, stack, and a footer saying the look
    * came off disk, with its cost per wear. Everything the network paid for —
@@ -457,9 +443,57 @@ export function Plate({
      * preview happens to be opened. */
     now?: Date;
   } | null;
+  /**
+   * Freeze the landing. Defaults to the system's Reduce Motion setting, which
+   * is the only thing that decided it before; a fixed value is passed by the
+   * `dev-w3-g2-*` fixture routes so a capture is the settled frame rather than
+   * whichever millisecond of a spring the shutter caught. Same idiom, and same
+   * reason, as `repeat.now`.
+   */
+  still?: boolean;
+  /**
+   * The largest supported type: the action row stacks at 60 pt in the same
+   * order (audit 59). Defaults to the device's own font scale.
+   */
+  stacked?: boolean;
+  /**
+   * Whether this frame's one oxblood belongs to the plate's wear action. False
+   * on T-02, where the occasion interrupt takes the accent.
+   */
+  accent?: boolean;
+  /**
+   * The date this look was built for, printed on the plate itself.
+   *
+   * Offline the notice above says the plate may be stale; this is the same fact
+   * carried ON the object, "so 'yesterday's look' is verifiable on the object
+   * rather than only in the notice".
+   */
+  dated?: string | null;
+  /**
+   * Show the look without the model's sentence — T-08's escape hatch. "It
+   * renders the plate with no rationale and no apology, and the reactions
+   * become live."
+   */
+  hideRationale?: boolean;
+  /**
+   * The row cannot act, and why. Offline (T-09): the sentence names what is
+   * unavailable and what still works, and the controls are drawn inert by
+   * ground rather than by faintness.
+   */
+  actionsUnavailable?: string | null;
+  /** T-14's consequences band, once the wear has actually landed. */
+  wornBand?: { onUndo?: () => void; onAddNote?: () => void; undoing?: boolean } | null;
+  /** Tapping a garment tile opens the piece (item detail, group 3). */
+  onOpenPiece?: (garment: Garment) => void;
 } & PlateActions) {
   const theme = useTheme();
-  const reduced = useReducedMotion();
+  const systemReduced = useReducedMotion();
+  const reduced = still ?? systemReduced;
+  const { fontScale } = useWindowDimensions();
+  // The threshold the atlas's stress frames are drawn at. Below it three
+  // controls sit across the row; at or above it they stack, in the same order,
+  // with nothing removed.
+  const stackRow = stacked ?? fontScale >= AX_FONT_SCALE;
 
   // The share flow: long-press mounts the 360×640 card off-screen, the card
   // reports ready, view-shot captures it, the system sheet opens. The card
@@ -546,15 +580,31 @@ export function Plate({
     .map((g) => `${g.colors[0]?.name ?? ''} ${g.subcategory ?? g.category}`.trim())
     .join(', ');
 
-  const dots = useMemo(() => paletteDots(pieces), [pieces]);
-  const cpw = useMemo(() => outfitCostPerWear(pieces), [pieces]);
-  // The feels-like the look was chosen against, printed top-right like a
-  // colophon. Dropped entirely when weather is unavailable rather than faked.
-  const temp = colophon.feelsLikeC != null ? formatTemp(colophon.feelsLikeC, 'F') : null;
+  const palette = useMemo(() => paletteEntries(pieces), [pieces]);
+  // T-03: printed only when EVERY piece carries a price. Otherwise the line is
+  // absent — no dash, no estimate, and no explanation demanded of the reader.
+  const cpw = useMemo(() => platedCostPerWear(pieces), [pieces]);
+  const cpwLine = costPerWearLine(cpw);
+  const cpwSpoken = costPerWearSpoken(cpw);
 
   return (
     <View className="mb-section px-gutter">
       <View className="rounded-plate border border-rule bg-surface p-3.5">
+        {/* T-14 keeps its status at the top, "so a screenshot of this frame
+            still says what happened". */}
+        {worn ? (
+          <View className="mb-2.5 flex-row items-center gap-1.5">
+            <SymbolView
+              name="checkmark"
+              size={13}
+              tintColor={theme.ink}
+              resizeMode="scaleAspectFit"
+            />
+            <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+              Worn today
+            </Text>
+          </View>
+        ) : null}
         {/* Long-press the visual → the 1080×1920 artifact. The share target is
             the card's editorial half only; the action pills below stay tappable
             and the card carries no share chrome of its own.
@@ -566,19 +616,17 @@ export function Plate({
           onLongPress={shareable ? handleShare : undefined}
           delayLongPress={350}
           accessibilityHint={shareable ? 'Long press to share this plate as an image' : undefined}>
-          {/* ── Header: the outfit's name, and what it was dressed for ── */}
+          {/* ── Header: the outfit's name, and the date it was built for ──
+                 Audit 57: the temperature is NOT here. It is in the masthead's
+                 context label, once, and the plate's old "Feels 72°F" eyebrow
+                 is removed rather than relabelled — the two were the same
+                 fact. What can stand here is a date, and only when the plate
+                 is not today's (T-09). */}
           <View className="flex-row items-baseline justify-between gap-3">
-            <Text variant="plate" numberOfLines={1} className="flex-1">
+            <Text variant="plate" numberOfLines={2} className="flex-1">
               {outfit.name}
             </Text>
-            {offline ? null : outfit.source === 'engine' && enhancing ? (
-              <View className="flex-row items-center gap-1.5">
-                <ActivityIndicator size="small" color={theme.muted} />
-                <Text variant="colophon">Styling</Text>
-              </View>
-            ) : temp ? (
-              <Text variant="colophon">Feels {temp}</Text>
-            ) : null}
+            {dated ? <Text variant="colophon">{dated}</Text> : null}
           </View>
 
           {/* Directly under the name, where the atlas's Failure card sets it
@@ -596,21 +644,21 @@ export function Plate({
             </Text>
           ) : null}
 
-          {!offline && outfit.reasoning ? (
+          {!offline && !hideRationale && outfit.reasoning ? (
             <Text variant="callout" className="mt-2 text-muted">
               {outfit.reasoning}
             </Text>
           ) : null}
 
-          {/* ── The stack: the look composed body-ordered, the same geometry the
-                 share poster prints. ── */}
+          {/* ── The look: one grid, one scale, no overlap (audit 58). ── */}
           <View className="mt-4">
-            <GarmentStack
+            <ComposedLook
               pieces={pieces}
               resolveImage={resolveImage}
               still={reduced}
               withHaptic={index === 0}
-              label={`Outfit: ${a11y}`}
+              onOpenPiece={onOpenPiece}
+              label={`Outfit, ${outfit.name}, ${pieces.length} pieces: ${a11y}`}
             />
           </View>
 
@@ -660,109 +708,80 @@ export function Plate({
           />
         ) : null}
 
-        {offline ? (
-          /* ── Offline footer: where the look came from, and what it costs to
-                wear. No palette row — the swatches are a styling argument, and
-                offline the card is a record, not an argument. ── */
-          <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3">
-            <Text variant="callout" className="text-muted">
-              Saved for offline
-            </Text>
-            <Text
-              variant="stat"
-              accessibilityLabel={
-                cpw != null ? `$${cpw.toFixed(2)} per wear` : 'Cost per wear not available'
-              }>
-              {cpw != null ? `$${cpw.toFixed(2)}` : '—'}
-            </Text>
-          </View>
-        ) : (
-          <>
-            {/* ── Footer: the palette in the engine's own colours, and what
-                   wearing the look costs per wear. Other closet apps track
-                   that number too now — what they don't have is a look their
-                   friends actually voted on, from a closet those friends can
-                   see is real. ── */}
-            <View className="mt-3 flex-row items-center justify-between border-t border-rule pt-2.5">
-              <View className="flex-1 flex-row items-center gap-2">
-                <Text variant="eyebrow">Palette</Text>
-                <View className="flex-row items-center gap-1.5">
-                  {dots.map((hex, i) => (
-                    <Swatch key={`${hex}-${i}`} hex={hex} size={14} />
-                  ))}
-                </View>
-              </View>
-              {/* "—" when unpriced, never an absent slot: the footer's
-                  geometry is part of the plate anatomy the skeleton and every
-                  reaction state reserve (atlas D-01). */}
-              <View
-                className="flex-row items-baseline gap-1"
-                accessibilityLabel={
-                  cpw != null ? `$${cpw.toFixed(2)} per wear` : 'Cost per wear not available'
-                }>
-                <Text variant="stat">{cpw != null ? `$${cpw.toFixed(2)}` : '—'}</Text>
-                <Text variant="colophon">/ wear</Text>
-              </View>
-            </View>
+        {/* ── The palette, in the engine's own colours AND their names, and
+               what wearing the look costs per wear.
 
-            {/* ── The three actions, as the design sets them: love, pass, worn.
-                   The bar owns the whole row so it can stand the wear action
-                   down while the reason chooser is open; `layout` carries the
-                   one height change that composition still allows. ── */}
-            {/* The non-null assertions are sound and narrow: `PlateActions`
-                makes both handlers required whenever `preview` is not true,
-                and this whole block is unreachable when it is. TypeScript
-                cannot narrow a destructured union, so the invariant is stated
-                here rather than proved. */}
-            {preview ? null : (
-              <Animated.View
-                layout={reduced ? undefined : LinearTransition.springify()}
-                // Inline, not `mt-3.5`: NativeWind classes do not reach
-                // Reanimated components in this project.
-                style={{ marginTop: 14 }}>
-                <ReactionBar
-                  onReact={onReact!}
-                  reacted={reacted}
-                  disabled={wearing}
-                  trailing={
-                    wearFailed ? null : (
-                      <WearButton
-                        worn={Boolean(worn)}
-                        wearing={Boolean(wearing)}
-                        onPress={onWear!}
-                      />
-                    )
-                  }
-                />
-              {/* A failed wear is the one thing on this card that must not go
-                  quiet: `wear_count` and cost-per-wear are the numbers the
-                  product is about. Full width, in the grammar the reaction
- bar's own failure used to use, so the retry is unmissable. */}
-                {wearFailed ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Wear not logged. Tap to try again."
-                    accessibilityLiveRegion="polite"
-                    onPress={() => {
-                      void Haptics.selectionAsync().catch(() => {});
-                      onWear!();
-                    }}
-                    style={{ minHeight: MIN_TAP_TARGET - 4 }}
-                    className="mt-2 flex-row items-center justify-center gap-2 rounded-md border border-rule px-3 active:opacity-70">
-                    <SymbolView
-                      name="arrow.clockwise"
-                      size={14}
-                      tintColor={theme.critical}
-                      resizeMode="scaleAspectFit"
-                    />
-                    <Text variant="label" className="font-medium" style={{ color: theme.critical }}>
-                      Couldn&rsquo;t log — retry
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </Animated.View>
-            )}
-          </>
+               Names, not colour alone: "The palette is three swatches with
+               their names printed beside them" — and the VoiceOver contract
+               announces the names, never the hex values, which is only
+               possible because the label carries them too.
+
+               Cost-per-wear prints only when every piece is priced. When it is
+               not computable the LINE IS ABSENT: no dash, no estimate. The
+               previous drawing rendered "—" here on the argument that the
+               footer's geometry had to be reserved; the refusal list is
+               explicit that a dash is invented data, and the geometry is worth
+               less than the honesty. ── */}
+        <View className="mt-3 flex-row items-center justify-between gap-3 border-t border-rule pt-2.5">
+          <View className="flex-1 flex-row flex-wrap items-center gap-x-2 gap-y-1">
+            {palette.map((entry, i) => (
+              <View key={`${entry.hex}-${i}`} className="flex-row items-center gap-1.5">
+                <Swatch hex={entry.hex} size={14} />
+                <Text variant="note">{entry.name}</Text>
+              </View>
+            ))}
+          </View>
+          {cpwLine ? (
+            <Text variant="note" accessibilityLabel={cpwSpoken ?? undefined}>
+              {cpwLine}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* ── The action row: worn, loved, not for me — in that order, the wear
+               action dominant by size as well as fill.
+
+               Replaced rather than disabled once the wear has landed (T-14):
+               after the decision there is no decision left to offer. ── */}
+        {preview ? null : worn && wornBand ? (
+          <WornBand
+            pieces={pieces.length}
+            onUndo={wornBand.onUndo}
+            onAddNote={wornBand.onAddNote}
+            undoing={wornBand.undoing}
+          />
+        ) : (
+          /* The non-null assertions are sound and narrow: `PlateActions` makes
+             both handlers required whenever `preview` is not true, and this
+             block is unreachable when it is. TypeScript cannot narrow a
+             destructured union, so the invariant is stated rather than proved. */
+          <View style={{ marginTop: 14 }}>
+            <ReactionBar
+              onReact={onReact!}
+              reacted={reacted}
+              disabled={wearing}
+              stacked={stackRow}
+              unavailable={actionsUnavailable}
+              wear={{
+                worn: Boolean(worn),
+                busy: Boolean(wearing),
+                accent,
+                onPress: onWear!,
+              }}
+            />
+            {/* A failed wear is the one thing on this card that must not go
+                quiet: `wear_count` and cost-per-wear are the numbers the
+                product is about. Same band, same place, same grammar as a
+                failed reaction — the failure sits under the row that produced
+                it, and the decision is preserved. */}
+            {wearFailed ? (
+              <FailureBand
+                title="Not logged"
+                body="Today is still marked here. Cinch will not lose it."
+                onRetry={onWear!}
+              />
+            ) : null}
+          </View>
         )}
       </View>
 

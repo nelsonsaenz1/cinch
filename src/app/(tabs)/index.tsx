@@ -3,28 +3,40 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ClosetFloor } from '@/components/today/closet-floor';
+import { contextLabel, contextLines, feelsClause } from '@/components/today/context-label';
+import { GapCard } from '@/components/today/gap-card';
+import { OccasionInterrupt } from '@/components/today/occasion-interrupt';
+import { OFFLINE_ACTIONS_REASON, OfflineNotice } from '@/components/today/offline-notice';
 import { Plate } from '@/components/today/plate';
+import { PlateSkeleton, SLOW_NOTICE_MS, SlowNotice } from '@/components/today/plate-skeleton';
+import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import type { ReactionValue } from '@/components/today/reaction-bar';
 import { RepeatExhausted } from '@/components/today/repeat-exhausted';
-import { closetGap, gapBody, SamplePlate } from '@/components/today/sample-plate';
 import { WeatherStrip } from '@/components/today/weather-strip';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Notice } from '@/components/ui/notice';
-import { Rule } from '@/components/ui/rule';
-import { SectionHeader } from '@/components/ui/section-header';
-import { PlateSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { startTagSweeper } from '@/features/ingest/upload-queue';
 import { Placement } from '@/features/billing/placements';
+import { PLANS } from '@/features/billing/plans';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
+import { useUnwearEntry } from '@/features/diary/mutations';
+import { useMyEvents } from '@/features/events/queries';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
 import { exhaustionProgress, wearsOfCore } from '@/features/styling/repeat';
 import { canGenerate, MIN_CLOSET_FOR_OUTFITS, useStyleProfile, useWardrobe } from '@/features/styling/queries';
@@ -40,9 +52,10 @@ import {
   type OutfitCandidate,
   type WeatherContext,
 } from '@/lib/styling';
+import { describeWeather, formatTemp } from '@/features/context/weather';
 import { track, trackOnce } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
-import { motion, useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
 /**
  * The Repeat's local fallback naming for a "show me another" swap.
@@ -255,6 +268,20 @@ export function Masthead({
   city,
   name,
   /**
+   * "Feels 72°F, mild" — the day's weather, stated HERE and nowhere else on
+   * the screen (audit 57). Null when the forecast is not known, in which case
+   * the label carries the day and the place alone and the plate prints no
+   * temperature either: a known-unknown is omitted, never estimated.
+   */
+  weather = null,
+  /**
+   * The largest supported type. The greeting is the first thing dropped — "a
+   * name the user already knows is the first thing worth spending to keep the
+   * outfit above the fold" — and the context label breaks over two lines
+   * rather than truncating. Defaults to the device's own font scale.
+   */
+  stacked,
+  /**
    * "Now", for the date line and the greeting. Defaults to the real clock; a
    * fixed value is only ever passed by `dev-today.tsx`, so the byte-exact
    * screen matrix can photograph this masthead without the capture changing at
@@ -272,26 +299,61 @@ export function Masthead({
 }: {
   city: string;
   name?: string | null;
+  weather?: string | null;
+  stacked?: boolean;
   now?: Date;
   unseen?: boolean;
 }) {
   const router = useRouter();
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const ax = stacked ?? fontScale >= AX_FONT_SCALE;
+
+  const place = dayLine(city, now);
+  const lines = ax ? contextLines(place, weather) : [contextLabel(place, weather)];
 
   return (
     <View className="px-gutter pt-2">
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
-          <Text variant="eyebrow">{dayLine(city, now)}</Text>
-          <View style={{ marginTop: 6 }}>
-            <Text variant="display" trim accessibilityRole="header">
-              {greetingForNow(name, now)}
+          {/* One context label: date, place and temperature together, so the
+              weather is stated once on the screen and the plate never repeats
+              it. At the largest type it breaks over two lines — nothing is
+              capped and nothing is ellipsised. */}
+          {lines.map((line) => (
+            <Text key={line} variant="eyebrow">
+              {line}
             </Text>
-          </View>
+          ))}
+          {ax ? null : (
+            <View style={{ marginTop: 6 }}>
+              <Text variant="display" trim accessibilityRole="header">
+                {greetingForNow(name, now)}
+              </Text>
+            </View>
+          )}
         </View>
         <View className="flex-row gap-2" style={{ marginTop: 2 }}>
           <ActivityButton unseen={unseen} />
           <StylistButton />
+          {/* Correction 07: the occasion composer, restored as a 44×44
+              calendar-plus at the trailing edge, opening /event/new. It sits
+              inside the existing masthead height — "the 56 pt text field is
+              what was wrong, not the entry point". */}
+          <Pressable
+            onPress={() => router.navigate('/event/new')}
+            accessibilityRole="button"
+            accessibilityLabel="New occasion"
+            hitSlop={8}
+            style={{ width: 34, height: 34 }}
+            className="items-center justify-center rounded-full border border-rule active:opacity-60">
+            <SymbolView
+              name="calendar.badge.plus"
+              size={15}
+              tintColor={theme.ink}
+              resizeMode="scaleAspectFit"
+            />
+          </Pressable>
           <Pressable
             onPress={() => router.navigate('/profile')}
             accessibilityRole="button"
@@ -384,50 +446,42 @@ export function nothingWorksReason(items: Garment[], weather: WeatherContext | n
  * actually change the answer — ask the stylist, add the missing kind of piece,
  * or try again. Small icon circles are affordances, not an empty-state hero.
  */
-export function NothingWorks({ reason, onRetry }: { reason: string; onRetry: () => void }) {
-  const router = useRouter();
-  const theme = useTheme();
-
-  const rows: {
-    icon: React.ComponentProps<typeof SymbolView>['name'];
-    label: string;
-    onPress: () => void;
-  }[] = [
-    {
-      icon: 'bubble.left.and.text.bubble.right',
-      label: 'Ask the stylist for a way around it',
-      onPress: () => router.navigate('/stylist'),
-    },
-    { icon: 'plus', label: 'Add a piece Cinch is missing', onPress: () => router.push('/add-clothes') },
-    { icon: 'arrow.clockwise', label: 'Try again once things change', onPress: onRetry },
-  ];
-
+export function NothingWorks({
+  reason,
+  onSeeWorn,
+}: {
+  reason: string;
+  /** The first honest recovery: what this closet has actually worn before. */
+  onSeeWorn: () => void;
+}) {
   return (
-    <Card padding="xl" className="mx-gutter">
-      <Text variant="title">Nothing today feels right — and I won&apos;t pretend it does.</Text>
-      <Text variant="body" className="mt-3 text-muted">
+    <View className="px-gutter">
+      {/* The refusal, stated as a judgement Cinch is making on the reader's
+          behalf, with the evidence beside it — "so it reads as care rather
+          than breakage". The reason is computed from this wardrobe and this
+          weather; it is never a canned scenario. */}
+      <Text variant="title" trim>
         {reason}
       </Text>
-      <View className="my-4">
-        <Rule />
-      </View>
-      <SectionHeader title="What might help" className="mb-3" />
-      <View className="gap-3">
-        {rows.map((r) => (
-          <Pressable
-            key={r.label}
-            onPress={r.onPress}
-            accessibilityRole="button"
-            accessibilityLabel={r.label}
-            className="flex-row items-center gap-3 active:opacity-60">
-            <View className="h-8 w-8 items-center justify-center rounded-full bg-accent-light">
-              <SymbolView name={r.icon} size={15} tintColor={theme.accent} resizeMode="scaleAspectFit" />
-            </View>
-            <Text variant="body">{r.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </Card>
+      <Text variant="body" className="mt-3.5 text-muted">
+        Cinch will not put together a look it does not believe in.
+      </Text>
+
+      {/* Correction 08: "Build one anyway" is deleted. A refusal that can be
+          overridden is not a refusal, and the engine has no below-threshold
+          mode to fall back to. What remains are recoveries that lead somewhere
+          real — and the closet is offered before any gap is mentioned. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="See what you have worn before"
+        onPress={onSeeWorn}
+        style={{ minHeight: MIN_TAP_TARGET }}
+        className="mt-5 items-center justify-center rounded-md border border-rule px-4 active:opacity-70">
+        <Text variant="label" className="font-medium">
+          See what you&rsquo;ve worn before
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -453,6 +507,13 @@ export default function TodayScreen() {
   // global flag, so keying off it froze and spun every plate at once when one
   // was tapped — and a failed write left no trace at all.
   const [wearState, setWearState] = useState<Record<string, 'pending' | 'failed'>>({});
+  // The diary entry each worn look created — T-14's Undo and its note both
+  // address it by id.
+  const [wornEntryIds, setWornEntryIds] = useState<Record<string, string>>({});
+  // T-08's escape hatch: show the look without waiting for the reasoning.
+  const [showWithoutReason, setShowWithoutReason] = useState(false);
+  // T-08's notice, which appears only once the wait is genuinely long.
+  const [slow, setSlow] = useState(false);
   // An explicit pull-to-refresh that came back with nothing to show for itself.
   const [refreshFailed, setRefreshFailed] = useState(false);
 
@@ -723,13 +784,19 @@ export default function TodayScreen() {
       wear.mutate(
         { candidate: outfit.candidate, context, reasoning: outfit.reasoning },
         {
-          onSuccess: () => {
+          onSuccess: (outfitId) => {
             setWearState((prev) => {
               const next = { ...prev };
               delete next[key];
               return next;
             });
             setWornIds((prev) => new Set(prev).add(key));
+            // T-14's Undo and "Add a note" both need the diary entry this
+            // wear created. `wear_outfit_tx` returns its id and this is the
+            // only moment it is available — nothing else on Today can find it.
+            if (typeof outfitId === 'string') {
+              setWornEntryIds((prev) => ({ ...prev, [key]: outfitId }));
+            }
           },
           onError: () => setWearState((prev) => ({ ...prev, [key]: 'failed' })),
         },
@@ -737,6 +804,51 @@ export default function TodayScreen() {
     },
     [effectiveShown, context, wear],
   );
+
+  // ── The day's one statement of the weather (audit 57) ────────────────────
+  //
+  // Composed once, here, and handed to the masthead. Every other surface on
+  // this screen — the plate's old colophon, the weather strip's own line — has
+  // stopped printing it. When the forecast is unknown the clause is null and
+  // NOTHING stands in for it.
+  const weatherClause = context.weather
+    ? feelsClause(formatTemp(context.weather.feelsLikeC, 'F'), 'F', describeWeather(context.weather, 'F'))
+    : null;
+
+  const { fontScale } = useWindowDimensions();
+  const ax = fontScale >= AX_FONT_SCALE;
+
+  // T-02. Read from real occasions rather than the device calendar, because
+  // the interrupt's single action lands on the occasion's own outfits page and
+  // only a Cinch occasion has one. Today's, soonest first.
+  const myEvents = useMyEvents();
+  const interrupt = useMemo(() => {
+    const today = new Date().toDateString();
+    return (
+      (myEvents.data ?? []).find((e) => e.startsAt && e.startsAt.toDateString() === today) ?? null
+    );
+  }, [myEvents.data]);
+
+  const unwear = useUnwearEntry();
+
+  // T-08. The notice appears at six seconds, not at the first frame of the
+  // wait: a re-rank that lands in two seconds must not accuse itself of being
+  // slow. It retires the moment the reasoning arrives.
+  const enhancing = outfits.isEnhancing;
+  // Retiring the notice belongs to render, not to an Effect: it is React's own
+  // "adjust state when a prop changes" pattern, and the reasoning landing is
+  // not an external system to synchronise with. The Effect below only ever
+  // starts the clock.
+  const [seenEnhancing, setSeenEnhancing] = useState(enhancing);
+  if (enhancing !== seenEnhancing) {
+    setSeenEnhancing(enhancing);
+    if (!enhancing) setSlow(false);
+  }
+  useEffect(() => {
+    if (!enhancing) return;
+    const t = setTimeout(() => setSlow(true), SLOW_NOTICE_MS);
+    return () => clearTimeout(t);
+  }, [enhancing]);
 
   const refresh = useCallback(() => {
     // Marks the NEXT re-rank failure as user-asked-for. The background re-rank
@@ -774,9 +886,13 @@ export default function TodayScreen() {
   // --- States --------------------------------------------------------------
 
   if (wardrobe.isLoading) {
+    // T-07. "The masthead is real, because date, place and weather are known
+    // before the look is." So this is the full masthead, not the reduced one,
+    // and the skeleton below it mirrors the plate's exact geometry so nothing
+    // shifts when the real look arrives.
     return (
       <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-        <ReducedMasthead eyebrow={dayLine(cityLabel)} />
+        <Masthead city={cityLabel} name={firstName} weather={weatherClause} />
         {/* Inline style, not `mt-6`: NativeWind's interop is registered for the
             RN primitives only, so a className on a Reanimated component is
             silently dropped. */}
@@ -829,116 +945,73 @@ export default function TodayScreen() {
   }
 
   if (!canGenerate(items)) {
-    // The empty-closet ladder (T-04/05/06). Zero items is the only closet the
-    // virgin copy ("I can't style what I can't see") is honest about — above
-    // zero and below the threshold that same copy reads as a failed upload to
-    // someone who just photographed real garments, so the rungs diverge: the
-    // sample plate stays, one tile goes dashed and names the missing slot, and
-    // the eyebrow prints the count as proof the uploads worked.
-    const gap = closetGap(items, MIN_CLOSET_FOR_OUTFITS);
-    const empty = gap.kind === 'virgin';
-    const pieces = `${items.length} ${items.length === 1 ? 'piece' : 'pieces'} in`;
-
+    // T-10 and T-11 — an empty closet and a closet under the engine's floor,
+    // told apart. Both keep the real masthead: the date, the place and the
+    // weather are known whether or not there is anything to style, and the
+    // reader is greeted either way.
     return (
       <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-        {/* The masthead reduces to the date and the section name; the stylist
-            door stays, the profile chip drops (T-04). */}
-        <ReducedMasthead eyebrow={dayLine(cityLabel)} />
-
+        <Masthead city={cityLabel} name={firstName} weather={weatherClause} />
         {/* A ScrollView, not a plain centred `flex-1` View: at a large Dynamic
             Type setting every piece of this composition grows taller, and a
-            fixed viewport has nowhere to put the overflow. `flexGrow` keeps
-            the centred composition when it fits and scrolls when it doesn't
-            (the atlas calls this out on T-04). */}
+            fixed viewport has nowhere to put the overflow. */}
         <ScrollView
-          contentContainerClassName="flex-grow items-center justify-center px-gutter"
-          // 96, matching Closet. 48 did not clear the floating tab bar, and the
-          // element it hid was this branch's PRIMARY ACTION — the "Add your
-          // clothes" button an empty first-run closet exists to offer. At the
-          // default type size the content is short enough not to scroll, so the
-          // button sat permanently in the strip the glass bar occludes and was
-          // never visible at all; at the largest Dynamic Type it scrolled but
-          // still could not clear the bar. Verified both ways on the simulator
-          // before and after this line changed.
+          contentContainerClassName="flex-grow"
+          // 96, matching Closet: below that the floating tab bar occludes this
+          // branch's primary action, which is the whole reason the state
+          // exists.
           contentContainerStyle={{ paddingBottom: 96 }}>
-          {/* Not an empty tray: a miniature sample plate under a "What your
-              mornings become" eyebrow shows the destination — the happy path
-              in matchbook form, on clearly-bundled sample data. */}
-          <Text variant="colophon" style={{ marginBottom: 10 }}>
-            {empty ? 'What your mornings become' : `What your mornings become · ${pieces}`}
-          </Text>
-
-          <SamplePlate gap={gap} />
-
-          <View style={{ marginTop: 26 }}>
-            <Text variant="title" className="text-center">
-              {empty ? (
-                <>
-                  I can&apos;t style{'\n'}what I can&apos;t see
-                </>
-              ) : (
-                // Always this title on the part-built rungs (T-05/06); the
-                // body below carries which slot or count is short.
-                <>You&rsquo;re almost there</>
-              )}
-            </Text>
-          </View>
-
-          <Text
-            variant="body"
-            className="mt-3 text-center text-muted"
-            style={{ maxWidth: 264 }}>
-            {gapBody(gap)}
-          </Text>
-
-          {/* Ink, not oxblood: the one spent accent is reserved for a loved
-              look, and the shared Button has no ink variant — so this is an
-              inline pill in the plate grammar, its label lit inline. */}
-          {/* Always the chooser, which is now also the door back into The Ten.
-
-              This used to branch straight to `/the-ten` under the free cap. The
-              reasoning was sound — The Ten asks for the pieces that multiply
-              rather than whichever garment is nearest — but the effect was that
-              a button reading "Add your clothes" opened a guided flow offering
-              a camera and a library and nothing else, so a new reader could not
-              reach Describe or Talk it in at all. Reported from the App Store
-              build: "it didn't give me the option list."
-
-              The wedge is preserved rather than dropped: AC-01 draws The Ten as
-              its LEAD door whenever the closet is under the free cap, so it is
-              still the first and most prominent thing offered, and the
-              first-run gate's guarantee that there is always a way back into
-              The Ten (docs/design/positioning-contract.md §1) now runs through
-              the chooser instead of around it. `toured_at` is written on every
-              tour exit, so without some door here a reader who backed out could
-              never be offered it again. */}
-          <Pressable
-            onPress={() => {
+          <ClosetFloor
+            items={items}
+            remaining={Math.max(0, MIN_CLOSET_FOR_OUTFITS - items.length)}
+            resolveImage={resolve}
+            onStart={() => {
               void Haptics.selectionAsync().catch(() => {});
-              router.push('/add-clothes');
+              // The Ten, "resumed at the count rather than restarted" — it
+              // hydrates from the closet it finds. A closet already past the
+              // free cap has no Ten left to run, and takes the chooser.
+              router.push(items.length >= PLANS.free.items ? '/add-clothes' : '/the-ten');
             }}
-            accessibilityRole="button"
-            accessibilityLabel={empty ? 'Add your clothes' : 'Add more clothes'}
-            // 52, the grounded control height from reference board A — 44 is the
-            // accessibility floor, not the drawn height.
-            style={{ minHeight: 52 }}
-            className="mt-7 flex-row items-center justify-center rounded-md bg-ink px-6 active:opacity-70">
-            <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
-              {empty ? 'Add your clothes' : 'Add more clothes'}
-            </Text>
-          </Pressable>
+            onDescribe={() => {
+              void Haptics.selectionAsync().catch(() => {});
+              router.push('/walkthrough');
+            }}
+          />
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  // Offline is not the normal screen dimmed — it is its own composition
-  // (T-10/T-11), and the order says why. The banner comes first, above
-  // everything, because the staleness qualifies the entire page; the masthead
-  // drops to when the app last reached the server, since there is no fresh
-  // morning to greet (the ✦ stylist door stays — it never closes); and every
-  // plate loses the parts the network paid for.
+  // T-09 · OFFLINE — a usable plate, honestly labelled.
+  //
+  // Three refusals compose this branch, and all three are corrections:
+  //
+  //   * The temperature is DROPPED from the context label rather than shown
+  //     stale. "A known-unknown is omitted, never estimated."
+  //   * The plate carries the date of the closet it was built from, so what
+  //     may be stale is verifiable on the object and not only in the notice.
+  //   * The reactions are drawn as tray fills with secondary-ink labels —
+  //     "inert by ground rather than by faintness", which keeps the label
+  //     above the contrast floor — with a sentence naming why.
+  //
+  // WHERE THIS DEPARTS FROM THE ATLAS, AND WHY. T-09 draws the wear action as
+  // live, on the grounds that "marking it worn is saved here and sent when you
+  // are back". There is no such queue in this app: `useWearOutfit` is a single
+  // online RPC (`wear_outfit_tx`) with nothing behind it, and the previous
+  // version of this screen already made the matching false promise in prose
+  // ("Reactions will sync once you're back online" — nothing synced). Drawing
+  // a live control over a write that cannot happen is the one thing this lane
+  // may not do, so all three controls are unavailable-with-a-reason and the
+  // sentence says what is true.
   if (offline) {
+    const closetDay = wardrobe.dataUpdatedAt
+      ? new Date(wardrobe.dataUpdatedAt).toLocaleDateString('en-US', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        })
+      : null;
+
     return (
       <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <ScrollView
@@ -946,59 +1019,44 @@ export default function TodayScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
           }>
-          {/* Said plainly and once, in ink, so it reads as a state of the whole
-              screen rather than a per-card warning. */}
-          <View className="mx-gutter mt-1.5 flex-row items-center gap-2.5 rounded-md bg-ink px-3.5 py-2.5">
-            <View
-              style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.accentWarm }}
-            />
-            <Text variant="note" className="flex-1 font-medium" style={{ color: theme.canvas }}>
-              Offline — showing this morning&rsquo;s set. Weather and plans may have moved on.
-            </Text>
-          </View>
+          {/* No temperature in the label: the forecast is exactly the thing
+              that could not be reached. */}
+          <Masthead city={cityLabel} name={firstName} weather={null} />
 
-          <View style={{ marginTop: 10 }}>
-            <ReducedMasthead eyebrow={syncedLine(wardrobe.dataUpdatedAt)} />
-          </View>
+          {/* The notice, in the tray, naming what may be wrong and offering
+              the one thing that would fix it. */}
+          <OfflineNotice onRetry={refresh} />
 
           {shown.length === 0 ? (
-            /* Offline AND nothing the local engine can build. The banner above
+            /* Offline AND nothing the local engine can build. The notice above
                has already said the network is the reason the page is stale;
-               the card below is still the honest account of the wardrobe, and
-               the two together stop the app blaming the closet for the
-               connection. Not dimmed — the card is not a stale artifact, it is
-               a live reading of what is actually in the closet. */
+               the refusal below is still the honest account of the wardrobe,
+               and the two together stop the app blaming the closet for the
+               connection. */
             <View className="mt-5">
-              <NothingWorks reason={nothingWorksReason(items, context.weather)} onRetry={refresh} />
+              <NothingWorks
+                reason={nothingWorksReason(items, context.weather)}
+                onSeeWorn={() => router.push('/diary')}
+              />
             </View>
           ) : (
-            /* Dimmed as one block: the set is real, but it is this morning's,
-               and so is the note under it. */
-            <View className="mt-5" style={{ opacity: 0.62 }}>
-              {/* `effectiveShown`, not `shown` — `handleWear`/`handleReact`
-                  always look up the swapped-in candidate at this index (see
-                  their own comments above), so this render has to agree with
-                  them even on the rare transition from an online "show me
- another" tap straight into offline. */}
+            <View className="mt-5">
               {effectiveShown.map((outfit, i) => (
                 <Plate
                   key={idOf(outfit.candidate.items)}
                   outfit={outfit}
                   index={i}
                   occasion={occasion}
-                  colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
+                  colophon={{ city: cityLabel, feelsLikeC: null }}
                   resolveImage={resolve}
                   offline
+                  dated={closetDay ? `Closet as of ${closetDay}` : null}
+                  stacked={ax}
+                  actionsUnavailable={OFFLINE_ACTIONS_REASON}
                   onWear={() => handleWear(i)}
                   onReact={(value) => handleReact(i, value)}
                 />
               ))}
-
-              {/* The reactions are gone from the card because they cannot reach
-                  the learner. Say what happens instead. */}
-              <Text variant="noteSmall" className="px-gutter text-center">
-                Reactions will sync once you&rsquo;re back online.
-              </Text>
             </View>
           )}
         </ScrollView>
@@ -1007,9 +1065,8 @@ export default function TodayScreen() {
   }
 
   const feedbackCount = profile.feedbackCount;
-  // The day the engine could not dress. Like the empty closet, it drops the
-  // greeting and the plans pill: the card below carries the only three things
-  // that would change the answer.
+  // T-12. The day the engine could not dress — a different fact from an empty
+  // closet and from a closet under the floor, with its own next action.
   const nothingWorks = shown.length === 0;
 
   return (
@@ -1024,30 +1081,48 @@ export default function TodayScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
           }>
-          {nothingWorks ? (
-            <ReducedMasthead eyebrow={dayLine(cityLabel)} />
-          ) : (
-            <Masthead city={cityLabel} name={firstName} />
-          )}
+          {/* One masthead in every state: one context label carrying date,
+              place and temperature, one greeting, the action pair at the
+              trailing edge. Capped at 96 pt (audit 56). */}
+          <Masthead city={cityLabel} name={firstName} weather={weatherClause} />
 
+          {/* T-02 · the occasion interrupt. Above the look it competes with,
+              exactly one action, and it takes the frame's oxblood while it is
+              there — the plate's wear action falls back to ink below. */}
+          {interrupt && !nothingWorks ? (
+            <OccasionInterrupt
+              occasion={interrupt}
+              onDress={() => router.push(`/event/${interrupt.id}/outfits`)}
+            />
+          ) : null}
+
+          {/* The weather sentence is NOT repeated here — audit 57. What is
+              left of this strip is the two permission offers, which are not
+              weather facts and have no other door on this screen; it renders
+              nothing at all once both have been answered, which is the state
+              T-01 draws. */}
           <WeatherStrip
             weather={context.weather}
             events={context.events}
             city={cityLabel}
+            showWeather={false}
             usingFallbackLocation={usingFallbackLocation}
             onEnableLocation={() => void requestLocation()}
             calendarEnabled={calendarEnabled}
             onConnectCalendar={() => void requestCalendar()}
-            // T-09 keeps the weather line — the card's reason is read against
-            // it — and drops the calendar and permission lines with the pill.
-            weatherOnly={nothingWorks}
           />
 
-          {/* The plans note, set as the design's tray pill with a leading "+".
-              The multi-event differentiator, reachable without the calendar:
- "dinner at 7 then drinks after" is the exact sentence the engine is
-              built for, and typing it must not require a permission grant. Clay,
-              not oxblood — the one spent accent stays reserved for a loved look. */}
+          {/* THE OCCASION COMPOSER — kept, and reported as a conflict.
+              T-01 does not draw this field, and correction 07 restores the
+              calendar-plus in the masthead in its place. But §11 of the atlas
+              explicitly does NOT authorise where the free-text composer goes,
+              and it is the only permission-free path the day's plans have into
+              the engine: `/event/new` writes a Cinch occasion, which
+              `useStyleContext` never reads, while this field and the device
+              calendar are the two inputs it does. Deleting it would silently
+              remove the ability to say "dinner at 7 then drinks after", which
+              is the sentence the engine exists for. It stays where it was
+              until the IA decision is made by someone authorised to make it. */}
           {nothingWorks ? null : (
             <>
               <View className="mx-gutter mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5 py-2.5">
@@ -1070,15 +1145,11 @@ export default function TodayScreen() {
                 />
               </View>
 
-              {/* The sentence went somewhere. Committing the note silently
-                  re-runs the whole engine, and the screen used to give no sign
-                  it had been read at all — the app's single most differentiating
-                  input felt inert. The × puts it back. */}
               {committedNote ? (
                 <View
                   className="mx-gutter mt-1.5 flex-row items-center gap-2"
                   accessibilityLiveRegion="polite">
-                  <Text variant="caption" numberOfLines={2} className="flex-1">
+                  <Text variant="note" numberOfLines={2} className="flex-1">
                     Styling for &ldquo;{committedNote}&rdquo;.
                   </Text>
                   <Pressable
@@ -1103,9 +1174,7 @@ export default function TodayScreen() {
           )}
 
           {/* An explicit pull always gets an answer, even when the answer is
-              that nothing changed. Gated on the error still standing, so a
-              re-rank that later comes back clean retires the line without
-              anyone having to remember to clear it. */}
+              that nothing changed. */}
           {refreshFailed && outfits.aiError ? (
             <Notice
               message="Couldn’t refresh just now — these are still today’s."
@@ -1113,10 +1182,16 @@ export default function TodayScreen() {
             />
           ) : null}
 
+          {/* T-08 · slow. Additive: it appears UNDER the same layout rather
+              than replacing it, which is what stops a slow response reading as
+              a different failure. The escape hatch is real. */}
+          {slow && !showWithoutReason && !nothingWorks ? (
+            <SlowNotice onShowAnyway={() => setShowWithoutReason(true)} />
+          ) : null}
+
           {/* The Repeat's exhausted state (P-03) — every core this closet can
               build already has a real worn record. Additive, above the day's
-              plates rather than instead of them: Cinch keeps suggesting
-              outfits below this card either way. */}
+              plates rather than instead of them. */}
           {!nothingWorks && exhaustion.exhausted ? (
             <RepeatExhausted
               total={exhaustion.total}
@@ -1140,7 +1215,22 @@ export default function TodayScreen() {
 
           <View className="mt-4">
             {nothingWorks ? (
-              <NothingWorks reason={nothingWorksReason(items, context.weather)} onRetry={refresh} />
+              <>
+                <NothingWorks
+                  reason={nothingWorksReason(items, context.weather)}
+                  onSeeWorn={() => router.push('/diary')}
+                />
+                {/* Computed reasoning only — no merchant, no price, no shop
+                    word. The gap is named after the two closet-first ways
+                    forward, never before them. */}
+                {topGap ? (
+                  <GapCard
+                    tally={currentTally}
+                    gain={topGap}
+                    onOpen={() => router.push('/gap-feed')}
+                  />
+                ) : null}
+              </>
             ) : (
               effectiveShown.map((outfit, i) => {
                 const key = idOf(outfit.candidate.items);
@@ -1151,6 +1241,7 @@ export default function TodayScreen() {
                   items,
                   outfit.candidate.items.map((g) => g.id),
                 );
+                const entryId = wornEntryIds[key];
                 return (
                   <Plate
                     key={key}
@@ -1163,7 +1254,44 @@ export default function TodayScreen() {
                     worn={wornIds.has(key)}
                     wearing={wearState[key] === 'pending'}
                     wearFailed={wearState[key] === 'failed'}
-                    enhancing={outfits.isEnhancing}
+                    stacked={ax}
+                    // One accent per frame: the interrupt takes it when it is
+                    // on screen.
+                    accent={!interrupt}
+                    hideRationale={showWithoutReason}
+                    onOpenPiece={(g) => router.push(`/item/${g.id}`)}
+                    // T-14 · what the wear changed, and the 24 hours in which
+                    // it can be changed back. Only offered once the write has
+                    // actually landed and returned its diary entry — an Undo
+                    // with nothing to address is a dead control.
+                    wornBand={
+                      entryId
+                        ? {
+                            undoing: unwear.isPending,
+                            onUndo: () => {
+                              void Haptics.selectionAsync().catch(() => {});
+                              unwear.mutate(
+                                { entryId },
+                                {
+                                  onSuccess: () => {
+                                    setWornIds((prev) => {
+                                      const next = new Set(prev);
+                                      next.delete(key);
+                                      return next;
+                                    });
+                                    setWornEntryIds((prev) => {
+                                      const next = { ...prev };
+                                      delete next[key];
+                                      return next;
+                                    });
+                                  },
+                                },
+                              );
+                            },
+                            onAddNote: () => router.push(`/diary/${entryId}`),
+                          }
+                        : null
+                    }
                     onWear={() => handleWear(i)}
                     onReact={(value) => handleReact(i, value)}
                     repeat={
@@ -1183,14 +1311,10 @@ export default function TodayScreen() {
             )}
           </View>
 
-          {/* Say plainly how much it has actually learned (S-09/S-10). Implying
-              a rich taste model after two taps is a promise the engine cannot
-              keep — and gated on the profile actually having loaded, because
- "8 more reactions" read off the placeholder profile is a claim
-              about a count the app has not seen yet. */}
+          {/* Say plainly how much it has actually learned (S-09/S-10). */}
           {shown.length > 0 && profileQuery.data ? (
             <View className="px-gutter pt-2">
-              <Text variant="label">
+              <Text variant="note">
                 {feedbackCount < 8
                   ? `${8 - feedbackCount} more reactions and Cinch will start recognising your taste.`
                   : profile.summary.length

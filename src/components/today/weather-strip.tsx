@@ -33,6 +33,7 @@ export function WeatherStrip({
   onConnectCalendar,
   calendarEnabled,
   weatherOnly = false,
+  showWeather = true,
 }: {
   weather: WeatherContext | null;
   events: EventContext[];
@@ -49,6 +50,18 @@ export function WeatherStrip({
    * greeting and plans pill.
    */
   weatherOnly?: boolean;
+  /**
+   * Whether this strip prints the weather sentence at all.
+   *
+   * False on Today since Wave 3: audit 57 requires the temperature to appear
+   * exactly once per screen, and the masthead's context label is now where it
+   * appears. What is left here is the two permission offers — a location that
+   * was never granted, a calendar that was never connected — which are not
+   * weather facts and have no other door on that screen. With both answered
+   * the strip renders nothing at all, which is the state T-01 draws: masthead,
+   * then plate, and nothing between them.
+   */
+  showWeather?: boolean;
 }) {
   const theme = useTheme();
 
@@ -65,9 +78,15 @@ export function WeatherStrip({
     return <View className="mt-1.5 px-gutter">{weatherLine}</View>;
   }
 
+  // Nothing to say and nothing to offer: render nothing rather than an empty
+  // band. Zero is quiet.
+  const offersLocation = Boolean(usingFallbackLocation && onEnableLocation);
+  const offersCalendar = Boolean(!calendarEnabled && onConnectCalendar);
+  if (!showWeather && !offersLocation && !offersCalendar && events.length === 0) return null;
+
   return (
     <View className="mt-1.5 px-gutter">
-      {weatherLine}
+      {showWeather ? weatherLine : null}
 
       {/* Location off is a dead end otherwise: iOS only ever asks once, so
           without a way back the forecast is silently someone else's city

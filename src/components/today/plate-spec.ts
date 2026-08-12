@@ -44,6 +44,42 @@ export const landingDelay = (index: number) => 120 + index * motion.stagger;
  * The look's palette, as the swatch dots the footer prints: the real garment
  * colours the engine scored, deduplicated, weighted, and capped.
  */
+/**
+ * How many named swatches the palette row prints. The atlas draws two or three
+ * ("Cream, charcoal, cognac"), and the names are the point: a palette stated in
+ * colour alone is a palette a reader with low vision cannot read at all.
+ */
+export const MAX_PALETTE_NAMED = 3;
+
+/** One swatch, with the name that is printed beside it. */
+export type PaletteEntry = { hex: string; name: string };
+
+/**
+ * The palette as the Wave 3 plate prints it — swatch AND name.
+ *
+ * Same two rules `paletteDots` carries, for the same reason: a piece under the
+ * visual-weight floor claims no colour slot, and duplicates collapse. The name
+ * is the engine's own colour name, never a guess from the hex — a garment
+ * whose colour has no name claims no slot rather than being printed as its
+ * hex, which is what "the palette announces its names, never its hex values"
+ * requires of the label as well as of VoiceOver.
+ */
+export function paletteEntries(pieces: Garment[]): PaletteEntry[] {
+  const seen = new Set<string>();
+  const out: PaletteEntry[] = [];
+  for (const g of pieces) {
+    if (g.visualWeight < PALETTE_WEIGHT_FLOOR) continue;
+    const c = g.colors[0];
+    if (!c?.name) continue;
+    const hex = oklchToHex(c.oklch);
+    if (seen.has(hex)) continue;
+    seen.add(hex);
+    out.push({ hex, name: c.name });
+    if (out.length >= MAX_PALETTE_NAMED) break;
+  }
+  return out;
+}
+
 export function paletteDots(pieces: Garment[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];

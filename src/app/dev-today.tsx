@@ -36,6 +36,17 @@ const FIXTURE_DAY = 'Thu 7 Aug · Denver';
 const FIXTURE_NOW = new Date(2026, 7, 6, 9, 41, 0);
 
 /**
+ * SUPERSEDED AS THE ATLAS ROUTE, KEPT AS THE COMPONENT BENCH.
+ *
+ * The IDs on this route are the WAVE 2 Today atlas's (T-01…T-11, S-01…S-10)
+ * and they do not mean what the Wave 3 IDs of the same shape mean — Wave 3's
+ * T-09 is offline, this file's T-09 is "nothing works". The canonical Wave 3
+ * fixtures are one route per state at `cinch://dev-w3-g2-<id>`; those are what
+ * the screenshot matrix should photograph, and what the atlas is checked
+ * against. Nothing here is renumbered, because renumbering a shipped ID is
+ * worse than an obsolete one: this route keeps its own history and stops being
+ * authority.
+ *
  * DEV ONLY — every Today render side by side at `cinch://dev-today`, keyed
  * to the Today State Atlas's own IDs (T-01…T-11, S-01…S-10).
  *
@@ -199,7 +210,7 @@ export default function DevTodayScreen() {
         <ReducedMasthead eyebrow="Wed 6 Aug · Denver" />
         <WeatherStrip weather={coldWeather} events={[]} city="Denver" weatherOnly />
         <View className="mt-4">
-          <NothingWorks reason={nothingWorksReason(coldNoLayer, coldWeather)} onRetry={() => {}} />
+          <NothingWorks reason={nothingWorksReason(coldNoLayer, coldWeather)} onSeeWorn={() => {}} />
         </View>
 
         <StateLabel sub className="mt-8">T-09a–d · the four honest reasons</StateLabel>
@@ -251,7 +262,7 @@ export default function DevTodayScreen() {
           <ReducedMasthead eyebrow="Last synced Tue 9:47pm" />
         </View>
         <View className="mt-5">
-          <NothingWorks reason={nothingWorksReason(fallback, coldWeather)} onRetry={() => {}} />
+          <NothingWorks reason={nothingWorksReason(fallback, coldWeather)} onSeeWorn={() => {}} />
         </View>
 
         {/* ── 06 · Context lines & masthead permutations ──────────────────── */}

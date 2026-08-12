@@ -1,19 +1,18 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useState } from 'react';
+import { SymbolView } from 'expo-symbols';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
 import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
-import { reactionPillSpec, slotAccessibility } from './reaction-spec';
+import {
+  w3ReactionSpec,
+  type W3ReactionKind,
+  type W3ReactionState,
+} from './reaction-spec';
 
 /**
  * Dislike reasons, and the feature each one is really about.
@@ -52,32 +51,46 @@ export type ReactionStatus = 'pending' | 'saved' | 'failed';
 
 export type ReactionValue = { liked: boolean; reason?: string; status?: ReactionStatus };
 
+/** The wear action, as the row needs to know it. */
+export type WearAction = {
+  worn: boolean;
+  busy: boolean;
+  onPress: () => void;
+  /**
+   * Whether the frame's one oxblood is spent here. False on T-02, where the
+   * occasion interrupt takes the accent and the wear action falls back to ink.
+   */
+  accent?: boolean;
+};
+
 /**
- * One pill in the reaction row. Unselected it is outlined in the structural
- * rule colour like the rest of the plate grammar; selected it FILLS — oxblood
- * for a love, ink for a pass — the two states the design leans on to say what
- * the user chose. Filled labels take their colour inline (`theme.canvas`), not
- * a className: a `text-*` colour does not reliably beat the variant's own on a
- * dark tile.
+ * One control in the Wave 3 action row.
+ *
+ * A selected control says so three ways at once — fill, tick, and a changed
+ * verb — "so the state does not depend on colour". The tick is a real second
+ * channel rather than decoration: at the largest type, in bright sun, or for a
+ * reader who cannot distinguish the ink fill from the outline, it is what is
+ * left.
  */
-function ReactionPill({
+function RowControl({
+  kind,
+  state,
   label,
-  tone,
-  selected,
-  disabled,
+  stacked,
+  accent,
   onPress,
   accessibilityLabel,
 }: {
+  kind: W3ReactionKind;
+  state: W3ReactionState;
   label: string;
-  /** Which fill the pill wears once it is the recorded choice. */
-  tone: 'accent' | 'ink';
-  selected: boolean;
-  disabled?: boolean;
+  stacked: boolean;
+  accent?: boolean;
   onPress?: () => void;
   accessibilityLabel: string;
 }) {
   const theme = useTheme();
-  const spec = reactionPillSpec({ tone, selected, disabled });
+  const spec = w3ReactionSpec({ kind, state, stacked, accent });
   const color = theme[spec.label];
 
   return (
@@ -85,11 +98,23 @@ function ReactionPill({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={spec.accessibilityState}
-      disabled={disabled}
+      disabled={state === 'unavailable' || !onPress}
       onPress={onPress}
-      style={{ minHeight: spec.minHeight }}
-      className={`flex-1 items-center justify-center rounded-md px-3 active:opacity-70 ${spec.ground}`}>
-      <Text variant="label" className="font-medium" style={{ color }} numberOfLines={1}>
+      style={{ minHeight: spec.minHeight, flexGrow: spec.flex, flexShrink: 1, flexBasis: 0 }}
+      className={`flex-row items-center justify-center gap-1.5 rounded-md px-3 active:opacity-70 ${spec.ground}`}>
+      {spec.tick ? (
+        <SymbolView name="checkmark" size={13} tintColor={color} resizeMode="scaleAspectFit" />
+      ) : null}
+      {/* Medium: a filled action and a label are the two things the
+          constitution allows it for, and every control in this row is one or
+          the other. Nothing here is prose. */}
+      <Text
+        variant="label"
+        className="font-medium"
+        style={{ color }}
+        // Nothing is ellipsised and no scale is capped (audit 59). At the
+        // largest type the row stacks and the label takes the lines it needs.
+        numberOfLines={stacked ? 2 : 1}>
         {label}
       </Text>
     </Pressable>
@@ -97,69 +122,94 @@ function ReactionPill({
 }
 
 /**
- * One of the two fixed pill slots.
+ * The failure band — T-15.
  *
- * The slot never unmounts. When a reaction is recorded the unchosen pill fades
- * to zero rather than disappearing, so the row keeps both halves of its width
- * distribution and the chosen pill stays exactly where the thumb left it —
- * the card used to re-lay its whole action row out from under the finger at
- * the precise moment it was confirming the tap. Hidden from VoiceOver while
- * faded: a 0-opacity button is not a control.
+ * "The failure sits immediately beneath the row that produced it, not at the
+ * top of the screen and not over the plate. Retry is on the same band. Nothing
+ * about the layout moves between T-13 and this frame except the band
+ * appearing, so a retry never has to be hunted for."
+ *
+ * Exported because the wear write fails the same way and must fail the same
+ * shape — one grammar for "it did not land, and your decision is still here".
  */
-function PillSlot({ visible, children }: { visible: boolean; children: React.ReactNode }) {
-  const shown = useSharedValue(visible ? 1 : 0);
-
-  useEffect(() => {
-    shown.value = withTiming(visible ? 1 : 0, { duration: motion.duration.fast });
-  }, [shown, visible]);
-
-  const style = useAnimatedStyle(() => ({ opacity: shown.value }));
-  // Fade is animated; the a11y half of hiding is not, and must not be.
-  const a11y = slotAccessibility(visible);
+export function FailureBand({
+  title,
+  body,
+  retryLabel = 'Retry',
+  onRetry,
+}: {
+  title: string;
+  body: string;
+  retryLabel?: string;
+  onRetry: () => void;
+}) {
+  const theme = useTheme();
 
   return (
-    // Layout is an inline style rather than `flex-1 flex-row`: NativeWind's
-    // interop is registered for the RN primitives only, so a className on a
-    // Reanimated component is silently dropped.
-    <Animated.View
-      style={[{ flex: 1, flexDirection: 'row' }, style]}
-      pointerEvents={a11y.pointerEvents}
-      accessibilityElementsHidden={a11y.accessibilityElementsHidden}
-      importantForAccessibility={a11y.importantForAccessibility}>
-      {children}
-    </Animated.View>
+    <View
+      accessibilityLiveRegion="polite"
+      className="mt-2 flex-row items-center gap-3 rounded-md bg-tray p-3">
+      <View className="flex-1">
+        {/* LABEL (Medium) — it names the state. */}
+        <Text variant="label" className="font-medium" style={{ color: theme.accent }}>
+          {title}
+        </Text>
+        {/* PROSE (regular) — `note` is `label`'s size in the regular cut. */}
+        <Text variant="note">{body}</Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${retryLabel} — ${title}`}
+        onPress={onRetry}
+        // 76 × 44, as drawn. The 44 is the floor, and the 76 is what keeps a
+        // one-word control from reading as an afterthought beside the sentence.
+        style={{ minWidth: 76, minHeight: MIN_TAP_TARGET }}
+        className="items-center justify-center rounded-md border border-rule px-3 active:opacity-70">
+        <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+          {retryLabel}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
 /**
- * The plate's reaction row: love it, or not — and if not, which of the six
+ * The plate's action row: worn, loved, or not — and if not, which of the six
  * things was wrong.
  *
- * The composition is deliberately rigid. Two pill slots and the trailing wear
- * action hold their geometry through every state; the status line under them
- * is reserved whether or not there is anything to say; and the reason chooser
- * opens BELOW the row instead of replacing it. So the card's height moves
- * exactly once — when the chooser opens — and never at the moment of a
- * confirmation tap, which is when the layout used to jump.
+ * Wave 3 sets the order and the weights: the wear action leads at 1.4× the
+ * width of the two reactions, all three at 48 pt with 8 pt gaps, stacking at
+ * 60 pt at the largest type with nothing removed and nothing ellipsised.
  *
- * `trailing` is the wear action, passed in rather than composed beside this
- * component: the bar has to be able to hide it while the chooser is open, and
- * it can only do that if it owns the row.
+ * The composition is otherwise as rigid as it was. The status line under the
+ * row is reserved whether or not there is anything to say, and the reason
+ * chooser opens BELOW the row instead of replacing it, so the card's height
+ * moves exactly once — when the chooser opens — and never at the moment of a
+ * confirmation tap, which is when the layout used to jump.
  */
 export function ReactionBar({
   onReact,
   reacted,
   disabled,
-  trailing,
+  wear,
+  stacked = false,
+  unavailable = null,
 }: {
   onReact: (value: ReactionValue) => void;
   /** Set once the user has reacted, so the card can show what it recorded. */
   reacted?: ReactionValue | null;
   disabled?: boolean;
-  /** The wear action, rendered at the end of the row and hidden while asking. */
-  trailing?: React.ReactNode;
+  /** The wear action. Omitted where there is no day to mark (dev previews). */
+  wear?: WearAction | null;
+  /** The largest supported type: the three controls stack, in the same order. */
+  stacked?: boolean;
+  /**
+   * The row cannot act — offline, T-09. The sentence is the second channel:
+   * "A disabled reaction is greyed and accompanied by a sentence naming the
+   * reason — never greyed alone."
+   */
+  unavailable?: string | null;
 }) {
-  const theme = useTheme();
   const [askingWhy, setAskingWhy] = useState(false);
 
   const tap = (style: Haptics.ImpactFeedbackStyle) => {
@@ -169,10 +219,7 @@ export function ReactionBar({
     void Haptics.impactAsync(style).catch(() => {});
   };
 
-  // Recording a reason both sends the reaction and closes the chooser. The
-  // chooser used to be a whole separate branch of the render, so `reacted`
-  // arriving unmounted it for free; now that it is a section of one stable
-  // composition it has to be closed on purpose.
+  // Recording a reason both sends the reaction and closes the chooser.
   const choose = (reason?: string) => {
     tap(Haptics.ImpactFeedbackStyle.Light);
     setAskingWhy(false);
@@ -181,94 +228,142 @@ export function ReactionBar({
 
   const status = reacted ? (reacted.status ?? 'pending') : null;
   const recorded = Boolean(reacted);
+  const failed = status === 'failed';
 
-  // The one reserved line does double duty: while the chooser is open it asks
-  // the question, so the chips are the only thing that adds height and the
-  // row above them never moves.
+  const loveState: W3ReactionState = unavailable
+    ? 'unavailable'
+    : reacted?.liked
+      ? failed
+        ? 'failed'
+        : 'selected'
+      : 'idle';
+  const passState: W3ReactionState = unavailable
+    ? 'unavailable'
+    : recorded && !reacted?.liked
+      ? failed
+        ? 'failed'
+        : 'selected'
+      : 'idle';
+
+  // The verb changes with the state — the third channel. "Love it" is an offer;
+  // "Loved" is a record.
+  const loveLabel = loveState === 'selected' || loveState === 'failed' ? 'Loved' : 'Love it';
+
+  // The status line, reserved. While the chooser is open it asks the question,
+  // so the chips are the only thing that adds height and the row never moves.
   const statusLine = askingWhy
     ? 'What was wrong with it?'
     : status === 'pending'
-      ? 'Saving…'
+      ? 'Saving your reaction'
       : status === 'saved'
         ? reacted!.liked
           ? 'Saved to your taste profile'
           : 'Noted — you will see fewer like this'
         : null;
 
+  /**
+   * T-09/AX. "The two disabled reactions are removed rather than stacked as
+   * inert 60 pt bars, and the sentence that explained the disabling now
+   * explains the absence — three dead controls at this size would push the live
+   * one off the screen."
+   */
+  const hideDisabledControls = Boolean(unavailable) && stacked;
+
+  const controls = hideDisabledControls ? null : (
+    <View
+      className={stacked ? 'gap-2' : 'flex-row items-stretch gap-2'}
+      // The row's own geometry, stated once: three controls, 8 pt gaps.
+      accessibilityRole="none">
+      {wear ? (
+        <RowControl
+          kind="wear"
+          state={unavailable ? 'unavailable' : wear.worn ? 'selected' : 'idle'}
+          accent={wear.accent ?? true}
+          stacked={stacked}
+          label={wear.worn ? 'Worn today' : 'I wore this'}
+          accessibilityLabel={wear.worn ? 'Worn today' : 'Mark as worn today'}
+          onPress={
+            unavailable || wear.busy
+              ? undefined
+              : () => {
+                  void Haptics.selectionAsync().catch(() => {});
+                  wear.onPress();
+                }
+          }
+        />
+      ) : null}
+      <RowControl
+        kind="love"
+        state={loveState}
+        stacked={stacked}
+        label={loveLabel}
+        accessibilityLabel={
+          loveState === 'selected'
+            ? 'Loved, selected'
+            : loveState === 'unavailable'
+              ? 'Love it, unavailable without a connection'
+              : 'Love this outfit'
+        }
+        onPress={
+          unavailable || recorded || disabled
+            ? undefined
+            : () => {
+                tap(Haptics.ImpactFeedbackStyle.Medium);
+                onReact({ liked: true });
+              }
+        }
+      />
+      <RowControl
+        kind="pass"
+        state={passState}
+        stacked={stacked}
+        label="Not for me"
+        accessibilityLabel={
+          passState === 'selected'
+            ? 'Not for me, selected'
+            : passState === 'unavailable'
+              ? 'Not for me, unavailable without a connection'
+              : 'Not for me, button'
+        }
+        onPress={
+          unavailable || recorded || disabled
+            ? undefined
+            : () => {
+                tap(Haptics.ImpactFeedbackStyle.Light);
+                setAskingWhy(true);
+              }
+        }
+      />
+    </View>
+  );
+
   return (
     <View>
-      {/* ── The action row. Two slots, always; the wear action steps aside
-             only while the chooser is open. ── */}
-      <View className="flex-row items-start gap-2">
-        <View className="flex-1 flex-row gap-2">
-          <PillSlot visible={!recorded || Boolean(reacted?.liked)}>
-            <ReactionPill
-              label="Love it"
-              tone="accent"
-              selected={Boolean(reacted?.liked)}
-              disabled={recorded || disabled}
-              accessibilityLabel={reacted?.liked ? 'You loved this outfit' : 'Love this outfit'}
-              onPress={
-                recorded
-                  ? undefined
-                  : () => {
-                      tap(Haptics.ImpactFeedbackStyle.Medium);
-                      onReact({ liked: true });
-                    }
-              }
-            />
-          </PillSlot>
-          <PillSlot visible={!recorded || !reacted?.liked}>
-            <ReactionPill
-              label="Not for me"
-              tone="ink"
-              selected={recorded && !reacted?.liked}
-              disabled={recorded || disabled}
-              accessibilityLabel={
-                recorded && !reacted?.liked ? 'You passed on this outfit' : 'Not for me'
-              }
-              onPress={
-                recorded
-                  ? undefined
-                  : () => {
-                      tap(Haptics.ImpactFeedbackStyle.Light);
-                      setAskingWhy(true);
-                    }
-              }
-            />
-          </PillSlot>
-        </View>
-        {askingWhy ? null : trailing}
-      </View>
+      {controls}
 
-      {/* ── The status line, reserved. A single space holds the line box open
-             at any Dynamic Type setting, so nothing below it moves when the
-             sentence arrives. Failure is offered as a retry rather than an
-             apology: the reaction is still held in the parent's state, so
-             tapping replays exactly what the user chose, reason and all. ── */}
-      {status === 'failed' ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Reaction not saved. Tap to try again."
-          hitSlop={13}
-          onPress={() => {
+      {/* The disabling is never colour alone: the sentence names why the row
+          cannot act and what still works. */}
+      {unavailable ? (
+        <Text variant="note" className={hideDisabledControls ? '' : 'mt-2'}>
+          {unavailable}
+        </Text>
+      ) : failed ? (
+        <FailureBand
+          title="Not saved"
+          body="Your reaction is still here. Cinch will not lose it."
+          onRetry={() => {
             tap(Haptics.ImpactFeedbackStyle.Light);
             onReact({ liked: reacted!.liked, reason: reacted!.reason });
           }}
-          className="mt-1.5 self-start active:opacity-60">
-          <Text
-            variant="caption"
-            numberOfLines={1}
-            accessibilityLiveRegion="polite"
-            style={{ color: theme.critical }}>
-            Couldn&rsquo;t save — retry
-          </Text>
-        </Pressable>
+        />
       ) : (
+        /* A single space holds the line box open at any Dynamic Type setting,
+           so nothing below it moves when the sentence arrives. PROSE, in the
+           regular cut: this is a sentence about what happened, not a label. */
         <Text
-          variant="caption"
+          variant="note"
           className="mt-1.5"
-          numberOfLines={1}
+          numberOfLines={2}
           accessibilityLiveRegion="polite"
           accessibilityElementsHidden={!statusLine}
           importantForAccessibility={statusLine ? 'auto' : 'no-hide-descendants'}>
@@ -291,9 +386,7 @@ export function ReactionBar({
             <Chip label="Just not it" onPress={() => choose()} />
             {/* The way out. Every other exit from this chooser records a
                 dislike, so an accidental "Not for me" was unrecoverable and
-                quietly poisoned the learner. Ghost-styled — no ring, no
-                ground, muted label — so it reads as an escape rather than as
-                a seventh thing that was wrong with the outfit. */}
+                quietly poisoned the learner. */}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Never mind, don't record anything"
