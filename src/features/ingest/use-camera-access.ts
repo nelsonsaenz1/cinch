@@ -1,6 +1,49 @@
-import { useCameraPermissions } from 'expo-camera';
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState, Linking } from 'react-native';
+
+/**
+ * CP-04 — `expo-camera` is required, not imported.
+ *
+ * `expo-camera` resolves its native module at import time and THROWS when a
+ * binary does not carry it, which an over-the-air bundle on a stale native
+ * client can arrange. A static import here would take down every screen that
+ * merely wants to ASK about the camera — including the chooser whose job is to
+ * say the camera is unavailable. So the module is required behind a guard and
+ * the hook below degrades to a fixed answer when it is absent.
+ *
+ * `CAMERA_AVAILABLE` decides what a screen DRAWS; this decides whether it is
+ * safe to call into the package at all. They read the same fact from two
+ * places on purpose: this file must not import the probe, because the probe
+ * must stay free of anything that could pull `expo-camera` in behind it.
+ */
+const cameraModule: { useCameraPermissions?: unknown } | null = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('expo-camera') as { useCameraPermissions?: unknown };
+  } catch {
+    return null;
+  }
+})();
+
+type PermissionsHook = () => [
+  { granted: boolean; status: string; canAskAgain: boolean } | null,
+  () => Promise<unknown>,
+  () => Promise<unknown>,
+];
+
+/**
+ * The real hook, or a stand-in that reports `checking` forever.
+ *
+ * `checking` rather than `blocked` for the same reason `undetermined` is folded
+ * into it below: a build with no camera module has not been refused anything,
+ * and a door accusing somebody of a refusal they never made is the one answer
+ * that is certainly wrong. What such a build actually draws is CP-04, chosen by
+ * `CAMERA_AVAILABLE` before this hook is ever consulted.
+ */
+const useCameraPermissions: PermissionsHook =
+  typeof cameraModule?.useCameraPermissions === 'function'
+    ? (cameraModule.useCameraPermissions as PermissionsHook)
+    : () => [null, async () => null, async () => null];
 
 /**
  * Camera permission, asked for at the door.

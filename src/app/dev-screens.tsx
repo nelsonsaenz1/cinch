@@ -103,6 +103,7 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['CP-01', '/dev-w3-g3-cp-01'],
       ['CP-02', '/dev-w3-g3-cp-02'],
       ['CP-03', '/dev-w3-g3-cp-03'],
+      ['CP-04', '/dev-w3-g3-cp-04'],
       ['CP-05', '/dev-w3-g3-cp-05'],
       ['DS-01', '/dev-w3-g3-ds-01'],
       ['DS-02', '/dev-w3-g3-ds-02'],

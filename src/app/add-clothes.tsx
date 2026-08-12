@@ -13,6 +13,7 @@ import {
   writeFlag,
 } from '@/features/ingest/consent-mode';
 import { useCapacity } from '@/features/billing/use-capacity';
+import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
 import { useCameraStatus } from '@/features/ingest/use-camera-access';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -243,9 +244,14 @@ export default function AddClothesScreen() {
           not: "the subtitle counts what is open before naming what is not."
         */}
         <Text variant="note" className="pt-1">
-          {access === 'blocked'
-            ? 'Three doors are open. The camera needs permission in Settings.'
-            : 'Four ways in. All of them file the same kind of piece.'}
+          {/* CP-04 counts the same way AC-02 does — what is open before what is
+              not — but names a different cause, because a build with no camera
+              module has refused nobody anything. */}
+          {!CAMERA_AVAILABLE
+            ? 'Three doors are open. This build of Cinch cannot open the camera.'
+            : access === 'blocked'
+              ? 'Three doors are open. The camera needs permission in Settings.'
+              : 'Four ways in. All of them file the same kind of piece.'}
         </Text>
 
         <DoorPlate
@@ -253,11 +259,26 @@ export default function AddClothesScreen() {
           line="Photograph a piece against any wall."
           symbol="camera"
           accessibilityLabel="Camera — photograph a piece"
-          // Not gated here: nothing exists to process until the shutter, and
-          // that is where capture asks.
-          onPress={() => router.push('/capture')}
+          // Permission is not gated here: nothing exists to process until the
+          // shutter, and that is where capture asks. CAPABILITY is, and has to
+          // be — `/capture` statically imports `CameraView`, so on a binary
+          // without the module this door would not open a screen, it would
+          // throw on the way there.
+          onPress={() =>
+            router.push(CAMERA_AVAILABLE ? '/capture' : ('/camera-unavailable' as Href))
+          }
           condition={
-            access === 'blocked' ? (
+            !CAMERA_AVAILABLE ? (
+              // CP-04 on the door: the cause, and no Open Settings link. There
+              // is no switch to send anybody to, and offering one would send
+              // them looking for a control that is not there.
+              <DoorCondition>
+                <View className="flex-1">
+                  <Text variant="note">This build of Cinch cannot open the camera.</Text>
+                  <Text variant="note">Updating restores it. The other three doors still work.</Text>
+                </View>
+              </DoorCondition>
+            ) : access === 'blocked' ? (
               <DoorCondition>
                 <View className="flex-1">
                   {/* AC-02 states the CAUSE on the door's own explanation line
