@@ -7,6 +7,7 @@ import { useCallback, useState } from 'react';
 import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
+import { canFileTypedWords, normalizeTypedGarment } from './typed-garment';
 import { tagImportedGarment } from './upload-queue';
 
 /**
@@ -80,6 +81,13 @@ const MESSAGES: Record<string, string> = {
   image_rejected: "That picture couldn't be saved. Try another one.",
   image_unreachable: "That picture couldn't be reached. Try another one.",
   import_failed: "That garment couldn't be added. Try again.",
+
+  // ── Filing typed words (DS-03/04/05). `storage_limit_reached` is the second
+  //    ceiling: the closet is full AND the archive is too, which the import
+  //    path never had to say because it could not reach a full archive. ──────
+  storage_limit_reached: 'Your closet and its archive are both full on this plan.',
+  not_signed_in: 'Sign in again to add a piece.',
+  file_failed: "Those words couldn't be filed. Try again.",
 
   // ── The link path. Four distinct failures, four distinct sentences: which
   //    one a person hits decides what they should do next, and a single
@@ -378,6 +386,88 @@ export function useGarmentImport() {
 }
 
 /**
+ * DS-03/04/05 — the typed words become the piece.
+ *
+ * A plain owner INSERT, not an Edge Function call, and the difference is the
+ * whole design. Two of DS-05's three notices are OFFLINE and CONSENT DECLINED,
+ * and both of them promise that filing still works; a path that went through
+ * `garment-search` would be unavailable in exactly the two states it is drawn
+ * for, and would send the sentence to a server the user has told us not to send
+ * text to. `items` is RLS-scoped to its owner (20260803154431:129), so the row
+ * is as safe written from here as written from there.
+ *
+ * The shape mirrors `commit_intake_session`'s insert (20260811022953:61) field
+ * for field, because these two are the same act arriving by different doors:
+ * `verified` because nothing was guessed that needs reviewing, no image paths
+ * at all — never a placeholder or a stock URL — and `colour_source: 'spoken'`
+ * to record that a word, not a pixel, is where the colour came from.
+ * `intake_method` is `manual`, the third value the 20260810140200 check has
+ * always allowed and nothing has written until now.
+ *
+ * The closet ceiling is not re-implemented here: the two triggers on `items`
+ * fire on this insert like any other, so a full closet refuses the row and the
+ * sheet says so through the same `closet_limit_reached` sentence the import
+ * path already uses.
+ */
+export type TypedWordsInput = {
+  description: string;
+  /** Which of the atlas's dead ends this was filed from. Counts only. */
+  via: 'no_results' | 'escape_row' | 'no_image' | 'search_failed';
+};
+
+export function useFileTypedWords() {
+  const qc = useQueryClient();
+
+  return useMutation<string, Error, TypedWordsInput>({
+    mutationFn: async ({ description }) => {
+      const garment = normalizeTypedGarment(description);
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id;
+      if (!userId) throw new GarmentSearchError('not_signed_in', MESSAGES.not_signed_in!);
+
+      const { data, error } = await supabase
+        .from('items')
+        .insert({
+          user_id: userId,
+          status: 'verified',
+          category: garment.category,
+          subcategory: garment.subcategory,
+          colors: garment.colors,
+          description: garment.description,
+          colour_source: 'spoken',
+          intake_method: 'manual',
+          user_verified: true,
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        // The ceiling trigger's sentinel, matched on the message the same way
+        // `src/features/events/mutations.ts` matches `event_limit_reached` —
+        // both raise `check_violation`, so the code alone cannot tell them
+        // apart and the sentinel is the contract.
+        if (error.message.includes('closet_limit_reached')) {
+          throw new GarmentSearchError('closet_limit_reached', MESSAGES.closet_limit_reached!);
+        }
+        if (error.message.includes('storage_limit_reached')) {
+          throw new GarmentSearchError('storage_limit_reached', MESSAGES.storage_limit_reached!);
+        }
+        throw new GarmentSearchError('file_failed', MESSAGES.file_failed!);
+      }
+      if (!data) throw new GarmentSearchError('file_failed', MESSAGES.file_failed!);
+      return data.id;
+    },
+    onSuccess: (_id, input) => {
+      invalidateAfterItemSettled(qc);
+      // Counts and flags only — the sentence is the user's own writing and has
+      // no business in an analytics property, which is the same rule
+      // `garment_search_used` already follows for the description.
+      track('garment_search_used', { stage: 'filed_own_words', path: input.via });
+    },
+  });
+}
+
+/**
  * The sheet's whole state in one place.
  *
  * Kept here rather than in the component so the screen stays a rendering of
@@ -403,6 +493,7 @@ export function useGarmentSearchFlow() {
   const search = useGarmentSearch();
   const resolve = useLinkResolve();
   const importGarment = useGarmentImport();
+  const fileTyped = useFileTypedWords();
 
   // Derived, not stored. The field is the single source of truth for which
   // door is open, so there is no way for the row beneath it to fall out of
@@ -452,9 +543,34 @@ export function useGarmentSearchFlow() {
     importGarment.reset();
   }, [importGarment, resolve]);
 
+  /**
+   * File the typed sentence as a silhouette. Returns the new item's id, or
+   * null when it was refused — a full closet, most often, which the sheet
+   * already has a designed answer for.
+   */
+  const fileOwnWords = useCallback(
+    async (via: TypedWordsInput['via'], words?: string): Promise<string | null> => {
+      const text = (words ?? description).trim();
+      if (!canFileTypedWords(text)) return null;
+      try {
+        return await fileTyped.mutateAsync({ description: text, via });
+      } catch {
+        return null;
+      }
+    },
+    [description, fileTyped],
+  );
+
   /** Returns the new item's id, or null when the import was refused. */
   const choose = useCallback(
     async (candidate: GarmentCandidate): Promise<string | null> => {
+      // A match the feed identified but could not picture. DS-03 files it as a
+      // silhouette rather than borrowing a stock photograph — and the importer
+      // would have thrown on the empty URL, so this row was a tap that failed
+      // until the typed path existed to receive it. The candidate's own title
+      // is filed, not the search box: the user picked THAT row.
+      if (!candidate.imageUrl) return fileOwnWords('no_image', candidate.title ?? description);
+
       setImporting(candidate.imageUrl);
       try {
         return await importGarment.mutateAsync({
@@ -472,7 +588,7 @@ export function useGarmentSearchFlow() {
         setImporting(null);
       }
     },
-    [importGarment],
+    [description, fileOwnWords, importGarment],
   );
 
   /** Confirm the previewed link. Same import call the candidate tiles make. */
@@ -509,9 +625,10 @@ export function useGarmentSearchFlow() {
     search.reset();
     resolve.reset();
     importGarment.reset();
-  }, [importGarment, resolve, search]);
+    fileTyped.reset();
+  }, [fileTyped, importGarment, resolve, search]);
 
-  const error = importGarment.error ?? resolve.error ?? search.error;
+  const error = fileTyped.error ?? importGarment.error ?? resolve.error ?? search.error;
 
   return {
     description,
@@ -530,6 +647,12 @@ export function useGarmentSearchFlow() {
     // never by matching `errorMessage`'s prose, which is free to change.
     closetFull: error instanceof GarmentSearchError && error.code === 'closet_limit_reached',
     reset,
+
+    // ── The escape that ends every path in a piece (DS-03/04/05) ───────────
+    fileOwnWords,
+    filing: fileTyped.isPending,
+    /** Whether there is enough typed to file — the same floor Find uses. */
+    canFileOwnWords: canFileTypedWords(description),
 
     // ── The link door ─────────────────────────────────────────────────────
     link,

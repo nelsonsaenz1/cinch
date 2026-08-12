@@ -40,6 +40,10 @@ const IDLE: GarmentSearchFlowView = {
   setPreviewName: () => {},
   confirmPreview: async () => null,
   discardPreview: () => {},
+  // DS-03/04/05's escape, posed inert: a fixture must not write a row.
+  fileOwnWords: async () => null,
+  filing: false,
+  canFileOwnWords: true,
   importingPreview: false,
 };
 
@@ -62,11 +66,14 @@ const QUERY = 'navy wool crewneck sweater';
  * no sponsored ordering, and a match with no usable image saying so rather than
  * borrowing a stock photograph (the third row).
  *
- * TWO THINGS THIS FRAME DOES NOT DRAW, both reported rather than invented:
+ * THE ESCAPE ROW IS NOW DRAWN. "None of these — file my own words" was held
+ * back while filing typed words with no picture had nowhere to land — a row
+ * whose tap fails being worse than its absence. `useFileTypedWords` gives it
+ * somewhere, and the same path repairs the third row below: a match with no
+ * usable image used to call the importer with an empty URL and throw.
  *
- * · The atlas's "None of these — file my own words" escape row. Filing typed
- *   words with no picture is a new intake path on the server; drawing a row
- *   whose tap fails would be worse than its absence.
+ * ONE THING THIS FRAME STILL DOES NOT DRAW, reported rather than invented:
+ *
  * · Claim 4's aggregator attribution. Each row names the retailer the feed
  *   reported. Whether the licence also requires naming the aggregator, and in
  *   what words, "is set by the licence rather than by design", so nothing is

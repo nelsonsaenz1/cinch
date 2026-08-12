@@ -133,6 +133,14 @@ export function GarmentSearchSheetBody({
     if (itemId) onClose();
   };
 
+  // DS-03/04/05's escape. It lands the same way an import does — the sheet gets
+  // out of the way and the piece is in the closet — because the atlas's whole
+  // point is that filing is an OUTCOME, not a retreat from one.
+  const fileOwn = async (via: 'no_results' | 'escape_row' | 'search_failed') => {
+    const itemId = await flow.fileOwnWords(via);
+    if (itemId) onClose();
+  };
+
   const submit = () => {
     if (!canSubmit) return;
     if (isLink) void flow.readLink();
@@ -393,10 +401,38 @@ export function GarmentSearchSheetBody({
           </Text>
         ) : null}
 
+        {/* DS-05: "no path through Describe ends without a piece in the closet."
+            The three notices the atlas draws — offline, declined consent, an
+            unresponsive partner — differ in what they say and agree on what
+            they offer, so this is the offer, sitting under whichever sentence
+            the failure produced.
+
+            Withheld when the closet is full, and when the failure was the
+            filing itself: in both of those the words are not the problem and
+            an offer to file them again would be a button that fails twice. */}
+        {flow.errorMessage &&
+        !flow.closetFull &&
+        !flow.preview &&
+        flow.canFileOwnWords &&
+        flow.results === null ? (
+          <View className="mt-4">
+            <Button
+              variant="secondary"
+              title="File it in my words"
+              loading={flow.filing}
+              onPress={() => void fileOwn('search_failed')}
+            />
+            <Text variant="note" className="mt-2">
+              The piece is filed with a silhouette. You can add a photograph
+              whenever you like.
+            </Text>
+          </View>
+        ) : null}
+
         {flow.preview ? (
           <LinkPreview flow={flow} onConfirm={confirm} />
         ) : (
-          <Results flow={flow} onChoose={choose} />
+          <Results flow={flow} onChoose={choose} onFileOwnWords={fileOwn} />
         )}
 
         {/* The parsed import is held, not cancelled — `flow.preview` above is
@@ -595,9 +631,11 @@ const ROW_THUMB_H = 72;
 function Results({
   flow,
   onChoose,
+  onFileOwnWords,
 }: {
   flow: GarmentSearchFlowView;
   onChoose: (candidate: GarmentCandidate) => void;
+  onFileOwnWords: (via: 'no_results' | 'escape_row') => void;
 }) {
   if (flow.searching) {
     return (
@@ -640,12 +678,26 @@ function Results({
             drawn as an error, and no result count is invented ("0 results" is
             never printed). The forward path offered is changing the words
             rather than retrying the same query. */}
-        <Text variant="plate">Nothing matched</Text>
+        <Text variant="plate">Nothing matched, so your words stand</Text>
         <Text variant="body" className="mt-2 text-muted">
-          Try the brand and the kind of garment — {'“'}Everlane cotton shirt{'”'} finds
-          more than {'“'}blue top{'”'}. Photographing it works too, and always finds the
-          right one.
+          {`Cinch will file “${flow.description.trim()}” as a piece with a silhouette. You can add a photograph whenever you like.`}
         </Text>
+        {/* The primary action IS the filing — "the outcome is a filing, not a
+            failure", so this is the filled button and changing the words is the
+            peer beside it. There is no retry of the same query: it would ask
+            the partner the identical question and get the identical answer. */}
+        <View className="mt-5">
+          <Button
+            title="File it in my words"
+            loading={flow.filing}
+            onPress={() => onFileOwnWords('no_results')}
+          />
+          <Text variant="note" className="mt-3">
+            Or change the description above — the brand and the kind of garment
+            find more than {'“'}blue top{'”'}. Photographing it always finds the
+            right one.
+          </Text>
+        </View>
       </View>
     );
   }
@@ -671,6 +723,27 @@ function Results({
             onPress={() => onChoose(candidate)}
           />
         ))}
+
+        {/* "The user's own words are always available as the last row under a
+            rule — the same 'keep your own version' escape the Procession
+            uses." A ROW, not a button: it is one more way to answer "which one
+            is yours?", and promoting it to a button would make the list read
+            as a thing to escape from. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`None of these. File “${flow.description.trim()}” in my own words.`}
+          accessibilityState={{ busy: flow.filing, disabled: flow.importingUrl !== null }}
+          disabled={flow.importingUrl !== null || flow.filing}
+          onPress={() => onFileOwnWords('escape_row')}
+          style={{ opacity: flow.importingUrl !== null ? 0.4 : 1, minHeight: MIN_TAP_TARGET }}
+          className="mt-3 justify-center border-t border-rule pt-3 active:opacity-80">
+          <Text variant="label" className="text-ink">
+            None of these — file my own words
+          </Text>
+          <Text variant="note" className="mt-1">
+            {flow.filing ? 'Filing it now.' : 'Filed with a silhouette until you add a photograph.'}
+          </Text>
+        </Pressable>
       </View>
     </View>
   );

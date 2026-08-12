@@ -28,6 +28,10 @@ const IDLE: GarmentSearchFlowView = {
   setPreviewName: () => {},
   confirmPreview: async () => null,
   discardPreview: () => {},
+  // DS-03/04/05's escape, posed inert: a fixture must not write a row.
+  fileOwnWords: async () => null,
+  filing: false,
+  canFileOwnWords: true,
   importingPreview: false,
 };
 
@@ -49,9 +53,12 @@ const QUERY = 'navy wool crewneck sweater';
  * honest translation, because the shipping screen shows one at a time and a
  * fixture that showed both would be posing a composition that never exists.
  *
- * WHAT IS NOT DRAWN: the frame's primary action, "File it in my words". It
- * needs an intake path that creates a piece from text with no picture, which is
- * a server change this lane may not make — see the report.
+ * THE PRIMARY ACTION IS NOW DRAWN. "File it in my words" was parked for two
+ * packets because it needed an intake path that creates a piece from text with
+ * no picture; `useFileTypedWords` is that path, and it turned out to need no
+ * server change at all — `items` is owner-insertable under RLS and its image
+ * columns have always been nullable. `supabase/tests/12_silhouette_intake.sql`
+ * holds the boundary.
  */
 export default function DevW3G3Ds04() {
   if (!__DEV__) {
