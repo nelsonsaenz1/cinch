@@ -26,25 +26,22 @@ import { GUTTER } from '@/theme/tokens';
  *   change. Nothing on this frame overshoots, so nothing here needs a Reduce
  *   Motion exception.
  *
- * PARKED — dependency B, twice over.
+ * DEPENDENCY B LANDED, twice over.
  *
- * 1. THE LOCK IS NOT ENFORCED. `locked` is `openedAt >= startsAt.getTime()`
- *    computed in the client (`src/app/event/[id]/outfits.tsx`), `events.
- *    starts_at` is nullable since migration 20260808130000 so an undated
- *    occasion has no lock instant at all, and no policy or trigger in
- *    `supabase/migrations` refuses a vote after any timestamp — the insert
- *    policy on `event_outfit_votes` checks the voter's own id, and its trigger
- *    checks membership and self-votes. So `lockedBoardLine` says the evening
- *    started and the board is closed. It does not say the board locked itself.
+ * 1. THE LOCK IS ENFORCED (D-2a). It used to be `openedAt >=
+ *    startsAt.getTime()` computed in the client, against a column migration
+ *    20260808130000 made nullable, with no policy or trigger refusing a late
+ *    vote anywhere. `20260812120000_close_comments_and_lock_board.sql` added
+ *    both halves — `assert_vote_target` refuses a late pick and
+ *    `assert_vote_retractable` refuses a late retraction, both `CL002` — so
+ *    `lockedBoardLine` can now say the picks are final. An UNDATED occasion
+ *    stays open: `now() < coalesce(starts_at, 'infinity')`.
  *
- * 2. THE CROWN IS UNTOUCHED. The atlas replaces the crown state with the lock
- *    state and crowns nothing; the shipping board still crowns a leader at
- *    lock through `favouriteId` and `LeaderBadge`. The dependency ledger
- *    records this as "recorded, not reconciled" and says it must be resolved
- *    in favour of one artefact before build. This frame therefore draws the
- *    locked card WITHOUT a crown — because on a TIE nothing is crowned either
- *    way, which is the one locked case both artefacts agree on. The
- *    disagreement is not settled here.
+ * 2. THE CROWN IS GONE (D-2b). This frame used to draw the locked card without
+ *    one only because a TIE was the single locked case both artefacts agreed
+ *    on. The founder resolved the disagreement in the finalized atlas's
+ *    favour, so nothing is crowned on any locked board, tied or not, and the
+ *    frame is now simply correct rather than carefully scoped.
  *
  * DETERMINISM: literal counts. No clock, no network, no spinner.
  */

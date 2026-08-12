@@ -80,17 +80,54 @@ Each verified against the repository, not assumed.
 | 12 | PR-02's earlier shape (`membershipCopyFor`) | It had no reading state and no failed state, so a member on a slow network or a failed read saw **no membership row at all** — which reads as "you are not a member". It also printed `monthlyPriceHint` into a settings row. | Replaced by `membershipRowFor`: four states, no price in any of them, `usePlan().refetch` wired so the Retry is not a dead control. |
 | 13 | MB-08's stylist-message and hosted-event counters | No client read exists for either — the stylist allowance lives server-side in `claim_ai_quota`, and nothing counts live hosted events. | Correction 36 applied: active and stored pieces only, and neither row draws while its count is in flight. |
 
+## Landed after this packet — D-1, D-2a, D-2b (2026-08-12)
+
+Founder ruling, implemented in `supabase/migrations/20260812120000_close_comments_and_lock_board.sql`
+and the crown removal. Recorded here because it closes three of the five Wave 3
+dependencies and changes two shipping sentences that had been deliberately
+withheld.
+
+**The migration is written, not applied.** No `db push`, no deploy — the
+predicate, the two triggers and `supabase/tests/11_event_lock.sql` are in the
+tree awaiting a deliberate apply.
+
+- **D-1** — `assert_comment_thread_open()`, `before insert` on `event_comments`,
+  `CL001`. `closedThreadLine()` now ends *"nothing new can be added"*, which it
+  had refused to say for a whole packet because it was false.
+- **D-2a** — the lock went into `assert_vote_target()` **and** a new
+  `before delete` trigger, `CL002`. Moving a pick is delete + insert (there is no
+  UPDATE policy on that table), so a lock guarding only INSERT would let a voter
+  retract after the start and leave a tally nobody can put back. `lockedBoardLine()`
+  now says the picks are final.
+- **Undated occasions stay open**, in both rules, by the same predicate:
+  `now() < coalesce(starts_at, 'infinity')`. Setting a date in the past closes
+  both immediately and unsetting it reopens them — neither is a special case,
+  both fall out of the predicate.
+- **A block still retracts a harasser's votes after the start.** The retraction
+  guard is scoped to `auth.uid() = old.voter_id`, so the moderation cascade in
+  `20260809160000` passes straight through it. A locked board must never be able
+  to trap somebody's pick on your look; safety outranks the freeze.
+- **D-2b** — the crown is gone. `favouriteId`, `LeaderBadge` and the board's
+  sticky-tie state went together, because each existed only for the other two.
+  `leadingId` is what is left, and it only decides which **open** board carries
+  the word "Ahead". The frozen contract's §3 crown sentences are superseded.
+
+D-5 is untouched: no price, trial, product identifier, campaign or upgrade
+placement was added, and MB-09 remains unbuilt.
+
 ## Still open
 
-- **Founder, no engineering:** none in this group. D-5 needs a decision *and* a surface.
-- **Founder, then a StoreKit or Superwall surface:** MB-09 (D-5).
+- **Founder, then a StoreKit or Superwall surface:** MB-09 (D-5). Being verified
+  separately; nothing about it was added here.
+- **Ops:** apply `20260812120000` and run `supabase/tests/11_event_lock.sql`. The
+  two shipping sentences it licenses are already live in the bundle, so the
+  migration and the copy must land together.
 - **Founder, then a flow:** the downgrade chooser (dependency C).
 - **Design/authoring:** three of HP-01's titles have no body yet — "How do I add a piece
   without photographing it?", "Cinch guessed wrong. How do I fix it?", and "What is cost
   per wear, and why is it sometimes missing?". Each is a real question with a real answer
   in the repository; none was drawn, so none was invented here.
-- Carried in from group 5 and earlier: D-1 comment closure, D-2a the board lock, D-2b the
-  crown, a 14 pt type step, `wardrobe_gaps`, C-09, "1 of 3 this week", `"Describe it"`,
+- Carried in from group 5 and earlier: a 14 pt type step, `wardrobe_gaps`, C-09, "1 of 3 this week", `"Describe it"`,
   `chip-spec.COMPACT_HEIGHT`, task #69, IT-04, CP-04/CP-05, V-02/V-03.
 
 ## Also landed here

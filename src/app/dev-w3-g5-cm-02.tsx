@@ -43,13 +43,19 @@ import {
  * · The composer is GONE from the closed frame entirely, not disabled — "a
  *   disabled field would invite a draft the server will refuse."
  *
- * PARKED — dependency A. The atlas ends the closed notice "nothing new can be
- * added". There is no `comments_closed` column, no `closes_at`, and no time
- * predicate on `event_comments`' insert policy anywhere in `supabase/
- * migrations`; closure today is CLIENT-SIDE ONLY. So the notice says what the
- * client does — it stops offering the composer — and stops. When the server
- * refuses late inserts, `closedThreadLine` is the one string that changes, and
- * `tests/comments-column.test.ts` fails the moment the claim is written early.
+ * DEPENDENCY A LANDED (D-1). The atlas ends the closed notice "nothing new can
+ * be added", and this frame was drawn without that clause for a whole packet
+ * because it was false: there was no `comments_closed` column, no `closes_at`,
+ * and no time predicate on `event_comments`' insert policy anywhere in
+ * `supabase/migrations`. `20260812120000_close_comments_and_lock_board.sql`
+ * added a `before insert` trigger raising `CL001` once the occasion has
+ * started, so the clause is now a statement about the database and this frame
+ * carries it. The composer is still GONE rather than disabled, which was right
+ * either way.
+ *
+ * AN UNDATED OCCASION NEVER REACHES THIS FRAME: the predicate is
+ * `now() < coalesce(starts_at, 'infinity')`, so a thread with no date stays
+ * open until an organizer sets one.
  *
  * DETERMINISM: frozen fixture rows with literal dates. No clock, no network.
  */

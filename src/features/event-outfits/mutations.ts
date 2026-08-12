@@ -19,6 +19,13 @@ const social = supabase as unknown as SupabaseClient;
  *   22023  — a semantic refusal (self-vote, invalid transition)
  *   42501  — not a member / not allowed
  *   23505  — a uniqueness race (one vote per event; one post per outfit)
+ *   CL001  — the thread closed (D-1, 20260812120000)
+ *   CL002  — the board locked (D-2a, same migration)
+ *
+ * The last two have their own codes rather than reusing 42501 on purpose. A
+ * closed thread and a lapsed membership are different problems with different
+ * remedies, and 42501 is already spent on "join the event first" — a user told
+ * the wrong one goes looking in the wrong place.
  */
 const code = (error: unknown): string | undefined =>
   (error as { code?: string } | null)?.code;
@@ -33,6 +40,13 @@ export function socialErrorMessage(error: unknown): string {
       return 'Join the event first.';
     case '23505':
       return 'That look is already on the board.';
+    // Both of these describe a screen that is now out of date rather than
+    // something the reader did wrong, so neither is phrased as a refusal —
+    // the occasion started, which is nobody's mistake.
+    case 'CL001':
+      return 'The occasion has started, so the thread is closed. Everything said stays readable.';
+    case 'CL002':
+      return 'The occasion has started, so the board is locked. The picks are final.';
     default:
       return 'That didn’t go through. Check your connection and try again.';
   }

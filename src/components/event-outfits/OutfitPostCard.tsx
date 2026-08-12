@@ -171,45 +171,18 @@ function PlateStackLayer({ piece, uri }: { piece: StackedPiece; uri?: string }) 
 }
 
 /**
- * The leading badge on the poster — L-01's "Ahead" before the board locks,
- * L-05's "The favourite" once it has. Same visual object both times (only
- * the label and a11y change): the atlas draws them as one badge whose copy
- * swaps at lock, not two different treatments, because the pill IS the
- * promise that the crown is the same thing you were watching climb.
+ * THE CROWN IS GONE (D-2b). `LeaderBadge` — a blush pill with `crown.fill` in
+ * it, drawn on the locked board's favourite — lived here until the founder
+ * resolved the conflict in favour of the finalized atlas, which crowns nothing.
+ * It went with `favouriteId` and the board's sticky-tie state, because each of
+ * the three existed only for the other two.
  *
- * Blush-filled, and the ONE place on the card blush is allowed to keep its
- * fill when the card is also the caller's own pick — see `cardBorder` below
- * and the contract: "when they land on the same card, only the crown keeps
- * the fill."
+ * What is left is `Ahead`: 13 pt regular secondary text, computed from the
+ * counts, present only while a look genuinely leads and only before the lock.
+ * Audit 96 asked for exactly that and said what it must not be — "neither is a
+ * bar, a badge or a percentage" — and with the pill gone there is nothing on a
+ * card that could be mistaken for one.
  */
-function LeaderBadge({ label }: { label: 'Ahead' | 'The favourite' }) {
-  const theme = useTheme();
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        top: 12,
-        left: 12,
-        backgroundColor: theme.blush,
-        borderColor: theme.blushRule,
-        borderWidth: 1,
-      }}
-      className="flex-row items-center gap-1.5 rounded-chip px-2.5 py-1.5">
-      <SymbolView name="crown.fill" size={10} tintColor={theme.accent} resizeMode="scaleAspectFit" />
-      <RNText
-        style={{
-          fontFamily: 'HelveticaNeue-Bold',
-          fontSize: 10,
-          fontWeight: '600',
-          letterSpacing: 1.1,
-          textTransform: 'uppercase',
-          color: theme.accent,
-        }}>
-        {label}
-      </RNText>
-    </View>
-  );
-}
 
 /**
  * Audit 95 — "tiles at 74 pt so all four garments stay visible."
@@ -280,8 +253,7 @@ function BoardLookTiles({
  * then the caption, then the stack" — the person is named before the clothes
  * so a vote is never cast blind.
  *
- * The leading badge (`badge`) and the crown/pick border (`cardBorder` below)
- * are computed by the caller across the WHOLE board, never per poster — see
+ * `badge` is computed by the caller across the WHOLE board, never per poster — see
  * `board-logic.ts`'s header for why this board is one rail, not one per
  * attendee.
  *
@@ -318,7 +290,8 @@ export function OutfitPostCard({
   pickLine: PickLine | null;
   isMine: boolean;
   /** The board's one leading look — never computed per poster. */
-  badge: 'ahead' | 'favourite' | null;
+  /** `'ahead'` while one look genuinely leads an open board. Never a crown. */
+  badge: 'ahead' | null;
   locked: boolean;
   picked: boolean;
   votePending: boolean;
@@ -404,10 +377,12 @@ export function OutfitPostCard({
   /**
    * "Blush is spent twice and both times means chosen — the hairline on the
    * card you picked, and the crown pill. When they land on the same card,
-   * only the crown keeps the fill." (contract §2) So: badge present → plain
-   * hairline regardless of `picked`; no badge + picked → blush hairline.
+   * only the crown keeps the fill." (contract §2) — a rule about a collision
+   * that can no longer happen, since the crown is gone (D-2b) and `Ahead` is
+   * plain text rather than a filled pill. The blush hairline is now simply the
+   * caller's own pick, with nothing left to yield to.
    */
-  const cardBorder = badge ? theme.hairline : picked ? theme.blushRule : theme.hairline;
+  const cardBorder = picked ? theme.blushRule : theme.hairline;
 
   const countLine = voteCountLine(line?.count ?? look.votes);
 
@@ -465,13 +440,10 @@ export function OutfitPostCard({
           counts and present only while a look genuinely leads; neither is a
           bar, a badge or a percentage."
 
-          So the pre-lock leader carries a word, not the blush crown pill it
-          used to. The LOCKED leader is untouched and still draws `LeaderBadge`
-          below: the atlas removes the crown entirely, the shipping board
-          crowns a leader at lock, and the Wave 3 dependency ledger records
-          that conflict as unresolved and says it "must be resolved in favour
-          of one artefact before build". Deleting the crown here would be
-          resolving it. PARKED — see the report.
+          So the leader carries a word rather than the blush crown pill it used
+          to, and the LOCKED board carries nothing at all: the atlas removes the
+          crown entirely and D-2b resolved that conflict in the atlas's favour.
+          Nothing is crowned at any point, which is what audit 96 asked for.
         */}
         {badge === 'ahead' ? (
           <Text variant="note" className="mt-1.5">
@@ -510,7 +482,6 @@ export function OutfitPostCard({
 
       <View style={{ position: 'relative' }} className="px-4">
         <BoardLookTiles pieces={look.garments} resolveImage={resolveImage} />
-        {badge === 'favourite' ? <LeaderBadge label="The favourite" /> : null}
       </View>
 
       <View className="p-4 pt-3">

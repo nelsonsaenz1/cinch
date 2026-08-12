@@ -8,20 +8,22 @@
  *
  * ── What this module deliberately does NOT decide ──────────────────────────
  *
- * WHO leads, and whether anything is crowned. That is `board-logic.ts`'s
- * `favouriteId`, and it is untouched: the atlas removes the crown entirely
- * while the shipping code crowns a leader at lock, the Wave 3 dependency
- * ledger records that as "recorded, not reconciled", and resolving it is a
- * founder ruling, not a lane's. This module only says how the leader that
- * `favouriteId` already picks is DRAWN — which audit 96 does settle: "Ahead is
- * 13 pt regular secondary text, computed from the counts and present only
- * while a look genuinely leads; counts are 14 pt secondary and neither is a
- * bar, a badge or a percentage."
+ * WHO leads. That is `board-logic.ts`'s `leadingId`. This module only says how
+ * that leader is DRAWN, which audit 96 settles: "Ahead is 13 pt regular
+ * secondary text, computed from the counts and present only while a look
+ * genuinely leads; counts are 14 pt secondary and neither is a bar, a badge or
+ * a percentage."
  *
- * Nor does it decide WHEN the board locks. Lock is computed client-side from
- * `events.starts_at`, which migration 20260808130000 made nullable, and no
- * server rule refuses a late vote — dependency B. The lock SENTENCE is here;
- * the lock itself is not, and is left exactly as it ships.
+ * NOTHING IS CROWNED, at any point. The conflict this file used to record as
+ * unresolved — the atlas removing the crown while the shipping board crowned a
+ * leader at lock — was settled by the founder in the atlas's favour (D-2b), and
+ * `favouriteId`, `LeaderBadge` and the sticky-tie state went together.
+ *
+ * Nor does it decide WHEN the board locks. That is `events.starts_at`, and as
+ * of `20260812120000_close_comments_and_lock_board.sql` it is a server rule
+ * rather than a client comparison: `now() < coalesce(starts_at, 'infinity')`,
+ * so an undated occasion stays open until an organizer sets a date. The lock
+ * SENTENCE is here; the lock itself is in the database.
  */
 
 /**
@@ -86,18 +88,37 @@ export function tieLine(): string {
  * The footer under an open board.
  *
  * Says what the viewer holds (one pick, movable) and what the votes do NOT do
- * (choose anything). It does not name a time, because an undated occasion has
- * no lock instant at all — `events.starts_at` is nullable — and a footer that
- * promised "until 8pm" on a dateless board would be inventing a date.
+ * (choose anything). It does not name a time when there is no date to name:
+ * `events.starts_at` is nullable, and a footer promising "until 8pm" on a
+ * dateless board would be inventing a date.
+ *
+ * The null branch is not a hedge any more, it is the ruling. D-2a's predicate
+ * is `now() < coalesce(starts_at, 'infinity')`, so an undated board genuinely
+ * IS open indefinitely — until an organizer sets a date, at which point this
+ * footer starts naming it. "While the board is open" is the literal truth of
+ * that state rather than a careful way of avoiding one.
  */
 export function openBoardFooter(untilLabel: string | null): string {
   const when = untilLabel ? `until ${untilLabel}` : 'while the board is open';
   return `You have one pick and can move it ${when}. Nobody’s look is chosen by the votes.`;
 }
 
-/** The locked board's cause sentence. Votes are kept, nothing is struck out. */
+/**
+ * The locked board's cause sentence — now asserting a rule that exists.
+ *
+ * DEPENDENCY B LANDED in `20260812120000_close_comments_and_lock_board.sql`:
+ * `assert_vote_target()` refuses a late pick and `assert_vote_retractable()`
+ * refuses a late retraction, both with `CL002`. So "the picks are final" is a
+ * statement about the database rather than about this screen's willingness to
+ * offer a pill, and it can be printed. Votes are kept and nothing is struck
+ * out, which was true before and still is.
+ *
+ * An UNDATED occasion never reaches this string: the server predicate is
+ * `now() < coalesce(starts_at, 'infinity')`, so a board with no date stays
+ * open until an organizer sets one.
+ */
 export function lockedBoardLine(): string {
-  return 'The evening has started, so the board is closed. Votes stay as they were.';
+  return 'The occasion has started, so the board is locked. The picks are final, and every vote stays as it was.';
 }
 
 /**

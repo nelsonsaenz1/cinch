@@ -72,29 +72,34 @@ export function commentCountLine(count: number): string | null {
 }
 
 /**
- * Correction 25's closed-thread notice — the version that is TRUE TODAY.
+ * Correction 25's closed-thread notice, now asserting a rule that exists.
  *
- * The atlas draws "nothing new can be added". Dependency A records that this
- * is only true once the server refuses inserts past `starts_at`, and it does
- * not: `event_comments` has no `comments_closed` column, no `closes_at`, and
- * its insert policy is `auth.uid() = user_id and is_event_member(event_id) and
- * not hidden and not reported` with no time predicate anywhere (migration
- * 20260807102000, lines 126–130). Closure today is CLIENT-SIDE ONLY.
+ * DEPENDENCY A LANDED in `20260812120000_close_comments_and_lock_board.sql`:
+ * `assert_comment_thread_open()` is a `before insert` trigger on
+ * `event_comments` raising `CL001` once `now() >= starts_at`. So "nothing new
+ * can be added" is a statement about the database rather than about this
+ * screen's willingness to offer a composer, and it is finally printable — it
+ * was withheld for a whole packet precisely because it was not.
  *
- * So this string says what the client actually does — it stops offering the
- * composer — and stops short of asserting a server rule. The composer is still
- * REMOVED rather than disabled, which is the part of correction 25 that is
- * separable and correct either way: a disabled field invites a draft, and a
- * draft that cannot be sent is a draft that gets lost.
+ * The composer is still REMOVED rather than disabled, which was always correct
+ * either way: a disabled field invites a draft, and a draft that cannot be sent
+ * is a draft that gets lost.
  *
- * When dependency A lands, the honest ending is "nothing new can be added",
- * and this is the one line that has to change.
+ * ── THE UNDATED THREAD NEVER SHOWS THIS ───────────────────────────────────
+ *
+ * The server predicate is `now() < coalesce(starts_at, 'infinity')`, so an
+ * occasion with no date is open — and the founder's ruling is that it stays
+ * open until an organizer sets one. `startLabel` being null therefore does NOT
+ * mean "closed, date unknown"; a caller that reaches this function at all has
+ * already established the thread is closed, which means a date exists. The
+ * null branch survives for the case where the label could not be formatted,
+ * and says the same thing without inventing a time.
  */
 export const CLOSED_THREAD_TITLE = 'Comments are closed';
 export function closedThreadLine(startLabel: string | null): string {
   const cause = startLabel
-    ? `The occasion started at ${startLabel}, so the thread closed.`
-    : 'The occasion has started, so the thread closed.';
+    ? `The occasion started at ${startLabel}, so nothing new can be added.`
+    : 'The occasion has started, so nothing new can be added.';
   return `${cause} Everything said stays readable to the people who were invited.`;
 }
 

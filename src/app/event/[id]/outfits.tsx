@@ -37,9 +37,8 @@ import {
 } from '@/features/event-outfits/board-copy';
 import {
   applyPickMove,
-  favouriteId,
+  leadingId,
   pickLine,
-  type LookTally,
   type PickLine,
   type PickMove,
 } from '@/features/event-outfits/board-logic';
@@ -68,9 +67,10 @@ import { GUTTER, MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * Look Board — L-01…L-06 plus the Vote pill's six states (Look Board State
  * Atlas). One snapping rail across EVERY posted look in the event, not one
  * per attendee: `board-logic.ts`'s header explains why against the frozen
- * contract, which speaks of "the crown on the favourite" and "one crown, no
- * second or fifth" in the singular throughout. Rail order is posting order —
- * never vote order, never re-sorted as picks land.
+ * contract, whose singular throughout ("the crown on the favourite", "one
+ * crown, no second or fifth") is what settled it — though the crown itself is
+ * gone (D-2b) and only the one-rail model survives from those sentences. Rail
+ * order is posting order — never vote order, never re-sorted as picks land.
  */
 
 /** "Fri 8 Aug, 7:30pm" — the mock's metadata line. */
@@ -147,11 +147,18 @@ export default function EventOutfitBoardScreen() {
     [posts.data],
   );
 
-  // The board locks when the evening starts: tallies freeze into crowns.
+  // The board locks when the evening starts: the picks are final.
   // "Now" is sampled once per mount — a screen sitting open across the lock
   // moment updates on its next focus/refetch, which is honest enough; a
   // ticking clock during render is a purity violation the linter rightly
-  // refuses. An occasion with no date never locks.
+  // refuses. And it no longer has to be right on its own: D-2a made the lock
+  // a server rule (`assert_vote_target` / `assert_vote_retractable`, CL002),
+  // so a stale clock costs a refused write with an honest message rather than
+  // a vote that should not have counted.
+  //
+  // AN OCCASION WITH NO DATE NEVER LOCKS, which is the founder's ruling and is
+  // exactly what the server predicate says: `now() < coalesce(starts_at,
+  // 'infinity')`. The two agree by construction rather than by coincidence.
   const [openedAt] = useState(() => Date.now());
   const locked = detail?.startsAt ? openedAt >= detail.startsAt.getTime() : false;
 
@@ -200,58 +207,30 @@ export default function EventOutfitBoardScreen() {
   );
 
   /**
-   * The board's one crown — sticky through a tie (board-logic.ts).
+   * Who is ahead — and nothing else. D-2b removed the crown.
    *
-   * The tie rule needs the PREVIOUS crown to decide the next one ("a tie holds
-   * the crown where it was"), which makes this derived-from-history rather than
-   * derived-from-props, and neither of the obvious shapes is correct. A ref read
-   * inside `useMemo` is a ref read during render: untracked, so the crown can be
-   * computed from a stale value and disagree with what is on screen — on the one
-   * rule that exists to stop the crown moving when it should not. Recomputing in
-   * an effect instead paints the old crown for a frame and trips
-   * `set-state-in-effect`.
+   * This used to be a piece of render-adjusted state, because `favouriteId`
+   * was sticky through a tie and so needed its own previous answer to compute
+   * the next one. With the crown gone there is no history to carry: `Ahead`
+   * is a pure function of the counts currently on screen, so it is a `useMemo`
+   * over `displayLooks` and the `crownState`/`tallyKey` pair went with it.
    *
-   * So it adjusts during render, which is the pattern React documents for state
-   * that depends on its own previous value: compare a key, and if it changed,
-   * set the new state before returning. React re-renders immediately without
-   * committing the intermediate paint, so nothing flickers and nothing is stale.
-   */
-  const tallyKey = useMemo(
-    () => displayLooks.map((l) => `${l.id}:${l.votes}`).join('|'),
-    [displayLooks],
-  );
-  const [crownState, setCrownState] = useState<{ key: string; id: string | null }>({
-    key: '',
-    id: null,
-  });
-  let crownId = crownState.id;
-  if (crownState.key !== tallyKey) {
-    const tallies: LookTally[] = displayLooks.map((l) => ({ id: l.id, votes: l.votes }));
-    crownId = favouriteId(tallies, crownState.id);
-    setCrownState({ key: tallyKey, id: crownId });
-  }
-
-  /**
-   * Audit 96 — "a tie removes Ahead rather than inventing a tiebreak, and the
-   * posting order is unchanged."
-   *
-   * `favouriteId` is STICKY through a tie by design: the frozen contract's "a
-   * tie holds the crown where it was" needs a previous answer to hold, so a
-   * board that ties at 3–3 keeps whichever look was already leading. That
-   * arithmetic is untouched — it is the crown's, and the crown is a founder
-   * decision (dependency B). What changed is that the pre-lock WORD is
-   * suppressed while the top is shared, which is what the audit asks for and
-   * is purely a question of what is drawn.
+   * Audit 96, in full: a tie removes `Ahead` rather than inventing a
+   * tiebreak — `leadingId` returns null on one — and a locked board shows
+   * nothing at all, because once the occasion has started nothing is being
+   * decided. `isTied` is still computed for the tie SENTENCE, which is a
+   * separate thing the board says out loud.
    */
   const tied = useMemo(() => isTied(displayLooks.map((l) => l.votes)), [displayLooks]);
+  const aheadId = useMemo(
+    () => leadingId(displayLooks.map((l) => ({ id: l.id, votes: l.votes }))),
+    [displayLooks],
+  );
 
   const badgeFor = useCallback(
-    (look: PostedLook): 'ahead' | 'favourite' | null => {
-      if (crownId !== look.id) return null;
-      if (locked) return 'favourite';
-      return tied ? null : 'ahead';
-    },
-    [crownId, locked, tied],
+    (look: PostedLook): 'ahead' | null =>
+      !locked && !tied && aheadId === look.id ? 'ahead' : null,
+    [aheadId, locked, tied],
   );
 
   const currentPickId = optimisticMove ? optimisticMove.toPostId : (myVote.data?.postId ?? null);
@@ -564,18 +543,16 @@ export default function EventOutfitBoardScreen() {
    * which is the fact "a reader who saw a leader yesterday" actually needs;
    * the open one says what the viewer holds and that the votes decide nothing.
    *
-   * PARKED (dependency B): the locked sentence is written as the CLIENT's
-   * reflection. `locked` here is `openedAt >= detail.startsAt.getTime()`
-   * (line ~150 of this file) — a client comparison against a nullable column,
-   * with no server rule refusing a late vote anywhere in
-   * `supabase/migrations` (the insert policy on `event_outfit_votes` is
-   * `auth.uid() = voter_id` and its trigger checks membership and self-votes,
-   * nothing about time). "The board locks itself" is therefore not a sentence
-   * this app can make yet, so the footer says the evening started and the
-   * board is closed, and stops.
+   * DEPENDENCY B LANDED (D-2a). The locked sentence used to be written as the
+   * client's own reflection and stopped short of claiming the board refuses
+   * anything, because it did not: the insert policy was `auth.uid() =
+   * voter_id` and the trigger checked membership and self-votes, nothing about
+   * time. `20260812120000_close_comments_and_lock_board.sql` added both halves
+   * — a lock on the insert and a lock on the retraction — so "the picks are
+   * final" is now a statement about the database.
    *
-   * Also PARKED: `crownedLook` is gone from this string, but only from the
-   * string. Nothing about who is crowned changed — see `badgeFor` above.
+   * And the crown is gone from this screen as well as from this string
+   * (D-2b) — see `badgeFor` above.
    */
   const closingNote = locked
     ? lockedBoardLine()
@@ -813,7 +790,7 @@ const BoardRail = memo(function BoardRail({
   nameOf: (userId: string) => string | null;
   resolveImage: (...paths: (string | null | undefined)[]) => string | undefined;
   commentCountFor: (postId: string) => number;
-  badgeFor: (look: PostedLook) => 'ahead' | 'favourite' | null;
+  badgeFor: (look: PostedLook) => 'ahead' | null;
   pickLineFor: (look: PostedLook) => PickLine | null;
   votePendingFor: (postId: string) => boolean;
   onToggleVote: (look: PostedLook) => void;

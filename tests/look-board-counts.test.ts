@@ -11,6 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
@@ -74,12 +75,32 @@ test('the tie sentence says the order did not change', () => {
   assert.ok(!/wins|winner|first|leads/i.test(line));
 });
 
-test('the locked footer names the cause and keeps every vote', () => {
+test('the locked footer asserts the lock that now exists — D-2a', () => {
   const line = lockedBoardLine();
-  assert.ok(/evening has started/i.test(line), line);
-  assert.ok(/Votes stay as they were/i.test(line), line);
-  // Nothing is crowned by this sentence, in either direction. Dependency B.
+  assert.ok(/occasion has started/i.test(line), line);
+  assert.ok(/stays as it was/i.test(line), line);
+  // "The picks are final" is a statement about the database, and until
+  // `20260812120000` it was false: the insert policy was `auth.uid() =
+  // voter_id` and the trigger checked membership and self-votes, nothing about
+  // time.
+  assert.ok(/picks are final/i.test(line), line);
+  // Still nothing crowned — and now nothing anywhere can be (D-2b).
   assert.ok(!/crown|favourite|winner|took the room/i.test(line));
+});
+
+test('D-2a: the lock guards the retraction as well as the pick', () => {
+  // Moving a pick is delete + insert — there is no UPDATE policy on
+  // `event_outfit_votes` — so a lock that only guarded INSERT would let a voter
+  // delete their pick after the start and leave a tally nobody can put back.
+  const migration = readFileSync(
+    'supabase/migrations/20260812120000_close_comments_and_lock_board.sql',
+    'utf8',
+  );
+  assert.match(migration, /before delete on public\.event_outfit_votes/);
+  assert.match(migration, /errcode = 'CL002'/);
+  // But a block retracting a harasser's votes must still work after the start:
+  // safety outranks the freeze, and the two are told apart by whose act it is.
+  assert.match(migration, /\(select auth\.uid\(\)\) = old\.voter_id/);
 });
 
 test('the open footer states the one pick and that votes decide nothing', () => {

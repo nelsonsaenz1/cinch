@@ -12,7 +12,7 @@ import { LookPlate } from '@/components/look/look-plate';
 import { Chip } from '@/components/ui/chip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { favouriteId, pickLine } from '@/features/event-outfits/board-logic';
+import { leadingId, pickLine } from '@/features/event-outfits/board-logic';
 import type { PostedLook } from '@/features/event-outfits/types';
 import { resolveColorName } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
@@ -258,7 +258,7 @@ function L01() {
     look('b', 'mel', MELS_LOOK, 2, ['dana', 'priya'], 'The mohair with the corduroy skirt, loafers under.', 60),
     look('c', 'priya', PRIYAS_LOOK, 0, [], null, 30),
   ];
-  const crownId = favouriteId(looks, null);
+  const aheadId = leadingId(looks);
   return (
     <View className="mt-4 gap-3">
       <Text variant="callout" className="text-muted">
@@ -271,7 +271,7 @@ function L01() {
           posterName={nameOf(l.userId)}
           pickLine={pickLine(l.votes, false, l.voterIds.map((v) => nameOf(v)!).filter(Boolean))}
           isMine={false}
-          badge={crownId === l.id ? 'ahead' : null}
+          badge={aheadId === l.id ? 'ahead' : null}
           locked={false}
           picked={false}
           votePending={false}
@@ -410,14 +410,21 @@ function L04() {
   );
 }
 
-/** L-05 — voting closed, the crown reveal. */
+/**
+ * L-05 — voting closed.
+ *
+ * NOT "the crown reveal" any more. D-2b removed the crown, so a locked board
+ * carries its counts and nothing else: no badge, no pill, nothing declared the
+ * favourite. The leading look is still the one drawn here, because it is the
+ * one with the most picks and the frame is about the tallies being final —
+ * but nothing on the card says so, which is the point.
+ */
 function L05() {
   const looks = [
     look('a', 'dana', DANAS_LOOK, 6, ['mel', 'priya', 'me', 'ben', 'tom', 'x'], 'Shearling over the linen blouse. Warm enough for the walk.', 300),
     look('b', 'mel', MELS_LOOK, 5, ['me', 'dana', 'ben', 'tom', 'priya'], 'The mohair with the corduroy skirt, loafers under.', 200),
   ];
-  const crownId = favouriteId(looks, null);
-  const crowned = looks.find((l) => l.id === crownId)!;
+  const leader = looks.find((l) => l.id === leadingId(looks))!;
   return (
     <View className="mt-4">
       <Text variant="callout" className="mb-3 text-muted">
@@ -425,11 +432,11 @@ function L05() {
       </Text>
       <View style={{ width: 353 }}>
         <OutfitPostCard
-          look={crowned}
+          look={leader}
           posterName="Mel"
           pickLine={pickLine(5, true, ['Dana', 'Ben', 'Tom', 'Priya'])}
           isMine={false}
-          badge="favourite"
+          badge={null}
           locked
           picked
           votePending={false}

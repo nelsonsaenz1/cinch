@@ -1,5 +1,11 @@
 # Wave 3 · Group 5 — Gap Feed and Social
 
+> **RESOLVED 2026-08-12.** D-1, D-2a and D-2b were ruled on by the founder and
+> implemented in `supabase/migrations/20260812120000_close_comments_and_lock_board.sql`
+> and the crown removal. The three sections below are kept as the record of what
+> was parked and why; what changed is noted at the head of each. D-4 shipped with
+> the packet; D-5 is still open and is being verified separately.
+
 Source: `docs/design/wave-3-final/Wave 3 - Design · Gap Feed and Social.dc.html`
 (unmodified; 8/8 sha256 re-verified against `MANIFEST.sha256` before the packet opened).
 
@@ -9,7 +15,13 @@ grading — Codex owns those.
 
 ## What is parked, and on whom
 
-### D-1 · server-side refusal of late comment inserts — FOUNDER, then a migration
+### D-1 · server-side refusal of late comment inserts — ✅ LANDED
+
+**Ruling:** close at `starts_at`; undated occasions stay open until an organizer
+sets a date. Implemented as `assert_comment_thread_open()`, a `before insert`
+trigger raising `CL001`. `closedThreadLine()` now ends "nothing new can be
+added". The original record follows.
+
 
 `grep -rn "comments_closed\|closes_at" supabase/` returns nothing. The `event_comments`
 insert policy (`20260807102000_event_outfits_votes_comments.sql:126`) is
@@ -32,7 +44,15 @@ One string changes on landing: `closedThreadLine()` in
 `src/features/event-outfits/comment-thread.ts`. `tests/comments-column.test.ts` fails if
 the claim is written before the rule exists.
 
-### D-2a · board lock at `starts_at` — FOUNDER, then a migration
+### D-2a · board lock at `starts_at` — ✅ LANDED
+
+**Ruling:** same predicate, same undated rule. The lock went into
+`assert_vote_target()` *and* into a new `before delete` trigger — moving a pick
+is delete + insert, so a lock on INSERT alone would be half a lock. `CL002`.
+`lockedBoardLine()` now says the picks are final. A block still retracts a
+blocked person's votes after the start: safety outranks the freeze, and the two
+deletes are told apart by whose act it is. The original record follows.
+
 
 Same shape, same undated hole, on `event_outfit_votes`. Its insert policy checks identity
 only; `assert_vote_target()` checks post existence, self-vote and membership. The client
@@ -47,7 +67,14 @@ obvious home: one `select starts_at`, one `raise`. Strings that change on landin
 viewer" is a real server rule — `constraint one_vote_per_event unique (event_id, voter_id)`
 (`20260807102000:65`).
 
-### D-2b · the crown — FOUNDER ONLY. No migration, no schema, no backend.
+### D-2b · the crown — ✅ REMOVED
+
+**Ruling:** the finalized atlas wins. `favouriteId`, `LeaderBadge` and the
+board's sticky-tie state went together, since each existed only for the other
+two; `leadingId` is what is left and it only decides which OPEN board carries the
+word "Ahead". Audit 96's "nothing is crowned" holds at every point. The frozen
+contract's §3 crown sentences are superseded. The original record follows.
+
 
 This is free to resolve and is holding up the most drawing. Correction 24 removes the
 crown outright; the shipping board still crowns a leader at lock via `favouriteId`
@@ -84,9 +111,6 @@ Each of these was verified against the repository, not assumed.
 
 ## Still open
 
-- **Founder, no engineering:** D-2b the crown. The cheapest unblock in the wave.
-- **Founder, then one migration each:** D-1 and D-2a, both turning on what an *undated*
-  occasion does.
 - **Founder/design:** a 14 pt type step (#14 above); whether `wardrobe_gaps` should be
   wired and widened past one boolean; whether a C-09 screen gets drawn.
 - **Backend:** a comment branch in `activity_feed()`; a join mutation reachable from

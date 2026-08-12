@@ -29,18 +29,19 @@ import { GUTTER } from '@/theme/tokens';
  *   a public statement about a friend's outfit.
  * · The footer states the one movable pick and that votes choose nothing.
  *
- * PARKED — dependency B. The board is drawn as locking itself at the
- * occasion's start and as holding one pick per viewer. Half of that IS server
- * truth: `one_vote_per_event unique (event_id, voter_id)` (migration
- * 20260807102000) enforces the single pick. The LOCK is not — it is
- * `openedAt >= startsAt` computed in the client against a column migration
- * 20260808130000 made nullable, with no policy or trigger refusing a late
- * vote. So no copy here says the board locks itself.
+ * DEPENDENCY B LANDED (D-2a). The board is drawn as locking itself at the
+ * occasion's start and as holding one pick per viewer, and both halves are now
+ * server truth: `one_vote_per_event unique (event_id, voter_id)` (migration
+ * 20260807102000) always enforced the single pick, and
+ * `20260812120000_close_comments_and_lock_board.sql` added the lock — on the
+ * insert AND on the retraction, since moving a pick is delete + insert. An
+ * undated occasion stays open, which is the founder's ruling and is what
+ * `now() < coalesce(starts_at, 'infinity')` says.
  *
- * ALSO PARKED — the crown. The atlas removes it entirely; the shipping code
- * crowns a leader at lock (`favouriteId`, `LeaderBadge`). The ledger records
- * that as unresolved. Nothing on this frame or in this lane changed who is
- * crowned.
+ * AND THE CROWN IS GONE (D-2b), resolved in the finalized atlas's favour.
+ * `favouriteId`, `LeaderBadge` and the board's sticky-tie state went together;
+ * `leadingId` is what is left, and it only decides which open board carries the
+ * word "Ahead".
  *
  * DETERMINISM: frozen looks with literal vote counts and dates. No clock, no
  * network, no spinner, no shimmer.

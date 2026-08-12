@@ -1,7 +1,14 @@
 /**
- * Pure Look Board arithmetic — the crown/tie rule and the one-pick-per-board
- * vote count — held against the Look Board State Atlas (L-01…L-06) and the
- * frozen contract, `docs/design/event-social-contract.md` §3.
+ * Pure Look Board arithmetic — who is ahead, and the one-pick-per-board vote
+ * count — held against the Look Board State Atlas (L-01…L-06) and the frozen
+ * contract, `docs/design/event-social-contract.md` §3.
+ *
+ * THE CROWN IS GONE (D-2b). The frozen contract's §3 language — "the crown on
+ * the favourite", "One crown, no second or fifth", "a tie holds the crown where
+ * it was" — described a board this app no longer has. The finalized Wave 3
+ * atlas removes the crown outright and the founder resolved the conflict in its
+ * favour, so §3's crown sentences are superseded; the rest of §3, including the
+ * one-rail model below, still stands.
  *
  * Kept out of `outfits.tsx` / `OutfitPostCard.tsx` on purpose: both are
  * `.tsx`, and the test bundler cannot parse React Native's Flow source
@@ -29,36 +36,40 @@ export type LookTally = {
 };
 
 /**
- * The board's one crown — "The favourite" once locked, "Ahead" before.
- * Computed across every look on the page, never per poster.
+ * The one look that is genuinely ahead, or null.
  *
- * Sticky on a tie: "A tie holds the crown where it was" (contract §3; the
- * atlas's own live demo: "the board does not crown two looks, and it does
- * not un-crown one on a draw"). A pure vote-count comparison can't express
- * "where it was" by itself — two looks tied at 3 doesn't say which one got
- * there first — so the caller carries the previous result forward across
- * renders and this function only ever *keeps* that answer through a tie, it
- * never invents a winner among equals.
+ * ── THIS REPLACED `favouriteId`, AND THE CROWN WITH IT (D-2b) ─────────────
  *
- * A board with no votes at all crowns nothing (`withVotes` empty → null),
- * which is the same "zero is quiet" instinct as the count line: a crown on a
- * card nobody picked would be a fabricated favourite.
+ * `favouriteId` was sticky through a tie — "a tie holds the crown where it
+ * was" (frozen contract §3) — which is why it took a `previousId` and why the
+ * board had to carry an answer forward across renders to feed it. The founder
+ * has resolved the conflict in favour of the finalized atlas: the board crowns
+ * nothing, at any point, and there is no favourite to hold anywhere.
+ *
+ * So three things went at once, and they went together because each existed
+ * only for the others: the crown badge, `favouriteId`, and the sticky-tie
+ * state. What is left is a pure function of the counts in front of you, with
+ * no history and nothing to remember — which is also why the caller needs no
+ * state for it any more.
+ *
+ * A TIE RETURNS NULL rather than picking. Audit 96: "a tie removes Ahead
+ * rather than inventing a tiebreak, and the posting order is unchanged." A
+ * board with no votes at all returns null too — the same "zero is quiet"
+ * instinct as the count line, and a word on a card nobody picked would be a
+ * fabricated leader.
+ *
+ * `Ahead` is still only DRAWN before the lock; that is the caller's business
+ * and `aheadLabel()` in `board-copy.ts` is where it is decided. Once the
+ * occasion starts nothing leads, because nothing is being decided any more.
  */
-export function favouriteId(
-  looks: readonly LookTally[],
-  previousId: string | null,
-): string | null {
+export function leadingId(looks: readonly LookTally[]): string | null {
   const withVotes = looks.filter((l) => l.votes > 0);
   if (withVotes.length === 0) return null;
 
   const max = Math.max(...withVotes.map((l) => l.votes));
   const leaders = withVotes.filter((l) => l.votes === max);
 
-  if (leaders.length === 1) return leaders[0]!.id;
-
-  // Tied. The crown stays put only if it is still among today's leaders.
-  if (previousId && leaders.some((l) => l.id === previousId)) return previousId;
-  return null;
+  return leaders.length === 1 ? leaders[0]!.id : null;
 }
 
 /** Moving (or casting, or retracting) the caller's one pick between looks. */

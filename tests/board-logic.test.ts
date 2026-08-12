@@ -1,16 +1,36 @@
 /**
- * Look Board arithmetic, held against the atlas and the frozen contract §3:
- * "One crown, no second or fifth... A tie holds the crown where it was" and
- * the one-pick-per-board vote count ("held on the board and not the card").
+ * Look Board arithmetic, held against the finalized atlas.
+ *
+ * The frozen contract §3's crown sentences — "One crown, no second or fifth",
+ * "A tie holds the crown where it was" — are SUPERSEDED. D-2b resolved that
+ * conflict in favour of the atlas, which crowns nothing, so what is left to
+ * test is who is ahead on an open board and the one-pick-per-board vote count
+ * ("held on the board and not the card", which §3 still governs).
  */
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { readFileSync } from 'node:fs';
+
+/**
+ * A file with its comments stripped.
+ *
+ * These two tests assert the ABSENCE of a thing, and the docblocks explaining
+ * why it is absent are full of the word. A rule that punishes its own
+ * documentation teaches people to delete the documentation, which is the
+ * opposite of what removing the crown should leave behind.
+ */
+const code = (path: string) =>
+  readFileSync(path, 'utf8')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
 import {
   applyPickMove,
-  favouriteId,
   joinWithAnd,
+  leadingId,
   pickLine,
   type LookTally,
 } from '../src/features/event-outfits/board-logic';
@@ -18,37 +38,45 @@ import {
 const looks = (...votes: number[]): LookTally[] =>
   votes.map((v, i) => ({ id: `l${i + 1}`, votes: v }));
 
-test('favouriteId: a board with no votes crowns nothing', () => {
-  assert.equal(favouriteId(looks(0, 0, 0), null), null);
-  assert.equal(favouriteId([], null), null);
+test('leadingId: a board with no votes leads with nothing', () => {
+  // Zero is quiet. A word on a card nobody picked would be a fabricated leader.
+  assert.equal(leadingId(looks(0, 0, 0)), null);
+  assert.equal(leadingId([]), null);
 });
 
-test('favouriteId: a clear leader is crowned regardless of history', () => {
-  assert.equal(favouriteId(looks(3, 2, 2), null), 'l1');
-  // Overtake: the crown follows the new leading count immediately — not a
-  // scoreboard that lags, and not sticky when there is no tie to hold.
-  assert.equal(favouriteId(looks(1, 5, 2), 'l1'), 'l2');
+test('leadingId: a clear leader is named, and an overtake is immediate', () => {
+  assert.equal(leadingId(looks(3, 2, 2)), 'l1');
+  // Not a scoreboard that lags: the count in front of you is the whole input.
+  assert.equal(leadingId(looks(1, 5, 2)), 'l2');
 });
 
-test('favouriteId: an initial tie crowns nobody', () => {
-  assert.equal(favouriteId(looks(3, 3, 1), null), null);
+test('leadingId: a tie leads with nothing, whatever led before', () => {
+  // Audit 96 — "a tie removes Ahead rather than inventing a tiebreak, and the
+  // posting order is unchanged."
+  assert.equal(leadingId(looks(3, 3, 1)), null);
+  assert.equal(leadingId(looks(4, 4, 1)), null);
 });
 
-test('favouriteId: a tie holds the crown where it was', () => {
-  // l1 was already the favourite; l2 draws level. The crown does not move to
-  // l2 and does not disappear — "the board does not un-crown one on a draw".
-  assert.equal(favouriteId(looks(3, 3, 1), 'l1'), 'l1');
+test('D-2b: nothing in this module remembers a previous answer', () => {
+  // `favouriteId` took a `previousId` because the crown was sticky through a
+  // tie — "a tie holds the crown where it was" (frozen contract §3). The
+  // founder resolved that conflict in favour of the finalized atlas, which
+  // crowns nothing, so the crown, the sticky rule and the board state that fed
+  // it all went at once. This asserts the shape rather than the behaviour: a
+  // one-argument pure function cannot be sticky.
+  assert.equal(leadingId.length, 1);
+  const source = code('src/features/event-outfits/board-logic.ts');
+  assert.doesNotMatch(source, /favouriteId/);
+  assert.doesNotMatch(source, /previousId/);
 });
 
-test('favouriteId: the crown is dropped once its holder is no longer tied for the lead', () => {
-  const withHistory = favouriteId(looks(2, 5, 1), 'l1');
-  assert.equal(withHistory, 'l2');
-});
-
-test('favouriteId: a tie the previous crown is not part of stays uncrowned', () => {
-  // l3 held the crown once; l1 and l2 are now tied ahead of it and neither
-  // gets it by default.
-  assert.equal(favouriteId(looks(4, 4, 1), 'l3'), null);
+test('D-2b: no card can draw a crown', () => {
+  const card = code('src/components/event-outfits/OutfitPostCard.tsx');
+  assert.doesNotMatch(card, /LeaderBadge/);
+  assert.doesNotMatch(card, /crown/i);
+  assert.doesNotMatch(card, /'favourite'/);
+  // And the prop cannot express one any more.
+  assert.match(card, /badge: 'ahead' \| null;/);
 });
 
 test('applyPickMove: casting a first pick only increments the joined card', () => {
