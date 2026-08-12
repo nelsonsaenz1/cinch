@@ -89,42 +89,29 @@ const DEVICES = [
 ];
 
 /**
- * The screens, each with the GROUP it is allowed to look identical to.
+ * The screens. Every one is a `__DEV__` fixture route, every one is diffed, and
+ * every one must be distinct from its neighbours on the same device.
  *
- * `group` exists because of a run that produced twelve captures and four
- * distinct screens. `/` and `/closet` both sit behind the auth gate, so on a
- * signed-out simulator they render the same welcome screen — legitimately,
- * and byte for byte. Without somewhere to say that out loud, the harness has
- * two bad options: fail every run on a signed-out machine, or drop the
- * identical-capture check that catches the failures that are NOT legitimate.
+ * `today` and `closet` used to point at the real `cinch:///` and
+ * `cinch:///closet`. Both sit behind the auth gate, so on a signed-out
+ * simulator they render the same welcome screen: a run produced twelve
+ * captures of three actual screens and the harness had been taught to call
+ * that expected. The fixtures are two genuinely different screens, and they
+ * are the part a baseline can hold still — no account, no production data, no
+ * live weather, the same bytes on any machine.
  *
- * So it is declared instead. Two captures may share bytes only if they share a
- * group; anything else is the harness photographing one screen twice, and
- * fails the run. `gate` collapsing to one screen is therefore expected and
- * reported, while a fixture colliding with anything is still an error.
- *
- * The fixtures are the part a baseline can actually hold still: no account, no
- * production data, no live weather, and the same bytes on any machine. The
- * gate screens are captured for the record and for whoever is looking at the
- * pair by eye, not because their bytes mean much.
+ * The ids are deliberately unchanged. Artifact filenames stay
+ * `today--narrow.png` and `closet--wide.png` across this rework, so a baseline
+ * comparison and a reviewer's bookmarks both keep working.
  *
  * Three slashes, always. `cinch://dev-controls` parses "dev-controls" as the
  * HOST and expo-router never sees a path, so the app stays wherever it was.
  */
 const SCREENS = [
-  // `diffable: false` is the other half of the same admission. On a signed-out
-  // simulator these two are the welcome screen; on a signed-in one they are
-  // live closet data and a Today that prints the date, the weather and a
-  // freshly computed outfit. Their bytes are SUPPOSED to move. Counting that
-  // as a regression would paint the run red on every honest day, and a harness
-  // that cries wolf gets ignored exactly when it is right.
-  //
-  // They are still captured, still named, still hashed and still reported —
-  // just under a heading that says what they are, and out of the verdict.
-  { id: 'today', url: 'cinch:///', group: 'gate', diffable: false },
-  { id: 'closet', url: 'cinch:///closet', group: 'gate', diffable: false },
-  { id: 'truncation', url: 'cinch:///dev-truncation', group: 'truncation' },
-  { id: 'controls', url: 'cinch:///dev-controls', group: 'controls' },
+  { id: 'today', url: 'cinch:///dev-today' },
+  { id: 'closet', url: 'cinch:///dev-closet' },
+  { id: 'truncation', url: 'cinch:///dev-truncation' },
+  { id: 'controls', url: 'cinch:///dev-controls' },
 ];
 
 const argv = process.argv;
@@ -226,6 +213,43 @@ function finishDevMenuOnboarding(udid) {
   ]);
 }
 
+/**
+ * Take away the dev client's floating gear.
+ *
+ * expo-dev-menu paints a draggable circular button in its own always-on-top
+ * window. It is not part of the app, but it IS part of the PNG, and at
+ * accessibility-extra-extra-extra-large the text it lands on has nowhere left
+ * to reflow — the gear sits on top of the copy this matrix exists to check.
+ * A screenshot of an overlapped paragraph proves nothing about the layout.
+ *
+ * `EXDevMenuShowFloatingActionButton` is the key the library's own toggle
+ * writes (node_modules/expo-dev-menu/ios/Modules/DevMenuPreferences.swift:9);
+ * `showFloatingActionButton` reads it straight back out of UserDefaults, and
+ * the Info.plist value is only a REGISTERED default, so an explicit write in
+ * the app domain wins.
+ *
+ * Must land before the launch below. Visibility is recomputed on app events —
+ * RCTContentDidAppear and menu show/hide — not on a defaults change, so a
+ * write to a running app leaves the gear on screen for the whole run. The
+ * capture loop terminates the app and relaunches it after this, which is what
+ * makes the flag take.
+ *
+ * Cheap and idempotent, so every device every run.
+ */
+function hideDevMenuFloatingButton(udid) {
+  sh([
+    'simctl',
+    'spawn',
+    udid,
+    'defaults',
+    'write',
+    BUNDLE_ID,
+    'EXDevMenuShowFloatingActionButton',
+    '-bool',
+    'NO',
+  ]);
+}
+
 if (has('--install')) {
   const source = DEVICES.map((d) => udidFor(d.name)).find((u) => {
     if (!u) return false;
@@ -313,6 +337,7 @@ for (const device of DEVICES) {
     ensureBooted(udid);
     approveScheme(udid);
     finishDevMenuOnboarding(udid);
+    hideDevMenuFloatingButton(udid);
     // BEFORE launching. An app reads the category at mount, so setting it
     // afterwards photographs the old layout.
     sh(['simctl', 'ui', udid, 'content_size', size]);
@@ -379,41 +404,39 @@ const simDay = () => new Date().toDateString();
 const META = 'matrix.json';
 
 /**
- * Two captures with identical bytes are one screen photographed twice — unless
- * they were declared to share a `group`. The undeclared kind is how the Test
- * Mode sheet, the dev-menu onboarding and a two-slash deep link each produced
- * a full set of confident, identical PNGs. All three were found by hand; this
- * runs on every capture so the fourth one is not.
+ * Two captures with identical bytes are one screen photographed twice. No
+ * exemptions: this check once carried an allowance for screens declared to be
+ * legitimately identical, and the allowance is exactly what let a pair of
+ * auth-gated routes photograph the welcome screen twice and pass.
+ *
+ * `today` and `closet` MUST differ at every width. They are the pair that
+ * collided, they are the reason this rework happened, and they are now two
+ * distinct fixture routes with nothing left to excuse them.
+ *
+ * The same shape of failure has arrived four ways — the Test Mode sheet, the
+ * dev-menu onboarding, a two-slash deep link, and the auth gate — each
+ * producing a full set of confident, identical PNGs. All four were found by
+ * hand; this runs on every capture so the fifth is not.
  *
  * Compared WITHIN a device: the same screen at two widths is legitimately
  * different, and two devices sharing a width would legitimately match.
  */
-const groupOf = (name) => SCREENS.find((s) => s.id === name.split('--')[0])?.group;
-
 function collisions(dir) {
   const seen = new Map();
-  const expected = [];
   const clashes = [];
   for (const name of readdirSync(dir)
     .filter((n) => n.endsWith('.png'))
     .sort()) {
     const key = `${name.split('--')[1]}:${digest(join(dir, name))}`;
     const twin = seen.get(key);
-    if (!twin) seen.set(key, name);
-    else if (groupOf(twin) === groupOf(name)) expected.push(`${twin} == ${name}`);
-    else clashes.push(`${twin} == ${name}`);
+    if (twin) clashes.push(`${twin} == ${name}`);
+    else seen.set(key, name);
   }
-  return { expected, clashes };
+  return clashes;
 }
 
-const { expected, clashes } = captured
-  ? collisions(outDir)
-  : { expected: [], clashes: [] };
+const clashes = captured ? collisions(outDir) : [];
 
-if (expected.length) {
-  console.log('\nidentical, and declared so (same group — the auth gate collapses when signed out):');
-  for (const e of expected) console.log(`  ${e}`);
-}
 if (clashes.length) {
   console.log('\nIDENTICAL CAPTURES — that is not two screens, it is one, twice:');
   for (const c of clashes) console.log(`  ${c}`);
@@ -437,22 +460,22 @@ if (wantDiff) {
     process.exit(1);
   }
 
-  // Today's header prints the date, so a baseline from another day differs for
-  // a reason that is not a regression. Saying so before the table is the
-  // difference between a harness people trust and one they learn to ignore.
+  // The stamp is kept, but it no longer excuses anything: the fixtures pin
+  // their own weather and copy and print no date, so an older baseline is not
+  // a reason for a diff. If the day moved AND bytes moved, that is a change in
+  // the app, not a change in the calendar — say so rather than letting the next
+  // reader reach for the old excuse.
   const meta = existsSync(join(BASELINE, META))
     ? JSON.parse(readFileSync(join(BASELINE, META), 'utf8'))
     : null;
   if (meta && meta.day !== simDay()) {
     console.log(`\n⚠ baseline captured ${meta.day}; today is ${simDay()}.`);
-    console.log("  Today's header prints the date, so it WILL differ. Re-baseline first.");
+    console.log('  The fixtures do not print the date, so age alone does NOT explain a diff.');
   }
   if (meta && meta.size !== size) {
     console.log(`\n⚠ baseline is ${meta.size}, this run is ${size}. Nothing will match.`);
   }
 
-  const isDiffable = (name) =>
-    SCREENS.find((s) => s.id === name.split('--')[0])?.diffable !== false;
   const names = readdirSync(outDir)
     .filter((n) => n.endsWith('.png'))
     .sort();
@@ -465,22 +488,17 @@ if (wantDiff) {
     return digest(b) === digest(join(outDir, name)) ? 'same' : 'CHANGED';
   };
 
+  // Every capture is judged. The fixtures hold still by construction, so there
+  // is no longer a screen whose bytes are allowed to wander out of the verdict.
   console.log('\ndiff against baseline');
-  for (const name of names.filter(isDiffable)) {
+  for (const name of names) {
     const verdict = compare(name);
     console.log(`  ${verdict.padEnd(8)} ${name}`);
     if (verdict === 'CHANGED') changed += 1;
     if (verdict === 'NEW') missing += 1;
   }
 
-  const informational = names.filter((n) => !isDiffable(n));
-  if (informational.length) {
-    console.log('\nnot diffable — live data by design, reported but not counted:');
-    for (const name of informational) console.log(`  ${compare(name).padEnd(8)} ${name}`);
-  }
-
-  const judged = names.length - informational.length;
-  console.log(`\n${judged - changed - missing} unchanged, ${changed} changed, ${missing} new.`);
+  console.log(`\n${names.length - changed - missing} unchanged, ${changed} changed, ${missing} new.`);
   if (changed) {
     console.log(`Compare by eye: open ${BASELINE}/<name> and ${outDir}/<name>`);
     console.log('If the change is intended, re-baseline: --baseline');

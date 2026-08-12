@@ -12,10 +12,28 @@ import { Plate } from '@/components/today/plate';
 import { gapBody, SamplePlate, type ClosetGap } from '@/components/today/sample-plate';
 import { WeatherStrip } from '@/components/today/weather-strip';
 import { Notice } from '@/components/ui/notice';
-import { PlateSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import type { WeatherContext } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
+
+/**
+ * The fixture's day and place, frozen — the eyebrow every state on this route
+ * carries.
+ *
+ * The real screen builds this with `dayLine(city)`, which is `new Date()`
+ * formatted. On a route the matrix diffs byte for byte that is a string which
+ * changes at every midnight, so the baseline would go red once a day for a
+ * reason that has nothing to do with the code. A literal cannot.
+ */
+const FIXTURE_DAY = 'Thu 7 Aug · Denver';
+
+/**
+ * The same instant, as a Date, for the states that render the real `Masthead`
+ * rather than a prop-driven eyebrow. 09:41 local is Apple's own screenshot
+ * convention and matches the frozen status bar the matrix sets, so the picture
+ * agrees with itself. Morning, so the greeting reads "Good morning" forever.
+ */
+const FIXTURE_NOW = new Date(2026, 7, 6, 9, 41, 0);
 
 /**
  * DEV ONLY — every Today render side by side at `cinch://dev-today`, keyed
@@ -37,6 +55,14 @@ import { useTheme } from '@/theme/tokens';
  * from the real one the moment either changed. Dev-only, like dev-plate /
  * dev-closet: `__DEV__`-gated, and it renders a refusal outside it so it
  * ships nothing.
+ *
+ * It is also the `today` capture target for the screenshot matrix (audit item
+ * 50), which photographs it on three widths and diffs the PNGs byte for byte.
+ * That makes determinism a requirement of the route rather than a nicety:
+ * every string here is a literal, nothing on it reads the clock, and anything
+ * that animates without landing on a final frame is described rather than
+ * drawn. The two states that had to give something up for it — T-01/T-03's
+ * masthead and T-07's skeleton — say so at their own states below.
  */
 export default function DevTodayScreen() {
   const theme = useTheme();
@@ -81,10 +107,28 @@ export default function DevTodayScreen() {
         <StateLabel>01 · Happy path</StateLabel>
 
         <StateLabel sub>T-01 · a normal day</StateLabel>
-        <Masthead city="Denver" name="Mara" />
+        {/* The real masthead, on a frozen clock.
+            `dayLine()` and `greetingForNow()` both read `new Date()`, so the
+            eyebrow rewords at every midnight and the greeting at noon and
+            again at six: a capture taken at 11:59 and one at 12:01 are
+            different pictures of unchanged code. `now` pins both. `unseen`
+            pins the third moving part — the activity dot is painted off a
+            Supabase round trip, so without it the dot's presence depends on
+            whether the network beat the shutter.
+            Both props default to the live values, so nothing about the real
+            Today screen changes; they exist so this one screen can be
+            photographed. Same idiom as `Plate`'s `repeat.now`. */}
+        <Masthead city="Denver" name="Maya" now={FIXTURE_NOW} unseen={false} />
         <View style={{ marginTop: 6 }}>
           <WeatherStrip weather={mildWeather} events={[]} city="Denver" />
         </View>
+        {/* The plate animates on mount and is left alone anyway: its landing is
+            a spring per garment, staggered by `landingDelay`, and a spring
+            settles on an exact 1 — the last piece is down inside a second, well
+            under the dwell the matrix waits out before it fires. `resolveImage`
+            returns undefined on purpose, so every cell is the colour-swatch
+            fallback rather than a photograph fetched over the asset server:
+            nothing on this card is waiting on a byte from anywhere. */}
         <View className="mt-6">
           <Plate
             outfit={FIXTURE_OUTFIT}
@@ -103,7 +147,9 @@ export default function DevTodayScreen() {
         </View>
 
         <StateLabel sub className="mt-8">T-03 · pull-to-refresh failed</StateLabel>
-        <Masthead city="Denver" name="Mara" />
+        {/* Real masthead on the frozen clock, as T-01: this state is still
+            inside the captured viewport on the widest device. */}
+        <Masthead city="Denver" name="Maya" now={FIXTURE_NOW} unseen={false} />
         <View style={{ marginTop: 6 }}>
           <WeatherStrip weather={mildWeather} events={[]} city="Denver" />
         </View>
@@ -125,13 +171,24 @@ export default function DevTodayScreen() {
         <StateLabel className="mt-10">04 · Trouble</StateLabel>
 
         <StateLabel sub>T-07 · first load — plate skeleton</StateLabel>
-        <ReducedMasthead eyebrow="Thu 7 Aug · Denver" />
-        <View style={{ marginTop: 24 }}>
-          <PlateSkeleton />
-        </View>
+        <ReducedMasthead eyebrow={FIXTURE_DAY} />
+        {/* Described, not drawn. `PlateSkeleton` is built from `Skeleton`,
+            whose highlight band is a `withRepeat(withTiming(1300ms), -1)`
+            sweep — it loops for as long as it is mounted and never lands on a
+            final frame, so the capture takes whatever position the band was in
+            when the shutter fired and two launches disagree by construction.
+            There is no settled end state to substitute (a shimmer that has
+            stopped is a different graphic), and the loop cannot be stopped
+            from this file, so the state gets the same prose treatment T-08
+            already has. */}
+        <Text variant="label" className="px-gutter" style={{ marginTop: 8 }}>
+          (see `PlateSkeleton` in components/ui/skeleton.tsx — the plate&rsquo;s
+          own anatomy in placeholder bars: name and colophon, two lines of
+          reasoning, the 5:4 garment well, the credit line, the ruled footer)
+        </Text>
 
         <StateLabel sub className="mt-8">T-08 · closet fetch failed</StateLabel>
-        <ReducedMasthead eyebrow="Thu 7 Aug · Denver" />
+        <ReducedMasthead eyebrow={FIXTURE_DAY} />
         <Text variant="label" className="px-gutter" style={{ marginTop: 8 }}>
           (see the real component at the `wardrobe.isError` branch of
           (tabs)/index.tsx — muted triangle glyph, outlined retry, hard-left
@@ -228,6 +285,15 @@ export default function DevTodayScreen() {
         <StateLabel sub className="mt-4">S-05 · calendarEnabled, zero events</StateLabel>
         <WeatherStrip weather={mildWeather} events={[]} city="Denver" calendarEnabled />
 
+        {/* The only two clock-driven renders left on the route, and the reason
+            they are allowed to stay: the live greeting IS the state S-06/S-07
+            exist to show, and a frozen copy of it would be a fixture of a
+            component nobody ships. They sit at the far end of the scroll, so
+            the wording they change with the hour never reaches the captured
+            viewport — nothing here reflows anything above it. If the matrix is
+            ever taught to photograph the whole scroll, `Masthead` needs an
+            injectable `now` first (see the `repeat.now` prop plate.tsx already
+            carries for exactly this). */}
         <StateLabel sub className="mt-8">S-06 · greeting, full_name present</StateLabel>
         <Masthead city="Denver" name="Maya" />
 
@@ -235,7 +301,7 @@ export default function DevTodayScreen() {
         <Masthead city="Denver" name={null} />
 
         <StateLabel sub className="mt-4">S-08 · reduced masthead</StateLabel>
-        <ReducedMasthead eyebrow="Thu 7 Aug · Denver" />
+        <ReducedMasthead eyebrow={FIXTURE_DAY} />
 
         <StateLabel sub className="mt-8">S-09 · learning line, feedbackCount &lt; 8</StateLabel>
         <View className="px-gutter">
@@ -260,7 +326,7 @@ function GapState({ id, label, gap }: { id: string; label: string; gap: ClosetGa
       <StateLabel sub className="mt-8">
         {`${id} · ${label}`}
       </StateLabel>
-      <ReducedMasthead eyebrow="Thu 7 Aug · Denver" />
+      <ReducedMasthead eyebrow={FIXTURE_DAY} />
       <View className="items-center px-gutter" style={{ paddingTop: 20, paddingBottom: 8 }}>
         <Text variant="colophon" style={{ marginBottom: 10 }}>
           {gap.kind === 'virgin' ? 'What your mornings become' : 'What your mornings become · 4 pieces in'}

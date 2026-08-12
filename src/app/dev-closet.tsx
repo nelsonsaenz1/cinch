@@ -19,6 +19,19 @@ import { useTheme } from '@/theme/tokens';
  * components/closet/item-card.tsx — this is the same screen without a wardrobe.
  *
  * Dev-only, like dev-plate and dev-share: __DEV__-gated in the auth gate.
+ *
+ * It is also the `closet` capture target for the screenshot matrix (audit item
+ * 50), which diffs two launches of it byte for byte. Nothing on it reads a
+ * clock, a random number or the network: the eight pieces, their wear counts
+ * and the three headline figures are literals, the category chips start on
+ * `All` every mount, and the search field is not autofocused — an autofocused
+ * one would put a blinking caret in the masthead, and a caret is on screen for
+ * half of every second it exists.
+ *
+ * The one thing that is not instant is the grid artwork, which expo-image
+ * resolves off the asset server. It is the same five files at the same five
+ * URIs on every launch, so it settles to the same pixels; it just has to be
+ * given the moment to land before the shutter fires.
  */
 const ART = [
   require('@/assets/plates/plate-01-coat.svg'),

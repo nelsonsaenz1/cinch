@@ -72,8 +72,7 @@ const idOf = (items: { id: string }[]) => items.map((g) => g.id).join('.');
  * a constant; it reads as the fallback city only when location is off, and the
  * strip below says so and offers to turn it on.
  */
-export function dayLine(city: string) {
-  const now = new Date();
+export function dayLine(city: string, now: Date = new Date()) {
   const weekday = now.toLocaleDateString('en-US', { weekday: 'short' });
   const month = now.toLocaleDateString('en-US', { month: 'short' });
   return `${weekday} ${now.getDate()} ${month} · ${city}`;
@@ -109,8 +108,8 @@ export function syncedLine(updatedAt: number): string {
  * it is greeting — the name is appended only when the account actually carries
  * one. An invented "Mara" is worse than no name at all.
  */
-function greetingForNow(name?: string | null) {
-  const h = new Date().getHours();
+function greetingForNow(name?: string | null, now: Date = new Date()) {
+  const h = now.getHours();
   const greeting = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   return name ? `${greeting}, ${name}` : greeting;
 }
@@ -200,10 +199,14 @@ function StylistButton() {
  * Same 34pt-with-8pt-hitSlop geometry as its two neighbours, so the three
  * chips read as one row of doors rather than three sizes of importance.
  */
-function ActivityButton() {
+function ActivityButton({ unseen: forced }: { unseen?: boolean } = {}) {
   const router = useRouter();
   const theme = useTheme();
-  const unseen = useHasUnseenActivity();
+  // The hook still runs — a hook cannot be called conditionally, and skipping
+  // the query is not the point. Only the painted value is pinned, and only
+  // when a caller asks for it.
+  const live = useHasUnseenActivity();
+  const unseen = forced ?? live;
 
   return (
     <Pressable
@@ -248,7 +251,30 @@ function ActivityButton() {
  * (the same oxblood mark the stylist screen carries); the profile is the ink
  * avatar well.
  */
-export function Masthead({ city, name }: { city: string; name?: string | null }) {
+export function Masthead({
+  city,
+  name,
+  /**
+   * "Now", for the date line and the greeting. Defaults to the real clock; a
+   * fixed value is only ever passed by `dev-today.tsx`, so the byte-exact
+   * screen matrix can photograph this masthead without the capture changing at
+   * every midnight and again at noon and six. Same idiom, and same reason, as
+   * `Plate`'s `repeat.now`.
+   */
+  now,
+  /**
+   * Force the activity dot on or off. Defaults to the live query; a fixed
+   * value is only ever passed by `dev-today.tsx`, because whether an 8pt
+   * oxblood dot is painted otherwise depends on when a Supabase round trip
+   * lands relative to the shutter.
+   */
+  unseen,
+}: {
+  city: string;
+  name?: string | null;
+  now?: Date;
+  unseen?: boolean;
+}) {
   const router = useRouter();
   const theme = useTheme();
 
@@ -256,15 +282,15 @@ export function Masthead({ city, name }: { city: string; name?: string | null })
     <View className="px-gutter pt-2">
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
-          <Text variant="eyebrow">{dayLine(city)}</Text>
+          <Text variant="eyebrow">{dayLine(city, now)}</Text>
           <View style={{ marginTop: 6 }}>
             <Text variant="display" trim accessibilityRole="header">
-              {greetingForNow(name)}
+              {greetingForNow(name, now)}
             </Text>
           </View>
         </View>
         <View className="flex-row gap-2" style={{ marginTop: 2 }}>
-          <ActivityButton />
+          <ActivityButton unseen={unseen} />
           <StylistButton />
           <Pressable
             onPress={() => router.navigate('/profile')}
