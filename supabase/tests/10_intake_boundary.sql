@@ -23,7 +23,9 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+-- 25, not 24: the file previously died at assertion 21 on a permission error,
+-- so the miscount was never reachable.
+select plan(25);
 
 -- ---------------------------------------------------------------------------
 -- Seed. Dana owns a walkthrough with three confirmed drafts. Erik is a
@@ -245,6 +247,16 @@ insert into items (user_id, category, status)
 select '44444444-4444-4444-8444-444444444444', 'top', 'verified'
   from generate_series(1, item_limit_for_plan('free') - 2);
 
+-- The ceiling is read HERE, as postgres, and kept for the assertion further
+-- down that runs as `authenticated`. `item_limit_for_plan` has been revoked
+-- from client roles since 20260805220000, so calling it under that role raises
+-- 42501 — and hard-coding the number instead would let the assertion keep
+-- passing after the free tier moved, which is the whole thing it exists to
+-- catch (it has moved once already: 30 → 10).
+create temporary table free_ceiling on commit drop as
+  select item_limit_for_plan('free') as n;
+grant select on free_ceiling to authenticated;
+
 insert into intake_sessions (id, user_id, status, transcript)
 values ('d0000000-0000-4000-8000-000000000002',
         '44444444-4444-4444-8444-444444444444',
@@ -279,7 +291,7 @@ select is(
 
 select is(
   (select count(*)::int from items where user_id = '44444444-4444-4444-8444-444444444444'),
-  item_limit_for_plan('free'),
+  (select n from free_ceiling),
   'the closet is still exactly at the ceiling — nothing was forced past it'
 );
 

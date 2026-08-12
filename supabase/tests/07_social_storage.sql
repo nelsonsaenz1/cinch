@@ -30,13 +30,22 @@ values ('11111111-1111-4111-8111-111111111111', 'olive@example.test'),
        ('33333333-3333-4333-8333-333333333333', 'sky@example.test'),
        ('44444444-4444-4444-8444-444444444444', 'cora@example.test');
 
-insert into profiles (user_id, display_name, username, visibility)
-values ('11111111-1111-4111-8111-111111111111', 'Olive', 'olive', 'private'),
-       ('22222222-2222-4222-8222-222222222222', 'Fern',  'fern',  'private'),
-       ('33333333-3333-4333-8333-333333333333', 'Sky',   'sky',   'private'),
-       ('44444444-4444-4444-8444-444444444444', 'Cora',  'cora',  'private')
+-- The terms columns are a precondition, not decoration: `assert_social_terms()`
+-- (20260808101000) gates every social write below.
+insert into profiles (user_id, display_name, username, visibility,
+                      social_terms_version, social_terms_at)
+values ('11111111-1111-4111-8111-111111111111', 'Olive', 'olive', 'private',
+        public.current_social_terms_version(), now()),
+       ('22222222-2222-4222-8222-222222222222', 'Fern',  'fern',  'private',
+        public.current_social_terms_version(), now()),
+       ('33333333-3333-4333-8333-333333333333', 'Sky',   'sky',   'private',
+        public.current_social_terms_version(), now()),
+       ('44444444-4444-4444-8444-444444444444', 'Cora',  'cora',  'private',
+        public.current_social_terms_version(), now())
 on conflict (user_id) do update
-  set display_name = excluded.display_name, username = excluded.username, visibility = excluded.visibility;
+  set display_name = excluded.display_name, username = excluded.username, visibility = excluded.visibility,
+      social_terms_version = excluded.social_terms_version,
+      social_terms_at      = excluded.social_terms_at;
 
 insert into follows (follower_id, followee_id)
 values ('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222'),

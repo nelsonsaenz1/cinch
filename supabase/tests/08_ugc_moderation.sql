@@ -55,10 +55,11 @@ values ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
         '44444444-4444-4444-8444-444444444444',
         'Rooftop dinner', now() + interval '2 days');
 
+-- Cora's host row is NOT seeded here: `handle_new_event()` (20260807101000)
+-- makes the host a member from birth, with exactly this role and state, so
+-- restating it collides on `event_members_pkey`.
 insert into event_members (event_id, user_id, role, state)
 values ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
-        '44444444-4444-4444-8444-444444444444', 'host', 'joined'),
-       ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
         '55555555-5555-4555-8555-555555555555', 'attendee', 'joined');
 
 -- A sentinel the real list will never contain, so these tests keep passing
@@ -77,11 +78,17 @@ values ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',
 -- ---------------------------------------------------------------------------
 -- The denylist is not client-readable. A readable list is a bypass manual.
 -- ---------------------------------------------------------------------------
+-- Asserted as a REFUSAL, not as an empty read. `moderation_terms` carries no
+-- client grants at all (20260808100000:225, "Intentional, and the point"), so
+-- a client select raises 42501 before RLS is ever consulted — which is the
+-- stronger of the two guarantees. A `count(*) = 0` assertion cannot express
+-- that difference, and cannot even run: the error takes the transaction.
 set local role anon;
-select is(
-  (select count(*) from moderation_terms),
-  0::bigint,
-  'anon reads nothing from moderation_terms'
+select throws_ok(
+  $$select count(*) from moderation_terms$$,
+  '42501',
+  null,
+  'anon cannot read moderation_terms at all'
 );
 reset role;
 
@@ -89,10 +96,11 @@ set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}', true);
 
-select is(
-  (select count(*) from moderation_terms),
-  0::bigint,
-  'an authenticated user reads nothing from moderation_terms either'
+select throws_ok(
+  $$select count(*) from moderation_terms$$,
+  '42501',
+  null,
+  'an authenticated user cannot read moderation_terms either'
 );
 
 select throws_ok(
@@ -216,12 +224,19 @@ select lives_ok(
   'the host can hide an already-stored comment whose body now matches the denylist'
 );
 
+-- 42501, not 23514: since 20260808190200 the UPDATE reach on this table is
+-- limited by a COLUMN grant to `hidden` alone, so a body edit is refused at the
+-- privilege layer and never reaches the text filter. That migration says why in
+-- as many words — "Nobody edits anybody's words, including their own: the atlas
+-- bans editing outright" — which makes this the stronger of the two refusals
+-- and the one worth pinning. The filter's own 23514 is still asserted on INSERT
+-- above, where a body can actually be written.
 select throws_ok(
   $$update event_comments set body = 'zzblockedzz again'
      where id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'$$,
-  '23514',
+  '42501',
   null,
-  'but editing a body INTO a blocked term is still refused'
+  'but editing a body at all is refused — hiding is the only permitted update'
 );
 
 reset role;

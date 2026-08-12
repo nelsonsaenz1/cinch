@@ -38,12 +38,20 @@ values ('11111111-1111-4111-8111-111111111111', 'alice@example.test'),
 -- `on conflict … do update`, not a plain insert: handle_new_user() is an
 -- AFTER INSERT trigger on auth.users and has ALREADY created each profile row
 -- by the time this runs.
-insert into profiles (user_id, display_name, username, visibility)
-values ('11111111-1111-4111-8111-111111111111', 'Alice', 'alice', 'private'),
-       ('22222222-2222-4222-8222-222222222222', 'Bob',   'bob',   'private'),
-       ('33333333-3333-4333-8333-333333333333', 'Carol', 'carol', 'private')
+-- The terms columns are a precondition, not decoration: `assert_social_terms()`
+-- (20260808101000) gates every social write below, borrow requests included.
+insert into profiles (user_id, display_name, username, visibility,
+                      social_terms_version, social_terms_at)
+values ('11111111-1111-4111-8111-111111111111', 'Alice', 'alice', 'private',
+        public.current_social_terms_version(), now()),
+       ('22222222-2222-4222-8222-222222222222', 'Bob',   'bob',   'private',
+        public.current_social_terms_version(), now()),
+       ('33333333-3333-4333-8333-333333333333', 'Carol', 'carol', 'private',
+        public.current_social_terms_version(), now())
 on conflict (user_id) do update
-  set display_name = excluded.display_name, username = excluded.username, visibility = excluded.visibility;
+  set display_name = excluded.display_name, username = excluded.username, visibility = excluded.visibility,
+      social_terms_version = excluded.social_terms_version,
+      social_terms_at      = excluded.social_terms_at;
 
 insert into items (id, user_id, category, borrowable, purchase_price,
                    image_path, thumb_path, cutout_path)

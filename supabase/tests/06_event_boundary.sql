@@ -41,15 +41,26 @@ values ('11111111-1111-4111-8111-111111111111', 'helen@example.test'),
        ('55555555-5555-4555-8555-555555555555', 'sasha@example.test'),
        ('66666666-6666-4666-8666-666666666666', 'fern@example.test');
 
-insert into profiles (user_id, display_name, username, visibility)
-values ('11111111-1111-4111-8111-111111111111', 'Helen', 'helen', 'private'),
-       ('22222222-2222-4222-8222-222222222222', 'Maria', 'maria', 'private'),
-       ('33333333-3333-4333-8333-333333333333', 'Nina',  'nina',  'private'),
-       ('44444444-4444-4444-8444-444444444444', 'Ida',   'ida',   'private'),
-       ('55555555-5555-4555-8555-555555555555', 'Sasha', 'sasha', 'private'),
-       ('66666666-6666-4666-8666-666666666666', 'Fern',  'fern',  'private')
+-- The terms columns are a precondition, not decoration: `assert_social_terms()`
+-- (20260808101000) gates every social write below, events included.
+insert into profiles (user_id, display_name, username, visibility,
+                      social_terms_version, social_terms_at)
+values ('11111111-1111-4111-8111-111111111111', 'Helen', 'helen', 'private',
+        public.current_social_terms_version(), now()),
+       ('22222222-2222-4222-8222-222222222222', 'Maria', 'maria', 'private',
+        public.current_social_terms_version(), now()),
+       ('33333333-3333-4333-8333-333333333333', 'Nina',  'nina',  'private',
+        public.current_social_terms_version(), now()),
+       ('44444444-4444-4444-8444-444444444444', 'Ida',   'ida',   'private',
+        public.current_social_terms_version(), now()),
+       ('55555555-5555-4555-8555-555555555555', 'Sasha', 'sasha', 'private',
+        public.current_social_terms_version(), now()),
+       ('66666666-6666-4666-8666-666666666666', 'Fern',  'fern',  'private',
+        public.current_social_terms_version(), now())
 on conflict (user_id) do update
-  set display_name = excluded.display_name, username = excluded.username, visibility = excluded.visibility;
+  set display_name = excluded.display_name, username = excluded.username, visibility = excluded.visibility,
+      social_terms_version = excluded.social_terms_version,
+      social_terms_at      = excluded.social_terms_at;
 
 -- Helen ↔ Fern are mutual friends.
 insert into follows (follower_id, followee_id)
@@ -452,6 +463,18 @@ select is(
 -- Sasha hosts these. She owns no events above, so the free tier's two slots
 -- are filled by exactly the two rows below and the third insert is the probe.
 -- ---------------------------------------------------------------------------
+
+-- Sasha's trial has to be expired first, or she is not on the free tier at all:
+-- `handle_new_subscription()` gives every new account a live trial and
+-- `effective_plan()` folds a live trial into `pro`, so her real cap would be
+-- 100 and the probe below would never fire. Same pattern, same reason, as
+-- 10_intake_boundary.sql:239. The update runs as postgres because
+-- `subscriptions` has no client UPDATE policy — a plan is not self-serve.
+reset role;
+update subscriptions
+   set plan = 'free', trial_ends_at = null
+ where user_id = '55555555-5555-4555-8555-555555555555';
+set local role authenticated;
 
 select set_config(
   'request.jwt.claims',
