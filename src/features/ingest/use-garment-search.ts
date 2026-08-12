@@ -412,7 +412,7 @@ export function useGarmentImport() {
 export type TypedWordsInput = {
   description: string;
   /** Which of the atlas's dead ends this was filed from. Counts only. */
-  via: 'no_results' | 'escape_row' | 'no_image' | 'search_failed';
+  via: 'no_results' | 'escape_row' | 'no_image' | 'search_failed' | 'offline' | 'consent_declined';
 };
 
 export function useFileTypedWords() {
@@ -646,6 +646,10 @@ export function useGarmentSearchFlow() {
     // own designed sheet rather than the generic error line. Checked by code,
     // never by matching `errorMessage`'s prose, which is free to change.
     closetFull: error instanceof GarmentSearchError && error.code === 'closet_limit_reached',
+    // The code, not the prose. DS-05 branches on WHICH failure this was, and
+    // matching the sentence would tie the notice to copy that is free to change
+    // — the same reason `closetFull` above is a code check.
+    errorCode: error instanceof GarmentSearchError ? error.code : null,
     reset,
 
     // ── The escape that ends every path in a piece (DS-03/04/05) ───────────

@@ -28,6 +28,7 @@ const IDLE: GarmentSearchFlowView = {
   setPreviewName: () => {},
   confirmPreview: async () => null,
   discardPreview: () => {},
+  errorCode: null,
   // DS-03/04/05's escape, posed inert: a fixture must not write a row.
   fileOwnWords: async () => null,
   filing: false,

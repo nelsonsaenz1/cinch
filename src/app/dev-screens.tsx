@@ -108,6 +108,7 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['DS-03', '/dev-w3-g3-ds-03'],
       ['DS-04', '/dev-w3-g3-ds-04'],
       ['DS-04 · searching', '/dev-w3-g3-ds-04-searching'],
+      ['DS-05', '/dev-w3-g3-ds-05'],
       ['IT-01', '/dev-w3-g3-it-01'],
       ['IT-01 / AX', '/dev-w3-g3-it-01-ax'],
       ['IT-02', '/dev-w3-g3-it-02'],

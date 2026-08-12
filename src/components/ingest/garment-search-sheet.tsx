@@ -17,7 +17,18 @@ import { useGate } from '@/features/billing/use-gate';
 import { ordinal } from '@/features/closet/gap-feed';
 import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count';
 import { stableImageSource } from '@/features/closet/use-image-urls';
-import { useGarmentSearchFlow, type GarmentCandidate } from '@/features/ingest/use-garment-search';
+import { useConnectivity } from '@/features/auth/use-connectivity';
+import { DECLINED_KEY, readFlag } from '@/features/ingest/consent-mode';
+import {
+  classifySearchFailure,
+  SEARCH_FAILURE_NOTICES,
+  type SearchFailureCause,
+} from '@/features/ingest/search-failure';
+import {
+  useGarmentSearchFlow,
+  type GarmentCandidate,
+  type TypedWordsInput,
+} from '@/features/ingest/use-garment-search';
 import { useWardrobe } from '@/features/styling/queries';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -113,6 +124,7 @@ export function GarmentSearchSheetBody({
   const gate = useGate();
   const capacity = useCapacity();
   const wardrobe = useWardrobe();
+  const online = useConnectivity();
   const [gatePresenting, setGatePresenting] = useState(false);
 
   const isLink = flow.link !== null;
@@ -136,7 +148,7 @@ export function GarmentSearchSheetBody({
   // DS-03/04/05's escape. It lands the same way an import does — the sheet gets
   // out of the way and the piece is in the closet — because the atlas's whole
   // point is that filing is an OUTCOME, not a retreat from one.
-  const fileOwn = async (via: 'no_results' | 'escape_row' | 'search_failed') => {
+  const fileOwn = async (via: TypedWordsInput['via']) => {
     const itemId = await flow.fileOwnWords(via);
     if (itemId) onClose();
   };
@@ -146,6 +158,32 @@ export function GarmentSearchSheetBody({
     if (isLink) void flow.readLink();
     else void flow.run();
   };
+
+  /**
+   * DS-05. Which of the three notices, if any, stands in place of the results.
+   *
+   * Read at render rather than held in state: `readFlag` is a synchronous
+   * kv-store hit, and a consent decline made in the sheet behind this one must
+   * not leave a stale "we will send this" screen in front of the user.
+   *
+   * The offline and consent notices appear as soon as there is something to
+   * file, before any doomed tap on Find — "in production one notice appears in
+   * place of the results list" — while the partner notice needs an attempt to
+   * have actually failed, because nothing can say a partner is unavailable
+   * until it has been asked. All three are withheld on the link path, which is
+   * reading a page rather than asking a partner and has its own four sentences.
+   */
+  const failureCause: SearchFailureCause | null =
+    isLink || busy || flow.preview || flow.filing
+      ? null
+      : classifySearchFailure({
+          errorCode: flow.errorCode,
+          online,
+          consentDeclined: readFlag(DECLINED_KEY),
+        });
+  // Proactive causes need words to act on; the partner notice has already had
+  // a search run, so the words are there by construction.
+  const notice = failureCause && (flow.canFileOwnWords || flow.errorCode) ? failureCause : null;
 
   // The footer caption, and when the sheet has room to say it. It exists only
   // while the lower half is empty — no results, no preview, no error, nothing
@@ -395,7 +433,17 @@ export function GarmentSearchSheetBody({
             rather than going silent. See closet-full-sheet.tsx's header for
             why this is the bare `ClosetFullPanel` rather than the modal
  `ClosetFullSheet` (this screen is already a modal sheet). */}
-        {flow.errorMessage && !(flow.closetFull && flow.preview) ? (
+        {notice ? (
+          <FailureNotice
+            cause={notice}
+            filing={flow.filing}
+            onFile={() => void fileOwn(notice === 'partner_unavailable' ? 'search_failed' : notice)}
+            onRetry={() => submit()}
+            onReviewConsent={() => router.push('/privacy')}
+          />
+        ) : null}
+
+        {!notice && flow.errorMessage && !(flow.closetFull && flow.preview) ? (
           <Text variant="caption" className="mt-3" style={{ color: theme.critical }}>
             {flow.errorMessage}
           </Text>
@@ -410,7 +458,14 @@ export function GarmentSearchSheetBody({
             Withheld when the closet is full, and when the failure was the
             filing itself: in both of those the words are not the problem and
             an offer to file them again would be a button that fails twice. */}
-        {flow.errorMessage &&
+        {/* Stands down entirely while a DS-05 notice is up: that notice already
+            carries the same offer, in the words its own cause calls for, and
+            two filing buttons on one screen is the sheet saying the same thing
+            twice in two voices. This remains for the failures DS-05 does not
+            cover — a spent quota, a plan boundary — which still must not end
+            without a piece. */}
+        {!notice &&
+        flow.errorMessage &&
         !flow.closetFull &&
         !flow.preview &&
         flow.canFileOwnWords &&
@@ -832,5 +887,70 @@ function CandidateRow({
         </Text>
       </View>
     </Pressable>
+  );
+}
+
+/**
+ * DS-05 — one notice, in place of the results list.
+ *
+ * "Each names its cause in an uppercase label, states what is kept, and offers
+ * filing the typed words as a real outcome — so no path through Describe ends
+ * without a piece in the closet."
+ *
+ * One shape for all three, because their difference is in what they say rather
+ * than in how they look, and three geometries would imply three severities.
+ * None of them is a dialog and none blocks the field: this renders underneath
+ * it, so the words stay editable while the notice is on screen.
+ */
+export function FailureNotice({
+  cause,
+  filing,
+  onFile,
+  onRetry,
+  onReviewConsent,
+}: {
+  cause: SearchFailureCause;
+  filing: boolean;
+  onFile: () => void;
+  onRetry: () => void;
+  onReviewConsent: () => void;
+}) {
+  const notice = SEARCH_FAILURE_NOTICES[cause];
+  const retryFirst = cause === 'partner_unavailable';
+
+  return (
+    <View className="mt-8" accessibilityLabel={`${notice.label}. ${notice.title}`}>
+      <Text variant="label" className="uppercase text-muted">
+        {notice.label}
+      </Text>
+      <Text variant="plate" className="mt-1.5">
+        {notice.title}
+      </Text>
+      <Text variant="body" className="mt-2 text-muted">
+        {notice.body}
+      </Text>
+
+      <View className="mt-5">
+        {/* The filled action is the one the cause actually calls for: filing,
+            except where a partner that is not answering may answer in a
+            moment. The peer beneath is a real second answer, never a
+            dismissal. */}
+        <Button
+          title={notice.primary}
+          loading={!retryFirst && filing}
+          onPress={retryFirst ? onRetry : onFile}
+        />
+        {notice.secondary ? (
+          <View className="mt-3">
+            <Button
+              variant="secondary"
+              title={notice.secondary}
+              loading={retryFirst && filing}
+              onPress={retryFirst ? onFile : onReviewConsent}
+            />
+          </View>
+        ) : null}
+      </View>
+    </View>
   );
 }
