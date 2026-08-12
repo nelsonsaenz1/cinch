@@ -15,143 +15,88 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import type { ProcessionAction, ProcessionState } from '@/features/intake/procession';
-import { currentDraft, positionLabel } from '@/features/intake/procession';
+import { currentDraft, lastDropped, positionLabel } from '@/features/intake/procession';
 import type { IntakeDraftRow } from '@/features/intake/queries';
-import { capTrim, leading } from '@/theme/font-metrics';
-import { MIN_TAP_TARGET, motion, spring, useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, motion, shadow, spring, useTheme } from '@/theme/tokens';
 
-import {
-  formalityLabel,
-  slotLabel,
-  warmthLabel,
-  type CorrectionField,
-} from './CorrectionSheet';
-
-// silhouettes.tsx is being built concurrently by another unit
-// (src/features/intake/silhouettes.tsx) and does not exist at the time this
-// file was written. The assumed contract — stated in the build report — is a
-// default export taking `{ slot, colour, pattern, size }`: `colour` a resolved
-// hex (never a raw term; that resolution already happened in
-// colour-lexicon.ts before a draft reaches this component), `pattern` the
-// free-string overlay descriptor or null, `size` the edge length in points of
-// the square the SVG draws into.
-import Silhouette from '@/features/intake/silhouettes';
+import { formalityLabel, slotLabel, warmthLabel, type CorrectionField } from './CorrectionSheet';
+import { ProcessionMasthead } from './ProcessionMasthead';
 
 /**
- * V-06 — the core screen. One garment, confirm or correct.
+ * PR-01, PR-05 — the procession's ordinary card.
  *
- * Everything this card needs about WHERE it is in the walkthrough comes from
- * `procession.ts` via the `procession`/`dispatch` pair, exactly as the
- * directive requires ("use it; do not reimplement it"). This component holds
- * no copy of the cursor, no copy of the drafts array, and no undo stack of its
- * own — `currentDraft` and `positionLabel` are the reducer's own accessors,
- * and every action a person can take here (`confirm`, `reject`, `back`,
- * `undo`) is dispatched as the exact `ProcessionAction` the reducer already
- * defines. The two things a plain dispatch cannot express — leaving this
- * screen for V-07's sheet or V-08's photo prompt — are the only two callback
- * props below.
+ * Everything this card knows about WHERE it is comes from `procession.ts` via
+ * the `procession`/`dispatch` pair. It holds no copy of the cursor, no copy of
+ * the drafts array, and no undo stack of its own.
  *
- * KEY THIS BY `draft.id` AT THE CALL SITE. `review-card.tsx` set the
- * precedent this follows to the letter: a card keyed by the garment's own id,
- * not by its position, arrives at 0 every time a NEW garment is under the
- * thumb, and the one that is promoted keeps whatever drag state it already
- * had (none, since it was never dragged). Reusing one instance across cards
- * via a stable key would carry the outgoing card's mid-flight `translateX`
- * onto the next garment's first frame.
+ * THE SPOKEN PHRASE IS THE SUBJECT OF THE CARD, above the name and set off by a
+ * rule. That ordering is the whole design: a wrong parse read against what was
+ * actually said is a mishearing, and a wrong parse read alone is a fabrication.
+ * It is why the card no longer draws a silhouette — the atlas replaces the
+ * illustration with the utterance, and a drawn guess of a garment sitting above
+ * a guessed name doubles the assertion instead of grounding it.
+ *
+ * DROP IS A PEER, NOT A DESTRUCTIVE ACTION. It is outlined, not red: it marks
+ * the row rejected and Undo brings it back, and nothing in the flow deletes
+ * anything. PR-05's tray band says so in as many words and stays until the next
+ * decision — never a toast on a timer, because no dismissal in this group is
+ * delayed and none is hidden.
+ *
+ * "CHANGE SOMETHING" CONFIRMS. Correcting a card IS the confirmation; making
+ * somebody fix a card and then confirm it is a second tap for no information.
+ *
+ * KEY THIS BY `draft.id` AT THE CALL SITE, so a new garment arrives at
+ * `translateX` 0 rather than inheriting the outgoing card's mid-flight drag.
  */
 
 /**
- * Below this, a parse is shown as a hedge rather than a claim: chips go
- * `muted` instead of `ink` and the card admits "I wasn't sure about this
- * one." (§3, V-09's closing paragraph — the same treatment low-confidence
- * singular items get, one card, not a second screen).
- *
- * 0.6, not the 0.5 `parse-closet` uses to cap an unquoted guess
- * (`intake-schema.ts`): that ceiling is where the MODEL admits doubt about
- * its own read of the transcript, this is where the CARD admits it to the
- * person looking at it. Setting them equal would mean every unquoted guess
- * hedges and nothing else ever does, which flattens a graduated signal into a
- * binary one.
+ * Below this, a parse is shown as a hedge rather than a claim: the chips go
+ * `muted` and the card admits it was not sure. 0.6, not the 0.5 `parse-closet`
+ * uses to cap an unquoted guess — that ceiling is where the MODEL admits doubt,
+ * this is where the CARD admits it to the person looking at it.
  */
 const CONFIDENCE_HEDGE_THRESHOLD = 0.6;
 
-/** How far a swipe has to travel before it commits, rather than snapping
- *  back. Same fraction `review-card.tsx` uses for the same reason: far enough
- *  that a scroll or a stray drag cannot fire it by accident. */
+/** How far a swipe travels before it commits rather than snapping back. */
 const SWIPE_THRESHOLD_RATIO = 0.28;
-
-/** The name's serif size the directive's V-06 table specifies — 30px. There
- *  is no `text-30` step in the type scale (the nearest, `title`, is 28), so
- *  the cap-trim this needs is computed by hand from the same face metrics
- * `text.tsx`'s own `TRIMS` table uses, rather than borrowed from a
- *  neighbouring size and left very slightly wrong. */
-const NAME_SIZE = 30;
-const NAME_LINE_HEIGHT = leading('instrument', NAME_SIZE, 1.08);
-const NAME_TRIM = capTrim('instrument', NAME_SIZE, NAME_LINE_HEIGHT);
 
 export type GarmentCardProps = {
   procession: ProcessionState;
   dispatch: (action: ProcessionAction) => void;
   /**
-   * Whether the post-action "Undo" affordance should render right now.
+   * Whether the masthead's Undo is live.
    *
-   * Deliberately a prop, not local state. §6's note is specific: component
-   * state that tracks "just confirmed, show Undo for 4s" dies the moment a
-   * query-cache refetch re-renders this component, and the affordance goes
-   * silently missing — which is the one thing `procession.ts`'s bounded undo
-   * stack was built to prevent. `procession.undo` already answers "CAN the
-   * last action be undone"; a future `use-procession` hook is where the
-   * four-second visibility window belongs (a plain timer keyed off the top
-   * of the undo stack), because that hook is the thing that survives the
-   * re-render this component does not control. This component only renders
-   * what it is told, and always double-checks the stack is non-empty before
-   * it does — a caller passing `true` past the window closes cannot make
-   * this card offer an undo that would no-op.
+   * Deliberately a prop, not local state: component state that tracks "just
+   * decided, offer Undo" dies the moment a query-cache refetch re-renders this
+   * component, and the affordance goes silently missing. The control itself is
+   * always drawn — it changes WEIGHT rather than appearing, so the header never
+   * reflows — and it is only pressable when the stack really has something.
    */
   showUndo: boolean;
-  /** Opens V-07. `field` is set when a specific attribute chip was tapped, so
-   *  the sheet can open scrolled straight to it; omitted for "Fix something",
-   *  which opens at the top of the sheet. */
+  /** Opens the edit sheet. `field` is set when a chip was tapped. */
   onCorrect: (field?: CorrectionField) => void;
-  /** Opens V-08. Never fires from a swipe or an edge — the silhouette itself
-   *  is the only tap target, per the directive's interaction list. */
-  onPhotoPrompt: (draftId: string) => void;
 };
 
-export function GarmentCard({ procession, dispatch, showUndo, onCorrect, onPhotoPrompt }: GarmentCardProps) {
+export function GarmentCard({ procession, dispatch, showUndo, onCorrect }: GarmentCardProps) {
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const theme = useTheme();
+  const { width: screenWidth } = useWindowDimensions();
 
   const draft = currentDraft(procession);
   const { index, total } = positionLabel(procession);
   const canUndo = showUndo && procession.undo.length > 0;
+  const dropped = lastDropped(procession);
 
   const translateX = useSharedValue(0);
   const swipeThreshold = screenWidth * SWIPE_THRESHOLD_RATIO;
 
-  // `runOnJS` needs a plain JS function to hand off to, not the `dispatch`
-  // prop directly used from inside a worklet — wrapping it here is what lets
-  // the gesture and the timing-callback below both call it the same way.
   const dispatchOnJS = useCallback((action: ProcessionAction) => dispatch(action), [dispatch]);
 
   /**
-   * Confirm and Back both leave via the same "slide, then advance" shape —
-   * the directive states the confirm case exactly ("220ms horizontal slide,
-   * no bounce") and gives Back no timing of its own, so Back reuses it rather
-   * than inventing a second unspecified animation. The dispatch is deferred
-   * to the animation's completion callback, not fired alongside it, so the
-   * slide is guaranteed to finish before the next card (a new component
-   * instance, per the keying note above) mounts in its place.
-   *
-   * Deliberately NOT wrapped in `useCallback`. `translateX` is a Reanimated
-   * shared value — mutating `.value` is the library's own API, exactly what
-   * every gesture handler in this file already does — and memoising a
-   * function that touches it would list the shared value itself in a
-   * dependency array, which is the one thing the React Compiler's hooks
-   * rules refuse: a value cannot be "passed as an argument to a hook" and
-   * then mutated inside it. Plain functions, recreated each render, are the
-   * cheap and correct shape here; `review-card.tsx`'s pan gesture makes the
-   * same choice for the same reason.
+   * Confirm and Back both leave via the same slide. Not wrapped in
+   * `useCallback`: `translateX` is a Reanimated shared value, and memoising a
+   * function that mutates one would list the shared value in a dependency
+   * array, which the compiler's hook rules refuse.
    */
   const leave = (direction: 1 | -1, action: ProcessionAction) => {
     translateX.value = withTiming(
@@ -163,9 +108,9 @@ export function GarmentCard({ procession, dispatch, showUndo, onCorrect, onPhoto
     );
   };
 
-  const confirm = () => leave(-1, { type: 'confirm' });
+  const keep = () => leave(-1, { type: 'confirm' });
   const back = () => leave(1, { type: 'back' });
-  const notMine = () => leave(-1, { type: 'reject' });
+  const drop = () => leave(-1, { type: 'reject' });
 
   const pan = Gesture.Pan()
     .enabled(draft !== null)
@@ -175,17 +120,9 @@ export function GarmentCard({ procession, dispatch, showUndo, onCorrect, onPhoto
     })
     .onEnd((e) => {
       const dragged = e.translationX + e.velocityX * 0.15;
-      if (dragged < -swipeThreshold) {
-        // Left = confirm, per the directive's interaction list.
-        runOnJS(confirm)();
-      } else if (dragged > swipeThreshold) {
-        // Right = back one card. Navigation, not a rejection — the card this
-        // reveals keeps whatever state it already had (procession.ts's
-        // `back` case changes nothing about the draft itself).
-        runOnJS(back)();
-      } else {
-        translateX.value = withSpring(0, spring.interactive);
-      }
+      if (dragged < -swipeThreshold) runOnJS(keep)();
+      else if (dragged > swipeThreshold) runOnJS(back)();
+      else translateX.value = withSpring(0, spring.interactive);
     });
 
   const cardStyle = useAnimatedStyle(() => {
@@ -201,197 +138,138 @@ export function GarmentCard({ procession, dispatch, showUndo, onCorrect, onPhoto
   if (!draft) return null;
 
   const hedge = draft.confidence < CONFIDENCE_HEDGE_THRESHOLD;
-  const silhouetteSize = Math.round(screenHeight * 0.46);
-  const colourHex = resolveDraftHex(draft);
-
   const attributes = buildAttributes(draft);
 
   return (
     <View className="flex-1 bg-canvas">
-      {/* Position — a count, never a bar or a percentage (standing refusal 4). */}
-      <View className="px-gutter pt-3">
-        <Text
-          variant="note"
-          accessibilityLabel={`Garment ${index} of ${total}`}
-          style={{ fontVariant: ['tabular-nums'] }}>
-          {index} of {total}
-        </Text>
-      </View>
+      <ProcessionMasthead
+        index={index}
+        total={total}
+        canUndo={canUndo}
+        onBack={back}
+        onUndo={() => dispatch({ type: 'undo' })}
+      />
 
-      <GestureDetector gesture={pan}>
-        <Animated.View
-          style={[{ flex: 1 }, cardStyle]}
-          // The swipe itself has no VoiceOver equivalent — a pan gesture is
-          // unreachable to it — so "back one card" (the direction with no
-          // button anywhere on this screen; Confirm alone gets one, per the
-          // directive's literal action list) is exposed as a custom rotor
-          // action instead of a fourth visible control the layout table never
-          // asked for.
-          accessibilityActions={[{ name: 'back', label: 'Back one card' }]}
-          onAccessibilityAction={(e) => {
-            if (e.nativeEvent.actionName === 'back') back();
-          }}>
-          <ScrollView
-            contentContainerClassName="grow items-center justify-center px-gutter pb-6"
-            showsVerticalScrollIndicator={false}
-            // The receipt line at the foot of this content must never be the
-            // thing that gets clipped on a small phone with Dynamic Type
-            // turned up — a ScrollView, not a fixed View, is what guarantees
-            // that (§3: "the receipt line ... must not be cut for space").
-          >
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Add a photo"
-              accessibilityHint="Opens the option to photograph this garment instead of drawing it"
-              onPress={() => onPhotoPrompt(draft.id)}
-              hitSlop={8}
-              // `marginBottom` here, not `marginTop` on the name below it: the
-              // name is a trimmed serif, and a top margin on a trimmed serif
-              // cancels to roughly nothing against the trim's own negative
-              // margin — the gap has to be spent on the sibling ABOVE it.
-              style={{ width: silhouetteSize, height: silhouetteSize, marginBottom: 14 }}
-              className="items-center justify-center active:opacity-80">
-              <Silhouette slot={draft.slot} colour={colourHex} pattern={draft.pattern} size={silhouetteSize} />
-            </Pressable>
-
-            {/* `variant="display"` for the ONE font-family class it carries
-                (`font-display`) — stacking a second `font-*` className
-                alongside a variant's own is the same unresolved-precedence
-                trap `text.tsx` and `chip.tsx` both warn about for colour and
-                size utilities, so every property that has to be 30 rather
-                than the variant's own 40 is overridden through `style`
-                instead, never through a second class. */}
-            <Text
-              variant="display"
-              accessibilityRole="header"
-              style={{
-                fontSize: NAME_SIZE,
-                lineHeight: NAME_LINE_HEIGHT,
-                letterSpacing: -0.15,
-                textAlign: 'center',
-                ...NAME_TRIM,
-              }}>
-              {draft.name}
+      <ScrollView contentContainerClassName="px-gutter pb-4" showsVerticalScrollIndicator={false}>
+        {dropped ? (
+          // PR-05. A tray band, not a toast — it stays until the next decision.
+          <View
+            className="bg-tray"
+            style={{ borderRadius: 12, padding: 16, marginBottom: 12 }}
+            accessibilityRole="alert">
+            <Text variant="heading" style={{ fontSize: 15 }}>
+              {`${dropped.name} dropped`}
             </Text>
-
-            {hedge ? (
-              // The honest hedge, not a separate screen (§3, V-09's closing
-              // note). `mb-*` on THIS sibling, never `mt-*` on the name above
-              // it — the name is a trimmed serif and a top margin there
-              // cancels to roughly nothing against the trim.
-              <Text variant="note" className="mb-1 mt-1 text-center">
-                I wasn&rsquo;t sure about this one.
-              </Text>
-            ) : null}
-
-            <View className="mt-3 flex-row flex-wrap items-center justify-center gap-2">
-              {attributes.map((a) => (
-                <AttributeChip
-                  key={a.field}
-                  label={a.label}
-                  muted={hedge}
-                  accessibilityHint={`Opens editing for ${a.field}`}
-                  onPress={() => onCorrect(a.field)}
-                />
-              ))}
-            </View>
-
-            {/* THE RECEIPT LINE. The most important element on this screen —
-                it is what makes a wrong parse read as a mishearing rather
-                than a fabrication (§3, §12) — so it is laid out last but
-                never optional and never truncated by `numberOfLines`. */}
-            <Text variant="note" className="mt-4 px-6 text-center italic">
-              you said: “{draft.utterance}”
+            <Text variant="note" style={{ fontSize: 14, lineHeight: 21, marginTop: 3 }}>
+              Still on the list, marked as dropped. Undo puts it back exactly as it was.
             </Text>
-          </ScrollView>
-        </Animated.View>
-      </GestureDetector>
-
-      {/* The pinned footer tray — same ground and placement as every other
-          primary action in this flow (V-01, V-05). */}
-      <View
-        className="bg-tray px-gutter pt-3"
-        style={{ paddingBottom: Math.max(insets.bottom, 12) + 10 }}>
-        {canUndo ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Undo"
-            accessibilityHint="Restores the previous card to its state before that action"
-            onPress={() => dispatch({ type: 'undo' })}
-            hitSlop={8}
-            style={{ minHeight: MIN_TAP_TARGET - 12 }}
-            className="mb-1 items-center justify-center active:opacity-60">
-            <Text variant="label" className="text-muted">
-              Undo
-            </Text>
-          </Pressable>
+          </View>
         ) : null}
 
-        <View className="mb-2 flex-row items-center justify-center gap-8">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Fix something"
-            accessibilityHint="Opens the correction sheet for this card"
-            onPress={() => onCorrect()}
-            hitSlop={8}
-            style={{ minHeight: MIN_TAP_TARGET - 12 }}
-            className="items-center justify-center active:opacity-60">
-            <Text variant="callout" className="text-muted">
-              Fix something
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Not mine"
-            accessibilityHint="Removes this card. It can be restored with Undo for a few seconds after."
-            onPress={notMine}
-            hitSlop={8}
-            style={{ minHeight: MIN_TAP_TARGET - 12 }}
-            className="items-center justify-center active:opacity-60">
-            <Text variant="callout" className="text-muted">
-              Not mine
-            </Text>
-          </Pressable>
-        </View>
+        <GestureDetector gesture={pan}>
+          <Animated.View
+            style={cardStyle}
+            accessibilityActions={[{ name: 'back', label: 'Back one card' }]}
+            onAccessibilityAction={(e) => {
+              if (e.nativeEvent.actionName === 'back') back();
+            }}>
+            <View
+              className="bg-surface"
+              style={{
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: theme.rule,
+                padding: 20,
+                shadowColor: theme.ink,
+                shadowOpacity: 0.16,
+                shadowRadius: shadow.contact.blur,
+                shadowOffset: { width: shadow.contact.dx, height: shadow.contact.dy },
+              }}>
+              <Text variant="eyebrow">You said</Text>
+              <Text
+                variant="note"
+                className="italic"
+                style={{ fontSize: 17, lineHeight: 26, marginTop: 6 }}>
+                {`“${draft.utterance}”`}
+              </Text>
+              <View
+                style={{ height: 1, backgroundColor: theme.rule, marginTop: 18, marginBottom: 18 }}
+              />
+              <Text variant="display" trim accessibilityRole="header" style={{ fontSize: 32 }}>
+                {draft.name}
+              </Text>
 
-        {/* Exactly one oxblood action on this screen (refusal 6). */}
-        <Button
-          title="Confirm"
-          onPress={confirm}
-          accessibilityHint="Adds this garment to your closet and moves to the next one"
-          className="w-full"
-        />
+              {hedge ? (
+                <Text variant="note" style={{ marginTop: 10 }}>
+                  Cinch was not sure about this one.
+                </Text>
+              ) : null}
+
+              <View className="flex-row flex-wrap" style={{ marginTop: 14, gap: 8 }}>
+                {attributes.map((a) => (
+                  <AttributeChip
+                    key={a.field}
+                    label={a.label}
+                    muted={hedge}
+                    accessibilityHint={`Opens editing for ${a.field}`}
+                    onPress={() => onCorrect(a.field)}
+                  />
+                ))}
+              </View>
+
+              {/* Oxblood, and the frame's only oxblood TEXT — the filled Keep
+                  it below is the frame's one filled action. Editing confirms,
+                  so this is a way through the card, not a way around it. */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Change something"
+                accessibilityHint="Opens the correction sheet for this card"
+                onPress={() => onCorrect()}
+                hitSlop={8}
+                style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center', marginTop: 8 }}
+                className="active:opacity-60">
+                <Text variant="body" style={{ fontSize: 16, color: theme.accent }}>
+                  Change something
+                </Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        </GestureDetector>
+      </ScrollView>
+
+      <View
+        className="flex-row px-gutter"
+        style={{ gap: 12, paddingBottom: Math.max(insets.bottom, 12) + 6 }}>
+        <View style={{ width: 96 }}>
+          <Button
+            title="Drop"
+            variant="secondary"
+            onPress={drop}
+            accessibilityHint="Marks this card dropped. Undo puts it back exactly as it was."
+            className="self-stretch"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button
+            title="Keep it"
+            onPress={keep}
+            accessibilityHint="Adds this garment to your closet and moves to the next one"
+            className="self-stretch"
+          />
+        </View>
       </View>
     </View>
   );
 }
 
-/**
- * A resolved hex for the drawing, never a raw term.
- *
- * `colour_oklch` is null until `resolveDraftColours` runs (see
- * `features/intake/actions.ts`), which happens just before commit rather than
- * as each card is confirmed — so a card still mid-procession may not have one
- * yet. Falling back to the same unresolved grey `colour-lexicon.ts` uses for
- * an unknown term keeps this card honest in exactly the same situation: "not
- * sure" drawn as "not sure", never a guessed colour presented as a real one.
- */
-function resolveDraftHex(draft: IntakeDraftRow): string {
-  const oklch = draft.colour_oklch as unknown as { hex?: string } | null;
-  return oklch?.hex ?? '#9A9691';
-}
-
 type Attribute = { field: CorrectionField; label: string };
 
 /**
- * The attribute row, built in the directive's own example order — Kind,
- * Colour, Fabric, Pattern, How dressy, How warm — with Fabric and Pattern
- * silently absent when the draft does not have one. `parse-closet` returns
- * both as nullable precisely because a model that always writes something is
- * a model that sometimes writes fiction (`intake-schema.ts`'s own comment on
- * `material` makes the same point for tagging); a chip for a fabric nobody
- * said would be exactly the kind of confident invention the receipt line
- * exists to guard against.
+ * Kind, Colour, Fabric, Pattern, How dressy, How warm — with Fabric and Pattern
+ * silently absent when the draft does not have one. `parse-closet` returns both
+ * as nullable precisely because a model that always writes something is a model
+ * that sometimes writes fiction, and a chip for a fabric nobody said would be
+ * exactly the invention the spoken phrase above it exists to guard against.
  */
 function buildAttributes(draft: IntakeDraftRow): Attribute[] {
   const attrs: Attribute[] = [
@@ -412,13 +290,10 @@ function capitalize(value: string): string {
 }
 
 /**
- * The attribute chip, per the directive's own literal spec for this row —
- * "sand ground, ink 12.5px, radius 14" — which is close to but not the same
- * as the shared `Chip` (radius 12, 13px label) and, for the hedge state,
- * needs a `muted` text tone `Chip` has no prop for (its unselected label is
- * hard-coded to `ink`). A bespoke chip local to this screen keeps the shared
- * component's contract simple rather than growing it a one-off tone for a
- * single atlas's literal numbers.
+ * The attribute chip — tray ground, r12, 14px. Close to but not the same as the
+ * shared `Chip`, which has no prop for the `muted` tone the hedge state needs;
+ * a bespoke chip local to this screen keeps the shared component's contract
+ * simple rather than growing it a one-off tone.
  */
 function AttributeChip({
   label,
@@ -439,9 +314,11 @@ function AttributeChip({
       accessibilityHint={accessibilityHint}
       onPress={onPress}
       hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-      style={{ minHeight: MIN_TAP_TARGET - 12, borderRadius: 12 }}
-      className="flex-row items-center justify-center bg-sand px-3.5 active:opacity-60">
-      <Text style={{ fontSize: 12.5, lineHeight: 16, color: muted ? theme.muted : theme.ink }}>{label}</Text>
+      style={{ minHeight: MIN_TAP_TARGET - 10, borderRadius: 12 }}
+      className="flex-row items-center justify-center bg-tray px-3 active:opacity-60">
+      <Text style={{ fontSize: 14, lineHeight: 18, color: muted ? theme.muted : theme.ink }}>
+        {label}
+      </Text>
     </Pressable>
   );
 }

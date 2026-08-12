@@ -1,32 +1,19 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
 import { TenTile } from '@/components/onboarding/ten-tile';
-import { settledCount, type TenSlot } from '@/features/onboarding/ten-slots';
-
-const COLUMNS = 3;
-const GAP = 8;
+import { TEN_GAP, tenTileHeight, tenTileWidth } from '@/features/onboarding/ten-layout';
+import { type TenSlot } from '@/features/onboarding/ten-slots';
 
 /**
- * Tile height as a share of column width.
+ * The Ten's grid — ten cells, all on screen unscrolled at the default type
+ * scale (T-01: "all ten tiles are on screen before any scrolling, which is what
+ * makes 'order is guidance' legible rather than merely stated").
  *
- * The atlas draws each cell 80 tall inside a 393-wide frame whose grid columns
- * work out to ~112 — so the cells are landscape, not square. Kept as a ratio
- * rather than a hard 80 for the same reason the column width is measured: the
- * shape should survive a narrower phone instead of only matching on the one
- * the atlas was drawn at.
- *
- * Squaring them, which is what shipped first, costs ~44% more height than the
- * grid has and pushes the tenth slot and the reasoning card below the fold —
- * breaking the single rule T-01 states outright.
- */
-const TILE_ASPECT = 80 / 112.33;
-
-/**
- * The Ten's grid — ten tiles, three columns, all on screen unscrolled
- * (free-tier-contract.md §2: "the ten slots are visible from the first
- * second"). Column width is measured, not guessed, so the grid holds its
- * geometry at every device width the way the atlas's fixed 393pt frame does.
+ * Column width is measured rather than guessed, so the grid holds its geometry
+ * at every device width the way the atlas's fixed 393pt frame does, and the
+ * column count and cell shape both come from `ten-layout.ts` so the AX
+ * recomposition is a tested rule rather than a magic number in a component.
  */
 export function TenGrid({
   slots,
@@ -34,27 +21,28 @@ export function TenGrid({
   garmentNames,
   imageUris,
   onSlotPress,
+  /** Overridable so a fixture can photograph the AX layout without the OS. */
+  fontScale: fontScaleOverride,
 }: {
   slots: readonly TenSlot[];
   foregroundedId: number | null;
-  /** Real garment name once tagged, keyed by slot id. */
+  /** Real garment name once tagged, keyed by slot id. Spoken, not printed. */
   garmentNames?: Record<number, string | null>;
   /** Resolved photo URL, keyed by slot id. */
   imageUris?: Record<number, string | undefined>;
   onSlotPress?: (slotId: number) => void;
+  fontScale?: number;
 }) {
+  const window = useWindowDimensions();
+  const fontScale = fontScaleOverride ?? window.fontScale;
   const [width, setWidth] = useState(0);
-  const tileSize = width > 0 ? (width - GAP * (COLUMNS - 1)) / COLUMNS : 0;
-  const tileHeight = Math.round(tileSize * TILE_ASPECT);
-
-  // Only one slot is ever left, and that is the only moment a tile reads
-  // "Last" instead of "Next".
-  const isLastSlot = settledCount(slots) === slots.length - 1;
+  const tileSize = width > 0 ? tenTileWidth(width, fontScale) : 0;
+  const tileHeight = tenTileHeight(tileSize, fontScale);
 
   return (
     <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {tileSize > 0 ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: TEN_GAP }}>
           {slots.map((slot) => (
             <TenTile
               key={slot.id}
@@ -62,7 +50,6 @@ export function TenGrid({
               height={tileHeight}
               size={tileSize}
               foregrounded={slot.id === foregroundedId}
-              isLast={isLastSlot}
               garmentName={garmentNames?.[slot.id]}
               imageUri={imageUris?.[slot.id]}
               onPress={

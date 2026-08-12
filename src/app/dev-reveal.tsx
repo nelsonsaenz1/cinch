@@ -151,6 +151,7 @@ function PageR05() {
         rows={missingRows(BARE_TALLY)}
         fix={smallestFix(BARE_TALLY)}
         onFix={() => {}}
+        onOpenToday={() => {}}
       />
     </RevealStage>
   );

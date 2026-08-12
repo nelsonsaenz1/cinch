@@ -106,7 +106,7 @@ function PageT01() {
         <TenGrid slots={slots} foregroundedId={slot.id} />
       </View>
       <View className="mt-4">
-        <SlotCard slot={slot} slots={slots} isFirstSuggestion onPhotograph={() => {}} />
+        <SlotCard slot={slot} slots={slots} onPhotograph={() => {}} onLibrary={() => {}} />
       </View>
     </ScrollView>
   );
@@ -132,7 +132,7 @@ function PageT02() {
         <TenGrid slots={slots} foregroundedId={slot.id} garmentNames={names} imageUris={images} />
       </View>
       <View className="mt-4">
-        <SlotCard slot={slot} slots={slots} isFirstSuggestion={false} onPhotograph={() => {}} onSkip={() => {}} />
+        <SlotCard slot={slot} slots={slots} onPhotograph={() => {}} onLibrary={() => {}} onSkip={() => {}} />
       </View>
     </ScrollView>
   );
@@ -183,7 +183,7 @@ function PageT04() {
         </View>
       </View>
       <View style={{ marginTop: 'auto' }}>
-        <SubstitutionSheetBody slot={slot} slots={slots} onRedirect={() => {}} onKeepOpen={() => {}} />
+        <SubstitutionSheetBody slot={slot} slots={slots} onRedirect={() => {}} onKeepOpen={() => {}} onKeepSlot={() => {}} />
       </View>
     </View>
   );
@@ -208,7 +208,7 @@ function PageT05() {
         <TenGrid slots={slots} foregroundedId={slot.id} garmentNames={names} imageUris={images} />
       </View>
       <View className="mt-4">
-        <SlotCard slot={slot} slots={slots} isFirstSuggestion={false} onPhotograph={() => {}} />
+        <SlotCard slot={slot} slots={slots} onPhotograph={() => {}} onLibrary={() => {}} />
       </View>
     </ScrollView>
   );
@@ -234,7 +234,7 @@ function PageT06() {
         </View>
       </View>
       <View style={{ marginTop: 'auto' }}>
-        <TenStopSheetBody count={count} onSeeOutfits={() => {}} onSwapPiece={() => {}} />
+        <TenStopSheetBody count={count} onSeeOutfits={() => {}} onBackToGrid={() => {}} />
       </View>
     </View>
   );

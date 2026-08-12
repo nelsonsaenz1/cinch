@@ -1,25 +1,51 @@
 import { Image } from 'expo-image';
 import { Pressable, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { Text } from '@/components/ui/text';
 import { SLOT_LABEL, type TenSlot } from '@/features/onboarding/ten-slots';
 import { useTheme } from '@/theme/tokens';
 
 /**
- * One cell of The Ten's grid (T-01/T-02/T-05/T-06).
+ * One cell of The Ten's grid — T-01, T-02, T-05, T-06.
  *
- * Four looks, one component: a photograph once filled, the plain slot word
- * while empty, an accent ring on whichever slot is foregrounded, and a quiet
- * dashed cell for a slot the user declined and left open. An icon of a shirt
- * is never drawn here for an empty slot — "an icon of a shirt is a picture of
- * a shirt the user does not own" (The Ten atlas, 02).
+ * Four looks, one component, and the atlas redraws all four:
+ *
+ *  - EMPTY: a tray cell at r12 with a hairline, a plus glyph, and the slot word
+ *    inside the tile rather than captioned beneath it. The label moved in
+ *    because a caption under every cell is a fifth row of type in a grid that
+ *    has to fit ten cells above the fold.
+ *  - FOREGROUNDED: a white ground and a 1.5px INK ring. Deliberately not the
+ *    accent — the accent is spent once per frame and T-01 spends it on
+ *    Photograph. A ring plus a lighter ground is two channels, which is what
+ *    the accessibility rule asks for, and neither of them is colour alone.
+ *  - FILLED: the photograph, full bleed, and NO name under it. An empty cell
+ *    needs its word; a filled one is a picture of the garment and the word
+ *    beneath it was only ever restating the row it sits in.
+ *  - OPEN: a slot the reader declined and left open. Drawn as the empty cell
+ *    with the plus removed, because there is nothing left to add here — it is
+ *    settled, not abandoned, so it earns no visual penalty.
+ *
+ * An icon of a shirt is never drawn for an empty slot: "an icon of a shirt is a
+ * picture of a shirt the user does not own."
  */
+
+/** The one place `faint` is allowed: a placeholder GLYPH, never type. */
+const PLACEHOLDER_GLYPH = '#8A8578';
+
+function PlusGlyph({ colour }: { colour: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Path d="M10 3 v14 M3 10 h14" stroke={colour} strokeWidth={1.6} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function TenTile({
   slot,
   size,
   height,
   foregrounded,
-  isLast,
   garmentName,
   imageUri,
   onPress,
@@ -27,19 +53,11 @@ export function TenTile({
   slot: TenSlot;
   /** Column width, measured by the grid. */
   size: number;
-  /**
-   * Tile height. NOT equal to `size`: the atlas draws these cells 112 wide by
-   * 80 tall, and squaring them costs about 44% more vertical space than the
-   * grid has — enough to push the tenth slot and the reasoning card off the
-   * first screen, which breaks the one rule T-01 states outright: all ten are
-   * visible before the first photograph.
-   */
+  /** Cell height, measured by the grid from the atlas's own ratio. */
   height: number;
   /** This slot is the one the bottom card currently argues for. */
   foregrounded: boolean;
-  /** Only one slot remains — the tile reads "Last" instead of "Next". */
-  isLast: boolean;
-  /** The garment's real name, once the tagger has one; falls back to the slot word. */
+  /** The garment's real name once tagged — spoken, never printed on the tile. */
   garmentName?: string | null;
   imageUri?: string;
   onPress?: () => void;
@@ -51,12 +69,12 @@ export function TenTile({
     if (slot.status === 'filled') {
       return (
         <View
-          className="overflow-hidden rounded-md bg-sand"
-          style={{ width: size, height }}>
+          className="overflow-hidden bg-tray"
+          style={{ width: size, height, borderRadius: 12, borderWidth: 1, borderColor: theme.rule }}>
           {imageUri ? (
             <Image
               source={{ uri: imageUri }}
-              contentFit="contain"
+              contentFit="cover"
               style={{ width: '100%', height: '100%' }}
               accessibilityIgnoresInvertColors
             />
@@ -65,71 +83,53 @@ export function TenTile({
       );
     }
 
-    if (foregrounded) {
-      return (
-        <View
-          className="items-center justify-center rounded-md bg-blush"
-          style={{ width: size, height, borderWidth: 2, borderColor: theme.accent }}>
-          <Text variant="label" className="font-semibold" style={{ color: theme.accent, fontSize: 12 }}>
-            {isLast ? 'Last' : 'Next'}
-          </Text>
-        </View>
-      );
-    }
+    const ring = foregrounded
+      ? { backgroundColor: theme.surface, borderWidth: 1.5, borderColor: theme.ink }
+      : { backgroundColor: theme.tray, borderWidth: 1, borderColor: theme.rule };
 
-    // `open` and unfilled `empty` slots both draw the same dashed cell — the
-    // difference is the word underneath, not the tile itself. A declined slot
-    // is settled, not abandoned, so it earns no visual penalty.
     return (
       <View
-        className="rounded-md"
-        style={{
-          width: size,
-          height,
-          borderWidth: 1,
-          borderStyle: 'dashed',
-          borderColor: theme.ruleStrong,
-        }}
-      />
+        className="items-center justify-center"
+        style={{ width: size, height, borderRadius: 12, gap: 8, ...ring }}>
+        {/* An open slot has nothing left to add to it, so it carries no plus. */}
+        {slot.status === 'open' ? null : (
+          <PlusGlyph colour={foregrounded ? theme.ink : PLACEHOLDER_GLYPH} />
+        )}
+        <Text
+          numberOfLines={1}
+          style={{
+            fontSize: 12,
+            lineHeight: 15,
+            fontFamily: 'HelveticaNeue-Medium',
+            // `muted`, never the atlas's own #4A463E — that value is the
+            // annotation ink of the design document, not one of the nine
+            // colours, and a slot word is real type a person has to read.
+            color: foregrounded ? theme.ink : theme.muted,
+          }}>
+          {label}
+        </Text>
+      </View>
     );
   })();
-
-  const caption =
-    slot.status === 'filled'
-      ? (garmentName ?? label)
-      : slot.status === 'open'
-        ? 'Skipped'
-        : label;
-
-  const captionColor =
-    slot.status === 'filled' ? theme.ink : foregrounded ? theme.accent : theme.muted;
 
   return (
     <Pressable
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : undefined}
+      // "Slot 3, top, empty, currently suggested" — position and status, in
+      // that order, per the atlas's VoiceOver table. Filled tiles name the
+      // garment instead, which is the one thing the drawing no longer prints.
       accessibilityLabel={
         slot.status === 'filled'
           ? (garmentName ?? label)
-          : slot.status === 'open'
-            ? `${label}, skipped`
-            : `${label}, not photographed yet`
+          : `Slot ${slot.id}, ${label.toLowerCase()}, ${
+              slot.status === 'open' ? 'left open' : 'empty'
+            }${foregrounded ? ', currently suggested' : ''}`
       }
       style={{ width: size }}
       className={onPress ? 'active:opacity-70' : ''}>
       {body}
-      <Text
-        numberOfLines={1}
-        style={{
-          marginTop: 4,
-          fontSize: 11,
-          lineHeight: 14,
-          fontFamily: 'HelveticaNeue-Medium',
-          color: captionColor,
-        }}>
-        {caption}
-      </Text>
     </Pressable>
   );
 }

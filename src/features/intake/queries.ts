@@ -108,3 +108,46 @@ export function resumeCursor(cursor: number, draftCount: number): number {
   if (draftCount <= 0) return 0;
   return Math.min(Math.max(cursor, 0), draftCount);
 }
+
+/**
+ * TR-06's card, or null when there is nothing to pick up.
+ *
+ * Composes the two reads the card needs — the session and its drafts — so the
+ * screen that draws it does not have to know that "23 pieces heard, 4
+ * confirmed" is two queries. Returns `null` rather than a partial card while
+ * either read is in flight: a resume card that appears three seconds after
+ * launch is worse than no resume card, because the reader has already started
+ * doing something else.
+ *
+ * `weekday` is formatted from the session's OWN `created_at`, never from a
+ * clock — a fixture can pass the same row twice and get the same word.
+ */
+export function useUnfinishedWalkthrough(): UnfinishedWalkthroughCard | null {
+  const session = useResumableSession();
+  const drafts = useDrafts(session.data?.id ?? null);
+
+  if (!session.data || !drafts.data || drafts.data.length === 0) return null;
+
+  return {
+    heard: drafts.data.length,
+    confirmed: drafts.data.filter((d) => d.state === 'confirmed').length,
+    cursor: resumeCursor(session.data.cursor, drafts.data.length),
+    weekday: weekdayOf(session.data.created_at),
+    sessionId: session.data.id,
+  };
+}
+
+export type UnfinishedWalkthroughCard = {
+  heard: number;
+  confirmed: number;
+  cursor: number;
+  weekday: string;
+  sessionId: string;
+};
+
+/** "Tuesday", from a stored timestamp. Never from `Date.now()`. */
+export function weekdayOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'earlier';
+  return d.toLocaleDateString(undefined, { weekday: 'long' });
+}

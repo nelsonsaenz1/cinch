@@ -1,22 +1,32 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LevelMeter } from '@/components/intake/LevelMeter';
-import { Precipitate, unmatchedTranscriptSpans } from '@/components/intake/Precipitate';
-import { Button, Chip, Text } from '@/components/ui';
+import { unmatchedTranscriptSpans } from '@/components/intake/Precipitate';
+import { FailureScreen, type WalkthroughFailure } from '@/components/intake/FailureScreen';
+import { ReadingBack } from '@/components/intake/ReadingBack';
+import { Button, Text } from '@/components/ui';
 import {
   intakeParsed,
   intakeRecordingFinished,
   intakeStarted,
 } from '@/features/intake/analytics';
+import {
+  HEARD,
+  heardChips,
+  heardHeadline,
+  SLOW_NOTICE_AFTER_MS,
+  unmatchedTitle,
+  WALKTHROUGH_INVITATION,
+} from '@/features/intake/walkthrough-copy';
+import { kindOfSlot } from '@/features/closet/outfit-count';
 import { useParseCloset } from '@/features/intake/use-parse';
 import { MAX_RECORDING_MS, useRecorder } from '@/features/intake/use-recorder';
 import { needsNewRecording, useTranscription } from '@/features/intake/use-transcription';
 import { supabase } from '@/lib/supabase';
 import { getUserId } from '@/lib/supabase';
-import { useTheme } from '@/theme/tokens';
 import type { IntakeDraftRow } from '@/features/intake/queries';
 
 /**
@@ -53,15 +63,7 @@ type Phase =
  * failure" — is really a rule about never failing without a name, so a fifth
  * named cause is the fix rather than an exception to it.
  */
-type Failure =
-  | { cause: 'denied' }
-  | { cause: 'silent' }
-  | { cause: 'unparsed'; transcript: string }
-  | { cause: 'offline'; retry: () => void }
-  | { cause: 'signed_out' };
-
-/** V-01's teaching device. Deliberately imperfect phrasing. */
-const EXAMPLES = ['"white linen shirt"', '"those brown loafers"', '"a heavy grey coat"'];
+type Failure = WalkthroughFailure;
 
 /** V-03 cycles these after 25s of quiet, in slot order. */
 const NUDGES = ['Tops?', 'Bottoms?', 'Dresses?', 'Shoes?', 'A coat?', 'Bags?'];
@@ -74,7 +76,6 @@ function clock(ms: number): string {
 
 export default function WalkthroughScreen() {
   const router = useRouter();
-  const theme = useTheme();
   const recorder = useRecorder();
   const transcribe = useTranscription();
   const parse = useParseCloset();
@@ -86,6 +87,23 @@ export default function WalkthroughScreen() {
   const [parseComplete, setParseComplete] = useState(false);
   const [capped, setCapped] = useState(false);
   const sessionId = useRef<string | null>(null);
+  /** The take's measured length — V-04's headline and V-13d's body read it. */
+  const [durationMs, setDurationMs] = useState<number | null>(null);
+  /**
+   * V-04's slow notice, at twelve seconds. Held here rather than inside
+   * `ReadingBack` so the notice is a prop the component can be photographed in
+   * both states with, and so the timer dies with the phase rather than with a
+   * subtree that may re-mount.
+   */
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (phase !== 'reading') {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), SLOW_NOTICE_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   /** V-03's index, advanced only while the nudge is showing. */
   const [nudge, setNudge] = useState(0);
@@ -152,6 +170,7 @@ export default function WalkthroughScreen() {
     }
 
     setCapped(result.reason === 'capped');
+    setDurationMs(result.durationMs);
     intakeRecordingFinished(result.durationMs);
     setPhase('reading');
 
@@ -203,16 +222,24 @@ export default function WalkthroughScreen() {
     return (
       <FailureScreen
         failure={failure}
-        onPhotograph={() => router.replace('/the-ten')}
+        durationMs={durationMs}
+        // `?door=photograph` — this reader has just chosen the camera, so The
+        // Ten must not open on TR-05 and ask them which door they want.
+        onPhotograph={() => router.replace('/the-ten?door=photograph')}
         onRetake={() => {
           setFailure(null);
           setTranscript('');
           setDrafts([]);
           setParseComplete(false);
+          setDurationMs(null);
           sessionId.current = null;
           setPhase('invitation');
         }}
         onSignIn={() => router.replace('/(auth)/sign-in')}
+        // "Leave it for later" — the session stays resumable and the recording
+        // stays on the phone. Nothing is discarded on the way out; this is the
+        // other end of TR-06's promise.
+        onLeaveForLater={() => router.replace('/(tabs)')}
       />
     );
   }
@@ -258,12 +285,18 @@ export default function WalkthroughScreen() {
     return (
       <View className="flex-1 bg-canvas">
         <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-          <Precipitate
-            transcript={transcript}
-            garments={drafts}
-            isComplete={parseComplete}
-            onSettled={() => setPhase('heard')}
+          <ReadingBack
+            durationMs={durationMs}
+            slow={slow}
+            // The notice is information, not a control: acknowledging it leaves
+            // the wait exactly where it was. Nothing is cancelled, because
+            // there is nothing here worth cancelling.
+            onLeaveRunning={() => setSlow(false)}
           />
+          {/* The parse settles the phase. `Precipitate`'s staged reveal was the
+              old treatment of this beat; V-04 replaces it with a skeleton that
+              matches the cards it is about to become. */}
+          <SettleWhenParsed complete={parseComplete} onSettled={() => setPhase('heard')} />
         </SafeAreaView>
       </View>
     );
@@ -272,42 +305,62 @@ export default function WalkthroughScreen() {
   // ── V-05 ────────────────────────────────────────────────────────────────
   if (phase === 'heard') {
     const missed = unmatchedTranscriptSpans(transcript, drafts);
+    const missedTitle = unmatchedTitle(missed.length);
+    const chips = heardChips(tallyDrafts(drafts));
     return (
       <View className="flex-1 bg-canvas">
         <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-          <ScrollView contentContainerClassName="px-gutter" style={{ flex: 1 }}>
-            <View style={{ marginBottom: 10 }}>
-              <Text variant="display">{spellCount(drafts.length)}</Text>
-            </View>
-            <Text variant="body" className="text-muted">
-              Let&rsquo;s check them. It&rsquo;s quick — tap through, fix anything wrong.
+          <ScrollView contentContainerClassName="px-gutter pb-4" style={{ flex: 1 }}>
+            <Text variant="eyebrow" className="pt-4">
+              {HEARD.eyebrow}
             </Text>
+            <View style={{ marginTop: 6, marginBottom: 12 }}>
+              <Text variant="display" trim accessibilityRole="header">
+                {heardHeadline(drafts.length)}
+              </Text>
+            </View>
+            {/* The sentence says what the chips are BEFORE the numbers are
+                read: counts of what was heard, not of what will be kept. */}
+            <Text variant="note" style={{ fontSize: 17, lineHeight: 26 }}>
+              {HEARD.body}
+            </Text>
+
+            <View className="flex-row flex-wrap" style={{ marginTop: 20, gap: 8 }}>
+              {chips.map((chip) => (
+                <View
+                  key={chip}
+                  className="bg-tray"
+                  style={{ borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 }}>
+                  <Text variant="body" style={{ fontSize: 14 }}>
+                    {chip}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
             {capped ? (
               <View style={{ marginTop: 18 }}>
-                <Text variant="body" className="text-muted">
-                  That&rsquo;s plenty for now. You can add more after.
+                <Text variant="note">
+                  The recording reached its twelve-minute limit. Everything up to it was kept.
                 </Text>
               </View>
             ) : null}
-            {missed.length > 0 ? (
-              <View style={{ marginTop: 26 }}>
-                <Text variant="caption" className="text-muted">
-                  {missed.length === 1
-                    ? 'One thing I didn’t catch'
-                    : `${missed.length} things I didn’t catch`}
+
+            {missedTitle ? (
+              // Named as KEPT, never silently discarded — the same rule the
+              // rejection state relies on.
+              <View style={{ marginTop: 24 }}>
+                <Text variant="heading" className="mb-1" style={{ fontSize: 15 }}>
+                  {missedTitle}
                 </Text>
-                {missed.map((span, i) => (
-                  <View key={`${span}-${i}`} style={{ marginTop: 8 }}>
-                    <Text variant="body" className="text-muted">
-                      {span}
-                    </Text>
-                  </View>
-                ))}
+                <Text variant="note" style={{ fontSize: 14, lineHeight: 21 }}>
+                  {HEARD.unmatchedBody}
+                </Text>
               </View>
             ) : null}
           </ScrollView>
           <View className="px-gutter">
-            <Button title="Check them" onPress={toReview} haptic />
+            <Button title={HEARD.action} onPress={toReview} haptic className="self-stretch" />
           </View>
         </SafeAreaView>
       </View>
@@ -319,42 +372,85 @@ export default function WalkthroughScreen() {
     <View className="flex-1 bg-canvas">
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
         <ScrollView contentContainerClassName="px-gutter" style={{ flex: 1 }}>
-          <View style={{ marginBottom: 14 }}>
-            <Text variant="display">Walk your closet. Talk.</Text>
-          </View>
-          <Text variant="body" className="text-muted">
-            Say what you own as you go — the colour, the fabric, roughly what it is. &ldquo;Navy
-            wool crewneck.&rdquo; &ldquo;Black ankle boots.&rdquo; Don&rsquo;t tidy it up; you can
-            fix anything after.
+          <Text variant="eyebrow" className="pt-4">
+            {WALKTHROUGH_INVITATION.eyebrow}
           </Text>
-          <View className="flex-row flex-wrap gap-2" style={{ marginTop: 22 }}>
-            {EXAMPLES.map((e) => (
-              <Chip key={e} label={e} />
+          <View style={{ marginTop: 6, marginBottom: 12 }}>
+            <Text variant="display" trim accessibilityRole="header">
+              {WALKTHROUGH_INVITATION.headline}
+            </Text>
+          </View>
+          <Text variant="note" style={{ fontSize: 17, lineHeight: 26 }}>
+            {WALKTHROUGH_INVITATION.body}
+          </Text>
+          {/* Prose, italic, not chips — a chip reads as a controlled
+              vocabulary, and these exist to teach the opposite. */}
+          <View style={{ marginTop: 22, gap: 6 }}>
+            {WALKTHROUGH_INVITATION.examples.map((e) => (
+              <Text key={e} variant="note" className="italic" style={{ fontSize: 17 }}>
+                {e}
+              </Text>
             ))}
           </View>
         </ScrollView>
         <View className="px-gutter">
-          {/* Non-optional, per §8. It sits directly above the action because
-              that is the moment consent is actually given. */}
+          {/* The consent sentence sits directly above the action, because the
+              tap is the moment it is acted on. The system prompt follows it. */}
           <View style={{ marginBottom: 12 }}>
-            <Text variant="noteSmall" className="text-muted">
-              The recording is transcribed and deleted. Cinch keeps the words, never the audio.
+            <Text variant="note" style={{ fontSize: 14, lineHeight: 21 }}>
+              {WALKTHROUGH_INVITATION.consent}
             </Text>
           </View>
-          <Button title="Start" onPress={() => void begin()} haptic />
-          <View className="items-center" style={{ marginTop: 14 }}>
-            <Text
-              variant="body"
-              className="text-muted"
-              accessibilityRole="button"
-              onPress={() => router.replace('/the-ten')}>
-              Photograph instead
-            </Text>
-          </View>
+          <Button
+            title={WALKTHROUGH_INVITATION.action}
+            onPress={() => void begin()}
+            haptic
+            className="self-stretch"
+          />
+          <Button
+            title={WALKTHROUGH_INVITATION.secondary}
+            variant="ghost"
+            onPress={() => router.replace('/the-ten?door=photograph')}
+            className="self-stretch"
+          />
         </View>
       </SafeAreaView>
     </View>
   );
+}
+
+/**
+ * The phase advance, isolated so `ReadingBack` never has to know it is inside a
+ * state machine. Renders nothing.
+ */
+function SettleWhenParsed({ complete, onSettled }: { complete: boolean; onSettled: () => void }) {
+  useEffect(() => {
+    if (complete) onSettled();
+  }, [complete, onSettled]);
+  return null;
+}
+
+/**
+ * Counts of what was heard, in the kinds the chips name.
+ *
+ * ONE PER CARD, deliberately, not per `quantity`. These are counts of what was
+ * HEARD — phrases — and an ambiguous plural is still one phrase until the
+ * stepper answers it. Counting the model's guess at "a few" here would print a
+ * number nobody said, which is the one thing this whole screen is arranged to
+ * avoid. It also keeps the chips summing to the headline's own figure.
+ *
+ * `kindOfSlot` collapses the engine's seven slots into the four counted kinds,
+ * so `base_top` and `mid_layer` both read as tops — the chip has to say what a
+ * person would say. Outerwear and bags pass through by name.
+ */
+function tallyDrafts(drafts: readonly IntakeDraftRow[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const d of drafts) {
+    const slot = d.slot as Parameters<typeof kindOfSlot>[0];
+    const key = kindOfSlot(slot) ?? slot;
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
 }
 
 /**
@@ -365,77 +461,4 @@ export default function WalkthroughScreen() {
  * locates the fault honestly, where swallowing it makes the app look broken
  * and unaccountable.
  */
-function FailureScreen({
-  failure,
-  onPhotograph,
-  onRetake,
-  onSignIn,
-}: {
-  failure: Failure;
-  onPhotograph: () => void;
-  /** Back to V-01 with a clean slate — "Try again" means another take, not
-   *  another app. Routing this to The Ten was the first walk's second bug. */
-  onRetake: () => void;
-  onSignIn: () => void;
-}) {
-  const copy = {
-    denied: 'Cinch needs the microphone to hear you.',
-    silent: 'I didn’t catch anything.',
-    unparsed: 'I heard you, but I couldn’t find any clothes in it.',
-    offline: 'I can’t reach the transcriber. Your recording is safe.',
-    signed_out: 'You’ll need to be signed in first.',
-  }[failure.cause];
-
-  return (
-    <View className="flex-1 bg-canvas">
-      <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-        <ScrollView contentContainerClassName="px-gutter" style={{ flex: 1 }}>
-          <View style={{ marginBottom: 12 }}>
-            <Text variant="display">{copy}</Text>
-          </View>
-          {failure.cause === 'unparsed' ? (
-            <Text variant="body" className="text-muted">
-              {failure.transcript}
-            </Text>
-          ) : null}
-        </ScrollView>
-        <View className="px-gutter gap-3">
-          {failure.cause === 'denied' ? (
-            <Button title="Open Settings" onPress={() => void Linking.openSettings()} haptic />
-          ) : null}
-          {failure.cause === 'offline' ? (
-            <Button title="Retry" onPress={failure.retry} haptic />
-          ) : null}
-          {failure.cause === 'silent' || failure.cause === 'unparsed' ? (
-            <Button title="Try again" onPress={onRetake} haptic />
-          ) : null}
-          {failure.cause === 'signed_out' ? (
-            <Button title="Sign in" onPress={onSignIn} haptic />
-          ) : null}
-          <View className="items-center">
-            <Text
-              variant="body"
-              className="text-muted"
-              accessibilityRole="button"
-              onPress={onPhotograph}>
-              Photograph instead
-            </Text>
-          </View>
-        </View>
-      </SafeAreaView>
-    </View>
-  );
-}
-
-/** V-05's count is spoken, not numeric — "Twenty-three pieces." */
-function spellCount(n: number): string {
-  const words = [
-    'No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
-    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen',
-    'Nineteen', 'Twenty',
-  ];
-  const word = n <= 20 ? words[n] : String(n);
-  return `${word} ${n === 1 ? 'piece' : 'pieces'}.`;
-}
-
 void MAX_RECORDING_MS;

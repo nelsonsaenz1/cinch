@@ -1,71 +1,102 @@
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { slotCopy, slotOrdinalWithinKind } from '@/features/onboarding/ten-copy';
-import { settledCount, type TenSlot } from '@/features/onboarding/ten-slots';
-import { useTheme } from '@/theme/tokens';
+import { isAccessibilityScale } from '@/features/onboarding/ten-layout';
+import { type TenSlot } from '@/features/onboarding/ten-slots';
 
 /**
- * The card beneath the grid — one slot's single line of reasoning, per
- * free-tier-contract.md §2 ("each slot justifies itself in one sentence, and
- * only while it is the foregrounded slot"). T-01's very first suggestion
- * carries its own eyebrow ("Start anywhere · suggested first"); every other
- * slot reads "Slot N · phrase".
+ * The card beneath the grid — T-01, T-02 and T-02/AX.
  *
- * The bag cannot be declined — Cinch has nowhere to put a look without one —
- * so it is the one slot with no Skip beside its button (T-05).
+ * One slot's single line of reasoning, and only while it is the foregrounded
+ * slot: the grid is the subject of the screen and a sentence under every cell
+ * would bury it.
+ *
+ * THREE ACTIONS, IN THE ATLAS'S ORDER. Photograph is the one filled action.
+ * Library is a peer beside it rather than a link underneath, because the picker
+ * needs no permission at all — it runs out of process, which is why
+ * `app.config.ts` suppresses `NSPhotoLibraryUsageDescription` — and a reader
+ * who does not want to stand over a wardrobe with a camera should not have to
+ * discover that. Skip appears from the second slot onward, and never on the
+ * bag: the bag has no redirect, so there is nothing for a decline to spend.
+ *
+ * AT THE LARGEST TYPE the reasoning sentence is dropped and the actions stack
+ * full width in the same order. That is recomposition, not truncation — the
+ * title already carries the argument, and keeping both would push the actions
+ * off the screen, which is the one failure the atlas names outright.
  */
 export function SlotCard({
   slot,
   slots,
-  isFirstSuggestion,
   onPhotograph,
+  onLibrary,
   onSkip,
+  /** Overridable so a fixture can photograph the AX layout without the OS. */
+  fontScale: fontScaleOverride,
 }: {
   slot: TenSlot;
   /** The full ten, so this card can rank itself among same-kind siblings. */
   slots: readonly TenSlot[];
-  /** True only for The Ten's very first render, nothing photographed yet. */
-  isFirstSuggestion: boolean;
   onPhotograph: () => void;
+  onLibrary: () => void;
   onSkip?: () => void;
+  fontScale?: number;
 }) {
-  const theme = useTheme();
+  const window = useWindowDimensions();
+  const fontScale = fontScaleOverride ?? window.fontScale;
+  const stacked = isAccessibilityScale(fontScale);
+
   const n = slotOrdinalWithinKind(slots, slot.id);
   const copy = slotCopy(slot.kind, n);
-  const isLast = settledCount(slots) === slots.length - 1;
   const canSkip = slot.kind !== 'bag' && Boolean(onSkip);
 
+  const photograph = (
+    <Button
+      title="Photograph"
+      onPress={onPhotograph}
+      className={stacked ? 'self-stretch' : 'flex-1'}
+    />
+  );
+  const library = (
+    <Button
+      title="Library"
+      variant="secondary"
+      onPress={onLibrary}
+      accessibilityHint="Pick this piece from photographs already on your phone"
+      className={stacked ? 'self-stretch' : ''}
+    />
+  );
+  const skip = canSkip ? (
+    <Button
+      title="Skip"
+      variant="ghost"
+      onPress={onSkip}
+      accessibilityHint="Spend this slot on something else, or leave it open"
+      className={stacked ? 'self-stretch' : ''}
+    />
+  ) : null;
+
   return (
-    <View className="rounded-md border border-rule bg-surface p-4">
-      <Text
-        style={{
-          fontSize: 11,
-          fontWeight: '500',
-          letterSpacing: 1.2,
-          textTransform: 'uppercase',
-          // `muted`, not the atlas's literal `faint` — this eyebrow is the
-          // slot's real name, not decoration (free-tier-contract.md §4).
-          color: theme.muted,
-        }}>
-        {isFirstSuggestion ? 'Start anywhere · suggested first' : `Slot ${slot.id} · ${copy.phrase}`}
+    <View className="rounded-plate border border-rule bg-surface" style={{ padding: 16 }}>
+      <Text variant="eyebrow">{`Slot ${slot.id} · ${copy.phrase}`}</Text>
+      {/* 19px Medium — a true label, so Medium is correct here. `mb-*` on this
+          sibling rather than `mt-*` on the sentence below: a top margin against
+          a trimmed box cancels to roughly nothing. */}
+      <Text variant="heading" className="mb-1" style={{ fontSize: 19, marginTop: 6 }}>
+        {copy.title}
       </Text>
-      <View style={{ marginBottom: 6 }}>
-        <Text variant="plate" trim>
-          {copy.title}
+      {stacked ? null : (
+        <Text variant="note" style={{ fontSize: 15, lineHeight: 22 }}>
+          {copy.body}
         </Text>
-      </View>
-      <Text variant="callout" className="text-muted">
-        {copy.body}
-      </Text>
-      <View className="mt-3.5 flex-row gap-2.5">
-        <Button
-          title={isLast ? 'Photograph the last piece' : 'Photograph it'}
-          onPress={onPhotograph}
-          className={canSkip ? 'flex-1' : 'flex-1 self-stretch'}
-        />
-        {canSkip ? <Button title="Skip" variant="secondary" onPress={onSkip} /> : null}
+      )}
+      <View
+        className={stacked ? '' : 'flex-row items-center'}
+        style={{ marginTop: 14, gap: stacked ? 12 : 10 }}>
+        {photograph}
+        {library}
+        {skip}
       </View>
     </View>
   );

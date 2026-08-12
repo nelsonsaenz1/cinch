@@ -155,3 +155,22 @@ function advance(state: ProcessionState, patch: Partial<IntakeDraftRow>): Proces
     undo: [{ cursor: state.cursor, draft }, ...state.undo].slice(0, UNDO_DEPTH),
   };
 }
+
+/**
+ * The card the last decision dropped, if the last decision was a drop.
+ *
+ * PR-05's confirmation band reads this. It is derived rather than stored, which
+ * is what makes the band obey its own rule without a timer: the band is a
+ * function of the top of the undo stack, so the NEXT decision pushes a new
+ * entry and the band goes — "a tray band that stays until the next decision,
+ * not a toast that vanishes on a timer".
+ *
+ * The undo entry holds the draft as it was BEFORE the reject, so the current
+ * state has to be read back out of `drafts` by id.
+ */
+export function lastDropped(state: ProcessionState): IntakeDraftRow | null {
+  const entry = state.undo[0];
+  if (!entry) return null;
+  const now = state.drafts.find((d) => d.id === entry.draft.id);
+  return now && now.state === 'rejected' ? now : null;
+}

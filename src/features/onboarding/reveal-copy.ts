@@ -14,9 +14,35 @@ const WORDS = [
   'nineteen', 'twenty',
 ];
 
-/** "Twelve", "Fourteen" — the atlas's own register for a small count; numerals past twenty. */
+const TENS = [
+  '', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety',
+];
+
+/**
+ * "Twelve", "Fourteen", "Twenty-three" — the hallway's register for a count
+ * a sentence says out loud. Numerals past ninety-nine.
+ *
+ * THE TABLE USED TO STOP AT TWENTY, and the ceiling was arbitrary rather than
+ * principled — every caller at the time happened to print a number under it.
+ * M-07 is the first state that does not: a walkthrough that heard twenty-three
+ * pieces reads "All twenty-three are saved… the other thirteen wait in
+ * storage", and against a table that stopped at twenty that sentence came out
+ * as "All 23 are saved… the other thirteen wait in storage" — half spoken, half
+ * tabulated, in one breath. Mixing the two registers inside a sentence is worse
+ * than either register on its own.
+ *
+ * Ninety-nine is where it stops now, and that ceiling IS principled: past a
+ * hundred the words get longer than the figure and stop being readable at a
+ * glance ("three hundred and eighty outfits"), which is exactly the point at
+ * which a numeral is the clearer thing to print.
+ */
 export function numberWord(n: number): string {
-  return WORDS[n] ?? String(n);
+  const word = WORDS[n];
+  if (word) return word;
+  if (!Number.isInteger(n) || n < 21 || n > 99) return String(n);
+  const tens = TENS[Math.floor(n / 10)]!;
+  const unit = n % 10;
+  return unit === 0 ? tens : `${tens}-${WORDS[unit]}`;
 }
 
 const ORDINAL_WORDS = [

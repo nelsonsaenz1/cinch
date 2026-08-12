@@ -1,18 +1,20 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
-import { SlotCard } from '@/components/onboarding/slot-card';
+import { CameraDenied } from '@/components/onboarding/camera-denied';
+import { FirstTenDoors } from '@/components/onboarding/first-ten-doors';
 import { SubstitutionSheet } from '@/components/onboarding/substitution-sheet';
+import { TenBody } from '@/components/onboarding/ten-body';
 import { TenCamera } from '@/components/onboarding/ten-camera';
-import { TenGrid } from '@/components/onboarding/ten-grid';
 import { TenStopSheet } from '@/components/onboarding/ten-stop-sheet';
 import { Text } from '@/components/ui/text';
-import { countOutfits, rankGaps } from '@/features/closet/outfit-count';
+import { countOutfits } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
-import { tenProgressLine } from '@/features/onboarding/ten-copy';
+import { useCameraAccess } from '@/features/ingest/use-camera-access';
+import { useUnfinishedWalkthrough } from '@/features/intake/queries';
 import {
   declineSlot,
   fillSlot,
@@ -73,6 +75,21 @@ import type { Garment } from '@/lib/styling';
 export default function TheTenScreen() {
   const router = useRouter();
   const wardrobe = useWardrobe();
+  const camera = useCameraAccess();
+  /** TR-06's card, or null. Read on mount so the doors never swap under a
+   *  reader who is already looking at them. */
+  const unfinished = useUnfinishedWalkthrough();
+  /**
+   * `?door=photograph` skips TR-05.
+   *
+   * TR-05 is the question "how would you rather do this", and it must not be
+   * asked of somebody who has already answered it: the Walkthrough's
+   * "Photograph them instead", every V-13 fork, and the Reveal's repair loop
+   * all arrive here having just chosen the camera. Without the param they
+   * would be shown the two doors again, with the door they just walked through
+   * offered as if it were a fresh choice.
+   */
+  const { door } = useLocalSearchParams<{ door?: string }>();
 
   const [slots, setSlots] = useState<TenSlot[] | null>(null);
   const hydrated = useRef(false);
@@ -88,9 +105,34 @@ export default function TheTenScreen() {
 
   const [foregroundedOverride, setForegroundedOverride] = useState<number | null>(null);
   const [cameraSlotId, setCameraSlotId] = useState<number | null>(null);
+  const [cameraStart, setCameraStart] = useState<'camera' | 'library'>('camera');
   const [declineSlotId, setDeclineSlotId] = useState<number | null>(null);
   const stopShown = useRef(false);
   const [showStop, setShowStop] = useState(false);
+  /**
+   * T-05 is entered by TRYING, never by inspecting.
+   *
+   * A screen that reads the permission on mount and renders the failure would
+   * meet a reader who has not asked for the camera yet with a sentence about
+   * the camera being off. The fork is drawn only once a Photograph tap has
+   * found the door locked.
+   */
+  const [cameraRefused, setCameraRefused] = useState(false);
+  /** TR-05 is answered by walking through a door, and only asked once. */
+  const [doorChosen, setDoorChosen] = useState(door === 'photograph');
+
+  const openCamera = useCallback(
+    (slotId: number, mode: 'camera' | 'library') => {
+      if (mode === 'camera' && camera.access === 'blocked') {
+        setCameraRefused(true);
+        return;
+      }
+      setCameraRefused(false);
+      setCameraStart(mode);
+      setCameraSlotId(slotId);
+    },
+    [camera.access],
+  );
 
   const byId = useMemo(() => {
     const m = new Map<string, Garment>();
@@ -180,13 +222,13 @@ export default function TheTenScreen() {
   }
 
   const filled = settledCount(slots);
-  const isFirstSuggestion = filled === 0;
 
   if (cameraSlot) {
     return (
       <TenCamera
         slot={cameraSlot}
         slots={slots}
+        start={cameraStart}
         onCancel={() => setCameraSlotId(null)}
         onFilled={(itemId) => {
           setSlots((prev) => (prev ? fillSlot(prev, cameraSlot.id, itemId) : prev));
@@ -197,68 +239,59 @@ export default function TheTenScreen() {
     );
   }
 
+  // ── TR-05 · the two doors ────────────────────────────────────────────────
+  //
+  // Only ever on a run that has not started. A closet with a piece in it has
+  // already answered this question, and re-asking it would put a chooser in
+  // front of somebody mid-flow.
+  if (!doorChosen && filled === 0) {
+    return (
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+        <FirstTenDoors
+          // TR-06 when there is a walkthrough waiting, TR-05 when there is not.
+          // Null while either read is in flight, so the doors are what a
+          // brand-new account sees — and it never sees a card swap in under it,
+          // because a brand-new account has no session to find.
+          unfinished={unfinished}
+          onPhotograph={() => setDoorChosen(true)}
+          onVoice={() => router.push('/walkthrough')}
+          onResume={() =>
+            unfinished && router.replace(`/walkthrough/review?session=${unfinished.sessionId}`)
+          }
+          // Nothing on this screen implies the recording is discarded, and this
+          // action does not discard it: the old session stays resumable in the
+          // database and a fresh invitation opens on top of it.
+          onStartAgain={() => router.push('/walkthrough')}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <ScrollView contentContainerClassName="px-gutter pb-8" keyboardShouldPersistTaps="handled">
-        <View className="flex-row items-baseline justify-between pt-1">
-          <Text variant="display" trim accessibilityRole="header">
-            The Ten
-          </Text>
-          <Text
-            variant="label"
-            style={{ fontVariant: ['tabular-nums'] }}
-            accessibilityLabel={`${filled} of ${slots.length} filled`}>
-            {`${filled} of ${slots.length}`}
-          </Text>
-        </View>
-        <Text variant="body" className="mt-2 text-muted">
-          {tenProgressLine(slots)}
-        </Text>
-
-        <View className="mt-4">
-          <TenGrid
-            slots={slots}
-            foregroundedId={foregrounded?.id ?? null}
-            garmentNames={garmentNames}
-            imageUris={imageUris}
-            onSlotPress={(id) => setForegroundedOverride(id)}
-          />
-        </View>
-
-        {foregrounded ? (
-          <View className="mt-5">
-            <SlotCard
-              slot={foregrounded}
-              slots={slots}
-              isFirstSuggestion={isFirstSuggestion && foregrounded.id === 1}
-              onPhotograph={() => setCameraSlotId(foregrounded.id)}
-              onSkip={
-                foregrounded.kind === 'bag' ? undefined : () => setDeclineSlotId(foregrounded.id)
-              }
+      <TenBody
+        slots={slots}
+        foregroundedId={foregrounded?.id ?? null}
+        garmentNames={garmentNames}
+        imageUris={imageUris}
+        onSlotPress={(id) => setForegroundedOverride(id)}
+        onPhotograph={(id) => openCamera(id, 'camera')}
+        onLibrary={(id) => openCamera(id, 'library')}
+        onSkip={(id) => setDeclineSlotId(id)}>
+        {cameraRefused ? (
+          // ── T-05 ──────────────────────────────────────────────────────────
+          // Under the masthead, not instead of it: the work already done stays
+          // visible from the failure screen.
+          <View style={{ marginTop: 24 }}>
+            <CameraDenied
+              filled={filled}
+              onLibrary={() => foregrounded && openCamera(foregrounded.id, 'library')}
+              onSettings={camera.openSettings}
+              onVoice={() => router.push('/walkthrough')}
             />
           </View>
-        ) : null}
-
-        {/* THE SECOND DOOR. The Walkthrough's V-01 offers "Photograph instead"
-            and routes here; this is the return leg, and without it the voice
-            path is reachable only by deep link. The directive's tenth standing
-            refusal — "two front doors, permanently" — is a promise about both
-            directions, not just one.
-
-            Text-only and below the fold on purpose: this screen already has
-            its one oxblood action, and a second filled button here would read
-            as the app being unsure which way it wants you to go. */}
-        <View className="items-center" style={{ marginTop: 28 }}>
-          <Text
-            variant="body"
-            className="text-muted"
-            accessibilityRole="button"
-            accessibilityHint="Describe your closet out loud instead of photographing it"
-            onPress={() => router.push('/walkthrough')}>
-            Talk instead
-          </Text>
-        </View>
-      </ScrollView>
+        ) : undefined}
+      </TenBody>
 
       <SubstitutionSheet
         visible={declining !== null}
@@ -293,17 +326,11 @@ export default function TheTenScreen() {
             dressSlot && dressSlot.kind !== 'dresses' ? dressSlot.kind : '';
           router.replace({ pathname: '/reveal', params: { redirectedDressTo } });
         }}
-        onSwapPiece={() => {
-          setShowStop(false);
-          // Built as a no-op because no swap flow existed when this screen was
-          // written; The Wall built one in parallel (W-04). The kind passed is
-          // the closet's own highest-gain gap, computed by the same routine the
-          // gap feed ranks with — so the swap sheet can quote real arithmetic
-          // for what would come in. Nothing is chosen on the user's behalf: the
-          // screen names the kind and they pick what goes out.
-          const best = rankGaps(plannedTally(slots))[0];
-          router.push({ pathname: '/wall-swap', params: { add: best?.kind ?? 'shoes' } });
-        }}
+        // "Back to the grid" — the sheet closes and nothing else happens. It
+        // used to route to The Wall's swap flow, which promised a replacement
+        // this sheet never offered; the atlas's own second action is smaller
+        // and truer, and the grid behind it is still fully live.
+        onBackToGrid={() => setShowStop(false)}
       />
     </SafeAreaView>
   );

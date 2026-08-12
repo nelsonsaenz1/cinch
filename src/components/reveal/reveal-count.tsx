@@ -1,62 +1,54 @@
 import { View } from 'react-native';
 
-import { canvasAlpha } from '@/components/reveal/reveal-stage';
 import { Text } from '@/components/ui/text';
-import { useTheme } from '@/theme/tokens';
 
 /**
- * R-02 / R-04 — the count, in the largest type anywhere in the app
- * (free-tier-contract.md, "beat 2 · the count"). Every figure here is a prop,
- * never computed inline — callers pass what `outfit-count.ts` and
- * `reveal-copy.ts` already worked out, so this component cannot drift into
- * doing its own arithmetic.
+ * R-02 / R-04 — the count, in the largest type anywhere in the app.
+ *
+ * THE DERIVATION SITS DIRECTLY UNDER THE HEADLINE, never in a footnote, so the
+ * number and its proof are read together: "a number with no derivation is
+ * indistinguishable from a slogan."
+ *
+ * Every figure here is a prop, never computed inline — callers pass what
+ * `outfit-count.ts` and `reveal-copy.ts` already worked out, so this component
+ * cannot drift into doing its own arithmetic.
  */
 export function RevealCount({
   headline,
   derivation,
   chips,
-  showScrollHint = true,
 }: {
-  /** "Ten pieces. Fourteen outfits." — from `headline()`/`zeroHeadline()`. */
+  /** "Ten pieces. Fourteen outfits." — from `headline()`. */
   headline: string;
-  /** The sentence that derives it — from `defaultDerivation()`/`substitutionDerivation()`. */
+  /** The sentence that derives it — `defaultDerivation`/`substitutionDerivation`. */
   derivation: string;
   chips: string[];
-  showScrollHint?: boolean;
 }) {
-  const theme = useTheme();
-
   return (
     <View>
-      <Text variant="wordmark" trim style={{ color: theme.canvas }} accessibilityRole="header">
+      <Text variant="wordmark" trim accessibilityRole="header" style={{ fontSize: 46 }}>
         {headline}
       </Text>
-      <Text style={{ marginTop: 20, fontSize: 16, lineHeight: 25, color: canvasAlpha(0.7) }}>
+      <Text variant="note" style={{ marginTop: 14, fontSize: 17, lineHeight: 26 }}>
         {derivation}
       </Text>
 
       {chips.length > 0 ? (
-        <View style={{ marginTop: 24, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        // Outlined here, tray in the Walkthrough — the same composition chip in
+        // its two grounds. r12, never a capsule. Present kinds only: a kind the
+        // closet does not have is absent rather than printed as a zero.
+        <View className="flex-row flex-wrap" style={{ marginTop: 20, gap: 8 }}>
           {chips.map((chip) => (
             <View
               key={chip}
-              style={{
-                borderWidth: 1,
-                borderColor: canvasAlpha(0.22),
-                borderRadius: 12,
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-              }}>
-              <Text style={{ fontSize: 12, color: canvasAlpha(0.55) }}>{chip}</Text>
+              className="border border-rule"
+              style={{ borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 }}>
+              <Text variant="note" style={{ fontSize: 14 }}>
+                {chip}
+              </Text>
             </View>
           ))}
         </View>
-      ) : null}
-
-      {showScrollHint ? (
-        <Text style={{ marginTop: 40, fontSize: 13, color: canvasAlpha(0.5) }}>
-          Scroll for the first one ↓
-        </Text>
       ) : null}
     </View>
   );

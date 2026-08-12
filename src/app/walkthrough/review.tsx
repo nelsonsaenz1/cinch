@@ -10,6 +10,7 @@ import { Button, ErrorState, Skeleton, Text } from '@/components/ui';
 import { PLANS } from '@/features/billing/plans';
 import { commitIntake } from '@/features/intake/actions';
 import { intakeCardEdited } from '@/features/intake/analytics';
+import { positionLabel } from '@/features/intake/procession';
 import { useDrafts, resumeCursor, type IntakeDraftRow } from '@/features/intake/queries';
 import { useProcession } from '@/features/intake/use-procession';
 
@@ -123,13 +124,21 @@ export default function WalkthroughReviewScreen() {
     );
   }
 
-  // ── V-09 — plural or unsure, before the ordinary card ──────────────────
+  // ── PR-03 — plural or unsure, before the ordinary card ──────────────────
   if (draft && draft.state === 'ambiguous') {
+    const { index, total } = positionLabel(procession.state);
     return (
       <View className="flex-1 bg-canvas">
         <SafeAreaView edges={['top', 'bottom']} className="flex-1">
           <CountStepper
+            key={draft.id}
             draft={draft}
+            index={index}
+            total={total}
+            canUndo={procession.showUndo && procession.state.undo.length > 0}
+            onBack={() => procession.dispatch({ type: 'back' })}
+            onUndo={() => procession.dispatch({ type: 'undo' })}
+            onDrop={() => procession.dispatch({ type: 'reject' })}
             onConfirm={(quantity) => procession.dispatch({ type: 'ambiguous', quantity })}
           />
         </SafeAreaView>
@@ -137,7 +146,7 @@ export default function WalkthroughReviewScreen() {
     );
   }
 
-  // ── V-06 ───────────────────────────────────────────────────────────────
+  // ── PR-01 / PR-05 ──────────────────────────────────────────────────────
   return (
     <View className="flex-1 bg-canvas">
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
@@ -148,7 +157,6 @@ export default function WalkthroughReviewScreen() {
             dispatch={procession.dispatch}
             showUndo={procession.showUndo}
             onCorrect={(field) => setCorrecting(field ?? null)}
-            onPhotoPrompt={() => router.push('/capture')}
           />
         ) : null}
       </SafeAreaView>

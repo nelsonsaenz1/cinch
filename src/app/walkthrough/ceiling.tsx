@@ -4,10 +4,11 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Chip, ErrorState, Rule, Skeleton, Text } from '@/components/ui';
+import { PLANS } from '@/features/billing/plans';
 import { resolveIntakeCeiling } from '@/features/intake/actions';
-import { defaultKeptDraftIds, tallyOfDrafts, totalQuantity } from '@/features/intake/ceiling';
-import { countOutfits } from '@/features/closet/outfit-count';
+import { defaultKeptDraftIds, totalQuantity } from '@/features/intake/ceiling';
 import { useDrafts } from '@/features/intake/queries';
+import { ceilingCopy, ceilingRows } from '@/features/intake/walkthrough-copy';
 
 /**
  * M-07 / M-08 — the ceiling after a large voice intake.
@@ -87,31 +88,79 @@ export default function CeilingScreen() {
   if (drafts.isError) return <ErrorState title="Couldn’t load what you said" />;
 
   const total = totalQuantity(confirmed);
-  const outfitCount = countOutfits(tallyOfDrafts(confirmed));
+  // No outfit total is printed here, deliberately: the arithmetic belongs to
+  // the Reveal, after the ceiling has been resolved and the closet is settled.
+  // Quoting a count for the full spoken closet on this screen would name a
+  // figure the awake ten will not actually make.
 
   // ── M-07 ──────────────────────────────────────────────────────────────
+  //
+  // A CAPACITY FACT, NOT AN UPSELL. No tier is named, no price appears and no
+  // upgrade action is drawn — the paywall comes after the Reveal, where the
+  // reader has seen what the closet makes. That omission is deliberate and is
+  // recorded in the atlas's own deviation ledger.
   if (phase === 'ceiling') {
+    const copy = ceilingCopy(total, ceiling, PLANS.free.storedItems);
+    const rows = ceilingRows(total, ceiling, PLANS.free.storedItems);
     return (
       <View className="flex-1 bg-canvas">
-        <SafeAreaView edges={['top', 'bottom']} className="flex-1 justify-end">
-          <View className="px-gutter">
-            <View style={{ marginBottom: 10 }}>
-              <Text variant="display">
-                You own {total} {total === 1 ? 'piece' : 'pieces'}.
+        <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+          <View className="flex-1 px-gutter" style={{ paddingTop: 44 }}>
+            <Text variant="eyebrow">{copy.eyebrow}</Text>
+            <View style={{ marginTop: 10, marginBottom: 12 }}>
+              <Text variant="title" trim accessibilityRole="header" style={{ fontSize: 36 }}>
+                {copy.headline}
               </Text>
             </View>
-            <Text variant="body" className="text-muted">
-              {outfitCount > 0
-                ? `That's ${outfitCount} outfits. Cinch is holding all ${total}. Free keeps ${ceiling} of them awake.`
-                : `Cinch is holding all ${total}. Free keeps ${ceiling} of them awake.`}
+            <Text variant="note" style={{ fontSize: 17, lineHeight: 26 }}>
+              {copy.body}
             </Text>
-            <View style={{ marginTop: 24 }}>
-              <Button
-                title={`Choose which ${ceiling}`}
-                onPress={() => setPhase('picking')}
-                haptic
-              />
+
+            {/* The ruled band — values right-aligned, Medium for this closet's
+                own figures and quiet for the capacity that is merely context. */}
+            <View style={{ marginTop: 28 }}>
+              {rows.map((row) => (
+                <View key={row.label}>
+                  <Rule />
+                  <View
+                    className="flex-row items-center justify-between"
+                    style={{ paddingVertical: 12 }}>
+                    <Text variant={row.quiet ? 'note' : 'body'} style={{ fontSize: 16 }}>
+                      {row.label}
+                    </Text>
+                    <Text
+                      variant={row.quiet ? 'note' : 'heading'}
+                      style={{ fontSize: 16, fontVariant: ['tabular-nums'] }}>
+                      {row.value}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+              <Rule />
             </View>
+          </View>
+
+          <View className="px-gutter">
+            <Button
+              title={copy.primary}
+              onPress={() => setPhase('picking')}
+              haptic
+              className="self-stretch"
+            />
+            {/* The default IS a real choice, and taking it must not feel like
+                giving up: `defaultKeptDraftIds` is the same seeding the picker
+                would open on, so "let Cinch choose" and "open the picker and
+                confirm" land on identical closets. */}
+            <Button
+              title={copy.secondary}
+              variant="ghost"
+              loading={resolving}
+              onPress={() => void confirm()}
+              className="self-stretch"
+            />
+            <Text variant="note" style={{ textAlign: 'center', marginTop: 4, marginBottom: 8 }}>
+              {copy.footer}
+            </Text>
           </View>
         </SafeAreaView>
       </View>

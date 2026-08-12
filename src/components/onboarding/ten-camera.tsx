@@ -24,11 +24,19 @@ import type { TenSlot } from '@/features/onboarding/ten-slots';
 export function TenCamera({
   slot,
   slots,
+  start,
   onFilled,
   onCancel,
 }: {
   slot: TenSlot;
   slots: readonly TenSlot[];
+  /**
+   * `'library'` opens the picker on mount — the slot card's Library action and
+   * T-05's "Choose from your camera roll" both land here rather than running a
+   * second picker of their own, because the queue tracking that turns a chosen
+   * photograph into a filled slot lives in this component and nowhere else.
+   */
+  start?: 'camera' | 'library';
   /** Fires once with the new row's id — the slot's `garmentId`. */
   onFilled: (itemId: string) => void;
   onCancel: () => void;
@@ -106,6 +114,18 @@ export function TenCamera({
       if (commit(assets) > 0) track();
     });
   }, [pickFromLibrary, commit, track]);
+
+  /**
+   * One picker per mount. `start` is read through a ref rather than listed as a
+   * dependency: re-firing the picker because `library` was recreated would put
+   * a second sheet over the one the reader is already looking at.
+   */
+  const autoPicked = useRef(false);
+  useEffect(() => {
+    if (start !== 'library' || autoPicked.current) return;
+    autoPicked.current = true;
+    library();
+  }, [start, library]);
 
   return (
     <TenCameraChrome

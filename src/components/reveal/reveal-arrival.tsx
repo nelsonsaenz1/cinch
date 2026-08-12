@@ -1,20 +1,25 @@
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 
-import { canvasAlpha } from '@/components/reveal/reveal-stage';
 import { Text } from '@/components/ui/text';
 import { numberWord } from '@/features/onboarding/reveal-copy';
-import { useTheme } from '@/theme/tokens';
+import { shadow, useTheme } from '@/theme/tokens';
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /**
- * R-01 — the tenth piece settles. No number appears anywhere on this beat,
- * not greyed, not as a skeleton: "a placeholder where a computed fact will go
- * is the first small lie" (The Reveal atlas). The engine is still building the
- * count; the screen says so in words instead of guessing at digits.
+ * R-01 — the tenth piece settles. No number appears anywhere on this beat, not
+ * greyed, not as a skeleton: "a placeholder where a computed fact will go is
+ * the first small lie". The engine is still building the count; the screen says
+ * so in words instead of guessing at digits.
+ *
+ * NOT REDRAWN BY THIS ATLAS — the hallway draws R-02, R-04 and R-05 and leaves
+ * this beat alone, so its composition is unchanged. What did change is the
+ * ground under it: the stage is canvas now (see `reveal-stage.tsx`), and a beat
+ * that stayed on ink would have flashed dark for a second and then paled, which
+ * is worse than either ground on its own.
  */
 export function RevealArrival({
   otherUris,
@@ -45,11 +50,11 @@ export function RevealArrival({
               aspectRatio: 1,
               borderRadius: 12,
               overflow: 'hidden',
-              // Canvas composited over ink at low alpha, not a new hex — the
-              // atlas's `#26241F` recessed tile isn't in the reconciliation
-              // table, so it's derived from an existing token instead of
-              // typed as a new literal (free-tier-contract.md §3).
-              backgroundColor: canvasAlpha(0.06),
+              // `sand` — the deepest paper tone, which is what a recessed
+              // tile is on a canvas ground. The old value was canvas at 6%
+              // over ink, and it disappeared entirely when the stage stopped
+              // being ink.
+              backgroundColor: theme.sand,
             }}>
             {uri ? (
               <Image
@@ -69,13 +74,16 @@ export function RevealArrival({
             aspectRatio: 1,
             borderRadius: 12,
             overflow: 'hidden',
-            backgroundColor: theme.canvas,
+            backgroundColor: theme.surface,
             // Warm ink, not a neutral black — the app has no true black
             // anywhere else either (theme.ink's own docs).
             shadowColor: theme.ink,
-            shadowOpacity: 0.45,
-            shadowRadius: 22,
-            shadowOffset: { width: 0, height: 10 },
+            // The app's one elevation: the contact shadow, 0/5/11 at 16%.
+            // The old 0/10/22 at 45% was a dark-ground lift and reads as a
+            // bruise on paper.
+            shadowOpacity: 0.16,
+            shadowRadius: shadow.contact.blur,
+            shadowOffset: { width: shadow.contact.dx, height: shadow.contact.dy },
           }}>
           {lastUri ? (
             <Image
@@ -88,23 +96,17 @@ export function RevealArrival({
         </View>
       </View>
 
-      <Text
-        style={{
-          marginTop: 22,
-          fontSize: 11,
-          fontWeight: '500',
-          letterSpacing: 1.6,
-          textTransform: 'uppercase',
-          color: canvasAlpha(0.55),
-        }}>
-        {`${cap(numberWord(pieceCount))} of ${numberWord(pieceCount)}`}
-      </Text>
+      <View style={{ marginTop: 22 }}>
+        <Text variant="eyebrow">
+          {`${cap(numberWord(pieceCount))} of ${numberWord(pieceCount)}`}
+        </Text>
+      </View>
       <View style={{ marginTop: 8 }}>
-        <Text variant="display" trim style={{ color: theme.canvas }}>
+        <Text variant="display" trim>
           That&rsquo;s your closet.
         </Text>
       </View>
-      <Text style={{ marginTop: 10, fontSize: 15, lineHeight: 22, color: canvasAlpha(0.66) }}>
+      <Text variant="note" style={{ marginTop: 10, fontSize: 15 }}>
         Working out what it makes&hellip;
       </Text>
     </View>

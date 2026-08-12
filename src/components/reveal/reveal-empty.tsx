@@ -1,15 +1,25 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
-import { canvasAlpha } from '@/components/reveal/reveal-stage';
+import { Button } from '@/components/ui/button';
+import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
 import type { MissingRow } from '@/features/onboarding/reveal-copy';
 import { useTheme } from '@/theme/tokens';
 
 /**
- * R-05 — the honest failure. Zero is a legitimate count and gets the exact
- * same typographic treatment as fourteen: the same `wordmark` headline
- * `RevealCount` sets, never a smaller or apologetic register
- * (free-tier-contract.md, The Reveal atlas 02).
+ * R-05 — the honest zero.
+ *
+ * Zero is a legitimate count and gets exactly the same typographic treatment as
+ * fourteen: the same 46px serif headline, never a smaller or apologetic
+ * register. The zero prints here because it is the subject of the screen.
+ *
+ * "NEEDED" IS A WORD AND A COLOUR, never a colour alone — a reader who cannot
+ * separate oxblood from ink still has the word beside the figure.
+ *
+ * THE FRAME'S OXBLOOD IS SPENT ON THE NEEDED MARKS, so the action is INK. This
+ * is the one frame in the hallway whose primary action is not the accent, and
+ * it is the atlas's own instruction: the thing that matters on this screen is
+ * what is missing, not the button.
  */
 export function RevealEmpty({
   headline,
@@ -17,6 +27,7 @@ export function RevealEmpty({
   rows,
   fix,
   onFix,
+  onOpenToday,
 }: {
   /** "Ten pieces. No outfits yet." — from `zeroHeadline()`. */
   headline: string;
@@ -25,74 +36,60 @@ export function RevealEmpty({
   /** The smallest real fix — from `smallestFix()`; null closets never reach here. */
   fix: string | null;
   onFix: () => void;
+  onOpenToday: () => void;
 }) {
   const theme = useTheme();
 
   return (
-    <View>
-      <Text variant="wordmark" trim style={{ color: theme.canvas }} accessibilityRole="header">
-        {headline}
-      </Text>
-      <Text style={{ marginTop: 20, fontSize: 16, lineHeight: 25, color: canvasAlpha(0.7) }}>
-        {body}
-      </Text>
+    <View className="flex-1">
+      <View className="flex-1">
+        <Text variant="wordmark" trim accessibilityRole="header" style={{ fontSize: 46 }}>
+          {headline}
+        </Text>
+        <Text variant="note" style={{ marginTop: 14, fontSize: 17, lineHeight: 26 }}>
+          {body}
+        </Text>
 
-      <View
-        style={{
-          marginTop: 22,
-          borderTopWidth: 1,
-          borderTopColor: canvasAlpha(0.16),
-          paddingTop: 16,
-          gap: 10,
-        }}>
-        {rows.map((row) => (
-          <View key={row.label} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: 15, color: theme.canvas }}>{row.label}</Text>
-            <Text
-              style={{
-                fontSize: 15,
-                fontFamily: 'HelveticaNeue',
-                fontVariant: ['tabular-nums'],
-                color: row.needed ? theme.accentWarm : canvasAlpha(0.6),
-              }}>
-              {row.value}
-            </Text>
-          </View>
-        ))}
+        {/* Only the kinds that bear on the failure are listed — a closet with a
+            dress and no shoes shows Dresses and Shoes, never a Bottoms row
+            nobody's outfit needs. */}
+        <View style={{ marginTop: 26 }}>
+          {rows.map((row) => (
+            <View key={row.label}>
+              <Rule />
+              <View
+                className="flex-row items-center justify-between"
+                style={{ paddingVertical: 12 }}>
+                <Text variant="body" style={{ fontSize: 16 }}>
+                  {row.label}
+                </Text>
+                <Text
+                  variant="heading"
+                  style={{
+                    fontSize: 16,
+                    fontVariant: ['tabular-nums'],
+                    color: row.needed ? theme.accent : theme.ink,
+                  }}>
+                  {row.value}
+                </Text>
+              </View>
+            </View>
+          ))}
+          <Rule />
+        </View>
       </View>
 
-      {fix ? (
-        <View style={{ marginTop: 28 }}>
-          <Pressable
-            onPress={onFix}
-            accessibilityRole="button"
-            accessibilityLabel={fix}
-            style={{
-              // 52 and regular 17 — this is `inverse` hand-drawn (canvas
-              // ground, ink label), and board A puts it in the regular group
-              // at the grounded height. Was Medium 16 at the 44 tap floor.
-              minHeight: 52,
-              backgroundColor: theme.canvas,
-              borderRadius: 12,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            className="active:opacity-70">
-            <Text variant="body" style={{ color: theme.ink }}>
-              {fix}
-            </Text>
-          </Pressable>
-          <Text
-            style={{
-              marginTop: 10,
-              textAlign: 'center',
-              fontSize: 15,
-              color: canvasAlpha(0.6),
-            }}>
-            Or keep them — nothing is deleted
-          </Text>
-        </View>
-      ) : null}
+      <View style={{ paddingBottom: 20 }}>
+        {fix ? <Button title={fix} variant="ink" onPress={onFix} className="self-stretch" /> : null}
+        {/* Nothing is withheld by leaving: the pieces are already in the closet
+            and every other surface still works. */}
+        <Button
+          title="Open Today anyway"
+          variant="ghost"
+          onPress={onOpenToday}
+          className="self-stretch"
+        />
+      </View>
     </View>
   );
 }

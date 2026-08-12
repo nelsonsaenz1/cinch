@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, useWindowDimensions, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RevealArrival } from '@/components/reveal/reveal-arrival';
@@ -44,7 +44,6 @@ import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
 export default function RevealScreen() {
   const router = useRouter();
   const gate = useGate();
-  const { height: windowHeight } = useWindowDimensions();
   const wardrobe = useWardrobe();
   const params = useLocalSearchParams<{ redirectedDressTo?: string }>();
   const redirectedDressTo =
@@ -162,58 +161,76 @@ export default function RevealScreen() {
     );
   }
 
-  return (
-    <ScrollView className="flex-1 bg-canvas" contentContainerClassName="pb-16">
-      {/* Beats one and two fill exactly one screen — "scroll for the first
- one" only reads as an instruction if there is somewhere to scroll
-          FROM. */}
-      <View style={{ minHeight: windowHeight }}>
-        <RevealStage>
-          {count === 0 ? (
-            <RevealEmpty
-              headline={zeroHeadline(items.length)}
-              body={zeroBody(tally)}
-              rows={missingRows(tally)}
-              fix={smallestFix(tally)}
-              onFix={() => router.replace('/the-ten')}
-            />
-          ) : (
-            <RevealCount
-              headline={headline(items.length, tally)}
-              derivation={derivation}
-              chips={compositionChips(
-                tally,
-                items.some((g) => g.slot === 'outerwear'),
-                items.some((g) => g.slot === 'bag'),
-              )}
-            />
-          )}
-        </RevealStage>
-      </View>
+  // ── R-05 ────────────────────────────────────────────────────────────────
+  //
+  // One frame, no scroll: the failure, what it is missing, and the two ways
+  // forward all have to be readable at once, because a zero that has to be
+  // scrolled past to reach its fix is a zero with no fix.
+  if (count === 0) {
+    return (
+      <RevealStage>
+        <RevealEmpty
+          headline={zeroHeadline(items.length)}
+          body={zeroBody(tally)}
+          rows={missingRows(tally)}
+          fix={smallestFix(tally)}
+          // The repair loop. `?door=photograph` so The Ten opens on the grid
+          // rather than asking a reader mid-repair which door they want.
+          onFix={() => router.replace('/the-ten?door=photograph')}
+          // NOT `goToToday`: the paywall never presents on the failure path.
+          // Charging at the moment the arithmetic came back zero would be
+          // charging for the failure.
+          onOpenToday={() => router.replace('/(tabs)')}
+        />
+      </RevealStage>
+    );
+  }
 
-      {count > 0 && first ? (
-        <SafeAreaView edges={['bottom']} className="mt-8">
-          <View className="px-gutter">
-            <Text variant="eyebrow">Plate 01 · the first one</Text>
+  // ── R-02 / R-04 ─────────────────────────────────────────────────────────
+  //
+  // The count, its derivation, and the first real outfit on ONE frame. The
+  // outfit is what makes the count credible — the arithmetic is demonstrated
+  // rather than asserted — so it must not be a scroll away from the number it
+  // is evidence for.
+  return (
+    <RevealStage>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
+        <RevealCount
+          headline={headline(items.length, tally)}
+          derivation={derivation}
+          chips={compositionChips(
+            tally,
+            items.some((g) => g.slot === 'outerwear'),
+            items.some((g) => g.slot === 'bag'),
+          )}
+        />
+        {first ? (
+          <View style={{ marginTop: 24 }}>
+            <Text variant="eyebrow">The first one</Text>
+            <View style={{ marginTop: 10, marginHorizontal: -20 }}>
+              <Plate
+                outfit={first}
+                index={0}
+                occasion={context.events[0]?.title ?? null}
+                colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
+                resolveImage={resolve}
+                /* No love / not-for-me / worn here. There is no day to mark as
+                   worn yet, and the reader has not entered the app — the pills
+                   used to render live on this screen and swallow every tap. */
+                preview
+              />
+            </View>
           </View>
-          <View style={{ marginTop: 10 }}>
-            <Plate
-              outfit={first}
-              index={0}
-              occasion={context.events[0]?.title ?? null}
-              colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
-              resolveImage={resolve}
-              /* No love / not-for-me / worn here. There is no day to mark as
-                 worn yet, and the reader has not entered the app — the pills
-                 used to render live on this screen and swallow every tap. */
-              preview
-            />
-          </View>
-          <View className="px-gutter">
-            <Button title="Go to Today" onPress={() => void goToToday()} haptic />
-          </View>
-        </SafeAreaView>
-      ) : null}
-    </ScrollView>
+        ) : null}
+      </ScrollView>
+      <SafeAreaView edges={['bottom']}>
+        <Button
+          title="Open Today"
+          onPress={() => void goToToday()}
+          haptic
+          className="self-stretch"
+        />
+      </SafeAreaView>
+    </RevealStage>
   );
 }

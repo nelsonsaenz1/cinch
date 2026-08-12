@@ -8,11 +8,29 @@
 
 import type { CountedKind } from '@/features/closet/outfit-count';
 import { articleFor, numberWord, ordinalWord } from '@/features/onboarding/reveal-copy';
-import { nextSlot, settledCount, type TenSlot, type TenSlotKind } from '@/features/onboarding/ten-slots';
+import {
+  nextSlot,
+  settledCount,
+  SLOT_LABEL,
+  type RedirectOption,
+  type TenSlot,
+  type TenSlotKind,
+} from '@/features/onboarding/ten-slots';
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+/**
+ * The one title the whole hallway's ten-piece surface carries — TR-05, TR-06,
+ * T-01, T-02 and T-04 all print it, so it is written once.
+ *
+ * It replaced "The Ten", which was the flow's internal name showing through:
+ * the atlas titles every frame of this surface "Your first ten", and a screen
+ * that names itself after the spec is a screen that assumes the reader has
+ * read the spec.
+ */
+export const TEN_TITLE = 'Your first ten';
 
 export type SlotCopy = {
   /** The short phrase that follows "Slot N · " in the eyebrow and camera title. */
@@ -221,4 +239,186 @@ export function stopSheetCopy(
       `Your ${word} make ${count} outfit${count === 1 ? '' : 's'}. ` +
       'Nothing you’ve photographed goes anywhere — you can swap a piece out whenever you like.',
   };
+}
+
+// ---------------------------------------------------------------------------
+// TR-05 · the two doors
+// ---------------------------------------------------------------------------
+
+/**
+ * The door choice, drawn as peers.
+ *
+ * The acceptance criterion the atlas states for this frame is that voice and
+ * photography read as EQUAL doors, not primary and fallback — which is a claim
+ * about the words as much as the plates. Both lines are the same length, both
+ * name what the reader will actually do, and neither promises the other is
+ * slower. Kept here rather than in the component for the reason every copy
+ * module in this folder exists: the test bundler cannot parse React Native's
+ * Flow source, so anything a test reads has to live in a plain `.ts`.
+ */
+export const FIRST_TEN_DOORS = {
+  headline: 'How would you rather do this?',
+  body: 'Both get to the same closet. Photographs give Cinch the real garment; speaking gets a lot of pieces in quickly and you fix the details afterwards.',
+  photograph: {
+    name: 'Photograph them',
+    line: 'Ten named slots, one picture each. Cinch cuts each piece out and files it. You can pick from your camera roll instead.',
+    /** TR-06 draws the same door with the line cut to its first clause. */
+    shortLine: 'Ten named slots, one picture each.',
+  },
+  voice: {
+    name: 'Describe them out loud',
+    line: 'Walk your wardrobe and say what is in it. Cinch writes the list, you confirm it card by card, and photographs can come later.',
+  },
+  /**
+   * A statement of fact, not a request — the request is the consent sheet the
+   * chosen door raises. It is true of both doors: `capture.tsx` gates its first
+   * upload on `ConsentSheet`, and the walkthrough gates the microphone on the
+   * system prompt that follows its own Start.
+   */
+  footer:
+    'Whichever you choose, nothing is sent anywhere until you have said yes to it on the next screen.',
+} as const;
+
+// ---------------------------------------------------------------------------
+// TR-06 · a walkthrough left unfinished
+// ---------------------------------------------------------------------------
+
+export type ResumeCardCopy = {
+  eyebrow: string;
+  title: string;
+  body: string;
+  action: string;
+  secondary: string;
+};
+
+/**
+ * TR-06's single card. There is only ever one unfinished walkthrough, so this
+ * is a card and never a list.
+ *
+ * `weekday` is passed in already formatted. This module must not read a clock:
+ * a copy function that calls `new Date()` cannot be photographed twice with the
+ * same bytes, and the fixture routes are required to be deterministic.
+ */
+export function resumeCardCopy(
+  heard: number,
+  confirmed: number,
+  cursor: number,
+  weekday: string,
+): ResumeCardCopy {
+  return {
+    eyebrow: 'Unfinished walkthrough',
+    title: `${heard} piece${heard === 1 ? '' : 's'} heard, ${confirmed} confirmed`,
+    body: `Recorded ${weekday}. Nothing you said has gone anywhere — the rest of the list is still waiting.`,
+    // A count, never a bar. The cursor is the same figure `positionLabel`
+    // prints at the top of every procession card.
+    action: `Carry on from ${cursor} of ${heard}`,
+    // Named for what it does, not for what it destroys — the confirm sheet on
+    // the other side is where "and nothing is deleted" is stated, because that
+    // is where it becomes a decision.
+    secondary: 'Start again instead',
+  };
+}
+
+export const RESUME_HEADLINE = 'Pick up where you left off.';
+
+// ---------------------------------------------------------------------------
+// T-04 · the substitution sheet
+// ---------------------------------------------------------------------------
+
+/** "a fourth top" → "fourth top", so a sentence can put its own article on. */
+function unarticled(phrase: string): string {
+  return phrase.replace(/^an?\s+/i, '');
+}
+
+/** The label on one option row — "A fourth top", "Keep the slot open". */
+export function redirectOptionLabel(slots: readonly TenSlot[], option: RedirectOption): string {
+  return option.kind === 'open' ? 'Keep the slot open' : cap(redirectLabel(slots, option.to));
+}
+
+/** The right-hand cell of an option row. Always `countOutfits`, never a table. */
+export function outfitsCell(total: number): string {
+  return `${total} outfit${total === 1 ? '' : 's'}`;
+}
+
+/**
+ * The sentence that has to be on the sheet rather than in a footnote.
+ *
+ * The recommended redirect is an editorial judgment (see `REDIRECT_TARGETS` in
+ * `ten-slots.ts`), and it is routinely NOT the biggest number on the sheet. A
+ * recommendation that shows the smaller figure without saying why reads as
+ * either a mistake or a trick, so whenever another option out-counts the
+ * recommended one this names it in the open.
+ *
+ * Only redirects are compared. Keeping the slot open removes a garment from the
+ * plan, so it can never out-count a redirect — and "the keeping the slot open
+ * out-counts…" is not a sentence.
+ */
+export function recommendationNote(
+  slots: readonly TenSlot[],
+  options: readonly RedirectOption[],
+): string | null {
+  const recommended = options.find((o) => o.kind === 'redirect' && o.recommended);
+  if (!recommended || recommended.kind !== 'redirect') return null;
+  const bigger = options
+    .filter((o): o is Extract<RedirectOption, { kind: 'redirect' }> => o.kind === 'redirect')
+    .filter((o) => o.to !== recommended.to && o.total > recommended.total)
+    .sort((a, b) => b.total - a.total)[0];
+  if (!bigger) return null;
+
+  const rec = redirectLabel(slots, recommended.to);
+  const other = redirectLabel(slots, bigger.to);
+  return (
+    `The ${unarticled(other)} out-counts the ${unarticled(rec)}. ` +
+    `The recommendation stays as it is because Cinch builds better outfits from ${rec}, ` +
+    'not because it scores higher.'
+  );
+}
+
+/** The sheet's one filled action — it names the option it will spend. */
+export function redirectCtaLabel(slots: readonly TenSlot[], option: RedirectOption): string {
+  return option.kind === 'open'
+    ? 'Keep the slot open'
+    : `Use this slot for ${redirectLabel(slots, option.to)}`;
+}
+
+/**
+ * The sheet's way out — "Keep the dress slot".
+ *
+ * Deliberately not the same sentence as "Keep the slot open": one cancels the
+ * decline and leaves the position asking for a dress, the other spends the
+ * position on nothing. Two different outcomes never share a label.
+ */
+export function keepSlotLabel(kind: TenSlotKind): string {
+  return `Keep the ${SLOT_LABEL[kind].toLowerCase()} slot`;
+}
+
+// ---------------------------------------------------------------------------
+// T-05 · the camera is switched off
+// ---------------------------------------------------------------------------
+
+/**
+ * A denied permission is a fork, not a wall.
+ *
+ * The loudest action is the one that needs no permission at all — the library
+ * picker runs out of process, which is why `app.config.ts` suppresses
+ * `NSPhotoLibraryUsageDescription`. Settings comes second because it leaves the
+ * app, and the voice door is third because it is a different flow entirely.
+ */
+export const CAMERA_DENIED = {
+  headline: 'The camera is switched off for Cinch.',
+  body: 'You can turn it back on in Settings, or fill the ten from photographs you already have. Your camera roll needs no permission — the picker runs outside the app.',
+  library: 'Choose from your camera roll',
+  settings: 'Open Settings',
+  voice: 'Describe them out loud instead',
+} as const;
+
+/**
+ * The closing sentence that names what is kept. Omitted entirely at zero —
+ * zero is quiet, and "the no pieces you have photographed are safe" is the kind
+ * of sentence a template writes and a person never would.
+ */
+export function cameraDeniedKeepLine(filled: number): string | null {
+  if (filled <= 0) return null;
+  if (filled === 1) return 'The piece you have already photographed is safe in your closet.';
+  return `The ${numberWord(filled)} pieces you have already photographed are safe in your closet.`;
 }
