@@ -818,33 +818,31 @@
         <div style="flex:none;padding:6px 20px 0"><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:22px;background:#F0ECE3"><svg width="13" height="13" viewBox="0 0 14 14"><path d="M1 1 L13 13 M13 1 L1 13" stroke="#1C1A16" stroke-width="1.8" stroke-linecap="round"></path></svg></div></div>
         <div style="flex:none;padding:14px 24px 0">
           <div style="font-family:'Instrument Serif',serif;font-size:34px;line-height:1.08">Add clothes</div>
-          <div style="font-size:16px;line-height:1.5;color:#6B665C;margin-top:8px">150 of 150 awake pieces filed.</div>
+          <div style="font-size:16px;line-height:1.5;color:#6B665C;margin-top:8px">150 of 150 active pieces filed.</div>
         </div>
-        <div style="flex:none;padding:18px 20px 0">
-          <div style="background:#F0ECE3;border-radius:12px;padding:16px">
-            <div style="font-size:16px;font-weight:500">Your awake shelf is full</div>
-            <div style="font-size:15px;line-height:1.5;color:#6B665C;margin-top:4px">Store a piece you are not reaching for and the new one takes its place. Stored pieces keep their photographs, wear history and price.</div>
-            <div style="display:flex;gap:8px;margin-top:14px">
-              <div style="flex:1;min-height:48px;border-radius:12px;background:#1C1A16;color:#FBFAF6;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500">Choose one to store</div>
-              <div style="flex:1;min-height:48px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:15px">See stored</div>
-            </div>
+        <div style="flex:1;overflow:auto;padding:16px 20px 0;display:flex;flex-direction:column;gap:10px">
+          <div style="min-height:88px;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:16px;padding:18px;display:flex;align-items:center;gap:16px">
+            <svg width="30" height="30" viewBox="0 0 30 30" style="flex:none"><rect x="2" y="7" width="26" height="19" rx="4" stroke="#1C1A16" stroke-width="1.6" fill="none"></rect><circle cx="15" cy="16.5" r="5.6" stroke="#1C1A16" stroke-width="1.6" fill="none"></circle></svg>
+            <div><div style="font-size:18px;font-weight:500">Camera</div><div style="font-size:14px;line-height:1.45;color:#6B665C;margin-top:3px">Photograph a piece against any wall</div></div>
+          </div>
+          <div style="min-height:88px;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:16px;padding:18px;display:flex;align-items:center;gap:16px">
+            <svg width="30" height="30" viewBox="0 0 30 30" style="flex:none"><rect x="3" y="5" width="24" height="20" rx="4" stroke="#1C1A16" stroke-width="1.6" fill="none"></rect><path d="M3 20 l7 -7 5 5 4 -3 8 8" stroke="#1C1A16" stroke-width="1.6" fill="none" stroke-linejoin="round"></path><circle cx="10" cy="11" r="2" fill="#1C1A16"></circle></svg>
+            <div><div style="font-size:18px;font-weight:500">Photo library</div><div style="font-size:14px;line-height:1.45;color:#6B665C;margin-top:3px">Pick pictures you already have &mdash; no permission needed</div></div>
+          </div>
+          <div style="min-height:88px;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:16px;padding:18px;display:flex;align-items:center;gap:16px">
+            <svg width="30" height="30" viewBox="0 0 30 30" style="flex:none"><rect x="3" y="4" width="24" height="18" rx="4" stroke="#1C1A16" stroke-width="1.6" fill="none"></rect><path d="M9 26 v-4" stroke="#1C1A16" stroke-width="1.6"></path><path d="M8 10 h14 M8 15 h9" stroke="#1C1A16" stroke-width="1.6" stroke-linecap="round"></path></svg>
+            <div><div style="font-size:18px;font-weight:500">Describe it</div><div style="font-size:14px;line-height:1.45;color:#6B665C;margin-top:3px">Type what it is, or paste a product link</div></div>
+          </div>
+          <div style="min-height:88px;flex:none;background:#FFFFFF;border:1px solid rgba(28,26,22,.14);border-radius:16px;padding:18px;display:flex;align-items:center;gap:16px">
+            <svg width="30" height="30" viewBox="0 0 30 30" style="flex:none"><rect x="11" y="3" width="8" height="14" rx="4" stroke="#1C1A16" stroke-width="1.6" fill="none"></rect><path d="M6 14 a9 9 0 0 0 18 0" stroke="#1C1A16" stroke-width="1.6" fill="none"></path><path d="M15 23 v4" stroke="#1C1A16" stroke-width="1.6"></path></svg>
+            <div><div style="font-size:18px;font-weight:500">Describe by voice</div><div style="font-size:14px;line-height:1.45;color:#6B665C;margin-top:3px">Say it out loud instead of typing</div></div>
+          </div>
+          <div style="flex:none;background:#F0ECE3;border-radius:12px;padding:16px;margin-top:4px">
+            <div style="font-size:16px;font-weight:500">The active shelf is full</div>
+            <div style="font-size:15px;line-height:1.5;color:#6B665C;margin-top:4px">Adding still starts normally. Once the new photograph or description exists, Cinch asks you to store a piece you are not reaching for &mdash; nothing you just added is lost while you decide. Stored pieces keep their photographs, wear history and price.</div>
+            <div style="min-height:48px;margin-top:14px;border-radius:12px;border:1px solid rgba(28,26,22,.2);display:flex;align-items:center;justify-content:center;font-size:15px">See stored</div>
           </div>
         </div>
-        <div style="flex:none;padding:18px 20px 0;display:flex;flex-direction:column;gap:10px">
-          <div style="min-height:88px;background:#F0ECE3;border-radius:16px;padding:18px;display:flex;align-items:center;gap:16px">
-            <svg width="30" height="30" viewBox="0 0 30 30"><rect x="2" y="7" width="26" height="19" rx="4" stroke="#6B665C" stroke-width="1.6" fill="none"></rect><circle cx="15" cy="16.5" r="5.6" stroke="#6B665C" stroke-width="1.6" fill="none"></circle></svg>
-            <div><div style="font-size:18px;color:#4A463E">Camera</div><div style="font-size:14px;line-height:1.45;color:#4A463E;margin-top:3px">Opens once there is room on the shelf</div></div>
-          </div>
-          <div style="min-height:88px;background:#F0ECE3;border-radius:16px;padding:18px;display:flex;align-items:center;gap:16px">
-            <svg width="30" height="30" viewBox="0 0 30 30"><rect x="3" y="5" width="24" height="20" rx="4" stroke="#6B665C" stroke-width="1.6" fill="none"></rect><path d="M3 20 l7 -7 5 5 4 -3 8 8" stroke="#6B665C" stroke-width="1.6" fill="none" stroke-linejoin="round"></path></svg>
-            <div><div style="font-size:18px;color:#4A463E">Photo library</div><div style="font-size:14px;line-height:1.45;color:#4A463E;margin-top:3px">Opens once there is room on the shelf</div></div>
-          </div>
-          <div style="min-height:88px;background:#F0ECE3;border-radius:16px;padding:18px;display:flex;align-items:center;gap:16px">
-            <svg width="30" height="30" viewBox="0 0 30 30"><rect x="3" y="4" width="24" height="18" rx="4" stroke="#6B665C" stroke-width="1.6" fill="none"></rect><path d="M8 10 h14 M8 15 h9" stroke="#6B665C" stroke-width="1.6" stroke-linecap="round"></path></svg>
-            <div><div style="font-size:18px;color:#4A463E">Describe it</div><div style="font-size:14px;line-height:1.45;color:#4A463E;margin-top:3px">Opens once there is room on the shelf</div></div>
-          </div>
-        </div>
-        <div style="flex:1"></div>
         <div style="height:22px;flex:none;display:flex;justify-content:center;align-items:center"><div style="width:134px;height:5px;border-radius:3px;background:rgba(28,26,22,.3)"></div></div>
       </div>
       <div style="width:393px;margin-top:12px">
@@ -852,7 +850,7 @@
           <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">Swap flow, not a paywall</span>
           <span style="font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;background:#E7E2D6;border-radius:4px;padding:2px 6px;color:#4A463E">No tier or price named</span>
         </div>
-        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">At the ceiling the doors go unavailable together and state the same cause in the same words, so nothing looks broken. The recovery offered first is the one that costs nothing: store a piece and the shelf has room. No tier name, price or upgrade action appears &mdash; the capacity is arithmetic from the current plan, and membership is reached from Profile, which keeps this frame free of a second, competing decision. The fourth door is below the fold rather than removed; the list does not reorder itself when capacity changes.</div>
+        <div style="font-size:12.5px;line-height:1.55;color:#6B665C">At the ceiling all four doors stay available, in the same order and at the same weight as AC-01, because capacity is decided after the photograph or description exists, never before: acquiring is not adding, so the user cannot lose what they just captured to a door that refused to open. The full shelf is stated once, below the doors, and the recovery offered is the one that costs nothing &mdash; store a piece you are not reaching for. No tier name, price or upgrade action appears; membership is reached from Profile, which keeps this frame free of a second, competing decision. The list does not reorder itself when capacity changes. Corrected 2026-08-12 against src/app/add-clothes.tsx (W-02 standing rule), src/app/capture.tsx (held capture, settle after acquisition) and src/features/ingest/use-capture.ts (acquire versus commit); the earlier rendering disabled the doors, which contradicted shipping behaviour. Vocabulary follows the repository: active pieces.</div>
       </div>
     </div>
 
