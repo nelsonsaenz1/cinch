@@ -28,7 +28,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(18);
+select plan(24);
 
 -- ---------------------------------------------------------------------------
 -- Seed people. Helen hosts; Maria and Nina attend. Maria will block Nina, so
@@ -42,13 +42,22 @@ values ('11111111-1111-4111-8111-111111111111', 'helen@example.test'),
 
 -- `on conflict … do update`, not a plain insert: handle_new_user() is an
 -- AFTER INSERT trigger on auth.users and has ALREADY created each profile row.
-insert into profiles (user_id, display_name, username, visibility)
-values ('11111111-1111-4111-8111-111111111111', 'Helen', 'helen', 'private'),
-       ('22222222-2222-4222-8222-222222222222', 'Maria', 'maria', 'private'),
-       ('33333333-3333-4333-8333-333333333333', 'Nina',  'nina',  'private')
+-- The terms columns are not decoration: `assert_social_terms()` (20260808101000)
+-- gates every social write this file seeds through, events included, so a
+-- fixture without them fails at the first insert with `social_terms_required`.
+insert into profiles (user_id, display_name, username, visibility,
+                      social_terms_version, social_terms_at)
+values ('11111111-1111-4111-8111-111111111111', 'Helen', 'helen', 'private',
+        public.current_social_terms_version(), now()),
+       ('22222222-2222-4222-8222-222222222222', 'Maria', 'maria', 'private',
+        public.current_social_terms_version(), now()),
+       ('33333333-3333-4333-8333-333333333333', 'Nina',  'nina',  'private',
+        public.current_social_terms_version(), now())
 on conflict (user_id) do update
   set display_name = excluded.display_name, username = excluded.username,
-      visibility = excluded.visibility;
+      visibility = excluded.visibility,
+      social_terms_version = excluded.social_terms_version,
+      social_terms_at      = excluded.social_terms_at;
 
 -- One garment and one outfit each — `event_post_items` joins through both, so
 -- the garment count is what proves the projection view screens too.
@@ -219,6 +228,30 @@ select is(
   'her pick is gone from the tally the blocker reads, not merely from the names'
 );
 
+-- The ROSTER, which was the fifth read path and the one 20260807120000 left
+-- behind. Without `20260810150100_event_roster_block_filter.sql` the row below
+-- is still served: `social_profiles` screens the name and the avatar, so what
+-- the blocker gets is a nameless person seated at an event she is attending,
+-- and a going-count that includes her. This is the assertion that was missing
+-- when the migration was written, which is how it went unapplied unnoticed.
+select is(
+  (select count(*) from event_members
+    where user_id = '33333333-3333-4333-8333-333333333333'),
+  0::bigint,
+  'a blocked woman leaves the blocker''s guest list, not just the board'
+);
+select is(
+  (select count(*) from event_members),
+  2::bigint,
+  'the roster still seats the host and the blocker herself'
+);
+select is(
+  (select count(*) from event_members
+    where user_id = '22222222-2222-4222-8222-222222222222'),
+  1::bigint,
+  'her own row survives — nobody can block herself, so the screen cannot eat it'
+);
+
 -- ---------------------------------------------------------------------------
 -- The blocked woman's board. The block is one-way and silent, but the SCREEN
 -- is mutual: she is not shown the person who blocked her either.
@@ -247,6 +280,17 @@ select is(
   0::bigint,
   'and none of the blocker''s words'
 );
+select is(
+  (select count(*) from event_members
+    where user_id = '22222222-2222-4222-8222-222222222222'),
+  0::bigint,
+  'nor the blocker''s seat on the guest list — the roster screen is mutual too'
+);
+select is(
+  (select count(*) from event_members),
+  2::bigint,
+  'she keeps the host''s seat and her own'
+);
 
 -- ---------------------------------------------------------------------------
 -- The third member. A block between two attendees is invisible to everyone
@@ -273,6 +317,11 @@ select is(
   (select count(*) from event_post_items),
   3::bigint,
   'and every garment in it'
+);
+select is(
+  (select count(*) from event_members),
+  3::bigint,
+  'and the whole guest list — a quarrel between two attendees does not thin the room'
 );
 select is(
   (select votes from event_vote_counts
