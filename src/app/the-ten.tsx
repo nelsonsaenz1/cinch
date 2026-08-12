@@ -1,9 +1,10 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
+import { CameraUnavailable } from '@/components/ingest/camera-unavailable';
 import { CameraDenied } from '@/components/onboarding/camera-denied';
 import { FirstTenDoors } from '@/components/onboarding/first-ten-doors';
 import { SubstitutionSheet } from '@/components/onboarding/substitution-sheet';
@@ -13,6 +14,7 @@ import { TenStopSheet } from '@/components/onboarding/ten-stop-sheet';
 import { Text } from '@/components/ui/text';
 import { countOutfits } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
 import { useCameraAccess } from '@/features/ingest/use-camera-access';
 import { useUnfinishedWalkthrough } from '@/features/intake/queries';
 import {
@@ -222,6 +224,28 @@ export default function TheTenScreen() {
   }
 
   const filled = settledCount(slots);
+
+  // `cameraStart === 'library'` falls THROUGH to `TenCamera`, which opens the
+  // picker on mount and never touches a viewfinder. Without that the notice
+  // below would re-render itself and "Use the photo library" would be a button
+  // that did nothing — the one thing this state must not be.
+  if (cameraSlot && !CAMERA_AVAILABLE && cameraStart !== 'library') {
+    // CP-04 inside The Ten. The guided walk keeps running: the library door is
+    // the one the atlas already offers on every slot card, so this hands the
+    // slot back rather than ending the session — nothing filed is affected and
+    // the other nine slots are unchanged.
+    return (
+      <SafeAreaView className="flex-1 bg-canvas">
+        <View className="mt-10">
+          <CameraUnavailable
+            onLibrary={() => setCameraStart('library')}
+            onDescribe={() => router.replace('/add-clothes?door=describe' as Href)}
+            onHelp={() => router.replace('/help' as Href)}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (cameraSlot) {
     return (

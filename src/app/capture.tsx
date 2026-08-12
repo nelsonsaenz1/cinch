@@ -1,7 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { CameraView } from 'expo-camera';
 import { Image } from 'expo-image';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
@@ -14,7 +13,12 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { CameraAsk } from '@/components/ingest/camera-ask';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
+import { CameraUnavailable } from '@/components/ingest/camera-unavailable';
 import { CutoutFailedNotice } from '@/components/ingest/cutout-failed-notice';
+import {
+  DeferredCameraView,
+  type CameraViewHandle,
+} from '@/components/ingest/lazy-camera-view';
 import { GarmentSearchSheet } from '@/components/ingest/garment-search-sheet';
 import { UploadQueueList } from '@/components/ingest/upload-queue-list';
 import { ListingOffer } from '@/components/match/listing-offer';
@@ -39,6 +43,7 @@ import {
 } from '@/features/ingest/queue-count';
 import { useCapture, type CapturedAsset } from '@/features/ingest/use-capture';
 import { useWardrobe } from '@/features/styling/queries';
+import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
 import { cutoutFailures } from '@/features/ingest/cutout-failure';
 import {
   useQueueStore,
@@ -289,7 +294,50 @@ function QueueCount({ facts }: { facts: QueueFacts }) {
 /** The three ways a garment gets into the closet from this screen. */
 type CaptureAction = 'library' | 'camera' | 'describe';
 
-export default function CaptureScreen() {
+/**
+ * The route's guard, and the only thing expo-router mounts.
+ *
+ * A wrapper rather than an early return inside `CaptureScreen`: that component
+ * opens with a long run of hooks, and a return above them would make every one
+ * of them conditional. `CAMERA_AVAILABLE` is a module constant that cannot
+ * change during a session, so this branch is stable for the life of the process
+ * and the screen below keeps its hook order exactly as it was.
+ */
+export default function CaptureRoute() {
+  const router = useRouter();
+  if (!CAMERA_AVAILABLE) {
+    // CP-04, drawn here rather than redirected to `/camera-unavailable`: this
+    // route was reached directly — a deep link, a notification, a restored
+    // session — and bouncing somebody to a second route would lose the Close
+    // that takes them back where they came from.
+    return (
+      <SafeAreaView className="flex-1 bg-canvas">
+        <View className="flex-row justify-start px-gutter pt-6">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            hitSlop={12}
+            onPress={() => router.back()}
+            className="py-1 active:opacity-60">
+            <Text variant="body" className="font-semibold">
+              Close
+            </Text>
+          </Pressable>
+        </View>
+        <View className="mt-8">
+          <CameraUnavailable
+            onLibrary={() => router.replace('/add-clothes?door=library' as Href)}
+            onDescribe={() => router.replace('/add-clothes?door=describe' as Href)}
+            onHelp={() => router.replace('/help' as Href)}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+  return <CaptureScreen />;
+}
+
+function CaptureScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
@@ -304,7 +352,7 @@ export default function CaptureScreen() {
    * is that the user is told what the next prompt is before it appears.
    */
   const { access, request: askForCamera, openSettings } = useCameraGate();
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<CameraViewHandle>(null);
   // `takePictureAsync` before the session is up returns the last frame on iOS,
   // which for a session that never started is nothing at all.
   const [sessionReady, setSessionReady] = useState(false);
@@ -937,7 +985,7 @@ export default function CaptureScreen() {
           ) : (
             <View className="mx-4 my-2 flex-1 items-center justify-center overflow-hidden rounded-plate">
               {live ? (
-                <CameraView
+                <DeferredCameraView
                   ref={cameraRef}
                   style={StyleSheet.absoluteFill}
                   facing="back"

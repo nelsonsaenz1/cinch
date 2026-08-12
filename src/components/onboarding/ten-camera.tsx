@@ -1,7 +1,7 @@
-import { CameraView } from 'expo-camera';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { DeferredCameraView, type CameraViewHandle } from '@/components/ingest/lazy-camera-view';
 import { TenCameraChrome } from '@/components/onboarding/ten-camera-chrome';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useCameraAccess } from '@/features/ingest/use-camera-access';
@@ -49,7 +49,7 @@ export function TenCamera({
    * T-06's stop, which happens after this screen, not inside it.
    */
   const { pickFromLibrary, takePhoto, commit } = useCapture();
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<CameraViewHandle>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [shooting, setShooting] = useState(false);
@@ -146,7 +146,7 @@ export function TenCamera({
             />
           </View>
         ) : live ? (
-          <CameraView
+          <DeferredCameraView
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             facing="back"
