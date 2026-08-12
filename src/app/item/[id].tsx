@@ -106,11 +106,20 @@ function addedOn(iso: string | null): string | null {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/** How long since it was last on. Honest when never. */
-function sinceLastWorn(item: Item): string {
-  if (!item.lastWornAt || item.wearCount === 0) return 'Never';
+/**
+ * How long since it was last on — or NULL, which removes the cell.
+ *
+ * Two returns changed in Wave 3. "Never" is gone because the wear cell beside
+ * this one already says it (IT-02 prints the word there), and a band saying
+ * "Never" twice is one fact spent as two columns. The em dash is gone because
+ * the constitution refuses it outright: a figure is "printed when known or
+ * omitted — never estimated, never a dash". An unparseable date is not a
+ * known figure, so its cell simply does not exist.
+ */
+function sinceLastWorn(item: Item): string | null {
+  if (!item.lastWornAt || item.wearCount === 0) return null;
   const then = new Date(item.lastWornAt).getTime();
-  if (Number.isNaN(then)) return '—';
+  if (Number.isNaN(then)) return null;
   const days = Math.floor((Date.now() - then) / 86_400_000);
   if (days <= 0) return 'Today';
   if (days === 1) return '1d';
@@ -917,6 +926,35 @@ export default function ItemDetailScreen() {
             neverWorn={neverWorn}
           />
         </View>
+
+        {/*
+          IT-02's tray, and only in IT-02's condition.
+
+          The band above drops its cost cell when there is no price to divide,
+          which is right and also silent — a reader sees two columns and has no
+          way to know a third was available to them. The atlas answers that
+          with a tray under the band that "explains what adding a price would
+          buy and what it would not, so the omission is a choice the user can
+          act on rather than a gap".
+
+          Both sentences are the frame's. The second one matters more than it
+          looks: "Cinch does not guess what you paid" is the refusal about
+          estimated figures, stated to the person it protects.
+
+          Gated on the price alone, not on the wear count: a piece that has
+          been worn forty times and still has no price is the reader with the
+          most to gain from filling it in.
+        */}
+        {item.purchasePrice === null ? (
+          <View className="mx-gutter mt-4 rounded-md bg-tray p-3.5">
+            <Text variant="label" className="text-ink">
+              Add a price to see cost per wear
+            </Text>
+            <Text variant="note" className="mt-1">
+              Cinch does not guess what you paid. Nothing else about this piece depends on it.
+            </Text>
+          </View>
+        ) : null}
 
         <BorrowableCard
           value={borrowable.data}

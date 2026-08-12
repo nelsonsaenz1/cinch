@@ -8,7 +8,6 @@ import {
   type GarmentSearchFlowView,
 } from '@/components/ingest/garment-search-sheet';
 import { Text } from '@/components/ui/text';
-import { useTheme } from '@/theme/tokens';
 
 /**
  * Describe fixture — `cinch://dev-describe`.
@@ -118,15 +117,10 @@ function pose(overrides: Partial<GarmentSearchFlowView>): GarmentSearchFlowView 
 
 /** The atlas ID strip above each page's sheet. */
 function AtlasLabel({ id, name }: { id: string; name: string }) {
-  const theme = useTheme();
   return (
     <View className="flex-row items-baseline gap-2 px-gutter pt-2">
-      <Text variant="caption" style={{ color: theme.faint }}>
-        {id}
-      </Text>
-      <Text variant="caption" style={{ color: theme.faint }}>
-        {name}
-      </Text>
+      <Text variant="caption">{id}</Text>
+      <Text variant="caption">{name}</Text>
     </View>
   );
 }

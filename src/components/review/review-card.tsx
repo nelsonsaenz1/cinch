@@ -15,7 +15,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Swatch } from '@/components/ui/swatch';
@@ -38,6 +37,14 @@ const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
  * brighter success green. Local because no other surface draws a drag outcome.
  */
 const CONFIRM_OVERLAY_GREEN = '#3E6B4A';
+
+/**
+ * RV-01's action height. Both peers take it, so neither can end up the taller
+ * one — the deviation ledger records "Skip lighter than Looks right" as the
+ * fault this replaces, and a difference in height is a difference in weight
+ * whatever the fill says.
+ */
+const ACTION_HEIGHT = 52;
 
 const CATEGORY_OPTIONS: { key: ItemCategory; label: string }[] = [
   // "Tops", plural, matches the handoff's exact "Tops · Knitwear" (Frame 08)
@@ -349,18 +356,40 @@ export function ReviewCard({
             showsVerticalScrollIndicator={false}
             contentContainerClassName="p-5"
             contentContainerStyle={{ flexGrow: 1 }}>
-            <Text variant="title" trim>
-              Is this right?
+            {/* RV-01 names the PIECE, not the question. "Is this right?" was
+                the same sentence on every card in the deck; the garment's own
+                name is the thing that changes, and it is what the two actions
+                at the foot are a verdict about. */}
+            <Text variant="title" trim numberOfLines={2}>
+              {item.subcategory ?? item.category}
             </Text>
-            {/* Tone inline rather than a stacked `text-faint` over the label
- variant's `text-muted` — see the note on the confirm button
-                below for why a second colour class is not a reliable override.*/}
-            <Text variant="note" className="mb-4 mt-1.5" style={{ color: theme.faint }}>
-              My best guess — correct anything that&rsquo;s off.
+            {/* RV-01's own sentence, in `note` — 13px prose in the regular
+                cut, `muted`, with NO second colour on top of it. It carried an
+                inline `faint` until Wave 3: #8A8578 is 3.52:1 on this surface,
+                and the constitution's refusal is unconditional ("NEVER #8A8578
+                as text"). `muted` is the frame's secondary colour and the
+                variant already ships it, so the override is deleted rather
+                than re-toned — the register is the variant's job. */}
+            <Text variant="note" className="mb-4 mt-1.5">
+              Cinch read this from your photograph.
             </Text>
 
-            {/* Cleaned-up photo */}
-            <View className="mb-4 h-44 w-full items-center justify-center overflow-hidden rounded-plate bg-tray">
+            {/*
+              AUDIT 72 — THE GARMENT SITS BESIDE ITS GUESSED FIELDS.
+
+              "the garment and its three guessed fields sit side by side rather
+              than stacked, which buys back 116 pt, and the two actions land 68
+              pt under the last field instead of at the bottom of a tall sheet."
+              That is the whole geometry change: the decision moves up to sit
+              beside the thing being decided, and nothing lands below the fold.
+
+              The well keeps `contain` and the tray ground — a cutout on a
+              coloured field is the one thing that would tint a garment.
+            */}
+            <View className="mb-4 flex-row items-start gap-4">
+            <View
+              className="items-center justify-center overflow-hidden rounded-plate bg-tray"
+              style={{ width: 132, height: 160 }}>
               {photoSource ? (
                 <Image
                   source={photoSource}
@@ -377,18 +406,22 @@ export function ReviewCard({
                   resizeMode="scaleAspectFit"
                 />
               )}
+            </View>
 
               {/*
                 Drag intent — visible only while the card is being dragged.
+
+                MOVED OUT OF THE PHOTO WELL. The well is 132pt wide since the
+                garment came to sit beside its fields, and a 12pt-inset pill
+                inside it had nowhere to go. The pills now ride the whole
+                side-by-side row, which is the region the gesture actually acts
+                on.
 
                 STYLE, NOT className. NativeWind's interop registers React
                 Native primitives only, so a `className` on a Reanimated
                 component is silently dropped — no warning, nothing to debug.
                 These two pills carried their ENTIRE appearance in classes, so
-                they were rendering unpositioned, unpadded and untinted: two
-                bare words in normal flow inside the photo well, fading in and
-                out with the drag. The "see the outcome while you drag" idea was
-                never actually on screen.
+                they were rendering unpositioned, unpadded and untinted.
 
                 THE GREEN IS THE ATLAS'S, not the theme's `positive`. The state
                 atlas draws this pill in #3E6B4A — the one place another hue is
@@ -402,8 +435,8 @@ export function ReviewCard({
                 style={[
                   {
                     position: 'absolute',
-                    right: 12,
-                    top: 12,
+                    right: 0,
+                    top: 8,
                     borderRadius: 12,
                     backgroundColor: CONFIRM_OVERLAY_GREEN,
                     paddingHorizontal: 12,
@@ -420,8 +453,8 @@ export function ReviewCard({
                 style={[
                   {
                     position: 'absolute',
-                    left: 12,
-                    top: 12,
+                    left: 0,
+                    top: 8,
                     borderRadius: 12,
                     backgroundColor: theme.muted,
                     paddingHorizontal: 12,
@@ -434,108 +467,100 @@ export function ReviewCard({
                   Skip
                 </Text>
               </Animated.View>
+
+              {/* The three guessed fields, beside the garment. Read-outs: the
+                  corrections are the named chips under the row, per RV-01, so
+                  "no user has to audit a form to find what is wrong." */}
+              <View className="flex-1">
+                <FieldRow label="Category" value={categoryValue} hedged={isUncategorised} />
+                <FieldRow label="Colour" value={coloursValue} swatchHex={colours[0]?.hex ?? null} />
+                <FieldRow label="Fabric" value={detailsValue} last />
+              </View>
             </View>
 
-            {/* Category / Colours / Details — a colophon label, the value
-                beneath it, and a hairline divider between rows. The accent
- "Edit" appears only on the rows that can actually be patched
-                (Category, Price); Colours and Details are read-outs. */}
-            <ReviewRow
-              label="Category"
-              expanded={openEditor === 'category'}
-              onToggleEdit={() => setOpenEditor((cur) => (cur === 'category' ? null : 'category'))}
-              expandedContent={
-                <>
-                  {CATEGORY_OPTIONS.map((c) => (
-                    <Chip
-                      key={c.key}
-                      label={c.label}
-                      selected={category === c.key}
-                      // Ink, not accent (atlas R-05): the oxblood on this card
-                      // is already spent on Edit, and a selected chip is a
-                      // state, not another invitation.
-                      selectedGround="ink"
-                      onPress={() => {
-                        onEditCategory(c.key);
-                        setOpenEditor(null);
-                      }}
-                    />
-                  ))}
-                </>
-              }>
-              <Text
-                variant="callout"
-                numberOfLines={1}
-                style={isUncategorised ? { color: theme.faint } : undefined}>
-                {categoryValue}
-              </Text>
-            </ReviewRow>
+            {/*
+              RV-01's correction chips — "each one opens the relevant editor".
 
-            <ReviewRow label="Colours">
-              <View className="flex-row items-center gap-2">
-                {colours.map((c, i) => (c.hex ? <Swatch key={`${c.name}-${i}`} hex={c.hex} size={18} /> : null))}
-                <Text variant="callout" numberOfLines={1} className="shrink">
-                  {coloursValue}
-                </Text>
-              </View>
-            </ReviewRow>
+              TWO CHIPS, NOT THE FRAME'S THREE. The frame draws Change category,
+              Change colour and Add a price. This card can patch category and
+              price and nothing else (`useVerifyItem`), and the rule the card
+              already held is the right one: a control whose tap does nothing
+              reads as broken, which is worse than its absence. The colour chip
+              is therefore not drawn rather than drawn dead. Recorded as a
+              deviation in the report.
 
-            <ReviewRow label="Details">
-              <Text variant="callout" numberOfLines={2}>
-                {detailsValue}
-              </Text>
-            </ReviewRow>
+              The chips are `Chip` at the shared 12pt radius — labelled controls
+              are 12, never capsules.
+            */}
+            <View className="mt-4 flex-row flex-wrap gap-1.5">
+              <Chip
+                label="Change category"
+                selected={openEditor === 'category'}
+                selectedGround="ink"
+                onPress={() => setOpenEditor((cur) => (cur === 'category' ? null : 'category'))}
+              />
+              <Chip
+                label={price != null ? 'Change price' : 'Add a price'}
+                selected={openEditor === 'price'}
+                selectedGround="ink"
+                onPress={() => setOpenEditor((cur) => (cur === 'price' ? null : 'price'))}
+              />
+            </View>
 
-            {/* Price — the one field on this card the tagger cannot guess, and
-                the one that unlocks cost per wear. Optional, and it stays
-                optional: skipping it costs the user nothing but the number. */}
-            <ReviewRow
-              label="Price"
-              isLast
-              expanded={openEditor === 'price'}
-              onToggleEdit={() => setOpenEditor((cur) => (cur === 'price' ? null : 'price'))}
-              expandedContent={
-                <View
-                  className="w-full flex-row items-center rounded-md border border-rule px-3"
-                  style={{ minHeight: MIN_TAP_TARGET }}>
-                  <Text variant="callout" className="text-faint">
-                    $
-                  </Text>
-                  <TextInput
-                    value={priceDraft}
-                    onChangeText={(next) => {
-                      setPriceDraft(next);
-                      onEditPrice(parsePrice(next));
+            {/* The editor the chip opened, in place under the chips. */}
+            {openEditor === 'category' ? (
+              <View className="mt-3 flex-row flex-wrap gap-1.5">
+                {CATEGORY_OPTIONS.map((c) => (
+                  <Chip
+                    key={c.key}
+                    label={c.label}
+                    selected={category === c.key}
+                    // Ink, not accent (atlas R-05): the oxblood on this card is
+                    // spent on the accepting action, and a selected chip is a
+                    // state, not another invitation.
+                    selectedGround="ink"
+                    onPress={() => {
+                      onEditCategory(c.key);
+                      setOpenEditor(null);
                     }}
-                    // Decimal pad, not numeric: there is no return key to lose
-                    // (the row's own Done closes it) and no reason to offer
-                    // anything but digits and a point.
-                    keyboardType="decimal-pad"
-                    inputMode="decimal"
-                    // The atlas draws the caret in the accent (R-06) — the
-                    // system-blue default is the one foreign colour this card
-                    // could otherwise show.
-                    selectionColor={theme.accent}
-                    autoFocus
-                    placeholder="0"
-                    placeholderTextColor={theme.faint}
-                    accessibilityLabel="Price paid, in dollars"
-                    returnKeyType="done"
-                    onSubmitEditing={() => setOpenEditor(null)}
-                    className="ml-1 flex-1 font-body text-callout text-ink"
-                    style={{ minHeight: MIN_TAP_TARGET, color: theme.ink }}
                   />
-                </View>
-              }>
-              {/* The unanswered price is an invitation, so it takes the faint
-                  register the atlas gives every placeholder value. */}
-              <Text
-                variant="callout"
-                numberOfLines={1}
-                style={price == null ? { color: theme.faint } : undefined}>
-                {price != null ? formatPrice(price) : 'Add it for cost per wear'}
-              </Text>
-            </ReviewRow>
+                ))}
+              </View>
+            ) : null}
+
+            {openEditor === 'price' ? (
+              <View
+                className="mt-3 w-full flex-row items-center rounded-md border border-rule px-3"
+                style={{ minHeight: MIN_TAP_TARGET }}>
+                <Text variant="callout" className="text-muted">
+                  $
+                </Text>
+                <TextInput
+                  value={priceDraft}
+                  onChangeText={(next) => {
+                    setPriceDraft(next);
+                    onEditPrice(parsePrice(next));
+                  }}
+                  // Decimal pad, not numeric: there is no return key to lose
+                  // (the chip above closes it) and no reason to offer anything
+                  // but digits and a point.
+                  keyboardType="decimal-pad"
+                  inputMode="decimal"
+                  // The atlas draws the caret in the accent (R-06) — the
+                  // system-blue default is the one foreign colour this card
+                  // could otherwise show.
+                  selectionColor={theme.accent}
+                  placeholder="0"
+                  placeholderTextColor={theme.muted}
+                  autoFocus
+                  accessibilityLabel="Price paid, in dollars"
+                  returnKeyType="done"
+                  onSubmitEditing={() => setOpenEditor(null)}
+                  className="ml-1 flex-1 font-body text-callout text-ink"
+                  style={{ minHeight: MIN_TAP_TARGET, color: theme.ink }}
+                />
+              </View>
+            ) : null}
 
             {/*
               The footnote, and only ever a footnote.
@@ -548,54 +573,74 @@ export function ReviewCard({
               apology. Rendered only when there is something to admit.
             */}
             {gapNote ? (
-              <Text variant="caption" className="mt-3" style={{ color: theme.faint }}>
+              <Text variant="caption" className="mt-3">
                 {gapNote}
               </Text>
             ) : null}
 
             {/*
-              The swipe is the fast path, not the only path. A pan gesture is
+              AUDIT 72 — TWO PEERS OF EQUAL WEIGHT, AND THE CONSEQUENCE PRINTED.
+
+              "Skip and Looks right are both 52 pt and both full half-width
+              peers; only the accepting one is filled, and the consequence of
+              skipping is printed under them rather than discovered afterwards."
+
+              Both are hand-built rather than one `Button` beside one `Pressable`
+              — that pairing let the two controls take different intrinsic
+              heights, which is exactly the "Skip lighter than Looks right"
+              the deviation ledger records. Same height, same width, same type
+              size; the fill is the only difference, which is what makes it read
+              as a difference in outcome rather than in importance.
+
+              The swipe is the fast path, not the only path: a pan gesture is
               unavailable to VoiceOver and Switch Control, and awkward one-handed
-              on a large phone, so both outcomes also exist as ordinary buttons.
-              Hints spell out the consequence because "Skip" alone does not say
-              whether the item comes back.
+              on a large phone.
             */}
-            <View className="mt-auto flex-row items-center gap-2.5 border-t border-hairline pt-4">
-              <Button
-                title="Skip"
-                variant="secondary"
-                onPress={skip}
-                accessibilityHint="Leaves the tags unconfirmed. This item returns next time you review."
-              />
-              {/*
-                Not the shared Button: its "primary" variant is the oxblood
-                accent, and this screen spends that accent on the "Edit"
-                affordances above — the deck's one invitation to correct
-                something, and now its ONLY accent (the progress pip above the
-                card used to take a second helping and is ink again). The one
-                confirming action here is ink-filled instead — the
- "ink-selected" treatment the design system reserves for exactly
-                this case, hand-built rather than repurposing a component whose
-                whole job is guarding the accent.
-              */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityHint="Marks these tags as correct and removes the item from the review queue."
-                onPress={confirmFromButton}
-                hitSlop={{ top: 4, bottom: 4 }}
-                style={{ minHeight: MIN_TAP_TARGET }}
-                className="flex-1 flex-row items-center justify-center rounded-md bg-ink px-5 active:opacity-70">
-                {/* Inline style, not `text-canvas`. Two colour utilities on one
-                    element are resolved by their order in the GENERATED
-                    stylesheet — the order of the palette in tailwind.config.js
-                    — not by which the call site wrote last, so `text-canvas`
-                    here would lose to the variant's `text-ink` (canvas is
-                    declared first, ink later) and the label would vanish into
-                    the ink fill. Same trap as the item-detail hero tile. */}
-                <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
-                  Looks right
-                </Text>
-              </Pressable>
+            <View className="mt-auto border-t border-hairline pt-4">
+              <View className="flex-row items-center gap-2.5">
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Skip for now"
+                  accessibilityHint="Leaves the tags unconfirmed. This item returns next time you review."
+                  onPress={skip}
+                  style={{ height: ACTION_HEIGHT }}
+                  className="flex-1 items-center justify-center rounded-md border border-rule active:opacity-70">
+                  {/* Regular weight — the constitution reserves Medium for
+                      labels and FILLED actions, and this one is outlined. */}
+                  <Text variant="body" className="text-ink">
+                    Skip for now
+                  </Text>
+                </Pressable>
+                {/*
+                  Not the shared Button: its "primary" variant is the oxblood
+                  accent, and the accepting action here is ink-filled instead —
+                  the "ink-selected" treatment the design system reserves for
+                  exactly this case, hand-built rather than repurposing a
+                  component whose whole job is guarding the accent.
+                */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Looks right"
+                  accessibilityHint="Marks these tags as correct and removes the item from the review queue."
+                  onPress={confirmFromButton}
+                  style={{ height: ACTION_HEIGHT }}
+                  className="flex-1 items-center justify-center rounded-md bg-ink active:opacity-70">
+                  {/* Inline style, not `text-canvas`. Two colour utilities on one
+                      element are resolved by their order in the GENERATED
+                      stylesheet — the order of the palette in tailwind.config.js
+                      — not by which the call site wrote last, so `text-canvas`
+                      here would lose to the variant's `text-ink` (canvas is
+                      declared first, ink later) and the label would vanish into
+                      the ink fill. Same trap as the item-detail hero tile. */}
+                  <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                    Looks right
+                  </Text>
+                </Pressable>
+              </View>
+              {/* Printed under them, not discovered afterwards. */}
+              <Text variant="note" className="mt-2.5">
+                Skipping keeps the piece and the photograph. It comes back to this queue.
+              </Text>
             </View>
           </KeyboardAwareScrollView>
         </View>
@@ -605,56 +650,44 @@ export function ReviewCard({
 }
 
 /**
- * One Category/Colours/Details/Price row: a tracked colophon label, the value
- * beneath it, and a hairline under all but the last row. Supplying
- * `onToggleEdit` (Category, Price) is what puts the accent "Edit" on the row —
- * a real control that reveals `expandedContent` (a chip grid, or a field) in
- * place. Rows without one (Colours, Details) carry no affordance at all: the
- * review pipeline can patch only category and price (see `useVerifyItem`),
- * and an "Edit" that a tap does nothing with reads as broken.
+ * One guessed field, beside the garment: a tracked label and the value under it.
+ *
+ * A READ-OUT, WITH NO AFFORDANCE OF ITS OWN. The row used to carry an accent
+ * "Edit" on the two fields the pipeline can patch; RV-01 moves correction into
+ * named chips under the whole block instead, "so no user has to audit a form to
+ * find what is wrong". That also removes the last reason for a per-row control
+ * that some rows had and others did not.
+ *
+ * `hedged` tones the value to `muted` when the guess is an unanswered one. It
+ * is never `faint`: RV-02's rule is that uncertainty is written into the WORD,
+ * never into the contrast.
  */
-function ReviewRow({
+function FieldRow({
   label,
-  children,
-  expanded = false,
-  onToggleEdit,
-  expandedContent,
-  isLast = false,
+  value,
+  hedged = false,
+  last = false,
+  swatchHex = null,
 }: {
   label: string;
-  children: React.ReactNode;
-  expanded?: boolean;
-  onToggleEdit?: () => void;
-  expandedContent?: React.ReactNode;
-  isLast?: boolean;
+  value: string;
+  hedged?: boolean;
+  last?: boolean;
+  /** The colour row's second channel — the value is never colour alone. */
+  swatchHex?: string | null;
 }) {
   return (
-    <View className={isLast ? '' : 'mb-3 border-b border-hairline pb-3'}>
-      <View className="flex-row items-center justify-between">
-        <View className="flex-1 pr-3">
-          <Text variant="colophon">{label}</Text>
-          <View className="mt-1">{children}</View>
-        </View>
-        {onToggleEdit ? (
-          <Pressable
-            onPress={onToggleEdit}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityState={{ expanded }}
-            accessibilityLabel={`Edit ${label.toLowerCase()}`}
-            // The one control on this card with no pressed state at all — it
-            // was a bare text node, so a tap that opened a chip grid below the
-            // fold looked like a tap that did nothing.
-            className="active:opacity-60">
-            <Text variant="label" className="text-accent">
-              {expanded ? 'Done' : 'Edit'}
-            </Text>
-          </Pressable>
-        ) : null}
+    <View className={last ? '' : 'mb-2.5 border-b border-hairline pb-2.5'}>
+      <Text variant="colophon">{label}</Text>
+      <View className="flex-row items-center gap-2">
+        {swatchHex ? <Swatch hex={swatchHex} size={14} /> : null}
+        <Text
+          variant="callout"
+          numberOfLines={2}
+          className={`flex-1 ${hedged ? 'text-muted' : ''}`}>
+          {value}
+        </Text>
       </View>
-      {onToggleEdit && expanded ? (
-        <View className="mt-3 flex-row flex-wrap gap-1.5">{expandedContent}</View>
-      ) : null}
     </View>
   );
 }

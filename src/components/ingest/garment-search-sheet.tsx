@@ -163,7 +163,7 @@ export function GarmentSearchSheetBody({
       <View className="flex-row items-start justify-between px-gutter pt-6">
         <View className="flex-1 pr-4">
           <Text variant="title" trim>
-            Describe it instead
+            Describe a piece
           </Text>
         </View>
         <Pressable
@@ -186,18 +186,36 @@ export function GarmentSearchSheetBody({
         contentContainerClassName={footer ? 'grow px-gutter pb-6 pt-4' : 'px-gutter pb-10 pt-4'}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
+        {/* AUDIT 70 — ONE SENTENCE, NOT THREE.
+
+            The old opening ran to three sentences and the field under it
+            reserved half a screen for prose nobody writes. The frame's reading:
+            "the old half-screen text area reserved room for prose nobody
+            writes, and this one grows a line at a time as it is needed." */}
         <Text variant="body" className="text-muted">
-          Say what it is — the brand, the kind of garment, the colour. Or paste the link to it
-          from a shop. Cinch finds the picture; you say whether it{'’'}s the right one.
+          Type what it is, or paste a link to the product page.
         </Text>
 
-        <View className="mt-5 rounded-plate border border-rule px-4 py-3">
+        {/* AUDIT 71 — THE FIELD NAMES BOTH ITS JOBS, TWICE.
+
+            Once in the sentence above and once in this label, "so the purpose
+            is understood without reading a paragraph." The label is a true
+            label (Medium, tracked), which is what `colophon` is. */}
+        <Text variant="colophon" className="mt-5">
+          Description or product link
+        </Text>
+
+        <View className="mt-1.5 rounded-plate border border-rule px-4 py-3">
           <TextInput
             accessibilityLabel="What is the garment, or a link to it"
             value={flow.description}
             onChangeText={flow.setDescription}
             placeholder={PLACEHOLDER}
-            placeholderTextColor={theme.faint}
+            // `muted`, not `faint`. A placeholder is the only text in an empty
+            // field, and DS-01 makes it carry one of the field's two jobs
+            // ("Type what it is, or paste a link"): #8A8578 is 3.52:1 here and
+            // the constitution refuses it outright.
+            placeholderTextColor={theme.muted}
             // A pasted product URL is far longer than any description. The
             // ceiling follows whichever the field is currently holding, so
             // pasting is never silently truncated mid-URL — which would
@@ -213,19 +231,39 @@ export function GarmentSearchSheetBody({
             // The field carries body type like everything else; the colour is
             // inline because NativeWind gives no guaranteed precedence
             // between two text utilities on one element.
-            style={{ color: theme.ink, fontSize: 17, minHeight: 66, textAlignVertical: 'top' }}
+            // 88pt, and it GROWS: `minHeight` is a floor, not a height, so a
+            // multiline field takes another line as it is needed rather than
+            // reserving screen for text nobody has typed (audit 70).
+            style={{ color: theme.ink, fontSize: 17, minHeight: 88, textAlignVertical: 'top' }}
           />
         </View>
 
-        {/* The recognition line. It appears only when the field holds a URL,
-            and it names the shop rather than echoing the link back — the host
-            is the part a person can actually check at a glance, and a
-            wrapped 200-character tracking URL is noise they cannot read. */}
+        {/* DS-02 — THE RECOGNITION NOTICE.
+
+            It appears only when the field holds a URL, and it names the shop
+            rather than echoing the link back: the host is the part a person can
+            actually check at a glance, and a wrapped 200-character tracking URL
+            is noise they cannot read.
+
+            The three sentences under it are the frame's, and each one is doing
+            work. "Cinch will read the name, colour and picture from the page" is
+            what happens; "it does not order anything and does not follow the
+            retailer's link" is the thing a person who just pasted a shop URL is
+            actually worried about. NO AFFILIATE LANGUAGE BELONGS HERE — this is
+            intake of a piece the user already owns, so there is no "Paid link"
+            marker and no merchant row. Those exist only in the Gap Feed's
+            commerce sheet. */}
         {isLink ? (
-          <View className="mt-3 flex-row items-center gap-2">
-            <SymbolView name="link" size={14} tintColor={theme.muted} resizeMode="scaleAspectFit" />
-            <Text variant="label" className="flex-1" numberOfLines={1}>
-              Link from {flow.link?.host}
+          <View className="mt-3 rounded-md bg-tray p-3.5">
+            <View className="flex-row items-center gap-2">
+              <SymbolView name="link" size={14} tintColor={theme.ink} resizeMode="scaleAspectFit" />
+              <Text variant="label" className="flex-1 text-ink" numberOfLines={1}>
+                That is a product page — {flow.link?.host}
+              </Text>
+            </View>
+            <Text variant="note" className="mt-1.5">
+              Cinch will read the name, colour and picture from the page and file it as yours. It
+              does not order anything and does not follow the retailer{'’'}s link.
             </Text>
           </View>
         ) : null}
@@ -267,28 +305,79 @@ export function GarmentSearchSheetBody({
           </Pressable>
         )}
 
-        {/* One primary at a time. While a preview is on screen the Add button
-            inside it is the call to action, so this one steps back to a
-            secondary rather than competing with it in oxblood. */}
-        <Button
-          title={
-            flow.resolving
-              ? 'Opening'
-              : flow.searching
-                ? 'Looking'
-                : isLink
-                  ? 'Open this link'
-                  : 'Find it'
-          }
-          variant={flow.preview ? 'secondary' : 'primary'}
-          onPress={submit}
-          // Never `loading`: the spinner would eat the label, and the label IS
-          // the progress — "Looking" and "Opening" say what is happening in
-          // present tense while the dimmed pill holds its place in the layout.
-          disabled={!canSubmit}
-          haptic
-          className="mt-4 self-stretch"
-        />
+        {/* AUDIT 71 — A DISABLED FIND IS INERT PAPER WITH ITS REASON PRINTED.
+
+            "The inert Find is paper with a hairline and #4A463E text, never a
+            dimmed oxblood button, and its reason is printed beside it at 14 pt
+            rather than appearing only on a failed tap."
+
+            So the control does not merely dim: with nothing to search for it is
+            not a Button at all. A dimmed filled button still reads as the thing
+            to press, and the person who presses it learns nothing; a paper row
+            with a hairline reads as not-yet, and the line under it says exactly
+            what would wake it.
+
+            THE INK IS `muted`, NOT THE ATLAS'S #4A463E. That value is the design
+            document's own annotation ink, not one of the constitution's nine
+            colours, and the precedent is already set in `onboarding/ten-tile`.
+            `muted` is 5.46:1 on canvas — the state is carried by the fill, the
+            hairline and the printed reason, never by unreadable text.
+
+            Once there IS something to search for, the real Button returns, so
+            the affordance the user learned is the affordance they get. */}
+        {canSubmit ? (
+          // One primary at a time. While a preview is on screen the Add button
+          // inside it is the call to action, so this one steps back to a
+          // secondary rather than competing with it in oxblood.
+          <Button
+            title={
+              flow.resolving
+                ? 'Opening'
+                : flow.searching
+                  ? 'Looking'
+                  : isLink
+                    ? 'Read this page'
+                    : 'Find it'
+            }
+            variant={flow.preview ? 'secondary' : 'primary'}
+            onPress={submit}
+            // Never `loading`: the spinner would eat the label, and the label IS
+            // the progress — "Looking" and "Opening" say what is happening in
+            // present tense while the pill holds its place in the layout.
+            haptic
+            className="mt-4 self-stretch"
+          />
+        ) : (
+          <View className="mt-4">
+            <View
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
+              accessibilityLabel={
+                isLink ? 'Read this page, not ready yet' : 'Find it, not ready yet'
+              }
+              className="items-center justify-center rounded-md border border-rule bg-surface"
+              style={{ minHeight: MIN_TAP_TARGET }}>
+              {/* Present tense while the search is out — the label IS the
+                  progress, and it is a state, never a bar. */}
+              <Text variant="label" className="text-muted">
+                {flow.resolving
+                  ? 'Opening'
+                  : flow.searching
+                    ? 'Looking'
+                    : isLink
+                      ? 'Read this page'
+                      : 'Find it'}
+              </Text>
+            </View>
+            {/* The reason, printed rather than discovered. `note` is 13pt
+                regular — prose, not a label, per the weight rule. */}
+            <Text variant="note" className="mt-1.5">
+              {busy
+                ? 'Cinch is looking. This takes a moment.'
+                : 'Add a few words and Find it wakes up.'}
+            </Text>
+          </View>
+        )}
 
         {/* The closet-full case gets its own W-03 panel instead of the raw
             error line — but only on the LINK path, where there's a held
@@ -339,22 +428,25 @@ export function GarmentSearchSheetBody({
                 router.push(`/wall-swap?add=${best}`);
               }}
             />
-            <Text variant="noteSmall" className="mt-3" style={{ color: theme.faint }}>
+            <Text variant="noteSmall" className="mt-3">
               The import is held, not cancelled. It’s here when there’s room.
             </Text>
           </View>
         ) : null}
 
-        {/* `faint`, not `muted`, and inline as ever: this line is an aside
-            about an affordance already on screen, the one register quiet
-            enough for it. The `pt-6` is the floor between it and the button
-            when the sheet is short. */}
+        {/* `muted` — the variant's own colour, with no second tone stacked on
+            it. These two lines were set in `faint` on the argument that an
+            aside about an on-screen affordance can be quieter than everything
+            else; Wave 3 settles it the other way. The constitution's refusal
+            names no exception, and "quiet enough to be an aside" and "too low
+            contrast to read" are the same 3.52:1. The `pt-6` is the floor
+            between the line and the button when the sheet is short. */}
         {footer === 'describe' ? (
-          <Text variant="caption" className="pt-6" style={{ marginTop: 'auto', color: theme.faint }}>
+          <Text variant="caption" className="pt-6" style={{ marginTop: 'auto' }}>
             A photo is optional. {'“'}Navy{'”'} covers a dozen navies; the fabric settles it.
           </Text>
         ) : footer === 'link' ? (
-          <Text variant="caption" className="pt-6" style={{ marginTop: 'auto', color: theme.faint }}>
+          <Text variant="caption" className="pt-6" style={{ marginTop: 'auto' }}>
             The colour-photo row is gone: there is nothing for a colour reference to settle when
             the shop{'’'}s own photograph is the answer.
           </Text>
@@ -416,7 +508,7 @@ function LinkPreview({
             value={flow.previewName}
             onChangeText={flow.setPreviewName}
             placeholder="Name this piece"
-            placeholderTextColor={theme.faint}
+            placeholderTextColor={theme.muted}
             maxLength={MAX_NAME_CHARS}
             returnKeyType="done"
             style={{ color: theme.ink, fontSize: 17 }}
@@ -460,19 +552,46 @@ function LinkPreview({
   );
 }
 
-// Ragged caption widths, so the placeholder grid reads as product titles about
-// to arrive rather than a loading graphic.
-const TILE_LABEL_WIDTHS = ['72%', '55%', '64%', '48%'] as const;
-
 /**
- * The candidate grid, and the two honest ways it can be empty.
+ * DS-03 — THE RESULTS ARE IDENTIFICATIONS, NOT A SHOP.
+ *
+ * The deviation ledger states the fault plainly: results "read as a shopping
+ * feed", with the source of the image and details not stated per row. The frame
+ * replaces the two-column tile grid with a list of identification rows and
+ * changes the question in the headline from what is available to WHICH PIECE
+ * THE USER OWNS.
+ *
+ * Four rules hold this apart from commerce, and all four are load-bearing:
+ *
+ *   · No price is printed. Not the retailer's, not a range, not "from".
+ *   · No merchant button, no "Paid link", no sponsored ordering. Affiliate
+ *     language exists only in the Gap Feed's approved commerce sheet; this is
+ *     intake of a garment the user already owns.
+ *   · Every row names where its picture and details came from, in prose, at the
+ *     moment of choosing rather than in a footnote.
+ *   · A match with no usable image says so and files as a silhouette instead of
+ *     borrowing a stock photograph.
+ *
+ * WHAT IS NOT HERE, AND WHY. The frame's last row is "None of these — file my
+ * own words", under a rule. It is not drawn, because it cannot be honoured: the
+ * import path (`useGarmentImport`) takes an `imageUrl` and the Edge Function
+ * behind it downloads that image to create the row. Filing the typed words with
+ * no picture at all is a new intake path on the server, which is a service
+ * change this lane may not make. Drawing the row and failing the tap would be
+ * worse than its absence — see the report.
  *
  * `results === null` means no search has run — nothing is said, because there is
  * nothing to say yet. An empty array means the search ran and found nothing
  * usable, which deserves a real sentence and a way forward rather than a shrug.
- * While the search is out, the grid's own shape stands in for it — the tiles
- * the results will land in, not a spinner floating in nothing.
+ * While the search is out, the rows' own shape stands in for them: DS-04's
+ * "the searching rows are the result rows with their content withheld, at
+ * identical heights and thumb sizes" — never a spinner.
  */
+
+/** The atlas's identification-row thumb: 60 wide, 72 tall. */
+const ROW_THUMB_W = 60;
+const ROW_THUMB_H = 72;
+
 function Results({
   flow,
   onChoose,
@@ -482,13 +601,29 @@ function Results({
 }) {
   if (flow.searching) {
     return (
-      <View className="mt-8" accessibilityLabel="Looking for pictures">
-        <SectionHeader title="Pictures that might match" />
-        <View className="mt-3 flex-row flex-wrap" style={{ marginHorizontal: -6 }}>
-          {TILE_LABEL_WIDTHS.map((width, i) => (
-            <View key={i} className="mb-4" style={{ width: '50%', paddingHorizontal: 6 }}>
-              <Skeleton className="aspect-[4/5] w-full rounded-lg" />
-              <Skeleton className="mt-2 h-3 rounded-chip" style={{ width }} />
+      <View className="mt-8" accessibilityLabel="Looking for a match">
+        <Text variant="plate">Looking for it</Text>
+        {/* The partner is named in the search, per DS-04 — but only as far as
+            the app can honestly name it. See the note in the report on
+            claim 4: what the listing licence requires be printed here is set
+            by the licence, not by design, and nothing is invented in the
+            meantime. */}
+        <Text variant="note" className="mt-1.5">
+          Searching for a match.
+        </Text>
+        <View className="mt-4">
+          {[0, 1, 2].map((i) => (
+            <View
+              key={i}
+              className={`flex-row items-center ${i > 0 ? 'mt-3 border-t border-hairline pt-3' : ''}`}>
+              <Skeleton
+                className="rounded-md"
+                style={{ width: ROW_THUMB_W, height: ROW_THUMB_H }}
+              />
+              <View className="ml-3 flex-1">
+                <Skeleton className="h-4 rounded-chip" style={{ width: '62%' }} />
+                <Skeleton className="mt-2 h-3 rounded-chip" style={{ width: '84%' }} />
+              </View>
             </View>
           ))}
         </View>
@@ -498,10 +633,14 @@ function Results({
 
   if (flow.results === null) return null;
 
-  if (flow.results.length === 0 && !flow.searching) {
+  if (flow.results.length === 0) {
     return (
       <View className="mt-8">
-        <Text variant="plate">Nothing matched that</Text>
+        {/* DS-04: "the outcome is a filing, not a failure" — so this is not
+            drawn as an error, and no result count is invented ("0 results" is
+            never printed). The forward path offered is changing the words
+            rather than retrying the same query. */}
+        <Text variant="plate">Nothing matched</Text>
         <Text variant="body" className="mt-2 text-muted">
           Try the brand and the kind of garment — {'“'}Everlane cotton shirt{'”'} finds
           more than {'“'}blue top{'”'}. Photographing it works too, and always finds the
@@ -511,66 +650,95 @@ function Results({
     );
   }
 
+  const n = flow.results.length;
   return (
     <View className="mt-8">
-      <SectionHeader title="Pictures that might match" />
+      {/* The question is which piece the user OWNS. A count, printed because it
+          is known — never estimated, never "several". */}
+      <Text variant="plate">Which one is yours?</Text>
+      <Text variant="note" className="mt-1.5">
+        {`${n} ${n === 1 ? 'match' : 'matches'}. Pick one and it becomes your piece.`}
+      </Text>
 
-      {/* Two columns, hand-laid rather than a FlatList: six tiles inside a
-          ScrollView do not want a second scroll container, and a nested
-          VirtualizedList is a warning and a broken gesture. */}
-      <View className="mt-3 flex-row flex-wrap" style={{ marginHorizontal: -6 }}>
-        {flow.results.map((candidate) => (
-          <CandidateTile
+      <View className="mt-4">
+        {flow.results.map((candidate, i) => (
+          <CandidateRow
             key={candidate.imageUrl}
             candidate={candidate}
+            first={i === 0}
             busy={flow.importingUrl === candidate.imageUrl}
             dimmed={flow.importingUrl !== null && flow.importingUrl !== candidate.imageUrl}
             onPress={() => onChoose(candidate)}
           />
         ))}
       </View>
-
-      <Text variant="noteSmall" className="mt-4">
-        Tap one to add it. Cinch saves the picture and tags the garment for you.
-      </Text>
     </View>
   );
 }
 
-function CandidateTile({
+/**
+ * One identification row.
+ *
+ * The name is the row's only LABEL; the provenance under it is PROSE in the
+ * regular cut, because it is a sentence about where a picture came from and not
+ * a tag. Nothing here is a price and nothing here is a button to a shop.
+ */
+function CandidateRow({
   candidate,
+  first,
   busy,
   dimmed,
   onPress,
 }: {
   candidate: GarmentCandidate;
+  first: boolean;
   busy: boolean;
   dimmed: boolean;
   onPress: () => void;
 }) {
   const theme = useTheme();
+  // A match the feed could not give a usable picture for. It is still a real
+  // identification, so it stays in the list and says what it is — "a match with
+  // no usable image says so and files as a silhouette instead of borrowing a
+  // stock photograph."
+  const hasImage = Boolean(candidate.imageUrl);
+  const provenance = hasImage
+    ? `Picture and details from ${candidate.source}`
+    : `Details from ${candidate.source} — no picture available, filed as a silhouette`;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Add ${candidate.title}, from ${candidate.source}`}
+      accessibilityLabel={`${candidate.title}. ${provenance}`}
       accessibilityState={{ busy, disabled: dimmed }}
       disabled={dimmed || busy}
       onPress={onPress}
-      style={{ width: '50%', paddingHorizontal: 6, opacity: dimmed ? 0.4 : 1 }}
-      className="mb-4 active:opacity-80">
-      {/* Product shots arrive on white with wide margins, so the tray sits
-          behind them and `contain` keeps the garment whole rather than cropping
-          a sleeve off to fill a square. */}
-      <View className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-tray">
-        <Image
-          source={stableImageSource(candidate.imageUrl)}
-          contentFit="contain"
-          transition={180}
-          cachePolicy="memory-disk"
-          style={{ flex: 1 }}
-          accessibilityIgnoresInvertColors
-        />
+      style={{ opacity: dimmed ? 0.4 : 1, minHeight: MIN_TAP_TARGET }}
+      className={`flex-row items-center active:opacity-80 ${
+        first ? '' : 'mt-3 border-t border-hairline pt-3'
+      }`}>
+      <View
+        className={`overflow-hidden rounded-md ${hasImage ? 'bg-tray' : 'border-2 border-rule bg-sand'}`}
+        style={{ width: ROW_THUMB_W, height: ROW_THUMB_H }}>
+        {hasImage ? (
+          <Image
+            source={stableImageSource(candidate.imageUrl)}
+            contentFit="contain"
+            transition={180}
+            cachePolicy="memory-disk"
+            style={{ flex: 1 }}
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <View className="flex-1 items-center justify-center">
+            <SymbolView
+              name="tshirt"
+              size={22}
+              tintColor={theme.muted}
+              resizeMode="scaleAspectFit"
+            />
+          </View>
+        )}
         {busy ? (
           <View
             className="absolute inset-0 items-center justify-center"
@@ -580,14 +748,16 @@ function CandidateTile({
         ) : null}
       </View>
 
-      <Text variant="caption" numberOfLines={2} className="mt-2" style={{ color: theme.ink }}>
-        {candidate.title}
-      </Text>
-      {/* The source is the honesty line: this picture came from somewhere, and
-          the user gets to judge whether that somewhere is the right shop. */}
-      <Text variant="colophon" numberOfLines={1}>
-        {candidate.source}
-      </Text>
+      <View className="ml-3 flex-1">
+        <Text variant="label" numberOfLines={2} className="text-ink">
+          {candidate.title}
+        </Text>
+        {/* The provenance sentence — prose, visible at the moment of choosing
+            rather than in a footnote. */}
+        <Text variant="note" numberOfLines={2} className="mt-1">
+          {provenance}
+        </Text>
+      </View>
     </Pressable>
   );
 }

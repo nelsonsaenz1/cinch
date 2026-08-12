@@ -69,18 +69,20 @@ export default function DevClosetScreen() {
           <Text variant="display" trim accessibilityRole="header">
             Closet
           </Text>
-          <Text variant="label" className="text-faint">
+          {/* `muted`, never `faint`: a fixture that poses a refused colour
+              teaches the refused colour. */}
+          <Text variant="label" className="text-muted">
             24 pieces
           </Text>
         </View>
 
         <View className="mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5">
-          <SymbolView name="magnifyingglass" size={15} tintColor={theme.faint} resizeMode="scaleAspectFit" />
+          <SymbolView name="magnifyingglass" size={15} tintColor={theme.muted} resizeMode="scaleAspectFit" />
           <TextInput
             value={query}
             onChangeText={setQuery}
             placeholder="Search your wardrobe"
-            placeholderTextColor={theme.faint}
+            placeholderTextColor={theme.muted}
             style={{ flex: 1, paddingVertical: 11, fontFamily: 'HelveticaNeue', fontSize: 15, color: theme.ink }}
           />
         </View>

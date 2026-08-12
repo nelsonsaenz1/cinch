@@ -11,7 +11,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { ProgressTrack } from '@/components/ui/progress-track';
 import { Text } from '@/components/ui/text';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { GarmentSearchSheet } from '@/components/ingest/garment-search-sheet';
@@ -31,6 +30,11 @@ import {
   readFlag,
   writeFlag,
 } from '@/features/ingest/consent-mode';
+import {
+  queueAnnouncement,
+  queueCards,
+  type QueueFacts,
+} from '@/features/ingest/queue-count';
 import { useCapture, type CapturedAsset } from '@/features/ingest/use-capture';
 import { useWardrobe } from '@/features/styling/queries';
 import {
@@ -225,6 +229,50 @@ function Corner({ canvas, pos }: { canvas: string; pos: 'tl' | 'tr' | 'bl' | 'br
         ...edges[pos],
       }}
     />
+  );
+}
+
+/**
+ * CP-03's queue, drawn as the atlas draws it: counted rows, never a bar.
+ *
+ * Two rules are carried here rather than at the call site. Zero is quiet — a
+ * row with nothing in it is absent, not printed as "0" — and the pair is one
+ * accessibility node with one live region, because the accessibility note asks
+ * for a single announcement on change rather than one per row per tick.
+ *
+ * The rule above the rows is the same hairline the rest of the sheet uses; it
+ * separates the sentence from the counts without boxing them, which is what
+ * turned the old treatment into a meter in the first place.
+ */
+function QueueCount({ facts }: { facts: QueueFacts }) {
+  const cards = queueCards(facts);
+  const announcement = queueAnnouncement(facts);
+  if (cards.length === 0) return null;
+
+  return (
+    <View
+      className="mt-3 flex-row gap-2.5"
+      accessible
+      accessibilityRole="text"
+      accessibilityLiveRegion="polite"
+      accessibilityLabel={announcement ?? undefined}>
+      {cards.map((card) => (
+        // Equal halves, so neither card reads as the more important one — one
+        // is an identity and the other a count, not a primary and a footnote.
+        // Tray fill at the 12pt radius; no rule, no meter, no fill that grows.
+        <View key={card.state} className="flex-1 rounded-md bg-tray px-3 py-2.5">
+          {/* The lead is the fact — a garment's name or a spelled remainder —
+              so it takes the LABEL weight. The state under it is prose in the
+              regular cut (`note`), per the constitution's weight rule. */}
+          <Text variant="label" numberOfLines={1} className="text-ink">
+            {card.lead}
+          </Text>
+          <Text variant="note" numberOfLines={1}>
+            {card.state}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -678,14 +726,24 @@ export default function CaptureScreen() {
   // four failed was reading "Processing 1 of 5" while it worked on the fifth,
   // which is a count of nothing anybody could see.
   const settledCount = doneCount + failedCount;
-  // Filled by settled jobs, not successes: a failure is work the queue has
-  // finished, and a bar that ignores it stalls short of the truth. Floored at a
-  // sliver, not zero: the first shot sits at 0 settled for its whole first
-  // pass, and an empty track under "Processing 1 of 1" reads as a bar that
-  // failed to start rather than one that has. Pinned to full on settle — the
-  // track stays mounted then, so the floor must never lie about a finished
-  // batch.
-  const fraction = total ? (allDone ? 1 : Math.max(settledCount / total, 0.04)) : 0;
+  // CP-03's first card names the garment, so the notice over a captured frame
+  // can be told apart from the one over the next piece. Read off the queue's
+  // own label, which the tagger writes when it has an answer — undefined until
+  // then, and the card falls back to a count rather than inventing a name.
+  const firstReadyName = jobs.find((j) => j.stage === 'done' && j.label)?.label ?? null;
+  //
+  // CP-03: THE BAR IS GONE, AND IT IS NOT COMING BACK.
+  //
+  // A `ProgressTrack` used to sit here, filled by `settledCount / total`. The
+  // constitution's refusal is flat — "Progress is a count, never a bar or
+  // percentage" — and the atlas draws CP-03's queue as two counted rows under
+  // the annotation "Queue is a count". Neither the fraction nor the component
+  // is computed any more: a derived value kept "just in case" is how a refused
+  // treatment finds its way back onto a screen.
+  //
+  // What replaces it is `QueueCount` below, which reads the same jobs and
+  // prints them as ready-to-review and still-in-the-queue counts. Zero is
+  // quiet: a row whose count is nought is not drawn at all.
   // What the batch is actually doing this second — "cleaning up…",
   // "categorising…". Named rather than implied, because a long tagging pass over
   // a slow connection is otherwise indistinguishable from nothing happening.
@@ -1017,12 +1075,19 @@ export default function CaptureScreen() {
                   ) : null}
                 </View>
 
-                {/* Ink fill, not accent: this sheet's promoted action ("Review
- tags") is already ink, and an oxblood bar above an ink button
-                spends the accent on a meter. Stays mounted when the batch
-                settles, pinned to full — the finished bar is part of the
-                record, not scaffolding to strike. */}
-                <ProgressTrack value={fraction} tone="ink" height={6} className="my-3" />
+                {/* CP-03. The bar that stood here is replaced by the queue
+                    stated as counts — see the note over `settledCount`. The
+                    sentence is the frame's own "work continues during
+                    processing", and it is true: the shutter above stays live
+                    through the whole batch. */}
+                {!allDone ? (
+                  <Text variant="note" className="mt-1.5">
+                    Cutting it out and reading its colour. You can keep photographing while this
+                    finishes.
+                  </Text>
+                ) : null}
+
+                <QueueCount facts={{ ready: doneCount, waiting: active, firstReadyName }} />
 
                 <UploadQueueList jobs={jobs} />
 

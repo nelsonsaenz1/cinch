@@ -5,10 +5,18 @@ import { leading } from '@/theme/font-metrics';
 
 export type ItemStatsProps = {
   wears: number;
-  /** Pre-formatted, e.g. "$9.10" — or null when it cannot honestly be computed. */
+  /**
+   * Pre-formatted, e.g. "$9.10" — or null when it cannot honestly be computed.
+   *
+   * NULL REMOVES THE CELL. It does not blank it, dash it, or print zero. See
+   * the note on `cells` below.
+   */
   costPerWear: string | null;
-  /** Pre-formatted, e.g. "6d" or "Never". */
-  sinceLast: string;
+  /**
+   * Pre-formatted, e.g. "6d" — or null when the piece has never been worn or
+   * carries no readable date. Null removes the cell, for the same reason.
+   */
+  sinceLast: string | null;
   /** When true, the middle cell reads as the full price not a per-wear figure. */
   neverWorn?: boolean;
 };
@@ -40,10 +48,10 @@ const FIGURE_STYLE = { fontSize: FIGURE_SIZE, lineHeight: leading('instrument', 
 /**
  * 9px, not the shared 10px `colophon` size.
  *
- * The atlas sets these three band labels one step smaller than every other
- * colophon in the app, so the override is LOCAL rather than a change to the
- * shared token — exactly the precedent the old `StatBox` set for the same
- * reason. Tracking drops with it (1.2px against colophon's 1.4px): RN maps
+ * The atlas sets these band labels one step smaller than every other colophon
+ * in the app, so the override is LOCAL rather than a change to the shared
+ * token — exactly the precedent the old `StatBox` set for the same reason.
+ * Tracking drops with it (1.2px against colophon's 1.4px): RN maps
  * `letterSpacing` to absolute points, so tracking tuned at 10px is too open
  * at 9.
  */
@@ -52,22 +60,30 @@ const LABEL_STYLE = {
   lineHeight: leading('helvetica', 9, 1.3),
   letterSpacing: 1.2,
   // `alignItems` on the column centres a single line; this centres the SECOND
-  // one. "Cost per wear" is the longest of the three labels in the narrowest
-  // proportion of the band, so it is the one that wraps first at large Dynamic
-  // Type — and a wrapped label whose tail sits left under a centred figure is
-  // the crowding §2 exists to prevent, reintroduced by the fix for it.
+  // one. "A wear" is the shortest of the labels but sits in the widest cell,
+  // and "Last worn" is the one that wraps first at large Dynamic Type — a
+  // wrapped label whose tail sits left under a centred figure is the crowding
+  // §2 exists to prevent, reintroduced by the fix for it.
   textAlign: 'center' as const,
 };
 
 /**
- * One cell. `weight` is the atlas's flex ratio — the three figures have very
- * different widths ("38" against "$9.10") and equal thirds would leave the
- * price crowded while the wear count floated in air.
+ * The cost cell is 1.35× its neighbours, per IT-01.
+ *
+ * Not decoration: "$14.19" and a four-figure equivalent both have to centre
+ * without the rules moving, and equal thirds leave the price crowded while the
+ * wear count floats in air. The ratio is the atlas's own number.
+ */
+const COST_WEIGHT = 1.35;
+
+/**
+ * One cell. `weight` is the atlas's flex ratio.
  *
  * The cell is one accessibility node, not two: read separately, VoiceOver
  * announces a bare "38" and then, after a swipe, "wears" — a figure and its
  * unit split across two gestures. `accessible` collapses them into the phrase
- * a person would actually say.
+ * a person would actually say, and §9 asks for label-then-figure per cell in
+ * visual order.
  */
 function Cell({
   figure,
@@ -82,9 +98,8 @@ function Cell({
 }) {
   return (
     // `alignItems: 'center'`, per §2.2 of the Refacing: both lines centre in an
-    // equal-width figure-over-label column. The per-column `weight` below is
-    // untouched — the widths exist so "$9.10" is not crowded by "38", and
-    // centring inside them is what the correction asks for, not equal thirds.
+    // equal-width figure-over-label column. The per-column `weight` is what
+    // keeps "$9.10" from being crowded by "38".
     <View
       style={{ flex: weight, alignItems: 'center' }}
       accessible
@@ -114,23 +129,31 @@ function Cell({
 }
 
 /**
- * The three-figure band — I-01's rule-bounded row of wears, cost per wear and
- * days since.
+ * The ruled figure band — IT-01's row of wears, cost per wear and last worn.
  *
- * This replaces the 2×2 stat grid. "Paid" moved up into the subtitle line,
- * which is the right home for it: a purchase price is a fact about the
- * transaction, not a reading of how the garment is living. What is left is the
- * three figures the atlas describes as "the figures a person actually reads
- * out loud", and three of them fit on one line without a frame.
+ * ── WHY A CELL CAN BE ABSENT (audit 65, and refusal 2) ────────────────────
  *
- * The band is bounded by two rules rather than boxed, so it reads as a ruled
- * band of a page and not as a card sitting on one — the surrounding sections
- * are already plates, and a fourth container here would make the page a stack
- * of boxes.
+ * This band used to print an em dash when a figure could not be computed, on
+ * the argument that a dash is how a printed table says "unknown". The atlas
+ * settles it the other way, in two places at once. IT-02's annotation is
+ * "Cost cell removed, not blanked", its prose is "there is no empty column, no
+ * dash and no '— a wear'", and the constitution's refusal is flat: counts and
+ * prices are "printed when known or omitted — never estimated, never a dash."
+ *
+ * So the cells are BUILT rather than laid out: a figure with nothing behind it
+ * produces no column, and the band redistributes across whatever is left. Two
+ * cells centre exactly as three do, because the widths are flex weights rather
+ * than fixed thirds. A band with nothing to say renders nothing at all —
+ * including its rules, since a pair of hairlines around empty space is a
+ * blanked band by another route.
+ *
+ * A never-worn piece prints the WORD "Never" in the wear cell rather than 0.
+ * IT-02's reason is worth keeping verbatim: "a 0 in a display face would read
+ * as a verdict on the garment."
  *
  * LAYOUT CONTRACT: this component carries its own `mx-gutter`. It expects a
  * full-bleed parent (a scroll container with NO horizontal padding), which the
- * rebuilt page needs anyway for the co-wear rail to bleed off the right edge.
+ * page needs anyway for the co-wear rail to bleed off the right edge.
  *
  * Purely presentational: every figure arrives pre-formatted. Currency
  * formatting, the days-since arithmetic and the "can this even be computed"
@@ -138,43 +161,61 @@ function Cell({
  * user's locale and what the item actually is.
  */
 export function ItemStats({ wears, costPerWear, sinceLast, neverWorn = false }: ItemStatsProps) {
-  // A per-wear figure on the day something arrives is arithmetically true and
-  // reads like an accusation — the price divided by one wear is just the price,
-  // dressed up as a judgement. So the label changes rather than the figure:
-  // the caller passes the full price through `costPerWear` when `neverWorn`,
-  // and this cell stops calling it a rate. Carried forward from the page's
-  // previous stat grid, where the same argument was already settled.
-  const middleLabel = neverWorn ? 'Not worn yet' : 'Cost per wear';
-  // An em dash, not "$0.00" or "N/A": the figure is unknown, and a dash is how
-  // a printed table says so.
-  const middleFigure = costPerWear ?? '—';
+  const worn = wears > 0;
+
+  const cells: { key: string; figure: string; label: string; weight: number; a11y: string }[] = [];
+
+  cells.push(
+    worn
+      ? {
+          key: 'wears',
+          figure: String(wears),
+          label: 'Wears',
+          weight: 1,
+          a11y: `${wears} ${wears === 1 ? 'wear' : 'wears'}`,
+        }
+      : {
+          key: 'wears',
+          // The word, not the digit — see the block comment above.
+          figure: 'Never',
+          label: 'Worn so far',
+          weight: 1,
+          a11y: 'Never worn',
+        },
+  );
+
+  if (costPerWear !== null) {
+    // A per-wear figure on the day something arrives is arithmetically true and
+    // reads like an accusation — the price divided by one wear is just the
+    // price, dressed up as a judgement. So the label changes rather than the
+    // figure: the caller passes the full price through `costPerWear` when
+    // `neverWorn`, and this cell stops calling it a rate.
+    cells.push({
+      key: 'cost',
+      figure: costPerWear,
+      label: neverWorn ? 'Paid' : 'A wear',
+      weight: COST_WEIGHT,
+      a11y: neverWorn ? `${costPerWear} paid, not worn yet` : `${costPerWear} per wear`,
+    });
+  }
+
+  if (sinceLast !== null) {
+    cells.push({
+      key: 'since',
+      figure: sinceLast,
+      label: 'Last worn',
+      weight: 1.1,
+      a11y: `Last worn, ${sinceLast}`,
+    });
+  }
+
+  if (cells.length === 0) return null;
 
   return (
     <View className="mx-gutter flex-row border-y border-rule py-[14px]">
-      <Cell
-        figure={String(wears)}
-        label="Wears"
-        weight={1}
-        a11yLabel={`${wears} ${wears === 1 ? 'wear' : 'wears'}`}
-      />
-      <Cell
-        figure={middleFigure}
-        label={middleLabel}
-        weight={1.4}
-        a11yLabel={
-          costPerWear === null
-            ? 'Cost per wear, not known yet'
-            : neverWorn
-              ? `${costPerWear}, not worn yet`
-              : `${costPerWear} per wear`
-        }
-      />
-      <Cell
-        figure={sinceLast}
-        label="Since last"
-        weight={1.1}
-        a11yLabel={`Since last worn, ${sinceLast}`}
-      />
+      {cells.map((c) => (
+        <Cell key={c.key} figure={c.figure} label={c.label} weight={c.weight} a11yLabel={c.a11y} />
+      ))}
     </View>
   );
 }

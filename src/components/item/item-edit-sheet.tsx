@@ -128,7 +128,10 @@ export function ItemEditSheet({
                 value={draft.name}
                 onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
                 placeholder="Untitled piece"
-                placeholderTextColor={theme.faint}
+                // IT-03 sets every value and every explanation in the regular
+                // cut at the frame's secondary colour; `faint` is refused as
+                // text anywhere, and a field's placeholder is text.
+                placeholderTextColor={theme.muted}
                 accessibilityLabel="Piece name"
                 returnKeyType="done"
                 editable={!busy}
@@ -140,7 +143,7 @@ export function ItemEditSheet({
             <View className="h-2.5" />
 
             <Field label="Paid">
-              <Text variant="callout" className="text-faint">
+              <Text variant="callout" className="text-muted">
                 $
               </Text>
               <TextInput
@@ -149,7 +152,7 @@ export function ItemEditSheet({
                 keyboardType="decimal-pad"
                 inputMode="decimal"
                 placeholder="0"
-                placeholderTextColor={theme.faint}
+                placeholderTextColor={theme.muted}
                 accessibilityLabel="Price paid, in dollars"
                 returnKeyType="done"
                 editable={!busy}

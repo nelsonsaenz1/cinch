@@ -1,5 +1,5 @@
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
 import { ItemCard } from '@/components/closet/item-card';
 import type { Item } from '@/schemas/item';
@@ -31,6 +31,21 @@ export type ClosetGridProps = {
 };
 
 /**
+ * The Dynamic Type setting at which the grid becomes a list.
+ *
+ * C-01 / AX: "At the largest supported size the two-column grid changes
+ * composition rather than shrinking: one row per piece, garment at 140×170 on
+ * the leading edge, name and metadata stacked beside it." Height is allowed;
+ * nothing is capped, abbreviated or ellipsised to make two columns fit.
+ *
+ * 1.5 rather than the `MAX_TEXT_SCALE` ceiling of 1.8, because the frame's
+ * argument bites well before the top of the range: at 1.5 a 168pt-wide tile can
+ * no longer hold "Worn 31 times · $3.19 a wear" without the metadata
+ * ellipsising, which is the exact failure the stress frame exists to prevent.
+ */
+const AX_COLUMN_BREAK = 1.5;
+
+/**
  * FlashList v2 — note there are no size-estimate props any more. v2 is a
  * New-Architecture rewrite that measures automatically, so `estimatedItemSize`
  * and friends from v1 tutorials are gone, not merely optional.
@@ -47,15 +62,24 @@ export function ClosetGrid({
   refreshControl,
   listRef,
 }: ClosetGridProps) {
+  // Read from the system, never guessed: `fontScale` is the user's Dynamic Type
+  // setting, and it re-renders on change like any other window dimension.
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale >= AX_COLUMN_BREAK;
+
   return (
     <FlashList
       ref={listRef}
       data={items}
-      numColumns={2}
+      numColumns={stacked ? 1 : 2}
+      // FlashList memoizes cells against the data array; the column count is
+      // not part of it, so a Dynamic Type change while the grid is mounted
+      // would otherwise leave every cell drawn in the old composition.
+      extraData={stacked ? `stacked:${selectedIds?.size ?? -1}` : selectedIds}
       keyExtractor={(item) => item.id}
-      // `extraData` is what makes a selection visible: FlashList memoizes cells
-      // against the data array, which does not change when a tick is toggled.
-      extraData={selectedIds}
+      // `extraData` above is also what makes a selection visible: FlashList
+      // memoizes cells against the data array, which does not change when a
+      // tick is toggled.
       renderItem={({ item }) => (
         <ItemCard
           item={item}
@@ -63,6 +87,7 @@ export function ClosetGrid({
           onLongPress={onItemLongPress}
           selecting={selectedIds !== null}
           selected={selectedIds?.has(item.id) ?? false}
+          stacked={stacked}
           imageUri={resolveImage?.(item.listingPath, item.thumbPath, item.cutoutPath)}
         />
       )}

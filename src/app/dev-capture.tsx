@@ -9,9 +9,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button } from '@/components/ui/button';
 import { CONSENT_FACTS } from '@/features/auth/consent-facts';
 import { EmptyState } from '@/components/ui/empty-state';
-import { ProgressTrack } from '@/components/ui/progress-track';
 import { Text } from '@/components/ui/text';
 import { UploadQueueList } from '@/components/ingest/upload-queue-list';
+import { queueCards } from '@/features/ingest/queue-count';
 import {
   selectActiveCount,
   selectFailedJobs,
@@ -309,11 +309,9 @@ function ProgressSheet({ jobs }: { jobs: UploadJob[] }) {
   // ordinal counts these rather than the successes alone, exactly as
   // capture.tsx counts them.
   const settledCount = doneCount + failedCount;
-  // Filled by settled jobs, floored at a sliver, pinned to full on settle —
-  // capture.tsx's fraction, verbatim. The floor must never lie about a
-  // finished batch, and an empty track under "Processing 1 of 5" reads as a
-  // bar that failed to start.
-  const fraction = total ? (allDone ? 1 : Math.max(settledCount / total, 0.04)) : 0;
+  // No fraction is computed here either. CP-03's queue is a count, so the
+  // fixture holds the same shape the shipping sheet does — see the note over
+  // `settledCount` in capture.tsx.
   const phase = selectPhaseLabel(jobs);
   const canRetry = failed.some((j) => j.retryable !== false);
 
@@ -332,13 +330,35 @@ function ProgressSheet({ jobs }: { jobs: UploadJob[] }) {
         {/* Once settled, nothing rides here: a failure count already leads the
             banner below as its eyebrow, and saying it twice is nagging. */}
         {!allDone ? (
-          <Text variant="label" style={{ color: theme.faint }}>{`${active} to go`}</Text>
+          <Text variant="label" style={{ color: theme.muted }}>{`${active} to go`}</Text>
         ) : null}
       </View>
 
-      {/* Stays mounted when the batch settles, pinned to full — the finished
-          bar is part of the record, not scaffolding to strike. */}
-      <ProgressTrack value={fraction} tone="ink" height={6} className="my-3" />
+      {/* CP-03: the queue as counted rows. The bar this replaced is refused by
+          the constitution ("Progress is a count, never a bar or percentage")
+          and the fixture must pose what ships, not what used to. */}
+      {!allDone ? (
+        <Text variant="note" className="mt-1.5">
+          Cutting it out and reading its colour. You can keep photographing while this finishes.
+        </Text>
+      ) : null}
+
+      <View className="mt-3 flex-row gap-2.5">
+        {queueCards({
+          ready: doneCount,
+          waiting: active,
+          firstReadyName: jobs.find((j) => j.stage === 'done' && j.label)?.label ?? null,
+        }).map((card) => (
+          <View key={card.state} className="flex-1 rounded-md bg-tray px-3 py-2.5">
+            <Text variant="label" numberOfLines={1} className="text-ink">
+              {card.lead}
+            </Text>
+            <Text variant="note" numberOfLines={1}>
+              {card.state}
+            </Text>
+          </View>
+        ))}
+      </View>
 
       <UploadQueueList jobs={jobs} />
 

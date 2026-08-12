@@ -132,14 +132,14 @@ function Doors({ cameraBlocked = false }: { cameraBlocked?: boolean }) {
     <>
       <DoorPlate
         name="Camera"
-        line="True colour, one piece at a time."
+        line="Photograph a piece against any wall."
         symbol="camera"
         onPress={() => {}}
         condition={
           cameraBlocked ? (
             <DoorCondition>
               <View className="flex-1">
-                <Text variant="note">Camera access is off for Cinch.</Text>
+                <Text variant="note">Cinch cannot open the camera until you allow it.</Text>
               </View>
               <Text variant="note" style={{ color: theme.accent }}>
                 Open Settings
@@ -149,20 +149,24 @@ function Doors({ cameraBlocked = false }: { cameraBlocked?: boolean }) {
         }
       />
       <DoorPlate
-        name="Photo Library"
-        line="The pictures you already have."
+        name="Photo library"
+        line="Pick pictures you already have — no permission needed."
         symbol="photo.on.rectangle"
         onPress={() => {}}
       />
       <DoorPlate
         name="Describe it"
-        line="No photo to hand — say what it is."
-        symbol="text.alignleft"
+        line="Type what it is, or paste a product link."
+        symbol="magnifyingglass"
         onPress={() => {}}
       />
+      {/* Audit 66: the voice door is "Describe by voice". "Talk it in" appears
+          nowhere in the group, fixtures included — a fixture that poses the
+          retired name is a fixture that will be screenshotted as evidence the
+          rename shipped. */}
       <DoorPlate
-        name="Talk it in"
-        line="Your whole closet, four minutes."
+        name="Describe by voice"
+        line="Say it out loud instead of typing."
         symbol="waveform"
         onPress={() => {}}
       />

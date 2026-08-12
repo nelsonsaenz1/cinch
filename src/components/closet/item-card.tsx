@@ -9,7 +9,8 @@ import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { pieceName } from '@/features/closet/item-name';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import { useLocalPhoto } from '@/features/ingest/local-photos';
-import { type Item, costPerWear } from '@/schemas/item';
+import { pieceCardAnnouncement, pieceMetaLine } from '@/features/closet/piece-meta';
+import type { Item } from '@/schemas/item';
 import { useTheme } from '@/theme/tokens';
 import { MAX_DISPLAY_SCALE } from '@/theme/type-scale';
 
@@ -24,21 +25,41 @@ export type ItemCardProps = {
   selecting?: boolean;
   /** Whether this piece is one of the picked ones. Only read while selecting. */
   selected?: boolean;
+  /**
+   * C-01 / AX. At the largest Dynamic Type the grid becomes one row per piece
+   * and the card changes composition with it: garment at 140×170 on the leading
+   * edge, name and metadata stacked beside it. Set by `ClosetGrid` off the
+   * system font scale, never guessed at here.
+   */
+  stacked?: boolean;
 };
-
-/** `$78`, not `$78.00` — the atlas writes whole prices without cents. */
-function formatPrice(price: number): string {
-  return Number.isInteger(price) ? `$${price}` : `$${price.toFixed(2)}`;
-}
 
 /**
  * The C-01 grid card — a single garment in the closet grid (and, via
  * `ClosetGrid`, Plan's packing screen: same card, same story).
  *
- * Cutouts sit on a neutral warm tray so nothing tints the garment — the tray
- * colour is the one surface in the app that must never carry the accent.
- * Geometry is the atlas's, literally: 196pt well, 12pt radius, hairline
- * border, name 13/600 at 7pt, meta row at 3pt.
+ * ── Wave 3 geometry (audit 60, 62, 63) ───────────────────────────────────
+ *
+ * The well is 168pt, down from 196, and the tile now ends 10pt under the
+ * metadata line rather than carrying dead space below it — "audit 62 is
+ * answered by geometry, not by cropping: the well is 168 pt against a 14 pt
+ * gutter... so a card is mostly garment."
+ *
+ * The name is the ONLY label on the card (15pt, Medium). Everything under it
+ * is prose in the regular cut at 13pt — audit 60 asks that "no metadata uses
+ * Medium", which is why the line below is `note` and not `caption`.
+ *
+ * Wear count and cost-per-wear are ONE sentence in one place (`pieceMetaLine`),
+ * not two figures pushed to opposite edges of the tile.
+ *
+ * NO OXBLOOD IS SPENT HERE. The accent badge that used to sit on the well for a
+ * never-worn piece is gone: C-01's annotation is "No oxblood spent", and C-08
+ * moves the fact into the metadata sentence as words, "never as 0 — a zero
+ * here would read as a score."
+ *
+ * A silhouetted piece "sits in the same well at the same scale — the silhouette
+ * gets the sand ground and a 2 pt stroke rather than a lighter box, so an
+ * unphotographed piece reads as filed, not as missing."
  */
 function ItemCardComponent({
   item,
@@ -47,6 +68,7 @@ function ItemCardComponent({
   onLongPress,
   selecting = false,
   selected = false,
+  stacked = false,
 }: ItemCardProps) {
   /**
    * Whether the picture on this card is the shop's rather than the user's.
@@ -67,17 +89,16 @@ function ItemCardComponent({
   const localPhoto = useLocalPhoto(item.imagePath === null ? item.id : null);
   const displayUri =
     imageUri ?? (item.imagePath === null ? (localPhoto.thumbUri ?? localPhoto.imageUri ?? undefined) : undefined);
-  const cpw = costPerWear(item);
   const needsReview = item.status === 'needs_review';
-  const neverWorn = item.wearCount === 0;
+  const name = pieceName(item);
+  const meta = pieceMetaLine(item);
 
   // VoiceOver: a grid of garment cutouts is meaningless to a screen reader
-  // without this. Build the sentence a person would actually say.
+  // without this. §9 wants the card announced as ONE element saying what a
+  // person would say — name, then the metadata sentence, then whether there is
+  // a photograph — rather than an image node followed by two unrelated labels.
   const a11yLabel = [
-    item.subcategory ?? item.category,
-    item.colors[0]?.name,
-    item.brand,
-    item.wearCount > 0 ? `worn ${item.wearCount} times` : 'never worn',
+    pieceCardAnnouncement(item, name, { hasPhoto: Boolean(displayUri) }),
     needsReview ? 'needs review' : null,
   ]
     .filter(Boolean)
@@ -103,26 +124,41 @@ function ItemCardComponent({
       // px-1.5 both sides = the atlas's 12pt column gap; pb + the grid's h-1
       // separator = its 14pt row gap.
       className="px-1.5 pb-2.5">
-      <Animated.View style={press.style}>
+      {/* C-01 / AX: at the largest type the card is a ROW — garment on the
+          leading edge, name and metadata stacked beside it, "metadata wraps to
+          two lines", "no truncation, no ellipsis". The composition changes;
+          nothing shrinks. */}
+      <Animated.View style={press.style} className={stacked ? 'flex-row items-center' : undefined}>
         <View
-          className={`h-[196px] w-full overflow-hidden rounded-md ${
+          className={`overflow-hidden rounded-md ${stacked ? '' : 'h-[168px] w-full'} ${
             // A confirmed listing photo is a product shot the retailer already
             // set on white, so it sits on white and is CONTAINED — cropping it
             // to fill would cut the garment the shop framed deliberately. A
             // photograph the user took keeps the warm tray it has always had.
             // Same frame, same radius, same caption either way: the atlas asks
             // for one closet, not two (M-10).
-            wearsListing ? 'bg-surface p-3' : 'bg-tray'
+            wearsListing ? 'bg-surface p-3' : displayUri ? 'bg-tray' : 'bg-sand'
           } ${
             // Selection is the border, not just the tick — readable at a glance
             // across a whole grid where a 22pt glyph is not. Drawn as a border,
             // which RN insets rather than adding to the box, so a selected cell
-            // never shifts its neighbours.
+            // never shifts its neighbours. C-04 draws it at 2.5pt; the tick and
+            // the word "Selected" below are the other two channels, so the
+            // state survives greyscale and a colour-blind reading.
+            //
+            // A silhouetted piece keeps a 2pt stroke on the sand ground rather
+            // than a lighter box — "an unphotographed piece reads as filed, not
+            // as missing" (C-01).
             selecting && selected
-              ? 'border-2 border-ink'
-              : 'border border-hairline'
+              ? 'border-[2.5px] border-ink'
+              : displayUri || wearsListing
+                ? 'border border-hairline'
+                : 'border-2 border-rule'
           }`}
-          style={dimmed ? { opacity: 0.55 } : undefined}>
+          style={[
+            stacked ? { width: 140, height: 170 } : null,
+            dimmed ? { opacity: 0.55 } : null,
+          ]}>
           {displayUri ? (
             <Image
               source={stableImageSource(displayUri)}
@@ -146,11 +182,19 @@ function ItemCardComponent({
             </View>
           )}
 
-          {/* One badge only, and never while selecting — the mode is about
-              picking, not diagnosing. A needs-review flag is the more urgent
-              thing to say, so it wins the corner; otherwise the never-worn flag
-              — in the accent — is the whole "get more from what you own" pitch
-              made visible. */}
+          {/* One badge, and never while selecting — the mode is about picking,
+              not diagnosing.
+
+              THE NEVER-WORN BADGE IS GONE. It was an oxblood pill on the well,
+              and C-01's annotation is "No oxblood spent"; C-08 moves the fact
+              into the metadata sentence, in words, where it reads as a
+              description rather than a mark against the garment. Nothing is
+              lost — the line under the name says "Never worn" for exactly the
+              pieces the badge used to flag.
+
+              The needs-review flag stays. It is warning-toned rather than
+              accent, it says something the metadata line cannot, and the atlas
+              never asked for its removal. */}
           {!selecting && needsReview ? (
             <View className="absolute left-2 top-2 rounded-sm bg-warning px-[7px] py-[3px]">
               {/* INK on the warning fill: canvas-on-warning is 2.85:1 — below AA
@@ -162,19 +206,6 @@ function ItemCardComponent({
                 maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
                 style={{ color: theme.ink, fontSize: 9, letterSpacing: 1.1, lineHeight: 12 }}>
                 Needs review
-              </Text>
-            </View>
-          ) : !selecting && neverWorn ? (
-            <View className="absolute left-2 top-2 rounded-sm bg-accent px-[7px] py-[3px]">
-              {/* 9/600 tracked uppercase per the atlas. Fixed-well constraint:
-                  a wrapped badge gets sliced by overflow-hidden, so one line,
-                  capped multiplier. */}
-              <Text
-                variant="colophon"
-                numberOfLines={1}
-                maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
-                style={{ color: theme.canvas, fontSize: 9, letterSpacing: 1.1, lineHeight: 12 }}>
-                Never worn
               </Text>
             </View>
           ) : null}
@@ -208,50 +239,39 @@ function ItemCardComponent({
           ) : null}
         </View>
 
-        <View className="mt-[7px]">
+        {/* 10pt under the well, and the tile ends 10pt under the metadata
+            line — audit 62's "the tile loses its lower dead space". At AX the
+            block moves to the side of the garment instead of under it. */}
+        <View className={stacked ? 'ml-3.5 flex-1' : 'mt-2.5'}>
           {/* The shared name derivation (features/closet/item-name.ts) — colour,
               kind, capitalised — so the grid and the rails never disagree about
-              what a garment is called. 13/600: `label` is 13pt and font-medium
-              resolves to HelveticaNeue-Medium, the face the design's "600" maps
-              to (there is no true 600 cut — see tailwind.config.js). */}
-          <Text variant="label" numberOfLines={1} className="text-ink">
-            {pieceName(item)}
+              what a garment is called. THE ONLY LABEL ON THE CARD, at the
+              atlas's 15pt: `label` is 13pt, so the size rides inline rather
+              than as a second `text-*` class (NativeWind gives no precedence
+              between two size utilities on one element). */}
+          <Text
+            variant="label"
+            // AX frame: "Nothing is capped, abbreviated or ellipsised to make
+            // this fit." In the two-column grid a name still has to hold one
+            // line, because the tile is 168pt wide and a wrapped name would
+            // push the metadata out of alignment across the row.
+            numberOfLines={stacked ? undefined : 1}
+            className="text-ink"
+            style={{ fontSize: 15, lineHeight: 20 }}>
+            {name}
           </Text>
-          {/* Meta hides while selecting — name only, per C-04: the row stays
-              scannable when the job is picking, not reading. */}
-          {selecting ? null : (
-            // `shrink` on both children, not just `numberOfLines`. A Text that
-            // cannot shrink reports its full intrinsic width to the row, so at
-            // large Dynamic Type the row grew WIDER THAN THE CARD: the meta
-            // escaped the tile, collided with the neighbouring card's meta and
-            // ran off the right edge of the screen. `numberOfLines` does
-            // nothing until something has constrained the width. Measured at
-            // AX5 before and after — see docs/design/dynamic-type-walk.md.
-            //
-            // This contains it. It does NOT make the figures readable at the
-            // largest setting: they now ellipsize instead ("1284…", "$1.01 /…")
-            // and a truncated number does not look truncated. Wrapping the row
-            // was tried and backed out — it also wrapped at the DEFAULT size,
-            // which changes the single-line meta the atlas draws, and that is a
-            // design decision rather than a defect fix. Recorded as open.
-            <View className="mt-[3px] flex-row items-baseline justify-between gap-2">
-              <Text variant="caption" numberOfLines={1} className="shrink">
-                {`${item.wearCount} ${item.wearCount === 1 ? 'wear' : 'wears'}`}
-              </Text>
-              {/* Right meta, per the atlas: cost-per-wear in ink when it exists;
-                  a never-worn piece with a price shows what that price hasn't
-                  earned, in muted; no price → nothing to say. */}
-              {neverWorn && item.purchasePrice !== null ? (
-                <Text variant="caption" numberOfLines={1} className="shrink">
-                  {`${formatPrice(item.purchasePrice)} unearned`}
-                </Text>
-              ) : cpw !== null ? (
-                <Text variant="caption" numberOfLines={1} className="shrink text-ink">
-                  {`$${cpw.toFixed(2)} / wear`}
-                </Text>
-              ) : null}
-            </View>
-          )}
+
+          {/* C-04: while picking, the metadata line is REPLACED by the word
+              Selected rather than hidden — that word is the third channel of
+              the selection, beside the outline and the tick, and it is what
+              keeps the state readable in greyscale. An unpicked card keeps its
+              metadata, so the grid is still browsable while choosing. */}
+          <Text
+            variant={selecting && selected ? 'label' : 'note'}
+            numberOfLines={stacked ? undefined : 1}
+            className={`mt-[3px] ${selecting && selected ? 'text-ink' : ''}`}>
+            {selecting && selected ? 'Selected' : meta}
+          </Text>
         </View>
       </Animated.View>
     </Pressable>
