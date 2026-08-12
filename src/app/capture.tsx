@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { CameraAsk } from '@/components/ingest/camera-ask';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
+import { CutoutFailedNotice } from '@/components/ingest/cutout-failed-notice';
 import { GarmentSearchSheet } from '@/components/ingest/garment-search-sheet';
 import { UploadQueueList } from '@/components/ingest/upload-queue-list';
 import { ListingOffer } from '@/components/match/listing-offer';
@@ -38,6 +39,7 @@ import {
 } from '@/features/ingest/queue-count';
 import { useCapture, type CapturedAsset } from '@/features/ingest/use-capture';
 import { useWardrobe } from '@/features/styling/queries';
+import { cutoutFailures } from '@/features/ingest/cutout-failure';
 import {
   useQueueStore,
   selectActiveCount,
@@ -730,6 +732,8 @@ export default function CaptureScreen() {
   const doneCount = jobs.filter((j) => j.stage === 'done').length;
   const failed = selectFailedJobs(jobs);
   const failedCount = failed.length;
+  // CP-05 — the pieces that were filed but arrived without a cutout.
+  const cutoutLost = cutoutFailures(jobs);
   const active = selectActiveCount(jobs); // queued + in-flight, i.e. still to process
   const allDone = total > 0 && active === 0;
   // Everything the queue has finished ARGUING about, added or not. The ordinal
@@ -1255,6 +1259,13 @@ export default function CaptureScreen() {
                       />
                     </View>
                   </View>
+                ) : null}
+
+                {/* CP-05. Under the rail, over its own subject, and after the
+                    generic failure banner: a lost cutout is not a stopped
+                    piece, so it must not be read as one more of those. */}
+                {cutoutLost[0]?.id ? (
+                  <CutoutFailedNotice jobId={cutoutLost[0].id} count={cutoutLost.length} />
                 ) : null}
 
                 {/* M-03. Inline in the flow and below the rail that names what

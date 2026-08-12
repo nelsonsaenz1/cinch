@@ -77,6 +77,18 @@ export type UploadJob = {
    * button that is guaranteed to disappoint.
    */
   retryable?: boolean;
+  /**
+   * CP-05 — the on-device cutout ran and could not lift the garment.
+   *
+   * On the job rather than on the item row, because it is a fact about THIS
+   * import attempt and the recovery is local: the original photograph is still
+   * on the phone, so a second Vision pass costs nothing and needs no server.
+   * The piece itself is filed either way, which is what the notice says first.
+   *
+   * Absent on an unsupported device: nothing was attempted there, so there is
+   * no failure to report and no retry that could change it.
+   */
+  cutoutFailed?: boolean;
   /** 0–1, only meaningful during `uploading`. */
   progress: number;
 };

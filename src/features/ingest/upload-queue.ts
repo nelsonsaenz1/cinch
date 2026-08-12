@@ -504,9 +504,23 @@ type CutoutArtifacts = {
   plateUri: string | null;
   colors: MeasuredColor[] | null;
   analysis: { version: number; source: string; swatches: Swatch[] } | null;
+  /**
+   * WHY THIS IS THREE VALUES AND NOT A BOOLEAN — CP-05.
+   *
+   * The atlas's notice says "Cinch could not lift the garment from the
+   * background" and offers to try again. Both halves are false on a device
+   * whose OS cannot do the lift at all: nothing was attempted, so nothing
+   * failed, and a retry is guaranteed to produce the same nothing. Telling
+   * that user their photo could not be processed would be inventing a failure,
+   * and giving them a retry would be a dead control.
+   *
+   * So `unsupported` is a third outcome that produces no notice, and only
+   * `failed` — Vision ran and came back with nothing usable — raises CP-05.
+   */
+  outcome: 'ok' | 'failed' | 'unsupported';
 };
 
-const NO_CUTOUT: CutoutArtifacts = {
+const NO_CUTOUT: Omit<CutoutArtifacts, 'outcome'> = {
   cutoutUri: null,
   plateUri: null,
   colors: null,
@@ -530,14 +544,14 @@ async function runCutout(sourceUri: string): Promise<CutoutArtifacts> {
   try {
     if (!(await backgroundRemover.isSupported())) {
       track('cutout_result', { outcome: 'unsupported-device', subjectCount: 0 });
-      return NO_CUTOUT;
+      return { ...NO_CUTOUT, outcome: 'unsupported' };
     }
 
     const result = await backgroundRemover.remove(sourceUri);
 
     if (!result.ok) {
       track('cutout_result', { outcome: result.reason, subjectCount: 0 });
-      return NO_CUTOUT;
+      return { ...NO_CUTOUT, outcome: 'failed' };
     }
 
     track('cutout_result', { outcome: 'ok', subjectCount: result.subjects.length });
@@ -556,6 +570,10 @@ async function runCutout(sourceUri: string): Promise<CutoutArtifacts> {
     });
 
     return {
+      // Vision answering `ok` with no subject IS the atlas's sentence — it ran
+      // and could not lift the garment — so it is a failure here even though
+      // the native call succeeded. The colours it measured are still kept.
+      outcome: subject ? 'ok' : 'failed',
       cutoutUri: subject?.uri ?? null,
       plateUri: result.plate?.uri ?? null,
       colors: colors.length > 0 ? colors : null,
@@ -572,7 +590,7 @@ async function runCutout(sourceUri: string): Promise<CutoutArtifacts> {
     // transparent version of it is a nicety. `remove()` already converts its own
     // failures into results, so reaching here means something outside it broke.
     track('cutout_result', { outcome: 'failed', subjectCount: 0 });
-    return NO_CUTOUT;
+    return { ...NO_CUTOUT, outcome: 'failed' };
   }
 }
 
@@ -653,6 +671,10 @@ async function processLocalJob(job: UploadJob, userId: string): Promise<void> {
   if (!itemId) throw new Error('Item id missing after creation.');
 
   await saveLocalPhoto(itemId, prepared.uri, thumb.uri);
+
+  // CP-05, after the row exists — the notice's first sentence says the piece is
+  // filed, so the flag must never be set before that is true.
+  update(job.id, { cutoutFailed: cutout.outcome === 'failed' });
 
   update(job.id, { stage: 'done', error: undefined });
   invalidateAfterItemSettled();
@@ -743,6 +765,10 @@ async function processJob(job: UploadJob): Promise<void> {
     })
     .eq('id', itemId);
   if (updateError) throw new Error(`Could not record upload: ${updateError.message}`);
+
+  // CP-05. Set here rather than beside the Vision call for the same reason as
+  // the local path: the row is now written, so "the piece is filed" is true.
+  update(job.id, { cutoutFailed: cutout.outcome === 'failed' });
 
   // 5. Request tagging. A failure here is explicitly NOT fatal to the import:
   //    the item is already saved. But it must still REACH AN END. Up to
@@ -1271,4 +1297,78 @@ export function startTagSweeper(): void {
   AppState.addEventListener('change', (state) => {
     if (state === 'active') void sweepPendingTags();
   });
+}
+
+// ---------------------------------------------------------------------------
+// CP-05 — the two recoveries
+// ---------------------------------------------------------------------------
+
+/**
+ * Lift the garment again, once, because the user asked.
+ *
+ * ONE PASS PER TAP AND NO LOOP. The failure is local and immediate, so there is
+ * nothing to back off from and nothing to schedule; a retry that quietly kept
+ * trying would be the "until the cutout succeeds" that Correction 10 removed.
+ * If the second pass fails too, the flag stays set and the notice stays up with
+ * "Keep the full photo" still beside it — the user is never left holding a
+ * button that has silently stopped meaning anything.
+ *
+ * NOTHING IS RE-CREATED. The row and its photographs are already written; this
+ * adds the two objects that were missing and patches their paths. The original
+ * and the thumbnail are not touched, so a retry cannot cost the user the
+ * picture they already have — which is the promise the notice makes first.
+ */
+export async function retryCutout(jobId: string): Promise<boolean> {
+  const { jobs, update } = useQueueStore.getState();
+  const job = jobs.find((j) => j.id === jobId);
+  if (!job?.cutoutFailed || !job.itemId) return false;
+
+  const cutout = await runCutout(job.localUri);
+  if (cutout.outcome !== 'ok') {
+    // Still no lift. The flag is left exactly as it was: the notice is as true
+    // now as it was a moment ago, and clearing it would hide a failure the user
+    // just watched happen.
+    return false;
+  }
+
+  const userId = await getUserId();
+  // A local-mode job has no uploads by design (A-04), so its recovery is the
+  // colours alone — which is all its cutout was ever for.
+  if (userId && !job.local) {
+    const base = `${userId}/${job.itemId}`;
+    if (cutout.cutoutUri) {
+      await uploadObject(cutout.cutoutUri, `${base}/cutout.png`, 'image/png', () => {});
+    }
+    if (cutout.plateUri) {
+      await uploadObject(cutout.plateUri, `${base}/plate.png`, 'image/png', () => {});
+    }
+    const { error } = await supabase
+      .from('items')
+      .update({
+        ...(cutout.cutoutUri ? { cutout_path: `${base}/cutout.png` } : {}),
+        ...(cutout.plateUri ? { plate_path: `${base}/plate.png` } : {}),
+        ...(cutout.colors ? { colors: cutout.colors } : {}),
+        ...(cutout.analysis ? { color_analysis: cutout.analysis } : {}),
+      })
+      .eq('id', job.itemId);
+    // A write that did not land leaves the notice up rather than reporting a
+    // success the closet will not show.
+    if (error) return false;
+  }
+
+  update(jobId, { cutoutFailed: false });
+  invalidateAfterItemSettled();
+  return true;
+}
+
+/**
+ * "Keep the full photo" — a named outcome, not a dismissal.
+ *
+ * It writes nothing because there is nothing to write: the full photograph is
+ * already the piece's image and has been since the moment it was filed. What
+ * this records is that the user has been told and has answered, which is the
+ * difference between a notice they dismissed and one they never saw.
+ */
+export function acceptFullPhoto(jobId: string): void {
+  useQueueStore.getState().update(jobId, { cutoutFailed: false });
 }
