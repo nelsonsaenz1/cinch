@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { AiConsentPage } from '@/components/privacy/ai-consent-page';
+import { BackfillSheet } from '@/components/privacy/backfill-sheet';
 import { WithdrawConsentSheet } from '@/components/privacy/withdraw-consent-sheet';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import {
@@ -47,6 +48,10 @@ export default function AiConsentScreen() {
 
   const [consentVisible, setConsentVisible] = useState(false);
   const [withdrawVisible, setWithdrawVisible] = useState(false);
+  // CN-04. The row opens this; this starts the send. Rule 2 below is why the
+  // two are separate: the batch is a bigger question than the setting, and it
+  // gets its own ask with its own count.
+  const [backfillVisible, setBackfillVisible] = useState(false);
   const [sentListOpen, setSentListOpen] = useState(false);
   // idle → sending → done. `sending` is entered only by pressing the card.
   const [backfill, setBackfill] = useState<'idle' | 'sending' | 'done'>('idle');
@@ -78,6 +83,7 @@ export default function AiConsentScreen() {
   }, [drained]);
 
   const runBackfill = async () => {
+    setBackfillVisible(false);
     setBackfill('sending');
     try {
       const { enqueued } = await startBackfill();
@@ -124,7 +130,7 @@ export default function AiConsentScreen() {
         listingCount={listingSends.data ?? 0}
         untaggedCount={untagged.data ?? null}
         backfillPhase={backfillPhase}
-        onRunBackfill={() => void runBackfill()}
+        onOpenBackfill={() => setBackfillVisible(true)}
         sentListOpen={sentListOpen}
         onToggleSentList={() => setSentListOpen((open) => !open)}
         sentPhotos={sentPhotos.data ?? []}
@@ -135,6 +141,17 @@ export default function AiConsentScreen() {
         onWithdraw={() => setWithdrawVisible(true)}
         onGive={() => setConsentVisible(true)}
         busy={revokeConsent.isPending}
+      />
+
+      {/* CN-04 — the batch, asked for separately from the setting. Rendered
+          only with a real count: the sheet's whole content is that number, and
+          a sheet that opened saying "0 pieces" would be a control with nothing
+          to do. */}
+      <BackfillSheet
+        visible={backfillVisible && (untagged.data ?? 0) > 0}
+        count={untagged.data ?? 0}
+        onRunBackfill={() => void runBackfill()}
+        onCancel={() => setBackfillVisible(false)}
       />
 
       {/* PD-03. */}

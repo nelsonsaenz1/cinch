@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { SymbolView } from 'expo-symbols';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { PlateThumb } from '@/components/closet/plate-thumb';
@@ -16,16 +17,16 @@ import {
 import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
 import { usePlan } from '@/features/billing/use-plan';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
-import { oklchToHex } from '@/lib/color';
 import { DEFAULT_WEIGHTS } from '@/lib/styling';
 import type { Item } from '@/schemas/item';
 import { useTheme } from '@/theme/tokens';
 import type { Json } from '@/types/database';
 
 import { buildPackingList, swapDay, type PackedLook, type PackedPiece, type PackingResult } from './packing';
-import { lookSchedule, repeatLabel } from './packing-math';
+import { lookSchedule, packedPieceChip, repeatLabel } from './packing-math';
 import {
   bagHeaderLine,
+  bagProseLine,
   buildSavedMemo,
   buildingLooksDetail,
   buildingLooksTitle,
@@ -40,6 +41,7 @@ import {
   lookGarmentNames,
   memoHeadline,
   normalsSummaryLine,
+  pieceCoverage,
   shortfallSentence,
   type SavedMemo,
 } from './packing-memo';
@@ -331,36 +333,134 @@ export function ResearchSteps({
 // K-05 — the bag and the days
 // ---------------------------------------------------------------------------
 
-export function BagRow({ item, uri, piece }: { item: Item | undefined; uri?: string; piece: PackedPiece }) {
+/** The atlas's packed-piece well, and the itinerary's smaller reuse of it. */
+const PACKED_WELL = 92;
+const ITINERARY_THUMB = 32;
+
+/**
+ * A garment at any size, with the SILHOUETTE as the fallback.
+ *
+ * `PlateThumb` needs a real `Item` row, and a packed garment can be absent from
+ * the closet read for the ordinary reason that the read has not landed yet.
+ * The old fallback was a rectangle filled with the garment's tagged colour,
+ * which is precisely what audit 81 is about — an anonymous coloured square is
+ * not a likeness of a piece of clothing. The silhouette at least has the right
+ * shape, and it is the same fallback the diary and the plan week use.
+ */
+function GarmentWell({
+  item,
+  uri,
+  size,
+  radius,
+  glyph,
+}: {
+  item: Item | undefined;
+  uri?: string;
+  size: number;
+  radius: number;
+  glyph: number;
+}) {
+  const theme = useTheme();
+  return item ? (
+    <PlateThumb item={item} uri={uri} size={size} radius={radius} showFallbackLabel={false} />
+  ) : (
+    <SymbolView name="tshirt" size={glyph} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
+  );
+}
+
+/**
+ * PK-03 — one packed piece, drawn as itself.
+ *
+ * Audit 81: the bag is understandable WITHOUT READING A LIST, because every
+ * packed piece is its own photograph rather than a colour square with a name
+ * beside it. The count sits ON the garment as a paper chip at its foot, which
+ * is audit 82's other half — it removes the summary strip of numbers entirely.
+ *
+ * A piece with no photograph draws the silhouette at the same 92pt scale, so a
+ * described closet packs the same way. The colour-square fallback is gone: an
+ * anonymous rectangle is exactly what audit 81 is about, and a swatch is not a
+ * more honest likeness of a garment than a silhouette of the right shape.
+ */
+export function BagPiece({
+  item,
+  uri,
+  piece,
+  chip,
+}: {
+  item: Item | undefined;
+  uri?: string;
+  piece: PackedPiece;
+  chip: string | null;
+}) {
   const label = garmentLabel(piece.garment);
-  const swatch = piece.garment.colors[0];
+
   return (
-    <View className="flex-row items-center gap-3 py-2">
-      {item ? (
-        <PlateThumb item={item} uri={uri} size={44} radius={8} showFallbackLabel={false} />
-      ) : (
-        <View
-          className="rounded"
-          style={{ width: 44, height: 44, backgroundColor: swatch ? oklchToHex(swatch.oklch) : '#EAE4D6' }}
-        />
-      )}
-      <View className="flex-1">
-        <Text variant="body">{label}</Text>
+    <View
+      accessible
+      // "Linen blouse, worn on three days" — the count as WORDS, so a screen
+      // reader is not handed "×3".
+      accessibilityLabel={chip ? `${label}, ${chip.toLowerCase()}` : label}
+      style={{ width: PACKED_WELL }}>
+      <View
+        className="items-center justify-center overflow-hidden rounded bg-tray"
+        style={{ width: PACKED_WELL, height: PACKED_WELL, padding: 6 }}>
+        <GarmentWell item={item} uri={uri} size={PACKED_WELL - 12} radius={8} glyph={28} />
       </View>
-      <Text variant="label">{repeatLabel(piece.looks, piece.worn)}</Text>
+      {chip ? (
+        <View className="mt-1.5 self-start rounded-sm bg-sand px-1.5 py-0.5">
+          <Text variant="colophon">{chip}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
 
-export function DayLookRow({ part, look }: { part: DayPartKey; look: PackedLook }) {
+/**
+ * PK-03's itinerary row — the SAME pictures again, at 32pt.
+ *
+ * Audit 81's second half: the bag and the days have to be visibly the same
+ * garments rather than two abstract systems, so the row reuses the photographs
+ * the bag just showed and keeps the names beside them.
+ */
+export function DayLookRow({
+  part,
+  look,
+  resolve,
+  byId,
+}: {
+  part: DayPartKey;
+  look: PackedLook;
+  resolve?: (...paths: (string | null | undefined)[]) => string | undefined;
+  byId?: Map<string, Item>;
+}) {
   const names = lookGarmentNames(look);
+  const pieces = look.outfit?.items ?? [];
+
   return (
-    <View className="flex-row gap-3 py-1.5">
+    <View className="flex-row items-center gap-3 py-2">
       <View style={{ width: 56 }}>
-        <Text variant="label">{dayPartOf(part).title.toUpperCase()}</Text>
+        <Text variant="colophon">{dayPartOf(part).title}</Text>
       </View>
+      {pieces.length && resolve ? (
+        <View className="flex-row" style={{ gap: 4 }}>
+          {pieces.slice(0, 4).map((g) => (
+            <View
+              key={g.id}
+              className="items-center justify-center overflow-hidden rounded-sm bg-tray"
+              style={{ width: ITINERARY_THUMB, height: ITINERARY_THUMB, padding: 2 }}>
+              <GarmentWell
+                item={byId?.get(g.id)}
+                uri={resolve(g.platePath, g.cutoutPath, g.thumbPath)}
+                size={ITINERARY_THUMB - 4}
+                radius={4}
+                glyph={13}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
       <View className="flex-1">
-        <Text variant="body">{names || 'Nothing found for this look.'}</Text>
+        <Text variant="note">{names || 'Nothing found for this look.'}</Text>
       </View>
     </View>
   );
@@ -807,6 +907,11 @@ export function PackingMemo({
   const groups = groupLooksByDay(packing.looks);
   const filledLooks = packing.looks.filter((l) => l.outfit).length;
 
+  // PK-03: a piece earns a tile when it repeats, or when it is the one worn on
+  // departure. Everything else is named in the prose line under the grid.
+  const tiles = packing.items.filter((p) => p.worn || p.looks > 1);
+  const bagProse = bagProseLine(packing.items.filter((p) => !p.worn && p.looks <= 1));
+
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-gutter pb-16 pt-2">
       {membershipUnconfirmed ? (
@@ -826,7 +931,8 @@ export function PackingMemo({
         </Text>
       </View>
 
-      {/* Prose first. */}
+      {/* Prose first — the required order is prose, bag, days, and audit 82
+          tightens the vertical gaps between those three blocks from 28 to 20. */}
       <View className="mt-4">
         {brief.isPending ? (
           <TextSkeleton lines={2} />
@@ -839,22 +945,27 @@ export function PackingMemo({
         ) : null}
       </View>
 
-      {/* Then the bag. */}
-      <View className="mt-8">
-        <SectionHeader title="The bag" />
-        <Text variant="label" className="mt-1">
-          {bagHeaderLine(packing.items)}
-        </Text>
-        <View className="mt-2">
-          {packing.items.map((piece) => (
-            <BagRow
+      {/* Then the bag — audit 82's 20pt gap, not 28. */}
+      <View className="mt-5">
+        <SectionHeader title={`The bag · ${bagHeaderLine(packing.items)}`} />
+        <View className="mt-3 flex-row flex-wrap gap-3">
+          {tiles.map((piece) => (
+            <BagPiece
               key={piece.garment.id}
               piece={piece}
+              chip={packedPieceChip(pieceCoverage(packing.looks, piece))}
               item={byId.get(piece.garment.id)}
               uri={resolve(piece.garment.platePath, piece.garment.cutoutPath)}
             />
           ))}
         </View>
+        {/* The pieces that need no count are named in prose rather than
+            padding the grid with a chip that says "1". */}
+        {bagProse ? (
+          <Text variant="note" className="mt-3">
+            {bagProse}
+          </Text>
+        ) : null}
       </View>
 
       {/* Then the days. */}
@@ -869,21 +980,27 @@ export function PackingMemo({
         const trailing = [temp, caption].filter(Boolean).join(' · ');
 
         return (
-          <View key={group.dayIndex} className="mt-8">
+          <View key={group.dayIndex} className="mt-5">
             <SectionHeader
               title={dateLabel}
               trailing={trailing ? <Text variant="label">{trailing}</Text> : undefined}
             />
             <View className="mt-2">
               {group.looks.map((look) => (
-                <DayLookRow key={`${group.dayIndex}-${look.part}`} part={look.part} look={look} />
+                <DayLookRow
+                  key={`${group.dayIndex}-${look.part}`}
+                  part={look.part}
+                  look={look}
+                  resolve={resolve}
+                  byId={byId}
+                />
               ))}
             </View>
           </View>
         );
       })}
 
-      <View className="mt-8">
+      <View className="mt-6">
         <Rule />
       </View>
 

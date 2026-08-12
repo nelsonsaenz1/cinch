@@ -5,13 +5,19 @@ import { OutlinedAccentButton } from '@/components/privacy/outlined-accent-butto
 import { PrivacyPage } from '@/components/privacy/privacy-page';
 import { Button, Card, Rule, SectionHeader, Text } from '@/components/ui';
 import type { SentItemDetail, SentPhoto } from '@/features/auth/use-ai-privacy';
-import { CONSENT_FACTS, WITHDRAW_CONSEQUENCE, WITHOUT_CONSENT } from '@/features/privacy/copy';
+import {
+  CONSENT_FACTS,
+  WITHDRAW_CONSEQUENCE,
+  WITHOUT_CONSENT,
+  WITHOUT_CONSENT_LOST,
+  WITHOUT_CONSENT_WORKS,
+} from '@/features/privacy/copy';
 import { consentStatusLine, fullDate, shortDate } from '@/features/privacy/format';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
- * PD-02 — AI consent, in view.
+ * PD-02 / CN-02 / CN-03 — AI consent, in view.
  *
  * ── The drawn composition ──────────────────────────────────────────────────
  *
@@ -19,6 +25,31 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * rule: "the withdrawal screen shows the original wording, not a summary of
  * it"), then what withdrawal costs, then the button that does it. The wording
  * lives in `features/privacy/copy.ts` beside the citation for every claim.
+ *
+ * ── CN-02, and what the drawn frame gets wrong about this app ──────────────
+ *
+ * The declined state gains the pair of lists CN-02 draws — what still works,
+ * then what does not, in that order and at that ratio, because the first list
+ * is the whole product and the second is three things. The lists themselves are
+ * in `copy.ts` with the two corrections this repository forced on them: packing
+ * is NOT in the works list, because `packing-brief` refuses without consent
+ * exactly as the tagger does, and the stylist chat IS in the lost list, because
+ * it stops and `WITHDRAW_CONSEQUENCE` has always said so.
+ *
+ * Cutouts are in the works list, and that is the correction worth having: they
+ * are Apple Vision on the device (`modules/garment-cutout/ios/SubjectLift.swift`)
+ * and never depended on consent, so a declined user still gets a garment on a
+ * clean ground and fills in the two fields Cinch would have guessed.
+ *
+ * ── CN-03's toggle, which is not here ──────────────────────────────────────
+ *
+ * CN-03 draws "Send photographs for reading · On" as a switch. A switch can be
+ * flipped back on, and `use-consent.ts:116-119` forbids exactly that: "consent
+ * that was withdrawn has to be given again in full, with the disclosure in
+ * front of the user, or it is not consent". So withdrawal stays one unfilled
+ * oxblood action — which is what CN-03's own annotation asks for, "withdrawal
+ * is one 48 pt action ... never dressed as a warning" — and giving it again
+ * opens `ConsentSheet`.
  *
  * ── The state the atlas does not draw ──────────────────────────────────────
  *
@@ -61,7 +92,8 @@ export type AiConsentPageProps = {
   /** Items with no AI tags, or null while unread. */
   untaggedCount: number | null;
   backfillPhase: 'idle' | 'sending' | 'done';
-  onRunBackfill: () => void;
+  /** Opens CN-04. The batch is consented to there, never by this row alone. */
+  onOpenBackfill: () => void;
 
   sentListOpen: boolean;
   onToggleSentList: () => void;
@@ -87,7 +119,7 @@ export function AiConsentPage({
   listingCount,
   untaggedCount,
   backfillPhase,
-  onRunBackfill,
+  onOpenBackfill,
   sentListOpen,
   onToggleSentList,
   sentPhotos,
@@ -130,22 +162,59 @@ export function AiConsentPage({
       : backfillPhase === 'sending'
         ? 'Tags fill in on each item as they come back.'
         : granted
-          ? 'Sends those photos once, then stops.'
-          : 'Sends those photos once, then stops. Available after you give consent.';
+          ? // The row opens CN-04 now; the batch is agreed to there. So the
+            // sub-line says what the tap does, not what the back-fill does.
+            'Opens the ask. Nothing is sent until you agree to the batch.'
+          : 'Available after you give consent.';
 
   return (
-    <PrivacyPage parent="Privacy & data" title="AI consent" intro={intro} onBack={onBack}>
+    <PrivacyPage parent="Privacy and data" title="AI consent" intro={intro} onBack={onBack}>
+      {/* ── CN-02 · the declined path, drawn as a configuration ──────────── */}
+      {granted ? null : (
+        <View className="mx-gutter mt-6 gap-2.5">
+          <View className="rounded-lg bg-tray p-4">
+            <Text variant="body" className="font-medium">
+              What still works
+            </Text>
+            <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
+              {WITHOUT_CONSENT_WORKS}
+            </Text>
+          </View>
+          <View className="rounded-lg bg-tray p-4">
+            <Text variant="body" className="font-medium">
+              What does not
+            </Text>
+            <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
+              {WITHOUT_CONSENT_LOST}
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* ── What it covers ───────────────────────────────────────────────── */}
       <Card padding="xl" className="mx-gutter mt-6">
         <Text variant="eyebrow">{granted ? 'What it covers' : 'What it would cover'}</Text>
-        <View className="mt-3 gap-3">
+        <View className="mt-3 gap-4">
           {CONSENT_FACTS.map((fact) => (
-            // One Text per paragraph with the lead nested inside it, so the
-            // sentence wraps as one sentence. `note` for the body: `label` and
-            // `caption` carry `font-medium` and would render the atlas's
-            // regular weight as bold.
-            <Text key={fact.lead} variant="note">
-              <Text variant="note" className="font-semibold" style={{ color: theme.ink }}>
+            // ── The record, at a size a reader can hold to ────────────────
+            //
+            // One `Text` per fact with the lead nested inside it, so the
+            // sentence wraps as ONE sentence. That shape is not a preference:
+            // `consent-facts.ts` stores each fact as a bolded opening clause
+            // plus the rest of the same sentence, and the privacy page's job is
+            // to quote the wording a user agreed to, not to re-cut it.
+            //
+            // What changed is the size. This was `note` — 13px — and the
+            // group's floor is that no legal sentence is set below 15 pt
+            // anywhere. It is `body` (17px) now, in `muted`, with the lead in
+            // Medium ink: a clause in Medium, never a full sentence.
+            //
+            // CN-01 draws these as a Medium HEADING plus a separate regular
+            // sentence. That shape cannot be built from this record without
+            // writing four headings, and four headings on a consent sheet are
+            // four new sentences a user never agreed to. See the report.
+            <Text key={fact.lead} variant="body" style={{ color: theme.muted }}>
+              <Text variant="body" className="font-semibold" style={{ color: theme.ink }}>
                 {fact.lead}
               </Text>
               {fact.rest}
@@ -159,7 +228,7 @@ export function AiConsentPage({
         <Text variant="body" className="font-medium">
           {granted ? 'If you withdraw' : 'Without it'}
         </Text>
-        <Text variant="note" className="mt-1.5">
+        <Text variant="body" className="mt-1.5" style={{ color: theme.muted }}>
           {granted ? WITHDRAW_CONSEQUENCE : WITHOUT_CONSENT}
         </Text>
       </View>
@@ -185,14 +254,17 @@ export function AiConsentPage({
         )}
       </View>
 
-      <Text variant="noteSmall" className="mt-3.5 px-gutter">
+      {/* `callout` (16px), not `noteSmall` (11px). Both of these are sentences
+          about a consent decision, and the group's floor is that none of those
+          is set below 15 pt. */}
+      <Text variant="callout" className="mt-3.5 px-gutter" style={{ color: theme.muted }}>
         {granted
           ? 'You can give it again at any time, from this page.'
           : 'The full disclosure opens first — consent given without reading it is not consent.'}
       </Text>
 
       {version && grantedAt ? (
-        <Text variant="noteSmall" className="mt-1.5 px-gutter">
+        <Text variant="callout" className="mt-1.5 px-gutter" style={{ color: theme.muted }}>
           {`Consent recorded ${fullDate(grantedAt)}, policy v${version}.`}
         </Text>
       ) : null}
@@ -206,8 +278,12 @@ export function AiConsentPage({
         <Rule />
       </View>
 
+      {/* CN-03's "What has been sent". Two counts, not one — see the
+          `use-ai-privacy.ts` header for why a single lifetime figure cannot be
+          computed honestly, and the report for what that costs CN-03's drawn
+          day-by-day log. */}
       <SectionHeader title="What has actually left this phone" className="mb-2 mt-6 px-gutter" />
-      <Text variant="note" className="px-gutter">
+      <Text variant="body" className="px-gutter" style={{ color: theme.muted }}>
         {ready
           ? consentStatusLine(granted, grantedAt, revokedAt, taggedCount, listingCount)
           : 'Counting…'}
@@ -222,7 +298,7 @@ export function AiConsentPage({
           accessibilityHint={backfillActive ? 'Sends those photos once, then stops' : undefined}
           accessibilityState={{ disabled: !backfillActive, busy: backfillPhase === 'sending' }}
           disabled={!backfillActive}
-          onPress={onRunBackfill}
+          onPress={onOpenBackfill}
           style={{ minHeight: MIN_TAP_TARGET }}
           className={`mx-gutter mt-4 rounded-lg bg-sand p-4 ${
             backfillActive ? 'active:opacity-60' : ''
@@ -235,7 +311,7 @@ export function AiConsentPage({
               {backfillTitle}
             </Text>
           </View>
-          <Text variant="note" className="mt-1">
+          <Text variant="callout" className="mt-1" style={{ color: theme.muted }}>
             {backfillSub}
           </Text>
         </Pressable>
@@ -249,7 +325,7 @@ export function AiConsentPage({
           onPress={onToggleSentList}
           style={{ minHeight: MIN_TAP_TARGET }}
           className="mx-gutter mt-4 justify-center active:opacity-60">
-          <Text variant="note" style={{ color: theme.accent }}>
+          <Text variant="callout" style={{ color: theme.accent }}>
             {sentListOpen ? 'Hide the list' : 'See what we sent'}
           </Text>
         </Pressable>
@@ -295,7 +371,7 @@ export function AiConsentPage({
               gap the reader has to notice: `garment-search` records no
               `item_id`, so a listing send cannot be tied back to a piece. */}
           {listingCount > 0 ? (
-            <Text variant="noteSmall" className="mt-3">
+            <Text variant="callout" className="mt-3" style={{ color: theme.muted }}>
               Listing searches are not itemised — the record does not say which piece each one was
               about.
             </Text>

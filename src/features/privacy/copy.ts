@@ -38,17 +38,72 @@ export type DisclosureRow = {
   body: string;
 };
 
+/** One named part of a topic whose detail involves more than one party. */
+export type DisclosureSection = {
+  title: string;
+  body: string;
+};
+
 /**
- * PD-01 · "What is stored".
+ * One row of the PV-01 index.
+ *
+ * `gist` is what audit 75/76 actually asks for and what the page did not have:
+ * "the collapsed index names all nine categories" and each row "carries a
+ * Medium title and a regular gist, so the collapsed index is itself a readable
+ * summary". Before this, a reader had to open nothing — the whole disclosure
+ * was one continuous card — which meant the first viewport named three
+ * categories out of seven and the rest were discoverable only by scrolling
+ * through the full text of the ones above them.
+ *
+ * A gist is a SUMMARY OF THE BODY BELOW IT, never a claim of its own. Every one
+ * of them is checkable against the paragraph it heads, and
+ * `tests/w3-g4-consent-privacy.test.ts` holds that: no gist may promise
+ * something its own body does not say.
+ *
+ * `body` and `sections` are the same thing at different resolutions — one
+ * paragraph, or several when the detail involves genuinely different parties
+ * (PV-02's shopping topic separates the listing service, the cache, the shop's
+ * own image server and the merchant, because they are four companies).
+ */
+export type PrivacyTopic = {
+  title: string;
+  gist: string;
+  body?: string;
+  sections?: readonly DisclosureSection[];
+};
+
+/** PV-01 · the sentence above the index. Both halves hold; see the rows below. */
+export const INDEX_INTRO =
+  'Your closet lives in your account. Photographs are private, your wear history is yours, and nothing is sold. Every line below opens to the full detail.';
+
+/**
+ * PD-01 / PV-01 · the disclosure, as an index.
  *
  * These row descriptions ARE the App Privacy disclosure — the atlas's own rule
  * is that each line of the store card maps to one row here, and that a
  * disclosure added to the listing is added to this page in the same release.
  * So they are written as full sentences and not as labels.
+ *
+ * ── Where the drawn gists are not used ─────────────────────────────────────
+ *
+ * PV-01 draws "Weather by city, calendar titles never stored" for the location
+ * row. Both halves are wrong about this app and the row's own body says so:
+ * the forecast is fetched from a coordinate rounded to two decimals, which is
+ * not a city, and the calendar TITLE is sent to the AI partner with the outfit
+ * request — so "never stored" answers a question nobody asked while leaving the
+ * disclosed thing undisclosed. The gist here summarises the body instead.
+ *
+ * PV-01 also draws "Email, membership, devices" for the account row. Cinch
+ * holds no device list to disclose, and inventing one to match a drawn label
+ * would be a disclosure of something the app does not do — the same defect as
+ * concealing something it does (see `LINK_HANDLING_ROW`).
  */
-export const STORED_ROWS: readonly DisclosureRow[] = [
+export const PRIVACY_TOPICS: readonly PrivacyTopic[] = [
   {
     title: 'Your closet photos',
+    // Summarises the body: private to the account, reached through signed
+    // links (`features/closet/use-image-urls.ts`), and the three doors.
+    gist: 'Private to you, reached through signed links. Three things send one.',
     // Kept: both buckets are the user's own and are walked by name at deletion
     // (`supabase/functions/delete-account/index.ts:58`).
     // Sent, in THREE cases, not the two this row used to name:
@@ -73,6 +128,10 @@ export const STORED_ROWS: readonly DisclosureRow[] = [
   },
   {
     title: 'Wears and plans',
+    // The gist carries the caveat rather than hiding it one tap down: "kept
+    // until you delete them" alone would read as "and nobody else sees any of
+    // it", which the body then contradicts.
+    gist: 'Kept until you delete them. A friend can see a piece’s wear count.',
     // "Lately" and "The Ten" are live; "Season in review" is not (contract
     // §3.3 — atlas 34 deferred).
     // Owner-only outfits and calendar: `20260803154431_initial_schema.sql:168`,
@@ -85,6 +144,9 @@ export const STORED_ROWS: readonly DisclosureRow[] = [
   },
   {
     title: 'Where you are, and what is on today',
+    // NOT PV-01's "Weather by city, calendar titles never stored" — see the
+    // header above this array. The gist names the two things that leave.
+    gist: 'A coarse location for the forecast. Event titles go with the outfit request.',
     // ── A ROW THE ATLAS DOES NOT DRAW, AND THE CONTRACT GETS WRONG ─────────
     //
     // Atlas 38 writes "no location" into the Account details row, and the
@@ -110,6 +172,7 @@ export const STORED_ROWS: readonly DisclosureRow[] = [
   },
   {
     title: 'Account details',
+    gist: 'Your handle, your email and your friends. No contacts, no ad identifier.',
     // Handle + email: `profiles`, and the sign-in is a six-digit code to that
     // address. Friends: two `follows` rows (`20260807100000_social_graph_
     // blocks_borrow.sql:102`).
@@ -126,7 +189,93 @@ export const STORED_ROWS: readonly DisclosureRow[] = [
     // "No location" is NOT claimed here; see the row above.
     body: 'Your handle, your email, and the friends you have added. Search only turns up people you are already connected to — there is no public profile to find. Cinch never asks for your contacts and never reads an advertising identifier.',
   },
+  {
+    // ── A CATEGORY THE PAGE HAS NEVER DISCLOSED, AND SHIPS ─────────────────
+    //
+    // PV-01 draws an Analytics row and the page had none. It is not a drawing
+    // of something aspirational: `eas.json` sets
+    // `EXPO_PUBLIC_POSTHOG_PROJECT_TOKEN` on both the preview and production
+    // profiles, so a store build measures. Every sentence below is a line of
+    // `src/lib/posthog.tsx` read back:
+    //
+    //   · the client is null without a token (`:39`, `:49-51`) — hence
+    //     "when it is configured" is NOT written: on the builds a user can
+    //     install, it is;
+    //   · the only identifier is the Supabase user UUID (`:18-24`);
+    //   · no email, no display name, no photograph, no stylist question, no
+    //     plan note, no calendar title (`:19-21`);
+    //   · session replay off (`:52-56`);
+    //   · touch autocapture off, BECAUSE the accessibility labels it would
+    //     record are garment names (`:675-680`);
+    //   · screens come from the router pathname with no params (`:685-687`);
+    //   · person properties are plan, trial state and closet size — three
+    //     counts and enums (`features/analytics/analytics-properties.tsx`);
+    //   · uncaught exceptions and unhandled rejections are captured, console
+    //     capture deliberately is not (`:83-88`).
+    title: 'How the app is used',
+    gist: 'Screens and counts. Never a photograph, a garment name or your email.',
+    body: 'Cinch measures which screens are opened and counts things like which plan you are on and how many pieces you have, so it can tell whether a change helped. The only name attached to any of it is your Cinch account id. Your email, your photographs, your garment names, your stylist questions, your plan notes and your calendar titles are never sent — screen names come from the route, with nothing filled in, and Cinch does not record taps or replay your screen. If the app crashes, the error itself is reported.',
+  },
+  {
+    // ── PV-02, and correction 03 ───────────────────────────────────────────
+    //
+    // The old page said nothing about the catalogue at all, and the AI-consent
+    // page's fact 7 carried the whole story in one paragraph. Four parties are
+    // involved and they are not the same party, which is why this is the one
+    // topic with sub-sections.
+    title: 'Shopping partners',
+    gist: 'Listing search, what the cache keeps, shop pictures, and paid links.',
+    sections: [
+      {
+        title: 'Searching listings',
+        // `garment-search` answers a typed description from Datafeedr's
+        // licensed catalogue with `GARMENT_SEARCH_ALLOW_UNLICENSED` defaulting
+        // to false, so no web search runs on this path and no model sees the
+        // words (see fact 7 under CONSENT_FACTS below, and its citations).
+        body: 'When you type what a garment is, those words go to Datafeedr, a company that licenses product listings from shops. Who you are, what is in your closet and who your friends are do not go with them.',
+      },
+      {
+        title: 'What the cache keeps',
+        // Correction 03. The honest version, from
+        // `supabase/functions/_shared/catalog.ts`: `cacheKey()` (:340-355) is a
+        // SHA-256 of the provider, mode, brand and normalised query;
+        // `retainableTerms()` (:498-504) returns a SORTED, DEDUPLICATED subset
+        // of a fixed vocabulary, capped at `MAX_RETAINED_TERMS = 12` (:488).
+        // The sentence itself is discarded — `:722` says so in those words.
+        //
+        // Saying "nothing is cached" would have been simpler and false, and the
+        // reason it matters is the reason the cache exists: Datafeedr meters
+        // requests, so the row is what stops the same question being paid for
+        // twice.
+        body: 'Your sentence is not kept. What can remain is a scrambled key made from it, and a set of at most twelve ordinary garment words drawn from a fixed list — navy, wool, crewneck — held in no order, so the same question does not have to be asked twice. Nothing in that row points back to you.',
+      },
+      {
+        title: 'Loading the pictures',
+        body: 'The pictures beside each result are the shops’ own, and your phone loads each one from the shop itself. That means the shop’s server sees a request from your device. Nothing about your Cinch account goes with it.',
+      },
+      {
+        title: 'Opening a merchant',
+        // Correction 14 / D-4: the label is per row, evaluated from that
+        // merchant's confirmed-joined programme state
+        // (`features/commerce/use-shop-match.ts`), and both labels live in
+        // `features/commerce/copy.ts`. Written here in the same words the Gap
+        // Feed and the help articles use.
+        body: 'Some merchants have a paid arrangement with Cinch. A row for one of those reads “Paid link” and may earn Cinch a commission if you buy; every other row reads “Open at merchant” and simply opens it. Which rows you are shown, and the order they are in, are worked out from your closet before any shop is consulted.',
+      },
+    ],
+  },
 ];
+
+/**
+ * Kept for the App Privacy mapping, which is written against "what is stored"
+ * rather than against the index's shape.
+ *
+ * The four rows that were this array before PV-01 are the first four topics,
+ * by reference — the store card maps to those four, and `PRIVACY_TOPICS`'s two
+ * new entries are a data flow the listing already declares (analytics) and one
+ * that stores nothing at all (the catalogue).
+ */
+export const STORED_ROWS: readonly PrivacyTopic[] = PRIVACY_TOPICS.slice(0, 4);
 
 /**
  * PD-01 · the "Link handling" row (contract §4.1, §7).
@@ -143,14 +292,79 @@ export const STORED_ROWS: readonly DisclosureRow[] = [
  * `src/features/invite/native.ts:54-60` gives it a one-method surface that
  * returns a handle and nothing else.
  */
-export const LINK_HANDLING_ROW: DisclosureRow = {
+export const LINK_HANDLING_ROW: PrivacyTopic = {
   title: 'Link handling',
+  gist: 'An install identifier goes to Branch when you arrive from an invite.',
   body: 'When you install Cinch from someone’s invite link, an install identifier goes to Branch, our link provider, so the invite reaches the right person. It is not an advertising identifier, and Branch never sees anything from your closet.',
 };
 
 /** PD-01 · the closing line. Verbatim from the atlas; both halves hold. */
 export const SELLS_NOTHING_FOOTER =
   'Cinch sells nothing and runs no advertising. There is no third party with a copy of your closet.';
+
+/**
+ * PV-01 · the three rows that open a page rather than a paragraph.
+ *
+ * The atlas draws all nine rows as expanders. Three of them are not paragraphs:
+ * AI partners carries a live setting and the control that withdraws it, export
+ * carries a request button and a history, and deletion carries a typed
+ * confirmation. Expanding them in place would either duplicate those controls
+ * or put a destructive action inside a disclosure row, so they keep their
+ * chevron and their page. The gist is what changes: it now names the category
+ * in the collapsed index, which is what audit 75 asks for.
+ *
+ * The AI row's gist is not here — it is live state (`consentStatusLine`), built
+ * in `app/privacy.tsx` from the consent record and the ledger.
+ */
+export const EXPORT_TOPIC_GIST = 'Four data files and photos.html, a link to every picture.';
+export const DELETE_TOPIC_GIST = 'Runs immediately, while you wait. What is left afterwards.';
+
+// ---------------------------------------------------------------------------
+// CN-01 · the ask itself
+// ---------------------------------------------------------------------------
+
+/**
+ * The sheet's title and opening sentence — correction 01.
+ *
+ * NOT part of the consent record. `CONSENT_FACTS` is the wording a user agreed
+ * to and the privacy page quotes it back; these two lines are the frame around
+ * it, and they were wrong in a way worth fixing: the sheet said "To do it, the
+ * photo has to leave your phone", which conflated two operations that are not
+ * the same operation and are not gated by the same thing.
+ *
+ *   · Cutting the garment out of its background is Apple Vision, on the device.
+ *     `modules/garment-cutout/ios/SubjectLift.swift` runs
+ *     `VNGenerateForegroundInstanceMaskRequest` against a `CGImage` — the model
+ *     behind "Copy Subject" in Photos. There is no network in that module and
+ *     no consent check near it, so it keeps working for somebody who declines.
+ *   · Naming the piece and guessing its details is the model call, and it is
+ *     the only thing this sheet is asking about (`supabase/functions/tag-item`).
+ *
+ * A reader who thinks they are consenting to the cutout is consenting to the
+ * wrong thing, and a reader who declines because they want to keep the cutout
+ * loses nothing they were trying to keep.
+ */
+export const CONSENT_ASK_TITLE = 'Naming your garments';
+export const CONSENT_ASK_LEAD =
+  'Cutting a garment out of its background happens on this phone. Naming it and guessing its details is what needs a model.';
+
+/**
+ * CN-01's footer — the honest limit of the claim, and the resolution of the
+ * atlas's open claim 1 (model-provider retention).
+ *
+ * `docs/design/system-safety-contract.md §3` is a standing, launch-blocking
+ * refusal: treat any retention or training claim about the AI partner as
+ * unshippable until the provider terms are confirmed in writing. That refusal
+ * is normally a reason NOT to write a sentence. Here it is the sentence: Cinch
+ * states what it controls, and says plainly that what a partner keeps is the
+ * partner's own terms rather than promising zero retention on their behalf.
+ *
+ * The routing pin is a claim about ROUTING and lives in the record's second
+ * fact, where it is worded to stay inside what is enforced. Nothing here widens
+ * it.
+ */
+export const CONSENT_ASK_FOOTER =
+  'What each partner keeps is set by their own terms. Cinch does not claim otherwise here. You can change this in Settings either way.';
 
 // ---------------------------------------------------------------------------
 // PD-02 · AI consent
@@ -258,6 +472,39 @@ export const WITHDRAW_SHEET_BODY =
 export const WITHOUT_CONSENT =
   'Nothing is being sent. Adding a piece asks you for its colour, cut and fabric, and the stylist chat is off. Outfit suggestions keep working — Cinch builds those on your phone.';
 
+/**
+ * CN-02 · the declined path, drawn as a configuration rather than a punishment.
+ *
+ * The longer list first, because it is the whole product; the shorter list
+ * second, because it is three things.
+ *
+ * ── Correction 01, which this app can actually make ────────────────────────
+ *
+ * The atlas's correction is that cutting a garment out of its background is
+ * on-device and survives a declined consent. It is right, and this repository
+ * proves it: `modules/garment-cutout/ios/SubjectLift.swift` runs Apple Vision's
+ * `VNGenerateForegroundInstanceMaskRequest` — the model behind "Copy Subject"
+ * in Photos — against a `CGImage` on the device. There is no network in that
+ * module and no consent check anywhere near it.
+ *
+ * ── Where the drawn list is wrong about THIS app ───────────────────────────
+ *
+ * CN-02 lists "packing" among the things that still work. It does not:
+ * `supabase/functions/packing-brief/index.ts:182-196` reads
+ * `ai_consent_version` and refuses with `ai_consent_required` when it is null,
+ * exactly as `tag-item`, `generate-outfits` and `stylist-chat` do. A packing
+ * memo is a model call.
+ *
+ * The drawn "what does not" list also omits the stylist chat, which stops
+ * (`use-consent.ts:99-119`). `WITHDRAW_CONSEQUENCE` above has always named it,
+ * so leaving it out here would make two screens disagree about the same fact.
+ */
+export const WITHOUT_CONSENT_WORKS =
+  'Photographing a piece, cutting it out of its background, describing it in words, outfits, the diary, the plan and everything social. Cinch asks you for the two things it would otherwise have guessed.';
+
+export const WITHOUT_CONSENT_LOST =
+  'Guessed names, colour and fabric; finding a piece from a product link; the stylist chat; and packing memos.';
+
 // ---------------------------------------------------------------------------
 // PD-04 · Export your data
 // ---------------------------------------------------------------------------
@@ -285,10 +532,40 @@ export const MANIFEST_ROWS: readonly ManifestRow[] = [
   { name: 'plans.csv', body: 'Occasions, dates and the looks you planned.' },
   { name: 'account.json', body: 'Handle, email, join date, friend handles.' },
   {
-    name: 'photos',
+    // Named `photos.html` rather than `photos`, because that is the file's real
+    // name — `build-export/assemble.ts:351` writes it and
+    // `build-export/mail.ts:144-145` names it in the email the user is holding
+    // when they read this page. A manifest whose whole purpose is naming the
+    // actual files should not be the one row that describes a file instead.
+    name: 'photos.html',
     body: 'An index of links to every original photo at full size, rather than the images themselves — a closet of photographs is far too large to put inside one file. The links work for a while and then stop, so download them when the email arrives.',
   },
 ];
+
+/**
+ * PV-03 · the line above the manifest.
+ *
+ * Five files, named, because correction 15's point is that the export is not
+ * "a bundle with your photographs in it" — the photographs are links with an
+ * expiry, and a user who files the download and comes back in a month finds the
+ * data intact and the pictures gone. `build-export/assemble.ts:13-14` lists the
+ * same five.
+ */
+export const EXPORT_CONTENTS_LINE =
+  'Five files: closet.csv, wears.csv, plans.csv, account.json, and photos.html with a link to every picture.';
+
+/**
+ * PV-03 · the sentence the Ready state adds.
+ *
+ * The important thing, said at the only moment it can still be acted on. The
+ * links inside `photos.html` are the same short-lived signed URLs as the
+ * archive's own (`build-export/mail.ts:147`), so "they expire" is the file's
+ * behaviour and not a policy this page is inventing. No number: nothing sets a
+ * fixed window that this page could print, and PD-05 prints the real date off
+ * the row when the row carries one.
+ */
+export const EXPORT_SAVE_WHILE_LINKS_LAST =
+  'Open photos.html and save the pictures while the links last — they are full resolution and they expire.';
 
 /** PD-04 · the line under the manifest. Your export is of your own rows. */
 export const FRIENDS_NOT_INCLUDED =
@@ -323,7 +600,12 @@ export const EXPORT_LIMIT_NOTE =
  */
 export const DELETION_HORIZONS: readonly DisclosureRow[] = [
   {
-    title: 'The moment you confirm',
+    // PV-04 · correction 16 retitles the three horizons, and the new titles are
+    // better than the old ones for the reason the correction gives: "the moment
+    // you confirm" reads like the first step of a schedule, and there is no
+    // schedule. "While you wait" says the thing that makes this screen satisfy
+    // Guideline 5.1.1(v) at all.
+    title: 'While you wait',
     // Storage before the auth user, both buckets, while you wait:
     // `delete-account/index.ts:14-19`, `:58`, `:151-224`.
     body: 'Every photo you uploaded is deleted from Cinch’s storage — your closet and your profile picture — and then the account itself. It happens while you wait. There is no queue and no thirty-day window; being able to do it here, now, is what the App Store asks of us.',
@@ -337,7 +619,7 @@ export const DELETION_HORIZONS: readonly DisclosureRow[] = [
     body: 'Deleting the account cascades through every table Cinch has: your pieces, wears, plans, boards and friendships, and every comment, vote and post you left on a friend’s look. Those are erased, not renamed — nothing of yours reappears under “a former member”.',
   },
   {
-    title: 'What stays',
+    title: 'What is left afterwards',
     // The two documented exceptions, named because concealing them is not
     // defensible: `content_reports` has no FK to the subject on purpose
     // (`20260807100000_social_graph_blocks_borrow.sql:69-72`), and
@@ -347,6 +629,24 @@ export const DELETION_HORIZONS: readonly DisclosureRow[] = [
   },
 ];
 
-/** PD-06 · the panel above the buttons. */
+/**
+ * PD-06 / PV-04 · the panel above the buttons.
+ *
+ * PV-04 draws a third section headed "Cannot be undone", and its first two
+ * sentences — there is no restore, export first if you want to keep any of it —
+ * are true and were only implied here. They are folded into this panel rather
+ * than added as a fourth horizon, because the horizons are a description of
+ * what deletion DOES and this is the instruction beside the button.
+ *
+ * ── The sentence that is not here, and must not be ─────────────────────────
+ *
+ * PV-04's third section ends "Comments you left in other people's events stay,
+ * shown without your name." That is the same claim this file's header has
+ * refused since it was written, one phrasing along: every social table cascades
+ * from `auth.users` (`20260807102000_event_outfits_votes_comments.sql:17`,
+ * `:62`, `:109`), so those comments are erased, not anonymised. The second
+ * horizon says so in those words. Printing the drawn sentence would tell a user
+ * that something of theirs survives deletion when nothing does.
+ */
 export const EXPORT_FIRST_NOTE =
-  'Export first if you want to keep the photos — after this there is nothing left to send.';
+  'This cannot be undone and there is no restore. Export first if you want to keep any of it — after this there is nothing left to send.';

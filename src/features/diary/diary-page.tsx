@@ -1,20 +1,34 @@
+import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Card } from '@/components/ui/card';
+import { NoticeBand } from '@/components/plan/notice-band';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { PlateTile } from '@/components/ui/plate-tile';
 import { Rule } from '@/components/ui/rule';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
-import { dayCell, monthLabel, rowLine, rowMeta, wearsLine } from './entry';
+import { dayCell, monthLabel, rowLine, rowMeta } from './entry';
 import type { DiaryEntry, DiaryMonth, DiaryPiece, YearChip } from './types';
+
+/**
+ * The row's three columns, and where the name's width comes from.
+ *
+ * Audit 77 in one line of arithmetic: the date column drops from 88 to 44, the
+ * well from 72 to 56, and every trailing fact moves under the name. At the
+ * app's own 20pt page measure that leaves 393 − 40 − 44 − 56 − 28 = 225pt for
+ * the name over two lines, against the atlas's 233 at its 16pt margin. The 8pt
+ * difference is the app's gutter, which is a token and not this screen's to
+ * spend; the name still takes every point the row is not using for something
+ * else, which is what the audit asks for.
+ */
+const DATE_COL = 44;
+const WELL = 56;
 
 /**
  * The Wear diary, rendered — WD-01 populated, WD-02 empty, WD-04 loading.
@@ -25,12 +39,14 @@ import type { DiaryEntry, DiaryMonth, DiaryPiece, YearChip } from './types';
  *
  * ── Where this departs from atlas 33, and why ─────────────────────────────
  *
- * **The well is the 2×2 plate tile, not one hero photograph.** The atlas draws
- * a single garment in the 68pt well and calls it "the hero piece of the look".
- * The shared `PlateTile` is what the wave standardised on for a look at rest,
- * and a tray of the pieces is a truer likeness of a look than whichever garment
- * happened to be first — a row whose picture is a pair of loafers is a row
- * about loafers.
+ * **The well is one 56pt photograph again, not the 2×2 plate tile.** Atlas 33
+ * was read as asking for a tray of the pieces, and at 68pt that was arguable.
+ * The wave-3 atlas settles it twice over: the row is drawn at 56pt, where four
+ * quarter-tiles are 25pt each and nothing in them is identifiable, and its own
+ * transition note says the row's thumbnail "becomes the first tile of the
+ * composed grid" on the way into WD-02 — which only means anything if the row
+ * is showing one piece. A described piece shows its silhouette at the same
+ * scale, so a words-only closet reads the same way.
  *
  * **The page's chrome is the app's, not the atlas's.** The atlas draws this as
  * a tab root with no way back; it is reached from Profile, so the eyebrow moves
@@ -43,10 +59,22 @@ import type { DiaryEntry, DiaryMonth, DiaryPiece, YearChip } from './types';
  */
 export type DiaryPageProps = {
   months: DiaryMonth[];
+  /**
+   * The masthead's own line — "612 wears since March", "188 wears in 2026".
+   * It FOLLOWS THE FILTER (`diaryTotalLine`), so an all-time figure and a
+   * filtered one can never be on screen together. Null when there is nothing
+   * to count, because zero is quiet.
+   */
+  totalLine: string | null;
   /** Empty when the record does not span a year boundary — the atlas's own rule. */
   chips: YearChip[];
   selectedChip: string;
   onSelectChip: (id: string) => void;
+  /**
+   * WD-03's undo notice, already composed by `undoneNotice`. Present only in
+   * the render immediately after a correction lands.
+   */
+  undoneNotice?: string | null;
   loading: boolean;
   error: boolean;
   retrying: boolean;
@@ -77,6 +105,14 @@ export function DiaryPage(props: DiaryPageProps) {
         <Text variant="display" trim accessibilityRole="header">
           Wear diary
         </Text>
+        {/* The count under the title, 13pt prose. `note`, not `label`: it is a
+            sentence about the record, and the constitution moves prose out of
+            the label cut. */}
+        {props.totalLine ? (
+          <Text variant="note" className="mt-2">
+            {props.totalLine}
+          </Text>
+        ) : null}
       </View>
 
       {/* One row of year chips, nothing more — no occasion filter, no search,
@@ -113,6 +149,17 @@ export function DiaryPage(props: DiaryPageProps) {
             tintColor={theme.muted}
           />
         }>
+        {/* WD-03's notice sits above the record it changed, not over it: the
+            two figures it names are both visible on the same screen. */}
+        {props.undoneNotice ? (
+          <NoticeBand
+            className="mx-gutter mt-4"
+            cause="A wear was undone"
+            title="The record has been corrected"
+            body={props.undoneNotice}
+          />
+        ) : null}
+
         {props.loading ? (
           <DiarySkeleton />
         ) : props.error ? (
@@ -167,35 +214,37 @@ function MonthSection({
 }) {
   return (
     <View>
-      <MonthHeader label={month.label} count={month.count} />
-      <Card className="mx-gutter">
-        {month.entries.map((entry, i) => (
-          <View key={entry.id}>
-            {i > 0 ? <Rule tone="hairline" /> : null}
-            <DiaryRow
-              entry={entry}
-              onPress={() => onOpenEntry(entry.id)}
-              resolveImage={resolveImage}
-            />
-          </View>
-        ))}
-      </Card>
+      <MonthHeader label={month.label} />
+      {month.entries.map((entry, i) => (
+        <View key={entry.id}>
+          {/* A rule ABOVE every row after the first, and — WD-03's third
+              channel — one under a planned row too, separating the plan from
+              the worn record beneath it. */}
+          {i > 0 ? <Rule tone="hairline" className="mx-gutter" /> : null}
+          <DiaryRow
+            entry={entry}
+            onPress={() => onOpenEntry(entry.id)}
+            resolveImage={resolveImage}
+          />
+          {entry.planned ? <Rule className="mx-gutter" /> : null}
+        </View>
+      ))}
     </View>
   );
 }
 
 /**
- * The month, and its total ranged right.
+ * The month.
  *
- * The count is the number of rows under it — counted from the record, never
- * estimated, and never a figure the server was asked for separately and could
- * disagree with.
+ * 13pt REGULAR in secondary ink, not the serif `plate` cut — audit 78's
+ * "filters and month headers are comprehensible without bolding". The month's
+ * own total went with the bolding: it was a second figure competing with the
+ * masthead's, and the masthead's is the one that follows the filter.
  */
-function MonthHeader({ label, count }: { label: string; count: number | null }) {
+function MonthHeader({ label }: { label: string }) {
   return (
-    <View className="flex-row items-baseline justify-between px-gutter pb-2.5 pt-7">
-      <Text variant="plate">{label}</Text>
-      {count !== null ? <Text variant="colophon">{wearsLine(count)}</Text> : null}
+    <View className="px-gutter pb-2.5 pt-7">
+      <Text variant="note">{label}</Text>
     </View>
   );
 }
@@ -216,47 +265,97 @@ function DiaryRow({
   onPress: () => void;
   resolveImage: (piece: DiaryPiece) => string | undefined;
 }) {
-  const theme = useTheme();
   const { weekday, day } = dayCell(entry.wornAt);
   const line = rowLine(entry);
   const meta = rowMeta(entry);
+  const planned = Boolean(entry.planned);
+
+  // One element, and a planned row says so BEFORE the name — the atlas's own
+  // VoiceOver line for this row.
+  const label = [planned ? 'Planned, not worn yet' : null, `${weekday} ${day}`, line, meta]
+    .filter(Boolean)
+    .join('. ');
+
+  /**
+   * A planned row LEADS NOWHERE, and is therefore not a button.
+   *
+   * WD-02 is a recorded wear: a composed grid, the weather that day, the cost
+   * of the look, and a 24-hour correction window. A plan has none of those —
+   * it has not happened — and this atlas draws no detail screen for one. A row
+   * that opened an entry page full of absent facts, or that swallowed the tap
+   * silently, would both be worse than a row that is plainly a statement.
+   */
+  const Row = planned ? View : Pressable;
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${weekday} ${day}. ${line}${meta ? `. ${meta}` : ''}`}
-      accessibilityHint="Opens this day"
+    <Row
+      {...(planned
+        ? { accessible: true, accessibilityLabel: label }
+        : {
+            onPress,
+            accessibilityRole: 'button' as const,
+            accessibilityLabel: label,
+            accessibilityHint: 'Opens this day',
+          })}
       style={{ minHeight: MIN_TAP_TARGET }}
-      className="flex-row items-center gap-3.5 px-4 py-3.5 active:opacity-60">
-      {/* The date column — 44pt, weekday over numeral. It repeats within a
-          month rather than being collapsed, because the reader scans down
-          dates. */}
-      <View className="items-center" style={{ width: 44 }}>
+      className={`flex-row items-center gap-3.5 px-gutter py-3.5 ${planned ? '' : 'active:opacity-60'}`}>
+      {/* The date column — 44pt, weekday label over a display-face numeral. It
+          repeats within a month rather than being collapsed, because the
+          reader scans down dates. */}
+      <View className="items-center" style={{ width: DATE_COL }}>
         <Text variant="colophon">{weekday}</Text>
         <Text variant="plate">{day}</Text>
       </View>
 
-      <PlateTile images={entry.pieces.slice(0, 4).map((p) => resolveImage(p) ?? null)} size={68} />
+      <RowWell uri={entry.pieces[0] ? resolveImage(entry.pieces[0]) : undefined} />
 
+      {/* Everything else. The name takes two lines and WRAPS — audit 77's
+          whole point — and the metadata sits under it rather than in a third
+          column that was stealing the width. */}
       <View className="flex-1">
-        <Text variant="body" numberOfLines={1}>
+        <Text
+          variant="body"
+          numberOfLines={2}
+          // Medium for a worn day, regular for a plan. The weight change is
+          // one of WD-03's three channels; the other two are the word
+          // "Planned" at the head of the name and the rule beneath the row.
+          className={planned ? undefined : 'font-semibold'}>
           {line}
         </Text>
         {meta ? (
-          <Text variant="note" numberOfLines={1} className="mt-0.5">
+          <Text variant="note" numberOfLines={2} className="mt-1">
             {meta}
           </Text>
         ) : null}
       </View>
+    </Row>
+  );
+}
 
-      <SymbolView
-        name="chevron.right"
-        size={13}
-        tintColor={theme.byline}
-        resizeMode="scaleAspectFit"
-      />
-    </Pressable>
+/**
+ * The 56pt well. Fitted, never cropped — the same rule as every other well in
+ * the app — and a silhouette at the identical scale when the piece has no
+ * photograph, so a described closet reads the same way.
+ */
+function RowWell({ uri }: { uri: string | undefined }) {
+  const theme = useTheme();
+
+  return (
+    <View
+      className="items-center justify-center overflow-hidden rounded bg-tray"
+      style={{ width: WELL, height: WELL, padding: 4 }}>
+      {uri ? (
+        <Image
+          source={{ uri }}
+          contentFit="contain"
+          transition={120}
+          style={{ width: '100%', height: '100%' }}
+          accessibilityIgnoresInvertColors
+        />
+      ) : (
+        <SymbolView name="tshirt" size={20} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
+      )}
+    </View>
   );
 }
 
@@ -278,25 +377,27 @@ function DiarySkeleton() {
 
   return (
     <View accessibilityLabel="Reading your diary">
-      <MonthHeader label={monthLabel(new Date().toISOString())} count={null} />
-      <Card className="mx-gutter">
-        {widths.map((width, i) => (
-          <View key={width}>
-            {i > 0 ? <Rule tone="hairline" /> : null}
-            <View className="flex-row items-center gap-3.5 px-4 py-3.5">
-              <View className="items-center gap-1.5" style={{ width: 44 }}>
-                <Skeleton className="h-2 w-[70%] rounded-chip" delay={i * 120} />
-                <Skeleton className="h-5 w-full rounded-chip" delay={i * 120} />
-              </View>
-              <Skeleton className="h-[68px] w-[68px] rounded" delay={i * 120} />
-              <View className="flex-1 gap-2">
-                <Skeleton className="h-3.5 rounded-chip" style={{ width }} delay={i * 120} />
-                <Skeleton className="h-2.5 w-[44%] rounded-chip" delay={i * 120} />
-              </View>
+      <MonthHeader label={monthLabel(new Date().toISOString())} />
+      {widths.map((width, i) => (
+        <View key={width}>
+          {i > 0 ? <Rule tone="hairline" className="mx-gutter" /> : null}
+          <View className="flex-row items-center gap-3.5 px-gutter py-3.5">
+            <View className="items-center gap-1.5" style={{ width: DATE_COL }}>
+              <Skeleton className="h-2 w-[70%] rounded-chip" delay={i * 120} />
+              <Skeleton className="h-5 w-full rounded-chip" delay={i * 120} />
+            </View>
+            <Skeleton
+              className="rounded"
+              style={{ width: WELL, height: WELL }}
+              delay={i * 120}
+            />
+            <View className="flex-1 gap-2">
+              <Skeleton className="h-3.5 rounded-chip" style={{ width }} delay={i * 120} />
+              <Skeleton className="h-2.5 w-[44%] rounded-chip" delay={i * 120} />
             </View>
           </View>
-        ))}
-      </Card>
+        </View>
+      ))}
     </View>
   );
 }

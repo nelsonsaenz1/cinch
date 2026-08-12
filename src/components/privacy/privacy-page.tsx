@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton, Text } from '@/components/ui';
+import { useTheme } from '@/theme/tokens';
 
 /**
  * The frame all six Privacy & data screens are drawn in.
@@ -32,6 +33,8 @@ export function PrivacyPage({
   onBack: () => void;
   children: ReactNode;
 }) {
+  const { muted } = useTheme();
+
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="flex-row items-center px-gutter pb-1 pt-5">
@@ -53,7 +56,13 @@ export function PrivacyPage({
             // pulled 9pt off the title's bottom edge — the two sum, they do
             // not collapse (Yoga has no margin collapsing). Writing the
             // designed gap here would close it to almost nothing.
-            <Text variant="note" className="mt-5">
+            //
+            // `callout` (16px) rather than `note` (13px): every one of these
+            // intros is a sentence about what the app does with somebody's
+            // data, and the group's floor is that no such sentence is set
+            // below 15 pt. Tone is inline — two `text-*` utilities on one
+            // element are resolved by stylesheet order, not by intent.
+            <Text variant="callout" className="mt-5" style={{ color: muted }}>
               {intro}
             </Text>
           ) : null}

@@ -1,35 +1,53 @@
 import { View } from 'react-native';
 
-import { OutlinedAccentButton } from '@/components/privacy/outlined-accent-button';
 import { PrivacyPage } from '@/components/privacy/privacy-page';
-import { Button, Card, Text } from '@/components/ui';
+import { Button, Text } from '@/components/ui';
 import { DELETION_HORIZONS, EXPORT_FIRST_NOTE } from '@/features/privacy/copy';
+import { useTheme } from '@/theme/tokens';
 
 /**
- * PD-06 — Delete your account.
+ * PD-06 / PV-04 — Delete your closet and account.
  *
- * Three time horizons rather than one paragraph of legal text. The shape is
- * the atlas's and it is a good one; the contents are not, and both of its
- * factual claims were false:
+ * Three sections rather than one paragraph of legal text. The shape is the
+ * atlas's and it is a good one; the contents are this repository's, and two of
+ * the drawn claims were false when they were first drawn and one of them is
+ * still false now:
  *
  *   * "Within thirty days" — deletion is immediate and in-app, and that
  *     immediacy is precisely what satisfies App Store Guideline 5.1.1(v).
  *     `supabase/functions/delete-account/index.ts:8-13` names "we will process
- *     this within 30 days" as a thing that does NOT satisfy it.
- *   * "Comments you left on a friend's look stay, shown as 'a former member'"
- *     — comments, votes and event posts all cascade from `auth.users`
- *     (`20260807102000_event_outfits_votes_comments.sql:17`, `:62`, `:109`).
- *     They are erased.
+ *     this within 30 days" as a thing that does NOT satisfy it. PV-04 withdrew
+ *     this one itself (correction 16) and its first section is now "While you
+ *     wait", which is what this page has said all along.
+ *   * "Comments you left in other people's events stay, shown without your
+ *     name" — PV-04's third section. Comments, votes and event posts all
+ *     cascade from `auth.users` (`20260807102000_event_outfits_votes_
+ *     comments.sql:17`, `:62`, `:109`). They are erased, not anonymised, and
+ *     the second section says so. See `features/privacy/copy.ts`'s note on
+ *     `EXPORT_FIRST_NOTE` for why the true half of that section is folded into
+ *     the panel above the buttons instead.
  *
- * So the horizons are: what happens the moment you confirm, what cascades with
- * it, and what genuinely survives — the two documented exceptions, named. See
- * `features/privacy/copy.ts` for the citation on each sentence.
+ * ── The three exits, and why the destructive one is filled now ─────────────
  *
- * "Export first" sits ABOVE "Delete my account" and is the calmer, filled
- * control of the two: the atlas's rule is that export is a peer of delete and
- * that delete offers export as an equal route out. The destructive control is
- * the oxblood outline — brand red, never iOS red — and is the only accent on
- * the page.
+ * PV-04 draws export unfilled, deletion filled in oxblood, and "Keep my
+ * account" as a plain 44pt exit. The page previously drew deletion as an
+ * oxblood OUTLINE, on the older atlas's instruction. The outline is what the
+ * new drawing spends its one accent on instead, and the change is worth making
+ * rather than arguing about: a filled control is the frame's answer to "what is
+ * this screen for", and this screen is for deleting. Nothing about the
+ * consequence changes — the button opens a confirmation that asks the user to
+ * type DELETE, and nothing is removed before that.
+ *
+ * Leaving is a real exit and not a cancel hidden in the nav bar: the drawn
+ * third action is wired to the same route back the chevron uses.
+ *
+ * ── What is not printed ────────────────────────────────────────────────────
+ *
+ * PV-04 heads the sheet with "148 pieces, 612 wears, 41 plans and 6 boards".
+ * Three of those four are not available to this screen — there is no single
+ * query that returns them, and printing the one that is (the closet count)
+ * would turn a four-part inventory into a partial one. Omitted with the reason
+ * rather than estimated, and raised as a dependency.
  */
 export function DeleteAccountPage({
   onBack,
@@ -42,45 +60,62 @@ export function DeleteAccountPage({
   onDelete: () => void;
   busy?: boolean;
 }) {
+  const theme = useTheme();
+
   return (
     <PrivacyPage
-      parent="Privacy & data"
-      title="Delete your account"
+      parent="Privacy and data"
+      title="Delete your closet and account"
       intro="Here is exactly what happens, before you decide."
       onBack={onBack}>
-      <Card className="mx-gutter mt-6">
+      {/* Rules, not a card: the sections are one list, the same treatment the
+          index uses. Body at 17px in `muted` — the group's floor is that no
+          legal sentence is set below 15 pt, and every sentence here is one. */}
+      <View className="mt-6">
         {DELETION_HORIZONS.map((horizon, index) => (
           <View
             key={horizon.title}
-            className={`px-4 py-4 ${index === 0 ? '' : 'border-t border-hairline'}`}>
+            className={`px-gutter py-4 ${index === 0 ? '' : 'border-t border-hairline'}`}>
             <Text variant="body" className="font-medium">
               {horizon.title}
             </Text>
-            <Text variant="note" className="mt-1">
+            <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
               {horizon.body}
             </Text>
           </View>
         ))}
-      </Card>
+      </View>
 
-      <View className="mx-gutter mt-4 rounded-lg bg-tray p-4">
-        <Text variant="note">{EXPORT_FIRST_NOTE}</Text>
+      <View className="mx-gutter mt-5 rounded-lg bg-tray p-4">
+        <Text variant="body" style={{ color: theme.muted }}>
+          {EXPORT_FIRST_NOTE}
+        </Text>
       </View>
 
       <View className="mt-6 gap-2.5 px-gutter">
         <Button
-          title="Export first"
+          title="Export my data first"
           variant="secondary"
-          className="h-[52px]"
           disabled={busy}
           accessibilityHint="Opens the export page. Nothing is deleted."
           onPress={onExportFirst}
         />
-        <OutlinedAccentButton
-          title="Delete my account"
-          hint="Opens a confirmation that asks you to type DELETE. Nothing is removed until then."
+        {/* The one oxblood on the page. `primary` is the brand red #6E2B2B, not
+            `critical`'s deeper brick — the atlas asks for the brand red on this
+            control and has since atlas 38. */}
+        <Button
+          title="Delete everything"
+          variant="primary"
           disabled={busy}
+          accessibilityHint="Opens a confirmation that asks you to type DELETE. Nothing is removed until then."
           onPress={onDelete}
+        />
+        <Button
+          title="Keep my account"
+          variant="ghost"
+          disabled={busy}
+          accessibilityHint="Goes back. Nothing is deleted."
+          onPress={onBack}
         />
       </View>
     </PrivacyPage>

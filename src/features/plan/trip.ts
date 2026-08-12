@@ -295,3 +295,29 @@ export function tripColophon(trip: Trip): string {
     .filter(Boolean)
     .join(' · ');
 }
+
+/**
+ * "Lisbon, 12–15 Sept, 4 days." — PK-02's restatement of the trip, under the
+ * question.
+ *
+ * The trip facts are restated so the answer is given IN CONTEXT: the fourth
+ * question asks what the evenings are for, and that is unanswerable without
+ * remembering how many of them there are. Every fragment is an answer already
+ * given, so nothing here can be a guess; fragments the draft does not yet
+ * carry are dropped rather than filled.
+ *
+ * DAYS, NOT NIGHTS. The atlas writes "six nights"; `daysBetween` is inclusive
+ * of both ends and every other surface in the app — the summary row, the
+ * colophon, the memo — says days. Two units for one trip inside one flow is
+ * the kind of drift `looksSentence` exists to stop.
+ */
+export function restateTrip(draft: {
+  destination?: { name: string } | null;
+  startsOn?: IsoDate | null;
+  endsOn?: IsoDate | null;
+}): string | null {
+  const parts: string[] = [];
+  if (draft.destination?.name) parts.push(draft.destination.name);
+  if (draft.startsOn && draft.endsOn) parts.push(describeDates(draft.startsOn, draft.endsOn));
+  return parts.length ? `${parts.join(', ')}.` : null;
+}

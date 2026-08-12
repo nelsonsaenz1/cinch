@@ -149,13 +149,48 @@ test("prefers the look's own name when it has one", () => {
   assert.equal(rowLine(entry({ name: 'Monday standard', pieces: [piece()] })), 'Monday standard');
 });
 
-test('joins the occasion and "Noted", and returns null when there is neither', () => {
-  assert.equal(rowMeta(entry({ occasion: 'Dinner', note: 'Too warm' })), 'Dinner · Noted');
-  assert.equal(rowMeta(entry({ occasion: 'Work' })), 'Work');
-  assert.equal(rowMeta(entry({ note: 'Too warm' })), 'Noted');
-  assert.equal(rowMeta(entry()), null);
-  // A note of nothing but spaces is not a note.
-  assert.equal(rowMeta(entry({ note: '   ' })), null);
+/**
+ * WD-01 moved the row's second line off the occasion and onto the shape of the
+ * look and its cost — audit 77's fix, since the occasion was competing with the
+ * name for a width the row does not have. The occasion is not lost: it is the
+ * entry page's own subtitle (`entrySubtitle`), which is tested above.
+ */
+test('the row names the shape of the look, and the cost only when it is computable', () => {
+  // Every piece priced: the figure is real arithmetic, 200 spend over 100 wears.
+  assert.equal(
+    rowMeta(
+      entry({
+        pieces: [
+          piece({ id: 'a', purchasePrice: 120, wearCount: 60 }),
+          piece({ id: 'b', purchasePrice: 80, wearCount: 40 }),
+        ],
+      }),
+    ),
+    'Outfit of 2 pieces · $2.00 a wear',
+  );
+
+  // One unpriced piece and the sentence simply ends. Never a dash, never a
+  // figure computed off the priced half alone.
+  assert.equal(
+    rowMeta(
+      entry({
+        pieces: [
+          piece({ id: 'a', purchasePrice: 120, wearCount: 60 }),
+          piece({ id: 'b', purchasePrice: null, wearCount: 40 }),
+        ],
+      }),
+    ),
+    'Outfit of 2 pieces',
+  );
+
+  // A single garment gets its standing count, which is a fact about it.
+  assert.equal(
+    rowMeta(entry({ pieces: [piece({ wearCount: 7, purchasePrice: null })] })),
+    'Worn on its own · 7th wear',
+  );
+
+  // An entry whose pieces are all gone from the closet has nothing to say.
+  assert.equal(rowMeta(entry({ pieces: [] })), null);
 });
 
 test('counts wears with the singular handled', () => {

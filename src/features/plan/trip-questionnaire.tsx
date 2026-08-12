@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
@@ -19,6 +20,7 @@ import {
   companionOf,
   daysBetween,
   describeDates,
+  restateTrip,
   toIsoDate,
   type Trip,
   type TripStepKey,
@@ -60,19 +62,30 @@ export function AnswerChip({
       accessibilityState={{ selected }}
       style={{ minHeight: MIN_TAP_TARGET }}
       className={[
- 'justify-center rounded-md border px-4 active:opacity-60',
-        // INK when selected, not oxblood — the atlas draws it that way and the
-        // reason is the standing one: one oxblood action per screen. The vibe
-        // and day-part questions went multi-select in this wave, so an accent
-        // ground would put up to six oxblood chips on K-03 competing with
-        // "Pack the bag", which is the only thing on the screen that acts.
-        selected
-          ? 'border-ink bg-ink'
-          : 'border-rule',
+ 'flex-row items-center justify-center gap-2 rounded-md border px-4 active:opacity-60',
+        // PK-02: RING, TICK AND MEDIUM WEIGHT — three channels, and no fill.
+        //
+        // These chips were an ink fill, which is a fourth thing the constitution
+        // reserves for actions: a screen showing six filled ink chips and one
+        // filled ink button gives the reader no way to tell an answer from the
+        // control that spends it. The ring is the ink border at full weight
+        // against the rule's, the tick is a glyph, and the label steps up to
+        // Medium. Colour carries none of it, so the state survives on a
+        // greyscale display and under any colour-vision deficiency.
+        selected ? 'border-ink' : 'border-rule',
       ].join(' ')}>
-      {/* Inline colour, never a second `text-*` class: NativeWind gives no
-          precedence between two of them on one element (chip.tsx L40-44). */}
-      <Text variant="body" style={{ color: selected ? theme.canvas : theme.ink }}>
+      {selected ? (
+        <SymbolView
+          name="checkmark"
+          size={12}
+          tintColor={theme.ink}
+          resizeMode="scaleAspectFit"
+        />
+      ) : null}
+      {/* One `text-*` source only: the weight comes from a family class and the
+          colour is inline. NativeWind gives no precedence between two size or
+          colour utilities on one element (chip.tsx L40-44). */}
+      <Text variant="body" className={selected ? 'font-semibold' : undefined}>
         {label}
       </Text>
     </Pressable>
@@ -360,6 +373,16 @@ export function TripQuestionnaire({
         <Text variant="title" trim>
           {TRIP_QUESTIONS[q.step]}
         </Text>
+        {/* PK-02: THE TRIP FACTS ARE RESTATED UNDER THE QUESTION, so the answer
+            is given in context — the last question is unanswerable without
+            remembering where and how long. Every fragment is an answer already
+            given, so none of it can be a guess, and it appears only once there
+            is something to restate. */}
+        {restateTrip(q.draft) ? (
+          <Text variant="note" className="mt-2">
+            {restateTrip(q.draft)}
+          </Text>
+        ) : null}
       </View>
 
       <View className="mt-6">
@@ -457,14 +480,38 @@ export function TripQuestionnaire({
               </Text>
             )}
 
+            {/* PK-02's retention line — correction 17, and it is TRUE of this
+                app rather than aspirational: `useStartTrip` writes the answered
+                questionnaire to `trips` before anything is packed, and
+                `useLastTrip` is what reopens it after a timeout without asking
+                the four questions again.
+
+                The atlas's second sentence, "Deleting the trip deletes them",
+                is NOT drawn. There is no per-trip delete anywhere in the app —
+                no control, no mutation, and no `.delete()` on `trips` in any
+                client path — so the sentence would describe an operation the
+                reader cannot perform. The row IS removed with the account
+                (`user_id … on delete cascade`), which is the privacy page's
+                claim to make, not this screen's. */}
+            <Text variant="note" className="mt-6">
+              Your answers are saved with the trip, so you can reopen the memo or build it again
+              without answering twice.
+            </Text>
+
             {/* The screen's one oxblood action, and the only button in the
-                flow — every other answer commits on the tap that gives it. */}
+                flow — every other answer commits on the tap that gives it.
+
+                THERE IS NO "SKIP THIS ONE". The atlas offers one beneath the
+                action; `trips.parts` is constrained to `array_length between 1
+                and 4`, so a skipped fourth question produces a row the database
+                refuses to accept and a bag with no looks in it to pack. A dead
+                control is worse than an absent one. */}
             <Button
               title="Pack the bag"
               onPress={q.complete}
               disabled={q.draft.vibes.length === 0 || q.draft.parts.length === 0}
               haptic
-              className="mt-8 self-stretch"
+              className="mt-6 self-stretch"
             />
           </>
         ) : null}

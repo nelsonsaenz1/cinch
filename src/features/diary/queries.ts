@@ -3,10 +3,16 @@ import { useQuery } from '@tanstack/react-query';
 import { closetUserId } from '@/features/closet/session';
 import { supabase } from '@/lib/supabase';
 
+import { fromIsoDate, toIsoDate } from '@/features/plan/trip';
+
+import { weatherFromSnapshot } from './entry';
 import type { DiaryEntry, DiaryPiece } from './types';
 
 /** The key every diary write invalidates. */
 export const DIARY_KEY = ['diary'] as const;
+
+/** WD-03's planned rows. Invalidated by `usePlanOutfit`, which owns the writes. */
+export const PLANNED_DAYS_KEY = ['diary', 'planned-days'] as const;
 
 /** One row of the embedded `outfit_items`, as PostgREST hands it back. */
 type EmbeddedPiece = { item_id: string; position: number | null };
@@ -96,7 +102,7 @@ export function useDiary() {
       const { data: wears, error: wearsError } = await supabase
         .from('outfits')
         .select(
-          'id, worn_at, name, occasion, note, saved_at, origin_outfit_id, generated_by, outfit_items(item_id, position)',
+          'id, worn_at, name, occasion, note, saved_at, origin_outfit_id, generated_by, context_snapshot, outfit_items(item_id, position)',
         )
         .eq('user_id', userId)
         .not('worn_at', 'is', null)
@@ -140,6 +146,7 @@ export function useDiary() {
             savedAt: row.saved_at,
             originOutfitId: row.origin_outfit_id,
             source: row.generated_by,
+            weather: weatherFromSnapshot(row.context_snapshot),
             pieces,
           } satisfies DiaryEntry;
         });
@@ -149,3 +156,95 @@ export function useDiary() {
     staleTime: 5 * 60_000,
   });
 }
+
+/**
+ * WD-03 — the days that are planned but have not happened.
+ *
+ * A separate query rather than more rows out of `useDiary`, on purpose:
+ * `useDiary` is the record, `diary/[id].tsx` resolves an entry out of it, and
+ * a plan is not an entry — it has no `worn_at`, no wear counts behind it and
+ * no correction window. Mixing the two into one array would let a stale link
+ * open a plan as a wear.
+ *
+ * Read forward from today only. A plan for a day that has already passed
+ * without a confirm is not news; the atlas draws the plan ABOVE the worn
+ * record, which is only true of a future one.
+ *
+ * The same two-read shape as `useDiary`, and for the same reasons written up
+ * there: `outfit_items` carries two foreign keys to `items`, so PostgREST
+ * refuses the embed as ambiguous, and `useCloset` cannot stand in because it
+ * filters archived pieces.
+ */
+export function usePlannedDays(days = 7) {
+  return useQuery({
+    queryKey: [...PLANNED_DAYS_KEY, days],
+    staleTime: 60_000,
+    queryFn: async ({ signal }): Promise<DiaryEntry[]> => {
+      const userId = await closetUserId();
+      if (!userId) return [];
+
+      const today = new Date();
+      const from = toIsoDate(today);
+      const until = toIsoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + days));
+
+      const { data: rows, error } = await supabase
+        .from('outfit_calendar')
+        .select('planned_date, outfit_id, outfits(id, name, outfit_items(item_id, position))')
+        .eq('user_id', userId)
+        .gte('planned_date', from)
+        .lt('planned_date', until)
+        .order('planned_date', { ascending: false })
+        .abortSignal(signal);
+      if (error) throw error;
+      if (!rows || rows.length === 0) return [];
+
+      const { data: items, error: itemsError } = await supabase
+        .from('items')
+        .select(
+          'id, subcategory, category, colors, brand, wear_count, purchase_price, listing_path, plate_path, cutout_path, thumb_path',
+        )
+        .eq('user_id', userId)
+        .abortSignal(signal);
+      if (itemsError) throw itemsError;
+
+      const byId = new Map<string, DiaryPiece>();
+      for (const row of (items ?? []) as PieceRow[]) byId.set(row.id, toPiece(row));
+
+      return rows.flatMap((row) => {
+        const outfit = row.outfits as unknown as PlannedOutfit | null;
+        if (!outfit) return [];
+        const pieces = [...(outfit.outfit_items ?? [])]
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+          .flatMap((e) => {
+            const piece = byId.get(e.item_id);
+            return piece ? [piece] : [];
+          });
+        if (pieces.length === 0) return [];
+
+        return [
+          {
+            id: outfit.id,
+            // Local noon, the `fromIsoDate` convention: a calendar day, not an
+            // instant, so no timezone can push Saturday's plan onto Friday.
+            wornAt: fromIsoDate(row.planned_date).toISOString(),
+            planned: true,
+            name: outfit.name,
+            occasion: null,
+            note: null,
+            savedAt: null,
+            originOutfitId: null,
+            source: 'ai',
+            weather: null,
+            pieces,
+          } satisfies DiaryEntry,
+        ];
+      });
+    },
+  });
+}
+
+type PlannedOutfit = {
+  id: string;
+  name: string | null;
+  outfit_items?: EmbeddedPiece[];
+};

@@ -139,3 +139,44 @@ export function looksSentence(days: number, parts: readonly DayPartKey[]): strin
 export function repeatLabel(days: number, worn: boolean): string {
   return worn ? 'worn' : `×${days}`;
 }
+
+// ---------------------------------------------------------------------------
+// PK-03 — the count that sits ON the piece
+// ---------------------------------------------------------------------------
+
+/** Which looks a garment appears in, by their part of the day. */
+export type PieceCoverage = { parts: readonly DayPartKey[]; count: number; worn: boolean };
+
+/**
+ * "3 days", "6 nights", "2 looks", "Worn" — the chip at the foot of a packed
+ * piece.
+ *
+ * PK-03 puts the repeat count ON the garment rather than in a summary strip,
+ * which removes a whole row of numbers, and the atlas writes the unit in the
+ * words the trip actually uses: the linen blouse carries "3 days", the boots
+ * "6 nights". That unit is DERIVED, not chosen — it follows the parts of the
+ * day the piece is packed for:
+ *
+ *   · every look is an evening        → nights
+ *   · no look is an evening           → days
+ *   · a mix of the two                → looks, which is the memo's own word for
+ *                                        a dressed moment and the only unit
+ *                                        that is true of both
+ *
+ * The departure shoe reads "Worn", exactly as the directive allows: it is on
+ * your feet on the plane, so it never enters the bag and a repeat count would
+ * be describing space it does not take.
+ *
+ * Nothing here is estimated. A piece that appears in one look and is not worn
+ * on departure gets NO chip at all (`null`) — PK-03 names those in prose
+ * instead of padding the grid with a count of one.
+ */
+export function packedPieceChip(coverage: PieceCoverage): string | null {
+  if (coverage.worn) return 'Worn';
+  if (coverage.count <= 1) return null;
+
+  const evenings = coverage.parts.filter((p) => p === 'evening').length;
+  if (evenings === coverage.parts.length) return `${coverage.count} nights`;
+  if (evenings === 0) return `${coverage.count} days`;
+  return `${coverage.count} looks`;
+}

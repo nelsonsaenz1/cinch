@@ -29,11 +29,40 @@ export type DiaryPiece = {
   imagePaths: (string | null)[];
 };
 
-/** One confirmed wear. */
+/**
+ * The weather the day was dressed against.
+ *
+ * Read out of `outfits.context_snapshot`, the jsonb the wear command already
+ * writes ("Weather, events, and location as they were at generation time" —
+ * initial_schema.sql). NOT a new column, and NOT every entry has one:
+ * `wear_outfit_tx` takes `p_context` from the client and two call sites pass
+ * null (`share-look/mutations.ts`, and every wear planned through
+ * `plan_outfit_tx`, which stores no context at all). Null is the honest
+ * answer and the row is dropped rather than estimated.
+ */
+export type DiaryWeather = {
+  feelsLikeC: number;
+  highC: number;
+  lowC: number;
+  precipitationChance: number;
+  windKph: number;
+  swing: boolean;
+};
+
+/** One confirmed wear, or — when `planned` — one day that has not happened yet. */
 export type DiaryEntry = {
   id: string;
   /** ISO timestamp. Read in LOCAL time everywhere — a diary is a calendar. */
   wornAt: string;
+  /**
+   * WD-03's planned day: a row from `outfit_calendar` whose date is still
+   * ahead, shown above the worn record and NEVER drawn as worn. A plan has no
+   * `worn_at`, so `wornAt` carries the planned date at local noon — the
+   * `fromIsoDate` convention, which no timezone can push onto another day.
+   */
+  planned?: boolean;
+  /** From `context_snapshot`. Null whenever the command was given none. */
+  weather?: DiaryWeather | null;
   /** The look's own name, when the stylist or the user gave it one. */
   name: string | null;
   occasion: string | null;

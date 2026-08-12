@@ -14,8 +14,10 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/events/EventCard';
-import { DayRow } from '@/components/plan/day-row';
+import { DayExpanded } from '@/components/plan/day-expanded';
+import { DayRow, DayRowUnplanned } from '@/components/plan/day-row';
 import { ExamplePlans, ExampleWeek } from '@/components/plan/example-ghosts';
+import { NoticeBand } from '@/components/plan/notice-band';
 import { Button, ErrorState, SectionHeader, Skeleton, SkeletonLead } from '@/components/ui';
 import { Text } from '@/components/ui/text';
 import { PLANS } from '@/features/billing/plans';
@@ -29,6 +31,7 @@ import { PackingTab } from '@/features/plan/packing-tab';
 import { planWeek } from '@/features/plan/packing';
 import type { Trip } from '@/features/plan/trip';
 import { STALL_DEADLINE_MS, useStalled } from '@/features/plan/use-stalled';
+import { weekProgressLine, weekSubtitle } from '@/features/plan/week-lines';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { dateKey } from '@/lib/date';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
@@ -266,7 +269,28 @@ export default function PlanScreen() {
   // shape). `planError` is cleared on every new attempt, not just success, so
   // a stale failure never lingers under a day that has since saved.
   const [planningKey, setPlanningKey] = useState<string | null>(null);
-  const [planError, setPlanError] = useState(false);
+  /**
+   * PL-03: the failure is SCOPED TO ITS DAY, not to the week.
+   *
+   * This used to be a boolean, which meant Friday failing put one notice under
+   * a week where six other days had saved perfectly — the atlas's complaint in
+   * one line. The key is the day that refused, so the notice can name it and
+   * say what it did not touch.
+   */
+  const [failedKey, setFailedKey] = useState<string | null>(null);
+  /** PL-02: which day is open. One at a time — an accordion, not a list of cards. */
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  /**
+   * PL-02's "Try another": the garments a day has been asked to stop offering.
+   *
+   * Fed into the planner's own `alreadyPlanned` exclusion, which is a WEEK-wide
+   * set — `planWeek` searches the days in order and each one avoids what the
+   * ones before it took, so there is no way to re-dress Friday alone without
+   * re-running the week. That is a real consequence and it is the honest one:
+   * the alternative would be a second search path that could disagree with the
+   * first.
+   */
+  const [refused, setRefused] = useState<string[]>([]);
 
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
@@ -298,26 +322,37 @@ export default function PlanScreen() {
   const planned = usePlannedWeek(startOfToday(), WEEK_DAYS);
   const planOutfit = usePlanOutfit();
 
-  // "5–11 Aug" for the header — real dates, computed once per render rather
-  // than stored, since it is derived purely from today's date.
-  const weekRangeLabel = useMemo(() => {
-    const start = startOfToday();
-    const end = new Date(start);
-    end.setDate(start.getDate() + WEEK_DAYS - 1);
-    const month = (d: Date) => d.toLocaleDateString(undefined, { month: 'short' });
-    return start.getMonth() === end.getMonth()
-      ? `${start.getDate()}–${end.getDate()} ${month(start)}`
-      : `${start.getDate()} ${month(start)} – ${end.getDate()} ${month(end)}`;
-  }, []);
+  // "7–13 August · 68–84°" — real dates and the forecast's real spread. The
+  // city the atlas prints is absent on purpose; see `weekSubtitle`.
+  const weekRangeLabel = weekSubtitle(startOfToday(), WEEK_DAYS, weekForecast.data ?? []);
 
   // Anything already committed to a day this week is out of the running for the
   // others. Without this the planner happily suggests Tuesday's jacket again on
   // Thursday, having no idea Tuesday was ever decided — the query was being
   // fetched and then thrown away.
   const alreadyPlanned = useMemo(
-    () => new Set(Object.values(planned.data ?? {}).flat()),
-    [planned.data],
+    () => new Set([...Object.values(planned.data ?? {}).flat(), ...refused]),
+    [planned.data, refused],
   );
+
+  /**
+   * The Cinch occasion on a given day — "Sarah's birthday dinner, 8pm".
+   *
+   * CINCH'S OWN occasions, already read on this screen for the Events mode.
+   * NOT the device calendar: `loadTodaysEvents` reads EventKit for TODAY only,
+   * so a device-calendar title for Friday is not a fact this app holds, and
+   * drawing one would be an invented row.
+   */
+  const occasionFor = (date: Date): string | null => {
+    const key = dateKey(date);
+    const event = (myEvents.data ?? []).find((e) => e.startsAt && dateKey(e.startsAt) === key);
+    if (!event) return null;
+    const time = event.startsAt!.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    return `${event.title}, ${time}`;
+  };
 
   const weekDays = useMemo(() => {
     if (!weekForecast.data?.length || !canGenerate(items)) return [];
@@ -610,6 +645,20 @@ export default function PlanScreen() {
                         at the compact serif size — the page's H1 is "Plan". */}
                     <View className="mb-2 px-gutter">
                       <Text variant="plate">This week</Text>
+                      {/* PL-03's count. A COUNT, never a bar and never a
+                          percentage, and absent entirely until something has
+                          actually been committed — zero is quiet. */}
+                      {weekProgressLine(
+                        weekDays.filter((d) => planned.data?.[dateKey(d.date)]?.length).length,
+                        weekDays.length,
+                      ) ? (
+                        <Text variant="note" className="mt-1">
+                          {weekProgressLine(
+                            weekDays.filter((d) => planned.data?.[dateKey(d.date)]?.length).length,
+                            weekDays.length,
+                          )}
+                        </Text>
+                      ) : null}
                     </View>
                     {/* The engine PREFERS spreading wear (REUSE_BOOST is a
                         soft scorer, not a cap) — with a small closet the same
@@ -627,47 +676,104 @@ export default function PlanScreen() {
                     </Text>
                     {weekDays.map((day, i) => {
                       const key = dateKey(day.date);
+                      const isLast = i === weekDays.length - 1;
+                      const kept = Boolean(planned.data?.[key]?.length);
+                      const occasion = occasionFor(day.date);
+
+                      const commit = () => {
+                        if (!day.outfit) return;
+                        setPlanningKey(key);
+                        setFailedKey(null);
+                        planOutfit.mutate(
+                          { candidate: day.outfit, date: day.date },
+                          {
+                            onSuccess: () => setOpenKey(null),
+                            onError: () => setFailedKey(key),
+                            onSettled: () => setPlanningKey(null),
+                          },
+                        );
+                      };
+
+                      // PL-03: a day the engine could not dress says so in
+                      // words and offers the one action that fills it, rather
+                      // than an empty card or a dashed outline.
+                      if (!day.outfit) {
+                        return (
+                          <DayRowUnplanned
+                            key={key}
+                            day={day}
+                            occasion={occasion}
+                            isLast={isLast}
+                            onPlan={retryWeek}
+                            planning={wardrobe.isRefetching || weekForecast.isRefetching}
+                          />
+                        );
+                      }
+
+                      // PL-02: the open day, expanded IN PLACE. Its neighbours
+                      // keep their two-line form and their position.
+                      if (openKey === key) {
+                        return (
+                          <DayExpanded
+                            key={key}
+                            day={day}
+                            resolveImage={resolve}
+                            occasion={occasion}
+                            isLast={isLast}
+                            kept={kept}
+                            keeping={planningKey === key}
+                            onKeep={commit}
+                            onTryAnother={() =>
+                              setRefused((r) => [
+                                ...new Set([...r, ...day.outfit!.items.map((g) => g.id)]),
+                              ])
+                            }
+                          />
+                        );
+                      }
+
                       return (
                         <DayRow
                           key={key}
                           day={day}
                           resolveImage={resolve}
-                          planned={Boolean(planned.data?.[key]?.length)}
+                          occasion={occasion}
+                          planned={kept}
                           planning={planningKey === key}
-                          isLast={i === weekDays.length - 1}
-                          onPlan={() => {
-                            if (!day.outfit) return;
-                            setPlanningKey(key);
-                            setPlanError(false);
-                            planOutfit.mutate(
-                              { candidate: day.outfit, date: day.date },
-                              {
-                                onError: () => setPlanError(true),
-                                onSettled: () => setPlanningKey(null),
-                              },
-                            );
-                          }}
+                          isLast={isLast}
+                          onPlan={() => setOpenKey(key)}
                         />
                       );
                     })}
-                    {/* `polite` rather than a modal or a toast: the failure
-                        belongs to the one row that triggered it, and nothing
-                        else on the screen should interrupt to say so. The
-                        atlas draws this as its own shape — a bordered card
-                        with an oxblood mark, not the bare `Notice` line — so
-                        it is hand-built here, like the review deck's banner. */}
-                    {planError ? (
-                      <View
-                        accessibilityLiveRegion="polite"
-                        className="mx-gutter mt-3 flex-row items-start gap-2.5 rounded-lg border border-rule bg-canvas p-3.5">
-                        <View
-                          className="h-2 w-2 rounded-full bg-accent"
-                          style={{ marginTop: 5 }}
-                        />
-                        <Text variant="note" className="flex-1" style={{ color: theme.ink }}>
-                          That day didn’t save. Check your connection and try again.
-                        </Text>
-                      </View>
+
+                    {/* PL-03 — the failure is scoped to ITS DAY and names what
+                        it did not touch. Two recoveries as peers, one
+                        automatic and one manual. */}
+                    {failedKey ? (
+                      <NoticeBand
+                        className="mx-gutter mt-4"
+                        cause="Planning failed"
+                        title={`${failedKey} could not be saved`}
+                        body="The other days are unaffected and stay as they are. Nothing was removed from your week."
+                        actions={[
+                          {
+                            label: 'Try that day again',
+                            onPress: () => {
+                              const day = weekDays.find((d) => dateKey(d.date) === failedKey);
+                              if (!day?.outfit) return;
+                              setPlanningKey(failedKey);
+                              planOutfit.mutate(
+                                { candidate: day.outfit, date: day.date },
+                                {
+                                  onSuccess: () => setFailedKey(null),
+                                  onSettled: () => setPlanningKey(null),
+                                },
+                              );
+                            },
+                          },
+                          { label: 'Choose it myself', onPress: () => setOpenKey(failedKey) },
+                        ]}
+                      />
                     ) : null}
                   </>
                 )}

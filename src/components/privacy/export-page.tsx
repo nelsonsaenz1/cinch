@@ -3,7 +3,9 @@ import { ActivityIndicator, View } from 'react-native';
 import { PrivacyPage } from '@/components/privacy/privacy-page';
 import { Button, Card, ErrorState, Rule, SectionHeader, Skeleton, Text } from '@/components/ui';
 import {
+  EXPORT_CONTENTS_LINE,
   EXPORT_LIMIT_NOTE,
+  EXPORT_SAVE_WHILE_LINKS_LAST,
   FRIENDS_NOT_INCLUDED,
   MANIFEST_ROWS,
 } from '@/features/privacy/copy';
@@ -42,14 +44,23 @@ import { useTheme } from '@/theme/tokens';
  * The real date is printed off the row instead.
  */
 
-/** One line of the manifest — the real filename, and what arrives in it. */
+/**
+ * One line of the manifest — the real filename, and what arrives in it.
+ *
+ * The description is `callout` (16px) regular rather than `note` (13px): the
+ * group's floor is that no sentence describing what leaves the account is set
+ * below 15 pt. The name column widens with it, because `photos.html` is the
+ * longest real filename and the row must not break it.
+ */
 function ManifestRow({ name, body, first }: { name: string; body: string; first: boolean }) {
+  const theme = useTheme();
+
   return (
     <View className={`flex-row gap-3 px-4 py-3.5 ${first ? '' : 'border-t border-hairline'}`}>
-      <Text variant="body" className="w-[104px] font-medium">
+      <Text variant="body" className="w-[112px] font-medium">
         {name}
       </Text>
-      <Text variant="note" className="flex-1">
+      <Text variant="callout" className="flex-1" style={{ color: theme.muted }}>
         {body}
       </Text>
     </View>
@@ -114,13 +125,12 @@ export function ExportPage({
 
   return (
     <PrivacyPage
-      parent="Privacy & data"
+      parent="Privacy and data"
       title="Export your data"
-      intro={
-        pending
-          ? undefined
-          : `A zip file, emailed to ${destination}. Ask for it here and it is put together on our side.`
-      }
+      // Correction 15: the export is not "a bundle with your photographs in
+      // it". Naming the five files up front is the difference between a user
+      // who saves the pictures and one who finds them gone in a month.
+      intro={pending ? undefined : `${EXPORT_CONTENTS_LINE} Emailed to ${destination}.`}
       onBack={onBack}>
       {loading ? (
         <View className="mt-6 gap-3 px-gutter">
@@ -145,8 +155,8 @@ export function ExportPage({
                   Being put together
                 </Text>
               </View>
-              <Text variant="note" className="mt-2">
-                {`Requested at ${timeOfDay(latest.requestedAt)}. We will email ${destination} when the file is ready — how long that takes depends on how much is in your closet.`}
+              <Text variant="callout" className="mt-2" style={{ color: theme.muted }}>
+                {`Started at ${timeOfDay(latest.requestedAt)}. You can leave this screen — the email arrives at ${destination} when it is done.`}
               </Text>
             </Card>
           ) : null}
@@ -165,7 +175,7 @@ export function ExportPage({
               <Text variant="body" className="font-medium">
                 Ready
               </Text>
-              <Text variant="note" className="mt-2">
+              <Text variant="callout" className="mt-2" style={{ color: theme.muted }}>
                 {[
                   `Emailed to ${destination}`,
                   latest.bytes != null && latest.bytes > 0 ? formatBytes(latest.bytes) : null,
@@ -174,6 +184,14 @@ export function ExportPage({
                   .filter(Boolean)
                   .join(' · ')}
                 .
+              </Text>
+              {/* The thing worth saying at the only moment it can be acted on.
+                  The size stays: `data_exports.bytes` is measured off the
+                  assembled archive, and a measured figure is not an estimate —
+                  PV-03's own annotation is "sizes and dates printed, never
+                  estimated". */}
+              <Text variant="callout" className="mt-2" style={{ color: theme.muted }}>
+                {EXPORT_SAVE_WHILE_LINKS_LAST}
               </Text>
               {onDownload ? (
                 <Button
@@ -186,7 +204,7 @@ export function ExportPage({
                 />
               ) : null}
               {downloadError ? (
-                <Text variant="note" className="mt-2" style={{ color: theme.accent }}>
+                <Text variant="callout" className="mt-2" style={{ color: theme.accent }}>
                   {downloadError}
                 </Text>
               ) : null}
@@ -198,9 +216,12 @@ export function ExportPage({
               <Text variant="body" className="font-medium">
                 That export did not finish
               </Text>
-              <Text variant="note" className="mt-2">
+              {/* The worker's own sentence when it wrote one; otherwise the
+                  two facts a reader needs — nothing was emailed, and nothing
+                  of theirs moved. PV-03's failed state says both. */}
+              <Text variant="callout" className="mt-2" style={{ color: theme.muted }}>
                 {latest.error ??
-                  'Something went wrong while it was being put together. Nothing of yours changed — ask again below.'}
+                  'The file could not be built and nothing was emailed. Your closet is untouched — asking again below starts a fresh copy.'}
               </Text>
             </Card>
           ) : null}
@@ -220,7 +241,7 @@ export function ExportPage({
                 ))}
               </Card>
 
-              <Text variant="noteSmall" className="mt-3.5 px-gutter">
+              <Text variant="callout" className="mt-3.5 px-gutter" style={{ color: theme.muted }}>
                 {FRIENDS_NOT_INCLUDED}
               </Text>
 
@@ -240,7 +261,7 @@ export function ExportPage({
                 // can ask for one export a day" — so it is shown as written
                 // rather than replaced with a guess at what went wrong.
                 <Text
-                  variant="note"
+                  variant="callout"
                   accessibilityLiveRegion="polite"
                   className="mt-3 px-gutter"
                   style={{ color: theme.critical }}>
@@ -248,7 +269,7 @@ export function ExportPage({
                 </Text>
               ) : null}
 
-              <Text variant="noteSmall" className="mt-3.5 px-gutter">
+              <Text variant="callout" className="mt-3.5 px-gutter" style={{ color: theme.muted }}>
                 {EXPORT_LIMIT_NOTE}
               </Text>
             </>
@@ -275,7 +296,7 @@ export function ExportPage({
 
               <View className="mt-4 px-gutter">
                 <Rule />
-                <Text variant="noteSmall" className="mt-3.5">
+                <Text variant="callout" className="mt-3.5" style={{ color: theme.muted }}>
                   Expired links cannot be reopened. Ask for a fresh export instead.
                 </Text>
               </View>

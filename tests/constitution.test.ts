@@ -97,7 +97,6 @@ const FAINT_TEXT_DEBT = [
   'src/components/gap-feed/gap-card.tsx',
   'src/components/gap-feed/shop-row.tsx',
   'src/components/gap-feed/shop-sheet.tsx',
-  'src/components/plan/example-ghosts.tsx',
   'src/components/social/ProfileRow.tsx',
   'src/features/explore/new-addition-row.tsx',
   // Placeholders — see the note on `placeholderTextColor` above the scanner.
@@ -109,7 +108,6 @@ const FAINT_TEXT_DEBT = [
   'src/components/intake/CorrectionSheet.tsx',
   'src/components/report/ReportFlowSheets.tsx',
   'src/components/stylist/sheet-parts.tsx',
-  'src/features/diary/note-sheet.tsx',
   'src/features/profile/edit-profile-sheet.tsx',
   'src/features/profile/handle-field.tsx',
   // `__DEV__` fixture routes — never shipped, fixed opportunistically.

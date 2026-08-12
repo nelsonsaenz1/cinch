@@ -304,3 +304,38 @@ export function buildSavedMemo({
     days,
   };
 }
+
+// ---------------------------------------------------------------------------
+// PK-03 — the bag as garments, not as a list
+// ---------------------------------------------------------------------------
+
+/** Which looks a piece is actually in, read off the schedule that produced it. */
+export function pieceCoverage(
+  looks: readonly PackedLook[],
+  piece: PackedPiece,
+): { parts: DayPartKey[]; count: number; worn: boolean } {
+  const parts = looks
+    .filter((l) => l.outfit?.items.some((g) => g.id === piece.garment.id))
+    .map((l) => l.part);
+  // `piece.looks` is the engine's own count and stays authoritative; the parts
+  // are what the unit is derived from. They agree, and where they somehow do
+  // not, the engine's number is the one that gets printed.
+  return { parts, count: piece.looks, worn: piece.worn };
+}
+
+/**
+ * "Plus the black jeans, the crossbody bag and the crochet poncho."
+ *
+ * PK-03's rule: the pieces that need no count are NAMED IN PROSE rather than
+ * padding the grid with a chip that says "1". Null when every packed piece
+ * repeats, so the memo does not print a sentence introducing nothing.
+ */
+export function bagProseLine(singles: readonly PackedPiece[]): string | null {
+  if (singles.length === 0) return null;
+  const names = singles.map((p) => garmentLabel(p.garment).toLowerCase());
+  const list =
+    names.length === 1
+      ? names[0]!
+      : `${names.slice(0, -1).join(', ')} and the ${names[names.length - 1]}`;
+  return names.length === 1 ? `Plus the ${list}.` : `Plus the ${list}.`;
+}

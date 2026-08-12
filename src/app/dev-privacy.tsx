@@ -167,7 +167,7 @@ export default function DevPrivacyScreen() {
       listingCount={3}
       untaggedCount={phase === 'sending' ? 4 : phase === 'done' ? 0 : 9}
       backfillPhase={phase}
-      onRunBackfill={() => setState('PD-02c')}
+      onOpenBackfill={() => setState('PD-02c')}
       sentListOpen={sentListOpen}
       onToggleSentList={() => setSentListOpen((open) => !open)}
       sentPhotos={SENT_PHOTOS}

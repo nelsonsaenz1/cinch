@@ -1,76 +1,157 @@
 import { SymbolView } from 'expo-symbols';
+import { useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
+import Animated, { LinearTransition, useReducedMotion } from 'react-native-reanimated';
 
 import { PrivacyPage } from '@/components/privacy/privacy-page';
-import { Card, Rule, SectionHeader, Text } from '@/components/ui';
+import { Rule, SectionHeader, Text } from '@/components/ui';
+import { motion } from '@/theme/metrics';
 import { SHOPPABLE_DETAIL, SHOPPABLE_LABEL } from '@/features/commerce/copy';
 import {
+  DELETE_TOPIC_GIST,
+  EXPORT_TOPIC_GIST,
+  INDEX_INTRO,
   LINK_HANDLING_ROW,
+  PRIVACY_TOPICS,
   SELLS_NOTHING_FOOTER,
-  STORED_ROWS,
-  type DisclosureRow,
+  type PrivacyTopic,
 } from '@/features/privacy/copy';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
- * PD-01 — the page. Two groups and a closing line.
+ * PV-01 / PV-02 — the disclosure as an index.
  *
- * "What is stored" is an inventory in full sentences, and the row descriptions
- * ARE the App Privacy disclosure — the atlas's own rule is that each line of
- * the store card maps to one row here, and that a disclosure added to the
- * listing is added to this page in the same release. That is why the prose
- * lives in `features/privacy/copy.ts` beside its citations rather than inline.
+ * ── What audit 75 and 76 actually asked for ────────────────────────────────
  *
- * Purely presentational: props in, callbacks out. `dev-privacy.tsx` renders
- * this exact component from fixtures, so nothing verified there is an
- * approximation of what ships.
+ * "Summary rows with expandable detail; the collapsed index names all nine
+ * categories" and "full detail stays in-app at 17 pt". The page this replaces
+ * was one continuous card of full paragraphs: correct in substance, and a wall.
+ * A reader arriving to answer one question ("do you send my calendar?") had to
+ * read three unrelated disclosures to find out whether a fourth existed.
  *
- * commerce-directive.md C-05 adds one real switch — "Let friends find where
- * your pieces are from" — between the two existing groups. A switch, not
- * another `ChoiceRow`: every `ChoiceRow` here hands off to a sub-page, and
- * this setting has no sub-page to hand off to, only a state to flip in
- * place, the same shape `profile.tsx`'s "Show where to buy" switch already
- * uses for C-03. The two are deliberately not the same switch — see
- * `use-shoppable.ts`'s header.
+ * So every category is now a titled row with a one-line gist, and the gist is a
+ * summary of the paragraph beneath it rather than a claim of its own — the
+ * bodies are unchanged and still carry their citations in
+ * `features/privacy/copy.ts`. Nothing moved to a web page and nothing was
+ * summarised away: the full text is one tap down, in place, at `body` (17px).
+ *
+ * ── Rules rather than cards ────────────────────────────────────────────────
+ *
+ * The atlas's reason, and it is the right one: nine cards read as nine
+ * competing objects. A hairline between rows reads as one list.
+ *
+ * ── Three rows keep their chevron ──────────────────────────────────────────
+ *
+ * AI partners, export and deletion are pages, not paragraphs — one carries the
+ * withdrawal control, one a request button and a history, one a typed
+ * confirmation. Expanding a destructive action into a disclosure row would be
+ * the wrong shape. They gain the gist and keep the push.
+ *
+ * ── Not drawn, and kept ────────────────────────────────────────────────────
+ *
+ * The "Let friends find where your pieces are from" switch (commerce-directive
+ * C-05) is not in PV-01. It is a live consent control that ships, and an atlas
+ * that does not draw a control is not an instruction to delete it.
+ *
+ * Purely presentational: props in, callbacks out, expansion held locally.
+ * `dev-w3-g4-pv-01`/`-pv-02` render this exact component from fixtures.
  */
 
-/** One row of the inventory — a titled sentence, ruled off from the next. */
-function InventoryRow({ row, first }: { row: DisclosureRow; first: boolean }) {
+/** The chevron's two positions. `chevron.down` when the row is open. */
+function Chevron({ open, tint }: { open: boolean; tint: string }) {
   return (
-    <View className={`px-4 py-3.5 ${first ? '' : 'border-t border-hairline'}`}>
-      <Text variant="body" className="font-medium">
-        {row.title}
-      </Text>
-      {/* `note`, not `caption`: this is running secondary prose, and `caption`
-          carries `font-medium` — it would render the atlas's regular weight as
-          bold grey, shouting a disclosure meant to be read calmly. Set in
-          `muted`, which `note` already carries; the atlas's #8A8578 is 3.52:1
-          on canvas and fails AA. */}
-      <Text variant="note" className="mt-1">
-        {row.body}
-      </Text>
-    </View>
+    <SymbolView
+      name={open ? 'chevron.down' : 'chevron.right'}
+      size={13}
+      tintColor={tint}
+      resizeMode="scaleAspectFit"
+    />
   );
 }
 
 /**
- * One row of "Your choices" — title, a quiet sentence, a chevron.
+ * One row of the index that opens in place.
  *
- * Not `ui/settings-row.tsx`: that row is a single label with an optional
- * trailing value, and every row here carries a description underneath. Same
- * anatomy otherwise — 44pt floor, `chevron.right` at 13 in `faint`, the
- * pressed opacity the rest of the app uses.
+ * The title is the only Medium thing in it. The gist is regular at `callout`
+ * (16px) rather than `note` (13px) — the group's floor is "no legal sentence
+ * below 15 pt", and a gist that summarises a disclosure is a legal sentence.
+ * `muted`, never `faint`: #8A8578 is 3.52:1 on canvas and fails AA.
  */
-function ChoiceRow({
+function TopicRow({
+  topic,
+  open,
+  first,
+  reduceMotion,
+  onToggle,
+}: {
+  topic: PrivacyTopic;
+  open: boolean;
+  first: boolean;
+  reduceMotion: boolean;
+  onToggle: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Animated.View
+      layout={reduceMotion ? undefined : LinearTransition.duration(motion.duration.base)}
+      className={first ? '' : 'border-t border-hairline'}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={topic.title}
+        accessibilityHint={topic.gist}
+        accessibilityState={{ expanded: open }}
+        onPress={onToggle}
+        style={{ minHeight: MIN_TAP_TARGET }}
+        className="flex-row items-center gap-3 px-gutter py-3.5 active:opacity-60">
+        <View className="flex-1">
+          <Text variant="body" className="font-medium">
+            {topic.title}
+          </Text>
+          {/* Inline tone, never a second `text-*` class: two colour utilities
+              on one element are resolved by stylesheet order, not by intent. */}
+          <Text variant="callout" className="mt-0.5" style={{ color: theme.muted }}>
+            {topic.gist}
+          </Text>
+        </View>
+        <Chevron open={open} tint={theme.muted} />
+      </Pressable>
+
+      {open ? (
+        <View className="gap-4 px-gutter pb-5">
+          {topic.body ? (
+            <Text variant="body" style={{ color: theme.muted }}>
+              {topic.body}
+            </Text>
+          ) : null}
+          {topic.sections?.map((section) => (
+            <View key={section.title}>
+              <Text variant="body" className="font-medium">
+                {section.title}
+              </Text>
+              <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
+                {section.body}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </Animated.View>
+  );
+}
+
+/**
+ * One row of the index that opens a page. Same anatomy minus the expansion —
+ * title, gist, chevron, 44pt floor.
+ */
+function PageRow({
   title,
-  detail,
-  tone = 'ink',
+  gist,
   first,
   onPress,
 }: {
   title: string;
-  detail: string;
-  tone?: 'ink' | 'accent';
+  gist: string;
   first: boolean;
   onPress: () => void;
 }) {
@@ -80,27 +161,24 @@ function ChoiceRow({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
-      accessibilityHint={detail}
+      accessibilityHint={gist}
       onPress={onPress}
       style={{ minHeight: MIN_TAP_TARGET }}
-      className={`flex-row items-center gap-3 px-4 py-3.5 active:opacity-60 ${
+      className={`flex-row items-center gap-3 px-gutter py-3.5 active:opacity-60 ${
         first ? '' : 'border-t border-hairline'
       }`}>
       <View className="flex-1">
-        <Text
-          variant="body"
-          className="font-medium"
-          style={tone === 'accent' ? { color: theme.accent } : undefined}>
+        <Text variant="body" className="font-medium">
           {title}
         </Text>
-        <Text variant="note" className="mt-1">
-          {detail}
+        <Text variant="callout" className="mt-0.5" style={{ color: theme.muted }}>
+          {gist}
         </Text>
       </View>
       <SymbolView
         name="chevron.right"
         size={13}
-        tintColor={theme.faint}
+        tintColor={theme.muted}
         resizeMode="scaleAspectFit"
       />
     </Pressable>
@@ -108,9 +186,9 @@ function ChoiceRow({
 }
 
 /**
- * The one real toggle on the page — commerce-directive.md C-05. Same anatomy
- * as `ChoiceRow` minus the chevron, plus a `Switch`: label and description on
- * the left, the control on the right, 44pt floor.
+ * The one real toggle on the page — commerce-directive.md C-05. Same anatomy as
+ * a row minus the chevron, plus a `Switch`, plus the word: "Toggle state is
+ * printed as On or Off beside the switch, never left to the switch alone."
  */
 function ToggleRow({
   title,
@@ -130,13 +208,13 @@ function ToggleRow({
   return (
     <View
       style={{ minHeight: MIN_TAP_TARGET }}
-      className="flex-row items-center gap-3 px-4 py-3.5">
+      className="flex-row items-center gap-3 px-gutter py-3.5">
       <View className="flex-1">
         <Text variant="body" className="font-medium">
           {title}
         </Text>
-        <Text variant="note" className="mt-1">
-          {detail}
+        <Text variant="callout" className="mt-0.5" style={{ color: theme.muted }}>
+          {value ? 'On' : 'Off'} · {detail}
         </Text>
       </View>
       <Switch
@@ -170,6 +248,12 @@ export type PrivacyIndexPageProps = {
   onToggleShoppable: (value: boolean) => void;
   /** True only while the write itself is in flight — the read never blocks the switch. */
   shoppablePending?: boolean;
+  /**
+   * Which topic is open on first render, by title. `__DEV__` fixtures only —
+   * PV-02 is PV-01 with one row open, and a fixture that had to tap to reach it
+   * would be a fixture of the tap.
+   */
+  initialOpen?: string;
   onBack: () => void;
   onOpenConsent: () => void;
   onOpenExport: () => void;
@@ -182,32 +266,69 @@ export function PrivacyIndexPage({
   shoppable,
   onToggleShoppable,
   shoppablePending = false,
+  initialOpen,
   onBack,
   onOpenConsent,
   onOpenExport,
   onOpenDelete,
 }: PrivacyIndexPageProps) {
-  const stored = deferredLinksAvailable ? [...STORED_ROWS, LINK_HANDLING_ROW] : STORED_ROWS;
+  const theme = useTheme();
+  const reduceMotion = useReducedMotion();
+  const [open, setOpen] = useState<string | null>(initialOpen ?? null);
+
+  const topics = deferredLinksAvailable
+    ? [...PRIVACY_TOPICS, LINK_HANDLING_ROW]
+    : PRIVACY_TOPICS;
+
+  // One open at a time, and the neighbours keep their position — the atlas's
+  // "expansion happens in place; siblings collapse to their titles". The height
+  // change is Reanimated's `LinearTransition` at the base duration rather than
+  // `LayoutAnimation`, which nothing else in this app uses and which the New
+  // Architecture only partly honours. Under Reduce Motion the layout prop is
+  // dropped entirely, so the row becomes an instant height change.
+  const toggle = (title: string) => setOpen((current) => (current === title ? null : title));
 
   return (
-    <PrivacyPage
-      parent="Settings"
-      title="Privacy & data"
-      intro="What Cinch holds, what it does with it, and how to take it back. Written out here rather than linked to a policy page."
-      onBack={onBack}>
-      <SectionHeader title="What is stored" className="mb-2 mt-7 px-gutter" />
-      <Card className="mx-gutter">
-        {stored.map((row, index) => (
-          <InventoryRow key={row.title} row={row} first={index === 0} />
+    <PrivacyPage parent="Settings" title="Privacy and data" intro={INDEX_INTRO} onBack={onBack}>
+      <View className="mt-6">
+        {topics.map((topic, index) => (
+          <TopicRow
+            key={topic.title}
+            topic={topic}
+            open={open === topic.title}
+            first={index === 0}
+            reduceMotion={reduceMotion}
+            onToggle={() => toggle(topic.title)}
+          />
         ))}
-      </Card>
 
-      {/* commerce-directive.md C-05 — a switch, not a ChoiceRow: there is no
-          sub-page, only a state. Off by default, the opposite direction from
-          every other switch on this page, because it is consent to be sold
-          to rather than a display preference. */}
-      <SectionHeader title="Selling your pieces" className="mb-2 mt-7 px-gutter" />
-      <Card className="mx-gutter">
+        {/* The live one. Its gist is the consent record and the ledger, so the
+            most consequential setting on the page is legible without opening
+            anything — the atlas's own reason for putting state in this row. */}
+        <PageRow
+          title="AI partners"
+          gist={consentDetail}
+          first={false}
+          onPress={onOpenConsent}
+        />
+        <PageRow
+          title="Take your data with you"
+          gist={EXPORT_TOPIC_GIST}
+          first={false}
+          onPress={onOpenExport}
+        />
+        {/* Last, and in the same weight as the rest: it is a section, not a red
+            button. The oxblood is spent inside the page it opens. */}
+        <PageRow
+          title="Delete your closet and account"
+          gist={DELETE_TOPIC_GIST}
+          first={false}
+          onPress={onOpenDelete}
+        />
+      </View>
+
+      <SectionHeader title="Selling your pieces" className="mb-1 mt-8 px-gutter" />
+      <View className="border-t border-hairline">
         <ToggleRow
           title={SHOPPABLE_LABEL}
           detail={SHOPPABLE_DETAIL}
@@ -215,36 +336,11 @@ export function PrivacyIndexPage({
           onValueChange={onToggleShoppable}
           disabled={shoppablePending}
         />
-      </Card>
+      </View>
 
-      <SectionHeader title="Your choices" className="mb-2 mt-7 px-gutter" />
-      <Card className="mx-gutter">
-        <ChoiceRow
-          first
-          title="AI consent"
-          detail={consentDetail}
-          onPress={onOpenConsent}
-        />
-        <ChoiceRow
-          first={false}
-          title="Export your data"
-          detail="A file with your closet, wears and plans, emailed to you."
-          onPress={onOpenExport}
-        />
-        {/* The one oxblood row on the page — the rule `ui/settings-row.tsx`
-            states for Delete account, applied inside this list. */}
-        <ChoiceRow
-          first={false}
-          title="Delete your account"
-          detail="What goes, what stays, and how quickly."
-          tone="accent"
-          onPress={onOpenDelete}
-        />
-      </Card>
-
-      <View className="mt-7 px-gutter">
+      <View className="mt-8 px-gutter">
         <Rule />
-        <Text variant="note" className="mt-4">
+        <Text variant="callout" className="mt-4" style={{ color: theme.muted }}>
           {SELLS_NOTHING_FOOTER}
         </Text>
       </View>

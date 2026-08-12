@@ -106,7 +106,12 @@ export function NoteSheet({
               multiline
               maxLength={NOTE_LIMIT}
               placeholder="Coat too warm indoors…"
-              placeholderTextColor={theme.faint}
+              // `muted`, not `faint`. #8A8578 is 3.52:1 on canvas — an AA failure
+              // and the constitution's flattest rule — and a placeholder is the
+              // one piece of text in a field that has to be readable before
+              // anything is typed. `muted` is what every other field in the app
+              // uses (search-field, item-edit-sheet, review-card).
+              placeholderTextColor={theme.muted}
               accessibilityLabel="Note for this day"
               editable={!busy}
               className="rounded-md border border-rule px-3 py-2.5 font-body text-callout"

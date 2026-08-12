@@ -27,6 +27,29 @@ import { useTheme } from '@/theme/tokens';
  * inside a card would read as the card failing to load.
  */
 
+/*
+ * WAVE 3 · GROUP 4 — the faint-text debt on this file is CLEARED.
+ *
+ * The three section eyebrows ("Example week", "Example plans", "Example
+ * trips") were set in `text-faint`, which is #8A8578 and 3.52:1 on canvas — an
+ * AA failure, and the constitution's flattest rule: NEVER #8A8578 as text. They
+ * now take the `eyebrow` variant's own `muted`, which is one step darker at
+ * 5.46:1 and not a new voice — tracking, casing and size are unchanged, so the
+ * quiet layer stays the quiet layer.
+ *
+ * The GHOST FURNITURE below them keeps `text-ghost` and `bg-tray`, and that is
+ * not the same violation: those bars and labels are not text the reader is
+ * being asked to read. They are decorative, the whole section is
+ * `pointerEvents="none"` and hidden from VoiceOver, and `ghost` exists for
+ * exactly this. The label naming the section is real text; the wallpaper under
+ * it is not.
+ *
+ * `tests/constitution.test.ts` holds a `FAINT_TEXT_DEBT` list with this file on
+ * it, and a second test that fails when an entry becomes stale. This file is
+ * now stale on that list and its line should be deleted — by the integrator,
+ * who owns that test.
+ */
+
 /** `theme.*` hexes are always `#RRGGBB`; alpha variants derive, never retype. */
 function withAlpha(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -89,7 +112,7 @@ export function ExampleWeek() {
   return (
     <ExampleSection>
       <View className="px-gutter pb-1 pt-4">
-        <Text variant="eyebrow" className="text-faint">
+        <Text variant="eyebrow">
           Example week
         </Text>
       </View>
@@ -138,7 +161,7 @@ export function ExamplePlans() {
   return (
     <ExampleSection>
       <View className="px-gutter pb-1 pt-4">
-        <Text variant="eyebrow" className="text-faint">
+        <Text variant="eyebrow">
           Example plans
         </Text>
       </View>
@@ -187,7 +210,7 @@ export function ExampleTrips() {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       className="border-t border-rule pt-[18px]">
-      <Text variant="eyebrow" className="text-faint">
+      <Text variant="eyebrow">
         Example trips
       </Text>
       <View className="mt-2.5" style={{ gap: 8 }}>

@@ -9,7 +9,16 @@ import { useCreateBoard, useKeepPlate } from '@/features/boards/mutations';
 import { useLookbook } from '@/features/boards/use-lookbook';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { EntryMissing, EntryPage, EntrySkeleton } from '@/features/diary/entry-page';
-import { groupByMonth, isCorrectable, postgresCode, unwearRefusal } from '@/features/diary/entry';
+import {
+  ALL_YEARS,
+  diaryTotalLine,
+  groupByMonth,
+  isCorrectable,
+  pieceWord,
+  postgresCode,
+  undoneNotice,
+  unwearRefusal,
+} from '@/features/diary/entry';
 import { useSetEntryNote, useUnwearEntry, useWearAgain } from '@/features/diary/mutations';
 import { NoteSheet } from '@/features/diary/note-sheet';
 import { useDiary } from '@/features/diary/queries';
@@ -103,27 +112,49 @@ export default function DiaryEntryScreen() {
    * cosmetic delete and a stray tap should not perform it. The dialog names
    * both halves of what happens.
    */
+  /**
+   * WD-03's notice, composed HERE and carried back to the spine.
+   *
+   * Both figures are known at this instant and neither is an estimate: the
+   * command decrements every piece by exactly one, and the record loses exactly
+   * this row, so `wearCount − 1` and the total minus this entry are the
+   * transaction's defined effect rather than a prediction of it. Composing it
+   * after the refetch would mean reading counts that had already moved and
+   * describing the move from its own result.
+   */
+  const noticeForUndo = () =>
+    undoneNotice({
+      weekday: new Date(entry.wornAt).toLocaleDateString('en-GB', { weekday: 'long' }),
+      pieces: entry.pieces.map((p) => ({ word: pieceWord(p), wearCount: p.wearCount })),
+      totalLine: diaryTotalLine(
+        entries.filter((e) => e.id !== entry.id),
+        ALL_YEARS,
+      ),
+    });
+
   const confirmRemove = () => {
     setActionError(null);
     Alert.alert(
-      'Remove this entry?',
+      'Undo this wear?',
       'The day comes off the record and each piece’s wear count goes back by one. This cannot be undone.',
       [
         { text: 'Keep it', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Undo',
           style: 'destructive',
-          onPress: () =>
+          onPress: () => {
+            const notice = noticeForUndo();
             unwear.mutate(
               { entryId: entry.id },
               {
-                onSuccess: goBack,
+                onSuccess: () => router.replace({ pathname: '/diary', params: { undone: notice } }),
                 // The server owns the 24-hour rule, so its refusal is what gets
                 // printed — `22023` becomes the rule itself rather than a
                 // generic failure.
                 onError: (err) => setActionError(unwearRefusal(postgresCode(err))),
               },
-            ),
+            );
+          },
         },
       ],
     );

@@ -75,7 +75,9 @@ export function WithdrawConsentSheet({
           </Text>
           {/* `mt-5` for the atlas's 12pt gap: `trim` has already taken 9pt off
               the title's bottom edge and the two margins sum. */}
-          <Text variant="note" className="mt-5">
+          {/* 17px, in `muted`: this is the consequence of a consent decision
+              and the group's floor is that no such sentence is set below 15 pt. */}
+          <Text variant="body" className="mt-5" style={{ color: theme.muted }}>
             {WITHDRAW_SHEET_BODY}
           </Text>
 

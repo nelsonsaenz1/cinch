@@ -12,12 +12,16 @@ import { Text } from '@/components/ui/text';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 import {
+  correctionWindowLine,
   entryDateLine,
   entrySubtitle,
+  entryWeatherLine,
   HISTORY_LINE,
+  lookCostPerWear,
   pieceOrigin,
   pieceStat,
   pieceTitle,
+  provenanceLine,
   wearsLine,
 } from './entry';
 import type { DiaryEntry, DiaryPiece } from './types';
@@ -50,6 +54,15 @@ export type EntryPageProps = {
   onRemove: () => void;
   removing: boolean;
 
+  /**
+   * The clock the 24-hour countdown is read against.
+   *
+   * Injected rather than read inside the component so a fixture route can
+   * freeze it: WD-02 prints "14 hours left", and a frame whose figure changes
+   * every hour cannot be signed off or compared against itself.
+   */
+  now?: Date;
+
   /** A refusal from the server, already turned into a sentence. */
   error: string | null;
 };
@@ -75,6 +88,25 @@ export type EntryPageProps = {
  * the only part of an entry that survives the 24-hour window, so it needs a way
  * in — and an entry with no note needs one more, since the note is written on
  * the morning and most mornings nobody writes one.
+ *
+ * ── Wave 3, WD-02: what was added, and the one thing that was not ─────────
+ *
+ * Added: the three ruled facts (weather that day, cost for the look, where it
+ * came from) and the 24-hour rule stated with its remaining figure. All four
+ * are read off columns that already exist — `context_snapshot`,
+ * `purchase_price`, `origin_outfit_id` / `generated_by`, and `worn_at`.
+ *
+ * **"Change pieces" IS NOT DRAWN.** WD-02 gives the undo a peer that swaps the
+ * garments in a recorded wear. Nothing in the database can honour it: the
+ * commands are `wear_outfit_tx` (insert a fresh wear, increment every piece)
+ * and `unwear_outfit_tx` (delete the row, decrement every piece), and there is
+ * no update path for `outfit_items` on a worn outfit at all — no command, no
+ * policy exercised by one, no client mutation. Composing it out of an undo and
+ * a re-wear would move `worn_at` to now, restart the 24-hour window, and write
+ * a second row into a record whose whole contract is that a wear is an event.
+ * A dead control is worse than an absent one, so it is absent, and the
+ * dependency is recorded: a `change_wear_items_tx` command, or an explicit
+ * ruling that a wear is immutable and the atlas's peer action is retired.
  */
 export function EntryPage(props: EntryPageProps) {
   const { entry } = props;
@@ -125,6 +157,12 @@ export function EntryPage(props: EntryPageProps) {
           )}
         </Card>
 
+        {/* WD-02's three ruled facts, under the composed grid. Each of them is
+            a fact the reader could otherwise only guess at, and each is
+            PRINTED WHEN KNOWN AND ABSENT WHEN NOT — there is no dash and no
+            estimate in this block. */}
+        <FactRows entry={entry} />
+
         {entry.pieces.length > 0 ? (
           <>
             <Text variant="eyebrow" className="px-gutter pb-2.5 pt-6">
@@ -160,14 +198,23 @@ export function EntryPage(props: EntryPageProps) {
           />
         </View>
 
-        {/* "Editable for a day." The one oxblood action on this screen, and
-            quiet text rather than a filled button: it is a correction of the
-            reader's own private record, not the thing the page is for. */}
-        <View className="px-gutter pt-5">
+        {/* WD-02: the rule stated as a rule AND as a remaining figure, so undo
+            is never a surprise. The rule comes FIRST — the reader meets the
+            window before the control that spends it.
+
+            "Change pieces", which the atlas draws as this action's peer, is
+            ABSENT. See the docblock at the head of this file. */}
+        <View className="px-gutter pt-6">
+          <Text variant="note">
+            {props.correctable
+              ? correctionWindowLine(entry.wornAt, props.now ?? new Date())
+              : HISTORY_LINE}
+          </Text>
+
           {props.correctable ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Remove this entry"
+              accessibilityLabel="Undo this wear"
               accessibilityHint="Deletes this wear and puts the pieces' wear counts back"
               accessibilityState={{
                 busy: props.removing,
@@ -177,19 +224,14 @@ export function EntryPage(props: EntryPageProps) {
               onPress={props.onRemove}
               hitSlop={8}
               style={{ minHeight: MIN_TAP_TARGET }}
-              className="justify-center active:opacity-60">
+              className="mt-1 justify-center active:opacity-60">
+              {/* The screen's one oxblood, and quiet text rather than a filled
+                  button: this is a correction of the reader's own private
+                  record, not the thing the page is for. */}
               <Text variant="label" style={{ color: theme.accent }}>
-                {props.removing ? 'Removing…' : 'Remove this entry'}
+                {props.removing ? 'Undoing…' : 'Undo this wear'}
               </Text>
             </Pressable>
-          ) : (
-            <Text variant="note">{HISTORY_LINE}</Text>
-          )}
-
-          {props.correctable ? (
-            <Text variant="noteSmall" className="mt-0.5">
-              Correctable for a day. After that it is history, and only the note can change.
-            </Text>
           ) : null}
 
           {props.error ? (
@@ -286,6 +328,45 @@ function PieceWell({ uri, label }: { uri: string | undefined; label: string }) {
           resizeMode="scaleAspectFit"
         />
       )}
+    </View>
+  );
+}
+
+/**
+ * WD-02's three ruled facts — weather, cost, provenance.
+ *
+ * A row appears only when its fact is known. The weather row is the one that
+ * is most often absent (`wear_outfit_tx` takes the context from the client and
+ * two call sites pass null), and the cost row drops the moment one piece in
+ * the look has no price. Neither prints a dash, an estimate, or "unknown":
+ * the section simply has two rows instead of three, and the reader is never
+ * shown a number nobody typed.
+ *
+ * Provenance is always known, so it is always drawn — which is what makes the
+ * section a section rather than an occasional card.
+ */
+function FactRows({ entry }: { entry: DiaryEntry }) {
+  const weather = entryWeatherLine(entry.weather);
+  const cost = lookCostPerWear(entry);
+
+  const rows: { label: string; value: string }[] = [];
+  if (weather) rows.push({ label: 'Weather that day', value: weather });
+  if (cost !== null) rows.push({ label: 'Cost for the look', value: `$${cost.toFixed(2)} a wear` });
+  rows.push({ label: 'Where it came from', value: provenanceLine(entry) });
+
+  return (
+    <View className="mt-6 px-gutter">
+      {rows.map((row, i) => (
+        <View key={row.label}>
+          {i > 0 ? <Rule tone="hairline" /> : null}
+          <View className="flex-row items-baseline justify-between gap-4 py-3">
+            <Text variant="note">{row.label}</Text>
+            <Text variant="body" className="shrink text-right">
+              {row.value}
+            </Text>
+          </View>
+        </View>
+      ))}
     </View>
   );
 }

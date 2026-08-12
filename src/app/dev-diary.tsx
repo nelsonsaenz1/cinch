@@ -10,6 +10,7 @@ import { DiaryPage } from '@/features/diary/diary-page';
 import { EntryPage } from '@/features/diary/entry-page';
 import {
   ALL_YEARS,
+  diaryTotalLine,
   filterByYear,
   groupByMonth,
   isCorrectable,
@@ -264,6 +265,11 @@ export default function DevDiaryScreen() {
             state === 'WD-02' || state === 'WD-04' || state === 'WD-01e'
               ? []
               : groupByMonth(filterByYear(source, chip))
+          }
+          totalLine={
+            state === 'WD-02' || state === 'WD-04' || state === 'WD-01e'
+              ? null
+              : diaryTotalLine(filterByYear(source, chip), chip)
           }
           chips={state === 'WD-01' || state === 'WD-01a' ? yearChips(source) : []}
           selectedChip={chip}
