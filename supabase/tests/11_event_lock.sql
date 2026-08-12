@@ -40,10 +40,26 @@ values ('11111111-1111-4111-8111-111111111111', 'helen@example.test'),
        ('22222222-2222-4222-8222-222222222222', 'maria@example.test'),
        ('33333333-3333-4333-8333-333333333333', 'nina@example.test');
 
-insert into profiles (user_id, display_name, username, visibility)
-values ('11111111-1111-4111-8111-111111111111', 'Helen', 'helen', 'private'),
-       ('22222222-2222-4222-8222-222222222222', 'Maria', 'maria', 'private'),
-       ('33333333-3333-4333-8333-333333333333', 'Nina',  'nina',  'private');
+-- `on conflict … do update`, not a plain insert: handle_new_user() is an
+-- AFTER INSERT trigger on auth.users and has ALREADY created each profile row.
+-- Same clause as 09_event_block_filter.sql, for the same reason.
+-- The terms columns are not decoration: `assert_social_terms()` (20260808101000)
+-- gates every social write these nine assertions make, events included, so a
+-- fixture without them fails at the first insert with `social_terms_required`
+-- long before it reaches anything this file is about.
+insert into profiles (user_id, display_name, username, visibility,
+                      social_terms_version, social_terms_at)
+values ('11111111-1111-4111-8111-111111111111', 'Helen', 'helen', 'private',
+        public.current_social_terms_version(), now()),
+       ('22222222-2222-4222-8222-222222222222', 'Maria', 'maria', 'private',
+        public.current_social_terms_version(), now()),
+       ('33333333-3333-4333-8333-333333333333', 'Nina',  'nina',  'private',
+        public.current_social_terms_version(), now())
+on conflict (user_id) do update
+  set display_name = excluded.display_name, username = excluded.username,
+      visibility = excluded.visibility,
+      social_terms_version = excluded.social_terms_version,
+      social_terms_at      = excluded.social_terms_at;
 
 set local role authenticated;
 select set_config(
@@ -64,13 +80,34 @@ values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         '11111111-1111-4111-8111-111111111111',
         'Someday', null, 'invite_only');
 
+-- Invited, then accepted — not inserted as `joined`. The host's insert policy
+-- (20260807101000:132) only permits `state = 'invited'`, and `is_event_member()`
+-- only counts `joined`, so both halves are load-bearing: skip the invite and the
+-- insert is refused, skip the accept and every vote fails on membership rather
+-- than on the lock this file is testing.
 insert into event_members (event_id, user_id, role, state, invited_by)
-select e.id, u, 'attendee', 'joined', '11111111-1111-4111-8111-111111111111'
+select e.id, u, 'attendee', 'invited', '11111111-1111-4111-8111-111111111111'
   from (values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid),
                ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid),
                ('cccccccc-cccc-4ccc-8ccc-cccccccccccc'::uuid)) e(id),
        (values ('22222222-2222-4222-8222-222222222222'::uuid),
                ('33333333-3333-4333-8333-333333333333'::uuid)) m(u);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}',
+  true
+);
+update event_members set state = 'joined'
+ where user_id = '22222222-2222-4222-8222-222222222222';
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}',
+  true
+);
+update event_members set state = 'joined'
+ where user_id = '33333333-3333-4333-8333-333333333333';
 
 -- ---------------------------------------------------------------------------
 -- D-1 · comments
@@ -115,7 +152,7 @@ select set_config(
   true
 );
 
-insert into outfits (id, user_id, title)
+insert into outfits (id, user_id, name)
 values ('d1d1d1d1-d1d1-41d1-81d1-d1d1d1d1d1d1',
         '33333333-3333-4333-8333-333333333333', 'The wool one'),
        ('d2d2d2d2-d2d2-42d2-82d2-d2d2d2d2d2d2',

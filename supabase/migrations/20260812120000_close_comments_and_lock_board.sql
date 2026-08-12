@@ -96,8 +96,10 @@ grant execute on function public.event_is_open(uuid) to authenticated;
  * different remedies, and a user told the wrong one goes looking in the wrong
  * place. A trigger can raise its own SQLSTATE, so it does.
  *
- * `CL001` is in a user-defined class (first character outside 0-4 and A-H), so
- * it cannot collide with a code Postgres assigns.
+ * `CL001` is a legal five-character SQLSTATE in a class PostgreSQL does not
+ * assign. Its reserved classes are 00-09, 0A-0Z, 20-2F, 34, 38, 39, 3B, 3D, 3F,
+ * 40, 42, 44, 53-58, 72, F0, HV, P0 and XX — none begins with `C` — so `CL`
+ * cannot collide with a code Postgres raises on its own.
  */
 create or replace function public.assert_comment_thread_open() returns trigger
 language plpgsql
@@ -113,6 +115,12 @@ begin
 end;
 $$;
 
+-- Replay-safe. `create trigger` has no `or replace` and no `if not exists`, so
+-- a bare create fails `42710` on a second run — and it would fail AFTER the
+-- `create or replace function` above, leaving the file half-applied. This
+-- directory gets replayed (see docs/db/migration-history-audit.md), so the
+-- drop is not hypothetical housekeeping.
+drop trigger if exists event_comments_thread_open on public.event_comments;
 create trigger event_comments_thread_open
   before insert on public.event_comments
   for each row execute function public.assert_comment_thread_open();
@@ -197,6 +205,8 @@ begin
 end;
 $$;
 
+-- Replay-safe, for the reason given above the other trigger.
+drop trigger if exists event_outfit_votes_retractable on public.event_outfit_votes;
 create trigger event_outfit_votes_retractable
   before delete on public.event_outfit_votes
   for each row execute function public.assert_vote_retractable();
