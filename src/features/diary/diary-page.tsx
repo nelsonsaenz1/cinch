@@ -3,7 +3,7 @@ import { SymbolView } from 'expo-symbols';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { NoticeBand } from '@/components/plan/notice-band';
+import { NoticeBand } from '@/components/ui/notice-band';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';

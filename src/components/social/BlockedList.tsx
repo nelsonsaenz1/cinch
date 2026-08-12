@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, View } from 'react-native';
 
+import { BLOCK_EFFECT } from '@/components/social/friends-lines';
 import { SheetOverlay } from '@/components/social/FriendOverflowSheet';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -127,10 +128,12 @@ export function BlockedRows({
 }) {
   return (
     <View>
-      {/* BL-01's headline — now a fact, not a hope. See the module doc. */}
+      {/* BL-01's headline — now a fact, not a hope. See the module doc.
+          THE STRING LIVES IN `friends-lines.ts` and is imported by both this
+          page and FR-02's blocked result, because a policy stated in two
+          paraphrases is two policies. */}
       <Text variant="body" className="text-muted">
-        Blocking removed their votes from your looks and took them off every event you host. They
-        cannot see your closet, and you will not see theirs.
+        {BLOCK_EFFECT}
       </Text>
 
       <Text variant="eyebrow" className="mb-2 mt-6">

@@ -6,9 +6,12 @@ import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
 import {
   MAX_PIECES,
+  ceilingRefusalLine,
   garmentDisplayName,
   matchesCategoryFilter,
+  pieceBoundsLine,
   togglePiece,
+  wouldRefuse,
   type PieceCategoryFilter,
 } from '@/features/share-look/compose';
 import type { Garment } from '@/lib/styling';
@@ -36,11 +39,26 @@ export function PiecePicker({
   stack,
   resolveImage,
   onChangeStack,
+  onRefused,
+  ax = false,
 }: {
   candidates: Garment[];
   stack: Garment[];
   resolveImage: ResolveImage;
   onChangeStack: (next: Garment[]) => void;
+  /**
+   * Correction 27 — "a seventh tap is refused IN THE BAR, in the same place
+   * the count lives, and the tile does not take a selection ring it will lose
+   * a moment later."
+   *
+   * So the grid reports the refusal upward instead of showing it: a tile that
+   * flashed a ring and then dropped it would be a lie told for one frame, and
+   * a refusal shown on the tile is a refusal shown where the user is not
+   * looking for the count.
+   */
+  onRefused?: () => void;
+  /** Largest Dynamic Type: two columns, 28 pt selection numbers (SL-01 / AX). */
+  ax?: boolean;
 }) {
   const [filter, setFilter] = useState<PieceCategoryFilter>('All');
 
@@ -71,12 +89,21 @@ export function PiecePicker({
 
       <View className="mt-4 flex-row flex-wrap" style={{ marginHorizontal: -5 }}>
         {visible.map((g) => (
-          <View key={g.id} style={{ width: '33.333%', padding: 5 }}>
+          // SL-01 / AX — "the three-column grid becomes two so a garment name
+          // can be read at 18 pt without wrapping to three lines."
+          <View key={g.id} style={{ width: ax ? '50%' : '33.333%', padding: 5 }}>
             <PieceCell
               garment={g}
               badge={badgeOf.get(g.id) ?? null}
+              ax={ax}
               resolveImage={resolveImage}
-              onPress={() => onChangeStack(togglePiece(stack, g))}
+              onPress={() => {
+                if (wouldRefuse(stack, g)) {
+                  onRefused?.();
+                  return;
+                }
+                onChangeStack(togglePiece(stack, g));
+              }}
             />
           </View>
         ))}
@@ -94,49 +121,114 @@ export function PiecePicker({
  * tray is S-01's own — the one place a poster can see the stack they are
  * building without leaving the grid.
  */
+/** Audit 97 — the bar drops from 148 pt to 88, which is what keeps three full
+ *  grid rows on screen against an acceptance floor of one extra row. */
+export const SELECTION_BAR_HEIGHT = 88;
+/** SL-01 / AX — the bar drops its thumbnails and grows to 138. */
+export const SELECTION_BAR_HEIGHT_AX = 138;
+
 export function PickerFooterTray({
   stack,
   resolveImage,
   canCompose,
   onCompose,
+  refused = false,
+  ax = false,
 }: {
   stack: Garment[];
   resolveImage: ResolveImage;
   canCompose: boolean;
   onCompose: () => void;
+  /** A seventh tap happened. Printed where the count lives, per correction 27. */
+  refused?: boolean;
+  ax?: boolean;
 }) {
   const theme = useTheme();
 
+  /**
+   * The line where the count lives — and the one place the refusal appears.
+   *
+   * Three things share this slot in a fixed priority, because they are three
+   * answers to the same question ("what does the bar hold?"): the refusal
+   * while it is being refused, the requirement while nothing is picked, the
+   * count otherwise. Correction 27's "a user learns the ceiling before hitting
+   * it rather than at the refusal" is why the empty case names BOTH bounds.
+   */
+  const statusLine = refused
+    ? ceilingRefusalLine()
+    : stack.length === 0
+      ? pieceBoundsLine()
+      : `${stack.length} ${stack.length === 1 ? 'piece' : 'pieces'}, in this order`;
+
   return (
     <View
-      className="flex-row items-center border-t border-hairline bg-canvas"
-      style={{ gap: 12, paddingTop: 12, paddingBottom: 12 }}>
-      <View className="flex-row" style={{ gap: 6 }}>
-        {stack.slice(0, 3).map((g) => (
-          <View
-            key={g.id}
-            className="overflow-hidden rounded-md bg-tray"
-            style={{ width: 36, height: 36 }}>
-            <GarmentCell garment={g} uri={resolveImage(g.platePath, g.cutoutPath, g.thumbPath)} />
-          </View>
-        ))}
+      // The bar keeps its height and its shape with nothing selected — "nothing
+      // jumps when the first piece is chosen" (SL-02). A bar that grew on the
+      // first tap would move the grid under the finger that just tapped it.
+      className="border-t border-hairline bg-canvas"
+      style={{ height: ax ? SELECTION_BAR_HEIGHT_AX : SELECTION_BAR_HEIGHT, paddingTop: 12 }}>
+      {/* SL-01 / AX drops the thumbnail strip entirely: "the count and the
+          order statement carry the information the thumbnails carried." */}
+      {!ax ? (
+        <View className="flex-row" style={{ gap: 6, height: 36 }}>
+          {/* Sized for the ceiling and never scrolls — `MAX_PIECES` thumbs at
+              36 pt is what the bar is built to hold. */}
+          {stack.slice(0, MAX_PIECES).map((g) => (
+            <View
+              key={g.id}
+              className="overflow-hidden rounded-md bg-tray"
+              style={{ width: 36, height: 36 }}>
+              <GarmentCell garment={g} uri={resolveImage(g.platePath, g.cutoutPath, g.thumbPath)} />
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <View className="mt-2 flex-row items-center" style={{ gap: 12 }}>
+        <View className="flex-1">
+          <Text
+            variant="label"
+            accessibilityLiveRegion="polite"
+            style={{ color: refused ? theme.critical : theme.muted }}>
+            {statusLine}
+          </Text>
+          {stack.length > 1 && !refused ? (
+            <Text variant="noteSmall">Drag to reorder</Text>
+          ) : null}
+        </View>
+
+        {/*
+          Correction 27 — "Compose becomes INERT PAPER with the requirement
+          printed beside it rather than a dimmed oxblood button."
+
+          Two different objects, not one object at two opacities: an ink fill
+          at 40% still reads as a button somebody dimmed, which is what invites
+          the repeated tap. Below the floor it is paper with a hairline; at or
+          above it, the filled action.
+        */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Compose"
+          accessibilityHint={canCompose ? undefined : pieceBoundsLine()}
+          accessibilityState={{ disabled: !canCompose }}
+          disabled={!canCompose}
+          onPress={onCompose}
+          style={{
+            minHeight: ax ? 56 : 44,
+            paddingHorizontal: 20,
+            backgroundColor: canCompose ? theme.ink : theme.surface,
+            borderWidth: canCompose ? 0 : 1,
+            borderColor: theme.hairline,
+          }}
+          className="items-center justify-center rounded-md active:opacity-80">
+          <Text
+            variant="body"
+            className={canCompose ? 'font-semibold' : ''}
+            style={{ color: canCompose ? theme.canvas : theme.muted }}>
+            Compose
+          </Text>
+        </Pressable>
       </View>
-      <Text variant="label" className="flex-1" style={{ color: theme.muted }}>
-        {`${stack.length} picked`}
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Compose"
-        accessibilityHint={canCompose ? undefined : 'Pick at least two pieces first'}
-        accessibilityState={{ disabled: !canCompose }}
-        disabled={!canCompose}
-        onPress={onCompose}
-        style={{ minHeight: 44, paddingHorizontal: 20, opacity: canCompose ? 1 : 0.4 }}
-        className="items-center justify-center rounded-md bg-ink active:opacity-80">
-        <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
-          Compose
-        </Text>
-      </Pressable>
     </View>
   );
 }
@@ -144,16 +236,21 @@ export function PickerFooterTray({
 function PieceCell({
   garment,
   badge,
+  ax = false,
   resolveImage,
   onPress,
 }: {
   garment: Garment;
   badge: number | null;
+  ax?: boolean;
   resolveImage: ResolveImage;
   onPress: () => void;
 }) {
   const theme = useTheme();
   const selected = badge !== null;
+  // "Selection numbers grow to 28 pt circles so they remain the second channel
+  // at any type size" (SL-01 / AX). 22 otherwise.
+  const disc = ax ? 28 : 22;
 
   return (
     <Pressable
@@ -175,11 +272,17 @@ function PieceCell({
           borderColor: selected ? theme.ink : theme.hairline,
         }}>
         <GarmentCell garment={garment} uri={resolveImage(garment.platePath, garment.cutoutPath, garment.thumbPath)} />
+        {/* Audit 97 — "selection carries an OUTLINE and a NUMBER, so it
+            survives greyscale and states the order at the same time; no
+            colour-only state anywhere in the group." The outline is the
+            2 pt ink border above; this is the second channel. */}
         {selected ? (
           <View
             className="absolute right-1.5 top-1.5 items-center justify-center rounded-full"
-            style={{ width: 22, height: 22, backgroundColor: theme.ink }}>
-            <Text variant="label" style={{ color: theme.canvas, fontSize: 11, lineHeight: 13 }}>
+            style={{ width: disc, height: disc, backgroundColor: theme.ink }}>
+            <Text
+              variant="label"
+              style={{ color: theme.canvas, fontSize: ax ? 14 : 11, lineHeight: ax ? 17 : 13 }}>
               {badge}
             </Text>
           </View>

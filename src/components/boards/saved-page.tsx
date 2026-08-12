@@ -4,7 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PlateCard, PlateCardSkeleton } from '@/components/boards/plate-card';
 import { BackButton, Button, Chip, ErrorState, Skeleton, Text } from '@/components/ui';
-import { allChipLabel } from '@/features/boards/board-lines';
+import {
+  allChipLabel,
+  boardChipLabel,
+  plateCountsByBoard,
+  savedSummaryLine,
+} from '@/features/boards/board-lines';
 import type { Board, KeptPlate } from '@/features/boards/types';
 import { GUTTER, useTheme } from '@/theme/tokens';
 
@@ -34,8 +39,6 @@ export type SavedPageProps = {
   /** Every kept plate. `All` is the whole set; the chips lead elsewhere. */
   plates: KeptPlate[];
   boards: Board[];
-  /** A plate's board name, for the meta line. */
-  boardNameFor: (boardId: string | null) => string | null;
   /** Signed URLs for a plate's four cells, in order. */
   imageUrisFor: (plate: KeptPlate) => readonly (string | undefined)[];
   onOpenBoard: (boardId: string) => void;
@@ -48,6 +51,11 @@ export type SavedPageProps = {
    * house's own disc.
    */
   onBack?: () => void;
+  /**
+   * Injectable clock, for the fixture routes only. A saved month read from the
+   * system clock would make a captured frame stop matching itself in September.
+   */
+  now?: Date;
 };
 
 export function SavedPage({
@@ -57,12 +65,12 @@ export function SavedPage({
   onRetry,
   plates,
   boards,
-  boardNameFor,
   imageUrisFor,
   onOpenBoard,
   onOpenPlate,
   onPlanALook,
   onBack,
+  now,
 }: SavedPageProps) {
   const { width } = useWindowDimensions();
   // The `- 2` is the card's own hairline border, and it is load-bearing.
@@ -81,6 +89,11 @@ export function SavedPage({
   // board chips and the first row do not move when plates arrive".
   const showChips = loading || boards.length > 0 || plates.length > 0;
 
+  const summary = savedSummaryLine(plates.length, boards.length);
+  // Counts for the board chips, computed once for the whole rail rather than
+  // per chip — the same pass the atlas's "Work 5 · Weddings 3" needs.
+  const counts = plateCountsByBoard(plates);
+
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScrollView contentContainerClassName="pb-12" showsVerticalScrollIndicator={false}>
@@ -90,13 +103,18 @@ export function SavedPage({
           </View>
         ) : null}
 
+        {/* SV-01's masthead. The count line replaces the tracked eyebrow: "14
+            plates · 4 boards" is what a reader wants before scrolling, and
+            "Kept for later" was a label for the page they are already on. */}
         <View className="px-gutter pt-2">
-          <Text variant="eyebrow" className="mb-1.5">
-            Kept for later
-          </Text>
           <Text variant="display" trim accessibilityRole="header">
-            Saved
+            Saved looks
           </Text>
+          {!loading && !error && summary ? (
+            <Text variant="note" className="mt-2">
+              {summary}
+            </Text>
+          ) : null}
         </View>
 
         {showChips ? (
@@ -135,7 +153,7 @@ export function SavedPage({
                   {boards.map((board) => (
                     <Chip
                       key={board.id}
-                      label={board.name}
+                      label={boardChipLabel(board.name, counts[board.id] ?? 0)}
                       onPress={() => onOpenBoard(board.id)}
                       accessibilityHint="Opens this board"
                     />
@@ -176,9 +194,9 @@ export function SavedPage({
               <PlateCard
                 key={plate.id}
                 plate={plate}
-                boardName={boardNameFor(plate.boardId)}
                 size={column}
                 imageUris={imageUrisFor(plate)}
+                now={now}
                 onPress={() => onOpenPlate(plate)}
               />
             ))}

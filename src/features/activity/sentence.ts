@@ -79,27 +79,39 @@ export interface ActivityAction {
   id: ActivityActionId;
   label: string;
   /**
+   * AUDIT 90. Exactly one `solid` action per row, and its width is set by its
+   * own word — Add back, Lend it — with a `quiet` text alternative beside it.
+   * Informational rows carry a quiet action only. Nothing here is a 48pt
+   * full-width pair: a page of paired blocks reads as a stack of badges, not
+   * as sentences with a decision at the end.
+   *
    * Solid is INK, never oxblood. A page of rows each carrying an affirmative is
-   * exactly where the one-accent-per-screen rule gets broken; the atlas's
-   * affirmative is *solid*, and on this page solid means ink.
+   * exactly where the one-accent-per-screen rule gets broken.
+   *
+   * `quiet` replaced `outline`: two outlined pills side by side is the paired
+   * shape the audit is against, and an outline on a destination made "See
+   * board" look like a decision when it is a door.
    */
-  tone: 'solid' | 'outline';
+  tone: 'solid' | 'quiet';
   role: 'answer' | 'destination';
 }
 
 const ACTIONS: Record<ActivityActionId, ActivityAction> = {
   'add-back': { id: 'add-back', label: 'Add back', tone: 'solid', role: 'answer' },
-  'not-now': { id: 'not-now', label: 'Not now', tone: 'outline', role: 'answer' },
+  'not-now': { id: 'not-now', label: 'Not now', tone: 'quiet', role: 'answer' },
   lend: { id: 'lend', label: 'Lend it', tone: 'solid', role: 'answer' },
   'not-this-time': {
     id: 'not-this-time',
     label: 'Not this time',
-    tone: 'outline',
+    tone: 'quiet',
     role: 'answer',
   },
-  'open-event': { id: 'open-event', label: 'Open the event', tone: 'outline', role: 'destination' },
-  'see-votes': { id: 'see-votes', label: 'See the votes', tone: 'outline', role: 'destination' },
-  'see-closet': { id: 'see-closet', label: 'See her closet', tone: 'outline', role: 'destination' },
+  'open-event': { id: 'open-event', label: 'Open the event', tone: 'quiet', role: 'destination' },
+  // "See board" — the shared rail is where the votes are, and the shorter word
+  // is the atlas's. "See the votes" implied a tally screen, which is exactly
+  // the scoring this page refuses.
+  'see-votes': { id: 'see-votes', label: 'See board', tone: 'quiet', role: 'destination' },
+  'see-closet': { id: 'see-closet', label: 'See her closet', tone: 'quiet', role: 'destination' },
 };
 
 /**
@@ -112,24 +124,92 @@ const ACTIONS: Record<ActivityActionId, ActivityAction> = {
  * do reach the other person.
  */
 export interface AnswerCopy {
+  /**
+   * AV-02: a pending action is a present participle on a tray-filled label,
+   * never a spinner replacing the row. A spinner says "wait" and nothing else;
+   * a participle says which verb is in flight, and it holds still.
+   */
   pending: string;
   done: string;
+  /** A second, quieter line under `done`. Only the dismissal has one. */
+  doneDetail?: string;
+  /**
+   * AV-02's failure line. It names what did NOT happen — above all whether the
+   * other person was told — because that is the reader's real question. A bare
+   * "Couldn't answer just now" leaves them unable to tell whether a friend is
+   * now waiting on a reply they never sent.
+   */
+  failed: string;
 }
 
-const ANSWER_COPY: Record<string, AnswerCopy> = {
-  'add-back': { pending: 'Adding back…', done: 'Added back · her closet is open to you' },
-  'not-now': { pending: 'Putting it away…', done: 'Not now · nothing was sent' },
-  lend: { pending: 'Lending…', done: 'Lent · she has been told' },
-  'not-this-time': { pending: 'Answering…', done: 'Not this time · she has been told' },
-};
+/** The neutral name, for a row whose actor could not be hydrated. */
+const SOMEONE = 'The other person';
 
-export function answerCopy(id: ActivityActionId): AnswerCopy | null {
-  return ANSWER_COPY[id] ?? null;
+function copyFor(id: ActivityActionId, who: string): AnswerCopy | null {
+  switch (id) {
+    case 'add-back':
+      return {
+        pending: 'Adding back…',
+        done: 'Added back · her closet is open to you',
+        failed: `Adding back did not go through. ${who} has not been told anything.`,
+      };
+
+    // THE SUBTLEST CASE IN THE GROUP. `useDismissActivity` inserts one row into
+    // `activity_dismissals`, which `activity_feed()` filters on and nothing
+    // else reads. The friend request itself is a `follows` edge and is
+    // untouched — so it is still in Friends, and the sender cannot detect any
+    // of this. Every one of those three facts is printed, and the word
+    // "declined" appears nowhere, because no decline was written.
+    case 'not-now':
+      return {
+        pending: 'Setting it aside…',
+        done: `Request from ${who} set aside`,
+        doneDetail: `Still waiting in Friends. ${who} was not told.`,
+        failed: `Setting it aside did not go through. It is still in your list, and ${who} was not told.`,
+      };
+
+    case 'lend':
+      return {
+        pending: 'Lending…',
+        done: `Lent · ${who} has been told`,
+        failed: `Lending did not go through. ${who} has not been told anything.`,
+      };
+
+    case 'not-this-time':
+      return {
+        pending: 'Answering…',
+        done: `Answered · ${who} has been told`,
+        failed: `Answering did not go through. ${who} has not been told anything.`,
+      };
+
+    default:
+      // Destinations navigate. They have no state to narrate.
+      return null;
+  }
 }
 
-/** The atlas's failed-answer line, split so "Try again" can be the tap target. */
-export const ANSWER_FAILED = "Couldn't answer just now.";
-export const ANSWER_RETRY = 'Try again';
+export function answerCopy(id: ActivityActionId, actorName?: string | null): AnswerCopy | null {
+  return copyFor(id, actorName?.trim() || SOMEONE);
+}
+
+/**
+ * Which answers can be taken back, and how.
+ *
+ * Only the dismissal, and only because the reversal EXISTS:
+ * `activity_dismissals` carries an owner delete policy and its grant
+ * (`20260810100100_activity_feed.sql:79-82`), so `useUndoDismissActivity`
+ * deletes the row and the feed row returns. Everything else here reaches
+ * another person, and un-telling somebody is not a thing this app can do — so
+ * no other row is drawn with an undo.
+ */
+export function isUndoable(id: ActivityActionId): boolean {
+  return id === 'not-now';
+}
+
+export const ANSWER_UNDO = 'Undo';
+
+/** Kept for the row's retry affordance. The sentence itself is `AnswerCopy.failed`. */
+export const ANSWER_RETRY = 'Retry';
 
 // ---------------------------------------------------------------------------
 // Words.
@@ -187,9 +267,9 @@ export function friendCount(tally: number | null): string | null {
 // ---------------------------------------------------------------------------
 
 /**
- * A run of the sentence. `bold` marks the name — and, on an invitation, the
- * occasion's title, which the atlas bolds too because it is the other proper
- * noun in the line. Nothing else in the sentence is ever bold.
+ * A run of the sentence. `bold` marks THE ACTOR, and nothing else — audit 91.
+ * The verb, the object, the occasion's title and the timestamp are all regular,
+ * so each row spends its emphasis exactly once.
  */
 export interface Segment {
   text: string;
@@ -252,8 +332,11 @@ function segmentsFor(row: ActivityFeedRow, subjects: ActivitySubjects, now: Date
       // an unreadable one can, if the invitation was revoked between the feed
       // read and the hydration. "an occasion" keeps the sentence true.
       const title = subjects.eventTitle;
+      // AUDIT 91 — EMPHASIS ONCE PER ROW, ON THE ACTOR. The occasion's title
+      // used to be bold too; two bold runs in one sentence is two emphases and
+      // therefore none, and the reader's eye should land on who is asking.
       const head: Segment[] = title
-        ? [who, { text: ' invited you to ' }, { text: title, bold: true }]
+        ? [who, { text: ' invited you to ' }, { text: title }]
         : [who, { text: ' invited you to an occasion' }];
       return [...head, { text: `${when ? `, ${when}` : ''}.` }];
     }
@@ -267,7 +350,7 @@ function segmentsFor(row: ActivityFeedRow, subjects: ActivitySubjects, now: Date
       // a page that fetched every vote to name a leader would be doing exactly
       // the scoring this page refuses. The row still says who voted on what.
       return title
-        ? [{ text: `${subject} on your look for ` }, { text: title, bold: true }, { text: '.' }]
+        ? [{ text: `${subject} on your look for ` }, { text: title }, { text: '.' }]
         : [{ text: `${subject} on your look.` }];
     }
 

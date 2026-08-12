@@ -5,10 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Rule } from '@/components/ui/rule';
 import { ScreenHeader } from '@/components/ui/screen-header';
-import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import type { AnswerState } from '@/features/activity/answers';
+import {
+  EMPTY_BODY,
+  EMPTY_TITLE,
+  LOAD_ERROR_BODY,
+  LOAD_ERROR_TITLE,
+  RETENTION_LINE,
+  RETENTION_SUBTITLE,
+} from '@/features/activity/retention';
 import type { ActivityActionId, ActivityLine } from '@/features/activity/sentence';
 import { groupByDay } from '@/features/explore/timeline';
 import { useTheme } from '@/theme/tokens';
@@ -40,6 +47,8 @@ export type ActivityPageProps = {
   stateOf: (key: string) => AnswerState;
   onAnswer: (line: ActivityLine, actionId: ActivityActionId) => void;
   onNavigate: (line: ActivityLine, actionId: ActivityActionId) => void;
+  /** Takes a dismissal back. Only the dismissed row draws it. */
+  onUndo?: (line: ActivityLine) => void;
   onRetry: () => void;
   isRefetching?: boolean;
   onRefresh?: () => void;
@@ -54,6 +63,7 @@ export function ActivityPage({
   stateOf,
   onAnswer,
   onNavigate,
+  onUndo,
   onRetry,
   isRefetching = false,
   onRefresh,
@@ -72,13 +82,16 @@ export function ActivityPage({
           affordance. */}
       <ScreenHeader align="leading" />
 
+      {/* CORRECTION 22 — the surface is ACTIVITY, and its window is 30 days.
+          Both are stated in the masthead rather than discovered at the foot of
+          a list that mysteriously stops. */}
       <View className="px-gutter pt-3">
-        <Text variant="eyebrow">What has happened</Text>
-        <View style={{ marginTop: 6 }}>
-          <Text variant="display" trim accessibilityRole="header">
-            Activity
-          </Text>
-        </View>
+        <Text variant="display" trim accessibilityRole="header">
+          Activity
+        </Text>
+        <Text variant="note" className="mt-2">
+          {RETENTION_SUBTITLE}
+        </Text>
       </View>
 
       <ScrollView
@@ -101,8 +114,8 @@ export function ActivityPage({
           <Hero
             alert
             glyph={<ActivityErrorGlyph size={34} color={theme.accent} />}
-            title="Couldn’t read your activity"
-            body="This did not load, which is a connection problem rather than an empty page. Nothing has been accepted, declined or missed."
+            title={LOAD_ERROR_TITLE}
+            body={LOAD_ERROR_BODY}
             actionTitle="Try again"
             onAction={onRetry}
           />
@@ -113,14 +126,14 @@ export function ActivityPage({
           // where the dot lives, because that dot is the only badge in the app.
           <Hero
             glyph={<ActivityBellGlyph size={34} color="rgba(28,26,22,0.28)" />}
-            title="Nothing waiting"
-            body="Requests, borrows, invitations and votes land here. When one does, you will see a dot on Today — and nowhere else."
+            title={EMPTY_TITLE}
+            body={EMPTY_BODY}
           />
         ) : (
           <View className="px-gutter">
             {groups.map((group) => (
               <View key={group.key}>
-                <SectionHeader title={group.label} className="mb-2.5 mt-5" />
+                <DayHeading label={group.label} className="mb-2.5 mt-5" />
                 <Card style={{ borderRadius: CARD_RADIUS }}>
                   {group.entries.map((line, i) => (
                     <ActivityRow
@@ -130,6 +143,7 @@ export function ActivityPage({
                       state={stateOf(line.key)}
                       onAnswer={(actionId) => onAnswer(line, actionId)}
                       onNavigate={(actionId) => onNavigate(line, actionId)}
+                      onUndo={onUndo ? () => onUndo(line) : undefined}
                       isLast={i === group.entries.length - 1}
                     />
                   ))}
@@ -141,13 +155,48 @@ export function ActivityPage({
                 list that mysteriously stops. There is no "load more" because
                 the bound is enforced in SQL and older answers live on the
                 object itself — the event, the item, the friend. */}
-            <Text variant="noteSmall" className="mt-5">
-              Activity from the last thirty days.
+            <Text variant="note" className="mt-5">
+              {RETENTION_LINE}
             </Text>
           </View>
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * A day heading — and, for today only, THE DOT.
+ *
+ * One 6pt oxblood disc beside the word, and nothing else. It is never a count
+ * and never a badge: `useHasUnseenActivity()` returns a boolean by
+ * construction, no row carries an unread flag, and nothing in
+ * `activity_feed()` is held open because a reader has not looked. A number here
+ * would be a score, and this page does not score anything.
+ *
+ * 13pt REGULAR secondary rather than the app's tracked `eyebrow`, for the same
+ * reason the row's timestamp changed: a Medium heading over a page whose one
+ * emphasis is the actor's name is a second emphasis.
+ */
+function DayHeading({ label, className = '' }: { label: string; className?: string }) {
+  const theme = useTheme();
+  const today = label.toLowerCase() === 'today';
+
+  return (
+    <View className={`flex-row items-center gap-1.5 ${className}`}>
+      {today ? (
+        <View
+          // Decorative: the word beside it carries the meaning, so a screen
+          // reader is not told about a shape.
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+          style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.accent }}
+        />
+      ) : null}
+      <Text variant="note" accessibilityRole="header">
+        {label}
+      </Text>
+    </View>
   );
 }
 
@@ -210,7 +259,7 @@ function Hero({
 export function ActivitySkeleton() {
   return (
     <View className="px-gutter">
-      <SectionHeader title="Today" className="mb-2.5 mt-5" />
+      <DayHeading label="Today" className="mb-2.5 mt-5" />
       <Card style={{ borderRadius: CARD_RADIUS }}>
         {[
           { width: '86%' as const, bar: true },

@@ -80,6 +80,7 @@ export default function ActivityScreen() {
         faces={activity.faces}
         stateOf={answers.stateOf}
         onAnswer={answers.answer}
+        onUndo={answers.undo}
         onNavigate={navigate}
         onRetry={activity.refetch}
         isRefetching={activity.isRefetching}

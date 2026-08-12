@@ -22,6 +22,15 @@ export type Board = {
    */
   startsOn: IsoDay | null;
   endsOn: IsoDay | null;
+  /**
+   * When the board was made — `boards.created_at`, which the migration has
+   * always carried. SV-02 prints its month ("started in March") on an undated
+   * board, where there is no trip range to show instead.
+   *
+   * Nullable in the domain type only: a caller that has not read the column
+   * drops the clause rather than inventing a date.
+   */
+  createdAt: string | null;
 };
 
 /**

@@ -8,11 +8,18 @@ import { CommentRow, type ThreadComment } from '@/components/event-outfits/Comme
 import { lookName } from '@/components/event-outfits/OutfitPostCard';
 // Batch-1 seam: the shared states kit.
 import { ErrorState } from '@/components/ui/error-state';
+import { NoticeBand } from '@/components/ui/notice-band';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
+import {
+  CLOSED_THREAD_TITLE,
+  audienceScopeLine,
+  closedThreadLine,
+  commentCountLine,
+} from '@/features/event-outfits/comment-thread';
 import { useEventPosts } from '@/features/event-outfits/queries';
 import { socialErrorMessage, useDeleteComment, useHideComment } from '@/features/event-outfits/mutations';
 import { useCommentThread } from '@/features/event-outfits/use-comment-thread';
@@ -145,6 +152,16 @@ export default function EventCommentsScreen() {
   // would be stranger than one that is a few minutes stale.
   const [mountedAt] = useState(() => Date.now());
   const afterOccasion = Boolean(event.data?.startsAt && event.data.startsAt.getTime() < mountedAt);
+  // Correction 25 names closure's cause as the occasion's start TIME rather
+  // than a vague elapsed interval, so the notice has to be able to print it.
+  // Absent on an undated occasion, which never closes at all — `starts_at` is
+  // nullable (migration 20260808130000).
+  const startLabel =
+    event.data?.startsAt
+      ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      .toLowerCase()
+      .replace(' ', '') ?? null;
+  const visibleCount = thread.rows.filter((c) => !c.hidden && !c.pending && !c.failed).length;
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">
@@ -154,6 +171,22 @@ export default function EventCommentsScreen() {
         <View className="px-gutter">
           <Text variant="title" trim numberOfLines={1} className="mt-4">
             {title}
+          </Text>
+          {/*
+            Audit 94 — the privacy scope lives in the MASTHEAD, not in a
+            footnote under the composer. It used to sit beneath the field,
+            which is both the least-read position on the screen and the one
+            place it vanishes from: the closed thread has no composer, so the
+            audience line disappeared exactly when a reader most needed to know
+            who could still see what they had written.
+
+            The comment count joins it because the two answer one question —
+            how much is here, and who can read it.
+          */}
+          <Text variant="note" className="mt-2">
+            {[visibleCount > 0 ? commentCountLine(visibleCount) : null, audienceScopeLine]
+              .filter(Boolean)
+              .join(' · ')}
           </Text>
         </View>
 
@@ -201,6 +234,7 @@ export default function EventCommentsScreen() {
                   onDelete={confirmDeleteComment}
                   onToggleHidden={toggleHidden}
                   onRetry={thread.retry}
+                  onEditFailed={thread.editAndRetry}
                   onDeletePending={thread.deletePending}
                 />
               ))
@@ -209,28 +243,30 @@ export default function EventCommentsScreen() {
         )}
 
         {afterOccasion ? (
-          // EC-04 · after the occasion — the composer is removed, not
-          // disabled, and the rows keep their overflow menus.
-          <View className="mx-gutter mb-3 rounded-md bg-tray px-3.5 py-3">
-            <Text variant="callout" className="text-muted">
-              The dinner’s been and gone. The thread stays readable.
-            </Text>
-          </View>
+          // EC-04 / CM-02 · past the occasion's start — the composer is
+          // REMOVED, not disabled: "a disabled field would invite a draft the
+          // server will refuse." The rows keep their overflow menus.
+          //
+          // The same `NoticeBand` the hidden and reported rows use, because
+          // this is a system message and they are moderation messages, and the
+          // whole point of the tray fill is that the three read as one voice.
+          //
+          // PARKED (dependency A): the atlas ends this notice "nothing new can
+          // be added". The server has no such rule — see `closedThreadLine`'s
+          // own docs for the policy and line numbers — so the copy stops at
+          // what the client does.
+          <NoticeBand
+            className="mx-gutter mb-3"
+            cause="CLOSED"
+            title={CLOSED_THREAD_TITLE}
+            body={closedThreadLine(startLabel)}
+          />
         ) : (
-          <>
-            <CommentComposer
-              replyToName={thread.replyTo?.firstName ?? null}
-              onCancelReply={() => thread.setReplyTo(null)}
-              onSend={thread.send}
-            />
-            {/* The audience line — the last thing before typing, and it
-                names people, not a setting. */}
-            <Text variant="caption" className="px-gutter pb-3">
-              {members.data
-                ? `Only the ${members.data.length} people at this event can read this.`
-                : 'Only the people at this event can read this.'}
-            </Text>
-          </>
+          <CommentComposer
+            replyToName={thread.replyTo?.firstName ?? null}
+            onCancelReply={() => thread.setReplyTo(null)}
+            onSend={thread.send}
+          />
         )}
       </KeyboardAvoidingScreen>
 

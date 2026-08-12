@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { floorPriceLabel, linkDisclosure, SHOP_SHEET_DISCLOSURE } from '@/features/commerce/copy';
+import { floorPriceLabel, linkDisclosure, shopSheetDisclosure } from '@/features/commerce/copy';
 import type { CatalogSlot } from '@/features/commerce/slot';
 import { useShopMatch, type ShopMatch } from '@/features/commerce/use-shop-match';
 import { shadow, useTheme } from '@/theme/tokens';
@@ -73,7 +73,9 @@ function ProductRow({ product, first }: { product: ShopMatch; first: boolean }) 
             `paid` differs row to row: two merchants in one sheet can be one
             joined programme and one not. commerce-directive.md §4/§6 refusal 8
             forbids abbreviating or hiding it, not stating it precisely. */}
-        <Text variant="caption" style={{ color: theme.faint }}>
+        {/* `muted`, never `faint`: #8A8578 is ~3.5:1 on canvas and fails AA as
+            type, and a disclosure nobody can read is not a disclosure. */}
+        <Text variant="caption" style={{ color: theme.muted }}>
           {linkDisclosure(product.paid)}
         </Text>
       </View>
@@ -134,9 +136,15 @@ export function ShopSheet({ slot, onDismiss }: ShopSheetProps) {
                 just the first. Set in `note`/`muted` like every other running
                 disclosure sentence in the app (privacy-index-page.tsx's
                 InventoryRow is the same register), never faint enough to fail
-                AA. */}
+                AA.
+
+                Correction 19 applies here too: the commission half of this
+                paragraph is true only when a paid row is actually in the list
+                below it. With no joined merchant among the matches, the sheet
+                says so and keeps the half that is always true — that the
+                ranking was computed before any shop was consulted. */}
             <Text variant="note" style={{ color: theme.muted }}>
-              {SHOP_SHEET_DISCLOSURE}
+              {shopSheetDisclosure(products.filter((p) => p.paid).length)}
             </Text>
 
             <View className="mt-3">

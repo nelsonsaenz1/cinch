@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { Avatar } from '@/components/ui/avatar';
@@ -8,9 +8,10 @@ import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import type { AnswerState } from '@/features/activity/answers';
 import {
-  ANSWER_FAILED,
   ANSWER_RETRY,
+  ANSWER_UNDO,
   answerCopy,
+  isUndoable,
   type ActivityAction,
   type ActivityActionId,
   type ActivityLine,
@@ -29,7 +30,6 @@ import { ActivityGlyphMark } from './glyphs';
  */
 
 const MARK = 36;
-const OUTLINE_EDGE = 'rgba(28,26,22,0.22)';
 
 /**
  * The atlas's 34pt control.
@@ -83,21 +83,50 @@ function ActivityButton({
           {
             height: 34,
             borderRadius: 9,
-            paddingHorizontal: 14,
+            // AUDIT 90 — the action's width is set by its own word. A filled
+            // action pads to its label; a quiet one takes only its text plus
+            // the two points that keep it off its neighbour. Neither stretches,
+            // and there is no `flex: 1` anywhere on this row.
+            paddingHorizontal: solid ? 14 : 2,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
           },
-          solid ? { backgroundColor: theme.ink } : { borderWidth: 1, borderColor: OUTLINE_EDGE },
+          solid ? { backgroundColor: theme.ink } : null,
         ]}>
         <Text
-          variant={solid ? 'body' : 'label'}
-          className={solid ? 'font-semibold' : ''}
+          variant={solid ? 'body' : 'note'}
+          className={solid ? 'font-medium' : ''}
           style={{ fontSize: 13, lineHeight: 17, color: solid ? theme.canvas : theme.ink }}>
           {action.label}
         </Text>
       </Animated.View>
     </Pressable>
+  );
+}
+
+/**
+ * A pending answer — AV-02.
+ *
+ * A TRAY-FILLED LABEL IN THE PRESENT PARTICIPLE, not a spinner replacing the
+ * row. Two reasons, and the second is the one that decided it: a spinner says
+ * only "wait" where the participle says which verb is in flight; and a spinner
+ * cannot reproduce its own bytes in a capture, so a state drawn with one can
+ * never be verified from a screenshot. It holds the same 34pt height the action
+ * it replaced had, so nothing on the row moves.
+ */
+function PendingLabel({ label }: { label: string }) {
+  return (
+    <View
+      className="items-center justify-center rounded-md bg-tray px-3"
+      style={{ height: 34, alignSelf: 'flex-start' }}>
+      <Text
+        variant="note"
+        accessibilityLiveRegion="polite"
+        style={{ fontSize: 13, lineHeight: 17 }}>
+        {label}
+      </Text>
+    </View>
   );
 }
 
@@ -110,6 +139,8 @@ export type ActivityRowProps = {
   onAnswer: (actionId: ActivityActionId) => void;
   /** Fires for the three destinations. */
   onNavigate: (actionId: ActivityActionId) => void;
+  /** Fires on the dismissed row's Undo. Absent where no reversal is offered. */
+  onUndo?: () => void;
   isLast?: boolean;
 };
 
@@ -119,11 +150,16 @@ export function ActivityRow({
   state,
   onAnswer,
   onNavigate,
+  onUndo,
   isLast = false,
 }: ActivityRowProps) {
   const theme = useTheme();
 
-  const copy = state.status === 'idle' ? null : answerCopy(state.actionId);
+  // The actor's name, so every outcome line can say whether SHE was told
+  // rather than "the other person". `mark` already carries it for the rows
+  // that have one; the glyph rows are the ones with no person in them.
+  const actorName = line.mark.kind === 'person' ? line.mark.name : null;
+  const copy = state.status === 'idle' ? null : answerCopy(state.actionId, actorName);
 
   return (
     <View>
@@ -143,7 +179,9 @@ export function ActivityRow({
               <Text
                 key={i}
                 variant="body"
-                className={segment.bold ? 'font-semibold' : ''}
+                // MEDIUM, not semibold — the actor is the row's one emphasis
+                // (audit 91) and Medium is this app's emphasis weight.
+                className={segment.bold ? 'font-medium' : ''}
                 style={{ fontSize: 14, lineHeight: 20 }}>
                 {segment.text}
               </Text>
@@ -151,51 +189,69 @@ export function ActivityRow({
           </Text>
 
           {line.elapsed ? (
-            // `colophon` (10px, tracked, uppercase, muted). The atlas sets this
-            // at 11px in #A29C90 — lighter even than `faint`, and a contrast
-            // failure twice over — so the separation from the day heading above
-            // is carried by size instead of by colour.
-            <Text variant="colophon" style={{ marginTop: 4 }}>
+            // AUDIT 91 — 13pt REGULAR secondary, on its own line under the
+            // sentence, so it never competes with it. Previously `colophon`:
+            // 10px tracked uppercase MEDIUM, which is a label's treatment and
+            // made a timestamp look like a category.
+            <Text variant="note" style={{ marginTop: 4 }}>
               {line.elapsed}
             </Text>
           ) : null}
 
           {state.status === 'pending' ? (
-            <View className="flex-row items-center gap-2" style={{ marginTop: 10 }}>
-              {/* The atlas's ink ring. Not the shared `Spinner`, whose crown is
-                  oxblood — a spinner is not this page's one accent. */}
-              <ActivityIndicator size="small" color={theme.ink} />
-              <Text variant="note" style={{ fontSize: 13 }}>
-                {copy?.pending ?? 'Working…'}
-              </Text>
+            <View style={{ marginTop: 10 }}>
+              <PendingLabel label={copy?.pending ?? 'Working…'} />
             </View>
           ) : state.status === 'done' ? (
             // The row keeps its place and says what happened, in words. Not a
             // tick: a tick says "it worked", and the reader wants to know what
             // it did — above all whether the other person was told.
-            <Text
-              variant="note"
-              accessibilityLiveRegion="polite"
-              style={{ marginTop: 10, fontSize: 13 }}>
-              {copy?.done ?? ''}
-            </Text>
+            <View style={{ marginTop: 10 }}>
+              <Text variant="body" accessibilityLiveRegion="polite" style={{ fontSize: 14, lineHeight: 20 }}>
+                {copy?.done ?? ''}
+              </Text>
+              {copy?.doneDetail ? (
+                <Text variant="note" style={{ marginTop: 2, fontSize: 13 }}>
+                  {copy.doneDetail}
+                </Text>
+              ) : null}
+              {/* The undo is drawn only where a real reversal exists — see
+                  `isUndoable`. Nothing that reached another person gets one. */}
+              {onUndo && isUndoable(state.actionId) ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${ANSWER_UNDO} — put this request back`}
+                  onPress={onUndo}
+                  hitSlop={8}
+                  style={{ minHeight: MIN_TAP_TARGET, alignSelf: 'flex-start' }}
+                  className="justify-center active:opacity-60">
+                  <Text variant="note" style={{ fontSize: 13, color: theme.accent }}>
+                    {ANSWER_UNDO}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : state.status === 'failed' ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${ANSWER_FAILED} ${ANSWER_RETRY}`}
-              onPress={() => onAnswer(state.actionId)}
-              hitSlop={8}
-              className="active:opacity-60"
-              style={{ marginTop: 10 }}>
+            // AV-02 — the failure names what did NOT happen, and retries in
+            // place. The row, its avatar and its position are all unchanged.
+            <View style={{ marginTop: 10 }}>
               <Text style={{ fontSize: 13, lineHeight: 18, color: theme.accent }}>
-                {ANSWER_FAILED}{' '}
+                {copy?.failed ?? ''}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={ANSWER_RETRY}
+                onPress={() => onAnswer(state.actionId)}
+                hitSlop={8}
+                style={{ minHeight: MIN_TAP_TARGET, alignSelf: 'flex-start' }}
+                className="justify-center active:opacity-60">
                 <Text
-                  className="font-semibold"
+                  className="font-medium"
                   style={{ fontSize: 13, lineHeight: 18, color: theme.accent }}>
                   {ANSWER_RETRY}
                 </Text>
-              </Text>
-            </Pressable>
+              </Pressable>
+            </View>
           ) : line.actions.length > 0 ? (
             <View className="flex-row gap-2" style={{ marginTop: 10 }}>
               {line.actions.map((action) => (

@@ -395,6 +395,8 @@ export default function FriendsScreen() {
   const [removeFor, setRemoveFor] = useState<SocialProfile | null>(null);
   const [reportFor, setReportFor] = useState<SocialProfile | null>(null);
   const [reportSent, setReportSent] = useState(false);
+  /** FR-02 — shown once a block from this page has actually landed. */
+  const [blockedResult, setBlockedResult] = useState(false);
 
   /** One sheet at a time: the overflow fades out fully before its follow-on opens. */
   const afterOverflow = useCallback((open: () => void) => {
@@ -429,7 +431,13 @@ export default function FriendsScreen() {
     block.mutate(
       { userId: blockFor.userId },
       {
-        onSuccess: () => setBlockFor(null),
+        // FR-02's blocked result. The row simply vanishing is the one outcome
+        // a safety action must not have: the user needs to be told what the
+        // block did, that the other person was not told, and where to undo it.
+        onSuccess: () => {
+          setBlockFor(null);
+          setBlockedResult(true);
+        },
         onError: (err) =>
           Alert.alert(
             'Could not block',
@@ -542,6 +550,11 @@ export default function FriendsScreen() {
         onInvite={openInvite}
         refreshing={refreshing}
         onRefresh={refresh}
+        showBlockedResult={blockedResult}
+        onManageBlocked={() => {
+          setBlockedResult(false);
+          router.push('/friends/blocked');
+        }}
       />
 
       <FriendOverflowSheet

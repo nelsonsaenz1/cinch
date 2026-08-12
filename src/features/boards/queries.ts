@@ -161,7 +161,7 @@ export function useBoards() {
 
       const { data, error } = await supabase
         .from('boards')
-        .select('id, name, starts_on, ends_on')
+        .select('id, name, starts_on, ends_on, created_at')
         .eq('user_id', userId)
         .order('name', { ascending: true });
 
@@ -172,6 +172,9 @@ export function useBoards() {
         name: row.name,
         startsOn: row.starts_on,
         endsOn: row.ends_on,
+        // SV-02's "started in March". A real column, read rather than guessed
+        // at — `boards.created_at`, `20260810100000_wear_diary_and_boards.sql`.
+        createdAt: row.created_at,
       }));
     },
   });

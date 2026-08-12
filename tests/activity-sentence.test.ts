@@ -103,7 +103,7 @@ test('a borrow names the garment, and its occasion only when there is one', () =
   );
 });
 
-test('an invitation bolds the occasion as well as the host', () => {
+test('emphasis is spent once per row, on the actor', () => {
   const line = describeActivity(
     row('event_invite', { eventId: 'e-1' }),
     {
@@ -115,9 +115,12 @@ test('an invitation bolds the occasion as well as the host', () => {
     NOW,
   );
   assert.equal(say(line), 'Mara Whitfield invited you to Sunday lunch, 14 Aug.');
+  // AUDIT 91. The occasion's title used to be bold too; two bold runs in one
+  // sentence is two emphases and therefore none. The verb, the object and the
+  // timestamp are all regular.
   assert.deepEqual(
     line.segments.filter((s) => s.bold).map((s) => s.text),
-    ['Mara Whitfield', 'Sunday lunch'],
+    ['Mara Whitfield'],
   );
 });
 
@@ -131,7 +134,7 @@ test('votes are aggregated per look and name no voter', () => {
   assert.deepEqual(line.mark, { kind: 'glyph', glyph: 'bars' });
   assert.deepEqual(
     line.actions.map((a) => a.label),
-    ['See the votes'],
+    ['See board'],
   );
 });
 
@@ -236,10 +239,15 @@ test('"Decline" does not exist on a friend request — the second button is "Not
   }
 });
 
-test('"Not now" says nothing was sent; the borrow answers say she was told', () => {
-  assert.equal(answerCopy('not-now')?.done, 'Not now · nothing was sent');
-  assert.match(answerCopy('not-this-time')?.done ?? '', /she has been told/);
-  assert.match(answerCopy('lend')?.done ?? '', /she has been told/);
+test('"Not now" sets aside and tells nobody; the borrow answers say she was told', () => {
+  const aside = answerCopy('not-now', 'Marguerite');
+  assert.equal(aside?.done, 'Request from Marguerite set aside');
+  // The three facts the dismissed row must carry: it was set aside, it is
+  // still waiting in Friends, and she was not told.
+  assert.equal(aside?.doneDetail, 'Still waiting in Friends. Marguerite was not told.');
+
+  assert.match(answerCopy('not-this-time', 'Ana')?.done ?? '', /Ana has been told/);
+  assert.match(answerCopy('lend', 'Ana')?.done ?? '', /Ana has been told/);
   assert.equal(answerCopy('add-back')?.done, 'Added back · her closet is open to you');
   // Destinations navigate; they have no outcome to state.
   assert.equal(answerCopy('open-event'), null);

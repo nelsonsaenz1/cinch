@@ -76,9 +76,50 @@ export function useDismissActivity() {
   });
 }
 
+/**
+ * Undo — the reversal that makes AV-02's dismissed row an honest control.
+ *
+ * A drawn Undo with no path behind it is a dead control, which this house
+ * refuses. There is a path: `activity_dismissals` carries an owner DELETE
+ * policy and the matching grant (`20260810100100_activity_feed.sql:79-82`), and
+ * `activity_feed()` re-includes any row whose dismissal is gone. So this
+ * deletes the one row it inserted and invalidates the feed; the item comes
+ * back where it was.
+ *
+ * A delete that matches nothing is not a failure — the dismissal was already
+ * gone, which is the state the tap was asking for.
+ */
+export function useUndoDismissActivity() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ kind, subjectKey }: { kind: ActivityKind; subjectKey: string }) => {
+      const me = await getUserId();
+      if (!me) throw new Error('Not signed in.');
+
+      const { error } = await supabase
+        .from('activity_dismissals')
+        .delete()
+        .eq('user_id', me)
+        .eq('kind', kind)
+        .eq('subject_key', subjectKey);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: activityFeedKey });
+    },
+  });
+}
+
 export interface ActivityAnswers {
   stateOf: (key: string) => AnswerState;
   answer: (line: ActivityLine, actionId: ActivityActionId) => void;
+  /**
+   * Take a dismissal back. Only ever offered on `not-now` — see `isUndoable`
+   * in `sentence.ts` for why nothing else here can be undone.
+   */
+  undo: (line: ActivityLine) => void;
   /**
    * Rows that have been answered and have therefore left the feed. The page
    * merges these back in at their original place — see `retention.ts`.
@@ -107,6 +148,7 @@ export function useActivityAnswers(options?: {
   const follow = useFollow();
   const answerBorrow = useAnswerBorrow();
   const dismiss = useDismissActivity();
+  const undoDismiss = useUndoDismissActivity();
   const qc = useQueryClient();
 
   const [states, setStates] = useState<Record<string, AnswerState>>({});
@@ -186,5 +228,27 @@ export function useActivityAnswers(options?: {
     [answerBorrow, dismiss, follow, intercept, qc],
   );
 
-  return { stateOf, answer, retained };
+  const undo = useCallback(
+    (line: ActivityLine) => {
+      const { key, row } = line;
+      setStates((prev) => ({ ...prev, [key]: { status: 'pending', actionId: 'not-now' } }));
+
+      undoDismiss.mutate(
+        { kind: row.kind, subjectKey: row.subjectKey },
+        {
+          // The row goes back to being unanswered — the feed will hand it
+          // straight back, so the retained copy has to let go of it or the
+          // page would draw it twice.
+          onSuccess: () => {
+            setRetained((prev) => prev.filter((l) => l.key !== key));
+            setStates((prev) => ({ ...prev, [key]: IDLE }));
+          },
+          onError: () => setStates((prev) => ({ ...prev, [key]: { status: 'done', actionId: 'not-now' } })),
+        },
+      );
+    },
+    [undoDismiss],
+  );
+
+  return { stateOf, answer, undo, retained };
 }

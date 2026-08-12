@@ -4,6 +4,16 @@ import Animated, { FadeOut, LinearTransition } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  BLOCKED_ACTION,
+  BLOCKED_BODY,
+  BLOCKED_TITLE,
+  circleLine,
+  EMPTY_BODY,
+  EMPTY_TITLE,
+  friendsHeading,
+  REQUESTS_HEADING,
+} from '@/components/social/friends-lines';
+import {
   closetAudienceLine,
   FriendRow,
   RequestRow,
@@ -19,7 +29,6 @@ import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-v
 import { Rule } from '@/components/ui/rule';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SearchField } from '@/components/ui/search-field';
-import { SectionHeader } from '@/components/ui/section-header';
 import { ListSkeleton, RowSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { TwoPersonGlyph } from '@/features/explore/glyphs';
@@ -97,6 +106,16 @@ export type FriendsPageProps = {
 
   refreshing: boolean;
   onRefresh: () => void;
+
+  /**
+   * FR-02's blocked result — shown once, after a block lands from this page.
+   *
+   * Deliberately unnamed: "You blocked this person" is the whole heading, and
+   * printing whose name it was would keep a window open onto someone the user
+   * has just closed the door on.
+   */
+  showBlockedResult?: boolean;
+  onManageBlocked?: () => void;
 };
 
 export function FriendsPage(props: FriendsPageProps) {
@@ -115,14 +134,17 @@ export function FriendsPage(props: FriendsPageProps) {
           Friends
         </Text>
 
-        {/* The standing subtitle — except in F-03, where the empty state's own
-            body carries the explanation and saying it twice would be a lecture. */}
-        {props.showEmpty ? null : (
+        {/* FR-01's masthead line: `2 requests · 18 friends`, 13pt regular
+            secondary. It replaces the standing paragraph about mutuality — the
+            paragraph cost the first viewport a row and a half, and the rule it
+            stated is stated again where it is actually needed (the search row's
+            "nothing opens until they say yes", and FR-02's empty body).
+            Dropped entirely when both counts are zero. */}
+        {circleLine(openRequestCount, props.friends.length) ? (
           <Text variant="note" className="mt-2">
-            A friendship goes both ways. When you both say yes, their closet opens to you and yours
-            to them.
+            {circleLine(openRequestCount, props.friends.length)}
           </Text>
-        )}
+        ) : null}
 
         <SearchField
           inputRef={searchRef}
@@ -145,6 +167,10 @@ export function FriendsPage(props: FriendsPageProps) {
             tintColor={theme.muted}
           />
         }>
+        {props.showBlockedResult && props.onManageBlocked ? (
+          <BlockedResult onManage={props.onManageBlocked} />
+        ) : null}
+
         {props.searching ? (
           <SearchSection {...props} />
         ) : props.showEmpty ? (
@@ -186,17 +212,68 @@ export function FriendsPage(props: FriendsPageProps) {
 }
 
 // ---------------------------------------------------------------------------
+// FR-02 · the blocked result
+// ---------------------------------------------------------------------------
+
+/**
+ * What a completed block says, IN THE SAFETY PAGE'S OWN WORDS.
+ *
+ * `BLOCK_EFFECT` is the sentence `BlockedList.tsx` prints above the blocked
+ * rows; both surfaces import the one constant from `friends-lines.ts` rather
+ * than each writing the policy out. Two sentences for one policy is how a
+ * policy stops being one policy — and the second half is the fact this frame
+ * exists to carry: the other person is not told.
+ *
+ * Exported so `dev-w3-g5-fr-02` poses the shipping object rather than a
+ * redrawing of it.
+ */
+export function BlockedResult({ onManage }: { onManage: () => void }) {
+  const theme = useTheme();
+
+  return (
+    <View className="mt-6 rounded-lg border border-rule bg-surface p-4" accessibilityRole="summary">
+      <Text variant="body" className="font-medium">
+        {BLOCKED_TITLE}
+      </Text>
+      <Text variant="note" className="mt-1.5">
+        {BLOCKED_BODY}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={BLOCKED_ACTION}
+        onPress={onManage}
+        hitSlop={8}
+        style={{ minHeight: MIN_TAP_TARGET }}
+        className="mt-1 justify-center active:opacity-60">
+        <Text variant="note" style={{ color: theme.ink }}>
+          {BLOCKED_ACTION}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Sections
 // ---------------------------------------------------------------------------
+
+/**
+ * Section headings are 13pt REGULAR secondary with their counts inline (audit
+ * 89) — not the app's tracked `eyebrow`, which is Medium and would put a
+ * second weight on a page whose only Medium string is a person's name.
+ */
+function SectionLine({ text, className = '' }: { text: string; className?: string }) {
+  return (
+    <Text variant="note" accessibilityRole="header" className={className}>
+      {text}
+    </Text>
+  );
+}
 
 function RequestsSection(props: FriendsPageProps & { count: number }) {
   return (
     <>
-      <SectionHeader
-        title="Asking to be friends"
-        trailing={props.count > 0 ? <Text variant="caption">{props.count}</Text> : undefined}
-        className="mb-2.5 mt-6"
-      />
+      <SectionLine text={REQUESTS_HEADING} className="mb-2.5 mt-6" />
       <Card>
         {props.requestsError ? (
           <ErrorState
@@ -235,15 +312,7 @@ function RequestsSection(props: FriendsPageProps & { count: number }) {
 function FriendsSection(props: FriendsPageProps) {
   return (
     <>
-      <SectionHeader
-        title="Your friends"
-        trailing={
-          props.friends.length > 0 ? (
-            <Text variant="caption">{props.friends.length}</Text>
-          ) : undefined
-        }
-        className="mb-2.5 mt-6"
-      />
+      <SectionLine text={friendsHeading(props.friends.length)} className="mb-2.5 mt-6" />
       <Card>
         {props.friendsError ? (
           <ErrorState
@@ -293,7 +362,7 @@ function FriendsSection(props: FriendsPageProps) {
 function SentSection({ sent }: { sent: SocialProfile[] }) {
   return (
     <>
-      <SectionHeader title="Sent" className="mb-2.5 mt-6" />
+      <SectionLine text="Sent" className="mb-2.5 mt-6" />
       <Card>
         {sent.map((profile, i) => (
           <View key={profile.userId}>
@@ -309,7 +378,7 @@ function SentSection({ sent }: { sent: SocialProfile[] }) {
 function SearchSection(props: FriendsPageProps) {
   return (
     <>
-      <SectionHeader title="People" className="mb-2.5 mt-6" />
+      <SectionLine text="People" className="mb-2.5 mt-6" />
       <Card>
         {props.searchLoading ? (
           <View className="px-4 py-3.5">
@@ -375,28 +444,37 @@ function EmptySection({
       <TwoPersonGlyph size={34} color={theme.muted} />
       <View className="mt-4">
         <Text variant="title" trim className="text-center">
-          No one yet
+          {EMPTY_TITLE}
         </Text>
       </View>
+      {/* FR-02: the empty state leads with what friendship MEANS for privacy
+          rather than with an exhortation to invite. Both halves are shipping
+          truth — a look is seen where it was shared, and lending is per garment
+          (`items.borrowable`), never a standing permission. */}
       <Text variant="body" className="mt-4 text-center text-muted">
-        Cinch doesn’t suggest people. Add someone by their username and, if they add you back,
-        you’ll see what they’ve been wearing.
+        {EMPTY_BODY}
       </Text>
-      <Button title="Find a friend" variant="ink" onPress={onFindFriend} className="mt-6" />
+      {/* The page's ONE oxblood action, and it sits here. Without a claimed
+          handle there is no link to send, so the accent is not spent on a
+          control that cannot complete — the ink alternative takes its place. */}
       {canInvite ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Invite a friend"
-          accessibilityHint="Opens your invite link"
-          onPress={onInvite}
-          hitSlop={8}
-          style={{ minHeight: MIN_TAP_TARGET }}
-          className="mt-2 justify-center px-2 active:opacity-60">
-          <Text variant="label" style={{ color: theme.accent }}>
-            Invite a friend
-          </Text>
-        </Pressable>
-      ) : null}
+        <>
+          <Button title="Invite someone" variant="primary" onPress={onInvite} className="mt-6" />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Find someone by username"
+            onPress={onFindFriend}
+            hitSlop={8}
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="mt-2 justify-center px-2 active:opacity-60">
+            <Text variant="note" style={{ color: theme.ink }}>
+              Find someone by username
+            </Text>
+          </Pressable>
+        </>
+      ) : (
+        <Button title="Find a friend" variant="ink" onPress={onFindFriend} className="mt-6" />
+      )}
     </View>
   );
 }

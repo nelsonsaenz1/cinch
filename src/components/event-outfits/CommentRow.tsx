@@ -1,9 +1,11 @@
 import { SymbolView } from 'expo-symbols';
 import { memo, useState } from 'react';
-import { ActionSheetIOS, Pressable, Text as RNText, View } from 'react-native';
+import { ActionSheetIOS, Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/avatar';
+import { NoticeBand } from '@/components/ui/notice-band';
 import { Text } from '@/components/ui/text';
+import { commentColumn } from '@/features/event-outfits/comment-geometry';
 import { isReplyBody, splitMention } from '@/features/event-outfits/comment-thread';
 import { isCompliment, type EventComment } from '@/features/event-outfits/types';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -66,6 +68,7 @@ export const CommentRow = memo(function CommentRow({
   onToggleHidden,
   onBlock,
   onRetry,
+  onEditFailed,
   onDeletePending,
   onUndoBlock,
 }: {
@@ -83,6 +86,13 @@ export const CommentRow = memo(function CommentRow({
   onBlock?: (comment: ThreadComment) => void;
   /** Present on a `failed` row. */
   onRetry?: (comment: ThreadComment) => void;
+  /**
+   * Present on a `failed` row. Edits the kept words IN PLACE — audit 94 is
+   * explicit that they are "never moved back into the composer, where they
+   * could be overwritten", so a handler that repopulated the field would be
+   * the exact defect this control exists to avoid.
+   */
+  onEditFailed?: (comment: ThreadComment, body: string) => void;
   /** Present on a `pending` or `failed` (client-only) row. */
   onDeletePending?: (comment: ThreadComment) => void;
   /** Present only on the dev-fixture `blockedAuthorName` row. */
@@ -90,110 +100,178 @@ export const CommentRow = memo(function CommentRow({
 }) {
   const theme = useTheme();
   const [revealed, setRevealed] = useState(false);
+  // The failed row's in-place edit. Seeded from the comment at the moment Edit
+  // is pressed, never at mount: a draft seeded on every render would fight a
+  // retry that changed the body under it.
+  const [editing, setEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState('');
   const reply = isReplyBody(comment.body) ? splitMention(comment.body) : null;
-  const indent = reply ? 40 : 0;
+  // Audit 93 — the reading column, and the one indent level. 261 at the top
+  // level, 235 under a 26 pt indent, and neither derived from the window or
+  // the type size. `comment-geometry.ts` carries the whole argument.
+  const { width: column, indent } = commentColumn(Boolean(reply));
 
   // EC-03 · the fourth moderation state — a blocked author's row, dev-fixture
   // only (see the type doc above).
+  //
+  // Drawn as a `NoticeBand` like every other moderation and system message in
+  // the thread: "Tray fill is reserved for system and moderation messages,
+  // which is why the hidden, reported and closed notices look alike and unlike
+  // a person's comment." The band being one shared object is the whole reason
+  // they can look alike without anybody maintaining three copies of a tray.
   if (comment.blockedAuthorName) {
     return (
-      <View
-        className="flex-row items-center gap-2.5 rounded-md py-3 pl-0"
-        style={{ backgroundColor: theme.tray, paddingHorizontal: 14, marginVertical: 4 }}>
-        <Text variant="callout" className="flex-1 text-muted">
-          {`Hidden because you blocked ${comment.blockedAuthorName}.`}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Undo block on ${comment.blockedAuthorName}`}
-          onPress={() => onUndoBlock?.(comment)}
-          hitSlop={8}
-          style={{ minHeight: MIN_TAP_TARGET - 24 }}>
-          <Text variant="label" className="font-semibold" style={{ color: theme.accent }}>
-            Undo
-          </Text>
-        </Pressable>
-      </View>
+      <NoticeBand
+        className="my-1"
+        cause="BLOCKED"
+        title={`You blocked ${comment.blockedAuthorName}`}
+        body="Their comment is hidden for you. Nothing else in the thread changed, and they were not told."
+        actions={onUndoBlock ? [{ label: 'Undo', onPress: () => onUndoBlock(comment) }] : []}
+      />
     );
   }
 
-  // EC-02 · sending / didn't send.
-  if (comment.pending || comment.failed) {
+  // EC-02 · sending. "A sending comment is already in the thread in secondary
+  // ink with its state on the name line" — deliberately NOT a tray, because a
+  // tray would say a system spoke; this is the user's own sentence, already
+  // placed, waiting.
+  if (comment.pending) {
     return (
-      <View className="flex-row gap-3 py-3" style={{ opacity: comment.pending ? 0.55 : 1 }}>
-        <Avatar name={null} size={30} tone="accent" fallback="ME" />
-        <View className="flex-1">
-          <Text variant="callout">
-            <RNText style={{ fontWeight: '600' }}>You</RNText> {comment.body}
+      <View className="flex-row gap-3 py-3" style={{ opacity: 0.55 }}>
+        <Avatar name={null} size={32} tone="accent" fallback="ME" />
+        <View style={{ width: column }}>
+          <Text variant="label" className="text-muted">
+            <RNText style={{ fontWeight: '500', color: theme.ink }}>You</RNText>
+            {' · sending'}
           </Text>
-          {comment.pending ? (
-            <Text variant="caption" className="mt-1">
-              Sending…
-            </Text>
-          ) : (
-            <View className="mt-1 flex-row items-center gap-3.5">
-              <Text variant="caption" style={{ color: theme.critical }}>
-                Didn’t send
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Try sending again"
-                onPress={() => onRetry?.(comment)}
-                hitSlop={8}>
-                <Text variant="caption" className="font-semibold" style={{ color: theme.accent }}>
-                  Try again
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Delete this comment"
-                onPress={() => onDeletePending?.(comment)}
-                hitSlop={8}>
-                <Text variant="caption">Delete</Text>
-              </Pressable>
-            </View>
-          )}
+          <Text variant="callout" className="mt-1">
+            {comment.body}
+          </Text>
         </View>
       </View>
     );
   }
 
-  // EC-03 · hidden by the host. Named, never silent (contract: "'Mel hid
-  // this comment' — and the author still sees their own line"). The host
-  // also sees the real text — they are the one deciding whether to unhide.
+  // EC-02 · not sent. Audit 94: "A failure keeps the full text inside a tray
+  // at the same 261 pt column with Retry and Edit — the words are never lost
+  // and never moved back into the composer, where they could be overwritten."
+  //
+  // So the body is printed IN FULL (no `numberOfLines`) at the same column
+  // width as every other comment, and neither action puts it back in the
+  // field. `Edit` re-opens the words here; `Retry` sends what is already here.
+  if (comment.failed) {
+    return (
+      <View className="flex-row gap-3 py-3">
+        <Avatar name={null} size={32} tone="accent" fallback="ME" />
+        <View style={{ width: column }}>
+          <Text variant="label" className="text-muted">
+            <RNText style={{ fontWeight: '500', color: theme.ink }}>You</RNText>
+            {' · not sent'}
+          </Text>
+          <View className="mt-1 rounded-md bg-tray p-3">
+            {editing ? (
+              // Editing happens HERE, in the tray, at the same column. The
+              // words never travel back to the composer.
+              <TextInput
+                value={editDraft}
+                onChangeText={setEditDraft}
+                multiline
+                autoFocus
+                accessibilityLabel="Edit the comment that did not send"
+                className="font-body text-callout"
+                style={{ color: theme.ink, padding: 0 }}
+              />
+            ) : (
+              // No `numberOfLines`: the full text, always.
+              <Text variant="callout">{comment.body}</Text>
+            )}
+            <Text variant="note" className="mt-1.5">
+              This did not send. Your words are kept here.
+            </Text>
+            <View className="mt-3 flex-row items-center gap-5">
+              {editing ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Save the edit and send again"
+                  onPress={() => {
+                    setEditing(false);
+                    onEditFailed?.(comment, editDraft);
+                  }}
+                  hitSlop={8}
+                  style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
+                  <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+                    Send it
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Try sending again"
+                  onPress={() => onRetry?.(comment)}
+                  hitSlop={8}
+                  style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
+                  <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+                    Retry
+                  </Text>
+                </Pressable>
+              )}
+              {onEditFailed && !editing ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit this comment before sending it again"
+                  onPress={() => {
+                    setEditDraft(comment.body);
+                    setEditing(true);
+                  }}
+                  hitSlop={8}
+                  style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
+                  <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+                    Edit
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete this comment"
+                onPress={() => onDeletePending?.(comment)}
+                hitSlop={8}
+                style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
+                <Text variant="label">Delete</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // EC-03 · hidden by the host. "A removal names who did it and what it did
+  // not affect." Named, never silent (contract: "'Mel hid this comment' — and
+  // the author still sees their own line"). The host also sees the real text —
+  // they are the one deciding whether to unhide.
   if (comment.hidden && !isMine && !isHost) {
     return (
-      <View
-        className="rounded-md py-3"
-        style={{ backgroundColor: theme.tray, paddingHorizontal: 14, marginVertical: 4 }}>
-        <Text variant="callout" className="text-muted">
-          {hiddenByName ? `${hiddenByName} hid this comment.` : 'This comment was hidden.'}
-        </Text>
-      </View>
+      <NoticeBand
+        className="my-1"
+        cause="HIDDEN"
+        title={hiddenByName ? `${hiddenByName} hid a comment here` : 'A comment here was hidden'}
+        body="Nothing else in the thread changed."
+      />
     );
   }
 
   // EC-03 · under review after a report, collapsed but openable — "hiding
   // text from the person who reported it is how a thread becomes a rumour."
+  // "A report names what the other person was not told."
   if (comment.reported && !comment.hidden && !revealed) {
     return (
-      <View
-        className="flex-row items-center gap-2.5 rounded-md py-3"
-        style={{ backgroundColor: theme.tray, paddingHorizontal: 14, marginVertical: 4 }}>
-        <Text variant="callout" className="flex-1 text-muted">
-          This comment is being looked at.
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="See this comment"
-          onPress={() => setRevealed(true)}
-          hitSlop={8}
-          style={{ minHeight: MIN_TAP_TARGET - 24 }}>
-          <Text variant="label" className="font-semibold" style={{ color: theme.accent }}>
-            See it
-          </Text>
-        </Pressable>
-      </View>
+      <NoticeBand
+        className="my-1"
+        cause="REPORTED"
+        title="You reported a comment"
+        body="It is hidden for you while Cinch looks at it, and the person was not told who reported it."
+        actions={[{ label: 'See it', onPress: () => setRevealed(true) }]}
+      />
     );
   }
 
@@ -242,17 +320,39 @@ export const CommentRow = memo(function CommentRow({
   const hiddenButVisible = comment.hidden && (isMine || isHost);
 
   return (
-    <View className="flex-row gap-3 py-3" style={{ paddingLeft: indent, opacity: hiddenButVisible ? 0.55 : 1 }}>
-      <Avatar name={isMine ? null : authorName} size={30} tone="accent" fallback="ME" />
+    // `items-start`, and NO `flex-1` anywhere in this row. Audit 93: "the
+    // avatar and the overflow control are both flex:none outside it, so
+    // wrapping never depends on how long a name is." A `flex-1` column would
+    // hand the leftover width to the text and make the reading measure a
+    // function of the name, the avatar and whether the row happens to have an
+    // overflow control — the three variables the fixed column exists to
+    // remove.
+    <View
+      className="flex-row items-start gap-3 py-3"
+      style={{ paddingLeft: indent, opacity: hiddenButVisible ? 0.55 : 1 }}>
+      <Avatar name={isMine ? null : authorName} size={32} tone="accent" fallback="ME" />
 
-      <View className="flex-1">
+      <View style={{ width: column }}>
+        {/* Name and timestamp share ONE line, and the name is the only
+            Medium string on it. 13 pt rather than the atlas's 14: the scale
+            in tailwind.config.js runs 11 / 13 / 16 / 17 and has no 14, and
+            adding a step to the type scale is the integrator's file, not a
+            lane's. Reported rather than taken. */}
+        <View className="flex-row items-baseline gap-1.5">
+          <Text variant="label" className="font-medium text-ink">
+            {isMine ? 'You' : (authorName ?? 'A friend')}
+          </Text>
+          <Text variant="note">{`· ${timeLabel(comment.createdAt)}`}</Text>
+        </View>
+
+        {/* The body: 16 pt regular (`callout`), no `numberOfLines`. It grows
+            taller; it never grows wider and never truncates. */}
         {compliment ? (
-          <Text variant="plate" style={{ color: theme.ink }}>
+          <Text variant="plate" className="mt-1" style={{ color: theme.ink }}>
             {comment.body}
           </Text>
         ) : (
-          <Text variant="callout">
-            <RNText style={{ fontWeight: '600' }}>{isMine ? 'You' : (authorName ?? 'A friend')}</RNText>{' '}
+          <Text variant="callout" className="mt-1">
             {reply ? (
               <>
                 <RNText style={{ color: theme.accent }}>{reply.mention}</RNText> {reply.rest}
@@ -264,21 +364,21 @@ export const CommentRow = memo(function CommentRow({
         )}
 
         {hiddenButVisible ? (
-          <Text variant="caption" className="mt-0.5" style={{ color: theme.critical }}>
+          <Text variant="caption" className="mt-1" style={{ color: theme.critical }}>
             {isMine
               ? `Hidden by ${hiddenByName ?? 'the host'} · only you can see this`
               : `Hidden · only you and ${authorName ?? 'its author'} can see this`}
           </Text>
         ) : null}
 
-        <View className="mt-1.5 flex-row items-center gap-3.5">
-          <Text variant="caption">{timeLabel(comment.createdAt)}</Text>
+        <View className="mt-1.5 flex-row items-center gap-5">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Reply to ${authorName ?? 'this comment'}`}
             onPress={() => onReply(comment)}
-            hitSlop={8}>
-            <Text variant="caption" className="font-medium">
+            hitSlop={8}
+            style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
+            <Text variant="label" className="font-medium">
               Reply
             </Text>
           </Pressable>
@@ -287,8 +387,9 @@ export const CommentRow = memo(function CommentRow({
               accessibilityRole="button"
               accessibilityLabel="Delete this comment"
               onPress={() => onDelete(comment)}
-              hitSlop={8}>
-              <Text variant="caption" className="font-medium">
+              hitSlop={8}
+              style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
+              <Text variant="label" className="font-medium">
                 Delete
               </Text>
             </Pressable>

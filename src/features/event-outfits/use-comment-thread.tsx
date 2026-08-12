@@ -93,6 +93,31 @@ export function useCommentThread(eventId: string | null, postId: string | null) 
     [post],
   );
 
+  /**
+   * Audit 94's "Edit" on a failed row.
+   *
+   * The edit is applied to the KEPT row and sent from there. It is deliberately
+   * not routed through `send`, which would mint a new client id and a new
+   * optimistic row: the words a user is looking at have to be the words that go,
+   * or the guarantee this whole path exists to make ("nothing is silently lost")
+   * is only true by coincidence.
+   *
+   * An emptied edit is a no-op rather than a send of nothing — and it does NOT
+   * delete the row, because a user who has just cleared a field has not asked
+   * for their words to be thrown away. Delete is its own control beside this one.
+   */
+  const editAndRetry = useCallback(
+    (comment: ThreadComment, rawBody: string) => {
+      const body = rawBody.trim();
+      if (!body) return;
+      setPending((p) =>
+        p.map((c) => (c.id === comment.id ? { ...c, body, pending: true, failed: false } : c)),
+      );
+      post(comment.id, body);
+    },
+    [post],
+  );
+
   const deletePending = useCallback((comment: ThreadComment) => {
     setPending((p) => p.filter((c) => c.id !== comment.id));
   }, []);
@@ -104,6 +129,7 @@ export function useCommentThread(eventId: string | null, postId: string | null) 
     rows,
     send,
     retry,
+    editAndRetry,
     deletePending,
     replyTo,
     setReplyTo,

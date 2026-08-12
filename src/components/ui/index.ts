@@ -21,6 +21,7 @@ export {
   KeyboardAwareScrollView,
 } from '@/components/ui/keyboard-aware-scroll-view';
 export { Notice, type NoticeProps } from '@/components/ui/notice';
+export { NoticeBand, type NoticeBandAction } from '@/components/ui/notice-band';
 export { PlateTile } from '@/components/ui/plate-tile';
 export { Rule } from '@/components/ui/rule';
 export { SearchField, type SearchFieldProps } from '@/components/ui/search-field';

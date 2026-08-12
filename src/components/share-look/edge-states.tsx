@@ -71,19 +71,45 @@ export function PostingCardSkeleton() {
 export function FailedDraftBanner({
   onRetry,
   onKeepDraft,
+  pieceCount,
+  hasCaption = false,
   retrying = false,
 }: {
   onRetry: () => void;
   onKeepDraft: () => void;
+  /** Printed so the sentence names what survived, not just that something did. */
+  pieceCount?: number;
+  hasCaption?: boolean;
   retrying?: boolean;
 }) {
+  /**
+   * SL-02 — "A failed post keeps the selection, the order and the caption,
+   * SAYS SO EXPLICITLY, and confirms nobody was notified."
+   *
+   * The old sentence said "your look is saved as a draft", which was not true:
+   * every field lives in `post.tsx`'s own component state and nothing writes a
+   * draft anywhere — leaving the screen loses it. "Still here" is what is
+   * actually the case, and it is the claim the atlas asks for.
+   *
+   * "Nobody was notified" is checked, not assumed: the post is a single insert
+   * through `useComposeAndPostLook`, and every notification in this product is
+   * sent by a trigger on a row that now exists (`supabase/migrations/
+   * 20260810110100_push_senders.sql`). A write that failed inserted no row, so
+   * there is nothing for a sender to have fired on.
+   */
+  const kept = [
+    pieceCount ? `your ${pieceCount === 1 ? 'piece' : `${pieceCount} pieces`}` : 'your pieces',
+    'their order',
+    hasCaption ? 'your caption' : null,
+  ].filter(Boolean);
+
   return (
     <View accessibilityRole="alert">
       <Text variant="title" trim>
-        It didn’t post
+        The look did not post
       </Text>
       <Text variant="body" className="mt-2 text-muted">
-        The connection dropped. Your look is saved as a draft — nothing was typed twice.
+        {`${kept.join(', ').replace(/, ([^,]*)$/, ' and $1')} are all still here. Nobody was notified.`}
       </Text>
       <View className="mt-3.5 flex-row gap-2">
         <Button
@@ -93,7 +119,20 @@ export function FailedDraftBanner({
           disabled={retrying}
           onPress={onRetry}
         />
-        <Button title="Keep the draft" variant="ghost" haptic onPress={onKeepDraft} />
+        {/*
+          The atlas's second outcome here is "Save it for later", described as
+          "a real second outcome rather than a dismissal". It is NOT BUILT.
+
+          There is no draft table, no local persistence and no save mutation
+          anywhere in `features/share-look/**` — the only write in the whole
+          flow is `useComposeAndPostLook`, which posts. A button labelled "Save
+          it for later" would be a dead control: it could only do what this one
+          does, which is close the banner and leave the state in memory until
+          the screen unmounts. Parked and reported rather than faked.
+
+          What ships instead says exactly what it does.
+        */}
+        <Button title="Keep editing" variant="ghost" haptic onPress={onKeepDraft} />
       </View>
     </View>
   );

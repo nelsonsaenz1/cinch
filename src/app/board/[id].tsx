@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BoardEditSheet } from '@/components/boards/board-edit-sheet';
 import { BoardPage } from '@/components/boards/board-page';
+import { DeleteBoardSheet } from '@/components/boards/delete-board-sheet';
 import { KeepSheet } from '@/components/boards/keep-sheet';
 import { EmptyState, ScreenHeader } from '@/components/ui';
 import { distinctPieces, isDatedBoard, plateTitle, platesOnBoard } from '@/features/boards/board-lines';
@@ -43,6 +44,14 @@ export default function BoardScreen() {
   const deletePlate = useDeletePlate();
 
   const [editing, setEditing] = useState(false);
+  /**
+   * SV-02's confirmation, as a real sheet rather than an `Alert`.
+   *
+   * The Alert could not carry it: the heading has to be "The five plates are
+   * kept" — the consequence, leading — with Keep first in reading order and one
+   * oxblood Delete under it. iOS orders alert buttons itself and has no accent.
+   */
+  const [deleting, setDeleting] = useState(false);
   const [moving, setMoving] = useState<{ plate: KeptPlate; boardId: string | null } | null>(null);
 
   const board = id ? lookbook.boardById(id) : null;
@@ -88,26 +97,15 @@ export default function BoardScreen() {
     );
   };
 
-  const confirmDeleteBoard = () => {
+  const deleteThisBoard = () => {
     if (!board) return;
-    Alert.alert(
-      `Delete ${board.name}?`,
-      'The plates on it stay saved — they return to All. Nothing in your closet is touched.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () =>
-            deleteBoard.mutate(board.id, {
-              onSuccess: () => {
-                setEditing(false);
-                back();
-              },
-            }),
-        },
-      ],
-    );
+    deleteBoard.mutate(board.id, {
+      onSuccess: () => {
+        setDeleting(false);
+        setEditing(false);
+        back();
+      },
+    });
   };
 
   return (
@@ -117,7 +115,7 @@ export default function BoardScreen() {
         // have failed, and both of those states are drawn by the page itself —
         // so it is given a placeholder name rather than an early return that
         // would flash a second, different loading screen.
-        board={board ?? { id: id ?? '', name: 'Board', startsOn: null, endsOn: null }}
+        board={board ?? { id: id ?? '', name: 'Board', startsOn: null, endsOn: null, createdAt: null }}
         plates={plates}
         loading={lookbook.loading}
         error={lookbook.error}
@@ -150,6 +148,16 @@ export default function BoardScreen() {
         // Saved is where the plates are, and the sheet there is what moves one
         // onto this board — the same one tap, from the other end.
         onAddPlate={() => router.push('/saved')}
+        onDelete={board ? () => setDeleting(true) : undefined}
+      />
+
+      <DeleteBoardSheet
+        visible={deleting && board !== null}
+        boardName={board?.name ?? ''}
+        plateCount={plates.length}
+        pending={deleteBoard.isPending}
+        onKeep={() => setDeleting(false)}
+        onDelete={deleteThisBoard}
       />
 
       <BoardEditSheet
@@ -160,7 +168,7 @@ export default function BoardScreen() {
           updateBoard.mutate({ id: board.id, ...write }, { onSuccess: () => setEditing(false) });
         }}
         busy={updateBoard.isPending}
-        onDelete={confirmDeleteBoard}
+        onDelete={() => setDeleting(true)}
         deleting={deleteBoard.isPending}
         onDismiss={() => setEditing(false)}
       />

@@ -28,6 +28,46 @@ export function canCompose(stack: readonly Garment[]): boolean {
 }
 
 /**
+ * Correction 27 — the requirement printed BESIDE an inert Compose, naming
+ * both bounds.
+ *
+ * "That requirement now names both bounds, two to six, so a user learns the
+ * ceiling before hitting it rather than at the refusal." Built from the
+ * constants rather than written out, which is the same discipline the
+ * acceptance criterion asks of the tests ("MAX_PIECES imported rather than
+ * repeated"): if the ceiling ever moves, this sentence, the refusal below and
+ * the tests all move with it in one edit.
+ */
+export function pieceBoundsLine(): string {
+  return `Pick ${wordForCount(MIN_PIECES_TO_COMPOSE)} to ${wordForCount(MAX_PIECES)} pieces to compose a look`;
+}
+
+/**
+ * The seventh tap's refusal — shown in the BAR, in the same place the count
+ * lives, and never as a ring the tile takes and loses a moment later.
+ *
+ * Capitalised from the spelled-out number, so the string reads as the sentence
+ * the atlas prints ("Six pieces is the most a look can hold") without the
+ * numeral being typed anywhere.
+ */
+export function ceilingRefusalLine(): string {
+  return `${capitalise(wordForCount(MAX_PIECES))} pieces is the most a look can hold`;
+}
+
+/**
+ * Whether a tap on an unselected tile would be refused.
+ *
+ * Separate from `togglePiece`, which silently returns the stack unchanged: the
+ * bar needs to know a refusal happened in order to say so, and a function that
+ * both mutates and reports would have to return two things to tell it.
+ * De-selecting a piece already in the stack is never refused, at any size.
+ */
+export function wouldRefuse(stack: readonly Garment[], piece: Garment): boolean {
+  if (stack.some((g) => g.id === piece.id)) return false;
+  return stack.length >= MAX_PIECES;
+}
+
+/**
  * Tap a piece in the picker: adds it to the end of the stack (it becomes the
  * next number) or removes it if it was already in. Silently refuses past the
  * ceiling rather than erroring — the picker has nothing useful to say beyond

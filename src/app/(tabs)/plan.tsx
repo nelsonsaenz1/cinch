@@ -17,7 +17,7 @@ import { EventCard } from '@/components/events/EventCard';
 import { DayExpanded } from '@/components/plan/day-expanded';
 import { DayRow, DayRowUnplanned } from '@/components/plan/day-row';
 import { ExamplePlans, ExampleWeek } from '@/components/plan/example-ghosts';
-import { NoticeBand } from '@/components/plan/notice-band';
+import { NoticeBand } from '@/components/ui/notice-band';
 import { Button, ErrorState, SectionHeader, Skeleton, SkeletonLead } from '@/components/ui';
 import { Text } from '@/components/ui/text';
 import { PLANS } from '@/features/billing/plans';

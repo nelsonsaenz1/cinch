@@ -67,7 +67,6 @@ export default function SavedScreen() {
         onRetry={lookbook.refetch}
         plates={lookbook.plates}
         boards={lookbook.boards}
-        boardNameFor={lookbook.boardNameFor}
         imageUrisFor={lookbook.imageUrisFor}
         onOpenBoard={(boardId) => router.push(`/board/${boardId}`)}
         onOpenPlate={(plate) => setMoving({ plate, boardId: plate.boardId })}

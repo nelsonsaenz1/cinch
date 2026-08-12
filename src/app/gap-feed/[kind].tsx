@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { gainSentence } from '@/components/gap-feed/gap-prose';
 import { ClosetFullSheet } from '@/components/wall/closet-full-sheet';
 import { Button, ScreenHeader, Text } from '@/components/ui';
 import { Placement } from '@/features/billing/placements';
@@ -66,8 +67,12 @@ export default function GapDetailScreen() {
           {model.ready ? gapLabel(model.tally, kind) : '…'}
         </Text>
         {gain ? (
+          // Audit 85 reaches this screen too: the old line printed a delta with
+          // a unit but no base ("7 outfits you don't have yet"), which is half
+          // a fact. `gainSentence` names the unit and both endpoints, from the
+          // same `countOutfits()` the card above it read.
           <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
-            {`${gain.gain} ${gain.gain === 1 ? 'outfit you' : 'outfits you'} don't have yet — here ${
+            {`${gainSentence(model.tally, gain)} Here ${
               rows.shown.length === 1 ? 'is one of them' : `are ${rows.shown.length} of them`
             }.`}
           </Text>
@@ -106,8 +111,9 @@ export default function GapDetailScreen() {
               </View>
             </View>
           ))}
+          {/* `muted`, never `faint`: #8A8578 fails AA as type on canvas. */}
           {rows.more > 0 ? (
-            <Text variant="label" className="pl-1" style={{ color: theme.faint }}>
+            <Text variant="label" className="pl-1" style={{ color: theme.muted }}>
               {`and ${rows.more} more`}
             </Text>
           ) : null}
@@ -137,9 +143,15 @@ export default function GapDetailScreen() {
         </View>
       </ScrollView>
 
+      {/* Audit 85 again: no bare "+7" survives on this screen either. The
+          eyebrow names the two endpoints the sheet's decision is about. */}
       <ClosetFullSheet
         visible={locked}
-        eyebrow={`${gapLabelLower(model.tally, kind)} · +${gain?.gain ?? 0} outfits`}
+        eyebrow={
+          gain
+            ? `${gapLabelLower(model.tally, kind)} · ${gain.total - gain.gain} to ${gain.total} outfit cores`
+            : gapLabelLower(model.tally, kind)
+        }
         title={`Your closet holds ${model.capacity.limit}. This would be the ${ordinal(model.capacity.limit + 1)}.`}
         body="Two ways forward, and neither loses anything you've photographed."
         onSeePlans={seePlans}

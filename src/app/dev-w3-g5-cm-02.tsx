@@ -1,0 +1,104 @@
+import { ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { CommentRow } from '@/components/event-outfits/CommentRow';
+import { NoticeBand } from '@/components/ui/notice-band';
+import { Text } from '@/components/ui/text';
+import {
+  CLOSED_THREAD_TITLE,
+  audienceScopeLine,
+  closedThreadLine,
+} from '@/features/event-outfits/comment-thread';
+import {
+  G5_FAILED,
+  G5_HIDDEN,
+  G5_REPORTED,
+  G5_SENDING,
+  g5NameOf,
+} from '@/features/event-outfits/w3-g5-fixtures';
+
+/**
+ * CM-02 — sending, failed, hidden, reported, closed. Five states, drawn together.
+ *
+ * WHAT THIS FRAME IS EVIDENCE FOR
+ *
+ * · A SENDING comment is already in the thread, in secondary ink, with its
+ *   state on the name line. Not a spinner replacing the row, and not a tray:
+ *   a tray would say a system spoke, and this is the user's own sentence
+ *   waiting.
+ * · audit 94 — a FAILED comment keeps its FULL TEXT in a tray at the same
+ *   261 pt column with Retry and Edit. The words are never lost and never
+ *   moved back into the composer where they could be overwritten, so Edit
+ *   opens an input IN THE TRAY. Verified against the shipping mutation:
+ *   `useCommentThread` holds failed rows in local state with their body intact
+ *   (`{...c, pending:false, failed:true}`), and the new `editAndRetry` sends
+ *   the edited row rather than minting a fresh one.
+ * · TRAY FILL IS RESERVED for system and moderation messages, which is why the
+ *   hidden, reported and closed notices look alike and unlike a person's
+ *   comment. All three are the SAME `NoticeBand` — the shared primitive the
+ *   Group 5 inventory lists as "Inherited — now also the moderation and system
+ *   voice in comments".
+ * · A removal names WHO DID IT and WHAT IT DID NOT AFFECT. A report names WHAT
+ *   THE OTHER PERSON WAS NOT TOLD.
+ * · The composer is GONE from the closed frame entirely, not disabled — "a
+ *   disabled field would invite a draft the server will refuse."
+ *
+ * PARKED — dependency A. The atlas ends the closed notice "nothing new can be
+ * added". There is no `comments_closed` column, no `closes_at`, and no time
+ * predicate on `event_comments`' insert policy anywhere in `supabase/
+ * migrations`; closure today is CLIENT-SIDE ONLY. So the notice says what the
+ * client does — it stops offering the composer — and stops. When the server
+ * refuses late inserts, `closedThreadLine` is the one string that changes, and
+ * `tests/comments-column.test.ts` fails the moment the claim is written early.
+ *
+ * DETERMINISM: frozen fixture rows with literal dates. No clock, no network.
+ */
+export default function DevW3G5CM02() {
+  if (!__DEV__) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
+        <Text variant="label">Not available.</Text>
+      </SafeAreaView>
+    );
+  }
+
+  const noop = () => undefined;
+
+  return (
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+      <ScrollView contentContainerClassName="px-gutter pb-10 pt-4">
+        <Text variant="title" trim>
+          The birthday dinner
+        </Text>
+        <Text variant="note" className="mt-2">
+          {`Row states, drawn together · ${audienceScopeLine}`}
+        </Text>
+
+        {[G5_SENDING, G5_FAILED, G5_HIDDEN, G5_REPORTED].map((c) => (
+          <CommentRow
+            key={c.id}
+            comment={c}
+            authorName={g5NameOf(c.userId)}
+            isMine={c.userId === 'u-me'}
+            isHost={false}
+            hiddenByName="Sarah"
+            onReply={noop}
+            onReport={noop}
+            onDelete={noop}
+            onToggleHidden={noop}
+            onRetry={noop}
+            onEditFailed={noop}
+            onDeletePending={noop}
+          />
+        ))}
+
+        <NoticeBand
+          className="mt-3"
+          cause="CLOSED"
+          title={CLOSED_THREAD_TITLE}
+          body={closedThreadLine('8:00pm')}
+        />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}

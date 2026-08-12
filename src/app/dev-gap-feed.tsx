@@ -4,6 +4,7 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GapCard } from '@/components/gap-feed/gap-card';
+import { gainSentence } from '@/components/gap-feed/gap-prose';
 import { ClosetFullSheet } from '@/components/wall/closet-full-sheet';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -114,12 +115,13 @@ export default function DevGapFeed() {
             {rankedTen.slice(0, 3).map((g) => (
               <GapCard
                 key={g.kind}
+                eyebrow={g.kind === rankedTen[0].kind ? 'Biggest gap' : 'Another gap'}
                 gain={g}
                 tally={THE_TEN}
                 pairings={pairablePieces(g.kind, pairableTen)}
-                lock={CAPACITY}
+                gloss={g.kind === rankedTen[0].kind}
+                stacked={false}
                 onPress={() => {}}
-                onAddAnyway={() => setSheetOpen(true)}
               />
             ))}
             <View className="mt-2 border-t border-rule pt-4" style={{ gap: 8 }}>
@@ -160,12 +162,13 @@ export default function DevGapFeed() {
               </Text>
             </View>
             <GapCard
+              eyebrow="The only gap"
               gain={dominant[0]}
               tally={EIGHT_TOPS}
               pairings={pairablePieces(dominant[0].kind, pairableUnbalanced)}
-              large
+              gloss
+              stacked={false}
               onPress={() => {}}
-              onAddAnyway={() => setSheetOpen(true)}
             />
             <View className="mt-2 border-t border-rule pt-4" style={{ gap: 8 }}>
               {swapAdvice(EIGHT_TOPS, dominant[0].kind) ? (
@@ -184,7 +187,7 @@ export default function DevGapFeed() {
 
       <ClosetFullSheet
         visible={sheetOpen || frame === 'G-04'}
-        eyebrow={`${gapLabelLower(THE_TEN, rankedTen[0].kind)} · +${rankedTen[0].gain} outfits`}
+        eyebrow={`${gapLabelLower(THE_TEN, rankedTen[0].kind)} · ${rankedTen[0].total - rankedTen[0].gain} to ${rankedTen[0].total} outfit cores`}
         title={`Your closet holds ${CAPACITY.limit}. This would be the ${ordinal(CAPACITY.limit + 1)}.`}
         body="Two ways forward, and neither loses anything you've photographed."
         onSeePlans={() => {}}
@@ -242,7 +245,7 @@ function G02({
         {gapLabel(tally, gain.kind)}
       </Text>
       <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
-        {`${gain.gain} outfits you don't have yet — here are ${rows.shown.length} of them.`}
+        {`${gainSentence(tally, gain)} Here are ${rows.shown.length} of them.`}
       </Text>
       <View className="mt-4" style={{ gap: 8 }}>
         {rows.shown.map((row, i) => (
@@ -263,7 +266,7 @@ function G02({
           </View>
         ))}
         {rows.more > 0 ? (
-          <Text variant="label" className="pl-1" style={{ color: theme.faint }}>{`and ${rows.more} more`}</Text>
+          <Text variant="label" className="pl-1" style={{ color: theme.muted }}>{`and ${rows.more} more`}</Text>
         ) : null}
       </View>
       <View className="mt-6 rounded-[16px] border border-rule bg-surface px-4 py-4">
@@ -288,12 +291,13 @@ function G03({ tally, ranked }: { tally: Tally; ranked: ReturnType<typeof rankGa
       </Text>
       <View className="mt-4">
         <GapCard
+          eyebrow="Biggest gap"
           gain={gain}
           tally={tally}
           pairings={{ shown: [], more: 0 }}
-          lock={CAPACITY}
+          gloss
+          stacked={false}
           onPress={() => {}}
-          onAddAnyway={() => {}}
         />
       </View>
       <View className="mt-3 rounded-[16px] border border-dashed border-rule-strong bg-ink/[0.03] px-4 py-3.5">

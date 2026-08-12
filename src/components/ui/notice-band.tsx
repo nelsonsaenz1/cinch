@@ -13,13 +13,18 @@ import { Text } from '@/components/ui/text';
  * on one frame, and the whole point of the frame is that the three read as the
  * same object saying different things.
  *
- * ── Why it lives here and not in `components/ui` ───────────────────────────
+ * ── Why it lives here ──────────────────────────────────────────────────────
  *
- * `components/ui/**` is the integrator's, not a lane's. This band is a Group-4
- * shape and both of its consumers (the diary spine and the plan week) are
- * inside this lane, so it sits in the lane's own folder. If a later group draws
- * the same band, promoting this file into `components/ui` is the right move and
- * is recorded as a serialization request rather than taken here.
+ * It was built inside `components/plan/` because both of its consumers (the
+ * diary spine and the plan week) were in one lane, and promoting into
+ * `components/ui/**` — the integrator's folder, not a lane's — was recorded as
+ * a serialization request instead of taken unilaterally.
+ *
+ * Group 5 is the later group that request anticipated: its inventory lists the
+ * band as "Inherited — now also the moderation and system voice in comments",
+ * which puts a third and fourth consumer outside `components/plan/` entirely.
+ * The integrator moved it here at the Group-5 checkpoint. Nothing about the
+ * shape changed in the move; only the import path did.
  *
  * ── Refusals it holds ──────────────────────────────────────────────────────
  *

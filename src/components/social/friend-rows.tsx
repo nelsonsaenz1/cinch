@@ -1,16 +1,13 @@
-import { useEffect } from 'react';
 import { Pressable, View } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
+import {
+  acceptFailedLine,
+  NOT_NOW,
+  personLine,
+  setAsideDetail,
+  setAsideLine,
+} from '@/components/social/friends-lines';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -80,11 +77,6 @@ export function closetAudienceLine(count: number): string {
 // Shared anatomy
 // ---------------------------------------------------------------------------
 
-/** `@username`, or nothing — the second line never invents a handle. */
-function handleLine(profile: SocialProfile): string | null {
-  return profile.username ? `@${profile.username}` : null;
-}
-
 /**
  * The atlas's vertical three dots, traced — `ellipsis` is the horizontal
  * cousin and reads as "more text", not "more actions". Byline ink, like the
@@ -100,7 +92,33 @@ function OverflowDots({ color }: { color: string }) {
   );
 }
 
-/** Identity block: 38pt sand disc, name, one quiet line under it. */
+/**
+ * The row's own height — audit 88.
+ *
+ * 68, down from the 96 the old two-deck row cost: identity and action on ONE
+ * line instead of a name block with a button bar under it. Seven rows fit the
+ * first viewport at 393×852 against an acceptance floor of five, which is the
+ * whole reason the buttons moved beside the name rather than under it.
+ */
+export const FRIEND_ROW_HEIGHT = 68;
+
+/** 44pt, the atlas's — and the tap target's — number, in one place. */
+const AVATAR = 44;
+
+/**
+ * Identity block: 44pt disc, the name, one quiet line under it.
+ *
+ * TYPE, PRECISELY (audit 89). The name is the only Medium string on the row;
+ * the handle, the bio and every status line under it are 13pt REGULAR
+ * secondary (`note`). A row whose second line is also Medium is a row with two
+ * emphases and therefore none.
+ *
+ * WIDTH, PRECISELY. This block is `flex-1` with `minWidth: 0`, and every
+ * action beside it is `flex-none`. That pair is what lets a 24-character name
+ * wrap and a 22-character handle run to the action's edge without pushing it
+ * off the row — see FR-01's second request, which is that stress case drawn in
+ * situ rather than in a separate frame.
+ */
 function Identity({
   profile,
   subtitle,
@@ -109,22 +127,20 @@ function Identity({
 }: {
   profile: SocialProfile;
   subtitle: string | null;
-  /** Inline override for the one accent case (F-04 failed). */
+  /** Inline override for the one accent case (a failed accept). */
   subtitleColor?: string;
   /**
    * Handles are one line — a truncated @name is still recognisable. Sentences
-   * are not: the after-add line (F-05) is the page's statement of the mutual
-   * rule, so it wraps rather than ends in an ellipsis. The atlas fits it on one
-   * line only because it writes "she says yes"; our they/them wording is a
-   * character wider than the row has.
+   * are not: a status line is the row's statement of what happened, so it wraps
+   * rather than ending in an ellipsis.
    */
   subtitleLines?: number;
 }) {
   return (
-    <View className="flex-1 flex-row items-center gap-3">
-      <Avatar name={profileName(profile)} size={38} imageUri={profile.avatarUrl} />
-      <View className="flex-1">
-        <Text variant="body" numberOfLines={1}>
+    <View className="flex-1 flex-row items-center gap-3" style={{ minWidth: 0 }}>
+      <Avatar name={profileName(profile)} size={AVATAR} imageUri={profile.avatarUrl} />
+      <View className="flex-1" style={{ minWidth: 0 }}>
+        <Text variant="body" className="font-medium" numberOfLines={2}>
           {profileName(profile)}
         </Text>
         {subtitle ? (
@@ -142,50 +158,59 @@ function Identity({
 }
 
 /**
- * "Adding…" with the atlas's shimmer keyframes — opacity .55 ↔ .9, no layout
- * movement. Reduce Motion parks it mid-travel, the same convention as the
- * skeleton's band.
+ * The quiet alternative beside a filled action — Not now, Undo, Cancel.
+ *
+ * 44pt of target, 13pt of ink-coloured label, and `flex-none` so its width is
+ * its own word. Deliberately NOT a bordered button: audit 90's rule is one
+ * filled action per row with a text alternative beside it, and two outlined
+ * pills side by side is the "stack of badges" the audit is against.
  */
-function ShimmerText({ children }: { children: string }) {
-  const reduced = useReducedMotion();
-  const pulse = useSharedValue(0.55);
-
-  useEffect(() => {
-    if (reduced) return;
-    pulse.value = withRepeat(
-      withTiming(0.9, { duration: 800, easing: Easing.inOut(Easing.quad) }),
-      -1,
-      true,
-    );
-    return () => cancelAnimation(pulse);
-  }, [reduced, pulse]);
-
-  const style = useAnimatedStyle(() => ({ opacity: reduced ? 0.7 : pulse.value }));
-
-  return (
-    <Animated.View style={style}>
-      <Text variant="note" accessibilityLiveRegion="polite">
-        {children}
-      </Text>
-    </Animated.View>
-  );
-}
-
-/** An accent text control — Undo, Cancel: the atlas's link grammar, 44pt touched. */
-function AccentTextButton({ label, onPress }: { label: string; onPress: () => void }) {
+function QuietTextButton({
+  label,
+  onPress,
+  accessibilityLabel,
+  tone,
+}: {
+  label: string;
+  onPress: () => void;
+  accessibilityLabel?: string;
+  /** `accent` for the one reversal (Undo); ink everywhere else. */
+  tone?: 'accent';
+}) {
   const theme = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       onPress={onPress}
       hitSlop={8}
-      style={{ minHeight: MIN_TAP_TARGET }}
+      style={{ minHeight: MIN_TAP_TARGET, flexGrow: 0, flexShrink: 0 }}
       className="justify-center px-2 active:opacity-60">
-      <Text variant="label" style={{ color: theme.accent }}>
+      <Text variant="note" style={{ color: tone === 'accent' ? theme.accent : theme.ink }}>
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+/**
+ * A pending answer — a TRAY-FILLED LABEL IN THE PRESENT PARTICIPLE.
+ *
+ * Replaces the old shimmering "Adding…". Two reasons, and they are the same
+ * two that decided AV-02's pending row: a participle on a still ground says
+ * which verb is in flight where a pulse says only "wait"; and an animation that
+ * never settles cannot reproduce its own bytes in a capture, so a state drawn
+ * with one can never be verified from a screenshot.
+ */
+function PendingLabel({ children }: { children: string }) {
+  return (
+    <View
+      className="items-center justify-center rounded-md bg-tray px-3"
+      style={{ height: 34, flexGrow: 0, flexShrink: 0 }}>
+      <Text variant="note" accessibilityLiveRegion="polite">
+        {children}
+      </Text>
+    </View>
   );
 }
 
@@ -227,47 +252,73 @@ export function RequestRow({
 
   // "Not now" swaps the whole row for the receipt — the identity leaves with
   // the request, because a lingering name would read as a standing judgement.
+  //
+  // SET ASIDE, NOT REMOVED. The write is `DISMISSED_KEY` in
+  // `src/app/friends/index.tsx` — an AsyncStorage set on this device, and
+  // nothing on the server. Nothing reached the sender, so the receipt says so
+  // and offers the real reversal beside it: `undoNotNow` deletes the id from
+  // that same set, which is a reversal that exists rather than a drawn one.
   if (state === 'dismissed') {
     return (
       <View
-        className="flex-row items-center justify-between px-4 py-3.5"
+        className="flex-row items-center gap-3 px-4 py-3.5"
         style={{ minHeight: MIN_TAP_TARGET }}>
-        <Text variant="callout" className="text-muted" accessibilityLiveRegion="polite">
-          Request removed.
-        </Text>
-        <AccentTextButton label="Undo" onPress={onUndo} />
+        <View className="flex-1" style={{ minWidth: 0 }}>
+          <Text variant="body" accessibilityLiveRegion="polite">
+            {setAsideLine(name)}
+          </Text>
+          <Text variant="note" className="mt-0.5">
+            {setAsideDetail(name)}
+          </Text>
+        </View>
+        <QuietTextButton
+          label="Undo"
+          tone="accent"
+          onPress={onUndo}
+          accessibilityLabel={`Undo — put ${name}’s request back`}
+        />
       </View>
     );
   }
 
-  const handle = handleLine(profile);
+  const quiet = personLine(profile);
+  // How long it has waited is real (`follows.created_at`) and useful, but it is
+  // not one of the four things audit 89 lets the row PRINT. It survives as
+  // speech on the action, where it answers "how old is this?" without adding a
+  // third string to a 68pt row.
   const since = waitingSince(requestedAt);
-  const askedLine = handle ? `${handle}${since ? ` · ${since}` : ''}` : since || null;
 
   if (state === 'adding') {
     return (
-      <View className="flex-row items-center px-4 py-3.5">
-        <Identity profile={profile} subtitle={handle} />
-        <ShimmerText>Adding…</ShimmerText>
+      <View
+        className="flex-row items-center gap-3 px-4"
+        style={{ minHeight: FRIEND_ROW_HEIGHT }}>
+        <Identity profile={profile} subtitle={quiet} />
+        <PendingLabel>Accepting…</PendingLabel>
       </View>
     );
   }
 
   if (state === 'accepted') {
     return (
-      <View className="flex-row items-center px-4 py-3.5">
+      <View
+        className="flex-row items-center gap-3 px-4"
+        style={{ minHeight: FRIEND_ROW_HEIGHT }}>
         <Identity profile={profile} subtitle="Friends · their closet is open to you" />
       </View>
     );
   }
 
+  // A failed accept keeps the row, its avatar and its position, and names what
+  // did NOT happen — above all that nothing reached her. Retry is in place.
   if (state === 'failed') {
     return (
-      <View className="flex-row items-center gap-3 px-4 py-3.5">
+      <View className="flex-row items-center gap-3 px-4 py-3">
         <Identity
           profile={profile}
-          subtitle="Couldn’t accept just now."
+          subtitle={acceptFailedLine(name)}
           subtitleColor={theme.accent}
+          subtitleLines={3}
         />
         <Button
           title="Retry"
@@ -279,26 +330,31 @@ export function RequestRow({
     );
   }
 
+  // The resting request. ONE filled action, its width set by its own word, and
+  // the quiet alternative beside it — `waitingSince` is deliberately not on
+  // this row any more: audit 89 leaves the quiet line to handle and bio.
   return (
-    <View className="px-4 py-3.5">
-      <Identity profile={profile} subtitle={askedLine} />
-      <View className="mt-3 flex-row gap-2">
+    <View
+      className="flex-row items-center gap-2 px-4"
+      style={{ minHeight: FRIEND_ROW_HEIGHT }}>
+      <Identity profile={profile} subtitle={quiet} />
+      <View style={{ flexGrow: 0, flexShrink: 0 }}>
         <Button
           title="Accept"
           variant="ink"
           onPress={onAccept}
-          accessibilityLabel={`Accept ${name}’s friend request`}
-          className="flex-1"
-        />
-        <Button
-          title="Not now"
-          variant="secondary"
-          haptic={false}
-          onPress={onNotNow}
-          accessibilityLabel={`Not now — set aside ${name}’s request`}
-          className="flex-1"
+          accessibilityLabel={
+            since
+              ? `Accept ${name}’s friend request, asked ${since}`
+              : `Accept ${name}’s friend request`
+          }
         />
       </View>
+      <QuietTextButton
+        label={NOT_NOW}
+        onPress={onNotNow}
+        accessibilityLabel={`Not now — set aside ${name}’s request. Nothing is sent.`}
+      />
     </View>
   );
 }
@@ -314,8 +370,10 @@ export type FriendRowProps = {
 };
 
 /**
- * A friend row has nothing to decide, so it has nothing on it but a name and
- * an overflow. The row opens the closet; the dots open the folded actions.
+ * A friend row has nothing to decide, so it carries NO filled action at all —
+ * audit 88's third case. The row opens the closet; the dots open the folded
+ * actions, and they stay on the row as their own 44pt target rather than
+ * collapsing into a sheet that lists everyone.
  */
 export function FriendRow({ profile, onPress, onOverflow }: FriendRowProps) {
   const theme = useTheme();
@@ -326,9 +384,9 @@ export function FriendRow({ profile, onPress, onOverflow }: FriendRowProps) {
       accessibilityRole="button"
       accessibilityLabel={`${name} — view closet`}
       onPress={onPress}
-      style={{ minHeight: MIN_TAP_TARGET }}
-      className="flex-row items-center px-4 py-3 active:opacity-60">
-      <Identity profile={profile} subtitle={handleLine(profile)} />
+      style={{ minHeight: FRIEND_ROW_HEIGHT }}
+      className="flex-row items-center px-4 active:opacity-60">
+      <Identity profile={profile} subtitle={personLine(profile)} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`More about ${name}`}
@@ -353,9 +411,9 @@ export function SentRow({ profile }: { profile: SocialProfile }) {
   return (
     <View
       accessibilityLabel={`${profileName(profile)} — request sent, waiting`}
-      className="flex-row items-center px-4 py-3"
-      style={{ minHeight: MIN_TAP_TARGET }}>
-      <Identity profile={profile} subtitle={handleLine(profile)} />
+      className="flex-row items-center gap-3 px-4"
+      style={{ minHeight: FRIEND_ROW_HEIGHT }}>
+      <Identity profile={profile} subtitle={personLine(profile)} />
       <Text variant="note">Waiting</Text>
     </View>
   );
@@ -402,7 +460,7 @@ export function SearchResultRow({
   // The one moment the mutual rule matters most — the second a person expects
   // to be able to see a closet, the row says nothing opens yet.
   const subtitle =
-    relation === 'asked' ? 'Asked · nothing opens until they say yes' : handleLine(profile);
+    relation === 'asked' ? 'Asked · nothing opens until they say yes' : personLine(profile);
 
   const trailing =
     relation === 'self' ? (
@@ -412,10 +470,12 @@ export function SearchResultRow({
     ) : relation === 'requested' ? (
       <Text variant="note">Requested</Text>
     ) : relation === 'asked' ? (
-      <AccentTextButton label="Cancel" onPress={onCancel} />
+      <QuietTextButton label="Cancel" tone="accent" onPress={onCancel} />
     ) : relation === 'accept' ? (
+      // "Add back" — the returning friend, audit 88's second case. One filled
+      // action whose width is its own words.
       <Button
-        title="Accept"
+        title="Add back"
         variant="ink"
         loading={pending}
         onPress={onAccept}

@@ -18,6 +18,60 @@
 
 import type { ActivityLine } from './sentence';
 
+// ---------------------------------------------------------------------------
+// Correction 22 · what the page says about its own window
+// ---------------------------------------------------------------------------
+
+/**
+ * THIRTY DAYS, AND IT IS THE QUERY'S NUMBER.
+ *
+ * `activity_feed()` bounds itself in SQL — `window_start as (select now() -
+ * interval '30 days' as t)`, `20260810100100_activity_feed.sql:116` — and every
+ * branch of the union reads that CTE. There is no pagination past it and no
+ * client-side bound to disagree with it. So the copy below states the query's
+ * own number; nothing was changed in SQL to make the sentence true.
+ */
+export const RETENTION_DAYS = 30;
+
+/** The masthead's line. `The last 30 days`. */
+export const RETENTION_SUBTITLE = `The last ${RETENTION_DAYS} days`;
+
+/**
+ * The foot of the list, and the correction that matters most here.
+ *
+ * The earlier line — "older items are not stored" — implied that the request,
+ * the occasion or the comment itself had been deleted. Nothing of the kind
+ * happens: `activity_feed()` is a WINDOW over rows that live in `follows`,
+ * `borrow_requests`, `event_members`, `event_votes` and `closet_likes`, none of
+ * which this page can delete. So the line names where an aged-out item still
+ * lives instead of warning about a loss that does not occur.
+ *
+ * And nothing here is held open because a reader has not looked: the window is
+ * `occurred_at`, full stop. `activity_seen_at` feeds the dot
+ * (`retention.hasUnseen`) and appears nowhere in the feed's own SQL.
+ */
+export const RETENTION_LINE =
+  `This list holds ${RETENTION_DAYS} days. Anything older still lives on the request, occasion or ` +
+  'comment it belongs to.';
+
+/**
+ * AV-02's load error.
+ *
+ * It must NOT promise that nothing expires while unread — unread state has no
+ * effect on retention, and a promise the window does not make is a promise the
+ * page cannot keep. What it says instead is both true and more useful: the
+ * thing waiting for you is waiting on its own record, not on this list.
+ */
+export const LOAD_ERROR_TITLE = 'Could not load';
+export const LOAD_ERROR_BODY =
+  'Cinch could not fetch your activity. Anything waiting for you is still waiting on the request ' +
+  'or occasion it belongs to.';
+
+/** AV-02's empty. Quiet is the normal state — this page never prompts for engagement. */
+export const EMPTY_TITLE = 'Nothing lately';
+export const EMPTY_BODY =
+  `No requests, invitations or comments in the last ${RETENTION_DAYS} days. Quiet is the normal state.`;
+
 /**
  * The live feed, with answered-and-gone rows put back where they were.
  *

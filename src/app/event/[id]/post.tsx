@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CaptionStep } from '@/components/share-look/caption-step';
@@ -17,7 +17,12 @@ import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useEventPosts } from '@/features/event-outfits/queries';
 import { MAX_LOOKS_PER_BOARD } from '@/features/event-outfits/types';
 import { useEvent, useEventMembers } from '@/features/events/queries';
-import { canCompose, captionFromPieces, titleFromPieces } from '@/features/share-look/compose';
+import {
+  canCompose,
+  captionFromPieces,
+  pieceBoundsLine,
+  titleFromPieces,
+} from '@/features/share-look/compose';
 import { useComposeAndPostLook, useSwapLookPieces } from '@/features/share-look/mutations';
 import { useWardrobe } from '@/features/styling/queries';
 import type { Garment } from '@/lib/styling';
@@ -73,6 +78,23 @@ export default function PostLookScreen() {
   const [saveToLately, setSaveToLately] = useState(true);
   const [failed, setFailed] = useState(false);
   const [plateWidth, setPlateWidth] = useState(0);
+  /**
+   * Correction 27's seventh tap. Cleared on the next successful change rather
+   * than on a timer: a refusal that faded on its own would be a delayed
+   * dismissal, which the constitution refuses, and the message is only
+   * meaningful for as long as the stack is still full.
+   */
+  const [refused, setRefused] = useState(false);
+  /**
+   * Largest Dynamic Type — SL-01 / AX.
+   *
+   * Read from the real system font scale, not a prop and not a fixture flag:
+   * `useWindowDimensions().fontScale` is what iOS reports for the user's own
+   * setting, so the two-column grid and the 138 pt bar arrive when the type
+   * actually grows rather than when someone remembers to pass a boolean.
+   */
+  const { fontScale } = useWindowDimensions();
+  const ax = fontScale >= 1.5;
 
   // Hydrate the stack from the look being edited once its garments are known
   // (garments arrive from the board query, not this screen's own wardrobe
@@ -200,7 +222,13 @@ export default function PostLookScreen() {
         </View>
       ) : failed ? (
         <View className="px-gutter pt-6">
-          <FailedDraftBanner retrying={pending} onRetry={submit} onKeepDraft={() => setFailed(false)} />
+          <FailedDraftBanner
+            retrying={pending}
+            pieceCount={stack.length}
+            hasCaption={caption.trim().length > 0}
+            onRetry={submit}
+            onKeepDraft={() => setFailed(false)}
+          />
         </View>
       ) : (
         <View style={{ flex: 1 }}>
@@ -219,14 +247,19 @@ export default function PostLookScreen() {
                   What are you wearing?
                 </Text>
                 <Text variant="body" className="mt-2.5 text-muted">
-                  Pick from your closet. Three to six pieces reads best on the board.
+                  {pieceBoundsLine()}.
                 </Text>
                 <View className="mt-4">
                   <PiecePicker
                     candidates={candidates}
                     stack={stack}
                     resolveImage={resolve}
-                    onChangeStack={setStack}
+                    ax={ax}
+                    onChangeStack={(next) => {
+                      setRefused(false);
+                      setStack(next);
+                    }}
+                    onRefused={() => setRefused(true)}
                   />
                 </View>
               </>
@@ -302,6 +335,8 @@ export default function PostLookScreen() {
                 stack={stack}
                 resolveImage={resolve}
                 canCompose={canCompose(stack)}
+                refused={refused}
+                ax={ax}
                 onCompose={goToStep2}
               />
             </View>

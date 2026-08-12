@@ -14,9 +14,10 @@ import {
 import { AddYoursPill, VotePill } from '@/components/event-outfits/VotePill';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { LookPlate } from '@/components/look/look-plate';
 import { Text } from '@/components/ui/text';
-import { joinWithAnd, type PickLine } from '@/features/event-outfits/board-logic';
+import type { PickLine } from '@/features/event-outfits/board-logic';
+import { voteCountLine } from '@/features/event-outfits/board-copy';
+import { lookCells } from '@/features/event-outfits/look-layout';
 import { boardLeader, type AttendeeBoard, type PostedLook } from '@/features/event-outfits/types';
 import { lookDescriptor, lookName } from '@/features/events/look-copy';
 import type { Garment } from '@/lib/styling';
@@ -211,6 +212,67 @@ function LeaderBadge({ label }: { label: 'Ahead' | 'The favourite' }) {
 }
 
 /**
+ * Audit 95 — "tiles at 74 pt so all four garments stay visible."
+ *
+ * A row of fixed 74 pt tiles rather than the full-width `LookPlate` the card
+ * used to open with. Two reasons, both in the audit:
+ *
+ * · "Every garment in a look stays visible." A plate scaled to the card width
+ *   is as tall as the card is wide, which is what pushed the caption into a
+ *   clamp; a 74 pt row is a known, small height, so the caption above it can
+ *   take as many lines as it needs and the card still fits the rail.
+ * · The measurement is FIXED, not a fraction of the card. Six 74 pt tiles wrap
+ *   to a second row rather than shrinking to fit, because shrinking is how the
+ *   sixth garment stops being visible — the same rule `lookCells` already
+ *   holds when it collapses a seventh piece into a counted cell instead of
+ *   making all six smaller.
+ */
+const BOARD_TILE = 74;
+
+function BoardLookTiles({
+  pieces,
+  resolveImage,
+}: {
+  pieces: readonly Garment[];
+  resolveImage: ResolveImage;
+}) {
+  const theme = useTheme();
+  return (
+    <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+      {lookCells(pieces).map((cell, i) =>
+        cell.kind === 'garment' ? (
+          <View
+            key={cell.garment.id}
+            className="overflow-hidden rounded-md bg-tray"
+            style={{ width: BOARD_TILE, height: BOARD_TILE }}>
+            <GarmentCell
+              garment={cell.garment}
+              uri={resolveImage(
+                cell.garment.platePath,
+                cell.garment.cutoutPath,
+                cell.garment.thumbPath,
+              )}
+            />
+          </View>
+        ) : (
+          // The counted cell — sand ground with type in it, which is what
+          // stops it reading as a photograph that failed to load (audit 98's
+          // rule, borrowed here because the failure mode is identical).
+          <View
+            key={`more-${i}`}
+            className="items-center justify-center rounded-md"
+            style={{ width: BOARD_TILE, height: BOARD_TILE, backgroundColor: theme.sand }}>
+            <Text variant="label" className="font-medium text-ink">
+              {`+${cell.count}`}
+            </Text>
+          </View>
+        ),
+      )}
+    </View>
+  );
+}
+
+/**
  * One posted look on the board: the poster (`LookPlate` — see the contract's
  * "one object, four sizes", the reason `stackLayout` is gone from here),
  * whose look it is, the caption, the vote pill, comments and the voter line.
@@ -347,6 +409,8 @@ export function OutfitPostCard({
    */
   const cardBorder = badge ? theme.hairline : picked ? theme.blushRule : theme.hairline;
 
+  const countLine = voteCountLine(line?.count ?? look.votes);
+
   return (
     <View
       className="overflow-hidden rounded-plate bg-surface"
@@ -357,16 +421,25 @@ export function OutfitPostCard({
       // the clothes so a vote is never cast blind").
       accessible
       accessibilityLabel={a11y}>
-      <View style={{ position: 'relative' }}>
-        <LookPlate pieces={look.garments} width={width} resolveImage={resolveImage} padding={0} />
-        {badge ? <LeaderBadge label={badge === 'favourite' ? 'The favourite' : 'Ahead'} /> : null}
-      </View>
+      {/*
+        ── Audit 95: the caption gets its height BEFORE the image does ────────
 
-      <View className="p-4">
-        <View className="flex-row items-center gap-2">
-          <Avatar name={isMine ? null : posterName} size={24} tone="accent" fallback="ME" />
-          <Text variant="label" className="flex-1 text-ink" numberOfLines={1}>
-            {isMine ? 'You' : (posterName ?? 'A friend')}
+        The type block used to sit UNDER a full-width `LookPlate`, which is the
+        arrangement that produces the defect the audit names: the image takes
+        the card's height first and whatever is left has to hold a caption, so
+        a three-line caption gets `numberOfLines` clamped onto it and the last
+        third of somebody's sentence is thrown away. Reversing the order fixes
+        it structurally rather than by picking a bigger clamp — the text lays
+        out at its natural height and the tiles take the remainder.
+
+        Every `numberOfLines` in this block is gone with it. "No caption is
+        truncated" is audit 95's acceptance criterion, and a clamp is exactly
+        how a caption gets truncated.
+      */}
+      <View className="p-4 pb-3">
+        <View className="flex-row items-start gap-2">
+          <Text variant="plate" trim className="flex-1">
+            {name}
           </Text>
           {hasMenu ? (
             <Pressable
@@ -387,12 +460,39 @@ export function OutfitPostCard({
           ) : null}
         </View>
 
-        <Text variant="plate" trim numberOfLines={1} className="mt-2.5">
-          {name}
+        {/*
+          Audit 96 — "Ahead is 13 pt regular SECONDARY TEXT, computed from the
+          counts and present only while a look genuinely leads; neither is a
+          bar, a badge or a percentage."
+
+          So the pre-lock leader carries a word, not the blush crown pill it
+          used to. The LOCKED leader is untouched and still draws `LeaderBadge`
+          below: the atlas removes the crown entirely, the shipping board
+          crowns a leader at lock, and the Wave 3 dependency ledger records
+          that conflict as unresolved and says it "must be resolved in favour
+          of one artefact before build". Deleting the crown here would be
+          resolving it. PARKED — see the report.
+        */}
+        {badge === 'ahead' ? (
+          <Text variant="note" className="mt-1.5">
+            Ahead
+          </Text>
+        ) : null}
+
+        {/*
+          Correction 24 — "each card names whose look it is. That single 13 pt
+          line is what turns two options into a shared rail."
+
+          It was an avatar-plus-name row above the title; it is now a plain
+          line under it, in the reading order the atlas draws (caption, ahead,
+          owner, prose).
+        */}
+        <Text variant="note" className="mt-1.5">
+          {isMine ? 'You' : (posterName ?? 'A friend')}
         </Text>
 
         {/*
-          The line under the title, and never the title again.
+          The line under the owner, and never the title again.
 
           `lookName` returns the caption when there is one — `event_posts` has a
           caption column and no title column — so printing `look.caption` here
@@ -403,11 +503,18 @@ export function OutfitPostCard({
           garments say: the caption when the title did not already consume it,
           the descriptor otherwise.
         */}
-        <Text variant="caption" numberOfLines={2} className="mt-1">
+        <Text variant="caption" className="mt-2">
           {look.caption && name !== look.caption ? look.caption : lookDescriptor(look.garments)}
         </Text>
+      </View>
 
-        <View className="mt-3 flex-row items-center justify-between gap-2 border-t border-rule pt-3">
+      <View style={{ position: 'relative' }} className="px-4">
+        <BoardLookTiles pieces={look.garments} resolveImage={resolveImage} />
+        {badge === 'favourite' ? <LeaderBadge label="The favourite" /> : null}
+      </View>
+
+      <View className="p-4 pt-3">
+        <View className="flex-row items-center justify-between gap-2 border-t border-rule pt-3">
           {onAddYours ? (
             <AddYoursPill onPress={onAddYours} />
           ) : (
@@ -436,17 +543,26 @@ export function OutfitPostCard({
           </Pressable>
         </View>
 
-        {line ? (
-          // "Zero is quiet" — this whole block is absent when `line` is null,
-          // never printed as "0 picks".
-          <Text variant="caption" numberOfLines={1} className="mt-2.5">
-            {line.count === 1 ? '1 pick' : `${line.count} picks`}
-            {' · '}
-            {line.iVoted ? (
-              <RNText style={{ color: theme.accent, fontWeight: '500' }}>you</RNText>
+        {/*
+          Audit 96 — "zero counts are omitted entirely: a look with no picks
+          prints no count line at all, never '0 picks'." `voteCountLine`
+          returns null at zero and this block is absent for it.
+
+          The VOTER NAMES are gone. `pickLine()` in `board-logic.ts` still
+          builds them and still has its callers elsewhere; what changed is that
+          the board no longer prints them. LB-01 and LB-02 draw a bare "3
+          votes" on every card, and a rail that prints who voted for which
+          friend's clothes turns a vote into a public statement about somebody
+          else's outfit — which is the thing this whole group's privacy rules
+          are consistently about. `line.iVoted` still earns the blush "Your
+          vote" beside the pill; it no longer earns a list of names.
+        */}
+        {countLine ? (
+          <Text variant="note" className="mt-2.5">
+            {countLine}
+            {line?.iVoted ? (
+              <RNText style={{ color: theme.accent, fontWeight: '500' }}>{' · Your vote'}</RNText>
             ) : null}
-            {line.iVoted && line.otherNames.length > 0 ? ', ' : ''}
-            {joinWithAnd(line.otherNames)}
           </Text>
         ) : null}
       </View>

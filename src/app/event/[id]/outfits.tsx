@@ -23,12 +23,18 @@ import { EmptyState } from '@/components/ui/empty-state';
 // `ErrorState` the title/body/retry sibling of `EmptyState`.
 import { ErrorState } from '@/components/ui/error-state';
 import { ScreenHeader } from '@/components/ui/screen-header';
-import { SectionHeader } from '@/components/ui/section-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import {
+  attendeeLine,
+  isTied,
+  lockedBoardLine,
+  openBoardFooter,
+  tieLine,
+} from '@/features/event-outfits/board-copy';
 import {
   applyPickMove,
   favouriteId,
@@ -225,10 +231,27 @@ export default function EventOutfitBoardScreen() {
     setCrownState({ key: tallyKey, id: crownId });
   }
 
+  /**
+   * Audit 96 — "a tie removes Ahead rather than inventing a tiebreak, and the
+   * posting order is unchanged."
+   *
+   * `favouriteId` is STICKY through a tie by design: the frozen contract's "a
+   * tie holds the crown where it was" needs a previous answer to hold, so a
+   * board that ties at 3–3 keeps whichever look was already leading. That
+   * arithmetic is untouched — it is the crown's, and the crown is a founder
+   * decision (dependency B). What changed is that the pre-lock WORD is
+   * suppressed while the top is shared, which is what the audit asks for and
+   * is purely a question of what is drawn.
+   */
+  const tied = useMemo(() => isTied(displayLooks.map((l) => l.votes)), [displayLooks]);
+
   const badgeFor = useCallback(
-    (look: PostedLook): 'ahead' | 'favourite' | null =>
-      crownId === look.id ? (locked ? 'favourite' : 'ahead') : null,
-    [crownId, locked],
+    (look: PostedLook): 'ahead' | 'favourite' | null => {
+      if (crownId !== look.id) return null;
+      if (locked) return 'favourite';
+      return tied ? null : 'ahead';
+    },
+    [crownId, locked, tied],
   );
 
   const currentPickId = optimisticMove ? optimisticMove.toPostId : (myVote.data?.postId ?? null);
@@ -511,22 +534,54 @@ export default function EventOutfitBoardScreen() {
     );
   }
 
-  const totalPicks = displayLooks.reduce((sum, l) => sum + l.votes, 0);
   const until = untilWeekday(detail.startsAt);
-  const subtitle = locked
-    ? `Voting closed. ${displayLooks.length === 1 ? '1 look' : `${displayLooks.length} looks`}, ${totalPicks} ${totalPicks === 1 ? 'pick' : 'picks'} between them.`
-    : `${displayLooks.length === 1 ? '1 look' : `${displayLooks.length} looks`} on the table. You have one pick${until ? ` — you can move it until ${until}` : ''}.`;
+  /**
+   * Correction 24 — "the masthead names the occasion and the board's own
+   * lifetime — four attendees, open until 8pm — instead of framing it as help
+   * for one person."
+   *
+   * The old subtitle counted LOOKS ("2 looks on the table"), which is the
+   * one-person-asking-for-help framing the correction removes: a shared rail
+   * is described by the people on it. The lifetime half is omitted entirely on
+   * an undated occasion rather than guessed, because `events.starts_at` is
+   * nullable (migration 20260808130000) and such a board has no lock instant
+   * at all.
+   */
+  const subtitle = [
+    attendeeLine(members.data?.length ?? 0),
+    locked ? 'closed' : until ? `open until ${until}` : 'open',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   const myLookCount = looks.filter((l) => l.userId === me).length;
 
-  const crownedLook = crownId ? displayLooks.find((l) => l.id === crownId) : null;
+  /**
+   * The footer under the rail.
+   *
+   * Three sentences, none of which names a person. The locked one says the
+   * cause and that nothing moved; the tie one says the order did not change,
+   * which is the fact "a reader who saw a leader yesterday" actually needs;
+   * the open one says what the viewer holds and that the votes decide nothing.
+   *
+   * PARKED (dependency B): the locked sentence is written as the CLIENT's
+   * reflection. `locked` here is `openedAt >= detail.startsAt.getTime()`
+   * (line ~150 of this file) — a client comparison against a nullable column,
+   * with no server rule refusing a late vote anywhere in
+   * `supabase/migrations` (the insert policy on `event_outfit_votes` is
+   * `auth.uid() = voter_id` and its trigger checks membership and self-votes,
+   * nothing about time). "The board locks itself" is therefore not a sentence
+   * this app can make yet, so the footer says the evening started and the
+   * board is closed, and stops.
+   *
+   * Also PARKED: `crownedLook` is gone from this string, but only from the
+   * string. Nothing about who is crowned changed — see `badgeFor` above.
+   */
   const closingNote = locked
-    ? crownedLook
-      ? `Everyone’s picks are in. ${nameOf(crownedLook.userId) ?? 'A friend'}’s look took the room.`
-      : 'Everyone’s picks are in — a tie holds the room this time.'
-    : detail.startsAt
-      ? `Voting closes ${whenLabel(detail.startsAt)}. Everyone sees the counts; nobody sees who didn’t vote.`
-      : 'Everyone sees the counts; nobody sees who didn’t vote.';
+    ? lockedBoardLine()
+    : tied
+      ? tieLine()
+      : openBoardFooter(until);
 
   return (
     <SafeAreaView className="flex-1 bg-canvas">
@@ -537,26 +592,15 @@ export default function EventOutfitBoardScreen() {
           <Text variant="title" trim>
             {detail.title}
           </Text>
-          <Text variant="callout" className="mt-3 text-muted">
+          {/* Correction 24's masthead: the board's own lifetime, directly
+              under the title, naming the rail as shared. */}
+          <Text variant="note" className="mt-2">
+            {subtitle}
+          </Text>
+          <Text variant="note" className="mt-1">
             {[whenLabel(detail.startsAt), detail.venueName].filter(Boolean).join(' · ')}
             {detail.dressCode ? ` · ${detail.dressCode}` : ''}
           </Text>
-
-          <SectionHeader
-            title="Every option"
-            className="mt-6"
-            trailing={
-              <Text variant="colophon">
-                {looks.length === 1 ? '1 look' : `${looks.length} looks`}
-              </Text>
-            }
-          />
-
-          {looks.length > 0 ? (
-            <Text variant="callout" className="mt-1.5 text-muted">
-              {subtitle}
-            </Text>
-          ) : null}
         </View>
 
         {looks.length === 0 ? (

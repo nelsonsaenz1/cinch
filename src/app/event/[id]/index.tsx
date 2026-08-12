@@ -33,6 +33,16 @@ import { useSession } from '@/features/auth/use-session';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { fetchForecast } from '@/features/context/weather';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import { NoticeBand } from '@/components/ui/notice-band';
+import {
+  CANCELLATION_FACTS,
+  HOST_CANCELLATION_FACTS,
+  cancelledHeading,
+  hostStatusLine,
+  inviteeStatusLine,
+  noLookYetLine,
+  readyLine,
+} from '@/features/event-outfits/occasion-copy';
 import { useEventComments, useEventPosts } from '@/features/event-outfits/queries';
 import { boardLeader } from '@/features/event-outfits/types';
 import { groupStyleNote } from '@/features/events/group-note';
@@ -304,6 +314,10 @@ export default function EventDetailScreen() {
   }
 
   const joinedCount = roster.filter((m) => m.state === 'joined').length;
+  // Resolved from the roster, not stored on the row — the host is a role, and
+  // `nameOf` already answers 'You' for the signed-in user, which is exactly
+  // right for a host reading their own cancellation.
+  const hostName = event.hostId ? nameOf(event.hostId) : null;
   const sharedCount = orderedBoards.length;
   const openComments = (comments.data ?? []).filter((c) => !c.hidden).length;
 
@@ -466,60 +480,94 @@ export default function EventDetailScreen() {
           </View>
         ) : null}
 
-        {/* The RSVP row. Hosting and Going are inert ink states, never
-            buttons (Event Detail State Atlas E-01/E-04) — the host's only
-            action beside Hosting is Invite; a going guest's exit lives at
-            the foot, not here. */}
-        {event.canceledAt ? (
-          <Text variant="label" className="mt-4" style={{ color: theme.critical }}>
-            This occasion was canceled.
-          </Text>
-        ) : (
-          <View className="mt-5 flex-row gap-3">
-            {event.isHost ? (
-              <>
-                <StatePill label="Hosting" />
-                <Button
-                  title="Invite"
-                  variant="secondary"
-                  haptic
-                  onPress={() => router.push(`/event/${event.id}/invite`)}
-                />
-              </>
-            ) : event.myState === 'joined' ? (
-              <StatePill label="Going" />
-            ) : event.myState === 'invited' ? (
-              <>
-                {/* The one accent on this screen for an invitee: they have
-                    exactly one thing to do here, and this is it. */}
-                <Button
-                  title="Join"
-                  haptic
-                  loading={respond.isPending && respond.variables?.response === 'joined'}
-                  onPress={() =>
-                    respond.mutate(
-                      { eventId: event.id, response: 'joined' },
-                      { onError: writeFailed('That didn’t go through') },
-                    )
-                  }
-                />
-                <Button
-                  title="Decline"
-                  variant="secondary"
-                  onPress={() =>
-                    respond.mutate(
-                      { eventId: event.id, response: 'declined' },
-                      {
-                        onSuccess: () => router.back(),
-                        onError: writeFailed('That didn’t go through'),
-                      },
-                    )
-                  }
-                />
-              </>
+        {/*
+          ── Audit 92 · status is a SENTENCE, not a control ──────────────────
+
+          "'You are hosting' is a sentence under the title rather than a 56 pt
+          segmented control, and Invite becomes one row in a ruled list — which
+          is what buys the composed look its 86 pt tiles and the facts their
+          full label."
+
+          So `StatePill` is gone from this page (the component stays exported
+          for its other callers), Invite has moved down into the `NavRow` list
+          beside "Every option" and "Table talk", and what is left here is two
+          lines of type.
+
+          The counts are COARSE IN BOTH DIRECTIONS and carry no names. Every
+          function that builds them is in `occasion-copy.ts` and none of them
+          takes a person — "nobody is ever named as not going, not responded or
+          declined" is a privacy rule, and it is enforced by the shape of those
+          signatures rather than by remembering it here.
+        */}
+        {event.canceledAt ? null : (
+          <>
+            <Text variant="body" className="mt-4" style={{ color: theme.muted }}>
+              {event.isHost
+                ? hostStatusLine(roster.length, sharedCount)
+                : inviteeStatusLine(hostName, event.myState === 'joined')}
+            </Text>
+            {readyLine(sharedCount) ? (
+              <Text variant="note" className="mt-1.5">
+                {readyLine(sharedCount)}
+              </Text>
             ) : null}
-          </View>
+          </>
         )}
+
+        {/* EV-02's pair. The accent moves to Join for an invitee — "exactly as
+            the directive allows" — and "Decide later" is a real 44 pt exit
+            that SENDS NOTHING: it navigates back and writes no response at
+            all, which is the whole of the atlas's coarse-attendance position.
+            The `declined` write that used to live on this row is gone; see the
+            report. */}
+        {!event.canceledAt && !event.isHost && event.myState === 'invited' ? (
+          <View className="mt-5 flex-row gap-3">
+            <Button
+              title="Join"
+              haptic
+              loading={respond.isPending && respond.variables?.response === 'joined'}
+              onPress={() =>
+                respond.mutate(
+                  { eventId: event.id, response: 'joined' },
+                  { onError: writeFailed('That didn’t go through') },
+                )
+              }
+            />
+            <Button title="Decide later" variant="ghost" onPress={() => router.back()} />
+          </View>
+        ) : null}
+
+        {/*
+          ── Correction 26 · cancellation, and only what the app does ────────
+
+          Every sentence in `CANCELLATION_FACTS` was checked against the
+          repository before it was written — the mutation that sets
+          `canceled_at` and touches nothing else, the cascades that only fire
+          on a deleted event row, and the diary's ownership by the wearer. The
+          function's own docs carry the migration numbers.
+
+          Three things are deliberately NOT here: a notification promise, a
+          crown promise, and any hint of who had answered.
+        */}
+        {event.canceledAt ? (
+          <View className="mt-5">
+            <NoticeBand
+              cause="CANCELLED"
+              title={cancelledHeading(hostName, event.title)}
+              body={CANCELLATION_FACTS.join(' ')}
+            />
+            <View className="mt-3 flex-row flex-wrap gap-2">
+              {myLeading ? (
+                <Button
+                  title="See the look I chose"
+                  variant="secondary"
+                  onPress={() => goComments(myLeading.id)}
+                />
+              ) : null}
+              <Button title="Read the comments" variant="secondary" onPress={() => goComments()} />
+            </View>
+          </View>
+        ) : null}
         {!event.startsAt && !event.canceledAt && event.isHost ? (
           <Text variant="note" className="mt-3">
             Friends can be invited to an occasion with no date — the details fill in later, and
@@ -638,6 +686,24 @@ export default function EventDetailScreen() {
                     trailing={openComments > 0 ? String(openComments) : undefined}
                     onPress={() => goComments()}
                   />
+                  {/* Audit 92 — "Invite becomes one row in a ruled list." It
+                      was a 56 pt filled control at the top of the page; the
+                      height it gave back is what the composed look and the
+                      event facts now spend. */}
+                  {event.isHost && !event.canceledAt ? (
+                    <NavRow
+                      label="Invite more people"
+                      onPress={() => router.push(`/event/${event.id}/invite`)}
+                    />
+                  ) : null}
+                  {/* The atlas also draws an "Event details" row here. It is
+                      NOT built: there is no event-details route, and the facts
+                      it would open — date, time, venue, dress code — are
+                      already printed in full at the top of this page by
+                      `metadata`, `colophonBits` and `VenueCard`. A row that
+                      pushed somewhere to repeat what is already on screen, or
+                      worse pushed at nothing, is the "never a dead control"
+                      refusal. Reported rather than drawn. */}
                 </View>
               </>
             )}
@@ -687,11 +753,19 @@ export default function EventDetailScreen() {
             )}
           </>
         ) : (
-          <Text variant="label" className="mt-6">
-            {joinedCount > 0
-              ? `${joinedCount} going so far.`
-              : 'The list is still coming together.'}
-          </Text>
+          // EV-02 — "Your look becomes a PAPER card explaining what happens
+          // after joining rather than a blush card with nothing in it." The
+          // page's one accent is Join, above; spending a second one on an
+          // empty card would make the invitee's single decision compete with
+          // a card that has nothing in it yet.
+          <View className="mt-7">
+            <Card border="hairline" padding="xl">
+              <Text variant="colophon">Your look</Text>
+              <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
+                {noLookYetLine()}
+              </Text>
+            </Card>
+          </View>
         )}
 
         {/* The page's one destructive line: the foot, quiet, left-aligned,
@@ -728,7 +802,11 @@ export default function EventDetailScreen() {
       <ConfirmSheet
         visible={confirm?.kind === 'cancel'}
         title="Cancel this occasion?"
-        body="Everyone on the list will see it as canceled."
+        // Correction 26 — the host's confirmation carries the same facts as
+        // the attendee's notice, plus the one-way door. It does not promise
+        // anyone is notified, does not promise anything about crowns, and does
+        // not expose who had answered.
+        body={HOST_CANCELLATION_FACTS.join(' ')}
         keepLabel="Keep it"
         destructiveLabel="Cancel it"
         destructiveBusy={cancel.isPending}

@@ -17,7 +17,7 @@ import {
   isDatedBoard,
   pieceCount,
   plateCountsByBoard,
-  plateMeta,
+  plateMetaLine,
   plateTitle,
   platesOnBoard,
   wearLine,
@@ -32,24 +32,48 @@ const month = (y: number, m: number) =>
 // ---------------------------------------------------------------------------
 
 test('a plate that has not been worn says so in words', () => {
-  assert.equal(wearLine(0), 'never worn');
-  // Not "worn 0×": a zero here is a plan, not a score.
+  // Audit 98: never-worn is WORDS. Not a zero, not a dash, not "worn 0×" —
+  // a zero here is a plan that has not happened, not a score.
+  assert.equal(wearLine(0), 'not worn yet');
   assert.notEqual(wearLine(0), 'worn 0×');
+  assert.ok(!wearLine(0).includes('0'));
+  assert.ok(!wearLine(0).includes('—'));
 });
 
 test('a worn plate prints the count it actually has', () => {
-  assert.equal(wearLine(1), 'worn 1×');
-  assert.equal(wearLine(6), 'worn 6×');
+  assert.equal(wearLine(1), 'worn once');
+  assert.equal(wearLine(2), 'worn twice');
+  assert.equal(wearLine(4), 'worn 4 times');
 });
 
-test('the meta line leads with the board, then the count', () => {
-  assert.equal(plateMeta('Work', 6), 'Work · worn 6×');
-  assert.equal(plateMeta('Weekends', 0), 'Weekends · never worn');
+test('the meta line leads with the saved month, then the wear count', () => {
+  const now = new Date('2026-08-12T09:41:00');
+  assert.equal(
+    plateMetaLine(
+      { savedAt: '2026-06-03T10:00:00Z', wornCount: 2, itemIds: ['a', 'b', 'c'] },
+      now,
+    ),
+    'Saved in June · worn twice',
+  );
 });
 
-test('a plate in All carries the count alone', () => {
-  assert.equal(plateMeta(null, 2), 'worn 2×');
-  assert.equal(plateMeta(null, 0), 'never worn');
+test('a plate of five or more states its total instead of cramming a fifth cell', () => {
+  const now = new Date('2026-08-12T09:41:00');
+  assert.equal(
+    plateMetaLine(
+      { savedAt: '2026-08-01T10:00:00Z', wornCount: 1, itemIds: ['a', 'b', 'c', 'd', 'e'] },
+      now,
+    ),
+    '5 pieces · Saved in August · worn once',
+  );
+  // Four or fewer says nothing: the tile has already shown them all.
+  assert.equal(
+    plateMetaLine(
+      { savedAt: '2026-08-01T10:00:00Z', wornCount: 0, itemIds: ['a', 'b', 'c', 'd'] },
+      now,
+    ),
+    'Saved in August · not worn yet',
+  );
 });
 
 // ---------------------------------------------------------------------------

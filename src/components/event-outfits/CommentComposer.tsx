@@ -1,4 +1,3 @@
-import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
@@ -44,15 +43,19 @@ export function CommentComposer({
   return (
     <View>
       {replyToName ? (
+        // Audit 94 — reply context ABOVE the field with a real cancel, both at
+        // 44 pt. It is the one piece of state on this control whose being
+        // wrong cannot be taken back gracefully.
         <View className="flex-row items-center justify-between px-gutter pb-1.5">
-          <Text variant="caption">{`Replying to ${replyToName}…`}</Text>
+          <Text variant="note">{`Replying to ${replyToName}`}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Cancel reply"
             onPress={onCancelReply}
-            hitSlop={8}>
-            <Text variant="caption" className="font-semibold" style={{ color: theme.accent }}>
-              Cancel
+            hitSlop={8}
+            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}>
+            <Text variant="label" className="font-medium" style={{ color: theme.accent }}>
+              Cancel reply
             </Text>
           </Pressable>
         </View>
@@ -74,21 +77,37 @@ export function CommentComposer({
             style={{ color: theme.ink, maxHeight: 96, paddingVertical: 10 }}
           />
         </View>
-        {canSend ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Send"
-            onPress={submit}
-            style={{
-              minHeight: MIN_TAP_TARGET,
-              minWidth: MIN_TAP_TARGET,
-              borderRadius: MIN_TAP_TARGET / 2,
-              backgroundColor: theme.ink,
-            }}
-            className="items-center justify-center active:opacity-70">
-            <SymbolView name="arrow.up" size={16} tintColor={theme.canvas} resizeMode="scaleAspectFit" />
-          </Pressable>
-        ) : null}
+        {/*
+          Audit 94: "Send is a filled 64 pt action that is PRESENT BEFORE IT IS
+          NEEDED rather than appearing on first keystroke."
+
+          It used to be `canSend ? <Pressable/> : null`, which meant the field
+          and the whole row resized on the first character typed and on the
+          last one deleted — and, worse, that a user looking at an empty
+          composer had no way to know a send existed. Present and inert is the
+          honest shape: `accessibilityState.disabled` says so to VoiceOver, and
+          the constitution's "never a dead control" is about actions that
+          CANNOT complete, not about one waiting for its input.
+
+          64 pt wide, filled ink, r12 — a labelled control, never a capsule.
+        */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Send"
+          accessibilityState={{ disabled: !canSend }}
+          disabled={!canSend}
+          onPress={submit}
+          style={{
+            minHeight: MIN_TAP_TARGET,
+            width: 64,
+            backgroundColor: theme.ink,
+            opacity: canSend ? 1 : 0.4,
+          }}
+          className="items-center justify-center rounded-md active:opacity-70">
+          <Text variant="label" className="font-medium" style={{ color: theme.canvas }}>
+            Send
+          </Text>
+        </Pressable>
       </View>
 
       {counter ? (

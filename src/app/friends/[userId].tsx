@@ -890,7 +890,9 @@ function ComposeAsk({
                 value={message}
                 onChangeText={onChangeMessage}
                 placeholder="Add a line if you like — “for Thursday?”"
-                placeholderTextColor={theme.faint}
+                // `muted`, not `faint`. A placeholder is the ONLY text in an
+                // empty field, so it is text, and #8A8578 is 3.5:1 on canvas.
+                placeholderTextColor={theme.muted}
                 maxLength={500}
                 multiline
                 accessibilityLabel="Message with your request"

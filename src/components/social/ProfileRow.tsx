@@ -41,8 +41,13 @@ export function ProfileRow({ profile, subtitle, onPress, trailing, showsChevron 
         <Text variant="body" numberOfLines={1}>
           {name}
         </Text>
+        {/* 13pt REGULAR secondary, not `caption`'s Medium and not `faint`.
+            #8A8578 is 3.5:1 on canvas — an AA failure — and this line carries
+            a handle or a state, which is content. `note` is the secondary
+            voice: same quiet, one step darker, and regular so the name above
+            stays the row's only Medium string (audit 89). */}
         {subtitle ? (
-          <Text variant="caption" numberOfLines={1} className="mt-0.5 text-faint">
+          <Text variant="note" numberOfLines={1} className="mt-0.5">
             {subtitle}
           </Text>
         ) : null}

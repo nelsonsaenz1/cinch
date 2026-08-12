@@ -90,17 +90,13 @@ const FAINT_AS_TEXT = [
 ];
 
 const FAINT_TEXT_DEBT = [
-  // Group 5 and beyond — out of P1 scope entirely.
+  // Group 5 and beyond. The four gap-feed entries, `ProfileRow` and
+  // `friends/[userId]` came off this list when Group 5 rebuilt those surfaces;
+  // what is left here is what Group 5 did not own.
   'src/app/(tabs)/explore.tsx',
-  'src/app/gap-feed/[kind].tsx',
   'src/components/events/EventCard.tsx',
-  'src/components/gap-feed/gap-card.tsx',
-  'src/components/gap-feed/shop-row.tsx',
-  'src/components/gap-feed/shop-sheet.tsx',
-  'src/components/social/ProfileRow.tsx',
   'src/features/explore/new-addition-row.tsx',
   // Placeholders — see the note on `placeholderTextColor` above the scanner.
-  'src/app/friends/[userId].tsx',
   'src/app/item/[id].tsx',
   'src/components/event-outfits/PostComposer.tsx',
   'src/components/events/occasion-field.tsx',
@@ -111,9 +107,7 @@ const FAINT_TEXT_DEBT = [
   'src/features/profile/edit-profile-sheet.tsx',
   'src/features/profile/handle-field.tsx',
   // `__DEV__` fixture routes — never shipped, fixed opportunistically.
-  'src/app/dev-gap-feed.tsx',
   'src/app/dev-plan.tsx',
-  'src/app/dev-screens.tsx',
   'src/app/dev-wall.tsx',
 ];
 

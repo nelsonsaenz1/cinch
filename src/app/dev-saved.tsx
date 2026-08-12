@@ -79,10 +79,24 @@ function septemberRange() {
   return { startsOn: `${year}-09-14`, endsOn: `${year}-09-19` };
 }
 
-const LISBON: Board = { id: 'lisbon', name: 'Lisbon', ...septemberRange() };
-const WORK: Board = { id: 'work', name: 'Work', startsOn: null, endsOn: null };
-const WEEKENDS: Board = { id: 'weekends', name: 'Weekends', startsOn: null, endsOn: null };
-const EVENING: Board = { id: 'evening', name: 'Evening', startsOn: null, endsOn: null };
+const MARCH = '2026-03-04T10:00:00Z';
+
+const LISBON: Board = { id: 'lisbon', name: 'Lisbon', ...septemberRange(), createdAt: MARCH };
+const WORK: Board = { id: 'work', name: 'Work', startsOn: null, endsOn: null, createdAt: MARCH };
+const WEEKENDS: Board = {
+  id: 'weekends',
+  name: 'Weekends',
+  startsOn: null,
+  endsOn: null,
+  createdAt: MARCH,
+};
+const EVENING: Board = {
+  id: 'evening',
+  name: 'Evening',
+  startsOn: null,
+  endsOn: null,
+  createdAt: MARCH,
+};
 
 const SAVED_SET: KeptPlate[] = [
   plate('p-monday', 'Monday standard', 'work', 6, [TROUSERS, BLOUSE, LOAFERS, TOTE]),
@@ -132,8 +146,6 @@ export default function DevSavedScreen() {
 
   const selected = STATES.find((s) => s.id === state)!;
   const imageUrisFor = (p: KeptPlate) => p.imagePaths.map((path) => path ?? undefined);
-  const boardNameFor = (boardId: string | null) =>
-    boardId ? (boards.find((b) => b.id === boardId)?.name ?? null) : null;
 
   const sheetBoards = boards.map((board) => ({
     id: board.id,
@@ -143,7 +155,7 @@ export default function DevSavedScreen() {
 
   const createFixtureBoard = (name: string) => {
     const id = `fx-${name.toLowerCase().replace(/\s+/g, '-')}-${boards.length}`;
-    setBoards((prev) => [...prev, { id, name, startsOn: null, endsOn: null }]);
+    setBoards((prev) => [...prev, { id, name, startsOn: null, endsOn: null, createdAt: MARCH }]);
     setSelectedBoardId(id);
   };
 
@@ -182,7 +194,6 @@ export default function DevSavedScreen() {
           error={false}
           plates={state === 'KP-02' ? [] : plates}
           boards={state === 'KP-02' ? [] : boards}
-          boardNameFor={boardNameFor}
           imageUrisFor={imageUrisFor}
           onOpenBoard={() => setState('KP-03')}
           onOpenPlate={() => setState('KP-04b')}

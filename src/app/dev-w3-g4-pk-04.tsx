@@ -1,7 +1,7 @@
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { NoticeBand } from '@/components/plan/notice-band';
+import { NoticeBand } from '@/components/ui/notice-band';
 import { Text } from '@/components/ui/text';
 
 /**

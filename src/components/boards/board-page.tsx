@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PlateCard, PlateCardSkeleton } from '@/components/boards/plate-card';
 import { Button, ErrorState, ScreenHeader, Text } from '@/components/ui';
-import { boardSummary, pieceCount } from '@/features/boards/board-lines';
+import { boardDetailLine } from '@/features/boards/board-lines';
 import type { Board, KeptPlate } from '@/features/boards/types';
 import { GUTTER, MIN_TAP_TARGET } from '@/theme/tokens';
 
@@ -42,6 +42,13 @@ export type BoardPageProps = {
    */
   onSendToPacking: (() => void) | null;
   onAddPlate: () => void;
+  /** Raises SV-02's confirmation. Absent while the board itself is unread. */
+  onDelete?: () => void;
+  /**
+   * Injectable clock, for the fixture routes only. A saved month read from the
+   * system clock would make a captured frame stop matching itself in September.
+   */
+  now?: Date;
 };
 
 export function BoardPage({
@@ -57,15 +64,22 @@ export function BoardPage({
   onOpenPlate,
   onSendToPacking,
   onAddPlate,
+  onDelete,
+  now,
 }: BoardPageProps) {
   const { width } = useWindowDimensions();
   const column = Math.floor((width - GUTTER * 2 - COLUMN_GAP) / 2);
 
-  const summary = boardSummary({
+  // SV-02's line: `5 plates · started in March`, or the trip's dates when the
+  // board has them. The distinct-piece total moved off this line — it is a
+  // packing fact, and it now travels with `Send to Packing` rather than sitting
+  // in a masthead where it read as a third count nobody asked for.
+  const summary = boardDetailLine({
     plateCount: plates.length,
-    pieceCount: pieceCount(plates),
     startsOn: board.startsOn,
     endsOn: board.endsOn,
+    createdAt: board.createdAt,
+    now,
   });
 
   return (
@@ -134,11 +148,9 @@ export function BoardPage({
               <PlateCard
                 key={plate.id}
                 plate={plate}
-                // The board is the page. Repeating its name under every tile
-                // would be the one fact the reader already has, forty times.
-                boardName={null}
                 size={column}
                 imageUris={imageUrisFor(plate)}
+                now={now}
                 onPress={() => onOpenPlate(plate)}
               />
             ))}
@@ -163,6 +175,21 @@ export function BoardPage({
               haptic
               className="px-4"
             />
+            {/* SV-02. Quiet ink text, not an oxblood button: the accent is
+                spent on the confirmation's own Delete, once, after the sentence
+                that says what is kept. A destructive control that is loud
+                BEFORE its consequence has been read is a trap. */}
+            {onDelete ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Delete ${board.name}`}
+                onPress={onDelete}
+                hitSlop={8}
+                style={{ minHeight: MIN_TAP_TARGET }}
+                className="justify-center px-2 active:opacity-60">
+                <Text variant="note">Delete this board</Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
       </ScrollView>

@@ -2,7 +2,7 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DayRow, DayRowBuilding, DayRowUnplanned } from '@/components/plan/day-row';
-import { NoticeBand } from '@/components/plan/notice-band';
+import { NoticeBand } from '@/components/ui/notice-band';
 import { Text } from '@/components/ui/text';
 import { PL_PARTIAL_WEEK, PL_TODAY } from '@/features/plan/w3-g4-fixtures';
 import { weekProgressLine } from '@/features/plan/week-lines';

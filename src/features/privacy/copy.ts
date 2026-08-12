@@ -260,7 +260,16 @@ export const PRIVACY_TOPICS: readonly PrivacyTopic[] = [
         // (`features/commerce/use-shop-match.ts`), and both labels live in
         // `features/commerce/copy.ts`. Written here in the same words the Gap
         // Feed and the help articles use.
-        body: 'Some merchants have a paid arrangement with Cinch. A row for one of those reads “Paid link” and may earn Cinch a commission if you buy; every other row reads “Open at merchant” and simply opens it. Which rows you are shown, and the order they are in, are worked out from your closet before any shop is consulted.',
+        //
+        // Group 5 stopped this sentence quoting the unpaid label verbatim. It
+        // used to say every other row reads “Open at merchant”, which is still
+        // exactly what a friend's-piece sheet prints (`linkDisclosure`) but no
+        // longer what a Gap Feed row prints — GF-02 names the shop instead,
+        // “Open at Uniqlo”, so a reader looking for the quoted words would not
+        // find them. The fact being disclosed did not change; only one of the
+        // two surfaces' wording did, so this describes the marker rather than
+        // transcribing a string that now varies.
+        body: 'Some merchants have a paid arrangement with Cinch. A row for one of those is marked “Paid link” and may earn Cinch a commission if you buy; every other row just says it opens the shop, and does nothing else. Which rows you are shown, and the order they are in, are worked out from your closet before any shop is consulted.',
       },
     ],
   },
