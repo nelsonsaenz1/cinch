@@ -246,14 +246,14 @@ test('M-07 — every figure comes from the free tier, not from a sentence', () =
   const heard = 23;
   const copy = ceilingCopy(heard, PLANS.free.items, PLANS.free.storedItems);
   assert.equal(copy.eyebrow, 'Twenty-three heard');
-  assert.equal(copy.headline, 'Your closet holds ten awake at a time.');
+  assert.equal(copy.headline, 'Your closet holds ten active at a time.');
   assert.match(copy.body, /All twenty-three are saved\./);
   assert.match(copy.body, /the other thirteen wait in storage/);
-  assert.equal(copy.primary, 'Choose which ten stay awake');
+  assert.equal(copy.primary, 'Choose which ten stay active');
 
   const rows = ceilingRows(heard, PLANS.free.items, PLANS.free.storedItems);
   assert.deepEqual(rows, [
-    { label: 'Awake now', value: String(PLANS.free.items), quiet: false },
+    { label: 'Active now', value: String(PLANS.free.items), quiet: false },
     { label: 'In storage', value: String(heard - PLANS.free.items), quiet: false },
     { label: 'Storage holds', value: String(PLANS.free.storedItems), quiet: true },
   ]);

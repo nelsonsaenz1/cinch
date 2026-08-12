@@ -69,12 +69,27 @@ test('the nine constitution colours are exactly these hexes', () => {
  *
  * The test's job meanwhile is to stop the bleeding: anything NOT on this list
  * fails. Delete entries as lanes burn them down; never add one.
+ *
+ * `placeholderTextColor` was added to the scan after Lane G3 pointed out that
+ * the first version of this census missed it entirely — it reported clean on a
+ * case it never looked at, which is the most expensive kind of green. A
+ * placeholder is the ONLY text in an empty field, so it is text, and faint
+ * fails AA there exactly as it does anywhere else. Adding the pattern grew the
+ * census from 20 files to 26; the new entries are pre-existing debt, not
+ * regressions, and they are listed separately so the reason stays legible.
  */
+/**
+ * The three ways this codebase can set #8A8578 as type: the utility class, the
+ * inline escape hatch a class-precedence bug would otherwise hide, and the
+ * placeholder — which is text even though it does not look like a `<Text>`.
+ */
+const FAINT_AS_TEXT = [
+  /text-faint\b/,
+  /color:\s*theme\.faint\b/,
+  /placeholderTextColor=\{theme\.faint\}/,
+];
+
 const FAINT_TEXT_DEBT = [
-  // Group 3 — decided by the atlas frame that draws each one.
-  'src/components/review/review-card.tsx',
-  'src/components/ingest/garment-search-sheet.tsx',
-  'src/components/item/item-edit-sheet.tsx',
   // Group 5 and beyond — out of P1 scope entirely.
   'src/app/(tabs)/explore.tsx',
   'src/app/gap-feed/[kind].tsx',
@@ -85,11 +100,21 @@ const FAINT_TEXT_DEBT = [
   'src/components/plan/example-ghosts.tsx',
   'src/components/social/ProfileRow.tsx',
   'src/features/explore/new-addition-row.tsx',
+  // Placeholders — see the note on `placeholderTextColor` above the scanner.
+  'src/app/(tabs)/index.tsx',
+  'src/app/friends/[userId].tsx',
+  'src/app/item/[id].tsx',
+  'src/components/event-outfits/PostComposer.tsx',
+  'src/components/events/occasion-field.tsx',
+  'src/components/events/place-field.tsx',
+  'src/components/intake/CorrectionSheet.tsx',
+  'src/components/report/ReportFlowSheets.tsx',
+  'src/components/stylist/sheet-parts.tsx',
+  'src/components/ui/search-field.tsx',
+  'src/features/diary/note-sheet.tsx',
+  'src/features/profile/edit-profile-sheet.tsx',
   'src/features/profile/handle-field.tsx',
   // `__DEV__` fixture routes — never shipped, fixed opportunistically.
-  'src/app/dev-capture.tsx',
-  'src/app/dev-closet.tsx',
-  'src/app/dev-describe.tsx',
   'src/app/dev-gap-feed.tsx',
   'src/app/dev-plan.tsx',
   'src/app/dev-screens.tsx',
@@ -108,16 +133,20 @@ test('no NEW surface sets #8A8578 as text', () => {
         continue;
       }
       if (!/\.(ts|tsx)$/.test(entry)) continue;
-      // Comments are stripped first. Three files explain IN PROSE why they
-      // avoid this exact class, and a rule that punishes its own documentation
-      // teaches people to stop writing it down.
+      // Block comments and WHOLE-LINE `//` comments are stripped first: three
+      // files explain in prose why they avoid this exact class, and a rule
+      // that punishes its own documentation teaches people to stop writing it
+      // down. A TRAILING `// …` comment is not stripped, so writing one of
+      // these patterns after code on the same line still trips this. That is
+      // deliberate — stripping trailing comments means finding `//` in a
+      // string, and every URL in the codebase contains one. It fails closed.
       const src = readFileSync(path, 'utf8')
         .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/^\s*\/\/.*$/gm, '');
       // `text-faint` is the utility; `color: theme.faint` is the inline escape
       // hatch a class-precedence bug would otherwise hide.
-      if (/text-faint\b/.test(src) || /color:\s*theme\.faint\b/.test(src)) offenders.push(path);
+      if (FAINT_AS_TEXT.some((re) => re.test(src))) offenders.push(path);
     }
   };
   walk('src');
@@ -134,7 +163,7 @@ test('the faint-text debt list has no stale entries', () => {
       .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '');
-    return !/text-faint\b/.test(src) && !/color:\s*theme\.faint\b/.test(src);
+    return !FAINT_AS_TEXT.some((re) => re.test(src));
   });
   assert.deepEqual(stale, [], `fixed — delete from FAINT_TEXT_DEBT:\n${stale.join('\n')}`);
 });

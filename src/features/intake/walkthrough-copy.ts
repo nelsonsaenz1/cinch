@@ -268,16 +268,16 @@ export type CeilingCopy = {
  * `PLANS.free.items` and `PLANS.free.storedItems`, so if the tier moves the
  * sentence moves with it.
  */
-export function ceilingCopy(heard: number, awake: number, stored: number): CeilingCopy {
-  const held = Math.max(heard - awake, 0);
+export function ceilingCopy(heard: number, active: number, stored: number): CeilingCopy {
+  const held = Math.max(heard - active, 0);
   return {
     eyebrow: `${cap(numberWord(heard))} heard`,
-    headline: `Your closet holds ${numberWord(awake)} awake at a time.`,
+    headline: `Your closet holds ${numberWord(active)} active at a time.`,
     body:
-      `All ${numberWord(heard)} are saved. ${cap(numberWord(awake))} stay awake for Cinch to ` +
+      `All ${numberWord(heard)} are saved. ${cap(numberWord(active))} stay active for Cinch to ` +
       `style from; the other ${numberWord(held)} wait in storage and you can swap any of them ` +
       'in whenever you like.',
-    primary: `Choose which ${numberWord(awake)} stay awake`,
+    primary: `Choose which ${numberWord(active)} stay active`,
     secondary: 'Let Cinch choose for now',
     footer: 'Either way, nothing you said is deleted.',
   };
@@ -286,12 +286,12 @@ export function ceilingCopy(heard: number, awake: number, stored: number): Ceili
 /** The ruled band's three rows, values right-aligned. */
 export function ceilingRows(
   heard: number,
-  awake: number,
+  active: number,
   storageCapacity: number,
 ): { label: string; value: string; quiet: boolean }[] {
   return [
-    { label: 'Awake now', value: String(awake), quiet: false },
-    { label: 'In storage', value: String(Math.max(heard - awake, 0)), quiet: false },
+    { label: 'Active now', value: String(active), quiet: false },
+    { label: 'In storage', value: String(Math.max(heard - active, 0)), quiet: false },
     // The capacity itself is context rather than a figure about this closet,
     // so it is the quiet row.
     { label: 'Storage holds', value: String(storageCapacity), quiet: true },

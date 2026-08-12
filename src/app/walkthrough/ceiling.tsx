@@ -191,7 +191,7 @@ export default function CeilingScreen() {
                 selected={selection.has(draft.id)}
                 onPress={() => toggle(draft.id, Math.max(draft.quantity, 1))}
                 accessibilityHint={
-                  selection.has(draft.id) ? 'Move to Storage' : 'Keep this one awake'
+                  selection.has(draft.id) ? 'Move to Storage' : 'Keep this one active'
                 }
               />
             ))}
