@@ -112,9 +112,10 @@ export default function DevItem() {
 
       <ItemEditSheet
         visible={frame === 'Edit'}
-        initial={{ name: 'Cognac shearling coat', price: '346' }}
+        initial={{ name: 'Cognac shearling coat', price: '346', category: 'outerwear' }}
         onSave={() => setFrame('I-01 full')}
         onCancel={() => setFrame('I-01 full')}
+        onStore={() => setFrame('I-01 full')}
       />
 
       <AddTagSheet

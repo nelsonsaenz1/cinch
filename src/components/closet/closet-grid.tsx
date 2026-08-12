@@ -2,6 +2,7 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useWindowDimensions, View } from 'react-native';
 
 import { ItemCard } from '@/components/closet/item-card';
+import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
 import type { Item } from '@/schemas/item';
 import { GUTTER } from '@/theme/tokens';
 
@@ -28,6 +29,17 @@ export type ClosetGridProps = {
   refreshControl?: React.ReactElement<import('react-native').RefreshControlProps>;
   /** The underlying FlashList, for callers that need to scroll it ("See all"). */
   listRef?: React.Ref<FlashListRef<Item>>;
+  /**
+   * C-07 — every card in this grid is a stored piece: the well dims to 72% and
+   * loses its contact shadow. A property of the GRID rather than of each row,
+   * because storage is a place and every piece in it is in that place.
+   */
+  stored?: boolean;
+  /**
+   * The metadata sentence, when the calling state has a different one to tell
+   * than wear-and-cost-per-wear. C-07 passes `storedMetaLine`.
+   */
+  metaFor?: (item: Item) => string;
 };
 
 /**
@@ -38,12 +50,11 @@ export type ClosetGridProps = {
  * the leading edge, name and metadata stacked beside it." Height is allowed;
  * nothing is capped, abbreviated or ellipsised to make two columns fit.
  *
- * 1.5 rather than the `MAX_TEXT_SCALE` ceiling of 1.8, because the frame's
- * argument bites well before the top of the range: at 1.5 a 168pt-wide tile can
- * no longer hold "Worn 31 times · $3.19 a wear" without the metadata
- * ellipsising, which is the exact failure the stress frame exists to prevent.
+ * The threshold itself is shared with IT-01 / AX and RV-01 / AX rather than
+ * chosen here — see `features/closet/dynamic-type.ts` for why all three stress
+ * frames have to arrive at the same moment.
  */
-const AX_COLUMN_BREAK = 1.5;
+const AX_COLUMN_BREAK = AX_STACK_SCALE;
 
 /**
  * FlashList v2 — note there are no size-estimate props any more. v2 is a
@@ -61,6 +72,8 @@ export function ClosetGrid({
   ListFooterComponent,
   refreshControl,
   listRef,
+  stored = false,
+  metaFor,
 }: ClosetGridProps) {
   // Read from the system, never guessed: `fontScale` is the user's Dynamic Type
   // setting, and it re-renders on change like any other window dimension.
@@ -88,6 +101,8 @@ export function ClosetGrid({
           selecting={selectedIds !== null}
           selected={selectedIds?.has(item.id) ?? false}
           stacked={stacked}
+          stored={stored}
+          metaLine={metaFor?.(item)}
           imageUri={resolveImage?.(item.listingPath, item.thumbPath, item.cutoutPath)}
         />
       )}

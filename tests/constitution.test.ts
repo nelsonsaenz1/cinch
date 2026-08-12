@@ -101,7 +101,6 @@ const FAINT_TEXT_DEBT = [
   'src/components/social/ProfileRow.tsx',
   'src/features/explore/new-addition-row.tsx',
   // Placeholders — see the note on `placeholderTextColor` above the scanner.
-  'src/app/(tabs)/index.tsx',
   'src/app/friends/[userId].tsx',
   'src/app/item/[id].tsx',
   'src/components/event-outfits/PostComposer.tsx',
@@ -110,7 +109,6 @@ const FAINT_TEXT_DEBT = [
   'src/components/intake/CorrectionSheet.tsx',
   'src/components/report/ReportFlowSheets.tsx',
   'src/components/stylist/sheet-parts.tsx',
-  'src/components/ui/search-field.tsx',
   'src/features/diary/note-sheet.tsx',
   'src/features/profile/edit-profile-sheet.tsx',
   'src/features/profile/handle-field.tsx',

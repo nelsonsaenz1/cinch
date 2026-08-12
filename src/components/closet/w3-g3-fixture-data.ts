@@ -42,6 +42,7 @@ export const PHOTO = {
   skirt: Asset.fromModule(require('@/assets/garments/beige-corduroy-skirt.jpg')).uri,
   tote: Asset.fromModule(require('@/assets/garments/cognac-leather-tote.jpg')).uri,
   poncho: Asset.fromModule(require('@/assets/garments/cream-crochet-poncho.jpg')).uri,
+  crossbody: Asset.fromModule(require('@/assets/garments/brown-leather-crossbody-bag.jpg')).uri,
 } as const;
 
 /** A fixed instant, so no fixture ever reads the system clock. */
@@ -142,6 +143,83 @@ export const C01_PIECES: Item[] = [
     wearCount: 22,
     purchasePrice: 265.1,
     lastWornAt: FROZEN_NOW,
+  }),
+];
+
+/**
+ * C-02's matched set — the two pieces the frame draws under "wool".
+ *
+ * The figures are the frame's: the mohair sweater's line is the same one C-01
+ * prints for it, and the poncho's `$29.66 a wear` is 88.98 over three wears.
+ */
+export const C02_MATCHES: Item[] = [
+  piece({
+    category: 'top',
+    subcategory: 'Mohair sweater',
+    thumbPath: PHOTO.mohair,
+    colors: [{ name: 'Cream', hex: '#E8E0D2' }],
+    wearCount: 14,
+    purchasePrice: 90.02,
+    lastWornAt: FROZEN_NOW,
+  }),
+  piece({
+    category: 'top',
+    subcategory: 'Crochet poncho',
+    thumbPath: PHOTO.poncho,
+    colors: [{ name: 'Cream', hex: '#E9E1D1' }],
+    wearCount: 3,
+    purchasePrice: 88.98,
+    lastWornAt: FROZEN_NOW,
+  }),
+];
+
+/** C-03's grid — the rail scrolled to its end, Accessories held. */
+export const C03_ACCESSORIES: Item[] = [
+  piece({
+    category: 'bag',
+    subcategory: 'Leather tote',
+    thumbPath: PHOTO.tote,
+    colors: [{ name: 'Cognac', hex: '#A9683A' }],
+    wearCount: 58,
+    purchasePrice: 240.12,
+    lastWornAt: FROZEN_NOW,
+  }),
+  piece({
+    category: 'bag',
+    subcategory: 'Crossbody bag',
+    thumbPath: PHOTO.crossbody,
+    colors: [{ name: 'Brown', hex: '#6B4A32' }],
+    wearCount: 9,
+    purchasePrice: 119.97,
+    lastWornAt: FROZEN_NOW,
+  }),
+];
+
+/**
+ * C-07's two stored pieces.
+ *
+ * `isArchived` is true because that is what stored MEANS in this database, and
+ * a fixture whose rows contradict the query that produces them is a fixture of
+ * a state the app cannot reach. The storing DATE the frame prints is absent
+ * from every row here for the same reason it is absent from the screen: no
+ * column records it (see `storedMetaLine`).
+ */
+export const C07_STORED: Item[] = [
+  piece({
+    category: 'bottom',
+    subcategory: 'Corduroy skirt',
+    thumbPath: PHOTO.skirt,
+    colors: [{ name: 'Beige', hex: '#C9B394' }],
+    wearCount: 7,
+    isArchived: true,
+  }),
+  piece({
+    category: 'top',
+    subcategory: 'Crochet poncho',
+    thumbPath: PHOTO.poncho,
+    colors: [{ name: 'Cream', hex: '#E9E1D1' }],
+    wearCount: 3,
+    isArchived: true,
   }),
 ];
 

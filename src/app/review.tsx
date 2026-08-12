@@ -25,13 +25,6 @@ import {
 import type { Item, ItemCategory } from '@/schemas/item';
 
 /**
- * The most pips the progress bar will ever draw. Twelve 16pt marks plus their
- * gaps is about half a phone's width — the point past which another pip stops
- * adding information and starts subtracting legibility from the ones beside it.
- */
-const PIP_LIMIT = 12;
-
-/**
  * How long the undo line stays up after a confirm.
  *
  * Long enough to notice a mis-swipe and reach for it, short enough that it has
@@ -128,7 +121,7 @@ export default function ReviewScreen() {
    * when this is set, so the failure costs the user a retry and never a
    * silently-dropped garment.
    */
-  const [failure, setFailure] = useState<{ item: Item; message: string } | null>(null);
+  const [failure, setFailure] = useState<Item | null>(null);
 
   // Guards a double-fire on one card (a fast swipe can resolve the gesture
   // twice before React has re-rendered the deck). Per-id rather than a global
@@ -257,11 +250,14 @@ export default function ReviewScreen() {
         // back in the deck and say so, because the alternative is an item that
         // vanishes from the queue while still unverified in the database.
         unresolve(item.id);
-        // The atlas fixes this line's copy — "Couldn't save shearling coat.
-        // Check your connection." — so the banner names the garment and keeps
-        // one calm sentence, rather than relaying whatever a fetch layer put
-        // in `err.message`.
-        setFailure({ item, message: 'Check your connection.' });
+        // The ITEM alone. RV-03 fixes the wording on the card and it names no
+        // garment and no error string — "Cinch could not reach your closet a
+        // moment ago" — so there is nothing here for a message field to carry,
+        // and a state that stored one nobody rendered would be the next thing
+        // to drift out of step with the frame. `err.message` stays unrendered
+        // for the same reason it always did: a fetch layer's string is not a
+        // sentence anybody wrote.
+        setFailure(item);
       } finally {
         inFlightRef.current.delete(item.id);
       }
@@ -347,7 +343,7 @@ export default function ReviewScreen() {
             track('garment_reviewed', { corrected: false });
           } catch {
             unresolve(it.id);
-            setFailure({ item: it, message: 'Check your connection.' });
+            setFailure(it);
             return;
           }
         }
@@ -434,15 +430,6 @@ export default function ReviewScreen() {
   // of it have already been confirmed or skipped this sitting.
   const current = total - deck.length;
 
-  // The pip bar, at whatever length it can actually be read at. Above the cap
-  // the marker travels the bar in proportion rather than parking at the far
-  // end, so a sixty-piece queue still shows movement as the deck is worked.
-  const pipCount = Math.min(total, PIP_LIMIT);
-  const activePip =
-    total <= PIP_LIMIT
-      ? current
-      : Math.min(Math.floor((current / total) * pipCount), pipCount - 1);
-
   // What the tagger left unanswered on the card the user is looking at. Named
   // above the deck rather than inside the card so the invitation to correct
   // arrives BEFORE the eye reaches the spec rows, and so the card itself keeps
@@ -493,46 +480,29 @@ export default function ReviewScreen() {
         <Button title={done ? 'Done' : 'Close'} variant="ghost" onPress={() => router.back()} />
       </View>
 
-      {!done ? (
-        <View className="flex-row items-center justify-between px-gutter pb-1 pt-1">
-          <Text variant="colophon">
-            Review · {Math.min(current + 1, total)} of {total}
-          </Text>
-          {/*
-            Segmented progress — one pill per item, the current step in INK,
-            the rest in sand. `maxWidth` keeps a handful of pills at their full
-            size while letting a long batch compress instead of overflowing.
+      {/*
+        PROGRESS IS A COUNT, NEVER A BAR.
 
-            The current pill used to be oxblood, and that was one accent too
-            many: this screen already spends it on the "Edit" affordances inside
-            the card, which are the only invitation the deck actually makes —
-            the whole reason it exists is to let somebody correct a machine. A
-            position marker is not a call to action, so it takes the ink the
-            rest of the type is set in and the accent stays spent once.
-          */}
-          {/*
-            CAPPED AT TWELVE. `flex: 1` with a 16pt ceiling degrades gracefully
-            for a handful of pieces and catastrophically for sixty: a
-            sixty-photo import drew sixty pips squeezed to sub-pixel slivers
-            with hairline gaps between them, which is a grey smear, not a
-            position. Past the cap the bar carries the shape and the colophon
-            beside it says how many pieces it is compressing — the exact count
-            is already on the ordinal to its left.
-          */}
-          <View className="flex-row items-center gap-1">
-            {Array.from({ length: pipCount }).map((_, i) => (
-              <View
-                key={i}
-                className={`h-1 rounded-full ${i === activePip ? 'bg-ink' : 'bg-sand'}`}
-                style={{ flex: 1, maxWidth: 16 }}
-              />
-            ))}
-            {total > PIP_LIMIT ? (
-              <Text variant="colophon" className="ml-1.5">
-                · {total - PIP_LIMIT} more
-              </Text>
-            ) : null}
-          </View>
+        A segmented pip row used to sit beside this line — one pill per item,
+        the current one in ink. It is the same refusal CP-03's `ProgressTrack`
+        fell to, stated flat in the constitution ("Progress is a count, never a
+        bar or percentage") and repeated in RV-01's own annotation: "Progress
+        reads 2 of 3 to review, a count with its denominator, never a bar."
+
+        Nothing is lost with it: the pips carried NO information the sentence
+        does not — position and denominator are both in the words — and past a
+        cap of twelve they degraded into a grey smear that carried less. The
+        derivations went with the row rather than being kept "just in case",
+        which is how a refused treatment finds its way back onto a screen.
+
+        "to review" is the frame's own tail, and it earns its width: without it
+        the line is an ordinal that could be counting anything.
+      */}
+      {!done ? (
+        <View className="px-gutter pb-1 pt-1">
+          <Text variant="colophon">
+            {`Review · ${Math.min(current + 1, total)} of ${total} to review`}
+          </Text>
         </View>
       ) : null}
 
@@ -602,30 +572,22 @@ export default function ReviewScreen() {
       ) : null}
 
       {/*
-        A failed confirm is the one error on this screen the user can act on, so
-        it gets a persistent banner with a retry rather than a toast that
-        disappears before they have read it. `accessibilityLiveRegion` makes
-        VoiceOver announce it, since the failure happens after the card has
-        already animated away and there is nothing else to notice.
+        RV-03 — A FAILED SAVE IS DRAWN ON THE CARD, NOT OVER IT.
+
+        A warning-washed banner used to sit here, above the deck, with a Retry
+        beside it. The frame moves it: "The save failure is drawn in place on
+        the editor rather than as an alert: it states that the change is held
+        locally, that it will be sent later, and offers an immediate retry — the
+        queue keeps the card, and returning from the editor lands back on the
+        same card in the same position."
+
+        So the notice travels with the piece it is about (`unsaved`, below), and
+        this position is left empty. The behaviour behind it is unchanged and is
+        what makes the frame's words true rather than reassuring: `confirm`
+        already puts the item back in the deck on a failure, and the local
+        `edits` for it are keyed by id and survive, so the correction genuinely
+        is held on this phone.
       */}
-      {failure ? (
-        <View
-          accessibilityLiveRegion="polite"
-          className="mx-gutter mt-3 flex-row items-center justify-between gap-3 rounded-plate bg-warning/15 px-3 py-2">
-          <Text variant="label" className="flex-1">
-            {`Couldn't save ${failure.item.subcategory ?? failure.item.category}. ${failure.message}`}
-          </Text>
-          <Button
-            title="Retry"
-            variant="secondary"
-            onPress={() => {
-              const target = failure.item;
-              setFailure(null);
-              void confirm(target);
-            }}
-          />
-        </View>
-      ) : null}
 
       {done ? (
         <EmptyState
@@ -698,6 +660,20 @@ export default function ReviewScreen() {
                   }
                   onConfirm={() => void confirm(item)}
                   onSkip={() => skip(item)}
+                  // Only ever on the card the write failed for. `confirm`
+                  // unresolves that id, so the piece returns to the position it
+                  // held in the query's own order — which is where it was.
+                  unsaved={
+                    failure?.id === item.id
+                      ? {
+                          busy: verify.isPending,
+                          onRetry: () => {
+                            setFailure(null);
+                            void confirm(item);
+                          },
+                        }
+                      : null
+                  }
                 />
               );
             })

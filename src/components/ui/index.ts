@@ -27,11 +27,21 @@ export { SearchField, type SearchFieldProps } from '@/components/ui/search-field
 export { BackButton, ScreenHeader, type ScreenHeaderProps } from '@/components/ui/screen-header';
 export { SectionHeader, type SectionHeaderProps } from '@/components/ui/section-header';
 export { SettingsRow } from '@/components/ui/settings-row';
-export { ProgressTrack, type ProgressTrackProps } from '@/components/ui/progress-track';
+// `ProgressTrack` was exported here until Wave 3. It is gone, not moved: the
+// constitution's refusal is "Progress is a count, never a bar or percentage",
+// and by the time it was retired every render call site had already been
+// rewritten as a count by the lane that owned it. The comments left behind in
+// `capture.tsx`, `queue-count.ts`, `insight-card.tsx` and `dev-w3-g3-cp-03.tsx`
+// are the record of why, and stay.
+//
+// `PlateSkeleton` left this barrel at the same time. `components/today/
+// plate-skeleton.tsx` is the plate's wait state now, drawn to the current
+// geometry; the one here still reserved the retired 5:4 garment well, so
+// keeping it exported meant a screen could reach for a placeholder that
+// reflows the moment the real plate lands.
 export {
   ClosetGridSkeleton,
   ListSkeleton,
-  PlateSkeleton,
   RowSkeleton,
   Skeleton,
   SkeletonLead,

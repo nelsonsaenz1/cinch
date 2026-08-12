@@ -90,7 +90,7 @@ the list took the suite to 699 pass / 1 fail, and restoring it returned 700/700.
 
 | Finding | Owner | Note |
 | --- | --- | --- |
-| `ProgressTrack` draws a **bar** at `capture.tsx:1025` | Group 3 | The refusal is "Progress is a count, never a bar or percentage." CP-03 draws "Queue is a count" and RV draws "2 of 3". The component is retired from that surface by the lane that owns it. |
+| ~~`ProgressTrack` draws a **bar** at `capture.tsx:1025`~~ DONE | Group 3, then the integrator | The refusal is "Progress is a count, never a bar or percentage." CP-03 draws "Queue is a count" and RV draws "2 of 3". Group 3 removed every call site; the component and its export were then deleted outright. |
 | 30 faint-as-text uses on shipping surfaces | Groups 3, 5+ | See `FAINT_TEXT_DEBT`. |
 | Prose set in `label`/`caption` | each lane | The mechanism already exists — `note`/`noteSmall` are the same sizes in the regular cut. Reclassification is per-screen, so it belongs to the lane that owns the screen, not to a global pass. |
 

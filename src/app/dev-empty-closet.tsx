@@ -1,7 +1,7 @@
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ExampleCloset } from '@/components/closet/example-closet';
+import { EmptyCloset } from '@/components/closet/empty-closet';
 import { Text } from '@/components/ui/text';
 
 /**
@@ -15,8 +15,14 @@ import { Text } from '@/components/ui/text';
  * `style` rendered nothing at all, and typecheck, lint and 230 tests all
  * passed, because none of them run a layout pass.
  *
- * So the state gets a door. The eyebrow above the tile is the real screen's,
- * reproduced here because the component deliberately does not draw its own.
+ * The tile it used to draw was `ExampleCloset`, an illustrated example grid.
+ * C-05 refuses that outright — see the docblock on `EmptyCloset` — so this
+ * route now shows what the frame actually draws. The eyebrow and the count line
+ * above it are the real screen's, reproduced here because the component
+ * deliberately does not draw its own.
+ *
+ * Superseded by `dev-w3-g3-c-05`, which is the canonical capture route; this
+ * one is kept because it is the door the older fixture index already links to.
  */
 export default function DevEmptyClosetScreen() {
   if (!__DEV__) {
@@ -29,14 +35,13 @@ export default function DevEmptyClosetScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <ScrollView contentContainerClassName="pb-10">
-        <View className="px-gutter pt-2">
-          <Text variant="eyebrow">Your closet</Text>
-        </View>
-        <View className="mt-3">
-          <ExampleCloset onAddPieces={() => {}} />
-        </View>
-      </ScrollView>
+      <View className="px-gutter pt-2">
+        <Text variant="eyebrow">Your closet</Text>
+        <Text variant="note" className="mt-1">
+          0 pieces
+        </Text>
+      </View>
+      <EmptyCloset onAddClothes={() => {}} />
     </SafeAreaView>
   );
 }

@@ -65,7 +65,10 @@ export function SearchField({
         onChangeText={onChangeText}
         autoFocus={autoFocus}
         placeholder={placeholder}
-        placeholderTextColor={theme.faint}
+        // A placeholder is the only text in an empty field, so the constitution's
+        // "NEVER #8A8578 as text" governs it. The glyph above stays faint: it
+        // is an icon, and the rule is about type.
+        placeholderTextColor={theme.muted}
         autoCapitalize={autoCapitalize}
         autoCorrect={autoCorrect}
         returnKeyType="search"

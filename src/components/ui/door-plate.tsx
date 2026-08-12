@@ -11,9 +11,17 @@ import { MIN_TAP_TARGET, shadow, useTheme } from '@/theme/tokens';
  * A door — the plate that offers one way into a flow, drawn once.
  *
  * Reference board D of the Refacing. AC-01's four doors (Camera, Photo
- * Library, Describe it, Talk it in) and T-00's two are this component; the
- * board exists so the build reuses one plate rather than two screens agreeing
- * by hand and then drifting.
+ * library, Describe it, Describe by voice) and T-00's two are this component;
+ * the board exists so the build reuses one plate rather than two screens
+ * agreeing by hand and then drifting.
+ *
+ * The fourth door was written here as "Talk it in" long after the screen
+ * stopped calling it that. Wave 3's Closet and Intake atlas closes audit 66 in
+ * one line — "The voice door is Describe by voice; 'Talk it in' appears
+ * nowhere in the group" — and `add-clothes.tsx` already agrees; only this
+ * comment still carried the retired name, which is the worst place for it,
+ * since a comment on the shared primitive is what a new door would be copied
+ * from.
  *
  * WHAT A DOOR IS NOT
  *

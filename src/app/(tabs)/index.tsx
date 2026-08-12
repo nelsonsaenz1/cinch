@@ -14,6 +14,7 @@ import {
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CapacityNote } from '@/components/today/capacity-note';
 import { ClosetFloor } from '@/components/today/closet-floor';
 import { contextLabel, contextLines, feelsClause } from '@/components/today/context-label';
 import { GapCard } from '@/components/today/gap-card';
@@ -35,6 +36,7 @@ import { startTagSweeper } from '@/features/ingest/upload-queue';
 import { Placement } from '@/features/billing/placements';
 import { PLANS } from '@/features/billing/plans';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
+import { usePlan } from '@/features/billing/use-plan';
 import { useUnwearEntry } from '@/features/diary/mutations';
 import { useMyEvents } from '@/features/events/queries';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
@@ -716,6 +718,17 @@ export default function TodayScreen() {
   const react = useReactToOutfit();
   const wear = useWearOutfit();
   const gate = useGate();
+  // TD-00 only. Read here rather than inside `CapacityNote` so the note stays a
+  // pure function of two values a fixture can hand it — a hook in there would
+  // make the state unphotographable without a session. No extra round trip:
+  // `useGate()` above already holds the same query, and react-query dedupes it.
+  //
+  // `null` while the tier is unread or unreadable. `usePlan` answers `free` in
+  // both cases, which is correct for a gate (refuse nothing on an outage) and
+  // wrong for a sentence — a Standard closet of exactly ten would otherwise
+  // flash a claim that is false for it.
+  const planState = usePlan();
+  const knownPlan = planState.loading || planState.unconfirmed ? null : planState.plan;
   const openRepeatUpsell = useCallback(() => void gate.present(Placement.RepeatUpsell), [gate]);
 
   // The pull kicks off three fetches — the re-rank, the closet and the
@@ -1139,7 +1152,7 @@ export default function TodayScreen() {
                   onBlur={() => setCommittedNote(note.trim())}
                   returnKeyType="done"
                   placeholder="What's on today?"
-                  placeholderTextColor={theme.faint}
+                  placeholderTextColor={theme.muted}
                   accessibilityLabel="Describe your plans today"
                   className="flex-1 font-body text-callout text-ink"
                 />
@@ -1310,6 +1323,18 @@ export default function TodayScreen() {
               })
             )}
           </View>
+
+          {/* TD-00 · the free closet, stated whole.
+                 The frame the hallway hands into after MB-07 is closed: the
+                 ten pieces the looks above were built from, and the one thing
+                 that would change — with no price, no tier name and no action,
+                 because "nothing is locked by the dismissal". It renders
+                 nothing at all on any other closet; see `capacityNoteApplies`.
+                 Not drawn over the refusal: a closet that could not be dressed
+                 has a different next action, and T-12 owns it. */}
+          {nothingWorks ? null : (
+            <CapacityNote activePieces={items.length} plan={knownPlan} />
+          )}
 
           {/* Say plainly how much it has actually learned (S-09/S-10). */}
           {shown.length > 0 && profileQuery.data ? (

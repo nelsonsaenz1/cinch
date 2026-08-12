@@ -12,6 +12,7 @@ import {
   ScrollView,
   Switch,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,6 +39,7 @@ import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-v
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Text } from '@/components/ui/text';
 import { useCoWear } from '@/features/closet/co-wear';
+import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
 import { pieceName } from '@/features/closet/item-name';
 import {
   useRemoveItems,
@@ -166,6 +168,14 @@ export default function ItemDetailScreen() {
   const { id, match } = useLocalSearchParams<{ id: string; match?: string }>();
   const router = useRouter();
   const theme = useTheme();
+
+  /**
+   * IT-01 / AX. Read from the system, never guessed: `fontScale` is the user's
+   * Dynamic Type setting and it re-renders on change like any other window
+   * dimension. The threshold is the one all three stress frames share.
+   */
+  const { fontScale } = useWindowDimensions();
+  const axStacked = fontScale >= AX_STACK_SCALE;
 
   // Resolved from the same live query the grid renders, so navigating here is
   // a cache hit, not a second fetch.
@@ -559,6 +569,10 @@ export default function ItemDetailScreen() {
         patch: {
           subcategory: next.name.trim() ? next.name.trim() : null,
           purchasePrice: price,
+          // IT-03's Category chips. The same column the review deck's
+          // correction writes, through the same mutation, so the two editors
+          // cannot disagree about what a shelf change means.
+          category: next.category,
         },
       },
       {
@@ -858,6 +872,9 @@ export default function ItemDetailScreen() {
           label={pieceName(item)}
           onBack={() => router.back()}
           onEdit={() => setEditing(true)}
+          // IT-01 / AX: "Hero yields 142 pt" — the block gives up the space so
+          // the band below can become ruled rows without the type shrinking.
+          stacked={axStacked}
           // `imageUri` prefers the listing path, so this is the same condition
           // that chose the picture — not a second guess at what is on screen.
           listing={item.listingPath !== null}
@@ -924,6 +941,9 @@ export default function ItemDetailScreen() {
             }
             sinceLast={sinceLastWorn(item)}
             neverWorn={neverWorn}
+            // IT-01 / AX: "Band becomes ruled rows". Read off the system's own
+            // `fontScale` at the one threshold all three stress frames share.
+            stacked={axStacked}
           />
         </View>
 
@@ -1035,11 +1055,23 @@ export default function ItemDetailScreen() {
         initial={{
           name: item.subcategory ?? '',
           price: item.purchasePrice !== null ? String(item.purchasePrice) : '',
+          category: item.category,
         }}
+        // "the source photograph stays on screen so the correction is made
+        // against the thing being corrected" — already signed above, so this
+        // costs no second request.
+        imageUri={imageUri}
         onSave={commitEdit}
         onCancel={() => {
           setSaveFailed(false);
           setEditing(false);
+        }}
+        // IT-03's foot action, wired to the real, reversible move. The sheet
+        // closes first so the confirmation lands on the page, not behind a
+        // document that is on its way out.
+        onStore={() => {
+          setEditing(false);
+          moveToStorage();
         }}
         busy={save.isPending}
         error={saveFailed ? 'That didn’t save. Check your connection and try again.' : null}

@@ -12,6 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
+import { CameraAsk } from '@/components/ingest/camera-ask';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { GarmentSearchSheet } from '@/components/ingest/garment-search-sheet';
 import { UploadQueueList } from '@/components/ingest/upload-queue-list';
@@ -23,7 +24,7 @@ import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count'
 import { Placement } from '@/features/billing/placements';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { useGate } from '@/features/billing/use-gate';
-import { useCameraAccess } from '@/features/ingest/use-camera-access';
+import { useCameraGate } from '@/features/ingest/use-camera-access';
 import {
   DECLINED_KEY,
   EXPLAINER_SEEN_KEY,
@@ -198,39 +199,46 @@ function HeldPhotoStage({
   );
 }
 
-/** One L of the framing guide. Light lines on the dark stage, per the design. */
-function Corner({ canvas, pos }: { canvas: string; pos: 'tl' | 'tr' | 'bl' | 'br' }) {
-  const edges = {
-    tl: { top: 20, left: 20, borderTopWidth: 2, borderLeftWidth: 2, borderTopLeftRadius: 4 },
-    tr: { top: 20, right: 20, borderTopWidth: 2, borderRightWidth: 2, borderTopRightRadius: 4 },
-    bl: {
-      bottom: 20,
-      left: 20,
-      borderBottomWidth: 2,
-      borderLeftWidth: 2,
-      borderBottomLeftRadius: 4,
-    },
-    br: {
-      bottom: 20,
-      right: 20,
-      borderBottomWidth: 2,
-      borderRightWidth: 2,
-      borderBottomRightRadius: 4,
-    },
-  } as const;
+/**
+ * CP-01's framing guide.
+ *
+ * "The preview keeps 20 pt corners and the framing guide 16 pt, which is the
+ * same family as every sheet in the group." Four corner Ls used to stand here;
+ * the frame draws one dashed rectangle inset from the preview, which reads as a
+ * region to fill rather than as four marks to align to.
+ *
+ * `pointerEvents="none"` throughout: a guide that swallowed a tap on the
+ * preview would be chrome pretending to be a control.
+ */
+function FramingGuide({ canvas }: { canvas: string }) {
   return (
     <View
+      pointerEvents="none"
       style={{
         position: 'absolute',
-        width: 22,
-        height: 22,
+        left: 28,
+        right: 28,
+        top: 70,
+        bottom: 70,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderStyle: 'dashed',
         borderColor: canvas,
-        opacity: 0.55,
-        ...edges[pos],
+        opacity: 0.42,
       }}
     />
   );
 }
+
+/**
+ * The 55% ink scrim CP-01 sets every piece of chrome on.
+ *
+ * "Close, Done and Describe are regular weight, paper ink on a 55% scrim rather
+ * than filled buttons, so the live garment is the brightest region of the
+ * frame; the only filled element is the shutter, which is the one thing the
+ * screen is for."
+ */
+const CHROME_SCRIM = 'rgba(28,26,22,0.55)';
 
 /**
  * CP-03's queue, drawn as the atlas draws it: counted rows, never a bar.
@@ -286,11 +294,14 @@ export default function CaptureScreen() {
   const { pickFromLibrary, takePhoto, commit, selectionLimit } = useCapture();
 
   /**
-   * Camera permission is asked for HERE, on the way in — see `useCameraAccess`.
-   * The stage below is a live preview now, so the permission is a precondition
-   * of the screen rather than of the shutter.
+   * Camera permission is asked for HERE, on the way in — but CP-02 puts a
+   * sentence in front of the system alert rather than raising it from an
+   * effect, so `useCameraGate` asks for nothing on mount and hands the request
+   * back as a function. The stage below is a live preview, so the permission is
+   * still a precondition of the screen rather than of the shutter; what changed
+   * is that the user is told what the next prompt is before it appears.
    */
-  const { access, openSettings } = useCameraAccess();
+  const { access, request: askForCamera, openSettings } = useCameraGate();
   const cameraRef = useRef<CameraView>(null);
   // `takePictureAsync` before the session is up returns the last frame on iOS,
   // which for a session that never started is nothing at all.
@@ -830,30 +841,65 @@ export default function CaptureScreen() {
           <StatusBar style="dark" />
           <DeclineExplainer onAddItem={addItemMyself} onTurnOnAi={reopenConsent} />
         </>
+      ) : access === 'unasked' ? (
+        /*
+          CP-02 — the ask, before the system sheet.
+
+          "The ask states what the permission is for, that the following prompt
+          belongs to the system, and where the photograph goes. The second
+          action is a real alternative rather than a decline, so refusing does
+          not end the intake. Nothing is oxblood: this frame asks, it does not
+          sell."
+
+          It replaces the stage rather than floating over it: there is no live
+          preview to float over, and a dark rectangle behind an ask is the black
+          viewfinder this whole surface has been working to remove.
+        */
+        <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-ink">
+          <StatusBar style="light" />
+          <View className="flex-row items-center justify-start px-gutter pt-1">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              onPress={() => router.back()}
+              style={{ minHeight: MIN_TAP_TARGET, backgroundColor: CHROME_SCRIM }}
+              className="items-center justify-center rounded-md px-3 active:opacity-70">
+              <Text variant="body" style={{ fontSize: 16, color: theme.canvas }}>
+                Close
+              </Text>
+            </Pressable>
+          </View>
+
+          <CameraAsk onAsk={askForCamera} onLibrary={() => start('library')} />
+        </SafeAreaView>
       ) : (
         <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-ink">
           {/* The capture stage is the one dark screen in a light-only app; the
           global status bar is dark-on-light, which would vanish here. */}
           <StatusBar style="light" />
-          <View className="flex-row items-center justify-between px-gutter pt-1">
-            {/* `plate`, the serif — every other screen title in the app is set in
-            it, and this one was the lone Helvetica `heading`. The stage is
-            dark, so the colour is canvas; the register is the same as
-            everywhere else. */}
-            <Text variant="plate" style={{ color: theme.canvas }}>
-              Add clothes
-            </Text>
-            {/* "Done", not "Close" — the guide's own word for this control (07a).
-            It is also the truer one: an import keeps running in the queue after
-            this screen goes away, so the tap ends the user's session at the
-            stage rather than closing anything down. */}
+          {/*
+            CP-01's chrome. The serif "Add clothes" title that used to lead this
+            row is gone: the frame draws no title on the stage at all, because
+            "the live garment is the brightest region of the frame" and a 24pt
+            serif in the corner is the second brightest.
+
+            ONE CONTROL, NOT TWO. The frame draws Close on the left and Done on
+            the right. Both of them leave this stage and nothing distinguishes
+            their outcomes — an import keeps running in the queue either way —
+            so shipping both would be one control drawn twice, which is worse
+            than the frame being one pill short. Recorded as a deviation.
+
+            "Regular weight, paper ink on a 55% scrim rather than filled
+            buttons": a pill at r12 and the 44pt floor, never a fill.
+          */}
+          <View className="flex-row items-center justify-end px-gutter pt-1">
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Done adding clothes"
-              hitSlop={12}
               onPress={() => router.back()}
-              className="py-2">
-              <Text variant="body" style={{ color: theme.canvas }}>
+              style={{ minHeight: MIN_TAP_TARGET, backgroundColor: CHROME_SCRIM }}
+              className="items-center justify-center rounded-md px-3 active:opacity-70">
+              <Text variant="body" style={{ fontSize: 16, color: theme.canvas }}>
                 Done
               </Text>
             </Pressable>
@@ -908,146 +954,203 @@ export default function CaptureScreen() {
                   </View>
                 </>
               )}
-              <Corner canvas={theme.canvas} pos="tl" />
-              <Corner canvas={theme.canvas} pos="tr" />
-              <Corner canvas={theme.canvas} pos="bl" />
-              <Corner canvas={theme.canvas} pos="br" />
-              <Text
-                variant="label"
-                className="absolute"
-                style={[
-                  { bottom: 22, color: theme.canvas, opacity: 0.75 },
-                  // Over a live scene the hint has no fixed backdrop to be legible
-                  // against — a white shirt fills the frame and the line vanishes.
-                  // Warm ink at 55%, not pure black: a neutral black shadow reads
-                  // cold against the warm canvas type it sits under, and the
-                  // palette has no true black in it anywhere else. The shadow
-                  // belongs to the live preview alone; on the instructional frame
-                  // there is nothing bright to defend against.
-                  live
-                    ? {
-                        textShadowColor: 'rgba(28,26,22,0.55)',
-                        textShadowOffset: { width: 0, height: 1 },
-                        textShadowRadius: 4,
-                      }
-                    : null,
-                ]}>
-                One garment, plain background
-              </Text>
+              <FramingGuide canvas={theme.canvas} />
+
+              {/*
+                CP-01: "The count of pieces filed in this session sits at the
+                top of the preview as a quiet label, so the progress claim is a
+                count and never a bar."
+
+                A real count, read off the queue's own finished jobs — never a
+                fabricated one — and ZERO IS QUIET: before anything has been
+                filed there is no label at all, because "0 pieces filed just
+                now" is a sentence about nothing.
+              */}
+              {doneCount > 0 ? (
+                <View
+                  className="absolute self-center rounded-md px-3 py-1.5"
+                  style={{ top: 16, backgroundColor: CHROME_SCRIM }}
+                  accessibilityLiveRegion="polite">
+                  <Text variant="note" style={{ fontSize: 13, color: theme.canvas }}>
+                    {`${doneCount} ${doneCount === 1 ? 'piece' : 'pieces'} filed just now`}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           )}
 
-          {/* Library · shutter · describe. The handoff draws "Flip" in the third
-          slot; "Describe" holds it instead, and now that the preview is live
-          that is a choice rather than a limitation. A front camera photograph
-          of a garment held at arm's length is not a garment photograph, so flip
-          would be a control for a shot nobody wants — while describe is the
-          door for the pieces somebody will never get round to photographing at
-          all. */}
-          <View className="flex-row items-center justify-between px-8 py-2">
-            {/* `minWidth`, not `w-16`. A fixed 64pt box sliced "Library" to "Libra"
-            at AX-1 and above — the label is the only thing that says what the
-            control does, so it takes the space it needs and shrinks to fit
-            rather than being clipped by a width that never grew. */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Choose from library"
-              hitSlop={12}
-              onPress={() => start('library')}
-              style={{ minWidth: 64 }}
-              className="py-2">
+          {/*
+            CP-01's INSTRUCTION FOOT — audit 69.
+
+            "the instruction panel is a 132 pt foot holding one sentence and the
+            control row — a 48 pt library thumb, a 72 pt shutter, a 48 pt
+            Describe target — instead of a sheet climbing a third of the way up
+            the preview."
+
+            The sentence used to sit INSIDE the preview, over the live garment,
+            with a text shadow to survive a white shirt behind it. It comes out
+            here, where it has a ground of its own and needs no shadow — and the
+            preview keeps every pixel of itself.
+
+            The sentence is drawn only while nothing is in flight: once the
+            queue has work, CP-03's own copy is on screen below and two
+            instructions at once is one too many.
+          */}
+          <View
+            className="justify-center px-gutter"
+            style={{ minHeight: total === 0 ? 132 : 120 }}>
+            {total === 0 ? (
               <Text
-                variant="label"
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                style={{ color: theme.canvas }}>
-                Library
+                variant="note"
+                className="mb-3.5 text-center"
+                style={{ fontSize: 15, lineHeight: 22, color: theme.canvas, opacity: 0.86 }}>
+                One piece, laid flat or on a hanger. Any wall will do.
               </Text>
-            </Pressable>
+            ) : null}
 
-            {/* Dimmed and inert until the camera is actually GRANTED, rather than
-            live over a plate that has just said it cannot open — the Settings
-            button in the stage is the one way forward from there, and a shutter
-            that fires an alert saying the same thing is a second, worse copy of
-            it.
-
- `!== 'granted'`, not `=== 'blocked'`: `checking` is the state while
-            iOS's own permission alert is on screen, and the shutter was live
-            underneath it. A tap there fell through to the system-camera
-            fallback, which requests the permission AGAIN — a second OS prompt
-            stacked on the first, over a question the user is already being
-            asked. Nothing here should be pressable while the OS owns the
-            screen. */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Take a photo"
-              accessibilityState={{ disabled: access !== 'granted', busy: shooting }}
-              accessibilityHint={
-                access === 'blocked'
-                  ? 'Turn on camera access in Settings to use this'
-                  : access === 'checking'
-                    ? 'Waiting for camera access'
-                    : undefined
-              }
-              disabled={access !== 'granted' || shooting}
-              onPress={() => start('camera')}
-              className="items-center justify-center active:opacity-80"
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                borderWidth: 3,
-                borderColor: theme.canvas,
-                opacity: access !== 'granted' ? 0.35 : 1,
-              }}>
-              <View
+            {/*
+              Library · shutter · describe. The handoff draws "Flip" in the
+              third slot; "Describe" holds it instead, and now that the preview
+              is live that is a choice rather than a limitation. A front camera
+              photograph of a garment held at arm's length is not a garment
+              photograph, so flip would be a control for a shot nobody wants —
+              while describe is the door for the pieces somebody will never get
+              round to photographing at all.
+            */}
+            <View className="flex-row items-center justify-between">
+              {/*
+                THE FRAME DRAWS A PHOTOGRAPH IN THIS 48pt WELL — the user's most
+                recent library picture. Reading that needs the photo library,
+                which is a permission this door explicitly does not ask for
+                ("Photo library opens the system picker and asks for nothing"),
+                and putting any other image in it would be inventing a
+                photograph. So the well is drawn at the frame's geometry with a
+                line mark in it, which is what the rest of the app does for a
+                picture it does not have.
+              */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Choose from library"
+                accessibilityHint={`Opens your photos. Pick up to ${selectionLimit} at a time.`}
+                onPress={() => start('library')}
                 style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 25,
-                  backgroundColor: theme.canvas,
-                  opacity: shooting ? 0.5 : 1,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: `${theme.canvas}4D`,
                 }}
-              />
-            </Pressable>
+                className="items-center justify-center active:opacity-70">
+                <SymbolView
+                  name="photo.on.rectangle"
+                  size={22}
+                  tintColor={theme.canvas}
+                  resizeMode="scaleAspectFit"
+                />
+              </Pressable>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Describe it instead"
-              accessibilityHint="Find a picture of a garment by describing it"
-              hitSlop={12}
-              onPress={() => start('describe')}
-              style={{ minWidth: 64 }}
-              className="items-end py-2">
-              <Text
-                variant="label"
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                style={{ color: theme.canvas }}>
-                Describe
-              </Text>
-            </Pressable>
+              {/* Dimmed and inert until the camera is actually GRANTED, rather
+              than live over a plate that has just said it cannot open — the
+              Settings button in the stage is the one way forward from there,
+              and a shutter that fires an alert saying the same thing is a
+              second, worse copy of it.
+
+              `!== 'granted'`, not `=== 'blocked'`: `checking` is the state
+              while iOS's own permission alert is on screen, and the shutter was
+              live underneath it. A tap there fell through to the system-camera
+              fallback, which requests the permission AGAIN — a second OS prompt
+              stacked on the first, over a question the user is already being
+              asked. Nothing here should be pressable while the OS owns the
+              screen.
+
+              72pt, and the ONLY filled element on the stage: "the shutter,
+              which is the one thing the screen is for." */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Take a photograph"
+                accessibilityHint={
+                  access === 'blocked'
+                    ? 'Turn on camera access in Settings to use this'
+                    : access === 'granted'
+                      ? 'Files this piece and stays open'
+                      : 'Waiting for camera access'
+                }
+                accessibilityState={{ disabled: access !== 'granted', busy: shooting }}
+                disabled={access !== 'granted' || shooting}
+                onPress={() => start('camera')}
+                className="items-center justify-center active:opacity-80"
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 36,
+                  backgroundColor: theme.canvas,
+                  opacity: access !== 'granted' ? 0.35 : 1,
+                }}>
+                <View
+                  style={{
+                    width: 58,
+                    height: 58,
+                    borderRadius: 29,
+                    borderWidth: 2,
+                    borderColor: theme.ink,
+                    opacity: shooting ? 0.5 : 1,
+                  }}
+                />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Describe it instead"
+                accessibilityHint="Find a picture of a garment by describing it"
+                onPress={() => start('describe')}
+                style={{ minWidth: 48, minHeight: 48 }}
+                className="items-end justify-center active:opacity-70">
+                {/* Regular weight on the scrim, per audit 68 — not a filled
+                    button and not Medium. */}
+                <Text
+                  variant="note"
+                  numberOfLines={1}
+                  style={{ fontSize: 15, color: theme.canvas, opacity: 0.86 }}>
+                  Describe
+                </Text>
+              </Pressable>
+            </View>
           </View>
 
-          {/* The progress sheet — bg-surface, rounded top corners, flush to the
-          bottom edge. Everything below is driven by the queue state. */}
-          <View
-            className="rounded-t-plate bg-surface px-gutter pt-4"
-            style={{ paddingBottom: insets.bottom + 20 }}>
-            {total === 0 ? (
-              <>
-                <Text variant="plate">Photograph your closet</Text>
-                {/* Local mode gets the honest half of the promise — the amber
-                declined banner this replaced is superseded by A-04, which said
-                everything once; here the screen just works, and the copy only
-                stops claiming a tagging pass that will not run. */}
-                <Text variant="body" className="mt-2" style={{ color: theme.muted }}>
-                  {declinedMode
-                    ? `Pick up to ${selectionLimit} photos at a time, or shoot pieces one by one. Photos stay on this phone, and the tags are yours to write.`
-                    : `Pick up to ${selectionLimit} photos at a time, or shoot pieces one by one. Cinch cuts out the background and tags everything for you.`}
-                </Text>
-              </>
-            ) : (
+          {/*
+            THE STANDING SHEET IS GONE FROM THE READY STATE.
+
+            A `rounded-t-plate` panel used to sit under the controls at all
+            times, carrying a serif "Photograph your closet" and a paragraph.
+            CP-01 draws no such panel: audit 69 is precisely that the
+            instruction stops being "a sheet climbing a third of the way up the
+            preview" and becomes a 132pt foot with one sentence in it, which the
+            block above now is.
+
+            Nothing the paragraph said is lost. The batch size moved to the
+            library control's own hint, and the local-mode sentence — the one
+            that promises the photographs stay on this phone — is kept below,
+            because a privacy statement is not furniture and does not get
+            dropped with the panel that happened to be holding it.
+          */}
+          {total === 0 && declinedMode ? (
+            <View className="px-gutter" style={{ paddingBottom: insets.bottom + 12 }}>
+              <Text
+                variant="note"
+                className="text-center"
+                style={{ fontSize: 13, color: theme.canvas, opacity: 0.72 }}>
+                Photos stay on this phone, and the tags are yours to write.
+              </Text>
+            </View>
+          ) : null}
+
+          {/* CP-03's sheet — bg-surface, rounded top corners, flush to the
+          bottom edge. Everything below is driven by the queue state, and it is
+          drawn only when the queue HAS state. */}
+          {total > 0 ? (
+            <View
+              className="rounded-t-plate bg-surface px-gutter pt-4"
+              style={{ paddingBottom: insets.bottom + 20 }}>
               <>
                 <View className="flex-row items-baseline justify-between">
                   {/*
@@ -1188,8 +1291,8 @@ export default function CaptureScreen() {
                   />
                 ) : null}
               </>
-            )}
-          </View>
+            </View>
+          ) : null}
         </SafeAreaView>
       )}
 

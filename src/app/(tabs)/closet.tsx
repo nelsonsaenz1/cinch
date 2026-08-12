@@ -17,13 +17,14 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ClosetGrid } from '@/components/closet/closet-grid';
 import { ClosetMenu } from '@/components/closet/closet-menu';
 import { ClosetSkeleton } from '@/components/closet/closet-skeleton';
-import { ExampleCloset } from '@/components/closet/example-closet';
+import { EmptyCloset } from '@/components/closet/empty-closet';
 import { InsightCard } from '@/components/closet/insight-card';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { RailCard } from '@/components/closet/rail-card';
 import { SelectionBar } from '@/components/closet/selection-bar';
 import { StatRow } from '@/components/closet/stat-row';
 import { Avatar, Chip, EmptyState, ErrorState, SearchField, Text } from '@/components/ui';
+import { searchSummary } from '@/features/closet/search-summary';
 import {
   useClosetScreen,
   type CategoryFilter,
@@ -46,7 +47,21 @@ import { GUTTER, MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
 /** The rail gap and the chip gap — two measures that need not agree. */
 const RAIL_GAP = 14;
-const CHIP_GAP = 7;
+/** C-01/C-02/C-03 all draw the category rail at an 8pt gap. */
+const CHIP_GAP = 8;
+
+/**
+ * C-03 — the filter rail's own row, and audit 61's proof.
+ *
+ * "Chips are 38 pt tall inside a 44 pt row with 8 pt gaps, so hit regions do
+ * not overlap." The row is 44 here, exactly; the CHIP is the shipped `compact`
+ * at 32, because its height lives in `ui/chip-spec.ts` and this lane may not
+ * change a shared primitive. Recorded as a serialization request.
+ *
+ * The vertical padding is what makes the row 44 around a 32pt chip.
+ */
+const CHIP_ROW_HEIGHT = 44;
+const CHIP_ROW_PAD_Y = 6;
 
 /**
  * Every stored category the recategorise sheet can file a piece under, with
@@ -161,24 +176,26 @@ export default function ClosetScreen() {
       </>
     );
   } else if (screen.items.length === 0) {
-    // C-05. Eyebrow only — search and the menu have nothing to act on. The
-    // ScrollView exists for pull-to-refresh, which must survive every state.
-    // No identity row: the atlas dropped it for this state entirely — "Six
-    // photos from now" replaces the name-and-count line, because there is no
-    // name-worthy fact yet ("0 pieces" was never one). Stat row stays
-    // suppressed for the same reason it always was — four zeroes under an
-    // example grid would undercut the example rather than excuse it.
+    // C-05. Eyebrow only — search and the menu have nothing to act on, and the
+    // FILTER ROW IS ABSENT rather than present-and-disabled ("a row of chips
+    // reading zero teaches nothing").
+    //
+    // Zero is stated ONCE, in the same 13pt line that would carry 148, and it
+    // is never illustrated: the example grid that used to stand here is gone,
+    // because C-05 refuses "empty hangers, dashed placeholder grid" outright.
+    //
+    // `contentContainerStyle: flexGrow` is what lets the card float in the
+    // middle of the page as the frame draws it while the ScrollView still
+    // carries pull-to-refresh, which must survive every state.
     body = (
-      <ScrollView refreshControl={refreshControl} contentContainerStyle={{ paddingBottom: 96 }}>
+      <ScrollView
+        refreshControl={refreshControl}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 96 }}>
         <EyebrowHeader />
-        <View className="mt-3 px-gutter">
-          <Text variant="title" trim numberOfLines={1} accessibilityRole="header">
-            Six photos from now
-          </Text>
+        <View className="mt-1 px-gutter">
+          <Text variant="note">0 pieces</Text>
         </View>
-        <View className="mt-4">
-          <ExampleCloset onAddPieces={() => router.push('/add-clothes')} />
-        </View>
+        <EmptyCloset onAddClothes={() => router.push('/add-clothes')} />
       </ScrollView>
     );
   } else if (selecting) {
@@ -218,17 +235,25 @@ export default function ClosetScreen() {
     );
   } else if (screen.searching) {
     // C-02. The tray field replaces the whole header block and the masthead
-    // collapses — results start at the top, chips stay usable (query + chip
-    // compose in the hook), and the footer note keeps the matcher honest.
-    const n = screen.visible.length;
+    // collapses — "opening search replaces the title block rather than pushing
+    // it down, so the grid does not jump". Chips stay usable: the held chip and
+    // the typed query COMPOSE (both in the hook and in the sentence below).
+    const summary = searchSummary({
+      count: screen.visible.length,
+      category: screen.category,
+      query: screen.query,
+    });
     body = (
       <Animated.View style={{ flex: 1 }} entering={FadeIn.duration(motion.duration.fast)}>
-        <View className="flex-row items-center gap-3 pl-gutter pr-gutter pt-2">
+        {/* The field occupies the masthead's own 44pt row, which is why the
+            minimum height rides here rather than inside the shared field. */}
+        <View className="flex-row items-center gap-2.5 px-gutter pt-2">
           <View className="flex-1">
             <SearchField
               value={screen.query}
               onChangeText={screen.setQuery}
               autoFocus
+              className="min-h-[44px]"
               placeholder="Search your wardrobe"
             />
           </View>
@@ -237,22 +262,34 @@ export default function ClosetScreen() {
             accessibilityRole="button"
             accessibilityLabel="Cancel search"
             hitSlop={{ top: 14, bottom: 14, left: 12, right: 12 }}
+            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
             className="active:opacity-60">
-            {/* 15/500 in the accent, per the atlas. Inline colour, never a
-                second `text-*` class (button.tsx precedence lesson). */}
-            <Text variant="label" style={{ fontSize: 15, lineHeight: 20, color: theme.accent }}>
+            {/* MUTED, NOT THE ACCENT. C-02 draws Cancel at 16px in the frame's
+                secondary colour: this is the way back out of a mode, not the
+                one action the frame is spending its oxblood on. Inline colour,
+                never a second `text-*` class (button.tsx precedence lesson).
+                Regular cut, because the constitution reserves Medium for labels
+                and filled actions and this is neither. */}
+            <Text variant="body" style={{ fontSize: 16, color: theme.muted }}>
               Cancel
             </Text>
           </Pressable>
         </View>
 
-        <View className="px-gutter pt-4">
-          <Text variant="eyebrow" accessibilityLiveRegion="polite">
-            {`${n} ${n === 1 ? 'piece' : 'pieces'}`}
-          </Text>
-        </View>
-
         <CategoryChipsRow screen={screen} />
+
+        {/* The composition, in words — "the held chip and the typed query
+            compose rather than override". Below the chips, as the frame draws
+            it: the sentence describes the row above as much as the grid below,
+            and it is silent when there is nothing to compose or nothing found
+            (the grid's own empty state carries that). */}
+        {summary ? (
+          <View className="px-gutter pb-1 pt-1">
+            <Text variant="note" accessibilityLiveRegion="polite">
+              {summary}
+            </Text>
+          </View>
+        ) : null}
 
         <ClosetGrid
           listRef={listRef}
@@ -569,6 +606,21 @@ function Rail({
  * The browsing row with live counts — one `category` state shared by the
  * identity view and search mode, so the two can never disagree about which
  * chip is selected. Zero-count categories are already dropped by the hook.
+ *
+ * ── AUDIT 61, AND WHY THERE IS NOTHING ELSE HERE ──────────────────────────
+ *
+ * C-03 is the proof frame: "the last chip is whole, it clears the frame edge by
+ * 20 pt, and the partial chip is now at the left where the row continues
+ * backwards. Nothing about the row's appearance changes between ends — there is
+ * no fade, no arrow and no gradient mask, because a rail that is padded honestly
+ * does not need one."
+ *
+ * `paddingHorizontal: GUTTER` IS that honesty, and GUTTER is 20: a horizontal
+ * ScrollView applies its content padding at BOTH ends of the scrollable
+ * content, so the same one value gives the 20pt lead inset C-01 draws and the
+ * 20pt trailing inset C-03 draws. There is deliberately no gradient, no chevron
+ * and no `contentInset` trick anywhere in this component — every one of them
+ * exists to apologise for a rail that ends flush, and this one does not.
  */
 function CategoryChipsRow({ screen }: { screen: ClosetScreenModel }) {
   return (
@@ -579,7 +631,13 @@ function CategoryChipsRow({ screen }: { screen: ClosetScreenModel }) {
       // the search column that stretched every chip screen-tall. The row's
       // height is its content's, nothing more.
       style={{ flexGrow: 0 }}
-      contentContainerStyle={{ gap: CHIP_GAP, paddingHorizontal: GUTTER, paddingVertical: 10 }}>
+      contentContainerStyle={{
+        gap: CHIP_GAP,
+        paddingHorizontal: GUTTER,
+        paddingVertical: CHIP_ROW_PAD_Y,
+        minHeight: CHIP_ROW_HEIGHT,
+        alignItems: 'center',
+      }}>
       {screen.categories.map(({ category, count }) => (
         <Chip
           key={category}

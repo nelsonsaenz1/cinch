@@ -13,7 +13,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/theme/tokens';
 
@@ -277,48 +276,19 @@ export function ListSkeleton({
 }
 
 /**
- * The outfit plate, before it has an outfit — the shape of `plate.tsx`'s card
- * (title row, reasoning, garment well, colophon, the ruled cost-per-wear
- * footer) with every line of type replaced by a bar.
+ * A `PlateSkeleton` used to close this file — the outfit plate before it has
+ * an outfit, with a `aspect-[5/4]` garment well in the middle of it.
  *
- * Today spent every other state on a real composition and then fell back to a
- * centred spinner for the one state the user sees every single morning. A
- * plate-shaped wait tells her the plate is coming; a spinner tells her nothing
- * and could just as well resolve into an error.
+ * It is gone rather than corrected. The 5:4 well was the plate's old anatomy,
+ * and a placeholder that reserves a shape the real card no longer draws is
+ * worse than no placeholder at all: the page reflows at exactly the moment the
+ * outfit lands, which is the one moment the wait was supposed to cover. Today's
+ * wait state is `components/today/plate-skeleton.tsx`, built by the lane that
+ * owns the plate and therefore built to whatever geometry the plate actually
+ * has; it is the only caller either version ever had, and it does not import
+ * this file's version.
+ *
+ * Nothing replaces it here. A shared primitive cannot know the plate's
+ * proportions, and guessing a new ratio to keep the export alive would put the
+ * same reflow back one number later.
  */
-export function PlateSkeleton({ count = 1 }: { count?: number }) {
-  return (
-    <View accessibilityLabel="Styling your day">
-      {Array.from({ length: count }).map((_, i) => (
-        <View key={i} className="mb-section px-gutter">
-          <Card padding="lg">
-            {/* Title + the weather colophon opposite it. */}
-            <View className="flex-row items-baseline justify-between gap-3">
-              <Skeleton className="h-5 flex-1 rounded-chip" />
-              <Skeleton className="h-2.5 w-16 rounded-chip" />
-            </View>
-
-            {/* The two-line reasoning. */}
-            <View className="mt-3 gap-2">
-              <Skeleton className="h-3.5 w-full rounded-chip" />
-              <Skeleton className="h-3.5 w-4/5 rounded-chip" />
-            </View>
-
-            {/* The garment well. The stack it stands in for is taller than it
-                is wide, so the placeholder is too — a square here collapses
-                the card and the page reflows when the outfit lands. */}
-            <Skeleton className="mt-4 aspect-[5/4] w-full rounded-lg" />
-
-            <Skeleton className="mt-3 h-3 w-2/3 rounded-chip" />
-
-            {/* The ruled footer: label left, cost-per-wear figure right. */}
-            <View className="mt-4 flex-row items-center justify-between border-t border-rule pt-3">
-              <Skeleton className="h-3.5 w-24 rounded-chip" />
-              <Skeleton className="h-4 w-14 rounded-chip" />
-            </View>
-          </Card>
-        </View>
-      ))}
-    </View>
-  );
-}

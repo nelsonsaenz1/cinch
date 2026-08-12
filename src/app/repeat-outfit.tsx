@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GarmentCell, stackLayout, STACK_ASPECT } from '@/components/today/garment-cell';
-import { outfitCostPerWear } from '@/components/today/cost-per-wear';
+import { platedCostPerWear } from '@/components/today/cost-per-wear';
 import { LAYOUT_ORDER, labelFor } from '@/components/today/plate';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -90,7 +90,8 @@ export default function RepeatOutfitScreen() {
 
   const exhaustion = useMemo(() => exhaustionProgress(items, records), [items, records]);
   const totalCores = useMemo(() => countOutfits(tallyOf(items)), [items]);
-  const cpw = useMemo(() => outfitCostPerWear(pieces), [pieces]);
+  // STRICT, and the cell disappears when it is null — see the note over `Stat`.
+  const cpw = useMemo(() => platedCostPerWear(pieces), [pieces]);
 
   const { resolve } = useSignedUrls(
     pieces.flatMap((g) => [g.cutoutPath, g.thumbPath]),
@@ -103,6 +104,34 @@ export default function RepeatOutfitScreen() {
     .join(', ');
 
   const title = nameParam || pieces.slice(0, 2).map(labelFor).join(' and ') || 'Today’s repeat';
+
+  // The band is BUILT, not laid out — the same shape `components/item/
+  // item-stats.tsx` settled on for IT-02, and for the same two sentences: the
+  // constitution's "printed when known or omitted — never estimated, never a
+  // dash", and IT-02's "Cost cell removed, not blanked".
+  //
+  // This screen printed `'—'` here, which is the exact thing that refuses. It
+  // also computed the figure with `outfitCostPerWear`, which sums only the
+  // pieces that HAVE a price and returns that: on a look where one garment is
+  // unpriced or unworn, the dash never appeared and a confident, too-small
+  // number did — a wrong figure is a worse failure than an absent one, because
+  // nothing on screen admits to it. `platedCostPerWear` returns null unless
+  // every piece can be priced, and null removes the column outright.
+  //
+  // Each cell is `flex-1`, so two cells fill the row exactly as three did and
+  // nothing needs to know how many there are. A missing figure costs its
+  // column, not the band's geometry.
+  const stats: { key: string; label: string; value: string }[] = [
+    { key: 'worn', label: 'Worn', value: `${previousWears.length}×` },
+    {
+      key: 'exhaustion',
+      label: `Of ${exhaustion.total} worn`,
+      value: `${exhaustion.wornCount}`,
+    },
+  ];
+  if (cpw != null) {
+    stats.push({ key: 'cpw', label: '$/wear', value: `$${cpw.toFixed(2)}` });
+  }
 
   const body =
     previousWears.length > 0
@@ -169,9 +198,9 @@ export default function RepeatOutfitScreen() {
           </Text>
 
           <View className="mt-3.5 flex-row gap-2">
-            <Stat label="Worn" value={`${previousWears.length}×`} />
-            <Stat label={`Of ${exhaustion.total} worn`} value={`${exhaustion.wornCount}`} />
-            <Stat label="$/wear" value={cpw != null ? `$${cpw.toFixed(2)}` : '—'} />
+            {stats.map((s) => (
+              <Stat key={s.key} label={s.label} value={s.value} />
+            ))}
           </View>
 
           <View className="mt-4 flex-row gap-2.5">

@@ -1,55 +1,135 @@
+import { useEffect } from 'react';
 import { View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
-import { Skeleton } from '@/components/ui/skeleton';
-import { useTheme } from '@/theme/tokens';
+import { motion, useTheme } from '@/theme/tokens';
 
 /**
- * C-06 — the closet loading (Closet State Atlas).
+ * C-06 — the closet loading.
  *
- * The skeleton mirrors the real populated layout EXACTLY — avatar circle, two
- * name bars, the stat row between its hairlines, chip capsules, then the 2×2
- * grid with caption bars — so nothing shifts when the data lands. No spinner
- * anywhere: the closet is local and this state is usually one frame long.
+ * ── WHY THIS DOES NOT USE `ui/skeleton.tsx`'s `Skeleton` ──────────────────
  *
- * Two tones, both from the atlas: `tray` for the primary shapes and tray
- * thinned over canvas for the secondary bars (the atlas's `#F2EEE5`, derived
- * here rather than retyped). The sweep comes from `ui/skeleton.tsx`'s
- * `Skeleton` primitive — the app's one shimmer convention — with the tone
- * overridden per shape via inline style, which wins over the primitive's
- * default base.
+ * That primitive is a SWEEP: a highlight band travelling left-to-right on an
+ * infinite loop. C-06 refuses it in as many words — "The bars carry a 380 ms
+ * opacity breath at 6% amplitude, and under Reduce Motion they hold at their
+ * mid value — no shimmer sweep in either case, and no spinner." A sweep is a
+ * different animal from a breath: it implies direction and progress across the
+ * cell, which is the bar treatment this group has already refused once.
  *
- * This replaces `ClosetGridSkeleton` on the closet screen only; that component
- * stays in `ui/skeleton.tsx` for its other call sites (friends/[userId]).
+ * So the bars here are plain views under one shared `breath` value. One shared
+ * value, not one per bar: a dozen independent worklets ticking at 380ms is a
+ * dozen chances for them to drift out of phase, and a placeholder grid whose
+ * cells pulse against each other reads as noise rather than as waiting.
  *
- * All dimensions are pt-for-px from the atlas at 393pt width, used literally.
+ * ── SKELETON GEOMETRY = FINAL GEOMETRY ────────────────────────────────────
+ *
+ * "Every placeholder occupies the exact rectangle its content will occupy: 168
+ * pt wells, 15 pt name bars, 13 pt metadata bars in the lighter tray tone, and
+ * chips at their real widths, so nothing shifts when data lands."
+ *
+ * Those four figures are read off the shipping card, not off the frame's
+ * picture of it: `ItemCard` draws a 168pt well (it was 196 before Wave 3 and
+ * this file still said 170), a 15pt name and a 13pt metadata line, in a grid
+ * whose columns are `px-1.5` either side. A skeleton measured against the old
+ * card is the shift the state exists to prevent.
+ *
+ * The masthead block above the grid deliberately still mirrors the masthead
+ * this screen SHIPS — identity row, stat row — rather than the serif title
+ * block C-01's frame draws, because mirroring is the whole criterion and the
+ * masthead rebuild is not this lane's state. See the lane report.
  */
 
-/** `theme.*` hexes are always `#RRGGBB`; alpha variants derive, never retype. */
-function withAlpha(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
+/**
+ * The breath, as the frame specifies it: 6% of amplitude, so the bars travel
+ * between 94% and 100% opacity and hold at 97% — the mid value — whenever they
+ * are not moving.
+ */
+const BREATH_LOW = 0.94;
+const BREATH_HIGH = 1;
+const BREATH_MID = (BREATH_LOW + BREATH_HIGH) / 2;
 
-// Atlas chip capsule widths and grid caption bar widths — varied per slot for
-// realism (same reasoning as ui/skeleton.tsx's LABEL_WIDTHS), still static.
-const CHIP_WIDTHS = [64, 74, 90, 80] as const;
-const CAPTION_WIDTHS = [96, 80, 104, 72] as const;
+/** The chips at their real widths, per the frame. */
+const CHIP_WIDTHS = [78, 86, 104, 70] as const;
+/** Name and metadata bar widths, varied per slot; still static, still literal. */
+const NAME_WIDTHS = [120, 104, 132, 96] as const;
+const META_WIDTHS = [150, 138, 118, 144] as const;
 
-export function ClosetSkeleton() {
+export type ClosetSkeletonProps = {
+  /**
+   * Hold every bar at the mid value and start no animation at all.
+   *
+   * For the canonical fixture. A captured viewport cannot reproduce a running
+   * loop — its bytes differ between two screenshots of the same code — so the
+   * frame that gets captured has to be a settled one. Reduce Motion reaches
+   * the same still frame by its own route, which is the frame's own rule.
+   */
+  still?: boolean;
+};
+
+export function ClosetSkeleton({ still = false }: ClosetSkeletonProps) {
   const theme = useTheme();
-  const primary = { backgroundColor: theme.tray };
-  const secondary = { backgroundColor: withAlpha(theme.tray, 0.6) };
+  const reduced = useReducedMotion();
+  const held = still || reduced;
+
+  const breath = useSharedValue(0.5);
+  useEffect(() => {
+    if (held) {
+      breath.value = 0.5;
+      return;
+    }
+    breath.value = withRepeat(
+      withTiming(1, { duration: motion.duration.slow, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      true,
+    );
+    // A -1 repeat outlives its component unless told otherwise; on a screen
+    // that mounts a dozen bars that is a dozen worklets still ticking after
+    // the closet has arrived.
+    return () => cancelAnimation(breath);
+  }, [held, breath]);
+
+  const breathing = useAnimatedStyle(() => ({
+    opacity: interpolate(breath.value, [0, 1], [BREATH_LOW, BREATH_HIGH]),
+  }));
+
+  const primary = { backgroundColor: theme.sand };
+  // "metadata bars in the lighter tray tone" — the frame's own second value.
+  const secondary = { backgroundColor: theme.tray };
+
+  /**
+   * One bar. A plain call, not a nested component: a component declared inside
+   * a render body is a new type on every render, so React unmounts and remounts
+   * every bar — which would restart the breath from zero on each pass and is
+   * what `react/no-unstable-nested-components` exists to catch.
+   *
+   * `style`, never `className`: NativeWind's interop skips Reanimated views, so
+   * a class here would be silently dropped.
+   */
+  const bar = (key: string | number, style: Record<string, unknown>) => (
+    <Animated.View
+      key={key}
+      style={[style, held ? { opacity: BREATH_MID } : breathing]}
+    />
+  );
 
   return (
     <View accessibilityLabel="Loading your closet">
-      {/* Identity row — 66pt avatar circle, name bar, sub-line bar. */}
+      {/* Identity row — 66pt avatar circle, name bar, sub-line bar. Mirrors the
+          masthead this screen ships, which is the criterion. */}
       <View className="flex-row items-center px-gutter" style={{ paddingTop: 14, gap: 14 }}>
-        <Skeleton style={[primary, { width: 66, height: 66, borderRadius: 33 }]} />
+        {bar('avatar', { ...primary, width: 66, height: 66, borderRadius: 33 })}
         <View className="flex-1">
-          <Skeleton style={[primary, { width: 150, height: 20, borderRadius: 5 }]} />
-          <Skeleton style={[secondary, { marginTop: 8, width: 110, height: 11, borderRadius: 4 }]} />
+          {bar('name', { ...primary, width: 150, height: 20, borderRadius: 4 })}
+          {bar('handle', { ...secondary, marginTop: 8, width: 110, height: 11, borderRadius: 4 })}
         </View>
       </View>
 
@@ -57,38 +137,43 @@ export function ClosetSkeleton() {
       <View
         className="mx-gutter flex-row border-b border-t border-hairline"
         style={{ marginTop: 22, paddingVertical: 14 }}>
-        {Array.from({ length: 4 }).map((_, i) => (
-          // `items-center` — the loaded stat row centres both lines per §2.2.
+        {[0, 1, 2, 3].map((i) => (
           <View key={i} className="flex-1 items-center">
-            <Skeleton style={[primary, { width: 40, height: 18, borderRadius: 4 }]} />
+            {bar(i, { ...primary, width: 40, height: 18, borderRadius: 4 })}
           </View>
         ))}
       </View>
 
-      {/* Category chip capsules — first (the active chip's seat) in the
-          primary tone, the rest a step lighter, exactly as the atlas draws
-          them. */}
-      <View className="flex-row px-gutter" style={{ marginTop: 20, gap: 7 }}>
-        {CHIP_WIDTHS.map((width, i) => (
-          <Skeleton
-            key={i}
-            // 12, following the `Chip` it stands in for. A capsule-shaped
-            // skeleton promises a capsule and then resolves into a 12px chip,
-            // which is a shape change the eye reads as a re-layout.
-            style={[i === 0 ? primary : secondary, { width, height: 30, borderRadius: 12 }]}
-          />
-        ))}
+      {/* The chips at their real widths and their real height — 38pt at r12,
+          the same geometry `CategoryChipsRow` lays out, padded left only so the
+          rail's honest partial survives into the wait. */}
+      <View className="flex-row" style={{ marginTop: 14, gap: 8, paddingLeft: 20 }}>
+        {CHIP_WIDTHS.map((width, i) =>
+          bar(i, { ...primary, width, height: 38, borderRadius: 12 }),
+        )}
       </View>
 
-      {/* The 2×2 grid — 170pt wells (12pt radius) with caption bars, in the
-          real grid's 14pt row / 12pt column gaps. */}
-      <View
-        className="flex-row flex-wrap px-gutter"
-        style={{ marginTop: 18, columnGap: 12, rowGap: 14 }}>
-        {CAPTION_WIDTHS.map((width, i) => (
-          <View key={i} style={{ width: '48%', flexGrow: 1 }}>
-            <Skeleton className="rounded-md" style={[primary, { height: 170 }]} />
-            <Skeleton style={[secondary, { marginTop: 8, width, height: 11, borderRadius: 4 }]} />
+      {/* The grid, at the CARD's geometry: a 168pt well, a 15pt name bar 10pt
+          under it, a 13pt metadata bar 6pt under that. `px-1.5` per column is
+          the card's own inset, so the wells land where the photographs will. */}
+      <View className="flex-row flex-wrap px-gutter" style={{ marginTop: 16 }}>
+        {NAME_WIDTHS.map((nameWidth, i) => (
+          <View key={i} className="px-1.5 pb-2.5" style={{ width: '50%' }}>
+            {bar('well', { ...primary, height: 168, borderRadius: 12 })}
+            {bar('name', {
+              ...primary,
+              marginTop: 10,
+              width: nameWidth,
+              height: 15,
+              borderRadius: 4,
+            })}
+            {bar('meta', {
+              ...secondary,
+              marginTop: 6,
+              width: META_WIDTHS[i],
+              height: 13,
+              borderRadius: 4,
+            })}
           </View>
         ))}
       </View>

@@ -32,6 +32,28 @@ export type ItemCardProps = {
    * system font scale, never guessed at here.
    */
   stacked?: boolean;
+  /**
+   * C-07 — the STORED state of this card, which the component inventory lists
+   * alongside photo, silhouette, selected and skeleton.
+   *
+   * "The photographs are dimmed to 72% and lose their contact shadow — asleep,
+   * not degraded". Only the WELL dims: the name and the metadata under it stay
+   * at full strength, because a stored piece is a piece you are still meant to
+   * be able to read. Opacity is never applied to type in this group.
+   *
+   * There is no contact shadow to lose — this card has never drawn one — so
+   * that half of the annotation is satisfied by construction rather than by a
+   * conditional.
+   */
+  stored?: boolean;
+  /**
+   * The metadata sentence, when the caller's state has a different one to tell.
+   *
+   * C-07 swaps cost-per-wear for what matters in storage. Passed in rather than
+   * branched on `stored` inside the card, so the derivation stays a pure,
+   * testable function (`storedMetaLine`) and the card keeps exactly one job.
+   */
+  metaLine?: string;
 };
 
 /**
@@ -69,6 +91,8 @@ function ItemCardComponent({
   selecting = false,
   selected = false,
   stacked = false,
+  stored = false,
+  metaLine,
 }: ItemCardProps) {
   /**
    * Whether the picture on this card is the shop's rather than the user's.
@@ -91,14 +115,20 @@ function ItemCardComponent({
     imageUri ?? (item.imagePath === null ? (localPhoto.thumbUri ?? localPhoto.imageUri ?? undefined) : undefined);
   const needsReview = item.status === 'needs_review';
   const name = pieceName(item);
-  const meta = pieceMetaLine(item);
+  const meta = metaLine ?? pieceMetaLine(item);
 
   // VoiceOver: a grid of garment cutouts is meaningless to a screen reader
   // without this. §9 wants the card announced as ONE element saying what a
   // person would say — name, then the metadata sentence, then whether there is
   // a photograph — rather than an image node followed by two unrelated labels.
   const a11yLabel = [
-    pieceCardAnnouncement(item, name, { hasPhoto: Boolean(displayUri) }),
+    // The overridden line rides the announcement too — a stored card that
+    // SAID one thing and ANNOUNCED another would be two different facts about
+    // one garment, which is the split §9 exists to prevent.
+    metaLine
+      ? [name, metaLine, displayUri ? 'photograph' : 'silhouette, no photograph yet'].join(', ')
+      : pieceCardAnnouncement(item, name, { hasPhoto: Boolean(displayUri) }),
+    stored ? 'stored' : null,
     needsReview ? 'needs review' : null,
   ]
     .filter(Boolean)
@@ -158,6 +188,10 @@ function ItemCardComponent({
           style={[
             stacked ? { width: 140, height: 170 } : null,
             dimmed ? { opacity: 0.55 } : null,
+            // C-07's own value. After the selection dim, so a stored card in a
+            // selection would not compound the two — the two states never
+            // co-occur today, and if they ever do the louder one should win.
+            !dimmed && stored ? { opacity: 0.72 } : null,
           ]}>
           {displayUri ? (
             <Image

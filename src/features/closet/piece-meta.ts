@@ -44,6 +44,33 @@ export function pieceMetaLine(item: Item): string {
 }
 
 /**
+ * C-07 — the metadata line under a STORED piece.
+ *
+ * "the metadata line swaps cost-per-wear for the storing date, which is the
+ * fact that matters here." The frame prints `Stored in March · worn 7 times`.
+ *
+ * ── THE STORING DATE IS NOT PRINTED, AND THIS IS WHY ──────────────────────
+ *
+ * There is no storing date to print. `items` records `created_at` (when the
+ * garment was filed) and `is_archived` (whether it is stored right now); no
+ * column anywhere records WHEN it was stored, and adding one is a migration.
+ * `created_at` is not that date and would be a different fact wearing its name
+ * — a piece filed in March and stored last week would read "Stored in March",
+ * which is exactly the kind of substitution the constitution refuses.
+ *
+ * So the clause is OMITTED rather than estimated, and the line is the half that
+ * is genuinely known. The dependency is recorded in the lane report; the day a
+ * `stored_at` exists, this function is the one place that changes.
+ *
+ * The wear half keeps the group's rule about zero: never worn is words, never a
+ * 0, "a zero here would read as a score."
+ */
+export function storedMetaLine(item: Pick<Item, 'wearCount'>): string {
+  if (item.wearCount <= 0) return 'Never worn';
+  return `Worn ${item.wearCount} ${item.wearCount === 1 ? 'time' : 'times'}`;
+}
+
+/**
  * The same facts as a sentence VoiceOver can say.
  *
  * §9 asks for the card to be ONE element announced as "Mohair sweater, worn 14

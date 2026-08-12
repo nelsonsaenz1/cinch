@@ -25,8 +25,7 @@ import { kindOfSlot } from '@/features/closet/outfit-count';
 import { useParseCloset } from '@/features/intake/use-parse';
 import { MAX_RECORDING_MS, useRecorder } from '@/features/intake/use-recorder';
 import { needsNewRecording, useTranscription } from '@/features/intake/use-transcription';
-import { supabase } from '@/lib/supabase';
-import { getUserId } from '@/lib/supabase';
+import { getUserId, supabase } from '@/lib/supabase';
 import type { IntakeDraftRow } from '@/features/intake/queries';
 
 /**

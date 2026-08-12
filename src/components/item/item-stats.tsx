@@ -19,6 +19,19 @@ export type ItemStatsProps = {
   sinceLast: string | null;
   /** When true, the middle cell reads as the full price not a per-wear figure. */
   neverWorn?: boolean;
+  /**
+   * IT-01 / AX — the band's largest-Dynamic-Type composition.
+   *
+   * "Three centred cells cannot hold three 19 pt labels side by side, so the
+   * band changes composition: label left, figure right, one ruled row each,
+   * still in the display face."
+   *
+   * The composition changes; NOTHING SHRINKS. `adjustsFontSizeToFit` is dropped
+   * in this mode for exactly that reason — a full-width row has room for the
+   * whole figure, so scaling it down would be shrinking type the frame said to
+   * grow. Set by the caller off the real `fontScale`, never guessed here.
+   */
+  stacked?: boolean;
 };
 
 /**
@@ -160,7 +173,49 @@ function Cell({
  * question all belong to the caller, which is the only layer that knows the
  * user's locale and what the item actually is.
  */
-export function ItemStats({ wears, costPerWear, sinceLast, neverWorn = false }: ItemStatsProps) {
+/**
+ * IT-01 / AX's row: label left, figure right, one hairline under each.
+ *
+ * The figure keeps the display face and drops to the frame's 26px — the band is
+ * three rows tall now rather than one, and 34px stacked three times pushes the
+ * two peer actions under it off the screen the frame is trying to keep them on.
+ * The label is 18px prose in the regular cut, per the frame.
+ */
+function StackedRow({
+  figure,
+  label,
+  a11yLabel,
+}: {
+  figure: string;
+  label: string;
+  a11yLabel: string;
+}) {
+  return (
+    <View
+      className="flex-row items-baseline justify-between border-b border-rule py-3"
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={a11yLabel}>
+      <Text variant="note" style={{ fontSize: 18, lineHeight: 26 }}>
+        {label}
+      </Text>
+      {/* No `adjustsFontSizeToFit` and no `numberOfLines`: a full-width row has
+          the space, and the frame's rule is that height is allowed rather than
+          type shrunk. */}
+      <Text variant="statFigure" style={{ fontSize: 26, lineHeight: leading('instrument', 26, 1) }}>
+        {figure}
+      </Text>
+    </View>
+  );
+}
+
+export function ItemStats({
+  wears,
+  costPerWear,
+  sinceLast,
+  neverWorn = false,
+  stacked = false,
+}: ItemStatsProps) {
   const worn = wears > 0;
 
   const cells: { key: string; figure: string; label: string; weight: number; a11y: string }[] = [];
@@ -210,6 +265,22 @@ export function ItemStats({ wears, costPerWear, sinceLast, neverWorn = false }: 
   }
 
   if (cells.length === 0) return null;
+
+  // IT-01 / AX. The SAME cells — the band that removes a column at three
+  // centred cells removes a row here, so an unknown figure is absent in both
+  // compositions and the frames cannot disagree about what is known.
+  if (stacked) {
+    return (
+      <View className="mx-gutter border-t border-rule">
+        {cells.map((c) => (
+          // Sentence case: the label sits beside its figure at reading size
+          // now rather than under it as a tracked colophon, so the uppercase
+          // treatment would be shouting a word the frame sets in prose.
+          <StackedRow key={c.key} figure={c.figure} label={c.label} a11yLabel={c.a11y} />
+        ))}
+      </View>
+    );
+  }
 
   return (
     <View className="mx-gutter flex-row border-y border-rule py-[14px]">

@@ -91,7 +91,7 @@ export default function CeilingScreen() {
   // No outfit total is printed here, deliberately: the arithmetic belongs to
   // the Reveal, after the ceiling has been resolved and the closet is settled.
   // Quoting a count for the full spoken closet on this screen would name a
-  // figure the awake ten will not actually make.
+  // figure the active ten will not actually make.
 
   // ── M-07 ──────────────────────────────────────────────────────────────
   //

@@ -193,7 +193,7 @@ export default function DevTodayScreen() {
             from this file, so the state gets the same prose treatment T-08
             already has. */}
         <Text variant="label" className="px-gutter" style={{ marginTop: 8 }}>
-          (see `PlateSkeleton` in components/ui/skeleton.tsx — the plate&rsquo;s
+          (see `PlateSkeleton` in components/today/plate-skeleton.tsx — the plate&rsquo;s
           own anatomy in placeholder bars: name and colophon, two lines of
           reasoning, the 5:4 garment well, the credit line, the ruled footer)
         </Text>

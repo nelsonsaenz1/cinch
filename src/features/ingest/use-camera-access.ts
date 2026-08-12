@@ -74,6 +74,64 @@ function accessOf(permission: ReturnType<typeof useCameraPermissions>[0]): Camer
         : 'blocked';
 }
 
+/**
+ * CP-02 — the pre-prompt, and the four states it needs to tell apart.
+ *
+ * `useCameraAccess` folds "never asked" into `checking` and fires the system
+ * request from an effect on mount. That is right for the surfaces that call it
+ * (`the-ten`, `ten-camera`) and it is exactly what CP-02 replaces on the
+ * capture stage: "The ask states what the permission is for, that the following
+ * prompt belongs to the system, and where the photograph goes... The second
+ * action is a real alternative rather than a decline, so refusing does not end
+ * the intake."
+ *
+ * A pre-prompt is impossible if the system alert has already gone up by itself,
+ * so this hook asks for NOTHING on mount and hands the request back as a
+ * function. `unasked` is the state CP-02 draws; the other three are unchanged.
+ *
+ * A separate hook rather than a flag on the old one, deliberately: the two
+ * onboarding surfaces are outside this lane and must keep the behaviour they
+ * were written against.
+ */
+export type CameraGate = 'unasked' | 'checking' | 'granted' | 'blocked';
+
+export function useCameraGate(): {
+  access: CameraGate;
+  /** Raises the system alert. One tap, one prompt — never called from an effect. */
+  request: () => void;
+  openSettings: () => void;
+} {
+  const [permission, requestPermission, refreshPermission] = useCameraPermissions();
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshPermission();
+    });
+    return () => sub.remove();
+  }, [refreshPermission]);
+
+  const request = useCallback(() => {
+    void requestPermission();
+  }, [requestPermission]);
+
+  const openSettings = useCallback(() => {
+    void Linking.openSettings();
+  }, []);
+
+  const access: CameraGate = !permission
+    ? // The status has not been read yet. Not `unasked`: showing the ask to
+      // somebody who granted the camera months ago, for the one frame before
+      // the read lands, is a prompt they have already answered.
+      'checking'
+    : permission.granted
+      ? 'granted'
+      : permission.status === 'undetermined'
+        ? 'unasked'
+        : 'blocked';
+
+  return { access, request, openSettings };
+}
+
 export function useCameraAccess(): { access: CameraAccess; openSettings: () => void } {
   // Default behaviour of the permission hook is `get` on mount and no request —
   // so this reads the status without prompting, and the effect below decides

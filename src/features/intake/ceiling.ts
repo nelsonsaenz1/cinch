@@ -9,7 +9,7 @@ import type { IntakeDraftRow } from './queries';
  * original path (no `p_draft_ids`) already told the caller exactly how many
  * it committed and how many it held (`CommitResult`), which is the ceiling
  * count — that number, not a re-derivation of it, is what these screens use
- * as the "how many stay awake" figure. Everything here operates on the
+ * as the "how many stay active" figure. Everything here operates on the
  * confirmed drafts already loaded by `useDrafts`, which every review screen
  * fetches anyway.
  */
@@ -55,7 +55,7 @@ const EMPTY: Tally = { tops: 0, bottoms: 0, dresses: 0, shoes: 0 };
  * hypothetical one — the confirmed drafts a walkthrough produced, before any
  * of them are items. This is what lets M-07 quote a real outfit count
  * ("that's three hundred and eighty outfits") for the FULL spoken closet
- * rather than only the ten that will stay awake, using the one counting
+ * rather than only the ten that will stay active, using the one counting
  * routine every other free-tier surface reads (`outfit-count.ts`) rather than
  * a second implementation.
  */

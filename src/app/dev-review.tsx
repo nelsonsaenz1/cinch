@@ -14,8 +14,8 @@ import type { Item, ItemCategory } from '@/schemas/item';
 /**
  * Review fixture — `cinch://dev-review`.
  *
- * Mirrors `review.tsx` exactly — the Close/Done header, the colophon ordinal
- * with ink pips, the undo line, the gap invitation, a real three-card stack —
+ * Mirrors `review.tsx` exactly — the Close/Done header, the colophon count,
+ * the undo line, the gap invitation, a real three-card stack —
  * with no query, no mutation, no auth. The three mock garments are chosen to
  * walk the atlas's states in order: a settled spec sheet (R-01), a card with
  * an askable hole and an admitted one (R-02), and a third underneath so the
@@ -173,22 +173,16 @@ export default function DevReviewScreen() {
         <Button title={done ? 'Done' : 'Close'} variant="ghost" onPress={() => {}} />
       </View>
 
+      {/* PROGRESS IS A COUNT, NEVER A BAR — the pip row that used to sit beside
+          this line is gone from `review.tsx` and gone from here with it, which
+          is the whole point of a fixture that mirrors the screen. RV-01's
+          annotation: "Progress reads 2 of 3 to review, a count with its
+          denominator, never a bar." */}
       {!done ? (
-        <View className="flex-row items-center justify-between px-gutter pb-1 pt-1">
+        <View className="px-gutter pb-1 pt-1">
           <Text variant="colophon">
-            Review · {Math.min(current + 1, total)} of {total}
+            {`Review · ${Math.min(current + 1, total)} of ${total} to review`}
           </Text>
-          {/* Ink, not accent — the pip is a position marker, and the accent on
-              this screen is spent on Edit (see review.tsx). */}
-          <View className="flex-row items-center gap-1">
-            {Array.from({ length: total }).map((_, i) => (
-              <View
-                key={i}
-                className={`h-1 rounded-full ${i === current ? 'bg-ink' : 'bg-sand'}`}
-                style={{ flex: 1, maxWidth: 16 }}
-              />
-            ))}
-          </View>
         </View>
       ) : null}
 

@@ -9,6 +9,20 @@ import { numberWord } from '@/features/onboarding/reveal-copy';
 import { canvasAlpha, useTheme } from '@/theme/tokens';
 
 /**
+ * RETIRED 2026-08-12, AND UNREFERENCED. DO NOT WIRE THIS BACK UP.
+ *
+ * Wave 3's C-05 refuses an illustrated example grid in as many words — "never
+ * illustrated — no empty hangers, no dashed placeholder grid, no exclamation" —
+ * so both call sites (`(tabs)/closet.tsx` and `dev-empty-closet.tsx`) now draw
+ * `components/closet/empty-closet.tsx` instead.
+ *
+ * The file survives only because `tests/piece-counts.test.ts` reads it by path,
+ * and that test belongs to another owner. Deleting the component and its case
+ * in that test is one change, and it is the integrator's — see the lane report's
+ * serialization requests.
+ *
+ * ── The state this used to draw ───────────────────────────────────────────
+ *
  * C-05 — the empty closet (Closet State Atlas, 2026-08-08 cut).
  *
  * This supersedes the dashed ghost-slot grid the screen shipped with before:

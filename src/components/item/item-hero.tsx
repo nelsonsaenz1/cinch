@@ -21,6 +21,15 @@ export type ItemHeroProps = {
    * what is inside it (M-11).
    */
   listing?: boolean;
+  /**
+   * IT-01 / AX — "Hero yields 142 pt".
+   *
+   * At the largest Dynamic Type the frame gives the block up rather than
+   * shrinking any type on the page: 430 becomes 288, which is 142 exactly. The
+   * ratio-not-height reasoning below still applies, so it is the RATIO that
+   * changes and the block stays the same shape on a mini and a Max.
+   */
+  stacked?: boolean;
 };
 
 /**
@@ -29,6 +38,9 @@ export type ItemHeroProps = {
  * instead of the same number of points on both.
  */
 const HERO_ASPECT = 393 / 430;
+
+/** IT-01 / AX's hero: 430 − 142 = 288, at the same width. */
+const HERO_ASPECT_AX = 393 / 288;
 
 const DISC = 36;
 /** The atlas's inset for the two discs — tighter than the 20 page gutter, because a disc floating on a photograph is measured from the image edge, not from the text measure below it. */
@@ -61,7 +73,14 @@ const GLYPH_ON_TRAY = 'rgba(28,26,22,0.45)';
  * the whole point of the ratio being on the container rather than the photo —
  * the name and the figures underneath must never jump when the image decodes.
  */
-export function ItemHero({ imageUri, label, onBack, onEdit, listing = false }: ItemHeroProps) {
+export function ItemHero({
+  imageUri,
+  label,
+  onBack,
+  onEdit,
+  listing = false,
+  stacked = false,
+}: ItemHeroProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const onPhoto = imageUri !== null;
@@ -108,7 +127,7 @@ export function ItemHero({ imageUri, label, onBack, onEdit, listing = false }: I
           ? 'w-full overflow-hidden bg-surface p-5'
           : 'w-full overflow-hidden bg-tray'
       }
-      style={{ aspectRatio: HERO_ASPECT }}>
+      style={{ aspectRatio: stacked ? HERO_ASPECT_AX : HERO_ASPECT }}>
       {source ? (
         <Image
           source={source}

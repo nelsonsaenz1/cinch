@@ -79,6 +79,24 @@ export const MEDIUM_LABEL: Record<Variant, boolean> = {
  * sitting inline inside caption rows and footnotes — `Notice`'s trailing
  * "Undo" among them — where a 52pt minimum would open a gap under a line of
  * 11px text. The board draws ghost as bare words for exactly this reason.
+ *
+ * ── WHY THE FIRST-RUN ATLAS'S 48 DOES NOT MOVE THIS (Wave 3) ──────────────
+ *
+ * That atlas draws most of its action rows at `height:48px`, which reads at a
+ * glance like a shared-height correction. It is not one, and its own component
+ * inventory says so: the filled-button row lists "Oxblood, ink, inverse;
+ * 48 / 52 / 56 pt" — three heights, one component, chosen per frame. The 48s
+ * are then explained locally rather than globally; TR-07's note is "Actions
+ * came down from 56 to 48 pt to give the legal footer room while staying above
+ * the 44 pt floor", which is an argument about one crowded frame, and the
+ * consent sheet is the frame that made it.
+ *
+ * So 48 is a per-frame value the atlas reaches for when a screen is full, and
+ * `GROUNDED_HEIGHT` is the default a screen departs from. Taking 4 pt off the
+ * default would move every grounded button in the app on the authority of an
+ * annotation that never claimed the default, and `tests/constitution.test.ts`
+ * holds the 44 pt floor this sits above. A frame that genuinely needs 48 wants
+ * a per-call override; it does not want this constant.
  */
 export const GROUNDED_HEIGHT = 52;
 

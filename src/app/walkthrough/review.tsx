@@ -72,7 +72,7 @@ export default function WalkthroughReviewScreen() {
    *
    * A `held` above zero routes to `/walkthrough/ceiling` — M-07's explainer and
    * M-08's "keep ten for now" picker — instead of straight to `/reveal`. Reveal
-   * has no opinion about which pieces are awake; that choice belongs to the
+   * has no opinion about which pieces are active; that choice belongs to the
    * ceiling screen, and by the time it hands off, the choice has already been
    * made (see `resolveIntakeCeiling`).
    */
