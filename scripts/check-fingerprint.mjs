@@ -64,7 +64,11 @@ function currentFingerprint() {
       cwd: root,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
-      env: { ...process.env, ...productionEnv },
+      // Config plugins can branch on the EAS profile itself. In particular,
+      // the production privacy plugin strips dev-launcher Bonjour keys only
+      // when this value is present. Omitting it hashes the local development
+      // plist and produces a runtime that no production build actually has.
+      env: { ...process.env, ...productionEnv, EAS_BUILD_PROFILE: 'production' },
     },
   );
   // The command prints env-loading noise on stderr and JSON on stdout, but be
