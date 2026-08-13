@@ -85,7 +85,7 @@ export default {
       // suggestion would be worse than no metric at all.
       const note: Deps['note'] = (metric, detail) => {
         void admin
-          .rpc('note_commerce_metric', { p_metric: metric, p_delta: 1, p_detail: detail ?? null })
+          .rpc('note_commerce_metric', { p_metric: metric, p_delta: 1, p_detail: detail ?? undefined })
           .then(({ error }) => {
             if (error) console.error(`commerce-health: ${metric} not counted: ${error.message}`);
           });

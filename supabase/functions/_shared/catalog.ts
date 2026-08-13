@@ -767,6 +767,7 @@ export async function searchCatalogue(
   value: string,
   brand?: string | null,
   category?: string | null,
+  merchantIds?: readonly number[],
 ): Promise<CatalogProduct[]> {
-  return await lookup(opts, mode, value, brand, category);
+  return await lookup(opts, mode, value, brand, category, merchantIds);
 }
