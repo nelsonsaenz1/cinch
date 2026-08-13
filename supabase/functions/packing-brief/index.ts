@@ -4,6 +4,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
 import { recordAiCall } from '../_shared/ai-calls.ts';
+import { loadAiSettings } from '../_shared/ai-config.ts';
 import { BoundsError, readBoundedJson } from '../_shared/input-bounds.ts';
 import { completeStructured, OpenRouterError } from '../_shared/openrouter.ts';
 import { enforceAiQuota } from '../_shared/quota.ts';
@@ -51,8 +52,19 @@ import { packingSchema, PACKING_SYSTEM_PROMPT, type PackingResult } from './sche
 /** Text-only, but a longer output than a chat turn: five sections, not two. */
 const PACKING_TIMEOUT_MS = 30_000;
 
-/** See the docblock. Both constants move together when packing gets its own. */
-const WORKLOAD = 'stylist_chat' as Database['public']['Enums']['ai_workload'];
+/**
+ * The ledger name and the allowance are now DIFFERENT VALUES, and that is the
+ * point. `packing_brief` arrived as an `ai_workload` in migration
+ * 20260813203052, so this endpoint's cost, latency and failure rate are finally
+ * its own rather than a share of the stylist's.
+ *
+ * `QUOTA_KIND` stays `stylist_chat` deliberately. It is not an accounting
+ * value: it selects a row in `PLAN_LIMITS`, where free is EXCLUDED rather than
+ * rationed, and that exclusion is the server half of the Pro boundary. Giving
+ * packing its own allowance is a membership decision with a price attached, and
+ * it is not one an observability change gets to make quietly.
+ */
+const WORKLOAD = 'packing_brief' as Database['public']['Enums']['ai_workload'];
 const QUOTA_KIND = 'stylist_chat' as const;
 
 /**
@@ -197,13 +209,14 @@ export default {
         );
       }
 
-      const { data: config } = await admin
-        .from('ai_config')
-        .select('model_id, params, max_tokens, enabled, provider')
-        .eq('workload', WORKLOAD)
-        .maybeSingle();
+      const settings = await loadAiSettings(admin, WORKLOAD, {
+        modelId: DEFAULT_MODEL,
+        maxTokens: DEFAULT_MAX_TOKENS,
+        timeoutMs: PACKING_TIMEOUT_MS,
+        params: DEFAULT_PARAMS,
+      });
 
-      if (config && !config.enabled) {
+      if (settings.configured && !settings.enabled) {
         return fail('packing_disabled', 'Packing briefs are turned off right now.', 503);
       }
 
@@ -243,22 +256,29 @@ export default {
       let completionTokens: number | null = null;
       let costUsd: number | null = null;
       let latencyMs = 0;
+      // What actually happened, not what the loop is allowed to do. This
+      // endpoint retries a retryable provider error once, and until now the
+      // ledger recorded null for every call — so a workload that quietly needed
+      // two attempts on a third of its traffic was indistinguishable from one
+      // that never retried.
+      let attemptsMade = 0;
       const startedAt = Date.now();
 
       for (let attempt = 0; attempt < 2; attempt++) {
+        attemptsMade = attempt + 1;
         try {
           const completion = await completeStructured<PackingResult>({
             apiKey,
-            model: config?.model_id ?? DEFAULT_MODEL,
+            model: settings.modelId,
             messages: [
               { role: 'system', content: PACKING_SYSTEM_PROMPT },
               { role: 'user', content: buildPrompt(body) },
             ],
             schema: packingSchema as unknown as Record<string, unknown>,
             schemaName: 'packing_brief',
-            maxTokens: config?.max_tokens ?? DEFAULT_MAX_TOKENS,
-            params: (config?.params ?? DEFAULT_PARAMS) as Record<string, unknown>,
-            timeoutMs: PACKING_TIMEOUT_MS,
+            maxTokens: settings.maxTokens,
+            params: settings.params,
+            timeoutMs: settings.timeoutMs,
           });
 
           result = completion.parsed;
@@ -283,13 +303,14 @@ export default {
       await recordAiCall(admin, {
         user_id: userId,
         workload: WORKLOAD,
-        provider: config?.provider ?? 'openrouter',
-        model_id: config?.model_id ?? DEFAULT_MODEL,
+        provider: settings.provider,
+        model_id: settings.modelId,
         prompt_tokens: promptTokens,
         completion_tokens: completionTokens,
         cost_usd: costUsd,
         latency_ms: latencyMs,
         succeeded: result !== null,
+        attempts: attemptsMade,
         error: failure,
       });
 

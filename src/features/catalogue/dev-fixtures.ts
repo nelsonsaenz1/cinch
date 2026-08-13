@@ -219,14 +219,14 @@ export const CPV2_POSES = {
   /** CPV2-03 — transcript in the field, search in flight. */
   '03-transcript': pose({ search: { status: 'searching', query: QUERY } }),
   /** CPV2-04 — four exact families, two subordinate near-misses. */
-  '04-families': pose({ search: { status: 'results', query: QUERY, families: FAMILIES } }),
+  '04-families': pose({ search: { status: 'results', query: QUERY, families: FAMILIES, intentKey: null } }),
   /** CPV2-05 — family detail, two of seven colourways selected. */
   '05-detail': pose({
     step: 'detail',
     family: COMBED,
     selected: THREE.slice(0, 2).map((c) => c.externalId),
     selectedColours: THREE.slice(0, 2),
-    search: { status: 'results', query: QUERY, families: FAMILIES },
+    search: { status: 'results', query: QUERY, families: FAMILIES, intentKey: null },
   }),
   /** CPV2-06 — confirmation, three closet-ready previews. */
   '06-confirm': pose({

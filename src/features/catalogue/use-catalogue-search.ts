@@ -40,12 +40,27 @@ export type CatalogueFailure =
 export type CatalogueSearchState =
   | { status: 'idle' }
   | { status: 'searching'; query: CatalogueQuery }
-  | { status: 'results'; query: CatalogueQuery; families: CatalogueFamilies }
+  | {
+      status: 'results';
+      query: CatalogueQuery;
+      families: CatalogueFamilies;
+      /** See `SearchResponse.intentKey`. Null when the server sent none. */
+      intentKey: string | null;
+    }
   | { status: 'empty'; query: CatalogueQuery }
   | { status: 'failed'; query: CatalogueQuery; failure: CatalogueFailure; code: string | null };
 
 type SearchResponse = {
   families?: CatalogueFamilies | null;
+  /**
+   * An opaque sha256 the server uses to count what this search led to.
+   *
+   * Carried back on import so a conversion can be attributed WITHOUT the words
+   * travelling again — the screen that imports no longer holds the query, and
+   * this is what stops "count the imports" from becoming a reason to keep it.
+   * Not displayed, not stored, not readable: a hash of four canonical values.
+   */
+  intentKey?: string | null;
 };
 
 /**
@@ -159,7 +174,9 @@ export function useCatalogueSearch() {
       catalogueSearchCompleted(total, Date.now() - startedAt);
 
       setState(
-        total === 0 ? { status: 'empty', query } : { status: 'results', query, families },
+        total === 0
+          ? { status: 'empty', query }
+          : { status: 'results', query, families, intentKey: data?.intentKey ?? null },
       );
     } catch (err) {
       if (mine !== ticket.current) return;

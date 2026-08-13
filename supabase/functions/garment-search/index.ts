@@ -36,6 +36,7 @@ import {
 } from './policy.ts';
 import { licensedFirst } from './catalog-wiring.ts';
 import { searchFamilies } from './catalog-provider.ts';
+import { recordDemand } from '../_shared/demand.ts';
 import {
   type ImportRowResult,
   planCatalogueBatch,
@@ -512,10 +513,45 @@ async function searchGarments(
    * pass degrades to the previous contract rather than to an error screen.
    */
   let families: Awaited<ReturnType<typeof searchFamilies>>['families'] | null = null;
+  /**
+   * The opaque handle the later counters are addressed by.
+   *
+   * Returned to the client so a family open or an import — which happen on a
+   * screen that no longer holds the words, and must never be made to hold them
+   * again — can be counted against the intent they came from. It is a sha256
+   * with no inverse and no user in it; the worst a client can do with it is
+   * move a counter on a row its own search created today.
+   */
+  let intentKey: string | null = null;
   if (wiring.catalogue) {
+    const parsedForFamilies = parseQuery(request.description);
+    const familiesStartedAt = Date.now();
     try {
-      const grouped = await searchFamilies(wiring.catalogue, parseQuery(request.description));
+      const grouped = await searchFamilies(wiring.catalogue, parsedForFamilies);
       families = grouped.families;
+
+      /**
+       * What was asked for, as four canonical values and nothing else.
+       *
+       * This is the ONLY place demand is recorded, and it is placed here for a
+       * reason: `parsedForFamilies` is the server's own parse, so the sentence
+       * never has to travel any further than it already has. `recordDemand`
+       * keeps a recognised brand, a garment class, an audience bucket and a
+       * broad colour family — see `_shared/demand.ts` for why a GUESSED brand
+       * is dropped rather than stored, which is the line the whole privacy
+       * argument turns on.
+       *
+       * Awaited rather than fired and forgotten: an Edge Function invocation
+       * can be torn down the moment it returns, and a floating promise here
+       * would drop counters non-deterministically — which is worse than not
+       * counting, because the numbers would look complete.
+       */
+      intentKey = await recordDemand(admin, parsedForFamilies, {
+        searches: 1,
+        zeroResult:
+          families.exact.length === 0 && families.nearMiss.length === 0 ? 1 : 0,
+        latencyMs: Date.now() - familiesStartedAt,
+      });
     } catch (err) {
       console.error(
         `garment-search: family grouping failed, serving candidates only: ${
@@ -538,6 +574,7 @@ async function searchGarments(
     // Null means "grouping was not available", which is not the same as an
     // empty family list and must not read as one.
     families,
+    intentKey,
   });
 }
 
@@ -1213,10 +1250,35 @@ async function importCatalogueBatch(
     results.push({ externalId: row.externalId, status: 'added', itemId: stored.itemId });
   }
 
+  const summary = summariseBatch(results);
+
+  /**
+   * Conversion, counted against the intent that produced it.
+   *
+   * ATTEMPTS is the number of colourways this request tried to write, and
+   * SUCCESSES counts `already-added` alongside `added`: from the user's side
+   * both mean "it is in my closet now", and treating an idempotent retry as a
+   * failure would make the conversion rate a measure of network quality.
+   *
+   * Best effort, and last: nothing above this line depends on it, and a
+   * counter that cannot be moved must not cost somebody the import they just
+   * watched succeed.
+   */
+  if (request.intentKey) {
+    const { error: demandError } = await admin.rpc('record_catalogue_demand_by_key', {
+      p_intent_key: request.intentKey,
+      p_import_attempts: request.imports.length,
+      p_import_successes: summary.added + summary.alreadyAdded,
+    });
+    if (demandError) {
+      console.error(`record_catalogue_demand_by_key rejected: ${demandError.message}`);
+    }
+  }
+
   // 200 even when rows failed. The request itself succeeded — it asked six
   // questions and answered all six — and a 500 here would tell a client that
   // nothing landed when four things did.
-  return Response.json({ ok: true, results, ...summariseBatch(results) });
+  return Response.json({ ok: true, results, ...summary });
 }
 
 /** The columns `match` reads. A pick so a renamed column fails the compile

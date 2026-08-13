@@ -116,7 +116,21 @@ export type ValidatedCatalogueImportRow = {
 export type ValidatedImportBatchRequest = {
   action: 'import-batch';
   imports: ValidatedCatalogueImportRow[];
+  /**
+   * The opaque intent key the search returned, when the client still has it.
+   *
+   * OPTIONAL, and it must stay optional: an import is a write the user asked
+   * for, and refusing it because a statistic could not be attributed would be
+   * putting the counter ahead of the closet. A key of the wrong shape simply
+   * moves nothing — `record_catalogue_demand_by_key` updates an existing row or
+   * does nothing at all, so there is no value a caller can send that creates
+   * demand which never happened.
+   */
+  intentKey: string | null;
 };
+
+/** sha256, hex. Nothing else is a key, and nothing else is accepted. */
+const INTENT_KEY_CHARS = 64;
 
 /**
  * A product page URL somebody pasted.
@@ -235,8 +249,14 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
       throw new BoundsError(`imports is too long (${raw.length} rows, limit ${MAX_BATCH_ROWS}).`);
     }
 
+    const intentKeyRaw = optionalString(body.intentKey, 'intentKey', INTENT_KEY_CHARS);
+
     return {
       action: 'import-batch',
+      // Shape-checked here rather than trusted: the column it addresses is a
+      // hash, so anything that is not one is not a key and is dropped quietly.
+      intentKey:
+        intentKeyRaw && /^[0-9a-f]{64}$/.test(intentKeyRaw) ? intentKeyRaw : null,
       imports: raw.map((entry, i) => {
         const row = asObject(entry);
         return {

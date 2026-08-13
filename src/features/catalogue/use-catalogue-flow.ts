@@ -259,7 +259,10 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
       setRefusal(null);
       setStep('importing');
 
-      const outcome = await importer.run(family, colours);
+      // The key travels only while the results that produced it are on screen.
+      // It is not persisted and it is not held past a new search.
+      const intentKey = search.state.status === 'results' ? search.state.intentKey : null;
+      const outcome = await importer.run(family, colours, intentKey);
 
       if (outcome.status === 'refused') {
         setRefusal(outcome.refusal);
@@ -288,7 +291,7 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
       void releaseHeldSelection();
       setStep(outcome.failed > 0 ? 'importing' : 'done');
     },
-    [family, importer],
+    [family, importer, search.state],
   );
 
   const confirm = useCallback(() => {

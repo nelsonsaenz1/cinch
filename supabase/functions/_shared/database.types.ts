@@ -140,8 +140,10 @@ export type Database = {
           model_id: string
           params: Json
           provider: string
+          rescue_model_id: string | null
           timeout_ms: number
           updated_at: string
+          validator_policy: string
           workload: Database["public"]["Enums"]["ai_workload"]
         }
         Insert: {
@@ -150,8 +152,10 @@ export type Database = {
           model_id: string
           params?: Json
           provider?: string
+          rescue_model_id?: string | null
           timeout_ms?: number
           updated_at?: string
+          validator_policy?: string
           workload: Database["public"]["Enums"]["ai_workload"]
         }
         Update: {
@@ -160,8 +164,10 @@ export type Database = {
           model_id?: string
           params?: Json
           provider?: string
+          rescue_model_id?: string | null
           timeout_ms?: number
           updated_at?: string
+          validator_policy?: string
           workload?: Database["public"]["Enums"]["ai_workload"]
         }
         Relationships: []
@@ -446,6 +452,63 @@ export type Database = {
           reserve?: number
           updated_at?: string
           used?: number
+        }
+        Relationships: []
+      }
+      catalogue_demand_daily: {
+        Row: {
+          audience: string | null
+          brand_slug: string | null
+          colour_family: string | null
+          day: string
+          family_opens: number
+          first_seen_at: string
+          garment_class: string | null
+          import_attempts: number
+          import_successes: number
+          intent_key: string
+          latency_fast: number
+          latency_medium: number
+          latency_slow: number
+          searches: number
+          updated_at: string
+          zero_result_searches: number
+        }
+        Insert: {
+          audience?: string | null
+          brand_slug?: string | null
+          colour_family?: string | null
+          day?: string
+          family_opens?: number
+          first_seen_at?: string
+          garment_class?: string | null
+          import_attempts?: number
+          import_successes?: number
+          intent_key: string
+          latency_fast?: number
+          latency_medium?: number
+          latency_slow?: number
+          searches?: number
+          updated_at?: string
+          zero_result_searches?: number
+        }
+        Update: {
+          audience?: string | null
+          brand_slug?: string | null
+          colour_family?: string | null
+          day?: string
+          family_opens?: number
+          first_seen_at?: string
+          garment_class?: string | null
+          import_attempts?: number
+          import_successes?: number
+          intent_key?: string
+          latency_fast?: number
+          latency_medium?: number
+          latency_slow?: number
+          searches?: number
+          updated_at?: string
+          zero_result_searches?: number
         }
         Relationships: []
       }
@@ -3068,6 +3131,30 @@ export type Database = {
         }[]
       }
       reap_intake_audio: { Args: never; Returns: number }
+      record_catalogue_demand: {
+        Args: {
+          p_audience: string
+          p_brand_slug: string
+          p_colour_family: string
+          p_family_opens?: number
+          p_garment_class: string
+          p_import_attempts?: number
+          p_import_successes?: number
+          p_latency_bucket?: string
+          p_searches?: number
+          p_zero_result?: number
+        }
+        Returns: string
+      }
+      record_catalogue_demand_by_key: {
+        Args: {
+          p_family_opens?: number
+          p_import_attempts?: number
+          p_import_successes?: number
+          p_intent_key: string
+        }
+        Returns: boolean
+      }
       release_commerce_alert: { Args: { p_key: string }; Returns: undefined }
       release_support_send: {
         Args: { p_booking_id: string; p_user_id: string }
@@ -3101,6 +3188,9 @@ export type Database = {
         | "outfit_generation"
         | "stylist_chat"
         | "garment_search"
+        | "voice_transcription"
+        | "closet_parsing"
+        | "packing_brief"
       catalog_provider: "datafeedr" | "sovrn" | "amazon"
       event_member_role: "host" | "attendee"
       event_member_state: "invited" | "joined" | "declined" | "removed"
@@ -3273,6 +3363,9 @@ export const Constants = {
         "outfit_generation",
         "stylist_chat",
         "garment_search",
+        "voice_transcription",
+        "closet_parsing",
+        "packing_brief",
       ],
       catalog_provider: ["datafeedr", "sovrn", "amazon"],
       event_member_role: ["host", "attendee"],

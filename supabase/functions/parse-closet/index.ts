@@ -5,6 +5,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 import type { Database } from '../_shared/database.types.ts';
 
 import { recordAiCall } from '../_shared/ai-calls.ts';
+import { loadAiSettings } from '../_shared/ai-config.ts';
 import { completeStructured, OpenRouterError, redactUrls } from '../_shared/openrouter.ts';
 import {
   closetSchema,
@@ -70,8 +71,16 @@ const PARSE_MAX_TOKENS = 16_000;
  * three times as much per call ($0.0007 vs $0.00022) — an extra half a cent per
  * walkthrough, against a parse that currently has a real chance of not
  * returning at all.
+ *
+ * IT IS NOW A FLOOR RATHER THAN THE CHOICE. `ai_config` for `closet_parsing`
+ * selects the model, the ceiling and the deadline; this is what runs when there
+ * is no row. The workload is new in migration 20260813203052 — before it, this
+ * call filed itself in the ledger as `tagging`, which made the parser's real
+ * cost and failure rate inseparable from photo tagging. The QUOTA it spends is
+ * deliberately unchanged and still `tagging`: that is a membership boundary,
+ * and correcting the books is not a licence to move it.
  */
-const MODEL = 'deepseek/deepseek-v4-flash-0731';
+const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash-0731';
 
 export default {
   fetch: withSupabase(
@@ -165,19 +174,26 @@ export default {
         return quotaResponse;
       }
 
+      const settings = await loadAiSettings(admin, 'closet_parsing', {
+        modelId: DEFAULT_MODEL,
+        maxTokens: PARSE_MAX_TOKENS,
+        timeoutMs: PARSE_TIMEOUT_MS,
+      });
+
+      const startedAt = Date.now();
       let result;
       try {
         result = await completeStructured<ParsedCloset>({
           apiKey,
-          model: MODEL,
+          model: settings.modelId,
           messages: [
             { role: 'system', content: PARSE_SYSTEM_PROMPT },
             { role: 'user', content: transcript },
           ],
           schema: closetSchema as unknown as Record<string, unknown>,
           schemaName: 'closet',
-          maxTokens: PARSE_MAX_TOKENS,
-          timeoutMs: PARSE_TIMEOUT_MS,
+          maxTokens: settings.maxTokens,
+          timeoutMs: settings.timeoutMs,
         });
       } catch (error) {
         const code = error instanceof OpenRouterError ? 'parse_failed' : 'parse_error';
@@ -185,12 +201,28 @@ export default {
         // that was not the provider threw", which is precisely the case nobody
         // can diagnose from the status alone.
         console.error(
-          `parse-closet ${code} (session=${sessionId}, user=${userId}, model=${MODEL}, chars=${transcript.length}): ` +
+          `parse-closet ${code} (session=${sessionId}, user=${userId}, model=${settings.modelId}, chars=${transcript.length}): ` +
             redactUrls(error instanceof Error ? `${error.name}: ${error.message}` : String(error)),
         );
         // The transcript survives. V-13's branch for this is "we heard you, we
         // could not read it" — with the words still on screen and a retry that
         // does not need the microphone again.
+        // A failed parse is a call that happened: it spent latency, it may have
+        // spent tokens, and it spent the user's quota. Recording only the
+        // successes is what made the parser's failure rate invisible.
+        await recordAiCall(admin, {
+          user_id: userId,
+          workload: 'closet_parsing',
+          provider: settings.provider,
+          model_id: settings.modelId,
+          prompt_tokens: null,
+          completion_tokens: null,
+          cost_usd: null,
+          latency_ms: Date.now() - startedAt,
+          succeeded: false,
+          attempts: 1,
+          error: code,
+        });
         await db.from('intake_sessions')
           .update({ status: 'failed', error_code: code })
           .eq('id', sessionId);
@@ -211,14 +243,18 @@ export default {
 
       await recordAiCall(admin, {
         user_id: userId,
-        workload: 'tagging',
-        provider: 'openrouter',
-        model_id: MODEL,
+        workload: 'closet_parsing',
+        provider: settings.provider,
+        model_id: settings.modelId,
         prompt_tokens: result.promptTokens,
         completion_tokens: result.completionTokens,
         cost_usd: result.costUsd,
         latency_ms: result.latencyMs,
         succeeded: true,
+        // `completeStructured` does not retry, so one call is one attempt. A
+        // hard-coded 1 where there is no loop is truthful; a null, which is
+        // what this row carried before, is not readable in aggregate.
+        attempts: 1,
       });
 
       if (parsed.garments.length === 0) {

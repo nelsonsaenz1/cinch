@@ -91,7 +91,18 @@ export function useCatalogueImport() {
    * the closet as three identical blank cards.
    */
   const run = useCallback(
-    async (family: CatalogueFamily, selected: readonly CatalogueColourway[]): Promise<ImportOutcome> => {
+    async (
+      family: CatalogueFamily,
+      selected: readonly CatalogueColourway[],
+      /**
+       * The search's opaque intent key, when this import came from one.
+       *
+       * Optional and never required: this is how the server counts which
+       * intents convert, and an import must not depend on a statistic. It is a
+       * hash, not the words — see `use-catalogue-search.ts`.
+       */
+      intentKey?: string | null,
+    ): Promise<ImportOutcome> => {
       if (selected.length === 0) return { status: 'error', message: GENERIC };
       if (pending) return { status: 'error', message: GENERIC };
 
@@ -102,6 +113,7 @@ export function useCatalogueImport() {
         const { data, error } = await supabase.functions.invoke<BatchResponse>('garment-search', {
           body: {
             action: 'import-batch',
+            intentKey: intentKey ?? undefined,
             imports: selected.map((colour) => ({
               externalId: colour.externalId,
               imageUrl: colour.imageUrl ?? '',

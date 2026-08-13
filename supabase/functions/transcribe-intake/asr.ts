@@ -23,6 +23,8 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
+import { recordAiCall } from '../_shared/ai-calls.ts';
+import { loadAiSettings } from '../_shared/ai-config.ts';
 import { redactUrls } from '../_shared/openrouter.ts';
 
 export const BUCKET = 'intake-audio';
@@ -35,10 +37,17 @@ const SIGNED_URL_TTL_SECONDS = 300;
 export const MAX_BYTES = 25 * 1024 * 1024;
 export const MAX_DURATION_MS = 12 * 60 * 1000;
 
-/** Audio upload plus decode. Slower than any text call in the app. */
-const TRANSCRIBE_TIMEOUT_MS = 120_000;
-
-const MODEL = 'openai/whisper-large-v3';
+/**
+ * Audio upload plus decode. Slower than any text call in the app.
+ *
+ * A FLOOR, not the value: `ai_config.timeout_ms` for `voice_transcription` is
+ * what actually bounds the call, and this is what happens when no row exists.
+ * Same for the model. Both were compiled in until this packet, which meant
+ * swapping a retired ASR model needed an App Store release.
+ */
+const DEFAULT_TIMEOUT_MS = 120_000;
+const DEFAULT_MODEL = 'openai/whisper-large-v3';
+const DEFAULT_MAX_TOKENS = 1_024;
 
 /**
  * Decoder bias. Whisper-class models accept a prompt that conditions the
@@ -87,6 +96,12 @@ export async function transcribeStoredAudio(
 ): Promise<AsrOutcome> {
   const objectPath = `${userId}/${objectName}`;
 
+  const settings = await loadAiSettings(admin, 'voice_transcription', {
+    modelId: DEFAULT_MODEL,
+    maxTokens: DEFAULT_MAX_TOKENS,
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+  });
+
   // Size is checked before the model call, not after: the bucket's own
   // file_size_limit already refuses an oversized upload, and this catches the
   // case where the limit is later loosened without this being revisited.
@@ -107,15 +122,49 @@ export async function transcribeStoredAudio(
     return { ok: false, failure: 'audio_unreadable', status: 500 };
   }
 
+  /**
+   * The ledger row this call never wrote.
+   *
+   * Every other model call in the app lands in `ai_calls`; the ASR call did
+   * not, which meant transcription was the one workload nobody could cost, and
+   * the one whose failure rate could only be inferred from user complaints.
+   *
+   * WHAT GOES IN IT: model, latency, attempts, success, and a redacted failure
+   * reason. WHAT DOES NOT: the transcript, the object name, the signed URL, and
+   * the audio. `ai_calls.error` is read by whoever is debugging cost, and a
+   * transcript is the user's own sentence — the same argument `redactUrls`
+   * already makes about signed URLs on the tagging path.
+   *
+   * `attempts` is 1 because this call does not retry. Recording a hard-coded 1
+   * where there is no loop is truthful; recording nothing, as it did before,
+   * left the column null on every ASR row and unusable in aggregate.
+   */
+  const startedAt = Date.now();
+  const ledger = async (succeeded: boolean, error: string | null) => {
+    await recordAiCall(admin, {
+      user_id: userId,
+      workload: 'voice_transcription',
+      provider: settings.provider,
+      model_id: settings.modelId,
+      prompt_tokens: null,
+      completion_tokens: null,
+      cost_usd: null,
+      latency_ms: Date.now() - startedAt,
+      succeeded,
+      attempts: 1,
+      error,
+    });
+  };
+
   try {
     const audio = await fetch(signed.signedUrl, {
-      signal: AbortSignal.timeout(TRANSCRIBE_TIMEOUT_MS),
+      signal: AbortSignal.timeout(settings.timeoutMs),
     });
     if (!audio.ok) throw new Error(`audio fetch ${audio.status}`);
 
     const form = new FormData();
     form.append('file', await audio.blob(), objectName);
-    form.append('model', MODEL);
+    form.append('model', settings.modelId);
     form.append('prompt', GARMENT_VOCABULARY);
     /**
      * `json`, NOT `text`.
@@ -141,7 +190,7 @@ export async function transcribeStoredAudio(
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}` },
       body: form,
-      signal: AbortSignal.timeout(TRANSCRIBE_TIMEOUT_MS),
+      signal: AbortSignal.timeout(settings.timeoutMs),
     });
 
     if (!response.ok) {
@@ -161,6 +210,7 @@ export async function transcribeStoredAudio(
       );
     }
 
+    await ledger(true, null);
     return { ok: true, transcript: body.text.trim(), bytes: size };
   } catch (error) {
     // WHATEVER ELSE CHANGES HERE, THIS LOGS. The one thing an ASR integration
@@ -170,10 +220,15 @@ export async function transcribeStoredAudio(
     // `label` is the caller's own opaque handle — a session id or a catalogue
     // request id. Neither is user content, and no transcript, filename or signed
     // URL reaches this line.
-    console.error(
-      `transcribe-intake FAILED (${label}, user=${userId}, model=${MODEL}, bytes=${size}): ` +
-        redactUrls(error instanceof Error ? `${error.name}: ${error.message}` : String(error)),
+    const reason = redactUrls(
+      error instanceof Error ? `${error.name}: ${error.message}` : String(error),
     );
+    console.error(
+      `transcribe-intake FAILED (${label}, user=${userId}, model=${settings.modelId}, bytes=${size}): ${reason}`,
+    );
+    // Truncated: `ai_calls.error` is an operational column, not a log sink, and
+    // a provider that echoes a long request back would otherwise fill it.
+    await ledger(false, reason.slice(0, 300));
     return { ok: false, failure: 'transcription_failed', status: 502 };
   }
 }
