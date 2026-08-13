@@ -409,3 +409,105 @@ whose colour was not named. Builds on the current bundle render that through
 "Colour?" chip and the neutral swatch only arrive with the OTA. That is a
 cosmetic gap for one release, not a broken screen, and it argues for publishing
 the three packets together rather than leaving it open indefinitely.
+
+---
+
+## Packet 4 — Workstream 7 (non-native) · tagging validators, photo-match contract
+
+**No migration.** Nothing in this packet needed schema, and the instruction was
+explicit not to create one for paper. **Deployed:** `tag-item` only.
+
+### The tagging contract, enforced rather than requested
+
+`TAG_SYSTEM_PROMPT` already states most of these rules, at length and in
+capitals, because each was got wrong in production. A rule in a prompt is a
+request; `_shared/tag-validate.ts` makes the same rules facts about what can
+reach the database.
+
+It **rejects** rather than clamps. `normalizeTags` clamps, and clamping is right
+for a formality of 7 — the intent is legible. A tote filed as a top is not a
+value out of range, it is a wrong answer, and coercing it files somebody's
+handbag as a shirt.
+
+**Brand now requires evidence.** This is the largest behavioural change in the
+packet: a vision model reading a logo it cannot see writes a plausible maker's
+name onto a garment somebody owns, and brand drives catalogue search, resale
+value and a person's own sense of their wardrobe. Admissible evidence is OCR, a
+catalogue match, or the user typing it — `'model'` is deliberately not in the
+`BrandEvidence` union, because there is no confidence at which a guess becomes
+evidence. An unsupported claim empties the field rather than failing the item.
+
+**The description is assembled, not requested.** The prompt's last paragraph is
+a plea not to invent belt loops and contrast stitching; it is a plea because
+prose is the one output no schema constrains. `describeGarment` composes one
+sentence from fields that passed, and a field that is absent removes its clause.
+
+**One rescue, then `needs_review`.** A deterministic rejection escalates to the
+configured `rescue_model_id` exactly once, under `validator_policy = 'rescue'`;
+otherwise the item is badged for review. The loop stays at two attempts total —
+a third would be the repeated verification the plan forbids.
+
+### The photo-to-catalogue path — half built, half contracted
+
+`src/features/intake/photo-match.ts` implements the two steps that do not need
+Apple Vision and **defines the contract for the two that do**, as types and a
+pure ranking function that already work and are tested against hand-built
+vectors. `LocalPhotoEvidence` is filled today by the shipping cutout module
+(measured colours, subject coverage) and gains `ocrText` / `featurePrint` when
+the native packet lands, with nothing else changing.
+
+**It does not fake the missing half.** No JavaScript "OCR" reading pixels, no
+similarity metric invented out of colour distance. Either would produce a number
+that looks like the real one and behaves nothing like it.
+
+**The fast path is unreachable today, by construction, and that is the finding.**
+Brand + colour + class maxes at 0.55 against a 0.82 threshold, and
+`clearsFastPath` additionally requires a feature print. Three cotton t-shirts
+from one maker in one colour are identical on those three fields — agreement
+there is a search result, not an identification. Lowering the bar to what
+today's evidence can reach is the one shortcut that would look like progress and
+ship the wrong garment. The consent-gated vision fallback therefore still runs,
+unchanged.
+
+A fixture caught a real ordering defect: with the user typing "Uniqlo" over OCR
+reading "james perse", the James Perse family still came back first. Corrections
+now **suppress** OCR scoring entirely rather than outranking it — otherwise a
+correction can lose to a photograph of a swing tag.
+
+### Acceptance coverage
+
+Closed here: plain background, hanger, flat lay, multiple objects (all subject
+coverage), no match, and the ranking/quality negatives.
+
+**Recorded as native-only, for Packet 5** — exported as
+`NATIVE_ONLY_ACCEPTANCE` in `tests/photo-match.test.ts` so the next packet has a
+list rather than prose, and so "Workstream 7" is not read as all thirteen
+photographs passing: blurred, dark, overexposed, visible label, invisible label,
+duplicate upload, exact catalogue match, near match, mirror/person.
+
+### Checks
+
+```
+node scripts/run-tests.mjs   1432 pass, 0 fail   (1371 → 1432, +61)
+npx tsc --noEmit             0 lines
+npx expo lint                11 problems, 0 errors  (baseline)
+deno check tag-item          0 errors
+deno check garment-search    0 errors
+npm run check:fingerprint    414c789dbc3e… unchanged
+```
+
+No privacy or help copy changed: no user-visible flow changed. The vision
+fallback is still consent-gated exactly as before, and nothing new is collected.
+
+### Runtime boundary
+
+Fingerprint **unchanged**. No native dependency, permission, entitlement, Expo
+config-plugin, Apple framework code, or package added — the diff touches no
+Expo API surface at all. Same-runtime and OTA-eligible; **not published**.
+
+**Four receipts now pending for one combined publish:** Packets 1, 2, 3 and 4.
+
+**The line for Packet 5** is exactly `LocalPhotoEvidence.ocrText` and
+`LocalPhotoEvidence.featurePrint`, plus blur/exposure in `PhotoQuality`.
+Everything above that line is JavaScript and ships by OTA; everything below it
+needs a new runtime and a store build.

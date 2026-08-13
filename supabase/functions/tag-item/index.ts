@@ -5,6 +5,8 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 import type { Database } from '../_shared/database.types.ts';
 
 import { recordAiCall } from '../_shared/ai-calls.ts';
+import { loadAiSettings } from '../_shared/ai-config.ts';
+import { validateTags } from '../_shared/tag-validate.ts';
 
 import {
   completeStructured,
@@ -191,6 +193,21 @@ export default {
         .eq('workload', 'tagging')
         .single();
 
+      /**
+       * The same row, through the shared loader, for the two fields the direct
+       * select above predates: `rescue_model_id` and `validator_policy`.
+       *
+       * Not a second read of a different truth — same table, same workload. The
+       * original select stays because the rest of this function reads `config`
+       * and rewriting all of it to prove one point would be a larger diff than
+       * the packet needs.
+       */
+      const settings = await loadAiSettings(admin, 'tagging', {
+        modelId: config?.model_id ?? '',
+        maxTokens: config?.max_tokens ?? 1024,
+        timeoutMs: TAG_TIMEOUT_MS,
+      });
+
       if (!config?.enabled) {
         // Every early return from here on releases the claim: the item is
         // untouched, and leaving it claimed would block the retry that fixes it.
@@ -236,6 +253,10 @@ export default {
       let completionTokens: number | null = null;
       let costUsd: number | null = null;
       let latencyMs = 0;
+      /** Set when a deterministic rejection escalated to the rescue model. */
+      let rescued = false;
+      /** The failure codes that caused it, for the ledger. */
+      let rejection: string | null = null;
       const startedAt = Date.now();
 
       // Two attempts. A retryable failure (429 / 5xx) is worth one more try;
@@ -244,7 +265,10 @@ export default {
         try {
           const result = await completeStructured<TagResult>({
             apiKey,
-            model: config.model_id,
+            // The rescue model on the second pass, and only when a validator
+            // rejection put us here — a retryable provider error re-runs the
+            // primary, as it always did.
+            model: rescued && settings.rescueModelId ? settings.rescueModelId : config.model_id,
             messages: [
               { role: 'system', content: TAG_SYSTEM_PROMPT },
               { role: 'user', content },
@@ -256,12 +280,58 @@ export default {
             timeoutMs: TAG_TIMEOUT_MS,
           });
 
-          tags = normalizeTags(result.parsed);
           promptTokens = result.promptTokens;
           completionTokens = result.completionTokens;
           costUsd = result.costUsd;
           latencyMs = result.latencyMs;
-          failure = null;
+
+          /**
+           * The deterministic gate.
+           *
+           * `normalizeTags` clamps what is merely out of range; `validateTags`
+           * refuses what is CONTRADICTORY — a tote filed as a top, a solid with
+           * a print scale, a wool coat claiming to shed rain. Those are not
+           * values to coerce, they are answers that were not read off the
+           * photograph, and coercing one files somebody's handbag as a shirt.
+           *
+           * It also resolves the brand against evidence and writes the
+           * description from the fields that survived. See `tag-validate.ts`.
+           */
+          const checked = validateTags(normalizeTags(result.parsed), {
+            // OCR is native and arrives in the next packet; a null here simply
+            // means one of the three evidence routes is unavailable, and an
+            // unsupported brand claim is dropped rather than trusted.
+            ocrText: null,
+            catalogueBrands: [],
+            userBrand: null,
+          });
+
+          if (checked.ok) {
+            tags = checked.tags;
+            failure = null;
+            break;
+          }
+
+          /**
+           * ONE rescue, and only after a deterministic rejection.
+           *
+           * Not a second opinion on a result that passed — that is the pattern
+           * the plan forbids, and it costs twice for one answer. This runs the
+           * configured `rescue_model_id` on the same photograph exactly once;
+           * if that also fails validation the item becomes `needs_review`,
+           * which is a state the user can act on. There is no loop.
+           */
+          rejection = checked.failures.join(',');
+          if (attempt === 0 && settings.validatorPolicy === 'rescue' && settings.rescueModelId) {
+            rescued = true;
+            continue;
+          }
+          if (settings.validatorPolicy === 'accept') {
+            tags = normalizeTags(result.parsed);
+            failure = null;
+            break;
+          }
+          failure = `validator_rejected:${rejection}`;
           break;
         } catch (err) {
           failure = err instanceof Error ? err.message : String(err);
@@ -282,7 +352,7 @@ export default {
         user_id: userId,
         workload: 'tagging',
         provider: config.provider,
-        model_id: config.model_id,
+        model_id: rescued && settings.rescueModelId ? settings.rescueModelId : config.model_id,
         item_id: itemId,
         prompt_tokens: promptTokens,
         completion_tokens: completionTokens,
