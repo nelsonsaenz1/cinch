@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
 import { Button, KeyboardAwareScrollView, Text } from '@/components/ui';
+import { ExampleTrip } from '@/components/plan/plan-examples';
 import { useFriends } from '@/features/social-graph/queries';
 import { fetchClimateBand, formatTemp, searchPlaces, type Place } from '@/features/context/weather';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -387,10 +388,15 @@ export function TripQuestionnaire({
 
       <View className="mt-6">
         {q.step === 'destination' ? (
-          <DestinationStep
-            initialQuery={q.draft.destination?.name ?? ''}
-            onPick={(place) => q.answer('destination', { destination: place })}
-          />
+          <>
+            <DestinationStep
+              initialQuery={q.draft.destination?.name ?? ''}
+              onPick={(place) => q.answer('destination', { destination: place })}
+            />
+            <View className="mt-7">
+              <ExampleTrip />
+            </View>
+          </>
         ) : null}
 
         {q.step === 'companions' ? (

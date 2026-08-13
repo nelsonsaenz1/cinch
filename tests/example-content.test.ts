@@ -261,6 +261,33 @@ test('the coaching card is shown once and once means once', () => {
   assert.match(src, /if \(alive && !seen\) setShow\(true\)/);
 });
 
+test('Closet owns a separate one-time profile invitation', () => {
+  const screen = code('src/app/(tabs)/closet.tsx');
+  const sheet = code('src/components/closet/closet-inspiration-sheet.tsx');
+  const hook = code('src/features/closet/use-closet-inspiration.ts');
+
+  assert.match(screen, /<ClosetInspirationSheet/);
+  assert.match(sheet, /<ProfileCoachingCard/);
+  assert.match(sheet, /destination="edit-profile"/);
+  assert.match(hook, /AsyncStorage/);
+  assert.match(hook, /cinch\.closet\.inspiration\.seen\.v1/);
+  assert.doesNotMatch(hook, /cinch\.profile\.coaching\.seen\.v1/);
+});
+
+test('a subscribed first trip sees the example below destination search', () => {
+  const src = code('src/features/plan/trip-questionnaire.tsx');
+  const destination = src.indexOf('<DestinationStep');
+  const example = src.indexOf('<ExampleTrip');
+  assert.ok(destination > -1 && example > destination, 'the trip example is not below destination search');
+});
+
+test('the removed Today promise stays off the page', () => {
+  const floor = code('src/components/today/closet-floor.tsx');
+  const copy = code('src/features/examples/example-copy.ts');
+  assert.doesNotMatch(floor, /This is what Cinch gives you back every morning/);
+  assert.doesNotMatch(copy, /This is what Cinch gives you back every morning/);
+});
+
 test('the fictional people are monograms, and no face is fabricated', () => {
   const src = code('src/components/examples/example-card.tsx');
   assert.match(src, /ExampleMonogram/);

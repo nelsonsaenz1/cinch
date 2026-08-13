@@ -105,9 +105,6 @@ export const TE_01 = {
   ] as GarmentKey[],
 } as const;
 
-/** The sentence under TE-01's card — the promise the example is evidence for. */
-export const TE_01_PROMISE = 'This is what Cinch gives you back every morning.';
-
 /**
  * TE-02 — the under-floor example. Four pieces, matching the real plate at four.
  *

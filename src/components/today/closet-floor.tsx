@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { ExampleCard, ExampleGarments } from '@/components/examples/example-card';
 import { GarmentCell } from '@/components/today/garment-cell';
 import { Text } from '@/components/ui/text';
-import { TE_01, TE_01_PROMISE, TE_02, TE_02_CAPTION } from '@/features/examples/example-copy';
+import { TE_01, TE_02, TE_02_CAPTION } from '@/features/examples/example-copy';
 import { missingForFirstOutfit, tallyOf } from '@/features/closet/outfit-count';
 import { PLANS } from '@/features/billing/plans';
 import { numberWord } from '@/features/onboarding/reveal-copy';
@@ -115,12 +115,6 @@ export function ClosetFloor({
           {example.reasoning}
         </Text>
       </ExampleCard>
-
-      {empty ? (
-        <Text variant="body" className="mt-5 text-muted">
-          {TE_01_PROMISE}
-        </Text>
-      ) : null}
 
       {/* The pieces that are already in, at full size. Zero is quiet: with
           nothing photographed there is nothing to show, and an empty tray

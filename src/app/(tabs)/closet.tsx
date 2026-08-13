@@ -15,6 +15,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ClosetGrid } from '@/components/closet/closet-grid';
+import { ClosetInspirationSheet } from '@/components/closet/closet-inspiration-sheet';
 import { ClosetMenu } from '@/components/closet/closet-menu';
 import { ClosetSkeleton } from '@/components/closet/closet-skeleton';
 import { EmptyCloset } from '@/components/closet/empty-closet';
@@ -25,6 +26,7 @@ import { SelectionBar } from '@/components/closet/selection-bar';
 import { StatRow } from '@/components/closet/stat-row';
 import { Avatar, Chip, EmptyState, ErrorState, SearchField, Text } from '@/components/ui';
 import { searchSummary } from '@/features/closet/search-summary';
+import { useClosetInspiration } from '@/features/closet/use-closet-inspiration';
 import {
   useClosetScreen,
   type CategoryFilter,
@@ -85,6 +87,7 @@ export default function ClosetScreen() {
   const router = useRouter();
   const theme = useTheme();
   const screen = useClosetScreen();
+  const inspiration = useClosetInspiration();
   const [menuOpen, setMenuOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlashListRef<Item>>(null);
@@ -376,6 +379,15 @@ export default function ClosetScreen() {
       {screen.editing ? (
         <EditProfileSheet visible onClose={() => screen.setEditing(false)} />
       ) : null}
+
+      <ClosetInspirationSheet
+        visible={inspiration.show && !screen.loading && !screen.error}
+        onDismiss={inspiration.dismiss}
+        onStart={() => {
+          inspiration.dismiss();
+          screen.setEditing(true);
+        }}
+      />
     </SafeAreaView>
   );
 }
