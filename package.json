@@ -84,6 +84,7 @@
     "smoke:type": "esbuild scripts/typography-smoke.ts --bundle --platform=node --format=cjs --outfile=node_modules/.cache/typography-smoke.cjs --log-level=error && node node_modules/.cache/typography-smoke.cjs",
     "build:store": "npx -y -p eas-cli@21.6.0 -p typescript@5.9.3 eas build --platform ios --profile production --auto-submit",
     "submit:latest": "npx -y -p eas-cli@21.6.0 -p typescript@5.9.3 eas submit --platform ios --latest --non-interactive",
+    "release:ota": "node scripts/release-ota.mjs",
     "check:fingerprint": "node scripts/check-fingerprint.mjs"
   },
   "private": true

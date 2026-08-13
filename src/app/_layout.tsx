@@ -19,6 +19,7 @@ import { useSession } from '@/features/auth/use-session';
 import { useInviteDeepLink } from '@/features/invite/use-invite-deep-link';
 import { Superwall } from '@/features/billing/superwall';
 import { useReportTimeZone } from '@/features/push/time-zone';
+import { UpdateCoordinator } from '@/features/updates/update-coordinator';
 import { Analytics, identifyUser, useScreenTracking } from '@/lib/posthog';
 import {
   persistBuster,
@@ -323,6 +324,7 @@ export default function RootLayout() {
               than a call inside `useAnalyticsIdentity` above.
             */}
             <AnalyticsProperties />
+            <UpdateCoordinator />
             <Superwall>
               <AuthGate>
               <Stack screenOptions={{ headerShown: false }}>

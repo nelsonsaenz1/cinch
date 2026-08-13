@@ -542,6 +542,11 @@ const config: ExpoConfig = {
   // modules even when both binaries carry the same App Store version.
   updates: {
     url: 'https://u.expo.dev/30c4281f-73b9-4bf2-9b4d-e2a62b2552e9',
+    checkAutomatically: 'ON_LOAD',
+    // Give the native launch check a brief chance to apply an already
+    // downloaded update before falling back to the embedded bundle. The app
+    // still opens after 1.5 seconds when the network is unavailable.
+    fallbackToCacheTimeout: 1500,
   },
   runtimeVersion: {
     policy: 'fingerprint',

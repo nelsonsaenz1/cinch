@@ -40,6 +40,7 @@ import { useMyProfile } from '@/features/profile/queries';
 import { useRestorePurchases } from '@/features/profile/use-restore-purchases';
 import { useBlockedUsers, useBorrowRequests } from '@/features/social-graph/queries';
 import { useStyleProfile } from '@/features/styling/queries';
+import { updateDiagnostics } from '@/features/updates/diagnostics';
 import { getUserId, supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -273,6 +274,7 @@ export default function ProfileScreen() {
   // then the parenthesis is dropped rather than printing "(undefined)".
   const version = Constants.expoConfig?.version ?? null;
   const build = Constants.expoConfig?.ios?.buildNumber ?? null;
+  const updateFacts = updateDiagnostics();
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
@@ -689,6 +691,16 @@ export default function ProfileScreen() {
               }}
               loading={deleteAccount.isPending}
             />
+          </Card>
+
+          <SectionHeader title="Update diagnostics" className="mb-2.5 mt-6" />
+          <Card padding="none">
+            {updateFacts.map((fact, index) => (
+              <View key={fact.label}>
+                {index > 0 ? <Rule tone="hairline" /> : null}
+                <ValueRow label={fact.label} value={fact.value} />
+              </View>
+            ))}
           </Card>
 
           {/* Centred, unlike every other line on the page — deliberately. The

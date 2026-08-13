@@ -465,6 +465,16 @@ export type AppEvent =
    * to completely different fixes.
    */
   | 'intake_failed'
+  /** A compatible EAS update check began on launch or foreground return. */
+  | 'update_check_started'
+  /** The check completed with a bounded current/available result. */
+  | 'update_check_finished'
+  /** A compatible update bundle finished downloading. */
+  | 'update_downloaded'
+  /** The person accepted the restart prompt. */
+  | 'update_reload_requested'
+  /** A check, download or reload failed; properties contain bounded enums only. */
+  | 'update_failed'
   /**
    * A sign-in attempt produced a session.
    *
