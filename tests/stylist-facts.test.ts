@@ -177,6 +177,37 @@ test('10b · a count of one is written in English', () => {
   assert.match(ask('how many dresses do I have')!.text, /any dresses filed/);
 });
 
+test('10c · every slot has a singular a person would write', () => {
+  // One case per slot, because the broken singulars were never uniform: the
+  // -s slots read fine and the -es, -y and compound ones did not. A closet of
+  // one is the only way to see each label's singular.
+  const singulars: [Garment['slot'], string][] = [
+    ['base_top', 'top'],
+    ['mid_layer', 'knit or sweatshirt'],
+    ['bottom', 'bottom'],
+    ['dress', 'dress'],
+    ['outerwear', 'coat or jacket'],
+    ['footwear', 'pair of shoes'],
+    ['bag', 'bag'],
+    ['headwear', 'hat'],
+    ['accessory', 'accessory'],
+  ];
+  for (const [slot, one] of singulars) {
+    const closet = [g('x1', slot, 'thing', 'red', 'red')];
+    const a = answerFactQuestion(closet, { intent: 'count', colour: null, slot }, NOW)!;
+    assert.equal(a.text, `You have 1 ${one}.`, slot);
+    // The colour prefix sits in front of the same singular — "1 red accessory".
+    const c = answerFactQuestion(closet, { intent: 'count', colour: 'red', slot }, NOW)!;
+    assert.equal(c.text, `You have 1 red ${one}.`, slot);
+  }
+});
+
+test('10d · a count with no slot is pieces, and one of them is a piece', () => {
+  const q = { intent: 'count', colour: 'navy', slot: null } as const;
+  assert.equal(answerFactQuestion([CLOSET[3]], q, NOW)!.text, 'You have 1 navy piece.');
+  assert.equal(answerFactQuestion(CLOSET, q, NOW)!.text, 'You have 2 navy pieces.');
+});
+
 test('11 · the count carries the ids behind it', () => {
   assert.deepEqual(ask('how many white shirts do I have')!.itemIds.sort(), ['t1', 't2']);
 });
