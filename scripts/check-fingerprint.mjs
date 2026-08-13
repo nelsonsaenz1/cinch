@@ -4,9 +4,10 @@
  *
  * WHY THIS EXISTS
  *
- * `runtimeVersion.policy` is `appVersion`, which means an OTA update is
- * accepted by ANY installed build carrying the same version string —
- * regardless of whether its native layer matches. So the failure mode is:
+ * Before the first release candidate, `runtimeVersion.policy` was
+ * `appVersion`, which meant an OTA update could be accepted by any installed
+ * build carrying the same version string regardless of native compatibility.
+ * The failure mode was:
  * somebody adds a native module, bumps nothing, ships an `eas update`, and the
  * JS bundle lands on a binary that does not contain the module. What the user
  * sees is not "missing native module". It is a router error, or a white screen,
@@ -20,12 +21,10 @@
  *
  * WHAT THIS IS NOT
  *
- * It is not a substitute for switching `runtimeVersion.policy` to
- * `'fingerprint'`, which would make Expo enforce this rather than asking a
- * human to run a script. That switch is deliberately NOT made here: it changes
- * the runtime version of every future build, so installs already in the wild
- * would stop receiving OTAs until a new store build reaches them. That is a
- * shipping decision, not a tooling one. See `docs/ops/native-fingerprint.md`.
+ * Runtime compatibility is now enforced with `runtimeVersion.policy =
+ * 'fingerprint'`. This script remains the release ledger: it says whether the
+ * current tree still matches the most recently submitted Store build. See
+ * `docs/ops/native-fingerprint.md`.
  *
  * USAGE
  *
@@ -130,13 +129,12 @@ console.error(
     `  recorded  ${baseline.hash}   ${baseline.recordedAt} @ ${baseline.commit}`,
     `  current   ${hash}   ${sources} sources`,
     '',
-    '  An `eas update` shipped now would land this JS on a binary built from',
-    '  different native code. With runtimeVersion policy `appVersion`, Expo will',
-    '  NOT stop it — the version string still matches. The user would see a',
-    '  router error or a blank screen somewhere unrelated to the change.',
+    '  The current tree no longer matches the last submitted Store build.',
+    '  Fingerprint runtime policy prevents an OTA from crossing that native',
+    '  boundary, so this tree needs a new Store build before it can receive an',
+    '  update on its own runtime.',
     '',
     '  What to do:',
-    '    · See what moved:  npx expo-updates fingerprint:diff',
     '    · If it is a real native change, this needs a STORE BUILD, not an OTA.',
     '    · After submitting that build: npm run check:fingerprint -- --set',
     '',

@@ -4,9 +4,10 @@
 
 ## The failure this prevents
 
-`runtimeVersion.policy` in `app.config.ts` is **`appVersion`**. That means an
-OTA update is accepted by any installed build carrying the same version string —
-**whether or not its native layer matches**.
+Before the first release candidate, `runtimeVersion.policy` in `app.config.ts`
+was **`appVersion`**. That meant an OTA update could be accepted by any installed
+build carrying the same version string — **whether or not its native layer
+matched**.
 
 So the failure mode is:
 
@@ -57,24 +58,18 @@ npm run check:fingerprint -- --set
 "this is what the binary in the store contains". Running it at any other time
 makes the check say what you want to hear.
 
-## What this is NOT
+## Enforcement
 
-It is not enforcement. It is a script somebody has to run.
+The first release candidate switches to
+`runtimeVersion: { policy: 'fingerprint' }`. Expo now refuses to deliver an OTA
+to a binary whose native fingerprint differs, even when its App Store version
+is unchanged. The switch is intentionally paired with a new Store build; older
+pre-release builds keep their old runtime and cannot receive the candidate's
+updates.
 
-The enforcing version is `runtimeVersion: { policy: 'fingerprint' }`, which
-makes Expo itself refuse to deliver an OTA to a mismatched binary — no script,
-no discipline required. **That change was not made here**, and the reason is a
-shipping consequence rather than a technical one:
-
-> Switching the policy changes the runtime version of every future build.
-> Installs already in the wild are on runtime version `1.0.x` (the app version).
-> They would stop receiving OTAs entirely until a new store build reached them —
-> which, for anyone who does not update promptly, means indefinitely.
-
-That is a decision about users, not about tooling, and it belongs to the founder.
-The sensible moment to make it is **immediately before a store build ships
-anyway**, so the window where anyone is stranded is as short as it can be. Until
-then the script is the whole of the protection, and it only works if it is run.
+The script remains useful as a release ledger. Expo enforces delivery safety;
+the recorded baseline tells a human whether the current tree still matches the
+binary that was submitted.
 
 ## Where it should run
 

@@ -251,7 +251,16 @@ export default function SignInScreen() {
           }}>
           Cinch
         </RNText>
-        <RNText maxFontSizeMultiplier={MAX_TEXT_SCALE} numberOfLines={2} style={eyebrowStyle}>
+        <RNText
+          maxFontSizeMultiplier={MAX_TEXT_SCALE}
+          numberOfLines={2}
+          style={{
+            ...eyebrowStyle,
+            flex: 1,
+            flexShrink: 1,
+            marginLeft: px(12),
+            textAlign: 'right',
+          }}>
           Your closet & your friends’
         </RNText>
       </View>

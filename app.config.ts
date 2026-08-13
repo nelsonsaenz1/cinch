@@ -152,22 +152,11 @@ const config: ExpoConfig = {
      * which paths of it the app wants.
      */
     /**
-     * BOTH HOSTS, and the second one is not belt-and-braces — it is a symptom.
-     *
-     * `cinchstyle.com` currently 308-redirects to `www.cinchstyle.com`. That
-     * breaks universal links twice over and reports nothing anywhere: Apple
-     * refuses to fetch an AASA through a redirect, and iOS compares the tapped
-     * URL against the entitlement BEFORE any redirect is followed, so an apex
-     * link never gets the chance to open the app. Safari would follow the 308
-     * and land on a web page, which looks like the feature simply not working.
-     *
-     * Claiming `www` here means a link someone shares in that form works. It
-     * does NOT rescue the apex, which is the form `src/features/invite/link.ts`
-     * mints and the form printed on IV-01. The actual fix is a Vercel project
-     * setting — make the apex primary and redirect `www` to it, i.e. reverse
-     * the direction — and until that is flipped, invites open Safari.
+     * Invite links are minted only on the apex host, whose AASA endpoint is a
+     * direct 200 response. `www` intentionally redirects to the apex, so it is
+     * not claimed here: Apple does not follow redirects while fetching AASA.
      */
-    associatedDomains: ['applinks:cinchstyle.com', 'applinks:www.cinchstyle.com'],
+    associatedDomains: ['applinks:cinchstyle.com'],
     infoPlist: {
       // NOTE: `LSMinimumSystemVersion` used to sit here, intending to require
       // iOS 17. It is a macOS key and iOS ignores it entirely — the real
@@ -548,14 +537,14 @@ const config: ExpoConfig = {
   ],
 
   // EAS Update (over-the-air JS updates). The URL is this project's update
-  // endpoint; `appVersion` policy means an update can only reach binaries
-  // whose native version matches the version it was published against —
-  // never a binary with different native modules.
+  // endpoint. Fingerprint policy derives compatibility from the native layer
+  // itself, so an update cannot reach a binary built with different native
+  // modules even when both binaries carry the same App Store version.
   updates: {
     url: 'https://u.expo.dev/30c4281f-73b9-4bf2-9b4d-e2a62b2552e9',
   },
   runtimeVersion: {
-    policy: 'appVersion',
+    policy: 'fingerprint',
   },
 
   experiments: {
