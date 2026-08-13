@@ -154,12 +154,26 @@ test('the manifest names the files the worker actually writes', () => {
 });
 
 test('the declined path names what this app really loses', () => {
-  // CN-02 draws packing in the works list. `packing-brief` refuses without
-  // consent exactly as the tagger does, so it belongs in the other one.
-  const brief = readFileSync('supabase/functions/packing-brief/index.ts', 'utf8');
-  assert.match(brief, /ai_consent_required/);
-  assert.ok(!/packing/i.test(WITHOUT_CONSENT_WORKS), 'packing cannot be in the works list');
-  assert.match(WITHOUT_CONSENT_LOST, /packing/i);
+  // This assertion has been INVERTED, and the inversion is the evidence.
+  //
+  // It used to read "packing cannot be in the works list", because
+  // `packing-brief` refused without consent exactly as the tagger does. The
+  // deterministic memo removed that call: `features/plan/packing-memo.ts`
+  // composes the prose from the forecast, the closet and the capsule, so
+  // packing now works with AI processing switched off. What is checked is the
+  // CLIENT, not the Edge Function — the function is still deployed for builds
+  // that have not taken the update yet, and its consent gate is still correct
+  // for them.
+  const hook = readFileSync('src/features/plan/use-packing-brief.ts', 'utf8');
+  assert.ok(
+    !/supabase|functions\.invoke/.test(hook),
+    'the packing memo reaches a server again',
+  );
+  assert.match(WITHOUT_CONSENT_WORKS, /packing/i);
+  assert.ok(
+    !/packing/i.test(WITHOUT_CONSENT_LOST),
+    'packing is named as lost when it no longer is',
+  );
   // CN-02 omits the stylist chat, which stops — and the withdrawal sentence has
   // always said so. Two screens must not disagree about one fact.
   assert.match(WITHOUT_CONSENT_LOST, /stylist chat/i);

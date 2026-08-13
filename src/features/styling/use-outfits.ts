@@ -12,11 +12,20 @@ import {
 import { supabase } from '@/lib/supabase';
 
 import type { StyleProfile } from './queries';
+import { shouldEnhanceWithAi } from './should-enhance';
 
 /** How many candidates go up for re-ranking. */
 const SHORTLIST = 12;
 
-export type StylingStatus = 'ai' | 'enhancing' | 'offline' | 'consent_required';
+/**
+ * `'local'` is the ordinary morning, and it is not a degraded state.
+ *
+ * Before the enhancement gate, "no model output" could only mean the call had
+ * failed, so the merge reported `'offline'` for it. Now the common case is that
+ * no call was made at all — there was no question worth asking — and calling
+ * that offline would be reporting a network problem where there is none.
+ */
+export type StylingStatus = 'ai' | 'enhancing' | 'local' | 'offline' | 'consent_required';
 
 export type StyledOutfit = {
   candidate: OutfitCandidate;
@@ -105,12 +114,23 @@ export function useOutfits({
     [shortlist, count, wardrobe, context],
   );
 
-  // --- Stage 2: background enhancement ------------------------------------
+  // --- Stage 2: background enhancement, when there is a question ----------
+  //
+  // NOT ON EVERY MORNING. This used to fire on every render that produced a
+  // shortlist, which meant an ordinary Tuesday — no note, one event, a clear
+  // winner — spent a model call to relabel outfits the scorer had already
+  // chosen. `shouldEnhanceWithAi` is the whole gate and it is pure; see that
+  // file for why each of the three reasons is a real question.
+  const decision = useMemo(
+    () => shouldEnhanceWithAi({ context, candidates: shortlist, visible: count }),
+    [context, shortlist, count],
+  );
+
   const ai = useQuery({
     // Keyed on the actual candidate set, so an unchanged shortlist is a cache
     // hit even when the wardrobe array identity changes on refetch.
     queryKey: ['outfit-rerank', shortlist.map(candidateId), context.note, count],
-    enabled: enabled && shortlist.length > 0,
+    enabled: enabled && shortlist.length > 0 && decision.enhance,
     staleTime: 15 * 60_000,
     // One shot. A failure here costs the user nothing — they already have
     // outfits — and retrying a 20-second call twice is worse than not.
@@ -158,6 +178,8 @@ export function useOutfits({
       return { outfits: base, status: 'consent_required' as StylingStatus };
     }
     if (ai.isError) return { outfits: base, status: 'offline' as StylingStatus };
+    // Nothing was asked, so nothing is missing. The outfits are complete.
+    if (!decision.enhance) return { outfits: base, status: 'local' as StylingStatus };
     if (!ai.data?.ok || !ai.data.picks?.length) {
       return {
         outfits: base,
@@ -165,25 +187,41 @@ export function useOutfits({
       };
     }
 
-    const byId = new Map(shortlist.map((c) => [candidateId(c), c]));
-    const merged: StyledOutfit[] = [];
-    for (const pick of ai.data.picks) {
-      const candidate = byId.get(pick.candidateId);
-      // Already filtered server-side; belt and braces against a fabricated id.
-      if (!candidate) continue;
-      merged.push({
-        candidate,
+    /**
+     * PROSE ONLY. The late response may not move a garment.
+     *
+     * This used to build the visible list FROM the model's picks, in the
+     * model's order — so a response landing fifteen seconds after the cards
+     * appeared could reorder them, drop one the person was looking at, and
+     * promote a candidate they had never seen. That is the thing the plan
+     * forbids, and it was happening under somebody's thumb: the swap button
+     * and the wear button are on those cards.
+     *
+     * Now the base list is authoritative. The model's words are matched onto
+     * the outfits ALREADY ON SCREEN by candidate id, and anything it returns
+     * for a candidate that is not visible is discarded rather than promoted.
+     * An enhancement that names nothing visible leaves the screen exactly as
+     * it was.
+     */
+    const words = new Map(ai.data.picks.map((p) => [p.candidateId, p]));
+    let enriched = 0;
+    const merged: StyledOutfit[] = base.map((outfit) => {
+      const pick = words.get(candidateId(outfit.candidate));
+      if (!pick) return outfit;
+      enriched += 1;
+      return {
+        ...outfit,
         name: pick.name,
         reasoning: pick.reasoning,
         swapNote: pick.swapNote,
-        source: 'ai',
-      });
-    }
+        source: 'ai' as const,
+      };
+    });
 
-    return merged.length
+    return enriched
       ? { outfits: merged, status: 'ai' as StylingStatus }
       : { outfits: base, status: 'offline' as StylingStatus };
-  }, [ai.data, ai.isError, ai.isFetching, base, shortlist]);
+  }, [ai.data, ai.isError, ai.isFetching, base, decision.enhance]);
 
   return {
     outfits,
@@ -192,6 +230,13 @@ export function useOutfits({
     status,
     /** True while the model is still working; outfits are already on screen. */
     isEnhancing: ai.isFetching,
+    /**
+     * Whether an enhancement was even requested, and why.
+     *
+     * Exposed for tests and for anything that wants to explain the screen's
+     * behaviour honestly. `enhance: false` is the normal morning.
+     */
+    enhancement: decision,
     refetch: ai.refetch,
     /**
      * The re-rank's failure, when it failed. Exposed for exactly one consumer:

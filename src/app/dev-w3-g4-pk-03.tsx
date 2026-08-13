@@ -95,14 +95,10 @@ const WARDROBE = [
 
 const BRIEF: PackingMemoBriefState = {
   isPending: false,
-  isError: false,
-  isRefetching: false,
   data: {
     observation:
       'Two dinners, one dressier evening and warm afternoons. The linen blouse carries three of the four days and the boots handle every evening, so nothing else has to travel twice.',
   },
-  error: null,
-  refetch: () => {},
 };
 
 export default function DevW3G4PK03() {

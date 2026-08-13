@@ -54,7 +54,7 @@ import {
   type DayPartKey,
   type Trip,
 } from './trip';
-import { usePackingBrief, type PackingBriefError } from './use-packing-brief';
+import { usePackingBrief } from './use-packing-brief';
 import { useLastPackedTrip, useSaveTrip, useStartTrip, type SavedTrip } from './use-trips';
 
 /**
@@ -217,60 +217,16 @@ export function MembershipUnconfirmedBanner({
 }
 
 // ---------------------------------------------------------------------------
-// K-06 · Failure 4 (and the brief's other real failures) — the prose slot
+// K-06 · the prose slot
 // ---------------------------------------------------------------------------
-
-const MEMO_FAILURES: Record<PackingBriefError['kind'], { title: string; body: string }> = {
-  offline: {
-    title: 'This one took too long.',
-    body: 'Your answers are saved — nothing to type again.',
-  },
-  consent: {
-    title: 'Cinch needs your go-ahead first.',
-    body: 'AI processing is switched off for your account. Turn it on in Profile and the memo will write itself. The bag and the days below are unaffected.',
-  },
-  quota: {
-    title: 'This month’s styling allowance is spent.',
-    body: 'Writing the memo draws on the same allowance as the stylist. The bag and the days below don’t use it at all.',
-  },
-  unavailable: {
-    title: 'The memo isn’t live yet.',
-    body: 'This part of packing hasn’t been switched on for your build. The bag and the days below are read from your closet, not from a server.',
-  },
-};
-
-export function MemoProseFailure({
-  error,
-  onRetry,
-  retrying,
-}: {
-  error: unknown;
-  onRetry: () => void;
-  retrying: boolean;
-}) {
-  const kind = (error as PackingBriefError | null)?.kind ?? 'offline';
-  const copy = MEMO_FAILURES[kind] ?? MEMO_FAILURES.offline;
-
-  return (
-    <View accessibilityRole="alert">
-      <Text variant="title" trim>
-        {copy.title}
-      </Text>
-      <Text variant="body" className="mt-3 text-muted">
-        {copy.body}
-      </Text>
-      <Button
-        title="Try again"
-        variant="secondary"
-        onPress={onRetry}
-        loading={retrying}
-        haptic
-        className="mt-4 self-start px-6"
-      />
-    </View>
-  );
-}
-
+//
+// There is no failure component here any more. The memo used to be a model
+// call with four distinct failures — offline, consent withdrawn, allowance
+// spent, not deployed — each with its own card and a "Try again". All four
+// described a network this screen no longer touches: the prose is computed
+// from the bag rendered directly beneath it. Keeping the cards would have
+// meant keeping four sentences that can no longer be true, including one that
+// told the user packing draws on the stylist's allowance.
 // ---------------------------------------------------------------------------
 // K-04 — researching the destination
 // ---------------------------------------------------------------------------
@@ -594,22 +550,26 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
 
   const [acknowledgedShortfall, setAcknowledgedShortfall] = useState(false);
 
-  const brief = usePackingBrief({
-    trip,
-    wardrobe,
-    styleSummary: profileQuery.data?.summary ?? [],
-    forecasts,
-    packed: packing?.items,
-  });
-
   // ── K-04's four lines ──────────────────────────────────────────────────
   const requestedLooks = lookSchedule(trip.startsOn, days, trip.parts).length;
+
+  // Computed here rather than fetched. See `use-packing-brief.ts` — the memo
+  // used to be a model call and is now arithmetic over the bag on screen.
+  const brief = usePackingBrief({
+    trip,
+    forecasts,
+    weatherSource,
+    packing,
+    requestedLooks,
+  });
   const fit = useMemo(() => closetWeatherFit(wardrobe, forecasts ?? []), [wardrobe, forecasts]);
 
   const forecastStepDone = forecastsReady;
   const closetStepDone = !wardrobeQuery.isLoading && wardrobeQuery.isSuccess && forecastsReady;
   const looksStepDone = Boolean(packing);
-  const memoStepDone = brief.isSuccess || brief.isError;
+  // The memo lands with the capsule now: it is the same computation, so there
+  // is no fourth thing to wait for.
+  const memoStepDone = brief.isSuccess;
 
   const steps: ResearchStep[] = [
     {
@@ -854,13 +814,16 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
 // feeds fixtures straight to `PlateCard`.
 // ---------------------------------------------------------------------------
 
+/**
+ * What the memo section needs, which is now only the prose.
+ *
+ * `isError` / `error` / `refetch` are gone with the model call: a pure
+ * computation over the bag rendered underneath has nothing to fail at and
+ * nothing to retry. `null` is the not-yet state.
+ */
 export type PackingMemoBriefState = {
   isPending: boolean;
-  isError: boolean;
-  isRefetching: boolean;
-  data: { observation: string } | undefined;
-  error: unknown;
-  refetch: () => void;
+  data: { observation: string } | null;
 };
 
 export function PackingMemo({
@@ -934,15 +897,16 @@ export function PackingMemo({
       {/* Prose first — the required order is prose, bag, days, and audit 82
           tightens the vertical gaps between those three blocks from 28 to 20. */}
       <View className="mt-4">
-        {brief.isPending ? (
-          <TextSkeleton lines={2} />
-        ) : brief.isError ? (
-          <MemoProseFailure error={brief.error} onRetry={brief.refetch} retrying={brief.isRefetching} />
-        ) : brief.data ? (
+        {/* No failure branch, because there is no longer a failure. The memo
+            is computed from the bag rendered directly below it — if that
+            exists, so does this. */}
+        {brief.data ? (
           <Text variant="body" className="text-muted">
             {brief.data.observation}
           </Text>
-        ) : null}
+        ) : (
+          <TextSkeleton lines={2} />
+        )}
       </View>
 
       {/* Then the bag — audit 82's 20pt gap, not 28. */}

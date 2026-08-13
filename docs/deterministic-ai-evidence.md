@@ -203,3 +203,107 @@ they are schema, and schema is what this packet is for.
   column lie in a new way.
 - No live demand row exists yet: the aggregate is written by a real search, and
   none has run against the deployed function since deploy.
+
+---
+
+## Packet 2 — Workstreams 3–4 · deterministic packing memo, stable Today policy
+
+**No migration. No function deployed. No release published.**
+
+Client-only, and deliberately so: the one Edge Function this packet makes
+redundant (`packing-brief`) is still reachable by every device running the
+current production OTA, and taking it away before those devices have the
+deterministic memo would replace working prose with a 404. See "Retiring
+packing-brief" below for the order.
+
+### Workstream 3 — the memo stopped being a model call
+
+`features/plan/packing-memo.ts` gained `buildPackingMemo`, a pure function over
+proven fields: the forecast (or the seasonal normals, labelled as normals), the
+tapped vibes' formality, the capsule `buildPackingList` produced, the repeat
+count per piece, the worn piece, and the looks the closet could not fill.
+`use-packing-brief.ts` is now a `useMemo` — no `supabase`, no `functions.invoke`,
+no consent branch, no allowance.
+
+Three reasons the model was removed rather than kept as a fallback:
+
+1. It was the only part of packing that could be wrong. The forecast, closet
+   read and capsule are arithmetic; the prose on top had no source and was set
+   in the largest type.
+2. It made a local feature need a network, a consent and an allowance — and the
+   allowance it spent was the STYLIST's, so a heavy month of chat could take the
+   memo away from a trip.
+3. It invented the one thing nobody can check. "Lisbon is smart-casual in
+   September" arrived with the same confidence as the temperature. The plan says
+   remove those claims rather than guess them, so there is no destination
+   sentence at all — not a hedged one.
+
+**Copy corrected where source truth changed.** `WITHOUT_CONSENT_WORKS` now names
+packing; `WITHOUT_CONSENT_LOST` no longer does. The four memo failure cards are
+deleted, including the one that told the user packing draws on the stylist's
+allowance. `tests/w3-g4-consent-privacy.test.ts` had an assertion pinning the OLD
+truth ("packing cannot be in the works list") — it is inverted, and the
+inversion checks the CLIENT rather than the Edge Function, because the function's
+consent gate is still correct for builds that have not updated.
+
+### Workstream 4 — Today asks only when there is a question
+
+`features/styling/should-enhance.ts` is the policy, pure and testable:
+
+| reason | fires when | does not fire when |
+| --- | --- | --- |
+| `complex_note` | two clauses ("dinner then drinks"), or ≥4 unrecognised words | a note the occasion vocabulary already read ("work") |
+| `event_conflict` | two events ≥2 apart in formality | one event, or a 3 and a 4 |
+| `near_tie` | top and (visible+1)th scores within 2% | a clear winner; a tie below the fold |
+
+Ordinary mornings now make **zero** AI calls. Two things followed from that:
+
+**The merge was reordering the screen, and now cannot.** `useOutfits` built the
+visible list FROM the model's picks, in the model's order — so a response
+landing fifteen seconds after the cards appeared could reorder them, drop one
+the person was looking at, and promote a candidate they had never seen, with the
+swap and wear buttons under their thumb. The base list is now authoritative and
+the model's words are matched onto visible outfits by candidate id; anything
+naming a candidate that is not visible is discarded.
+
+**`'local'` was added to `StylingStatus`.** With no call made, the old code
+reported `'offline'` — a network problem where there is none.
+
+### Checks
+
+```
+node scripts/run-tests.mjs   1285 pass, 0 fail   (1258 → 1285)
+npx tsc --noEmit             0 lines
+npx expo lint                11 problems, 0 errors  (baseline)
+deno check packing-brief     exit 0 (unchanged source)
+npm run check:fingerprint    414c789dbc3e… unchanged
+```
+
+`tsc` caught a real defect the runtime tests did not: the memo fixtures used
+`'day'` where `DayPartKey` is `'daytime'`, and `dayPartOf` falls back to the
+first day part for an unknown key — so the part-note assertions had been passing
+against the fallback.
+
+### Runtime and OTA eligibility
+
+Fingerprint **unchanged** (`414c789dbc3e634e635204771090183175c624ff`). No
+native dependency, permission, entitlement, Expo config-plugin or Apple
+framework change; no Expo API surface is touched by the diff at all. This packet
+is **same-runtime and OTA-eligible**, and is deliberately **not published**.
+
+**Pending OTA receipts, to be published together:**
+
+- Packet 1 — the client carries the catalogue intent key on import, so
+  `import_attempts` / `import_successes` are not being counted from devices yet.
+- Packet 2 — the deterministic memo and the Today enhancement gate.
+
+### Retiring `packing-brief`
+
+In this order, and not before:
+
+1. Publish the combined same-runtime OTA (Packets 1 + 2).
+2. Confirm no `packing-brief` invocations from the deployed functions' logs.
+3. Then delete the function, its `ai_config` row, and the deprecated
+   `PackingBriefError` class kept for one dev fixture route.
+
+Deleting it now would break the memo for every device on the current bundle.

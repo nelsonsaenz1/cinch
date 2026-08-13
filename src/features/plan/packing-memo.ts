@@ -339,3 +339,234 @@ export function bagProseLine(singles: readonly PackedPiece[]): string | null {
       : `${names.slice(0, -1).join(', ')} and the ${names[names.length - 1]}`;
   return names.length === 1 ? `Plus the ${list}.` : `Plus the ${list}.`;
 }
+
+// ---------------------------------------------------------------------------
+// The memo itself — Workstream 3
+// ---------------------------------------------------------------------------
+
+/**
+ * The memo, built from the bag rather than written about the place.
+ *
+ * ── What changed, and why it is not a downgrade ─────────────────────────────
+ *
+ * This used to be a model call. `packing-brief` was asked what a destination is
+ * like in a given month — how warm, how dressed-up, what people there wear —
+ * and it answered from its own memory of the place. Three things were wrong
+ * with that, and only the third is about cost:
+ *
+ *   IT WAS THE ONLY PART OF PACKING THAT COULD BE WRONG. The forecast is real,
+ *   the closet is real, the capsule is `buildPackingList`'s arithmetic. The
+ *   prose on top was the one element with no source, and it was the element
+ *   printed largest.
+ *
+ *   IT MADE A LOCAL FEATURE NEED A NETWORK, A CONSENT AND AN ALLOWANCE. A
+ *   person packing on a plane got a failure card over a bag their phone had
+ *   already computed. It spent the STYLIST's allowance, so a heavy month of
+ *   chat could take the memo away from a trip.
+ *
+ *   AND IT INVENTED THE ONE THING NOBODY CAN CHECK. "Lisbon is smart-casual in
+ *   September, and people there dress up for dinner" is unfalsifiable, arrived
+ *   with the same confidence as the temperature, and this app has no source for
+ *   it. The plan says to remove those claims rather than guess them, so there
+ *   is no destination sentence here at all — not a hedged one.
+ *
+ * WHAT IS LEFT IS EVERYTHING THAT WAS EVER TRUE: the range the forecast gives,
+ * the wet days it counts, the formality the tapped vibes ask for, the pieces
+ * that actually got packed and how often each repeats, and the looks the closet
+ * could not fill. Every sentence below is composed from a field, and a field
+ * that is absent removes its sentence rather than softening it.
+ *
+ * PURE, AND BYTE-IDENTICAL FOR THE SAME INPUT. No clock, no randomness, no
+ * locale lookup: the month name is taken from the trip and the temperatures go
+ * through `formatTemp`, so the same trip and the same bag produce the same
+ * string every time. `tests/packing-memo.test.ts` asserts that directly,
+ * because "deterministic" is the property the whole workstream turns on.
+ */
+export type PackingMemo = {
+  headline: string;
+  spec: string[];
+  observation: string;
+  gaps: string | null;
+  parts: { part: DayPartKey; note: string; itemIds: string[] }[];
+};
+
+export type MemoInput = {
+  /** The tapped vibes, in `VIBES` order, with their formality. */
+  vibes: readonly { label: string; formality: number }[];
+  /** Day parts asked for, in order. */
+  parts: readonly DayPartKey[];
+  /** Nights away, as the questionnaire counted them. */
+  days: number;
+  /** The real forecast, or the seasonal normals standing in for it. */
+  forecasts: readonly WeatherContext[] | undefined;
+  /** Which of those two the numbers came from. Printed, never implied. */
+  weatherSource: 'forecast' | 'normals';
+  packing: PackingResult;
+  /** How many looks were asked for, so a shortfall can be named honestly. */
+  requestedLooks: number;
+  units?: 'C' | 'F';
+};
+
+/** The dressiest tapped vibe — the same rule the capsule targets. */
+function topVibe(
+  vibes: readonly { label: string; formality: number }[],
+): { label: string; formality: number } | null {
+  if (!vibes.length) return null;
+  return [...vibes].sort((a, b) => b.formality - a.formality)[0]!;
+}
+
+const FORMALITY_WORDS: Record<number, string> = {
+  1: 'nothing you have to think about',
+  2: 'relaxed',
+  3: 'smart-casual',
+  4: 'dressed',
+  5: 'formal at least once',
+};
+
+/**
+ * The spec line: `·`-separated fragments, each one a fact.
+ *
+ * Ordered coldest-fact-first — temperature, then what the days ask of you,
+ * then the shape of the bag — because that is the order somebody reads a
+ * caption under a photograph, and it is the order the field guide sets.
+ */
+function specFragments(input: MemoInput): string[] {
+  const units = input.units ?? 'F';
+  const out: string[] = [];
+
+  if (input.forecasts?.length) {
+    const lowC = Math.min(...input.forecasts.map((f) => f.lowC));
+    const highC = Math.max(...input.forecasts.map((f) => f.highC));
+    const range = `${formatTemp(lowC, units).replace('°', '')}–${formatTemp(highC, units)}`;
+    // The source is part of the fact. Normals are not a forecast, and a memo
+    // that prints them as one is the failure K-06 exists to prevent.
+    out.push(input.weatherSource === 'forecast' ? range : `${range} typical`);
+
+    const wet = input.forecasts.filter((f) => f.precipitationChance >= 0.4).length;
+    if (wet > 0) out.push(wet === 1 ? 'one wet day' : `${word(wet)} wet days`);
+  }
+
+  const vibe = topVibe(input.vibes);
+  if (vibe) out.push(FORMALITY_WORDS[vibe.formality] ?? vibe.label.toLowerCase());
+
+  const pieces = input.packing.items.length;
+  if (pieces > 0) out.push(`${pieces} ${pieces === 1 ? 'piece' : 'pieces'}`);
+
+  return out;
+}
+
+/**
+ * The observation: one paragraph, and every clause of it countable.
+ *
+ * The old model wrote this in the stylist's voice about the destination. This
+ * writes it about the bag, which is the thing the app actually knows.
+ */
+function observationSentence(input: MemoInput): string {
+  const items = input.packing.items;
+  const filled = input.packing.looks.filter((l) => l.outfit).length;
+  const pieces = items.length;
+
+  if (pieces === 0) {
+    return 'Nothing is packed yet — there was not enough in your closet to build a look for this trip.';
+  }
+
+  const sentences: string[] = [];
+
+  const nights = `${word(input.days)} ${input.days === 1 ? 'night' : 'nights'}`;
+  sentences.push(
+    `${cap(word(pieces))} ${pieces === 1 ? 'piece' : 'pieces'} covering ${word(filled)} ${
+      filled === 1 ? 'look' : 'looks'
+    } over ${nights}.`,
+  );
+
+  // The hardest-working piece, named, because that is the one decision in the
+  // bag somebody might want to overrule.
+  const hardest = [...items].sort((a, b) => b.looks - a.looks)[0];
+  if (hardest && hardest.looks > 1) {
+    sentences.push(
+      `${garmentLabel(hardest.garment)} does the most work at ${word(hardest.looks)} of them.`,
+    );
+  }
+
+  const worn = items.find((p) => p.worn);
+  if (worn) {
+    sentences.push(`${garmentLabel(worn.garment)} travels on you, so it is not in the bag.`);
+  }
+
+  return sentences.join(' ');
+}
+
+/**
+ * The honest sentence, or nothing.
+ *
+ * Only two gaps can be stated from evidence: looks the closet could not fill,
+ * and rain the bag has no outerwear for. Anything else — "you will want
+ * something smarter for dinner" — is the invented claim this rewrite removes.
+ */
+function gapSentence(input: MemoInput): string | null {
+  if (input.packing.unfilled > 0) {
+    return shortfallSentence(
+      input.requestedLooks,
+      input.packing.unfilled,
+      firstUnfilledPart(input.packing.looks),
+    );
+  }
+
+  const wet = (input.forecasts ?? []).filter((f) => f.precipitationChance >= 0.4).length;
+  const hasOuterwear = input.packing.items.some((p) => p.garment.slot === 'outerwear');
+  if (wet > 0 && !hasOuterwear) {
+    return `${cap(word(wet))} ${wet === 1 ? 'day' : 'days'} of rain, and nothing in the bag is outerwear.`;
+  }
+
+  return null;
+}
+
+/** One note per day part asked for, built from the looks that part actually got. */
+function partNotes(input: MemoInput): PackingMemo['parts'] {
+  return input.parts.map((part) => {
+    const looks = input.packing.looks.filter((l) => l.part === part);
+    const dressed = looks.filter((l) => l.outfit);
+    const title = dayPartOf(part).title.toLowerCase();
+
+    if (!looks.length) {
+      return { part, note: `No ${title} on this trip.`, itemIds: [] };
+    }
+    if (!dressed.length) {
+      return {
+        part,
+        note: `${cap(title)} is unfilled — your closet has nothing that works for it.`,
+        itemIds: [],
+      };
+    }
+
+    // The pieces this part leans on, most-used first, deduplicated. Ids rather
+    // than names so the screen can link to the real garments.
+    const counts = new Map<string, number>();
+    for (const look of dressed) {
+      for (const g of look.outfit!.items) counts.set(g.id, (counts.get(g.id) ?? 0) + 1);
+    }
+    const itemIds = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([id]) => id);
+
+    const n = dressed.length;
+    return {
+      part,
+      note: `${cap(word(n))} ${n === 1 ? 'look' : 'looks'} for ${title}, from ${word(itemIds.length)} ${
+        itemIds.length === 1 ? 'piece' : 'pieces'
+      }.`,
+      itemIds,
+    };
+  });
+}
+
+export function buildPackingMemo(input: MemoInput): PackingMemo {
+  const filled = input.packing.looks.filter((l) => l.outfit).length;
+  return {
+    headline: memoHeadline(input.packing.items.length, filled),
+    spec: specFragments(input),
+    observation: observationSentence(input),
+    gaps: gapSentence(input),
+    parts: partNotes(input),
+  };
+}

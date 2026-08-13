@@ -17,7 +17,6 @@ import {
 } from '@/features/plan/packing-trip';
 import { resolveColorName } from '@/lib/color';
 import { DEFAULT_WEIGHTS, type Garment, type StyleContext, type WeatherContext } from '@/lib/styling';
-import { PackingBriefError } from '@/features/plan/use-packing-brief';
 import type { Item } from '@/schemas/item';
 import { useTheme } from '@/theme/tokens';
 
@@ -143,23 +142,21 @@ const THIN_PACKING = buildFixturePacking(THIN_WARDROBE, FIXTURE_TRIP);
 
 const BRIEF_OK: PackingMemoBriefState = {
   isPending: false,
-  isError: false,
-  isRefetching: false,
   data: {
     observation:
  "It's warm until it isn't — the evenings drop and Sunday brings rain. The linen blouse does three of your four dinners, and the loafers stay on your feet on the plane.",
   },
-  error: null,
-  refetch: () => {},
 };
 
-const BRIEF_FAILED: PackingMemoBriefState = {
-  isPending: false,
-  isError: true,
-  isRefetching: false,
-  data: undefined,
-  error: new PackingBriefError('The brief did not come back.', 'offline'),
-  refetch: () => {},
+/**
+ * K-06's fourth frame used to be "the brief did not come back". It cannot
+ * happen any more — the memo is computed from the bag drawn underneath it — so
+ * the frame now shows the only state left: the moment before the capsule
+ * finishes, where the prose is a skeleton and the bag is already real.
+ */
+const BRIEF_PENDING: PackingMemoBriefState = {
+  isPending: true,
+  data: null,
 };
 
 const RESEARCH_EARLY: ResearchStep[] = [
@@ -314,7 +311,7 @@ export default function DevPackingMemoScreen() {
           trip={FIXTURE_TRIP}
           days={4}
           packing={GOOD_PACKING}
-          brief={BRIEF_FAILED}
+          brief={BRIEF_PENDING}
           byId={byId}
           resolve={() => undefined}
           membershipUnconfirmed={false}

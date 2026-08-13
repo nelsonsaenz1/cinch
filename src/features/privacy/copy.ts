@@ -498,21 +498,24 @@ export const WITHOUT_CONSENT =
  *
  * ── Where the drawn list is wrong about THIS app ───────────────────────────
  *
- * CN-02 lists "packing" among the things that still work. It does not:
- * `supabase/functions/packing-brief/index.ts:182-196` reads
- * `ai_consent_version` and refuses with `ai_consent_required` when it is null,
- * exactly as `tag-item`, `generate-outfits` and `stylist-chat` do. A packing
- * memo is a model call.
+ * CN-02 lists "packing" among the things that still work, and as of the
+ * deterministic-AI work it is RIGHT again. It was wrong for one release:
+ * `packing-brief` read `ai_consent_version` and refused with
+ * `ai_consent_required`, exactly as `tag-item` and `stylist-chat` still do.
+ * That call is gone — `features/plan/packing-memo.ts` composes the memo from
+ * the forecast, the closet and the capsule the phone already computed, so
+ * packing works with AI processing switched off, offline, and without
+ * spending any allowance.
  *
  * The drawn "what does not" list also omits the stylist chat, which stops
  * (`use-consent.ts:99-119`). `WITHDRAW_CONSEQUENCE` above has always named it,
  * so leaving it out here would make two screens disagree about the same fact.
  */
 export const WITHOUT_CONSENT_WORKS =
-  'Photographing a piece, cutting it out of its background, describing it in words, outfits, the diary, the plan and everything social. Cinch asks you for the two things it would otherwise have guessed.';
+  'Photographing a piece, cutting it out of its background, describing it in words, outfits, the diary, the plan, packing and everything social. Cinch asks you for the two things it would otherwise have guessed.';
 
 export const WITHOUT_CONSENT_LOST =
-  'Guessed names, colour and fabric; finding a piece from a product link; the stylist chat; and packing memos.';
+  'Guessed names, colour and fabric; finding a piece from a product link; and the stylist chat.';
 
 // ---------------------------------------------------------------------------
 // PD-04 · Export your data
