@@ -191,9 +191,8 @@ export function tenProgressLine(slots: readonly TenSlot[]): string {
     // wardrobe with a camera read the first screen of the app as work they
     // had already decided against, and had no way to learn otherwise.
     //
-    // The claim is safe to print: the picker runs out of process and needs no
-    // permission (app.config.ts suppresses NSPhotoLibraryUsageDescription for
-    // exactly this reason), so the sentence cannot lead anyone into a prompt.
+    // The claim is safe to print: the system picker runs out of process and
+    // shares only the photos the person chooses.
     return (
       `${cap(numberWord(total))} pieces is enough for Cinch to style you properly. ` +
       'Photograph them, or pick them from your camera roll — in any order.'
@@ -409,14 +408,14 @@ export function keepSlotLabel(kind: TenSlotKind): string {
 /**
  * A denied permission is a fork, not a wall.
  *
- * The loudest action is the one that needs no permission at all — the library
- * picker runs out of process, which is why `app.config.ts` suppresses
- * `NSPhotoLibraryUsageDescription`. Settings comes second because it leaves the
- * app, and the voice door is third because it is a different flow entirely.
+ * The loudest action still works after camera denial — the system library
+ * picker runs out of process and shares only the photos selected. Settings
+ * comes second because it leaves the app, and the voice door is third because
+ * it is a different flow entirely.
  */
 export const CAMERA_DENIED = {
   headline: 'The camera is switched off for Cinch.',
-  body: 'You can turn it back on in Settings, or fill the ten from photographs you already have. Your camera roll needs no permission — the picker runs outside the app.',
+  body: 'You can turn it back on in Settings, or fill the ten from photographs you already have. Choosing from your library needs no permission prompt — the system picker shares only the pictures you choose.',
   library: 'Choose from your camera roll',
   settings: 'Open Settings',
   voice: 'Describe them out loud instead',

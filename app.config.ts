@@ -9,10 +9,12 @@ import type { ExpoConfig } from 'expo/config';
  * pass that auto-rejects under Guideline 5.1.1 for generic or placeholder strings,
  * and the rejection names no key, no resource, and no file.
  *
- * Equally important: keys we do NOT declare.
- *  - NSPhotoLibraryUsageDescription is deliberately suppressed. launchImageLibraryAsync
- *    runs out-of-process via PHPickerViewController and needs no photo permission;
- *    declaring an unused key is itself a rejection risk.
+ * Equally important: keys we declare even when the system picker itself does
+ * not show a broad-library permission prompt.
+ *  - NSPhotoLibraryUsageDescription is required by Apple's static binary scan
+ *    because expo-image-picker links photo-library APIs. The app uses the
+ *    system picker and receives only the photos the user selects, but the
+ *    purpose string must still be present in the submitted binary.
  *  - NSMicrophoneUsageDescription is suppressed UNLESS `CINCH_VOICE_INTAKE=1`.
  *    A wardrobe app that cannot record has no business declaring microphone
  *    access, and an unused permission string is the rejection risk this whole
@@ -61,6 +63,18 @@ const FREE_SIGNING = process.env.CINCH_FREE_SIGNING === '1';
  */
 const MOTION_USAGE_DESCRIPTION =
   'Cinch reads device orientation while you photograph clothes so each picture comes out the right way up. Nothing about your movement is recorded.';
+
+/**
+ * NSPhotoLibraryUsageDescription.
+ *
+ * `launchImageLibraryAsync` uses Apple's system picker and does not request
+ * unrestricted library access. Apple nevertheless requires this key whenever
+ * a submitted binary links APIs that can access the photo library
+ * (ITMS-90683). Keep the same sentence in `ios.infoPlist` and the
+ * expo-image-picker plugin so the last config mod cannot remove or replace it.
+ */
+const PHOTO_LIBRARY_USAGE_DESCRIPTION =
+  'Cinch uses photos you choose from your library to add clothes to your closet and set your profile picture.';
 
 /**
  * Voice intake's native surface — OFF unless explicitly asked for.
@@ -208,6 +222,10 @@ const config: ExpoConfig = {
       // owns the key and runs later. See MOTION_USAGE_DESCRIPTION above and the
       // `motionUsagePermission` entry in the expo-location plugin block.
       NSMotionUsageDescription: MOTION_USAGE_DESCRIPTION,
+
+      // Required by ITMS-90683 because expo-image-picker links photo-library
+      // APIs. The system picker still shares only the photos the user chooses.
+      NSPhotoLibraryUsageDescription: PHOTO_LIBRARY_USAGE_DESCRIPTION,
 
       // Voice intake, and only when it can actually record — see VOICE_INTAKE.
       // Declaring it HERE is not sufficient on its own either: expo-audio's
@@ -476,9 +494,10 @@ const config: ExpoConfig = {
     [
       'expo-image-picker',
       {
-        // `false` suppresses the key entirely. The picker does not need photo
-        // permission on iOS 11+ — see the header comment.
-        photosPermission: false,
+        // Apple requires the key for linked photo-library APIs even though the
+        // system picker shares only selected photos and does not request broad
+        // library access. This plugin is the final writer of the plist key.
+        photosPermission: PHOTO_LIBRARY_USAGE_DESCRIPTION,
 
         // This one MUST be a real string, and the reason is not obvious.
         //
@@ -528,7 +547,7 @@ const config: ExpoConfig = {
         // own generic defaults ("Allow $(PRODUCT_NAME) to access your
         // location"), which is precisely the wording the automated 5.1.1 pass
         // rejects. `false` is the plugin's documented removal signal, same as
-        // `photosPermission: false` above.
+        // the photo-library purpose string above.
         //
         // Verified against the generated ios/Cinch/Info.plist, not assumed:
         // before this, both were present in the built app.

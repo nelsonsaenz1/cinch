@@ -10,14 +10,11 @@ import { drainQueue } from './upload-queue';
 /**
  * Selecting garments to import.
  *
- * The most important thing here is what is NOT done: on iOS 11+,
- * `launchImageLibraryAsync` requires **no photo-library permission at all**.
- * The picker is `PHPickerViewController` running out of process, so iOS hands
- * the app only the assets the user actually tapped. Calling
- * `requestMediaLibraryPermissionsAsync` first would show a prompt we don't
- * need and lose every user who taps "Don't Allow" — and, because Apple now
- * auto-rejects Info.plist keys declaring resources the app never uses, the
- * unused `NSPhotoLibraryUsageDescription` is suppressed in app.config.ts too.
+ * The system picker is `PHPickerViewController`, so iOS hands the app only the
+ * assets the user actually tapped. We do not call
+ * `requestMediaLibraryPermissionsAsync` first or ask for broad library access.
+ * `NSPhotoLibraryUsageDescription` is still present because Apple's static
+ * scan requires it for the photo-library APIs linked by expo-image-picker.
  *
  * ── Acquiring a photo is separate from committing it (Directive 4, W-02) ───
  *

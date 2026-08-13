@@ -9,14 +9,11 @@ import { supabase } from '@/lib/supabase';
  *
  * Three things here are deliberate:
  *
- * 1. **No permission request, and no Info.plist key.** `launchImageLibraryAsync`
+ * 1. **No broad-library permission request.** `launchImageLibraryAsync`
  *    on iOS 11+ is `PHPickerViewController` running out of process — the app
  *    is handed only the asset the user tapped and never sees the library, so
- *    no photo-library permission is involved at all. This is the same
- *    reasoning `features/ingest/use-capture.ts` documents at length, and the
- *    reason `NSPhotoLibraryUsageDescription` is deliberately suppressed in
- *    app.config.ts. Asking here would show a prompt for access we do not need
- *    and lose everyone who taps "Don't Allow".
+ *    no up-front permission request is needed. The Info.plist purpose string
+ *    still ships because Apple requires it for expo-image-picker's linked APIs.
  *
  * 2. **Square, cropped in-app, downscaled on-device.** Supabase's Storage
  *    transformations are Pro-only and bill per origin image, which is why

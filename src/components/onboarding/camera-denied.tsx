@@ -8,11 +8,9 @@ import { CAMERA_DENIED, cameraDeniedKeepLine } from '@/features/onboarding/ten-c
  * T-05 — the camera is switched off for Cinch.
  *
  * A DENIED PERMISSION IS A FORK, NOT A WALL. The loudest action is the one that
- * needs no permission at all: the library picker runs out of process, which is
- * why `app.config.ts` suppresses `NSPhotoLibraryUsageDescription`, so it can be
- * offered to somebody who has just refused a prompt without asking them for
- * anything. Settings is offered second because it leaves the app, and the voice
- * door third because it is a different flow entirely.
+ * can still work after camera denial: the system picker runs out of process and
+ * shares only the photos selected. Settings is offered second because it leaves
+ * the app, and the voice door third because it is a different flow entirely.
  *
  * THE COUNT STAYS IN THE MASTHEAD. This is rendered under The Ten's own
  * masthead rather than replacing the screen, so the work already done is

@@ -14,9 +14,8 @@ import { type TenSlot } from '@/features/onboarding/ten-slots';
  * would bury it.
  *
  * THREE ACTIONS, IN THE ATLAS'S ORDER. Photograph is the one filled action.
- * Library is a peer beside it rather than a link underneath, because the picker
- * needs no permission at all — it runs out of process, which is why
- * `app.config.ts` suppresses `NSPhotoLibraryUsageDescription` — and a reader
+ * Library is a peer beside it rather than a link underneath. Apple's system
+ * picker runs out of process and shares only the photos selected, so a reader
  * who does not want to stand over a wardrobe with a camera should not have to
  * discover that. Skip appears from the second slot onward, and never on the
  * bag: the bag has no redirect, so there is nothing for a decline to spend.

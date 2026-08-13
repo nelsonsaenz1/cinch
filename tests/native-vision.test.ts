@@ -259,3 +259,10 @@ test('speech recognition declares its permission string', () => {
   assert.match(block, /NSMicrophoneUsageDescription/);
   assert.match(block, /NSSpeechRecognitionUsageDescription/);
 });
+
+test('photo-library APIs carry a specific purpose string in both config layers', () => {
+  const config = readFileSync('app.config.ts', 'utf8');
+  assert.match(config, /NSPhotoLibraryUsageDescription: PHOTO_LIBRARY_USAGE_DESCRIPTION/);
+  assert.match(config, /photosPermission: PHOTO_LIBRARY_USAGE_DESCRIPTION/);
+  assert.ok(!/photosPermission:\s*false/.test(config));
+});
