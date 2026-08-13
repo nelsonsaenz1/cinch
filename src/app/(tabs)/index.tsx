@@ -452,7 +452,7 @@ export function Masthead({
           with 118 pt of headroom nothing reaches it, and if a name ever did,
           one clipped line is a visible bug where a silent second line is not. */}
       {ax3 ? null : (
-        <View style={{ marginTop: 6 }}>
+        <View style={{ marginTop: 12 }}>
           <Text
             variant={width >= WIDE_DEVICE ? 'greetingWide' : 'greeting'}
             trim

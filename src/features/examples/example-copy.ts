@@ -94,10 +94,10 @@ export type ExampleId = keyof typeof EXAMPLE_SUMMARY;
 
 /** TE-01 — the empty closet's example look. Three pieces, the plate's own three-up. */
 export const TE_01 = {
-  name: 'Quiet authority',
+  name: 'An easy kind of polish',
   reasoning:
-    'Cognac and cream anchor the look while the charcoal trousers ground it. Warm enough for 72°, quiet enough for a Thursday.',
-  caption: 'An example outfit, not your closet. Yours will be built from your own pieces.',
+    'Cream softens the charcoal trousers; cognac keeps the look grounded. Put together, without feeling overdone.',
+  caption: 'An example outfit, not your closet. Yours will come from the pieces you already own.',
   pieces: [
     'cream-mohair-sweater',
     'charcoal-tailored-trousers',
@@ -125,9 +125,9 @@ export const TE_01 = {
  * and the sentence beside it, which is about the two pieces still missing.
  */
 export const TE_02 = {
-  name: 'What two more pieces buys you',
+  name: 'A closet becoming outfits',
   reasoning:
-    'A blouse, a skirt, boots and a bag — the kind of look Cinch builds once the floor is met.',
+    'A blouse, skirt, boots and bag become a complete look once Cinch has enough of your closet to work with.',
   pieces: [
     'white-linen-blouse',
     'beige-corduroy-skirt',
@@ -146,7 +146,7 @@ export const TE_02 = {
  * count and a caption that took an argument would invite one back.
  */
 export const TE_02_CAPTION =
-  'An example, not your closet. Yours will be built from the pieces you have.';
+  'An example, not your closet. Your outfits will be built from the pieces you add.';
 
 // ── PL-C1 / PL-C2 / PL-C3 · Plan ────────────────────────────────────────────
 
@@ -316,9 +316,9 @@ export const PR_C1 = {
   bio: 'Denver. Wears the same three coats and is at peace with it.',
   friends: '38 friends',
   pieces: '126 pieces',
-  headline: 'This is what your friends see when you swap looks.',
-  body: 'Only people you have accepted. Cinch has no public page, and search only finds people already connected to you.',
-  accept: 'Start mine',
+  headline: 'An example profile, not a real person. Yours grows from the clothes you add.',
+  body: 'Only people you have accepted can see it. Cinch has no public page, and search stays within your connections.',
+  accept: 'Build mine',
   dismiss: 'Not now',
   wardrobe: [
     'cognac-shearling-coat',

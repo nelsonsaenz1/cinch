@@ -124,7 +124,7 @@ function K02Results() {
           value="Lisbo"
           editable={false}
           placeholderTextColor={theme.muted}
-          className="rounded-md border border-hairline px-3.5 py-3 text-ink"
+          className="min-h-[50px] rounded-md bg-tray px-4 py-3.5 text-ink"
         />
         <View className="mt-3 overflow-hidden rounded-md border border-hairline">
           <PlaceRow place={LISBON_PT} band={{ lowC: 18, highC: 24 }} onPick={() => {}} />
@@ -152,11 +152,11 @@ function K02NoResults() {
           value="Quxlandia"
           editable={false}
           placeholderTextColor={theme.muted}
-          className="rounded-md border border-hairline px-3.5 py-3 text-ink"
+          className="min-h-[50px] rounded-md bg-tray px-4 py-3.5 text-ink"
         />
-        <Text variant="body" className="mt-6 text-muted">
-          Cinch reads the place — how warm it is, how dressed-up it is, what people
-          actually wear there — and packs from what you already own.
+        <Text variant="body" className="mt-7 text-muted">
+          Cinch reads the destination, your dates, and the shape of the trip, then
+          builds each look from what you already own.
         </Text>
       </View>
     </View>
@@ -180,7 +180,7 @@ function K02Recents() {
           placeholder="Lisbon, Tokyo, Aspen…"
           editable={false}
           placeholderTextColor={theme.muted}
-          className="rounded-md border border-hairline px-3.5 py-3 text-ink"
+          className="min-h-[50px] rounded-md bg-tray px-4 py-3.5 text-ink"
         />
         <RecentChips places={RECENTS} onPick={() => {}} />
       </View>

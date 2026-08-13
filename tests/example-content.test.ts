@@ -238,7 +238,11 @@ test('the coaching card never claims a public profile', () => {
   // It says the true version instead.
   assert.match(PR_C1.body, /Only people you have accepted/);
   assert.match(PR_C1.body, /no public page/);
-  assert.match(PR_C1.headline, /what your friends see/);
+  assert.match(
+    `${PR_C1.headline} ${PR_C1.body}`,
+    /people you have accepted can see/,
+    'the preview never says who can see it',
+  );
 });
 
 test('the coaching CTA routes to the smallest honest next step', () => {

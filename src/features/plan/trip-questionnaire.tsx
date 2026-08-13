@@ -206,7 +206,7 @@ function DestinationStep({
         autoFocus
         autoCorrect={false}
         returnKeyType="search"
-        className="rounded-md border border-hairline px-3.5 py-3 text-ink"
+        className="min-h-[50px] rounded-md bg-tray px-4 py-3.5 text-ink"
       />
 
       {(places.data?.length ?? 0) > 0 ? (
@@ -226,9 +226,9 @@ function DestinationStep({
       {/* No spinner and no "no results": a two-letter query mid-typing is not a
           failed search, and a place lookup that fails leaves the field exactly
           where it was, which is its own retry. */}
-      <Text variant="body" className="mt-6 text-muted">
-        Cinch reads the place — how warm it is, how dressed-up it is, what people
-        actually wear there — and packs from what you already own.
+      <Text variant="body" className="mt-7 text-muted">
+        Cinch reads the destination, your dates, and the shape of the trip, then
+        builds each look from what you already own.
       </Text>
     </>
   );
@@ -393,7 +393,7 @@ export function TripQuestionnaire({
               initialQuery={q.draft.destination?.name ?? ''}
               onPick={(place) => q.answer('destination', { destination: place })}
             />
-            <View className="mt-7">
+            <View className="mt-9">
               <ExampleTrip />
             </View>
           </>

@@ -69,7 +69,7 @@ export function StatRow({ pieces, outfits, unworn, followers }: StatRowProps) {
       <Stat figure={pieces} label="Pieces" />
       <Stat figure={outfits} label="Outfits" />
       <Stat figure={unworn} label="Unworn" accent />
-      <Stat figure={followers} label="Followers" />
+      <Stat figure={followers} label="Friends" />
     </View>
   );
 }

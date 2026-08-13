@@ -1,6 +1,8 @@
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import { PLANS } from '@/features/billing/plans';
+import { numberWord } from '@/features/onboarding/reveal-copy';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -43,7 +45,7 @@ export const POSITIONING_LINE =
 
 /** The rest of the paragraph — what the two doors are, in the frame's words. */
 const DOORS_LINE =
-  'Photograph what you reach for most, or describe it in your own words — either door fills the same shelf.';
+  'Start with the pieces you reach for most. Photograph them, choose a saved image, describe them, or search the catalogue — every route builds the same closet.';
 
 export function EmptyCloset({ onAddClothes }: { onAddClothes: () => void }) {
   const theme = useTheme();
@@ -59,13 +61,13 @@ export function EmptyCloset({ onAddClothes }: { onAddClothes: () => void }) {
             `text-*` class — NativeWind gives no precedence between two size
             utilities on one element. */}
         <Text variant="title" trim style={{ fontSize: 30, lineHeight: 34 }}>
-          Ten pieces is enough to start.
+          {`Start with ${numberWord(PLANS.free.items)} pieces that feel like you.`}
         </Text>
 
         {/* 16px prose in the regular cut. `note` is 13; the frame sets this one
             a step up because it is the paragraph the whole screen is, not a
             footnote under something else. */}
-        <Text variant="note" className="mt-3" style={{ fontSize: 16, lineHeight: 25 }}>
+        <Text variant="note" className="mt-4" style={{ fontSize: 16, lineHeight: 25 }}>
           {`${POSITIONING_LINE} ${DOORS_LINE}`}
         </Text>
 
@@ -80,7 +82,7 @@ export function EmptyCloset({ onAddClothes }: { onAddClothes: () => void }) {
           accessibilityHint="Opens the four ways to file a piece"
           onPress={onAddClothes}
           style={{ minHeight: 48, backgroundColor: theme.accent }}
-          className="mt-5 items-center justify-center rounded-md active:opacity-80">
+          className="mt-6 items-center justify-center rounded-md active:opacity-80">
           {/* Inline colour, not `text-canvas`: two colour utilities on one
               element resolve by their order in the generated stylesheet, so the
               class would lose to the variant's own `text-*` and the label would

@@ -1,8 +1,9 @@
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ExampleCard, ExampleGarments, ExampleMonogram } from '@/components/examples/example-card';
 import { Text } from '@/components/ui/text';
 import { PL_C1, PL_C2, PL_C3 } from '@/features/examples/example-copy';
+import { useTheme } from '@/theme/tokens';
 
 /**
  * PL-C1 / PL-C2 / PL-C3 — the three Plan empty states, showing what they become.
@@ -46,8 +47,9 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
  * fictional strings: no forecast call is made for an example.
  */
 export function ExampleWeek({ weekStart }: { weekStart: Date }) {
+  const theme = useTheme();
   return (
-    <View className="px-gutter pb-6 pt-2">
+    <View className="px-gutter pb-8 pt-3">
       <ExampleCard id="PL-C1" title={PL_C1.title} caption={PL_C1.caption}>
         {PL_C1.days.map((day, i) => {
           const date = new Date(weekStart);
@@ -56,7 +58,12 @@ export function ExampleWeek({ weekStart }: { weekStart: Date }) {
           return (
             <View
               key={day.occasion}
-              className={i > 0 ? 'mt-3.5 border-t border-hairline pt-3.5' : ''}>
+              className={i > 0 ? 'mt-4 pt-4' : ''}
+              style={
+                i > 0
+                  ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.rule }
+                  : undefined
+              }>
               <View className="flex-row items-center" style={{ gap: 12 }}>
                 <View style={{ width: 34 }}>
                   <Text variant="noteSmall">{WEEKDAYS[day.weekdayIndex]}</Text>
@@ -90,17 +97,25 @@ export function ExampleWeek({ weekStart }: { weekStart: Date }) {
  * there. No follower counts and no public audience: there is neither.
  */
 export function ExampleEvents() {
+  const theme = useTheme();
   return (
-    <View className="px-gutter pb-6 pt-2">
+    <View className="px-gutter pb-8 pt-3">
       <ExampleCard id="PL-C2" title={PL_C2.title} caption={PL_C2.caption}>
         {PL_C2.events.map((event, i) => (
-          <View key={event.name} className={i > 0 ? 'mt-4 border-t border-hairline pt-4' : ''}>
+          <View
+            key={event.name}
+            className={i > 0 ? 'mt-5 pt-5' : ''}
+            style={
+              i > 0
+                ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.rule }
+                : undefined
+            }>
             <ExampleGarments pieces={event.pieces} size={54} />
-            <Text variant="note" className="mt-2.5" numberOfLines={1}>
+            <Text variant="note" className="mt-3" numberOfLines={1}>
               {event.name}
             </Text>
             <Text variant="noteSmall">{`${event.date} · ${event.where}`}</Text>
-            <View className="mt-2 flex-row items-center" style={{ gap: 6 }}>
+            <View className="mt-3 flex-row items-center" style={{ gap: 7 }}>
               {event.monograms.map((letter) => (
                 <ExampleMonogram key={letter} letter={letter} size={22} />
               ))}
@@ -128,18 +143,19 @@ export function ExampleEvents() {
  * example.
  */
 export function ExampleTrip() {
+  const theme = useTheme();
   return (
     <ExampleCard id="PL-C3" title={PL_C3.title} caption={PL_C3.caption}>
       <View className="flex-row items-baseline" style={{ gap: 8 }}>
         <Text variant="plate">{PL_C3.place}</Text>
         <Text variant="noteSmall">{PL_C3.dates}</Text>
       </View>
-      <Text variant="noteSmall" className="mt-0.5">
+      <Text variant="noteSmall" className="mt-1.5">
         {PL_C3.summary}
       </Text>
 
       {PL_C3.days.map((day) => (
-        <View key={day.label} className="mt-3 flex-row items-center" style={{ gap: 12 }}>
+        <View key={day.label} className="mt-4 flex-row items-center" style={{ gap: 14 }}>
           <View style={{ width: 46 }}>
             <Text variant="noteSmall">{day.label}</Text>
             <Text variant="noteSmall">{day.occasion}</Text>
@@ -148,7 +164,9 @@ export function ExampleTrip() {
         </View>
       ))}
 
-      <View className="mt-4 border-t border-hairline pt-3">
+      <View
+        className="mt-5 pt-4"
+        style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.rule }}>
         <Text variant="noteSmall">{PL_C3.piecesToTakeLabel}</Text>
         <View className="mt-2">
           <ExampleGarments pieces={PL_C3.piecesToTake} size={38} />

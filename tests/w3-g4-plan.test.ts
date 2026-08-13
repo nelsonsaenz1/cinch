@@ -11,6 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import type { WeatherContext } from '../src/lib/styling/types';
@@ -20,6 +21,16 @@ import {
   weekSubtitle,
   weekTempRange,
 } from '../src/features/plan/week-lines';
+
+const PLAN_SCREEN = readFileSync('src/app/(tabs)/plan.tsx', 'utf8').replace(
+  /\/\*[\s\S]*?\*\//g,
+  '',
+);
+
+test('the empty week promises minimised repeats, never a hard cap', () => {
+  assert.match(PLAN_SCREEN, /keeping repeats to a minimum/);
+  assert.doesNotMatch(PLAN_SCREEN, /no piece worn more than twice/i);
+});
 
 const w = (lowC: number, highC: number): WeatherContext => ({
   feelsLikeC: (lowC + highC) / 2,

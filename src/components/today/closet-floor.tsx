@@ -73,12 +73,12 @@ export function ClosetFloor({
   const missing = missingPhrase(missingForFirstOutfit(tallyOf(items)));
 
   const headline = empty
-    ? 'Nothing to style from yet.'
+    ? 'See what your closet can do.'
     : // Both clauses open a sentence, and `numberWord` is lowercase for the
       // mid-sentence call sites. This headline had the same fault as the body
       // below it — "three pieces in. two more and Cinch can dress you." — and
       // it is the more visible of the two, since it is set in the serif.
-      `${capitalise(numberWord(items.length))} pieces in. ${capitalise(numberWord(remaining))} more and Cinch can dress you.`;
+      `${capitalise(numberWord(items.length))} pieces in. ${capitalise(numberWord(remaining))} more ${remaining === 1 ? 'piece opens' : 'pieces open'} your first outfits.`;
 
   const body = empty
     ? // `capitalise`, not a literal "Ten": the number is `PLANS.free.items`
@@ -86,7 +86,7 @@ export function ClosetFloor({
       // statement of it does. It just happens to open a sentence here, and
       // `numberWord` returns lowercase because most of its call sites are
       // mid-sentence — which is how "ten pieces is enough" shipped.
-      `${capitalise(numberWord(PLANS.free.items))} pieces is enough for Cinch to style you properly. Photograph them, or pick them from your camera roll — in any order.`
+      `${capitalise(numberWord(PLANS.free.items))} ${Number(PLANS.free.items) === 1 ? 'piece is' : 'pieces are'} enough to begin. Add the clothes you reach for most, and Cinch will turn them into outfits for the day ahead.`
     : missing
       ? `Everything here needs something to go with it. ${capitalise(missing)} is what turns this into outfits.`
       : 'Everything here needs something to go with it.';
@@ -96,7 +96,7 @@ export function ClosetFloor({
   const example = empty ? TE_01 : TE_02;
 
   return (
-    <View className="px-gutter" style={{ paddingTop: 24 }}>
+    <View className="px-gutter" style={{ paddingTop: 30 }}>
       {/* The example, first — the payoff before the explanation. */}
       <ExampleCard
         id={empty ? 'TE-01' : 'TE-02'}
@@ -108,10 +108,10 @@ export function ClosetFloor({
           // are the same shape".
           size={example.pieces.length > 3 ? 74 : 96}
         />
-        <Text variant="plate" className="mt-3">
+        <Text variant="plate" className="mt-4">
           {example.name}
         </Text>
-        <Text variant="noteSmall" className="mt-1.5">
+        <Text variant="noteSmall" className="mt-2.5">
           {example.reasoning}
         </Text>
       </ExampleCard>
@@ -144,10 +144,15 @@ export function ClosetFloor({
         </View>
       ) : null}
 
-      <Text variant="title" trim className={items.length > 0 ? '' : 'mt-6'}>
-        {headline}
-      </Text>
-      <Text variant="body" className="mt-3.5 text-muted">
+      {/* Keep the measure outside the cap-trimmed serif. A margin class on the
+          Text competes with the trim's negative optical margin and made this
+          headline appear to touch the two-line example caption above it. */}
+      <View style={{ marginTop: items.length > 0 ? 8 : 36 }}>
+        <Text variant="title" trim>
+          {headline}
+        </Text>
+      </View>
+      <Text variant="body" className="mt-4 text-muted">
         {body}
       </Text>
 
@@ -157,7 +162,7 @@ export function ClosetFloor({
         accessibilityLabel={primary}
         onPress={onStart}
         style={{ minHeight: 52 }}
-        className="mt-7 items-center justify-center rounded-md bg-accent px-6 active:opacity-70">
+        className="mt-8 items-center justify-center rounded-md bg-accent px-6 active:opacity-70">
         <Text variant="label" style={{ color: theme.canvas }}>
           {primary}
         </Text>
@@ -172,7 +177,7 @@ export function ClosetFloor({
           accessibilityLabel="Describe it out loud instead"
           onPress={onDescribe}
           style={{ minHeight: MIN_TAP_TARGET }}
-          className="mt-2 items-center justify-center rounded-md border border-rule px-6 active:opacity-70">
+          className="mt-3 items-center justify-center rounded-md border border-rule px-6 active:opacity-70">
           <Text variant="label" style={{ color: theme.ink }}>
             Describe it out loud instead
           </Text>

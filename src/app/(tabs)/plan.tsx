@@ -525,14 +525,14 @@ export default function PlanScreen() {
                   </View>
                 ) : (invites.data?.length ?? 0) === 0 ? (
                   <>
-                    <View className="px-gutter pb-6 pt-6">
+                    <View className="px-gutter pb-7 pt-7">
                       <Text variant="title" trim>
-                        Nothing planned together yet
+                        Give everyone something to look forward to.
                       </Text>
-                      <Text variant="body" className="mt-4 text-muted">
-                        Post a dinner, a wedding, a trip — invite your friends, and
-                        everyone picks their look before the night. Occasions are
-                        invite-only, always.
+                      <Text variant="body" className="mt-5 text-muted">
+                        Create a dinner, wedding, or weekend away. Invite the people
+                        going, share looks before the day, and keep every occasion
+                        inside the circle you chose.
                       </Text>
                     </View>
                     {/* PL-C2 — two fictional events under the copy, in place
@@ -590,7 +590,7 @@ export default function PlanScreen() {
                 />
                 <View style={{ marginTop: 16 }}>
                   <Text variant="title" trim>
-                    Plan the week ahead
+                    See the week before it starts.
                   </Text>
                 </View>
                 {/* "about ten" is `PLANS.free.items`, not a word typed into a
@@ -603,15 +603,15 @@ export default function PlanScreen() {
  tier's, so it is the one this asks for, hedged with "about"
                     because the real gate is a shape (a top and a bottom, or a
                     dress) rather than a count. */}
-                <Text variant="body" className="mt-4 text-muted">
-                  {`Lay out outfits for the days coming up, one for each day, with no piece worn more than twice. Add about ${numberWord(PLANS.free.items)} pieces and the week lays itself out.`}
+                <Text variant="body" className="mt-5 text-muted">
+                  {`Cinch reads the days ahead, the weather, and what is already in your closet, then gives each day a look while keeping repeats to a minimum. Add about ${numberWord(PLANS.free.items)} pieces to begin.`}
                 </Text>
                 <Button
                   title="Add clothes"
                   onPress={() => router.push('/add-clothes')}
                   haptic
                   variant="ink"
-                  className="mt-6 self-stretch"
+                  className="mt-7 self-stretch"
                 />
               </View>
               {/* PL-C1. The day numbers follow the week the strip is on, so

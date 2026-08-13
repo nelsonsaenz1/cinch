@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 
+import { StatRow } from '@/components/closet/stat-row';
 import { ExampleCard, ExampleGarments, ExampleMonogram } from '@/components/examples/example-card';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -49,33 +50,43 @@ export function ProfileCoachingCard({
         id="PR-C1"
         badgeSuffix={PR_C1.badgeSuffix}
         caption={PR_C1.headline}>
-        <View className="flex-row items-center" style={{ gap: 12 }}>
-          <ExampleMonogram letter={PR_C1.monogram} size={44} />
+        <View className="flex-row items-center" style={{ gap: 14 }}>
+          <ExampleMonogram letter={PR_C1.monogram} size={52} />
           <View className="flex-1">
             <Text variant="plate">{PR_C1.name}</Text>
-            <Text variant="noteSmall">{PR_C1.handle}</Text>
+            <Text variant="noteSmall" className="mt-1.5">
+              {PR_C1.handle}
+            </Text>
           </View>
         </View>
 
-        <Text variant="noteSmall" className="mt-2.5">
+        <Text variant="note" className="mt-3.5">
           {PR_C1.bio}
         </Text>
-        <Text variant="noteSmall" className="mt-1">
-          {`${PR_C1.friends} · ${PR_C1.pieces}`}
-        </Text>
 
+        {/* Match the real Closet profile: identity, four honest wardrobe
+            figures, then a rail of recent pieces. This is a preview of the
+            product rather than a generic social-profile card. */}
+        <View className="mt-4">
+          <StatRow pieces={126} outfits={34} unworn={12} followers={38} />
+        </View>
+
+        <View className="mt-4 flex-row items-baseline justify-between">
+          <Text variant="eyebrow">Latest pieces</Text>
+          <Text variant="noteSmall">A closet taking shape</Text>
+        </View>
         <View className="mt-3">
-          <ExampleGarments pieces={PR_C1.wardrobe} size={62} />
+          <ExampleGarments pieces={PR_C1.wardrobe} size={60} />
         </View>
       </ExampleCard>
 
       {/* The real half — outside the inert card, so both controls work. The
           example above accepts no touch; these two are the only live things
           here and they are the reason the card exists. */}
-      <Text variant="note" className="mt-3">
+      <Text variant="note" className="mt-4">
         {PR_C1.body}
       </Text>
-      <View className="mt-3.5 flex-row" style={{ gap: 8 }}>
+      <View className="mt-4 flex-row" style={{ gap: 8 }}>
         <Button
           title={PR_C1.accept}
           variant="ink"

@@ -44,14 +44,14 @@ export function ClosetInspirationSheet({
           <View className="items-center pt-2.5" accessibilityElementsHidden>
             <View className="h-1 w-10 rounded-full bg-rule" />
           </View>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
-            <View className="px-gutter pb-1 pt-4">
-              <Text variant="eyebrow">Build a closet people remember</Text>
-              <Text variant="title" trim className="mt-2">
-                Make yours feel like you.
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+            <View className="px-gutter pb-2 pt-5">
+              <Text variant="eyebrow">Your closet, built out</Text>
+              <Text variant="title" trim className="mt-3">
+                Make it unmistakably yours.
               </Text>
-              <Text variant="body" className="mt-3 text-muted">
-                Add the pieces you actually wear, then give friends a profile and closet they can recognise at a glance.
+              <Text variant="body" className="mt-4 text-muted">
+                Add the pieces you return to, shape a profile around them, and give friends a closet they can recognise at a glance.
               </Text>
             </View>
             <ProfileCoachingCard

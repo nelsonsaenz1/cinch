@@ -109,18 +109,18 @@ export function PackingGate({
   const unavailable = unlockState === 'unavailable';
 
   return (
-    <View className="px-gutter pt-2">
+    <View className="px-gutter pt-3">
       <Text variant="title" trim>
-        Pack from the closet you already own.
+        Pack the trip, not every possibility.
       </Text>
 
-      <Text variant="body" className="mt-4 text-muted">
-        Tell Cinch where you’re going and who with. It checks the weather
-        there, then builds the bag day by day — wearing the same trousers
-        three ways instead of packing three pairs.
+      <Text variant="body" className="mt-5 text-muted">
+        Tell Cinch where you’re going, when, and what the days will ask of you.
+        It builds the bag from your own closet, finding more than one way to wear
+        the pieces worth bringing.
       </Text>
 
-      <View className="mt-5 overflow-hidden rounded-plate border border-rule">
+      <View className="mt-6 overflow-hidden rounded-plate border border-rule">
         {GATE_BULLETS.map((line, i) => (
           <View
             key={line}
@@ -156,12 +156,12 @@ export function PackingGate({
       {/* PL-C3 — what a packed trip looks like, before being asked to pay for
           one. Inert, labelled, and it spends nothing: no destination weather
           call, no closet read, no packing computation. */}
-      <View className="mt-6">
+      <View className="mt-7">
         <ExampleTrip />
       </View>
 
       {/* The tier, and nothing else about it. */}
-      <Text variant="body" className="mt-6 text-muted">
+      <Text variant="body" className="mt-7 text-muted">
         {PL_C3_GATE.line}
       </Text>
 

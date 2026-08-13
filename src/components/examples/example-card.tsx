@@ -69,14 +69,14 @@ export function ExampleCard({
         style={{ backgroundColor: theme.tray }}>
         {/* The badge row. Inside the card, at the top, so a screenshot of the
             card alone still carries the disclosure. */}
-        <View className="flex-row items-center justify-between px-3.5 pt-3">
+        <View className="flex-row items-start justify-between gap-3 px-4 pt-4">
           <Text variant="eyebrow">
             {badgeSuffix ? `${EXAMPLE_BADGE} — ${badgeSuffix}` : EXAMPLE_BADGE}
           </Text>
           {title ? <Text variant="noteSmall">{title}</Text> : null}
         </View>
 
-        <View className="px-3.5 pb-3.5 pt-2.5">{children}</View>
+        <View className="px-4 pb-4 pt-3.5">{children}</View>
       </View>
 
       {/* The caption sits under the card rather than in it, the way a plate's
@@ -86,7 +86,7 @@ export function ExampleCard({
         variant="noteSmall"
         importantForAccessibility="no-hide-descendants"
         accessibilityElementsHidden
-        className="mt-2">
+        className="mt-2.5">
         {caption}
       </Text>
     </View>
