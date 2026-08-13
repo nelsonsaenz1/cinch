@@ -18,7 +18,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(25);
+select plan(28);
 
 -- ---------------------------------------------------------------------------
 -- 1 · The three workloads exist and are usable as data
@@ -183,6 +183,36 @@ select ok(
     'public.record_catalogue_demand(text,text,text,text,integer,integer,integer,integer,integer,text)',
     'execute'),
   'and a signed-in client cannot bump a counter directly');
+
+-- ---------------------------------------------------------------------------
+-- 6 · And the control plane itself is not a client-readable table
+-- ---------------------------------------------------------------------------
+--
+-- `ai_config` shipped in the original schema with blanket grants to `anon` and
+-- `authenticated` and one permissive `qual = true` SELECT policy, so every
+-- signed-in user could read the whole model roster. Nothing in the app has
+-- ever read it — every reader holds the service-role key, which ignores grants
+-- entirely — so the exposure bought nothing and told an adversary which
+-- workload is cheapest to make expensive.
+
+select ok(
+  not has_table_privilege('authenticated', 'public.ai_config', 'select')
+  and not has_table_privilege('anon', 'public.ai_config', 'select'),
+  'no client key can read the model roster');
+
+select is(
+  (select count(*)::int from pg_policies
+    where schemaname = 'public' and tablename = 'ai_config'),
+  0,
+  'and no policy remains that would open it again if a grant came back');
+
+-- `ai_calls` deliberately keeps its grants: the privacy screen reads it to
+-- answer "what has been sent about me", which is a promise the app makes and
+-- has to keep from a client key. Asserted so a later sweep tidying up grants
+-- does not take this one with it and break that screen silently.
+select ok(
+  has_table_privilege('authenticated', 'public.ai_calls', 'select'),
+  'but the privacy screen can still read the ledger it reports from');
 
 select * from finish();
 rollback;

@@ -257,11 +257,22 @@ export default {
       let rescued = false;
       /** The failure codes that caused it, for the ledger. */
       let rejection: string | null = null;
+      /**
+       * Provider round trips actually made, retries and rescue included.
+       *
+       * The loop below can run twice for two entirely different reasons — a
+       * retryable 429, or a deterministic rejection escalating to the rescue
+       * model — and both cost a real call. Recording a hard 1 would have made
+       * the tagger's true provider volume unknowable at exactly the moment the
+       * rescue path started doubling it.
+       */
+      let attemptsMade = 0;
       const startedAt = Date.now();
 
       // Two attempts. A retryable failure (429 / 5xx) is worth one more try;
       // anything else will fail identically and retrying only burns budget.
       for (let attempt = 0; attempt < 2; attempt++) {
+        attemptsMade = attempt + 1;
         try {
           const result = await completeStructured<TagResult>({
             apiKey,
@@ -277,7 +288,9 @@ export default {
             schemaName: 'garment_tags',
             maxTokens: config.max_tokens,
             params: (config.params ?? {}) as Record<string, unknown>,
-            timeoutMs: TAG_TIMEOUT_MS,
+            // Configured, not compiled. A provider that has become slow is
+            // answered with a database update, not a release.
+            timeoutMs: settings.timeoutMs,
           });
 
           promptTokens = result.promptTokens;
@@ -359,6 +372,7 @@ export default {
         cost_usd: costUsd,
         latency_ms: latencyMs,
         succeeded: tags !== null,
+        attempts: attemptsMade,
         error: failure,
       });
 

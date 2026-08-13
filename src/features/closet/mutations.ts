@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { withDeadline } from '@/features/closet/session';
 import { deleteLocalPhoto } from '@/features/ingest/local-photos';
+import { track } from '@/lib/posthog';
 import { getUserId, supabase } from '@/lib/supabase';
 import type { Item } from '@/schemas/item';
 import type { Database } from '@/types/database';
@@ -107,6 +108,23 @@ export function useVerifyItem() {
 
       const { error } = await supabase.from('items').update(update).eq('id', id);
       if (error) throw error;
+
+      /**
+       * The correction rate — the number the tagger is actually judged on.
+       *
+       * An accuracy figure measured against fixtures says how the model does on
+       * photographs somebody chose. This says how it does on the ones people
+       * take, and it is the only signal of that kind the app has: a patch here
+       * is a human disagreeing with a machine about a specific field.
+       *
+       * FIELD NAMES ONLY. Not the values — a corrected brand or colour is the
+       * user's own text about their own possessions, and it has no business in
+       * an analytics property. `verified` separates the review deck (where a
+       * correction is the model being wrong) from a later edit in item detail
+       * (where it is just as often the user changing their mind).
+       */
+      const corrected = Object.keys(patch ?? {});
+      if (corrected.length) track('item_tag_corrected', { fields: corrected.sort(), verified: verify });
 
       // TODO(OUT-22): if `patch` was set, log a row to `style_feedback` for the
       // personalization flywheel — the model was wrong in a specific direction

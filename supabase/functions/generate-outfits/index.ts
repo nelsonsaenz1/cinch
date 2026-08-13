@@ -134,7 +134,7 @@ export default {
 
       const { data: config } = await admin
         .from('ai_config')
-        .select('model_id, params, max_tokens, enabled, provider')
+        .select('model_id, params, max_tokens, timeout_ms, enabled, provider')
         .eq('workload', 'outfit_generation')
         .single();
 
@@ -168,9 +168,16 @@ export default {
       let completionTokens: number | null = null;
       let costUsd: number | null = null;
       let latencyMs = 0;
+      /**
+       * Real provider round trips. See the same note in `stylist-chat`: a hard
+       * 1 hid retries, and retries are the half of provider load nobody budgets
+       * for.
+       */
+      let attemptsMade = 0;
       const startedAt = Date.now();
 
       for (let attempt = 0; attempt < 2; attempt++) {
+        attemptsMade = attempt + 1;
         try {
           const result = await completeStructured<OutfitRerank>({
             apiKey,
@@ -183,7 +190,9 @@ export default {
             schemaName: 'outfit_picks',
             maxTokens: config.max_tokens,
             params: (config.params ?? {}) as Record<string, unknown>,
-            timeoutMs: OUTFIT_TIMEOUT_MS,
+            // Configured, with the compiled value as the floor for a row that
+            // predates the column.
+            timeoutMs: config.timeout_ms ?? OUTFIT_TIMEOUT_MS,
           });
 
           picks = result.parsed;
@@ -215,6 +224,7 @@ export default {
         cost_usd: costUsd,
         latency_ms: latencyMs,
         succeeded: picks !== null,
+        attempts: attemptsMade,
         error: failure,
       });
 

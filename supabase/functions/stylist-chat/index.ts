@@ -83,7 +83,7 @@ export default {
 
       const { data: config } = await admin
         .from('ai_config')
-        .select('model_id, params, max_tokens, enabled, provider')
+        .select('model_id, params, max_tokens, timeout_ms, enabled, provider')
         .eq('workload', 'stylist_chat')
         .single();
 
@@ -160,9 +160,19 @@ export default {
       let completionTokens: number | null = null;
       let costUsd: number | null = null;
       let latencyMs = 0;
+      /**
+       * Real provider round trips, not the number of replies produced.
+       *
+       * The loop retries a 429 or a 5xx once. Recording a hard 1 meant a
+       * workload retrying a third of its traffic looked identical in the ledger
+       * to one that never retried at all — same row count, same cost column,
+       * twice the provider load.
+       */
+      let attemptsMade = 0;
       const startedAt = Date.now();
 
       for (let attempt = 0; attempt < 2; attempt++) {
+        attemptsMade = attempt + 1;
         try {
           const completion = await completeStructured<ChatResult>({
             apiKey,
@@ -176,7 +186,9 @@ export default {
             schemaName: 'stylist_reply',
             maxTokens: config.max_tokens,
             params: (config.params ?? {}) as Record<string, unknown>,
-            timeoutMs: CHAT_TIMEOUT_MS,
+            // Configured, with the compiled value as the floor for a row that
+            // predates the column.
+            timeoutMs: config.timeout_ms ?? CHAT_TIMEOUT_MS,
           });
 
           result = completion.parsed;
@@ -208,6 +220,7 @@ export default {
         cost_usd: costUsd,
         latency_ms: latencyMs,
         succeeded: result !== null,
+        attempts: attemptsMade,
         error: failure,
       });
 

@@ -629,3 +629,120 @@ them now, and thresholds tested. What remains is running real photographs
 through the device: blurred, dark, overexposed, visible label, invisible label,
 duplicate upload, exact catalogue match, near match, mirror/person. That is
 evaluation-packet work against the real sample.
+
+---
+
+## Packet 6 — Workstream 9 · evaluation, cascade and the gates that were half-built
+
+### What this packet found before it built anything
+
+Packet 1 wired the workloads it *created* — `voice_transcription`, `closet_parsing`,
+`packing_brief` — and left the three that already existed on the pattern they
+had: a compiled timeout, and no attempt count in the ledger. A control plane in
+that state is worse than none, because the operational queries look complete
+and quietly answer for half the traffic.
+
+| caller | configured timeout | truthful `attempts` |
+| --- | --- | --- |
+| `tag-item` | was `TAG_TIMEOUT_MS` → now `settings.timeoutMs` | was null → now counted (retry **and** rescue) |
+| `stylist-chat` | was `CHAT_TIMEOUT_MS` → now `config.timeout_ms` | was null → now counted |
+| `generate-outfits` | was `OUTFIT_TIMEOUT_MS` → now `config.timeout_ms` | was null → now counted |
+| `garment-search` | left compiled, deliberately — see below | was null → now `1`, which is the truth |
+
+**The retrofit is behaviour-identical today.** Production `ai_config.timeout_ms`
+is 45 000 for `tagging` and 30 000 for both `stylist_chat` and
+`outfit_generation` — exactly the compiled constants they replace. Nothing moves
+now; the difference is that moving it later is a database update rather than a
+release, which was the point.
+
+**`garment-search` keeps its compiled timeout, and that is a finding rather than
+an omission.** Its `ai_config` row says 30 000 while `SEARCH_TIMEOUT_MS` is
+45 000. Adopting the configured value would silently shorten a search path
+verified end-to-end the night before, so the row and the code disagree and the
+code wins until somebody decides which number is right. Its three ledger writes
+now record `attempts: 1`, which is true — there is no retry loop.
+
+### The cascade, asserted rather than assumed
+
+`tag-item`'s escalation is guarded on `attempt === 0`, so a rescue that itself
+fails validation lands on `needs_review` instead of escalating again. Tests now
+assert all three halves of that: the guard, the terminal state, and — the one
+that would be easy to lose — that nothing re-runs a result which *passed*. A
+second model reviewing the first costs twice for one answer and proves nothing
+the validator did not.
+
+**No rescue model is configured anywhere.** Every row has
+`rescue_model_id = null` and `validator_policy = 'strict'`, so in production a
+rejection goes straight to `needs_review` and the rescue path has never run.
+That is deliberate and stays that way: choosing a rescue model is a cost
+decision that Workstream 9 says should follow the measured quality bar, and the
+vision sample needed to measure it does not exist yet (see the blocker below).
+The apparatus is built, tested and dormant.
+
+### `ai_config` stopped being world-readable
+
+Migration `20260813224003_ai_config_not_client_readable.sql`.
+
+It shipped in the original 2026-08-03 schema with blanket grants to `anon` and
+`authenticated` plus one permissive `qual = true` SELECT policy, so any signed-in
+user could read the whole roster: model, token ceiling, timeout, and now rescue
+model and validator policy. Not user data — operational posture, and precisely
+the list an adversary would want before deciding which workload is cheapest to
+make expensive. **Nothing in the app has ever read it**; every reader is an Edge
+Function holding the service-role key, which ignores grants entirely.
+
+Revoke rather than a policy edit, so the table is unreachable through PostgREST
+whatever a later `create policy` says. `ai_calls` deliberately keeps its grants —
+the privacy screen reads it to answer "what has been sent about me", and a
+grant sweep that took this one with it would break that promise silently. Both
+halves are now pgTAP assertions.
+
+Production readback after apply: zero grants to `anon`/`authenticated`, zero
+policies. Advisors gained exactly one INFO (`rls_enabled_no_policy` on
+`ai_config`) — the intended lock, the same shape `catalogue_demand_daily` was
+built with. No new ERROR or WARN.
+
+### Promotion: measured demand becoming a committed fixture
+
+`_shared/demand-promote.ts`. Workstream 2 allowed the golden set to be driven by
+what users actually search for, on condition that an intent crosses a threshold
+before it becomes public.
+
+It is **a popularity floor, not k-anonymity**, and the file says so in those
+words with a test asserting the sentence is still there. The aggregate holds no
+user column by design, so nothing here can count distinct people and a
+k-anonymity claim would be a lie told in a comment. What it can say: 25 searches
+across 3 separate days, or — for a zero-result intent, which is the most useful
+fixture in the set — 8 across 2. The residual exposure is bounded by the closed
+vocabularies the row is built from: the worst case is "somebody searched for a
+mens James Perse t-shirt", never a sentence and never anyone in particular. The
+private `intent_key` hash is dropped on promotion rather than carried into a
+committed file.
+
+### The correction rate
+
+`useVerifyItem` now emits `item_tag_corrected` with **field names only** —
+`{ fields, verified }` — because a corrected brand or colour is the user's own
+text about their own possessions. `verified` separates the review deck, where a
+correction means the model was wrong, from a later edit in item detail, where it
+is as often somebody changing their mind. This is the only signal the app has
+about accuracy on photographs *people took* rather than photographs somebody
+chose for a fixture, and Workstream 9 asks for it by name. The privacy
+disclosure's claim — screens and counts, never a photograph or a garment name —
+remains true, so no copy changed.
+
+### Evidence
+
+```
+supabase db reset --local     89 migrations replayed from empty, exit 0
+supabase test db              Files=16, Tests=282, Result: PASS
+node scripts/run-tests.mjs    (see the run below)
+npx tsc --noEmit              0 lines
+npx expo lint                 11 problems, 0 errors  (baseline)
+deno check                    tag-item, stylist-chat, generate-outfits,
+                              parse-closet, garment-search — all clean
+```
+
+The replay is the one worth noting: the ledger carries heavy known drift, and
+a rebuild from empty is the only thing that proves the drift is cosmetic rather
+than load-bearing. It is, all 89 of them.

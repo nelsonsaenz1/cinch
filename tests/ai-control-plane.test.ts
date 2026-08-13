@@ -132,6 +132,80 @@ test('a retried call records the attempts it really made', () => {
   }
 });
 
+/**
+ * The three callers Packet 1 did not reach.
+ *
+ * Packet 1 wired the workloads it CREATED — ASR, the parser, packing — and left
+ * `tagging`, `stylist_chat` and `outfit_generation` on the pattern they already
+ * had: a compiled timeout and no attempt count. That is a half-built control
+ * plane, and a half-built one is worse than none, because the operational
+ * queries look complete. All six callers are held to the same bar below.
+ */
+const RETROFITTED = [
+  'supabase/functions/tag-item/index.ts',
+  'supabase/functions/stylist-chat/index.ts',
+  'supabase/functions/generate-outfits/index.ts',
+] as const;
+
+test('the older callers read their timeout from the row too', () => {
+  for (const file of RETROFITTED) {
+    const src = stripComments(read(file));
+    assert.match(
+      src,
+      /timeoutMs: (settings\.timeoutMs|config\.timeout_ms \?\?)/,
+      `${file} still compiles its timeout in`,
+    );
+  }
+  // And the column is actually selected — reading `config.timeout_ms` from a
+  // select that never asked for it is undefined, which silently falls back to
+  // the compiled value and looks wired.
+  for (const file of RETROFITTED.slice(1)) {
+    assert.match(stripComments(read(file)), /select\('[^']*timeout_ms/, `${file} never selects it`);
+  }
+});
+
+test('every retrying caller counts its own retries', () => {
+  for (const file of RETROFITTED) {
+    const src = stripComments(read(file));
+    assert.match(src, /attemptsMade = attempt \+ 1/, `${file} derives attempts from the bound`);
+    assert.match(src, /attempts: attemptsMade/, `${file} leaves attempts null`);
+  }
+});
+
+test('no OpenRouter caller is left writing a null attempt count', () => {
+  // The exhaustive form of the two tests above: any file that both calls the
+  // provider and writes a ledger row must say how many times it called.
+  const callers = [
+    ...RETROFITTED,
+    'supabase/functions/parse-closet/index.ts',
+    'supabase/functions/packing-brief/index.ts',
+    'supabase/functions/transcribe-intake/asr.ts',
+    'supabase/functions/garment-search/index.ts',
+  ];
+  for (const file of callers) {
+    const src = stripComments(read(file));
+    if (!/recordAiCall\(/.test(src)) continue;
+    assert.match(src, /attempts: /, `${file} records a call without its attempt count`);
+  }
+});
+
+test('the rescue model is the only second call, and it happens once', () => {
+  const tag = stripComments(read('supabase/functions/tag-item/index.ts'));
+  // Escalation is guarded on the FIRST pass only. Without `attempt === 0` a
+  // rescue that fails validation would escalate again, which is the loop the
+  // plan forbids — and it would be a loop nobody notices, because each pass
+  // looks like a reasonable retry on its own.
+  assert.match(tag, /attempt === 0 && settings\.validatorPolicy === 'rescue' && settings\.rescueModelId/);
+  // A rejection that is not rescued becomes a state the user can act on.
+  assert.match(tag, /status: 'needs_review'/);
+  // And nothing re-runs a result that PASSED. A second model checking the first
+  // costs twice for one answer and proves nothing the validator did not.
+  assert.ok(
+    !/checked\.ok[\s\S]{0,200}rescueModelId/.test(tag),
+    'a passing result is being sent for a second opinion',
+  );
+});
+
 // ---------------------------------------------------------------------------
 // 3 · The aggregate cannot hold a sentence
 // ---------------------------------------------------------------------------

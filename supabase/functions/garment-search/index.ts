@@ -491,6 +491,10 @@ async function searchGarments(
     cost_usd: result?.costUsd ?? null,
     latency_ms: result?.latencyMs ?? null,
     succeeded: result !== null,
+    // One provider call, no retry loop — so this is the truthful value rather
+    // than a placeholder. Written explicitly because a null here is
+    // indistinguishable in the ledger from a caller that never counted.
+    attempts: 1,
     error: failure,
   });
 
@@ -1466,6 +1470,10 @@ async function matchListing(
     cost_usd: result?.costUsd ?? null,
     latency_ms: result?.latencyMs ?? null,
     succeeded: result !== null,
+    // One provider call, no retry loop — so this is the truthful value rather
+    // than a placeholder. Written explicitly because a null here is
+    // indistinguishable in the ledger from a caller that never counted.
+    attempts: 1,
     error: failure,
   });
 
@@ -1516,6 +1524,7 @@ async function matchListing(
       cost_usd: wide?.costUsd ?? null,
       latency_ms: wide?.latencyMs ?? null,
       succeeded: wide !== null,
+      attempts: 1,
       error: wideFailure,
     });
 
