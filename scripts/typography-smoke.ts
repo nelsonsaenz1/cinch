@@ -21,6 +21,8 @@ const FACE_OF: Record<string, FaceName> = {
   wordmark: 'instrument',
   spread: 'instrument',
   display: 'instrument',
+  greeting: 'instrument',
+  'greeting-wide': 'instrument',
   title: 'instrument',
   plate: 'instrument',
   // `figure` is the serif data number now — see text.tsx.
