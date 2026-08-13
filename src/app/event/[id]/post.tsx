@@ -321,7 +321,7 @@ export default function PostLookScreen() {
                   onPress={submit}
                   style={{ minHeight: 52, opacity: pending || atCap ? 0.4 : 1 }}
                   className="mt-6 items-center justify-center rounded-md bg-ink active:opacity-80">
-                  <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                  <Text variant="body" style={{ color: theme.canvas }}>
                     {pending ? 'Posting…' : editingLook ? 'Save changes' : 'Post to the board'}
                   </Text>
                 </Pressable>
@@ -396,7 +396,6 @@ function WizardHeader({
         style={{ opacity: disabled ? 0.4 : 1 }}>
         <Text
           variant="body"
-          className="font-semibold"
           style={{ color: step === 3 ? theme.accent : theme.ink }}>
           {nextLabel}
         </Text>

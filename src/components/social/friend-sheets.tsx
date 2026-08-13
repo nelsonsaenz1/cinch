@@ -171,7 +171,7 @@ export function FriendOverflowSheet({
     <Overlay visible onClose={onClose}>
       <View className="rounded-lg bg-canvas">
         <View className="px-4 pb-3 pt-3.5">
-          <Text variant="callout" className="font-medium">
+          <Text variant="callout">
             {profileName(profile)}
           </Text>
           {sub ? (
@@ -197,7 +197,7 @@ export function FriendOverflowSheet({
         accessibilityLabel="Cancel"
         style={{ minHeight: MIN_TAP_TARGET }}
         className="mt-2.5 items-center justify-center rounded-lg bg-canvas active:opacity-60">
-        <Text variant="callout" className="font-semibold">
+        <Text variant="callout">
           Cancel
         </Text>
       </Pressable>
@@ -347,7 +347,7 @@ export function ReportSheet({ profile, onClose, onSubmit, pending, sent, onDone 
       {profile ? (
         sent ? (
           <View className="rounded-plate bg-canvas p-5">
-            <Text variant="callout" className="font-semibold" accessibilityLiveRegion="polite">
+            <Text variant="callout" accessibilityLiveRegion="polite">
               Thank you. We&rsquo;ll look at this.
             </Text>
             <Text variant="note" className="mt-1.5">

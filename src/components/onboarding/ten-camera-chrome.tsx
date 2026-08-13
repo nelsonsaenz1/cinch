@@ -114,7 +114,6 @@ export function TenCameraChrome({
             right: 0,
             textAlign: 'center',
             fontSize: 13,
-            fontWeight: '500',
             color: 'rgba(251,250,246,0.75)',
             textShadowColor: 'rgba(28,26,22,0.55)',
             textShadowOffset: { width: 0, height: 1 },
@@ -202,7 +201,6 @@ export function TenCameraChrome({
           <Text
             style={{
               fontSize: 13,
-              fontWeight: '500',
               // `muted`, not `faint` — this count is real content, not a
               // decorative mark, and `faint` fails AA at this size (see the
               // standing refusal in free-tier-contract.md §4).

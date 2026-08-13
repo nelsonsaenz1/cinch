@@ -261,7 +261,7 @@ function SettingsReplica() {
           disabled={!granted}
           style={{ minHeight: MIN_TAP_TARGET, opacity: granted ? 1 : 0.5 }}
           className="mt-6 rounded-lg bg-sand p-4 active:opacity-60">
-          <Text variant="body" className="font-medium">
+          <Text variant="body">
             Tag the 24 items I already have
           </Text>
           <Text variant="caption" className="mt-1 text-muted">

@@ -54,7 +54,7 @@ function ProductRow({ product, first }: { product: ShopMatch; first: boolean }) 
         />
       </View>
       <View className="flex-1">
-        <Text variant="body" numberOfLines={1} className="font-medium">
+        <Text variant="body" numberOfLines={1}>
           {product.title}
         </Text>
         <Text variant="caption" className="mt-0.5" style={{ color: theme.muted }} numberOfLines={1}>

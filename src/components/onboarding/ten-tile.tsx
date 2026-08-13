@@ -100,7 +100,7 @@ export function TenTile({
           style={{
             fontSize: 12,
             lineHeight: 15,
-            fontFamily: 'HelveticaNeue-Medium',
+            fontFamily: 'HelveticaNeue',
             // `muted`, never the atlas's own #4A463E — that value is the
             // annotation ink of the design document, not one of the nine
             // colours, and a slot word is real type a person has to read.

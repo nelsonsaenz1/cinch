@@ -90,7 +90,6 @@ function BarButton({
           // the shared Button is the drift this board exists to end.
           <Text
             variant="body"
-            className={kind === 'destructive' ? 'font-semibold' : ''}
             style={{ color: kind === 'destructive' ? theme.canvas : theme.ink }}>
             {label}
           </Text>

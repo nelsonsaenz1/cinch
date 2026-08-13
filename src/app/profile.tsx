@@ -32,7 +32,10 @@ import { SHOW_WHERE_TO_BUY_DETAIL, SHOW_WHERE_TO_BUY_LABEL } from '@/features/co
 import { useSetShowWhereToBuy } from '@/features/commerce/mutations';
 import { useShowWhereToBuy } from '@/features/commerce/queries';
 import { DeleteAccountCard } from '@/features/profile/delete-account-card';
+import { ProfileCoachingCard } from '@/components/profile/profile-coaching-card';
+import { coachingDestination, PR_C2_IDENTITY_GAP } from '@/features/examples/example-copy';
 import { EditProfileSheet } from '@/features/profile/edit-profile-sheet';
+import { useProfileCoaching } from '@/features/profile/use-profile-coaching';
 import { useMyProfile } from '@/features/profile/queries';
 import { useRestorePurchases } from '@/features/profile/use-restore-purchases';
 import { useBlockedUsers, useBorrowRequests } from '@/features/social-graph/queries';
@@ -167,6 +170,8 @@ export default function ProfileScreen() {
   const shopPreferenceOn = showWhereToBuy.data ?? true;
 
   const [editing, setEditing] = useState(false);
+  // PR-C1 / PR-C2 — shown on the first Profile visit, dismissed for good.
+  const coaching = useProfileCoaching();
   const [deleting, setDeleting] = useState(false);
 
   // Only used for the exact count named in the delete-account card — the
@@ -184,11 +189,23 @@ export default function ProfileScreen() {
     return weeks <= 0 ? 'New to Cinch' : `${weeks} ${weeks === 1 ? 'week' : 'weeks'} with Cinch`;
   }, [memberSince]);
 
-  // The @handle, when one is claimed. Falling back to the account-age line
-  // keeps the row honest for the (many) accounts that never opened the edit
-  // sheet — a literal "@" with nothing after it would read as a broken load.
+  // The @handle, when one is claimed.
+  //
+  // PR-C2 changes what stands in when there is none. It used to be the
+  // account-age line, which was honest but said nothing worth acting on; the
+  // frame puts the identity gap here instead — "the identity gap is stated
+  // once, quietly, on the row that fixes it", and this row carries the Edit
+  // profile control. Never a bare "@", which reads as a broken load.
+  //
+  // The gap only appears once the query has actually answered. An empty
+  // username during the read is not a missing handle, and telling somebody who
+  // has one to go and add one is worse than a beat of nothing.
   const username = myProfile.data?.username ?? '';
-  const identityByline = username ? `@${username}` : weeksLabel;
+  const identityByline = username
+    ? `@${username}`
+    : myProfile.isSuccess
+      ? PR_C2_IDENTITY_GAP
+      : weeksLabel;
 
   const feedbackCount = style.data?.feedbackCount ?? 0;
 
@@ -288,6 +305,46 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView contentContainerClassName="pb-24">
+        {/*
+          PR-C1 — the coaching card, on the first visit only.
+
+          It sits ABOVE the identity row it is talking about, because the thing
+          it teaches ("this is what your friends see") is what the row below
+          controls. PR-C2 is this screen with the card absent, and nothing
+          replaces it: no banner, no dot, no second invitation. The identity gap
+          is still stated, once and quietly, on the row that fixes it.
+
+          Held back until the header query settles, so the destination is
+          decided on the real handle and photograph rather than on the empty
+          strings a loading query returns — a card that offered "Start mine" to
+          Edit profile for somebody who had already filled both in would be
+          sending them to correct nothing.
+        */}
+        {coaching.show && !profileHeader.isLoading && !profileHeader.isError ? (
+          <ProfileCoachingCard
+            destination={coachingDestination({
+              handle: username,
+              avatarUrl: profileHeader.data?.avatarUrl,
+            })}
+            onDismiss={coaching.dismiss}
+            onStart={() => {
+              // Dismissed either way: acting on the invitation is the strongest
+              // possible signal that it has been read.
+              coaching.dismiss();
+              if (
+                coachingDestination({
+                  handle: username,
+                  avatarUrl: profileHeader.data?.avatarUrl,
+                }) === 'edit-profile'
+              ) {
+                setEditing(true);
+              } else {
+                router.push('/add-clothes');
+              }
+            }}
+          />
+        ) : null}
+
         {/* The identity row — avatar, name, handle, and the way in to editing
             them. Three branches: skeletal while the header query is in flight
             (a blank row on first paint read as the app not knowing who you

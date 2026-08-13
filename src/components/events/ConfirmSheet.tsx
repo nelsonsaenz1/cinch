@@ -65,7 +65,7 @@ export function ConfirmSheet({
             opacity: destructiveBusy ? 0.6 : 1,
           }}
           className="flex-1 flex-row items-center justify-center rounded-md active:opacity-80">
-          <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+          <Text variant="body" style={{ color: theme.canvas }}>
             {destructiveLabel}
           </Text>
         </Pressable>

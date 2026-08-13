@@ -188,7 +188,7 @@ function RP01() {
       <SheetOverlay visible onClose={() => {}}>
         <View className="overflow-hidden rounded-lg bg-canvas">
           <View className="px-4 pb-3 pt-3.5">
-            <Text variant="callout" className="font-medium">
+            <Text variant="callout">
               Comment by @jtroy_
             </Text>
           </View>
@@ -208,7 +208,7 @@ function RP01() {
           </Pressable>
         </View>
         <View className="mt-2.5 items-center justify-center rounded-lg bg-canvas py-3.5">
-          <Text variant="callout" className="font-semibold">
+          <Text variant="callout">
             Cancel
           </Text>
         </View>

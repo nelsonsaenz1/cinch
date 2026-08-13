@@ -319,7 +319,7 @@ export default function CaptureRoute() {
             hitSlop={12}
             onPress={() => router.back()}
             className="py-1 active:opacity-60">
-            <Text variant="body" className="font-semibold">
+            <Text variant="body">
               Close
             </Text>
           </Pressable>
@@ -646,7 +646,9 @@ function CaptureScreen() {
    * exists for the same reason — iOS refuses to present a view controller
    * while another modal is still animating, and this screen arrives as one.
    */
-  const autoStart = useLocalSearchParams<{ start?: string }>().start;
+  const params = useLocalSearchParams<{ start?: string; from?: string }>();
+  const autoStart = params.start;
+  const cameFromTen = params.from === 'ten';
   const autoStarted = useRef(false);
   const guardedRef = useRef(guarded);
   useEffect(() => {
@@ -1368,7 +1370,14 @@ function CaptureScreen() {
         draws is the fix: capture (07) shows the work, review (08) shows the
         result, and "Review tags" below appears exactly when there IS one.
       */}
-      <GarmentSearchSheet visible={describeVisible} onClose={() => setDescribeVisible(false)} />
+      {/* DS-C3 — `?from=ten` is how the catalogue route knows it is inside The
+          Ten, so its return action can say "my first ten" rather than "my
+          closet". Absent on every other entry, which is the closet. */}
+      <GarmentSearchSheet
+        visible={describeVisible}
+        onClose={() => setDescribeVisible(false)}
+        origin={cameFromTen ? 'first-ten' : 'closet'}
+      />
 
       <ConsentSheet
         visible={consentVisible}

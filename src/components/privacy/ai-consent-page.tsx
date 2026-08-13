@@ -173,7 +173,7 @@ export function AiConsentPage({
       {granted ? null : (
         <View className="mx-gutter mt-6 gap-2.5">
           <View className="rounded-lg bg-tray p-4">
-            <Text variant="body" className="font-medium">
+            <Text variant="body">
               What still works
             </Text>
             <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
@@ -181,7 +181,7 @@ export function AiConsentPage({
             </Text>
           </View>
           <View className="rounded-lg bg-tray p-4">
-            <Text variant="body" className="font-medium">
+            <Text variant="body">
               What does not
             </Text>
             <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
@@ -214,7 +214,7 @@ export function AiConsentPage({
             // writing four headings, and four headings on a consent sheet are
             // four new sentences a user never agreed to. See the report.
             <Text key={fact.lead} variant="body" style={{ color: theme.muted }}>
-              <Text variant="body" className="font-semibold" style={{ color: theme.ink }}>
+              <Text variant="body" style={{ color: theme.ink }}>
                 {fact.lead}
               </Text>
               {fact.rest}
@@ -225,7 +225,7 @@ export function AiConsentPage({
 
       {/* ── The cost, stated before the button ───────────────────────────── */}
       <View className="mx-gutter mt-4 rounded-lg bg-tray p-4">
-        <Text variant="body" className="font-medium">
+        <Text variant="body">
           {granted ? 'If you withdraw' : 'Without it'}
         </Text>
         <Text variant="body" className="mt-1.5" style={{ color: theme.muted }}>
@@ -307,7 +307,7 @@ export function AiConsentPage({
             {backfillPhase === 'sending' ? (
               <ActivityIndicator size="small" color={theme.accent} />
             ) : null}
-            <Text variant="body" className="flex-1 font-medium">
+            <Text variant="body" className="flex-1">
               {backfillTitle}
             </Text>
           </View>

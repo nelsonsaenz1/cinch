@@ -192,6 +192,23 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    // The correction file — seventeen frames that supersede named states in the
+    // six finalized atlases. Their own section rather than filed under the
+    // groups they replace: a reviewer needs to see the correction, and a row
+    // labelled "T-11" pointing at a frame that is now TE-01 is the kind of
+    // index entry that gets a superseded state re-approved.
+    'Corrections · Examples, Type & Intake',
+    [
+      ['TE-01 / TE-02', '/dev-w3c-te'],
+      ['TM-01 / 02 / 03', '/dev-w3c-tm'],
+      ['PL-C1 / C2 / C3', '/dev-w3c-pl'],
+      ['PR-C1', '/dev-w3c-pr-c1'],
+      ['TN-C1', '/dev-w3c-tn-c1'],
+      ['AC-C1', '/dev-add-clothes'],
+      ['TY-01 / TY-02', '/dev-w3c-ty'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],

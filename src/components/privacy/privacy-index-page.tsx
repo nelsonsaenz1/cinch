@@ -105,7 +105,7 @@ function TopicRow({
         style={{ minHeight: MIN_TAP_TARGET }}
         className="flex-row items-center gap-3 px-gutter py-3.5 active:opacity-60">
         <View className="flex-1">
-          <Text variant="body" className="font-medium">
+          <Text variant="body">
             {topic.title}
           </Text>
           {/* Inline tone, never a second `text-*` class: two colour utilities
@@ -126,7 +126,7 @@ function TopicRow({
           ) : null}
           {topic.sections?.map((section) => (
             <View key={section.title}>
-              <Text variant="body" className="font-medium">
+              <Text variant="body">
                 {section.title}
               </Text>
               <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
@@ -168,7 +168,7 @@ function PageRow({
         first ? '' : 'border-t border-hairline'
       }`}>
       <View className="flex-1">
-        <Text variant="body" className="font-medium">
+        <Text variant="body">
           {title}
         </Text>
         <Text variant="callout" className="mt-0.5" style={{ color: theme.muted }}>
@@ -210,7 +210,7 @@ function ToggleRow({
       style={{ minHeight: MIN_TAP_TARGET }}
       className="flex-row items-center gap-3 px-gutter py-3.5">
       <View className="flex-1">
-        <Text variant="body" className="font-medium">
+        <Text variant="body">
           {title}
         </Text>
         <Text variant="callout" className="mt-0.5" style={{ color: theme.muted }}>

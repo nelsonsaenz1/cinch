@@ -24,7 +24,7 @@ export default function DevW3G3Cp04() {
   return (
     <SafeAreaView className="flex-1 bg-canvas">
       <View className="px-gutter pt-6">
-        <Text variant="body" className="font-semibold">
+        <Text variant="body">
           Close
         </Text>
       </View>

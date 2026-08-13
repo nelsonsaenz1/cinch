@@ -16,6 +16,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import {
+  CATALOGUE_ROUTE_NAME,
+  INTAKE_ROUTES,
+} from '../src/features/ingest/intake-routes';
+
 /** The chooser and its fixture — the two places the doors are named. */
 const DOOR_SURFACES = ['src/app/add-clothes.tsx', 'src/app/dev-add-clothes.tsx'];
 
@@ -27,10 +32,24 @@ function code(path: string): string {
     .replace(/^\s*\/\/.*$/gm, '');
 }
 
-test('audit 66 — the voice door is named "Describe by voice"', () => {
+test('AC-C1 — every surface draws the four routes from the one table', () => {
+  // SUPERSEDES the old form of this test, which matched `name="Describe by
+  // voice"` as a literal in each file. That was the right assertion for a
+  // screen that retyped its own copy, and it is the wrong one now: the doors
+  // are read from `INTAKE_ROUTES`, which is what stopped The Ten from drifting
+  // to two doors while Add clothes had four. Matching literals again would
+  // require the drift back.
   for (const f of DOOR_SURFACES) {
-    assert.match(code(f), /name="Describe by voice"/, `${f} does not draw the voice door`);
+    assert.match(code(f), /INTAKE_ROUTES/, `${f} does not read the shared route table`);
+    assert.doesNotMatch(code(f), /name="(Camera|Photo library|Describe)/, `${f} retypes a door name`);
   }
+  // The table itself, in the order AC-C1 fixes: "camera, library, catalogue,
+  // voice — the same order in every surface that offers intake".
+  assert.deepEqual(
+    INTAKE_ROUTES.map((r) => r.key),
+    ['camera', 'library', 'catalogue', 'voice'],
+  );
+  assert.equal(INTAKE_ROUTES[3].name, 'Describe by voice');
 });
 
 test('audit 66 — "Talk it in" appears in no rendered string in the group', () => {
@@ -38,11 +57,19 @@ test('audit 66 — "Talk it in" appears in no rendered string in the group', () 
   assert.deepEqual(offenders, [], `the retired name is still drawn in:\n${offenders.join('\n')}`);
 });
 
-test('audit 66 — the two Describe doors are named as one act in two media', () => {
-  // The relationship IS the audit item. A pair named "Search for it" and
-  // "Describe by voice" is not a pair, which is what this catches.
+test('AC-C1 supersedes audit 66 — the catalogue route is named for what it fetches', () => {
+  // Audit 66 paired the typed and spoken doors as "one act in two media" and
+  // required both to be called Describe. AC-C1 reverses it, and the reasoning
+  // is on `INTAKE_ROUTES`: they are not one act. Voice files the reader's own
+  // words; this one queries a licensed product feed and returns a shop's
+  // photograph. It is the only route of the four that reaches a third party,
+  // which is why it is named for that and why the disclosure travels with it.
+  assert.equal(CATALOGUE_ROUTE_NAME, 'Find a product photo');
+  assert.equal(INTAKE_ROUTES[2].name, CATALOGUE_ROUTE_NAME);
+  // The retired names are gone from every surface, fixtures included — a
+  // fixture posing a retired name gets screenshotted as evidence it shipped.
   for (const f of DOOR_SURFACES) {
-    assert.match(code(f), /name="Describe it"/, `${f} does not draw the typed Describe door`);
+    assert.doesNotMatch(code(f), /Describe it|Search for it|Talk it in/, `${f} draws a retired name`);
   }
 });
 

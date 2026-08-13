@@ -55,7 +55,7 @@ function ReasonSheet({ flow }: { flow: ReportFlowState }) {
       {visible && flow.target ? (
         <View className="overflow-hidden rounded-plate bg-canvas">
           <View className="flex-row items-center justify-between px-5 pt-4">
-            <Text variant="label" className="font-semibold">
+            <Text variant="label">
               Report
             </Text>
             <Pressable
@@ -64,7 +64,7 @@ function ReasonSheet({ flow }: { flow: ReportFlowState }) {
               accessibilityRole="button"
               accessibilityLabel="Cancel"
               hitSlop={8}>
-              <Text variant="label" className="font-semibold text-muted">
+              <Text variant="label" className="text-muted">
                 Cancel
               </Text>
             </Pressable>

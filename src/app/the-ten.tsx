@@ -277,8 +277,29 @@ export default function TheTenScreen() {
           // brand-new account sees — and it never sees a card swap in under it,
           // because a brand-new account has no session to find.
           unfinished={unfinished}
-          onPhotograph={() => setDoorChosen(true)}
-          onVoice={() => router.push('/walkthrough')}
+          // TN-C1's four routes, all reaching the destinations The Ten and Add
+          // clothes already had. Camera opens the guided grid; the other three
+          // hand off to the surfaces that own them, so nothing here is a second
+          // copy of a picker, a catalogue search or a recorder.
+          onRoute={(key) => {
+            if (key === 'camera') {
+              setDoorChosen(true);
+              return;
+            }
+            if (key === 'voice') {
+              router.push('/walkthrough');
+              return;
+            }
+            // Library and catalogue both file into the same queue the camera
+            // feeds, through the chooser's own consent gate — which is why they
+            // go via `/add-clothes?door=`, the deep link this packet made live,
+            // rather than pushing `/capture` and skipping it.
+            router.push(
+              (key === 'library'
+                ? '/add-clothes?door=library&from=ten'
+                : '/add-clothes?door=describe&from=ten') as Href,
+            );
+          }}
           onResume={() =>
             unfinished && router.replace(`/walkthrough/review?session=${unfinished.sessionId}`)
           }

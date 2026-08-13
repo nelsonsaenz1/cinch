@@ -235,7 +235,7 @@ function BoardLookTiles({
             key={`more-${i}`}
             className="items-center justify-center rounded-md"
             style={{ width: BOARD_TILE, height: BOARD_TILE, backgroundColor: theme.sand }}>
-            <Text variant="label" className="font-medium text-ink">
+            <Text variant="label" className="text-ink">
               {`+${cell.count}`}
             </Text>
           </View>
@@ -532,7 +532,7 @@ export function OutfitPostCard({
           <Text variant="note" className="mt-2.5">
             {countLine}
             {line?.iVoted ? (
-              <RNText style={{ color: theme.accent, fontWeight: '500' }}>{' · Your vote'}</RNText>
+              <RNText style={{ color: theme.accent }}>{' · Your vote'}</RNText>
             ) : null}
           </Text>
         ) : null}

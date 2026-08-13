@@ -161,7 +161,7 @@ export function CommentsSheet({
                 onPress={onClose}
                 hitSlop={10}
                 className="active:opacity-60">
-                <Text variant="label" className="font-semibold" style={{ color: theme.accent }}>
+                <Text variant="label" style={{ color: theme.accent }}>
                   Done
                 </Text>
               </Pressable>
@@ -189,7 +189,7 @@ export function CommentsSheet({
                 Nothing was lost — the connection dropped on the way.
               </Text>
               <Pressable onPress={() => void thread.comments.refetch()} className="mt-4 self-start">
-                <Text variant="label" className="font-semibold" style={{ color: theme.accent }}>
+                <Text variant="label" style={{ color: theme.accent }}>
                   Try again
                 </Text>
               </Pressable>

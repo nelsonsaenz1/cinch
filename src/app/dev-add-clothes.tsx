@@ -2,6 +2,7 @@ import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, DoorCondition, DoorPlate, Text } from '@/components/ui';
+import { CATALOGUE_DISCLOSURE, INTAKE_ROUTES } from '@/features/ingest/intake-routes';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -125,15 +126,24 @@ function Frame({
   );
 }
 
-/** The four doors, verbatim — the copy the screen ships. */
+/**
+ * The four doors — read from the shipped table, not retyped.
+ *
+ * This fixture used to carry its own copy of the four names and lines "verbatim
+ * — the copy the screen ships", which is a promise a fixture cannot keep: the
+ * chooser was renamed twice while this file was not, and a fixture posing a
+ * retired name is a fixture that gets screenshotted as evidence the rename
+ * shipped. It reads `INTAKE_ROUTES` now, so it cannot disagree.
+ */
 function Doors({ cameraBlocked = false }: { cameraBlocked?: boolean }) {
   const theme = useTheme();
+  const route = Object.fromEntries(INTAKE_ROUTES.map((r) => [r.key, r]));
   return (
     <>
       <DoorPlate
-        name="Camera"
-        line="Photograph a piece against any wall."
-        symbol="camera"
+        name={route.camera.name}
+        line={route.camera.line}
+        symbol={route.camera.symbol}
         onPress={() => {}}
         condition={
           cameraBlocked ? (
@@ -148,28 +158,16 @@ function Doors({ cameraBlocked = false }: { cameraBlocked?: boolean }) {
           ) : null
         }
       />
-      <DoorPlate
-        name="Photo library"
-        line="Pick pictures you already have — no permission needed."
-        symbol="photo.on.rectangle"
-        onPress={() => {}}
-      />
-      <DoorPlate
-        name="Describe it"
-        line="Type what it is, or paste a product link."
-        symbol="magnifyingglass"
-        onPress={() => {}}
-      />
-      {/* Audit 66: the voice door is "Describe by voice". "Talk it in" appears
-          nowhere in the group, fixtures included — a fixture that poses the
-          retired name is a fixture that will be screenshotted as evidence the
-          rename shipped. */}
-      <DoorPlate
-        name="Describe by voice"
-        line="Say it out loud instead of typing."
-        symbol="waveform"
-        onPress={() => {}}
-      />
+      {INTAKE_ROUTES.filter((r) => r.key !== 'camera').map((r) => (
+        <DoorPlate
+          key={r.key}
+          name={r.name}
+          line={r.line}
+          symbol={r.symbol}
+          onPress={() => {}}
+        />
+      ))}
+      <Text variant="noteSmall">{CATALOGUE_DISCLOSURE}</Text>
     </>
   );
 }

@@ -57,7 +57,7 @@ export function CameraAsk({
           className="mt-5 items-center justify-center rounded-md bg-ink active:opacity-80">
           {/* Inline colour, never `text-canvas`: two colour utilities on one
               element resolve by stylesheet order, not by intent. */}
-          <Text variant="body" className="font-semibold" style={{ fontSize: 16, color: theme.canvas }}>
+          <Text variant="body" style={{ fontSize: 16, color: theme.canvas }}>
             Ask for camera access
           </Text>
         </Pressable>

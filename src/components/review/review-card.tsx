@@ -528,7 +528,7 @@ export function ReviewCard({
           last, so `text-canvas` here would lose to the variant's `text-ink`
           (canvas is declared first, ink later) and the label would vanish into
           the ink fill. Same trap as the item-detail hero tile. */}
-      <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+      <Text variant="body" style={{ color: theme.canvas }}>
         Looks right
       </Text>
     </Pressable>
@@ -611,7 +611,7 @@ export function ReviewCard({
                       Back
                     </Text>
                   </Pressable>
-                  <Text variant="body" className="font-semibold text-ink" style={{ fontSize: 15 }}>
+                  <Text variant="body" className="text-ink" style={{ fontSize: 15 }}>
                     Category
                   </Text>
                   <Text
@@ -658,7 +658,7 @@ export function ReviewCard({
                         }`}>
                         <Text
                           variant="body"
-                          className={held ? 'font-semibold text-ink' : 'text-ink'}
+                          className="text-ink"
                           style={{ fontSize: 17 }}>
                           {c.label}
                         </Text>

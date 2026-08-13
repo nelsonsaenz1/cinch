@@ -305,7 +305,7 @@ function G03({ tally, ranked }: { tally: Tally; ranked: ReturnType<typeof rankGa
           NOT THIS
         </Text>
         <View className="mt-2 flex-row items-baseline justify-between" style={{ opacity: 0.6 }}>
-          <Text variant="body" className="font-semibold">
+          <Text variant="body">
             {gapLabel(tally, gain.kind)}
           </Text>
           <Text variant="title">{`+${gain.gain}`}</Text>

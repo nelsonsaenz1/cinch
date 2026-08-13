@@ -210,7 +210,7 @@ function DevEventDetailInner() {
               <View
                 style={{ minHeight: 44, borderColor: theme.rule, borderWidth: 1 }}
                 className="items-center justify-center rounded-md px-5">
-                <Text variant="body" className="font-semibold">
+                <Text variant="body">
                   Invite
                 </Text>
               </View>
@@ -258,14 +258,14 @@ function DevEventDetailInner() {
               <View
                 style={{ minHeight: 44, backgroundColor: theme.accent }}
                 className="items-center justify-center rounded-md px-6">
-                <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                <Text variant="body" style={{ color: theme.canvas }}>
                   Join
                 </Text>
               </View>
               <View
                 style={{ minHeight: 44, borderColor: theme.rule, borderWidth: 1 }}
                 className="items-center justify-center rounded-md px-6">
-                <Text variant="body" className="font-semibold">
+                <Text variant="body">
                   Decline
                 </Text>
               </View>

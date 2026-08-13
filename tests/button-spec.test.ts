@@ -28,13 +28,20 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+/** Comments discuss the deleted weight table by name; only code may be searched. */
+const code = (src: string) =>
+  src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+const specSource = () => readFileSync('src/components/ui/button-spec.ts', 'utf8');
 
 import {
   GROUNDED_HEIGHT,
   ground,
   labelKey,
-  labelWeightFor,
-  MEDIUM_LABEL,
   minHeightFor,
   RADIUS,
   VARIANTS,
@@ -67,7 +74,6 @@ test('every variant appears in every table', () => {
   // the screens that use it.
   assert.equal(VARIANTS.length, 6);
   for (const v of VARIANTS) {
-    assert.ok(v in MEDIUM_LABEL, `${v} missing from MEDIUM_LABEL`);
     assert.ok(v in labelKey, `${v} missing from labelKey`);
     assert.ok(ground(v, theme), `${v} has no ground`);
   }
@@ -118,30 +124,25 @@ test('the grounded height clears the accessibility floor', () => {
 // Weight — §1.2 of the Refacing, as drawn on reference board A
 // ---------------------------------------------------------------------------
 
-test('filled variants carry Medium and outlined ones do not', () => {
-  // Filled: a ground to carry the emphasis. Outlined and text-only: none, so
-  // Medium there makes them shout at the volume of the call to action.
-  assert.deepEqual(MEDIUM_LABEL, {
-    primary: true,
-    ink: true,
-    critical: true,
-    secondary: false,
-    ghost: false,
-    inverse: false,
-  });
+test('no variant carries weight, and there is no table left that could', () => {
+  // TY-01 supersedes the Refacing's §1.2 cut. The old `MEDIUM_LABEL` table and
+  // `labelWeightFor()` were deleted rather than set to all-false, so this
+  // asserts on the MODULE: a re-added weight switch fails here, and the
+  // per-variant contract below proves nothing needs one.
+  const spec = specSource();
+  assert.doesNotMatch(spec, /MEDIUM_LABEL\s*[:=]/, 'the Medium table is back');
+  assert.doesNotMatch(spec, /export function labelWeightFor/, 'labelWeightFor is back');
+  assert.doesNotMatch(code(spec), /font-(?:medium|semibold|bold)/, 'a weight class is back');
 });
 
-test('weight is a two-value switch, never a ramp', () => {
-  // Helvetica Neue carries regular and Medium and nothing between. Anything
-  // else here would have React Native synthesize a weight the face does not
-  // have.
-  const seen = new Set(VARIANTS.map(labelWeightFor));
-  assert.deepEqual([...seen].sort(), ['', 'font-semibold']);
-});
-
-test('a filled variant carries weight and an outlined one does not', () => {
-  assert.equal(labelWeightFor('primary'), 'font-semibold');
-  assert.equal(labelWeightFor('secondary'), '');
+test('the button component sets no weight on its label', () => {
+  // The three labels — variant, sand-disabled, and the fade pair — all render
+  // as a bare `<Text variant="body">`. A `className` carrying a font utility
+  // here is the one place a weight could reappear without touching the spec.
+  const src = code(readFileSync('src/components/ui/button.tsx', 'utf8'));
+  assert.doesNotMatch(src, /font-(?:medium|semibold|bold)/);
+  assert.doesNotMatch(src, /fontWeight/);
+  assert.doesNotMatch(src, /labelWeightFor/);
 });
 
 // ---------------------------------------------------------------------------
@@ -209,7 +210,6 @@ test('the contract, per variant', () => {
         {
           fill: g.backgroundColor ?? (g.borderWidth ? 'outline' : 'none'),
           label: labelKey[v],
-          weight: labelWeightFor(v) === 'font-semibold' ? 'medium' : 'regular',
           minHeight: minHeightFor(v),
         },
       ];
@@ -217,11 +217,13 @@ test('the contract, per variant', () => {
   );
 
   assert.deepEqual(contract, {
-    primary: { fill: 'ACCENT', label: 'canvas', weight: 'medium', minHeight: 52 },
-    ink: { fill: 'INK', label: 'canvas', weight: 'medium', minHeight: 52 },
-    secondary: { fill: 'outline', label: 'ink', weight: 'regular', minHeight: 52 },
-    ghost: { fill: 'none', label: 'muted', weight: 'regular', minHeight: 44 },
-    critical: { fill: 'CRITICAL', label: 'canvas', weight: 'medium', minHeight: 52 },
-    inverse: { fill: 'CANVAS', label: 'ink', weight: 'regular', minHeight: 52 },
+    // Fill, label colour and height. No weight column — the emphasis a button
+    // carries is entirely its ground and its label colour now (TY-01).
+    primary: { fill: 'ACCENT', label: 'canvas', minHeight: 52 },
+    ink: { fill: 'INK', label: 'canvas', minHeight: 52 },
+    secondary: { fill: 'outline', label: 'ink', minHeight: 52 },
+    ghost: { fill: 'none', label: 'muted', minHeight: 44 },
+    critical: { fill: 'CRITICAL', label: 'canvas', minHeight: 52 },
+    inverse: { fill: 'CANVAS', label: 'ink', minHeight: 52 },
   });
 });

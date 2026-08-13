@@ -1,5 +1,5 @@
-import { useRouter, type Href } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,10 +14,25 @@ import {
 } from '@/features/ingest/consent-mode';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
+import {
+  CATALOGUE_DISCLOSURE,
+  INTAKE_ROUTES,
+  type IntakeRouteKey,
+} from '@/features/ingest/intake-routes';
 import { useCameraStatus } from '@/features/ingest/use-camera-access';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 import { DeclineExplainer } from './capture';
+
+/**
+ * The four routes, by key, so the JSX can name one without indexing an array.
+ * The ARRAY is the contract (order, membership); this is only a lookup on it,
+ * built from it, so the two can never disagree.
+ */
+const ROUTE = Object.fromEntries(INTAKE_ROUTES.map((r) => [r.key, r])) as Record<
+  IntakeRouteKey,
+  (typeof INTAKE_ROUTES)[number]
+>;
 
 /**
  * AC-01 — Add Clothes, the entry chooser.
@@ -139,6 +154,54 @@ export default function AddClothesScreen() {
     [unresolved, router],
   );
 
+  /**
+   * `?door=` — THE DEEP LINK THAT WENT NOWHERE.
+   *
+   * Three surfaces pushed `/add-clothes?door=describe` or `?door=library`: The
+   * Ten's camera-unavailable branch, the standalone `/camera-unavailable`
+   * route, and capture's own. This screen never read the parameter, so every
+   * one of them landed on the plain chooser — a "Describe it instead" button
+   * that dropped the reader on a menu and left them to find the door
+   * themselves. Which is worse than it sounds: those three call sites all exist
+   * because the CAMERA just failed, so the reader has already been told once
+   * that something did not work.
+   *
+   * Routed through `openContentDoor`, not `router.push`, so a door reached by
+   * deep link raises the same consent sheet a tapped one does.
+   *
+   * One-shot: `handledDoor` latches, so dismissing the destination and coming
+   * back leaves the reader on the chooser they can now see rather than bouncing
+   * them straight back out of it.
+   *
+   * An unknown value opens nothing. A deep link is untrusted input, and the
+   * chooser is the right answer to a door nobody recognises.
+   */
+  const doorParams = useLocalSearchParams<{ door?: string; from?: string }>();
+  const requestedDoor = doorParams.door;
+  // Carried through rather than dropped: the catalogue route's return action
+  // names the flow it came from, and this is the only thing that knows.
+  const doorFrom = doorParams.from === 'ten' ? '&from=ten' : '';
+  const handledDoor = useRef(false);
+
+  useEffect(() => {
+    if (handledDoor.current) return;
+    if (requestedDoor !== 'describe' && requestedDoor !== 'library') return;
+    handledDoor.current = true;
+    // Off the mount tick, for the two reasons `capture.tsx`'s own auto-start
+    // defers: `openContentDoor` may raise the consent sheet, and setting state
+    // synchronously inside an effect cascades a render; and iOS refuses to
+    // present a view controller while another modal is still animating, which
+    // is exactly what is happening when this screen arrives from a deep link.
+    const timer = setTimeout(() => {
+      openContentDoor(
+        (requestedDoor === 'library'
+          ? `/capture?start=library${doorFrom}`
+          : `/capture?start=describe${doorFrom}`) as Href,
+      );
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [requestedDoor, doorFrom, openContentDoor]);
+
   const onAccept = useCallback(async () => {
     await grantConsent.mutateAsync();
     setConsentVisible(false);
@@ -255,10 +318,10 @@ export default function AddClothesScreen() {
         </Text>
 
         <DoorPlate
-          name="Camera"
-          line="Photograph a piece against any wall."
-          symbol="camera"
-          accessibilityLabel="Camera — photograph a piece"
+          name={ROUTE.camera.name}
+          line={ROUTE.camera.line}
+          symbol={ROUTE.camera.symbol}
+          accessibilityLabel={ROUTE.camera.accessibilityLabel}
           // Permission is not gated here: nothing exists to process until the
           // shutter, and that is where capture asks. CAPABILITY is, and has to
           // be — `/capture` statically imports `CameraView`, so on a binary
@@ -319,10 +382,10 @@ export default function AddClothesScreen() {
           }
         />
         <DoorPlate
-          name="Photo library"
-          line="Pick pictures you already have — no permission needed."
-          symbol="photo.on.rectangle"
-          accessibilityLabel="Photo library — choose pictures you already have, no permission needed"
+          name={ROUTE.library.name}
+          line={ROUTE.library.line}
+          symbol={ROUTE.library.symbol}
+          accessibilityLabel={ROUTE.library.accessibilityLabel}
           // Into the SAME queue the camera feeds, which is why this opens the
           // picker on the capture surface rather than running one of its own:
           // capacity and the upload queue are both owned there, and a second
@@ -330,42 +393,37 @@ export default function AddClothesScreen() {
           onPress={() => openContentDoor('/capture?start=library')}
         />
         {/*
-          THE TWO DESCRIBE DOORS, NAMED AS ONE ACT IN TWO MEDIA.
+          THE CATALOGUE ROUTE, NAMED FOR WHAT IT FETCHES — AC-C1.
 
-          This is audit 66, and it is a naming item before it is anything else:
-          "Describe it and Describe by voice are stated as the same act in two
-          media, which is the relationship the code models." The acceptance
-          line is blunt about the other half — "Talk it in appears nowhere in
-          the group."
-
-          THIS REVERSES A SHIPPED RENAME, and the reason is recorded here so
-          nobody has to guess. The typed door shipped as "Search for it" after
-          the founder went hunting for a search door in the App Store build,
-          failed to find one, and concluded the feature had not shipped. It had;
-          it was called "Describe it". That discoverability problem is real, and
-          it is answered here by the LINE rather than by the name: the line now
-          states both jobs the field does ("type what it is, or paste a product
-          link"), and the accessibility label keeps the word "finds". The name
-          goes back to the atlas's because a pair named "Search for it" and
-          "Describe by voice" is not a pair, which is precisely what audit 66
-          exists to fix.
+          This door has been renamed twice and this is the third; the whole
+          argument is recorded on `INTAKE_ROUTES` so it does not have to be had
+          again. The short version: audit 66 paired it with voice as "one act in
+          two media", and they are not one act. Voice files the reader's own
+          words; this searches a licensed product-listing catalogue and returns
+          a shop's photograph. It is the only one of the four that reaches a
+          third party, which is why it is named for that and why the disclosure
+          below sits with the doors rather than in a settings screen.
         */}
         <DoorPlate
-          name="Describe it"
-          line="Type what it is, or paste a product link."
-          symbol="magnifyingglass"
-          accessibilityLabel="Describe it — type what the piece is, or paste a product link, and Cinch finds its photo"
+          name={ROUTE.catalogue.name}
+          line={ROUTE.catalogue.line}
+          symbol={ROUTE.catalogue.symbol}
+          accessibilityLabel={ROUTE.catalogue.accessibilityLabel}
           onPress={() => openContentDoor('/capture?start=describe')}
         />
         <DoorPlate
-          name="Describe by voice"
-          line="Say it out loud instead of typing."
-          symbol="waveform"
-          accessibilityLabel="Describe by voice — say what you own out loud instead of typing"
+          name={ROUTE.voice.name}
+          line={ROUTE.voice.line}
+          symbol={ROUTE.voice.symbol}
+          accessibilityLabel={ROUTE.voice.accessibilityLabel}
           // Voice carries its own consent line, in the Walkthrough, above the
           // record button — about a recording, not a photograph.
           onPress={() => router.push('/walkthrough')}
         />
+
+        {/* AC-C1's disclosure. Under the four, because it is about one of
+            them and a reader has to have met it to need this. */}
+        <Text variant="noteSmall">{CATALOGUE_DISCLOSURE}</Text>
 
         {/*
           AC-01's closing line: "the capacity sentence closes the group", so the

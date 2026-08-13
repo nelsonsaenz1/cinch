@@ -16,7 +16,6 @@ import { motion, useTheme } from '@/theme/tokens';
 import {
   ground,
   labelKey,
-  labelWeightFor,
   minHeightFor,
   RADIUS,
   type Variant,
@@ -40,15 +39,11 @@ import {
  */
 type DisabledTone = 'dim' | 'filled';
 
-// RADIUS, MEDIUM_LABEL, GROUNDED_HEIGHT, ground() and labelKey moved to
+// RADIUS, GROUNDED_HEIGHT, ground() and labelKey moved to
 // `./button-spec.ts` for audit item 49. They are the whole of this
 // component's visual contract and none of them could be imported — so none
 // were tested, while their own comments record three bugs that shipped.
 // Behaviour here is unchanged; they are imported back below.
-
-
-
-
 
 export type ButtonProps = Omit<PressableProps, 'children' | 'style'> & {
   title: string;
@@ -86,12 +81,6 @@ export function Button({
   const theme = useTheme();
   const isDisabled = disabled || loading;
   const press = usePressFeedback(!isDisabled);
-  // Empty string, not `font-body`: `variant="body"` already carries it, and a
-  // second font utility on one element is resolved by key order in the
-  // generated stylesheet rather than by intent — the hazard `labelKey` above
-  // exists to avoid.
-  const weight = labelWeightFor(variant);
-
   // `loading` is deliberately NOT part of this: an in-flight button keeps its
   // variant ground and shows a spinner on it (N-07's third state), so only a
   // genuinely unavailable action goes sand.
@@ -187,10 +176,7 @@ export function Button({
           // the pill's width never jumps as the tone changes.
           <View>
             <Animated.View style={fadeOut}>
-              <Text
-                variant="body"
-                className={weight}
-                style={{ color: theme[labelKey[variant]] }}>
+              <Text variant="body" style={{ color: theme[labelKey[variant]] }}>
                 {title}
               </Text>
             </Animated.View>
@@ -203,16 +189,13 @@ export function Button({
               {/* Inline colour, never a second `text-*` class — `variant="body"`
                   already carries `text-ink`, and NativeWind resolves two colour
                   utilities on one element by key order, not by intent. */}
-              <Text variant="body" className={weight} style={{ color: theme.byline }}>
+              <Text variant="body" style={{ color: theme.byline }}>
                 {title}
               </Text>
             </Animated.View>
           </View>
         ) : (
-          <Text
-            variant="body"
-            className={weight}
-            style={{ color: theme[labelKey[variant]] }}>
+          <Text variant="body" style={{ color: theme[labelKey[variant]] }}>
             {title}
           </Text>
         )}

@@ -126,12 +126,11 @@ export function SheetHeader({ title, onDone }: { title: string; onDone: () => vo
         hitSlop={12}
         onPress={onDone}
         className="active:opacity-60">
-        {/* The weight is an inline `fontFamily`, not a `font-medium` class:
- `variant="body"` already names `font-body`, and two family
-            utilities on one element resolve by key order in
-            tailwind.config.js rather than by intent. Colour inline for the
-            same reason. */}
-        <Text variant="body" style={{ color: theme.accent, fontFamily: 'HelveticaNeue-Medium' }}>
+        {/* Oxblood is the whole emphasis — TY-01 took the Medium cut off it.
+            Colour is inline rather than a second `text-*` class because
+            `variant="body"` already names one and NativeWind resolves two by
+            key order rather than by intent. */}
+        <Text variant="body" style={{ color: theme.accent }}>
           Done
         </Text>
       </Pressable>
@@ -339,13 +338,14 @@ export function DateSheet({ visible, value, onChange, onClose }: DateSheetProps)
                   ) : (
                     <Text
                       variant="body"
-                      // Today is marked by weight, and the weight is an inline
-                      // `fontFamily` rather than a `font-medium` class stacked
-                      // on the variant's `font-body`. Past days are `ghost`,
-                      // set inline for the same no-two-colours reason.
+                      // Today used to be marked by weight; TY-01 marks it with
+                      // the ACCENT instead, which is a stronger signal at 11 pt
+                      // than a half-step of weight ever was. Past days are
+                      // `ghost`. Both inline, for the no-two-colour-classes
+                      // reason recorded on the Done action above.
                       style={{
                         ...(past ? { color: theme.ghost } : null),
-                        ...(isToday ? { fontFamily: 'HelveticaNeue-Medium' } : null),
+                        ...(isToday ? { color: theme.accent } : null),
                       }}>
                       {day.getDate()}
                     </Text>

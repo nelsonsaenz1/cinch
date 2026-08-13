@@ -82,10 +82,10 @@ export function AnswerChip({
           resizeMode="scaleAspectFit"
         />
       ) : null}
-      {/* One `text-*` source only: the weight comes from a family class and the
-          colour is inline. NativeWind gives no precedence between two size or
-          colour utilities on one element (chip.tsx L40-44). */}
-      <Text variant="body" className={selected ? 'font-semibold' : undefined}>
+      {/* Selection is the chip's ground and its label colour, never a weight
+          (TY-01). One `text-*` source only: NativeWind gives no precedence
+          between two colour utilities on one element (chip.tsx L40-44). */}
+      <Text variant="body">
         {label}
       </Text>
     </Pressable>

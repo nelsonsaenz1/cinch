@@ -228,7 +228,7 @@ export default function DevTodayScreen() {
         <StateLabel sub>T-10 · offline — showing this morning&rsquo;s set</StateLabel>
         <View className="mx-gutter mt-1.5 flex-row items-center gap-2.5 rounded-md bg-ink px-3.5 py-2.5">
           <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.accentWarm }} />
-          <Text variant="label" className="flex-1 font-medium" style={{ color: theme.canvas }}>
+          <Text variant="label" className="flex-1" style={{ color: theme.canvas }}>
             Offline &mdash; showing this morning&rsquo;s set. Weather and plans may have moved on.
           </Text>
         </View>
@@ -254,7 +254,7 @@ export default function DevTodayScreen() {
         <StateLabel sub className="mt-8">T-11 · offline — and nothing to build</StateLabel>
         <View className="mx-gutter mt-1.5 flex-row items-center gap-2.5 rounded-md bg-ink px-3.5 py-2.5">
           <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.accentWarm }} />
-          <Text variant="label" className="flex-1 font-medium" style={{ color: theme.canvas }}>
+          <Text variant="label" className="flex-1" style={{ color: theme.canvas }}>
             Offline &mdash; showing this morning&rsquo;s set. Weather and plans may have moved on.
           </Text>
         </View>

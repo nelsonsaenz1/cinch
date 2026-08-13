@@ -216,7 +216,7 @@ export function EventCard({
               accessibilityState={{ disabled: respond.isPending }}
               style={{ minHeight: 40, backgroundColor: theme.ink }}
               className="flex-1 items-center justify-center rounded-md active:opacity-70">
-              <Text variant="label" className="font-semibold" style={{ color: theme.canvas }}>
+              <Text variant="label" style={{ color: theme.canvas }}>
                 Going
               </Text>
             </Pressable>

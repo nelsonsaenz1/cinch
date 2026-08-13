@@ -26,7 +26,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 
 import tailwind from '../tailwind.config.js';
 import { MIN_TAP_TARGET, motion, shadow } from '../src/theme/metrics';
-import { labelWeightFor, MEDIUM_LABEL, RADIUS, VARIANTS } from '../src/components/ui/button-spec';
+import { RADIUS, VARIANTS } from '../src/components/ui/button-spec';
 
 const theme = (tailwind as { theme: { extend: Record<string, Record<string, unknown>> } }).theme
   .extend;
@@ -221,32 +221,26 @@ test('there is one shadow: warm ink, 0/5/11, at 16%', () => {
 // Type weight — audit items 31 / 32 / 37, recorded as already satisfied
 // ---------------------------------------------------------------------------
 
-test('Medium is spent on filled actions only, per the constitution', () => {
-  // "UI: Helvetica Neue regular; Medium only for labels and filled actions."
-  // Filled: primary, ink, critical. Outlined or text-only: secondary, ghost,
-  // inverse. This table already read exactly this way before Wave 3 — the
-  // reconciliation the brief asked for is a no-op, and this is the proof
-  // rather than a rewrite.
-  assert.deepEqual(MEDIUM_LABEL, {
-    primary: true,
-    ink: true,
-    critical: true,
-    secondary: false,
-    ghost: false,
-    inverse: false,
-  });
-});
-
-test('weight is a two-value switch, so nothing can synthesise bold', () => {
-  // "never synthesised bold". `font-semibold` is a FAMILY here, mapped to the
-  // real HelveticaNeue-Medium face in tailwind.config — not a numeric 600 for
-  // the rasteriser to fake. If a third value ever appears in this set, some
-  // variant has asked for a weight the face does not carry.
-  const weights = new Set(VARIANTS.map(labelWeightFor));
-  assert.deepEqual([...weights].sort(), ['', 'font-semibold']);
-
+test('the constitution now spends no Medium at all', () => {
+  // The old rule was "Helvetica Neue regular; Medium only for labels and
+  // filled actions", and this file used to pin the table that implemented it.
+  // TY-01 supersedes it: "Medium: none. Bold: none." The table is gone, so
+  // there is nothing here to pin — the whole rule lives in
+  // `tests/type-weight.test.ts`, which asserts on the source of every product
+  // component rather than on one component's data.
+  //
+  // What stays here is the FAMILY MAP, because it is the thing that would let
+  // a Medium cut back in: `medium` and `semibold` no longer resolve to a face,
+  // so a stray `font-medium` renders regular instead of quietly shipping bold.
   const families = (theme.fontFamily as Record<string, string[]>) ?? {};
   assert.deepEqual(families.body, ['HelveticaNeue']);
-  assert.deepEqual(families.medium, ['HelveticaNeue-Medium']);
-  assert.deepEqual(families.semibold, ['HelveticaNeue-Medium']);
+  assert.equal(families.medium, undefined, 'the Medium family is back');
+  assert.equal(families.semibold, undefined, 'the semibold family is back');
+  // The serif was always single-weight and is untouched.
+  assert.deepEqual(families.display, ['InstrumentSerif_400Regular']);
+  assert.deepEqual(families.title, ['InstrumentSerif_400Regular']);
+  // Still six variants, still one radius — the parts of the button contract
+  // this file has always guarded.
+  assert.equal(VARIANTS.length, 6);
+  assert.equal(RADIUS, 12);
 });

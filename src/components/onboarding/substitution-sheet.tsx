@@ -130,7 +130,6 @@ export function SubstitutionSheetBody({
               <View className="flex-1 pr-3">
                 <Text
                   variant="body"
-                  className={isSelected ? 'font-medium' : ''}
                   style={{ fontSize: 17 }}>
                   {label}
                 </Text>

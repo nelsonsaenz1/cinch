@@ -87,7 +87,7 @@ export function ReportProfileSheet({
       {profile ? (
         sent ? (
           <View className="rounded-plate bg-canvas p-5">
-            <Text variant="callout" className="font-semibold" accessibilityLiveRegion="polite">
+            <Text variant="callout" accessibilityLiveRegion="polite">
               Thank you. We’ll look at this.
             </Text>
             <Text variant="note" className="mt-1.5">

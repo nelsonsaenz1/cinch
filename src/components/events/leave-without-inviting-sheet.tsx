@@ -49,7 +49,7 @@ export function LeaveWithoutInvitingSheet({
           onPress={onKeepChoosing}
           style={{ minHeight: MIN_TAP_TARGET, backgroundColor: theme.ink }}
           className="flex-row items-center justify-center rounded-md active:opacity-80">
-          <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+          <Text variant="body" style={{ color: theme.canvas }}>
             Keep choosing
           </Text>
         </Pressable>
@@ -59,7 +59,7 @@ export function LeaveWithoutInvitingSheet({
           onPress={onDiscard}
           style={{ minHeight: MIN_TAP_TARGET, borderColor: theme.rule, borderWidth: 1 }}
           className="flex-row items-center justify-center rounded-md active:opacity-60">
-          <Text variant="body" className="font-semibold" style={{ color: theme.accent }}>
+          <Text variant="body" style={{ color: theme.accent }}>
             Discard
           </Text>
         </Pressable>

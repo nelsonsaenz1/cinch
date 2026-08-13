@@ -187,7 +187,7 @@ export function SlowNotice({ onShowAnyway }: { onShowAnyway: () => void }) {
     <View
       className="mx-gutter mt-2 rounded-md bg-tray p-3.5"
       accessibilityLiveRegion="polite">
-      <Text variant="label" className="font-medium">
+      <Text variant="label">
         Taking longer than usual
       </Text>
       <Text variant="note" className="mt-1">

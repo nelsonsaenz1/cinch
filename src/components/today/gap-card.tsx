@@ -32,7 +32,7 @@ export function GapCard({
   return (
     <View className="mx-gutter mt-4 rounded-plate border border-rule bg-surface p-3.5">
       <Text variant="eyebrow">What your closet is missing</Text>
-      <Text variant="label" className="mt-2.5 font-medium">
+      <Text variant="label" className="mt-2.5">
         The gap
       </Text>
       <Text variant="plate" className="mt-1" numberOfLines={2}>
@@ -50,7 +50,7 @@ export function GapCard({
         hitSlop={8}
         style={{ minHeight: MIN_TAP_TARGET }}
         className="mt-2 justify-center active:opacity-60">
-        <Text variant="label" className="font-medium" style={{ color: theme.accent }}>
+        <Text variant="label" style={{ color: theme.accent }}>
           Look at the gap
         </Text>
       </Pressable>

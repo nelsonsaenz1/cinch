@@ -57,7 +57,7 @@ function ManifestRow({ name, body, first }: { name: string; body: string; first:
 
   return (
     <View className={`flex-row gap-3 px-4 py-3.5 ${first ? '' : 'border-t border-hairline'}`}>
-      <Text variant="body" className="w-[112px] font-medium">
+      <Text variant="body" className="w-[112px]">
         {name}
       </Text>
       <Text variant="callout" className="flex-1" style={{ color: theme.muted }}>
@@ -151,7 +151,7 @@ export function ExportPage({
             <Card padding="xl" className="mx-gutter mt-6">
               <View className="flex-row items-center gap-3">
                 <ActivityIndicator size="small" color={theme.accent} />
-                <Text variant="body" className="flex-1 font-medium">
+                <Text variant="body" className="flex-1">
                   Being put together
                 </Text>
               </View>
@@ -172,7 +172,7 @@ export function ExportPage({
               quietly stop. */}
           {latestState === 'ready' && latest ? (
             <Card padding="xl" className="mx-gutter mt-6">
-              <Text variant="body" className="font-medium">
+              <Text variant="body">
                 Ready
               </Text>
               <Text variant="callout" className="mt-2" style={{ color: theme.muted }}>
@@ -213,7 +213,7 @@ export function ExportPage({
 
           {latestState === 'failed' && latest ? (
             <Card padding="xl" className="mx-gutter mt-6">
-              <Text variant="body" className="font-medium">
+              <Text variant="body">
                 That export did not finish
               </Text>
               {/* The worker's own sentence when it wrote one; otherwise the
@@ -284,7 +284,7 @@ export function ExportPage({
                   <View
                     key={row.id}
                     className={`px-4 py-3.5 ${index === 0 ? '' : 'border-t border-hairline'}`}>
-                    <Text variant="body" className="font-medium">
+                    <Text variant="body">
                       {fullDate(row.requestedAt)}
                     </Text>
                     <Text variant="note" className="mt-0.5">

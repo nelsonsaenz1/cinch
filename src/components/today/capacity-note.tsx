@@ -57,7 +57,7 @@ export function CapacityNote({
 
   return (
     <View className="mx-gutter mt-4 rounded-md bg-tray px-4 py-3.5">
-      <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+      <Text variant="label" style={{ color: theme.ink }}>
         {capacityNoteHeading(activePieces)}
       </Text>
       <Text variant="note" className="mt-1">

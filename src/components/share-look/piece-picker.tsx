@@ -221,10 +221,9 @@ export function PickerFooterTray({
             borderColor: theme.hairline,
           }}
           className="items-center justify-center rounded-md active:opacity-80">
-          <Text
-            variant="body"
-            className={canCompose ? 'font-semibold' : ''}
-            style={{ color: canCompose ? theme.canvas : theme.muted }}>
+          {/* Enabled and disabled differ by ground and label colour, never by
+              weight — TY-01. */}
+          <Text variant="body" style={{ color: canCompose ? theme.canvas : theme.muted }}>
             Compose
           </Text>
         </Pressable>

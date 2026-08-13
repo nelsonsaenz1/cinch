@@ -194,7 +194,7 @@ export function FriendItemSheet({
               {/* `muted`, not the atlas's #A8A294: byline-tier greys fail AA
                   on small text (settled: the faint ruling), and this label is
                   the only place the fact is stated. */}
-              <Text variant="body" className="font-medium text-muted">
+              <Text variant="body" className="text-muted">
                 Not up for lending
               </Text>
             </View>

@@ -96,7 +96,6 @@ function ActivityButton({
         ]}>
         <Text
           variant={solid ? 'body' : 'note'}
-          className={solid ? 'font-medium' : ''}
           style={{ fontSize: 13, lineHeight: 17, color: solid ? theme.canvas : theme.ink }}>
           {action.label}
         </Text>
@@ -179,9 +178,13 @@ export function ActivityRow({
               <Text
                 key={i}
                 variant="body"
-                // MEDIUM, not semibold — the actor is the row's one emphasis
-                // (audit 91) and Medium is this app's emphasis weight.
-                className={segment.bold ? 'font-medium' : ''}
+                // The actor is the row's one emphasis (audit 91). It used to be
+                // carried by Medium; TY-01 removes weight from the product, so
+                // it is carried by COLOUR instead — the name in ink, the rest
+                // of the sentence in muted. Same single emphasis, same run,
+                // and it survives at every Dynamic Type size, which a weight
+                // difference at 14 pt barely does.
+                className={segment.bold ? 'text-ink' : 'text-muted'}
                 style={{ fontSize: 14, lineHeight: 20 }}>
                 {segment.text}
               </Text>
@@ -246,7 +249,6 @@ export function ActivityRow({
                 style={{ minHeight: MIN_TAP_TARGET, alignSelf: 'flex-start' }}
                 className="justify-center active:opacity-60">
                 <Text
-                  className="font-medium"
                   style={{ fontSize: 13, lineHeight: 18, color: theme.accent }}>
                   {ANSWER_RETRY}
                 </Text>

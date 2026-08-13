@@ -43,10 +43,11 @@ export type ItemEditSheetProps = {
  * the page it came from is gone rather than dimmed behind it — "so the hero
  * never becomes a form".
  *
- * "Field labels are the only Medium text besides Save; every value and every
- * explanation is regular." That is the constitution's weight rule stated for
- * this frame, and it is why the values in the tray wells are `body` and the
- * uppercase labels above them are the only `label`s on the screen.
+ * The frame stated its own weight rule — "field labels are the only Medium
+ * text besides Save" — and TY-01 has since removed weight from the product
+ * entirely. What the rule was reaching for survives without it: the field
+ * labels are uppercase, tracked and `muted`, the values are `body` in ink, and
+ * Save is the one oxblood word on the screen.
  *
  * "Store sits alone under a rule at the foot, in oxblood text but not as a
  * filled action, because it is consequential but reversible — and the word
@@ -139,18 +140,17 @@ export function ItemEditSheet({
       onRequestClose={busy ? undefined : onCancel}
       presentationStyle="pageSheet">
       <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-        {/* The bar. Cancel is regular at the frame's secondary colour, the
-            title is Medium, and Save is the ONE oxblood on the screen — text,
-            because a filled accent bar button would outweigh the document. */}
+        {/* The bar. Cancel is muted, the title is ink, and Save is the ONE
+            oxblood on the screen — text, because a filled accent bar button
+            would outweigh the document. Three colours, no weights. */}
         <View className="flex-row items-center justify-between px-gutter pt-2">
           <BarAction label="Cancel" color={theme.muted} disabled={busy} onPress={onCancel} />
-          <Text variant="body" className="font-semibold text-ink" style={{ fontSize: 16 }}>
+          <Text variant="body" className="text-ink" style={{ fontSize: 16 }}>
             Edit piece
           </Text>
           <BarAction
             label="Save"
             color={theme.accent}
-            medium
             disabled={busy}
             busy={busy}
             onPress={() => onSave(draft)}
@@ -281,15 +281,14 @@ export function ItemEditSheet({
 function BarAction({
   label,
   color,
-  medium = false,
   disabled,
   busy = false,
   onPress,
 }: {
   label: string;
   color: string;
-  /** Save is Medium; Cancel is regular. The frame's own distinction. */
-  medium?: boolean;
+  /** Save is the accent, Cancel is muted. Colour is the frame's whole
+   *  distinction now that TY-01 has taken the Medium cut off Save. */
   disabled: boolean;
   busy?: boolean;
   onPress: () => void;
@@ -305,7 +304,6 @@ function BarAction({
       className="active:opacity-60">
       <Text
         variant="body"
-        className={medium ? 'font-semibold' : undefined}
         style={{ fontSize: 16, color }}>
         {label}
       </Text>

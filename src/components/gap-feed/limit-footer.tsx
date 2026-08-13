@@ -70,7 +70,7 @@ export function GapLimitFooter({
 
   return (
     <View className="bg-tray" style={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 16 }}>
-      <Text variant="body" className="font-semibold" style={{ fontSize: 15 }}>
+      <Text variant="body" style={{ fontSize: 15 }}>
         {count}
       </Text>
       <Text variant="note" className="mt-1">

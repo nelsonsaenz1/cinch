@@ -95,7 +95,7 @@ export function StatePill({ label }: { label: string }) {
       accessibilityLabel={`You are ${label.toLowerCase()}`}
       style={{ minHeight: MIN_TAP_TARGET }}
       className="flex-row items-center justify-center rounded-md bg-ink px-5">
-      <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+      <Text variant="body" style={{ color: theme.canvas }}>
         {label}
       </Text>
     </View>

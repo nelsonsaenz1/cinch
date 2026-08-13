@@ -31,7 +31,7 @@ export default function CameraUnavailableScreen() {
           hitSlop={12}
           onPress={() => router.back()}
           className="py-1 active:opacity-60">
-          <Text variant="body" className="font-semibold">
+          <Text variant="body">
             Close
           </Text>
         </Pressable>

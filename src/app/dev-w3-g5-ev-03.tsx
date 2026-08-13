@@ -78,7 +78,7 @@ export default function DevW3G5EV03() {
           If you are the host cancelling
         </Text>
         <View className="mt-3 rounded-plate border border-hairline bg-surface p-4">
-          <Text variant="body" className="font-semibold">
+          <Text variant="body">
             Cancel this occasion?
           </Text>
           <Text variant="note" className="mt-1.5">

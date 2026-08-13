@@ -258,7 +258,17 @@ export function stopSheetCopy(
  */
 export const FIRST_TEN_DOORS = {
   headline: 'How would you rather do this?',
-  body: 'Both get to the same closet. Photographs give Cinch the real garment; speaking gets a lot of pieces in quickly and you fix the details afterwards.',
+  // TN-C1. The old line read "Both get to the same closet" and then weighed
+  // photographs against speaking — written when this screen had two doors, and
+  // left standing when it grew to four, so it both miscounted them and argued
+  // for two of them.
+  //
+  // What replaces it states the shared outcome and stops. No route is compared
+  // to another, because the frame's rule is that none is preferred and a
+  // sentence that explains when to prefer one is a recommendation whatever the
+  // plates look like. Which door suits a reader depends on where they are
+  // standing, and they know that better than this screen does.
+  body: 'Four ways in, and they all end in the same closet. Nothing is filed differently for having come through a different door.',
   photograph: {
     name: 'Photograph them',
     line: 'Ten named slots, one picture each. Cinch cuts each piece out and files it. You can pick from your camera roll instead.',

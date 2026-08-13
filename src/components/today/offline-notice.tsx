@@ -21,7 +21,7 @@ export function OfflineNotice({ onRetry }: { onRetry: () => void }) {
 
   return (
     <View className="mx-gutter mt-3 rounded-md bg-tray p-3.5" accessibilityLiveRegion="polite">
-      <Text variant="label" className="font-medium">
+      <Text variant="label">
         No connection
       </Text>
       <Text variant="note" className="mt-1">
@@ -34,7 +34,7 @@ export function OfflineNotice({ onRetry }: { onRetry: () => void }) {
         onPress={onRetry}
         style={{ minHeight: MIN_TAP_TARGET, minWidth: 76 }}
         className="mt-2.5 items-center justify-center self-start rounded-md border border-rule px-3 active:opacity-70">
-        <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+        <Text variant="label" style={{ color: theme.ink }}>
           Try again
         </Text>
       </Pressable>

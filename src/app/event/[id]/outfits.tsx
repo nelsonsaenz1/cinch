@@ -714,7 +714,7 @@ export default function EventOutfitBoardScreen() {
               onPress={undoMove}
               hitSlop={8}
               style={{ minHeight: MIN_TAP_TARGET - 20 }}>
-              <Text variant="label" className="font-semibold" style={{ color: theme.accent }}>
+              <Text variant="label" style={{ color: theme.accent }}>
                 Undo
               </Text>
             </Pressable>

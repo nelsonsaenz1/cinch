@@ -1,7 +1,9 @@
 import { Pressable, View } from 'react-native';
 
+import { ExampleCard, ExampleGarments } from '@/components/examples/example-card';
 import { GarmentCell } from '@/components/today/garment-cell';
 import { Text } from '@/components/ui/text';
+import { TE_01, TE_01_PROMISE, TE_02, TE_02_CAPTION } from '@/features/examples/example-copy';
 import { missingForFirstOutfit, tallyOf } from '@/features/closet/outfit-count';
 import { PLANS } from '@/features/billing/plans';
 import { numberWord } from '@/features/onboarding/reveal-copy';
@@ -30,6 +32,27 @@ const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * the sentence names the two KINDS of garment that would turn this into
  * outfits, which is actionable. The pieces already photographed are shown at
  * full size: this is a closet that is working, not a warning.
+ *
+ * ── TE-01 / TE-02 — AND WHY THE EXAMPLE COMES FIRST ───────────────────────
+ *
+ * Both states used to explain in words alone what Today becomes. "An empty
+ * Today sells nothing", so each now carries a fictional look built from the
+ * owned photographs, labelled on the card, and completely inert — and it sits
+ * ABOVE the prose, not below it, because the acceptance check is that the
+ * example is visible in the first viewport at 393 pt without scrolling and the
+ * real action is still reachable under it.
+ *
+ * NEITHER EXAMPLE TOUCHES THE CLOSET. The atlas builds TE-02's around the
+ * reader's own pieces; the shipped rule is that examples come from the bundled
+ * fixture set and never from user data, so both are drawn entirely from
+ * `assets/garments`. What separates them is the SHAPE — three pieces against
+ * four, matching the real plate at three and at four — and the sentence beside
+ * each, which is the part that is genuinely about this reader's closet.
+ *
+ * The practical consequence is worth stating: rendering an example costs
+ * nothing. No image resolves, no row is read, no count is taken. It draws
+ * identically offline and on the very first launch, which is exactly when an
+ * empty Today is most likely to be looked at.
  */
 export function ClosetFloor({
   items,
@@ -51,23 +74,66 @@ export function ClosetFloor({
 
   const headline = empty
     ? 'Nothing to style from yet.'
-    : `${numberWord(items.length)} pieces in. ${numberWord(remaining)} more and Cinch can dress you.`;
+    : // Both clauses open a sentence, and `numberWord` is lowercase for the
+      // mid-sentence call sites. This headline had the same fault as the body
+      // below it — "three pieces in. two more and Cinch can dress you." — and
+      // it is the more visible of the two, since it is set in the serif.
+      `${capitalise(numberWord(items.length))} pieces in. ${capitalise(numberWord(remaining))} more and Cinch can dress you.`;
 
   const body = empty
-    ? `${numberWord(PLANS.free.items)} pieces is enough for Cinch to style you properly. Photograph them, or pick them from your camera roll — in any order.`
+    ? // `capitalise`, not a literal "Ten": the number is `PLANS.free.items`
+      // spelled out, so it moves with the free tier the way every other
+      // statement of it does. It just happens to open a sentence here, and
+      // `numberWord` returns lowercase because most of its call sites are
+      // mid-sentence — which is how "ten pieces is enough" shipped.
+      `${capitalise(numberWord(PLANS.free.items))} pieces is enough for Cinch to style you properly. Photograph them, or pick them from your camera roll — in any order.`
     : missing
       ? `Everything here needs something to go with it. ${capitalise(missing)} is what turns this into outfits.`
       : 'Everything here needs something to go with it.';
 
   const primary = empty ? 'Start your closet' : missing ? `Add ${missing}` : 'Add more pieces';
 
+  const example = empty ? TE_01 : TE_02;
+
   return (
     <View className="px-gutter" style={{ paddingTop: 24 }}>
+      {/* The example, first — the payoff before the explanation. */}
+      <ExampleCard
+        id={empty ? 'TE-01' : 'TE-02'}
+        caption={empty ? TE_01.caption : TE_02_CAPTION}>
+        <ExampleGarments
+          pieces={example.pieces}
+          // Three-up at 96 and four-up at 74, matching the real plate's own
+          // geometry at three and four pieces — "the promise and the product
+          // are the same shape".
+          size={example.pieces.length > 3 ? 74 : 96}
+        />
+        <Text variant="plate" className="mt-3">
+          {example.name}
+        </Text>
+        <Text variant="noteSmall" className="mt-1.5">
+          {example.reasoning}
+        </Text>
+      </ExampleCard>
+
+      {empty ? (
+        <Text variant="body" className="mt-5 text-muted">
+          {TE_01_PROMISE}
+        </Text>
+      ) : null}
+
       {/* The pieces that are already in, at full size. Zero is quiet: with
           nothing photographed there is nothing to show, and an empty tray
           drawn where a closet will be is a picture of failure. */}
       {items.length > 0 ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP, marginBottom: 24 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: GRID_GAP,
+            marginTop: 24,
+            marginBottom: 24,
+          }}>
           {items.slice(0, 6).map((g) => (
             <View
               key={g.id}
@@ -84,7 +150,7 @@ export function ClosetFloor({
         </View>
       ) : null}
 
-      <Text variant="title" trim>
+      <Text variant="title" trim className={items.length > 0 ? '' : 'mt-6'}>
         {headline}
       </Text>
       <Text variant="body" className="mt-3.5 text-muted">
@@ -98,7 +164,7 @@ export function ClosetFloor({
         onPress={onStart}
         style={{ minHeight: 52 }}
         className="mt-7 items-center justify-center rounded-md bg-accent px-6 active:opacity-70">
-        <Text variant="label" className="font-medium" style={{ color: theme.canvas }}>
+        <Text variant="label" style={{ color: theme.canvas }}>
           {primary}
         </Text>
       </Pressable>
@@ -113,7 +179,7 @@ export function ClosetFloor({
           onPress={onDescribe}
           style={{ minHeight: MIN_TAP_TARGET }}
           className="mt-2 items-center justify-center rounded-md border border-rule px-6 active:opacity-70">
-          <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+          <Text variant="label" style={{ color: theme.ink }}>
             Describe it out loud instead
           </Text>
         </Pressable>

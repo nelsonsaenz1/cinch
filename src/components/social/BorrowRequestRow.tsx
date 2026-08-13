@@ -82,7 +82,7 @@ export function BorrowRequestRow({
               `font-semibold` follows `body` in tailwind.config.js's
               `fontFamily`, so the class wins deterministically — the same
               stacking direction button.tsx ships on every label. */}
-          <Text variant="callout" className="font-semibold">
+          <Text variant="callout">
             {headline}
           </Text>
           {/* 12.5px grey — `note` (13, regular, muted). The atlas draws #8A8578

@@ -152,7 +152,7 @@ export default function NameScreen() {
           <RNText
             maxFontSizeMultiplier={MAX_TEXT_SCALE}
             style={{
-              fontFamily: 'HelveticaNeue-Medium',
+              fontFamily: 'HelveticaNeue',
               fontSize: 15,
               color: armed || saving ? atlas.cream : atlas.pillDisabledLabel,
             }}>

@@ -295,7 +295,7 @@ export function ConsentSheet({
                     factTops.current[index] = event.nativeEvent.layout.y;
                   }}>
                   <Text variant="body" style={{ color: theme.muted }}>
-                    <Text variant="body" className="font-semibold" style={{ color: theme.ink }}>
+                    <Text variant="body" style={{ color: theme.ink }}>
                       {lead}
                     </Text>
                     {rest}

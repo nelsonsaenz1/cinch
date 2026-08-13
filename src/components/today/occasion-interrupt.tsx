@@ -39,7 +39,7 @@ export function OccasionInterrupt({
   return (
     <View className="mx-gutter mt-3 rounded-md bg-tray p-3.5">
       <Text variant="eyebrow">{copy.eyebrow}</Text>
-      <Text variant="body" className="mt-1.5 font-medium" numberOfLines={3}>
+      <Text variant="body" className="mt-1.5" numberOfLines={3}>
         {copy.line}
       </Text>
       <Text variant="note" className="mt-1">
@@ -52,7 +52,7 @@ export function OccasionInterrupt({
         onPress={onDress}
         style={{ minHeight: MIN_TAP_TARGET }}
         className="mt-3 items-center justify-center rounded-md bg-accent px-4 active:opacity-70">
-        <Text variant="label" className="font-medium" style={{ color: theme.canvas }}>
+        <Text variant="label" style={{ color: theme.canvas }}>
           {copy.action}
         </Text>
       </Pressable>

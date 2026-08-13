@@ -7,6 +7,8 @@ type Variant =
   | 'wordmark'
   | 'spread'
   | 'display'
+  | 'greeting'
+  | 'greetingWide'
   | 'title'
   | 'plate'
   | 'heading'
@@ -24,13 +26,29 @@ type Variant =
   | 'door';
 
 /**
- * Weight is a font FAMILY for the serif, and may be a family for Helvetica too.
+ * TWO CUTS, AND NEITHER OF THEM IS MEDIUM — TY-01 / TY-02.
  *
- * React Native does not synthesise weights for a *bundled* family (Instrument
- * Serif ships one weight, so there is only ever the regular cut). Helvetica Neue
- * is a system face and does honour its distinct cuts by PostScript name, which
- * is why `font-medium`/`font-semibold` resolve to HelveticaNeue-Medium. Either
- * way, do not lean on `fontWeight`; name the family.
+ * Instrument Serif for display, the regular Helvetica Neue cut for everything
+ * else. Hierarchy is carried by size, colour, case and space; never by weight.
+ * The correction file states the implementation rule in one line — "delete
+ * every fontWeight declaration from product components; the sans inherits 400
+ * and the serif is a single-weight family" — and this table is where the app
+ * used to disobey it: `heading`, `label`, `caption`, `eyebrow` and `colophon`
+ * all named a Medium family, which is how a tracked micro-label and a running
+ * secondary sentence came to shout at the same volume as a headline.
+ *
+ * What replaces the weight was already here. The eyebrow and colophon are
+ * uppercase and tracked, `label`/`caption` are smaller, and every quiet role is
+ * `muted` rather than `ink`. `tests/type-weight.test.ts` holds the rule.
+ *
+ * `note`/`noteSmall` are now identical in classes to `label`/`caption`. They
+ * keep their own names because the call sites mean different things by them — a
+ * field label is not a sentence — and collapsing them would be a rename across
+ * ~90 call sites for no visual change.
+ *
+ * React Native does not synthesise weights for a *bundled* family, and a system
+ * face like Helvetica Neue honours its cuts by PostScript name. Either way, do
+ * not reach for `fontWeight` or for a Medium family: there is one sans cut.
  *
  * Never hand-write a `lineHeight` on top of these. The sizes carry line heights
  * computed from the real font metrics; a tighter override clips the tops of the
@@ -43,34 +61,30 @@ const variants: Record<Variant, string> = {
   /** The first-run tour's headline, and nothing else. See tailwind.config.js. */
   spread: 'font-display text-spread text-ink',
   display: 'font-display text-display text-ink',
+  /**
+   * The Today greeting, at the two widths TM-01 and TM-02 draw it.
+   *
+   * A variant rather than `variant="display"` with a `fontSize` override,
+   * because the two are inseparable here: the sizes carry line heights computed
+   * from the real font metrics (see the note below `TRIMS`), and `trim` is a
+   * per-variant table of cap-height margins. Overriding the size alone would
+   * leave a 40 px line box and a 40 px trim around a 30 px glyph — which is the
+   * cap-trim bug this component was built to prevent, reintroduced by hand.
+   */
+  greeting: 'font-display text-greeting text-ink',
+  greetingWide: 'font-display text-greeting-wide text-ink',
   title: 'font-title text-title text-ink',
   plate: 'font-title text-plate text-ink',
 
   // Helvetica Neue.
-  heading: 'font-semibold text-heading text-ink',
+  heading: 'font-body text-heading text-ink',
   body: 'font-body text-body text-ink',
   callout: 'font-body text-callout text-ink',
-  label: 'font-medium text-label text-muted',
-  caption: 'font-medium text-caption text-muted',
-  // `label` and `caption` at their own sizes but in the REGULAR cut.
-  //
-  // Both variants above are `font-medium`, which is right for what they were
-  // built for — tracked labels and buttons, the things an atlas draws at
-  // `font-weight:500`. It is wrong for running secondary prose at the same
-  // size: the Stylist sheet's promise line and its closing caption are the
-  // quietest sentences on that screen and the atlas sets no font-weight on
-  // either, so medium rendered them as bold grey shouting a disclaimer meant to
-  // be murmured.
-  //
-  // Named variants rather than `variant="label" className="font-body"` for the
-  // reason recorded under the serif figures below: NativeWind gives no
-  // precedence between two utilities of the same kind on one element, and
-  // `medium` follows `body` in tailwind.config.js's `fontFamily`, so the class
-  // form loses and the inline-style form is at the mercy of how className
-  // styles merge. Name the weight; don't stack it.
-  /** Secondary prose at 13px, regular. */
+  label: 'font-body text-label text-muted',
+  caption: 'font-body text-caption text-muted',
+  /** Secondary prose at 13px. Same classes as `label`; see the header note. */
   note: 'font-body text-label text-muted',
-  /** Secondary prose at 11px, regular. */
+  /** Secondary prose at 11px. Same classes as `caption`; see the header note. */
   noteSmall: 'font-body text-caption text-muted',
   // The tracked-out eyebrow — the fashion-magazine signature.
   //
@@ -83,9 +97,9 @@ const variants: Record<Variant, string> = {
   // for text genuinely redundant with an adjacent icon or duplicated on screen,
   // and set it per-caller. A caller on a dark or accent ground overrides with
   // inline `style`, never a second `text-*` class — see EventCard.tsx.
-  eyebrow: 'font-medium text-eyebrow uppercase text-muted',
+  eyebrow: 'font-body text-eyebrow uppercase text-muted',
   // The data line under a plate.
-  colophon: 'font-medium text-colophon uppercase text-muted',
+  colophon: 'font-body text-colophon uppercase text-muted',
   // ── The serif data figures ────────────────────────────────────────────────
   // Three sizes, because the app needs three and was getting them by stacking a
   // second `text-*` class on top of `stat` — `variant="stat" className="text-
@@ -128,6 +142,8 @@ const TRIMS: Partial<Record<Variant, { marginTop: number; marginBottom: number }
   wordmark: capTrim('instrument', 64, leading('instrument', 64, 1.05)),
   spread: capTrim('instrument', 56, leading('instrument', 56, 1.04)),
   display: capTrim('instrument', 40, leading('instrument', 40, 1.05)),
+  greeting: capTrim('instrument', 30, leading('instrument', 30, 1.05)),
+  greetingWide: capTrim('instrument', 32, leading('instrument', 32, 1.05)),
   title: capTrim('instrument', 28, leading('instrument', 28, 1.08)),
   plate: capTrim('instrument', 24, leading('instrument', 24, 1.08)),
 };
@@ -144,6 +160,8 @@ export function Text({ variant = 'body', className = '', trim = false, style, ..
     variant === 'wordmark' ||
     variant === 'spread' ||
     variant === 'display' ||
+    variant === 'greeting' ||
+    variant === 'greetingWide' ||
     variant === 'title' ||
     variant === 'plate' ||
     // The hero figure sits in a fixed 2×2 grid cell; the looser 1.8 cap lets a

@@ -36,7 +36,7 @@ const RATE_LIMITED_COPY = 'Too many codes requested. Try again in five minutes.'
 const SEND_TIMEOUT_MS = 8000;
 
 const LABEL_STYLE = {
-  fontFamily: 'HelveticaNeue-Medium',
+  fontFamily: 'HelveticaNeue',
   fontSize: 9,
   letterSpacing: 9 * 0.2,
   textTransform: 'uppercase' as const,
@@ -263,7 +263,7 @@ export default function EmailScreen() {
             <RNText
               maxFontSizeMultiplier={MAX_TEXT_SCALE}
               style={{
-                fontFamily: 'HelveticaNeue-Medium',
+                fontFamily: 'HelveticaNeue',
                 fontSize: 15,
                 color: armed || sending ? atlas.cream : atlas.pillDisabledLabel,
               }}>

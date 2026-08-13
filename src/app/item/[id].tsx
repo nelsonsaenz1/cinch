@@ -1193,7 +1193,7 @@ function BorrowableCard({
       // precedence against the one already on this element.
       style={{ borderRadius: 14 }}>
       <View className="flex-1">
-        <Text variant="body" style={{ fontSize: 14, fontWeight: '600' }}>
+        <Text variant="body" style={{ fontSize: 14 }}>
           Borrowable
         </Text>
         <Text variant="caption" className="mt-0.5 text-muted">

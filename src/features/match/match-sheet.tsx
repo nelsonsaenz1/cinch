@@ -754,7 +754,7 @@ function FailureFrame({ failure, onRetry }: { failure: MatchFailure; onRetry: ()
 
   return (
     <View className="rounded-md bg-tray p-4" accessibilityLiveRegion="polite">
-      <Text variant="body" className="font-semibold">
+      <Text variant="body">
         {frame.title}
       </Text>
       <Text variant="callout" className="mt-1.5" style={{ color: theme.muted }}>

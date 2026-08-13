@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { View } from 'react-native';
 
+import { ExampleTrip } from '@/components/plan/plan-examples';
 import { Button, ErrorState, ListSkeleton, Text } from '@/components/ui';
-import { PLANS } from '@/features/billing/plans';
+import { PL_C3_GATE } from '@/features/examples/example-copy';
 
 import { PackingTrip } from './packing-trip';
 import { daysBetween, type Trip } from './trip';
@@ -78,6 +79,23 @@ function LastTripLine({ trip }: { trip: LastTripSummary }) {
  * Presentational and exported so the dev route can drive both the "history"
  * and "first trip" states without a network round trip — the same split
  * `dev-comments.tsx` uses for `CommentRow`.
+ *
+ * ── PL-C3 — THE PAYOFF BEFORE THE GATE, AND NO PRICE ON IT ────────────────
+ *
+ * Two changes, and the second is the load-bearing one.
+ *
+ * The example trip now sits above the action: "the example shows the payoff
+ * before the gate, in that order". A gate that names a tier without showing
+ * what is behind it is asking for a decision on no information.
+ *
+ * And the PRICE IS GONE. This used to print "$14.99/mo · $119/yr" from
+ * `PLANS.pro`'s hint fields — figures verified against the Superwall products,
+ * but hints all the same, formatted in no particular locale and read from a
+ * constant rather than from StoreKit. The correction's rule is flat: "Packing
+ * gate names the tier only. No price, period, trial or renewal sentence —
+ * those resolve from StoreKit on the membership sheet." Which is also the
+ * safer arrangement: a stale number on a gate is a promise the purchase sheet
+ * then breaks, and App Review reads the same screen.
  */
 export function PackingGate({
   lastTrip,
@@ -135,36 +153,37 @@ export function PackingGate({
  page's own grammar. No alert, no toast: this is information, and the
         guide sets information in the surface it belongs to.
       */}
+      {/* PL-C3 — what a packed trip looks like, before being asked to pay for
+          one. Inert, labelled, and it spends nothing: no destination weather
+          call, no closet read, no packing computation. */}
+      <View className="mt-6">
+        <ExampleTrip />
+      </View>
+
+      {/* The tier, and nothing else about it. */}
+      <Text variant="body" className="mt-6 text-muted">
+        {PL_C3_GATE.line}
+      </Text>
+
       {unavailable ? (
         // `muted`, not `faint`: this line is the only statement of why there
         // is no button, so it is real content, and `faint` on canvas fails
         // AA (see the contrast note in ui/text.tsx). Quiet is the voice, not
         // the contrast.
-        <Text variant="body" className="mt-6 text-muted">
+        <Text variant="body" className="mt-3 text-muted">
           Membership opens soon — Packing unlocks with it.
         </Text>
       ) : (
-        <>
-          {/* The screen's one oxblood action. */}
-          <Button
-            title="Pack a trip with Pro"
-            onPress={onUnlock}
-            loading={unlockState === 'opening'}
-            haptic
-            className="mt-6 self-stretch"
-          />
-          {/* "$14.99/mo · $119/yr", as the atlas draws it. Both are hints
-              (`plans.ts`) verified against the Superwall products, not live
-              StoreKit reads — formatting a real price in the device's own
-              locale is the paywall's job, and this gate only names the tier.
-              Either half is dropped rather than guessed if it is ever null. */}
-          {PLANS.pro.monthlyPriceHint ? (
-            <Text variant="label" className="mt-2 text-center text-muted">
-              {PLANS.pro.monthlyPriceHint}/mo
-              {PLANS.pro.annualPriceHint ? ` · ${PLANS.pro.annualPriceHint}/yr` : ''}
-            </Text>
-          ) : null}
-        </>
+        // The screen's one oxblood action. It opens the membership sheet,
+        // which is where every term — price, period, renewal — is read live
+        // from StoreKit and stated in the reader's own currency.
+        <Button
+          title={PL_C3_GATE.action}
+          onPress={onUnlock}
+          loading={unlockState === 'opening'}
+          haptic
+          className="mt-4 self-stretch"
+        />
       )}
     </View>
   );

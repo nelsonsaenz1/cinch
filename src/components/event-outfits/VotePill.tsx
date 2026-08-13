@@ -141,7 +141,7 @@ export function VotePill({
             accepts a sub-AA disabled label, and only because WCAG exempts
             disabled controls outright; this is a plain inert pill with no
             such exemption on file, so it takes the AA-clean step instead. */}
-        <Text variant="label" className="font-medium" style={{ color: theme.muted }}>
+        <Text variant="label" style={{ color: theme.muted }}>
           Voting closed
         </Text>
       </View>
@@ -159,7 +159,7 @@ export function VotePill({
         // wrong hue for a refusal.
         style={{ minHeight: MIN_TAP_TARGET - 8, borderColor: `${theme.critical}73` }}
         className="flex-row items-center justify-center gap-1.5 rounded-md border px-3.5 active:opacity-70">
-        <Text variant="label" className="font-medium" style={{ color: theme.critical }}>
+        <Text variant="label" style={{ color: theme.critical }}>
           Try again
         </Text>
       </Pressable>
@@ -199,7 +199,6 @@ export function VotePill({
       ) : null}
       <Text
         variant="label"
-        className="font-medium"
         style={{ color: shown ? theme.canvas : theme.ink }}>
         {shown ? 'Picked' : 'Vote'}
       </Text>
@@ -229,7 +228,7 @@ export function AddYoursPill({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       style={{ minHeight: MIN_TAP_TARGET - 8 }}
       className="flex-row items-center justify-center rounded-md border border-rule px-3.5 active:opacity-70">
-      <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+      <Text variant="label" style={{ color: theme.ink }}>
         Add yours
       </Text>
     </Pressable>

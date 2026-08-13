@@ -110,7 +110,6 @@ function RowControl({
           the other. Nothing here is prose. */}
       <Text
         variant="label"
-        className="font-medium"
         style={{ color }}
         // Nothing is ellipsised and no scale is capped (audit 59). At the
         // largest type the row stacks and the label takes the lines it needs.
@@ -151,7 +150,7 @@ export function FailureBand({
       className="mt-2 flex-row items-center gap-3 rounded-md bg-tray p-3">
       <View className="flex-1">
         {/* LABEL (Medium) — it names the state. */}
-        <Text variant="label" className="font-medium" style={{ color: theme.accent }}>
+        <Text variant="label" style={{ color: theme.accent }}>
           {title}
         </Text>
         {/* PROSE (regular) — `note` is `label`'s size in the regular cut. */}
@@ -165,7 +164,7 @@ export function FailureBand({
         // one-word control from reading as an afterthought beside the sentence.
         style={{ minWidth: 76, minHeight: MIN_TAP_TARGET }}
         className="items-center justify-center rounded-md border border-rule px-3 active:opacity-70">
-        <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+        <Text variant="label" style={{ color: theme.ink }}>
           {retryLabel}
         </Text>
       </Pressable>

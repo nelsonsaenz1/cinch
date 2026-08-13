@@ -4,6 +4,11 @@ import { Button } from '@/components/ui/button';
 import { DoorPlate } from '@/components/ui/door-plate';
 import { Text } from '@/components/ui/text';
 import {
+  CATALOGUE_DISCLOSURE,
+  INTAKE_ROUTES,
+  TEN_MIXING_NOTE,
+} from '@/features/ingest/intake-routes';
+import {
   FIRST_TEN_DOORS,
   RESUME_HEADLINE,
   resumeCardCopy,
@@ -11,8 +16,23 @@ import {
 } from '@/features/onboarding/ten-copy';
 
 /**
- * TR-05 and TR-06 — the two doors into the first ten, and the same screen when
- * a walkthrough was left unfinished.
+ * TN-C1 (was TR-05) and TR-06 — the FOUR doors into the first ten, and the same
+ * screen when a walkthrough was left unfinished.
+ *
+ * ── WHY THIS SCREEN GREW TWO DOORS ────────────────────────────────────────
+ *
+ * It used to offer two, Photograph and Voice, while Add clothes offered four.
+ * "That is the founder-visible failure: the first thing a new user meets is the
+ * narrowest door in the app." Somebody whose clothes were not in front of them
+ * — on a train, at work, at the start of exactly the ten minutes this flow is
+ * designed for — had a camera and a microphone and no third option, when the
+ * app has had one all along.
+ *
+ * Same four, same order, same subtitles as AC-C1, read from the same table, so
+ * a reader who learns the doors here meets them unchanged in Add clothes. The
+ * mixing note is TN-C1's one addition, because at first run a target of ten
+ * makes route-switching likely and nothing else on the screen says it is
+ * allowed.
  *
  * THE ACCEPTANCE CRITERION IS THAT THE DOORS READ AS PEERS. Not "primary and
  * fallback": same plate, same radius, same icon well, same weight, and neither
@@ -47,15 +67,17 @@ export type UnfinishedWalkthrough = {
 
 export function FirstTenDoors({
   unfinished,
-  onPhotograph,
-  onVoice,
+  onRoute,
   onResume,
   onStartAgain,
 }: {
-  /** TR-06 when present, TR-05 when null. */
+  /** TR-06 when present, TN-C1 when null. */
   unfinished: UnfinishedWalkthrough | null;
-  onPhotograph: () => void;
-  onVoice: () => void;
+  /**
+   * One handler for all four, keyed by route. A prop per door would have to
+   * grow every time the table does, which is the coupling this replaces.
+   */
+  onRoute: (key: (typeof INTAKE_ROUTES)[number]['key']) => void;
   onResume: () => void;
   onStartAgain: () => void;
 }) {
@@ -108,12 +130,15 @@ export function FirstTenDoors({
             </View>
           </View>
           <View style={{ marginTop: 16 }}>
+            {/* TR-06 keeps ONE door under the resume card, and it is the
+                camera: the reader already chose voice once and the card above
+                is the way back into it. */}
             <DoorPlate
               name={FIRST_TEN_DOORS.photograph.name}
               line={FIRST_TEN_DOORS.photograph.shortLine}
               symbol="camera"
               accessibilityLabel="Photograph them — ten named slots, one picture each"
-              onPress={onPhotograph}
+              onPress={() => onRoute('camera')}
             />
           </View>
         </>
@@ -123,24 +148,31 @@ export function FirstTenDoors({
             {FIRST_TEN_DOORS.body}
           </Text>
           <View style={{ marginTop: 20, gap: 12 }}>
-            <DoorPlate
-              name={FIRST_TEN_DOORS.photograph.name}
-              line={FIRST_TEN_DOORS.photograph.line}
-              symbol="camera"
-              accessibilityLabel="Photograph them — ten named slots, one picture each"
-              onPress={onPhotograph}
-            />
-            <DoorPlate
-              name={FIRST_TEN_DOORS.voice.name}
-              line={FIRST_TEN_DOORS.voice.line}
-              symbol="waveform"
-              accessibilityLabel="Describe them out loud — walk your wardrobe and say what is in it"
-              onPress={onVoice}
-            />
+            {/* Straight off the shared table, in its order. Mapped rather than
+                written out four times: a door written by hand here is a door
+                that drifts from Add clothes, which is the whole bug. */}
+            {INTAKE_ROUTES.map((route) => (
+              <DoorPlate
+                key={route.key}
+                name={route.name}
+                line={route.tenLine}
+                symbol={route.symbol}
+                accessibilityLabel={route.accessibilityLabel}
+                onPress={() => onRoute(route.key)}
+              />
+            ))}
           </View>
+
+          {/* TN-C1's own line. */}
+          <Text variant="note" style={{ marginTop: 16 }}>
+            {TEN_MIXING_NOTE}
+          </Text>
+          <Text variant="noteSmall" style={{ marginTop: 10 }}>
+            {CATALOGUE_DISCLOSURE}
+          </Text>
           {/* A statement of fact in the regular cut, not a request. The request
               is the consent the chosen door raises one screen later. */}
-          <Text variant="note" style={{ marginTop: 20 }}>
+          <Text variant="note" style={{ marginTop: 14 }}>
             {FIRST_TEN_DOORS.footer}
           </Text>
         </>

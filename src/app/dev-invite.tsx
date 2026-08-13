@@ -224,7 +224,7 @@ function DevInviteInner() {
               <View
                 style={{ minHeight: 50, backgroundColor: theme.ink }}
                 className="items-center justify-center rounded-md">
-                <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                <Text variant="body" style={{ color: theme.canvas }}>
                   Invite {picked02.size} {picked02.size === 1 ? 'friend' : 'friends'}
                 </Text>
               </View>
@@ -255,13 +255,13 @@ function DevInviteInner() {
                 Filter matches nobody
               </Text>
               <View className="items-center rounded-plate border border-rule p-5">
-                <Text variant="body" className="font-semibold text-center">
+                <Text variant="body" className="text-center">
                   No friend called “quinn”
                 </Text>
                 <Text variant="label" className="mt-2 text-center">
                   You can only invite people you’re already friends with on Cinch.
                 </Text>
-                <Text variant="label" className="mt-3 font-semibold" style={{ color: theme.accent }}>
+                <Text variant="label" className="mt-3" style={{ color: theme.accent }}>
                   Add a friend
                 </Text>
               </View>
@@ -289,7 +289,7 @@ function DevInviteInner() {
                 <View
                   style={{ minHeight: 50, backgroundColor: theme.ink }}
                   className="items-center justify-center rounded-md">
-                  <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                  <Text variant="body" style={{ color: theme.canvas }}>
                     Inviting…
                   </Text>
                 </View>
@@ -300,7 +300,7 @@ function DevInviteInner() {
                   Sent — back on the occasion
                 </Text>
                 <View className="rounded-plate border border-rule p-4">
-                  <Text variant="body" className="font-semibold">
+                  <Text variant="body">
                     {sendResultTitle(outcomesSent)}
                   </Text>
                   <Text variant="label" className="mt-1.5">
@@ -315,7 +315,7 @@ function DevInviteInner() {
                 </Text>
                 <View className="overflow-hidden rounded-plate border border-rule">
                   <View className="p-4">
-                    <Text variant="body" className="font-semibold">
+                    <Text variant="body">
                       {sendResultTitle(outcomesPartial)}
                     </Text>
                     <Text variant="label" className="mt-1.5">
@@ -377,11 +377,11 @@ function DevInviteInner() {
               <View
                 style={{ minHeight: 44, backgroundColor: theme.ink }}
                 className="mt-5 items-center justify-center rounded-md px-5">
-                <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                <Text variant="body" style={{ color: theme.canvas }}>
                   Add a friend
                 </Text>
               </View>
-              <Text variant="label" className="mt-3.5 font-semibold" style={{ color: theme.accent }}>
+              <Text variant="label" className="mt-3.5" style={{ color: theme.accent }}>
                 Share your username
               </Text>
               <Text variant="caption" className="mt-6 text-center">

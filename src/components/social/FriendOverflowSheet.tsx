@@ -143,7 +143,7 @@ export function FriendOverflowSheet({ profile, onClose, rows }: FriendOverflowSh
     <SheetOverlay visible onClose={onClose}>
       <View className="overflow-hidden rounded-lg bg-canvas">
         <View className="px-4 pb-3 pt-3.5">
-          <Text variant="callout" className="font-medium">
+          <Text variant="callout">
             {profileName(profile)}
           </Text>
           {sub ? (
@@ -165,7 +165,7 @@ export function FriendOverflowSheet({ profile, onClose, rows }: FriendOverflowSh
         accessibilityLabel="Cancel"
         style={{ minHeight: MIN_TAP_TARGET }}
         className="mt-2.5 items-center justify-center rounded-lg bg-canvas active:opacity-60">
-        <Text variant="callout" className="font-semibold">
+        <Text variant="callout">
           Cancel
         </Text>
       </Pressable>

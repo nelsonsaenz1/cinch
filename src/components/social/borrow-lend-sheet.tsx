@@ -92,7 +92,7 @@ export function BorrowLendSheet({
               )}
             </View>
             <View className="flex-1">
-              <Text variant="callout" className="font-semibold">
+              <Text variant="callout">
                 {itemName}
               </Text>
               {wears !== null ? (

@@ -219,9 +219,9 @@ function DestructiveButton({
         {loading ? (
           <ActivityIndicator size="small" color={theme.canvas} />
         ) : (
-          // Medium 17 — this is a FILLED variant (the critical brick), and
-          // board A keeps the filled group on Medium at `body`. Was 15.
-          <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+          // 17 on the critical brick. The fill and the canvas label carry it;
+          // the Medium cut this used to add was removed by TY-01.
+          <Text variant="body" style={{ color: theme.canvas }}>
             {title}
           </Text>
         )}

@@ -68,7 +68,7 @@ export function NoticeBand({
           PROSE in the regular cut. `note` rather than `caption` for exactly
           the reason the constitution gives: prose set in `caption` is prose
           wearing a label's clothes. */}
-      <Text variant="body" className="mt-1.5 font-semibold">
+      <Text variant="body" className="mt-1.5">
         {title}
       </Text>
       <Text variant="note" className="mt-1.5">

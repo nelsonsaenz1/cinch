@@ -316,10 +316,11 @@ function DiaryRow({
         <Text
           variant="body"
           numberOfLines={2}
-          // Medium for a worn day, regular for a plan. The weight change is
-          // one of WD-03's three channels; the other two are the word
-          // "Planned" at the head of the name and the rule beneath the row.
-          className={planned ? undefined : 'font-semibold'}>
+          // WD-03 drew three channels between a worn day and a planned one.
+          // Weight was the third and TY-01 removes it; the two that carry the
+          // distinction are the word "Planned" at the head of the name and the
+          // rule beneath the row, and both are still here.
+          className={planned ? 'text-muted' : 'text-ink'}>
           {line}
         </Text>
         {meta ? (

@@ -42,29 +42,25 @@ export const VARIANTS: readonly Variant[] = [
 export const RADIUS = 12;
 
 /**
- * The Refacing's §1.2 weight cut, drawn once on reference board A.
+ * NO BUTTON LABEL CARRIES WEIGHT — TY-01 / TY-02.
  *
- * FILLED variants keep Medium; OUTLINED and TEXT-ONLY variants drop to
- * regular. The reasoning on the board: an outlined button has no ground to
- * carry its emphasis, so setting its label in Medium makes it shout at the
- * same volume as the call to action standing next to it. Weight was the app's
- * only differentiator between "the thing to do" and "the other thing you may
- * do", and it was spent on both.
+ * There used to be a `MEDIUM_LABEL` table here, and a `labelWeightFor()` that
+ * turned it into a `font-semibold` class on three of the six variants. The
+ * Refacing's §1.2 reasoning for it went only so far — an outlined button has no
+ * ground to carry emphasis, so Medium there makes it shout at the volume of the
+ * call to action beside it — but it kept weight as a differentiator at all, and
+ * the correction removes weight from the product outright: "all button labels";
+ * "Medium: none. Bold: none."
  *
- * `font-semibold` resolves to HelveticaNeue-Medium — the face carries regular
- * and Medium and nothing between, so this is a two-value switch, not a ramp.
- * `<Text variant="body">` already carries `font-body`, which is the regular
- * cut; the outlined variants therefore add nothing rather than adding a
- * lighter class, and two font utilities never race on one element.
+ * Nothing is lost, because the distinction was never carried by the label. It
+ * is carried by `ground()` — the accent fill, the ink fill, the outline, the
+ * bare word — by `labelKey`'s colour, and on the primary action alone by the
+ * contact shadow. Those three were already doing the work; the weight was a
+ * fourth signal saying the same thing a fourth time.
+ *
+ * Deleted rather than kept as an all-false table, so there is no switch left to
+ * turn back on. `tests/type-weight.test.ts` is what holds it deleted.
  */
-export const MEDIUM_LABEL: Record<Variant, boolean> = {
-  primary: true,
-  ink: true,
-  critical: true,
-  secondary: false,
-  ghost: false,
-  inverse: false,
-};
 
 /**
  * The control height, per the same board — 52, against a 44 tap floor.
@@ -194,9 +190,4 @@ export const labelKey: Record<Variant, 'canvas' | 'ink' | 'muted'> = {
  */
 export function minHeightFor(variant: Variant): number {
   return variant === 'ghost' ? MIN_TAP_TARGET : GROUNDED_HEIGHT;
-}
-
-/** Whether a variant's label is set in the Medium cut. */
-export function labelWeightFor(variant: Variant): 'font-semibold' | '' {
-  return MEDIUM_LABEL[variant] ? 'font-semibold' : '';
 }

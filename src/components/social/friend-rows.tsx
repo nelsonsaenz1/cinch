@@ -140,7 +140,7 @@ function Identity({
     <View className="flex-1 flex-row items-center gap-3" style={{ minWidth: 0 }}>
       <Avatar name={profileName(profile)} size={AVATAR} imageUri={profile.avatarUrl} />
       <View className="flex-1" style={{ minWidth: 0 }}>
-        <Text variant="body" className="font-medium" numberOfLines={2}>
+        <Text variant="body" numberOfLines={2}>
           {profileName(profile)}
         </Text>
         {subtitle ? (

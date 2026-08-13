@@ -106,13 +106,16 @@ module.exports = {
         title: ['InstrumentSerif_400Regular'],
         displayItalic: ['InstrumentSerif_400Regular_Italic'],
         // Helvetica Neue — the iOS system grotesque, referenced by its face
-        // names. It is a SYSTEM font, so unlike a bundled custom family it does
-        // honour distinct cuts by PostScript name; there is no true 600, so the
-        // heavier roles map to Medium, which is the right weight for the tracked
-        // labels and buttons without going blunt.
+        // name. ONE CUT, and that is the whole of it.
+        //
+        // `medium` and `semibold` used to live here, both mapped to
+        // HelveticaNeue-Medium, because a system face does honour its distinct
+        // cuts by PostScript name. TY-01 removes weight from the product —
+        // "Medium: none. Bold: none." — so they are deleted rather than left
+        // defined and unused: a family that still resolves is a family a later
+        // edit can reach for by accident, and an unresolvable `font-medium`
+        // renders regular instead of quietly shipping the heavier cut.
         body: ['HelveticaNeue'],
-        medium: ['HelveticaNeue-Medium'],
-        semibold: ['HelveticaNeue-Medium'],
         mono: ['HelveticaNeue'],
       },
       // Line heights are COMPUTED, never typed by hand. `leading()` takes the
@@ -148,6 +151,20 @@ module.exports = {
         // ratio cannot clip a glyph.
         spread: [`56px`, { lineHeight: `${leading('instrument', 56, 1.04)}px`, letterSpacing: '-0.5px' }],
         display: [`40px`, { lineHeight: `${leading('instrument', 40, 1.05)}px`, letterSpacing: '-0.3px' }],
+        // ── The Today greeting — TM-01 and TM-02 ───────────────────────────
+        //
+        // Two steps, not one, and neither of them is `display`. The masthead
+        // frames measure the greeting at 30 pt on a 393 pt device and 32 pt on
+        // a 430 pt one: "the greeting takes 32 pt here rather than scaling with
+        // the width, so the two devices read as the same screen." At 30, "Good
+        // morning, Nelson." measures 235 pt of the 353 pt text column — 118 pt
+        // of headroom, which is what lets a longer name hold one line.
+        //
+        // `display`'s 40 could not do that at either width. It is why the
+        // greeting clipped, and it is why this is a size rather than a smaller
+        // container.
+        greeting: [`30px`, { lineHeight: `${leading('instrument', 30, 1.05)}px`, letterSpacing: '-0.2px' }],
+        'greeting-wide': [`32px`, { lineHeight: `${leading('instrument', 32, 1.05)}px`, letterSpacing: '-0.25px' }],
         title: [`28px`, { lineHeight: `${leading('instrument', 28, 1.08)}px`, letterSpacing: '-0.15px' }],
         // The plate title — the serif at a compact size.
         plate: [`24px`, { lineHeight: `${leading('instrument', 24, 1.08)}px`, letterSpacing: '-0.1px' }],

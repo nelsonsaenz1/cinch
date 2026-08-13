@@ -87,7 +87,6 @@ export function EmptyCloset({ onAddClothes }: { onAddClothes: () => void }) {
               vanish into the fill. */}
           <Text
             variant="body"
-            className="font-semibold"
             style={{ fontSize: 16, color: theme.canvas }}>
             Add clothes
           </Text>

@@ -20,6 +20,10 @@ import { stableImageSource } from '@/features/closet/use-image-urls';
 import { useConnectivity } from '@/features/auth/use-connectivity';
 import { DECLINED_KEY, readFlag } from '@/features/ingest/consent-mode';
 import {
+  addToFlowLabel,
+  CATALOGUE_ROUTE_NAME,
+} from '@/features/ingest/intake-routes';
+import {
   classifySearchFailure,
   SEARCH_FAILURE_NOTICES,
   type SearchFailureCause,
@@ -59,7 +63,19 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * link resolves — the Add button on the preview.
  */
 
-const PLACEHOLDER = 'Reformation midi dress, or paste a link…';
+// DS-C1's own placeholder — a plain garment in plain words, not a designer
+// name. The old one ("Reformation midi dress") taught the field to expect a
+// brand, which is the single most common way a catalogue query returns nothing.
+const PLACEHOLDER = 'Cream mohair sweater, or a product link';
+
+/**
+ * DS-C1's suggestion chips.
+ *
+ * REAL QUERIES, not canned results: tapping one fills the field and runs the
+ * same search any typed words run. Three plain garments, for the same reason as
+ * the placeholder — they demonstrate the shape of a query that works.
+ */
+const TRY_QUERIES = ['white linen blouse', 'brown leather boots', 'charcoal trousers'] as const;
 
 /** Mirrors the server's own ceiling, so the field cannot compose a rejection. */
 const MAX_DESCRIPTION_CHARS = 240;
@@ -80,9 +96,16 @@ export type GarmentSearchFlowView = ReturnType<typeof useGarmentSearchFlow>;
 export function GarmentSearchSheet({
   visible,
   onClose,
+  origin = 'closet',
 }: {
   visible: boolean;
   onClose: () => void;
+  /**
+   * DS-C3 — which flow the reader arrived from, so the return action can name
+   * it. "my first ten" during onboarding, "my closet" from Add clothes.
+   * Defaults to the closet, which is where every route but The Ten comes from.
+   */
+  origin?: 'first-ten' | 'closet';
 }) {
   const flow = useGarmentSearchFlow();
 
@@ -99,7 +122,7 @@ export function GarmentSearchSheet({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <GarmentSearchSheetBody flow={flow} onClose={onClose} />
+      <GarmentSearchSheetBody flow={flow} onClose={onClose} origin={origin} />
     </Modal>
   );
 }
@@ -115,9 +138,11 @@ export function GarmentSearchSheet({
 export function GarmentSearchSheetBody({
   flow,
   onClose,
+  origin = 'closet',
 }: {
   flow: GarmentSearchFlowView;
   onClose: () => void;
+  origin?: 'first-ten' | 'closet';
 }) {
   const theme = useTheme();
   const router = useRouter();
@@ -209,7 +234,7 @@ export function GarmentSearchSheetBody({
       <View className="flex-row items-start justify-between px-gutter pt-6">
         <View className="flex-1 pr-4">
           <Text variant="title" trim>
-            Describe a piece
+            {CATALOGUE_ROUTE_NAME}
           </Text>
         </View>
         <Pressable
@@ -218,7 +243,7 @@ export function GarmentSearchSheetBody({
           hitSlop={12}
           onPress={onClose}
           className="py-1 active:opacity-60">
-          <Text variant="body" className="font-semibold">
+          <Text variant="body">
             Close
           </Text>
         </Pressable>
@@ -238,8 +263,21 @@ export function GarmentSearchSheetBody({
             reserved half a screen for prose nobody writes. The frame's reading:
             "the old half-screen text area reserved room for prose nobody
             writes, and this one grows a line at a time as it is needed." */}
+        {/* DS-C1 — WHAT THIS SEARCHES, ABOVE THE FIELD.
+
+            "The disclosure sits above the suggestions, not in a footer, because
+            it is the thing a user needs before typing." Three facts, in the
+            order somebody needs them: where the pictures come from, what this
+            is not, and that nothing is being bought. The middle one is the
+            reason the route was renamed — a control that reaches a licensed
+            product feed should say so on itself. */}
         <Text variant="body" className="text-muted">
-          Type what it is, or paste a link to the product page.
+          Cinch searches a licensed shop catalogue.
+        </Text>
+        <Text variant="noteSmall" className="mt-2">
+          Results are product photographs the shops supply. This is not a web search, and what you
+          type is not sent to an AI model. Nothing is bought here — the photo becomes a piece in
+          your closet.
         </Text>
 
         {/* AUDIT 71 — THE FIELD NAMES BOTH ITS JOBS, TWICE.
@@ -283,6 +321,36 @@ export function GarmentSearchSheetBody({
             style={{ color: theme.ink, fontSize: 17, minHeight: 88, textAlignVertical: 'top' }}
           />
         </View>
+
+        {/* DS-C1's "Try" chips.
+
+            REAL QUERIES, not canned results: tapping one fills the field with
+            those words and runs the same search any typed words run. Three
+            plain garments, chosen for the same reason as the placeholder — they
+            teach the shape of a query that finds something, which a brand name
+            reliably does not.
+
+            Only while the field is empty and nothing has been searched. A row
+            of suggestions beside a result set would be inviting somebody to
+            throw away the answer they already have. */}
+        {flow.description.trim() === '' && flow.results === null && !flow.searching ? (
+          <View className="mt-3.5">
+            <Text variant="colophon">Try</Text>
+            <View className="mt-2 flex-row flex-wrap" style={{ gap: 8 }}>
+              {TRY_QUERIES.map((query) => (
+                <Pressable
+                  key={query}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Search for ${query}`}
+                  onPress={() => flow.setDescription(query)}
+                  style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+                  className="rounded-chip border border-rule px-3 active:opacity-70">
+                  <Text variant="note">{query}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* DS-02 — THE RECOGNITION NOTICE.
 
@@ -485,7 +553,7 @@ export function GarmentSearchSheetBody({
         ) : null}
 
         {flow.preview ? (
-          <LinkPreview flow={flow} onConfirm={confirm} />
+          <LinkPreview flow={flow} onConfirm={confirm} origin={origin} />
         ) : (
           <Results flow={flow} onChoose={choose} onFileOwnWords={fileOwn} />
         )}
@@ -562,11 +630,17 @@ export function GarmentSearchSheetBody({
 function LinkPreview({
   flow,
   onConfirm,
+  origin,
 }: {
   flow: GarmentSearchFlowView;
   onConfirm: () => void;
+  origin: 'first-ten' | 'closet';
 }) {
   const theme = useTheme();
+  const capacity = useCapacity();
+  // A count that is still loading is not a count. Omitted rather than printed
+  // as a zero, which is the same refusal the chooser's capacity line makes.
+  const countKnown = !capacity.loading;
   const preview = flow.preview;
   if (!preview) return null;
 
@@ -612,8 +686,26 @@ function LinkPreview({
         </View>
       </Card>
 
+      {/*
+        DS-C3 — THE ACTION NAMES THE FLOW, AND CARRIES THE COUNT.
+
+        "so the return path is legible before the tap." It used to read "Add to
+        closet" from every entry point, which is wrong in the one place it
+        matters most: somebody nine pieces into The Ten needs to know this
+        rejoins that, not that it lands somewhere.
+
+        At the ceiling it becomes the store-a-piece action rather than
+        disappearing — "capacity settles here, AFTER acquisition, and the found
+        garment is held, not discarded" (the v3 rule). And the count is dropped
+        entirely rather than guessed while the capacity read is out.
+      */}
       <Button
-        title="Add to closet"
+        title={addToFlowLabel({
+          origin,
+          used: countKnown ? capacity.used : null,
+          limit: countKnown ? capacity.limit : null,
+          full: flow.closetFull,
+        })}
         onPress={onConfirm}
         // Demoted off the accent while the closet-full panel is showing below
         // — that panel's "See plans" is the one oxblood action on screen then
@@ -734,8 +826,12 @@ function Results({
             never printed). The forward path offered is changing the words
             rather than retrying the same query. */}
         <Text variant="plate">Nothing matched, so your words stand</Text>
+        {/* DS-C2's own sentence for the empty set — it names the catalogue,
+            because "no results" from a licensed feed and "no results" from the
+            open web mean different things, and only one of them is what
+            happened. */}
         <Text variant="body" className="mt-2 text-muted">
-          {`Cinch will file “${flow.description.trim()}” as a piece with a silhouette. You can add a photograph whenever you like.`}
+          {`No licensed listing matches that. Cinch will file “${flow.description.trim()}” as a piece with a silhouette, and you can add a photograph whenever you like.`}
         </Text>
         {/* The primary action IS the filing — "the outcome is a filing, not a
             failure", so this is the filled button and changing the words is the
@@ -763,8 +859,12 @@ function Results({
       {/* The question is which piece the user OWNS. A count, printed because it
           is known — never estimated, never "several". */}
       <Text variant="plate">Which one is yours?</Text>
+      {/* DS-C2 names the SOURCE in the count, not just the number: "6 licensed
+          listings". Which listings these are is the fact that separates this
+          screen from a shopping feed, and it is the claim the route's whole
+          rename rests on. A count, printed because it is known. */}
       <Text variant="note" className="mt-1.5">
-        {`${n} ${n === 1 ? 'match' : 'matches'}. Pick one and it becomes your piece.`}
+        {`${n} licensed ${n === 1 ? 'listing' : 'listings'}. Pick one and it becomes your piece.`}
       </Text>
 
       <View className="mt-4">
@@ -799,6 +899,15 @@ function Results({
             {flow.filing ? 'Filing it now.' : 'Filed with a silhouette until you add a photograph.'}
           </Text>
         </Pressable>
+
+        {/* DS-C2's closing line. It states the fail-closed rule out loud, which
+            is the one thing a reader cannot check for themselves: an empty
+            result set here really does end in nothing rather than in a picture
+            from somewhere else. */}
+        <Text variant="noteSmall" className="mt-4">
+          Photographs supplied by the shops. Cinch shows only licensed listings; if nothing matches,
+          it says so rather than searching the open web.
+        </Text>
       </View>
     </View>
   );

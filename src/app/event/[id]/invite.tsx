@@ -239,7 +239,7 @@ export default function InviteScreen() {
       <SafeAreaView className="flex-1 bg-canvas" edges={[]}>
         <View className="flex-1 items-center justify-center px-gutter">
           <View className="w-full rounded-plate border border-rule bg-surface p-5">
-            <Text variant="body" className="font-semibold">
+            <Text variant="body">
               {sendResultTitle(outcomes)}
             </Text>
             {sendResultBody(outcomes) ? (
@@ -318,7 +318,6 @@ export default function InviteScreen() {
           className="active:opacity-60">
           <Text
             variant="body"
-            className={picked.size > 0 ? 'font-semibold' : ''}
             style={{ color: picked.size > 0 ? theme.ink : theme.byline }}>
             Done
           </Text>
@@ -366,7 +365,7 @@ export default function InviteScreen() {
           // IF-03 — the filter matches nobody. The way out is a link, not a
           // button: leaving this sheet loses the checkmarks.
           <View className="mt-5 items-center rounded-plate border border-rule bg-surface p-6">
-            <Text variant="body" className="font-semibold text-center">
+            <Text variant="body" className="text-center">
               No friend called “{query.trim()}”
             </Text>
             <Text variant="note" className="mt-2 text-center">
@@ -377,7 +376,7 @@ export default function InviteScreen() {
               hitSlop={8}
               style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
               className="mt-3 active:opacity-60">
-              <Text variant="label" className="font-semibold" style={{ color: theme.accent }}>
+              <Text variant="label" style={{ color: theme.accent }}>
                 Add a friend
               </Text>
             </Pressable>
@@ -444,7 +443,7 @@ export default function InviteScreen() {
             accessibilityState={{ busy: sending }}
             style={{ minHeight: 50, backgroundColor: theme.ink, opacity: sending ? 0.7 : 1 }}
             className="flex-row items-center justify-center rounded-md active:opacity-80">
-            <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+            <Text variant="body" style={{ color: theme.canvas }}>
               {sending ? 'Inviting…' : `Invite ${picked.size} ${picked.size === 1 ? 'friend' : 'friends'}`}
             </Text>
           </Pressable>

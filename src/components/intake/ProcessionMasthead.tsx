@@ -72,7 +72,7 @@ export function ProcessionMasthead({
         <Text
           style={{
             fontSize: 15,
-            fontFamily: canUndo ? 'HelveticaNeue-Medium' : 'HelveticaNeue',
+            // Available and unavailable differ by colour alone — TY-01.
             color: canUndo ? theme.ink : theme.muted,
           }}>
           Undo

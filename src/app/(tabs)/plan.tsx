@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EventCard } from '@/components/events/EventCard';
 import { DayExpanded } from '@/components/plan/day-expanded';
 import { DayRow, DayRowUnplanned } from '@/components/plan/day-row';
-import { ExamplePlans, ExampleWeek } from '@/components/plan/example-ghosts';
+import { ExampleEvents, ExampleWeek } from '@/components/plan/plan-examples';
 import { NoticeBand } from '@/components/ui/notice-band';
 import { Button, ErrorState, SectionHeader, Skeleton, SkeletonLead } from '@/components/ui';
 import { Text } from '@/components/ui/text';
@@ -453,10 +453,10 @@ export default function PlanScreen() {
                 {/* The plus is its own glyph, a step larger than the label
                     and set off by a real gap — not two spaces inside the
                     string, which track with the font instead of the layout. */}
-                <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                <Text variant="body" style={{ color: theme.canvas }}>
                   +
                 </Text>
-                <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+                <Text variant="body" style={{ color: theme.canvas }}>
                   New event
                 </Text>
               </Pressable>
@@ -535,8 +535,9 @@ export default function PlanScreen() {
                         invite-only, always.
                       </Text>
                     </View>
-                    {/* P-07's ghost cards, trailing off below the copy. */}
-                    <ExamplePlans />
+                    {/* PL-C2 — two fictional events under the copy, in place
+                        of the ghost cards that used to trail off here. */}
+                    <ExampleEvents />
                   </>
                 ) : null}
               </>
@@ -613,7 +614,9 @@ export default function PlanScreen() {
                   className="mt-6 self-stretch"
                 />
               </View>
-              <ExampleWeek />
+              {/* PL-C1. The day numbers follow the week the strip is on, so
+                  the example can never contradict it. */}
+              <ExampleWeek weekStart={startOfToday()} />
             </View>
           ) : (
             // Animated.View wraps a plain ScrollView rather than animating

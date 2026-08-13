@@ -192,7 +192,7 @@ export default function SignInScreen() {
   }, [router]);
 
   const eyebrowStyle = {
-    fontFamily: 'HelveticaNeue-Medium',
+    fontFamily: 'HelveticaNeue',
     fontSize: px(9),
     letterSpacing: px(9) * 0.2,
     textTransform: 'uppercase' as const,
@@ -318,7 +318,7 @@ export default function SignInScreen() {
                 <RNText
                   maxFontSizeMultiplier={MAX_TEXT_SCALE}
                   style={{
-                    fontFamily: 'HelveticaNeue-Medium',
+                    fontFamily: 'HelveticaNeue',
                     fontSize: 13,
                     color: atlas.warm,
                   }}>
@@ -414,7 +414,7 @@ export default function SignInScreen() {
                 <RNText
                   maxFontSizeMultiplier={MAX_TEXT_SCALE}
                   style={{
-                    fontFamily: 'HelveticaNeue-Medium',
+                    fontFamily: 'HelveticaNeue',
                     fontSize: 15,
                     color: atlas.ink,
                   }}>
@@ -445,7 +445,7 @@ export default function SignInScreen() {
               <RNText
                 maxFontSizeMultiplier={MAX_TEXT_SCALE}
                 style={{
-                  fontFamily: 'HelveticaNeue-Medium',
+                  fontFamily: 'HelveticaNeue',
                   fontSize: 15,
                   color: atlas.cream,
                 }}>
@@ -516,7 +516,7 @@ export default function SignInScreen() {
                 <RNText
                   maxFontSizeMultiplier={MAX_TEXT_SCALE}
                   style={{
-                    fontFamily: 'HelveticaNeue-Medium',
+                    fontFamily: 'HelveticaNeue',
                     fontSize: 14,
                     color: atlas.cream,
                   }}>

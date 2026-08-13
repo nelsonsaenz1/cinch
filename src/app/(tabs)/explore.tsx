@@ -111,11 +111,10 @@ function LatelyButton({
         ]}>
         {/* Filled carries the atlas's 600 through the shared Button's own
             recipe (`font-semibold`, which the type system maps to
-            HelveticaNeue-Medium — the heaviest cut these roles take);
-            outlined stays the label variant's 500. */}
+            filled and outlined differed by weight. TY-01 removes weight from
+            the product, so the fill and the label colour carry it alone. */}
         <Text
           variant={filled ? 'body' : 'label'}
-          className={filled ? 'font-semibold' : ''}
           style={{
             fontSize,
             lineHeight: Math.round(fontSize * 1.3),
@@ -391,7 +390,7 @@ export default function ExploreScreen() {
                 // refuses to claim is unchanged: a failed search says nothing
                 // about who is on Cinch.
                 <View accessibilityRole="alert" style={{ padding: 16 }}>
-                  <Text style={{ fontFamily: 'HelveticaNeue-Medium', fontSize: 15, lineHeight: 20 }}>
+                  <Text style={{ fontFamily: 'HelveticaNeue', fontSize: 15, lineHeight: 20 }}>
                     Couldn’t search just now.
                   </Text>
                   <Text

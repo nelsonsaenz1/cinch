@@ -26,8 +26,7 @@ export default function Fixture() {
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <FirstTenDoors
         unfinished={null}
-        onPhotograph={() => {}}
-        onVoice={() => {}}
+        onRoute={() => {}}
         onResume={() => {}}
         onStartAgain={() => {}}
       />

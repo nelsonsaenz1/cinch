@@ -141,7 +141,7 @@ export const CommentRow = memo(function CommentRow({
         <Avatar name={null} size={32} tone="accent" fallback="ME" />
         <View style={{ width: column }}>
           <Text variant="label" className="text-muted">
-            <RNText style={{ fontWeight: '500', color: theme.ink }}>You</RNText>
+            <RNText style={{ color: theme.ink }}>You</RNText>
             {' · sending'}
           </Text>
           <Text variant="callout" className="mt-1">
@@ -165,7 +165,7 @@ export const CommentRow = memo(function CommentRow({
         <Avatar name={null} size={32} tone="accent" fallback="ME" />
         <View style={{ width: column }}>
           <Text variant="label" className="text-muted">
-            <RNText style={{ fontWeight: '500', color: theme.ink }}>You</RNText>
+            <RNText style={{ color: theme.ink }}>You</RNText>
             {' · not sent'}
           </Text>
           <View className="mt-1 rounded-md bg-tray p-3">
@@ -199,7 +199,7 @@ export const CommentRow = memo(function CommentRow({
                   }}
                   hitSlop={8}
                   style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
-                  <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+                  <Text variant="label" style={{ color: theme.ink }}>
                     Send it
                   </Text>
                 </Pressable>
@@ -210,7 +210,7 @@ export const CommentRow = memo(function CommentRow({
                   onPress={() => onRetry?.(comment)}
                   hitSlop={8}
                   style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
-                  <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+                  <Text variant="label" style={{ color: theme.ink }}>
                     Retry
                   </Text>
                 </Pressable>
@@ -225,7 +225,7 @@ export const CommentRow = memo(function CommentRow({
                   }}
                   hitSlop={8}
                   style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
-                  <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+                  <Text variant="label" style={{ color: theme.ink }}>
                     Edit
                   </Text>
                 </Pressable>
@@ -339,7 +339,7 @@ export const CommentRow = memo(function CommentRow({
             adding a step to the type scale is the integrator's file, not a
             lane's. Reported rather than taken. */}
         <View className="flex-row items-baseline gap-1.5">
-          <Text variant="label" className="font-medium text-ink">
+          <Text variant="label" className="text-ink">
             {isMine ? 'You' : (authorName ?? 'A friend')}
           </Text>
           <Text variant="note">{`· ${timeLabel(comment.createdAt)}`}</Text>
@@ -378,7 +378,7 @@ export const CommentRow = memo(function CommentRow({
             onPress={() => onReply(comment)}
             hitSlop={8}
             style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
-            <Text variant="label" className="font-medium">
+            <Text variant="label">
               Reply
             </Text>
           </Pressable>
@@ -389,7 +389,7 @@ export const CommentRow = memo(function CommentRow({
               onPress={() => onDelete(comment)}
               hitSlop={8}
               style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}>
-              <Text variant="label" className="font-medium">
+              <Text variant="label">
                 Delete
               </Text>
             </Pressable>

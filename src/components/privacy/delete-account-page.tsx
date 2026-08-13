@@ -76,7 +76,7 @@ export function DeleteAccountPage({
           <View
             key={horizon.title}
             className={`px-gutter py-4 ${index === 0 ? '' : 'border-t border-hairline'}`}>
-            <Text variant="body" className="font-medium">
+            <Text variant="body">
               {horizon.title}
             </Text>
             <Text variant="body" className="mt-1" style={{ color: theme.muted }}>

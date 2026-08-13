@@ -54,7 +54,7 @@ export function CommentComposer({
             onPress={onCancelReply}
             hitSlop={8}
             style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}>
-            <Text variant="label" className="font-medium" style={{ color: theme.accent }}>
+            <Text variant="label" style={{ color: theme.accent }}>
               Cancel reply
             </Text>
           </Pressable>
@@ -104,7 +104,7 @@ export function CommentComposer({
             opacity: canSend ? 1 : 0.4,
           }}
           className="items-center justify-center rounded-md active:opacity-70">
-          <Text variant="label" className="font-medium" style={{ color: theme.canvas }}>
+          <Text variant="label" style={{ color: theme.canvas }}>
             Send
           </Text>
         </Pressable>

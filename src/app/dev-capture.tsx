@@ -137,7 +137,7 @@ function Header() {
       <Text variant="plate" style={{ color: theme.canvas }}>
         Add clothes
       </Text>
-      <Text variant="body" className="font-semibold" style={{ color: theme.canvas }}>
+      <Text variant="body" style={{ color: theme.canvas }}>
         Done
       </Text>
     </View>
@@ -444,7 +444,7 @@ function ConsentReplica() {
                   {index + 1}
                 </Text>
                 <Text variant="label" className="flex-1 font-body">
-                  <Text variant="label" className="font-semibold" style={{ color: theme.ink }}>
+                  <Text variant="label" style={{ color: theme.ink }}>
                     {lead}
                   </Text>
                   {rest}

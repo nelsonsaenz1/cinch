@@ -16,13 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CapacityNote } from '@/components/today/capacity-note';
 import { ClosetFloor } from '@/components/today/closet-floor';
-import { contextLabel, contextLines, feelsClause } from '@/components/today/context-label';
+import { contextLines, contextRungs, feelsClause } from '@/components/today/context-label';
 import { GapCard } from '@/components/today/gap-card';
 import { OccasionInterrupt } from '@/components/today/occasion-interrupt';
 import { OFFLINE_ACTIONS_REASON, OfflineNotice } from '@/components/today/offline-notice';
 import { Plate } from '@/components/today/plate';
 import { PlateSkeleton, SLOW_NOTICE_MS, SlowNotice } from '@/components/today/plate-skeleton';
 import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
+import { AX3_FONT_SCALE } from '@/theme/type-scale';
 import type { ReactionValue } from '@/components/today/reaction-bar';
 import { RepeatExhausted } from '@/components/today/repeat-exhausted';
 import { WeatherStrip } from '@/components/today/weather-strip';
@@ -265,7 +266,33 @@ function ActivityButton({ unseen: forced }: { unseen?: boolean } = {}) {
  * their tabs in the three-tab restructure. The stylist is the app's sparkle
  * (the same oxblood mark the stylist screen carries); the profile is the ink
  * avatar well.
+ *
+ * ── TM-01 / TM-02 / TM-03 — ONE LINE FOR THE GREETING, AT EVERY WIDTH ─────
+ *
+ * "Good morning, Nelson." must not wrap or clip at 393 pt or at 430 pt, and
+ * the fix is hierarchy rather than truncation. Two things were wrong.
+ *
+ * FIRST, the four control chips sat in a column BESIDE the greeting, taking
+ * about 150 pt off the measure the serif had to fit into. They now sit on the
+ * CONTEXT ROW with the date, which is where an eyebrow can happily lose the
+ * width and where the 44 pt targets are unaffected — and the greeting gets the
+ * whole gutter beneath them.
+ *
+ * SECOND, the greeting was set at `display`'s 40 px. TM-01 measures it at 30
+ * and TM-02 at 32, "rather than scaling with the width, so the two devices read
+ * as the same screen". Hence the two type steps and the width switch below.
+ *
+ * At AX3 the greeting is REMOVED rather than wrapped and the calendar control
+ * goes with it — the outfit becomes the first thing on the screen. That was
+ * already the strategy; what changed is the threshold, which used to be the top
+ * of the standard type range and is now the accessibility size the frame names.
  */
+
+/**
+ * The width at which the greeting takes the larger step. 430 is the Pro Max
+ * class; 393 and 402 are the two smaller supported iPhones.
+ */
+const WIDE_DEVICE = 430;
 export function Masthead({
   city,
   name,
@@ -308,14 +335,48 @@ export function Masthead({
 }) {
   const router = useRouter();
   const theme = useTheme();
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, width } = useWindowDimensions();
+  // Two thresholds, two decisions. `ax` decides whether the CONTEXT LABEL
+  // breaks over two lines; `ax3` decides whether the greeting is there at all.
   const ax = stacked ?? fontScale >= AX_FONT_SCALE;
+  const ax3 = stacked ?? fontScale >= AX3_FONT_SCALE;
 
   const place = dayLine(city, now);
-  const lines = ax ? contextLines(place, weather) : [contextLabel(place, weather)];
+
+  /**
+   * THE CONTEXT LINE SHEDS A CLAUSE RATHER THAN WRAPPING.
+   *
+   * MEASURED, NOT ESTIMATED. A character budget derived from the eyebrow's
+   * 11 px and 1.6 pt tracking would be a guess about Helvetica's uppercase
+   * advances, and a guess that came out one character short would ship the
+   * exact bug this replaces. `onTextLayout` reports how many lines the text
+   * ACTUALLY took, on the actual device, at the reader's actual type size —
+   * so this steps down the ladder only when the line really did wrap.
+   *
+   * It converges: the ladder has at most three rungs, each strictly shorter
+   * than the last, and the step is one-way. The cost is one extra layout pass
+   * on the devices that need it, which is a frame nobody sees.
+   *
+   * Reset on the CONTENT, not on the width: a new day, a new city or a
+   * temperature arriving all make the line a different length, and a rung
+   * chosen for yesterday's string would keep dropping a clause that now fits.
+   */
+  const rungs = contextRungs(place, weather);
+  const [rung, setRung] = useState(0);
+  const [measured, setMeasured] = useState<string | null>(null);
+  const key = rungs[0];
+  if (measured !== key) {
+    setMeasured(key);
+    setRung(0);
+  }
+
+  const lines = ax ? contextLines(place, weather) : [rungs[Math.min(rung, rungs.length - 1)]];
 
   return (
     <View className="px-gutter pt-2">
+      {/* THE CONTEXT ROW — date, place, temperature, and every control.
+          The chips live here rather than beside the greeting: an eyebrow can
+          lose 150 pt of measure and still read, and a 30 pt serif cannot. */}
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
           {/* One context label: date, place and temperature together, so the
@@ -323,17 +384,23 @@ export function Masthead({
               it. At the largest type it breaks over two lines — nothing is
               capped and nothing is ellipsised. */}
           {lines.map((line) => (
-            <Text key={line} variant="eyebrow">
+            <Text
+              key={line}
+              variant="eyebrow"
+              // AX breaks over two lines on purpose (T-01/AX), so only the
+              // standard arrangement watches for a wrap.
+              onTextLayout={
+                ax
+                  ? undefined
+                  : (e) => {
+                      if (e.nativeEvent.lines.length > 1 && rung < rungs.length - 1) {
+                        setRung(rung + 1);
+                      }
+                    }
+              }>
               {line}
             </Text>
           ))}
-          {ax ? null : (
-            <View style={{ marginTop: 6 }}>
-              <Text variant="display" trim accessibilityRole="header">
-                {greetingForNow(name, now)}
-              </Text>
-            </View>
-          )}
         </View>
         <View className="flex-row gap-2" style={{ marginTop: 2 }}>
           <ActivityButton unseen={unseen} />
@@ -341,21 +408,28 @@ export function Masthead({
           {/* Correction 07: the occasion composer, restored as a 44×44
               calendar-plus at the trailing edge, opening /event/new. It sits
               inside the existing masthead height — "the 56 pt text field is
-              what was wrong, not the entry point". */}
-          <Pressable
-            onPress={() => router.navigate('/event/new')}
-            accessibilityRole="button"
-            accessibilityLabel="New occasion"
-            hitSlop={8}
-            style={{ width: 34, height: 34 }}
-            className="items-center justify-center rounded-full border border-rule active:opacity-60">
-            <SymbolView
-              name="calendar.badge.plus"
-              size={15}
-              tintColor={theme.ink}
-              resizeMode="scaleAspectFit"
-            />
-          </Pressable>
+              what was wrong, not the entry point".
+
+              TM-03 collapses it into the profile sheet at AX3: four chips on
+              one row at that scale leave the date nothing, and /event/new is
+              reachable from Plan, so nothing is lost — unlike the profile
+              door, which is the only one there is. */}
+          {ax3 ? null : (
+            <Pressable
+              onPress={() => router.navigate('/event/new')}
+              accessibilityRole="button"
+              accessibilityLabel="New occasion"
+              hitSlop={8}
+              style={{ width: 34, height: 34 }}
+              className="items-center justify-center rounded-full border border-rule active:opacity-60">
+              <SymbolView
+                name="calendar.badge.plus"
+                size={15}
+                tintColor={theme.ink}
+                resizeMode="scaleAspectFit"
+              />
+            </Pressable>
+          )}
           <Pressable
             onPress={() => router.navigate('/profile')}
             accessibilityRole="button"
@@ -372,6 +446,22 @@ export function Masthead({
           </Pressable>
         </View>
       </View>
+
+      {/* THE GREETING — full width, one line, removed rather than wrapped.
+          `numberOfLines={1}` is a tripwire, not a truncation strategy: at 30 pt
+          with 118 pt of headroom nothing reaches it, and if a name ever did,
+          one clipped line is a visible bug where a silent second line is not. */}
+      {ax3 ? null : (
+        <View style={{ marginTop: 6 }}>
+          <Text
+            variant={width >= WIDE_DEVICE ? 'greetingWide' : 'greeting'}
+            trim
+            numberOfLines={1}
+            accessibilityRole="header">
+            {greetingForNow(name, now)}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -479,7 +569,7 @@ export function NothingWorks({
         onPress={onSeeWorn}
         style={{ minHeight: MIN_TAP_TARGET }}
         className="mt-5 items-center justify-center rounded-md border border-rule px-4 active:opacity-70">
-        <Text variant="label" className="font-medium">
+        <Text variant="label">
           See what you&rsquo;ve worn before
         </Text>
       </Pressable>

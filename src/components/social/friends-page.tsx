@@ -232,7 +232,7 @@ export function BlockedResult({ onManage }: { onManage: () => void }) {
 
   return (
     <View className="mt-6 rounded-lg border border-rule bg-surface p-4" accessibilityRole="summary">
-      <Text variant="body" className="font-medium">
+      <Text variant="body">
         {BLOCKED_TITLE}
       </Text>
       <Text variant="note" className="mt-1.5">

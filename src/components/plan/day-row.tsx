@@ -203,7 +203,7 @@ export function DayRow({
           <>
             {/* Two lines each, and both WRAP. `numberOfLines` is a ceiling on
                 a wrap, not a truncation to one line. */}
-            <Text variant="body" numberOfLines={2} className="mt-1.5 font-semibold">
+            <Text variant="body" numberOfLines={2} className="mt-1.5">
               {name}
             </Text>
             {reasoning ? (

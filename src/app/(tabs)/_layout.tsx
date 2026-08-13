@@ -59,8 +59,10 @@ export default function TabsLayout() {
       // here too; NativeTabsLabelStyle has no letterSpacing, so the labels
       // ride without it — noted in docs/design-directive.md.)
       labelStyle={{
-        default: { fontFamily: 'HelveticaNeue-Medium', fontSize: 11, color: dynamic('muted') },
-        selected: { fontFamily: 'HelveticaNeue-Medium', fontSize: 11, color: dynamic('ink') },
+        // TY-01: one cut. Selected and default differ by COLOUR — muted to
+        // ink — and by the indicator rule, never by weight.
+        default: { fontFamily: 'HelveticaNeue', fontSize: 11, color: dynamic('muted') },
+        selected: { fontFamily: 'HelveticaNeue', fontSize: 11, color: dynamic('ink') },
       }}
       minimizeBehavior="onScrollDown">
       <NativeTabs.Trigger name="index">

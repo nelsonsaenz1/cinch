@@ -68,3 +68,50 @@ export function contextLabel(place: string, weather: string | null): string {
 export function contextLines(place: string, weather: string | null): string[] {
   return weather ? [place, weather] : [place];
 }
+
+/**
+ * THE LADDER — how the context line gets shorter rather than wrapping.
+ *
+ * TM-01/TM-02 moved the masthead's four control chips onto this row, which is
+ * what gave the greeting the full gutter beneath them. It also took about
+ * 170 pt off this line's measure, and at 402 pt the full label
+ * ("FRI 7 AUG · DENVER · FEELS 72°F, CLEAR") wrapped to two lines beside the
+ * controls. Two lines of tracked uppercase under a serif greeting is not the
+ * masthead the atlas draws.
+ *
+ * The fix is the one TM-02 already names: "Context row gains the conditions
+ * word back at this width; it is dropped first at 393 pt, never truncated
+ * mid-word." So the row sheds content in a fixed order, and never sheds the
+ * two facts the label exists for.
+ *
+ *   0. Fri 7 Aug · Denver · Feels 72°F, clear   — everything
+ *   1. Fri 7 Aug · Denver · Feels 72°F          — the conditions word goes
+ *   2. Fri 7 Aug · Feels 72°F                   — the place goes
+ *
+ * THE DATE AND THE TEMPERATURE NEVER GO. The temperature is stated exactly once
+ * per screen (audit 57) and this is that once — dropping it here would take the
+ * fact off the screen entirely rather than shorten a line. The place is the
+ * thing a reader can work out from the window.
+ *
+ * Truncation is never a rung. An ellipsised "FEELS 72°F, CLE…" is a line that
+ * looks broken, and the whole point of shedding a clause is that what remains
+ * reads as a finished sentence.
+ */
+export function contextRungs(place: string, weather: string | null): string[] {
+  if (!weather) return [place];
+
+  // "Feels 72°F, clear" → "Feels 72°F". The comma is `feelsClause`'s own join,
+  // so this is reading a separator that file writes rather than parsing prose.
+  const bare = weather.split(',')[0];
+  // "Fri 7 Aug · Denver" → "Fri 7 Aug". `dayLine` writes that separator.
+  const day = place.split(' · ')[0];
+
+  const rungs = [
+    contextLabel(place, weather),
+    contextLabel(place, bare),
+    contextLabel(day, bare),
+  ];
+  // A label with no condition and no city produces duplicate rungs; collapsing
+  // them keeps the step-down below from spending a frame going nowhere.
+  return rungs.filter((rung, i) => rungs.indexOf(rung) === i);
+}

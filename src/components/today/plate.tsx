@@ -296,7 +296,7 @@ function WornBand({
 
   return (
     <View className="mt-3.5 rounded-md bg-tray p-3" accessibilityLiveRegion="polite">
-      <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+      <Text variant="label" style={{ color: theme.ink }}>
         {pieces} wear {pieces === 1 ? 'count' : 'counts'} went up
       </Text>
       <Text variant="note" className="mt-1">
@@ -315,7 +315,7 @@ function WornBand({
               className={`items-center justify-center rounded-md border border-rule px-3 active:opacity-70 ${
                 undoing ? 'opacity-40' : ''
               }`}>
-              <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+              <Text variant="label" style={{ color: theme.ink }}>
                 Undo
               </Text>
             </Pressable>
@@ -327,7 +327,7 @@ function WornBand({
               onPress={onAddNote}
               style={{ minHeight: MIN_TAP_TARGET }}
               className="flex-1 items-center justify-center rounded-md border border-rule px-3 active:opacity-70">
-              <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+              <Text variant="label" style={{ color: theme.ink }}>
                 Add a note to the diary
               </Text>
             </Pressable>
@@ -600,7 +600,7 @@ export function Plate({
               tintColor={theme.ink}
               resizeMode="scaleAspectFit"
             />
-            <Text variant="label" className="font-medium" style={{ color: theme.ink }}>
+            <Text variant="label" style={{ color: theme.ink }}>
               Worn today
             </Text>
           </View>

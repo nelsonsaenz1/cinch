@@ -95,7 +95,7 @@ export function RepeatMark({
           style={{ minHeight: MIN_TAP_TARGET - 12, justifyContent: 'center' }}
           className="active:opacity-60"
           onPress={onSeePlans}>
-          <Text variant="label" className="font-medium" style={{ color: theme.accent }}>
+          <Text variant="label" style={{ color: theme.accent }}>
             See plans
           </Text>
         </Pressable>
@@ -109,7 +109,7 @@ export function RepeatMark({
           style={{ minHeight: MIN_TAP_TARGET - 12, justifyContent: 'center' }}
           className="active:opacity-60"
           onPress={onShowAnother}>
-          <Text variant="label" className="font-medium">
+          <Text variant="label">
             Show me another
           </Text>
         </Pressable>

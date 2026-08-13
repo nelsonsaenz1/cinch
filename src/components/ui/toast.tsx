@@ -106,7 +106,7 @@ export function Toast({ message, actionLabel, onAction, onDismiss, visible }: To
             className="justify-center active:opacity-60">
             {/* Same 14px step as the message; the semibold cut alone marks it
                 as the verb, per the atlas. */}
-            <Text variant="note" className="font-semibold" style={{ color: theme.canvas }}>
+            <Text variant="note" style={{ color: theme.canvas }}>
               {actionLabel}
             </Text>
           </Pressable>
