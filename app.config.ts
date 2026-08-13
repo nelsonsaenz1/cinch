@@ -101,6 +101,24 @@ const VOICE_INTAKE = process.env.CINCH_VOICE_INTAKE === '1';
 const MIC_USAGE_DESCRIPTION =
   'So you can describe your closet out loud instead of photographing it.';
 
+/**
+ * NSSpeechRecognitionUsageDescription — new with the on-device recogniser.
+ *
+ * Required by `SFSpeechRecognizer.requestAuthorization`, and the app crashes on
+ * the call without it rather than merely being refused. Declared here alongside
+ * the microphone string and gated by the SAME flag: speech recognition without
+ * a microphone declaration is a permission for a capability the build does not
+ * have, and the two have to move together.
+ *
+ * The sentence names where the words are turned into text, because that is the
+ * question somebody reading this prompt is actually asking. It is true: the
+ * native module sets `requiresOnDeviceRecognition`, so this permission covers
+ * only the on-device path — the server path is a separate, explicit offer with
+ * its own consent.
+ */
+const SPEECH_USAGE_DESCRIPTION =
+  'So your phone can turn a short spoken search into words without sending your voice anywhere.';
+
 const config: ExpoConfig = {
   name: 'Cinch',
   slug: 'cinch',
@@ -195,7 +213,12 @@ const config: ExpoConfig = {
       // Declaring it HERE is not sufficient on its own either: expo-audio's
       // plugin owns the key and runs later, so the same string is passed to the
       // plugin block below.
-      ...(VOICE_INTAKE ? { NSMicrophoneUsageDescription: MIC_USAGE_DESCRIPTION } : {}),
+      ...(VOICE_INTAKE
+        ? {
+            NSMicrophoneUsageDescription: MIC_USAGE_DESCRIPTION,
+            NSSpeechRecognitionUsageDescription: SPEECH_USAGE_DESCRIPTION,
+          }
+        : {}),
     },
 
     /**

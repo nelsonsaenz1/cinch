@@ -230,6 +230,7 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['CPV2-V01 · review card ask', '/dev-cpv2-v01'],
       ['CPV2-V02 · from the walkthrough', '/dev-cpv2-v02'],
       ['CPV2 · request id source', '/dev-cpv2-uuid'],
+      ['Native · vision & speech', '/dev-native-vision'],
     ],
   ],
   [

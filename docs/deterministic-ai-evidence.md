@@ -511,3 +511,121 @@ Expo API surface at all. Same-runtime and OTA-eligible; **not published**.
 `LocalPhotoEvidence.featurePrint`, plus blur/exposure in `PhotoQuality`.
 Everything above that line is JavaScript and ships by OTA; everything below it
 needs a new runtime and a store build.
+
+---
+
+## Packet 5 — Workstream 7 (native) + Workstream 8 · the native boundary
+
+**This packet changes the runtime.** Fingerprint moved from
+`414c789dbc3e634e635204771090183175c624ff` to
+`a1fa96be85e1d9d4b8f5ea38c3ab0857d0ec77fa` (168 sources). **A store build is now
+required; Packets 1–4 can no longer reach devices by OTA from this tree.**
+
+No migration, no function deployed, no vendor, no package, no service.
+
+### What was added
+
+Three Swift files inside the module that already ships — the plan's "extend the
+existing local Expo module rather than adding another vendor":
+
+| file | what |
+| --- | --- |
+| `ios/GarmentVision.swift` | OCR, feature print, sharpness/exposure, difference hash |
+| `ios/GarmentVisionModule.swift` | the JS-visible surface, one pass per photograph |
+| `ios/LocalSpeechModule.swift` | SFSpeechRecognizer states + on-device transcription |
+
+`expo-module.config.json` now lists all three modules. The podspec globs
+`**/*.swift`, so no pod changes were needed.
+
+### The design rule the native side follows
+
+**Numbers, not verdicts.** `measure` returns a Laplacian variance, a mean
+luminance and a clipping fraction; it does not return "blurry". The thresholds
+live in `src/features/intake/photo-evidence-rules.ts`, so a recalibration ships
+in an OTA rather than a store build — and a threshold is the thing in this
+pipeline most likely to be wrong first.
+
+**The duplicate fingerprint is deliberately weak.** A 64-bit difference hash:
+strong enough to catch the same photograph imported twice, useless for anything
+else. It is never transmitted, never persisted natively, and never compared
+across users — the plan's "never a global cross-user photo index" holds because
+nothing in that file has anywhere to send it.
+
+**Speech is on-device or refused.** `requiresOnDeviceRecognition = true` with no
+branch that sets it false, which is the only way "on-device" is a claim rather
+than a hope. Every reason it can fail is a distinct state, and each has its own
+sentence offering the existing consent-gated cloud path **explicitly** — a
+silent fall-through would upload somebody's voice under a promise that it would
+not. The bulk walkthrough is untouched and still cloud.
+
+### Permissions and config
+
+`NSSpeechRecognitionUsageDescription` added, gated by the SAME
+`CINCH_VOICE_INTAKE` flag as `NSMicrophoneUsageDescription` — recognition
+without a microphone declaration is a permission for a capability the build does
+not have. Verified in the generated `ios/Cinch/Info.plist` after prebuild. No
+new entitlement, no background mode, no capability.
+
+### Native evidence
+
+```
+xcodebuild -workspace ios/Cinch.xcworkspace -scheme Cinch \
+  -configuration Debug -sdk iphonesimulator                     ** BUILD SUCCEEDED **
+ios/Pods/Target Support Files/Pods-Cinch/ExpoModulesProvider.swift
+  (module: GarmentCutoutModule.self, name: nil),
+  (module: GarmentVisionModule.self, name: nil),
+  (module: LocalSpeechModule.self,   name: nil),
+```
+
+The generated provider is autolinking's output: all three modules are in the
+installed binary's module registry, not merely compiled.
+
+```
+node scripts/run-tests.mjs   1458 pass, 0 fail   (1432 → 1458, +26)
+npx tsc --noEmit             0 lines
+npx expo lint                11 problems, 0 errors  (baseline)
+```
+
+A fixture caught a real defect in my own code: `hashDistance` validated hex
+digits with `Number.isNaN` *after* the XOR, and `NaN ^ n` is `0` in JavaScript,
+not `NaN` — so a garbage hash compared as sixteen zeroes and returned a
+plausible distance. Validated before the XOR now.
+
+### Blockers — stated rather than stubbed
+
+**1 · SFSpeechRecognizer does not run in the Simulator at all.** Apple's
+constraint, confirmed in their documentation. `routeFor` reports
+`offer_cloud / unsupported_device` there, which is correct behaviour and not a
+verification. **The on-device speech path has no runtime evidence and needs a
+device run**, exactly like the CPV2 spoken-query item.
+
+**2 · On-screen runtime read blocked.** Superwall's `Test Mode Active` debug
+sheet presents over everything on every launch of this debug build and did not
+dismiss through the simulator control. The `dev-native-vision` route exists and
+compiles, but I have no screenshot of the capability values. What I do have is
+the compile and the module registry above. **Vision OCR, feature prints and the
+quality measures are unverified at runtime**, though unlike speech they are
+expected to work in the Simulator (CPU paths), so a device or a cleaner debug
+session should close them quickly.
+
+**3 · Subject lift remains Simulator-unsupported** (Neural Engine), as it was
+before this packet. `capabilities().subjectLift` reports it.
+
+### The exact build requirement
+
+One EAS **production** build, after the evaluation packet, carrying: Packets 1–4
+(JavaScript, currently OTA-eligible against the OLD runtime) plus Packet 5's
+native layer. After it is submitted, `npm run check:fingerprint -- --set`
+records the new runtime so later JS-only packets can OTA again.
+
+Do NOT publish the pending Packets 1–4 OTA from this tree: its fingerprint no
+longer matches the last submitted store build, and the update would not reach
+the binary users are running.
+
+### Native-only acceptance — now closable, not yet closed
+
+The nine cells `NATIVE_ONLY_ACCEPTANCE` recorded in Packet 4 have code behind
+them now, and thresholds tested. What remains is running real photographs
+through the device: blurred, dark, overexposed, visible label, invisible label,
+duplicate upload, exact catalogue match, near match, mirror/person. That is
+evaluation-packet work against the real sample.
