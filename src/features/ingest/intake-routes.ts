@@ -79,7 +79,12 @@ export const INTAKE_ROUTES: readonly IntakeRoute[] = [
   {
     key: 'catalogue',
     name: CATALOGUE_ROUTE_NAME,
-    line: 'Type a piece or paste a product link and Cinch finds licensed shop photos',
+    // NO PASTED LINK. The door now opens `/find-photo`, which takes typed or
+    // spoken words and nothing else — the paste field belongs to the older
+    // describe sheet, which is no longer what this plate reaches. A subtitle
+    // that promised a paste box the destination does not have would be a lie
+    // told at the exact moment somebody is deciding which door to use.
+    line: 'Say or type a piece and Cinch finds licensed shop photos',
     tenLine: 'Name a piece and pick its shop photo',
     symbol: 'magnifyingglass',
     accessibilityLabel: `${CATALOGUE_ROUTE_NAME} — type a piece or paste a product link and Cinch finds licensed shop photos`,

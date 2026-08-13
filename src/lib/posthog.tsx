@@ -192,6 +192,24 @@ if (posthog) registerBuildIdentity(posthog);
  * when it was merely requested, fetched or registered.
  */
 export type AppEvent =
+  // ── Catalogue Photo V2 (CPV2 §7) ──────────────────────────────────────────
+  //
+  // Nine events, and the union is where "nine" is enforced. Their properties
+  // are bounded buckets built in `features/catalogue/buckets.ts`; NOTHING here
+  // may carry a query, a transcript, a brand, a product title, a colour name,
+  // an external id or a URL. `tests/catalogue-client.test.ts` reads the
+  // emitting module and fails if any call could.
+  /** The matcher was offered — typed field, mic, or a walkthrough card. Denominator. */
+  | 'catalogue_search_offered'
+  /** Somebody actually asked. Denominator for the two below. */
+  | 'catalogue_search_started'
+  | 'catalogue_search_completed'
+  | 'catalogue_family_opened'
+  | 'catalogue_colours_selected'
+  | 'catalogue_import_started'
+  | 'catalogue_import_completed'
+  | 'catalogue_search_failed'
+  | 'catalogue_search_recovered'
   /** Garments chosen for import — the top of the activation funnel. */
   | 'clothes_import_selected'
   /** One garment fully uploaded, tagged and saved. */

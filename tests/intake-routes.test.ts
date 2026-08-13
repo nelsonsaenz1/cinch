@@ -180,12 +180,18 @@ test('the return action names the flow and carries the count', () => {
   assert.equal(addToFlowLabel({ origin: 'closet', used: 30, limit: 30 }), 'Add to my closet — 30 of 30');
 });
 
-test('the origin is threaded from The Ten all the way to the sheet', () => {
+test('the origin is threaded from The Ten all the way to the catalogue door', () => {
   // Three hops, and every one of them was a place the flow could be lost.
+  //
+  // The last hop moved. The catalogue door is `/find-photo` now, not a sheet
+  // over the camera, so `from=ten` is carried into the route's own query string
+  // instead of into a sheet prop. The chain is the same length and the same
+  // fragility; only its destination changed.
   assert.match(code('src/app/the-ten.tsx'), /door=describe&from=ten/);
   assert.match(code('src/app/add-clothes.tsx'), /doorParams\.from === 'ten'/);
-  assert.match(code('src/app/capture.tsx'), /params\.from === 'ten'/);
-  assert.match(code('src/app/capture.tsx'), /origin=\{cameFromTen \? 'first-ten' : 'closet'\}/);
+  assert.match(code('src/app/add-clothes.tsx'), /find-photo/);
+  // And the destination reads it, so CPV2-08 can say "my first ten".
+  assert.match(code('src/app/find-photo.tsx'), /params\.from === 'ten'/);
 });
 
 // ---------------------------------------------------------------------------
@@ -196,10 +202,16 @@ test('?door= actually opens a door now', () => {
   const src = code('src/app/add-clothes.tsx');
   assert.match(src, /useLocalSearchParams<\{ door\?: string; from\?: string \}>/);
   assert.match(src, /requestedDoor !== 'describe' && requestedDoor !== 'library'/);
-  // Through the consent gate, not around it: a door reached by deep link must
-  // raise the same sheet a tapped one does. `router.push` here would skip it.
-  assert.match(src, /handledDoor\.current = true;[\s\S]{0,220}openContentDoor\(/);
-  assert.doesNotMatch(src, /handledDoor\.current = true;[\s\S]{0,220}router\.push\(/);
+  // THE LIBRARY DOOR STILL GOES THROUGH THE CONSENT GATE, because a photograph
+  // really is about to be processed and a door reached by deep link must raise
+  // the same sheet a tapped one does.
+  assert.match(src, /openContentDoor\(`\/capture\?start=library/);
+  // THE CATALOGUE DOOR NO LONGER DOES. Typed catalogue search is not AI
+  // processing — Packet 1 moved `action: 'search'` above the server's consent
+  // gate — so gating it would ask permission for something the destination does
+  // not do, and would wall off the one intake route that works with AI
+  // processing switched off. CPV2 §11 names the assumption directly.
+  assert.match(src, /router\.push\(`\/find-photo/);
   // One-shot, so backing out of the destination leaves the reader on the
   // chooser rather than bouncing them straight back out of it.
   assert.match(src, /if \(handledDoor\.current\) return;/);

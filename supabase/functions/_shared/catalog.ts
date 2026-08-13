@@ -210,6 +210,23 @@ export type CatalogProduct = {
   /** The merchant's plain URL. Earns nothing, and works without any approval. */
   directUrl: string;
   colour: string | null;
+  /**
+   * The merchant's own free-text category. 97% of rows, no normalised taxonomy
+   * — it is Walmart's word for the department, not Google's product taxonomy.
+   *
+   * Carried so family grouping has a second, independent signal for product
+   * class when the title alone is ambiguous. It is a HINT and never a key: the
+   * handoff's §11 is explicit that implementation may not assume a listing has
+   * "an image, an alternate image, a colour name, a gender, or a clean product
+   * title", and category is the same kind of optional.
+   */
+  category: string | null;
+  /**
+   * 68% of rows, per the field census above. Far too sparse to filter on, and
+   * it is exactly the axis `WEAK_TERMS` drops from the query — so it is carried
+   * for DISPLAY and for tie-breaking only, never as a retrieval constraint.
+   */
+  gender: string | null;
 };
 
 /**
@@ -314,6 +331,97 @@ export type DatafeedrOpts = {
 export type LookupMode = 'keyword' | 'url';
 
 /**
+ * How aggressively Datafeedr collapses a merchant's own variant rows, and the
+ * one query parameter whose right value depends on what the caller is FOR.
+ *
+ * Datafeedr's `exclude_duplicates` takes fields separated by spaces (all must
+ * match to count as a duplicate) or by `|` (any may match). Feeds carry one row
+ * per size AND per colourway, so a single shirt can consume a whole 100-row
+ * batch — which is why this was set at all.
+ *
+ * `'variants'`  `merchant_id name|image` — the original. A duplicate is any row
+ *     from the same merchant sharing a name OR an image. It collapses sizes,
+ *     which is the point, but it ALSO collapses colourways whenever a merchant
+ *     titles every colour identically ("Crew Neck Jersey Tee") and distinguishes
+ *     them only by the `color` column. Correct for `gap-shop-match`, which wants
+ *     one representative row per garment to suggest.
+ *
+ * `'colourways'`  `merchant_id name image` — a duplicate must share the merchant
+ *     AND the name AND the image. Sizes still collapse (same name, same photo);
+ *     colourways survive (same name, DIFFERENT photo). Required by the family
+ *     contract, where the colourways are the thing the user is choosing between
+ *     and collapsing them is not an optimisation but data loss.
+ *
+ * It is part of the cache key for the same reason `category` and the merchant
+ * constraint are: it changes the result set, so two lookups differing only by
+ * it must not collide on one row. Without that, `gap-shop-match` would serve
+ * `garment-search` a set with the colourways already thrown away.
+ */
+export type DuplicateMode = 'variants' | 'colourways';
+
+const DUPLICATE_RULE: Record<DuplicateMode, string> = {
+  variants: 'merchant_id name|image',
+  colourways: 'merchant_id name image',
+};
+
+/**
+ * Whether a row the user cannot buy today is still an answer.
+ *
+ * `'in-stock-only'` adds `instock = 1`. It is right for `gap-shop-match`, whose
+ * rows become a suggestion to go and buy something: a sold-out listing there is
+ * a dead tile and a small betrayal.
+ *
+ * `'any'` drops the filter, and it is right for the matcher, where it is not a
+ * refinement but a correctness fix. The accepted handoff says so in as many
+ * words (§11): implementation must not assume *"that stock or availability
+ * matters. It is never shown; a garment the user owns is owned regardless."*
+ * The person is not shopping — they are looking for a photograph of a shirt
+ * that is already in their wardrobe, and the shirts most likely to be missing
+ * from a live feed are exactly the ones somebody has owned long enough to have
+ * stopped being able to buy. Filtering those out means the app cannot find the
+ * garments its user is most likely to have.
+ *
+ * A caller must ask for `'any'` explicitly. The shared default stays strict, so
+ * nothing that sells anything can quietly inherit a shopping surface full of
+ * things nobody can buy.
+ */
+export type Availability = 'in-stock-only' | 'any';
+
+/**
+ * One step of the relaxation ladder.
+ *
+ * `brand` is per-rung and OPTIONAL — undefined means "whatever the query's own
+ * brand was", null means "this rung asks without a brand at all". That last
+ * case exists for one reason, and it is a real failure rather than a nicety:
+ * the parser's brand heuristic reads a leading unrecognised word as a maker,
+ * and a wrong maker in `brand =` empties every rung, so the search returns
+ * nothing while the garment sits in the catalogue. A final brandless rung is
+ * the bounded recovery. See `ladderFor`.
+ */
+export type LadderRung = { value: string; brand?: string | null };
+
+/**
+ * Everything a lookup can be narrowed by, as one object.
+ *
+ * Was six positional parameters and had become unreadable at the call sites —
+ * `searchCatalogue(opts, 'keyword', value, null, null, undefined, 'colourways')`
+ * is a line nobody can check against its signature. Every field is optional and
+ * every default is the conservative one, so an omitted field cannot widen what
+ * a caller sees.
+ */
+export type CatalogueQuery = {
+  /** Goes to the `brand` COLUMN, never into the free-text match. */
+  brand?: string | null;
+  category?: string | null;
+  /** A curated merchant set. `garment-search` deliberately passes none. */
+  merchantIds?: readonly number[];
+  duplicates?: DuplicateMode;
+  availability?: Availability;
+  /** Replaces the built-in ladder. Truncated to `MAX_ATTEMPTS` regardless. */
+  rungs?: readonly LadderRung[];
+};
+
+/**
  * Normalisation is what makes the cache global rather than per-user.
  *
  * Two people describing the same dress must collide, so we lowercase, collapse
@@ -321,7 +429,7 @@ export type LookupMode = 'keyword' | 'url';
  * sort nothing — word order is signal in fulltext search. Deliberately NOT
  * stemming: Datafeedr stems server-side, and doing it twice loses "=exact".
  */
-function normaliseQuery(raw: string): string {
+export function normaliseQuery(raw: string): string {
   return raw
     .toLowerCase()
     .normalize('NFKD')
@@ -369,16 +477,18 @@ function buildQuery(
   brand?: string | null,
   category?: string | null,
   merchantIds?: readonly number[],
+  availability: Availability = 'in-stock-only',
 ): string[] {
   // Applied to every mode. Locale first because it is the filter that changes
-  // the answer most; `instock = 1` because a garment the user cannot buy is a
-  // dead tile, and it is the only stock signal present on every row.
+  // the answer most. `instock = 1` is the only stock signal present on every
+  // row — and whether it belongs here at all depends on what the caller is for,
+  // which is why it is a parameter and not a constant. See `Availability`.
   const base = [
     `source_id IN ${US_SOURCE_IDS.join(',')}`,
     'currency = USD',
-    'instock = 1',
     'image !EMPTY',
   ];
+  if (availability === 'in-stock-only') base.push('instock = 1');
 
   // The merchant's own free-text category. Not a taxonomy and not trustworthy
   // on its own, but it is the only signal that separates a coat from a coat
@@ -596,6 +706,8 @@ function normalise(row: DatafeedrProduct, affiliateIds: Record<number, string>):
     sourceId: row.source_id,
     directUrl: row.direct_url,
     colour: row.color?.trim().slice(0, 60) ?? null,
+    category: row.category?.trim().slice(0, 120) ?? null,
+    gender: row.gender?.trim().slice(0, 20) ?? null,
   };
 }
 
@@ -608,9 +720,8 @@ async function fetchBatch(
   opts: DatafeedrOpts,
   mode: LookupMode,
   value: string,
-  brand?: string | null,
-  category?: string | null,
-  merchantIds?: readonly number[],
+  brand: string | null | undefined,
+  query: CatalogueQuery,
 ): Promise<CatalogProduct[] | null> {
   const exact = mode !== 'keyword';
   if (!(await opts.claimRequest(exact))) return null;
@@ -618,7 +729,7 @@ async function fetchBatch(
   const body = {
     aid: opts.accessId,
     akey: opts.accessKey,
-    query: buildQuery(mode, value, brand, category, merchantIds),
+    query: buildQuery(mode, value, brand, query.category, query.merchantIds, query.availability),
     // NO `sort`. This field previously read `sort: ['+finalprice']` and that was
     // actively harmful, which only shows up when you look at the rows.
     //
@@ -633,8 +744,10 @@ async function fetchBatch(
     // about a row, not as the axis the answer is chosen along.
     limit: BATCH_SIZE,
     // Feeds carry one row per size and colourway; without this a single dress
-    // consumes the whole batch. Measured: 462 raw rows collapse to 146.
-    exclude_duplicates: 'merchant_id name|image',
+    // consumes the whole batch. Measured: 462 raw rows collapse to 146. Which
+    // rule applies depends on whether the caller is choosing a garment or
+    // choosing between its colours — see `DuplicateMode`.
+    exclude_duplicates: DUPLICATE_RULE[query.duplicates ?? 'variants'],
   };
 
   const ctl = new AbortController();
@@ -677,10 +790,9 @@ async function lookup(
   opts: DatafeedrOpts,
   mode: LookupMode,
   value: string,
-  brand?: string | null,
-  category?: string | null,
-  merchantIds?: readonly number[],
+  query: CatalogueQuery,
 ): Promise<CatalogProduct[]> {
+  const { brand, category, merchantIds, duplicates = 'variants', availability, rungs } = query;
   // The category is part of the key for the same reason the brand is: it
   // changes the result set, so two lookups differing only by it must not
   // collide on one cache row.
@@ -690,8 +802,25 @@ async function lookup(
   // 82 shops and the other is not, so a shared row would serve one path the
   // other's answer — the allowlist would silently leak into search results, or
   // worse, search's open results would surface as gap suggestions.
+  //
+  // The duplicate rule joins them for the sharpest version of the same reason:
+  // a `variants` row set has already had its colourways collapsed by Datafeedr,
+  // so serving it to a `colourways` caller would hand the family contract a set
+  // with the very rows it exists to offer already thrown away — and it would
+  // look like a garment that comes in one colour rather than like a bug.
+  //
+  // Availability is in the key for the sharpest reason of the three: an
+  // in-stock-only row set is a STRICT SUBSET of the same query answered with
+  // `'any'`. Sharing a row would let `gap-shop-match` serve the matcher a set
+  // with every discontinued garment already removed — and those are exactly the
+  // garments somebody has owned long enough to be looking for.
   const scope = merchantIds?.length ? `m${merchantIds.length}:${merchantIds.join(',')}` : '';
-  const key = await cacheKey('datafeedr', mode, `${scope} ${category ?? ''} ${value}`, brand);
+  const key = await cacheKey(
+    'datafeedr',
+    mode,
+    `d:${duplicates} a:${availability ?? 'in-stock-only'} ${scope} ${category ?? ''} ${value}`,
+    brand,
+  );
 
   const cached = await opts.cacheGet(key);
   // `null` is a cached MISS and is authoritative — returning [] here without
@@ -700,11 +829,27 @@ async function lookup(
 
   // A `url` lookup is an exact identifier and has nothing to relax; only a
   // described garment walks the ladder.
-  const attempts = mode === 'url' ? [value] : relaxations(value);
+  //
+  // `rungs`, when the caller supplies them, REPLACE the built-in ladder rather
+  // than adding to it — and they are truncated to the same MAX_ATTEMPTS ceiling
+  // whatever the caller believes, because that ceiling is a bill and not a
+  // preference. The matcher passes a ladder built from a parsed query, which
+  // knows which word is the gender term; `relaxations` can only guess from a
+  // word list. Both stay bounded at three metered requests.
+  const attempts: LadderRung[] =
+    mode === 'url'
+      ? [{ value }]
+      : rungs?.length
+        ? rungs.slice(0, MAX_ATTEMPTS).map((r) => ({ ...r }))
+        : relaxations(value).map((v) => ({ value: v }));
 
   let fetched: CatalogProduct[] | null = null;
   for (const attempt of attempts) {
-    fetched = await fetchBatch(opts, mode, attempt, brand, category, merchantIds);
+    // `undefined` means "the query's own brand"; an explicit `null` means this
+    // rung deliberately asks without one. The distinction is the whole of the
+    // brand-relaxation recovery, so it must not be collapsed with `??`.
+    const rungBrand = 'brand' in attempt ? attempt.brand : brand;
+    fetched = await fetchBatch(opts, mode, attempt.value, rungBrand, query);
     // A refusal or a transport failure is not evidence of absence, and looser
     // wording will not fix a spent quota — stop rather than burn the ladder.
     if (fetched === null) return [];
@@ -765,9 +910,7 @@ export async function searchCatalogue(
   opts: DatafeedrOpts,
   mode: LookupMode,
   value: string,
-  brand?: string | null,
-  category?: string | null,
-  merchantIds?: readonly number[],
+  query: CatalogueQuery = {},
 ): Promise<CatalogProduct[]> {
-  return await lookup(opts, mode, value, brand, category, merchantIds);
+  return await lookup(opts, mode, value, query);
 }

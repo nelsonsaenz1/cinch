@@ -157,6 +157,39 @@ export default function WalkthroughReviewScreen() {
             dispatch={procession.dispatch}
             showUndo={procession.showUndo}
             onCorrect={(field) => setCorrecting(field ?? null)}
+            /**
+             * CPV2-V01 → CPV2-V02. A push, so the procession's own state
+             * machine is untouched and Back returns to this exact card with
+             * the confirmed work intact — §8: "Cancel at any depth pops back
+             * with nothing changed."
+             *
+             * WHAT GETS SEARCHED IS THE EXTRACTED WORDS, not the whole
+             * sentence. CPV2-V02: "the search field carries the garment words
+             * extracted from the utterance, the verbatim utterance is quoted
+             * underneath so nothing is silently rewritten."
+             *
+             * That distinction is the difference between a search and no
+             * search. The utterance is "A James Perse men's T-shirt, I have it
+             * in black, white and grey" — sent whole, the colour words and the
+             * possessive clause become query terms the catalogue has to drop,
+             * and the brand-run heuristic in the server parser would read "A
+             * James Perse" as the maker. `draft.name` is what the parse
+             * produced for exactly this purpose.
+             *
+             * The utterance still travels, as `said`, to be quoted — and the
+             * parsed colour as `colours`, so CPV2-05 opens pre-selected.
+             */
+            onFindPhoto={() =>
+              router.push({
+                pathname: '/find-photo',
+                params: {
+                  path: 'walkthrough',
+                  words: draft.name ?? draft.utterance ?? '',
+                  said: draft.utterance ?? '',
+                  colours: draft.colour_term ?? '',
+                },
+              })
+            }
           />
         ) : null}
       </SafeAreaView>

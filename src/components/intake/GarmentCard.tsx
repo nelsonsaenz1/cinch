@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -14,6 +14,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { catalogueSearchOffered } from '@/features/catalogue/analytics';
+import {
+  WALKTHROUGH_ACTION,
+  WALKTHROUGH_EXPLANATION,
+} from '@/features/catalogue/copy';
 import type { ProcessionAction, ProcessionState } from '@/features/intake/procession';
 import { currentDraft, lastDropped, positionLabel } from '@/features/intake/procession';
 import type { IntakeDraftRow } from '@/features/intake/queries';
@@ -75,9 +80,30 @@ export type GarmentCardProps = {
   showUndo: boolean;
   /** Opens the edit sheet. `field` is set when a chip was tapped. */
   onCorrect: (field?: CorrectionField) => void;
+  /**
+   * CPV2-V01 — "Find its product photo", for THIS card only.
+   *
+   * A tap, and only a tap. §7 of the CPV2 handoff: "one catalogue request per
+   * garment the user asks about, never one per garment in the procession." The
+   * procession is seven cards and the allowance is 10,000 requests a month; a
+   * walkthrough that looked up every card as it arrived would be the single
+   * fastest way to spend it, and it would spend it on garments the user was
+   * about to drop.
+   *
+   * Optional, so the card renders unchanged everywhere it is posed without one
+   * — including the existing dev fixtures, which must keep showing the
+   * walkthrough exactly as it ships.
+   */
+  onFindPhoto?: () => void;
 };
 
-export function GarmentCard({ procession, dispatch, showUndo, onCorrect }: GarmentCardProps) {
+export function GarmentCard({
+  procession,
+  dispatch,
+  showUndo,
+  onCorrect,
+  onFindPhoto,
+}: GarmentCardProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { width: screenWidth } = useWindowDimensions();
@@ -86,6 +112,22 @@ export function GarmentCard({ procession, dispatch, showUndo, onCorrect }: Garme
   const { index, total } = positionLabel(procession);
   const canUndo = showUndo && procession.undo.length > 0;
   const dropped = lastDropped(procession);
+
+  /**
+   * CPV2-V01: `catalogue_search_offered(path: walkthrough)` fires ON CARD
+   * DISPLAY, not on tap — it is the DENOMINATOR. Without it the walkthrough
+   * lookup has a completion rate with nothing under the line, which is the
+   * exact hole `posthog.tsx` says the offer events exist to close.
+   *
+   * Keyed on the draft so it fires once per card rather than once per render,
+   * and only when the ask is actually on screen.
+   */
+  const offeredFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!onFindPhoto || !draft || offeredFor.current === draft.id) return;
+    offeredFor.current = draft.id;
+    catalogueSearchOffered('walkthrough');
+  }, [onFindPhoto, draft]);
 
   const translateX = useSharedValue(0);
   const swipeThreshold = screenWidth * SWIPE_THRESHOLD_RATIO;
@@ -236,6 +278,23 @@ export function GarmentCard({ procession, dispatch, showUndo, onCorrect }: Garme
           </Animated.View>
         </GestureDetector>
       </ScrollView>
+
+      {/* CPV2-V01's quiet ask, above the two decisions and never competing with
+          them: "Looks right — next" is what this screen is for, and the lookup
+          is an aside somebody takes when they want a picture for this one
+          piece. Ghost weight, its own explanation line, no badge. */}
+      {onFindPhoto ? (
+        <View className="gap-1 px-gutter pb-2">
+          <Button
+            title={WALKTHROUGH_ACTION}
+            variant="ghost"
+            onPress={onFindPhoto}
+            accessibilityHint={WALKTHROUGH_EXPLANATION}
+            className="self-stretch"
+          />
+          <Text variant="noteSmall">{WALKTHROUGH_EXPLANATION}</Text>
+        </View>
+      ) : null}
 
       <View
         className="flex-row px-gutter"

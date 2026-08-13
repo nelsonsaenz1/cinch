@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_dismissals: {
@@ -564,6 +589,75 @@ export type Database = {
         }
         Relationships: []
       }
+      commerce_alert_sends: {
+        Row: {
+          key: string
+          last_sent_at: string
+          send_count: number
+        }
+        Insert: {
+          key: string
+          last_sent_at?: string
+          send_count?: number
+        }
+        Update: {
+          key?: string
+          last_sent_at?: string
+          send_count?: number
+        }
+        Relationships: []
+      }
+      commerce_health: {
+        Row: {
+          last_at: string | null
+          last_detail: string | null
+          metric: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          last_at?: string | null
+          last_detail?: string | null
+          metric: string
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          last_at?: string | null
+          last_detail?: string | null
+          metric?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      commerce_joined_programmes: {
+        Row: {
+          active: boolean
+          joined_at: string
+          merchant_id: string
+          merchant_name: string
+          network: string
+          note: string | null
+        }
+        Insert: {
+          active?: boolean
+          joined_at?: string
+          merchant_id: string
+          merchant_name: string
+          network: string
+          note?: string | null
+        }
+        Update: {
+          active?: boolean
+          joined_at?: string
+          merchant_id?: string
+          merchant_name?: string
+          network?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       content_reports: {
         Row: {
           created_at: string
@@ -1080,6 +1174,7 @@ export type Database = {
           ai_tags: Json | null
           borrowable: boolean
           brand: string | null
+          catalog_external_id: string | null
           category: Database["public"]["Enums"]["item_category"]
           color_analysis: Json | null
           colors: Json
@@ -1127,6 +1222,7 @@ export type Database = {
           ai_tags?: Json | null
           borrowable?: boolean
           brand?: string | null
+          catalog_external_id?: string | null
           category?: Database["public"]["Enums"]["item_category"]
           color_analysis?: Json | null
           colors?: Json
@@ -1174,6 +1270,7 @@ export type Database = {
           ai_tags?: Json | null
           borrowable?: boolean
           brand?: string | null
+          catalog_external_id?: string | null
           category?: Database["public"]["Enums"]["item_category"]
           color_analysis?: Json | null
           colors?: Json
@@ -1699,6 +1796,33 @@ export type Database = {
         }
         Relationships: []
       }
+      push_receipts: {
+        Row: {
+          attempts: number
+          channel: string
+          created_at: string
+          last_attempt_at: string | null
+          ticket_id: string
+          token: string
+        }
+        Insert: {
+          attempts?: number
+          channel: string
+          created_at?: string
+          last_attempt_at?: string | null
+          ticket_id: string
+          token: string
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          created_at?: string
+          last_attempt_at?: string | null
+          ticket_id?: string
+          token?: string
+        }
+        Relationships: []
+      }
       push_sends: {
         Row: {
           channel: string
@@ -1899,6 +2023,54 @@ export type Database = {
           trial_ends_at?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      superwall_events: {
+        Row: {
+          app_user_id: string
+          delivery_count: number
+          event_type: string
+          expiration_at: string | null
+          last_delivery_at: string
+          original_transaction_id: string | null
+          outcome: Database["public"]["Enums"]["superwall_outcome"]
+          plan: string | null
+          product_id: string | null
+          received_at: string
+          reconciled_at: string | null
+          reconciled_user_id: string | null
+          svix_id: string
+        }
+        Insert: {
+          app_user_id: string
+          delivery_count?: number
+          event_type: string
+          expiration_at?: string | null
+          last_delivery_at?: string
+          original_transaction_id?: string | null
+          outcome: Database["public"]["Enums"]["superwall_outcome"]
+          plan?: string | null
+          product_id?: string | null
+          received_at?: string
+          reconciled_at?: string | null
+          reconciled_user_id?: string | null
+          svix_id: string
+        }
+        Update: {
+          app_user_id?: string
+          delivery_count?: number
+          event_type?: string
+          expiration_at?: string | null
+          last_delivery_at?: string
+          original_transaction_id?: string | null
+          outcome?: Database["public"]["Enums"]["superwall_outcome"]
+          plan?: string | null
+          product_id?: string | null
+          received_at?: string
+          reconciled_at?: string | null
+          reconciled_user_id?: string | null
+          svix_id?: string
         }
         Relationships: []
       }
@@ -2606,6 +2778,36 @@ export type Database = {
         }
         Relationships: []
       }
+      superwall_unreconciled: {
+        Row: {
+          alias: string | null
+          delivery_count: number | null
+          event_type: string | null
+          original_transaction_id: string | null
+          product_id: string | null
+          received_at: string | null
+          svix_id: string | null
+        }
+        Insert: {
+          alias?: string | null
+          delivery_count?: number | null
+          event_type?: string | null
+          original_transaction_id?: string | null
+          product_id?: string | null
+          received_at?: string | null
+          svix_id?: string | null
+        }
+        Update: {
+          alias?: string | null
+          delivery_count?: number | null
+          event_type?: string | null
+          original_transaction_id?: string | null
+          product_id?: string | null
+          received_at?: string | null
+          svix_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       activity_feed: {
@@ -2675,6 +2877,39 @@ export type Database = {
           existing_result: string
         }[]
       }
+      claim_commerce_alert: {
+        Args: { p_cooldown_hours?: number; p_key: string }
+        Returns: boolean
+      }
+      claim_superwall_alias: {
+        Args: { p_alias: string; p_user_id: string }
+        Returns: {
+          event_type: string
+          expiration_at: string
+          product_id: string
+          svix_id: string
+        }[]
+      }
+      claim_superwall_event: {
+        Args: {
+          p_app_user_id: string
+          p_event_type: string
+          p_expiration_at?: string
+          p_original_transaction_id?: string
+          p_product_id?: string
+          p_svix_id: string
+        }
+        Returns: boolean
+      }
+      claim_support_send: {
+        Args: { p_topic: string; p_user_id: string }
+        Returns: {
+          booking_id: string
+          refused: string
+        }[]
+      }
+      commerce_health_invoke: { Args: never; Returns: number }
+      commerce_health_report: { Args: never; Returns: Json }
       commit_intake_session: {
         Args: { p_draft_ids?: string[]; p_session_id: string }
         Returns: {
@@ -2688,12 +2923,22 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["subscription_plan"]
       }
+      event_is_open: { Args: { p_event_id: string }; Returns: boolean }
       event_limit_for_plan: {
         Args: { p_plan: Database["public"]["Enums"]["subscription_plan"] }
         Returns: number
       }
       export_invoke: { Args: never; Returns: number }
       has_accepted_social_terms: { Args: never; Returns: boolean }
+      import_capacity: {
+        Args: never
+        Returns: {
+          active: number
+          active_limit: number
+          total: number
+          total_limit: number
+        }[]
+      }
       intake_category_for: {
         Args: { p_slot: string }
         Returns: Database["public"]["Enums"]["item_category"]
@@ -2730,6 +2975,18 @@ export type Database = {
       normalize_for_moderation: { Args: { p_text: string }; Returns: string }
       note_catalog_cache_write_failure: {
         Args: { p_provider: Database["public"]["Enums"]["catalog_provider"] }
+        Returns: undefined
+      }
+      note_commerce_metric: {
+        Args: { p_delta?: number; p_detail?: string; p_metric: string }
+        Returns: undefined
+      }
+      note_superwall_outcome: {
+        Args: {
+          p_outcome: Database["public"]["Enums"]["superwall_outcome"]
+          p_plan?: string
+          p_svix_id: string
+        }
         Returns: undefined
       }
       plan_outfit_tx: {
@@ -2779,6 +3036,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      push_claim_receipts: {
+        Args: { p_limit?: number }
+        Returns: {
+          ticket_id: string
+          token: string
+        }[]
+      }
       push_claim_votes_comments: {
         Args: never
         Returns: {
@@ -2789,6 +3053,8 @@ export type Database = {
         }[]
       }
       push_invoke: { Args: { p_channel: string }; Returns: number }
+      push_receipts_invoke: { Args: never; Returns: number }
+      push_receipts_prune: { Args: never; Returns: number }
       push_release_claims: {
         Args: { p_channel: string; p_keys: string[]; p_user_ids: string[] }
         Returns: number
@@ -2802,6 +3068,11 @@ export type Database = {
         }[]
       }
       reap_intake_audio: { Args: never; Returns: number }
+      release_commerce_alert: { Args: { p_key: string }; Returns: undefined }
+      release_support_send: {
+        Args: { p_booking_id: string; p_user_id: string }
+        Returns: boolean
+      }
       request_data_export: { Args: never; Returns: string }
       squeeze_for_moderation: { Args: { p_text: string }; Returns: string }
       sweep_catalog_cache: { Args: never; Returns: number }
@@ -2858,6 +3129,15 @@ export type Database = {
       profile_visibility: "private" | "public"
       report_subject: "profile" | "item" | "outfit_post" | "comment" | "event"
       subscription_plan: "free" | "standard" | "pro"
+      superwall_outcome:
+        | "applied"
+        | "no_state_change"
+        | "unidentified_alias"
+        | "unmapped_product"
+        | "stale"
+        | "duplicate"
+        | "write_failed"
+        | "reconciled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2983,6 +3263,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       ai_workload: [
@@ -3021,6 +3304,16 @@ export const Constants = {
       profile_visibility: ["private", "public"],
       report_subject: ["profile", "item", "outfit_post", "comment", "event"],
       subscription_plan: ["free", "standard", "pro"],
+      superwall_outcome: [
+        "applied",
+        "no_state_change",
+        "unidentified_alias",
+        "unmapped_product",
+        "stale",
+        "duplicate",
+        "write_failed",
+        "reconciled",
+      ],
     },
   },
 } as const

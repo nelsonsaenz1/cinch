@@ -12,6 +12,7 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
+import type { DatafeedrOpts } from '../_shared/catalog.ts';
 import { catalogOptsFromEnv } from '../_shared/catalog-store.ts';
 import type { GarmentImageProvider } from './provider.ts';
 import { datafeedrProvider, firstLicensed, type UnlicensedFallback } from './catalog-provider.ts';
@@ -48,21 +49,71 @@ function allowUnlicensed(): UnlicensedFallback {
 }
 
 /**
+ * What a request may actually do, given the environment it woke up in.
+ *
+ * `provider` is the composed chain. The two booleans exist because an empty
+ * chain and a working chain that found nothing are completely different answers
+ * and must not both arrive as an empty candidate list: "no licensed listing
+ * matches that" is a true sentence CPV2-09 prints, and printing it when the
+ * catalogue was never asked would be a lie the user has no way to detect.
+ */
+export type CatalogueWiring = {
+  provider: GarmentImageProvider;
+  /** The licensed catalogue itself, when configured. Families need the opts. */
+  catalogue: DatafeedrOpts | null;
+  /** False when the search chain is empty — nothing can answer a description. */
+  canSearch: boolean;
+  /** False when nothing can identify a brand from a photograph. */
+  canMatch: boolean;
+};
+
+/**
  * Compose the provider chain: licensed feeds first, the web model path only as
  * a fallback, and not at all when the switch is off.
  *
- * Returns `fallback` unchanged when Datafeedr is unconfigured, so a missing
- * secret degrades to the previous behaviour rather than to no search at all.
- * That is the one place the licensed path does NOT fail closed, and it is
- * deliberate: a user searching for a garment is better served by an unlicensed
- * picture than by a broken screen, and the switch above is what makes that a
- * decision rather than an accident.
+ * ── WHY THE MISSING-SECRET FALLBACK IS GONE ───────────────────────────────
+ *
+ * This function used to open with `if (!opts) return fallback;` — if Datafeedr
+ * was unconfigured, the bare web provider was returned, on the argument that a
+ * user is better served by an unlicensed picture than a broken screen.
+ *
+ * That argument does not survive the two things that happened after it was
+ * written. First, `GARMENT_SEARCH_ALLOW_UNLICENSED` was flipped to default
+ * FALSE precisely so that losing a secret could not silently re-enable the open
+ * web — and the early return bypassed that switch entirely, so the two changes
+ * did not compose: a pruned `DATAFEEDR_ACCESS_ID` re-enabled exactly what the
+ * default was set to prevent, with the kill switch still off and nothing
+ * reporting it.
+ *
+ * Second, and decisively, the app now PRINTS the promise. `CATALOGUE_DISCLOSURE`
+ * says "nothing you type is sent to an AI model", the sheet says it again, and
+ * `web/privacy.html` says it a third time. The web provider sends the typed
+ * description to a model with a web-search plugin. So the old degrade did not
+ * merely widen the sources — it made three shipped sentences false, by way of a
+ * missing environment variable, with no code change and no review.
+ *
+ * A degraded search is recoverable and honest. A false privacy claim is
+ * neither. So the licensed path fails CLOSED: no catalogue means no search, and
+ * the screen says the catalogue could not be reached.
+ *
+ * `tests/catalogue-fail-closed.test.ts` couples this to the printed sentence
+ * directly, so the claim and the code cannot drift apart again.
  */
 export function licensedFirst(
   admin: SupabaseClient<Database>,
-  fallback: GarmentImageProvider,
-): GarmentImageProvider {
+  fallback: GarmentImageProvider | null,
+): CatalogueWiring {
   const opts = catalogOptsFromEnv(admin);
-  if (!opts) return fallback;
-  return firstLicensed([datafeedrProvider(opts)], fallback, allowUnlicensed());
+  const allow = allowUnlicensed();
+  const licensed = opts ? [datafeedrProvider(opts)] : [];
+
+  return {
+    provider: firstLicensed(licensed, fallback, allow),
+    catalogue: opts,
+    // An unconfigured catalogue can still be searched IF somebody has
+    // deliberately set the unlicensed flag to "true" — that is the flag's whole
+    // purpose, and it is an act rather than an accident.
+    canSearch: licensed.length > 0 || (allow.search && fallback !== null),
+    canMatch: licensed.length > 0 || (allow.match && fallback !== null),
+  };
 }

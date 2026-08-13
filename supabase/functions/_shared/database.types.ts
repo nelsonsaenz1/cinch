@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_dismissals: {
@@ -1149,6 +1174,7 @@ export type Database = {
           ai_tags: Json | null
           borrowable: boolean
           brand: string | null
+          catalog_external_id: string | null
           category: Database["public"]["Enums"]["item_category"]
           color_analysis: Json | null
           colors: Json
@@ -1196,6 +1222,7 @@ export type Database = {
           ai_tags?: Json | null
           borrowable?: boolean
           brand?: string | null
+          catalog_external_id?: string | null
           category?: Database["public"]["Enums"]["item_category"]
           color_analysis?: Json | null
           colors?: Json
@@ -1243,6 +1270,7 @@ export type Database = {
           ai_tags?: Json | null
           borrowable?: boolean
           brand?: string | null
+          catalog_external_id?: string | null
           category?: Database["public"]["Enums"]["item_category"]
           color_analysis?: Json | null
           colors?: Json
@@ -2895,12 +2923,22 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["subscription_plan"]
       }
+      event_is_open: { Args: { p_event_id: string }; Returns: boolean }
       event_limit_for_plan: {
         Args: { p_plan: Database["public"]["Enums"]["subscription_plan"] }
         Returns: number
       }
       export_invoke: { Args: never; Returns: number }
       has_accepted_social_terms: { Args: never; Returns: boolean }
+      import_capacity: {
+        Args: never
+        Returns: {
+          active: number
+          active_limit: number
+          total: number
+          total_limit: number
+        }[]
+      }
       intake_category_for: {
         Args: { p_slot: string }
         Returns: Database["public"]["Enums"]["item_category"]
@@ -3225,6 +3263,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       ai_workload: [

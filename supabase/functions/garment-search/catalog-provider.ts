@@ -14,6 +14,8 @@
 
 import { admitSource, type Declined } from './policy.ts';
 import { type CatalogProduct, type DatafeedrOpts, searchCatalogue } from '../_shared/catalog.ts';
+import { ladderFor, type ParsedQuery } from '../_shared/catalog-query.ts';
+import { groupFamilies, rankFamilies, type FamilyResult } from './families.ts';
 import type {
   GarmentCandidate,
   GarmentImageProvider,
@@ -78,6 +80,65 @@ function rankConfidence(index: number, total: number): number {
   return Number((0.85 - (index / total) * 0.35).toFixed(3));
 }
 
+/**
+ * How many admitted rows a family search may keep.
+ *
+ * Not six. `MAX_CANDIDATES` bounds TILES, and a family is made of many rows —
+ * one shirt in six colours across three shops is eighteen listings for one
+ * answer. Capping at six here would produce one family with two colours and
+ * call it the whole catalogue.
+ *
+ * Sixty is chosen against the cost that actually bites: `admitSource` fetches
+ * robots.txt per new ORIGIN, and a 100-row batch from the US networks lands on
+ * a few dozen hosts at most, nearly all of which hit policy.ts's own robots
+ * cache. The rows were already paid for at the query; this is only how many we
+ * are willing to ask a question about.
+ */
+const MAX_FAMILY_ROWS = 60;
+
+/**
+ * The family search — CPV2-04's whole data contract.
+ *
+ * Deliberately NOT a method on `GarmentImageProvider`. That interface exists so
+ * the unlicensed web path can stand in for the licensed one, and the web path
+ * cannot produce families: it resolves og:image off pages it was told about and
+ * has no brand column, no colour field and no notion that two results are one
+ * garment. Adding `searchFamilies` to the interface would oblige it to invent
+ * all three. So families are a licensed-only capability by construction, which
+ * is also the honest reading of the privacy line — the family screen exists
+ * only where the catalogue does.
+ */
+export async function searchFamilies(
+  opts: DatafeedrOpts,
+  parsed: ParsedQuery,
+): Promise<{ families: FamilyResult; declined: Declined[] }> {
+  const rows = await searchCatalogue(opts, 'keyword', parsed.normalised, {
+    // The brand goes to the COLUMN. This is the single highest-value line in
+    // the retrieval path — see `buildQuery`'s own measurement.
+    brand: parsed.brand,
+    // No merchant constraint: the open licensed catalogue, per the frozen
+    // decision. `gap-shop-match`'s 82-merchant allowlist is for suggesting
+    // something to buy; this is a person finding a garment they already own,
+    // and refusing them their own shirt because we have no commercial
+    // relationship with the shop would be absurd.
+    merchantIds: undefined,
+    // Colourways are the thing being chosen between, so they must survive the
+    // feed's own de-duplication. See `DuplicateMode`.
+    duplicates: 'colourways',
+    // A garment somebody owns is owned whether or not a shop still sells it,
+    // and the pieces most likely to be missing from a live feed are exactly the
+    // ones owned longest. See `Availability`.
+    availability: 'any',
+    // The parsed ladder rather than the word-list one: this is what drops
+    // "mens" on the second rung, and what asks once without a guessed brand on
+    // the last one.
+    rungs: ladderFor(parsed),
+  });
+
+  const { admitted, declined } = await admitRows(rows, MAX_FAMILY_ROWS);
+  return { families: rankFamilies(groupFamilies(admitted), parsed), declined };
+}
+
 export function datafeedrProvider(opts: DatafeedrOpts): GarmentImageProvider {
   return {
     id: 'datafeedr',
@@ -114,7 +175,7 @@ export function datafeedrProvider(opts: DatafeedrOpts): GarmentImageProvider {
       // The brand goes to the `brand` FIELD rather than being concatenated into
       // the descriptor — see `buildQuery`. Concatenating it is what produced a
       // Zadig & Voltaire dress in answer to "Reformation".
-      const rows = await searchCatalogue(opts, 'keyword', input.descriptor, input.brand);
+      const rows = await searchCatalogue(opts, 'keyword', input.descriptor, { brand: input.brand });
       const { admitted, declined } = await admitRows(rows, input.maxCandidates);
 
       const capped = admitted;

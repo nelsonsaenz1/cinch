@@ -26,6 +26,18 @@ const MAX_URL_CHARS = 2_048;
 const MAX_TITLE_CHARS = 120;
 /** "Comme des Garçons Comme des Garçons" fits; a smuggled paragraph does not. */
 const MAX_BRAND_CHARS = 80;
+/** Datafeedr's ids are numeric; this is a bound, not a shape. */
+const MAX_EXTERNAL_ID_CHARS = 64;
+/** "Heather Grey", "Vintage Black". Long enough for the merchant's own phrase. */
+const MAX_COLOUR_LABEL_CHARS = 60;
+/**
+ * The most colourways one request may carry.
+ *
+ * Each one is an outbound image fetch of up to five megabytes, so this is the
+ * ceiling on what a single authenticated call can ask our network to do — and
+ * twelve is already more shirts of one design than the screen is drawn for.
+ */
+const MAX_BATCH_ROWS = 12;
 
 /** Mirrors the check in `_shared/input-bounds.ts` (tag-item): the id becomes a
  *  lookup key, and a malformed uuid should be a 400 naming the field rather
@@ -69,6 +81,41 @@ export type ValidatedImportRequest = {
   pageUrl?: string;
   title?: string;
   source?: string;
+};
+
+/**
+ * One colourway on its way into the closet, inside a batch.
+ *
+ * `externalId` is Datafeedr's own row id and it is REQUIRED here where it is
+ * absent from the single import — it is the idempotency key, and a batch
+ * without one cannot promise that a retry will not duplicate. Sixty-four
+ * characters is far past the numeric ids the feed actually returns; it is a
+ * bound rather than a shape, because the shape belongs to a provider that may
+ * one day issue something longer.
+ *
+ * `colourLabel` is the merchant's own word for the colourway, carried so the
+ * three shirts a user just added are distinguishable in a closet grid before
+ * tagging has run on any of them.
+ */
+export type ValidatedCatalogueImportRow = {
+  externalId: string;
+  imageUrl: string;
+  pageUrl?: string;
+  title?: string;
+  colourLabel?: string;
+};
+
+/**
+ * CPV2-06 — every colourway the user selected, in one request.
+ *
+ * Bounded at twelve. A product family with more than twelve colourways exists,
+ * but a person who owns more than twelve of one shirt is not the case this
+ * screen is for, and an unbounded array here is an unbounded number of outbound
+ * image fetches from one request.
+ */
+export type ValidatedImportBatchRequest = {
+  action: 'import-batch';
+  imports: ValidatedCatalogueImportRow[];
 };
 
 /**
@@ -123,6 +170,7 @@ export type ValidatedDetachRequest = {
 export type ValidatedRequest =
   | ValidatedSearchRequest
   | ValidatedImportRequest
+  | ValidatedImportBatchRequest
   | ValidatedResolveRequest
   | ValidatedMatchRequest
   | ValidatedAttachRequest
@@ -179,6 +227,33 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
     };
   }
 
+  if (action === 'import-batch') {
+    const raw = body.imports;
+    if (!Array.isArray(raw)) throw new BoundsError('imports must be an array.');
+    if (raw.length === 0) throw new BoundsError('imports is empty.');
+    if (raw.length > MAX_BATCH_ROWS) {
+      throw new BoundsError(`imports is too long (${raw.length} rows, limit ${MAX_BATCH_ROWS}).`);
+    }
+
+    return {
+      action: 'import-batch',
+      imports: raw.map((entry, i) => {
+        const row = asObject(entry);
+        return {
+          // Required, unlike the single import: without it a retry cannot be
+          // told from a second request for more of the same shirt.
+          externalId: requiredString(row.externalId, `imports[${i}].externalId`, MAX_EXTERNAL_ID_CHARS),
+          // Shape only, both URLs. `assertSafeUrl` is the security boundary and
+          // runs again at the moment each one is used.
+          imageUrl: requiredString(row.imageUrl, `imports[${i}].imageUrl`, MAX_URL_CHARS),
+          pageUrl: optionalString(row.pageUrl, `imports[${i}].pageUrl`, MAX_URL_CHARS),
+          title: optionalString(row.title, `imports[${i}].title`, MAX_TITLE_CHARS),
+          colourLabel: optionalString(row.colourLabel, `imports[${i}].colourLabel`, MAX_COLOUR_LABEL_CHARS),
+        };
+      }),
+    };
+  }
+
   if (action === 'resolve') {
     return {
       action: 'resolve',
@@ -217,7 +292,7 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
 
   if (action !== 'search') {
     throw new BoundsError(
-      'action must be "search", "resolve", "import", "match", "attach" or "detach".',
+      'action must be "search", "resolve", "import", "import-batch", "match", "attach" or "detach".',
     );
   }
 

@@ -24,6 +24,28 @@
 
 export type SearchFailureCause = 'offline' | 'consent_declined' | 'partner_unavailable';
 
+/**
+ * CONSENT NO LONGER STOPS A SEARCH, and this file is where that changed.
+ *
+ * The `consent_declined` notice below was accurate when it was written: search
+ * went through a model, the model needed AI-processing consent, and a user who
+ * had switched that off was told so. Packet 1 moved `action: 'search'` above
+ * the consent gate on the server, because the catalogue matcher is not AI
+ * processing — the typed words go to Cinch and to the licensed shop catalogue,
+ * which is what `TYPED_PRIVACY` now says on screen.
+ *
+ * So the notice's own sentence — "Cinch will not send this text anywhere" — is
+ * no longer the reason a search did not happen, and showing it would be telling
+ * somebody their choice blocked something their choice does not block. The
+ * classification below therefore ignores consent for SEARCH; the notice text is
+ * kept because DS-05's fixture route still renders all three, and because the
+ * consent state itself is unchanged and still governs the spoken path and
+ * tagging.
+ *
+ * §11 of the CPV2 handoff states the rule this enforces: implementation must
+ * not assume "that AI-processing consent gates typed search".
+ */
+
 export type SearchFailureNotice = {
   /** The uppercase label. Each notice "names its cause". */
   label: string;
@@ -75,7 +97,13 @@ export type SearchFailureInput = {
   /** `GarmentSearchError.code`, when the last attempt produced one. */
   errorCode: string | null;
   online: boolean;
-  /** The local decline flag, plus the server's corroborating revocation. */
+  /**
+   * The local decline flag. NO LONGER READ by the classification — search does
+   * not need consent since Packet 1. Kept on the input so the two call sites
+   * and their test do not have to change shape, and so that deleting it is a
+   * deliberate act rather than a silent one if the spoken path ever needs it
+   * back here.
+   */
   consentDeclined: boolean;
 };
 
@@ -85,10 +113,10 @@ export type SearchFailureInput = {
  *
  * ORDER IS A DECISION, not a formality:
  *
- * · Consent outranks everything. It is true whether or not there is a signal,
- *   and it is the only one of the three that is the user's own choice — telling
- *   somebody who has switched processing off that the problem is their wifi
- *   would be both wrong and quietly insulting.
+ * · Consent no longer produces a notice at all — see the note above
+ *   `SearchFailureCause`. Search does not need it, so a declined consent is not
+ *   a reason a search did not happen, and saying it was would be blaming the
+ *   user's choice for something their choice does not do.
  * · Offline outranks a partner failure, because a request that never left the
  *   phone tells us nothing about whether the partner is answering. A search
  *   attempted with no signal fails with a transport error, and reading that as
@@ -101,9 +129,7 @@ export type SearchFailureInput = {
 export function classifySearchFailure({
   errorCode,
   online,
-  consentDeclined,
 }: SearchFailureInput): SearchFailureCause | null {
-  if (consentDeclined || errorCode === 'ai_consent_required') return 'consent_declined';
   if (!online) return 'offline';
   if (errorCode !== null && PARTNER_CODES.has(errorCode)) return 'partner_unavailable';
   return null;

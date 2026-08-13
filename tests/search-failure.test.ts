@@ -22,11 +22,6 @@ const ONLINE = { errorCode: null, online: true, consentDeclined: false };
 
 test('each cause resolves from the state that actually means it', () => {
   assert.equal(classifySearchFailure({ ...ONLINE, online: false }), 'offline');
-  assert.equal(classifySearchFailure({ ...ONLINE, consentDeclined: true }), 'consent_declined');
-  assert.equal(
-    classifySearchFailure({ ...ONLINE, errorCode: 'ai_consent_required' }),
-    'consent_declined',
-  );
   assert.equal(classifySearchFailure({ ...ONLINE, errorCode: 'search_failed' }), 'partner_unavailable');
   assert.equal(
     classifySearchFailure({ ...ONLINE, errorCode: 'search_disabled' }),
@@ -34,10 +29,24 @@ test('each cause resolves from the state that actually means it', () => {
   );
 });
 
-test('consent outranks everything, because it is true with or without a signal', () => {
+test('a declined consent is no longer a reason a search did not happen', () => {
+  // It WAS, until Packet 1 moved `action: 'search'` above the server's consent
+  // gate. The catalogue matcher is not AI processing — the typed words go to
+  // Cinch and to the licensed shop catalogue, which is what the CPV2 privacy
+  // line now says on screen. Showing the old notice would be telling somebody
+  // their choice blocked something their choice does not block, and CPV2 §11
+  // names the assumption directly: implementation must not assume "that
+  // AI-processing consent gates typed search".
+  //
+  // The notice TEXT survives in SEARCH_FAILURE_NOTICES for the DS-05 fixture
+  // route; what is gone is any input that selects it.
+  assert.equal(classifySearchFailure({ ...ONLINE, consentDeclined: true }), null);
+  assert.equal(classifySearchFailure({ ...ONLINE, errorCode: 'ai_consent_required' }), null);
+  // And an offline user who has also declined consent is told about the signal,
+  // which is the thing that actually stopped them.
   assert.equal(
     classifySearchFailure({ errorCode: 'search_failed', online: false, consentDeclined: true }),
-    'consent_declined',
+    'offline',
   );
 });
 

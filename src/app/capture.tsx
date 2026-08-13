@@ -19,7 +19,6 @@ import {
   DeferredCameraView,
   type CameraViewHandle,
 } from '@/components/ingest/lazy-camera-view';
-import { GarmentSearchSheet } from '@/components/ingest/garment-search-sheet';
 import { UploadQueueList } from '@/components/ingest/upload-queue-list';
 import { ListingOffer } from '@/components/match/listing-offer';
 import { ClosetFullSheet } from '@/components/wall/closet-full-sheet';
@@ -427,7 +426,6 @@ function CaptureScreen() {
   // The third way in: describing a garment rather than photographing it. Passes
   // the same gates as the picker, because it ends in the same INSERT and the
   // same model call.
-  const [describeVisible, setDescribeVisible] = useState(false);
   // What to run once consent lands, so the user isn't made to tap twice.
   const [pendingAction, setPendingAction] = useState<null | CaptureAction>(null);
 
@@ -533,10 +531,18 @@ function CaptureScreen() {
       } else if (action === 'camera') {
         void shoot();
       } else {
-        setDescribeVisible(true);
+        // THE CATALOGUE ROUTE, and it leaves this screen.
+        //
+        // It used to raise `GarmentSearchSheet` over the live camera. That
+        // sheet is the old listing-tile flow; the catalogue matcher is now a
+        // route of its own (`/find-photo`) with a family list, a colourway
+        // detail and a batch import, none of which fits in a sheet over a
+        // viewfinder. Pushing also stops the camera session sitting live behind
+        // a modal somebody may spend a minute typing into.
+        router.push('/find-photo');
       }
     },
-    [pickFromLibrary, shoot, settleCapture],
+    [pickFromLibrary, shoot, settleCapture, router],
   );
 
   /**
@@ -648,7 +654,6 @@ function CaptureScreen() {
    */
   const params = useLocalSearchParams<{ start?: string; from?: string }>();
   const autoStart = params.start;
-  const cameFromTen = params.from === 'ten';
   const autoStarted = useRef(false);
   const guardedRef = useRef(guarded);
   useEffect(() => {
@@ -1370,15 +1375,6 @@ function CaptureScreen() {
         draws is the fix: capture (07) shows the work, review (08) shows the
         result, and "Review tags" below appears exactly when there IS one.
       */}
-      {/* DS-C3 — `?from=ten` is how the catalogue route knows it is inside The
-          Ten, so its return action can say "my first ten" rather than "my
-          closet". Absent on every other entry, which is the closet. */}
-      <GarmentSearchSheet
-        visible={describeVisible}
-        onClose={() => setDescribeVisible(false)}
-        origin={cameFromTen ? 'first-ten' : 'closet'}
-      />
-
       <ConsentSheet
         visible={consentVisible}
         busy={grantConsent.isPending}

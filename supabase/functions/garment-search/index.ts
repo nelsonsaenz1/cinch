@@ -13,7 +13,10 @@ import {
   type ValidatedAttachRequest,
   type ValidatedDetachRequest,
   type ValidatedImportRequest,
+  type ValidatedImportBatchRequest,
   type ValidatedMatchRequest,
+  type ValidatedRequest,
+  type ValidatedSearchRequest,
 } from './bounds.ts';
 import { assertSafeUrl, guardedFetch, UnsafeUrlError } from './net.ts';
 import {
@@ -32,6 +35,13 @@ import {
   type DeclineReason,
 } from './policy.ts';
 import { licensedFirst } from './catalog-wiring.ts';
+import { searchFamilies } from './catalog-provider.ts';
+import {
+  type ImportRowResult,
+  planCatalogueBatch,
+  summariseBatch,
+} from './import-batch.ts';
+import { parseQuery } from '../_shared/catalog-query.ts';
 import { openRouterWebProvider } from './provider.ts';
 
 /**
@@ -208,12 +218,27 @@ export default {
   fetch: withSupabase(
     { auth: 'user' },
     async (req: Request, ctx): Promise<Response> => {
-      const apiKey = Deno.env.get('OPENROUTER_API_KEY');
-      if (!apiKey) {
-        return fail('not_configured', 'Search is not available right now.', 500);
-      }
+      /**
+       * OPTIONAL, AND THAT IS THE CHANGE.
+       *
+       * This used to be a hard precondition: no `OPENROUTER_API_KEY` and every
+       * action returned `not_configured`, including a pure licensed catalogue
+       * search that never touches a model. That coupled the licensed path's
+       * availability to a credential it does not use, and it meant the one path
+       * we can honestly describe as "not AI" was the first to go down when the
+       * AI credential did.
+       *
+       * It is still required for `match` (reading a brand off a photograph IS a
+       * vision judgement) and for the unlicensed fallback. Each of those checks
+       * for it where it is used.
+       */
+      const apiKey = Deno.env.get('OPENROUTER_API_KEY') ?? null;
 
-      let request;
+      // Annotated rather than inferred. `let request;` is an "evolving any" to
+      // the compiler, and an evolving binding does not narrow all the way down
+      // to `never` — which silently disables the exhaustiveness check at the
+      // bottom of the dispatch, the one thing it exists to do.
+      let request: ValidatedRequest;
       try {
         request = parseGarmentSearchRequest(await readBoundedJson(req));
       } catch (err) {
@@ -245,6 +270,43 @@ export default {
         return await detachListing(db, admin, request);
       }
 
+      /**
+       * ── TYPED SEARCH IS NOT AI PROCESSING, AND IS THEREFORE NOT GATED ────
+       *
+       * Above the consent gate, deliberately, and this is a correction rather
+       * than a loosening.
+       *
+       * The gate below exists for App Store Guideline 5.1.2(i): the user must
+       * agree before their content is sent to a model. A licensed catalogue
+       * search sends the typed words to Datafeedr as a QUERY. No model is
+       * invoked, no photograph leaves the device, and nothing about the request
+       * is a model call — which is exactly what the app already prints, three
+       * times, in `CATALOGUE_DISCLOSURE`, in the sheet, and in
+       * `web/privacy.html`: "It is not a web search and it is not sent to an AI
+       * model."
+       *
+       * Gating it anyway made the app contradict its own disclosure: it told
+       * the reader nothing was sent to a model and then refused to search until
+       * they consented to a model. The accepted design settles it — "AI-
+       * processing consent [does not gate] typed search. Typed search must work
+       * with that consent off; the spoken path remains governed by the existing
+       * voice policy and its recording disclosure."
+       *
+       * WHAT STAYS GATED, AND WHY THE LIST IS NOT ARBITRARY. `match` sends the
+       * user's own photograph to a vision model. `import` and `attach`
+       * download and store a third party's image. `resolve` turns a typed
+       * string into an outbound fetch from our network. Every one of those is
+       * something the consent is actually about. Search is not.
+       *
+       * THE QUOTA STAYS. Consent and allowance answer different questions —
+       * "may we" and "how often" — and removing the first does not remove the
+       * second. `enforceAiQuota` is claimed inside `searchGarments` exactly as
+       * before.
+       */
+      if (request.action === 'search') {
+        return await searchGarments(admin, userId, apiKey, request);
+      }
+
       // ── AI processing consent (App Store Guideline 5.1.2(i)) ──────────────
       // Server-side, like every sibling: a client-side gate is trivially
       // bypassed and the rule is about what actually leaves the device. Every
@@ -270,6 +332,28 @@ export default {
         return await importImage(db, admin, userId, request);
       }
 
+      /**
+       * The batch, and the one precondition that is not shared with `import`.
+       *
+       * A batch is by definition an import of CATALOGUE rows — the user picked
+       * them off a family screen — so with no catalogue configured there is
+       * nothing that could have selected them, and accepting the request would
+       * be storing arbitrary caller-supplied images under a name that claims
+       * they came from a licensed feed. The single `import` keeps its older,
+       * looser contract because the link door legitimately reaches it with a
+       * page the user pasted themselves.
+       */
+      if (request.action === 'import-batch') {
+        if (!licensedFirst(db, null).catalogue) {
+          return fail(
+            'catalogue_unavailable',
+            "Cinch can't reach the shop catalogue right now. Photographing the piece still works.",
+            503,
+          );
+        }
+        return await importCatalogueBatch(db, admin, userId, request);
+      }
+
       if (request.action === 'resolve') {
         return await resolveLink(admin, userId, request.pageUrl);
       }
@@ -282,95 +366,180 @@ export default {
         return await matchListing(db, admin, userId, apiKey, request);
       }
 
-      // ── Model config, read at call time so a model swap is a DB update ────
-      const { data: config } = await admin
-        .from('ai_config')
-        .select('model_id, params, max_tokens, enabled, provider')
-        .eq('workload', WORKLOAD)
-        .maybeSingle();
+      // Every action in the union is handled above. `request` is `never` here,
+      // so a seventh action added to `bounds.ts` without a branch fails the
+      // compile at this line rather than silently 400-ing in production.
+      const unreachable: never = request;
+      return fail('invalid_request', `Unsupported action: ${String(unreachable)}`, 400);
+    },
+  ),
+};
 
-      // `maybeSingle` and a fallback rather than a hard requirement: the row
-      // cannot be seeded by the same migration that creates the enum value, so
-      // "no row" is the normal state on the day this ships and must mean
-      // "defaults", not "broken". An explicit `enabled = false` is still a
-      // kill switch.
-      if (config && !config.enabled) {
-        return fail('search_disabled', 'Search is turned off right now.', 503);
-      }
+/**
+ * Describe a garment; get back the licensed catalogue's answer.
+ *
+ * Lifted out of the handler when it moved above the consent gate. Nothing about
+ * the order of operations changed with it: kill switch, then allowance, then
+ * the provider, then accounting whatever happened.
+ *
+ * TWO SHAPES IN ONE RESPONSE, ON PURPOSE.
+ *
+ * `families` is the new contract — CPV2-04's grouped, ranked answer. It is only
+ * ever populated by the licensed catalogue, because grouping requires a brand
+ * column, a colour field and the knowledge that two listings are one garment,
+ * none of which the web fallback has or could invent.
+ *
+ * `candidates` is the old one, and it stays for a release. A binary already in
+ * somebody's hand reads `candidates` and nothing else; shipping the function
+ * ahead of the client is only safe if the old field keeps working, and
+ * `bounds.ts` already documents that precedent for `pageUrl`. Nothing in this
+ * packet reads `families` yet — the client work is Packet 2.
+ */
+async function searchGarments(
+  admin: SupabaseClient<Database>,
+  userId: string,
+  apiKey: string | null,
+  request: ValidatedSearchRequest,
+): Promise<Response> {
+  // ── Model config, read at call time so a model swap is a DB update ────
+  const { data: config } = await admin
+    .from('ai_config')
+    .select('model_id, params, max_tokens, enabled, provider')
+    .eq('workload', WORKLOAD)
+    .maybeSingle();
 
-      // ── Allowance, claimed after the kill switch, before the provider ─────
-      // `claim_ai_quota` does not refund (a refund path is a free retry loop),
-      // so a unit must not be spent on a request that was never going to reach
-      // the model. The two other AI functions order it the same way.
-      const quotaResponse = await enforceAiQuota(admin, userId, 'garment_search');
-      if (quotaResponse) return quotaResponse;
+  // `maybeSingle` and a fallback rather than a hard requirement: the row
+  // cannot be seeded by the same migration that creates the enum value, so
+  // "no row" is the normal state on the day this ships and must mean
+  // "defaults", not "broken". An explicit `enabled = false` is still a
+  // kill switch.
+  if (config && !config.enabled) {
+    return fail('search_disabled', 'Search is turned off right now.', 503);
+  }
 
-      // Licensed feeds first; the web model path only answers what they could
-      // not, and not at all when GARMENT_SEARCH_ALLOW_UNLICENSED is "false".
-      // The ordering is a legal statement rather than a performance one — see
-      // `catalog.ts`. `licensedFirst` returns the web provider unchanged when
-      // Datafeedr is unconfigured, so a missing secret degrades to prior
-      // behaviour instead of to no search.
-      const provider = licensedFirst(
-        admin,
-        openRouterWebProvider({
+  // Licensed feeds first; the web model path only answers what they could not,
+  // and not at all when GARMENT_SEARCH_ALLOW_UNLICENSED is "false". The
+  // ordering is a legal statement rather than a performance one — see
+  // `catalog.ts`. The web provider is built only when its credential exists, so
+  // a missing `OPENROUTER_API_KEY` costs the fallback and not the search.
+  const wiring = licensedFirst(
+    admin,
+    apiKey
+      ? openRouterWebProvider({
           apiKey,
           model: config?.model_id ?? DEFAULT_MODEL,
           maxTokens: config?.max_tokens ?? DEFAULT_MAX_TOKENS,
           params: (config?.params ?? DEFAULT_PARAMS) as Record<string, unknown>,
-        }),
+        })
+      : null,
+  );
+
+  /**
+   * Nothing can answer. Said out loud, BEFORE the allowance is spent.
+   *
+   * This is the fail-closed branch, and the distinct code is the whole point:
+   * an empty `candidates` list means "the catalogue was asked and had nothing",
+   * which is a true sentence the client prints. Returning that when the
+   * catalogue was never configured would be a lie the reader cannot detect, and
+   * it is exactly what the old missing-secret fallback produced once the
+   * unlicensed path was turned off.
+   */
+  if (!wiring.canSearch) {
+    return fail(
+      'catalogue_unavailable',
+      "Cinch can't reach the shop catalogue right now. Photographing the piece still works.",
+      503,
+    );
+  }
+
+  // ── Allowance, claimed after the kill switch, before the provider ─────
+  // `claim_ai_quota` does not refund (a refund path is a free retry loop),
+  // so a unit must not be spent on a request that was never going to reach
+  // the provider. The two other AI functions order it the same way.
+  const quotaResponse = await enforceAiQuota(admin, userId, 'garment_search');
+  if (quotaResponse) return quotaResponse;
+
+  const provider = wiring.provider;
+
+  let result: Awaited<ReturnType<typeof provider.search>> | null = null;
+  let failure: string | null = null;
+
+  try {
+    result = await provider.search({
+      description: request.description,
+      swatchDataUrl: request.swatchDataUrl,
+      maxCandidates: MAX_CANDIDATES,
+    });
+  } catch (err) {
+    // `OpenRouterError` messages are already URL-redacted; they go to the
+    // accounting table for whoever is debugging cost, and never to the
+    // client, which gets a code and a sentence.
+    failure = err instanceof Error ? err.message : String(err);
+  }
+
+  // ── Accounting. Written for failures too: a failed search still costs a
+  //    web-search charge and sometimes tokens, and hiding that skews every
+  //    later decision about whether this feature pays for itself. ────────
+  await recordAiCall(admin, {
+    user_id: userId,
+    workload: WORKLOAD,
+    provider: config?.provider ?? provider.id,
+    model_id: config?.model_id ?? DEFAULT_MODEL,
+    prompt_tokens: result?.promptTokens ?? null,
+    completion_tokens: result?.completionTokens ?? null,
+    cost_usd: result?.costUsd ?? null,
+    latency_ms: result?.latencyMs ?? null,
+    succeeded: result !== null,
+    error: failure,
+  });
+
+  if (!result) {
+    return fail('search_failed', 'The search did not come back. Try again in a moment.', 502);
+  }
+
+  /**
+   * The families, from the licensed catalogue only.
+   *
+   * A SECOND CALL, AND IT COSTS NOTHING EXTRA IN THE COMMON CASE. The tile
+   * search above has already walked the ladder and written every row it fetched
+   * into `catalog_lookups`; this asks the same question with the same brand and
+   * the same duplicate rule, so it reads the cache it just filled. The one case
+   * where it does spend is when the tile path answered from the web fallback,
+   * and there the catalogue genuinely has not been asked yet.
+   *
+   * Failure here is not failure of the request. The tiles are already in hand
+   * and an older client does not read this field at all, so a broken grouping
+   * pass degrades to the previous contract rather than to an error screen.
+   */
+  let families: Awaited<ReturnType<typeof searchFamilies>>['families'] | null = null;
+  if (wiring.catalogue) {
+    try {
+      const grouped = await searchFamilies(wiring.catalogue, parseQuery(request.description));
+      families = grouped.families;
+    } catch (err) {
+      console.error(
+        `garment-search: family grouping failed, serving candidates only: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       );
+    }
+  }
 
-      let result: Awaited<ReturnType<typeof provider.search>> | null = null;
-      let failure: string | null = null;
-
-      try {
-        result = await provider.search({
-          description: request.description,
-          swatchDataUrl: request.swatchDataUrl,
-          maxCandidates: MAX_CANDIDATES,
-        });
-      } catch (err) {
-        // `OpenRouterError` messages are already URL-redacted; they go to the
-        // accounting table for whoever is debugging cost, and never to the
-        // client, which gets a code and a sentence.
-        failure = err instanceof Error ? err.message : String(err);
-      }
-
-      // ── Accounting. Written for failures too: a failed search still costs a
-      //    web-search charge and sometimes tokens, and hiding that skews every
-      //    later decision about whether this feature pays for itself. ────────
-      await recordAiCall(admin, {
-        user_id: userId,
-        workload: WORKLOAD,
-        provider: config?.provider ?? provider.id,
-        model_id: config?.model_id ?? DEFAULT_MODEL,
-        prompt_tokens: result?.promptTokens ?? null,
-        completion_tokens: result?.completionTokens ?? null,
-        cost_usd: result?.costUsd ?? null,
-        latency_ms: result?.latencyMs ?? null,
-        succeeded: result !== null,
-        error: failure,
-      });
-
-      if (!result) {
-        return fail('search_failed', 'The search did not come back. Try again in a moment.', 502);
-      }
-
-      // `declined` rides alongside the tiles rather than replacing them. A
-      // search that found four and refused two is a normal search; the client
-      // shows four tiles and one line naming the shops that said no. An empty
-      // `candidates` with a populated `declined` is the case this whole field
-      // exists for — it is the difference between "nothing matched" and "the
-      // shops that matched asked us not to".
-      return Response.json({
-        ok: true,
-        candidates: result.candidates,
-        declined: result.declined,
-      });
-    },
-  ),
-};
+  // `declined` rides alongside the tiles rather than replacing them. A
+  // search that found four and refused two is a normal search; the client
+  // shows four tiles and one line naming the shops that said no. An empty
+  // `candidates` with a populated `declined` is the case this whole field
+  // exists for — it is the difference between "nothing matched" and "the
+  // shops that matched asked us not to".
+  return Response.json({
+    ok: true,
+    candidates: result.candidates,
+    declined: result.declined,
+    // Null means "grouping was not available", which is not the same as an
+    // empty family list and must not read as one.
+    families,
+  });
+}
 
 /**
  * The sentence for a page we reached and could not read.
@@ -623,13 +792,58 @@ async function resolveLink(
  * there is no listing object to detach, and claiming one would give `detach` a
  * path to delete the item's only image.
  */
-async function importImage(
-  db: SupabaseClient<Database>,
-  admin: SupabaseClient<Database>,
-  userId: string,
-  request: ValidatedImportRequest,
-): Promise<Response> {
-  const { imageUrl, title } = request;
+/**
+ * A failure that has not yet decided whether it is an HTTP response or a row in
+ * a batch result.
+ *
+ * The single import turns one of these into a `Response`; the batch turns it
+ * into one entry in a list and carries on with the next colourway. Same causes,
+ * same codes, two presentations — which is only possible because the deciding
+ * happens after the failure rather than inside it.
+ */
+type ListingFailure = {
+  code: string;
+  message: string;
+  status: number;
+  /** Present only when a site said no, which is not the same as a failure. */
+  declined?: { reason: DeclineReason; source: string };
+};
+
+type FetchedListing = {
+  body: Uint8Array;
+  contentType: string;
+  extension: string;
+  /** Where the provenance line points. The page when we have one, else the
+   *  image URL the bytes actually came from, after redirects. */
+  sourceUrl: URL;
+};
+
+function failureResponse(failure: ListingFailure): Response {
+  if (failure.declined) return failDeclined(failure.declined.reason, failure.declined.source);
+  return fail(failure.code, failure.message, failure.status);
+}
+
+/**
+ * Vet a listing image and bring back its bytes. No database, no storage.
+ *
+ * Extracted from `importImage` unchanged when the batch needed the same work
+ * per colourway. Splitting it is what keeps the two paths honest about each
+ * other: there is no version of this that skips `admitSource` because it was
+ * "already checked during the search", and a batch of six cannot quietly become
+ * six unvetted downloads.
+ */
+async function fetchListingImage(
+  imageUrl: string,
+  pageUrl?: string,
+): Promise<{ ok: true; image: FetchedListing } | { ok: false; failure: ListingFailure }> {
+  const no = (code: string, message: string, status: number): { ok: false; failure: ListingFailure } => ({
+    ok: false,
+    failure: { code, message, status },
+  });
+  const declined = (reason: DeclineReason, source: string): { ok: false; failure: ListingFailure } => ({
+    ok: false,
+    failure: { code: 'source_declined', message: declineMessage(reason), status: 403, declined: { reason, source } },
+  });
 
   // ── Policy, before the bytes ──────────────────────────────────────────────
   // The tile the user tapped was already admitted once, during the search. It
@@ -640,28 +854,28 @@ async function importImage(
   try {
     image = assertSafeUrl(imageUrl);
   } catch {
-    return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+    return no('image_rejected', "That picture couldn't be saved. Try another one.", 400);
   }
 
   const imageVerdict = await admitSource(image);
-  if (imageVerdict) return failDeclined(imageVerdict, hostLabel(image));
+  if (imageVerdict) return declined(imageVerdict, hostLabel(image));
 
   // The page, when the client sent one. Vetted the same way and for the same
   // reason `attach` vets it: a URL we will store and render as a tappable link
   // deserves the treatment of one we would fetch.
   let page: URL | null = null;
-  if (request.pageUrl) {
+  if (pageUrl) {
     try {
-      page = assertSafeUrl(request.pageUrl);
+      page = assertSafeUrl(pageUrl);
     } catch {
-      return fail(
+      return no(
         'link_rejected',
         "Cinch can't open that link. Paste the product page from the shop's own site.",
         400,
       );
     }
     const pageVerdict = await admitSource(page);
-    if (pageVerdict) return failDeclined(pageVerdict, hostLabel(page));
+    if (pageVerdict) return declined(pageVerdict, hostLabel(page));
   }
 
   let downloaded;
@@ -673,31 +887,73 @@ async function importImage(
     });
   } catch (err) {
     if (err instanceof UnsafeUrlError) {
-      return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+      return no('image_rejected', "That picture couldn't be saved. Try another one.", 400);
     }
-    return fail('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
+    return no('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
   }
 
   if (downloaded.status !== 200) {
-    return fail('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
+    return no('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
   }
 
   // The response's own directive, which for an image host is usually the only
   // statement it makes. Checked before anything is written, never after.
   const contentVerdict = admitContent(downloaded.headers);
-  if (contentVerdict) return failDeclined(contentVerdict, hostLabel(downloaded.url));
+  if (contentVerdict) return declined(contentVerdict, hostLabel(downloaded.url));
 
   // `image/jpeg; charset=binary` is a real header in the wild.
   const contentType = downloaded.contentType.split(';')[0].trim();
   const extension = IMAGE_EXTENSIONS[contentType];
   if (!extension || !looksLikeImage(downloaded.body)) {
-    return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+    return no('image_rejected', "That picture couldn't be saved. Try another one.", 400);
   }
 
-  // The provenance recorded on the row. `downloaded.url` rather than the string
-  // the caller sent, so a redirect chain is recorded where it ended — which is
-  // where the bytes actually came from.
-  const sourceUrl = page ?? downloaded.url;
+  return {
+    ok: true,
+    image: {
+      body: downloaded.body,
+      contentType,
+      extension,
+      // `downloaded.url` rather than the string the caller sent, so a redirect
+      // chain is recorded where it ended — which is where the bytes came from.
+      sourceUrl: page ?? downloaded.url,
+    },
+  };
+}
+
+/**
+ * Turn fetched bytes into a garment.
+ *
+ * ORDER MATTERS, and it is the same order the single import has always used:
+ * the download runs before the row, so a blocked CDN leaves nothing behind; the
+ * row is created second, which is where the closet-size trigger gets its say;
+ * the object is written third under the `{user_id}/{item_id}/` prefix the
+ * bucket policy authorizes on. A failure after the row exists deletes it — an
+ * item with no image is a tile the closet cannot render and a slot the user's
+ * plan is charged for.
+ *
+ * PROVENANCE IS WRITTEN WITH THE ROW, never after, so there is no window in
+ * which an imported garment exists without its source. `listing_path` and
+ * `listing_confirmed_at` stay NULL, which is the deliberate difference from
+ * `attach`: on an imported item the retailer's picture IS the garment's
+ * picture, so there is nothing underneath it to restore and no listing object
+ * to detach.
+ */
+async function storeListingAsGarment(
+  db: SupabaseClient<Database>,
+  admin: SupabaseClient<Database>,
+  userId: string,
+  image: FetchedListing,
+  extras: {
+    title?: string | null;
+    /** The merchant's own colour name for the colourway that was chosen. */
+    colourLabel?: string | null;
+    /** Datafeedr's row id. The idempotency key; null for the link door. */
+    catalogExternalId?: string | null;
+  },
+): Promise<{ ok: true; itemId: string } | { ok: false; failure: ListingFailure }> {
+  const fail_ = (code: string, message: string, status: number) =>
+    ({ ok: false, failure: { code, message, status } }) as const;
 
   // ── The row. RLS scopes `db` to the caller, so `user_id` cannot be spoofed,
   //    and `items_enforce_limit` refuses the insert when the plan is full. ───
@@ -713,38 +969,69 @@ async function importImage(
   // Stated plainly because it is a real limit: a SUCCESSFUL tag overwrites this
   // with the model's own description. Making a user's typed name outlive that
   // needs either a column or a change in `tag-item`, both outside this file.
+  //
+  // The colourway the user picked rides along in the same string when they
+  // picked one, because it is the only thing distinguishing three rows that are
+  // otherwise the same shirt, and a closet showing "Crew Neck Jersey Tee" three
+  // times is a closet nobody can use.
+  const description = [extras.title ?? null, extras.colourLabel ?? null]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .join(' — ')
+    .slice(0, 200) || null;
+
   const { data: item, error: insertError } = await db
     .from('items')
     .insert({
       user_id: userId,
       status: 'pending_upload',
-      description: title ?? null,
-      // Written with the row rather than in the update below, so there is no
-      // window in which an imported garment exists without its source.
-      listing_source_url: sourceUrl.toString(),
-      listing_source_label: hostLabel(sourceUrl),
+      description,
+      listing_source_url: image.sourceUrl.toString(),
+      listing_source_label: hostLabel(image.sourceUrl),
+      catalog_external_id: extras.catalogExternalId ?? null,
+      // NEVER 'measured'. The pixels are a studio shot of a DIFFERENT physical
+      // garment than the one in this wardrobe, so telling the harmony scoring
+      // it has ground truth would be handing it a stock photo's white balance.
+      // Migration 20260813194202 adds the value; its header carries the whole
+      // argument, including why 'spoken' would have been the wrong reuse.
+      colour_source: 'catalogue',
+      // Likewise never 'photo', which is what the column default would have
+      // made this. Nobody photographed anything — not having to is the entire
+      // point of the matcher — so leaving the default would count every import
+      // as camera intake in the one cut that exists to tell the routes apart.
+      // Not 'voice' (a typed query is explicitly not voice) and not 'manual'
+      // (that is `useFileTypedWords`, where no catalogue was consulted).
+      intake_method: 'catalogue',
     })
     .select('id')
     .single();
 
   if (insertError || !item) {
-    // The trigger raises `closet_limit_reached: N of M garments`. Recognising it
-    // is what lets the client offer an upgrade instead of an apology.
+    // The triggers raise their own sentinels. Recognising them is what lets the
+    // client offer an upgrade or a swap instead of an apology.
     if (insertError?.message?.includes('closet_limit_reached')) {
-      return fail('closet_limit_reached', 'Your closet is full on this plan.', 402);
+      return fail_('closet_limit_reached', 'Your closet is full on this plan.', 402);
     }
-    return fail('import_failed', "That garment couldn't be added. Try again.", 500);
+    if (insertError?.message?.includes('storage_limit_reached')) {
+      return fail_('storage_limit_reached', 'Your closet and its archive are both full.', 402);
+    }
+    // The partial unique index on (user_id, catalog_external_id). Reached when
+    // a retry races the write it is retrying; the caller turns it into
+    // "already added", which is the truth and not an error.
+    if (insertError?.code === '23505') {
+      return fail_('already_imported', 'That piece is already in your closet.', 409);
+    }
+    return fail_('import_failed', "That garment couldn't be added. Try again.", 500);
   }
 
-  const path = `${userId}/${item.id}/original.${extension}`;
+  const path = `${userId}/${item.id}/original.${image.extension}`;
 
   const { error: uploadError } = await admin.storage
     .from(BUCKET)
-    .upload(path, downloaded.body, { contentType, upsert: true });
+    .upload(path, image.body, { contentType: image.contentType, upsert: true });
 
   if (uploadError) {
     await db.from('items').delete().eq('id', item.id);
-    return fail('import_failed', "That garment couldn't be added. Try again.", 500);
+    return fail_('import_failed', "That garment couldn't be added. Try again.", 500);
   }
 
   // `thumb_path` points at the same object rather than a resize. There is no
@@ -759,21 +1046,177 @@ async function importImage(
 
   if (updateError) {
     await db.from('items').delete().eq('id', item.id);
-    return fail('import_failed', "That garment couldn't be added. Try again.", 500);
+    return fail_('import_failed', "That garment couldn't be added. Try again.", 500);
   }
 
-  // Deliberately does NOT call tag-item: Supabase rate-limits Edge Functions
-  // calling each other, and the client's own sweep already drives `pending_tag`
-  // rows through tagging. Same pipeline as a photographed garment, from here on.
+  return { ok: true, itemId: item.id };
+}
+
+/**
+ * Download the chosen product image and turn it into a closet item.
+ *
+ * The single-colourway door, unchanged on the wire. Both halves of it now live
+ * in functions the batch shares, which is the only difference — the request it
+ * accepts, the response it returns and the order it does things in are exactly
+ * what they were.
+ *
+ * Deliberately does NOT call tag-item: Supabase rate-limits Edge Functions
+ * calling each other, and the client's own sweep already drives `pending_tag`
+ * rows through tagging. Same pipeline as a photographed garment, from here on.
+ */
+async function importImage(
+  db: SupabaseClient<Database>,
+  admin: SupabaseClient<Database>,
+  userId: string,
+  request: ValidatedImportRequest,
+): Promise<Response> {
+  const fetched = await fetchListingImage(request.imageUrl, request.pageUrl);
+  if (!fetched.ok) return failureResponse(fetched.failure);
+
+  const stored = await storeListingAsGarment(db, admin, userId, fetched.image, {
+    title: request.title ?? null,
+    catalogExternalId: null,
+  });
+  if (!stored.ok) return failureResponse(stored.failure);
+
   return Response.json({
     ok: true,
-    itemId: item.id,
+    itemId: stored.itemId,
     status: 'pending_tag',
     // Echoed so the confirmation screen can show the line the row now carries,
     // rather than the client having to re-derive it from a URL it may not have.
-    source: hostLabel(sourceUrl),
-    sourceUrl: sourceUrl.toString(),
+    source: hostLabel(fetched.image.sourceUrl),
+    sourceUrl: fetched.image.sourceUrl.toString(),
   });
+}
+
+/**
+ * CPV2-06/07 — add every colourway the user selected.
+ *
+ * THREE PROPERTIES, IN THE ORDER THEY MATTER.
+ *
+ * 1 · CAPACITY IS ALL-OR-NOTHING, AND IT IS DECIDED BEFORE ANY BYTES MOVE.
+ *     Three colourways into two free slots is refused as a batch. Writing two
+ *     and apologising for the third would be the worst of both: the user asked
+ *     one question and got half an answer, and the half they got is the half
+ *     the app chose. `import_capacity()` answers with the same two counts the
+ *     trigger enforces — a PREFLIGHT, never an authority, because between it
+ *     and the third insert a garment can arrive from another device and the
+ *     trigger is still the thing that decides.
+ *
+ * 2 · A RETRY CANNOT DUPLICATE. Every row carries Datafeedr's own id for the
+ *     colourway, and the partial unique index on (user_id, catalog_external_id)
+ *     makes the second write a constraint violation rather than a second shirt.
+ *     The rows already held come back as `already-added` — which is a SUCCESS
+ *     state and not an error, because from the user's side the piece is in the
+ *     closet either way and that is what they asked for.
+ *
+ *     Checked up front AND caught at the insert. The up-front read makes the
+ *     ordinary retry cheap; the caught violation makes the racing one correct.
+ *
+ * 3 · A FAILED ROW NEVER ROLLS BACK A SUCCESSFUL ONE. The handoff is explicit:
+ *     "colourways succeed and fail independently and successes are never rolled
+ *     back". So there is no transaction around the loop, and the response is a
+ *     list rather than a verdict.
+ *
+ * LICENSED-ONLY, like everything else in this feature: with no catalogue
+ * configured there is no batch, because a batch import is by definition an
+ * import of catalogue rows and there would be nothing to have selected them
+ * from.
+ */
+async function importCatalogueBatch(
+  db: SupabaseClient<Database>,
+  admin: SupabaseClient<Database>,
+  userId: string,
+  request: ValidatedImportBatchRequest,
+): Promise<Response> {
+  // ── Already held ─────────────────────────────────────────────────────────
+  // Read before anything is planned, so the ordinary retry — the one where the
+  // first attempt landed and only the response was lost — costs no downloads
+  // at all. The unique index catches the racing case at the insert.
+  const { data: existing, error: existingError } = await db
+    .from('items')
+    .select('id, catalog_external_id')
+    .in('catalog_external_id', request.imports.map((r) => r.externalId));
+
+  if (existingError) {
+    return fail('import_failed', "Cinch couldn't check your closet. Try again.", 500);
+  }
+
+  const heldBy = new Map<string, string>();
+  for (const row of existing ?? []) {
+    if (row.catalog_external_id) heldBy.set(row.catalog_external_id, row.id);
+  }
+
+  // ── Capacity, before any bytes move ──────────────────────────────────────
+  // A failed read does NOT refuse the batch: `import_capacity` is a preflight
+  // and `items_enforce_limit` is the authority, so a monitoring blip must not
+  // become a closed door.
+  const { data: capacityRows, error: capacityError } = await db.rpc('import_capacity');
+  const room = capacityError
+    ? null
+    : ((Array.isArray(capacityRows) ? capacityRows[0] : capacityRows) ?? null);
+
+  const plan = planCatalogueBatch(request.imports, heldBy, room);
+
+  if (plan.refusal) {
+    // The numbers travel with the code so the screen can say "room for one of
+    // the three" rather than a bare refusal. CPV2-11 draws that state.
+    return Response.json(plan.refusal, { status: 402 });
+  }
+
+  // ── One colourway at a time ──────────────────────────────────────────────
+  // Sequential rather than concurrent, deliberately: the trigger's count is
+  // read per insert, and six parallel writes against the last free slot is a
+  // race whose loser is a garment the user watched succeed.
+  const results: ImportRowResult[] = plan.alreadyHeld.map(({ externalId, itemId }) => ({
+    externalId,
+    status: 'already-added' as const,
+    itemId,
+  }));
+
+  for (const row of plan.pending) {
+    const fetched = await fetchListingImage(row.imageUrl, row.pageUrl);
+    if (!fetched.ok) {
+      results.push({
+        externalId: row.externalId,
+        status: 'failed',
+        error: fetched.failure.code,
+        message: fetched.failure.message,
+      });
+      continue;
+    }
+
+    const stored = await storeListingAsGarment(db, admin, userId, fetched.image, {
+      title: row.title ?? null,
+      colourLabel: row.colourLabel ?? null,
+      catalogExternalId: row.externalId,
+    });
+
+    if (!stored.ok) {
+      // The race: another request added this colourway between the read above
+      // and this insert. The user's intent is satisfied either way, so it is
+      // reported as held rather than as a failure they can do anything about.
+      if (stored.failure.code === 'already_imported') {
+        results.push({ externalId: row.externalId, status: 'already-added' });
+        continue;
+      }
+      results.push({
+        externalId: row.externalId,
+        status: 'failed',
+        error: stored.failure.code,
+        message: stored.failure.message,
+      });
+      continue;
+    }
+
+    results.push({ externalId: row.externalId, status: 'added', itemId: stored.itemId });
+  }
+
+  // 200 even when rows failed. The request itself succeeded — it asked six
+  // questions and answered all six — and a 500 here would tell a client that
+  // nothing landed when four things did.
+  return Response.json({ ok: true, results, ...summariseBatch(results) });
 }
 
 /** The columns `match` reads. A pick so a renamed column fails the compile
@@ -857,7 +1300,7 @@ async function matchListing(
   db: SupabaseClient<Database>,
   admin: SupabaseClient<Database>,
   userId: string,
-  apiKey: string,
+  apiKey: string | null,
   request: ValidatedMatchRequest,
 ): Promise<Response> {
   const { data: item } = await db
@@ -889,6 +1332,31 @@ async function matchListing(
     return fail('search_disabled', 'Search is turned off right now.', 503);
   }
 
+  // Composed before the quota claim, for the same reason the signed URL is:
+  // `claim_ai_quota` does not refund, so a request nothing could have answered
+  // must not cost the user a unit on its way to failing.
+  const wiring = licensedFirst(
+    admin,
+    apiKey
+      ? openRouterWebProvider({
+          apiKey,
+          model: config?.model_id ?? DEFAULT_MODEL,
+          maxTokens: config?.max_tokens ?? DEFAULT_MAX_TOKENS,
+          params: (config?.params ?? DEFAULT_PARAMS) as Record<string, unknown>,
+        })
+      : null,
+  );
+
+  // Nothing configured can answer this one, and it gets its own code: `match`
+  // reads a brand off a photograph, which a product feed cannot do at all, so
+  // an empty result without this branch would read as "no listings for your
+  // garment" when the truth is that nobody looked.
+  if (!wiring.canMatch) {
+    return fail('match_unavailable', "Cinch can't look this one up right now. Try again later.", 503);
+  }
+
+  const provider = wiring.provider;
+
   // The signed URL comes before the quota claim on purpose: `claim_ai_quota`
   // does not refund, and an unreadable image would otherwise burn a unit on a
   // request that was never going to reach the model. tag-item orders these the
@@ -905,17 +1373,8 @@ async function matchListing(
   if (quotaResponse) return quotaResponse;
 
   // Same composition as the `search` path, from the same function so the two
-  // cannot drift apart and leave one of them on the unlicensed source.
-  const provider = licensedFirst(
-    admin,
-    openRouterWebProvider({
-      apiKey,
-      model: config?.model_id ?? DEFAULT_MODEL,
-      maxTokens: config?.max_tokens ?? DEFAULT_MAX_TOKENS,
-      params: (config?.params ?? DEFAULT_PARAMS) as Record<string, unknown>,
-    }),
-  );
-
+  // cannot drift apart and leave one of them on the unlicensed source. Built
+  // above, before the allowance was claimed.
   let result: Awaited<ReturnType<typeof provider.match>> | null = null;
   let failure: string | null = null;
 

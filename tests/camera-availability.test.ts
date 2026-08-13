@@ -96,7 +96,14 @@ test('the chooser cannot push a door that would throw on the way there', () => {
   // binary cannot resolve — so the guard has to sit on the push, not inside the
   // destination.
   const src = readFileSync('src/app/add-clothes.tsx', 'utf8');
-  assert.match(src, /CAMERA_AVAILABLE \? '\/capture' : \('\/camera-unavailable'/);
+  // Matched loosely across whitespace: the cast moved from the second arm to
+  // the whole expression when Catalogue Photo V2's fixture routes grew
+  // expo-router's `Href` union past TS2590. What is being guarded is the
+  // BRANCH, not where the parenthesis sits.
+  assert.match(
+    src,
+    /CAMERA_AVAILABLE\s*\?\s*'\/capture'\s*:\s*'\/camera-unavailable'/,
+  );
   const route = code('src/app/camera-unavailable.tsx');
   assert.doesNotMatch(route, /expo-camera|CameraView/);
 });

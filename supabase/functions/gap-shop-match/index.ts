@@ -125,14 +125,17 @@ export default {
           // metered request buys are a hundred rows from shops we would name.
           // `garment-search` deliberately passes nothing here — see
           // `_shared/merchants.ts`.
-          return await searchCatalogue(
-            opts,
-            'keyword',
-            query,
+          return await searchCatalogue(opts, 'keyword', query, {
             brand,
-            null,
-            ALLOWED_MERCHANT_IDS,
-          );
+            merchantIds: ALLOWED_MERCHANT_IDS,
+            // Both defaults, named rather than omitted. This path suggests
+            // something to BUY, so a sold-out listing is a dead tile and one
+            // representative row per garment is what it wants — the opposite
+            // of the matcher on both counts. Written out so the difference is
+            // visible here rather than only in `catalog.ts`.
+            duplicates: 'variants',
+            availability: 'in-stock-only',
+          });
         },
 
         joined: async () => {

@@ -193,14 +193,18 @@ export default function AddClothesScreen() {
     // present a view controller while another modal is still animating, which
     // is exactly what is happening when this screen arrives from a deep link.
     const timer = setTimeout(() => {
-      openContentDoor(
-        (requestedDoor === 'library'
-          ? `/capture?start=library${doorFrom}`
-          : `/capture?start=describe${doorFrom}`) as Href,
-      );
+      // `?door=describe` is the catalogue route by deep link, and it lands
+      // where the tapped plate lands — ungated, on `/find-photo`. The library
+      // door still goes through `openContentDoor`, because a photograph really
+      // is about to be processed.
+      if (requestedDoor === 'library') {
+        openContentDoor(`/capture?start=library${doorFrom}` as Href);
+      } else {
+        router.push(`/find-photo${doorFrom ? `?from=ten` : ''}` as Href);
+      }
     }, 0);
     return () => clearTimeout(timer);
-  }, [requestedDoor, doorFrom, openContentDoor]);
+  }, [requestedDoor, doorFrom, openContentDoor, router]);
 
   const onAccept = useCallback(async () => {
     await grantConsent.mutateAsync();
@@ -327,8 +331,17 @@ export default function AddClothesScreen() {
           // be — `/capture` statically imports `CameraView`, so on a binary
           // without the module this door would not open a screen, it would
           // throw on the way there.
+          // Cast on the WHOLE expression, not on one arm. expo-router's `Href`
+          // is a generated union over every file in src/app, and a ternary of
+          // two members of it is a union of unions — which tipped past
+          // TS2590's complexity ceiling the moment Catalogue Photo V2 added
+          // seventeen fixture routes. Casting the result keeps one `Href` where
+          // there were two. `tests/dev-route-index.test.ts` checks both paths
+          // against the filesystem, so the cast hides nothing.
           onPress={() =>
-            router.push(CAMERA_AVAILABLE ? '/capture' : ('/camera-unavailable' as Href))
+            router.push(
+              (CAMERA_AVAILABLE ? '/capture' : '/camera-unavailable') as Href,
+            )
           }
           condition={
             !CAMERA_AVAILABLE ? (
@@ -409,7 +422,23 @@ export default function AddClothesScreen() {
           line={ROUTE.catalogue.line}
           symbol={ROUTE.catalogue.symbol}
           accessibilityLabel={ROUTE.catalogue.accessibilityLabel}
-          onPress={() => openContentDoor('/capture?start=describe')}
+          /**
+           * STRAIGHT THROUGH, NOT `openContentDoor`.
+           *
+           * The consent sheet exists because a photograph is about to be sent
+           * to an AI model. Typed catalogue search is not AI processing — the
+           * words go to Cinch and to the licensed shop catalogue, and Packet 1
+           * moved `action: 'search'` above the server's consent gate to make
+           * that true rather than merely stated. Gating this door would ask for
+           * permission to do something the destination does not do, and would
+           * put a wall in front of the one intake route that works with AI
+           * processing switched off.
+           *
+           * The spoken half of `/find-photo` carries its own recording
+           * disclosure, in the field, above the microphone — about a recording,
+           * not a photograph. Same reasoning as the Voice door below.
+           */
+          onPress={() => router.push('/find-photo')}
         />
         <DoorPlate
           name={ROUTE.voice.name}

@@ -112,7 +112,7 @@ export class TranscriptionError extends Error {
   }
 }
 
-function describeFailure(failure: TranscriptionFailure): string {
+export function describeFailure(failure: TranscriptionFailure): string {
   switch (failure.kind) {
     case 'silent':
       return "I didn't catch anything.";
@@ -152,7 +152,7 @@ export function needsNewRecording(failure: TranscriptionFailure): boolean {
  * is what `audio_unreadable` already means for the one server code
  * (`audio_unreadable` itself, a failed signed-URL) that does have a bucket.
  */
-function toFailureCause(failure: TranscriptionFailure): FailureCause {
+export function toFailureCause(failure: TranscriptionFailure): FailureCause {
   switch (failure.kind) {
     case 'silent':
       return 'silent';
@@ -190,7 +190,7 @@ type TranscribeErrorBody = {
 /** Same idiom as `ingest/upload-queue.ts` and `ingest/use-garment-search.ts`:
  *  the status and JSON body of a non-2xx `functions.invoke`, as far as either
  *  can be read. */
-async function readHttpError(
+export async function readHttpError(
   error: unknown,
 ): Promise<{ status: number | null; body: TranscribeErrorBody | null }> {
   if (!(error instanceof FunctionsHttpError)) return { status: null, body: null };
@@ -203,7 +203,7 @@ async function readHttpError(
   }
 }
 
-function classify(status: number | null, body: TranscribeErrorBody | null): TranscriptionFailure {
+export function classify(status: number | null, body: TranscribeErrorBody | null): TranscriptionFailure {
   switch (body?.error) {
     case 'silent':
       return { kind: 'silent' };
@@ -243,13 +243,24 @@ function classify(status: number | null, body: TranscribeErrorBody | null): Tran
 /**
  * Put the take where `transcribe-intake` will look for it, and only there.
  *
- * The path is derived from `userId`/`sessionId` exactly as the function derives
- * it server-side (`${userId}/${sessionId}.m4a`) — not accepted as a parameter
- * from anywhere else, so there is no way to call this with a path that lands on
- * somebody else's object or a stale one of the caller's own.
+ * The path is derived from `userId`/`objectStem` exactly as the function derives
+ * it server-side (`${userId}/${objectStem}.m4a`) — the caller supplies a HANDLE,
+ * never a path, so there is no way to call this with a path that lands on
+ * somebody else's object or a stale one of the caller's own. The bucket's own
+ * policy (20260810140300) authorises on the first path segment, which this
+ * builds from the authenticated id.
+ *
+ * `objectStem` is a walkthrough's session id or a catalogue query's request id.
+ * EXPORTED so the catalogue voice hook uses this upload rather than a second
+ * one — the 409-means-already-there reasoning below is subtle enough that a
+ * copy of it would drift.
  */
-async function uploadAudio(userId: string, sessionId: string, localUri: string): Promise<void> {
-  const path = `${userId}/${sessionId}.m4a`;
+export async function uploadAudio(
+  userId: string,
+  objectStem: string,
+  localUri: string,
+): Promise<void> {
+  const path = `${userId}/${objectStem}.m4a`;
 
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
   if (error || !data) {
@@ -301,7 +312,7 @@ async function uploadAudio(userId: string, sessionId: string, localUri: string):
  * gone; the local copy was only ever this hook's insurance against losing the
  * recording to a failed call.
  */
-function deleteLocalRecording(localUri: string): void {
+export function deleteLocalRecording(localUri: string): void {
   try {
     const file = new File(localUri);
     if (file.exists) file.delete();

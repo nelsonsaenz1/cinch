@@ -113,7 +113,15 @@ export type UseRecorder = {
   stop: (reason?: RecorderStopReason) => Promise<RecorderResult | null>;
 };
 
-export function useRecorder(): UseRecorder {
+/**
+ * How long a take may run before it finalises itself.
+ *
+ * The walkthrough's twelve minutes is a wardrobe read aloud. A catalogue query
+ * is one sentence, and CPV2-02 draws its ceiling as "Listening · 0:04 of 0:30"
+ * — a stated bound, not a surprise. Passed in rather than branched on inside,
+ * so this file still knows nothing about which feature is recording.
+ */
+export function useRecorder(maxMs: number = MAX_RECORDING_MS): UseRecorder {
   // `.m4a`, AAC — the container `transcribe-intake` names in the storage path
   // and the one the ASR endpoint accepts. Metering is opt-in and the whole of
   // V-02 depends on it.
@@ -268,13 +276,13 @@ export function useRecorder(): UseRecorder {
       const total = accumulatedMs.current + (Date.now() - startedAt.current);
       setElapsedMs(total);
       setSilentForMs(Date.now() - lastSoundAt.current);
-      if (total >= MAX_RECORDING_MS) {
+      if (total >= maxMs) {
         void stop('capped').then((result) => {
           if (result) onStopRef.current?.(result);
         });
       }
     }, CLOCK_INTERVAL_MS);
-  }, [permission, requestPermission, recorder, amplitude, stop]);
+  }, [permission, requestPermission, recorder, amplitude, stop, maxMs]);
 
   const pause = useCallback(() => {
     if (!isRecording || isPaused) return;
