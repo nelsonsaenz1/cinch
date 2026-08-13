@@ -1073,7 +1073,7 @@ export type Database = {
       intake_drafts: {
         Row: {
           colour_oklch: Json | null
-          colour_term: string
+          colour_term: string | null
           confidence: number
           created_at: string
           fabric: string | null
@@ -1093,7 +1093,7 @@ export type Database = {
         }
         Insert: {
           colour_oklch?: Json | null
-          colour_term: string
+          colour_term?: string | null
           confidence?: number
           created_at?: string
           fabric?: string | null
@@ -1113,7 +1113,7 @@ export type Database = {
         }
         Update: {
           colour_oklch?: Json | null
-          colour_term?: string
+          colour_term?: string | null
           confidence?: number
           created_at?: string
           fabric?: string | null

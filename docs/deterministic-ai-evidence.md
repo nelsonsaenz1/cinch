@@ -307,3 +307,105 @@ In this order, and not before:
    `PackingBriefError` class kept for one dev fixture route.
 
 Deleting it now would break the memo for every device on the current bundle.
+
+---
+
+## Packet 3 — Workstreams 5–6 · deterministic parser, deterministic stylist tools
+
+**Migration** `20260813212206_nullable_draft_colour` — applied to
+`dugizuswuebrmcmvinmi`, `{"success":true}`. **Deployed:** `parse-closet` only.
+
+### The finding that forced the migration
+
+`normalizeGarments` resolved any unrecognised colour to **`'grey'`**, and
+`intake_drafts.colour_term` was NOT NULL, so it had to. Somebody says "my linen
+shirt", the review card says grey, and either they catch it or they now own a
+grey shirt they do not have — filed with a colour `colour_oklch` derives from
+and the styling engine reads as ground truth.
+
+The plan's rule is exact: *"Never guess an absent color; leave it unresolved for
+review rather than inventing the likely value."* That was not expressible while
+the column was NOT NULL. Dropping the constraint is a widening — no data moves,
+nothing references the column, and `colour_oklch` beside it was always nullable.
+
+Null is now drawn, not defaulted: the card's chip reads **"Colour?"**, the
+precipitate draws the tray tone rather than a swatch, `resolveDraftColours`
+skips a draft with nothing to resolve, and `ColourGrid` highlights nothing.
+
+### Workstream 5 — the parser
+
+`_shared/closet-parse.ts` is pure and reads the SAME lexicons the catalogue
+matcher searches with, so a garment named here and one searched for there cannot
+drift. Receipt lines are `transcript.slice(start, end)` — verbatim by
+construction, not by instruction.
+
+The gate on the model is `ambiguous` only. Unconsumed spans do **not** trigger a
+fallback; sending them would spend a call to be told a cough is not a cardigan.
+When nothing is ambiguous, `parse-closet` returns before the quota claim and
+before the provider — the plan's "do not claim AI quota for a completely
+deterministic parse", enforced by an ordering assertion rather than intended.
+
+When it does fall back, the model is asked about **phrases**, not the wardrobe:
+the ambiguous spans plus the already-resolved garment NAMES as relational
+context so "another one of those" has a referent. Its answer then goes through
+the same `normalizeGarments` validator and `provenSpans`, which drops any
+garment whose receipt line is not a substring of the transcript.
+
+Two defects the fixtures caught in my own parser before anything shipped:
+**plural nouns fell through entirely** (`CLASS_NOUNS` is singular because it is a
+search vocabulary, so "jeans", "boots" and "three t-shirts" all became ambiguous
+and would have bought a model call each), and **"a couple of shirts" read as
+one** because the article was tested before the quantity word.
+
+### Workstream 6 — the stylist tools
+
+`features/stylist/facts.ts`: a closed router over nine intents, and a tool per
+intent computed from the closet already in memory. "How many white shirts do I
+have" used to travel as a DIGEST — prose that had already discarded the
+individual pieces — and the number that came back was inferred, not counted.
+
+The router is closed on purpose. A question that matches no pattern goes to the
+model unchanged, and that is the safe direction: an open question answered by
+the model is the status quo, while a vague question force-fitted to a template is
+a confident wrong answer with a number in it. `should I buy` was deliberately
+removed from the gap vocabulary for exactly this reason — a list of empty slots
+does not answer "what should I buy next season".
+
+Cost-per-wear refuses rather than averaging over unpriced pieces. Gaps are empty
+slots counted, never taste. Compatibility is a formality band, never an outfit —
+the beam search owns that and this must not become a second, worse copy.
+`closetRevision` is the cache key the plan asks for.
+
+### Checks
+
+```
+node scripts/run-tests.mjs   1371 pass, 0 fail   (1285 → 1371, +86)
+supabase db reset --local    clean replay from empty
+supabase test db --local     16 files, 279 tests, PASS
+npx tsc --noEmit             0 lines
+npx expo lint                11 problems, 0 errors  (baseline)
+deno check parse-closet      0 errors
+deno check garment-search    0 errors
+npm run check:fingerprint    414c789dbc3e… unchanged
+```
+
+**Production readback:** `intake_drafts.colour_term` `is_nullable = YES`, comment
+present. **Advisors:** no new findings — byte-identical to the Packet 1 set.
+
+### Runtime and OTA eligibility
+
+Fingerprint unchanged. No native dependency, permission, entitlement,
+config-plugin or package added. Same-runtime and OTA-eligible; **not published**.
+
+**Three receipts now pending for one combined publish:** Packet 1 (catalogue
+intent key on import), Packet 2 (deterministic memo, Today gate), Packet 3
+(client-side stylist tools and the null-colour review card).
+
+### Ordering note for the pending OTA
+
+`parse-closet` is deployed and now returns `colour_term: null` for a garment
+whose colour was not named. Builds on the current bundle render that through
+`resolveSpokenColour(null)`, which falls back rather than throwing — but the
+"Colour?" chip and the neutral swatch only arrive with the OTA. That is a
+cosmetic gap for one release, not a broken screen, and it argues for publishing
+the three packets together rather than leaving it open indefinitely.

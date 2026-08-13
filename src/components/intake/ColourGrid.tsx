@@ -127,13 +127,16 @@ const SECTIONS = FAMILY_ORDER.map((family) => ({
 })).filter((section) => section.swatches.length > 0);
 
 export type ColourGridProps = {
-  /** The draft's current `colour_term` (`CorrectionDraft.colourTerm` —
-   *  `intake_drafts.colour_term` is `not null`, so this is a plain `string`,
-   *  never `null`). Matched by exact string, not by nearest colour: a
-   *  nearest-match highlight would silently claim the model's "cognac" and
-   *  this grid's "camel" are the same correction, which is exactly the false
-   *  precision V-07 exists to refuse. */
-  value: string;
+  /** The draft's current `colour_term`, or NULL when the description named no
+   *  colour — the column is nullable as of migration 20260813212206, because a
+   *  colour nobody said used to be resolved to 'grey'. Null simply highlights
+   *  nothing, which is the honest rendering of "not chosen yet".
+   *
+   *  Matched by exact string, not by nearest colour: a nearest-match highlight
+   *  would silently claim the model's "cognac" and this grid's "camel" are the
+   *  same correction, which is exactly the false precision V-07 exists to
+   *  refuse. */
+  value: string | null;
   /** Fired with the tapped term. The caller re-resolves it through
    *  `resolveSpokenColour`, same as V-06's original card, rather than this
    *  component handing back a colour object — a correction and the original
@@ -145,7 +148,8 @@ export type ColourGridProps = {
  *  44pt target. No wheel, no slider — see the file header for why. */
 export function ColourGrid({ value, onChange }: ColourGridProps) {
   const theme = useTheme();
-  const normalizedSelected = value.trim().toLowerCase();
+  // Null highlights nothing, which is what "not chosen yet" looks like.
+  const normalizedSelected = value?.trim().toLowerCase() ?? '';
 
   return (
     <View>

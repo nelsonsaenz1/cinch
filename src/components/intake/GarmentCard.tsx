@@ -333,7 +333,10 @@ type Attribute = { field: CorrectionField; label: string };
 function buildAttributes(draft: IntakeDraftRow): Attribute[] {
   const attrs: Attribute[] = [
     { field: 'kind', label: slotLabel(draft.slot) },
-    { field: 'colour', label: capitalize(draft.colour_term) },
+    // Null is a real state now: the description named no colour and nothing
+    // guessed one. The chip still appears — it is how a correction is opened —
+    // but it asks instead of asserting.
+    { field: 'colour', label: draft.colour_term ? capitalize(draft.colour_term) : 'Colour?' },
   ];
   if (draft.fabric) attrs.push({ field: 'fabric', label: capitalize(draft.fabric) });
   if (draft.pattern) attrs.push({ field: 'pattern', label: capitalize(draft.pattern) });

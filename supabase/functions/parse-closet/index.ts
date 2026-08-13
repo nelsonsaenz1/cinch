@@ -14,6 +14,12 @@ import {
   MAX_GARMENTS,
   type ParsedCloset,
 } from '../_shared/intake-schema.ts';
+import {
+  needsFallback,
+  parseCloset,
+  provenSpans,
+  type DeterministicParse,
+} from '../_shared/closet-parse.ts';
 import { enforceAiQuota } from '../_shared/quota.ts';
 
 /**
@@ -160,12 +166,37 @@ export default {
 
       await db.from('intake_sessions').update({ status: 'parsing' }).eq('id', sessionId);
 
+      /**
+       * The deterministic pass, first, and usually last.
+       *
+       * Most of what people say walking a closet is a list — "three white
+       * t-shirts, a navy wool cardigan, black jeans" — and a list over two
+       * fixed vocabularies is a parsing problem, not a judgement. `parseCloset`
+       * slices every receipt line straight out of the transcript by offset, so
+       * its quotations are real by construction rather than by instruction.
+       *
+       * WHEN IT ANSWERS EVERYTHING, THIS FUNCTION SPENDS NOTHING: no provider
+       * call, no quota claim, no `ai_calls` row. The plan is explicit that a
+       * completely deterministic parse must not claim AI quota, and the early
+       * return below is where that is true rather than intended.
+       */
+      const local = parseCloset(transcript);
+
+      if (!needsFallback(local)) {
+        const parsed = normalizeGarments(
+          { garments: local.garments, unconsumed: local.unconsumed },
+          transcript,
+        );
+        return await commitParse(db, sessionId, userId, parsed);
+      }
+
       // Quota is claimed BEFORE the call and never refunded — same posture as
       // every other AI path here. See _shared/quota.ts on why a refund path is
       // a free retry loop for anyone willing to provoke failures.
       //
       // One unit for the parse itself. The per-garment charge the directive
-      // asks for is applied below, once the count is known.
+      // asks for is applied below, once the count is known. Reached ONLY when
+      // the deterministic pass left something ambiguous.
       const quotaResponse = await enforceAiQuota(admin, userId, 'tagging');
       if (quotaResponse) {
         await db.from('intake_sessions')
@@ -188,7 +219,17 @@ export default {
           model: settings.modelId,
           messages: [
             { role: 'system', content: PARSE_SYSTEM_PROMPT },
-            { role: 'user', content: transcript },
+            /**
+             * THE AMBIGUOUS SPANS, NOT THE WARDROBE.
+             *
+             * The model used to receive the whole transcript and return the
+             * whole closet. Now it is asked about the phrases the lexicons
+             * could not place — "another one of those in black" — with the
+             * garments already resolved listed only as relational context, so
+             * "those" has a referent. That is the minimum needed to answer and
+             * nothing more.
+             */
+            { role: 'user', content: fallbackPrompt(local, transcript) },
           ],
           schema: closetSchema as unknown as Record<string, unknown>,
           schemaName: 'closet',
@@ -229,7 +270,30 @@ export default {
         return Response.json({ error: code }, { status: 502 });
       }
 
-      const parsed = normalizeGarments(result.parsed, transcript);
+      /**
+       * The model's answer goes through the SAME validator, and then through
+       * the exact-span proof.
+       *
+       * `provenSpans` drops any garment whose receipt line is not a substring
+       * of the transcript. The deterministic pass cannot fail that check — its
+       * spans are slices — so this exists solely for the fallback, which is the
+       * only path that can fabricate a quotation.
+       *
+       * The two results are merged rather than replaced: everything the
+       * lexicons placed keeps its deterministic fields, and the model only ever
+       * adds the spans it was asked about.
+       */
+      const fallback = normalizeGarments(result.parsed, transcript);
+      const merged = {
+        garments: [
+          ...local.garments,
+          ...provenSpans(fallback.garments, transcript).filter(
+            (g) => !local.garments.some((d) => d.utterance === g.utterance),
+          ),
+        ].slice(0, MAX_GARMENTS),
+        unconsumed: [...new Set([...local.unconsumed, ...fallback.unconsumed])],
+      };
+      const parsed = normalizeGarments(merged, transcript);
 
       // Per-garment quota, so a 40-item walkthrough costs the same 40 units a
       // 40-photo import would (§7). Claimed AFTER the call because the count is
@@ -257,68 +321,113 @@ export default {
         attempts: 1,
       });
 
-      if (parsed.garments.length === 0) {
-        // V-13, "nothing parsed". Not an error status: the recording worked and
-        // the transcript is intact, so the session stays reviewable and the
-        // screen shows the words with nothing pulled out of them.
-        await db.from('intake_sessions')
-          .update({ status: 'reviewing', unconsumed: parsed.unconsumed })
-          .eq('id', sessionId);
-        return Response.json({ garments: [], unconsumed: parsed.unconsumed });
-      }
-
-      const rows = parsed.garments.slice(0, MAX_GARMENTS).map((g, index) => ({
-        session_id: sessionId,
-        user_id: userId,
-        ordinal: index,
-        utterance: g.utterance,
-        name: g.name,
-        slot: g.slot,
-        colour_term: g.colour_term,
-        // Deliberately null. The lexicon lives in the client bundle
-        // (src/lib/color/families.ts) and resolving here would be a second copy
-        // of it in a second runtime — the app fills this in as it walks the
-        // procession, which is also when a correction can change it.
-        colour_oklch: null,
-        fabric: g.fabric,
-        pattern: g.pattern,
-        formality: g.formality,
-        warmth: g.warmth,
-        quantity: g.quantity,
-        confidence: g.confidence,
-        state: 'pending' as const,
-      }));
-
-      // Written through the user's client so the insert policy applies.
-      //
-      // `.select()` is not decoration. Without it this returned the payload it
-      // had just built — rows with no `id` and no `created_at`, because those
-      // are defaulted by Postgres and only exist once the row does. Every card
-      // in a freshly-parsed procession would have had `id: undefined`: nothing
-      // to key a list by, and nothing to save a correction against. The
-      // `reused` branch above already selects, so the two paths returned
-      // differently shaped garments for the same session depending on whether
-      // it was the first call or a retry.
-      const { data: inserted, error: insertError } = await db
-        .from('intake_drafts')
-        .insert(rows)
-        .select('*')
-        .order('ordinal');
-      if (insertError) {
-        await db.from('intake_sessions')
-          .update({ status: 'failed', error_code: 'drafts_unwritable' })
-          .eq('id', sessionId);
-        return Response.json({ error: 'drafts_unwritable' }, { status: 500 });
-      }
-
-      await db.from('intake_sessions')
-        .update({ status: 'reviewing', cursor: 0, unconsumed: parsed.unconsumed })
-        .eq('id', sessionId);
-
-      return Response.json({
-        garments: inserted ?? rows,
-        unconsumed: parsed.unconsumed,
-      });
+      return await commitParse(db, sessionId, userId, parsed);
     },
   ),
 };
+
+/**
+ * Write the drafts and answer, whichever pass produced them.
+ *
+ * Lifted out of the handler when the deterministic path was added, because the
+ * two paths must commit IDENTICALLY — a parse that spent no model call has to
+ * produce the same rows, the same ordinals and the same session state as one
+ * that did. Two copies of this would be two chances for them to diverge, and
+ * the divergence would only show up as a walkthrough that behaves differently
+ * depending on how ambiguous the speech was.
+ */
+async function commitParse(
+  db: SupabaseClient<Database>,
+  sessionId: string,
+  userId: string,
+  parsed: ParsedCloset,
+): Promise<Response> {
+      if (parsed.garments.length === 0) {
+    // V-13, "nothing parsed". Not an error status: the recording worked and
+    // the transcript is intact, so the session stays reviewable and the
+    // screen shows the words with nothing pulled out of them.
+    await db.from('intake_sessions')
+      .update({ status: 'reviewing', unconsumed: parsed.unconsumed })
+      .eq('id', sessionId);
+    return Response.json({ garments: [], unconsumed: parsed.unconsumed });
+  }
+
+  const rows = parsed.garments.slice(0, MAX_GARMENTS).map((g, index) => ({
+    session_id: sessionId,
+    user_id: userId,
+    ordinal: index,
+    utterance: g.utterance,
+    name: g.name,
+    slot: g.slot,
+    colour_term: g.colour_term,
+    // Deliberately null. The lexicon lives in the client bundle
+    // (src/lib/color/families.ts) and resolving here would be a second copy
+    // of it in a second runtime — the app fills this in as it walks the
+    // procession, which is also when a correction can change it.
+    colour_oklch: null,
+    fabric: g.fabric,
+    pattern: g.pattern,
+    formality: g.formality,
+    warmth: g.warmth,
+    quantity: g.quantity,
+    confidence: g.confidence,
+    state: 'pending' as const,
+  }));
+
+  // Written through the user's client so the insert policy applies.
+  //
+  // `.select()` is not decoration. Without it this returned the payload it
+  // had just built — rows with no `id` and no `created_at`, because those
+  // are defaulted by Postgres and only exist once the row does. Every card
+  // in a freshly-parsed procession would have had `id: undefined`: nothing
+  // to key a list by, and nothing to save a correction against. The
+  // `reused` branch above already selects, so the two paths returned
+  // differently shaped garments for the same session depending on whether
+  // it was the first call or a retry.
+  const { data: inserted, error: insertError } = await db
+    .from('intake_drafts')
+    .insert(rows)
+    .select('*')
+    .order('ordinal');
+  if (insertError) {
+    await db.from('intake_sessions')
+      .update({ status: 'failed', error_code: 'drafts_unwritable' })
+      .eq('id', sessionId);
+    return Response.json({ error: 'drafts_unwritable' }, { status: 500 });
+  }
+
+  await db.from('intake_sessions')
+    .update({ status: 'reviewing', cursor: 0, unconsumed: parsed.unconsumed })
+    .eq('id', sessionId);
+
+  return Response.json({
+    garments: inserted ?? rows,
+    unconsumed: parsed.unconsumed,
+  });
+}
+
+/**
+ * The one thing the model is asked, when it is asked anything.
+ *
+ * Not the transcript, and not the wardrobe. The ambiguous spans, plus the
+ * garments the lexicons already placed — as bare names, so a phrase like
+ * "another one of those" has a referent to resolve against and nothing else
+ * travels. That list is relational context, not an inventory: no colours, no
+ * ids, no quantities.
+ */
+function fallbackPrompt(local: DeterministicParse, transcript: string): string {
+  const resolved = local.garments.map((g) => g.name).join(', ');
+  return [
+    'Resolve ONLY these phrases into garments. Quote each `utterance` verbatim from the transcript.',
+    '',
+    'Phrases:',
+    ...local.ambiguous.map((a) => `- ${a}`),
+    '',
+    resolved ? `Already understood, for reference only: ${resolved}` : '',
+    '',
+    'Transcript:',
+    transcript,
+  ]
+    .filter((line) => line !== '')
+    .join('\n');
+}

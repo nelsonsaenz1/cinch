@@ -26,7 +26,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(13);
 
 insert into auth.users (id, email)
 values ('66666666-6666-4666-8666-666666666666', 'wren@example.test'),
@@ -178,6 +178,21 @@ select is(
   (select n from free_ceiling),
   'every filed piece is imageless — none acquired a picture on the way in'
 );
+
+-- ---------------------------------------------------------------------------
+-- An unheard colour is null, not a guess
+-- ---------------------------------------------------------------------------
+--
+-- `colour_term` was NOT NULL, so a description that named no colour had to be
+-- given one — and the validator supplied 'grey'. A confident wrong colour on a
+-- garment somebody is about to file is worse than an empty field, because
+-- `colour_oklch` derives from it and the scorer reads that as ground truth.
+
+select col_is_null('public', 'intake_drafts', 'colour_term',
+  'a colour the description did not name can be left unresolved');
+
+select col_is_null('public', 'intake_drafts', 'colour_oklch',
+  'and the resolved colour beside it was always allowed to be absent');
 
 select * from finish();
 rollback;

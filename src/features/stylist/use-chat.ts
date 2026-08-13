@@ -8,6 +8,7 @@ import { generateOutfits, type Garment, type OutfitCandidate, type StyleContext 
 import { getUserId, supabase } from '@/lib/supabase';
 
 import type { StyleProfile } from '../styling/queries';
+import { tryFactAnswer } from './facts';
 import { closetDigest, contextForQuestion } from './intent';
 import type { BriefIntent, StylistBrief } from './questionnaire';
 
@@ -173,6 +174,32 @@ export function useChat({
 
   const send = useMutation({
     mutationFn: async ({ question, options }: { question: string; options?: AskOptions }) => {
+      /**
+       * A question with one right answer is answered here, from the closet
+       * already in memory.
+       *
+       * "How many white shirts do I have" used to travel to a model as a
+       * DIGEST — prose that had already discarded the individual pieces — and
+       * the number that came back was inferred rather than counted. It cost a
+       * call, twenty seconds, and a slice of the stylist allowance people are
+       * meant to spend on advice.
+       *
+       * `tryFactAnswer` returns null for anything open-ended, which is most of
+       * what gets asked, and that path is unchanged. See `facts.ts` for why the
+       * router is closed rather than best-effort.
+       */
+      const fact = tryFactAnswer(wardrobe, question, Date.now());
+      if (fact) {
+        return {
+          reply: fact.text,
+          // No outfits: a lookup is not a styling request, and generating three
+          // beneath a count would suggest the number was a suggestion.
+          outfits: [],
+          followUp: null,
+          source: 'closet' as const,
+        };
+      }
+
       // Generate against a context built from the question, not from today.
       // Asking "what do I pack for Rome in July" must not be ranked against a
       // February forecast.

@@ -115,7 +115,13 @@ const garmentSchema = {
     // the display name (src/features/closet/item-name.ts).
     name: { type: 'string' },
     slot: { type: 'string', enum: SLOTS },
-    colour_term: { type: 'string', enum: COLOUR_TERMS },
+    // NULLABLE, and the null is the point. This used to be a required enum, so
+    // a model describing "my linen shirt" had to name a colour it had not been
+    // told — and `normalizeGarments` compounded it by resolving anything
+    // unrecognised to 'grey'. A confident wrong colour on a garment somebody is
+    // about to file is the exact failure the receipt line exists to prevent.
+    // Unresolved now means unresolved, and the review card asks.
+    colour_term: { anyOf: [{ type: 'string', enum: COLOUR_TERMS }, { type: 'null' }] },
     fabric: { type: ['string', 'null'] },
     pattern: { type: ['string', 'null'] },
     formality: { type: ['integer', 'null'] },
@@ -144,7 +150,7 @@ export type ParsedGarment = {
   utterance: string;
   name: string;
   slot: IntakeSlot;
-  colour_term: string;
+  colour_term: string | null;
   fabric: string | null;
   pattern: string | null;
   formality: number | null;
@@ -211,9 +217,10 @@ export function normalizeGarments(parsed: ParsedCloset, transcript: string): Par
       utterance,
       name,
       slot: (SLOTS as readonly string[]).includes(g.slot) ? g.slot : 'accessory',
-      colour_term: (COLOUR_TERMS as readonly string[]).includes(g.colour_term)
+      // See the schema note: an unrecognised colour is null, never 'grey'.
+      colour_term: (COLOUR_TERMS as readonly string[]).includes(g.colour_term ?? '')
         ? g.colour_term
-        : 'grey',
+        : null,
       fabric: g.fabric?.trim() || null,
       pattern: g.pattern?.trim() || null,
       formality: clampScore(g.formality),

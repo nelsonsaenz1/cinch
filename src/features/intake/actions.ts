@@ -49,12 +49,17 @@ export async function saveCursor(sessionId: string, cursor: number): Promise<voi
  * will ever see, and a held draft gets resolved when it is eventually committed.
  */
 export async function resolveDraftColours(drafts: IntakeDraftRow[]): Promise<void> {
-  const pending = drafts.filter((d) => d.state === 'confirmed' && d.colour_oklch === null);
+  // A draft with no spoken colour has nothing to resolve. It stays null until
+  // the user picks one on the review card — which is the whole point of
+  // letting the column be null.
+  const pending = drafts.filter(
+    (d) => d.state === 'confirmed' && d.colour_oklch === null && d.colour_term !== null,
+  );
   if (pending.length === 0) return;
 
   await Promise.all(
     pending.map((d) =>
-      saveDraft(d.id, { colour_oklch: resolveSpokenColour(d.colour_term) }),
+      saveDraft(d.id, { colour_oklch: resolveSpokenColour(d.colour_term!) }),
     ),
   );
 }

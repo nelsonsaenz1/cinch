@@ -113,7 +113,8 @@ export type CorrectionField = 'name' | 'kind' | 'colour' | 'fabric' | 'pattern' 
 export type CorrectionDraft = {
   name: string;
   slot: string;
-  colourTerm: string;
+  /** Null when the description named no colour — see `closet-parse.ts`. */
+  colourTerm: string | null;
   fabric: string | null;
   pattern: string | null;
   formality: number | null;

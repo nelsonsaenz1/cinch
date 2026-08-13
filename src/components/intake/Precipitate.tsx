@@ -493,6 +493,15 @@ const CARD_SIZE = 46;
  *  other direction. */
 const PILE_CARD_SHADOW_SCALE = 0.4;
 
+/**
+ * What an unheard colour looks like.
+ *
+ * The tray tone rather than a neutral grey chosen to look plausible: the point
+ * is that nothing was heard, and a swatch that reads as a decision would put
+ * back the guess the parser stopped making.
+ */
+const UNRESOLVED_HEX = '#E8E3D8';
+
 function PileCard({
   draft,
   reduceMotion,
@@ -507,7 +516,12 @@ function PileCard({
   // actions.ts) and is null on a fresh parse, which is exactly when this
   // component needs to draw something. Same lexicon, same term, so a card
   // drawn here and the same garment's card on V-06 never disagree.
-  const hex = useMemo(() => resolveSpokenColour(draft.colour_term).hex, [draft.colour_term]);
+  // An unheard colour draws the tray tone, not a resolved swatch. Picking one
+  // here would put the guess back after the parser stopped making it.
+  const hex = useMemo(
+    () => (draft.colour_term ? resolveSpokenColour(draft.colour_term).hex : UNRESOLVED_HEX),
+    [draft.colour_term],
+  );
   const rotation = useMemo(() => jitterDeg(draft.id), [draft.id]);
 
   return (
