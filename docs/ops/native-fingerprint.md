@@ -34,6 +34,11 @@ entitlements, `package.json` — and returns one hash. `fingerprint.json` record
 the hash of the build that is **in the store**. If they differ, the tree needs a
 store build rather than an OTA.
 
+The checker applies `build.production.env` from `eas.json` before generating
+the hash. This is load-bearing: `CINCH_VOICE_INTAKE` changes the iOS plugin and
+privacy declaration, so a hash generated without the production environment is
+not the Store binary's hash.
+
 Verified 2026-08-11 to be stable and to ignore what it should:
 
 | Change | Fingerprint |

@@ -46,13 +46,26 @@ const baselinePath = join(root, 'fingerprint.json');
 const PLATFORM = 'ios';
 
 function currentFingerprint() {
+  // The Store binary is built from the production EAS profile, and some of
+  // that profile's environment changes native configuration (today,
+  // CINCH_VOICE_INTAKE adds the audio plugin and privacy declaration). Hashing
+  // with the caller's local environment would therefore compare a different
+  // native app from the one EAS actually submitted.
+  const eas = JSON.parse(readFileSync(join(root, 'eas.json'), 'utf8'));
+  const productionEnv = eas.build?.production?.env ?? {};
+
   // `expo-updates fingerprint:generate` prints the full source list as JSON.
   // Only `hash` matters here; the sources are what make a DIFF readable, and
   // that is `fingerprint:diff`'s job rather than this script's.
   const out = execFileSync(
     'npx',
     ['expo-updates', 'fingerprint:generate', '--platform', PLATFORM],
-    { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      env: { ...process.env, ...productionEnv },
+    },
   );
   // The command prints env-loading noise on stderr and JSON on stdout, but be
   // defensive: take the last line that parses.
