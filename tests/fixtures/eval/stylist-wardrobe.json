@@ -1,0 +1,39 @@
+{
+  "_comment": [
+    "The closet every stylist prompt is graded against. Fourteen pieces, hand-built.",
+    "",
+    "Hand-built rather than lifted from `src/features/closet/fixtures.ts` for the",
+    "reason `tests/helpers.ts` gives: those exist to make the grid look right in the",
+    "simulator and will be edited for design reasons. A grounded expected answer",
+    "that changed because a designer renamed a blouse would be a measurement",
+    "nobody could trust.",
+    "",
+    "The numbers are chosen so every factual intent has something real to say:",
+    "  three white tops, two pairs of shoes, one dress, one coat, no headwear",
+    "  (so `gaps` has a true answer), two never-worn pieces, and a mix of priced",
+    "  and unpriced pieces so cost-per-wear has to refuse the unpriced ones.",
+    "",
+    "`lastWornAt` values are fixed epoch milliseconds. Nothing here reads a clock:",
+    "the suite passes its own `now`, so the same corpus scores the same answer in",
+    "2026 and in 2030.",
+    "",
+    "No real person, account or purchase is described."
+  ],
+  "now": 1786953600000,
+  "garments": [
+    { "id": "w-01", "slot": "base_top", "category": "top", "subcategory": "tee", "colors": [{ "name": "white", "family": "white", "hex": "#ffffff", "ratio": 1 }], "formality": 2, "warmth": 2, "wearCount": 12, "lastWornAt": 1786780800000, "purchasePrice": 30 },
+    { "id": "w-02", "slot": "base_top", "category": "top", "subcategory": "oxford shirt", "colors": [{ "name": "white", "family": "white", "hex": "#f7f7f2", "ratio": 1 }], "formality": 4, "warmth": 2, "wearCount": 3, "lastWornAt": 1785312000000, "purchasePrice": 90 },
+    { "id": "w-03", "slot": "base_top", "category": "top", "subcategory": "blouse", "colors": [{ "name": "white", "family": "white", "hex": "#fbfbf6", "ratio": 1 }], "formality": 4, "warmth": 1, "wearCount": 4, "lastWornAt": 1784102400000, "purchasePrice": null },
+    { "id": "w-04", "slot": "base_top", "category": "top", "subcategory": "tee", "colors": [{ "name": "navy", "family": "blue", "hex": "#1f2a44", "ratio": 1 }], "formality": 2, "warmth": 2, "wearCount": 0, "lastWornAt": null, "purchasePrice": 25 },
+    { "id": "w-05", "slot": "bottom", "category": "bottom", "subcategory": "jeans", "colors": [{ "name": "black", "family": "black", "hex": "#111111", "ratio": 1 }], "formality": 2, "warmth": 3, "wearCount": 20, "lastWornAt": 1786867200000, "purchasePrice": 120 },
+    { "id": "w-06", "slot": "bottom", "category": "bottom", "subcategory": "trousers", "colors": [{ "name": "charcoal", "family": "grey", "hex": "#3a3a3a", "ratio": 1 }], "formality": 4, "warmth": 3, "wearCount": 5, "lastWornAt": 1785916800000, "purchasePrice": 200 },
+    { "id": "w-07", "slot": "mid_layer", "category": "top", "subcategory": "sweater", "colors": [{ "name": "grey", "family": "grey", "hex": "#8b8b8b", "ratio": 1 }], "formality": 3, "warmth": 4, "wearCount": 8, "lastWornAt": 1785484800000, "purchasePrice": 160 },
+    { "id": "w-08", "slot": "outerwear", "category": "outerwear", "subcategory": "coat", "colors": [{ "name": "navy", "family": "blue", "hex": "#20293f", "ratio": 1 }], "formality": 4, "warmth": 5, "wearCount": 2, "lastWornAt": 1783497600000, "purchasePrice": 400 },
+    { "id": "w-09", "slot": "footwear", "category": "footwear", "subcategory": "boots", "colors": [{ "name": "black", "family": "black", "hex": "#191919", "ratio": 1 }], "formality": 3, "warmth": 3, "wearCount": 15, "lastWornAt": 1786694400000, "purchasePrice": 250 },
+    { "id": "w-10", "slot": "footwear", "category": "footwear", "subcategory": "sneakers", "colors": [{ "name": "white", "family": "white", "hex": "#f2f2f2", "ratio": 1 }], "formality": 2, "warmth": 2, "wearCount": 30, "lastWornAt": 1786924800000, "purchasePrice": 100 },
+    { "id": "w-11", "slot": "dress", "category": "dress", "subcategory": "midi dress", "colors": [{ "name": "green", "family": "green", "hex": "#2f4f3a", "ratio": 1 }], "formality": 4, "warmth": 2, "wearCount": 1, "lastWornAt": 1782288000000, "purchasePrice": 180 },
+    { "id": "w-12", "slot": "bag", "category": "bag", "subcategory": "tote", "colors": [{ "name": "tan", "family": "brown", "hex": "#b08b5e", "ratio": 1 }], "formality": 3, "warmth": 1, "wearCount": 6, "lastWornAt": 1786608000000, "purchasePrice": null },
+    { "id": "w-13", "slot": "accessory", "category": "accessory", "subcategory": "scarf", "colors": [{ "name": "red", "family": "red", "hex": "#8c1c1c", "ratio": 1 }], "formality": 3, "warmth": 3, "wearCount": 0, "lastWornAt": null, "purchasePrice": 45 },
+    { "id": "w-14", "slot": "accessory", "category": "accessory", "subcategory": "belt", "colors": [{ "name": "brown", "family": "brown", "hex": "#5c3a21", "ratio": 1 }], "formality": 3, "warmth": 1, "wearCount": 9, "lastWornAt": 1786521600000, "purchasePrice": 60 }
+  ]
+}

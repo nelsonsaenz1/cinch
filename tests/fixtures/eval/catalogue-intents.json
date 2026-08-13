@@ -1,0 +1,94 @@
+{
+  "_comment": [
+    "Twelve canonical shopping intents, each written three or four ways.",
+    "",
+    "The property under test is the one `demand-intent.ts` claims in its header:",
+    "word order and punctuation cannot create a second intent, because word order",
+    "never reaches the aggregate. Every variant in a group is the same request",
+    "phrased differently — reordered, capitalised, punctuated, possessive or not —",
+    "and the group passes only when all of its variants canonicalise to a single",
+    "`DemandIntent`.",
+    "",
+    "`triple` is scored alongside it and is deliberately the WEAKER measure. The",
+    "semantic triple carries the raw colour term and the brand as parsed, so",
+    "'grey' and 'gray' split it while both map to the same colour family — which",
+    "is exactly why the family mapping exists. Reporting both makes the",
+    "difference visible instead of arguable.",
+    "",
+    "Two variants are annotated knowing the parser disagrees, and both stay:",
+    "  ci-08b  'linen shirt light blue' — the head-noun rule is head-position",
+    "          only, so with the colour trailing, the class comes back null and",
+    "          the intent splits from its own group.",
+    "  ci-12b  'cargo trousers olive' — 'cargo' is read as a leading-run brand.",
+    "          The intent still canonicalises, because a guessed brand is refused",
+    "          at the aggregate; only the triple splits. That refusal is the",
+    "          single most important line in `demand-intent.ts` and this is the",
+    "          case that exercises it.",
+    "",
+    "`known` is the brand lexicon the parse is given. Three names, all real",
+    "labels carried by the licensed feed, none of them a user's words."
+  ],
+  "known": ["James Perse", "Uniqlo", "Everlane"],
+  "groups": [
+    {
+      "id": "ci-01",
+      "intent": { "brandSlug": "james-perse", "garmentClass": "top", "audience": null, "colourFamily": null },
+      "variants": ["James Perse t-shirt", "james perse tshirt", "T-Shirt James Perse", "JAMES PERSE T-SHIRT"]
+    },
+    {
+      "id": "ci-02",
+      "intent": { "brandSlug": "james-perse", "garmentClass": "top", "audience": "mens", "colourFamily": null },
+      "variants": ["men's James Perse t-shirt", "James Perse t-shirt for men", "JAMES PERSE  T SHIRT, MENS"]
+    },
+    {
+      "id": "ci-03",
+      "intent": { "brandSlug": null, "garmentClass": "outerwear", "audience": null, "colourFamily": "blue" },
+      "variants": ["navy wool coat", "wool coat navy", "a navy wool coat!", "navy   wool coat."]
+    },
+    {
+      "id": "ci-04",
+      "intent": { "brandSlug": null, "garmentClass": "top", "audience": null, "colourFamily": "white" },
+      "variants": ["white oxford shirt", "oxford shirt in white", "white oxford shirt!"]
+    },
+    {
+      "id": "ci-05",
+      "intent": { "brandSlug": null, "garmentClass": "footwear", "audience": null, "colourFamily": "black" },
+      "variants": ["black leather boots", "boots, black leather", "black leather boots!"]
+    },
+    {
+      "id": "ci-06",
+      "intent": { "brandSlug": "uniqlo", "garmentClass": "top", "audience": null, "colourFamily": null },
+      "variants": ["uniqlo cashmere jumper", "cashmere jumper uniqlo", "Uniqlo Cashmere Jumper"]
+    },
+    {
+      "id": "ci-07",
+      "intent": { "brandSlug": "everlane", "garmentClass": "outerwear", "audience": "womens", "colourFamily": "blue" },
+      "variants": ["everlane womens denim jacket", "denim jacket for women everlane", "EVERLANE WOMEN'S DENIM JACKET"]
+    },
+    {
+      "id": "ci-08",
+      "intent": { "brandSlug": null, "garmentClass": "top", "audience": null, "colourFamily": "blue" },
+      "variants": ["light blue linen shirt", "linen shirt light blue", "light-blue linen shirt"]
+    },
+    {
+      "id": "ci-09",
+      "intent": { "brandSlug": null, "garmentClass": "footwear", "audience": null, "colourFamily": null },
+      "variants": ["sneakers", "sneakers!", "  sneakers  "]
+    },
+    {
+      "id": "ci-10",
+      "intent": { "brandSlug": null, "garmentClass": "top", "audience": null, "colourFamily": "grey" },
+      "variants": ["grey merino sweater", "merino sweater grey", "gray merino sweater"]
+    },
+    {
+      "id": "ci-11",
+      "intent": { "brandSlug": null, "garmentClass": "bag", "audience": null, "colourFamily": "brown" },
+      "variants": ["tan leather tote bag", "leather tote bag tan", "TAN LEATHER TOTE BAG"]
+    },
+    {
+      "id": "ci-12",
+      "intent": { "brandSlug": null, "garmentClass": "bottom", "audience": null, "colourFamily": "green" },
+      "variants": ["olive cargo trousers", "cargo trousers olive", "olive cargo trousers!"]
+    }
+  ]
+}

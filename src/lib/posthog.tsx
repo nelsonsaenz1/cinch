@@ -453,6 +453,23 @@ export type AppEvent =
   | 'intake_card_edited'
   /** A card thrown away — the model heard a garment that does not exist. */
   | 'intake_card_rejected'
+  /**
+   * A tagged garment corrected by hand. `fields` is which ones, sorted, and
+   * `verified` says whether this was the review deck or a later edit.
+   *
+   * THE NUMBER THAT JUDGES THE TAGGER, and the counterpart to
+   * `intake_card_edited` for the photographed path rather than the spoken one.
+   * An accuracy figure from fixtures says how the model does on photographs
+   * somebody chose; this says how it does on the ones people take, which is
+   * the only version of the question that decides whether the cheap model
+   * stays. `verified` matters because a correction in the deck means the model
+   * was wrong, while an edit in item detail is as often somebody changing
+   * their mind about what a coat cost.
+   *
+   * FIELD NAMES ONLY — never the old or new value. A corrected brand or colour
+   * is the user's own text about their own possessions.
+   */
+  | 'item_tag_corrected'
   /** V-08's optional upgrade taken: a spoken garment given a real photograph.
    *  Watched against `colour_source` moving from 'spoken' to 'measured'. */
   | 'intake_photo_added'

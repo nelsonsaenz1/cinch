@@ -1,0 +1,172 @@
+{
+  "_comment": [
+    "SYNTHETIC MEASUREMENT VECTORS. There is not a single photograph in this file",
+    "and there must never be one.",
+    "",
+    "Workstream 9 asks for 40–50 permissioned real photographs with hand-verified",
+    "tags. This repository has none, and the plan is explicit about what to do in",
+    "that case: complete the harness, use whatever representative material exists,",
+    "and record the missing sample count as a founder blocker rather than pretend",
+    "catalogue images prove camera-photo quality. So the numbers below exercise",
+    "every threshold and comparison in `photo-evidence-rules.ts` and",
+    "`photo-match.ts`, and the suite reports 0/40 alongside them.",
+    "",
+    "What a synthetic vector CAN prove: that a sharpness of 59 is refused and 61",
+    "accepted, that a five-bit hash difference is a duplicate and a six-bit one is",
+    "not, that the fast path is unreachable without a feature print. What it",
+    "CANNOT prove: that a real iPhone photograph of a real jumper in real evening",
+    "light produces a sharpness the threshold treats correctly. Only the",
+    "photographs can, and they do not exist yet.",
+    "",
+    "Real references, when they arrive, are read from a manifest OUTSIDE the",
+    "repository — see the suite's docblock. No image, no signed URL and no",
+    "storage path is committed here."
+  ],
+  "quality": [
+    { "id": "vq-01", "note": "clean studio-ish frame", "sharpness": 140, "meanLuminance": 0.52, "clippedHighlights": 0.02, "clippedShadows": 0.03, "coverage": 0.44, "expected": "ok" },
+    { "id": "vq-02", "note": "one unit under the sharpness floor", "sharpness": 59, "meanLuminance": 0.5, "clippedHighlights": 0.01, "clippedShadows": 0.02, "coverage": 0.4, "expected": "too_blurry" },
+    { "id": "vq-03", "note": "one unit over it", "sharpness": 61, "meanLuminance": 0.5, "clippedHighlights": 0.01, "clippedShadows": 0.02, "coverage": 0.4, "expected": "ok" },
+    { "id": "vq-04", "note": "exactly on the floor is not below it", "sharpness": 60, "meanLuminance": 0.5, "clippedHighlights": 0.01, "clippedShadows": 0.02, "coverage": 0.4, "expected": "ok" },
+    { "id": "vq-05", "note": "dim room", "sharpness": 120, "meanLuminance": 0.08, "clippedHighlights": 0.0, "clippedShadows": 0.1, "coverage": 0.4, "expected": "too_dark" },
+    { "id": "vq-06", "note": "crushed shadows at normal exposure", "sharpness": 120, "meanLuminance": 0.45, "clippedHighlights": 0.0, "clippedShadows": 0.4, "coverage": 0.4, "expected": "too_dark" },
+    { "id": "vq-07", "note": "blown out", "sharpness": 120, "meanLuminance": 0.95, "clippedHighlights": 0.05, "clippedShadows": 0.0, "coverage": 0.4, "expected": "too_bright" },
+    { "id": "vq-08", "note": "window behind the garment", "sharpness": 120, "meanLuminance": 0.6, "clippedHighlights": 0.5, "clippedShadows": 0.0, "coverage": 0.4, "expected": "too_bright" },
+    { "id": "vq-09", "note": "dark AND blurry reports the fixable one", "sharpness": 20, "meanLuminance": 0.05, "clippedHighlights": 0.0, "clippedShadows": 0.6, "coverage": 0.4, "expected": "too_blurry" },
+    { "id": "vq-10", "note": "upper luminance bound is inclusive", "sharpness": 120, "meanLuminance": 0.92, "clippedHighlights": 0.1, "clippedShadows": 0.0, "coverage": 0.4, "expected": "ok" },
+    { "id": "vq-11", "note": "lower luminance bound is inclusive", "sharpness": 120, "meanLuminance": 0.12, "clippedHighlights": 0.0, "clippedShadows": 0.1, "coverage": 0.4, "expected": "ok" },
+    { "id": "vq-12", "note": "clipping bound is inclusive", "sharpness": 120, "meanLuminance": 0.5, "clippedHighlights": 0.35, "clippedShadows": 0.35, "coverage": 0.4, "expected": "ok" },
+    { "id": "vq-13", "note": "no native measurement, but a subject was found", "sharpness": null, "meanLuminance": null, "clippedHighlights": null, "clippedShadows": null, "coverage": 0.4, "expected": "ok" },
+    { "id": "vq-14", "note": "nothing measured at all", "sharpness": null, "meanLuminance": null, "clippedHighlights": null, "clippedShadows": null, "coverage": null, "expected": "unmeasured" }
+  ],
+  "coverage": [
+    { "id": "vc-01", "coverage": 0.44, "expected": "ok" },
+    { "id": "vc-02", "coverage": 0.12, "expected": "ok" },
+    { "id": "vc-03", "coverage": 0.11, "expected": "subject_too_small" },
+    { "id": "vc-04", "coverage": 0.04, "expected": "subject_too_small" },
+    { "id": "vc-05", "coverage": 0, "expected": "no_subject" },
+    { "id": "vc-06", "coverage": null, "expected": "unmeasured" }
+  ],
+  "duplicates": [
+    { "id": "vd-01", "note": "the same file imported twice", "a": "0f1e2d3c4b5a6978", "b": "0f1e2d3c4b5a6978", "expectedDistance": 0, "expectedDuplicate": true },
+    { "id": "vd-02", "note": "one bit apart — a re-encode", "a": "0f1e2d3c4b5a6978", "b": "0f1e2d3c4b5a6979", "expectedDistance": 1, "expectedDuplicate": true },
+    { "id": "vd-03", "note": "five bits apart, the tolerance edge", "a": "0000000000000000", "b": "000000000000001f", "expectedDistance": 5, "expectedDuplicate": true },
+    { "id": "vd-04", "note": "six bits apart is a second garment", "a": "0000000000000000", "b": "000000000000003f", "expectedDistance": 6, "expectedDuplicate": false },
+    { "id": "vd-05", "note": "wholly different photographs", "a": "ffffffffffffffff", "b": "0000000000000000", "expectedDistance": 64, "expectedDuplicate": false },
+    { "id": "vd-06", "note": "a missing hash is not a match", "a": null, "b": "0000000000000000", "expectedDistance": null, "expectedDuplicate": false },
+    { "id": "vd-07", "note": "both missing", "a": null, "b": null, "expectedDistance": null, "expectedDuplicate": false },
+    { "id": "vd-08", "note": "wrong length", "a": "0f1e2d3c", "b": "0f1e2d3c4b5a6978", "expectedDistance": null, "expectedDuplicate": false },
+    { "id": "vd-09", "note": "non-hex rubbish must not coerce to zero", "a": "zzzzzzzzzzzzzzzz", "b": "0000000000000000", "expectedDistance": null, "expectedDuplicate": false },
+    { "id": "vd-10", "note": "mixed case is still the same hash", "a": "ABCDEF0123456789", "b": "abcdef0123456789", "expectedDistance": 0, "expectedDuplicate": true }
+  ],
+  "families": [
+    {
+      "familyId": "fam-jp-tee",
+      "brand": "James Perse",
+      "title": "Combed Cotton-Jersey T-Shirt",
+      "productClass": "top",
+      "category": "top",
+      "gender": null,
+      "merchants": ["example-merchant-a"],
+      "nearMissCut": null,
+      "colours": [
+        { "label": "White", "resolved": true, "imageUrl": null, "alternateImageUrl": null, "externalId": "jp-white", "sourceHost": "example-merchant-a", "pageUrl": null },
+        { "label": "Navy", "resolved": true, "imageUrl": null, "alternateImageUrl": null, "externalId": "jp-navy", "sourceHost": "example-merchant-a", "pageUrl": null }
+      ]
+    },
+    {
+      "familyId": "fam-uq-tee",
+      "brand": "Uniqlo",
+      "title": "Supima Cotton Crew Neck T-Shirt",
+      "productClass": "top",
+      "category": "top",
+      "gender": null,
+      "merchants": ["example-merchant-b"],
+      "nearMissCut": null,
+      "colours": [
+        { "label": "White", "resolved": true, "imageUrl": null, "alternateImageUrl": null, "externalId": "uq-white", "sourceHost": "example-merchant-b", "pageUrl": null }
+      ]
+    }
+  ],
+  "matches": [
+    {
+      "id": "vm-01",
+      "note": "brand, colour and class all agree — and it still must not skip the model",
+      "evidence": { "ocrText": "james perse", "colours": [{ "name": "white", "share": 0.7 }], "subjectCoverage": 0.4, "featurePrint": null },
+      "garmentClass": "top",
+      "correction": null,
+      "prints": {},
+      "expectedTop": "jp-white",
+      "expectedFastPath": false
+    },
+    {
+      "id": "vm-02",
+      "note": "an identical feature print is the only thing that identifies a garment",
+      "evidence": { "ocrText": "james perse", "colours": [{ "name": "white", "share": 0.7 }], "subjectCoverage": 0.4, "featurePrint": { "revision": 2, "values": [0.6, 0.2, 0.5, 0.1] } },
+      "garmentClass": "top",
+      "correction": null,
+      "prints": { "jp-white": { "revision": 2, "values": [0.6, 0.2, 0.5, 0.1] } },
+      "expectedTop": "jp-white",
+      "expectedFastPath": true
+    },
+    {
+      "id": "vm-03",
+      "note": "prints from different Vision revisions are different spaces",
+      "evidence": { "ocrText": "james perse", "colours": [{ "name": "white", "share": 0.7 }], "subjectCoverage": 0.4, "featurePrint": { "revision": 3, "values": [0.6, 0.2, 0.5, 0.1] } },
+      "garmentClass": "top",
+      "correction": null,
+      "prints": { "jp-white": { "revision": 2, "values": [0.6, 0.2, 0.5, 0.1] } },
+      "expectedTop": "jp-white",
+      "expectedFastPath": false
+    },
+    {
+      "id": "vm-04",
+      "note": "an unrelated print does not carry the score over the bar",
+      "evidence": { "ocrText": "james perse", "colours": [{ "name": "white", "share": 0.7 }], "subjectCoverage": 0.4, "featurePrint": { "revision": 2, "values": [1, 0, 0, 0] } },
+      "garmentClass": "top",
+      "correction": null,
+      "prints": { "jp-white": { "revision": 2, "values": [0, 1, 0, 0] } },
+      "expectedTop": "jp-white",
+      "expectedFastPath": false
+    },
+    {
+      "id": "vm-05",
+      "note": "what the user typed beats what the label reads",
+      "evidence": { "ocrText": "james perse", "colours": [{ "name": "white", "share": 0.7 }], "subjectCoverage": 0.4, "featurePrint": null },
+      "garmentClass": "top",
+      "correction": { "brand": "uniqlo" },
+      "prints": {},
+      "expectedTop": "uq-white",
+      "expectedFastPath": false
+    },
+    {
+      "id": "vm-06",
+      "note": "a corrected colour steers the colourway",
+      "evidence": { "ocrText": "james perse", "colours": [{ "name": "white", "share": 0.7 }], "subjectCoverage": 0.4, "featurePrint": null },
+      "garmentClass": "top",
+      "correction": { "colour": "navy" },
+      "prints": {},
+      "expectedTop": "jp-navy",
+      "expectedFastPath": false
+    },
+    {
+      "id": "vm-07",
+      "note": "no evidence at all ranks nothing",
+      "evidence": { "ocrText": null, "colours": [], "subjectCoverage": 0.4, "featurePrint": null },
+      "garmentClass": null,
+      "correction": null,
+      "prints": {},
+      "expectedTop": null,
+      "expectedFastPath": false
+    },
+    {
+      "id": "vm-08",
+      "note": "class alone is not an identification",
+      "evidence": { "ocrText": null, "colours": [], "subjectCoverage": 0.4, "featurePrint": null },
+      "garmentClass": "top",
+      "correction": null,
+      "prints": {},
+      "expectedTop": "jp-navy",
+      "expectedFastPath": false
+    }
+  ]
+}

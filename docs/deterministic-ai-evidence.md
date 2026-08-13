@@ -746,3 +746,91 @@ deno check                    tag-item, stylist-chat, generate-outfits,
 The replay is the one worth noting: the ledger carries heavy known drift, and
 a rebuild from empty is the only thing that proves the drift is cosmetic rather
 than load-bearing. It is, all 89 of them.
+
+### The evaluation harness (Workstream 9)
+
+`scripts/eval/run-eval.mjs`, `EVAL_VERSION = 1`. Bundles its suites with esbuild
+the way the unit runner does, prints a scorecard, and exits **0 pass / 1
+threshold missed / 2 blocked**. There is no bypass flag. Two consecutive `--json`
+runs are byte-identical once `timings` is removed; timings are reported and
+never gate anything.
+
+| suite | corpus | measured | threshold |
+| --- | --- | --- | --- |
+| closet-parsing | 55 transcripts, 378 annotated fields | field accuracy **89.2%**, garment recall **91.9%**, fallback agreement **100%** | ≥87 / ≥90 / =100 |
+| | | **fallback rate 14.6%** (8/55 spend a call) | ≤25% |
+| stylist | 36 prompts (20 factual, 16 open) | precision **100%**, recall **95%**, intent **100%**, grounded answers **100%** | ≥90 / ≥85 / =100 / =100 |
+| packing | 22 scenarios, 44 memos | repeatability **100%**, supported claims **100%** | =100 / =100 |
+| catalogue | 12 intent groups / 38 variants + 52 James Perse titles | canonicalisation **91.7%**, intent accuracy **97.4%**, brand-guess refusal **100%** (90/90) | ≥85 / ≥94 / =100 |
+| garment-vision | 30 synthetic vectors, 8 ranking cases | all four **100%** | =100 |
+
+**Overall: BLOCKED, exit 2** — every threshold passes and one required input is
+missing. See the sample blocker below.
+
+**Measured AI spend.** Packing 0. Catalogue 0. Closet parsing 8 of 55
+transcripts. Stylist 16 of 36 prompts, all of them genuinely open questions.
+Photo import 5 of 5 — the fast path cannot open without a feature print, so
+until the native build is installed every import is one vision call. That is the
+number the store build is expected to move.
+
+**The corpora are annotated from human judgement, not from what the code
+returns.** Eleven cases are annotated knowing the code disagrees, listed in each
+fixture's `_comment` so nobody deletes one to raise a score.
+
+#### Two defects the harness found, and what happened to each
+
+**Fixed.** `"what would you wear with a leather jacket in autumn"` matched
+`wear with` and came back as a compatibility lookup — a list of the user's own
+trousers in answer to a question about someone else's judgement. Well formed,
+every item real, and not what was asked. The router now refuses second-person
+phrasings (`would you`, `do you think`, `you'd`) while "what should **I** wear
+with my navy blazer", which genuinely is a lookup over their closet, stays one.
+Precision 0.95 → 1.00.
+
+**Also fixed, and not caught by any metric.** The stylist's counted answers read
+"You have 1 dresse.", "1 red accessorie", "1 coats and jacket" — a singular
+derived by stripping a trailing `s`. Every number was correct, which is exactly
+why nothing caught it: the eval scores the arithmetic and a person reads the
+sentence. `SLOT_LABEL` now carries both forms explicitly.
+
+#### Measured and left alone, deliberately
+
+The parser corpus pins these rather than fixing them blind. Each is inside its
+threshold, and each fix is a change to a lexicon shared with the catalogue path
+that was verified end to end the night before — unmeasured tinkering there is
+what this whole programme exists to avoid.
+
+- `"a couple of denim jackets"` reads **denim as the colour**; `"a navy blazer
+  with gold buttons"` claims **gold** as the garment's colour; `"sage green
+  polo"` resolves to **green** because the longer term loses.
+- `"a cream silk camisole under a black blazer"` is one garment, not two —
+  `under` is not a split word.
+- A correction spoken as its own clause (`"a black skirt, sorry, a navy skirt"`)
+  is not attached to the thing it corrects.
+- `shell`, `puffer`, `sock`, `long johns` are absent from the lexicon and are
+  **dropped silently**, which is the worst of the four behaviours here.
+- Catalogue: `"linen shirt light blue"` returns a null class (the head-noun rule
+  is head-position only), splitting one intent in two. `"cargo trousers olive"`
+  is read as a leading-run brand — and the intent still canonicalises correctly,
+  because `demand-intent.ts` refuses guessed brands. That is the privacy
+  guarantee doing its job in a case nobody designed for it.
+
+#### The sample blocker
+
+```
+0/40 permissioned photographs — founder input blocker
+```
+
+The vision suite verifies the **decision logic** — 59 sharpness refused and 61
+accepted, 5 hash bits duplicate and 6 not, the fast path unreachable without a
+feature print — and verifies **nothing about calibration**. Whether 60 is the
+right sharpness floor for a phone camera is a question only photographs answer.
+Real references are read from `CINCH_EVAL_PHOTO_MANIFEST`, a path outside the
+tree; no image, storage path or signed URL is committed, and a guard test
+enforces that `tests/fixtures/eval/` holds only JSON with no URL, email, UUID,
+phone number or signed-URL parameter.
+
+This is also why **no rescue model is configured**. Workstream 9 says the cheap
+primary stays only if it clears the workload bar; with no photographs there is
+no measured bar for the vision workload, and picking a rescue model on price
+alone is the decision this harness exists to replace.

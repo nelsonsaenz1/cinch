@@ -119,6 +119,22 @@ export function routeFactQuestion(question: string): FactQuery | null {
   const q = question.trim();
   if (!q) return null;
 
+  /**
+   * Somebody asking the stylist what IT would wear is asking for taste.
+   *
+   * The evaluation harness caught this: "what would you wear with a leather
+   * jacket in autumn" matched `wear with` and came back as a compatibility
+   * lookup — a list of the user's own trousers, in answer to a question about
+   * someone else's judgement. That is the expensive failure in this router,
+   * because it is invisible: the answer is well formed, every item in it is
+   * real, and it is not what was asked.
+   *
+   * Narrowly second-person on purpose. "What should I wear with my navy
+   * blazer" IS a lookup over their closet and stays one; only "would you",
+   * "do you think" and their contractions hand the question back to the model.
+   */
+  if (/\b(would|did|do) you\b|\byou'?d\b/i.test(q)) return null;
+
   let intent: FactIntent | null = null;
   for (const [re, value] of INTENT_RULES) {
     if (re.test(q)) {
@@ -145,16 +161,26 @@ export function routeFactQuestion(question: string): FactQuery | null {
 // The tools. Every one of them is pure over the loaded closet.
 // ---------------------------------------------------------------------------
 
-const SLOT_LABEL: Record<Garment['slot'], string> = {
-  base_top: 'tops',
-  mid_layer: 'knits and sweatshirts',
-  bottom: 'bottoms',
-  dress: 'dresses',
-  outerwear: 'coats and jackets',
-  footwear: 'shoes',
-  bag: 'bags',
-  headwear: 'hats',
-  accessory: 'accessories',
+/**
+ * Both forms, written out.
+ *
+ * The singular used to be derived by stripping a trailing `s`, which produced
+ * "You have 1 dresse.", "1 red accessorie" and "1 coats and jacket". English
+ * plurals are not a suffix rule, and a compound label is not a noun with an `s`
+ * on the end. Nine entries is cheaper than any amount of cleverness, and it is
+ * the sort of sentence a person reads as the whole product being careless —
+ * the counts were right every time.
+ */
+const SLOT_LABEL: Record<Garment['slot'], { one: string; many: string }> = {
+  base_top: { one: 'top', many: 'tops' },
+  mid_layer: { one: 'knit or sweatshirt', many: 'knits and sweatshirts' },
+  bottom: { one: 'bottom', many: 'bottoms' },
+  dress: { one: 'dress', many: 'dresses' },
+  outerwear: { one: 'coat or jacket', many: 'coats and jackets' },
+  footwear: { one: 'pair of shoes', many: 'shoes' },
+  bag: { one: 'bag', many: 'bags' },
+  headwear: { one: 'hat', many: 'hats' },
+  accessory: { one: 'accessory', many: 'accessories' },
 };
 
 const nameOf = (g: Garment): string =>
@@ -188,10 +214,10 @@ export type FactAnswer = {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-function describeSelection(q: FactQuery): string {
+function describeSelection(q: FactQuery, count?: number): string {
   const colour = q.colour ? `${q.colour} ` : '';
-  const slot = q.slot ? SLOT_LABEL[q.slot] : 'pieces';
-  return `${colour}${slot}`.trim();
+  const label = q.slot ? SLOT_LABEL[q.slot] : { one: 'piece', many: 'pieces' };
+  return `${colour}${count === 1 ? label.one : label.many}`.trim();
 }
 
 /** "12 March 2026" — no relative dates, which go stale in a saved thread. */
@@ -223,12 +249,11 @@ export function answerFactQuestion(
 
   switch (q.intent) {
     case 'count': {
-      const what = describeSelection(q);
       return {
         intent: q.intent,
         text: selected.length
-          ? `You have ${plural(selected.length, what.replace(/s$/, ''), what)}.`
-          : `You don't have any ${what} filed.`,
+          ? `You have ${selected.length} ${describeSelection(q, selected.length)}.`
+          : `You don't have any ${describeSelection(q)} filed.`,
         itemIds: ids,
       };
     }
@@ -332,7 +357,7 @@ export function answerFactQuestion(
       return {
         intent: q.intent,
         text: empty.length
-          ? `Nothing filed under ${empty.map((s) => SLOT_LABEL[s]).join(', ')}.`
+          ? `Nothing filed under ${empty.map((s) => SLOT_LABEL[s].many).join(', ')}.`
           : 'Every slot has something in it.',
         itemIds: [],
       };

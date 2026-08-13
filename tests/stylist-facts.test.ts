@@ -164,6 +164,19 @@ test('10 · a count of nothing says so plainly', () => {
   assert.deepEqual(a.itemIds, []);
 });
 
+test('10b · a count of one is written in English', () => {
+  // The singular used to be derived by stripping a trailing `s`, which produced
+  // "You have 1 dresse." and "1 coats and jacket". The arithmetic was right
+  // every time, which is exactly why nothing caught it: the eval scores the
+  // number, and a person reads the sentence.
+  assert.equal(ask('how many knits do I have')!.text, 'You have 1 knit or sweatshirt.');
+  assert.equal(ask('how many navy tops do I have')!.text, 'You have 1 navy top.');
+  // And the plural is untouched.
+  assert.equal(ask('how many tops do I have')!.text, 'You have 4 tops.');
+  // The empty answer keeps the plural — "any dress filed" would be wrong too.
+  assert.match(ask('how many dresses do I have')!.text, /any dresses filed/);
+});
+
 test('11 · the count carries the ids behind it', () => {
   assert.deepEqual(ask('how many white shirts do I have')!.itemIds.sort(), ['t1', 't2']);
 });

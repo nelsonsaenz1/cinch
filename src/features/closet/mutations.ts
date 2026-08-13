@@ -124,7 +124,11 @@ export function useVerifyItem() {
        * (where it is just as often the user changing their mind).
        */
       const corrected = Object.keys(patch ?? {});
-      if (corrected.length) track('item_tag_corrected', { fields: corrected.sort(), verified: verify });
+      // Sorted and joined: a property value has to be a scalar, and a stable
+      // order means `category,colors` is one bucket rather than two.
+      if (corrected.length) {
+        track('item_tag_corrected', { fields: corrected.sort().join(','), verified: verify });
+      }
 
       // TODO(OUT-22): if `patch` was set, log a row to `style_feedback` for the
       // personalization flywheel — the model was wrong in a specific direction

@@ -1,0 +1,357 @@
+{
+  "_comment": [
+    "Fifty-five spoken closet transcripts, annotated with what a PERSON would say",
+    "the answer is — not with what `closet-parse.ts` returns today.",
+    "",
+    "That distinction is the whole value of the file. Annotating from the parser's",
+    "own output would produce a corpus that scores 100% forever and detects",
+    "nothing; annotating from human judgement produces a corpus with a real error",
+    "rate, and the error rate is the measurement Workstream 9 asked for.",
+    "",
+    "Nine cases are deliberately beyond the lexicon and are known to be scored",
+    "wrong today. They are listed here so nobody deletes one to raise a number:",
+    "  cp-007  'a couple of denim jackets' — denim read as the colour, not the cloth",
+    "  cp-022  'a rain shell' — no such noun in the lexicon, garment dropped",
+    "  cp-023  'gold buttons' — a trim colour claimed as the garment's colour",
+    "  cp-024  'a puffer' — no such noun, garment dropped",
+    "  cp-028  a correction spoken as its own clause is not attached to the fix",
+    "  cp-037  socks are not in the garment lexicon",
+    "  cp-038  neither are long johns",
+    "  cp-044  'under' does not split a clause, so two garments read as one",
+    "  cp-051  'sage green' resolves to green, because green is the longer term",
+    "",
+    "`fallback` is the expensive field: true means the transcript would spend an",
+    "AI call. Eight of fifty-five are annotated true, all of them phrases that",
+    "point at something already said, which is genuinely unresolvable alone.",
+    "",
+    "No transcript names a real person, place, merchant or account. They are",
+    "written for this corpus."
+  ],
+  "cases": [
+    {
+      "id": "cp-001",
+      "transcript": "a white cotton t-shirt",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "white", "fabric": "cotton", "pattern": null, "name": "shirt", "slot": "base_top" }]
+    },
+    {
+      "id": "cp-002",
+      "transcript": "navy chinos",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "navy", "fabric": null, "pattern": null, "name": "chino", "slot": "bottom" }]
+    },
+    {
+      "id": "cp-003",
+      "transcript": "a black wool coat",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "black", "fabric": "wool", "pattern": null, "name": "coat", "slot": "outerwear" }]
+    },
+    {
+      "id": "cp-004",
+      "transcript": "brown suede boots",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "brown", "fabric": "suede", "pattern": null, "name": "boot", "slot": "footwear" }]
+    },
+    {
+      "id": "cp-005",
+      "transcript": "a silk scarf",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": "silk", "pattern": null, "name": "scarf", "slot": "accessory" }]
+    },
+    {
+      "id": "cp-006",
+      "transcript": "two black t-shirts and three white shirts",
+      "fallback": false,
+      "garments": [
+        { "quantity": 2, "colour_term": "black", "fabric": null, "pattern": null, "name": "shirt", "slot": "base_top" },
+        { "quantity": 3, "colour_term": "white", "fabric": null, "pattern": null, "name": "shirt", "slot": "base_top" }
+      ]
+    },
+    {
+      "id": "cp-007",
+      "transcript": "a couple of denim jackets",
+      "fallback": false,
+      "garments": [{ "quantity": 2, "colour_term": null, "fabric": "denim", "pattern": null, "name": "jacket", "slot": "outerwear" }]
+    },
+    {
+      "id": "cp-008",
+      "transcript": "a few grey sweatshirts",
+      "fallback": false,
+      "garments": [{ "quantity": 3, "colour_term": "grey", "fabric": null, "pattern": null, "name": "sweatshirt", "slot": "mid_layer" }]
+    },
+    {
+      "id": "cp-009",
+      "transcript": "four pairs of jeans",
+      "fallback": false,
+      "garments": [{ "quantity": 4, "colour_term": null, "fabric": null, "pattern": null, "name": "jean", "slot": "bottom" }]
+    },
+    {
+      "id": "cp-010",
+      "transcript": "12 white tees",
+      "fallback": false,
+      "garments": [{ "quantity": 12, "colour_term": "white", "fabric": null, "pattern": null, "name": "tee", "slot": "base_top" }]
+    },
+    {
+      "id": "cp-011",
+      "transcript": "a striped cotton shirt",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": "cotton", "pattern": "striped", "name": "shirt", "slot": "base_top" }]
+    },
+    {
+      "id": "cp-012",
+      "transcript": "a plaid flannel shirt",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": null, "pattern": "plaid", "name": "shirt", "slot": "base_top" }]
+    },
+    {
+      "id": "cp-013",
+      "transcript": "polka dot blouse",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": null, "pattern": "polka dot", "name": "blouse", "slot": "base_top" }]
+    },
+    {
+      "id": "cp-014",
+      "transcript": "a herringbone tweed blazer",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": "tweed", "pattern": "herringbone", "name": "blazer", "slot": "outerwear" }]
+    },
+    {
+      "id": "cp-015",
+      "transcript": "leopard print silk blouse",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": "silk", "pattern": "leopard", "name": "blouse", "slot": "base_top" }]
+    },
+    {
+      "id": "cp-016",
+      "transcript": "a light grey merino sweater",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "light grey", "fabric": "merino", "pattern": null, "name": "sweater", "slot": "mid_layer" }]
+    },
+    {
+      "id": "cp-017",
+      "transcript": "an off white linen dress",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "off white", "fabric": "linen", "pattern": null, "name": "dress", "slot": "dress" }]
+    },
+    {
+      "id": "cp-018",
+      "transcript": "dark wash jeans",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "dark wash", "fabric": null, "pattern": null, "name": "jean", "slot": "bottom" }]
+    },
+    {
+      "id": "cp-019",
+      "transcript": "a burgundy cashmere scarf",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "burgundy", "fabric": "cashmere", "pattern": null, "name": "scarf", "slot": "accessory" }]
+    },
+    {
+      "id": "cp-020",
+      "transcript": "an olive green field jacket",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "olive green", "fabric": null, "pattern": null, "name": "jacket", "slot": "outerwear" }]
+    },
+    {
+      "id": "cp-021",
+      "transcript": "a black leather jacket, a white oxford shirt, indigo jeans and white sneakers",
+      "fallback": false,
+      "garments": [
+        { "quantity": 1, "colour_term": "black", "fabric": "leather", "pattern": null, "name": "jacket", "slot": "outerwear" },
+        { "quantity": 1, "colour_term": "white", "fabric": null, "pattern": null, "name": "shirt", "slot": "base_top" },
+        { "quantity": 1, "colour_term": "indigo", "fabric": null, "pattern": null, "name": "jean", "slot": "bottom" },
+        { "quantity": 1, "colour_term": "white", "fabric": null, "pattern": null, "name": "sneaker", "slot": "footwear" }
+      ]
+    },
+    {
+      "id": "cp-022",
+      "transcript": "my running trainers, a rain shell, and a bucket hat",
+      "fallback": false,
+      "garments": [
+        { "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "trainer", "slot": "footwear" },
+        { "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "shell", "slot": "outerwear" },
+        { "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "hat", "slot": "headwear" }
+      ]
+    },
+    {
+      "id": "cp-023",
+      "transcript": "a navy blazer with gold buttons",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "navy", "fabric": null, "pattern": null, "name": "blazer", "slot": "outerwear" }]
+    },
+    {
+      "id": "cp-024",
+      "transcript": "a wool coat and then a puffer",
+      "fallback": false,
+      "garments": [
+        { "quantity": 1, "colour_term": null, "fabric": "wool", "pattern": null, "name": "coat", "slot": "outerwear" },
+        { "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "puffer", "slot": "outerwear" }
+      ]
+    },
+    {
+      "id": "cp-025",
+      "transcript": "a linen shirt plus two cotton tees",
+      "fallback": false,
+      "garments": [
+        { "quantity": 1, "colour_term": null, "fabric": "linen", "pattern": null, "name": "shirt", "slot": "base_top" },
+        { "quantity": 2, "colour_term": null, "fabric": "cotton", "pattern": null, "name": "tee", "slot": "base_top" }
+      ]
+    },
+    {
+      "id": "cp-026",
+      "transcript": "no, actually a grey cardigan",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "grey", "fabric": null, "pattern": null, "name": "cardigan", "slot": "mid_layer" }]
+    },
+    {
+      "id": "cp-027",
+      "transcript": "a red jumper, I mean a burgundy jumper",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "burgundy", "fabric": null, "pattern": null, "name": "jumper", "slot": "mid_layer" }]
+    },
+    {
+      "id": "cp-028",
+      "transcript": "a black skirt, sorry, a navy skirt",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "navy", "fabric": null, "pattern": null, "name": "skirt", "slot": "bottom" }]
+    },
+    { "id": "cp-029", "transcript": "um, so, a, uh", "fallback": false, "garments": [] },
+    { "id": "cp-030", "transcript": "and, uh, hold on", "fallback": false, "garments": [] },
+    { "id": "cp-031", "transcript": "whatever, moving on", "fallback": false, "garments": [] },
+    { "id": "cp-032", "transcript": "the same but in navy", "fallback": true, "garments": [] },
+    { "id": "cp-033", "transcript": "another one like that", "fallback": true, "garments": [] },
+    { "id": "cp-034", "transcript": "two more of those", "fallback": true, "garments": [] },
+    { "id": "cp-035", "transcript": "a matching cardigan", "fallback": true, "garments": [] },
+    { "id": "cp-036", "transcript": "the other pair of boots", "fallback": true, "garments": [] },
+    {
+      "id": "cp-037",
+      "transcript": "twelve pairs of socks",
+      "fallback": false,
+      "garments": [{ "quantity": 12, "colour_term": null, "fabric": null, "pattern": null, "name": "sock", "slot": "accessory" }]
+    },
+    {
+      "id": "cp-038",
+      "transcript": "a pair of thermal long johns",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "long johns", "slot": "bottom" }]
+    },
+    {
+      "id": "cp-039",
+      "transcript": "my grandmother's fur stole",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "stole", "slot": "accessory" }]
+    },
+    {
+      "id": "cp-040",
+      "transcript": "a t-shirt",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "shirt", "slot": "base_top" }]
+    },
+    {
+      "id": "cp-041",
+      "transcript": "tee",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "tee", "slot": "base_top" }]
+    },
+    {
+      "id": "cp-042",
+      "transcript": "jeans",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "jean", "slot": "bottom" }]
+    },
+    {
+      "id": "cp-043",
+      "transcript": "a charcoal suit jacket and matching trousers",
+      "fallback": true,
+      "garments": [{ "quantity": 1, "colour_term": "charcoal", "fabric": null, "pattern": null, "name": "jacket", "slot": "outerwear" }]
+    },
+    {
+      "id": "cp-044",
+      "transcript": "a cream silk camisole under a black blazer",
+      "fallback": false,
+      "garments": [
+        { "quantity": 1, "colour_term": "cream", "fabric": "silk", "pattern": null, "name": "camisole", "slot": "base_top" },
+        { "quantity": 1, "colour_term": "black", "fabric": null, "pattern": null, "name": "blazer", "slot": "outerwear" }
+      ]
+    },
+    {
+      "id": "cp-045",
+      "transcript": "black jeans, black tee, black boots",
+      "fallback": false,
+      "garments": [
+        { "quantity": 1, "colour_term": "black", "fabric": null, "pattern": null, "name": "jean", "slot": "bottom" },
+        { "quantity": 1, "colour_term": "black", "fabric": null, "pattern": null, "name": "tee", "slot": "base_top" },
+        { "quantity": 1, "colour_term": "black", "fabric": null, "pattern": null, "name": "boot", "slot": "footwear" }
+      ]
+    },
+    {
+      "id": "cp-046",
+      "transcript": "a white shirt.",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "white", "fabric": null, "pattern": null, "name": "shirt", "slot": "base_top" }]
+    },
+    {
+      "id": "cp-047",
+      "transcript": "a hat,, a belt",
+      "fallback": false,
+      "garments": [
+        { "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "hat", "slot": "headwear" },
+        { "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "belt", "slot": "accessory" }
+      ]
+    },
+    {
+      "id": "cp-048",
+      "transcript": "a coat and also a scarf",
+      "fallback": false,
+      "garments": [
+        { "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "coat", "slot": "outerwear" },
+        { "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "scarf", "slot": "accessory" }
+      ]
+    },
+    {
+      "id": "cp-049",
+      "transcript": "a mustard yellow corduroy skirt",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "mustard", "fabric": "corduroy", "pattern": null, "name": "skirt", "slot": "bottom" }]
+    },
+    {
+      "id": "cp-050",
+      "transcript": "a pair of high waisted wide leg trousers in ecru linen",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": "ecru", "fabric": "linen", "pattern": null, "name": "trouser", "slot": "bottom" }]
+    },
+    {
+      "id": "cp-051",
+      "transcript": "stone coloured chinos and a sage green polo",
+      "fallback": false,
+      "garments": [
+        { "quantity": 1, "colour_term": "stone", "fabric": null, "pattern": null, "name": "chino", "slot": "bottom" },
+        { "quantity": 1, "colour_term": "sage", "fabric": null, "pattern": null, "name": "polo", "slot": "base_top" }
+      ]
+    },
+    {
+      "id": "cp-052",
+      "transcript": "a quilted gilet",
+      "fallback": false,
+      "garments": [{ "quantity": 1, "colour_term": null, "fabric": null, "pattern": null, "name": "gilet", "slot": "outerwear" }]
+    },
+    { "id": "cp-053", "transcript": "the navy one", "fallback": true, "garments": [] },
+    {
+      "id": "cp-054",
+      "transcript": "an ivory wool blend cardigan and a pair of black patent loafers",
+      "fallback": false,
+      "garments": [
+        { "quantity": 1, "colour_term": "ivory", "fabric": "wool", "pattern": null, "name": "cardigan", "slot": "mid_layer" },
+        { "quantity": 1, "colour_term": "black", "fabric": null, "pattern": null, "name": "loafer", "slot": "footwear" }
+      ]
+    },
+    {
+      "id": "cp-055",
+      "transcript": "a beige trench coat, a striped breton top, and dark denim",
+      "fallback": true,
+      "garments": [
+        { "quantity": 1, "colour_term": "beige", "fabric": null, "pattern": null, "name": "trench", "slot": "outerwear" },
+        { "quantity": 1, "colour_term": null, "fabric": null, "pattern": "striped", "name": "top", "slot": "base_top" }
+      ]
+    }
+  ]
+}

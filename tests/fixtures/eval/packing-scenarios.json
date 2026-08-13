@@ -1,0 +1,488 @@
+{
+  "_comment": [
+    "Twenty-two packed bags, described as data rather than built by the packing",
+    "engine.",
+    "",
+    "Deliberately not run through `buildPackingList`, for the reason",
+    "`tests/packing-memo-deterministic.test.ts` gives: this scores the MEMO, and a",
+    "score that moved because the beam search drifted would be a measurement about",
+    "the wrong module. Every scenario states its own looks, pieces and shortfall,",
+    "so the memo has exactly one input and the scorer can recompute the expected",
+    "counts independently.",
+    "",
+    "`forecasts` are [lowC, highC, precipitationChance] triples, one per day.",
+    "`looks[].items` of null is a look the closet could not fill — the shortfall",
+    "the memo has to name honestly rather than round away.",
+    "",
+    "Coverage is chosen to hit every branch the memo has: an empty bag, a",
+    "single-piece bag, one night and seven, all four day parts, rain with and",
+    "without outerwear in the bag, a worn-on-the-plane piece, normals standing in",
+    "for a forecast, and both unit systems."
+  ],
+  "scenarios": [
+    {
+      "id": "pk-01",
+      "days": 3,
+      "parts": ["daytime"],
+      "vibes": [{ "label": "Relaxed", "formality": 2 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[12, 20, 0.1], [13, 21, 0.0], [11, 19, 0.2]],
+      "requestedLooks": 3,
+      "pieces": [
+        { "id": "p-tee", "slot": "base_top", "subcategory": "linen tee", "looks": 3, "worn": false },
+        { "id": "p-jean", "slot": "bottom", "subcategory": "straight jeans", "looks": 3, "worn": false },
+        { "id": "p-shoe", "slot": "footwear", "subcategory": "loafers", "looks": 3, "worn": true }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-tee", "p-jean", "p-shoe"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-tee", "p-jean", "p-shoe"] },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-tee", "p-jean", "p-shoe"] }
+      ]
+    },
+    {
+      "id": "pk-02",
+      "days": 1,
+      "parts": ["daytime", "evening"],
+      "vibes": [{ "label": "Smart", "formality": 4 }],
+      "weatherSource": "forecast",
+      "units": "C",
+      "forecasts": [[8, 14, 0.5]],
+      "requestedLooks": 2,
+      "pieces": [
+        { "id": "p-shirt", "slot": "base_top", "subcategory": "oxford shirt", "looks": 2, "worn": false },
+        { "id": "p-trouser", "slot": "bottom", "subcategory": "wool trousers", "looks": 2, "worn": false },
+        { "id": "p-coat", "slot": "outerwear", "subcategory": "trench", "looks": 1, "worn": true }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-shirt", "p-trouser", "p-coat"] },
+        { "dayIndex": 0, "part": "evening", "items": ["p-shirt", "p-trouser"] }
+      ]
+    },
+    {
+      "id": "pk-03",
+      "days": 2,
+      "parts": ["daytime"],
+      "vibes": [{ "label": "Relaxed", "formality": 2 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[4, 9, 0.6], [3, 8, 0.7]],
+      "requestedLooks": 2,
+      "pieces": [
+        { "id": "p-knit", "slot": "mid_layer", "subcategory": "merino sweater", "looks": 2, "worn": false },
+        { "id": "p-jean", "slot": "bottom", "subcategory": "straight jeans", "looks": 2, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-knit", "p-jean"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-knit", "p-jean"] }
+      ]
+    },
+    {
+      "id": "pk-04",
+      "days": 5,
+      "parts": ["daytime", "evening", "gym"],
+      "vibes": [{ "label": "Formal", "formality": 5 }, { "label": "Relaxed", "formality": 2 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[16, 26, 0.0], [17, 27, 0.0], [15, 25, 0.1], [16, 26, 0.0], [18, 28, 0.0]],
+      "requestedLooks": 6,
+      "pieces": [
+        { "id": "p-dress", "slot": "dress", "subcategory": "midi dress", "looks": 2, "worn": false },
+        { "id": "p-blouse", "slot": "base_top", "subcategory": "silk blouse", "looks": 2, "worn": false },
+        { "id": "p-skirt", "slot": "bottom", "subcategory": "pencil skirt", "looks": 2, "worn": false },
+        { "id": "p-heel", "slot": "footwear", "subcategory": "block heels", "looks": 4, "worn": false },
+        { "id": "p-kit", "slot": "base_top", "subcategory": "running top", "looks": 2, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-blouse", "p-skirt", "p-heel"] },
+        { "dayIndex": 0, "part": "evening", "items": ["p-dress", "p-heel"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-blouse", "p-skirt", "p-heel"] },
+        { "dayIndex": 1, "part": "evening", "items": ["p-dress", "p-heel"] },
+        { "dayIndex": 2, "part": "gym", "items": ["p-kit"] },
+        { "dayIndex": 3, "part": "gym", "items": ["p-kit"] }
+      ]
+    },
+    {
+      "id": "pk-05",
+      "days": 4,
+      "parts": ["daytime", "evening"],
+      "vibes": [{ "label": "Smart-casual", "formality": 3 }],
+      "weatherSource": "normals",
+      "units": "F",
+      "forecasts": [[10, 18, 0.3], [10, 18, 0.3], [10, 18, 0.3], [10, 18, 0.3]],
+      "requestedLooks": 4,
+      "pieces": [
+        { "id": "p-shirt", "slot": "base_top", "subcategory": "poplin shirt", "looks": 4, "worn": false },
+        { "id": "p-chino", "slot": "bottom", "subcategory": "chinos", "looks": 4, "worn": false },
+        { "id": "p-boot", "slot": "footwear", "subcategory": "chelsea boots", "looks": 4, "worn": true }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-shirt", "p-chino", "p-boot"] },
+        { "dayIndex": 0, "part": "evening", "items": ["p-shirt", "p-chino", "p-boot"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-shirt", "p-chino", "p-boot"] },
+        { "dayIndex": 1, "part": "evening", "items": ["p-shirt", "p-chino", "p-boot"] }
+      ]
+    },
+    {
+      "id": "pk-06",
+      "days": 2,
+      "parts": ["daytime"],
+      "vibes": [{ "label": "Relaxed", "formality": 2 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[20, 30, 0.0], [21, 31, 0.0]],
+      "requestedLooks": 2,
+      "pieces": [],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": null },
+        { "dayIndex": 1, "part": "daytime", "items": null }
+      ]
+    },
+    {
+      "id": "pk-07",
+      "days": 3,
+      "parts": ["daytime", "evening"],
+      "vibes": [{ "label": "Dressed", "formality": 4 }],
+      "weatherSource": "forecast",
+      "units": "C",
+      "forecasts": [[6, 12, 0.8], [5, 11, 0.9], [7, 13, 0.4]],
+      "requestedLooks": 6,
+      "pieces": [
+        { "id": "p-knit", "slot": "mid_layer", "subcategory": "cashmere jumper", "looks": 3, "worn": false },
+        { "id": "p-trouser", "slot": "bottom", "subcategory": "wool trousers", "looks": 3, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-knit", "p-trouser"] },
+        { "dayIndex": 0, "part": "evening", "items": null },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-knit", "p-trouser"] },
+        { "dayIndex": 1, "part": "evening", "items": null },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-knit", "p-trouser"] },
+        { "dayIndex": 2, "part": "evening", "items": null }
+      ]
+    },
+    {
+      "id": "pk-08",
+      "days": 7,
+      "parts": ["daytime", "travel"],
+      "vibes": [{ "label": "Relaxed", "formality": 2 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[14, 22, 0.1], [15, 23, 0.0], [14, 22, 0.2], [13, 21, 0.1], [15, 24, 0.0], [16, 25, 0.0], [14, 23, 0.1]],
+      "requestedLooks": 8,
+      "pieces": [
+        { "id": "p-tee-a", "slot": "base_top", "subcategory": "cotton tee", "looks": 4, "worn": false },
+        { "id": "p-tee-b", "slot": "base_top", "subcategory": "striped tee", "looks": 3, "worn": false },
+        { "id": "p-jean", "slot": "bottom", "subcategory": "straight jeans", "looks": 5, "worn": true },
+        { "id": "p-short", "slot": "bottom", "subcategory": "linen shorts", "looks": 2, "worn": false },
+        { "id": "p-sneak", "slot": "footwear", "subcategory": "sneakers", "looks": 7, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "travel", "items": ["p-tee-a", "p-jean", "p-sneak"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-tee-a", "p-jean", "p-sneak"] },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-tee-b", "p-short", "p-sneak"] },
+        { "dayIndex": 3, "part": "daytime", "items": ["p-tee-a", "p-jean", "p-sneak"] },
+        { "dayIndex": 4, "part": "daytime", "items": ["p-tee-b", "p-short", "p-sneak"] },
+        { "dayIndex": 5, "part": "daytime", "items": ["p-tee-a", "p-jean", "p-sneak"] },
+        { "dayIndex": 6, "part": "travel", "items": ["p-tee-b", "p-jean", "p-sneak"] }
+      ]
+    },
+    {
+      "id": "pk-09",
+      "days": 1,
+      "parts": ["daytime"],
+      "vibes": [],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[18, 24, 0.0]],
+      "requestedLooks": 1,
+      "pieces": [{ "id": "p-dress", "slot": "dress", "subcategory": "shirt dress", "looks": 1, "worn": false }],
+      "looks": [{ "dayIndex": 0, "part": "daytime", "items": ["p-dress"] }]
+    },
+    {
+      "id": "pk-10",
+      "days": 3,
+      "parts": ["evening"],
+      "vibes": [{ "label": "Formal", "formality": 5 }],
+      "weatherSource": "normals",
+      "units": "C",
+      "forecasts": [[2, 7, 0.5], [1, 6, 0.5], [2, 7, 0.5]],
+      "requestedLooks": 3,
+      "pieces": [
+        { "id": "p-gown", "slot": "dress", "subcategory": "evening dress", "looks": 1, "worn": false },
+        { "id": "p-suit", "slot": "outerwear", "subcategory": "tailored jacket", "looks": 2, "worn": false },
+        { "id": "p-trouser", "slot": "bottom", "subcategory": "dress trousers", "looks": 2, "worn": false },
+        { "id": "p-heel", "slot": "footwear", "subcategory": "heels", "looks": 3, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "evening", "items": ["p-gown", "p-heel"] },
+        { "dayIndex": 1, "part": "evening", "items": ["p-suit", "p-trouser", "p-heel"] },
+        { "dayIndex": 2, "part": "evening", "items": ["p-suit", "p-trouser", "p-heel"] }
+      ]
+    },
+    {
+      "id": "pk-11",
+      "days": 2,
+      "parts": ["gym"],
+      "vibes": [{ "label": "Relaxed", "formality": 2 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[9, 17, 0.0], [10, 18, 0.0]],
+      "requestedLooks": 2,
+      "pieces": [
+        { "id": "p-kit", "slot": "base_top", "subcategory": "running top", "looks": 2, "worn": false },
+        { "id": "p-legging", "slot": "bottom", "subcategory": "leggings", "looks": 2, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "gym", "items": ["p-kit", "p-legging"] },
+        { "dayIndex": 1, "part": "gym", "items": ["p-kit", "p-legging"] }
+      ]
+    },
+    {
+      "id": "pk-12",
+      "days": 4,
+      "parts": ["daytime"],
+      "vibes": [{ "label": "Smart-casual", "formality": 3 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[-4, 2, 0.3], [-6, 0, 0.2], [-5, 1, 0.4], [-3, 3, 0.1]],
+      "requestedLooks": 4,
+      "pieces": [
+        { "id": "p-parka", "slot": "outerwear", "subcategory": "down parka", "looks": 4, "worn": true },
+        { "id": "p-knit", "slot": "mid_layer", "subcategory": "wool jumper", "looks": 4, "worn": false },
+        { "id": "p-trouser", "slot": "bottom", "subcategory": "flannel trousers", "looks": 4, "worn": false },
+        { "id": "p-boot", "slot": "footwear", "subcategory": "snow boots", "looks": 4, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-parka", "p-knit", "p-trouser", "p-boot"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-parka", "p-knit", "p-trouser", "p-boot"] },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-parka", "p-knit", "p-trouser", "p-boot"] },
+        { "dayIndex": 3, "part": "daytime", "items": ["p-parka", "p-knit", "p-trouser", "p-boot"] }
+      ]
+    },
+    {
+      "id": "pk-13",
+      "days": 3,
+      "parts": ["daytime", "evening"],
+      "vibes": [{ "label": "Relaxed", "formality": 2 }, { "label": "Smart", "formality": 4 }],
+      "weatherSource": "forecast",
+      "units": "C",
+      "forecasts": [[19, 29, 0.0], [20, 30, 0.0], [21, 32, 0.0]],
+      "requestedLooks": 6,
+      "pieces": [
+        { "id": "p-linen", "slot": "base_top", "subcategory": "linen shirt", "looks": 3, "worn": false },
+        { "id": "p-short", "slot": "bottom", "subcategory": "linen shorts", "looks": 3, "worn": false },
+        { "id": "p-dress", "slot": "dress", "subcategory": "slip dress", "looks": 3, "worn": false },
+        { "id": "p-sandal", "slot": "footwear", "subcategory": "sandals", "looks": 6, "worn": true }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-linen", "p-short", "p-sandal"] },
+        { "dayIndex": 0, "part": "evening", "items": ["p-dress", "p-sandal"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-linen", "p-short", "p-sandal"] },
+        { "dayIndex": 1, "part": "evening", "items": ["p-dress", "p-sandal"] },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-linen", "p-short", "p-sandal"] },
+        { "dayIndex": 2, "part": "evening", "items": ["p-dress", "p-sandal"] }
+      ]
+    },
+    {
+      "id": "pk-14",
+      "days": 2,
+      "parts": ["daytime", "evening", "gym", "travel"],
+      "vibes": [{ "label": "Smart-casual", "formality": 3 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[11, 19, 0.2], [12, 20, 0.1]],
+      "requestedLooks": 5,
+      "pieces": [
+        { "id": "p-shirt", "slot": "base_top", "subcategory": "chambray shirt", "looks": 2, "worn": false },
+        { "id": "p-jean", "slot": "bottom", "subcategory": "straight jeans", "looks": 3, "worn": true },
+        { "id": "p-kit", "slot": "base_top", "subcategory": "training tee", "looks": 1, "worn": false },
+        { "id": "p-boot", "slot": "footwear", "subcategory": "desert boots", "looks": 3, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "travel", "items": ["p-shirt", "p-jean", "p-boot"] },
+        { "dayIndex": 0, "part": "daytime", "items": ["p-shirt", "p-jean", "p-boot"] },
+        { "dayIndex": 0, "part": "evening", "items": null },
+        { "dayIndex": 1, "part": "gym", "items": ["p-kit"] },
+        { "dayIndex": 1, "part": "travel", "items": ["p-jean", "p-boot"] }
+      ]
+    },
+    {
+      "id": "pk-15",
+      "days": 6,
+      "parts": ["daytime"],
+      "vibes": [{ "label": "Relaxed", "formality": 2 }],
+      "weatherSource": "normals",
+      "units": "F",
+      "forecasts": [[17, 25, 0.5], [17, 25, 0.5], [17, 25, 0.5], [17, 25, 0.5], [17, 25, 0.5], [17, 25, 0.5]],
+      "requestedLooks": 6,
+      "pieces": [
+        { "id": "p-tee", "slot": "base_top", "subcategory": "cotton tee", "looks": 6, "worn": false },
+        { "id": "p-short", "slot": "bottom", "subcategory": "cotton shorts", "looks": 6, "worn": false },
+        { "id": "p-sneak", "slot": "footwear", "subcategory": "canvas sneakers", "looks": 6, "worn": true }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-tee", "p-short", "p-sneak"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-tee", "p-short", "p-sneak"] },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-tee", "p-short", "p-sneak"] },
+        { "dayIndex": 3, "part": "daytime", "items": ["p-tee", "p-short", "p-sneak"] },
+        { "dayIndex": 4, "part": "daytime", "items": ["p-tee", "p-short", "p-sneak"] },
+        { "dayIndex": 5, "part": "daytime", "items": ["p-tee", "p-short", "p-sneak"] }
+      ]
+    },
+    {
+      "id": "pk-16",
+      "days": 1,
+      "parts": ["travel"],
+      "vibes": [{ "label": "Relaxed", "formality": 2 }],
+      "weatherSource": "forecast",
+      "units": "C",
+      "forecasts": [[7, 15, 0.0]],
+      "requestedLooks": 1,
+      "pieces": [
+        { "id": "p-hoodie", "slot": "mid_layer", "subcategory": "hoodie", "looks": 1, "worn": true },
+        { "id": "p-jogger", "slot": "bottom", "subcategory": "joggers", "looks": 1, "worn": false }
+      ],
+      "looks": [{ "dayIndex": 0, "part": "travel", "items": ["p-hoodie", "p-jogger"] }]
+    },
+    {
+      "id": "pk-17",
+      "days": 5,
+      "parts": ["daytime", "evening"],
+      "vibes": [{ "label": "Dressed", "formality": 4 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[8, 15, 0.5], [9, 16, 0.6], [7, 14, 0.5], [8, 15, 0.2], [9, 16, 0.1]],
+      "requestedLooks": 10,
+      "pieces": [
+        { "id": "p-blazer", "slot": "outerwear", "subcategory": "wool blazer", "looks": 5, "worn": true },
+        { "id": "p-shirt", "slot": "base_top", "subcategory": "silk shirt", "looks": 5, "worn": false },
+        { "id": "p-trouser", "slot": "bottom", "subcategory": "tailored trousers", "looks": 5, "worn": false },
+        { "id": "p-loafer", "slot": "footwear", "subcategory": "loafers", "looks": 5, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-blazer", "p-shirt", "p-trouser", "p-loafer"] },
+        { "dayIndex": 0, "part": "evening", "items": null },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-blazer", "p-shirt", "p-trouser", "p-loafer"] },
+        { "dayIndex": 1, "part": "evening", "items": null },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-blazer", "p-shirt", "p-trouser", "p-loafer"] },
+        { "dayIndex": 2, "part": "evening", "items": null },
+        { "dayIndex": 3, "part": "daytime", "items": ["p-blazer", "p-shirt", "p-trouser", "p-loafer"] },
+        { "dayIndex": 3, "part": "evening", "items": null },
+        { "dayIndex": 4, "part": "daytime", "items": ["p-blazer", "p-shirt", "p-trouser", "p-loafer"] },
+        { "dayIndex": 4, "part": "evening", "items": null }
+      ]
+    },
+    {
+      "id": "pk-18",
+      "days": 3,
+      "parts": ["daytime"],
+      "vibes": [{ "label": "Nothing to think about", "formality": 1 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[22, 33, 0.0], [23, 34, 0.0], [24, 35, 0.0]],
+      "requestedLooks": 3,
+      "pieces": [
+        { "id": "p-vest", "slot": "base_top", "subcategory": "cotton vest", "looks": 3, "worn": false },
+        { "id": "p-short", "slot": "bottom", "subcategory": "swim shorts", "looks": 3, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-vest", "p-short"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-vest", "p-short"] },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-vest", "p-short"] }
+      ]
+    },
+    {
+      "id": "pk-19",
+      "days": 4,
+      "parts": ["daytime", "gym"],
+      "vibes": [{ "label": "Relaxed", "formality": 2 }],
+      "weatherSource": "forecast",
+      "units": "C",
+      "forecasts": [[13, 21, 0.45], [12, 20, 0.55], [14, 22, 0.1], [13, 21, 0.0]],
+      "requestedLooks": 6,
+      "pieces": [
+        { "id": "p-shell", "slot": "outerwear", "subcategory": "rain shell", "looks": 4, "worn": false },
+        { "id": "p-tee", "slot": "base_top", "subcategory": "cotton tee", "looks": 4, "worn": false },
+        { "id": "p-jean", "slot": "bottom", "subcategory": "straight jeans", "looks": 4, "worn": true },
+        { "id": "p-kit", "slot": "base_top", "subcategory": "training tee", "looks": 2, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-shell", "p-tee", "p-jean"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-shell", "p-tee", "p-jean"] },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-shell", "p-tee", "p-jean"] },
+        { "dayIndex": 3, "part": "daytime", "items": ["p-shell", "p-tee", "p-jean"] },
+        { "dayIndex": 1, "part": "gym", "items": ["p-kit"] },
+        { "dayIndex": 3, "part": "gym", "items": ["p-kit"] }
+      ]
+    },
+    {
+      "id": "pk-20",
+      "days": 2,
+      "parts": ["daytime", "evening"],
+      "vibes": [{ "label": "Smart", "formality": 4 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [[10, 17, 0.7], [11, 18, 0.8]],
+      "requestedLooks": 4,
+      "pieces": [
+        { "id": "p-knit", "slot": "mid_layer", "subcategory": "fine knit", "looks": 4, "worn": false },
+        { "id": "p-skirt", "slot": "bottom", "subcategory": "midi skirt", "looks": 4, "worn": false },
+        { "id": "p-boot", "slot": "footwear", "subcategory": "ankle boots", "looks": 4, "worn": true }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-knit", "p-skirt", "p-boot"] },
+        { "dayIndex": 0, "part": "evening", "items": ["p-knit", "p-skirt", "p-boot"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-knit", "p-skirt", "p-boot"] },
+        { "dayIndex": 1, "part": "evening", "items": ["p-knit", "p-skirt", "p-boot"] }
+      ]
+    },
+    {
+      "id": "pk-21",
+      "days": 3,
+      "parts": ["daytime"],
+      "vibes": [{ "label": "Smart-casual", "formality": 3 }],
+      "weatherSource": "forecast",
+      "units": "F",
+      "forecasts": [],
+      "requestedLooks": 3,
+      "pieces": [
+        { "id": "p-shirt", "slot": "base_top", "subcategory": "denim shirt", "looks": 3, "worn": false },
+        { "id": "p-chino", "slot": "bottom", "subcategory": "chinos", "looks": 3, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "daytime", "items": ["p-shirt", "p-chino"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-shirt", "p-chino"] },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-shirt", "p-chino"] }
+      ]
+    },
+    {
+      "id": "pk-22",
+      "days": 8,
+      "parts": ["daytime", "evening", "travel"],
+      "vibes": [{ "label": "Dressed", "formality": 4 }, { "label": "Relaxed", "formality": 2 }],
+      "weatherSource": "forecast",
+      "units": "C",
+      "forecasts": [[5, 13, 0.2], [6, 14, 0.1], [4, 12, 0.45], [5, 13, 0.5], [7, 15, 0.0], [8, 16, 0.0], [6, 14, 0.1], [5, 13, 0.3]],
+      "requestedLooks": 9,
+      "pieces": [
+        { "id": "p-coat", "slot": "outerwear", "subcategory": "wool coat", "looks": 6, "worn": true },
+        { "id": "p-knit-a", "slot": "mid_layer", "subcategory": "cashmere jumper", "looks": 4, "worn": false },
+        { "id": "p-knit-b", "slot": "mid_layer", "subcategory": "lambswool jumper", "looks": 3, "worn": false },
+        { "id": "p-trouser", "slot": "bottom", "subcategory": "wool trousers", "looks": 5, "worn": false },
+        { "id": "p-jean", "slot": "bottom", "subcategory": "dark jeans", "looks": 3, "worn": false },
+        { "id": "p-boot", "slot": "footwear", "subcategory": "chelsea boots", "looks": 8, "worn": false }
+      ],
+      "looks": [
+        { "dayIndex": 0, "part": "travel", "items": ["p-coat", "p-knit-a", "p-jean", "p-boot"] },
+        { "dayIndex": 1, "part": "daytime", "items": ["p-coat", "p-knit-a", "p-trouser", "p-boot"] },
+        { "dayIndex": 1, "part": "evening", "items": ["p-knit-b", "p-trouser", "p-boot"] },
+        { "dayIndex": 2, "part": "daytime", "items": ["p-coat", "p-knit-a", "p-trouser", "p-boot"] },
+        { "dayIndex": 3, "part": "daytime", "items": ["p-coat", "p-knit-b", "p-jean", "p-boot"] },
+        { "dayIndex": 4, "part": "daytime", "items": ["p-coat", "p-knit-a", "p-trouser", "p-boot"] },
+        { "dayIndex": 5, "part": "evening", "items": ["p-knit-b", "p-trouser", "p-boot"] },
+        { "dayIndex": 6, "part": "daytime", "items": null },
+        { "dayIndex": 7, "part": "travel", "items": ["p-coat", "p-jean", "p-boot"] }
+      ]
+    }
+  ]
+}
