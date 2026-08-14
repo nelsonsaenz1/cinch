@@ -133,6 +133,18 @@ const palette: Record<ColorSchemeName, ThemeColors> = {
  */
 export const canvasAlpha = (alpha: number) => `rgba(251,250,246,${alpha})`;
 
+/**
+ * The accent, composited — for the one well CX-01 draws behind a recommended
+ * route's glyph.
+ *
+ * Same discipline as `canvasAlpha`: this introduces no colour, it is `accent`
+ * at an alpha, and it exists so a tint is derived rather than eyedropped into
+ * a component as a fourth oxblood nobody can trace. The light and dark accents
+ * are the same hex (`#6E2B2B`), which is why one function serves both — if
+ * that ever stops being true this has to take the theme instead.
+ */
+export const accentAlpha = (alpha: number) => `rgba(110,43,43,${alpha})`;
+
 export function useTheme(): ThemeColors & { scheme: ColorSchemeName } {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   return { ...palette[scheme], scheme };

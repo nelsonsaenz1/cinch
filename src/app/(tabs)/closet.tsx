@@ -19,7 +19,9 @@ import { ClosetInspirationSheet } from '@/components/closet/closet-inspiration-s
 import { ClosetMenu } from '@/components/closet/closet-menu';
 import { ClosetSkeleton } from '@/components/closet/closet-skeleton';
 import { EmptyCloset } from '@/components/closet/empty-closet';
+import { ExampleCloset } from '@/components/closet/example-closet';
 import { InsightCard } from '@/components/closet/insight-card';
+import { PLANS } from '@/features/billing/plans';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { RailCard } from '@/components/closet/rail-card';
 import { SelectionBar } from '@/components/closet/selection-bar';
@@ -144,6 +146,24 @@ export default function ClosetScreen() {
     />
   );
 
+  /**
+   * How many pieces the free ten is still waiting on — or null once it is not
+   * waiting on any, which is the signal to draw no example at all.
+   *
+   * `PLANS.free.items`, deliberately NOT `MIN_CLOSET_FOR_OUTFITS`. Styling
+   * begins at eight and the motivation stays until ten; both are true at nine,
+   * and reconciling them would delete one of two different facts. See the
+   * docblock on `example-closet.tsx`.
+   *
+   * Counted over `screen.items` — everything owned — rather than
+   * `screen.visible`, so a category chip cannot make the example appear by
+   * filtering a full closet down to three.
+   */
+  const exampleRemaining =
+    screen.items.length > 0 && screen.items.length < PLANS.free.items
+      ? PLANS.free.items - screen.items.length
+      : null;
+
   // ── The six atlas states, one branch each ─────────────────────────────────
 
   let body: React.ReactNode;
@@ -196,7 +216,15 @@ export default function ClosetScreen() {
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 96 }}>
         <EyebrowHeader />
         <View className="mt-1 px-gutter">
-          <Text variant="note">0 pieces</Text>
+          {/* CX-03. "0 pieces" read as a failure state; "0 of 10 pieces" reads
+              as the start of something with a known end, and it is the same
+              grammar `CapacityColophon` prints from the first piece onward. */}
+          <Text variant="note">{`0 of ${PLANS.free.items} pieces`}</Text>
+        </View>
+        {/* The example first — the payoff before the invitation, which is the
+            order Today's own floor already uses. */}
+        <View className="mt-5">
+          <ExampleCloset variant="full" />
         </View>
         <EmptyCloset onAddClothes={() => router.push('/add-clothes')} />
       </ScrollView>
@@ -326,6 +354,17 @@ export default function ClosetScreen() {
         refreshControl={refreshControl}
         ListHeaderComponent={
           <Masthead screen={screen} onSeeAll={seeAllPieces} onMenu={() => setMenuOpen(true)} />
+        }
+        // CX-04 — the example preview, BELOW the owned grid and never inside
+        // it. A footer rather than a header or an injected cell: the reader's
+        // own pieces stay first and interactive, and nothing fictional can be
+        // reached by scrolling the grid itself.
+        ListFooterComponent={
+          exampleRemaining === null ? null : (
+            <View className="pt-8">
+              <ExampleCloset variant="compact" remaining={exampleRemaining} />
+            </View>
+          )
         }
         ListEmptyComponent={
           // The closet has pieces, but none under the chosen chip — the honest

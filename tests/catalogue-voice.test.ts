@@ -391,11 +391,23 @@ test('the door subtitle promises only what the door does', () => {
   // a door is the worst place in the app to be wrong.
   const route = INTAKE_ROUTES.find((r) => r.key === 'catalogue');
   assert.ok(route, 'the catalogue route is gone');
-  assert.ok(
-    !/paste|link/i.test(route.line),
-    `the plate promises something /find-photo does not do: ${route.line}`,
-  );
+  /**
+   * EVERY string on the route, not just the subtitle.
+   *
+   * This test used to read `line` alone, and the paste promise survived in
+   * `accessibilityLabel` for months underneath it — so the only person still
+   * being told about a control that does not exist was a VoiceOver reader,
+   * which is the one audience no sighted review would ever catch it for.
+   */
+  for (const [field, value] of Object.entries(route)) {
+    if (typeof value !== 'string') continue;
+    assert.ok(
+      !/paste|product link/i.test(value),
+      `the catalogue route's ${field} promises something /find-photo does not do: ${value}`,
+    );
+  }
   assert.match(route.line, /^Say or type a piece/);
+  assert.match(route.accessibilityLabel, /type or say a brand or piece/);
 });
 
 // ---------------------------------------------------------------------------

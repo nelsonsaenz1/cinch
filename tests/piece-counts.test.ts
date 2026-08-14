@@ -138,11 +138,14 @@ test('the free paywall line names the cap once and derives it', () => {
 
 test('the .tsx surfaces still interpolate rather than spell', () => {
   const cases: { path: string; must: string[] }[] = [
-    // C-05's ask is `PIECES_ASKED`, the constant that also draws the pips —
-    // deliberately not `PLANS.free.items`; see the constant's own note.
+    // CX-03 reconciles the one count that used to stand apart. The empty
+    // closet asked for six — its own `PIECES_ASKED`, with a pip row counting
+    // from it — while every other ask in the product was the free tier's ten.
+    // The correction makes the closet ask for ten too, so the constant and the
+    // pips are gone and the sentence reads from `PLANS`.
     {
-      path: 'src/components/closet/example-closet.tsx',
-      must: ['numberWord(PIECES_ASKED)', 'length: PIECES_ASKED'],
+      path: 'src/components/closet/empty-closet.tsx',
+      must: ['PLANS.free.items'],
     },
     // P-03's empty week and S-09's too-small closet both ask for the free cap.
     { path: 'src/app/(tabs)/plan.tsx', must: ['numberWord(PLANS.free.items)'] },

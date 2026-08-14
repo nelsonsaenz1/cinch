@@ -129,11 +129,20 @@ test('the empty closet carries the approved positioning line verbatim', () => {
   );
 });
 
-test('C-05 draws no example grid — the frame refuses an illustrated one', () => {
-  for (const f of ['src/app/(tabs)/closet.tsx', 'src/app/dev-empty-closet.tsx']) {
-    assert.ok(
-      !/ExampleCloset/.test(code(f)),
-      `${f} still draws the illustrated example closet C-05 refuses`,
-    );
+test('C-05 draws no GHOST grid — the refusal that survives CX-03', () => {
+  /**
+   * SUPERSEDED IN PART. C-05 refused "empty hangers, dashed placeholder grid,
+   * no exclamation" and this test read that as refusing the photographic
+   * example too. CX-03 restores the photographs on the founder's call, and the
+   * distinction is the whole point: a dashed outline shows the SHAPE of a
+   * closet nobody has, which teaches a reader to discount the grid; four real
+   * photographs, labelled as an example, show what the product does.
+   *
+   * So the ghosts stay refused, and they are what this now checks.
+   */
+  for (const f of ['src/app/(tabs)/closet.tsx', 'src/components/closet/example-closet.tsx']) {
+    const src = code(f);
+    assert.doesNotMatch(src, /borderStyle:\s*'dashed'|border-dashed/, `${f} draws a ghost slot`);
+    assert.doesNotMatch(src, /GhostedRail|ghost/i, `${f} draws a ghosted placeholder`);
   }
 });

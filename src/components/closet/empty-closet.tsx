@@ -2,7 +2,6 @@ import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { PLANS } from '@/features/billing/plans';
-import { numberWord } from '@/features/onboarding/reveal-copy';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -43,9 +42,22 @@ import { useTheme } from '@/theme/tokens';
 export const POSITIONING_LINE =
   'Your closet first. Shop only when something is genuinely missing.';
 
-/** The rest of the paragraph — what the two doors are, in the frame's words. */
-const DOORS_LINE =
-  'Start with the pieces you reach for most. Photograph them, choose a saved image, describe them, or search the catalogue — every route builds the same closet.';
+/** CX-03's title. */
+export const EMPTY_TITLE = 'Start your closet';
+
+/** CX-03's action. Named for the first photograph, not for the chooser. */
+export const EMPTY_ACTION = 'Add your first piece';
+
+/**
+ * CX-03's body.
+ *
+ * `PLANS.free.items` rather than a typed "10": every other statement of the
+ * free closet reads from that constant, and a sentence that disagrees with the
+ * ceiling it quotes is the bug this codebase keeps closing. At today's value it
+ * reads exactly as the correction writes it.
+ */
+export const emptyClosetBody = (): string =>
+  `Add ${PLANS.free.items} pieces and Cinch can start building outfits from what you own.`;
 
 export function EmptyCloset({ onAddClothes }: { onAddClothes: () => void }) {
   const theme = useTheme();
@@ -61,14 +73,24 @@ export function EmptyCloset({ onAddClothes }: { onAddClothes: () => void }) {
             `text-*` class — NativeWind gives no precedence between two size
             utilities on one element. */}
         <Text variant="title" trim style={{ fontSize: 30, lineHeight: 34 }}>
-          {`Start with ${numberWord(PLANS.free.items)} pieces that feel like you.`}
+          {EMPTY_TITLE}
         </Text>
 
         {/* 16px prose in the regular cut. `note` is 13; the frame sets this one
             a step up because it is the paragraph the whole screen is, not a
             footnote under something else. */}
         <Text variant="note" className="mt-4" style={{ fontSize: 16, lineHeight: 25 }}>
-          {`${POSITIONING_LINE} ${DOORS_LINE}`}
+          {emptyClosetBody()}
+        </Text>
+
+        {/* Audit 100's approved positioning line, kept and moved rather than
+            dropped: CX-03 fixes the paragraph above word for word, so the line
+            that has to appear verbatim on this surface needs its own row. The
+            route list that used to trail it is gone — the chooser one tap away
+            now explains the four ways in, and explaining them twice was how
+            this card grew to five sentences. */}
+        <Text variant="noteSmall" className="mt-3">
+          {POSITIONING_LINE}
         </Text>
 
         {/* The frame's one filled action. Hand-built rather than `Button`
@@ -78,7 +100,7 @@ export function EmptyCloset({ onAddClothes }: { onAddClothes: () => void }) {
             capsule. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Add clothes"
+          accessibilityLabel={EMPTY_ACTION}
           accessibilityHint="Opens the four ways to file a piece"
           onPress={onAddClothes}
           style={{ minHeight: 48, backgroundColor: theme.accent }}
@@ -90,7 +112,7 @@ export function EmptyCloset({ onAddClothes }: { onAddClothes: () => void }) {
           <Text
             variant="body"
             style={{ fontSize: 16, color: theme.canvas }}>
-            Add clothes
+            {EMPTY_ACTION}
           </Text>
         </Pressable>
       </View>

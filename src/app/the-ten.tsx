@@ -11,6 +11,7 @@ import { SubstitutionSheet } from '@/components/onboarding/substitution-sheet';
 import { TenBody } from '@/components/onboarding/ten-body';
 import { TenCamera } from '@/components/onboarding/ten-camera';
 import { TenStopSheet } from '@/components/onboarding/ten-stop-sheet';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { Text } from '@/components/ui/text';
 import { countOutfits } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -271,6 +272,14 @@ export default function TheTenScreen() {
   if (!doorChosen && filled === 0) {
     return (
       <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+        {/* CX-01. This screen is reached from Today's "Start your closet" and
+            had no way back out of it — the only exits were the four doors and
+            the iOS edge swipe, which is not a control and is not discoverable.
+            `router.back()` is right rather than a hard `/(tabs)` replace: every
+            production entrance pushes, so back lands where the reader came
+            from, and the shared header is the same disc eight other screens
+            draw rather than a ninth hand-rolled copy. */}
+        <ScreenHeader align="leading" title="Today" backLabel="Today" />
         <FirstTenDoors
           // TR-06 when there is a walkthrough waiting, TR-05 when there is not.
           // Null while either read is in flight, so the doors are what a

@@ -209,6 +209,19 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    // The founder's correction to intake, the example closet and Explore's
+    // masthead. Its own section, for the same reason the one above has one: a
+    // reviewer needs to see the correction rather than the state it replaces,
+    // and CX-01 supersedes TN-C1 on the very screen TN-C1 is still indexed at.
+    'Corrections · Intake, Example Closet & Explore',
+    [
+      ['CX-01 / CX-02 · first-10 chooser', '/dev-cx-01-chooser'],
+      ['CX-03 · closet at 0', '/dev-cx-03-closet-empty'],
+      ['CX-04 · closet at 8', '/dev-cx-04-closet-partial'],
+      ['CX-06 · Explore masthead', '/dev-cx-06-explore'],
+    ],
+  ],
+  [
     'Catalogue Photo V2',
     [
       ['CPV2-01 · idle', '/dev-cpv2-01-idle'],

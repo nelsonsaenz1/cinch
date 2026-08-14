@@ -53,7 +53,11 @@ import {
 test('the ten-piece surface has one title, and it is not the flow’s codename', () => {
   // TR-05, TR-06, T-01, T-02 and T-04 all print this. "The Ten" was the spec's
   // name for the flow showing through onto the screen.
-  assert.equal(TEN_TITLE, 'Your first ten');
+  //
+  // CX-01/CX-02 fix the numeral. An eyebrow is a label, not prose, so it takes
+  // the same register as the "0 of 10 pieces" count rather than the spelled
+  // form the sentences use.
+  assert.equal(TEN_TITLE, 'Your first 10');
 });
 
 test('TR-06 — resume is a count, never a bar', () => {

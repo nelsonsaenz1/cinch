@@ -17,12 +17,24 @@ import type { SymbolViewProps } from 'expo-symbols';
  * table. A door added to one is a door added to both, by construction rather
  * than by anyone remembering — which is exactly what went wrong last time.
  *
- * ── THE ORDER IS FIXED, AND CAMERA IS NOT PREFERRED ───────────────────────
+ * ── THE ORDER IS FIXED, AND CATALOGUE LEADS ───────────────────────────────
  *
- * Camera, library, catalogue, voice. Same order on every surface that offers
+ * Catalogue, camera, library, voice. Same order on every surface that offers
  * intake, and the same order at the capacity ceiling, where all four stay
  * available and capacity settles after acquisition (the v3 correction, and
- * W-02, both preserved). "No route is emphasised by colour, size or position."
+ * W-02, both preserved).
+ *
+ * THIS REVERSES AC-C1's "no route is emphasised by colour, size or position",
+ * and only for THE TEN. Corrections CX-01 supersedes it there on a founder
+ * call: a first run has nothing in the closet and no photographs taken yet, so
+ * offering four peers asks a beginner to pick a workflow before they have one.
+ * The catalogue is the fastest route to ten pieces and is now recommended by
+ * PLACEMENT AND EDGE — never by dimming the other three, which keep full
+ * contrast and full-size targets.
+ *
+ * Add clothes still draws four peers through `DoorPlate`; a reader arriving
+ * there already has a closet and a habit. What the two surfaces share is this
+ * table and its ORDER, so a door added to one is added to both.
  *
  * ── THE CATALOGUE ROUTE'S NAME, AND A REVERSED DECISION ───────────────────
  *
@@ -51,6 +63,15 @@ export type IntakeRoute = {
   name: string;
   /** The subtitle on Add clothes. */
   line: string;
+  /**
+   * The name in The Ten's chooser, when it differs from `name`.
+   *
+   * CX-01 words the chooser as instructions to somebody who has never done
+   * this — "Take a photo" rather than the noun "Camera". Add clothes keeps the
+   * nouns, because a reader who returns there is scanning a list they already
+   * know rather than being taught one. Absent means the two agree.
+   */
+  tenName?: string;
   /** The subtitle in The Ten, where the target is ten pieces rather than one. */
   tenLine: string;
   /** SF Symbol. Typed as `SymbolView`'s own name union so a typo fails here. */
@@ -61,22 +82,6 @@ export type IntakeRoute = {
 /** In order. The order IS the contract; nothing may sort or filter this. */
 export const INTAKE_ROUTES: readonly IntakeRoute[] = [
   {
-    key: 'camera',
-    name: 'Camera',
-    line: 'Photograph a piece against any wall',
-    tenLine: 'Photograph them as you go',
-    symbol: 'camera',
-    accessibilityLabel: 'Camera — photograph a piece against any wall',
-  },
-  {
-    key: 'library',
-    name: 'Photo library',
-    line: 'Pick pictures you already have — no permission needed',
-    tenLine: 'Ten pictures you already have',
-    symbol: 'photo.on.rectangle',
-    accessibilityLabel: 'Photo library — pick pictures you already have, no permission needed',
-  },
-  {
     key: 'catalogue',
     name: CATALOGUE_ROUTE_NAME,
     // NO PASTED LINK. The door now opens `/find-photo`, which takes typed or
@@ -85,19 +90,59 @@ export const INTAKE_ROUTES: readonly IntakeRoute[] = [
     // that promised a paste box the destination does not have would be a lie
     // told at the exact moment somebody is deciding which door to use.
     line: 'Say or type a piece and Cinch finds licensed shop photos',
-    tenLine: 'Name a piece and pick its shop photo',
-    symbol: 'magnifyingglass',
-    accessibilityLabel: `${CATALOGUE_ROUTE_NAME} — type a piece or paste a product link and Cinch finds licensed shop photos`,
+    tenLine: 'Search by brand and name.',
+    symbol: 'sparkle.magnifyingglass',
+    /**
+     * NO PASTED LINK — the same correction the `line` above already carries.
+     * This label still promised a paste box for months after the door stopped
+     * opening one: `/find-photo` takes typed or spoken words and nothing else.
+     * A VoiceOver reader was the last person in the app being told about a
+     * control that is not there, which is the worst place for the claim to
+     * survive, because nobody sighted would ever catch it.
+     */
+    accessibilityLabel: `${CATALOGUE_ROUTE_NAME} — type or say a brand or piece and Cinch finds licensed shop photos`,
+  },
+  {
+    key: 'camera',
+    name: 'Camera',
+    tenName: 'Take a photo',
+    line: 'Photograph a piece against any wall',
+    tenLine: 'One picture per piece.',
+    symbol: 'camera.fill',
+    accessibilityLabel: 'Camera — photograph a piece against any wall',
+  },
+  {
+    key: 'library',
+    name: 'Photo library',
+    tenName: 'Choose from your library',
+    line: 'Pick pictures you already have — no permission needed',
+    tenLine: 'Photos you already have.',
+    symbol: 'photo.on.rectangle.angled',
+    accessibilityLabel: 'Photo library — pick pictures you already have, no permission needed',
   },
   {
     key: 'voice',
     name: 'Describe by voice',
     line: 'Say it out loud instead of typing',
-    tenLine: 'Say them out loud, one at a time',
-    symbol: 'waveform',
+    tenLine: 'Say what you own.',
+    symbol: 'mic.fill',
     accessibilityLabel: 'Describe by voice — say what you own out loud instead of typing',
   },
 ] as const;
+
+/**
+ * The one route CX-01 recommends, and the word it wears.
+ *
+ * A key rather than a boolean on the row: exactly one route may be
+ * recommended, and a `recommended: true` field invites a second one.
+ */
+export const TEN_RECOMMENDED_KEY: IntakeRouteKey = 'catalogue';
+export const TEN_RECOMMENDED_BADGE = 'RECOMMENDED';
+
+/** The chooser's own name for a route — `tenName` where it has one. */
+export function tenRouteName(route: IntakeRoute): string {
+  return route.tenName ?? route.name;
+}
 
 /**
  * The disclosure, under the four, on every surface that offers them.
@@ -113,10 +158,6 @@ export const INTAKE_ROUTES: readonly IntakeRoute[] = [
  */
 export const CATALOGUE_DISCLOSURE =
   'Product search reads a licensed shop catalogue only. It is not a web search, and nothing you type is sent to an AI model.';
-
-/** The Ten's own addition — route-switching is likely when the target is ten. */
-export const TEN_MIXING_NOTE =
-  'You can mix routes. Photograph six, find three in a shop, say the last one.';
 
 /**
  * Phrases an intake surface may never carry.

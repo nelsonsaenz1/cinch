@@ -43,13 +43,14 @@ test('AC-C1 — every surface draws the four routes from the one table', () => {
     assert.match(code(f), /INTAKE_ROUTES/, `${f} does not read the shared route table`);
     assert.doesNotMatch(code(f), /name="(Camera|Photo library|Describe)/, `${f} retypes a door name`);
   }
-  // The table itself, in the order AC-C1 fixes: "camera, library, catalogue,
-  // voice — the same order in every surface that offers intake".
+  // CX-01 supersedes AC-C1's order. The catalogue leads, because the fastest
+  // route to ten pieces is the one a beginner should meet first; the rule that
+  // survives is that ONE order serves every surface.
   assert.deepEqual(
     INTAKE_ROUTES.map((r) => r.key),
-    ['camera', 'library', 'catalogue', 'voice'],
+    ['catalogue', 'camera', 'library', 'voice'],
   );
-  assert.equal(INTAKE_ROUTES[3].name, 'Describe by voice');
+  assert.equal(INTAKE_ROUTES.find((r) => r.key === 'voice')?.name, 'Describe by voice');
 });
 
 test('audit 66 — "Talk it in" appears in no rendered string in the group', () => {
@@ -65,7 +66,7 @@ test('AC-C1 supersedes audit 66 — the catalogue route is named for what it fet
   // photograph. It is the only route of the four that reaches a third party,
   // which is why it is named for that and why the disclosure travels with it.
   assert.equal(CATALOGUE_ROUTE_NAME, 'Find a product photo');
-  assert.equal(INTAKE_ROUTES[2].name, CATALOGUE_ROUTE_NAME);
+  assert.equal(INTAKE_ROUTES.find((r) => r.key === 'catalogue')?.name, CATALOGUE_ROUTE_NAME);
   // The retired names are gone from every surface, fixtures included — a
   // fixture posing a retired name gets screenshotted as evidence it shipped.
   for (const f of DOOR_SURFACES) {

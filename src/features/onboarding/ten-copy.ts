@@ -25,12 +25,16 @@ function cap(s: string): string {
  * The one title the whole hallway's ten-piece surface carries — TR-05, TR-06,
  * T-01, T-02 and T-04 all print it, so it is written once.
  *
- * It replaced "The Ten", which was the flow's internal name showing through:
- * the atlas titles every frame of this surface "Your first ten", and a screen
- * that names itself after the spec is a screen that assumes the reader has
- * read the spec.
+ * It replaced "The Ten", which was the flow's internal name showing through: a
+ * screen that names itself after the spec assumes the reader has read the spec.
+ *
+ * THE NUMERAL IS DELIBERATE, and it is the one place in the product where the
+ * free ten is not spelled out. CX-01/CX-02 write the eyebrow as "Your first
+ * 10", and an eyebrow is a label rather than prose — the same register as the
+ * "0 of 10 pieces" count, not the same as "ten pieces is enough to begin".
+ * House style spells numbers in sentences; this is not a sentence.
  */
-export const TEN_TITLE = 'Your first ten';
+export const TEN_TITLE = 'Your first 10';
 
 export type SlotCopy = {
   /** The short phrase that follows "Slot N · " in the eyebrow and camera title. */
@@ -256,18 +260,22 @@ export function stopSheetCopy(
  * Flow source, so anything a test reads has to live in a plain `.ts`.
  */
 export const FIRST_TEN_DOORS = {
-  headline: 'How would you rather do this?',
-  // TN-C1. The old line read "Both get to the same closet" and then weighed
-  // photographs against speaking — written when this screen had two doors, and
-  // left standing when it grew to four, so it both miscounted them and argued
-  // for two of them.
-  //
-  // What replaces it states the shared outcome and stops. No route is compared
-  // to another, because the frame's rule is that none is preferred and a
-  // sentence that explains when to prefer one is a recommendation whatever the
-  // plates look like. Which door suits a reader depends on where they are
-  // standing, and they know that better than this screen does.
-  body: 'Four ways in, and they all end in the same closet. Nothing is filed differently for having come through a different door.',
+  // CX-01. "How would you rather do this?" asked a preference of somebody who
+  // has not done it once. The correction asks the practical question instead,
+  // and the recommendation on the catalogue plate answers it for anyone who
+  // has no preference yet.
+  headline: 'How do you want to add them?',
+  /**
+   * One line, and it is the only reassurance the frame needs.
+   *
+   * What it replaces was four sentences: a paragraph about doors, a mixing
+   * note, the catalogue disclosure and a consent footer — roughly seventy
+   * words in front of somebody trying to add a jumper. CX-01 deletes all of
+   * it. The claims are not lost: the catalogue disclosure and the consent
+   * request both live in the destination flows, which is where they are
+   * actionable, and where they were always ALSO shown.
+   */
+  body: 'Any route lands in the same closet.',
   photograph: {
     name: 'Photograph them',
     line: 'Ten named slots, one picture each. Cinch cuts each piece out and files it. You can pick from your camera roll instead.',
@@ -279,13 +287,13 @@ export const FIRST_TEN_DOORS = {
     line: 'Walk your wardrobe and say what is in it. Cinch writes the list, you confirm it card by card, and photographs can come later.',
   },
   /**
-   * A statement of fact, not a request — the request is the consent sheet the
-   * chosen door raises. It is true of both doors: `capture.tsx` gates its first
-   * upload on `ConsentSheet`, and the walkthrough gates the microphone on the
-   * system prompt that follows its own Start.
+   * CX-01 deleted the consent footer that stood here. It said nothing is sent
+   * until you have agreed on the next screen — true, and quoted one screen too
+   * early. `capture.tsx` still gates its first upload on `ConsentSheet` and the
+   * walkthrough still gates the microphone on the system prompt after its own
+   * Start, so the promise is kept where it can be acted on rather than
+   * announced in advance about a door nobody has chosen yet.
    */
-  footer:
-    'Whichever you choose, nothing is sent anywhere until you have said yes to it on the next screen.',
 } as const;
 
 // ---------------------------------------------------------------------------

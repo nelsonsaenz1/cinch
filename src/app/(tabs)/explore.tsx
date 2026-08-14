@@ -43,6 +43,8 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * this dialect yet.
  */
 const CARD_RADIUS = 16;
+/** CX-06 — the air between `Lately` and the search field. */
+const EXPLORE_SEARCH_GAP = 20;
 const OUTLINE_EDGE = 'rgba(28,26,22,0.22)';
 
 type LatelyButtonProps = {
@@ -331,12 +333,14 @@ export default function ExploreScreen() {
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="px-gutter pt-2">
-        <Text variant="eyebrow">Between friends</Text>
-        <View style={{ marginTop: 6 }}>
-          <Text variant="display" trim accessibilityRole="header">
-            Lately
-          </Text>
-        </View>
+        {/* CX-06. The "Between friends" eyebrow is gone and "Lately" is the
+            sole heading. Two labels stacked on one page said the same thing
+            twice — the tab is already named, and a colophon above a display
+            word is a masthead explaining its own title. Only the masthead
+            changed; everything below the field is untouched. */}
+        <Text variant="display" trim accessibilityRole="header">
+          Lately
+        </Text>
 
         {/* The door in, and the door out of an empty page — the same field the
             Friends screen carries, in the same grammar, reading the same
@@ -344,15 +348,22 @@ export default function ExploreScreen() {
             component is deliberate: `useProfileSearch` is the shareable part
             and is shared; the field is eight lines of layout that each screen
             spaces for itself. */}
-        <SearchField
-          inputRef={searchRef}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Find a friend by username"
-          autoCapitalize="none"
-          autoCorrect={false}
-          className="mt-4"
-        />
+        {/* 20pt of air under the heading, on a wrapper rather than as a `mt-*`
+            on the field: `Lately` is cap-trimmed, and a margin utility on the
+            sibling competes with the trim's negative optical margin — the trap
+            the Today floor documents. `SearchField` takes no `style`, and
+            giving it one for a single caller would change a primitive four
+            screens draw. */}
+        <View style={{ marginTop: EXPLORE_SEARCH_GAP }}>
+          <SearchField
+            inputRef={searchRef}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Find a friend by username"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
       </View>
 
       <KeyboardAwareScrollView

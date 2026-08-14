@@ -23,7 +23,6 @@ import {
   CATALOGUE_ROUTE_NAME,
   INTAKE_FORBIDDEN_PHRASES,
   INTAKE_ROUTES,
-  TEN_MIXING_NOTE,
 } from '../src/features/ingest/intake-routes';
 
 const read = (p: string) => readFileSync(p, 'utf8');
@@ -45,9 +44,11 @@ const CHOOSERS = [
 // ---------------------------------------------------------------------------
 
 test('the four routes are the four, in the fixed order', () => {
+  // CX-01 moved the catalogue to the front. The order is still the contract —
+  // it is simply a different one, and both surfaces read it from here.
   assert.deepEqual(
     INTAKE_ROUTES.map((r) => r.key),
-    ['camera', 'library', 'catalogue', 'voice'],
+    ['catalogue', 'camera', 'library', 'voice'],
   );
   assert.equal(INTAKE_ROUTES.length, 4);
   // Every route carries both subtitles: Add clothes files one piece, The Ten
@@ -70,10 +71,18 @@ test('no chooser writes a door of its own', () => {
 
 test('The Ten opens with all four, not with two', () => {
   const src = code('src/components/onboarding/first-ten-doors.tsx');
-  // Mapped over the whole table — a filtered or sliced render would be the same
-  // bug in a new shape.
-  assert.match(src, /INTAKE_ROUTES\.map\(\(route\) =>/);
-  assert.doesNotMatch(src, /INTAKE_ROUTES\.(slice|filter)/);
+  /**
+   * CX-01 splits the four into one recommendation and three alternatives, so
+   * the old "map the whole table, never filter it" check no longer describes a
+   * correct render. What still has to be true is that FOUR routes are offered
+   * and none is dropped, so the partition is checked instead: the recommended
+   * one is found by key, the rest is the complement of that same key, and
+   * nothing slices by index.
+   */
+  assert.match(src, /INTAKE_ROUTES\.find\(\(r\) => r\.key === TEN_RECOMMENDED_KEY\)/);
+  assert.match(src, /INTAKE_ROUTES\.filter\(\(r\) => r\.key !== TEN_RECOMMENDED_KEY\)/);
+  assert.doesNotMatch(src, /INTAKE_ROUTES\.slice/);
+  assert.doesNotMatch(src, /INTAKE_ROUTES\[\d\]/);
   // And every route reaches a real destination.
   const ten = code('src/app/the-ten.tsx');
   assert.match(ten, /onRoute=\{\(key\) =>/);
@@ -82,12 +91,29 @@ test('The Ten opens with all four, not with two', () => {
   }
 });
 
-test('no route is emphasised by ground, colour or position', () => {
-  // "All four routes carry equal weight, equal height and equal order
-  // everywhere; camera is not preferred." Every one is a `DoorPlate`, which
-  // draws no fill and spends no accent.
+test('the recommendation is made by edge and placement, never by dimming', () => {
+  /**
+   * CX-01 supersedes AC-C1's "no route is emphasised" — for THIS screen only,
+   * and only in one direction. A first run is allowed a recommendation; it is
+   * not allowed to win one by making the alternatives harder to read.
+   *
+   * So: the accent may appear (it is the plate's edge and its glyph), and the
+   * three alternatives may not be faint, may not be shrunk below the tap
+   * floor, and may not be dropped to a secondary ink.
+   */
   const src = code('src/components/onboarding/first-ten-doors.tsx');
-  assert.doesNotMatch(src, /variant="(primary|ink|critical)"[\s\S]{0,80}route/);
+  assert.match(src, /borderColor: theme\.accent/, 'the recommendation has no accent edge');
+  assert.doesNotMatch(src, /text-faint|theme\.faint/, 'an alternative was dimmed to faint');
+  assert.match(src, /color: theme\.ink/, 'the alternatives are not drawn in full ink');
+  assert.match(src, /Math\.max\(minHeight, MIN_TAP_TARGET\)/, 'a row may fall under 44pt');
+});
+
+test('Add clothes keeps four peers — the correction is The Ten’s alone', () => {
+  // The reader who reaches Add clothes has a closet and a habit. Nothing there
+  // recommends a route, and `DoorPlate` still draws all four.
+  const src = code('src/app/add-clothes.tsx');
+  assert.match(src, /INTAKE_ROUTES\.map/);
+  assert.doesNotMatch(src, /TEN_RECOMMENDED_KEY/, 'the recommendation leaked into Add clothes');
 });
 
 // ---------------------------------------------------------------------------
@@ -96,7 +122,12 @@ test('no route is emphasised by ground, colour or position', () => {
 
 test('the catalogue route is named for what it fetches', () => {
   assert.equal(CATALOGUE_ROUTE_NAME, 'Find a product photo');
-  assert.equal(INTAKE_ROUTES[2].name, CATALOGUE_ROUTE_NAME);
+  // By key, not by index: the table's order is a contract that has now moved
+  // once, and an index-based assertion re-breaks every time it does.
+  assert.equal(
+    INTAKE_ROUTES.find((r) => r.key === 'catalogue')?.name,
+    CATALOGUE_ROUTE_NAME,
+  );
   // The sheet it opens carries the same name, so the door and the screen behind
   // it are recognisably one thing.
   assert.match(code('src/components/ingest/garment-search-sheet.tsx'), /CATALOGUE_ROUTE_NAME/);
@@ -106,9 +137,22 @@ test('the disclosure travels with the control, on every surface that offers it',
   assert.match(CATALOGUE_DISCLOSURE, /licensed shop catalogue/);
   assert.match(CATALOGUE_DISCLOSURE, /not a web search/);
   assert.match(CATALOGUE_DISCLOSURE, /nothing you type is sent to an AI model/);
-  for (const f of ['src/app/add-clothes.tsx', 'src/components/onboarding/first-ten-doors.tsx']) {
-    assert.match(code(f), /CATALOGUE_DISCLOSURE/, `${f} offers the route without the disclosure`);
-  }
+  assert.match(
+    code('src/app/add-clothes.tsx'),
+    /CATALOGUE_DISCLOSURE/,
+    'Add clothes offers the route without the disclosure',
+  );
+  /**
+   * CX-01 deletes it from The Ten's chooser, and that loses nothing: the
+   * DESTINATION states it in full, above the search field, at the moment
+   * somebody is actually typing a brand into a licensed feed. That is where a
+   * disclosure is actionable; on the chooser it was a claim quoted in advance
+   * about a route the reader had not chosen yet.
+   */
+  const sheet = code('src/components/ingest/garment-search-sheet.tsx');
+  assert.match(sheet, /licensed shop catalogue/);
+  assert.match(sheet, /not a web search/);
+  assert.match(sheet, /not sent to an AI model/);
 });
 
 test('no intake surface makes a web-search or AI claim about itself', () => {
@@ -129,8 +173,13 @@ test('no intake surface makes a web-search or AI claim about itself', () => {
   // files, and a test that flagged its own vocabulary would be unfixable.
   const copy: string[] = [
     CATALOGUE_DISCLOSURE,
-    TEN_MIXING_NOTE,
-    ...INTAKE_ROUTES.flatMap((r) => [r.name, r.line, r.tenLine, r.accessibilityLabel]),
+    ...INTAKE_ROUTES.flatMap((r) => [
+      r.name,
+      r.tenName ?? r.name,
+      r.line,
+      r.tenLine,
+      r.accessibilityLabel,
+    ]),
     // Plus every rendered string on the catalogue screen itself.
     ...[...code('src/components/ingest/garment-search-sheet.tsx').matchAll(/>([^<>{}]{20,})</g)].map(
       (m) => m[1],
@@ -261,10 +310,19 @@ test('The Ten\u2019s intro counts four routes and argues for none', () => {
   }
 });
 
-test('The Ten says route-switching is allowed, because nothing else does', () => {
-  assert.match(TEN_MIXING_NOTE, /mix routes/);
-  assert.match(code('src/components/onboarding/first-ten-doors.tsx'), /TEN_MIXING_NOTE/);
-  // And it stays The Ten's: Add clothes files one piece, where the note would
-  // be answering a question nobody asked.
-  assert.doesNotMatch(code('src/app/add-clothes.tsx'), /TEN_MIXING_NOTE/);
+test('the chooser says one thing, and it is the reassurance', () => {
+  /**
+   * The mixing note is gone. CX-01 cut roughly seventy words off this screen —
+   * a paragraph about doors, the note, the catalogue disclosure and a consent
+   * footer — and what survives says the only thing a beginner needs before
+   * tapping: whichever they pick, it ends up in the same place. Route-switching
+   * is a fact about the app, not an instruction somebody needs at the moment
+   * they are trying to add a jumper.
+   */
+  const { FIRST_TEN_DOORS } = require('../src/features/onboarding/ten-copy') as {
+    FIRST_TEN_DOORS: { body: string };
+  };
+  assert.equal(FIRST_TEN_DOORS.body, 'Any route lands in the same closet.');
+  const src = code('src/components/onboarding/first-ten-doors.tsx');
+  assert.doesNotMatch(src, /TEN_MIXING_NOTE|CATALOGUE_DISCLOSURE|FIRST_TEN_DOORS\.footer/);
 });

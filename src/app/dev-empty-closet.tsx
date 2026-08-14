@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyCloset } from '@/components/closet/empty-closet';
 import { Text } from '@/components/ui/text';
+import { PLANS } from '@/features/billing/plans';
 
 /**
  * C-05 — the empty closet, on its own.
@@ -16,13 +17,16 @@ import { Text } from '@/components/ui/text';
  * passed, because none of them run a layout pass.
  *
  * The tile it used to draw was `ExampleCloset`, an illustrated example grid.
- * C-05 refuses that outright — see the docblock on `EmptyCloset` — so this
- * route now shows what the frame actually draws. The eyebrow and the count line
- * above it are the real screen's, reproduced here because the component
- * deliberately does not draw its own.
+ * C-05 refused that outright, and CX-03 has since restored it on the founder's
+ * call — the refusal was right about ghost slots and swept up the photographs
+ * with them. `dev-cx-03-closet-empty` is the corrected frame, with the example
+ * and the "0 of 10" count.
  *
- * Superseded by `dev-w3-g3-c-05`, which is the canonical capture route; this
- * one is kept because it is the door the older fixture index already links to.
+ * THIS ROUTE IS NOW THE INVITATION ALONE, deliberately: it is the one place to
+ * look at `EmptyCloset` without the example above it, which is what makes a
+ * regression in the card itself visible rather than absorbed into a taller
+ * page. The eyebrow and the count line are the real screen's, reproduced here
+ * because the component deliberately does not draw its own.
  */
 export default function DevEmptyClosetScreen() {
   if (!__DEV__) {
@@ -38,7 +42,7 @@ export default function DevEmptyClosetScreen() {
       <View className="px-gutter pt-2">
         <Text variant="eyebrow">Your closet</Text>
         <Text variant="note" className="mt-1">
-          0 pieces
+          {`0 of ${PLANS.free.items} pieces`}
         </Text>
       </View>
       <EmptyCloset onAddClothes={() => {}} />
