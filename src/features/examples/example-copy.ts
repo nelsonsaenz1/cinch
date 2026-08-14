@@ -97,7 +97,6 @@ export const TE_01 = {
   name: 'An easy kind of polish',
   reasoning:
     'Cream softens the charcoal trousers; cognac keeps the look grounded. Put together, without feeling overdone.',
-  caption: 'An example outfit, not your closet. Yours will come from the pieces you already own.',
   pieces: [
     'cream-mohair-sweater',
     'charcoal-tailored-trousers',

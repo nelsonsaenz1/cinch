@@ -100,7 +100,7 @@ export function ClosetFloor({
       {/* The example, first — the payoff before the explanation. */}
       <ExampleCard
         id={empty ? 'TE-01' : 'TE-02'}
-        caption={empty ? TE_01.caption : TE_02_CAPTION}>
+        caption={empty ? undefined : TE_02_CAPTION}>
         <ExampleGarments
           pieces={example.pieces}
           // Three-up at 96 and four-up at 74, matching the real plate's own

@@ -319,17 +319,10 @@ test('CX-03/04 — visible at 0 and at 9, absent at 10', () => {
   assert.match(body(CLOSET), /<ExampleCloset variant="full"/);
 });
 
-test('CX-03/04 — the two variants carry their own copy, exactly', () => {
+test('CX-03/04 — the example badge and compact title carry the disclosure without a redundant caption', () => {
   const src = code(EXAMPLE);
   assert.match(src, /EXAMPLE_LABEL = 'EXAMPLE'/);
-  assert.match(
-    src,
-    /EXAMPLE_CAPTION_FULL =\s*'An example closet, not yours\. Nothing here is saved\.'/,
-  );
-  assert.match(
-    src,
-    /EXAMPLE_CAPTION_COMPACT =\s*'An example, not your closet\. Nothing here is saved\.'/,
-  );
+  assert.doesNotMatch(src, /EXAMPLE_CAPTION_(FULL|COMPACT)/);
   assert.match(src, /EXAMPLE_TITLE_COMPACT = 'What your closet can become'/);
 });
 

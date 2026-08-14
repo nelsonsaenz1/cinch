@@ -155,7 +155,6 @@ test('no example claims a piece on it belongs to the reader', () => {
     TE_02.name,
     TE_02.reasoning,
     EXAMPLE_SUMMARY['TE-02'],
-    TE_01.caption,
     TE_01.reasoning,
   ]) {
     assert.doesNotMatch(line, claims, `an example claims ownership: ${line}`);

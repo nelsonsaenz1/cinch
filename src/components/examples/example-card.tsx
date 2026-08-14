@@ -37,7 +37,7 @@ export function ExampleCard({
   id,
   /** Sits beside the badge — "A planned week", "Events with looks". */
   title,
-  /** The line under the card. Always says the content is not the reader's. */
+  /** Optional supporting line under the card. */
   caption,
   /** Appended after an em dash on the badge row. PR-C1's "not a real person". */
   badgeSuffix,
@@ -46,7 +46,7 @@ export function ExampleCard({
 }: {
   id: ExampleId;
   title?: string;
-  caption: string;
+  caption?: string;
   badgeSuffix?: string;
   children: React.ReactNode;
 } & ViewProps) {
@@ -79,16 +79,15 @@ export function ExampleCard({
         <View className="px-4 pb-4 pt-3.5">{children}</View>
       </View>
 
-      {/* The caption sits under the card rather than in it, the way a plate's
-          colophon does — and it repeats the disclosure in a full sentence,
-          because the badge is a word and a word is not a claim. */}
-      <Text
-        variant="noteSmall"
-        importantForAccessibility="no-hide-descendants"
-        accessibilityElementsHidden
-        className="mt-2.5">
-        {caption}
-      </Text>
+      {caption ? (
+        <Text
+          variant="noteSmall"
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
+          className="mt-2.5">
+          {caption}
+        </Text>
+      ) : null}
     </View>
   );
 }

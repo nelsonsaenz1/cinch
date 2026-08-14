@@ -44,11 +44,10 @@ import { useTheme } from '@/theme/tokens';
  *   is individually focusable, because none of them is a thing to act on.
  * · NO ANALYTICS, NO QUOTA. This component tracks nothing and spends nothing.
  *
- * ── AND IT SAYS SO, TWICE ─────────────────────────────────────────────────
+ * ── IT SAYS SO, WITHOUT REPEATING ITSELF ───────────────────────────────────
  *
- * A visible `EXAMPLE` label and a sentence naming it as fiction. An unlabelled
- * grid of clothes reads as somebody else's wardrobe already sitting in the
- * account, which is the one confusion this screen cannot afford.
+ * The visible `EXAMPLE` label and its VoiceOver summary name the fixture as
+ * fiction. A second caption took space from the closet without adding clarity.
  */
 
 /** Photographs the reader does not own, at the two sizes they are drawn. */
@@ -84,12 +83,6 @@ const GROUPED_LABEL =
 
 /** The word on the badge, in both variants. */
 export const EXAMPLE_LABEL = 'EXAMPLE';
-
-/** CX-03 — the sentence under the empty closet's example. */
-export const EXAMPLE_CAPTION_FULL = 'An example closet, not yours. Nothing here is saved.';
-
-/** CX-04 — the same promise, shorter, under a closet that has started. */
-export const EXAMPLE_CAPTION_COMPACT = 'An example, not your closet. Nothing here is saved.';
 
 /** CX-04's own title. The full variant takes its title from the screen. */
 export const EXAMPLE_TITLE_COMPACT = 'What your closet can become';
@@ -250,9 +243,6 @@ export function ExampleCloset({ variant = 'full', remaining }: ExampleClosetProp
 
       {!compact ? <View className="mt-3"><ExampleBadge /></View> : null}
 
-      <Text variant="note" className="mt-2">
-        {compact ? EXAMPLE_CAPTION_COMPACT : EXAMPLE_CAPTION_FULL}
-      </Text>
     </View>
   );
 }
