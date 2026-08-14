@@ -1,8 +1,9 @@
 import { Image } from 'expo-image';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/theme/tokens';
+import { MAX_DISPLAY_SCALE, MAX_TEXT_SCALE } from '@/theme/type-scale';
 
 /**
  * The example closet — restored, and now shown for longer than it ever was.
@@ -84,8 +85,19 @@ const GROUPED_LABEL =
 /** The word on the badge, in both variants. */
 export const EXAMPLE_LABEL = 'EXAMPLE';
 
-/** CX-04's own title. The full variant takes its title from the screen. */
-export const EXAMPLE_TITLE_COMPACT = 'What your closet can become';
+/**
+ * The heading over the photographs, in BOTH variants.
+ *
+ * It was `EXAMPLE_TITLE_COMPACT` and belonged to the 1–9 preview alone, because
+ * the full variant "takes its title from the screen". At zero there is no such
+ * title above it — the screen's own heading is the reader's name — so the grid
+ * arrived unannounced, and an independent review found it could read for a beat
+ * as the reader's own closet before the badge underneath explained otherwise.
+ *
+ * One heading, one badge, and both ABOVE the photographs now: a label that
+ * arrives after the thing it labels is a correction, not a caption.
+ */
+export const EXAMPLE_TITLE = 'What your closet can become';
 
 /** Atlas cell height — the same 196pt the real grid's `ItemCard` uses. */
 const FULL_CELL_HEIGHT = 196;
@@ -100,8 +112,40 @@ const FULL_CELL_HEIGHT = 196;
  */
 const COMPACT_CELL_HEIGHT = 76;
 
+/**
+ * The two hand-set micro-labels on this fixture, and the box each one needs.
+ *
+ * Both are written at a size their variant does not carry, so both inherit a
+ * numeric `lineHeight` built for the variant's own size. React Native scales
+ * `fontSize` with Dynamic Type and leaves that number alone, so at
+ * accessibility sizes the badge read "EXAM" and a chip read "worr" — the word
+ * that names this grid as fiction, sliced in half on the one screen where a
+ * reader has no closet of their own to compare it against. CI-03 refuses that.
+ *
+ * `useTypeBox` scales each box by the reader's own setting under the ceiling
+ * `Text` applies to these variants, so at the standard size both are the
+ * approved design to the pixel.
+ */
+const BADGE_LINE_HEIGHT = 13;
+const CHIP_LINE_HEIGHT = 14;
+const HEADING_LINE_HEIGHT = 26;
+/** Badge → heading, and heading → photographs. One gap, used twice. */
+const HEADING_GAP = 12;
+
+function useTypeBox(base: number): number {
+  const { fontScale } = useWindowDimensions();
+  return Math.round(base * Math.min(fontScale, MAX_TEXT_SCALE));
+}
+
+/** The same, at the tighter ceiling `Text` gives its serif display variants. */
+function useDisplayBox(base: number): number {
+  const { fontScale } = useWindowDimensions();
+  return Math.round(base * Math.min(fontScale, MAX_DISPLAY_SCALE));
+}
+
 function ExampleBadge() {
   const theme = useTheme();
+  const box = useTypeBox(BADGE_LINE_HEIGHT);
   return (
     <View
       // `rounded-md`, not `rounded-full`: refusal 5 is absolute — `full` is for
@@ -115,7 +159,7 @@ function ExampleBadge() {
       }}>
       <Text
         variant="colophon"
-        style={{ fontSize: 10, lineHeight: 13, letterSpacing: 1.2, color: theme.accent }}>
+        style={{ fontSize: 10, lineHeight: box, letterSpacing: 1.2, color: theme.accent }}>
         {EXAMPLE_LABEL}
       </Text>
     </View>
@@ -124,6 +168,7 @@ function ExampleBadge() {
 
 function FullCell({ cell }: { cell: ExampleCell }) {
   const theme = useTheme();
+  const box = useTypeBox(CHIP_LINE_HEIGHT);
   return (
     <View className="flex-1 overflow-hidden rounded-md bg-tray" style={{ height: FULL_CELL_HEIGHT }}>
       <Image
@@ -143,7 +188,7 @@ function FullCell({ cell }: { cell: ExampleCell }) {
             paddingVertical: 4,
             backgroundColor: 'rgba(251,250,246,0.92)',
           }}>
-          <Text variant="label" style={{ fontSize: 11, lineHeight: 14, color: theme.ink }}>
+          <Text variant="label" style={{ fontSize: 11, lineHeight: box, color: theme.ink }}>
             {cell.chip}
           </Text>
         </View>
@@ -194,6 +239,9 @@ export function remainingLine(remaining: number): string {
 
 export function ExampleCloset({ variant = 'full', remaining }: ExampleClosetProps) {
   const compact = variant === 'compact';
+  // Display type, so the ceiling `Text` applies to `title` — capping the box
+  // with a different number than the glyph inside it clips from the other side.
+  const headingBox = useDisplayBox(HEADING_LINE_HEIGHT);
 
   return (
     <View className="px-gutter">
@@ -203,14 +251,24 @@ export function ExampleCloset({ variant = 'full', remaining }: ExampleClosetProp
         </Text>
       ) : null}
 
-      {compact ? (
-        <>
-          <ExampleBadge />
-          <Text variant="title" trim className="mt-2.5" style={{ fontSize: 22, lineHeight: 26 }}>
-            {EXAMPLE_TITLE_COMPACT}
-          </Text>
-        </>
-      ) : null}
+      {/* Badge, then heading, then the grid — the same order in both variants,
+          so the reader is told what they are looking at before they look at it.
+          The compact preview already worked this way; the full one did not. */}
+      <ExampleBadge />
+      {/* NO `trim`, and this is a change to the compact variant too.
+          `trim`'s margins are a fixed table keyed by variant — −8 top, −9
+          bottom, computed for `title`'s own 28px — and they were being applied
+          to a line set at 22. Against the 10pt `mt-2.5` that left a 2pt gap
+          under the badge and 3pt above the photographs, which is why the badge
+          and the heading collided the moment the badge moved above it. The
+          trim was survivable while this heading had nothing over it; it is not
+          survivable now, and the honest fix is an untrimmed line with real
+          gaps rather than a second margin chosen to cancel the first. */}
+      <Text
+        variant="title"
+        style={{ fontSize: 22, lineHeight: headingBox, marginTop: HEADING_GAP }}>
+        {EXAMPLE_TITLE}
+      </Text>
 
       {/* The photographs — one grouped, decorative image. Individually
           inaccessible and untappable: nothing here is a garment this account
@@ -220,7 +278,7 @@ export function ExampleCloset({ variant = 'full', remaining }: ExampleClosetProp
         accessibilityRole="image"
         accessibilityLabel={GROUPED_LABEL}
         pointerEvents="none"
-        style={{ gap: 12, marginTop: compact ? 12 : 0 }}>
+        style={{ gap: 12, marginTop: HEADING_GAP }}>
         {compact ? (
           <View className="flex-row" style={{ gap: 8 }}>
             {CELLS.map((cell) => (
@@ -240,8 +298,6 @@ export function ExampleCloset({ variant = 'full', remaining }: ExampleClosetProp
           </>
         )}
       </View>
-
-      {!compact ? <View className="mt-3"><ExampleBadge /></View> : null}
 
     </View>
   );

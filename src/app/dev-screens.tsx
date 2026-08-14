@@ -222,6 +222,13 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Corrections · Closet identity at zero',
+    [
+      ['CI-01 · zero, profile filled in', '/dev-ci-01-closet-zero'],
+      ['CI-02 · zero, nothing set yet', '/dev-ci-02-closet-zero-bare'],
+    ],
+  ],
+  [
     'Catalogue Photo V2',
     [
       ['CPV2-01 · idle', '/dev-cpv2-01-idle'],

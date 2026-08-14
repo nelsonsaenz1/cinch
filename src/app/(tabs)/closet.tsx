@@ -26,6 +26,7 @@ import { useCapacity } from '@/features/billing/use-capacity';
 import { RailCard } from '@/components/closet/rail-card';
 import { SelectionBar } from '@/components/closet/selection-bar';
 import { StatRow } from '@/components/closet/stat-row';
+import { ZeroIdentityHeader } from '@/components/closet/zero-identity-header';
 import { Avatar, Chip, EmptyState, ErrorState, SearchField, Text } from '@/components/ui';
 import { searchSummary } from '@/features/closet/search-summary';
 import { useClosetInspiration } from '@/features/closet/use-closet-inspiration';
@@ -48,6 +49,16 @@ import { GUTTER, MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
  * keystroke. The rest of the masthead has no input and rides in the header so
  * it scrolls away with the grid.
  */
+
+/**
+ * CI-01's separation between the zero state's three blocks — identity, then the
+ * example closet, then the starter card.
+ *
+ * One constant for both gaps because they are one decision: the blocks are
+ * peers, and a page that separated identity-from-example differently from
+ * example-from-starter would be claiming a grouping CI-01 does not draw.
+ */
+const ZERO_BLOCK_GAP = 26;
 
 /** The rail gap and the chip gap — two measures that need not agree. */
 const RAIL_GAP = 14;
@@ -199,34 +210,71 @@ export default function ClosetScreen() {
       </>
     );
   } else if (screen.items.length === 0) {
-    // C-05. Eyebrow only — search and the menu have nothing to act on, and the
-    // FILTER ROW IS ABSENT rather than present-and-disabled ("a row of chips
-    // reading zero teaches nothing").
+    // CI-01 — identity, then the example, then the invitation.
     //
-    // Zero is stated ONCE, in the same 13pt line that would carry 148, and it
-    // is never illustrated: the example grid that used to stand here is gone,
-    // because C-05 refuses "empty hangers, dashed placeholder grid" outright.
+    // C-05 built this state around the absence: eyebrow, count, and a card
+    // explaining what a closet is for. CX-03 put the photographic example back
+    // above that card. Both were pages about a wardrobe that does not exist,
+    // and about nobody — while every OTHER state of this tab opens with the
+    // reader's own face and name. Zero was the one state where Closet stopped
+    // being a profile, at exactly the moment a new account first opens it.
     //
-    // `contentContainerStyle: flexGrow` is what lets the card float in the
-    // middle of the page as the frame draws it while the ScrollView still
-    // carries pull-to-refresh, which must survive every state.
+    // So the person comes first now. The three blocks are ordered
+    // identity → example → starter and separated by ZERO_BLOCK_GAP, which is
+    // the whole product change: the example is the same bundled fixture with
+    // the same badge, and the starter card keeps CX-03's exact words.
+    //
+    // Search and the menu still pass no handlers — they have nothing to act on
+    // — and the FILTER ROW IS STILL ABSENT rather than present-and-disabled.
     body = (
       <ScrollView
         refreshControl={refreshControl}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 96 }}>
+        contentContainerStyle={{ paddingBottom: 96 }}>
         <EyebrowHeader />
         <View className="mt-1 px-gutter">
-          {/* CX-03. "0 pieces" read as a failure state; "0 of 10 pieces" reads
-              as the start of something with a known end, and it is the same
-              grammar `CapacityColophon` prints from the first piece onward. */}
+          {/* CX-03, kept and kept HERE. The strip below states "0 PIECES", but
+              only this line carries the ceiling the free tier is counting
+              toward, which is the fact CX-03 was written to restore. It rides
+              with the eyebrow rather than under the identity so the profile
+              block opens on the person. */}
           <Text variant="note">{`0 of ${PLANS.free.items} pieces`}</Text>
         </View>
-        {/* The example first — the payoff before the invitation, which is the
-            order Today's own floor already uses. */}
+
         <View className="mt-5">
+          <ZeroIdentityHeader
+            name={screen.name}
+            handleLine={screen.handleLine}
+            bio={screen.bioLine}
+            avatarUrl={screen.avatarUrl}
+            // Coalesced HERE rather than in the strip: `outfits` and
+            // `followers` are `undefined` until their queries land, and C-01
+            // renders that as an em dash because there a dash means "not known
+            // yet". At zero pieces the zero is the point — four dashes on a
+            // first launch read as a page that failed — and an account that
+            // genuinely has friends still prints the number it has.
+            stats={{
+              pieces: screen.stats.pieces,
+              outfits: screen.stats.outfits ?? 0,
+              unworn: screen.stats.unworn,
+              followers: screen.stats.followers ?? 0,
+            }}
+            onEditProfile={() => screen.setEditing(true)}
+          />
+        </View>
+
+        {/* Measured from the stat strip's own lower rule — the profile
+            divider — so the example reads as the next thing rather than as
+            part of the identity above it. */}
+        <View style={{ marginTop: ZERO_BLOCK_GAP }}>
           <ExampleCloset variant="full" />
         </View>
-        <EmptyCloset onAddClothes={() => router.push('/add-clothes')} />
+
+        {/* `stacked`: the starter card sits a stated distance below the
+            example. Centred, its `flex-1` would eat the leftover height and
+            put an unpredictable gap here. */}
+        <View style={{ marginTop: ZERO_BLOCK_GAP }}>
+          <EmptyCloset flow="stacked" onAddClothes={() => router.push('/add-clothes')} />
+        </View>
       </ScrollView>
     );
   } else if (selecting) {

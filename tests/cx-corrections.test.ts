@@ -323,7 +323,7 @@ test('CX-03/04 — the example badge and compact title carry the disclosure with
   const src = code(EXAMPLE);
   assert.match(src, /EXAMPLE_LABEL = 'EXAMPLE'/);
   assert.doesNotMatch(src, /EXAMPLE_CAPTION_(FULL|COMPACT)/);
-  assert.match(src, /EXAMPLE_TITLE_COMPACT = 'What your closet can become'/);
+  assert.match(src, /EXAMPLE_TITLE = 'What your closet can become'/);
 });
 
 test('CX-03 — the empty closet’s title, body and action, exactly', () => {

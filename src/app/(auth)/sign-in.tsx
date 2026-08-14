@@ -25,9 +25,39 @@ import { signInWithApple } from '@/features/auth/actions';
 import { describeThrownSignInError } from '@/features/auth/sign-in-errors';
 import { useConnectivity } from '@/features/auth/use-connectivity';
 import { track } from '@/lib/posthog';
+import { leading } from '@/theme/font-metrics';
 import { MIN_TAP_TARGET } from '@/theme/tokens';
 
 const COVER_PHOTO = require('../../../assets/garments/cognac-shearling-coat.jpg');
+
+/**
+ * The wordmark, and the line box it actually needs.
+ *
+ * ── THE CLIP THIS CLOSES, AND WHAT IT WAS NOT ─────────────────────────────
+ *
+ * "Cinch" was set at 40 with `lineHeight: 40`, and the C and the h came out
+ * with flat tops on every device. It read like a safe-area problem — the
+ * wordmark is the topmost thing on the cover — but it is not one, and moving
+ * the row down would have moved a clipped wordmark down. The block already
+ * sits 67pt from the top of a notched screen, clear of the status bar by a
+ * wide margin, and the flat tops appear in the same place on a short iPhone
+ * where the inset is 20.
+ *
+ * The clip is inside the text's own box. Instrument Serif's ascent and descent
+ * total 1.30 em, so a 40px setting needs 52px of line box; asked for 40, iOS
+ * slices the ascenders. `leading()` — the helper `tailwind.config.js` computes
+ * every type-scale line height with — floors at exactly that natural box, which
+ * is why 52 comes back whatever ratio it is asked for at this size.
+ *
+ * The visual effect is the requested one: an honest box lowers the cap line by
+ * about 6pt, which is the smallest downward move that clears the ascenders,
+ * because it is not a move at all — it is the glyphs no longer being cropped.
+ *
+ * Both numbers scale through `px()` like every other measure on this screen, so
+ * the 393-wide atlas frame still governs the proportions.
+ */
+const WORDMARK_SIZE = 40;
+const WORDMARK_LEADING = leading('instrument', WORDMARK_SIZE, 1.05);
 
 /** The W-03 toast's copy — one sentence, whatever Apple's error was. */
 const TOAST_DID_NOT_FINISH = 'Sign-in didn’t finish. Nothing was sent.';
@@ -244,8 +274,8 @@ export default function SignInScreen() {
           maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
           style={{
             fontFamily: 'InstrumentSerif_400Regular',
-            fontSize: px(40),
-            lineHeight: px(40),
+            fontSize: px(WORDMARK_SIZE),
+            lineHeight: px(WORDMARK_LEADING),
             letterSpacing: -0.4,
             color: atlas.cream,
           }}>

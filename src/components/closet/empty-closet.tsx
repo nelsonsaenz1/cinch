@@ -59,15 +59,29 @@ export const EMPTY_ACTION = 'Add your first piece';
 export const emptyClosetBody = (): string =>
   `Add ${PLANS.free.items} pieces and Cinch can start building outfits from what you own.`;
 
-export function EmptyCloset({ onAddClothes }: { onAddClothes: () => void }) {
+export type EmptyClosetProps = {
+  onAddClothes: () => void;
+  /**
+   * How the card sits in the page.
+   *
+   * `centred` is C-05's original: the card floats in the space between the
+   * title block and the tab bar, because it WAS the page and pinning it under
+   * the title made an empty closet read as one that failed to load its top.
+   *
+   * `stacked` is CI-01, where that reasoning no longer holds — the card is the
+   * third block under a profile and an example closet, and a `flex-1` child
+   * inside the scroll view would absorb the leftover height and push the
+   * starter card an unpredictable distance below the example it is supposed to
+   * sit 26pt beneath.
+   */
+  flow?: 'centred' | 'stacked';
+};
+
+export function EmptyCloset({ onAddClothes, flow = 'centred' }: EmptyClosetProps) {
   const theme = useTheme();
 
   return (
-    // `justify-center` on a flex-1 parent: the frame floats the card in the
-    // space between the title block and the tab bar rather than pinning it
-    // under the title, so an empty closet does not read as a page that failed
-    // to load its top.
-    <View className="flex-1 justify-center px-gutter">
+    <View className={flow === 'stacked' ? 'px-gutter' : 'flex-1 justify-center px-gutter'}>
       <View className="rounded-plate border border-hairline bg-surface px-5 py-6">
         {/* 30px, between `display` (40) and `title` (28). Inline, never a second
             `text-*` class — NativeWind gives no precedence between two size
