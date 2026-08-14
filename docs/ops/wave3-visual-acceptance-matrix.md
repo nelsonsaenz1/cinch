@@ -1,106 +1,67 @@
 # Wave 3 visual acceptance matrix
 
-Atlas snapshot: `docs/design/wave-3-final/`  
-Claude Design project: `03328f6a-428a-4586-8e80-a13b01009238`  
-Exported: v2 2026-08-12T14:30:58.331Z; eight visual sources byte-identical to v1  
-Verdict: 138 frames, finalized; v1's 139 was a confirmed bookkeeping error; implementation ready except D-1, D-2, D-5  
-Visual reviewer: Codex (Claude Code generates artifacts and must not grade them)
+Last reconciled: 2026-08-14 10:00 EDT
+
+Atlas snapshot: `docs/design/wave-3-final/`
+
+Claude Design project: `03328f6a-428a-4586-8e80-a13b01009238`
+
+Atlas count: 138 frames (`38 + 15 + 31 + 20 + 21 + 13`)
+Status: finalized source, implemented in the shipping tree, and subsequently refined through founder review.
+
+## Source authority
+
+The v6 snapshot is the final Wave 3 design authority. Earlier v1–v5 exports remain historical checkpoints. The original 139-frame completion report was a bookkeeping error, not a missing frame. Shipping runtime truth and later accepted correction packets supersede aspirational atlas copy when the two conflict.
 
 ## Acceptance protocol
 
-Every implemented state requires: governing atlas ID; canonical route/fixture; app commit; device/OS/runtime/build; Dynamic Type and Reduce Motion setting; screenshot or recording path/hash; relevant interaction result; automated checks; Codex verdict; exact discrepancy and re-review artifact when rejected.
+For a material visual change, retain:
 
-Primary geometry is the atlas's 393×852 pt class. Representative narrow and wide devices, every drawn AX state at maximum supported Dynamic Type, and Reduce Motion where motion exists are separate evidence—not substitutes for the primary frame.
+- route/state and governing design ID;
+- device, OS, runtime/build, Dynamic Type, and Reduce Motion state;
+- screenshot or recording path;
+- automated checks and fingerprint result;
+- independent visual verdict and exact correction when rejected.
 
-## Group 1 — First-Run Hallway (38 frames)
+Claude Code may implement and produce artifacts. Codex owns independent visual acceptance and release gating. A same-runtime visual correction may ship OTA only after fingerprint equality is proven.
 
-Source: `Wave 3 - Design · First-Run Hallway.dc.html`  
-P1 state: implementation active, except D-5 surfaces.
+## Group disposition
 
-| Spine | State IDs | Current gate |
+| Group | Frames | Repository disposition |
+|---|---:|---|
+| First-Run Hallway | 38 | Implemented; later intake, trial, camera and catalogue corrections supersede conflicting early exploration states |
+| Today and Plate | 15 | Implemented; later greeting, example-first, spacing and copy corrections accepted |
+| Closet and Intake | 31 | Implemented; Catalogue Photo V2, native intake, identity-first empty state and example hierarchy are the current authority |
+| Consent, Privacy, Diary, Plan, Packing | 20 | Implemented; current repository privacy and deterministic packing truth supersede model-dependent draft copy |
+| Gap Feed and Social | 21 | Implemented under repository/server truth for comments, boards, events and merchant disclosure |
+| Safety, Profile, Help, Membership | 13 | Implemented; current StoreKit/Superwall terms and founder decisions supersede unresolved D-5 placeholders |
+
+## Latest accepted correction packet
+
+| Surface | Artifact/evidence | Verdict |
 |---|---|---|
-| Tour / doorway | TR-01, TR-02, TR-03, TR-04, TR-05, TR-06, TR-07 | P1 |
-| The Ten | T-01, T-02, T-04, T-05, T-06, T-02/AX | P1 |
-| Voice walkthrough | V-01, V-02, V-03, V-04, V-05, V-13a, V-13b, V-13c, V-13d, V-13e | P1 |
-| Procession | PR-01, PR-03, PR-05, M-07 | P1 |
-| Reveal | R-02, R-04, R-05 | P1 |
-| Paywall / purchase | MB-01 (retired/non-shipping), MB-06 (retired/non-shipping), MB-07 (shipping form), MB-04, MB-05, MB-01/AX | D-5 boundary; no implementation or visual verdict until terms/products authority is resolved. Retired exploration frames are never routes. |
-| Landing | TD-00, TD-00/AX | Canonical rendering belongs to Group 2; first-run transition belongs to P1 |
+| Zero-piece Closet identity | `/tmp/cinch-ci01-402x874-top.png` | Accepted: real avatar/name/handle/bio/edit action precede the empty closet payoff |
+| Centred metrics | Same CI-01 artifact and `src/components/closet/stat-row.tsx` | Accepted: four equal-width columns; each figure and label centred |
+| Example hierarchy | `/tmp/cinch-ci01-402x874-scroll.png` | Accepted after correction: `EXAMPLE` badge, heading, grid, then 26pt separation before starter card |
+| Partial Closet regression | `/tmp/cinch-cx04-compact-example-regression.png` | Accepted: compact 1–9 preview retains correct order and real spacing |
+| Accessibility type | `/tmp/cinch-ci03-ax3-402x874-top.png` | Accepted: scaled line boxes prevent sliced figures, labels and badge text |
+| Fresh sign-in wordmark | `/tmp/cinch-auth-wordmark-after.png` | Accepted: metric-derived 52px line box reveals the full 40px Instrument Serif wordmark without changing safe-area position |
 
-## Group 2 — Today and Plate (15 frames)
+The exact 375×667 capture for the latest Closet packet was unavailable in the Claude simulator session. The responsive path is test-covered and the 402×874 standard/AX artifacts passed, but this record does not pretend the unavailable screenshot exists.
 
-Source: `Wave 3 - Design · Today and Plate.dc.html`  
-P1 state: implementation active.
+## Machine evidence at current checkpoint
 
-| State IDs | Current gate |
-|---|---|
-| T-01, T-02, T-03, T-07, T-08, T-09, T-10, T-11, T-12, T-13, T-14, T-15 | P1 |
-| T-01/AX, T-12/AX, T-09/AX | P1 max-Dynamic-Type evidence required |
+- `node scripts/run-tests.mjs`: 1,540 pass, 0 fail.
+- `npm run typecheck`: clean.
+- Scoped ESLint over the correction files: clean.
+- `npm run check:fingerprint`: unchanged at `e8e5a192fd890077ed538d1926cd0e7ef12a6534`.
+- Commit `2a1e07d` equals `origin/main`.
+- Production iOS OTA: update `01a0007d-6de3-756a-8048-79f0d210c28c`, group `16abd111-6d79-42bb-80cd-f3760d1bdc17`.
 
-## Group 3 — Closet and Intake (31 frames)
+## Open visual validation debt
 
-Source: `Wave 3 - Design · Closet and Intake.dc.html`  
-P1 state: implementation active.
+- Representative real-device camera/photo calibration remains blocked on a permissioned real-photo corpus, recorded in `docs/deterministic-ai-evidence.md`.
+- Device-only Apple Speech/Vision behavior is implementation-complete but should be exercised on supported hardware when that evidence is required.
+- App Store approval/publication state is external operational state and must be read live rather than inferred here.
 
-| Surface | State IDs | Current gate |
-|---|---|---|
-| Closet | C-01, C-02, C-03, C-04, C-05, C-06, C-07, C-08, C-01/AX | P1 |
-| Item | IT-01, IT-02, IT-03, IT-04, IT-01/AX | P1 |
-| Add Clothes | AC-01, AC-02, AC-03 | P1 |
-| Capture | CP-01, CP-02, CP-03, CP-04, CP-05 | P1 |
-| Describe | DS-01, DS-02, DS-03, DS-04, DS-05 | P1 |
-| Review | RV-01, RV-02, RV-03, RV-01/AX | P1 |
-
-## Group 4 — Consent, Privacy, Diary, Plan, Packing (20 frames)
-
-Source: `Wave 3 - Design · Consent, Privacy, Diary, Plan, Packing.dc.html`  
-State: pending P2.
-
-| Surface | State IDs | Current gate |
-|---|---|---|
-| Consent | CN-01, CN-02, CN-03, CN-04, CN-01/AX | P2 |
-| Privacy | PV-01, PV-02, PV-03, PV-04 | P2 |
-| Wear diary | WD-01, WD-02, WD-03 | P2 |
-| Plan | PL-01, PL-02, PL-03 | P2 |
-| Packing | PK-01, PK-02, PK-03, PK-04, PK-01/AX | D-5 affects the selling/terms gate; D-3 downgrade behavior is repository-safe |
-
-## Group 5 — Gap Feed and Social (21 frames)
-
-Source: `Wave 3 - Design · Gap Feed and Social.dc.html`  
-State: pending P3; Group 5 source audit confirmed all 21 approved states are present and no visual content changed.
-
-| Surface | State IDs | Current gate |
-|---|---|---|
-| Gap Feed | GF-01, GF-02, GF-03, GF-04, GF-02/AX | P3; D-4 repository-safe |
-| Friends | FR-01, FR-02 | P3; D-4 applies to the opted-in friend commerce row |
-| Activity | AV-01, AV-02 | P3 |
-| Event | EV-01, EV-02, EV-03 | D-1/D-2 affected states blocked |
-| Comments | CM-01, CM-02 | D-1 blocked |
-| Look Board | LB-01, LB-02 | D-1/D-2 blocked |
-| Share a Look | SL-01, SL-02, SL-01/AX | D-2 affects locked-board behavior |
-| Saved | SV-01, SV-02 | P3 |
-
-## Group 6 — Safety, Profile, Help, Membership (13 frames)
-
-Source: `Wave 3 - Design · Safety, Profile, Help, Membership.dc.html`  
-State: pending P4.
-
-| Surface | State IDs | Current gate |
-|---|---|---|
-| Safety | SF-01 (= BL-01), SF-02 (= BL-02), SF-03, SF-02/AX | P4 |
-| Profile | PR-01, PR-02, PR-01/AX | P4; D-4 applies to suggestions state |
-| Notifications | NT-01, NT-02 | P4 |
-| Help | HP-01, HP-02 | HP-01 ready; HP-02 touches D-3 and D-5 terms |
-| Membership | MB-08, MB-09 | D-3 policy is repository-safe; D-5 terms remain blocked |
-
-## Codex verdict register
-
-| Packet | Artifact manifest | Machine evidence | Visual verdict | Open discrepancies | Accepted revision |
-|---|---|---|---|---|---|
-| P1 / Groups 1–3 | Pending | Pending | Not reviewed | — | — |
-| P2 / Group 4 | Pending | Pending | Not reviewed | — | — |
-| P3 / Group 5 | Pending | Pending | Not reviewed | — | — |
-| P4 / Group 6 | Pending | Pending | Not reviewed | — | — |
-| PD1 / comment closure | Founder decision pending | — | Not reviewed | D-1 | — |
-| PD2 / board lock | Founder decision pending | — | Not reviewed | D-2 | — |
-| PD5 / StoreKit terms | Founder decision pending | — | Not reviewed | D-5 | — |
+No application source, configuration, dependency, entitlement, backend contract, or release state is changed by this matrix reconciliation.
