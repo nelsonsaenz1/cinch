@@ -1,16 +1,22 @@
 import { Image } from 'react-native';
 
-import { canonicalTen, declineSlot, fillSlot, type TenSlot } from '@/features/onboarding/ten-slots';
+import { starterReadiness, type StarterReadiness } from '@/features/onboarding/starter-readiness';
+import { emptyTen, fillSlot, type TenSlot } from '@/features/onboarding/ten-slots';
+import type { Garment } from '@/lib/styling';
 
 /**
  * DEV ONLY — fixtures behind `dev-ten` and `dev-reveal`.
  *
  * The bundled sample photographs (assets/garments — the same licensed set
- * `sample-plate.tsx` and the App Store frames use) stand in for a real
- * closet. Only real cut-outs are drawn; a slot with no matching asset in that
- * folder (the dress, above all — there is no sample dress) renders empty
- * rather than borrowing an unrelated photo, exactly as The Ten atlas's own
- * note on T-05 requires.
+ * `sample-plate.tsx` and the App Store frames use) stand in for a real closet.
+ *
+ * EACH FIXTURE NOW CARRIES A CLASSIFIED WARDROBE, not just filled positions.
+ * The grid stopped knowing what its cells contain when the named template was
+ * removed, so a fixture that only fills positions can no longer produce the
+ * card, the suggestion or the readiness verdict — those all read the
+ * classifier. The `slot` on each sample below is what the tagger would return
+ * for that photograph, and it is the only reason these frames can be drawn
+ * without a network.
  */
 
 const uri = (mod: number) => Image.resolveAssetSource(mod).uri;
@@ -26,7 +32,9 @@ export const SAMPLE_ASSET = {
   tote: uri(require('@/assets/garments/cognac-leather-tote.jpg')),
 } as const;
 
-export const SAMPLE_NAME: Record<keyof typeof SAMPLE_ASSET, string> = {
+type SampleKey = keyof typeof SAMPLE_ASSET;
+
+export const SAMPLE_NAME: Record<SampleKey, string> = {
   blouse: 'White linen blouse',
   sweater: 'Cream mohair jumper',
   trousers: 'Charcoal trousers',
@@ -37,92 +45,114 @@ export const SAMPLE_NAME: Record<keyof typeof SAMPLE_ASSET, string> = {
   tote: 'Cognac tote',
 };
 
-/** Fill helper that also records the fixture's display name + image by slot id. */
-function stock(
-  slots: TenSlot[],
-  slotId: number,
-  key: keyof typeof SAMPLE_ASSET,
-  names: Record<number, string>,
-  images: Record<number, string>,
-): TenSlot[] {
-  names[slotId] = SAMPLE_NAME[key];
-  images[slotId] = SAMPLE_ASSET[key];
-  return fillSlot(slots, slotId, `sample-${key}`);
-}
+/**
+ * What the classifier returns for each sample. The jumper is `mid_layer` and
+ * counts as a top — `kindOfSlot` says so, `generateOutfits` agrees, and the
+ * whole point of the correction is that this file does not get a second
+ * opinion about it.
+ */
+const SAMPLE_SLOT: Record<SampleKey, Garment['slot']> = {
+  blouse: 'base_top',
+  sweater: 'mid_layer',
+  trousers: 'bottom',
+  skirt: 'bottom',
+  loafers: 'footwear',
+  boots: 'footwear',
+  coat: 'outerwear',
+  tote: 'bag',
+};
 
-export type TenFixture = { slots: TenSlot[]; names: Record<number, string>; images: Record<number, string> };
+export type TenFixture = {
+  slots: TenSlot[];
+  names: Record<number, string>;
+  images: Record<number, string>;
+  /** The classified closet these positions hold. */
+  wardrobe: Pick<Garment, 'slot'>[];
+  readiness: StarterReadiness;
+};
+
+/** Builds a fixture by filling the first N positions with the named samples. */
+function fixture(keys: readonly SampleKey[]): TenFixture {
+  const names: Record<number, string> = {};
+  const images: Record<number, string> = {};
+  let slots = emptyTen();
+
+  keys.forEach((key, i) => {
+    const id = i + 1;
+    names[id] = SAMPLE_NAME[key];
+    images[id] = SAMPLE_ASSET[key];
+    slots = fillSlot(slots, id, `sample-${key}-${id}`);
+  });
+
+  const wardrobe = keys.map((key) => ({ slot: SAMPLE_SLOT[key] }));
+  return { slots, names, images, wardrobe, readiness: starterReadiness(wardrobe) };
+}
 
 /** T-01 — nothing photographed yet. */
 export function fixtureT01(): TenFixture {
-  return { slots: canonicalTen(), names: {}, images: {} };
+  return fixture([]);
 }
 
-/** T-02 / T-03 — four filled (two tops, a bottom, a pair of shoes), slot 3 next. */
+/** T-02 / T-03 — four filed: two tops, a bottom, a pair of shoes. */
 export function fixtureT02(): TenFixture {
-  const names: Record<number, string> = {};
-  const images: Record<number, string> = {};
-  let slots = canonicalTen();
-  slots = stock(slots, 1, 'blouse', names, images);
-  slots = stock(slots, 2, 'sweater', names, images);
-  slots = stock(slots, 4, 'trousers', names, images);
-  slots = stock(slots, 7, 'loafers', names, images);
-  return { slots, names, images };
-}
-
-/** T-04 — six settled (three tops, two bottoms, a pair of shoes), the dress declined. */
-export function fixtureT04(): TenFixture {
-  const names: Record<number, string> = {};
-  const images: Record<number, string> = {};
-  let slots = canonicalTen();
-  slots = stock(slots, 1, 'blouse', names, images);
-  slots = stock(slots, 2, 'sweater', names, images);
-  slots = stock(slots, 4, 'trousers', names, images);
-  slots = stock(slots, 5, 'skirt', names, images);
-  slots = stock(slots, 7, 'loafers', names, images);
-  return { slots, names, images };
+  return fixture(['blouse', 'sweater', 'trousers', 'loafers']);
 }
 
 /**
- * T-05 — nine filled, the bag left. The dress IS one of the nine — it's on
- * the canonical list this state follows (T-06 quotes fourteen outfits, the
- * WITH-dress figure) — but there is no sample dress photograph in
- * assets/garments, so its tile is filled with no image and carries the slot
- * word until a real tagger names it, same as any freshly-captured piece
- * whose thumbnail hasn't resolved yet.
+ * T-05 — nine filed, one position left. Deliberately NOT the old canonical
+ * nine: this is a mixed closet with two coats' worth of uncounted pieces in
+ * it, which is what a real one looks like.
  */
 export function fixtureT05(): TenFixture {
-  const names: Record<number, string> = {};
-  const images: Record<number, string> = {};
-  let slots = canonicalTen();
-  slots = stock(slots, 1, 'blouse', names, images);
-  slots = stock(slots, 2, 'sweater', names, images);
-  slots = stock(slots, 3, 'blouse', names, images);
-  slots = stock(slots, 4, 'trousers', names, images);
-  slots = stock(slots, 5, 'skirt', names, images);
-  slots = fillSlot(slots, 6, 'sample-dress-no-asset'); // the dress; no bundled photo
-  slots = stock(slots, 7, 'loafers', names, images);
-  slots = stock(slots, 8, 'boots', names, images);
-  slots = stock(slots, 9, 'coat', names, images);
-  return { slots, names, images };
+  return fixture([
+    'blouse',
+    'sweater',
+    'blouse',
+    'trousers',
+    'skirt',
+    'loafers',
+    'boots',
+    'coat',
+    'tote',
+  ]);
 }
 
-/** T-06 — the ten complete: fixtureT05 plus the bag. */
+/**
+ * T-06 — the ten complete AND ready. Nelson's own acceptance mix in spirit:
+ * four tops (one of them a jumper filed as `mid_layer`), two bottoms, two
+ * pairs of shoes, a coat and a bag. Sixteen computed cores, no dress.
+ */
 export function fixtureT06(): TenFixture {
-  const nine = fixtureT05();
-  const slots = fillSlot(nine.slots, 10, 'sample-tote');
-  const names = { ...nine.names, 10: SAMPLE_NAME.tote };
-  const images = { ...nine.images, 10: SAMPLE_ASSET.tote };
-  return { slots, names, images };
+  return fixture([
+    'blouse',
+    'sweater',
+    'blouse',
+    'blouse',
+    'trousers',
+    'skirt',
+    'loafers',
+    'boots',
+    'coat',
+    'tote',
+  ]);
 }
 
-/** T-04's own branch: the dress declined into a fourth top, for `dev-reveal`'s R-04. */
-export function fixtureDressDeclinedToFourthTop(): TenFixture {
-  const four = fixtureT02();
-  let slots = declineSlot(four.slots, 6, { to: 'tops' });
-  slots = stock(slots, 5, 'skirt', four.names, four.images);
-  slots = stock(slots, 6, 'blouse', four.names, four.images);
-  slots = stock(slots, 8, 'boots', four.names, four.images);
-  slots = stock(slots, 9, 'coat', four.names, four.images);
-  slots = stock(slots, 10, 'tote', four.names, four.images);
-  return { slots, names: four.names, images: four.images };
+/**
+ * T-07 — ten filed and still not styleable. Ten pieces that never resolve to
+ * a core: no footwear anywhere, so `countOutfits` is nought and the flow shows
+ * the repair card rather than a reveal it has not earned.
+ */
+export function fixtureT07Repair(): TenFixture {
+  return fixture([
+    'blouse',
+    'sweater',
+    'blouse',
+    'blouse',
+    'coat',
+    'coat',
+    'tote',
+    'tote',
+    'coat',
+    'tote',
+  ]);
 }

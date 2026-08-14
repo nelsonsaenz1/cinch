@@ -2,8 +2,8 @@ import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/ui/text';
-import { slotCopy, slotOrdinalWithinKind } from '@/features/onboarding/ten-copy';
-import { settledCount, type TenSlot } from '@/features/onboarding/ten-slots';
+import { cameraSlotTitle } from '@/features/onboarding/ten-copy';
+import { filledCount, type TenSlot } from '@/features/onboarding/ten-slots';
 import { useTheme } from '@/theme/tokens';
 
 /** One L of the framing guide — transcribed from capture.tsx's `Corner`. */
@@ -60,9 +60,7 @@ export function TenCameraChrome({
   shutterEnabled?: boolean;
 }) {
   const theme = useTheme();
-  const n = slotOrdinalWithinKind(slots, slot.id);
-  const phrase = slotCopy(slot.kind, n).phrase;
-  const filled = settledCount(slots);
+  const filled = filledCount(slots);
 
   return (
     // A real SafeAreaView, not a plain View — capture.tsx's own reasoning:
@@ -73,7 +71,7 @@ export function TenCameraChrome({
     <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-ink">
       <View className="flex-row items-center justify-between px-gutter pt-1">
         <Text variant="plate" style={{ color: theme.canvas, fontSize: 26 }}>
-          {`Slot ${slot.id} · ${phrase}`}
+          {cameraSlotTitle(slot.id)}
         </Text>
         <Pressable
           onPress={onCancel}

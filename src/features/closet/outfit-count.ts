@@ -95,8 +95,15 @@ export function kindOfSlot(slot: Slot): CountedKind | null {
   }
 }
 
-/** Bucket a real wardrobe into the four counted kinds. */
-export function tallyOf(wardrobe: readonly Garment[]): Tally {
+/**
+ * Bucket a real wardrobe into the four counted kinds.
+ *
+ * Typed on `slot` alone rather than on the whole `Garment`, because that is
+ * genuinely all it reads — which lets the starter-readiness fixtures and the
+ * dev routes hand it a list of classified slots without fabricating twenty
+ * fields of garment metadata nobody counts.
+ */
+export function tallyOf(wardrobe: readonly Pick<Garment, 'slot'>[]): Tally {
   const out = { ...EMPTY_TALLY };
   for (const g of wardrobe) {
     const kind = kindOfSlot(g.slot);

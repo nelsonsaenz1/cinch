@@ -171,7 +171,7 @@ from the slot list, per the rule already documented at
 | file:line | Current |
 |---|---|
 | `src/app/the-ten.tsx:131` | `${filled} of 10` |
-| `src/app/the-ten.tsx:136` | "Ten pieces is enough for Cinch to style you properly." |
+| `src/features/onboarding/ten-copy.ts` · `tenProgressLine` | ~~"Ten pieces is enough for Cinch to style you properly."~~ **Fixed 2026-08-14** — derived from `PLANS.free.items`, and the outcome promise is gone: it was falsifiable by the adaptive readiness model (ten watches is ten pieces and is not styleable). Now "Add ten pieces from your closet." See free-tier-contract.md §2a. |
 | `src/app/the-ten.tsx:139` | `${10 - filled} to go` |
 | `src/components/onboarding/ten-stop-sheet.tsx:44` | "Ten of ten" |
 | `src/components/onboarding/ten-stop-sheet.tsx:49` | "That's the ten. There's room for an eleventh…" |

@@ -438,7 +438,7 @@ export function FirstTenDoors({
               name={FIRST_TEN_DOORS.photograph.name}
               line={FIRST_TEN_DOORS.photograph.shortLine}
               symbol="camera"
-              accessibilityLabel="Photograph them — ten named slots, one picture each"
+              accessibilityLabel="Photograph them — ten pieces, one picture each"
               onPress={() => onRoute('camera')}
             />
           </View>

@@ -10,14 +10,15 @@
  * sentence reads the same on every capture.
  */
 
-import { View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { fixtureT02 } from '@/components/dev/ten-fixtures';
-import { CameraDenied } from '@/components/onboarding/camera-denied';
-import { TenBody } from '@/components/onboarding/ten-body';
-import { Text } from '@/components/ui/text';
-import { canonicalTen, fillSlot } from '@/features/onboarding/ten-slots';
+import { fixtureT02 } from "@/components/dev/ten-fixtures";
+import { CameraDenied } from "@/components/onboarding/camera-denied";
+import { TenBody } from "@/components/onboarding/ten-body";
+import { Text } from "@/components/ui/text";
+import { emptyTen, fillSlot } from "@/features/onboarding/ten-slots";
+import { starterReadiness } from "@/features/onboarding/starter-readiness";
 
 export default function Fixture() {
   if (!__DEV__) {
@@ -30,15 +31,25 @@ export default function Fixture() {
 
   const stocked = fixtureT02();
   // Two photographed, which is the count the atlas's own frame carries.
-  let slots = canonicalTen();
-  slots = fillSlot(slots, 1, 'sample-blouse');
-  slots = fillSlot(slots, 2, 'sample-sweater');
+  let slots = emptyTen();
+  slots = fillSlot(slots, 1, "sample-blouse");
+  slots = fillSlot(slots, 2, "sample-sweater");
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <TenBody slots={slots} garmentNames={stocked.names} imageUris={stocked.images}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={["top"]}>
+      <TenBody
+        slots={slots}
+        readiness={starterReadiness(stocked.wardrobe.slice(0, 2))}
+        garmentNames={stocked.names}
+        imageUris={stocked.images}
+      >
         <View style={{ marginTop: 24 }}>
-          <CameraDenied filled={2} onLibrary={() => {}} onSettings={() => {}} onVoice={() => {}} />
+          <CameraDenied
+            filled={2}
+            onLibrary={() => {}}
+            onSettings={() => {}}
+            onVoice={() => {}}
+          />
         </View>
       </TenBody>
     </SafeAreaView>

@@ -8,8 +8,10 @@ import { stopSheetCopy } from '@/features/onboarding/ten-copy';
 import { useTheme } from '@/theme/tokens';
 
 /**
- * T-06's card content, with no `Modal` around it — see `SubstitutionSheetBody`
- * for why the split exists.
+ * T-06's card content, with no `Modal` around it.
+ *
+ * The split exists so the dev fixture routes can photograph the card flat,
+ * without a presentation layer they would then have to drive.
  */
 export function TenStopSheetBody({
   count,

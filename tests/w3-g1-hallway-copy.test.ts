@@ -32,26 +32,17 @@ import {
 import {
   CAMERA_DENIED,
   cameraDeniedKeepLine,
-  keepSlotLabel,
-  outfitsCell,
-  recommendationNote,
-  redirectCtaLabel,
-  redirectOptionLabel,
   resumeCardCopy,
   TEN_TITLE,
 } from '../src/features/onboarding/ten-copy';
-import {
-  canonicalTen,
-  plannedTally,
-  redirectOptions,
-} from '../src/features/onboarding/ten-slots';
+import { starterReadiness } from '../src/features/onboarding/starter-readiness';
 
 // ---------------------------------------------------------------------------
 // TR-05 / TR-06
 // ---------------------------------------------------------------------------
 
 test('the ten-piece surface has one title, and it is not the flow’s codename', () => {
-  // TR-05, TR-06, T-01, T-02 and T-04 all print this. "The Ten" was the spec's
+  // TR-05, TR-06, T-01 and T-02 all print this. "The Ten" was the spec's
   // name for the flow showing through onto the screen.
   //
   // CX-01/CX-02 fix the numeral. An eyebrow is a label, not prose, so it takes
@@ -81,68 +72,16 @@ test('TR-06 — a one-piece walkthrough is not pluralised', () => {
 });
 
 // ---------------------------------------------------------------------------
-// T-04 — the substitution sheet
+// T-04 is gone
 // ---------------------------------------------------------------------------
-
-test('T-04 — every option row carries a computed outfit total', () => {
-  const slots = canonicalTen();
-  const dress = 6;
-  const options = redirectOptions(slots, dress);
-  assert.ok(options.length >= 2);
-  for (const option of options) {
-    // The figure on the row is `countOutfits` over the plan the option would
-    // produce, so the row cannot show a number the closet would not make.
-    assert.equal(outfitsCell(option.total), `${option.total} outfit${option.total === 1 ? '' : 's'}`);
-  }
-  // "Keep the slot open" is always last and always offered.
-  assert.equal(options[options.length - 1]!.kind, 'open');
-});
-
-test('T-04 — the recommended option names itself, and the CTA names it again', () => {
-  const slots = canonicalTen();
-  const options = redirectOptions(slots, 6);
-  const recommended = options.find((o) => o.kind === 'redirect' && o.recommended)!;
-  assert.equal(redirectOptionLabel(slots, recommended), 'A fourth top');
-  assert.equal(redirectCtaLabel(slots, recommended), 'Use this slot for a fourth top');
-});
-
-test('T-04 — when another option out-counts the recommendation, the sheet says so', () => {
-  const slots = canonicalTen();
-  const options = redirectOptions(slots, 6);
-  const recommended = options.find((o) => o.kind === 'redirect' && o.recommended)!;
-  const other = options.find((o) => o.kind === 'redirect' && !o.recommended)!;
-  // The premise of the whole sentence: the third bottom really does out-count
-  // the fourth top on the canonical ten.
-  assert.ok(other.total > recommended.total);
-
-  const note = recommendationNote(slots, options);
-  assert.equal(
-    note,
-    'The third bottom out-counts the fourth top. The recommendation stays as it is ' +
-      'because Cinch builds better outfits from a fourth top, not because it scores higher.',
-  );
-});
-
-test('T-04 — no sentence is invented when the recommendation is also the biggest', () => {
-  // Only the redirects are compared. Keeping the slot open removes a garment
-  // from the plan, so it can never out-count a redirect, and "the keeping the
-  // slot open out-counts…" is not a sentence anybody would write.
-  const slots = canonicalTen();
-  const options = redirectOptions(slots, 6);
-  const recommended = options.find((o) => o.kind === 'redirect' && o.recommended)!;
-  const trimmed = [recommended, options[options.length - 1]!];
-  assert.equal(recommendationNote(slots, trimmed), null);
-});
-
-test('T-04 — cancelling the decline is worded differently from spending the slot on nothing', () => {
-  // Two different outcomes must never share a label: one leaves the position
-  // asking for a dress, the other spends it on nothing.
-  assert.equal(keepSlotLabel('dresses'), 'Keep the dress slot');
-  const slots = canonicalTen();
-  const open = redirectOptions(slots, 6).find((o) => o.kind === 'open')!;
-  assert.equal(redirectOptionLabel(slots, open), 'Keep the slot open');
-  assert.notEqual(keepSlotLabel('dresses'), redirectOptionLabel(slots, open));
-});
+//
+// The substitution sheet ("No dress? Spend the slot elsewhere") was the whole
+// of T-04, and it only ever made sense because the position was ASKING for a
+// dress. The grid draws generic cells now, so there is nothing to decline and
+// nothing to spend a decline on — the sheet, its five copy helpers and their
+// tests went with the template. What replaced it is T-07, the state a full
+// grid stands in when the arithmetic has not arrived; its copy is held in
+// tests/ten-copy.test.ts and its model in tests/starter-readiness.test.ts.
 
 // ---------------------------------------------------------------------------
 // T-05 — the camera is switched off
@@ -277,7 +216,20 @@ test('M-07 — a capacity fact, never an upsell', () => {
 // The arithmetic behind T-06
 // ---------------------------------------------------------------------------
 
-test('the canonical ten really makes the number the stop sheet quotes', () => {
-  // Not a marketing figure: `countOutfits` over the plan the ten describes.
-  assert.equal(countOutfits(plannedTally(canonicalTen())), 14);
+test('the stop sheet quotes a count computed from the real closet', () => {
+  // Not a marketing figure, and no longer a figure about a PLAN either: the
+  // template used to assert fourteen outfits over ten positions nobody had
+  // filled. `countOutfits` now only ever runs over garments that exist.
+  const nelson = starterReadiness(
+    (
+      [
+        'base_top', 'base_top', 'base_top', 'mid_layer',
+        'bottom', 'bottom',
+        'footwear', 'footwear',
+        'accessory', 'outerwear',
+      ] as const
+    ).map((slot) => ({ slot })),
+  );
+  assert.equal(nelson.outfits, countOutfits(nelson.tally));
+  assert.equal(nelson.outfits, 16);
 });

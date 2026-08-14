@@ -34,9 +34,9 @@ const THE_TEN = closet(3, 2, 1, 2);
 test('every count printed in the five atlases', () => {
   const cases: Array<[Tally, number, string]> = [
     [THE_TEN, 14, 'The Ten · The Reveal R-02 — "Ten pieces. Fourteen outfits."'],
-    [closet(4, 2, 0, 2), 16, 'The Ten T-04 · The Reveal R-04 — a fourth top instead of the dress'],
-    [closet(3, 3, 0, 2), 18, 'The Ten T-04 — a third bottom instead of the dress'],
-    [closet(3, 2, 0, 2), 12, 'The Ten T-04 — "keep the slot open", finish with nine'],
+    [closet(4, 2, 0, 2), 16, 'The Reveal R-04 · the adaptive acceptance mix — four tops, no dress'],
+    [closet(3, 3, 0, 2), 18, 'Three bottoms, no dress — free-tier-contract.md §1 table'],
+    [closet(3, 2, 0, 2), 12, 'Nine counted pieces, no dress — free-tier-contract.md §1 table'],
     [closet(3, 2, 1, 3), 21, 'The Gap Feed · The Wall — a second pair of shoes'],
     [closet(3, 3, 1, 2), 20, 'The Gap Feed — a third bottom'],
     [closet(4, 2, 1, 2), 18, 'The Gap Feed — a fourth top'],

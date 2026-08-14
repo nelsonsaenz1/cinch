@@ -1,258 +1,131 @@
 /**
- * The Ten's slot model.
+ * The Ten's slot model — ten generic positions, and nothing else.
  *
- * The free closet is ten NAMED positions, not a bare counter: 3 tops,
- * 2 bottoms, 1 dress, 2 shoes, 1 outerwear, 1 bag (free-tier-contract.md §2).
- * This module is the single place that tracks which position holds what and
- * turns a decline into a redirect rather than a drop — "declining redirects
- * the slot rather than dropping it" is a rule about STATE, and state belongs
- * in one place.
+ * WHAT THIS FILE USED TO BE, and why it isn't any more.
  *
- * Every arithmetic claim this module can make — a redirect's projected count,
- * the reveal's headline number — is delegated to `outfit-count.ts`. This file
- * never computes `tops * bottoms * shoes` itself.
+ * The free closet was ten NAMED positions: 3 tops, 2 bottoms, 1 dress, 2
+ * shoes, 1 outerwear, 1 bag. Every tile carried its category word before a
+ * photograph existed, a slot could be "declined" and redirected to another
+ * kind, and the substitution sheet quoted the count a FINISHED closet would
+ * make from a plan nobody had photographed yet.
+ *
+ * It failed the first real male tester who used it. He added three tops, a
+ * hoodie, two pairs of trousers, two pairs of shoes, a watch and one more
+ * piece — a good starter closet by any measure — and the grid spent the whole
+ * flow telling him he was wrong about his own wardrobe, because it had decided
+ * in advance that he owned a dress and a bag.
+ *
+ * So a slot is now a POSITION and nothing more: an index, and whatever garment
+ * landed in it. It has no kind, and it never had any business having one —
+ * what a piece IS has always been the classifier's answer, and a position that
+ * carries its own opinion can only ever disagree with the tagger. Readiness,
+ * the outfit count and the next-best suggestion all read the real wardrobe:
+ * see `starter-readiness.ts`.
+ *
+ * WHAT WENT WITH IT. `plannedTally` — a tally of a PLAN — is gone, along with
+ * `declineSlot` / `redirectOptions` / the substitution sheet they fed. A
+ * generic empty cell cannot be declined into something else, because it was
+ * never asking for anything in particular; "skip this" has no referent when
+ * the tile says "Add a piece". The only arithmetic left in the flow is
+ * `countOutfits` over garments that genuinely exist.
  */
 
-import {
-  COUNTED_KINDS,
-  countOutfits,
-  EMPTY_TALLY,
-  kindOfSlot,
-  type CountedKind,
-  type Tally,
-} from '@/features/closet/outfit-count';
+import { PLANS } from '@/features/billing/plans';
 import type { Garment } from '@/lib/styling';
 
-// Re-exported so callers of the slot model don't also need a direct import
-// from `outfit-count.ts` for the one type they share.
-export type { CountedKind };
-
-/** The two required-but-uncounted positions, alongside the four counted kinds. */
-export type TenSlotKind = CountedKind | 'outerwear' | 'bag';
-
-function isCountedKind(kind: TenSlotKind): kind is CountedKind {
-  return (COUNTED_KINDS as readonly string[]).includes(kind);
-}
-
 /**
- * A position's life cycle.
- *
- * `empty` — nothing photographed yet, kind may still be redirected.
- * `filled` — a garment sits here.
- * `open` — declined and deliberately left empty forever ("keep the slot
- *   open"). Distinct from `empty`: an open slot is settled, not pending, and
- *   does not re-offer itself as the next foregrounded slot.
+ * A position's life cycle. Two states, where there used to be three: `open`
+ * described a slot deliberately declined, and there is no longer anything to
+ * decline.
  */
-export type TenSlotStatus = 'empty' | 'filled' | 'open';
+export type TenSlotStatus = 'empty' | 'filled';
 
 export type TenSlot = {
-  /** Stable 1..10 identity — the grid position, never reassigned. */
+  /** Stable 1..N identity — the grid position, never reassigned. */
   id: number;
-  /** What this position was named at the start of the flow. Never changes. */
-  originalKind: TenSlotKind;
-  /** What this position counts as now — changes only on a redirect. */
-  kind: TenSlotKind;
   status: TenSlotStatus;
   /** The captured garment's id, once filled. */
   garmentId: string | null;
 };
 
-/** The word a slot's tile carries, per free-tier-contract.md §2. */
-export const SLOT_LABEL: Record<TenSlotKind, string> = {
-  tops: 'Top',
-  bottoms: 'Bottom',
-  dresses: 'Dress',
-  shoes: 'Shoes',
-  outerwear: 'Outerwear',
-  bag: 'Bag',
-};
+/** How many positions the starter grid draws. The free closet's own size. */
+export const TEN_SLOTS = PLANS.free.items;
 
-/** The canonical ten, in the grid's own reading order (3 columns). */
-export function canonicalTen(): TenSlot[] {
-  const kinds: TenSlotKind[] = [
-    'tops', 'tops', 'tops',
-    'bottoms', 'bottoms',
-    'dresses',
-    'shoes', 'shoes',
-    'outerwear',
-    'bag',
-  ];
-  return kinds.map((kind, i) => ({
+/**
+ * The word an EMPTY tile carries.
+ *
+ * Generic, and that is the correction: a tile that says "Dress" to somebody
+ * who owns none is an icon of a garment the user does not have, which is the
+ * exact failure the atlas already forbids for placeholder imagery. A filled
+ * tile names its real garment instead — see `TenTile`.
+ */
+export const EMPTY_SLOT_LABEL = 'Add a piece';
+
+/** Ten empty positions, in the grid's own reading order. */
+export function emptyTen(count: number = TEN_SLOTS): TenSlot[] {
+  return Array.from({ length: count }, (_, i) => ({
     id: i + 1,
-    originalKind: kind,
-    kind,
-    status: 'empty',
+    status: 'empty' as const,
     garmentId: null,
   }));
 }
 
-/** Every slot the flow considers settled — filled, or declined-and-kept-open. */
-export function settledCount(slots: readonly TenSlot[]): number {
-  return slots.filter((s) => s.status !== 'empty').length;
+/** Positions holding a real garment. The only count this module can make. */
+export function filledCount(slots: readonly TenSlot[]): number {
+  return slots.filter((s) => s.status === 'filled').length;
 }
 
+/** Every position holds a garment. Says nothing about whether they're enough. */
 export function isComplete(slots: readonly TenSlot[]): boolean {
-  return settledCount(slots) === slots.length;
+  return filledCount(slots) === slots.length;
 }
 
 /**
- * The next slot Cinch would suggest — the recommendation, never a gate.
- * "Order is a suggestion... any slot can be tapped directly." Lowest id among
- * the still-empty positions; callers are free to foreground any slot's id
- * instead when the user taps it directly.
+ * The next position Cinch would offer — the recommendation, never a gate.
+ * "Order is a suggestion... any slot can be tapped directly."
  */
 export function nextSlot(slots: readonly TenSlot[]): TenSlot | null {
   return slots.find((s) => s.status === 'empty') ?? null;
 }
 
-/**
- * The tally the current PLAN implies — every settled or pending slot counted
- * by its (possibly redirected) kind, an `open` slot counted as nothing.
- *
- * This is deliberately not "what's photographed so far": at slot six, tops
- * one and two are unfilled but still plan to exist, and the substitution
- * sheet's preview counts must reflect the finished closet, not the partial
- * one — that is what makes "a fourth top instead — sixteen outfits" true
- * before a fourth top has been photographed.
- */
-export function plannedTally(slots: readonly TenSlot[]): Tally {
-  const t: { [K in CountedKind]: number } = { ...EMPTY_TALLY };
-  for (const s of slots) {
-    if (s.status === 'open') continue;
-    if (isCountedKind(s.kind)) t[s.kind] += 1;
-  }
-  return t;
-}
-
-/** The tally of what has actually been photographed — never a projection. */
-export function filledTally(slots: readonly TenSlot[]): Tally {
-  const t: { [K in CountedKind]: number } = { ...EMPTY_TALLY };
-  for (const s of slots) {
-    if (s.status !== 'filled') continue;
-    if (isCountedKind(s.kind)) t[s.kind] += 1;
-  }
-  return t;
-}
-
-/** Fill a slot with a garment. No-op on an already-filled or open slot. */
-export function fillSlot(slots: readonly TenSlot[], slotId: number, garmentId: string): TenSlot[] {
+/** Fill a position with a garment. No-op on an already-filled one. */
+export function fillSlot(
+  slots: readonly TenSlot[],
+  slotId: number,
+  garmentId: string,
+): TenSlot[] {
   return slots.map((s) =>
     s.id === slotId && s.status === 'empty' ? { ...s, status: 'filled', garmentId } : s,
   );
 }
 
-/** Which named position a real garment's engine slot would settle into. */
-function tenKindOf(slot: Garment['slot']): TenSlotKind | null {
-  const counted = kindOfSlot(slot);
-  if (counted) return counted;
-  if (slot === 'outerwear') return 'outerwear';
-  if (slot === 'bag') return 'bag';
-  return null; // headwear/accessory were never on the ten
+/** The garment ids the grid is currently holding, in position order. */
+export function placedIds(slots: readonly TenSlot[]): string[] {
+  return slots.flatMap((s) => (s.garmentId ? [s.garmentId] : []));
 }
 
 /**
  * Resume from a real wardrobe. "Nothing is ever lost... Returning resumes at
- * the count, not at the start" (free-tier-contract.md §2) — a closet that
- * already has tagged garments in it (the app was killed mid-flow, or this is
- * a returning free user) fills the matching slots on the way in rather than
- * asking for the same photographs twice.
+ * the count, not at the start" (free-tier-contract.md §2).
  *
- * Best-effort and order-stable: garments land in ascending slot-id order
- * within their kind, oldest first, and anything beyond the ten's own count
- * per kind (an eleventh top) simply isn't placed — it is still in the real
- * closet, just not on this list.
- */
-export function hydrateFromWardrobe(wardrobe: readonly Garment[]): TenSlot[] {
-  const byKind = new Map<TenSlotKind, Garment[]>();
-  for (const g of wardrobe) {
-    const kind = tenKindOf(g.slot);
-    if (!kind) continue;
-    const bucket = byKind.get(kind);
-    if (bucket) bucket.push(g);
-    else byKind.set(kind, [g]);
-  }
-
-  const cursors = new Map<TenSlotKind, number>();
-  return canonicalTen().map((slot) => {
-    const pool = byKind.get(slot.kind);
-    const i = cursors.get(slot.kind) ?? 0;
-    const garment = pool?.[i];
-    if (!garment) return slot;
-    cursors.set(slot.kind, i + 1);
-    return { ...slot, status: 'filled', garmentId: garment.id };
-  });
-}
-
-export type RedirectOption =
-  | { kind: 'redirect'; to: CountedKind; total: number; recommended: boolean }
-  | { kind: 'open'; total: number };
-
-/**
- * Redirect the slot to a different counted kind, or leave it open.
+ * EVERY CATEGORY IS PLACED, and this is the second half of the correction.
+ * Hydration used to run each garment through a kind map and drop anything the
+ * template had no position for — a watch, a hat, an eleventh top — so a reader
+ * who closed the app after photographing a watch came back to a grid that had
+ * silently forgotten it. Positions are generic now, so there is nothing to
+ * match against and nothing to coerce: the first ten garments fill the first
+ * ten positions in wardrobe order, whatever they are.
  *
- * A slot that is already filled cannot be declined — nothing in this flow
- * ever implies a photograph gets thrown away (free-tier-contract.md §2,
- * "nothing is ever lost"); the sheet that calls this only ever opens on an
- * empty slot.
+ * A closet larger than the grid still overflows it, and that is honest — the
+ * grid draws ten positions and a wardrobe of sixty does not fit in them. What
+ * it no longer does is choose WHICH ten by category.
  */
-export function declineSlot(
-  slots: readonly TenSlot[],
-  slotId: number,
-  decision: { to: CountedKind } | { open: true },
+export function hydrateFromWardrobe(
+  wardrobe: readonly Garment[],
+  count: number = TEN_SLOTS,
 ): TenSlot[] {
-  return slots.map((s) => {
-    if (s.id !== slotId || s.status !== 'empty') return s;
-    if ('open' in decision) return { ...s, status: 'open' };
-    return { ...s, kind: decision.to };
+  return emptyTen(count).map((slot, i) => {
+    const garment = wardrobe[i];
+    return garment ? { ...slot, status: 'filled' as const, garmentId: garment.id } : slot;
   });
-}
-
-/**
- * Which two counted kinds a declined slot offers itself as, in recommended
- * order. T-04 is the one atlas evidence for this: declining the dress offers
- * a fourth top (recommended) and a third bottom, never a third pair of
- * shoes — the sheet narrows to the two kinds that read as a genuine
- * alternative to what was declined, not to every kind arithmetic could touch.
- *
- * The recommendation is NOT the higher count. T-04's own note: "the third
- * bottom out-counts the fourth top... the recommended option stays
- * recommended because the engine builds better outfits from it, not because
- * it scores higher." There is no build-quality signal in the codebase to
- * compute that from, so this table is the one place that judgment is made —
- * an editorial choice, not a derived one, and the reason it lives beside the
- * arithmetic rather than inside it.
- */
-const REDIRECT_TARGETS: Record<TenSlotKind, readonly [CountedKind, CountedKind] | null> = {
-  dresses: ['tops', 'bottoms'],
-  tops: ['bottoms', 'shoes'],
-  bottoms: ['tops', 'shoes'],
-  shoes: ['tops', 'bottoms'],
-  outerwear: ['tops', 'bottoms'],
-  // The bag has no redirect — "Cinch can't style you until the bag is in".
-  // Callers keep the Skip control off this slot entirely (see SlotCard); this
-  // still resolves sanely if ever asked.
-  bag: null,
-};
-
-/**
- * Every way this slot could be spent instead, each carrying the count the
- * finished closet would make — computed by `countOutfits`, never a table.
- * "Keep the slot open" is always last and always available.
- */
-export function redirectOptions(slots: readonly TenSlot[], slotId: number): RedirectOption[] {
-  const slot = slots.find((s) => s.id === slotId);
-  if (!slot) return [];
-
-  const targets = REDIRECT_TARGETS[slot.kind] ?? [];
-  const options: RedirectOption[] = targets.map((to, i) => ({
-    kind: 'redirect',
-    to,
-    total: countOutfits(plannedTally(declineSlot(slots, slotId, { to }))),
-    recommended: i === 0,
-  }));
-  options.push({
-    kind: 'open',
-    total: countOutfits(plannedTally(declineSlot(slots, slotId, { open: true }))),
-  });
-  return options;
 }

@@ -21,9 +21,9 @@ import { numberWord } from '@/features/onboarding/reveal-copy';
  * It is deliberately NOT `MIN_CLOSET_FOR_OUTFITS` (8). That constant is the
  * engine's floor for producing *a* look; it is internal, it is never printed,
  * and no screen has ever called it "ten". The number the user meets is the
- * free tier's ten named positions — The Ten's own copy already says "Ten
- * pieces is enough for Cinch to style you properly", and Today's empty state
- * counts toward the same closet. One number, one meaning, read from the one
+ * free tier's ten — The Ten's own masthead already asks for it ("Add ten
+ * pieces from your closet"), and Today's empty state counts toward the same
+ * closet. One number, one meaning, read from the one
  * place that defines it: change the tier and this sentence changes with it.
  */
 export const TOUR_CLOSET_TARGET = PLANS.free.items;

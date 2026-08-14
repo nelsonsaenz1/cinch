@@ -1,40 +1,55 @@
 /**
- * The Ten's slot model — held against the exact figures T-04's substitution
- * sheet quotes (free-tier-contract.md §2, design-refs/html/The Ten State
- * Atlas). A failure here means the sheet is about to show the wrong count for
- * a redirect nobody has taken yet.
+ * The Ten's slot model — ten GENERIC positions.
+ *
+ * What this file used to hold: the canonical template (3 tops, 2 bottoms, 1
+ * dress, 2 shoes, 1 coat, 1 bag = fourteen outfits before a photograph
+ * existed), and the substitution arithmetic that let a slot be declined into
+ * another kind. Both are gone with the template itself — see the header of
+ * `ten-slots.ts` for the tester who broke it.
+ *
+ * These tests are the replacement, and the rule they enforce is one sentence:
+ * a position holds a garment id and has no opinion about what that garment is.
+ * Readiness lives in `starter-readiness.test.ts`.
  */
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { countOutfits } from '../src/features/closet/outfit-count';
+import { PLANS } from '../src/features/billing/plans';
 import {
-  canonicalTen,
-  declineSlot,
+  emptyTen,
   fillSlot,
+  filledCount,
   hydrateFromWardrobe,
   isComplete,
   nextSlot,
-  plannedTally,
-  redirectOptions,
-  settledCount,
+  placedIds,
+  TEN_SLOTS,
   type TenSlot,
 } from '../src/features/onboarding/ten-slots';
 import { garment } from './helpers';
 
-test('the canonical ten names 3 tops, 2 bottoms, 1 dress, 2 shoes, 1 coat, 1 bag', () => {
-  const slots = canonicalTen();
-  assert.equal(slots.length, 10);
-  assert.equal(countOutfits(plannedTally(slots)), 14);
+test('the grid is ten generic positions, and the free closet says how many', () => {
+  const slots = emptyTen();
+  assert.equal(slots.length, PLANS.free.items);
+  assert.equal(TEN_SLOTS, PLANS.free.items);
+
+  // The one assertion that carries the whole correction: no position names a
+  // category, because none of them has one to name.
+  for (const slot of slots) {
+    assert.equal(slot.status, 'empty');
+    assert.equal(slot.garmentId, null);
+    assert.ok(!('kind' in slot), 'a position must not carry a category');
+    assert.ok(!('originalKind' in slot), 'a position must not carry a category');
+  }
   assert.deepEqual(
-    slots.map((s) => s.kind),
-    ['tops', 'tops', 'tops', 'bottoms', 'bottoms', 'dresses', 'shoes', 'shoes', 'outerwear', 'bag'],
+    slots.map((s) => s.id),
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   );
 });
 
 test('order is a suggestion — nextSlot walks the empty ones in id order', () => {
-  let slots = canonicalTen();
+  let slots = emptyTen();
   assert.equal(nextSlot(slots)?.id, 1);
 
   // Filling slot 5 directly, out of order, does not confuse the suggestion —
@@ -42,75 +57,28 @@ test('order is a suggestion — nextSlot walks the empty ones in id order', () =
   slots = fillSlot(slots, 5, 'g-5');
   assert.equal(nextSlot(slots)?.id, 1);
 
-  slots = fillSlot(slots, 1, 'g-1');
-  slots = fillSlot(slots, 2, 'g-2');
-  slots = fillSlot(slots, 3, 'g-3');
-  slots = fillSlot(slots, 4, 'g-4');
+  for (const id of [1, 2, 3, 4]) slots = fillSlot(slots, id, `g-${id}`);
   assert.equal(nextSlot(slots)?.id, 6);
 });
 
-test('T-04: the dress declined — every redirect option carries its own computed count', () => {
-  const slots = canonicalTen();
-  const options = redirectOptions(slots, 6);
-
-  const asMap = new Map(
-    options.map((o) => [o.kind === 'redirect' ? o.to : 'open', o.total]),
-  );
-  assert.equal(asMap.get('tops'), 16, 'a fourth top instead — sixteen outfits');
-  assert.equal(asMap.get('bottoms'), 18, 'a third bottom instead — eighteen outfits');
-  assert.equal(asMap.get('open'), 12, 'keep the slot open — finish with nine, twelve outfits');
-  // The sheet narrows to two genuine alternatives — not a third pair of shoes.
-  assert.equal(options.length, 3);
-
-  // The sheet does not reorder to hide that the third bottom out-counts the
-  // fourth top — both numbers are simply what they are, and the recommended
-  // option is the top regardless.
-  assert.ok((asMap.get('bottoms') ?? 0) > (asMap.get('tops') ?? 0));
-  const recommended = options.find((o) => o.kind === 'redirect' && o.recommended);
-  assert.equal(recommended && recommended.kind === 'redirect' && recommended.to, 'tops');
-});
-
-test('a redirect changes the slot; nothing already filled is ever dropped', () => {
-  let slots: TenSlot[] = canonicalTen();
+test('a filled position cannot be refilled — nothing is ever lost', () => {
+  let slots: TenSlot[] = emptyTen();
   slots = fillSlot(slots, 1, 'g-1');
-  slots = fillSlot(slots, 2, 'g-2');
-  slots = fillSlot(slots, 3, 'g-3');
-  slots = fillSlot(slots, 4, 'g-4');
-  slots = fillSlot(slots, 5, 'g-5');
-
-  // Decline the dress into a fourth top.
-  slots = declineSlot(slots, 6, { to: 'tops' });
-  assert.equal(slots.find((s) => s.id === 6)?.kind, 'tops');
-  assert.equal(slots.find((s) => s.id === 6)?.status, 'empty'); // still needs a photo
-
-  // Every earlier photograph is untouched.
-  for (const id of [1, 2, 3, 4, 5]) {
-    const s = slots.find((x) => x.id === id)!;
-    assert.equal(s.status, 'filled');
-    assert.equal(s.garmentId, `g-${id}`);
-  }
-
-  slots = fillSlot(slots, 6, 'g-6');
-  slots = fillSlot(slots, 7, 'g-7');
-  slots = fillSlot(slots, 8, 'g-8');
-  slots = fillSlot(slots, 9, 'g-9');
-  slots = fillSlot(slots, 10, 'g-10');
-  assert.equal(countOutfits(plannedTally(slots)), 16);
-  assert.ok(isComplete(slots));
-  assert.equal(settledCount(slots), 10);
+  slots = fillSlot(slots, 1, 'g-1-replacement');
+  assert.equal(slots.find((s) => s.id === 1)?.garmentId, 'g-1');
 });
 
-test('"keep the slot open" settles the slot without ever filling it', () => {
-  let slots: TenSlot[] = canonicalTen();
-  for (const id of [1, 2, 3, 4, 5]) slots = fillSlot(slots, id, `g-${id}`);
-  slots = declineSlot(slots, 6, { open: true });
-  for (const id of [7, 8, 9, 10]) slots = fillSlot(slots, id, `g-${id}`);
+test('completion is about positions, and says nothing about readiness', () => {
+  let slots: TenSlot[] = emptyTen();
+  assert.ok(!isComplete(slots));
+  for (let id = 1; id <= 10; id += 1) slots = fillSlot(slots, id, `g-${id}`);
 
-  const dress = slots.find((s) => s.id === 6)!;
-  assert.equal(dress.status, 'open');
-  assert.equal(dress.garmentId, null);
   assert.ok(isComplete(slots));
-  assert.equal(countOutfits(plannedTally(slots)), 12);
+  assert.equal(filledCount(slots), 10);
+  // Ten filled positions. This module cannot tell you whether that is a
+  // wardrobe or ten watches, and it must not pretend to — that is exactly the
+  // claim the old `plannedTally` made and got wrong.
+  assert.deepEqual(placedIds(slots), Array.from({ length: 10 }, (_, i) => `g-${i + 1}`));
 });
 
 test('hydrateFromWardrobe resumes at the count, not at the start', () => {
@@ -122,32 +90,42 @@ test('hydrateFromWardrobe resumes at the count, not at the start', () => {
   ];
   const slots = hydrateFromWardrobe(wardrobe);
 
-  assert.equal(settledCount(slots), 4);
-  assert.equal(slots.find((s) => s.id === 1)?.status, 'filled');
-  assert.equal(slots.find((s) => s.id === 2)?.status, 'filled');
-  // Only two tops exist — the third top slot is still open for a photograph.
-  assert.equal(slots.find((s) => s.id === 3)?.status, 'empty');
-  assert.equal(slots.find((s) => s.id === 4)?.status, 'filled'); // first bottom
-  assert.equal(slots.find((s) => s.id === 5)?.status, 'empty'); // second bottom
-  assert.equal(slots.find((s) => s.id === 7)?.status, 'filled'); // first shoe
-  assert.equal(nextSlot(slots)?.id, 3);
+  assert.equal(filledCount(slots), 4);
+  assert.deepEqual(placedIds(slots), wardrobe.map((g) => g.id));
+  assert.equal(nextSlot(slots)?.id, 5);
 });
 
-test('hydrateFromWardrobe never places an eleventh of a kind', () => {
-  const wardrobe = Array.from({ length: 5 }, () => garment('base_top', 'white'));
+test('hydration places EVERY category — the watch is not dropped', () => {
+  // The regression this test exists for. Kind-matched hydration ran each
+  // garment through a template map and silently discarded anything the ten had
+  // no position for: a watch, a hat, an eleventh top. Nelson's tester came back
+  // to a grid that had forgotten his watch.
+  const wardrobe = [
+    garment('accessory', 'steel'), // the watch
+    garment('headwear', 'navy'),
+    garment('mid_layer', 'grey'), // the hoodie
+    garment('base_top', 'white'),
+    garment('base_top', 'navy'),
+    garment('base_top', 'black'),
+    garment('bottom', 'charcoal'),
+    garment('bottom', 'indigo'),
+    garment('footwear', 'brown'),
+    garment('outerwear', 'olive'),
+  ];
   const slots = hydrateFromWardrobe(wardrobe);
-  const topSlots = slots.filter((s) => s.kind === 'tops');
-  assert.ok(topSlots.every((s) => s.status === 'filled'));
-  assert.equal(settledCount(slots), 3); // only three top positions exist
+
+  assert.equal(filledCount(slots), 10);
+  assert.deepEqual(
+    placedIds(slots),
+    wardrobe.map((g) => g.id),
+    'every garment resumes, in wardrobe order, whatever its category',
+  );
 });
 
-test('a filled slot cannot be declined or refilled — nothing is lost', () => {
-  let slots: TenSlot[] = canonicalTen();
-  slots = fillSlot(slots, 1, 'g-1');
-  const beforeDecline = slots;
-  slots = declineSlot(slots, 1, { open: true });
-  assert.deepEqual(slots, beforeDecline, 'declining a filled slot is a no-op');
+test('a wardrobe larger than the grid overflows it rather than choosing by kind', () => {
+  const wardrobe = Array.from({ length: 14 }, () => garment('base_top', 'white'));
+  const slots = hydrateFromWardrobe(wardrobe);
 
-  slots = fillSlot(slots, 1, 'g-1-replacement');
-  assert.equal(slots.find((s) => s.id === 1)?.garmentId, 'g-1', 'filling a filled slot is a no-op');
+  assert.equal(filledCount(slots), 10);
+  assert.deepEqual(placedIds(slots), wardrobe.slice(0, 10).map((g) => g.id));
 });

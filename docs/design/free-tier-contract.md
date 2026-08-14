@@ -111,10 +111,10 @@ Every figure printed in the five atlases, as a test table:
 
 | Closet | Expected | Source |
 |---|---|---|
-| 3T 2B 1D 2S | 14 | The Ten, The Reveal R-02 |
-| 4T 2B 0D 2S | 16 | The Ten T-04, The Reveal R-04 |
-| 3T 3B 0D 2S | 18 | The Ten T-04 |
-| 3T 2B 0D 2S | 12 | The Ten T-04 ("keep the slot open") |
+| 3T 2B 1D 2S | 14 | The Reveal R-02 |
+| 4T 2B 0D 2S | 16 | The Reveal R-04; the adaptive acceptance mix (§2a) |
+| 3T 3B 0D 2S | 18 | — (was The Ten T-04) |
+| 3T 2B 0D 2S | 12 | — (was The Ten T-04, "keep the slot open") |
 | 3T 2B 1D 3S | 21 | The Gap Feed, The Wall |
 | 3T 3B 1D 2S | 20 | The Gap Feed |
 | 4T 2B 1D 2S | 18 | The Gap Feed |
@@ -135,12 +135,19 @@ match the picture. Flagged to the founder.
 
 Only where it can be computed for that user. Never as a marketing constant, and
 never recomputed independently by a screen. Four surfaces quote it — The Reveal,
-The Gap Feed, The Wall, The Repeat — and one derives hypotheticals from it (The
-Ten's substitution sheet).
+The Gap Feed, The Wall, The Repeat — and The Ten's adaptive card derives one
+hypothetical from it (§2a).
 
 ---
 
-## 2 · The slot model
+## 2 · The slot model — SUPERSEDED 2026-08-14
+
+> **This section is retained as historical design evidence and is no longer
+> implemented.** It records what the Wave 3 Hallway atlas authoritatively drew
+> and what shipped until the adaptive correction below. The atlas itself
+> (`docs/design/wave-3-final/Wave 3 - Design · First-Run Hallway.dc.html`) is
+> unmodified and remains the authority for everything it draws EXCEPT the named
+> slot template and T-04. Read §2a for what the code now does.
 
 The ten are named before anything is photographed: **3 tops, 2 bottoms, 1 dress,
 2 shoes, 1 outerwear, 1 bag.** Two of those slots — outerwear and bag — are
@@ -160,6 +167,92 @@ Rules that bind every unit:
   photograph, wear record or cost figure will be deleted. Storing is reversible
   and says so on the screen where it happens.
 - **Exactly one oxblood action per screen.**
+
+---
+
+## 2a · The slot model — adaptive (approved 2026-08-14)
+
+### Why the named template was withdrawn
+
+It failed a real tester. He photographed three tops, a hoodie, two pairs of
+trousers, two pairs of shoes, a watch and one more piece — a good starter closet
+by any measure, **sixteen** computed cores — and the grid spent the whole flow
+telling him he was wrong about his own wardrobe, because it had decided in
+advance that he owned a dress and a bag. Two further defects fell out of the
+same root cause:
+
+1. `plannedTally` counted a **plan**, not a closet, so the flow could quote
+   fourteen outfits over ten positions nobody had filled.
+2. Hydration matched garments to named positions and silently **dropped**
+   anything the template had no slot for — his watch did not come back.
+
+### What replaced it
+
+**Ten generic positions.** A slot is an index and a garment id. It carries no
+category, and never should have: what a piece *is* has always been the
+classifier's answer, and a position that carries its own opinion can only
+disagree with the tagger.
+
+- **Empty tiles read "Add a piece."** Never a category word. A tile saying
+  "Dress" to somebody who owns none is the same failure the atlas already
+  forbids for placeholder imagery.
+- **Classification stays automatic**, and readiness reads the classifier's
+  output — never the grid position a photograph was taken from.
+- **Decline / substitute / "keep the slot open" are removed**, with T-04. A
+  generic cell was not asking for anything, so there is nothing to decline and
+  nothing to spend a decline on.
+- **Hydration places every category**, accessories and headwear included, in
+  wardrobe order, up to ten — nothing dropped, nothing coerced.
+
+### Starter readiness — all four conditions
+
+Implemented in `src/features/onboarding/starter-readiness.ts`:
+
+1. at least **ten** real uploaded garments;
+2. at least **one footwear**;
+3. **a top and a bottom, or a dress** (`mid_layer` is a top, per §1);
+4. `countOutfits(real tally)` **≥ 4**.
+
+Condition 4 is the only editorial number here and it is what makes the other
+three insufficient: a closet can satisfy shape and still make one outfit, and
+one outfit is not a week.
+
+Accessories, watches, bags, coats and headwear **count toward the ten** and
+**never** enter the outfit arithmetic — §1's rule, unchanged.
+
+This is deliberately **not** `canGenerate`. That predicate is the engine's floor
+(eight pieces plus a shape) and the whole app agrees on it; widening it would
+change what Today, the Reveal and the stylist are allowed to show. Starter
+readiness is a stricter, narrower claim scoped to The Ten.
+
+### Acceptance fixtures
+
+Held in `tests/starter-readiness.test.ts`:
+
+| Closet | Cores | Verdict |
+|---|---|---|
+| 3 base tops + 1 mid_layer + 2 bottoms + 2 footwear + 1 watch + 1 coat | 16 | **READY** — no dress, no bag |
+| Dress-led: 3 dresses + 2 footwear + 5 uncounted | 6 | **READY** — no top, no bottom |
+| 10 watches | 0 | not ready |
+| 10 tops | 0 | not ready |
+| 10 tops/bottoms, no footwear | 0 | not ready |
+| 1T 1B 1S + 7 coats | 1 | not ready — shape alone is not enough |
+
+### States the correction adds
+
+- **T-07 · repair.** Ten filed and not ready shows an honest card over a **live**
+  grid — never the stop sheet, never a reveal it has not earned. Every tile
+  opens `/item/[id]`, where a mis-read garment is re-read, renamed or replaced.
+  Fixture: `/dev-w3-g1-t-07-repair`.
+- **A settling guard.** Readiness is withheld while any ingest job is in flight,
+  so a verdict is never taken on a garment Cinch has not read yet.
+- **One adaptive card** replaces the per-slot reasoning. It names the single
+  most useful next piece from the classified mix, and **may not quote a
+  projection that has not moved** — an empty closet is invited ("Start with
+  whatever's nearest"), not directed at a piece that would gain nothing.
+
+Rules carried forward unchanged from §2: order is a suggestion; progress is a
+count, never a bar; nothing is ever lost; exactly one oxblood action per screen.
 
 ---
 

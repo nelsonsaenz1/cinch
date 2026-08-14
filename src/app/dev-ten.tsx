@@ -4,21 +4,21 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SlotCard } from '@/components/onboarding/slot-card';
-import { SubstitutionSheetBody } from '@/components/onboarding/substitution-sheet';
 import { TenCameraChrome } from '@/components/onboarding/ten-camera-chrome';
+import { TenRepair } from '@/components/onboarding/ten-repair';
 import { TenGrid } from '@/components/onboarding/ten-grid';
 import { TenStopSheetBody } from '@/components/onboarding/ten-stop-sheet';
 import { Text } from '@/components/ui/text';
 import {
   fixtureT01,
   fixtureT02,
-  fixtureT04,
+  fixtureT07Repair,
   fixtureT05,
   fixtureT06,
   SAMPLE_ASSET,
 } from '@/components/dev/ten-fixtures';
-import { countOutfits } from '@/features/closet/outfit-count';
-import { nextSlot, plannedTally } from '@/features/onboarding/ten-slots';
+import { nextSlot } from '@/features/onboarding/ten-slots';
+import { starterSuggestion } from '@/features/onboarding/starter-readiness';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -38,7 +38,7 @@ export default function DevTenScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      {/* A plain ScrollView would fight the T-03/T-04/T-06 sub-screens'
+      {/* A plain ScrollView would fight the T-03/T-06/T-07 sub-screens'
           own SafeAreaViews; each state below manages its own scroll. */}
       <View style={{ flex: 1 }}>
         <StateNav />
@@ -48,16 +48,16 @@ export default function DevTenScreen() {
 }
 
 /** Every state gets its own full-height page; a simple index avoids one
- * 6000pt ScrollView (T-03/T-04/T-06 are meant to fill the screen anyway). */
+ * 6000pt ScrollView (T-03/T-06/T-07 are meant to fill the screen anyway). */
 function StateNav() {
   const [index, setIndex] = useState(0);
   const pages = [
     { id: 'T-01', label: 'Empty — the ten waiting', render: () => <PageT01 /> },
     { id: 'T-02', label: 'Partial — next slot foregrounded', render: () => <PageT02 /> },
     { id: 'T-03', label: 'A slot being filled', render: () => <PageT03 /> },
-    { id: 'T-04', label: 'Substitution — the dress declined', render: () => <PageT04 /> },
     { id: 'T-05', label: 'Nine filled — the tenth is the finish line', render: () => <PageT05 /> },
     { id: 'T-06', label: 'An eleventh, from inside the flow', render: () => <PageT06 /> },
+    { id: 'T-07', label: 'Ten filed — still not styleable', render: () => <PageT07 /> },
   ];
 
   return (
@@ -87,8 +87,9 @@ function StateNav() {
 }
 
 function PageT01() {
-  const { slots } = fixtureT01();
+  const { slots, readiness } = fixtureT01();
   const slot = nextSlot(slots)!;
+  const suggestion = starterSuggestion(readiness);
   return (
     <ScrollView contentContainerClassName="px-gutter pt-2 pb-10">
       <View className="flex-row items-baseline justify-between">
@@ -100,21 +101,23 @@ function PageT01() {
         </Text>
       </View>
       <Text variant="body" className="mt-2 text-muted">
-        Ten pieces is enough for Cinch to style you properly. Photograph these, in any order.
+        Add ten pieces from your closet. Photograph them or choose them from your camera roll
+        &mdash; in any order.
       </Text>
       <View className="mt-3">
         <TenGrid slots={slots} foregroundedId={slot.id} />
       </View>
       <View className="mt-4">
-        <SlotCard slot={slot} slots={slots} onPhotograph={() => {}} onLibrary={() => {}} />
+        <SlotCard readiness={readiness} suggestion={suggestion} slotId={slot.id} onPhotograph={() => {}} onLibrary={() => {}} />
       </View>
     </ScrollView>
   );
 }
 
 function PageT02() {
-  const { slots, names, images } = fixtureT02();
+  const { slots, names, images, readiness } = fixtureT02();
   const slot = nextSlot(slots)!;
+  const suggestion = starterSuggestion(readiness);
   return (
     <ScrollView contentContainerClassName="px-gutter pt-2 pb-10">
       <View className="flex-row items-baseline justify-between">
@@ -132,7 +135,7 @@ function PageT02() {
         <TenGrid slots={slots} foregroundedId={slot.id} garmentNames={names} imageUris={images} />
       </View>
       <View className="mt-4">
-        <SlotCard slot={slot} slots={slots} onPhotograph={() => {}} onLibrary={() => {}} onSkip={() => {}} />
+        <SlotCard readiness={readiness} suggestion={suggestion} slotId={slot.id} onPhotograph={() => {}} onLibrary={() => {}} />
       </View>
     </ScrollView>
   );
@@ -163,35 +166,30 @@ function PageT03() {
   );
 }
 
-function PageT04() {
-  const { slots } = fixtureT04();
-  const slot = slots.find((s) => s.id === 6)!;
-  const { names, images } = fixtureT04();
+function PageT07() {
+  const { slots, names, images, readiness } = fixtureT07Repair();
   return (
-    <View className="flex-1">
-      <View className="flex-1 px-gutter pt-2" style={{ opacity: 0.4 }} pointerEvents="none">
-        <View className="flex-row items-baseline justify-between">
-          <Text variant="display" trim>
-            The Ten
-          </Text>
-          <Text variant="label" style={{ fontVariant: ['tabular-nums'] }}>
-            6 of 10
-          </Text>
-        </View>
-        <View className="mt-3">
-          <TenGrid slots={slots} foregroundedId={null} garmentNames={names} imageUris={images} />
-        </View>
+    <ScrollView contentContainerClassName="px-gutter pt-2 pb-10">
+      <View className="flex-row items-baseline justify-between">
+        <Text variant="display" trim>
+          The Ten
+        </Text>
+        <Text variant="label" style={{ fontVariant: ['tabular-nums'] }}>
+          10 of 10
+        </Text>
       </View>
-      <View style={{ marginTop: 'auto' }}>
-        <SubstitutionSheetBody slot={slot} slots={slots} onRedirect={() => {}} onKeepOpen={() => {}} onKeepSlot={() => {}} />
+      <View className="mt-3">
+        <TenGrid slots={slots} foregroundedId={null} garmentNames={names} imageUris={images} />
       </View>
-    </View>
+      <TenRepair readiness={readiness} onCheckPiece={() => {}} />
+    </ScrollView>
   );
 }
 
 function PageT05() {
-  const { slots, names, images } = fixtureT05();
+  const { slots, names, images, readiness } = fixtureT05();
   const slot = nextSlot(slots)!;
+  const suggestion = starterSuggestion(readiness);
   return (
     <ScrollView contentContainerClassName="px-gutter pt-2 pb-10">
       <View className="flex-row items-baseline justify-between">
@@ -201,22 +199,21 @@ function PageT05() {
         <Text variant="label">9 of 10</Text>
       </View>
       <Text variant="body" className="mt-2 text-muted">
-        One left. Cinch can&rsquo;t style you until the bag is in — every outfit it builds
-        finishes with one.
+        One to go. Nothing here is final — you can swap any piece later.
       </Text>
       <View className="mt-3">
         <TenGrid slots={slots} foregroundedId={slot.id} garmentNames={names} imageUris={images} />
       </View>
       <View className="mt-4">
-        <SlotCard slot={slot} slots={slots} onPhotograph={() => {}} onLibrary={() => {}} />
+        <SlotCard readiness={readiness} suggestion={suggestion} slotId={slot.id} onPhotograph={() => {}} onLibrary={() => {}} />
       </View>
     </ScrollView>
   );
 }
 
 function PageT06() {
-  const { slots, names, images } = fixtureT06();
-  const count = countOutfits(plannedTally(slots));
+  const { slots, names, images, readiness } = fixtureT06();
+  const count = readiness.outfits;
   const theme = useTheme();
   return (
     <View className="flex-1">

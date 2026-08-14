@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { Text } from '@/components/ui/text';
-import { SLOT_LABEL, type TenSlot } from '@/features/onboarding/ten-slots';
+import { EMPTY_SLOT_LABEL, type TenSlot } from '@/features/onboarding/ten-slots';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -11,10 +11,14 @@ import { useTheme } from '@/theme/tokens';
  *
  * Four looks, one component, and the atlas redraws all four:
  *
- *  - EMPTY: a tray cell at r12 with a hairline, a plus glyph, and the slot word
+ *  - EMPTY: a tray cell at r12 with a hairline, a plus glyph, and the word
  *    inside the tile rather than captioned beneath it. The label moved in
  *    because a caption under every cell is a fifth row of type in a grid that
- *    has to fit ten cells above the fold.
+ *    has to fit ten cells above the fold. The word is GENERIC — "Add a piece",
+ *    never "Dress" or "Bag". A cell that names a category before anything has
+ *    been photographed is the same failure as the shirt icon below: a picture
+ *    of a garment the user may not own, and an instruction they did not ask
+ *    for. What a filed piece IS comes from the classifier, never from here.
  *  - FOREGROUNDED: a white ground and a 1.5px INK ring. Deliberately not the
  *    accent — the accent is spent once per frame and T-01 spends it on
  *    Photograph. A ring plus a lighter ground is two channels, which is what
@@ -22,9 +26,6 @@ import { useTheme } from '@/theme/tokens';
  *  - FILLED: the photograph, full bleed, and NO name under it. An empty cell
  *    needs its word; a filled one is a picture of the garment and the word
  *    beneath it was only ever restating the row it sits in.
- *  - OPEN: a slot the reader declined and left open. Drawn as the empty cell
- *    with the plus removed, because there is nothing left to add here — it is
- *    settled, not abandoned, so it earns no visual penalty.
  *
  * An icon of a shirt is never drawn for an empty slot: "an icon of a shirt is a
  * picture of a shirt the user does not own."
@@ -63,7 +64,7 @@ export function TenTile({
   onPress?: () => void;
 }) {
   const theme = useTheme();
-  const label = SLOT_LABEL[slot.kind];
+  const label = EMPTY_SLOT_LABEL;
 
   const body = (() => {
     if (slot.status === 'filled') {
@@ -91,10 +92,7 @@ export function TenTile({
       <View
         className="items-center justify-center"
         style={{ width: size, height, borderRadius: 12, gap: 8, ...ring }}>
-        {/* An open slot has nothing left to add to it, so it carries no plus. */}
-        {slot.status === 'open' ? null : (
-          <PlusGlyph colour={foregrounded ? theme.ink : PLACEHOLDER_GLYPH} />
-        )}
+        <PlusGlyph colour={foregrounded ? theme.ink : PLACEHOLDER_GLYPH} />
         <Text
           numberOfLines={1}
           style={{
@@ -117,15 +115,15 @@ export function TenTile({
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      // "Slot 3, top, empty, currently suggested" — position and status, in
-      // that order, per the atlas's VoiceOver table. Filled tiles name the
-      // garment instead, which is the one thing the drawing no longer prints.
+      // "Slot 3, empty, currently suggested" — position and status, in that
+      // order, per the atlas's VoiceOver table. The category is gone from the
+      // empty label because the position no longer has one to speak; a filled
+      // tile names its real garment, which is the one thing the drawing does
+      // not print.
       accessibilityLabel={
         slot.status === 'filled'
-          ? (garmentName ?? label)
-          : `Slot ${slot.id}, ${label.toLowerCase()}, ${
-              slot.status === 'open' ? 'left open' : 'empty'
-            }${foregrounded ? ', currently suggested' : ''}`
+          ? (garmentName ?? `Slot ${slot.id}, filed`)
+          : `Slot ${slot.id}, empty${foregrounded ? ', currently suggested' : ''}`
       }
       style={{ width: size }}
       className={onPress ? 'active:opacity-70' : ''}>

@@ -8,11 +8,11 @@
  * page is read from a clock or a network.
  */
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { fixtureT06 } from '@/components/dev/ten-fixtures';
-import { TenBody } from '@/components/onboarding/ten-body';
-import { Text } from '@/components/ui/text';
+import { fixtureT06 } from "@/components/dev/ten-fixtures";
+import { TenBody } from "@/components/onboarding/ten-body";
+import { Text } from "@/components/ui/text";
 
 export default function Fixture() {
   if (!__DEV__) {
@@ -23,14 +23,15 @@ export default function Fixture() {
     );
   }
 
-  const { slots, names, images } = fixtureT06();
+  const { slots, names, images, readiness } = fixtureT06();
   return (
-    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={["top"]}>
       <TenBody
+        readiness={readiness}
         slots={slots}
         garmentNames={names}
-        imageUris={images}>
-      </TenBody>
+        imageUris={images}
+      ></TenBody>
     </SafeAreaView>
   );
 }

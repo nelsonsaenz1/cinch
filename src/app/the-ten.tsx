@@ -7,26 +7,25 @@ import { Button } from '@/components/ui/button';
 import { CameraUnavailable } from '@/components/ingest/camera-unavailable';
 import { CameraDenied } from '@/components/onboarding/camera-denied';
 import { FirstTenDoors } from '@/components/onboarding/first-ten-doors';
-import { SubstitutionSheet } from '@/components/onboarding/substitution-sheet';
 import { TenBody } from '@/components/onboarding/ten-body';
 import { TenCamera } from '@/components/onboarding/ten-camera';
+import { TenRepair } from '@/components/onboarding/ten-repair';
 import { TenStopSheet } from '@/components/onboarding/ten-stop-sheet';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Text } from '@/components/ui/text';
-import { countOutfits } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
+import { selectActiveCount, useQueueStore } from '@/features/ingest/queue-store';
 import { useCameraAccess } from '@/features/ingest/use-camera-access';
 import { useUnfinishedWalkthrough } from '@/features/intake/queries';
+import { starterReadiness } from '@/features/onboarding/starter-readiness';
 import {
-  declineSlot,
   fillSlot,
+  filledCount,
   hydrateFromWardrobe,
   isComplete,
   nextSlot,
-  plannedTally,
-  settledCount,
-  type CountedKind,
+  placedIds,
   type TenSlot,
 } from '@/features/onboarding/ten-slots';
 import { canGenerate, useWardrobe } from '@/features/styling/queries';
@@ -34,15 +33,30 @@ import { trackOnce } from '@/lib/posthog';
 import type { Garment } from '@/lib/styling';
 
 /**
- * The Ten — Directive 1's guided capture, states T-01…T-06.
+ * The Ten — Directive 1's guided capture, states T-01…T-07.
  *
  * A single screen with three layers of state on top of the wardrobe query:
  * which ten positions are filled (`slots`), which one the user is looking at
  * (`foregroundedId`, defaulting to `nextSlot` but overridable by a direct
  * tap — "order is a suggestion"), and whichever modal is open on top of it
- * (the camera, the substitution sheet, or the stop sheet once the ten is
- * complete). See docs/design/free-tier-contract.md and
- * design-refs/html/The Ten State Atlas for the states this renders.
+ * (the camera, or the stop sheet once the ten is complete AND ready). See
+ * docs/design/free-tier-contract.md and design-refs/html/The Ten State Atlas
+ * for the states this renders.
+ *
+ * WHAT DECIDES THE ENDING, which is the whole of this correction.
+ *
+ * The grid used to prescribe ten NAMED positions and therefore guaranteed its
+ * own success: filling them in order always produced a top, a bottom and a
+ * pair of shoes, so "ten filled" and "ready to style" were the same event. The
+ * positions are generic now (`ten-slots.ts`), so they are two different events
+ * and this screen has to hold both:
+ *
+ *   - ten filled AND `starterReadiness().ready` → T-06, the stop sheet;
+ *   - ten filled and NOT ready → T-07, `TenRepair`, over a live grid;
+ *   - a photograph still being read → neither, until it settles.
+ *
+ * Readiness is read from the classifier's output over the real wardrobe and
+ * never from which cell a photograph was taken in.
  *
  * HOW IT IS ENTERED, which is a newer question than the screen is.
  *
@@ -56,12 +70,10 @@ import type { Garment } from '@/lib/styling';
  *  - SOME PIECES ALREADY IN, from a capture before the tour, or a session
  *    abandoned half way. `hydrateFromWardrobe` places them, so the flow
  *    resumes at the count rather than asking for the same photographs twice.
- *    What it cannot restore is a DECLINE: a slot kept open, or redirected to a
- *    fourth top, is a decision that lives only in this component's state, and
- *    a returning reader is asked about that slot again. Nothing is lost by it
- *    — the same decline is one tap away — but it is the one part of "returning
- *    resumes at the count" that is not yet true, and it cannot be made true
- *    without persisting the slot list somewhere.
+ *    Positions are generic now, so every category resumes — a watch, a hat, a
+ *    fourth pair of trousers. The old kind-matched hydration silently dropped
+ *    anything the template had no position for, which is the second half of
+ *    the same bug the grid's labels were the first half of.
  *  - A CLOSET ALREADY PAST THE TEN. `exitDestination` keeps that reader out of
  *    here entirely, because a stop sheet reading "That's the ten" over sixty
  *    garments is a lie. The one path that can still land here is the fallback
@@ -109,9 +121,18 @@ export default function TheTenScreen() {
   const [foregroundedOverride, setForegroundedOverride] = useState<number | null>(null);
   const [cameraSlotId, setCameraSlotId] = useState<number | null>(null);
   const [cameraStart, setCameraStart] = useState<'camera' | 'library'>('camera');
-  const [declineSlotId, setDeclineSlotId] = useState<number | null>(null);
-  const stopShown = useRef(false);
-  const [showStop, setShowStop] = useState(false);
+  /**
+   * The stop sheet is DERIVED, not stored.
+   *
+   * It used to be a `useState` set from an effect that watched for the tenth
+   * slot. That worked while completion was the only condition; it stops
+   * working once readiness can arrive later than the tenth photograph — a
+   * tagging pass finishing thirty seconds after the grid filled has to be able
+   * to raise the sheet, and an effect that has already fired once cannot.
+   * Deriving it means the sheet tracks the truth continuously, and the only
+   * thing worth remembering is whether the reader has waved it away.
+   */
+  const [stopDismissed, setStopDismissed] = useState(false);
   /**
    * T-05 is entered by TRYING, never by inspecting.
    *
@@ -147,12 +168,31 @@ export default function TheTenScreen() {
     (wardrobe.data ?? []).flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath]),
   );
 
-  useEffect(() => {
-    if (slots && isComplete(slots) && !stopShown.current) {
-      stopShown.current = true;
-      setShowStop(true);
-    }
-  }, [slots]);
+  /**
+   * READINESS, and the two guards on it.
+   *
+   * `starterReadiness` reads the REAL wardrobe — the classifier's answer, never
+   * the position a photograph was taken from. A hoodie shot into the third cell
+   * is a `mid_layer`, `outfit-count.ts` counts it as a top, and this screen has
+   * no opinion of its own to disagree with.
+   */
+  const readiness = useMemo(() => starterReadiness(wardrobe.data ?? []), [wardrobe.data]);
+
+  /**
+   * Nothing is declared ready while a photograph is still being read.
+   *
+   * A slot fills the moment the item ROW is written (see `TenCamera`) — well
+   * before the tagging pass returns — which is deliberate: processing must
+   * never block the next photograph. The cost is that the tenth piece can be
+   * filed and untagged at the same instant, and a readiness verdict taken then
+   * is a verdict about a garment Cinch has not read yet. It would flip a moment
+   * later, which is worse than waiting.
+   */
+  const activeJobs = useQueueStore((s) => selectActiveCount(s.jobs));
+  const settling = activeJobs > 0;
+
+  const showStop =
+    !stopDismissed && slots !== null && isComplete(slots) && !settling && readiness.ready;
 
   // ACTIVATION, observed from the guided route.
   //
@@ -210,7 +250,6 @@ export default function TheTenScreen() {
 
   const foregrounded = slots.find((s) => s.id === foregroundedOverride) ?? nextSlot(slots);
   const cameraSlot = slots.find((s) => s.id === cameraSlotId) ?? null;
-  const declining = slots.find((s) => s.id === declineSlotId) ?? null;
 
   const garmentNames: Record<number, string | null> = {};
   const imageUris: Record<number, string | undefined> = {};
@@ -224,7 +263,12 @@ export default function TheTenScreen() {
     imageUris[s.id] = resolve(g.platePath, g.cutoutPath, g.thumbPath);
   }
 
-  const filled = settledCount(slots);
+  const filled = filledCount(slots);
+  // Ten filed and the arithmetic has not arrived. Never the stop sheet: see
+  // `TenRepair`. The grid stays live under it, so the reader is never stranded
+  // in front of a full grid with nowhere to go.
+  const needsRepair = isComplete(slots) && !settling && !readiness.ready;
+  const newestPlacedId = placedIds(slots).at(-1) ?? null;
 
   // `cameraStart === 'library'` falls THROUGH to `TenCamera`, which opens the
   // picker on mount and never touches a viewfinder. Without that the notice
@@ -325,13 +369,34 @@ export default function TheTenScreen() {
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <TenBody
         slots={slots}
+        readiness={readiness}
         foregroundedId={foregrounded?.id ?? null}
         garmentNames={garmentNames}
         imageUris={imageUris}
-        onSlotPress={(id) => setForegroundedOverride(id)}
+        // A filled tile now opens its piece rather than doing nothing: that is
+        // the repair path, and it has to be live from the first filled cell
+        // rather than only once the grid is full — a garment read wrong at
+        // slot two is worth correcting at slot two.
+        onSlotPress={(id) => {
+          const slot = slots.find((s) => s.id === id);
+          if (slot?.status === 'filled' && slot.garmentId) {
+            router.push(`/item/${slot.garmentId}` as Href);
+            return;
+          }
+          setForegroundedOverride(id);
+        }}
         onPhotograph={(id) => openCamera(id, 'camera')}
         onLibrary={(id) => openCamera(id, 'library')}
-        onSkip={(id) => setDeclineSlotId(id)}>
+        footer={
+          needsRepair ? (
+            <TenRepair
+              readiness={readiness}
+              onCheckPiece={() =>
+                newestPlacedId ? router.push(`/item/${newestPlacedId}` as Href) : undefined
+              }
+            />
+          ) : undefined
+        }>
         {cameraRefused ? (
           // ── T-05 ──────────────────────────────────────────────────────────
           // Under the masthead, not instead of it: the work already done stays
@@ -347,44 +412,21 @@ export default function TheTenScreen() {
         ) : undefined}
       </TenBody>
 
-      <SubstitutionSheet
-        visible={declining !== null}
-        slot={declining}
-        slots={slots}
-        onDismiss={() => setDeclineSlotId(null)}
-        onKeepOpen={() => {
-          if (!declining) return;
-          setSlots((prev) => (prev ? declineSlot(prev, declining.id, { open: true }) : prev));
-          setDeclineSlotId(null);
-          setForegroundedOverride(null);
-        }}
-        onRedirect={(to: CountedKind) => {
-          if (!declining) return;
-          setSlots((prev) => (prev ? declineSlot(prev, declining.id, { to }) : prev));
-          setDeclineSlotId(null);
-          setForegroundedOverride(null);
-        }}
-      />
-
       <TenStopSheet
         visible={showStop}
-        count={countOutfits(plannedTally(slots))}
+        // The REAL count, from `countOutfits` over the classified wardrobe.
+        // It used to be `plannedTally` — arithmetic over a template's plan,
+        // which could quote fourteen outfits to a closet that made none.
+        count={readiness.outfits}
         onSeeOutfits={() => {
-          setShowStop(false);
-          // The dress redirect, if the user took one — the one fact about
-          // *why* the tally changed shape that only this screen's slot state
-          // knows. The Reveal cannot recover it from the finished wardrobe
-          // alone, so it rides along as a param rather than being re-guessed.
-          const dressSlot = slots.find((s) => s.originalKind === 'dresses');
-          const redirectedDressTo =
-            dressSlot && dressSlot.kind !== 'dresses' ? dressSlot.kind : '';
-          router.replace({ pathname: '/reveal', params: { redirectedDressTo } });
+          setStopDismissed(true);
+          router.replace('/reveal');
         }}
         // "Back to the grid" — the sheet closes and nothing else happens. It
         // used to route to The Wall's swap flow, which promised a replacement
         // this sheet never offered; the atlas's own second action is smaller
         // and truer, and the grid behind it is still fully live.
-        onBackToGrid={() => setShowStop(false)}
+        onBackToGrid={() => setStopDismissed(true)}
       />
     </SafeAreaView>
   );

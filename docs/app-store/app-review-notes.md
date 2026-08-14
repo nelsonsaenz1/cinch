@@ -39,9 +39,13 @@ screen you can:
   - pick any images from the simulator or device photo library, or
   - search for a garment by description and pick a picture from the web
 
-Ten pieces is enough for Cinch to start building outfits. Once they are
-in, open the Today tab and Cinch will put outfits together from them and
-explain why each one works.
+Add ten pieces. Cinch starts building outfits once the closet holds
+enough to combine — roughly, something to wear on top, something on the
+bottom (or a dress), and a pair of shoes. The grid says what it is still
+waiting for as you go, so mixing in a coat or a bag is fine.
+
+Once it is ready, open the Today tab and Cinch will put outfits together
+from those pieces and explain why each one works.
 
 WHAT IS FREE AND WHAT IS PAID
 

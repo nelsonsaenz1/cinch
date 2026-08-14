@@ -1,32 +1,43 @@
 /**
- * The Ten's copy — one line of reasoning per slot, per free-tier-contract.md
- * §2 ("each slot justifies itself in one sentence, and only while it is the
- * foregrounded slot"). Text lives here, not inside the components, so a
- * redirected slot (a declined dress rendering as a fourth top) reads exactly
- * like a canonical one rather than carrying leftover copy from its old kind.
+ * The Ten's copy.
+ *
+ * Text lives here rather than inside the components, for the reason every copy
+ * module in this folder exists: `scripts/run-tests.mjs` bundles with esbuild,
+ * which cannot parse React Native's Flow source, so a sentence a test has to
+ * check must be reachable without importing a component.
+ *
+ * WHAT CHANGED. This file used to hold one line of reasoning per NAMED slot —
+ * "a third top", "the dress", "the bag you carry most days" — plus the whole
+ * substitution vocabulary that let a reader decline a slot and spend it
+ * elsewhere. The grid no longer names its positions (see `ten-slots.ts`), so
+ * none of that copy has a referent: there is no dress slot to decline, and no
+ * fourth top to spend it on. What replaces it is ONE adaptive card, written
+ * from `starter-readiness.ts` against the garments the classifier actually
+ * returned.
+ *
+ * Every number in every sentence below is passed in from `countOutfits`.
+ * Nothing here types a figure into prose (positioning-contract.md §7).
  */
 
 import type { CountedKind } from '@/features/closet/outfit-count';
-import { articleFor, numberWord, ordinalWord } from '@/features/onboarding/reveal-copy';
+import { numberWord, ordinalWord, articleFor } from '@/features/onboarding/reveal-copy';
 import {
-  nextSlot,
-  settledCount,
-  SLOT_LABEL,
-  type RedirectOption,
+  filledCount,
   type TenSlot,
-  type TenSlotKind,
 } from '@/features/onboarding/ten-slots';
+import type { StarterReadiness, StarterSuggestion } from '@/features/onboarding/starter-readiness';
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 /**
  * The one title the whole hallway's ten-piece surface carries — TR-05, TR-06,
- * T-01, T-02 and T-04 all print it, so it is written once.
- *
- * It replaced "The Ten", which was the flow's internal name showing through: a
- * screen that names itself after the spec assumes the reader has read the spec.
+ * T-01 and T-02 all print it, so it is written once.
  *
  * THE NUMERAL IS DELIBERATE, and it is the one place in the product where the
  * free ten is not spelled out. CX-01/CX-02 write the eyebrow as "Your first
@@ -36,183 +47,237 @@ function cap(s: string): string {
  */
 export const TEN_TITLE = 'Your first 10';
 
-export type SlotCopy = {
-  /** The short phrase that follows "Slot N · " in the eyebrow and camera title. */
-  phrase: string;
-  title: string;
-  body: string;
-};
-
 /**
- * The card content for a slot, given which occurrence of its (current) kind
- * this position is — the 1-based rank among same-kind slots at or before it,
- * from `slotOrdinalWithinKind` below. A redirected slot reads by its new
- * kind and rank, never its original one.
- */
-export function slotCopy(kind: TenSlotKind, n: number): SlotCopy {
-  switch (kind) {
-    case 'tops':
-      if (n === 1)
-        return {
-          phrase: 'a top you wear most',
-          title: 'A top you wear most weeks',
-          body: 'Three tops is what keeps a week from reading as one outfit worn repeatedly.',
-        };
-      if (n === 2)
-        return {
-          phrase: 'a second top',
-          title: 'One that goes with the first',
-          body: 'Two tops is where outfits start branching — the same trousers read differently under each.',
-        };
-      if (n === 3)
-        return {
-          phrase: 'a third top',
-          title: 'Something you’d wear to dinner',
-          body: 'Two tops you already have go with work. A third that goes out is what stops the evenings repeating.',
-        };
-      return {
-        phrase: `a ${ordinalWord(n)} top`,
-        title: 'One more, on its own merits',
-        body: 'A fourth top is what a declined slot buys you — not a smaller closet, a different one.',
-      };
-    case 'bottoms':
-      if (n === 1)
-        return {
-          phrase: 'a bottom',
-          title: 'Whatever you reach for most',
-          body: 'One bottom already doubles every top on the list.',
-        };
-      if (n === 2)
-        return {
-          phrase: 'a second bottom',
-          title: 'One that changes the register',
-          body: 'A second bottom is what lets the same top go two different places.',
-        };
-      return {
-        phrase: `a ${ordinalWord(n)} bottom`,
-        title: 'The one that out-counts the dress',
-        body: 'A third bottom multiplies every top you own — that’s why it out-earns a fourth top.',
-      };
-    case 'dresses':
-      if (n === 1)
-        return {
-          phrase: 'the dress',
-          title: 'One outfit that needs only shoes',
-          body: 'A whole look that asks nothing else of the list but a pair of shoes.',
-        };
-      return {
-        phrase: `a ${ordinalWord(n)} dress`,
-        title: 'Another whole outfit',
-        body: 'Every extra dress pairs with both pairs of shoes on its own.',
-      };
-    case 'shoes':
-      if (n === 1)
-        return {
-          phrase: 'shoes',
-          title: 'The pair you put on without thinking',
-          body: 'Every top and bottom on this list is about to run through them.',
-        };
-      if (n === 2)
-        return {
-          phrase: 'a second pair',
-          title: 'One that changes the mood',
-          body: 'The second pair changes an outfit without changing the clothes.',
-        };
-      return {
-        phrase: `a ${ordinalWord(n)} pair`,
-        title: 'One more foundation',
-        body: 'Every pair of shoes multiplies the whole rest of the closet.',
-      };
-    case 'outerwear':
-      return {
-        phrase: 'the coat',
-        title: 'Whatever you actually leave the house in',
-        body: 'It sits over everything else Cinch builds.',
-      };
-    case 'bag':
-      return {
-        phrase: 'the last one',
-        title: 'The bag you carry most days',
-        body: 'Not the good one kept for occasions — the one that’s already by the door.',
-      };
-  }
-}
-
-/** 1-based rank of `slotId` among slots sharing its CURRENT kind, id order. */
-export function slotOrdinalWithinKind(slots: readonly TenSlot[], slotId: number): number {
-  const slot = slots.find((s) => s.id === slotId);
-  if (!slot) return 1;
-  return slots.filter((s) => s.kind === slot.kind && s.id <= slotId).length;
-}
-
-/** The word a redirect option names — "a fourth top", "a third bottom". */
-export function redirectLabel(slots: readonly TenSlot[], to: CountedKind): string {
-  // Rank the hypothetical: how many slots of `to` would exist after adding
-  // one more, i.e. the current planned count of that kind plus this one.
-  const currentOfKind = slots.filter((s) => s.kind === to && s.status !== 'open').length;
-  const copy = slotCopy(to, currentOfKind + 1);
-  return copy.phrase;
-}
-
-/** T-04's substitution sheet — title and intro, per the slot being declined. */
-export function declineCopy(kind: TenSlotKind): { title: string; body: string } {
-  if (kind === 'dresses') {
-    return {
-      title: 'No dress? Spend the slot elsewhere.',
-      body: 'A dress is one outfit that needs only shoes, which is why it’s on the list. If you don’t wear them, another top does more for you.',
-    };
-  }
-  const noun = slotCopy(kind, 1);
-  return {
-    title: `No ${noun.phrase}? Spend the slot elsewhere.`,
-    body: `${noun.title} is on the list because ${noun.body.charAt(0).toLowerCase()}${noun.body.slice(1)} If that’s not you, another slot does more.`,
-  };
-}
-
-/**
- * The line under The Ten's masthead — three moments, and every number in them
- * read from the slot list rather than typed into the sentence
- * (positioning-contract.md §7; the rule this module's siblings already follow
- * at `tour-copy.ts:29`).
+ * The camera's own title. Generic, like the tile it was opened from.
  *
- * THE BAG SENTENCE IS CONDITIONAL, and it did not used to be. "Order is a
- * suggestion" (free-tier-contract.md §2) means the last position left standing
- * is whichever one the reader put off, not whichever one the recommended order
- * puts last — so the line that says Cinch cannot style anyone until the bag is
- * in was false for everyone who photographed the bag early and left a top for
- * the end. It now names the bag only when the bag is genuinely what remains.
+ * It used to read "Slot 3 · a third top", which was the template telling
+ * somebody what to point the camera at before it had seen anything. The
+ * position is still named because the reader tapped a specific cell and should
+ * be able to see which one they are filling.
+ */
+export function cameraSlotTitle(slotId: number): string {
+  return `Slot ${slotId} · add a piece`;
+}
+
+/**
+ * The line under the masthead — three moments, every number read from the slot
+ * list rather than typed into the sentence.
+ *
+ * THE BAG SENTENCE IS GONE. It read "Cinch can't style you until the bag is
+ * in", which was only ever true of a template that guaranteed a bag position.
+ * A bag is not required to be styled and never was — `countOutfits` has always
+ * refused to count one — so the sentence was asserting a gate the arithmetic
+ * does not enforce.
  */
 export function tenProgressLine(slots: readonly TenSlot[]): string {
   const total = slots.length;
-  const remaining = total - settledCount(slots);
+  const remaining = total - filledCount(slots);
 
   if (remaining === total) {
-    // "or pick them from your camera roll" is load-bearing, not a courtesy.
-    // The library button has always been there beside the shutter
-    // (components/onboarding/ten-camera-chrome.tsx, wired to `pickFromLibrary`
-    // in ten-camera.tsx), but the only sentence on the screen said
-    // "Photograph these" — so somebody who does not want to stand over their
-    // wardrobe with a camera read the first screen of the app as work they
-    // had already decided against, and had no way to learn otherwise.
+    // THIS SENTENCE USED TO BE FALSE, and it was the loudest line on the first
+    // screen of the app: "Ten pieces is enough for Cinch to style you
+    // properly." Ten watches is ten pieces and Cinch cannot style any of it —
+    // `starterReadiness` correctly refuses that closet, so the masthead was
+    // promising something the model directly contradicts. (It was also
+    // ungrammatical: "ten pieces IS".)
     //
-    // The claim is safe to print: the system picker runs out of process and
-    // shares only the photos the person chooses.
+    // The replacement makes no promise about the outcome. It asks for what it
+    // actually wants — ten pieces — and the adaptive card below it is where
+    // the honest, computed claim about THIS closet gets made, one piece at a
+    // time. Ten stays derived from the tier rather than typed, and lowercase
+    // because `numberWord` is now mid-sentence.
+    //
+    // "or choose them from your camera roll" is load-bearing, not a courtesy.
+    // The library button has always been there beside the shutter, but the
+    // only sentence on the screen once said "Photograph these" — so somebody
+    // who does not want to stand over their wardrobe with a camera read the
+    // first screen of the app as work they had already decided against. The
+    // claim is safe to print: the system picker runs out of process and shares
+    // only the photos the person chooses.
     return (
-      `${cap(numberWord(total))} pieces is enough for Cinch to style you properly. ` +
-      'Photograph them, or pick them from your camera roll — in any order.'
+      `Add ${numberWord(total)} pieces from your closet. ` +
+      'Photograph them or choose them from your camera roll — in any order.'
     );
   }
-  if (remaining === 1 && nextSlot(slots)?.kind === 'bag') {
-    return "One left. Cinch can't style you until the bag is in — every outfit it builds finishes with one.";
-  }
-  // Zero remaining lives behind T-06's stop sheet for a frame or two, but the
-  // sheet is a modal and this line is still under it — "0 to go" is not a
-  // sentence anyone should be able to catch sight of.
   if (remaining === 0) {
     return `That’s all ${numberWord(total)}. Nothing here is final — you can swap any piece later.`;
   }
   return `${remaining} to go. Nothing here is final — you can swap any piece later.`;
 }
+
+// ---------------------------------------------------------------------------
+// The adaptive card
+// ---------------------------------------------------------------------------
+
+/** What one more of a counted kind is CALLED in a sentence. */
+const KIND_NOUN: Record<CountedKind, string> = {
+  tops: 'top',
+  bottoms: 'bottom',
+  dresses: 'dress',
+  shoes: 'pair of shoes',
+};
+
+/** "a top, a bottom and a pair of shoes" — an Oxford-free list of articles. */
+function nounList(kinds: readonly CountedKind[]): string {
+  const parts = kinds.map((k) => `${articleFor(KIND_NOUN[k])} ${KIND_NOUN[k]}`);
+  if (parts.length <= 1) return parts[0] ?? '';
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+export type StarterCardCopy = {
+  eyebrow: string;
+  title: string;
+  body: string;
+};
+
+/**
+ * The single card beneath the grid — one concise next-best suggestion, chosen
+ * from the classified mix rather than from a position in a template.
+ *
+ * WHY EVERY BRANCH QUOTES A COMPUTED FIGURE. The old card argued for a slot by
+ * describing what that kind of garment does in general ("a third bottom
+ * multiplies every top you own"). It was true and it was unfalsifiable, which
+ * is what made it safe to write in advance. This card makes a claim about THIS
+ * closet, so every claim is arithmetic: `outfits` and `projected` both come
+ * from `countOutfits`, and the branches that cannot honestly quote a number —
+ * the ones where the closet still makes nothing — quote none.
+ */
+export function starterCardCopy(
+  r: StarterReadiness,
+  s: StarterSuggestion | null,
+): StarterCardCopy {
+  if (!s) {
+    return {
+      eyebrow: 'Ready',
+      title: `Your ${plural(r.pieces, 'piece')} make ${plural(r.outfits, 'outfit')}.`,
+      body: 'That is enough for Cinch to dress you properly. Nothing here is final — you can swap any piece later.',
+    };
+  }
+
+  const eyebrow = 'Next';
+  const noun = s.kind ? KIND_NOUN[s.kind] : 'piece';
+
+  /**
+   * An empty closet gets an invitation, not an instruction.
+   *
+   * "Add a pair of shoes" was what the gap order produced at zero pieces, and
+   * the simulator caught what it printed underneath: "One pair takes this
+   * closet to 0 outfits." Shoes alone make nothing, so the direction was
+   * arbitrary AND the figure was a promise of no gain — on the very first
+   * screen of the app, directly under a masthead that had just said any order
+   * is fine.
+   */
+  if (s.gap === 'start') {
+    return {
+      eyebrow: 'Start',
+      title: 'Start with whatever’s nearest.',
+      body:
+        'Cinch reads each photograph, names the piece and files it. ' +
+        `It builds outfits once ${nounList(['tops', 'bottoms', 'shoes'])} are in — ` +
+        'and it will say so as you go. Order is yours.',
+    };
+  }
+
+  /**
+   * NEVER QUOTE A PROJECTION THAT HAS NOT MOVED.
+   *
+   * One piece can only lift a closet off nought if it is the LAST missing
+   * half. When it is not, the gain is genuinely zero and the honest sentence
+   * names everything still absent instead of printing a figure that has not
+   * changed. `alsoNeeds` is `missingForFirstOutfit`, so this branch cannot
+   * disagree with the arithmetic.
+   */
+  const gains = s.projected > r.outfits;
+
+  if (s.gap === 'footwear') {
+    return {
+      eyebrow,
+      title: 'Add a pair of shoes.',
+      body: gains
+        ? 'Every outfit Cinch builds finishes on a pair, so nothing you have filed makes one yet. ' +
+          `One pair takes this closet to ${plural(s.projected, 'outfit')}.`
+        : 'Every outfit Cinch builds finishes on a pair. ' +
+          `This closet still needs ${nounList(s.alsoNeeds)} before there is an outfit in it.`,
+    };
+  }
+
+  if (s.gap === 'core') {
+    return {
+      eyebrow,
+      title: `Add ${articleFor(noun)} ${noun}.`,
+      body: gains
+        ? 'An outfit is a top with a bottom, or a dress — this closet has one half of that and not the other. ' +
+          `${cap(articleFor(noun))} ${noun} takes it to ${plural(s.projected, 'outfit')}.`
+        : 'An outfit is a top with a bottom, or a dress. ' +
+          `This closet still needs ${nounList(s.alsoNeeds)} before there is an outfit in it.`,
+    };
+  }
+
+  if (s.gap === 'outfits') {
+    return {
+      eyebrow,
+      title: `Add ${articleFor(noun)} ${noun}.`,
+      body:
+        `Your ${plural(r.pieces, 'piece')} make ${plural(r.outfits, 'outfit')} so far. ` +
+        `${cap(articleFor(noun))} ${noun} takes that to ${plural(s.projected, 'outfit')} — ` +
+        'more than any other single piece would.',
+    };
+  }
+
+  // Shape and arithmetic are both there; only the count is short. No kind is
+  // named because none is needed — this is the one moment where a coat, a bag
+  // or a watch is genuinely as good as anything else, and pretending otherwise
+  // would be the template talking again.
+  return {
+    eyebrow,
+    title: `${cap(numberWord(r.piecesRemaining))} more to go.`,
+    body:
+      `Your ${plural(r.pieces, 'piece')} already make ${plural(r.outfits, 'outfit')}. ` +
+      'Anything counts from here — a coat, a bag, a watch. Cinch files what it sees.',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Ten filled, and still not enough
+// ---------------------------------------------------------------------------
+
+/**
+ * The grid is full and the closet still cannot be styled.
+ *
+ * This state did not exist under the template, because the template GUARANTEED
+ * its own success: ten named positions filled in order always produced a top,
+ * a bottom and a pair of shoes. Generic positions carry no such guarantee —
+ * ten watches is ten pieces — so the flow needs somewhere honest to stand that
+ * is neither a reveal it has not earned nor a dead end.
+ *
+ * It names exactly what is absent and sends the reader to the pieces
+ * themselves, where a mis-read garment can be re-read or replaced. It never
+ * says "you did this wrong": the most likely cause by far is the classifier
+ * reading a hoodie as something else, and that is Cinch's mistake.
+ */
+export function repairCopy(r: StarterReadiness): { title: string; body: string; action: string } {
+  const wants: string[] = [];
+  if (!r.hasFootwear) wants.push('a pair of shoes');
+  if (!r.hasCore) wants.push(r.tally.tops === 0 ? 'a top' : 'a bottom');
+
+  const named =
+    wants.length > 0
+      ? `Cinch can’t find ${wants.join(' or ')} in what you’ve filed.`
+      : `These ${plural(r.pieces, 'piece')} make ${plural(r.outfits, 'outfit')} — not enough to dress a week from.`;
+
+  return {
+    title: 'That’s ten pieces — but not a week of outfits yet.',
+    body:
+      `${named} ` +
+      'If something was read wrong, open the piece and have Cinch read it again, or swap it for another. ' +
+      'Nothing you’ve photographed goes anywhere.',
+    action: 'Check a piece',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// T-06 · the stop sheet
+// ---------------------------------------------------------------------------
 
 /**
  * T-06's stop sheet, both sentences of it.
@@ -255,9 +320,7 @@ export function stopSheetCopy(
  * photography read as EQUAL doors, not primary and fallback — which is a claim
  * about the words as much as the plates. Both lines are the same length, both
  * name what the reader will actually do, and neither promises the other is
- * slower. Kept here rather than in the component for the reason every copy
- * module in this folder exists: the test bundler cannot parse React Native's
- * Flow source, so anything a test reads has to live in a plain `.ts`.
+ * slower.
  */
 export const FIRST_TEN_DOORS = {
   // CX-01. "How would you rather do this?" asked a preference of somebody who
@@ -267,33 +330,21 @@ export const FIRST_TEN_DOORS = {
   headline: 'How do you want to add them?',
   /**
    * One line, and it is the only reassurance the frame needs.
-   *
-   * What it replaces was four sentences: a paragraph about doors, a mixing
-   * note, the catalogue disclosure and a consent footer — roughly seventy
-   * words in front of somebody trying to add a jumper. CX-01 deletes all of
-   * it. The claims are not lost: the catalogue disclosure and the consent
-   * request both live in the destination flows, which is where they are
-   * actionable, and where they were always ALSO shown.
    */
   body: 'Any route lands in the same closet.',
   photograph: {
     name: 'Photograph them',
-    line: 'Ten named slots, one picture each. Cinch cuts each piece out and files it. You can pick from your camera roll instead.',
+    // "Ten named slots" was the template describing itself, and it was the
+    // sentence that set the expectation the grid then failed to meet. Ten
+    // pieces, any pieces — which is what the grid now actually does.
+    line: 'Ten pieces, one picture each. Cinch cuts each piece out, reads it and files it. You can pick from your camera roll instead.',
     /** TR-06 draws the same door with the line cut to its first clause. */
-    shortLine: 'Ten named slots, one picture each.',
+    shortLine: 'Ten pieces, one picture each.',
   },
   voice: {
     name: 'Describe them out loud',
     line: 'Walk your wardrobe and say what is in it. Cinch writes the list, you confirm it card by card, and photographs can come later.',
   },
-  /**
-   * CX-01 deleted the consent footer that stood here. It said nothing is sent
-   * until you have agreed on the next screen — true, and quoted one screen too
-   * early. `capture.tsx` still gates its first upload on `ConsentSheet` and the
-   * walkthrough still gates the microphone on the system prompt after its own
-   * Start, so the promise is kept where it can be acted on rather than
-   * announced in advance about a door nobody has chosen yet.
-   */
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -337,77 +388,6 @@ export function resumeCardCopy(
 }
 
 export const RESUME_HEADLINE = 'Pick up where you left off.';
-
-// ---------------------------------------------------------------------------
-// T-04 · the substitution sheet
-// ---------------------------------------------------------------------------
-
-/** "a fourth top" → "fourth top", so a sentence can put its own article on. */
-function unarticled(phrase: string): string {
-  return phrase.replace(/^an?\s+/i, '');
-}
-
-/** The label on one option row — "A fourth top", "Keep the slot open". */
-export function redirectOptionLabel(slots: readonly TenSlot[], option: RedirectOption): string {
-  return option.kind === 'open' ? 'Keep the slot open' : cap(redirectLabel(slots, option.to));
-}
-
-/** The right-hand cell of an option row. Always `countOutfits`, never a table. */
-export function outfitsCell(total: number): string {
-  return `${total} outfit${total === 1 ? '' : 's'}`;
-}
-
-/**
- * The sentence that has to be on the sheet rather than in a footnote.
- *
- * The recommended redirect is an editorial judgment (see `REDIRECT_TARGETS` in
- * `ten-slots.ts`), and it is routinely NOT the biggest number on the sheet. A
- * recommendation that shows the smaller figure without saying why reads as
- * either a mistake or a trick, so whenever another option out-counts the
- * recommended one this names it in the open.
- *
- * Only redirects are compared. Keeping the slot open removes a garment from the
- * plan, so it can never out-count a redirect — and "the keeping the slot open
- * out-counts…" is not a sentence.
- */
-export function recommendationNote(
-  slots: readonly TenSlot[],
-  options: readonly RedirectOption[],
-): string | null {
-  const recommended = options.find((o) => o.kind === 'redirect' && o.recommended);
-  if (!recommended || recommended.kind !== 'redirect') return null;
-  const bigger = options
-    .filter((o): o is Extract<RedirectOption, { kind: 'redirect' }> => o.kind === 'redirect')
-    .filter((o) => o.to !== recommended.to && o.total > recommended.total)
-    .sort((a, b) => b.total - a.total)[0];
-  if (!bigger) return null;
-
-  const rec = redirectLabel(slots, recommended.to);
-  const other = redirectLabel(slots, bigger.to);
-  return (
-    `The ${unarticled(other)} out-counts the ${unarticled(rec)}. ` +
-    `The recommendation stays as it is because Cinch builds better outfits from ${rec}, ` +
-    'not because it scores higher.'
-  );
-}
-
-/** The sheet's one filled action — it names the option it will spend. */
-export function redirectCtaLabel(slots: readonly TenSlot[], option: RedirectOption): string {
-  return option.kind === 'open'
-    ? 'Keep the slot open'
-    : `Use this slot for ${redirectLabel(slots, option.to)}`;
-}
-
-/**
- * The sheet's way out — "Keep the dress slot".
- *
- * Deliberately not the same sentence as "Keep the slot open": one cancels the
- * decline and leaves the position asking for a dress, the other spends the
- * position on nothing. Two different outcomes never share a label.
- */
-export function keepSlotLabel(kind: TenSlotKind): string {
-  return `Keep the ${SLOT_LABEL[kind].toLowerCase()} slot`;
-}
 
 // ---------------------------------------------------------------------------
 // T-05 · the camera is switched off

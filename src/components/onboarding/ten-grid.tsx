@@ -52,9 +52,12 @@ export function TenGrid({
               foregrounded={slot.id === foregroundedId}
               garmentName={garmentNames?.[slot.id]}
               imageUri={imageUris?.[slot.id]}
-              onPress={
-                onSlotPress && slot.status !== 'filled' ? () => onSlotPress(slot.id) : undefined
-              }
+              // Every tile is pressable, filled ones included. A filled tile
+              // used to be inert, which was fine while the grid guaranteed its
+              // own success and is not fine now: if the classifier read a
+              // hoodie wrong, the tile holding it is the most obvious thing in
+              // the room to tap, and it has to lead somewhere.
+              onPress={onSlotPress ? () => onSlotPress(slot.id) : undefined}
             />
           ))}
         </View>

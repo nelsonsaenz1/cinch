@@ -31,9 +31,9 @@ export function RevealArrival({
   /** The piece that just finished — full brightness, full size. */
   lastUri?: string;
   /**
-   * How many pieces settled — usually ten, but "keep the slot open" finishes
-   * at nine, honestly, and this eyebrow has to say so rather than always
-   * reading "Ten of ten".
+   * How many pieces actually arrived. Ten on the ordinary path, and this
+   * eyebrow reads the real figure rather than always printing "Ten of ten" —
+   * the Reveal is reachable from routes that do not fill the grid.
    */
   pieceCount: number;
 }) {

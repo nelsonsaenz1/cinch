@@ -44,10 +44,13 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['T-01', '/dev-w3-g1-t-01'],
       ['T-02', '/dev-w3-g1-t-02'],
       ['T-02 / AX', '/dev-w3-g1-t-02-ax'],
-      ['T-04', '/dev-w3-g1-t-04'],
+      // T-04 (the substitution sheet) is gone with the named-slot template —
+      // a generic cell has nothing to decline. T-07 is what replaced it: ten
+      // filed, and still not styleable.
       ['T-05', '/dev-w3-g1-t-05'],
       ['T-06', '/dev-w3-g1-t-06'],
       ['T-06 · sheet', '/dev-w3-g1-t-06-sheet'],
+      ['T-07 · repair', '/dev-w3-g1-t-07-repair'],
       ['TD-00', '/dev-w3-g1-td-00'],
       ['TD-00 / AX', '/dev-w3-g1-td-00-ax'],
       ['TR-01', '/dev-w3-g1-tr-01'],

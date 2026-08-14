@@ -5,7 +5,11 @@ import { SlotCard } from '@/components/onboarding/slot-card';
 import { TenGrid } from '@/components/onboarding/ten-grid';
 import { Text } from '@/components/ui/text';
 import { TEN_TITLE, tenProgressLine } from '@/features/onboarding/ten-copy';
-import { nextSlot, settledCount, type TenSlot } from '@/features/onboarding/ten-slots';
+import {
+  starterSuggestion,
+  type StarterReadiness,
+} from '@/features/onboarding/starter-readiness';
+import { filledCount, nextSlot, type TenSlot } from '@/features/onboarding/ten-slots';
 
 /**
  * The Ten's page — T-01, T-02, T-02/AX, and the masthead T-05 keeps.
@@ -20,37 +24,49 @@ import { nextSlot, settledCount, type TenSlot } from '@/features/onboarding/ten-
  *
  * `children` replaces the grid and the card entirely, which is how T-05 keeps
  * the masthead: a denied permission is drawn UNDER the count, so the work
- * already done stays visible from the failure.
+ * already done stays visible from the failure. The repair state (ten filed,
+ * still not styleable) uses the same door.
+ *
+ * `readiness` is the REAL closet, read from the classifier. The page cannot
+ * derive it from `slots` and must not try: a position knows which garment id
+ * sits in it and nothing whatever about what that garment turned out to be.
  */
 export function TenBody({
   slots,
+  readiness,
   foregroundedId,
   garmentNames,
   imageUris,
   onSlotPress,
   onPhotograph,
   onLibrary,
-  onSkip,
   fontScale,
+  footer,
   children,
 }: {
   slots: readonly TenSlot[];
-  /** The slot the card argues for. Defaults to the next unsettled one. */
+  readiness: StarterReadiness;
+  /** The slot the actions will fill. Defaults to the next empty one. */
   foregroundedId?: number | null;
   garmentNames?: Record<number, string | null>;
   imageUris?: Record<number, string | undefined>;
   onSlotPress?: (slotId: number) => void;
   onPhotograph?: (slotId: number) => void;
   onLibrary?: (slotId: number) => void;
-  onSkip?: (slotId: number) => void;
   /** Overridable so a fixture can photograph the AX layout without the OS. */
   fontScale?: number;
-  /** Replaces the grid and the reasoning card. T-05 passes its fork here. */
+  /**
+   * Drawn UNDER the grid, never instead of it. The repair state uses this
+   * rather than `children` on purpose: a full grid that cannot be styled must
+   * stay tappable, because tapping a piece is the whole fix.
+   */
+  footer?: ReactNode;
+  /** Replaces the grid and the card entirely. T-05's fork passes its own. */
   children?: ReactNode;
 }) {
-  const filled = settledCount(slots);
-  const foregrounded =
-    slots.find((s) => s.id === foregroundedId) ?? nextSlot(slots) ?? null;
+  const filled = filledCount(slots);
+  const foregrounded = slots.find((s) => s.id === foregroundedId) ?? nextSlot(slots) ?? null;
+  const suggestion = starterSuggestion(readiness);
 
   return (
     <ScrollView contentContainerClassName="px-gutter pb-8" keyboardShouldPersistTaps="handled">
@@ -86,22 +102,17 @@ export function TenBody({
           {foregrounded ? (
             <View className="mt-5">
               <SlotCard
-                slot={foregrounded}
-                slots={slots}
+                readiness={readiness}
+                suggestion={suggestion}
+                slotId={foregrounded.id}
                 fontScale={fontScale}
                 onPhotograph={() => onPhotograph?.(foregrounded.id)}
                 onLibrary={() => onLibrary?.(foregrounded.id)}
-                onSkip={
-                  // Skip appears from the second slot onward, and never on the
-                  // bag — the bag has no redirect, so a decline has nothing to
-                  // spend the position on.
-                  foregrounded.kind === 'bag' || filled === 0 || !onSkip
-                    ? undefined
-                    : () => onSkip(foregrounded.id)
-                }
               />
             </View>
           ) : null}
+
+          {footer}
         </>
       )}
     </ScrollView>

@@ -10,15 +10,13 @@
  * literal slot list, so it is computed and reproducible rather than typed.
  */
 
-import { View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { fixtureT06 } from '@/components/dev/ten-fixtures';
-import { TenBody } from '@/components/onboarding/ten-body';
-import { TenStopSheetBody } from '@/components/onboarding/ten-stop-sheet';
-import { Text } from '@/components/ui/text';
-import { countOutfits } from '@/features/closet/outfit-count';
-import { plannedTally } from '@/features/onboarding/ten-slots';
+import { fixtureT06 } from "@/components/dev/ten-fixtures";
+import { TenBody } from "@/components/onboarding/ten-body";
+import { TenStopSheetBody } from "@/components/onboarding/ten-stop-sheet";
+import { Text } from "@/components/ui/text";
 
 export default function Fixture() {
   if (!__DEV__) {
@@ -29,16 +27,21 @@ export default function Fixture() {
     );
   }
 
-  const { slots, names, images } = fixtureT06();
+  const { slots, names, images, readiness } = fixtureT06();
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={["top"]}>
       <View className="flex-1" style={{ opacity: 0.35 }} pointerEvents="none">
-        <TenBody slots={slots} garmentNames={names} imageUris={images} />
+        <TenBody
+          slots={slots}
+          readiness={readiness}
+          garmentNames={names}
+          imageUris={images}
+        />
       </View>
       <View>
         <TenStopSheetBody
-          count={countOutfits(plannedTally(slots))}
+          count={readiness.outfits}
           onSeeOutfits={() => {}}
           onBackToGrid={() => {}}
         />

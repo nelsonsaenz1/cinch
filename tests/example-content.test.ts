@@ -167,11 +167,13 @@ test('no example claims a piece on it belongs to the reader', () => {
 });
 
 test('the Today floor opens its sentences with a capital letter', () => {
-  // "ten pieces is enough for Cinch to style you properly" shipped, because the
+  // A lowercase "ten pieces are enough to begin." shipped once, because the
   // number is `numberWord(PLANS.free.items)` — spelled out so it moves with the
   // free tier — and `numberWord` returns lowercase for the mid-sentence call
   // sites that outnumber this one. A literal "Ten" would fix the sentence and
   // break the tier link, so the fix is `capitalise` and this is what holds it.
+  // (The Ten's own masthead no longer needs it: "Add ten pieces from your
+  // closet" puts the number mid-sentence where `numberWord` is already right.)
   const src = code('src/components/today/closet-floor.tsx');
   const interpolatedStarts = [...src.matchAll(/`\$\{([^}]+)\}[^`]*`/g)].map((m) => m[1]);
   for (const expr of interpolatedStarts) {
