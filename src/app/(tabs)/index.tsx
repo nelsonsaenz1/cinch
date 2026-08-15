@@ -120,17 +120,6 @@ export function syncedLine(updatedAt: number): string {
 }
 
 /**
- * A greeting that is honest about the hour, not always "morning", and about who
- * it is greeting — the name is appended only when the account actually carries
- * one. An invented "Mara" is worse than no name at all.
- */
-function greetingForNow(name?: string | null, now: Date = new Date()) {
-  const h = now.getHours();
-  const greeting = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-  return name ? `${greeting}, ${name}` : greeting;
-}
-
-/**
  * The first name on the account, or null.
  *
  * Read from the session already persisted in storage — the same object the auth
@@ -257,9 +246,10 @@ function ActivityButton({ unseen: forced }: { unseen?: boolean } = {}) {
 }
 
 /**
- * The page header: the day and place as a tracked eyebrow, and a serif greeting.
+ * The page header: the day and place as a tracked eyebrow, then the page's
+ * name and the one line under it.
  *
- * No rule under it. The design sets the greeting, the weather line and the
+ * No rule under it. The design sets the masthead, the weather line and the
  * plans pill as one unbroken block; a hairline here cuts the day in half.
  *
  * The trailing chips are the only doors to Stylist and Profile — both lost
@@ -267,35 +257,32 @@ function ActivityButton({ unseen: forced }: { unseen?: boolean } = {}) {
  * (the same oxblood mark the stylist screen carries); the profile is the ink
  * avatar well.
  *
- * ── TM-01 / TM-02 / TM-03 — ONE LINE FOR THE GREETING, AT EVERY WIDTH ─────
+ * ── LP-06 — THE HEADLINE IS THE PAGE, NOT THE HOUR ────────────────────────
  *
- * "Good morning, Nelson." must not wrap or clip at 393 pt or at 430 pt, and
- * the fix is hierarchy rather than truncation. Two things were wrong.
+ * This slot used to hold a serif greeting — "Good morning, Nelson", set at two
+ * type steps with a device-width switch (TM-01/TM-02) and dropped entirely at
+ * AX3 (TM-03) so a long name could not push the outfit below the fold. The
+ * accepted copy table replaces it with `Today` and one supporting line.
  *
- * FIRST, the four control chips sat in a column BESIDE the greeting, taking
- * about 150 pt off the measure the serif had to fit into. They now sit on the
- * CONTEXT ROW with the date, which is where an eyebrow can happily lose the
- * width and where the 44 pt targets are unaffected — and the greeting gets the
- * whole gutter beneath them.
+ * Three consequences, all simplifications:
  *
- * SECOND, the greeting was set at `display`'s 40 px. TM-01 measures it at 30
- * and TM-02 at 32, "rather than scaling with the width, so the two devices read
- * as the same screen". Hence the two type steps and the width switch below.
+ * · The headline is now `display`, the same variant `ReducedMasthead` below
+ *   and `Plan`/`Explore` already set — one shared title baseline, no new
+ *   token, and Today finally reads the same in its full and reduced states.
+ * · It renders UNCONDITIONALLY. The greeting was shed at AX3 because a name
+ *   at 30 pt is unbounded; `Today` is five characters and its reduced twin
+ *   already prints it in every degraded state, so shedding it here would take
+ *   the page's H1 away and leave the screen without one. `ax3` still governs
+ *   the calendar chip, which is what TM-03 was actually protecting.
+ * · The `greetingForNow` helper and the `WIDE_DEVICE` step are gone with it.
+ *   The `name` prop is retained — see its note below.
  *
- * At AX3 the greeting is REMOVED rather than wrapped and the calendar control
- * goes with it — the outfit becomes the first thing on the screen. That was
- * already the strategy; what changed is the threshold, which used to be the top
- * of the standard type range and is now the accessibility size the frame names.
+ * The four control chips stay on the CONTEXT ROW with the date, where TM-01
+ * put them: an eyebrow can lose 150 pt of measure and a serif cannot, and the
+ * 44 pt targets are unaffected either way.
  */
-
-/**
- * The width at which the greeting takes the larger step. 430 is the Pro Max
- * class; 393 and 402 are the two smaller supported iPhones.
- */
-const WIDE_DEVICE = 430;
 export function Masthead({
   city,
-  name,
   /**
    * "Feels 72°F, mild" — the day's weather, stated HERE and nowhere else on
    * the screen (audit 57). Null when the forecast is not known, in which case
@@ -304,10 +291,11 @@ export function Masthead({
    */
   weather = null,
   /**
-   * The largest supported type. The greeting is the first thing dropped — "a
-   * name the user already knows is the first thing worth spending to keep the
-   * outfit above the fold" — and the context label breaks over two lines
-   * rather than truncating. Defaults to the device's own font scale.
+   * The largest supported type. The context label breaks over two lines rather
+   * than truncating, and the calendar chip is dropped — four chips on one row
+   * at that scale leave the date nothing. Defaults to the device's own font
+   * scale. (Before LP-06 this also dropped the greeting; the headline that
+   * replaced it is short enough to keep at every size.)
    */
   stacked,
   /**
@@ -327,6 +315,17 @@ export function Masthead({
   unseen,
 }: {
   city: string;
+  /**
+   * NO LONGER RENDERED. LP-06 replaced the greeting this fed with the accepted
+   * `Today` headline, so nothing on the masthead prints a name.
+   *
+   * It stays in the contract rather than being deleted because roughly twenty
+   * `dev-*` visual-acceptance routes pass `name="Maya"` / `name={null}`, and
+   * none of them is in this worker's scope. Removing the prop would be a
+   * compile error in files owned elsewhere. The follow-up — drop the prop, the
+   * `useFirstName` session read behind it, and the call sites together — is
+   * filed for the integration owner.
+   */
   name?: string | null;
   weather?: string | null;
   stacked?: boolean;
@@ -335,7 +334,7 @@ export function Masthead({
 }) {
   const router = useRouter();
   const theme = useTheme();
-  const { fontScale, width } = useWindowDimensions();
+  const { fontScale } = useWindowDimensions();
   // Two thresholds, two decisions. `ax` decides whether the CONTEXT LABEL
   // breaks over two lines; `ax3` decides whether the greeting is there at all.
   const ax = stacked ?? fontScale >= AX_FONT_SCALE;
@@ -447,21 +446,22 @@ export function Masthead({
         </View>
       </View>
 
-      {/* THE GREETING — full width, one line, removed rather than wrapped.
-          `numberOfLines={1}` is a tripwire, not a truncation strategy: at 30 pt
-          with 118 pt of headroom nothing reaches it, and if a name ever did,
-          one clipped line is a visible bug where a silent second line is not. */}
-      {ax3 ? null : (
-        <View style={{ marginTop: 12 }}>
-          <Text
-            variant={width >= WIDE_DEVICE ? 'greetingWide' : 'greeting'}
-            trim
-            numberOfLines={1}
-            accessibilityRole="header">
-            {greetingForNow(name, now)}
-          </Text>
+      {/* THE MASTHEAD — LP-06's accepted pair, and the page's H1. No
+          `numberOfLines` tripwire and no width switch: the headline is a fixed
+          five-character word, so there is no unbounded name left to clip, and
+          the support line is free to wrap at accessibility sizes rather than
+          truncate. The support line rides in its own wrapper with a
+          `marginTop` instead of an `mt-*` class, because `Today` is
+          cap-trimmed and a margin utility on the sibling fights the trim's
+          negative optical margin. */}
+      <View style={{ marginTop: 12 }}>
+        <Text variant="display" trim accessibilityRole="header">
+          Today
+        </Text>
+        <View style={{ marginTop: 6 }}>
+          <Text variant="note">What’s next for you.</Text>
         </View>
-      )}
+      </View>
     </View>
   );
 }

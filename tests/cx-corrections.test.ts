@@ -407,9 +407,13 @@ test('CX-06 — Between friends is gone from the masthead', () => {
   assert.doesNotMatch(body(EXPLORE), /Between friends/, 'the eyebrow survives');
 });
 
-test('CX-06 — Lately is the sole heading, and keeps its header role', () => {
+// CX-06 made the masthead a single heading; LP-06 renamed that heading from
+// `Lately` to the tab's own word. The invariant CX-06 was defending — ONE
+// display word, not two labels stacked — is unchanged and still asserted here.
+test('CX-06/LP-06 — Explore is the sole heading, and keeps its header role', () => {
   const src = code(EXPLORE);
-  assert.match(src, /<Text variant="display" trim accessibilityRole="header">\s*Lately/);
+  assert.match(src, /<Text variant="display" trim accessibilityRole="header">\s*Explore/);
+  assert.doesNotMatch(body(EXPLORE), />\s*Lately\s*</, 'the old heading survives');
   // One display word in the masthead, not two labels stacked.
   assert.equal((body(EXPLORE).match(/variant="display"/g) ?? []).length, 1);
 });
@@ -422,4 +426,89 @@ test('CX-06 — the search field gets 20pt, and everything under it is untouched
   for (const section of ['People', 'Reading your circle']) {
     assert.ok(src.includes(section), `Explore lost its "${section}" section`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// LP-06 · the accepted copy table, on the event surfaces
+// ---------------------------------------------------------------------------
+//
+// Four rows of the accepted table land on surfaces owned here. The strings are
+// asserted VERBATIM — including the typographic apostrophe in "What’s", which
+// is the convention the rest of this codebase already sets ("Couldn’t lay out
+// your week", "won’t be told when") and the one the handoff itself prints. A
+// straight quote here would be a different string from the accepted one.
+//
+// Read from `body()`, not `code()`: a headline quoted inside a block comment
+// is not a headline on screen.
+
+const TODAY = 'src/app/(tabs)/index.tsx';
+const PLAN = 'src/app/(tabs)/plan.tsx';
+const EVENT_DETAIL = 'src/app/event/[id]/index.tsx';
+
+const ACCEPTED: Record<string, [path: string, headline: string, support: string]> = {
+  Today: [TODAY, 'Today', 'What’s next for you.'],
+  Plan: [PLAN, 'Plan', 'Your upcoming events.'],
+  Explore: [EXPLORE, 'Explore', 'Looks and ideas to try.'],
+};
+
+for (const [surface, [path, headline, support]] of Object.entries(ACCEPTED)) {
+  test(`LP-06 — ${surface} carries the accepted headline and support line`, () => {
+    const src = body(path);
+    assert.match(
+      src,
+      new RegExp(`variant="display"[^>]*>\\s*${headline}\\s*<`),
+      `${surface} does not set "${headline}" as its display headline`,
+    );
+    assert.ok(src.includes(support), `${surface} is missing the accepted line "${support}"`);
+  });
+}
+
+test('LP-06 — the accepted support lines use the typographic apostrophe', () => {
+  // Guards the one row that contains an apostrophe against a straight-quote
+  // regression, which no substring assertion above would otherwise catch.
+  assert.ok(body(TODAY).includes('What’s next for you.'));
+  assert.doesNotMatch(body(TODAY), /What's next for you\./);
+});
+
+test('LP-06 — Today prints the page, not the hour', () => {
+  const src = body(TODAY);
+  // The greeting the accepted headline replaced, and every part of it: the
+  // helper, its three salutations, and the two type steps it needed.
+  for (const gone of ['greetingForNow', 'Good morning', 'Good afternoon', 'Good evening']) {
+    assert.ok(!src.includes(gone), `the greeting survives in Today (${gone})`);
+  }
+  for (const gone of ['WIDE_DEVICE', 'greetingWide']) {
+    assert.ok(!src.includes(gone), `the greeting's width switch survives (${gone})`);
+  }
+  // Full and reduced mastheads now say the same word at the same variant.
+  assert.equal((src.match(/variant="display" trim accessibilityRole="header">\s*Today/g) ?? []).length, 2);
+});
+
+test('LP-06 — Today keeps its headline at accessibility sizes', () => {
+  // TM-03 shed the greeting at AX3 because a name at 30pt is unbounded. The
+  // five-character headline that replaced it must not be shed with it, or the
+  // screen loses its H1 — but `ax3` must still govern the calendar chip.
+  const src = body(TODAY);
+  assert.doesNotMatch(src, /ax3 \? null : \(\s*<View style=\{\{ marginTop: 12 \}\}>/);
+  assert.match(src, /ax3 \? null : \(/, 'ax3 no longer drops the calendar chip');
+});
+
+test('LP-06 — event detail is a title and a hierarchy, not a status paragraph', () => {
+  const src = body(EVENT_DETAIL);
+  // Title, then the two labelled fact rows, then the look.
+  assert.match(src, /variant="title"[^>]*>\s*\{event\.title\}/);
+  assert.ok(src.includes('label="When"'), 'the When row is gone');
+  assert.ok(src.includes('label="Where"'), 'the Where row is gone');
+  assert.ok(src.indexOf('label="When"') < src.indexOf('label="Where"'), 'When must precede Where');
+  // The status and readiness sentences the correction removed stay removed.
+  for (const gone of ['hostStatusLine', 'readyLine']) {
+    assert.ok(!src.includes(gone), `the status paragraph is back (${gone})`);
+  }
+});
+
+test('LP-06 — the destructive and recovery copy the table must not displace', () => {
+  // The accepted headlines sit ABOVE these; none of them may be pushed out.
+  assert.ok(body(EVENT_DETAIL).includes('CANCELLATION_FACTS'), 'the cancellation band is gone');
+  assert.match(body(PLAN), /Couldn’t lay out your week/, 'the week error copy changed');
+  assert.match(body(EXPLORE), /Couldn’t read your circle\./, 'the circle error copy changed');
 });

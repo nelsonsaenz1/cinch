@@ -404,12 +404,22 @@ export default function PlanScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <View className="flex-row items-baseline justify-between px-gutter pb-3 pt-2">
-        <Text variant="display">Plan</Text>
-        {/* The tracked caps register, same as Today's day line. The atlas
-            sets it in `faint`; it stays `muted` per the 2026-08-06 contrast
-            pass — faint fails AA as text on canvas. */}
-        <Text variant="eyebrow">{weekRangeLabel}</Text>
+      <View className="px-gutter pb-3 pt-2">
+        <View className="flex-row items-baseline justify-between">
+          <Text variant="display">Plan</Text>
+          {/* The tracked caps register, same as Today's day line. The atlas
+              sets it in `faint`; it stays `muted` per the 2026-08-06 contrast
+              pass — faint fails AA as text on canvas. */}
+          <Text variant="eyebrow">{weekRangeLabel}</Text>
+        </View>
+
+        {/* LP-06's accepted support line. It sits above the segmented control
+            rather than inside either mode, because it describes the page the
+            tab bar just opened, not the mode currently selected — one headline
+            and at most one supporting line before an action. */}
+        <View style={{ marginTop: 6 }}>
+          <Text variant="note">Your upcoming events.</Text>
+        </View>
       </View>
 
       <SegmentedControl mode={mode} onChange={setMode} inviteCount={inviteCount} />

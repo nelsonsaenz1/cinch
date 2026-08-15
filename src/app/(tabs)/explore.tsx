@@ -43,7 +43,7 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * this dialect yet.
  */
 const CARD_RADIUS = 16;
-/** CX-06 — the air between `Lately` and the search field. */
+/** CX-06 — the air between the masthead and the search field. */
 const EXPLORE_SEARCH_GAP = 20;
 const OUTLINE_EDGE = 'rgba(28,26,22,0.22)';
 
@@ -333,14 +333,25 @@ export default function ExploreScreen() {
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="px-gutter pt-2">
-        {/* CX-06. The "Between friends" eyebrow is gone and "Lately" is the
-            sole heading. Two labels stacked on one page said the same thing
-            twice — the tab is already named, and a colophon above a display
-            word is a masthead explaining its own title. Only the masthead
-            changed; everything below the field is untouched. */}
+        {/* CX-06 kept the single heading; LP-06 sets what that heading says.
+            The page now carries the tab's own name — `Explore`, the label
+            _layout.tsx already draws and the Today State Atlas already made
+            canon over the earlier "Lately" call — plus the one accepted
+            supporting line. Two labels stacked on one page still say the same
+            thing twice, so the "Between friends" eyebrow stays gone; what
+            changed is that the display word and the tab beneath it finally
+            read as the same place. Everything below the field is untouched. */}
         <Text variant="display" trim accessibilityRole="header">
-          Lately
+          Explore
         </Text>
+
+        {/* The support line rides in a wrapper with a `marginTop`, not on an
+            `mt-*` class of its own: `Explore` is cap-trimmed, and a margin
+            utility on the sibling competes with the trim's negative optical
+            margin — the same trap the search field below documents. */}
+        <View style={{ marginTop: 6 }}>
+          <Text variant="note">Looks and ideas to try.</Text>
+        </View>
 
         {/* The door in, and the door out of an empty page — the same field the
             Friends screen carries, in the same grammar, reading the same
@@ -348,8 +359,8 @@ export default function ExploreScreen() {
             component is deliberate: `useProfileSearch` is the shareable part
             and is shared; the field is eight lines of layout that each screen
             spaces for itself. */}
-        {/* 20pt of air under the heading, on a wrapper rather than as a `mt-*`
-            on the field: `Lately` is cap-trimmed, and a margin utility on the
+        {/* 20pt of air under the masthead, on a wrapper rather than as a `mt-*`
+            on the field: `Explore` is cap-trimmed, and a margin utility on the
             sibling competes with the trim's negative optical margin — the trap
             the Today floor documents. `SearchField` takes no `style`, and
             giving it one for a single caller would change a primitive four
