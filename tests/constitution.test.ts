@@ -94,7 +94,8 @@ const FAINT_TEXT_DEBT = [
   // `friends/[userId]` came off this list when Group 5 rebuilt those surfaces;
   // what is left here is what Group 5 did not own.
   'src/app/(tabs)/explore.tsx',
-  'src/components/events/EventCard.tsx',
+  // `EventCard.tsx` came off this list in the launch-polish packet: LP-10 gave
+  // its quietest line real information to carry, so it moved to `muted`.
   'src/features/explore/new-addition-row.tsx',
   // Placeholders — see the note on `placeholderTextColor` above the scanner.
   'src/app/item/[id].tsx',

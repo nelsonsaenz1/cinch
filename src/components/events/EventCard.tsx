@@ -115,13 +115,17 @@ export function EventCard({ event, onPress }: { event: EventSummary; onPress: ()
         </Text>
       ) : null}
 
-      {/* The quietest line on the card, and the only one still set in `faint`.
-          It is the fourth thing a reader needs and is repeated in full on the
-          occasion's own page, which is the narrow case `faint` is reserved
-          for. See tailwind.config.js on the AA caveat, and
-          tests/constitution.test.ts, whose debt list this file is on. */}
+      {/* The quietest line on the card, and it is `muted` rather than `faint`.
+          `faint` (#8A8578) fails AA as text; `muted` (#6B665C) clears it at
+          5.46:1 and is the token eyebrows and colophons are already set in.
+          The old justification — fourth thing a reader needs, repeated on the
+          occasion's own page — argued for quietness, not for illegibility,
+          and LP-10 made this line carry real information (`4 of 6 going ·
+          Your look shared`) rather than decoration. This file came off the
+          FAINT_TEXT_DEBT list in tests/constitution.test.ts in the same
+          commit; putting `faint` back here would fail that test. */}
       {model.signal ? (
-        <Text variant="label" className="mt-1.5" style={{ color: theme.faint }}>
+        <Text variant="label" className="mt-1.5" style={{ color: theme.muted }}>
           {model.signal}
         </Text>
       ) : null}
