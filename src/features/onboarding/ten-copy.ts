@@ -310,6 +310,89 @@ export function stopSheetCopy(
 }
 
 // ---------------------------------------------------------------------------
+// LP-02 · replacing the photograph in a filled position
+// ---------------------------------------------------------------------------
+
+export type ReplaceSheetCopy = {
+  eyebrow: string;
+  title: string;
+  body: string;
+  retake: string;
+  library: string;
+  edit: string;
+  cancel: string;
+  /** Spoken when the sheet opens — the slot and the piece, in that order. */
+  announcement: string;
+};
+
+/**
+ * The four-action sheet over a filled tile.
+ *
+ * FOUR ACTIONS, AND THE THIRD IS THE ONE THAT WAS ALREADY THERE. Tapping a
+ * filled tile used to push straight to `/item/{id}`, which is a real and much
+ * used path — reading what Cinch decided a piece was, and correcting it. The
+ * sheet must not cost anyone that, so `Edit details` is the same push, sitting
+ * third: after the two photographic answers, because the reason somebody taps
+ * their own photograph is far more often that the photograph is wrong than
+ * that the tags are.
+ *
+ * `name` is the classifier's word for the piece — "Knit", "Coat" — or null
+ * while it is still being read. The title falls back to the position, which is
+ * the one thing that is true from the first frame.
+ */
+export function replaceSheetCopy(slotId: number, name: string | null): ReplaceSheetCopy {
+  const piece = name ?? 'this piece';
+  return {
+    eyebrow: `Slot ${slotId}`,
+    title: name ?? 'This piece',
+    // One sentence, and it is the reassurance rather than an explanation of
+    // the buttons underneath — the buttons say what they do.
+    body: 'A new photograph goes in this position. Nothing else in the ten moves.',
+    retake: 'Retake photo',
+    library: 'Choose from library',
+    edit: 'Edit details',
+    cancel: 'Cancel',
+    announcement: `Slot ${slotId}, ${piece}. Replace this photograph.`,
+  };
+}
+
+/**
+ * What to say when a replacement stops short, keyed by the machine's own
+ * failure vocabulary (`ten-replace.ts`).
+ *
+ * Every line states the same fact first — the photograph in the slot did not
+ * change — because that is the only thing the reader needs and the only thing
+ * they might reasonably fear. `no-room` is the one exception worth a second
+ * clause: the piece is still in the closet, and the remedy is not obvious.
+ */
+export function replaceFailureLine(
+  failure: 'cancelled' | 'camera-denied' | 'library-denied' | 'no-room' | 'processing-failed' | 'restore-failed',
+  slotId: number,
+): string | null {
+  switch (failure) {
+    // A cancel is not news. The reader chose it and the grid in front of them
+    // already shows the answer.
+    case 'cancelled':
+      return null;
+    case 'camera-denied':
+      return `Slot ${slotId} is unchanged. The camera is switched off for Cinch — turn it on in Settings, or choose a photograph from your library instead.`;
+    case 'library-denied':
+      return `Slot ${slotId} is unchanged. Cinch couldn’t open your photo library.`;
+    case 'no-room':
+      return `Slot ${slotId} is unchanged. Cinch couldn’t make room for the new photograph — try again in a moment.`;
+    case 'processing-failed':
+      return `Slot ${slotId} is unchanged. That photograph didn’t make it through — the one you had is still there.`;
+    case 'restore-failed':
+      return `Slot ${slotId} didn’t change, and the piece that was in it is in Storage rather than your closet. Nothing has been deleted — you can bring it back from Storage.`;
+  }
+}
+
+/** Spoken after a successful swap. Names the position and what landed in it. */
+export function replacedAnnouncement(slotId: number): string {
+  return `Slot ${slotId} replaced. Your count hasn’t changed.`;
+}
+
+// ---------------------------------------------------------------------------
 // TR-05 · the two doors
 // ---------------------------------------------------------------------------
 
