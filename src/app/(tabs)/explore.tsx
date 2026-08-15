@@ -367,7 +367,7 @@ export default function ExploreScreen() {
       </View>
 
       <KeyboardAwareScrollView
-        contentContainerClassName="pb-10"
+        contentContainerClassName="pb-24"
         // `flexGrow`, not `flex`: the hero empty and error states centre with
         // `flex-1`, which needs a parent of known height and silently collapses
         // to nothing inside a content-sized scroll container. Growing the

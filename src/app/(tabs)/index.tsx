@@ -1118,7 +1118,7 @@ export default function TodayScreen() {
     return (
       <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <ScrollView
-          contentContainerClassName="pb-10"
+          contentContainerClassName="pb-24"
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
           }>
@@ -1178,7 +1178,7 @@ export default function TodayScreen() {
           components in this project. */}
       <Animated.View entering={FadeIn.duration(motion.duration.base)} style={{ flex: 1 }}>
         <ScrollView
-          contentContainerClassName="pb-10"
+          contentContainerClassName="pb-24"
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           refreshControl={
