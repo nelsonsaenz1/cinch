@@ -1,6 +1,7 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { weatherLineFor, whenLabel } from '@/components/events/EventCard';
@@ -17,10 +18,23 @@ import { PlaceField, type PlaceSelection } from '@/components/events/place-field
 import { DEFAULT_TIME_MINUTES, formatMinutes, TimeSheet } from '@/components/events/time-sheet';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
-import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
+import {
+  KeyboardAvoidingScreen,
+  KeyboardAwareScrollView,
+} from '@/components/ui/keyboard-aware-scroll-view';
 import { SocialTermsSheet } from '@/components/social/social-terms-sheet';
 import { Text } from '@/components/ui/text';
+import { useSession } from '@/features/auth/use-session';
 import { isSocialTermsError, useAcceptSocialTerms } from '@/features/auth/use-social-terms';
+import {
+  createEventDraftStore,
+  emptyEventDraft,
+  fromDraftDay,
+  isEventDraftEmpty,
+  toDraftDay,
+  EVENT_DRAFT_DEBOUNCE_MS,
+  type EventDraft,
+} from '@/features/events/event-draft';
 import { useOccasionWeather } from '@/features/events/occasion-weather';
 import { socialDenialCopy, useCreateEvent } from '@/features/events/mutations';
 import type { VenueCoords } from '@/features/events/types';
@@ -44,6 +58,23 @@ import { useTheme } from '@/theme/tokens';
  * visibility, a reservation link, a multi-day span — is recorded in §0 of the
  * spec with what each cost. The columns are all still there and older
  * occasions still render every one of them.
+ *
+ * ── LP-08: leaving, and coming back ────────────────────────────────────────
+ *
+ * ONE dirty-state guard, not three. `beforeRemove` is the single place that
+ * decides whether this screen may go away, so the swipe-back gesture, the
+ * Cancel text, and any programmatic navigation all reach the same question and
+ * the same sheet. A screen with a Cancel handler and a separate gesture
+ * handler eventually disagrees with itself, and the disagreement is always
+ * discovered by somebody losing typing.
+ *
+ * The draft is written to this device, debounced, under a key scoped to the
+ * signed-in user and to this form (`event-draft.ts`). It survives a kill and a
+ * restore; it is cleared on explicit discard, on an account change, and on a
+ * successful create — the last of those only after the insert has been
+ * acknowledged, because a draft cleared optimistically is a draft lost to a
+ * failed write. A failed submit changes nothing: everything typed is still
+ * here and still saved.
  */
 
 /** The name cap. 60, not the schema's 80: a name is a thing you say, and the
@@ -76,9 +107,11 @@ function parseDateParam(raw: string | undefined): Date | null {
 
 export default function NewOccasionScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
+  const session = useSession();
 
   const create = useCreateEvent();
 
@@ -119,40 +152,155 @@ export default function NewOccasionScreen() {
   const ready = name.trim().length > 0;
   const canCreate = ready && !create.isPending;
 
-  /** Any edit marks the form dirty. Wrapped once rather than at each call site
-   *  so a field added later cannot forget to do it. */
-  function edited<T>(set: (value: T) => void) {
-    return (value: T) => {
-      setTouched(true);
-      set(value);
-    };
-  }
+  // -------------------------------------------------------------------------
+  // The draft
+  // -------------------------------------------------------------------------
 
-  const onPlaceChange = (text: string) => {
-    setTouched(true);
-    setPlaceText(text);
-    // Typing after a pick means the text is no longer the place that was
-    // resolved, so the coordinates go with it. Keeping them would attach last
-    // night's forecast to whatever is being typed now.
-    setPlaceAddress(null);
-    setCoords(null);
+  const store = useMemo(() => createEventDraftStore(AsyncStorage), []);
+  const userId = session.loading ? null : session.userId;
+
+  /** Restored (or found empty) — nothing is written before this is true, or a
+   *  first render would save an empty draft over a real one. */
+  const [hydrated, setHydrated] = useState(false);
+  /** The account the current draft belongs to, `undefined` before the first
+   *  settled session. */
+  const scope = useRef<string | null | undefined>(undefined);
+
+  const draft: EventDraft = {
+    name,
+    day: toDraftDay(day),
+    minutes,
+    placeText,
+    placeAddress,
+    coords,
+    dressCode,
+    note,
   };
 
-  const onPlaceSelect = (selection: PlaceSelection) => {
-    setTouched(true);
-    setPlaceText(selection.name);
-    if (selection.kind === 'resolved') {
-      setPlaceAddress(selection.address);
-      setCoords({ latitude: selection.latitude, longitude: selection.longitude });
-    } else {
-      setPlaceAddress(null);
-      setCoords(null);
+  const applyDraft = (next: EventDraft) => {
+    setName(next.name);
+    setDay(fromDraftDay(next.day));
+    setMinutes(next.minutes);
+    setPlaceText(next.placeText);
+    setPlaceAddress(next.placeAddress);
+    setCoords(next.coords);
+    setDressCode(next.dressCode);
+    setNote(next.note);
+    // A restored draft is dirty by definition: it is unsaved typing, and
+    // leaving it should ask the same question leaving fresh typing does.
+    setTouched(!isEventDraftEmpty(next));
+  };
+
+  useEffect(() => {
+    if (session.loading) return;
+
+    const previous = scope.current;
+    scope.current = userId;
+
+    // An account change — including signing out — takes the previous
+    // account's draft with it. Nobody's typing is ever shown to, or kept for,
+    // somebody else's session.
+    if (previous !== undefined && previous !== userId) {
+      void store.clear(previous);
+      applyDraft(emptyEventDraft());
+      setHydrated(true);
+      return;
     }
+
+    let live = true;
+    void store.load(userId).then((restored) => {
+      if (!live) return;
+      // The route param wins over a draft: arriving from "new occasion on this
+      // day" is an explicit instruction about the date.
+      if (restored && !parseDateParam(dateParam)) applyDraft(restored);
+      setHydrated(true);
+    });
+
+    return () => {
+      live = false;
+    };
+    // `dateParam` is read once at mount by design; re-running on a param
+    // change would re-hydrate over live typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.loading, store, userId]);
+
+  useEffect(() => {
+    if (!hydrated || !touched) return;
+    const timer = setTimeout(() => {
+      void store.save(userId, draft);
+    }, EVENT_DRAFT_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // The draft object is rebuilt every render; its FIELDS are the dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    hydrated,
+    touched,
+    store,
+    userId,
+    name,
+    day,
+    minutes,
+    placeText,
+    placeAddress,
+    coords,
+    dressCode,
+    note,
+  ]);
+
+  // -------------------------------------------------------------------------
+  // Leaving
+  // -------------------------------------------------------------------------
+
+  /**
+   * Refs, not state, because the `beforeRemove` listener is registered once
+   * and must read the CURRENT answer rather than the one that was true when it
+   * was installed.
+   */
+  const dirty = useRef(false);
+  // Mirrored in an effect rather than assigned during render: a ref written
+  // while rendering is the pattern `react-hooks/refs` exists to catch, and the
+  // listener below only ever reads it from an event.
+  useEffect(() => {
+    dirty.current = touched;
+  }, [touched]);
+  /** Set the instant a create succeeds, so the replace that follows is not
+   *  challenged by a guard that has not caught up yet. */
+  const leaving = useRef(false);
+  /** The navigation the guard interrupted, replayed verbatim on Discard — so
+   *  a swipe-back still goes back and a deep link still lands where it meant
+   *  to. */
+  const blocked = useRef<Parameters<typeof navigation.dispatch>[0] | null>(null);
+
+  useEffect(
+    () =>
+      navigation.addListener('beforeRemove', (event) => {
+        if (leaving.current || !dirty.current) return;
+        event.preventDefault();
+        blocked.current = event.data.action;
+        setDiscardSheet(true);
+      }),
+    [navigation],
+  );
+
+  /** The one route out. Everything — the text button, the back gesture, a
+   *  programmatic push — goes through `beforeRemove` above. */
+  const cancel = () => {
+    router.back();
   };
 
-  const cancel = () => {
-    if (touched) setDiscardSheet(true);
+  const discard = () => {
+    setDiscardSheet(false);
+    leaving.current = true;
+    void store.clear(userId);
+    const action = blocked.current;
+    blocked.current = null;
+    if (action) navigation.dispatch(action);
     else router.back();
+  };
+
+  const keepEditing = () => {
+    setDiscardSheet(false);
+    blocked.current = null;
   };
 
   /**
@@ -187,7 +335,17 @@ export default function NewOccasionScreen() {
         // pushed under it, so Back goes to Plan and not to a form the user has
         // already finished — and inviting is an action on that page now, not a
         // screen the host is chased into.
-        onSuccess: (eventId) => router.replace(`/event/${eventId}`),
+        //
+        // The draft is cleared HERE and nowhere earlier: this callback is the
+        // server's acknowledgement, and a draft dropped before it would be a
+        // draft lost to a failed insert.
+        onSuccess: (eventId) => {
+          leaving.current = true;
+          void store.clear(userId);
+          router.replace(`/event/${eventId}`);
+        },
+        // Nothing on failure. Every field still holds what was typed, the
+        // draft is still on disk, and the footer says so.
       },
     );
   };
@@ -216,98 +374,135 @@ export default function NewOccasionScreen() {
         <View style={{ width: 48 }} />
       </View>
 
-      <KeyboardAvoidingScreen className="flex-1">
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="px-gutter pb-8"
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          showsVerticalScrollIndicator={false}>
-          {/* Padding, not margin: `trim` carries negative margins of its own
-              and a stacked `mt-*` resolves against them to roughly nothing. */}
-          <View className="pb-5 pt-3">
-            <Text variant="display" trim>
-              What&apos;s the occasion?
-            </Text>
+      {/* `automaticallyAdjustKeyboardInsets` (UIScrollView's own keyboard
+          avoidance) rather than a padded ancestor around the scroll: it insets
+          the scroll view AND carries the focused field up above the keyboard,
+          which a shrinking parent does not do. The footer keeps its own
+          `KeyboardAvoidingView` below, so the two mechanisms each own exactly
+          one thing and never compound. */}
+      <KeyboardAwareScrollView
+        className="flex-1"
+        // Bottom padding clears the docked footer as well as the home
+        // indicator: the scroll's own inset accounts for the keyboard, not for
+        // the button floating above it.
+        contentContainerClassName="px-gutter pb-32"
+        showsVerticalScrollIndicator={false}>
+        {/* Padding, not margin: `trim` carries negative margins of its own
+            and a stacked `mt-*` resolves against them to roughly nothing. */}
+        <View className="pb-5 pt-3">
+          <Text variant="display" trim>
+            What&apos;s the occasion?
+          </Text>
+        </View>
+
+        <OccasionField
+          label="Name"
+          value={name}
+          onChangeText={(text) => {
+            setTouched(true);
+            setName(text);
+          }}
+          placeholder="Dinner, a wedding, a birthday…"
+          maxLength={NAME_MAX}
+          counterFrom={COUNTER_FROM}
+          counterCopy={(remaining, cap) => `Names cap at ${cap} characters — ${remaining} left.`}
+          accessibilityLabel="Name of the occasion"
+          returnKeyType="next"
+        />
+
+        {/* When — one question, two controls, so one eyebrow over both. */}
+        <FieldGroup label="When" optional className="mt-[18px]">
+          <View className="flex-row gap-2">
+            <FieldButton
+              value={day ? whenLabel(day, null) : null}
+              placeholder="Pick a date"
+              onPress={() => setDateSheet(true)}
+              accessibilityLabel="Pick a date"
+              className="flex-1"
+            />
+            <FieldButton
+              value={minutes === null ? null : formatMinutes(minutes)}
+              placeholder="Time"
+              onPress={() => setTimeSheet(true)}
+              // A time with no day is not an answer to anything, so the
+              // control waits for the date rather than offering to be filled
+              // in an order that cannot be stored.
+              disabled={!day}
+              accessibilityLabel="Pick a time"
+              style={{ width: 118 }}
+            />
           </View>
+          {weather ? <FieldNote>{weatherLineFor(weather)}</FieldNote> : null}
+        </FieldGroup>
 
-          <OccasionField
-            label="Name"
-            value={name}
-            onChangeText={edited(setName)}
-            placeholder="Dinner, a wedding, a birthday…"
-            maxLength={NAME_MAX}
-            counterFrom={COUNTER_FROM}
-            counterCopy={(remaining, cap) => `Names cap at ${cap} characters — ${remaining} left.`}
-            accessibilityLabel="Name of the occasion"
-            returnKeyType="next"
-          />
+        <PlaceField
+          value={placeText}
+          onChangeText={(text) => {
+            setTouched(true);
+            setPlaceText(text);
+            // Typing after a pick means the text is no longer the place that
+            // was resolved, so the coordinates go with it. Keeping them would
+            // attach last night's forecast to whatever is being typed now.
+            setPlaceAddress(null);
+            setCoords(null);
+          }}
+          onSelect={(selection: PlaceSelection) => {
+            setTouched(true);
+            setPlaceText(selection.name);
+            if (selection.kind === 'resolved') {
+              setPlaceAddress(selection.address);
+              setCoords({ latitude: selection.latitude, longitude: selection.longitude });
+            } else {
+              setPlaceAddress(null);
+              setCoords(null);
+            }
+          }}
+          className="mt-[18px]"
+        />
 
-          {/* When — one question, two controls, so one eyebrow over both. */}
-          <FieldGroup label="When" optional className="mt-[18px]">
-            <View className="flex-row gap-2">
-              <FieldButton
-                value={day ? whenLabel(day, null) : null}
-                placeholder="Pick a date"
-                onPress={() => setDateSheet(true)}
-                accessibilityLabel="Pick a date"
-                className="flex-1"
+        <FieldGroup label="Dress code" optional className="mt-[18px]">
+          <View className="flex-row flex-wrap gap-2">
+            {DRESS_CODES.map((code) => (
+              <Chip
+                key={code}
+                label={code}
+                size="tap"
+                selected={dressCode === code}
+                // Tapping the chosen chip clears it. An occasion with no
+                // dress code is a real answer, not an unfinished one.
+                onPress={() => {
+                  setTouched(true);
+                  setDressCode(dressCode === code ? null : code);
+                }}
               />
-              <FieldButton
-                value={minutes === null ? null : formatMinutes(minutes)}
-                placeholder="Time"
-                onPress={() => setTimeSheet(true)}
-                // A time with no day is not an answer to anything, so the
-                // control waits for the date rather than offering to be filled
-                // in an order that cannot be stored.
-                disabled={!day}
-                accessibilityLabel="Pick a time"
-                style={{ width: 118 }}
-              />
-            </View>
-            {weather ? <FieldNote>{weatherLineFor(weather)}</FieldNote> : null}
-          </FieldGroup>
+            ))}
+          </View>
+        </FieldGroup>
 
-          <PlaceField
-            value={placeText}
-            onChangeText={onPlaceChange}
-            onSelect={onPlaceSelect}
-            className="mt-[18px]"
-          />
+        <OccasionField
+          label="Note for the group"
+          value={note}
+          onChangeText={(text) => {
+            setTouched(true);
+            setNote(text);
+          }}
+          placeholder="Anything they should know before they pick a look"
+          optional
+          multiline
+          maxLength={NOTE_MAX}
+          counterFrom={COUNTER_FROM}
+          accessibilityLabel="Note for the group"
+          className="mt-[18px]"
+        />
+      </KeyboardAwareScrollView>
 
-          <FieldGroup label="Dress code" optional className="mt-[18px]">
-            <View className="flex-row flex-wrap gap-2">
-              {DRESS_CODES.map((code) => (
-                <Chip
-                  key={code}
-                  label={code}
-                  size="tap"
-                  selected={dressCode === code}
-                  // Tapping the chosen chip clears it. An occasion with no
-                  // dress code is a real answer, not an unfinished one.
-                  onPress={() => edited(setDressCode)(dressCode === code ? null : code)}
-                />
-              ))}
-            </View>
-          </FieldGroup>
-
-          <OccasionField
-            label="Note for the group"
-            value={note}
-            onChangeText={edited(setNote)}
-            placeholder="Anything they should know before they pick a look"
-            optional
-            multiline
-            maxLength={NOTE_MAX}
-            counterFrom={COUNTER_FROM}
-            accessibilityLabel="Note for the group"
-            className="mt-[18px]"
-          />
-        </ScrollView>
-
-        {/* The footer is docked, not the last thing in the scroll: the atlas
-            pins the button to the bottom of the frame, and a create button you
-            have to scroll to find is a create button that looks conditional. */}
+      {/* The footer is docked, not the last thing in the scroll: the atlas
+          pins the button to the bottom of the frame, and a create button you
+          have to scroll to find is a create button that looks conditional.
+          `KeyboardAvoidingScreen` wraps the footer ALONE so it rises with the
+          keyboard and stays tappable, without also padding the scroll view
+          that is already insetting itself. */}
+      <KeyboardAvoidingScreen>
         <View
           className="border-t border-hairline bg-canvas px-gutter pt-5"
           style={{ paddingBottom: Math.max(insets.bottom, 20) }}>
@@ -335,7 +530,7 @@ export default function NewOccasionScreen() {
           {create.isError && !termsBlocked ? (
             <FieldAlert>
               {socialDenialCopy(create.error) ??
- 'That didn’t save. Everything you typed is still here — check your connection and try again.'}
+                'That didn’t save. Everything you typed is still here — check your connection and try again.'}
             </FieldAlert>
           ) : null}
         </View>
@@ -356,7 +551,10 @@ export default function NewOccasionScreen() {
       <TimeSheet
         visible={timeSheet}
         value={minutes}
-        onChange={edited(setMinutes)}
+        onChange={(picked) => {
+          setTouched(true);
+          setMinutes(picked);
+        }}
         onClose={() => setTimeSheet(false)}
       />
       <SocialTermsSheet
@@ -368,14 +566,7 @@ export default function NewOccasionScreen() {
         // the occasion being created or the draft being thrown away.
         onDecline={() => create.reset()}
       />
-      <DiscardSheet
-        visible={discardSheet}
-        onDiscard={() => {
-          setDiscardSheet(false);
-          router.back();
-        }}
-        onKeepEditing={() => setDiscardSheet(false)}
-      />
+      <DiscardSheet visible={discardSheet} onDiscard={discard} onKeepEditing={keepEditing} />
     </SafeAreaView>
   );
 }
