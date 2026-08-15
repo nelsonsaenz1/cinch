@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { AccessibilityInfo, Alert, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -10,15 +10,25 @@ import { FirstTenDoors } from '@/components/onboarding/first-ten-doors';
 import { TenBody } from '@/components/onboarding/ten-body';
 import { TenCamera } from '@/components/onboarding/ten-camera';
 import { TenRepair } from '@/components/onboarding/ten-repair';
+import { TenReplaceSheet } from '@/components/onboarding/ten-replace-sheet';
 import { TenStopSheet } from '@/components/onboarding/ten-stop-sheet';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Text } from '@/components/ui/text';
+import { useCapacity } from '@/features/billing/use-capacity';
+import { useRemoveItems } from '@/features/closet/mutations';
+import { useArchiveItems, useRestoreItems } from '@/features/closet/storage';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
 import { selectActiveCount, useQueueStore } from '@/features/ingest/queue-store';
 import { useCameraAccess } from '@/features/ingest/use-camera-access';
 import { useUnfinishedWalkthrough } from '@/features/intake/queries';
 import { starterReadiness } from '@/features/onboarding/starter-readiness';
+import { replaceFailureLine, replacedAnnouncement } from '@/features/onboarding/ten-copy';
+import {
+  applyReplace,
+  initialReplaceState,
+  replaceReducer,
+} from '@/features/onboarding/ten-replace';
 import {
   fillSlot,
   filledCount,
@@ -158,6 +168,186 @@ export default function TheTenScreen() {
     [camera.access],
   );
 
+  // ── LP-02 · replacing the photograph in a filled position ────────────────
+  //
+  // The rules live in `ten-replace.ts` and are tested there; this is only the
+  // wiring. What the screen owns is the four writes the machine asks for —
+  // store, discard, restore, and the one slot swap — and nothing else about a
+  // replacement is decided here.
+  //
+  // The effects below depend on the whole `replace` object and that is safe
+  // rather than sloppy: `replaceReducer` returns the SAME object for every
+  // event that does not belong to the current phase, so `useReducer` keeps the
+  // identity and an archive cannot be re-fired by an unrelated render.
+  const [replace, dispatchReplace] = useReducer(replaceReducer, initialReplaceState);
+  /**
+   * The row the incoming photograph created, if any.
+   *
+   * Kept OUTSIDE the machine because it is not part of the contract — it is a
+   * piece of rubbish to sweep up. A replacement that fails after the row is
+   * written leaves an item with no photograph on it, and on the no-room path
+   * that orphan is also sitting in the active slot the outgoing piece has to
+   * come back to, so it is discarded before the restore is attempted.
+   */
+  const orphanRef = useRef<string | null>(null);
+  /**
+   * The outgoing photograph, held for the life of the flow.
+   *
+   * On the no-room path the outgoing piece is archived before the camera opens
+   * and therefore leaves `useWardrobe`, which would blank the tile behind the
+   * sheet. The contract says the old photograph stays until the new one lands,
+   * and this is that sentence in the render.
+   */
+  const [heldPiece, setHeldPiece] = useState<{
+    slotId: number;
+    uri?: string;
+    name: string | null;
+  } | null>(null);
+
+  const capacity = useCapacity();
+  const archive = useArchiveItems();
+  const restore = useRestoreItems();
+  const discard = useRemoveItems();
+  const jobs = useQueueStore((s) => s.jobs);
+
+  // 10/10 only — store the outgoing piece so the incoming insert has a slot.
+  // `enforce_item_limit` refuses it otherwise, which would make a replacement
+  // at the ceiling impossible rather than merely awkward.
+  useEffect(() => {
+    if (replace.phase !== 'freeing') return;
+    const { outgoingId } = replace;
+    let live = true;
+    void archive
+      .mutateAsync({ ids: [outgoingId] })
+      .then(() => live && dispatchReplace({ type: 'room-freed' }))
+      .catch(() => live && dispatchReplace({ type: 'room-refused' }));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replace]);
+
+  // The incoming photograph's progress, read off the same queue the ordinary
+  // capture reports through. `tagAttempts` is the honest marker for "the image
+  // is on the row": it can only have moved after the upload and the row update
+  // both landed, so a tag that fails afterwards is a badged item rather than a
+  // failed replacement.
+  useEffect(() => {
+    if (replace.phase !== 'processing') return;
+    const job = jobs.find((j) => j.itemId === replace.incomingId);
+    if (!job) return;
+    if (job.stage === 'tagging' || job.stage === 'done' || job.tagAttempts > 0) {
+      dispatchReplace({ type: 'processing-committed' });
+    } else if (job.stage === 'failed') {
+      dispatchReplace({ type: 'processing-failed' });
+    }
+  }, [jobs, replace]);
+
+  // The incoming photograph is written, so the swap lands here — and, on the
+  // room-to-spare path, the outgoing piece goes to storage first. AFTER the
+  // write, never before: until this moment a failure had to be able to leave a
+  // closet nobody had touched.
+  useEffect(() => {
+    if (replace.phase !== 'retiring') return;
+    const { outgoingId, slotId, freed } = replace;
+    let live = true;
+    void (async () => {
+      // The no-room path stored it on the way in; there is nothing owed.
+      let stored = true;
+      if (!freed) {
+        try {
+          await archive.mutateAsync({ ids: [outgoingId] });
+        } catch {
+          stored = false;
+        }
+      }
+      if (!live) return;
+      // The reducer decides the ending and `applyReplace` applies it, so the
+      // screen never invents a slot state of its own.
+      const event = { type: stored ? ('retired' as const) : ('retire-failed' as const) };
+      const ending = replaceReducer(replace, event);
+      setSlots((prev) => (prev ? applyReplace(prev, ending) : prev));
+      orphanRef.current = null;
+      AccessibilityInfo.announceForAccessibility(replacedAnnouncement(slotId));
+      dispatchReplace(event);
+    })();
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replace]);
+
+  // No-room path, unwinding. The orphan goes first because it is holding the
+  // active slot the restore needs; the outgoing piece is never deleted, only
+  // brought back out of storage.
+  useEffect(() => {
+    if (replace.phase !== 'restoring') return;
+    const { outgoingId } = replace;
+    let live = true;
+    void (async () => {
+      await sweepOrphan(orphanRef, discard);
+      try {
+        await restore.mutateAsync({ ids: [outgoingId] });
+        if (live) dispatchReplace({ type: 'restored' });
+      } catch {
+        if (live) dispatchReplace({ type: 'restore-failed' });
+      }
+    })();
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replace]);
+
+  // Every ending, once the writes are done: close the flow, or sweep up and
+  // say what did not happen. No path here touches the grid — the one that
+  // moves a slot is the one above, where the ending was decided.
+  useEffect(() => {
+    const state = replace;
+
+    // The grid was already moved where the ending was decided; all that is
+    // left is to close the flow.
+    if (state.phase === 'replaced') {
+      dispatchReplace({ type: 'acknowledge' });
+      return;
+    }
+
+    if (state.phase !== 'failed') return;
+
+    // Nothing was replaced, so nothing on the grid changes — the only work
+    // left is sweeping the half-written row and saying so.
+    void sweepOrphan(orphanRef, discard);
+    const line = replaceFailureLine(state.failure, state.slotId);
+    if (line) {
+      AccessibilityInfo.announceForAccessibility(line);
+      Alert.alert('Nothing changed', line, [
+        { text: 'OK', onPress: () => dispatchReplace({ type: 'acknowledge' }) },
+      ]);
+    } else {
+      dispatchReplace({ type: 'acknowledge' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replace]);
+
+  /**
+   * The two photographic doors out of the sheet.
+   *
+   * The camera permission is checked HERE, before the machine chooses a path:
+   * a door already known to be locked must not first send the outgoing piece
+   * to storage and then have to fetch it back. `capacity.full` is the whole of
+   * the no-room decision — see `ten-replace.ts`.
+   */
+  const chooseReplacement = useCallback(
+    (mode: 'camera' | 'library') => {
+      if (mode === 'camera' && camera.access === 'blocked') {
+        dispatchReplace({ type: 'permission-denied', source: 'camera' });
+        return;
+      }
+      dispatchReplace({ type: 'choose', mode, needsRoom: capacity.full });
+    },
+    [camera.access, capacity.full],
+  );
+
   const byId = useMemo(() => {
     const m = new Map<string, Garment>();
     for (const g of wardrobe.data ?? []) m.set(g.id, g);
@@ -263,6 +453,19 @@ export default function TheTenScreen() {
     imageUris[s.id] = resolve(g.platePath, g.cutoutPath, g.thumbPath);
   }
 
+  // LP-02 — the outgoing photograph stays on its tile for the whole flow. On
+  // the no-room path its row is in storage and has left `useWardrobe`, so the
+  // loop above found nothing for that position; without this the grid would
+  // show a blank cell and a count of nine while the reader was mid-replacement,
+  // which is the exact thing the contract forbids.
+  // Gated on the flow being live rather than cleared by an effect: `closed` is
+  // the only state in which the wardrobe is the whole truth again, and a render
+  // that reads it is one fewer set of cascading renders than a reset would be.
+  if (replace.phase !== 'closed' && heldPiece && imageUris[heldPiece.slotId] === undefined) {
+    imageUris[heldPiece.slotId] = heldPiece.uri;
+    garmentNames[heldPiece.slotId] = heldPiece.name;
+  }
+
   const filled = filledCount(slots);
   // Ten filed and the arithmetic has not arrived. Never the stop sheet: see
   // `TenRepair`. The grid stays live under it, so the reader is never stranded
@@ -289,6 +492,30 @@ export default function TheTenScreen() {
           />
         </View>
       </SafeAreaView>
+    );
+  }
+
+  // LP-02's capture is the SAME component the guided one uses — same shutter,
+  // same picker, same queue, same upload, same cutout, same tagger. Only the
+  // two callbacks differ, because a replacement reports into the machine
+  // instead of filling an empty position.
+  const replacingSlot =
+    replace.phase === 'capturing' ? (slots.find((s) => s.id === replace.slotId) ?? null) : null;
+
+  if (replace.phase === 'capturing' && replacingSlot) {
+    return (
+      <TenCamera
+        slot={replacingSlot}
+        slots={slots}
+        start={replace.mode}
+        onCancel={() => dispatchReplace({ type: 'cancel' })}
+        onFilled={(itemId) => {
+          // Remembered before the machine moves: if the flow stops after this
+          // point, this row is the thing to sweep up.
+          orphanRef.current = itemId;
+          dispatchReplace({ type: 'item-created', itemId });
+        }}
+      />
     );
   }
 
@@ -373,14 +600,23 @@ export default function TheTenScreen() {
         foregroundedId={foregrounded?.id ?? null}
         garmentNames={garmentNames}
         imageUris={imageUris}
-        // A filled tile now opens its piece rather than doing nothing: that is
-        // the repair path, and it has to be live from the first filled cell
-        // rather than only once the grid is full — a garment read wrong at
-        // slot two is worth correcting at slot two.
+        // A filled tile opens a focused review of the piece in it — LP-02.
+        //
+        // It used to push straight to `/item/{id}`, which answered only half
+        // of why anyone taps their own photograph: a garment read wrong is
+        // worth correcting at slot two, and so is a photograph taken badly,
+        // and only the first of those had a door. The push is not lost — it is
+        // `Edit details`, third in the sheet, and it still mutates nothing.
+        //
+        // Ignored outright while a replacement is already in flight: the tile
+        // is busy, and a second flow over the top of it would be two writes
+        // racing for one position.
         onSlotPress={(id) => {
           const slot = slots.find((s) => s.id === id);
           if (slot?.status === 'filled' && slot.garmentId) {
-            router.push(`/item/${slot.garmentId}` as Href);
+            if (replace.phase !== 'closed') return;
+            setHeldPiece({ slotId: id, uri: imageUris[id], name: garmentNames[id] ?? null });
+            dispatchReplace({ type: 'open', slotId: id, garmentId: slot.garmentId });
             return;
           }
           setForegroundedOverride(id);
@@ -412,6 +648,25 @@ export default function TheTenScreen() {
         ) : undefined}
       </TenBody>
 
+      {replace.phase === 'choosing' ? (
+        <TenReplaceSheet
+          visible
+          slotId={replace.slotId}
+          garmentName={garmentNames[replace.slotId] ?? null}
+          imageUri={imageUris[replace.slotId]}
+          onRetake={() => chooseReplacement('camera')}
+          onLibrary={() => chooseReplacement('library')}
+          // The path this screen has always had, kept whole: it pushes the
+          // piece and touches neither the slot nor the count.
+          onEditDetails={() => {
+            const garmentId = replace.outgoingId;
+            dispatchReplace({ type: 'cancel' });
+            router.push(`/item/${garmentId}` as Href);
+          }}
+          onCancel={() => dispatchReplace({ type: 'cancel' })}
+        />
+      ) : null}
+
       <TenStopSheet
         visible={showStop}
         // The REAL count, from `countOutfits` over the classified wardrobe.
@@ -430,4 +685,31 @@ export default function TheTenScreen() {
       />
     </SafeAreaView>
   );
+}
+
+/**
+ * Discard the half-written row a stopped replacement left behind.
+ *
+ * NOT the prior asset, and the distinction is the whole of LP-02's cleanup
+ * rule: this deletes a row created seconds ago that never received a
+ * photograph, while the piece being replaced is only ever archived — never
+ * touched by `useRemoveItems`, never touched at all on a path that failed.
+ *
+ * Best-effort by design. The orphan is invisible in the closet until the
+ * wardrobe refetches and costs the reader nothing that a later pass cannot
+ * fix, whereas a failure to sweep it must not turn into a second error
+ * message on top of the one they are already reading.
+ */
+async function sweepOrphan(
+  ref: { current: string | null },
+  discard: { mutateAsync: (vars: { ids: string[] }) => Promise<unknown> },
+): Promise<void> {
+  const id = ref.current;
+  if (!id) return;
+  ref.current = null;
+  try {
+    await discard.mutateAsync({ ids: [id] });
+  } catch {
+    // Left for a later pass rather than reported: see above.
+  }
 }

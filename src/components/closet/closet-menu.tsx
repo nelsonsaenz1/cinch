@@ -14,8 +14,8 @@ import { motion, shadow, useTheme } from '@/theme/tokens';
  * scrim — the DIMMING IS THE SCREEN'S JOB (it owns the content that dims); this
  * component contributes only the card and the tap-outside catcher.
  *
- * Four rows, no submenus. `Review tags` carries the app's only badge and
- * disappears entirely at zero, so the menu is three items for most users.
+ * Three rows, no submenus. `Review tags` carries the app's only badge and
+ * disappears entirely at zero, so the menu is two items for most users.
  */
 
 export type ClosetMenuProps = {
@@ -33,8 +33,6 @@ export type ClosetMenuProps = {
   onSelectPieces: () => void;
   /** Opens the list of pieces taken out of rotation — the way back from archive. */
   onStorage: () => void;
-  /** Directive 3 — "What one more piece would do", ranked and computed. */
-  onGapFeed: () => void;
   onProfileSettings: () => void;
   /** Tap anywhere outside the card. */
   onDismiss: () => void;
@@ -113,7 +111,6 @@ export function ClosetMenu({
   onReviewTags,
   onSelectPieces,
   onStorage,
-  onGapFeed,
   onProfileSettings,
   onDismiss,
 }: ClosetMenuProps) {
@@ -172,7 +169,12 @@ export function ClosetMenu({
               state is how someone learns the drawer exists, and a row that
               appears only once you have used it teaches nothing. */}
           <MenuRow label="Storage" separated onPress={onStorage} />
-          <MenuRow label="What one more piece would do" separated onPress={onGapFeed} />
+          {/* LP-01 — "What one more piece would do" was a fourth row here and is
+              not any more. The gap feed itself is untouched and still reachable
+              from Today's own card; what went is the MENU's copy of it, because
+              a row whose whole job was to explain a gap is the explanation this
+              menu was asked to stop carrying. Nothing replaces it: the rows
+              below simply close up, which is the point. */}
           <MenuRow label="Profile & settings" onPress={onProfileSettings} />
         </View>
       </View>

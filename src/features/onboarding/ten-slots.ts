@@ -99,6 +99,27 @@ export function fillSlot(
   );
 }
 
+/**
+ * Swap the garment held by ONE position — LP-02's whole mutation.
+ *
+ * The counterpart to `fillSlot`, and deliberately the narrower of the two: it
+ * touches neither `id` nor `status`, so the grid keeps its length, its order
+ * and its filled count across a replacement. A photograph taken again for slot
+ * three lands in slot three; 7 of 10 is still 7 of 10 afterwards.
+ *
+ * A no-op on an empty position. An empty slot has no garment to replace, and a
+ * replacement that could FILL one would be the second, quieter way to add a
+ * piece — the flow already has `fillSlot` for that, and two paths into the same
+ * transition is how the count and the queue drift apart.
+ */
+export function replaceSlot(
+  slots: readonly TenSlot[],
+  slotId: number,
+  garmentId: string,
+): TenSlot[] {
+  return slots.map((s) => (s.id === slotId && s.status === 'filled' ? { ...s, garmentId } : s));
+}
+
 /** The garment ids the grid is currently holding, in position order. */
 export function placedIds(slots: readonly TenSlot[]): string[] {
   return slots.flatMap((s) => (s.garmentId ? [s.garmentId] : []));

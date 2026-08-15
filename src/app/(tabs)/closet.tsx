@@ -450,10 +450,6 @@ export default function ClosetScreen() {
           setMenuOpen(false);
           router.push('/storage');
         }}
-        onGapFeed={() => {
-          setMenuOpen(false);
-          router.push('/gap-feed');
-        }}
         onProfileSettings={() => {
           setMenuOpen(false);
           router.navigate('/profile');

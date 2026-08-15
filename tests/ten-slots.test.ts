@@ -24,6 +24,7 @@ import {
   isComplete,
   nextSlot,
   placedIds,
+  replaceSlot,
   TEN_SLOTS,
   type TenSlot,
 } from '../src/features/onboarding/ten-slots';
@@ -128,4 +129,27 @@ test('a wardrobe larger than the grid overflows it rather than choosing by kind'
 
   assert.equal(filledCount(slots), 10);
   assert.deepEqual(placedIds(slots), wardrobe.slice(0, 10).map((g) => g.id));
+});
+
+test('replaceSlot swaps one garment and nothing about the grid', () => {
+  // LP-02's whole mutation. `fillSlot`'s narrower sibling: it may not change a
+  // status, so it can neither fill an empty position nor empty a full one, and
+  // `filledCount` is therefore identical on both sides by construction.
+  const filled = emptyTen()
+    .map((s, i) => (i < 3 ? fillSlot([s], s.id, `p${s.id}`)[0] : s));
+
+  const after = replaceSlot(filled, 2, 'swapped');
+
+  assert.equal(after.length, filled.length);
+  assert.equal(filledCount(after), filledCount(filled), 'the count moved');
+  assert.deepEqual(
+    after.map((s) => s.id),
+    filled.map((s) => s.id),
+    'the positions were reordered',
+  );
+  assert.deepEqual(placedIds(after), ['p1', 'swapped', 'p3']);
+
+  // An empty position has no garment to replace, and offering a second way to
+  // fill one is how the count and the upload queue drift apart.
+  assert.deepEqual(replaceSlot(filled, 9, 'nope'), filled);
 });

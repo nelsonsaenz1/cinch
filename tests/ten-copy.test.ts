@@ -14,6 +14,9 @@ import { test } from 'node:test';
 import { PLANS } from '../src/features/billing/plans';
 import {
   repairCopy,
+  replaceFailureLine,
+  replaceSheetCopy,
+  replacedAnnouncement,
   starterCardCopy,
   stopSheetCopy,
   tenProgressLine,
@@ -218,4 +221,50 @@ test('the outfit count is never a constant — one outfit is singular', () => {
   // reason, and the grammar around it has to survive every value.
   assert.match(stopSheetCopy(PLANS.free.items, 1).body, /make 1 outfit\./);
   assert.match(stopSheetCopy(PLANS.free.items, 0).body, /make 0 outfits\./);
+});
+
+test('LP-02 · the replace sheet offers four actions, and Edit details is third', () => {
+  // The accepted correction to the atlas: the shipping path to `/item/{id}`
+  // survives inside the new sheet rather than being replaced by it. Order is
+  // the assertion, because the order IS the correction.
+  const copy = replaceSheetCopy(4, 'Knit');
+  assert.deepEqual(
+    [copy.retake, copy.library, copy.edit, copy.cancel],
+    ['Retake photo', 'Choose from library', 'Edit details', 'Cancel'],
+  );
+
+  // The affected slot and item are announced — an icon-free sheet still has to
+  // say which of ten positions it is about.
+  assert.match(copy.announcement, /Slot 4/);
+  assert.match(copy.announcement, /Knit/);
+  assert.equal(copy.title, 'Knit');
+
+  // Untagged, and the position is the only true thing left to say.
+  assert.match(replaceSheetCopy(4, null).announcement, /Slot 4/);
+});
+
+test('LP-02 · every failure line names the slot and says it did not change', () => {
+  for (const failure of [
+    'camera-denied',
+    'library-denied',
+    'no-room',
+    'processing-failed',
+    'restore-failed',
+  ] as const) {
+    const line = replaceFailureLine(failure, 6);
+    assert.ok(line, `${failure} said nothing`);
+    assert.match(line, /Slot 6/);
+    assert.match(line, /unchanged|didn’t change/, `${failure} did not say the slot is intact`);
+  }
+
+  // A cancel is not news: the reader chose it, and the grid in front of them
+  // already shows the answer.
+  assert.equal(replaceFailureLine('cancelled', 6), null);
+
+  // Storage, never deletion — the one failure whose remedy is not obvious is
+  // the one that has to name where the piece went.
+  assert.match(replaceFailureLine('restore-failed', 2)!, /Storage/);
+  assert.match(replaceFailureLine('restore-failed', 2)!, /Nothing has been deleted/);
+
+  assert.match(replacedAnnouncement(3), /Slot 3/);
 });
