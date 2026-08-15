@@ -4,7 +4,7 @@ import { ScrollView, View } from 'react-native';
 import { SlotCard } from '@/components/onboarding/slot-card';
 import { TenGrid } from '@/components/onboarding/ten-grid';
 import { Text } from '@/components/ui/text';
-import { TEN_TITLE, tenProgressLine } from '@/features/onboarding/ten-copy';
+import { TEN_SUPPORT, TEN_TITLE } from '@/features/onboarding/ten-copy';
 import {
   starterSuggestion,
   type StarterReadiness,
@@ -83,7 +83,7 @@ export function TenBody({
         </Text>
       </View>
       <Text variant="note" style={{ fontSize: 15, lineHeight: 22 }}>
-        {tenProgressLine(slots)}
+        {TEN_SUPPORT}
       </Text>
 
       {children ?? (

@@ -47,6 +47,7 @@ export function TenGrid({
             <TenTile
               key={slot.id}
               slot={slot}
+              total={slots.length}
               height={tileHeight}
               size={tileSize}
               foregrounded={slot.id === foregroundedId}

@@ -171,6 +171,14 @@ export function replaceReducer(state: ReplaceState, event: ReplaceEvent): Replac
           ? { phase: 'freeing', mode: event.mode, ...slot }
           : { phase: 'capturing', mode: event.mode, freed: false, ...slot };
       }
+      // The account is already at its TOTAL ceiling — `item_total_limit_for_plan`
+      // counts stored pieces too, so archiving the outgoing piece would succeed
+      // and the incoming insert would still be refused. Stopping here, before
+      // anything is written, is the difference between a replacement that fails
+      // permanently after a photograph and one that never asks for it. The
+      // screen decides this from `useCapacity().storageFull`, which it already
+      // holds; nothing new is asked of the server.
+      if (event.type === 'room-refused') return { phase: 'failed', failure: 'no-room', ...slot };
       // `Edit details` is deliberately absent: it opens `/item/{id}` and is not
       // a replacement at all, so it must not move this machine off `choosing`
       // — the sheet closes, the route pushes, and nothing here is mutated.
