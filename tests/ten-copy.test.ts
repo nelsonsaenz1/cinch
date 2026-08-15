@@ -9,100 +9,56 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import { PLANS } from '../src/features/billing/plans';
 import {
+  TEN_SUPPORT,
+  TEN_TITLE,
   repairCopy,
   replaceFailureLine,
   replaceSheetCopy,
   replacedAnnouncement,
   starterCardCopy,
   stopSheetCopy,
-  tenProgressLine,
 } from '../src/features/onboarding/ten-copy';
 import {
   starterReadiness,
   starterSuggestion,
 } from '../src/features/onboarding/starter-readiness';
-import { emptyTen, fillSlot } from '../src/features/onboarding/ten-slots';
+import { emptyTen } from '../src/features/onboarding/ten-slots';
 import type { Garment } from '../src/lib/styling';
 
 test('the slot list IS the free closet — the two numbers may never drift', () => {
-  // Both `tenProgressLine` (from the slot list) and `stopSheetCopy` (from
-  // PLANS) print the size of the free closet, on the same screen, minutes
-  // apart. If these ever disagree the user is told two different limits.
+  // The grid's own eyebrow ("3 of 10", from the slot list) and `stopSheetCopy`
+  // (from PLANS) both print the size of the free closet, on the same screen,
+  // minutes apart. If these ever disagree the user is told two different
+  // limits.
   assert.equal(emptyTen().length, PLANS.free.items);
 });
 
-test('T-01 — the opening line names the free closet, not a typed ten', () => {
-  assert.equal(
-    tenProgressLine(emptyTen()),
-    'Add ten pieces from your closet. ' +
-      'Photograph them or choose them from your camera roll — in any order.',
-  );
+test('LP-06 · First 10 carries the accepted headline and its one support line', () => {
+  // Straight off the accepted copy table. The headline was `Your first 10` and
+  // the support was `tenProgressLine`, a per-state sentence that repeated the
+  // count already printed in the eyebrow above it.
+  assert.equal(TEN_TITLE, 'First 10');
+  assert.equal(TEN_SUPPORT, 'Build the ten pieces you reach for most.');
 });
 
-// The first screen of the app must not read as "stand over your wardrobe with
-// a camera". The library has always been wired beside the shutter and the
-// sentence used to hide it, which is the cheapest possible way to lose someone
-// who never wanted to photograph anything. Asserted separately from the exact
-// wording above so a copy edit can reword the line but cannot drop the offer.
-test('T-01 promises no outcome the readiness model can refuse', () => {
-  // The masthead read "Ten pieces is enough for Cinch to style you properly".
-  // Ten watches IS ten pieces, and `starterReadiness` correctly refuses that
-  // closet — so the loudest line on the first screen of the app asserted
-  // something the model contradicts. (It was ungrammatical too: "pieces is".)
-  const line = tenProgressLine(emptyTen());
-  assert.doesNotMatch(line, /is enough/);
-  assert.doesNotMatch(line, /style you properly/);
+test('LP-06 · the support line is one line, and promises no outcome', () => {
+  // One editorial headline and at most one supporting line before an action.
+  assert.equal(TEN_SUPPORT.split('. ').length, 1);
 
-  // Held against the model rather than against a string: a ten-piece closet
-  // that this sentence would have called styleable, and is not.
+  // The masthead once read "Ten pieces is enough for Cinch to style you
+  // properly". Ten watches IS ten pieces, and `starterReadiness` correctly
+  // refuses that closet — so the loudest line on the first screen of the app
+  // asserted something the model contradicts. Held against the model rather
+  // than against a string.
   const tenWatches = starterReadiness(repeat('accessory', 10).map((slot) => ({ slot })));
   assert.equal(tenWatches.pieces, 10);
   assert.ok(!tenWatches.ready, 'ten pieces alone is not enough — so do not say it is');
-
-  // It asks for the ten instead, and the number still moves with the tier.
-  assert.match(line, /^Add ten pieces from your closet\./);
-});
-
-test('T-01 offers the camera roll, not only the camera', () => {
-  assert.match(tenProgressLine(emptyTen()), /camera roll/);
-});
-
-test('the remaining count is the slot list less what is filled', () => {
-  let slots = emptyTen();
-  slots = fillSlot(slots, 1, 'g-1');
-  assert.match(tenProgressLine(slots), /^9 to go\./);
-
-  slots = fillSlot(slots, 6, 'g-6');
-  assert.match(tenProgressLine(slots), /^8 to go\./);
-});
-
-test('the bag sentence is gone — a bag was never required to be styled', () => {
-  // The line used to read "Cinch can't style you until the bag is in", which
-  // was only ever true of a template that guaranteed a bag position.
-  // `countOutfits` has always refused to count a bag, so the sentence asserted
-  // a gate the arithmetic does not enforce.
-  const oneLeft = emptyTen().reduce(
-    (slots, slot) => (slot.id === 10 ? slots : fillSlot(slots, slot.id, `g-${slot.id}`)),
-    emptyTen(),
-  );
-  assert.equal(oneLeft.filter((s) => s.status === 'empty').length, 1);
-  assert.doesNotMatch(tenProgressLine(oneLeft), /bag/);
-  assert.match(tenProgressLine(oneLeft), /^1 to go\./);
-});
-
-test('a complete ten never prints "0 to go" behind the stop sheet', () => {
-  const full = emptyTen().reduce(
-    (slots, slot) => fillSlot(slots, slot.id, `g-${slot.id}`),
-    emptyTen(),
-  );
-  assert.equal(
-    tenProgressLine(full),
-    'That’s all ten. Nothing here is final — you can swap any piece later.',
-  );
+  assert.doesNotMatch(TEN_SUPPORT, /is enough|style you properly/);
 });
 
 // ---------------------------------------------------------------------------
@@ -267,4 +223,57 @@ test('LP-02 · every failure line names the slot and says it did not change', ()
   assert.match(replaceFailureLine('restore-failed', 2)!, /Nothing has been deleted/);
 
   assert.match(replacedAnnouncement(3), /Slot 3/);
+});
+
+test('LP-02 · "try again in a moment" is never said to an account that is full', () => {
+  // The transient cause: the archive write failed. Trying again is the right
+  // advice and the closet has room for the result.
+  const transient = replaceFailureLine('no-room', 6, false)!;
+  assert.match(transient, /try again in a moment/);
+
+  // The permanent cause: `item_total_limit_for_plan` counts stored pieces too,
+  // so at the total ceiling archiving succeeds and the incoming photograph is
+  // refused anyway. There is no moment to try again in, and saying so was a
+  // lie — this is the whole point of the second branch.
+  const full = replaceFailureLine('no-room', 6, true)!;
+  assert.doesNotMatch(full, /try again/);
+  assert.doesNotMatch(full, /in a moment/);
+
+  // It names what is actually full, and both remedies the trigger's own hint
+  // names ("Delete a stored piece, or upgrade.").
+  assert.match(full, /Storage/);
+  assert.match(full, /delete/i);
+  assert.match(full, /upgrade/i);
+
+  // And it still says the two things every failure line says: which slot, and
+  // that nothing was taken away.
+  assert.match(full, /Slot 6/);
+  assert.match(full, /unchanged/);
+  assert.match(full, /Nothing you’ve photographed has been removed/);
+
+  // The free tier really does hold more rows than it styles, which is what
+  // makes the two branches distinct states rather than a distinction on paper.
+  assert.ok(PLANS.free.storedItems > PLANS.free.items);
+});
+
+test('LP-02 · a filled tile announces the accepted atlas sentence', () => {
+  // Source rather than rendered: `ten-tile.tsx` imports React Native and
+  // expo-image, and the test bundler cannot parse React Native's Flow source.
+  // Comments are stripped first — a sentence quoted in prose is not a sentence
+  // spoken.
+  const tile = readFileSync('src/components/onboarding/ten-tile.tsx', 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '');
+
+  // `Look N of 10, double-tap for actions.` — the exact wording, with the ten
+  // read off the grid's own length rather than typed.
+  assert.match(tile, /`Look \$\{slot\.id\} of \$\{total\}, double-tap for actions\.`/);
+
+  // The garment's name was the old label and must not be spoken here any more;
+  // it survives as the replace sheet's title, which `replaceSheetCopy` owns.
+  assert.doesNotMatch(tile, /accessibilityLabel=\{[\s\S]*?garmentName/);
+  assert.doesNotMatch(tile, /filed`/);
+
+  // The empty tile's label is untouched by the atlas and stays as it was.
+  assert.match(tile, /Slot \$\{slot\.id\}, empty/);
 });

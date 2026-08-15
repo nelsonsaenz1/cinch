@@ -305,6 +305,22 @@ test('no room, and none could be made · the flow stops before the camera', () =
   assert.deepEqual(applyReplace(before, state), before);
 });
 
+test('an account at its TOTAL ceiling stops at the sheet, before the camera', () => {
+  // `item_total_limit_for_plan` counts stored pieces too, so at the total
+  // ceiling archiving the outgoing piece succeeds and the incoming insert is
+  // refused anyway. The screen reads that from `useCapacity().storageFull` and
+  // refuses out of `choosing` — no archive, no camera, no photograph taken for
+  // a replacement that could never land.
+  const before = grid(10);
+  const state = run([{ type: 'open', slotId: 2, garmentId: 'p2' }, { type: 'room-refused' }]);
+
+  assert.deepEqual(state, { phase: 'failed', failure: 'no-room', slotId: 2, outgoingId: 'p2' });
+  // Nothing was written, so there is nothing to unwind: `restoring` is skipped
+  // and the grid is identical.
+  assert.deepEqual(applyReplace(before, state), before);
+  assert.equal(retainedGarmentId(state), 'p2');
+});
+
 // ---------------------------------------------------------------------------
 // The transitions that must NOT happen
 // ---------------------------------------------------------------------------

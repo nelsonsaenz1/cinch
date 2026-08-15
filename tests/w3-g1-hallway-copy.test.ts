@@ -48,7 +48,11 @@ test('the ten-piece surface has one title, and it is not the flow’s codename',
   // CX-01/CX-02 fix the numeral. An eyebrow is a label, not prose, so it takes
   // the same register as the "0 of 10 pieces" count rather than the spelled
   // form the sentences use.
-  assert.equal(TEN_TITLE, 'Your first 10');
+  //
+  // LP-06's accepted copy table then dropped the possessive: `Your first 10`
+  // became `First 10`. Both surfaces move together because both read this
+  // constant.
+  assert.equal(TEN_TITLE, 'First 10');
 });
 
 test('TR-06 — resume is a count, never a bar', () => {

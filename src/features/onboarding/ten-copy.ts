@@ -21,10 +21,6 @@
 
 import type { CountedKind } from '@/features/closet/outfit-count';
 import { numberWord, ordinalWord, articleFor } from '@/features/onboarding/reveal-copy';
-import {
-  filledCount,
-  type TenSlot,
-} from '@/features/onboarding/ten-slots';
 import type { StarterReadiness, StarterSuggestion } from '@/features/onboarding/starter-readiness';
 
 function cap(s: string): string {
@@ -45,7 +41,19 @@ function plural(n: number, one: string, many = `${one}s`): string {
  * "0 of 10 pieces" count, not the same as "ten pieces is enough to begin".
  * House style spells numbers in sentences; this is not a sentence.
  */
-export const TEN_TITLE = 'Your first 10';
+export const TEN_TITLE = 'First 10';
+
+/**
+ * The one supporting line beneath that title (LP-06's accepted copy table).
+ *
+ * WHAT IT REPLACED, and why the replacement is not a loss. The line here used
+ * to be `tenProgressLine`, which recomputed a sentence per state — "Add ten
+ * pieces from your closet…", then "9 to go…", then "That's all ten…". The
+ * eyebrow directly above it already prints `3 of 10`, so the progress half of
+ * that sentence was the count said twice, and the accepted atlas allows one
+ * headline and at most one supporting line before an action. This is that line.
+ */
+export const TEN_SUPPORT = 'Build the ten pieces you reach for most.';
 
 /**
  * The camera's own title. Generic, like the tile it was opened from.
@@ -57,52 +65,6 @@ export const TEN_TITLE = 'Your first 10';
  */
 export function cameraSlotTitle(slotId: number): string {
   return `Slot ${slotId} · add a piece`;
-}
-
-/**
- * The line under the masthead — three moments, every number read from the slot
- * list rather than typed into the sentence.
- *
- * THE BAG SENTENCE IS GONE. It read "Cinch can't style you until the bag is
- * in", which was only ever true of a template that guaranteed a bag position.
- * A bag is not required to be styled and never was — `countOutfits` has always
- * refused to count one — so the sentence was asserting a gate the arithmetic
- * does not enforce.
- */
-export function tenProgressLine(slots: readonly TenSlot[]): string {
-  const total = slots.length;
-  const remaining = total - filledCount(slots);
-
-  if (remaining === total) {
-    // THIS SENTENCE USED TO BE FALSE, and it was the loudest line on the first
-    // screen of the app: "Ten pieces is enough for Cinch to style you
-    // properly." Ten watches is ten pieces and Cinch cannot style any of it —
-    // `starterReadiness` correctly refuses that closet, so the masthead was
-    // promising something the model directly contradicts. (It was also
-    // ungrammatical: "ten pieces IS".)
-    //
-    // The replacement makes no promise about the outcome. It asks for what it
-    // actually wants — ten pieces — and the adaptive card below it is where
-    // the honest, computed claim about THIS closet gets made, one piece at a
-    // time. Ten stays derived from the tier rather than typed, and lowercase
-    // because `numberWord` is now mid-sentence.
-    //
-    // "or choose them from your camera roll" is load-bearing, not a courtesy.
-    // The library button has always been there beside the shutter, but the
-    // only sentence on the screen once said "Photograph these" — so somebody
-    // who does not want to stand over their wardrobe with a camera read the
-    // first screen of the app as work they had already decided against. The
-    // claim is safe to print: the system picker runs out of process and shares
-    // only the photos the person chooses.
-    return (
-      `Add ${numberWord(total)} pieces from your closet. ` +
-      'Photograph them or choose them from your camera roll — in any order.'
-    );
-  }
-  if (remaining === 0) {
-    return `That’s all ${numberWord(total)}. Nothing here is final — you can swap any piece later.`;
-  }
-  return `${remaining} to go. Nothing here is final — you can swap any piece later.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -364,10 +326,30 @@ export function replaceSheetCopy(slotId: number, name: string | null): ReplaceSh
  * change — because that is the only thing the reader needs and the only thing
  * they might reasonably fear. `no-room` is the one exception worth a second
  * clause: the piece is still in the closet, and the remedy is not obvious.
+ *
+ * `no-room` HAS TWO CAUSES AND THEY DO NOT SHARE A REMEDY, which is why this
+ * function takes a third argument.
+ *
+ * Making room for a replacement means archiving the outgoing piece. That write
+ * can simply fail — a dropped connection, a server that was busy — and trying
+ * again in a moment is exactly the right advice.
+ *
+ * It can also be pointless. `item_total_limit_for_plan` (migration
+ * 20260808190100) counts EVERY row an account holds, stored pieces included, so
+ * once the free tier's total is reached, archiving succeeds and the incoming
+ * photograph is refused anyway. There is no moment to try again in: the account
+ * is full until something is deleted or the plan grows. Telling that reader to
+ * wait is the dead end that migration's own comment set out to remove — "telling
+ * someone to make room when making room will not help".
+ *
+ * `storageFull` is `useCapacity().storageFull`, which the screen already holds.
+ * No new query, no new column, and nothing is deleted to find out.
  */
 export function replaceFailureLine(
   failure: 'cancelled' | 'camera-denied' | 'library-denied' | 'no-room' | 'processing-failed' | 'restore-failed',
   slotId: number,
+  /** The account is at its TOTAL ceiling — stored pieces counted. */
+  storageFull = false,
 ): string | null {
   switch (failure) {
     // A cancel is not news. The reader chose it and the grid in front of them
@@ -379,7 +361,9 @@ export function replaceFailureLine(
     case 'library-denied':
       return `Slot ${slotId} is unchanged. Cinch couldn’t open your photo library.`;
     case 'no-room':
-      return `Slot ${slotId} is unchanged. Cinch couldn’t make room for the new photograph — try again in a moment.`;
+      return storageFull
+        ? `Slot ${slotId} is unchanged. Your closet and your Storage are both full on this plan, so there is nowhere for another photograph to go — delete a piece from Storage, or upgrade for a larger closet. Nothing you’ve photographed has been removed.`
+        : `Slot ${slotId} is unchanged. Cinch couldn’t make room for the new photograph — try again in a moment.`;
     case 'processing-failed':
       return `Slot ${slotId} is unchanged. That photograph didn’t make it through — the one you had is still there.`;
     case 'restore-failed':

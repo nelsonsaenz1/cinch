@@ -317,7 +317,7 @@ export default function TheTenScreen() {
     // Nothing was replaced, so nothing on the grid changes — the only work
     // left is sweeping the half-written row and saying so.
     void sweepOrphan(orphanRef, discard);
-    const line = replaceFailureLine(state.failure, state.slotId);
+    const line = replaceFailureLine(state.failure, state.slotId, capacity.storageFull);
     if (line) {
       AccessibilityInfo.announceForAccessibility(line);
       Alert.alert('Nothing changed', line, [
@@ -336,6 +336,15 @@ export default function TheTenScreen() {
    * a door already known to be locked must not first send the outgoing piece
    * to storage and then have to fetch it back. `capacity.full` is the whole of
    * the no-room decision — see `ten-replace.ts`.
+   *
+   * A FULL ACCOUNT IS CHECKED HERE FOR THE SAME REASON. `capacity.storageFull`
+   * is the total ceiling — active plus stored — and at that ceiling archiving
+   * the outgoing piece works and the incoming insert is refused regardless, so
+   * the flow would ask for a photograph it could never keep. Stopping before
+   * the camera opens costs the reader nothing and is the only honest order.
+   * This is the client's own count, not a control: the trigger remains the
+   * authority, and being wrong here only means the ordinary path runs and the
+   * server refuses with its own message.
    */
   const chooseReplacement = useCallback(
     (mode: 'camera' | 'library') => {
@@ -343,9 +352,13 @@ export default function TheTenScreen() {
         dispatchReplace({ type: 'permission-denied', source: 'camera' });
         return;
       }
+      if (capacity.storageFull) {
+        dispatchReplace({ type: 'room-refused' });
+        return;
+      }
       dispatchReplace({ type: 'choose', mode, needsRoom: capacity.full });
     },
-    [camera.access, capacity.full],
+    [camera.access, capacity.full, capacity.storageFull],
   );
 
   const byId = useMemo(() => {
