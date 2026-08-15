@@ -191,6 +191,9 @@ export function venueSelection(venue: VenueSuggestion): {
   address: string;
   latitude: number;
   longitude: number;
+  category: string | null;
+  url: string | null;
+  placeId: string | null;
 } {
   return {
     kind: 'resolved',
@@ -198,6 +201,88 @@ export function venueSelection(venue: VenueSuggestion): {
     address: venue.locality ?? '',
     latitude: venue.latitude,
     longitude: venue.longitude,
+    category: venue.category,
+    // MapKit's local module answers with no URL — the native record
+    // (`VenueSearch.types.ts`) has no such field and widening it would change
+    // the accepted native contract. The slot is carried anyway because LP-05
+    // names the venue URL as one of the five things a keystroke must clear,
+    // and a field that cannot be set is still a field that must not persist.
+    url: null,
+    placeId: venue.id,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Resolved metadata, and clearing it (LP-05)
+// ---------------------------------------------------------------------------
+
+/**
+ * Everything a resolved pick knows beyond the venue's NAME.
+ *
+ * One record rather than five pieces of form state, because the atlas's rule is
+ * about all five at once: "typing after a resolved selection clears stale
+ * address, coordinates, category, URL, and place identifier." Five separate
+ * setters is five chances to forget one, and forgetting one is exactly the bug
+ * — an event carrying the category or the MapKit identifier of a place the user
+ * typed over. The name is deliberately NOT in here: the name is the text in the
+ * field, and the text is what the user is editing.
+ */
+export type ResolvedVenueMeta = {
+  /** The locality line — writes `venue_address`. */
+  address: string | null;
+  coords: { latitude: number; longitude: number } | null;
+  /** `MKPointOfInterestCategory` raw value. */
+  category: string | null;
+  /** The venue's own URL. Always null from this provider; see `venueSelection`. */
+  url: string | null;
+  /** `MKMapItem.identifier`, where the OS has one. */
+  placeId: string | null;
+};
+
+/** No resolved venue: the state a keystroke returns the form to. */
+export function emptyResolvedVenueMeta(): ResolvedVenueMeta {
+  return { address: null, coords: null, category: null, url: null, placeId: null };
+}
+
+/** Whether anything resolved is still being held. */
+export function hasResolvedVenueMeta(meta: ResolvedVenueMeta): boolean {
+  return (
+    meta.address !== null ||
+    meta.coords !== null ||
+    meta.category !== null ||
+    meta.url !== null ||
+    meta.placeId !== null
+  );
+}
+
+/**
+ * A selection as the metadata the form should hold.
+ *
+ * A `typed` pick — the `Use “…” as typed` row — resolves nothing, so it returns
+ * the empty record rather than keeping whatever the previous pick left behind.
+ * That is the same answer a keystroke gets, which is the point: there is one
+ * definition of "not resolved" and both paths reach it.
+ */
+export function resolvedVenueMetaFor(
+  selection:
+    | {
+        kind: 'resolved';
+        address: string;
+        latitude: number;
+        longitude: number;
+        category: string | null;
+        url: string | null;
+        placeId: string | null;
+      }
+    | { kind: 'typed' },
+): ResolvedVenueMeta {
+  if (selection.kind !== 'resolved') return emptyResolvedVenueMeta();
+  return {
+    address: selection.address,
+    coords: { latitude: selection.latitude, longitude: selection.longitude },
+    category: selection.category,
+    url: selection.url,
+    placeId: selection.placeId,
   };
 }
 

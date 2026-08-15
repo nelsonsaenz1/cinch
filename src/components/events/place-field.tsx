@@ -65,6 +65,13 @@ export type PlaceSelection =
       address: string;
       latitude: number;
       longitude: number;
+      /** `MKPointOfInterestCategory` raw value, where the provider has one. */
+      category: string | null;
+      /** The venue's own URL. No provider here surfaces one; the slot exists
+       *  because LP-05 requires it be cleared with the rest. */
+      url: string | null;
+      /** The provider's place identifier — `MKMapItem.identifier` on MapKit. */
+      placeId: string | null;
     }
   | { kind: 'typed'; name: string };
 
@@ -73,9 +80,11 @@ export type PlaceFieldProps = {
   value: string;
   /**
    * Every keystroke. **A change means the value is no longer resolved** — the
-   * parent must drop any coordinates it was holding, because the moment the
-   * text stops being the place that was picked, the forecast attached to it is
-   * about somewhere else.
+   * parent must drop ALL of the resolved metadata it was holding (address,
+   * coordinates, category, URL, place identifier), because the moment the text
+   * stops being the place that was picked, every one of those is about
+   * somewhere else. `resolvedVenueMetaFor` / `emptyResolvedVenueMeta` in
+   * `venue-search.ts` are the single definition of that empty state.
    */
   onChangeText: (text: string) => void;
   /** Fired on an explicit row tap only, resolved or as-typed. */
@@ -428,6 +437,11 @@ function GazetteerPanel({
                   address: regionOf(place),
                   latitude: place.latitude,
                   longitude: place.longitude,
+                  // The gazetteer resolves cities and landmarks; it has no
+                  // category, no URL and no identifier the app may keep.
+                  category: null,
+                  url: null,
+                  placeId: null,
                 })
               }>
               <Text variant="body" numberOfLines={1}>

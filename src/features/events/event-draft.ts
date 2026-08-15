@@ -65,8 +65,19 @@ export type EventDraft = {
   /** Minutes since local midnight. Null while no time is picked. */
   minutes: number | null;
   placeText: string;
+  /**
+   * The five resolved fields, flat (LP-05).
+   *
+   * Flat rather than nested because this file imports nothing and owns its own
+   * validation; what matters is that they are written and cleared TOGETHER.
+   * They are meaningful only while `placeText` is still the text they resolved
+   * from — `decodeEventDraft` enforces that on the way back in.
+   */
   placeAddress: string | null;
   coords: { latitude: number; longitude: number } | null;
+  placeCategory: string | null;
+  placeUrl: string | null;
+  placeId: string | null;
   dressCode: string | null;
   note: string;
 };
@@ -79,6 +90,9 @@ export function emptyEventDraft(): EventDraft {
     placeText: '',
     placeAddress: null,
     coords: null,
+    placeCategory: null,
+    placeUrl: null,
+    placeId: null,
     dressCode: null,
     note: '',
   };
@@ -191,6 +205,12 @@ export function decodeEventDraft(raw: string | null | undefined): EventDraft | n
     placeText: str((body as EventDraft).placeText),
     placeAddress: nullableStr((body as EventDraft).placeAddress),
     coords: coords((body as EventDraft).coords),
+    // Absent in blobs written before LP-05; `nullableStr` reads those as null,
+    // which is exactly "nothing resolved", so no version bump is owed and no
+    // in-flight draft is orphaned.
+    placeCategory: nullableStr((body as EventDraft).placeCategory),
+    placeUrl: nullableStr((body as EventDraft).placeUrl),
+    placeId: nullableStr((body as EventDraft).placeId),
     dressCode: nullableStr((body as EventDraft).dressCode),
     note: str((body as EventDraft).note),
   };
@@ -198,10 +218,14 @@ export function decodeEventDraft(raw: string | null | undefined): EventDraft | n
   // A time with no day is not restorable — the form cannot show it, and the
   // instant it would build is not one the user picked.
   if (draft.day === null) draft.minutes = null;
-  // Coordinates only mean something attached to the text they resolved from.
+  // Resolved metadata only means something attached to the text it resolved
+  // from — all five of it, not just the two that carry the forecast.
   if (draft.placeText.trim().length === 0) {
     draft.placeAddress = null;
     draft.coords = null;
+    draft.placeCategory = null;
+    draft.placeUrl = null;
+    draft.placeId = null;
   }
 
   return isEventDraftEmpty(draft) ? null : draft;

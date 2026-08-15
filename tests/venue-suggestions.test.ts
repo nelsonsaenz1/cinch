@@ -18,6 +18,9 @@ import { test } from 'node:test';
 
 import {
   dedupeVenues,
+  emptyResolvedVenueMeta,
+  hasResolvedVenueMeta,
+  resolvedVenueMetaFor,
   searchVenues,
   setVenueSearchProvider,
   venuePanelOpen,
@@ -268,17 +271,63 @@ test('a query below the minimum never reaches the native module', async () => {
 // ---------------------------------------------------------------------------
 
 test('a chosen suggestion becomes a resolved selection with its coordinates', () => {
-  assert.deepEqual(venueSelection(venue({ name: '  The Stanley  ' })), {
+  assert.deepEqual(venueSelection(venue({ name: '  The Stanley  ', id: 'mapkit-1' })), {
     kind: 'resolved',
     name: 'The Stanley',
     address: 'Denver, CO',
     latitude: 39.74,
     longitude: -104.99,
+    category: 'MKPOICategoryRestaurant',
+    // MapKit's local module surfaces no URL; the slot is carried so LP-05's
+    // clearing rule has all five fields to clear.
+    url: null,
+    placeId: 'mapkit-1',
   });
 });
 
 test('a suggestion with no address line still resolves — the row just has one line', () => {
   assert.equal(venueSelection(venue({ locality: null })).address, '');
+});
+
+// ---------------------------------------------------------------------------
+// 6 · LP-05 — a keystroke after a pick clears ALL FIVE resolved fields
+// ---------------------------------------------------------------------------
+
+test('a resolved pick fills every one of the five resolved fields', () => {
+  const meta = resolvedVenueMetaFor(venueSelection(venue({ id: 'mapkit-1' })));
+
+  assert.equal(meta.address, 'Denver, CO');
+  assert.deepEqual(meta.coords, { latitude: 39.74, longitude: -104.99 });
+  assert.equal(meta.category, 'MKPOICategoryRestaurant');
+  assert.equal(meta.url, null);
+  assert.equal(meta.placeId, 'mapkit-1');
+  assert.equal(hasResolvedVenueMeta(meta), true);
+});
+
+test('typing after a resolved selection clears address, coordinates, category, URL and place id', () => {
+  // What the form does on every keystroke of Where. Asserted field by field
+  // rather than by deepEqual, because the bug this guards against is exactly
+  // one of the five quietly surviving.
+  const cleared = emptyResolvedVenueMeta();
+
+  assert.equal(cleared.address, null);
+  assert.equal(cleared.coords, null);
+  assert.equal(cleared.category, null);
+  assert.equal(cleared.url, null);
+  assert.equal(cleared.placeId, null);
+  assert.equal(hasResolvedVenueMeta(cleared), false);
+});
+
+test('choosing “Use … as typed” resolves nothing and keeps nothing from the previous pick', () => {
+  const previous = resolvedVenueMetaFor(venueSelection(venue({ id: 'mapkit-1' })));
+  assert.equal(hasResolvedVenueMeta(previous), true);
+
+  const typedPick = resolvedVenueMetaFor({ kind: 'typed' });
+  assert.equal(typedPick.address, null);
+  assert.equal(typedPick.coords, null);
+  assert.equal(typedPick.category, null);
+  assert.equal(typedPick.url, null);
+  assert.equal(typedPick.placeId, null);
 });
 
 test('the stored snapshot keeps the venue-snapshot shape, coordinates included', () => {

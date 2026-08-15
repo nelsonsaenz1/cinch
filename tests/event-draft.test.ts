@@ -34,6 +34,9 @@ function draft(over: Partial<EventDraft> = {}): EventDraft {
     placeText: 'The Stanley',
     placeAddress: 'Denver, CO',
     coords: { latitude: 39.74, longitude: -104.99 },
+    placeCategory: 'MKPOICategoryRestaurant',
+    placeUrl: null,
+    placeId: 'mapkit-1',
     dressCode: 'Cocktail',
     note: 'Bring something warm — the terrace gets cold after nine.',
     ...over,
@@ -124,11 +127,42 @@ test('coordinates that are merely shaped like coordinates are dropped', () => {
   assert.equal(decodeEventDraft(bad)?.coords, null);
 });
 
-test('a time with no day, and coordinates with no text, are not restorable', () => {
+test('a time with no day, and resolved venue metadata with no text, are not restorable', () => {
   assert.equal(decodeEventDraft(encodeEventDraft(draft({ day: null })))?.minutes, null);
   const placeless = decodeEventDraft(encodeEventDraft(draft({ placeText: '' })));
-  assert.equal(placeless?.coords, null);
+  // LP-05, all five: nothing resolved outlives the text it resolved from.
   assert.equal(placeless?.placeAddress, null);
+  assert.equal(placeless?.coords, null);
+  assert.equal(placeless?.placeCategory, null);
+  assert.equal(placeless?.placeUrl, null);
+  assert.equal(placeless?.placeId, null);
+});
+
+test('a draft written before LP-05 restores with no resolved metadata rather than junk', () => {
+  // The pre-LP-05 payload, by hand: three of the five fields simply do not
+  // exist in it. Reading them as null is what lets the version stay at 1.
+  const legacy = JSON.stringify({
+    v: EVENT_DRAFT_VERSION,
+    form: 'event.new',
+    savedAt: 0,
+    draft: {
+      name: 'Dinner',
+      day: null,
+      minutes: null,
+      placeText: 'The Stanley',
+      placeAddress: 'Denver, CO',
+      coords: { latitude: 39.74, longitude: -104.99 },
+      dressCode: null,
+      note: '',
+    },
+  });
+
+  const back = decodeEventDraft(legacy);
+  assert.equal(back?.placeText, 'The Stanley');
+  assert.equal(back?.placeAddress, 'Denver, CO');
+  assert.equal(back?.placeCategory, null);
+  assert.equal(back?.placeUrl, null);
+  assert.equal(back?.placeId, null);
 });
 
 // ---------------------------------------------------------------------------
