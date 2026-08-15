@@ -47,10 +47,33 @@ export type FieldTone = 'empty' | 'filled' | 'focused' | 'cap';
 /** The box's own 14px inset, and the 13 it drops to under a 1.5px border. */
 const PAD_X = 14;
 const PAD_X_FOCUSED = 13;
-/** Single-line box height, from the atlas. Comfortably over the 44pt floor. */
-const BOX_HEIGHT = 52;
+
+/**
+ * ── Vertical metrics (LP-03) ───────────────────────────────────────────────
+ *
+ * The atlas draws the single-line box at 52pt and that is still the number
+ * here — but as a FLOOR, not a height. A fixed `height` is a promise about how
+ * tall a line of text is, and the app does not get to make that promise:
+ * Dynamic Type at AX5 renders `text-body` well past 40pt of line box, and a
+ * 52pt container then clips descenders and shifts the baseline off centre.
+ * That clipping IS the launch-polish bug.
+ *
+ * So: a minimum height, symmetric vertical padding, and no assumption about
+ * the font at all. At default sizes the floor governs and the field looks
+ * exactly as drawn; at accessibility sizes the text's own measured height
+ * governs and the box grows under it. Nothing is derived from a point size,
+ * so nothing has to be recalculated when the type scale moves.
+ */
+const BOX_MIN_HEIGHT = 52;
 /** A note field starts at three-ish lines and grows from there. */
 const BOX_MIN_HEIGHT_MULTILINE = 58;
+/**
+ * The vertical inset, mirroring the horizontal ramp: a 1.5px focused border
+ * eats half a point on each edge, so the padding gives half a point back and
+ * the text does not shift under the cursor.
+ */
+const PAD_Y = 12;
+const PAD_Y_FOCUSED = 11;
 
 /**
  * The border and padding for a tone, as a computed style rather than classes.
@@ -75,11 +98,23 @@ function boxStyle(tone: FieldTone, theme: ThemeColors, multiline: boolean): View
     borderWidth,
     borderColor,
     paddingHorizontal: focused ? PAD_X_FOCUSED : PAD_X,
-    ...(multiline
-      ? { minHeight: BOX_MIN_HEIGHT_MULTILINE, paddingVertical: focused ? 11 : 12 }
-      : { height: BOX_HEIGHT }),
+    paddingVertical: focused ? PAD_Y_FOCUSED : PAD_Y,
+    // A floor in both cases. The single-line field is 52 until the text needs
+    // more; the note is 58 and grows with what is typed into it.
+    minHeight: multiline ? BOX_MIN_HEIGHT_MULTILINE : BOX_MIN_HEIGHT,
   };
 }
+
+/**
+ * The text control's own reset.
+ *
+ * iOS gives `UITextView` (which is what a multiline `TextInput` is) a text
+ * container inset of its own, on top of whatever padding the box already
+ * carries — so the note's first line sits low and its last line sits against
+ * the border. Zeroing it makes the box's padding the ONLY vertical inset,
+ * which is the only way the two fields can be centred by the same rule.
+ */
+export const INPUT_RESET = { padding: 0, margin: 0 } as const;
 
 /** The tone a text control is in, given what is in it and whether it is focused. */
 export function toneFor(value: string, focused: boolean, maxLength?: number): FieldTone {
@@ -273,9 +308,14 @@ export function FieldButton({
         {/* A disabled control keeps the placeholder colour rather than dimming
             the box: the time button is disabled only until a date exists, and
             a 40% box would read as broken instead of as not-yet. */}
+        {/* Two lines, not one. `Sat 9 Aug` fits on one line at every size the
+            atlas draws; at AX3 and above it does not, and a date the user
+            cannot read is a date they cannot check. The box grows to hold it
+            (see the metrics above) rather than truncating it. */}
         <Text
           variant="body"
-          numberOfLines={1}
+          numberOfLines={2}
+          className="flex-1"
           style={{ color: answered ? theme.ink : theme.faint }}>
           {answered ? value : placeholder}
         </Text>
@@ -381,9 +421,16 @@ export function OccasionField({
           autoCapitalize={autoCapitalize}
           onSubmitEditing={onSubmitEditing}
           // The type scale by class; the colour inline, for the reason recorded
-          // throughout this file. `flex-1` so the caret reaches the far edge.
-          className="flex-1 font-body text-body"
-          style={{ color: theme.ink }}
+          // throughout this file.
+          //
+          // `flex-1` on the SINGLE-LINE field so the caret reaches the far
+          // edge, and deliberately NOT on the note: `flex-1` is
+          // `flex-basis: 0`, which tells the parent this child contributes no
+          // height — a note that grows would then grow inside a box that does
+          // not. `w-full` gives the same full width and lets the measured text
+          // drive the box, which is what "the note grows naturally" means.
+          className={`font-body text-body ${multiline ? 'w-full' : 'flex-1'}`}
+          style={{ color: theme.ink, ...INPUT_RESET }}
         />
       </FieldBox>
       {showCounter ? (

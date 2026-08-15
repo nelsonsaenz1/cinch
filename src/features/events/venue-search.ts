@@ -2,23 +2,45 @@
  * Venue handling for occasions.
  *
  * FOUNDER SCOPE (2026-08-05): venue entry is MANUAL. The host types the venue
- * name and city; there is no search API, no venue entity, no photos. What ships
- * here is (a) the snapshot shape the event row stores, (b) the reservation-link
- * hostname reader that powers the "Open in OpenTable" text button, and (c) a
- * clearly-marked seam where device-local venue search plugs in later.
+ * name and city; there is no search API, no venue entity, no photos. What
+ * shipped here was (a) the snapshot shape the event row stores, (b) the
+ * reservation-link hostname reader that powers the "Open in OpenTable" text
+ * button, and (c) a clearly-marked seam where device-local venue search plugs
+ * in later.
  *
- * AMENDED (2026-08-08, new-occasion-spec.md §5): half of that scope has been
- * answered, from a direction this file did not anticipate. The Where field now
- * searches the Open-Meteo GAZETTEER — `searchPlaces()` in
- * features/context/weather.ts, the same vendor as the forecast, already in the
- * repo and already in the privacy policy — so a resolved place carries
- * coordinates and therefore a forecast. That is a place search, not a venue
- * search: it resolves cities and landmarks, so "The Stanley" still falls
- * through to the field's "Use as typed" row, which is the atlas's own designed
- * fallback rather than a gap. Reservation links below are unchanged and still
- * render on the occasions that carry them, although the redesigned create form
- * no longer collects one.
+ * AMENDED (2026-08-08, new-occasion-spec.md §5): the Where field searched the
+ * Open-Meteo GAZETTEER — `searchPlaces()` in features/context/weather.ts, the
+ * same vendor as the forecast — so a resolved place carried coordinates and
+ * therefore a forecast. That was a place search, not a venue search: it
+ * resolves cities and landmarks, so "The Stanley" fell through to the field's
+ * "Use as typed" row.
+ *
+ * AMENDED (2026-08-15, LP-05, decisions D2/D3): the seam is filled. Venue
+ * suggestions now come from Apple MapKit, on this device, through the local
+ * Expo module in `modules/venue-search` — `MKLocalSearch` over points of
+ * interest and addresses. MapKit is THE venue-suggestion source and it has no
+ * fallback: on a denied location, offline, zero results or a service error the
+ * field stays manual-first and the `Use "…" as typed` row is the answer, which
+ * is what it has always been. The gazetteer is NOT that fallback and must
+ * never become it — it is retained only on runtimes where the native module is
+ * absent entirely (Expo Go, any bundle running on a pre-MapKit binary), where
+ * it remains the shipping coordinate path the forecast depends on.
+ *
+ * ── What this file is ──────────────────────────────────────────────────────
+ *
+ * PURE. Not one runtime import, and that is deliberate rather than tidy: the
+ * unit runner (scripts/run-tests.mjs) is esbuild over TypeScript with no React
+ * and no native shims, and `expo-modules-core` cannot be bundled into it. So
+ * the native handle is REGISTERED here by the one component that owns the
+ * field, and everything below — the debounce constants, the dedupe, the
+ * ordering, the reducer, the row list — is testable without a device.
  */
+
+import type {
+  NativeVenue,
+  NativeVenueSearchOptions,
+  NativeVenueSearchResult,
+} from '../../../modules/venue-search/src/VenueSearch.types';
 
 /** What a venue is to an event: a snapshot of context, not a managed entity.
  *  Matches the `venue_name` / `venue_address` / `venue_meta` columns. */
@@ -28,28 +50,328 @@ export interface VenueSnapshot {
   meta: unknown | null;
 }
 
-/**
- * Device-local venue search — still the seam, still not the feature.
- *
- * TODO(SOCIAL-VENUE): non-blocking, and now narrower than it was. The build
- * plan reserves this signature for MapKit local search via a small module in
- * `modules/` (MKLocalSearch is free and on-device; see
- * docs/social/reservations-research.md). It stays deferred for a mechanical
- * reason as well as a scope one: it is native, so it cannot ride an OTA
- * update, and shipping it means cutting a store build (spec §0.2).
- *
- * What filled the gap in the meantime is POI-blind. The gazetteer answers
- * "which Denver?", not "which restaurant?" — so this constant still reads
- * false, and the place field's own "Use as typed" row is what a venue name
- * lands in until MKLocalSearch arrives. Returning an empty list remains the
- * graceful fallback: nothing renders a venue-search affordance while
- * `VENUE_SEARCH_AVAILABLE` is false.
- */
-export const VENUE_SEARCH_AVAILABLE = false;
+/** One suggestion, as the app understands it. Structurally the native record;
+ *  named separately so a native field can be dropped without renaming the app's
+ *  vocabulary. */
+export type VenueSuggestion = NativeVenue;
 
-export async function searchVenues(_query: string): Promise<VenueSnapshot[]> {
-  return [];
+// ---------------------------------------------------------------------------
+// The seam
+// ---------------------------------------------------------------------------
+
+export type VenueSearchProvider = (
+  query: string,
+  options: NativeVenueSearchOptions,
+) => Promise<NativeVenueSearchResult>;
+
+let provider: VenueSearchProvider | null = null;
+
+/**
+ * Hand the seam its native implementation, once, at module scope.
+ *
+ * `null` un-registers, which is what a runtime without the module is: not an
+ * error state, a designed one. Registration rather than a direct import
+ * because this file must stay bundle-able by a Node test runner — see the
+ * header.
+ */
+export function setVenueSearchProvider(next: VenueSearchProvider | null): void {
+  provider = next;
 }
+
+/** Whether this runtime can search at all. False in Expo Go and on any binary
+ *  built before the MapKit module landed. */
+export function venueSearchAvailable(): boolean {
+  return provider !== null;
+}
+
+/** Why a search produced nothing. `unavailable` is the module being absent —
+ *  distinct from a search that ran and failed. */
+export type VenueSearchFailure = 'offline' | 'throttled' | 'error' | 'unavailable';
+
+export type VenueSearchOutcome =
+  | { ok: true; venues: VenueSuggestion[] }
+  | { ok: false; venues: []; failure: VenueSearchFailure };
+
+/** Long enough that "de" does not search the world; short enough for "LA". */
+export const VENUE_MIN_QUERY = 2;
+
+/** Per-keystroke debounce. The reason MKLocalSearchCompleter's streaming is
+ *  not needed: MapKit is asked once the typing stops. */
+export const VENUE_DEBOUNCE_MS = 300;
+
+/** Six rows plus the as-typed row is a panel; twelve is a page. */
+export const VENUE_RESULT_CAP = 6;
+
+/**
+ * Device-local venue search — the seam, now the feature.
+ *
+ * Returns an outcome rather than throwing, because every failure here is an
+ * ordinary event in the life of a search field and each one is a different
+ * quiet line. Nothing in the query, the coordinates, or the results is logged,
+ * persisted, or sent anywhere: MapKit answers on the device and the answer
+ * lives exactly as long as the panel does.
+ */
+export async function searchVenues(
+  query: string,
+  options: NativeVenueSearchOptions = {},
+): Promise<VenueSearchOutcome> {
+  const trimmed = query.trim();
+  if (trimmed.length < VENUE_MIN_QUERY) return { ok: true, venues: [] };
+  if (!provider) return { ok: false, venues: [], failure: 'unavailable' };
+
+  try {
+    const result = await provider(trimmed, { limit: VENUE_RESULT_CAP * 2, ...options });
+    if (!result.ok) return { ok: false, venues: [], failure: result.reason };
+    return { ok: true, venues: dedupeVenues(result.venues, VENUE_RESULT_CAP) };
+  } catch {
+    // A native rejection is not a designed outcome — the module answers with
+    // an envelope — so anything that lands here is a bridge fault, reported as
+    // the generic service error rather than swallowed.
+    return { ok: false, venues: [], failure: 'error' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ordering and dedupe
+// ---------------------------------------------------------------------------
+
+/**
+ * The identity of a suggestion for dedupe purposes.
+ *
+ * The OS identifier when there is one (iOS 18+), and otherwise name plus
+ * locality folded to lower case. Never the coordinate: two entrances to the
+ * same building are metres apart and would survive a coordinate-keyed dedupe
+ * as two identical-looking rows.
+ */
+export function venueKey(venue: VenueSuggestion): string {
+  if (venue.id) return `id:${venue.id}`;
+  return `name:${venue.name.trim().toLowerCase()}|${(venue.locality ?? '').trim().toLowerCase()}`;
+}
+
+/**
+ * MapKit's ranking, deduped and capped — never re-sorted.
+ *
+ * Re-sorting would be the app second-guessing a relevance model it cannot see,
+ * and it would make the list jump as results refine. Stability is the whole
+ * requirement: the same query must produce the same rows in the same order, so
+ * a finger already moving toward row two lands on row two.
+ */
+export function dedupeVenues(venues: VenueSuggestion[], cap = VENUE_RESULT_CAP): VenueSuggestion[] {
+  const seen = new Set<string>();
+  const out: VenueSuggestion[] = [];
+
+  for (const venue of venues) {
+    if (out.length >= cap) break;
+    const name = venue.name.trim();
+    if (!name) continue;
+    const key = venueKey(venue);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(venue);
+  }
+
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// The adapter: suggestion → what the UI and the row actually speak
+// ---------------------------------------------------------------------------
+
+/**
+ * A suggestion as the place field's `resolved` selection.
+ *
+ * Structural rather than an import of `PlaceSelection`, so this file keeps its
+ * zero-import rule and the component keeps owning its own union. The shape is
+ * checked by the compiler at the call site, which is where a drift would
+ * matter.
+ */
+export function venueSelection(venue: VenueSuggestion): {
+  kind: 'resolved';
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+} {
+  return {
+    kind: 'resolved',
+    name: venue.name.trim(),
+    address: venue.locality ?? '',
+    latitude: venue.latitude,
+    longitude: venue.longitude,
+  };
+}
+
+/**
+ * A suggestion as the snapshot the event row stores.
+ *
+ * `meta` carries the coordinates and the MapKit identifier. NOTE: the shipping
+ * write path (`mutations.ts`, frozen for this packet) narrows `venueMeta` to
+ * `VenueCoords` and stamps `source: 'open-meteo'`, so only the two numbers
+ * reach the column today — the identifier stops at this seam. Widening the
+ * mutation is the integration owner's call, not this packet's.
+ */
+export function toVenueSnapshot(venue: VenueSuggestion): VenueSnapshot {
+  return {
+    name: venue.name.trim(),
+    address: venue.locality,
+    meta: {
+      latitude: venue.latitude,
+      longitude: venue.longitude,
+      mapkitId: venue.id,
+      category: venue.category,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The suggestion state machine
+// ---------------------------------------------------------------------------
+
+export type VenueQueryState = {
+  /** The trimmed live text. */
+  query: string;
+  /** The id of the newest request issued. Replies below it are stale. */
+  requestId: number;
+  /** True once a row has been tapped, false again on the next keystroke.
+   *  Without it the panel reopens under the answer the user just chose. */
+  settled: boolean;
+  status: 'idle' | 'searching' | 'ready' | 'failed';
+  venues: VenueSuggestion[];
+  failure: VenueSearchFailure | null;
+};
+
+export type VenueQueryEvent =
+  | { type: 'query'; text: string }
+  | { type: 'settled' }
+  | { type: 'result'; requestId: number; outcome: VenueSearchOutcome };
+
+export function venueQueryInitial(): VenueQueryState {
+  return { query: '', requestId: 0, settled: false, status: 'idle', venues: [], failure: null };
+}
+
+/** Whether the query is long enough and unsettled enough to be searched. */
+export function venueSearchable(state: VenueQueryState): boolean {
+  return !state.settled && state.query.length >= VENUE_MIN_QUERY;
+}
+
+/**
+ * The whole of the suggestion behaviour, as a reducer.
+ *
+ * Extracted from the component for one reason: latest-request-wins, dedupe,
+ * ordering and the always-present as-typed row are the parts most likely to be
+ * subtly wrong, and none of them need a renderer to check.
+ */
+export function venueQueryReduce(
+  state: VenueQueryState,
+  event: VenueQueryEvent,
+): VenueQueryState {
+  switch (event.type) {
+    case 'query': {
+      const query = event.text.trim();
+      if (query === state.query && !state.settled) return state;
+
+      // A new query invalidates every reply still in flight: the id moves, and
+      // `result` below drops anything that does not match it. Results are
+      // cleared with it rather than left on screen under a different word.
+      return {
+        query,
+        requestId: state.requestId + 1,
+        settled: false,
+        status: query.length >= VENUE_MIN_QUERY ? 'searching' : 'idle',
+        venues: [],
+        failure: null,
+      };
+    }
+
+    case 'settled':
+      // The panel closes; nothing else is thrown away, so re-editing the text
+      // starts a fresh search rather than resurrecting the old one.
+      return { ...state, settled: true, status: 'idle', venues: [], failure: null };
+
+    case 'result': {
+      // LATEST-REQUEST-WINS. Two overlapping searches routinely land out of
+      // order and the older one would otherwise overwrite the newer answer.
+      if (event.requestId !== state.requestId) return state;
+      if (state.settled) return state;
+
+      if (!event.outcome.ok) {
+        return { ...state, status: 'failed', venues: [], failure: event.outcome.failure };
+      }
+      return {
+        ...state,
+        status: 'ready',
+        venues: dedupeVenues(event.outcome.venues),
+        failure: null,
+      };
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// What the panel renders
+// ---------------------------------------------------------------------------
+
+export type VenueRow =
+  | { kind: 'venue'; venue: VenueSuggestion }
+  /** Always last, always present while the panel is open. */
+  | { kind: 'typed'; text: string };
+
+/** Whether the suggestion panel is on screen at all. */
+export function venuePanelOpen(state: VenueQueryState): boolean {
+  return venueSearchable(state);
+}
+
+/**
+ * The rows, in order.
+ *
+ * The as-typed row is appended unconditionally — not when the search fails,
+ * not when it is empty, ALWAYS — because manual entry is a first-class path
+ * and a field that offers it only after a geocoder has given up has made the
+ * geocoder the authority on whether a place exists.
+ */
+export function venueRows(state: VenueQueryState): VenueRow[] {
+  if (!venuePanelOpen(state)) return [];
+  const rows: VenueRow[] = state.venues.map((venue) => ({ kind: 'venue', venue }));
+  rows.push({ kind: 'typed', text: state.query });
+  return rows;
+}
+
+/**
+ * The one quiet line under the panel, or null.
+ *
+ * One line each, never two, and never a retry button: the next keystroke is
+ * the retry, and a button would ask the user to fix the network before
+ * finishing a form that does not need the network at all.
+ */
+export function venueStatusLine(state: VenueQueryState): string | null {
+  if (!venuePanelOpen(state)) return null;
+
+  switch (state.status) {
+    case 'searching':
+      return 'Looking nearby…';
+    case 'ready':
+      return state.venues.length === 0 ? 'No nearby matches — use what you typed.' : null;
+    case 'failed':
+      switch (state.failure) {
+        case 'offline':
+          return 'Offline — use what you typed.';
+        case 'throttled':
+          return 'Too many searches just now — use what you typed.';
+        case 'unavailable':
+          // The module is absent, so no venue affordance was ever offered and
+          // there is nothing to explain. Silence, not an apology.
+          return null;
+        default:
+          return 'Nearby search is unavailable — use what you typed.';
+      }
+    default:
+      return null;
+  }
+}
+
+/** The line shown when location was asked for and refused. One line, and the
+ *  search carries on without it. */
+export const VENUE_LOCATION_DENIED_LINE = 'Searching without your location.';
 
 /**
  * TODO(SOCIAL-CALENDAR): non-blocking. "Import from Calendar" (expo-calendar is
