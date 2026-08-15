@@ -132,7 +132,7 @@ export function NavRow({
  * inert text that looks equally tappable, and one VoiceOver stop that reads
  * the fact and then what pressing it does.
  */
-function FactRow({
+export function FactRow({
   label,
   value,
   secondary,

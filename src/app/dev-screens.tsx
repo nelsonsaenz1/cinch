@@ -271,6 +271,10 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['diary', '/dev-diary'],
       ['empty closet', '/dev-empty-closet'],
       ['event detail', '/dev-event-detail'],
+      // Launch polish, integration owner. `dev-event-detail` above still draws
+      // the pre-LP-04 composition (it is the E-01…E-10 atlas and remains a
+      // true picture of that); this one is the reordered fold.
+      ['event detail · LP-04 fold', '/dev-lp04-detail'],
       ['friend closet', '/dev-friend-closet'],
       ['friends', '/dev-friends'],
       ['gap feed', '/dev-gap-feed'],

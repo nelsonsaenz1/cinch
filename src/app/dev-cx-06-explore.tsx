@@ -33,8 +33,11 @@ export default function DevCx06Explore() {
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="px-gutter pt-2">
+        {/* `Explore`, not `Lately` — LP-06's accepted copy table renamed this
+            surface, and a fixture that documents a heading the screen no
+            longer prints is worse than no fixture: it reads as evidence. */}
         <Text variant="display" trim accessibilityRole="header">
-          Lately
+          Explore
         </Text>
         <View style={{ marginTop: EXPLORE_SEARCH_GAP }}>
           <SearchField
