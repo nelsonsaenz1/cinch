@@ -40,6 +40,7 @@ import { socialDenialCopy, useCreateEvent } from '@/features/events/mutations';
 import {
   emptyResolvedVenueMeta,
   resolvedVenueMetaFor,
+  venueMetaForColumn,
   type ResolvedVenueMeta,
 } from '@/features/events/venue-search';
 import { useTheme } from '@/theme/tokens';
@@ -341,10 +342,12 @@ export default function NewOccasionScreen() {
         note: note.trim() || null,
         venueName: placeText.trim() || null,
         venueAddress: venueMeta.address,
-        // `mutations.ts` narrows this to the coordinate pair; the rest of the
-        // resolved record stops at this boundary by the integration owner's
-        // decision, and is held here only so a keystroke can clear it.
-        venueMeta: venueMeta.coords,
+        // The coordinate pair, plus the two optional MapKit breadcrumbs the
+        // jsonb bag can hold and the venue COLUMNS cannot — category and the
+        // stable place identifier. `venueMetaForColumn` decides which of the
+        // resolved record survives the boundary; the URL deliberately does
+        // not, and a typed venue sends null.
+        venueMeta: venueMetaForColumn(venueMeta),
       },
       {
         // Replace, and nothing else. The form dismisses and the detail page is
@@ -523,7 +526,12 @@ export default function NewOccasionScreen() {
           className="border-t border-hairline bg-canvas px-gutter pt-5"
           style={{ paddingBottom: Math.max(insets.bottom, 20) }}>
           <Button
-            title="Create occasion"
+            // `Create event`, not `Create occasion`. The screen is titled
+            // `New event` and the tab that opens it says events; the button is
+            // the last word the reader sees before committing and it says the
+            // same noun the rest of the flow does. "Occasion" survives in the
+            // data layer's own vocabulary, which nobody reads.
+            title="Create event"
             variant="ink"
             disabledTone="filled"
             haptic

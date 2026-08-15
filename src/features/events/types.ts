@@ -45,11 +45,26 @@ export type VenueCoordSource = 'open-meteo' | 'mapkit';
  * `source` is optional because it is write-only provenance: `parseVenueMeta`
  * deliberately drops it on the way back in, so nothing that READS an occasion
  * has to care, and no existing caller had to change to keep compiling.
+ *
+ * `category` and `placeId` are the two things a MapKit pick knows that the
+ * three venue columns cannot hold, and they ride in the SAME jsonb bag rather
+ * than in columns of their own — no migration, and the shape is additive, so
+ * every row written before them still parses. Both are optional in the exact
+ * sense that matters: a typed venue has neither, a gazetteer pick has neither,
+ * and nothing in the app requires either to render an occasion. They are a
+ * breadcrumb, not a key — nothing joins on `placeId` and nothing branches on
+ * `category`. Neither is ever put in an analytics payload, and there is no
+ * venue URL here at all: the native record has no such field and LP-05 names
+ * the URL as something to CLEAR, not something to keep.
  */
 export interface VenueCoords {
   latitude: number;
   longitude: number;
   source?: VenueCoordSource;
+  /** `MKPointOfInterestCategory` raw value, e.g. `MKPOICategoryRestaurant`. */
+  category?: string;
+  /** `MKMapItem.identifier`, where the OS has one (iOS 18+). */
+  placeId?: string;
 }
 
 /**
@@ -62,14 +77,78 @@ export interface VenueCoords {
  * fetched for `NaN, NaN`: the weather module's rule is that weather is
  * printed or dropped, never estimated, and that rule starts here. Anything
  * missing, non-numeric, non-finite or out of range is not a coordinate.
+ *
+ * THE COORDINATE IS STILL THE GATE. `category` and `placeId` are read back
+ * only once the pair has validated, and each key is OMITTED rather than set to
+ * null when it is absent or not a non-empty string. Omission is what keeps the
+ * round trip honest: a screen that reads an occasion and writes it back must
+ * not turn "this row never had a category" into "this row has a null one", and
+ * it must not have to know the difference. It also keeps the return value
+ * exactly `{latitude, longitude}` for every row written before these keys
+ * existed, which is every row a gazetteer pick still writes today.
  */
 export function parseVenueMeta(raw: unknown): VenueCoords | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const { latitude, longitude } = raw as { latitude?: unknown; longitude?: unknown };
+  const { latitude, longitude, category, placeId } = raw as {
+    latitude?: unknown;
+    longitude?: unknown;
+    category?: unknown;
+    placeId?: unknown;
+  };
   if (typeof latitude !== 'number' || !Number.isFinite(latitude)) return null;
   if (typeof longitude !== 'number' || !Number.isFinite(longitude)) return null;
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
-  return { latitude, longitude };
+
+  const coords: VenueCoords = { latitude, longitude };
+  if (typeof category === 'string' && category.trim()) coords.category = category.trim();
+  if (typeof placeId === 'string' && placeId.trim()) coords.placeId = placeId.trim();
+  return coords;
+}
+
+/**
+ * Coordinates → the `venue_meta` blob, with the resolver stamped on.
+ *
+ * The write half of `parseVenueMeta`, and it lives beside it for two reasons:
+ * the round trip is one fact and reads better in one file, and this file
+ * imports nothing at runtime — so the serializer is CALLABLE from a test,
+ * where it previously sat private inside the mutation module behind a
+ * React-Query and Supabase import and could only be pinned by reading its
+ * source as text.
+ *
+ * The vendor name used to be a LITERAL here, on the reasoning that the data
+ * layer is what knows where coordinates came from. That reasoning expired the
+ * moment a second resolver existed: MKLocalSearch now writes this same shape
+ * (features/events/venue-search.ts), so a hard-coded `open-meteo` stopped
+ * describing the row and started misdescribing it. Provenance the writer
+ * cannot state is provenance the column cannot keep.
+ *
+ * So the source rides on the coordinate itself and is written through. The
+ * fallback stays `open-meteo` because that is the only resolver that predates
+ * this field — an unstamped pair is, by construction, a gazetteer pair from
+ * before MapKit shipped. This is serialization only: the column is jsonb and
+ * `parseVenueMeta` drops the key on the way back in.
+ *
+ * TWO MORE OPTIONAL KEYS RIDE ALONG. A MapKit pick knows its point-of-interest
+ * category and, on iOS 18 and up, a stable `MKMapItem.identifier`; the three
+ * venue COLUMNS can hold neither, and adding columns for them would be a
+ * migration this packet is not authorized to write. The jsonb bag already
+ * exists and already takes an arbitrary object, so they go there.
+ *
+ * WRITTEN ONLY WHEN PRESENT. A key that is absent stays absent rather than
+ * being written as null: a gazetteer pair produces byte-for-byte the row it
+ * always did, so nothing about the pre-MapKit path changes, and no reader has
+ * to distinguish "no category" from "a null category". Nothing else joins the
+ * bag — there is no venue URL, because the native record has no such field.
+ */
+export function venueMetaJson(coords: VenueCoords | null): Record<string, unknown> | null {
+  if (!coords) return null;
+  return {
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+    source: coords.source ?? 'open-meteo',
+    ...(coords.category ? { category: coords.category } : null),
+    ...(coords.placeId ? { placeId: coords.placeId } : null),
+  };
 }
 
 /** One person on an event's roster, identity hydrated from `social_profiles`. */

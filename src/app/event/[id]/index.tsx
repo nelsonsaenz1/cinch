@@ -47,7 +47,7 @@ import {
 import { useOccasionWeather } from '@/features/events/occasion-weather';
 import { useEvent, useEventMembers } from '@/features/events/queries';
 import { useEventChannel } from '@/features/events/use-event-channel';
-import { reservationLabel } from '@/features/events/venue-search';
+import { reservationLabel, venueWriteFor } from '@/features/events/venue-search';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /** Open-Meteo's free forecast horizon; past it the metadata simply omits weather. */
@@ -930,21 +930,13 @@ export default function EventDetailScreen() {
         onDone={(selection) => {
           setPlaceSheet(false);
           if (!selection) return;
+          // Through the same adapter the form writes through. Filling this in
+          // after the fact must produce the row it would have produced at
+          // creation — resolver, category and identifier included — and the
+          // way to guarantee that is to have one function decide, not two
+          // call sites that agree today.
           update.mutate(
-            {
-              eventId: event.id,
-              patch:
-                selection.kind === 'resolved'
-                  ? {
-                      venueName: selection.name,
-                      venueAddress: selection.address,
-                      venueMeta: {
-                        latitude: selection.latitude,
-                        longitude: selection.longitude,
-                      },
-                    }
-                  : { venueName: selection.name, venueAddress: null, venueMeta: null },
-            },
+            { eventId: event.id, patch: venueWriteFor(selection) },
             { onError: writeFailed('That place didn’t save') },
           );
         }}

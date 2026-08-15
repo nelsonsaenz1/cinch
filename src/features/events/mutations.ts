@@ -5,6 +5,11 @@ import { useGate } from '@/features/billing/use-gate';
 import { getUserId } from '@/lib/supabase';
 
 import { socialFrom } from './queries';
+// The `venue_meta` serializer lives beside `parseVenueMeta` in `types.ts`, so
+// the write and the read of that jsonb bag are one fact in one file — and so
+// the write is reachable from a unit test without bundling this module's
+// React-Query and Supabase imports.
+import { venueMetaJson } from './types';
 import type { EventMemberState, EventVisibility, VenueCoords } from './types';
 
 /**
@@ -107,32 +112,6 @@ function capped(value: string, max: number): string {
 function cappedOrNull(value: string | null | undefined, max: number): string | null {
   const trimmed = value?.trim() ?? '';
   return trimmed ? trimmed.slice(0, max) : null;
-}
-
-/**
- * Coordinates → the `venue_meta` blob, with the resolver stamped on.
- *
- * The vendor name used to be a LITERAL here, on the reasoning that the data
- * layer is what knows where coordinates came from. That reasoning expired the
- * moment a second resolver existed: MKLocalSearch now writes this same shape
- * (features/events/venue-search.ts), so a hard-coded `open-meteo` stopped
- * describing the row and started misdescribing it. Provenance the writer
- * cannot state is provenance the column cannot keep.
- *
- * So the source rides on the coordinate itself and is written through. The
- * fallback stays `open-meteo` because that is the only resolver that predates
- * this field — an unstamped pair is, by construction, a gazetteer pair from
- * before MapKit shipped. This is serialization only: the column is jsonb, the
- * shape is unchanged, and `parseVenueMeta` drops the key on the way back in.
- */
-function venueMetaJson(coords: VenueCoords | null): Record<string, unknown> | null {
-  return coords
-    ? {
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-        source: coords.source ?? 'open-meteo',
-      }
-    : null;
 }
 
 // ---------------------------------------------------------------------------

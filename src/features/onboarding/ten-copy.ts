@@ -67,6 +67,34 @@ export function cameraSlotTitle(slotId: number): string {
   return `Slot ${slotId} · add a piece`;
 }
 
+/**
+ * What VoiceOver says on a FILLED tile.
+ *
+ * THE NAME COMES BACK, AND THE POSITION STAYS. The tile spoke the garment's
+ * name alone once, which read as a caption on a picture and left the sheet
+ * behind it undiscoverable; then it spoke the position alone, which made all
+ * ten photographs interchangeable to anyone who could not see them. Neither is
+ * the whole label. The accepted correction is both, in this order: the piece
+ * first, because that is what the reader is looking for, then `piece N of 10`
+ * so they know where in the grid they are, then what the tile is FOR.
+ *
+ * THE FALLBACK IS THE POSITION ALONE — not "Untitled", not "this piece", and
+ * never a guess. A tile is nameless for a real and ordinary reason: the
+ * classifier has not finished reading the photograph yet. `Piece 3 of 10` is
+ * true from the first frame, and it is the same sentence with its first clause
+ * missing rather than a different one.
+ *
+ * Ten is never typed. `total` is the grid's own length, passed down from the
+ * slot list, so a grid of a different size cannot make this sentence lie.
+ */
+export function filledTileLabel(slotId: number, total: number, name: string | null): string {
+  const position = `piece ${slotId} of ${total}`;
+  const named = name?.trim();
+  return named
+    ? `${named}, ${position}, double-tap for actions.`
+    : `${cap(position)}, double-tap for actions.`;
+}
+
 // ---------------------------------------------------------------------------
 // The adaptive card
 // ---------------------------------------------------------------------------

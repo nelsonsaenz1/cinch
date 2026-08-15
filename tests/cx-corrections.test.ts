@@ -446,7 +446,9 @@ const PLAN = 'src/app/(tabs)/plan.tsx';
 const EVENT_DETAIL = 'src/app/event/[id]/index.tsx';
 
 const ACCEPTED: Record<string, [path: string, headline: string, support: string]> = {
-  Today: [TODAY, 'Today', 'What’s next for you.'],
+  // Today is absent here on purpose: its headline is the GREETING, which is
+  // computed rather than typed, so it cannot be matched as a literal between
+  // two tags. Its own two tests are below.
   Plan: [PLAN, 'Plan', 'Your upcoming events.'],
   Explore: [EXPLORE, 'Explore', 'Looks and ideas to try.'],
 };
@@ -470,27 +472,55 @@ test('LP-06 — the accepted support lines use the typographic apostrophe', () =
   assert.doesNotMatch(body(TODAY), /What's next for you\./);
 });
 
-test('LP-06 — Today prints the page, not the hour', () => {
+test('LP-06 — Today greets the hour and the reader, over the accepted line', () => {
   const src = body(TODAY);
-  // The greeting the accepted headline replaced, and every part of it: the
-  // helper, its three salutations, and the two type steps it needed.
-  for (const gone of ['greetingForNow', 'Good morning', 'Good afternoon', 'Good evening']) {
-    assert.ok(!src.includes(gone), `the greeting survives in Today (${gone})`);
+
+  // The greeting is DYNAMIC — all three salutations, chosen by the clock, and
+  // the account's own name appended only when there is one to append.
+  for (const part of ['Good morning', 'Good afternoon', 'Good evening']) {
+    assert.ok(src.includes(part), `the greeting cannot say "${part}"`);
   }
-  for (const gone of ['WIDE_DEVICE', 'greetingWide']) {
-    assert.ok(!src.includes(gone), `the greeting's width switch survives (${gone})`);
-  }
-  // Full and reduced mastheads now say the same word at the same variant.
-  assert.equal((src.match(/variant="display" trim accessibilityRole="header">\s*Today/g) ?? []).length, 2);
+  assert.match(
+    src,
+    /return name \? `\$\{greeting\}, \$\{name\}` : greeting;/,
+    'the name is not appended to the greeting',
+  );
+  // Never invented: no name on the account is a greeting without one.
+  assert.match(src, /greetingForNow\(name, now\)/, 'the masthead does not print the greeting');
+
+  // And the accepted support line is unchanged beneath it.
+  assert.ok(src.includes('What’s next for you.'));
 });
 
-test('LP-06 — Today keeps its headline at accessibility sizes', () => {
-  // TM-03 shed the greeting at AX3 because a name at 30pt is unbounded. The
-  // five-character headline that replaced it must not be shed with it, or the
-  // screen loses its H1 — but `ax3` must still govern the calendar chip.
+test('LP-06 — the greeting reflows at accessibility sizes rather than clipping', () => {
   const src = body(TODAY);
+
+  // NO TRIPWIRE. `numberOfLines={1}` on the greeting clipped a long name at
+  // exactly the sizes where clipping is least forgivable.
+  assert.doesNotMatch(src, /numberOfLines=\{1\}[\s\S]{0,120}greetingForNow/);
+  assert.doesNotMatch(src, /greetingForNow[\s\S]{0,200}numberOfLines=\{1\}/);
+
+  // AND IT IS NEVER SHED. `ax3` may drop the calendar chip — that is what
+  // TM-03 was protecting — but it must not drop the page's H1 with it.
   assert.doesNotMatch(src, /ax3 \? null : \(\s*<View style=\{\{ marginTop: 12 \}\}>/);
   assert.match(src, /ax3 \? null : \(/, 'ax3 no longer drops the calendar chip');
+
+  // The cap trim is single-line geometry: a negative margin sized for one line
+  // eats into a second, so it comes off at the sizes that can wrap.
+  assert.match(src, /trim=\{!ax\}/, 'the greeting keeps its cap trim when it may wrap');
+
+  // Two type steps, one per device class — the greeting must not scale with
+  // the width, or the two supported iPhones read as different screens.
+  assert.match(src, /width >= WIDE_DEVICE \? 'greetingWide' : 'greeting'/);
+});
+
+test('LP-06 — the New Event button creates an event, not an occasion', () => {
+  // The screen is titled `New event` and the tab that opens it says events.
+  // The primary button is the last word before committing and it must say the
+  // same noun. "Occasion" is data-layer vocabulary; nobody reads it.
+  const src = body('src/app/event/new.tsx');
+  assert.match(src, /title="Create event"/, 'the primary CTA does not say "Create event"');
+  assert.doesNotMatch(src, /title="Create occasion"/);
 });
 
 test('LP-06 — event detail is a title and a hierarchy, not a status paragraph', () => {

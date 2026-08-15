@@ -27,6 +27,7 @@ import {
   venueQueryInitial,
   venueQueryReduce,
   venueRows,
+  venueMetaForColumn,
   venueSearchAvailable,
   venueSelection,
   venueStatusLine,
@@ -277,6 +278,10 @@ test('a chosen suggestion becomes a resolved selection with its coordinates', ()
     address: 'Denver, CO',
     latitude: 39.74,
     longitude: -104.99,
+    // MKLocalSearch answered, and the selection says so. Two resolvers write
+    // this one shape, so the row that names neither is the row the column
+    // ends up guessing at.
+    source: 'mapkit',
     category: 'MKPOICategoryRestaurant',
     // MapKit's local module surfaces no URL; the slot is carried so LP-05's
     // clearing rule has all five fields to clear.
@@ -297,7 +302,9 @@ test('a resolved pick fills every one of the five resolved fields', () => {
   const meta = resolvedVenueMetaFor(venueSelection(venue({ id: 'mapkit-1' })));
 
   assert.equal(meta.address, 'Denver, CO');
-  assert.deepEqual(meta.coords, { latitude: 39.74, longitude: -104.99 });
+  // The pair carries the resolver that found it. MKLocalSearch answered, so
+  // the pick is MapKit's — and says so, rather than leaving the column to guess.
+  assert.deepEqual(meta.coords, { latitude: 39.74, longitude: -104.99, source: 'mapkit' });
   assert.equal(meta.category, 'MKPOICategoryRestaurant');
   assert.equal(meta.url, null);
   assert.equal(meta.placeId, 'mapkit-1');
@@ -334,10 +341,58 @@ test('the stored snapshot keeps the venue-snapshot shape, coordinates included',
   const snapshot = toVenueSnapshot(venue({ id: 'mapkit-1' }));
   assert.equal(snapshot.name, 'The Stanley');
   assert.equal(snapshot.address, 'Denver, CO');
+  // `placeId`, the same key the column holds. Two spellings of one identifier
+  // in one jsonb bag is a reader checking both forever.
   assert.deepEqual(snapshot.meta, {
     latitude: 39.74,
     longitude: -104.99,
-    mapkitId: 'mapkit-1',
+    placeId: 'mapkit-1',
     category: 'MKPOICategoryRestaurant',
   });
+});
+
+test('the column blob keeps the coordinate, the resolver, the category and the identifier', () => {
+  const resolved = resolvedVenueMetaFor({
+    kind: 'resolved',
+    address: 'Denver, CO',
+    latitude: 39.74,
+    longitude: -104.99,
+    source: 'mapkit',
+    category: 'MKPOICategoryRestaurant',
+    url: 'https://example.com',
+    placeId: 'I1234ABCD',
+  });
+
+  const blob = venueMetaForColumn(resolved);
+  assert.deepEqual(blob, {
+    latitude: 39.74,
+    longitude: -104.99,
+    source: 'mapkit',
+    category: 'MKPOICategoryRestaurant',
+    placeId: 'I1234ABCD',
+  });
+  // The address is its own column, and the URL is not stored anywhere.
+  assert.equal('address' in (blob as object), false);
+  assert.equal('url' in (blob as object), false);
+});
+
+test('a typed venue writes no blob at all', () => {
+  // Manual entry stays first-class: no coordinates, therefore no `venue_meta`,
+  // and nothing left behind from a pick the user typed over.
+  assert.equal(venueMetaForColumn(resolvedVenueMetaFor({ kind: 'typed' })), null);
+  assert.equal(venueMetaForColumn(emptyResolvedVenueMeta()), null);
+});
+
+test('a coordinate with no breadcrumbs and no resolver omits all three keys', () => {
+  // A draft written before the resolver was recorded, restored on a pre-MapKit
+  // binary — byte-for-byte the object that path always wrote, so nothing about
+  // it changed and the serializer's `open-meteo` fallback still applies.
+  const blob = venueMetaForColumn({
+    address: 'Denver, CO',
+    coords: { latitude: 39.74, longitude: -104.99 },
+    category: null,
+    url: null,
+    placeId: null,
+  });
+  assert.deepEqual(blob, { latitude: 39.74, longitude: -104.99 });
 });

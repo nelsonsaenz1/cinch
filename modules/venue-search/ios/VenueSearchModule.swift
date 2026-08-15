@@ -156,11 +156,18 @@ public final class VenueSearchModule: Module {
    line already says it without implying anything broke.
    */
   private static func failure(from error: NSError) -> [String: Any?] {
-    if error.domain == MKErrorDomain {
-      switch error.code {
-      case MKError.placemarkNotFound.rawValue, MKError.directionsNotFound.rawValue:
+    // `MKErrorCode` is an `NS_ENUM(NSUInteger, …)`, so its Swift raw values are
+    // `UInt` while `NSError.code` is `Int` — the two cannot be switched against
+    // each other. Rebuilding the typed case from the raw code compares like
+    // with like: an unrecognised value simply fails the init and falls through
+    // to the checks below, which is exactly where `default` sent it before.
+    if error.domain == MKErrorDomain,
+      let code = MKError.Code(rawValue: UInt(bitPattern: error.code))
+    {
+      switch code {
+      case .placemarkNotFound, .directionsNotFound:
         return envelope(venues: [])
-      case MKError.loadingThrottled.rawValue:
+      case .loadingThrottled:
         return ["ok": false, "venues": [[String: Any?]](), "reason": "throttled"]
       default:
         break

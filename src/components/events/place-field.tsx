@@ -22,6 +22,7 @@ import {
   venueSearchable,
   venueSelection,
   venueStatusLine,
+  type VenuePlaceSelection,
   type VenueQueryEvent,
   type VenueQueryState,
   VENUE_DEBOUNCE_MS,
@@ -50,30 +51,12 @@ setVenueSearchProvider(
 /**
  * What the user settled on for Where (N-06).
  *
- * Two kinds, and the difference is the whole design. A `resolved` pick came
- * back from a search and carries coordinates, so the occasion earns a
- * forecast. A `typed` one is whatever the user wrote, kept verbatim, and
- * simply does not — "a friend's flat has no listing, and an event should not
- * be blocked on a geocoder agreeing it exists."
+ * The shape itself lives in `venue-search.ts` beside the adapters that turn it
+ * into a write — one definition for the two screens that act on it. This name
+ * stays because it is the field's vocabulary and every call site already reads
+ * in it.
  */
-export type PlaceSelection =
-  | {
-      kind: 'resolved';
-      /** Writes `venue_name`. */
-      name: string;
-      /** The locality line — writes `venue_address`. */
-      address: string;
-      latitude: number;
-      longitude: number;
-      /** `MKPointOfInterestCategory` raw value, where the provider has one. */
-      category: string | null;
-      /** The venue's own URL. No provider here surfaces one; the slot exists
-       *  because LP-05 requires it be cleared with the rest. */
-      url: string | null;
-      /** The provider's place identifier — `MKMapItem.identifier` on MapKit. */
-      placeId: string | null;
-    }
-  | { kind: 'typed'; name: string };
+export type PlaceSelection = VenuePlaceSelection;
 
 export type PlaceFieldProps = {
   /** The text in the field. The parent owns it; see `onChangeText` below. */
@@ -437,6 +420,9 @@ function GazetteerPanel({
                   address: regionOf(place),
                   latitude: place.latitude,
                   longitude: place.longitude,
+                  // Open-Meteo's gazetteer, named as such: this panel is the
+                  // one path that is NOT MapKit, and the column records which.
+                  source: 'open-meteo',
                   // The gazetteer resolves cities and landmarks; it has no
                   // category, no URL and no identifier the app may keep.
                   category: null,

@@ -16,6 +16,7 @@ import { PLANS } from '../src/features/billing/plans';
 import {
   TEN_SUPPORT,
   TEN_TITLE,
+  filledTileLabel,
   repairCopy,
   replaceFailureLine,
   replaceSheetCopy,
@@ -256,7 +257,31 @@ test('LP-02 · "try again in a moment" is never said to an account that is full'
   assert.ok(PLANS.free.storedItems > PLANS.free.items);
 });
 
-test('LP-02 · a filled tile announces the accepted atlas sentence', () => {
+test('LP-02 · a filled tile names the piece, then its position', () => {
+  // The accepted correction: the garment's name FIRST, because that is what a
+  // VoiceOver reader is looking for, then `piece N of 10` so they know where
+  // in the grid they are, then what the tile is for.
+  assert.equal(filledTileLabel(3, 10, 'Knit'), 'Knit, piece 3 of 10, double-tap for actions.');
+
+  // Ten is never typed — the total is the grid's own length, so a grid of a
+  // different size cannot make the sentence lie.
+  assert.equal(filledTileLabel(2, 6, 'Coat'), 'Coat, piece 2 of 6, double-tap for actions.');
+});
+
+test('LP-02 · an unnamed piece falls back to its position alone', () => {
+  // A tile is nameless for an ordinary reason — the classifier has not
+  // finished reading the photograph. The position is true from the first
+  // frame, and the fallback is the same sentence with its first clause
+  // missing rather than an invented name.
+  assert.equal(filledTileLabel(3, 10, null), 'Piece 3 of 10, double-tap for actions.');
+  // Whitespace is not a name.
+  assert.equal(filledTileLabel(3, 10, '   '), 'Piece 3 of 10, double-tap for actions.');
+  for (const empty of [null, '', '  ']) {
+    assert.doesNotMatch(filledTileLabel(3, 10, empty), /undefined|null|Untitled/);
+  }
+});
+
+test('LP-02 · the tile speaks that label and nothing of its own', () => {
   // Source rather than rendered: `ten-tile.tsx` imports React Native and
   // expo-image, and the test bundler cannot parse React Native's Flow source.
   // Comments are stripped first — a sentence quoted in prose is not a sentence
@@ -265,15 +290,14 @@ test('LP-02 · a filled tile announces the accepted atlas sentence', () => {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/[^\n]*/g, '');
 
-  // `Look N of 10, double-tap for actions.` — the exact wording, with the ten
-  // read off the grid's own length rather than typed.
-  assert.match(tile, /`Look \$\{slot\.id\} of \$\{total\}, double-tap for actions\.`/);
+  // One wording, owned by the copy module above, reached through the garment
+  // name the grid passes down. A literal here would be a second wording.
+  assert.match(tile, /accessibilityLabel=\{[\s\S]*?filledTileLabel\(slot\.id, total, garment\)/);
+  assert.doesNotMatch(tile, /Look \$\{slot\.id\} of/);
 
-  // The garment's name was the old label and must not be spoken here any more;
-  // it survives as the replace sheet's title, which `replaceSheetCopy` owns.
-  assert.doesNotMatch(tile, /accessibilityLabel=\{[\s\S]*?garmentName/);
-  assert.doesNotMatch(tile, /filed`/);
+  // The name is SPOKEN, never printed: a filled tile still draws no caption.
+  assert.doesNotMatch(tile, /\{garmentName\}/);
 
-  // The empty tile's label is untouched by the atlas and stays as it was.
+  // The empty tile's label is untouched by the correction and stays as it was.
   assert.match(tile, /Slot \$\{slot\.id\}, empty/);
 });

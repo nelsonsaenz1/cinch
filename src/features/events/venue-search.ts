@@ -191,6 +191,7 @@ export function venueSelection(venue: VenueSuggestion): {
   address: string;
   latitude: number;
   longitude: number;
+  source: 'mapkit';
   category: string | null;
   url: string | null;
   placeId: string | null;
@@ -201,6 +202,11 @@ export function venueSelection(venue: VenueSuggestion): {
     address: venue.locality ?? '',
     latitude: venue.latitude,
     longitude: venue.longitude,
+    // MKLocalSearch answered, so MapKit is what the coordinate came from. It is
+    // stated HERE, at the only place that knows it, rather than inferred later:
+    // the gazetteer writes the same shape through the same helpers, and a
+    // resolver that does not name itself is a row the column has to guess at.
+    source: 'mapkit',
     category: venue.category,
     // MapKit's local module answers with no URL — the native record
     // (`VenueSearch.types.ts`) has no such field and widening it would change
@@ -230,7 +236,15 @@ export function venueSelection(venue: VenueSuggestion): {
 export type ResolvedVenueMeta = {
   /** The locality line — writes `venue_address`. */
   address: string | null;
-  coords: { latitude: number; longitude: number } | null;
+  /**
+   * The pair, and which resolver produced it.
+   *
+   * `source` is OPTIONAL for one reason: a draft written before it existed
+   * restores a pair with no resolver named, and the serializer's documented
+   * fallback (`open-meteo`, the only resolver that predates the field) is the
+   * right answer for exactly those blobs. Every live selection states it.
+   */
+  coords: { latitude: number; longitude: number; source?: 'mapkit' | 'open-meteo' } | null;
   /** `MKPointOfInterestCategory` raw value. */
   category: string | null;
   /** The venue's own URL. Always null from this provider; see `venueSelection`. */
@@ -238,6 +252,44 @@ export type ResolvedVenueMeta = {
   /** `MKMapItem.identifier`, where the OS has one. */
   placeId: string | null;
 };
+
+/**
+ * What the user settled on for Where (N-06) — the field's answer, in one place.
+ *
+ * Two kinds, and the difference is the whole design. A `resolved` pick came
+ * back from a search and carries coordinates, so the occasion earns a
+ * forecast. A `typed` one is whatever the user wrote, kept verbatim, and
+ * simply does not — "a friend's flat has no listing, and an event should not
+ * be blocked on a geocoder agreeing it exists."
+ *
+ * It lives HERE rather than in the component that renders the field, because
+ * two screens now act on it — the form and the detail page's repair sheet —
+ * and both reach it through this file's adapters. One definition is what stops
+ * a second screen from reading four of the six resolved fields and calling
+ * that a write.
+ */
+export type VenuePlaceSelection =
+  | {
+      kind: 'resolved';
+      /** Writes `venue_name`. */
+      name: string;
+      /** The locality line — writes `venue_address`. */
+      address: string;
+      latitude: number;
+      longitude: number;
+      /** Which resolver produced the pair. Required, and stated by the panel
+       *  that produced it: two providers write this one shape, so the row's
+       *  provenance cannot be inferred downstream. */
+      source: 'mapkit' | 'open-meteo';
+      /** `MKPointOfInterestCategory` raw value, where the provider has one. */
+      category: string | null;
+      /** The venue's own URL. No provider here surfaces one; the slot exists
+       *  because LP-05 requires it be cleared with the rest. */
+      url: string | null;
+      /** The provider's place identifier — `MKMapItem.identifier` on MapKit. */
+      placeId: string | null;
+    }
+  | { kind: 'typed'; name: string };
 
 /** No resolved venue: the state a keystroke returns the form to. */
 export function emptyResolvedVenueMeta(): ResolvedVenueMeta {
@@ -270,6 +322,7 @@ export function resolvedVenueMetaFor(
         address: string;
         latitude: number;
         longitude: number;
+        source: 'mapkit' | 'open-meteo';
         category: string | null;
         url: string | null;
         placeId: string | null;
@@ -279,7 +332,11 @@ export function resolvedVenueMetaFor(
   if (selection.kind !== 'resolved') return emptyResolvedVenueMeta();
   return {
     address: selection.address,
-    coords: { latitude: selection.latitude, longitude: selection.longitude },
+    coords: {
+      latitude: selection.latitude,
+      longitude: selection.longitude,
+      source: selection.source,
+    },
     category: selection.category,
     url: selection.url,
     placeId: selection.placeId,
@@ -287,13 +344,83 @@ export function resolvedVenueMetaFor(
 }
 
 /**
+ * The resolved record as the blob `venue_meta` stores.
+ *
+ * The form holds five resolved fields (`ResolvedVenueMeta`); the column takes
+ * three of them. The address is its own column, and the URL is not stored at
+ * all — no provider here surfaces one, and LP-05 names it as something to
+ * CLEAR rather than to keep. What is left is the coordinate pair, the
+ * point-of-interest category and the stable place identifier.
+ *
+ * THE RESOLVER RIDES ALONG, unchanged, from the selection that made this pair.
+ * `venueMetaJson` in features/events/mutations.ts writes whatever `source` it
+ * is handed and falls back to `open-meteo` for a pair that names none — so a
+ * helper that dropped the key would file every MapKit pick this field now
+ * produces under the gazetteer's name. Provenance is carried, never re-derived:
+ * a MapKit result with no category and no identifier (an address, or iOS 17) is
+ * indistinguishable from a gazetteer pick by shape alone.
+ *
+ * KEYS ARE OMITTED, NOT NULLED, when there is nothing to say — a gazetteer
+ * pick produces exactly the two-number object it always did. Structural rather
+ * than an import of `VenueCoords`, so this file keeps its zero-import rule;
+ * the compiler checks the shape at the call site, which is where a drift would
+ * matter.
+ */
+export function venueMetaForColumn(meta: ResolvedVenueMeta): {
+  latitude: number;
+  longitude: number;
+  source?: 'mapkit' | 'open-meteo';
+  category?: string;
+  placeId?: string;
+} | null {
+  if (!meta.coords) return null;
+  return {
+    latitude: meta.coords.latitude,
+    longitude: meta.coords.longitude,
+    ...(meta.coords.source ? { source: meta.coords.source } : null),
+    ...(meta.category ? { category: meta.category } : null),
+    ...(meta.placeId ? { placeId: meta.placeId } : null),
+  };
+}
+
+/**
+ * A selection as the three venue fields a write sets, together.
+ *
+ * The repair path (`PlaceSheet` on the detail page, N-10's "Add a place")
+ * writes a selection DIRECTLY, with no form state in between — so it is the
+ * one caller that could reach past `venueMetaForColumn` and hand the column a
+ * hand-built object. It did, and the object had two of the five keys: the
+ * coordinate survived and the resolver, the category and the identifier did
+ * not, which meant a MapKit venue repaired after the fact was filed under
+ * `open-meteo` while the same venue picked during creation was filed
+ * correctly. One helper, so the two paths cannot disagree again.
+ *
+ * ALL THREE FIELDS, ALWAYS. Coordinates travel with the name they were
+ * resolved for — a patch that sets one and not the other is how a venue ends
+ * up carrying the last place's weather — and a typed answer clears the two it
+ * cannot fill rather than leaving them behind. The URL is not among them: it
+ * is not a column, and LP-05 names it as something to clear.
+ */
+export function venueWriteFor(selection: VenuePlaceSelection): {
+  venueName: string;
+  venueAddress: string | null;
+  venueMeta: ReturnType<typeof venueMetaForColumn>;
+} {
+  const meta = resolvedVenueMetaFor(selection);
+  return {
+    venueName: selection.name,
+    venueAddress: meta.address,
+    venueMeta: venueMetaForColumn(meta),
+  };
+}
+
+/**
  * A suggestion as the snapshot the event row stores.
  *
- * `meta` carries the coordinates and the MapKit identifier. NOTE: the shipping
- * write path (`mutations.ts`, frozen for this packet) narrows `venueMeta` to
- * `VenueCoords` and stamps `source: 'open-meteo'`, so only the two numbers
- * reach the column today — the identifier stops at this seam. Widening the
- * mutation is the integration owner's call, not this packet's.
+ * `meta` uses the SAME key names the column now holds — `placeId`, not a
+ * second spelling of it. This helper predates the write path and had invented
+ * `mapkitId`; two names for one identifier in one jsonb bag is a reader
+ * checking both forever, so it is the column's vocabulary that wins.
  */
 export function toVenueSnapshot(venue: VenueSuggestion): VenueSnapshot {
   return {
@@ -302,7 +429,7 @@ export function toVenueSnapshot(venue: VenueSuggestion): VenueSnapshot {
     meta: {
       latitude: venue.latitude,
       longitude: venue.longitude,
-      mapkitId: venue.id,
+      placeId: venue.id,
       category: venue.category,
     },
   };

@@ -74,7 +74,10 @@ export type EventDraft = {
    * from — `decodeEventDraft` enforces that on the way back in.
    */
   placeAddress: string | null;
-  coords: { latitude: number; longitude: number } | null;
+  /** The pair, and the resolver that produced it. `source` is optional and
+   *  absent in blobs written before it existed; those pairs are gazetteer
+   *  pairs by construction, which is what the serializer's fallback assumes. */
+  coords: { latitude: number; longitude: number; source?: 'mapkit' | 'open-meteo' } | null;
   placeCategory: string | null;
   placeUrl: string | null;
   placeId: string | null;
@@ -161,11 +164,20 @@ function nullableNum(raw: unknown): number | null {
 
 function coords(raw: unknown): EventDraft['coords'] {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const { latitude, longitude } = raw as { latitude?: unknown; longitude?: unknown };
+  const { latitude, longitude, source } = raw as {
+    latitude?: unknown;
+    longitude?: unknown;
+    source?: unknown;
+  };
   if (typeof latitude !== 'number' || !Number.isFinite(latitude)) return null;
   if (typeof longitude !== 'number' || !Number.isFinite(longitude)) return null;
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
-  return { latitude, longitude };
+  // The coordinate is still the gate. A resolver name is kept only if it is one
+  // of the two that exist — anything else is dropped rather than trusted, and a
+  // dropped one reads as the pre-MapKit pair the serializer already handles.
+  return source === 'mapkit' || source === 'open-meteo'
+    ? { latitude, longitude, source }
+    : { latitude, longitude };
 }
 
 /**

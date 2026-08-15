@@ -3,6 +3,7 @@ import { Pressable, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { Text } from '@/components/ui/text';
+import { filledTileLabel } from '@/features/onboarding/ten-copy';
 import { EMPTY_SLOT_LABEL, type TenSlot } from '@/features/onboarding/ten-slots';
 import { useTheme } from '@/theme/tokens';
 
@@ -48,6 +49,7 @@ export function TenTile({
   size,
   height,
   foregrounded,
+  garmentName,
   imageUri,
   onPress,
 }: {
@@ -61,16 +63,13 @@ export function TenTile({
   /** This slot is the one the bottom card currently argues for. */
   foregrounded: boolean;
   /**
-   * The garment's real name once tagged.
+   * The garment's real name once tagged, or null while the classifier is still
+   * reading the photograph.
    *
-   * ACCEPTED AND NO LONGER SPOKEN. The tile used to announce this instead of
-   * its position; the accepted atlas replaced that with `Look N of 10,
-   * double-tap for actions.`, which is the same wording for every filled cell
-   * and tells a VoiceOver reader the one thing the drawing does not — that the
-   * tile is a door rather than a picture. The prop stays on the signature
-   * because the grid's callers still pass a name map, and the name is still
-   * read aloud where it is a heading rather than a label: the replace sheet's
-   * own title (`replaceSheetCopy`).
+   * SPOKEN, NEVER PRINTED. A filled tile draws no caption — it is a picture of
+   * the garment and the word beneath it only restated the row it sits in — but
+   * a VoiceOver reader has no picture, so the name is the first thing the label
+   * says. The wording, and the nameless fallback, live in `filledTileLabel`.
    */
   garmentName?: string | null;
   imageUri?: string;
@@ -78,6 +77,7 @@ export function TenTile({
 }) {
   const theme = useTheme();
   const label = EMPTY_SLOT_LABEL;
+  const garment = garmentName ?? null;
 
   const body = (() => {
     if (slot.status === 'filled') {
@@ -128,11 +128,10 @@ export function TenTile({
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      // FILLED: the accepted atlas's exact wording — `Look N of 10, double-tap
-      // for actions.` One sentence for every filled cell, position first,
-      // ending in what the tile is FOR. It replaced the garment's own name,
-      // which read as a caption on a picture and left the sheet behind it
-      // undiscoverable; the name is still spoken as the sheet's title.
+      // FILLED: `Knit, piece 3 of 10, double-tap for actions.` — the piece,
+      // then where it sits, then what the tile is for. `filledTileLabel` owns
+      // the wording and the nameless fallback, in the copy module, because
+      // this file cannot be bundled by the unit runner.
       //
       // EMPTY: unchanged — "Slot 3, empty, currently suggested", position and
       // status in that order, per the same VoiceOver table. The category is
@@ -141,7 +140,7 @@ export function TenTile({
       // Ten is never typed: `total` is the grid's own length.
       accessibilityLabel={
         slot.status === 'filled'
-          ? `Look ${slot.id} of ${total}, double-tap for actions.`
+          ? filledTileLabel(slot.id, total, garment)
           : `Slot ${slot.id}, empty${foregrounded ? ', currently suggested' : ''}`
       }
       style={{ width: size }}

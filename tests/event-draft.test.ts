@@ -33,7 +33,7 @@ function draft(over: Partial<EventDraft> = {}): EventDraft {
     minutes: 19 * 60,
     placeText: 'The Stanley',
     placeAddress: 'Denver, CO',
-    coords: { latitude: 39.74, longitude: -104.99 },
+    coords: { latitude: 39.74, longitude: -104.99, source: 'mapkit' },
     placeCategory: 'MKPOICategoryRestaurant',
     placeUrl: null,
     placeId: 'mapkit-1',
@@ -163,6 +163,33 @@ test('a draft written before LP-05 restores with no resolved metadata rather tha
   assert.equal(back?.placeCategory, null);
   assert.equal(back?.placeUrl, null);
   assert.equal(back?.placeId, null);
+  // Its coordinates name no resolver, which is not a gap: that blob predates
+  // MapKit, so the pair is a gazetteer pair and the serializer's fallback says
+  // so. A restored draft must never GAIN a provenance it never had.
+  assert.deepEqual(back?.coords, { latitude: 39.74, longitude: -104.99 });
+});
+
+test('a restored draft keeps the resolver its pick was found by', () => {
+  // The second route into the create-event write: a MapKit pick typed, left,
+  // and restored. The resolver has to survive the disk, or the occasion is
+  // written with the wrong provenance an hour after it was picked.
+  const back = decodeEventDraft(encodeEventDraft(draft()));
+  assert.deepEqual(back?.coords, { latitude: 39.74, longitude: -104.99, source: 'mapkit' });
+
+  // A resolver nobody shipped is dropped rather than trusted — the pair still
+  // stands, and it reads as the unstamped pair the fallback already handles.
+  const forged = decodeEventDraft(
+    encodeEventDraft(
+      draft({
+        coords: {
+          latitude: 39.74,
+          longitude: -104.99,
+          source: 'foursquare',
+        } as unknown as EventDraft['coords'],
+      }),
+    ),
+  );
+  assert.deepEqual(forged?.coords, { latitude: 39.74, longitude: -104.99 });
 });
 
 // ---------------------------------------------------------------------------
