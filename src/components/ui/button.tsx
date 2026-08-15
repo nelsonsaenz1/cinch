@@ -168,7 +168,15 @@ export function Button({
       {/* The label rides the same shared value as the ground, so the pill and
           what is written on it compress as one object rather than sliding
           against each other. */}
-      <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8 }, press.style]}>
+      {/* `flexShrink` so a label longer than its ground WRAPS inside the pill
+          rather than running past both edges of it. The pill's `minHeight`
+          then grows to hold the extra line, which is the same rule every row
+          on the event detail page follows: flexible height over fixed. */}
+      <Animated.View
+        style={[
+          { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
+          press.style,
+        ]}>
         {loading ? (
           <ActivityIndicator size="small" color={theme[labelKey[variant]]} />
         ) : disabledTone === 'filled' ? (

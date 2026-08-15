@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AttendeeLookGrid, type AttendeeLook } from '@/components/events/AttendeeLookGrid';
@@ -32,6 +32,7 @@ import {
   inviteeStatusLine,
   noLookYetLine,
 } from '@/features/event-outfits/occasion-copy';
+import { detailTitleTrimmed } from '@/features/events/detail-layout';
 import { useEventComments, useEventPosts } from '@/features/event-outfits/queries';
 import { boardLeader } from '@/features/event-outfits/types';
 import { dateTimeLine, venueLines, viewerStanding } from '@/features/events/event-lines';
@@ -289,6 +290,9 @@ export default function EventDetailScreen() {
   const router = useRouter();
   const session = useSession();
   const theme = useTheme();
+  // The reader's own Dynamic Type setting. Read, never guessed; what the page
+  // does with it lives in `detail-layout.ts`.
+  const { fontScale } = useWindowDimensions();
   const me = session.userId;
 
   const eventQuery = useEvent(id ?? null);
@@ -546,10 +550,25 @@ export default function EventDetailScreen() {
         }
       />
 
-      <ScrollView contentContainerClassName="px-gutter pb-16" showsVerticalScrollIndicator={false}>
-        {/* 2 — the title. */}
+      <ScrollView
+        // `flex-1` is load-bearing, not decoration — the same hazard item
+        // detail records at its own ScrollView: with no flex in a flex column,
+        // a ScrollView measures against its CONTENT rather than the viewport.
+        // At the default type size the page happens to fit and nothing shows;
+        // at the accessibility sizes it grows past the screen, the scroll view
+        // believes its frame is that tall, and the page is clipped at the
+        // bottom with nothing to scroll. Every "cut off" symptom LP-09 found
+        // below the title was this one line.
+        className="flex-1"
+        contentContainerClassName="px-gutter pb-16"
+        showsVerticalScrollIndicator={false}>
+        {/* 2 — the title. Cap-trimmed while it is one line, and not once it
+            wraps: the trim table is single-line geometry (`detail-layout.ts`). */}
         <View className="mt-5">
-          <Text variant="title" trim style={canceled ? { color: theme.muted } : undefined}>
+          <Text
+            variant="title"
+            trim={detailTitleTrimmed(fontScale)}
+            style={canceled ? { color: theme.muted } : undefined}>
             {event.title}
           </Text>
         </View>

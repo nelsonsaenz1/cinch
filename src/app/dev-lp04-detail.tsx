@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FactRow, NavRow, StatePill } from '@/app/event/[id]/index';
 import { YourLookCard, type YourLookLeading } from '@/components/events/YourLookCard';
 import { Text } from '@/components/ui/text';
+import { detailTitleTrimmed } from '@/features/events/detail-layout';
 import { toGarmentColors } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
@@ -181,6 +182,7 @@ const FRAMES: readonly Frame[] = [
 
 export default function DevLp04Detail() {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
   const [index, setIndex] = useState(0);
 
   if (!__DEV__) {
@@ -196,8 +198,11 @@ export default function DevLp04Detail() {
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       {/* The picker is fixture chrome and is deliberately NOT part of any
-          frame — shoot below the rule. */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="max-h-12">
+          frame — shoot below the rule. `shrink-0` rather than a 48pt cap: the
+          cap clipped its own pills at the accessibility sizes, and with the
+          content view below now holding `flex-1` there is nothing left for
+          this rail to eat. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="shrink-0">
         <View className="flex-row items-center gap-2 px-gutter">
           {FRAMES.map((f, i) => (
             <Pressable
@@ -221,6 +226,10 @@ export default function DevLp04Detail() {
       <View className="mt-2 border-b border-hairline" />
 
       <ScrollView
+        // As on the real page: without `flex-1` this measures against its own
+        // content, so at the accessibility sizes the frame grows past the
+        // screen and the page is clipped with nothing to scroll.
+        className="flex-1"
         contentContainerClassName="px-gutter pb-16"
         showsVerticalScrollIndicator={false}>
         {/* 1 — back, and the viewer's own standing as one quiet word. */}
@@ -231,9 +240,12 @@ export default function DevLp04Detail() {
           {frame.standing ? <StatePill label={frame.standing} /> : null}
         </View>
 
-        {/* 2 — the title. */}
+        {/* 2 — the title, cap-trimmed only while it is one line. */}
         <View className="mt-5">
-          <Text variant="title" trim style={frame.canceled ? { color: theme.muted } : undefined}>
+          <Text
+            variant="title"
+            trim={detailTitleTrimmed(fontScale)}
+            style={frame.canceled ? { color: theme.muted } : undefined}>
             {frame.title}
           </Text>
         </View>

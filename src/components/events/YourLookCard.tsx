@@ -1,8 +1,9 @@
-import { View } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 
 import { LookPlate, type ResolveImage } from '@/components/look/look-plate';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { lookActionsStacked, lookTextMaxLines } from '@/features/events/detail-layout';
 import { lookDescriptor, lookName, pickCountLine } from '@/features/events/look-copy';
 import type { Garment } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
@@ -52,6 +53,12 @@ export function YourLookCard({
   onShare: () => void;
 }) {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  // Two large-type decisions, both in `detail-layout.ts` so they are callable:
+  // how many lines the look's own words may take, and whether the two actions
+  // still fit on one row.
+  const maxLines = lookTextMaxLines(fontScale);
+  const stacked = lookActionsStacked(fontScale);
 
   return (
     <View
@@ -68,11 +75,13 @@ export function YourLookCard({
           </View>
           {/* Two lines, not one. A caption the wearer typed is the look's
               name, and at AX3 a one-line clamp turns it into an ellipsis on a
-              card whose whole job is to show what they chose. */}
-          <Text variant="plate" numberOfLines={2} className="mt-3">
+              card whose whole job is to show what they chose. The same
+              sentence is why the clamp lifts entirely at the accessibility
+              sizes, where two lines is the new one line. */}
+          <Text variant="plate" numberOfLines={maxLines} className="mt-3">
             {lookName(leading.garments, leading.caption)}
           </Text>
-          <Text variant="label" numberOfLines={2} className="mt-1">
+          <Text variant="label" numberOfLines={maxLines} className="mt-1">
             {lookDescriptor(leading.garments)}
           </Text>
           {pickCountLine(leading.votes) ? (
@@ -90,16 +99,26 @@ export function YourLookCard({
       )}
 
       {!locked ? (
-        <View className="mt-4 flex-row gap-2">
+        // Side by side while two labels fit one measure; stacked above the
+        // app's one stacking threshold, where each gets the full width and
+        // wraps inside its own pill instead of past it. Swap still precedes
+        // share — the order is the hierarchy, and type size does not change it.
+        <View className={`mt-4 gap-2 ${stacked ? '' : 'flex-row'}`}>
           {leading ? (
-            <Button title="Swap a piece" variant="secondary" haptic onPress={onSwap} className="flex-1" />
+            <Button
+              title="Swap a piece"
+              variant="secondary"
+              haptic
+              onPress={onSwap}
+              className={stacked ? '' : 'flex-1'}
+            />
           ) : null}
           <Button
             title={leading ? 'Share another' : 'Share with group'}
             variant="secondary"
             haptic
             onPress={onShare}
-            className="flex-1"
+            className={stacked ? '' : 'flex-1'}
           />
         </View>
       ) : null}
