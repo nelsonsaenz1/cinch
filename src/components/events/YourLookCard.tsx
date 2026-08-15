@@ -66,10 +66,13 @@ export function YourLookCard({
           <View className="mt-3">
             <LookPlate pieces={leading.garments} width={THUMB} resolveImage={resolveImage} />
           </View>
-          <Text variant="plate" numberOfLines={1} className="mt-3">
+          {/* Two lines, not one. A caption the wearer typed is the look's
+              name, and at AX3 a one-line clamp turns it into an ellipsis on a
+              card whose whole job is to show what they chose. */}
+          <Text variant="plate" numberOfLines={2} className="mt-3">
             {lookName(leading.garments, leading.caption)}
           </Text>
-          <Text variant="label" numberOfLines={1} className="mt-1">
+          <Text variant="label" numberOfLines={2} className="mt-1">
             {lookDescriptor(leading.garments)}
           </Text>
           {pickCountLine(leading.votes) ? (

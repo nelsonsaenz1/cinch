@@ -2,15 +2,33 @@ import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { formatTemp } from '@/features/context/weather';
+import { eventCardLabel, eventCardLines } from '@/features/events/event-lines';
 import { useRespondToInvite } from '@/features/events/mutations';
 import type { EventSummary } from '@/features/events/types';
 import type { WeatherContext } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
 
 /**
+ * The pure date helpers this file used to own, re-exported.
+ *
+ * They moved to `features/events/event-lines.ts` so the test bundler can reach
+ * them — esbuild cannot parse React Native's Flow source, so nothing importable
+ * from a `.tsx` is testable. The re-export keeps `event/new.tsx`,
+ * `event/[id]/invite.tsx` and `features/events/occasion-weather.ts` on the
+ * import path they already had.
+ */
+export {
+  daysFromToday,
+  FORECAST_WINDOW_DAYS,
+  isSameDay,
+  timeLabel,
+  whenLabel,
+} from '@/features/events/event-lines';
+
+/**
  * One word for a day's weather. The thresholds mirror `weatherSymbol` in
  * components/plan/day-row.tsx exactly — one interpretation of the numbers,
- * not a second one — because this line sits on the same Plan tab.
+ * not a second one.
  */
 export function conditionWord(w: WeatherContext): string {
   if (w.precipitationChance >= 0.5) return 'Rain likely';
@@ -21,183 +39,90 @@ export function conditionWord(w: WeatherContext): string {
   return 'Clear';
 }
 
-/** "Feels 72° · Clear" — the display-only weather clause on event surfaces. */
+/**
+ * "Feels 72° · Clear" — the display-only weather clause.
+ *
+ * NO LONGER PRINTED ON A CARD (LP-10). It survives because the occasion's own
+ * page still states the forecast once, beside the date it belongs to, and
+ * `event/new.tsx` previews it while the date is being chosen. A card is
+ * informational, not a miniature detail page.
+ */
 export function weatherLineFor(w: WeatherContext, units: 'C' | 'F' = 'F'): string {
   return `Feels ${formatTemp(w.feelsLikeC, units)} · ${conditionWord(w)}`;
 }
 
-/** True when the occasion starts and ends on one calendar day. A dateless
- *  occasion spans nothing, so it is trivially one day. */
-export function isSameDay(startsAt: Date | null, endsAt: Date | null): boolean {
-  return (
-    !startsAt ||
-    !endsAt ||
-    (endsAt.getFullYear() === startsAt.getFullYear() &&
-      endsAt.getMonth() === startsAt.getMonth() &&
-      endsAt.getDate() === startsAt.getDate())
-  );
-}
-
 /**
- * "Fri 8 Aug", "12–16 Sep" for a multi-day occasion, or "No date yet".
+ * An occasion, as a list cell — LP-10's strict hierarchy and nothing else:
  *
- * The dateless case says so rather than falling back to today: a placeholder
- * date is a claim about when something is happening, and the whole point of
- * an undated occasion is that nobody has made that claim yet.
- */
-export function whenLabel(startsAt: Date | null, endsAt: Date | null): string {
-  if (!startsAt) return 'No date yet';
-  if (isSameDay(startsAt, endsAt)) {
-    return startsAt.toLocaleDateString(undefined, {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    });
-  }
-  const month = (d: Date) => d.toLocaleDateString(undefined, { month: 'short' });
-  return startsAt.getMonth() === endsAt!.getMonth()
-    ? `${startsAt.getDate()}–${endsAt!.getDate()} ${month(endsAt!)}`
-    : `${startsAt.getDate()} ${month(startsAt)} – ${endsAt!.getDate()} ${month(endsAt!)}`;
-}
-
-/** "4:00pm" — set close and lowercase, the atlas's register; 24-hour locales
- *  come through untouched ("16:00" has no dayPeriod to fold). Null in, null
- *  out: no date means no time, and callers drop the segment rather than
- *  printing an hour nobody chose. */
-export function timeLabel(d: Date | null): string | null {
-  if (!d) return null;
-  return d
-    .toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-    .replace(/\s/g, '')
-    .toLowerCase();
-}
-
-/**
- * Mirrors `WEEK_DAYS` in plan.tsx — the Plan tab fetches a seven-day
- * forecast, so any day past that horizon has no honest weather to print.
- */
-export const FORECAST_WINDOW_DAYS = 7;
-
-/** Whole days between today and `d`, local calendar. A dateless occasion is
- *  -1 — the same answer as a day already gone, and for the same reason: both
- *  are outside every forecast, so every caller's `>= 0` gate refuses them. */
-export function daysFromToday(d: Date | null): number {
-  if (!d) return -1;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const day = new Date(d);
-  day.setHours(0, 0, 0, 0);
-  return Math.round((day.getTime() - today.getTime()) / 86_400_000);
-}
-
-/**
- * An occasion, as a list cell — the Plan atlas's event card (P-06): serif
- * title with a quiet caps tag set right (INVITED in oxblood for an unanswered
- * invitation, "4 GOING" in the muted register once that question is settled),
- * a metadata line, a weather line that prints only inside the forecast window
- * and says "Outside the forecast window" beyond it rather than guessing, the
- * Going / Can't-make-it pair on an invitation, and the ruled "Your look" foot
- * once the viewer has shared one.
+ *   1. title + the one actionable state (INVITED, in oxblood);
+ *   2. date/time, or `No date yet`;
+ *   3. venue, or `No place yet` — the occasion word instead for someone who
+ *      has not joined, because §7.1 withholds the place until they do;
+ *   4. one compact people/look signal, when there is one worth printing.
  *
- * Venue, time and weather render for members only; an invitee's card stays
- * coarse until she joins — §7.1 is a product rule, so the withholding happens
- * at the surface even though RLS already handed an invitee the row. (The
- * atlas draws the invitation card with its venue in view; the product rule
- * wins until the spec says otherwise.)
+ * Everything that decides WHICH of those strings appears lives in
+ * `features/events/event-lines.ts`, where it can be tested; this file draws
+ * them.
+ *
+ * Removed by LP-10 and listed so nobody restores one by accident: the weather
+ * clause and its "Outside the forecast window" companion, the second headcount
+ * beside the title, and the ruled `Your look / Shared` foot. The `weather` prop
+ * went with them.
+ *
+ * DYNAMIC TYPE. The title takes two lines and the date, venue and signal take
+ * as many as they need. A one-line clamp on a venue name is exactly the forced
+ * truncation the stress board forbids: "The Stanley Hotel & Concert Hall" at
+ * AX3 is unreadable as an ellipsis, and the venue is how somebody finds the
+ * room.
  */
-export function EventCard({
-  event,
-  weather,
-  units = 'F',
-  onPress,
-}: {
-  event: EventSummary;
-  /** The event day's forecast, when the caller has one. Display-only. */
-  weather?: WeatherContext | null;
-  units?: 'C' | 'F';
-  onPress: () => void;
-}) {
+export function EventCard({ event, onPress }: { event: EventSummary; onPress: () => void }) {
   const theme = useTheme();
   const respond = useRespondToInvite();
 
-  const isMember = event.isHost || event.myState === 'joined';
-  const isInvited = event.myState === 'invited';
-
-  const going =
-    event.invitedCount > event.memberCount
-      ? `${event.memberCount} of ${event.invitedCount} going`
-      : `${event.memberCount} going`;
-
-  // "Sat 9 Aug · 4:00pm · The Stanley, Denver" for members; for an invitee
-  // just the date and the occasion word — enough to say what kind of night it
-  // is, nothing about where.
-  const when = whenLabel(event.startsAt, event.endsAt);
-  const metadata = isMember
-    ? [when, isSameDay(event.startsAt, event.endsAt) ? timeLabel(event.startsAt) : null, event.venueName]
-        .filter(Boolean)
-        .join(' · ')
-    : [
-        when,
-        event.occasion ? event.occasion[0]!.toUpperCase() + event.occasion.slice(1) : 'You’re invited',
-      ].join(' · ');
-
-  // Weather prints only when the day falls inside the seven-day window; past
-  // it the card says so plainly instead of guessing. An in-window day whose
-  // forecast simply hasn't arrived yet prints nothing — absence, not a claim.
-  // A dateless occasion prints nothing either, and not even "outside the
-  // window": there is no day for weather to belong to, so any forecast handed
-  // in for it would be some other day's.
-  const contextLine = !isMember
-    ? going
-    : !event.startsAt
-      ? null
-      : weather
-        ? weatherLineFor(weather, units)
-        : daysFromToday(event.startsAt) >= FORECAST_WINDOW_DAYS
-          ? 'Outside the forecast window'
-          : null;
+  const model = eventCardLines(event);
+  const isInvited = model.state !== null;
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={[
-        event.title,
-        isInvited ? 'Invited' : null,
-        metadata,
-        contextLine,
-        going,
-        isMember && event.myLookState === 'posted' ? 'Your look shared' : null,
-      ]
-        .filter(Boolean)
-        .join('. ')}
+      accessibilityLabel={eventCardLabel(model)}
       className="mb-3 rounded-plate border border-rule bg-surface p-4 active:opacity-70">
       <View className="flex-row items-baseline justify-between gap-3">
-        <Text variant="plate" className="flex-1" numberOfLines={1}>
-          {event.title}
+        <Text variant="plate" className="flex-1" numberOfLines={2}>
+          {model.title}
         </Text>
-        {/* The card's one decision. An unanswered invitation is the loud
-            state — oxblood, spent here and nowhere else on the card; a
-            settled card carries only its headcount, in the quiet register.
-            Inline colour, not a className — the colophon variant carries
-            text-muted, and NativeWind gives no precedence between two
-            text-* utilities on one element (see button.tsx). */}
-        <Text
-          variant="colophon"
-          style={{ color: isInvited ? theme.accent : theme.faint }}>
-          {isInvited ? 'Invited' : `${event.memberCount} going`}
-        </Text>
+        {/* The card's one decision, and the only place its oxblood is spent.
+            A settled card carries nothing here — the headcount that used to
+            sit in this slot is now one clause of the signal line, printed
+            once. Inline colour, not a className: `colophon` already carries
+            text-muted, and NativeWind gives no precedence between two `text-*`
+            utilities on one element (see button.tsx). */}
+        {model.state ? (
+          <Text variant="colophon" style={{ color: theme.accent }}>
+            {model.state}
+          </Text>
+        ) : null}
       </View>
 
-      {metadata ? (
-        <Text variant="label" className="mt-2" numberOfLines={1}>
-          {metadata}
+      <Text variant="label" className="mt-2">
+        {model.when}
+      </Text>
+
+      {model.where ? (
+        <Text variant="label" className="mt-1.5">
+          {model.where}
         </Text>
       ) : null}
 
-      {contextLine ? (
-        <Text variant="label" className="mt-1.5" style={{ color: theme.faint }} numberOfLines={1}>
-          {contextLine}
+      {/* The quietest line on the card, and the only one still set in `faint`.
+          It is the fourth thing a reader needs and is repeated in full on the
+          occasion's own page, which is the narrow case `faint` is reserved
+          for. See tailwind.config.js on the AA caveat, and
+          tests/constitution.test.ts, whose debt list this file is on. */}
+      {model.signal ? (
+        <Text variant="label" className="mt-1.5" style={{ color: theme.faint }}>
+          {model.signal}
         </Text>
       ) : null}
 
@@ -242,19 +167,6 @@ export function EventCard({
             </View>
           ) : null}
         </>
-      ) : null}
-
-      {isMember && event.myLookState === 'posted' ? (
-        // The atlas foot draws the chosen look's swatch trio and "Chosen";
-        // EventSummary carries neither the look's colours nor a crowned state
-        // yet (see types.ts on myLookState), so until the schema widens this
-        // prints the honest half: the row, and the fact a look is shared.
-        <View className="mt-3 flex-row items-center gap-2 border-t border-rule pt-3">
-          <Text variant="eyebrow">Your look</Text>
-          <Text variant="label" className="ml-auto" style={{ color: theme.faint }}>
-            Shared
-          </Text>
-        </View>
       ) : null}
     </Pressable>
   );

@@ -45,13 +45,6 @@ const startOfToday = () => {
   return d;
 };
 
-/** Whole days between today and `d`, local calendar — indexes the forecast. */
-const daysFromToday = (d: Date) => {
-  const day = new Date(d);
-  day.setHours(0, 0, 0, 0);
-  return Math.round((day.getTime() - startOfToday().getTime()) / 86_400_000);
-};
-
 type Mode = 'week' | 'events' | 'packing';
 const MODES: Mode[] = ['week', 'events', 'packing'];
 
@@ -409,15 +402,6 @@ export default function PlanScreen() {
     void weekForecast.refetch();
   };
 
-  /** The event day's forecast, when the day is inside the week window. */
-  // An occasion with no date has no day to read a forecast for — the card
-  // prints no weather clause at all rather than borrowing today's.
-  const weatherFor = (startsAt: Date | null) => {
-    if (!startsAt) return null;
-    const i = daysFromToday(startsAt);
-    return i >= 0 && i < WEEK_DAYS ? (weekForecast.data?.[i] ?? null) : null;
-  };
-
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="flex-row items-baseline justify-between px-gutter pb-3 pt-2">
@@ -438,7 +422,7 @@ export default function PlanScreen() {
           style={{ flex: 1 }}
           entering={FadeIn.duration(motion.duration.fast)}
           exiting={FadeOut.duration(motion.duration.fast)}>
-          <ScrollView contentContainerClassName="pb-10" showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerClassName="pb-24" showsVerticalScrollIndicator={false}>
             {/* One primary action per surface (the app's own rule everywhere
                 else): "New event" is the full-width ink control; "Invite
  friends" is a quiet link beneath it, same grammar as Lately's
@@ -502,7 +486,6 @@ export default function PlanScreen() {
                       <EventCard
                         key={event.id}
                         event={event}
-                        weather={weatherFor(event.startsAt)}
                         onPress={() => router.push(`/event/${event.id}`)}
                       />
                     ))}
@@ -512,13 +495,12 @@ export default function PlanScreen() {
                 {(myEvents.data?.length ?? 0) > 0 ? (
                   <View className="px-gutter">
                     {(invites.data?.length ?? 0) > 0 ? (
-                      <SectionHeader title="Coming up" className="mb-3 mt-4" />
+                      <SectionHeader title="Coming up" className="mb-3 mt-6" />
                     ) : null}
                     {myEvents.data!.map((event) => (
                       <EventCard
                         key={event.id}
                         event={event}
-                        weather={weatherFor(event.startsAt)}
                         onPress={() => router.push(`/event/${event.id}`)}
                       />
                     ))}
@@ -625,7 +607,7 @@ export default function PlanScreen() {
             // components either (same reason the pill above is inline style).
             <Animated.View key="week-content" entering={FadeIn.duration(motion.duration.fast)}>
               <ScrollView
-                contentContainerClassName="pb-10"
+                contentContainerClassName="pb-24"
                 keyboardShouldPersistTaps="handled"
                 refreshControl={
                   <RefreshControl
