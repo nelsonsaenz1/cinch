@@ -110,17 +110,28 @@ function cappedOrNull(value: string | null | undefined, max: number): string | n
 }
 
 /**
- * Coordinates → the `venue_meta` blob, with the geocoder stamped on.
+ * Coordinates → the `venue_meta` blob, with the resolver stamped on.
  *
- * The vendor name is written here rather than passed in by the screen: the
- * data layer is what knows where the coordinates came from, and a column that
- * records its own provenance is the only way a future reader can tell an
- * Open-Meteo gazetteer hit from whatever writes this column next (MKLocalSearch
- * is the deferred one — see features/events/venue-search.ts).
+ * The vendor name used to be a LITERAL here, on the reasoning that the data
+ * layer is what knows where coordinates came from. That reasoning expired the
+ * moment a second resolver existed: MKLocalSearch now writes this same shape
+ * (features/events/venue-search.ts), so a hard-coded `open-meteo` stopped
+ * describing the row and started misdescribing it. Provenance the writer
+ * cannot state is provenance the column cannot keep.
+ *
+ * So the source rides on the coordinate itself and is written through. The
+ * fallback stays `open-meteo` because that is the only resolver that predates
+ * this field — an unstamped pair is, by construction, a gazetteer pair from
+ * before MapKit shipped. This is serialization only: the column is jsonb, the
+ * shape is unchanged, and `parseVenueMeta` drops the key on the way back in.
  */
 function venueMetaJson(coords: VenueCoords | null): Record<string, unknown> | null {
   return coords
-    ? { latitude: coords.latitude, longitude: coords.longitude, source: 'open-meteo' }
+    ? {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        source: coords.source ?? 'open-meteo',
+      }
     : null;
 }
 

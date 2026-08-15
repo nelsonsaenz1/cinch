@@ -23,16 +23,33 @@ import type {
 export type { EventMemberRole, EventMemberState, EventVisibility };
 
 /**
+ * Which resolver produced a coordinate pair.
+ *
+ * Two now, where there was one. The gazetteer answers "which Denver?" and is
+ * the path a runtime without the MapKit module still takes; MKLocalSearch
+ * answers "which restaurant?" and is what a current binary uses. The column
+ * has always recorded its own provenance — the launch-polish packet is the
+ * first time that record could be WRONG, because a second resolver now writes
+ * the same shape.
+ */
+export type VenueCoordSource = 'open-meteo' | 'mapkit';
+
+/**
  * Where an occasion is, as a pair of numbers.
  *
  * The only part of `venue_meta` the app has any use for: a resolved place
  * carries coordinates and therefore earns a forecast, a typed one does not
  * (new-occasion-spec.md §5). Kept as its own type because both directions
  * need it — `EventDetail` reads it and `CreateEventInput` writes it.
+ *
+ * `source` is optional because it is write-only provenance: `parseVenueMeta`
+ * deliberately drops it on the way back in, so nothing that READS an occasion
+ * has to care, and no existing caller had to change to keep compiling.
  */
 export interface VenueCoords {
   latitude: number;
   longitude: number;
+  source?: VenueCoordSource;
 }
 
 /**
