@@ -51,20 +51,21 @@ const PAD_X_FOCUSED = 13;
 /**
  * ── Vertical metrics (LP-03) ───────────────────────────────────────────────
  *
- * The atlas draws the single-line box at 52pt and that is still the number
- * here — but as a FLOOR, not a height. A fixed `height` is a promise about how
+ * The accepted atlas gives the single-line field a FLEXIBLE 48pt minimum
+ * height — a floor, never a height. A fixed `height` is a promise about how
  * tall a line of text is, and the app does not get to make that promise:
  * Dynamic Type at AX5 renders `text-body` well past 40pt of line box, and a
- * 52pt container then clips descenders and shifts the baseline off centre.
+ * fixed container then clips descenders and shifts the baseline off centre.
  * That clipping IS the launch-polish bug.
  *
  * So: a minimum height, symmetric vertical padding, and no assumption about
  * the font at all. At default sizes the floor governs and the field looks
  * exactly as drawn; at accessibility sizes the text's own measured height
  * governs and the box grows under it. Nothing is derived from a point size,
- * so nothing has to be recalculated when the type scale moves.
+ * so nothing has to be recalculated when the type scale moves. 48 also sits
+ * clear of the 44pt minimum control target with the inset below to spare.
  */
-const BOX_MIN_HEIGHT = 52;
+const BOX_MIN_HEIGHT = 48;
 /** A note field starts at three-ish lines and grows from there. */
 const BOX_MIN_HEIGHT_MULTILINE = 58;
 /**
@@ -99,7 +100,7 @@ function boxStyle(tone: FieldTone, theme: ThemeColors, multiline: boolean): View
     borderColor,
     paddingHorizontal: focused ? PAD_X_FOCUSED : PAD_X,
     paddingVertical: focused ? PAD_Y_FOCUSED : PAD_Y,
-    // A floor in both cases. The single-line field is 52 until the text needs
+    // A floor in both cases. The single-line field is 48 until the text needs
     // more; the note is 58 and grows with what is typed into it.
     minHeight: multiline ? BOX_MIN_HEIGHT_MULTILINE : BOX_MIN_HEIGHT,
   };

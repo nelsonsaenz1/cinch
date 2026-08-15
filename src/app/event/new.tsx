@@ -37,11 +37,16 @@ import {
 } from '@/features/events/event-draft';
 import { useOccasionWeather } from '@/features/events/occasion-weather';
 import { socialDenialCopy, useCreateEvent } from '@/features/events/mutations';
-import type { VenueCoords } from '@/features/events/types';
+import {
+  emptyResolvedVenueMeta,
+  resolvedVenueMetaFor,
+  type ResolvedVenueMeta,
+} from '@/features/events/venue-search';
 import { useTheme } from '@/theme/tokens';
 
 /**
- * What's the occasion? — the New Occasion State Atlas, N-01…N-08.
+ * New event — the New Occasion State Atlas, N-01…N-08, as corrected by LP-03,
+ * LP-05, LP-06 and LP-08.
  *
  * Five fields in one scroll, in the order a person says them out loud: name,
  * when, where, dress code, a note for the group. Not a wizard — a wizard would
@@ -121,8 +126,9 @@ export default function NewOccasionScreen() {
     parseDateParam(dateParam) ? DEFAULT_TIME_MINUTES : null,
   );
   const [placeText, setPlaceText] = useState('');
-  const [placeAddress, setPlaceAddress] = useState<string | null>(null);
-  const [coords, setCoords] = useState<VenueCoords | null>(null);
+  /** Everything a resolved pick knows beyond the name, as ONE value (LP-05).
+   *  Five setters is five chances to leave one behind on the next keystroke. */
+  const [venueMeta, setVenueMeta] = useState<ResolvedVenueMeta>(emptyResolvedVenueMeta);
   const [dressCode, setDressCode] = useState<string | null>(null);
   const [note, setNote] = useState('');
 
@@ -147,7 +153,7 @@ export default function NewOccasionScreen() {
     return at;
   })();
 
-  const weather = useOccasionWeather(startsAt, coords);
+  const weather = useOccasionWeather(startsAt, venueMeta.coords);
 
   const ready = name.trim().length > 0;
   const canCreate = ready && !create.isPending;
@@ -171,8 +177,11 @@ export default function NewOccasionScreen() {
     day: toDraftDay(day),
     minutes,
     placeText,
-    placeAddress,
-    coords,
+    placeAddress: venueMeta.address,
+    coords: venueMeta.coords,
+    placeCategory: venueMeta.category,
+    placeUrl: venueMeta.url,
+    placeId: venueMeta.placeId,
     dressCode,
     note,
   };
@@ -182,8 +191,13 @@ export default function NewOccasionScreen() {
     setDay(fromDraftDay(next.day));
     setMinutes(next.minutes);
     setPlaceText(next.placeText);
-    setPlaceAddress(next.placeAddress);
-    setCoords(next.coords);
+    setVenueMeta({
+      address: next.placeAddress,
+      coords: next.coords,
+      category: next.placeCategory,
+      url: next.placeUrl,
+      placeId: next.placeId,
+    });
     setDressCode(next.dressCode);
     setNote(next.note);
     // A restored draft is dirty by definition: it is unsaved typing, and
@@ -241,8 +255,7 @@ export default function NewOccasionScreen() {
     day,
     minutes,
     placeText,
-    placeAddress,
-    coords,
+    venueMeta,
     dressCode,
     note,
   ]);
@@ -327,8 +340,11 @@ export default function NewOccasionScreen() {
         dressCode,
         note: note.trim() || null,
         venueName: placeText.trim() || null,
-        venueAddress: placeAddress,
-        venueMeta: coords,
+        venueAddress: venueMeta.address,
+        // `mutations.ts` narrows this to the coordinate pair; the rest of the
+        // resolved record stops at this boundary by the integration owner's
+        // decision, and is held here only so a keystroke can clear it.
+        venueMeta: venueMeta.coords,
       },
       {
         // Replace, and nothing else. The form dismisses and the detail page is
@@ -366,12 +382,10 @@ export default function NewOccasionScreen() {
             Cancel
           </Text>
         </Pressable>
-        <View className="flex-1 items-center">
-          <Text variant="colophon">New occasion</Text>
-        </View>
-        {/* Balances Cancel so the title sits centred on the screen, not on the
-            space left over beside it. */}
-        <View style={{ width: 48 }} />
+        {/* No second title here (LP-06). The accepted table gives this surface
+            ONE visible headline, `New event`, and it is the editorial one
+            below — a colophon repeating it in the chrome would be the same
+            word twice on a screen whose remaining job is five labels. */}
       </View>
 
       {/* `automaticallyAdjustKeyboardInsets` (UIScrollView's own keyboard
@@ -388,10 +402,13 @@ export default function NewOccasionScreen() {
         contentContainerClassName="px-gutter pb-32"
         showsVerticalScrollIndicator={false}>
         {/* Padding, not margin: `trim` carries negative margins of its own
-            and a stacked `mt-*` resolves against them to roughly nothing. */}
+            and a stacked `mt-*` resolves against them to roughly nothing.
+            The headline and NOTHING under it: LP-06 gives this surface no
+            supporting line, because `Name`, `When`, `Where`, `Dress code` and
+            `Note` already say what the form wants. */}
         <View className="pb-5 pt-3">
           <Text variant="display" trim>
-            What&apos;s the occasion?
+            New event
           </Text>
         </View>
 
@@ -411,7 +428,7 @@ export default function NewOccasionScreen() {
         />
 
         {/* When — one question, two controls, so one eyebrow over both. */}
-        <FieldGroup label="When" optional className="mt-[18px]">
+        <FieldGroup label="When" optional className="mt-4">
           <View className="flex-row gap-2">
             <FieldButton
               value={day ? whenLabel(day, null) : null}
@@ -441,26 +458,21 @@ export default function NewOccasionScreen() {
             setTouched(true);
             setPlaceText(text);
             // Typing after a pick means the text is no longer the place that
-            // was resolved, so the coordinates go with it. Keeping them would
-            // attach last night's forecast to whatever is being typed now.
-            setPlaceAddress(null);
-            setCoords(null);
+            // was resolved, so ALL FIVE resolved fields go with it — address,
+            // coordinates, category, URL, place identifier. Keeping any one of
+            // them would attach last night's forecast, or somebody else's
+            // MapKit identifier, to whatever is being typed now.
+            setVenueMeta(emptyResolvedVenueMeta());
           }}
           onSelect={(selection: PlaceSelection) => {
             setTouched(true);
             setPlaceText(selection.name);
-            if (selection.kind === 'resolved') {
-              setPlaceAddress(selection.address);
-              setCoords({ latitude: selection.latitude, longitude: selection.longitude });
-            } else {
-              setPlaceAddress(null);
-              setCoords(null);
-            }
+            setVenueMeta(resolvedVenueMetaFor(selection));
           }}
-          className="mt-[18px]"
+          className="mt-4"
         />
 
-        <FieldGroup label="Dress code" optional className="mt-[18px]">
+        <FieldGroup label="Dress code" optional className="mt-4">
           <View className="flex-row flex-wrap gap-2">
             {DRESS_CODES.map((code) => (
               <Chip
@@ -480,7 +492,11 @@ export default function NewOccasionScreen() {
         </FieldGroup>
 
         <OccasionField
-          label="Note for the group"
+          // `Note`, per the accepted label set — the atlas retains exactly
+          // `Name`, `Where` and `Note`. The accessibility label stays the
+          // longer sentence: read out of the form's visual context, "Note"
+          // alone does not say whose note it is or who reads it.
+          label="Note"
           value={note}
           onChangeText={(text) => {
             setTouched(true);
@@ -492,7 +508,7 @@ export default function NewOccasionScreen() {
           maxLength={NOTE_MAX}
           counterFrom={COUNTER_FROM}
           accessibilityLabel="Note for the group"
-          className="mt-[18px]"
+          className="mt-4"
         />
       </KeyboardAwareScrollView>
 
