@@ -55,6 +55,7 @@ export default function DevW3G4Pv01() {
       onToggleShoppable={() => {}}
       onBack={() => {}}
       onOpenConsent={() => {}}
+      onOpenVisibility={() => {}}
       onOpenExport={() => {}}
       onOpenDelete={() => {}}
     />
