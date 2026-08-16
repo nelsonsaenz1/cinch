@@ -21,9 +21,15 @@ insert into auth.users (id, email)
 values ('71717171-7171-4171-8171-717171717171', 'vis-owner@example.test'),
        ('72727272-7272-4272-8272-727272727272', 'vis-friend@example.test');
 
-insert into public.profiles (user_id, username)
-values ('71717171-7171-4171-8171-717171717171', 'visowner'),
-       ('72727272-7272-4272-8272-727272727272', 'visfriend');
+-- No `insert into public.profiles` here, and that is the point of this comment:
+-- `on_auth_user_created` (20260803154431_initial_schema.sql:347) already made
+-- both rows the moment the users above were inserted, so inserting again is a
+-- duplicate-key error rather than a setup step. Every other test in this
+-- directory relies on that trigger; this one now does too.
+--
+-- It also makes assertion 1 stronger than a round trip: the row it checks was
+-- created by the app's own trigger, so "all four flags default to visible" is
+-- being read off the real default rather than off values this file wrote.
 
 insert into public.follows (follower_id, followee_id)
 values ('71717171-7171-4171-8171-717171717171', '72727272-7272-4272-8272-727272727272'),
