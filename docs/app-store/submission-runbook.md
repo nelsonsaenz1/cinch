@@ -131,7 +131,7 @@ argues deliberately for not cutting the list off mid-parse.
   review without them ever entering a build.
 - No external purchase path, no ATT/IDFA, no unused permission.
 - All sixteen edge functions typecheck.
-- 1,835 tests: 1,834 pass, 1 skip (the fingerprint control, which is opt-in
+- 1,842 tests: 1,841 pass, 1 skip (the fingerprint control, which is opt-in
   because it costs an `npm ci` per revision — see `tests/fingerprint-gate.test.ts`).
 
 ## E. Known and deliberately not fixed
