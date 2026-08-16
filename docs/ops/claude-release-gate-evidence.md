@@ -69,13 +69,30 @@ And every fingerprint input tree is byte-identical between `9345eb2` and
 **Conclusion: the native layer has not changed. No new store build is required;
 one would build an identical runtime.** No build or submission was produced.
 
-## Tooling defect this leaves behind
+## Tooling defect — since repaired (`d572070`)
 
-`npm run check:fingerprint` is not trustworthy in this checkout, and its failure
-must not be read as a native change until it is run against an `npm ci` tree
-without `ios/`. `scripts/release-ota.mjs:67` gates the OTA on that same check, so
-it currently blocks a legitimate publish. Worth fixing at the script level; not
-fixed here, because the script is release tooling and this lane did not own it.
+`check:fingerprint` hashed the working directory, so it was not trustworthy in
+this checkout and `scripts/release-ota.mjs:67` inherited that, blocking a
+legitimate publish.
+
+It now takes the fingerprint over `git archive <rev>` — the tracked tree and
+nothing else, so no untracked or gitignored artifact can reach it — with a clean
+`npm ci` from the committed lockfile: what EAS uploads, installed the way EAS
+installs it. Deliberately not a `fingerprint.config.js`, which would be uploaded
+and honoured by EAS too and would move the canonical runtime every shipped
+binary is keyed to.
+
+`npm run check:fingerprint -- --verify-control` recomputes `9345eb2` and must
+reproduce the runtime EAS stamped on build 38; a failing verdict now sends the
+reader there before it says "store build". Measured while fixing it: a
+**gitignored** `ios/` is inert — it moves the source count 168 → 169 and not the
+hash, because gitignored content hashes as empty. That corrects this document's
+first draft, which implied `ios/` was co-responsible for the wrong hash. The
+install layout was the whole of it. `ios/` is fenced off anyway.
+
+Coverage is `tests/fingerprint-gate.test.ts`. The live two-revision control is
+opt-in (`CINCH_FINGERPRINT_CONTROL=1 npm test`) because it costs an `npm ci`
+per revision; the default suite pins the shape of the repair.
 
 ## What shipped
 
@@ -96,9 +113,28 @@ model repoint is deliberately excluded — it was applied live).
   `7380b772-f772-47d9-a82d-2ca261034e54`, branch/channel `production`, runtime
   `d9cb8c3b…`, commit `c86be8d`. Reaches builds 37 and 38.
 
-`tag-item` also bundles `_shared/openrouter.ts` and still carries the **old**
-copy (v39, deployed before this fix). It is not redeployed here — out of scope —
-so its body-read timeouts remain unclassified until someone redeploys it.
+Every function bundling `_shared/openrouter.ts` has since been redeployed from a
+clean checkout, so no stale copy of it is left in production:
+
+| Function | Version | Calls `completeStructured`? |
+|---|---|---|
+| `generate-outfits` | **40** | yes — the reported failure |
+| `tag-item` | **40** | yes |
+| `stylist-chat` | **36** | yes |
+| `packing-brief` | **30** | yes |
+| `parse-closet` | **24** | yes |
+| `garment-search` | **43** | no — own provider, constructs `OpenRouterError` |
+| `build-export` | **22** | no — imports `redactUrls` only |
+
+All ACTIVE, all `verify_jwt` unchanged, each bundle byte-identical to committed
+main, each observed booting in the edge runtime with no `BootError`. The last two
+were not functionally affected; they were redeployed so that "which functions
+carry the fix" stops being a question anyone has to answer per function.
+
+Redeploying them also shipped two changes that were committed but never
+deployed: `_shared/input-bounds.ts` (bounded `nameOptions` validation, already
+live via `generate-outfits`) and `build-export/mail.ts` (Resend status and error
+class, redacted). Both reviewed, both on green CI.
 
 ## Incident, recorded because it touched production
 
