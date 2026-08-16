@@ -47,7 +47,7 @@ export function WearConfirmationSheet({
           edges={['bottom']}
           className="max-h-[88%] rounded-t-[28px] bg-canvas"
           accessibilityViewIsModal>
-          <ScrollView contentContainerClassName="px-gutter pb-5 pt-6">
+          <ScrollView style={{ flexShrink: 1 }} contentContainerClassName="px-gutter pb-4 pt-6">
             <View className="flex-row items-start justify-between gap-4">
               <View className="flex-1">
                 <Text variant="eyebrow">TODAY</Text>
@@ -150,13 +150,14 @@ export function WearConfirmationSheet({
               </Text>
             ) : null}
 
+          </ScrollView>
+          <View className="border-t border-rule px-gutter pb-2 pt-3">
             <Button
               title="Log this wear"
-              className="mt-6"
               loading={pending}
               onPress={() => onConfirm({ rating, favorite })}
             />
-          </ScrollView>
+          </View>
         </SafeAreaView>
       </View>
     </Modal>
