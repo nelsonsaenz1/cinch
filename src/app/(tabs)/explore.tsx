@@ -98,7 +98,7 @@ function NewSinceRule() {
       accessibilityLabel="New since your last visit, above this line"
       className="flex-row items-center gap-2.5 px-4 py-2.5">
       <View className="h-hair flex-1" style={{ backgroundColor: theme.rule }} />
-      <Text variant="colophon" style={{ color: theme.byline, letterSpacing: 1.2 }}>
+      <Text variant="colophon" style={{ color: theme.muted, letterSpacing: 1.2 }}>
         Earlier
       </Text>
       <View className="h-hair flex-1" style={{ backgroundColor: theme.rule }} />
@@ -382,7 +382,7 @@ export default function ExploreScreen() {
                 accessibilityRole="summary"
                 variant="noteSmall"
                 className="mt-6 text-center"
-                style={{ fontSize: 13, lineHeight: 18, color: theme.byline }}>
+                style={{ fontSize: 13, lineHeight: 18, color: theme.muted }}>
                 {CAUGHT_UP_LINE}
               </Text>
             ) : null}

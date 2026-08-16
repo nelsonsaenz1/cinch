@@ -141,7 +141,6 @@ const TEXT_DEBT: Record<string, string[]> = {
     // meaningful credit lines — whose piece a row is, when it landed — so they
     // belong on `muted`, and the lanes rebuilding Explore, the social sheets and
     // Profile in this program are the ones that will move them.
-    'src/app/profile.tsx',
     'src/components/item/tagging-header.tsx',
     'src/components/social/FriendOverflowSheet.tsx',
     'src/components/social/friend-sheets.tsx',

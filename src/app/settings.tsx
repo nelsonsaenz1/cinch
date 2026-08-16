@@ -437,7 +437,7 @@ export default function SettingsScreen() {
               copy: it is the edition mark on the last page of the lookbook,
               set in the attribution voice. */}
           {version ? (
-            <Text variant="caption" className="mt-4 text-center text-byline">
+            <Text variant="caption" className="mt-4 text-center text-muted">
               {`Cinch ${version}${build ? ` (${build})` : ''}`}
             </Text>
           ) : null}

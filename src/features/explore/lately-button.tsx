@@ -1,9 +1,9 @@
-import * as Haptics from 'expo-haptics';
 import { Pressable } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
+import { haptics } from '@/lib/haptics';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -56,9 +56,7 @@ export function LatelyButton({
       disabled={disabled}
       hitSlop={height < MIN_TAP_TARGET ? (MIN_TAP_TARGET - height) / 2 : undefined}
       onPress={() => {
-        void Haptics.selectionAsync().catch(() => {
-          /* haptics are best-effort; never block the action */
-        });
+        haptics.selection();
         onPress();
       }}
       onPressIn={press.onPressIn}
