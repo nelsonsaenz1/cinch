@@ -418,14 +418,32 @@ test('CX-06/LP-06 — Explore is the sole heading, and keeps its header role', (
   assert.equal((body(EXPLORE).match(/variant="display"/g) ?? []).length, 1);
 });
 
-test('CX-06 — the search field gets 20pt, and everything under it is untouched', () => {
+// CX-06 gave the masthead's permanent search field 20pt of air. UX-04 removed
+// the field: it is a dedicated sheet now, opened from a header action, because
+// a permanent search block on a feed page spends the first fold on a job most
+// sessions do not have. What CX-06 was really defending — the masthead is one
+// heading and the page below it is intact — is what survives here.
+test('UX-04 — the masthead carries a search ACTION, and the search itself moved out', () => {
   const src = code(EXPLORE);
-  assert.match(src, /EXPLORE_SEARCH_GAP = 20/);
-  assert.match(src, /marginTop: EXPLORE_SEARCH_GAP/);
-  // The rest of the page is the same page: its sections are still here.
-  for (const section of ['People', 'Reading your circle']) {
-    assert.ok(src.includes(section), `Explore lost its "${section}" section`);
-  }
+  assert.doesNotMatch(src, /<SearchField/, 'the permanent search field survives on Explore');
+  assert.match(src, /accessibilityLabel="Find people"/, 'no labelled search action in the header');
+  assert.match(src, /push\('\/people-search'\)/, 'the search action does not open the sheet');
+  // The rest of the page is the same page: its loading section is still here,
+  // and the empty state still leads to search rather than dead-ending.
+  assert.ok(src.includes('Reading your circle'), 'Explore lost its "Reading your circle" section');
+  assert.ok(src.includes('Find a friend'), 'the empty circle lost its way out');
+});
+
+test('UX-04 — the people-search sheet exists and is registered as one', () => {
+  const sheet = code('src/app/people-search.tsx');
+  assert.match(sheet, /<SearchField/, 'the sheet has no search field');
+  assert.match(sheet, /autoFocus/, 'the sheet opens without the keyboard');
+  assert.match(sheet, /accessibilityLabel="Close search"/, 'the sheet has no way out');
+  assert.match(
+    code('src/app/_layout.tsx'),
+    /name="people-search"[\s\S]{0,200}presentation: 'formSheet'/,
+    'people-search is not registered as a sheet in the root stack',
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -450,7 +468,10 @@ const ACCEPTED: Record<string, [path: string, headline: string, support: string]
   // computed rather than typed, so it cannot be matched as a literal between
   // two tags. Its own two tests are below.
   Plan: [PLAN, 'Plan', 'Your upcoming events.'],
-  Explore: [EXPLORE, 'Explore', 'Looks and ideas to try.'],
+  // UX-04 replaced LP-06's "Looks and ideas to try." — the page curates
+  // nothing, recommends nothing and styles nothing; these are the pieces
+  // friends added to their own closets, and the line now says exactly that.
+  Explore: [EXPLORE, 'Explore', 'New in your circle.'],
 };
 
 for (const [surface, [path, headline, support]] of Object.entries(ACCEPTED)) {

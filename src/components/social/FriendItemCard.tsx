@@ -1,13 +1,12 @@
-import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
+import { GarmentWell } from '@/components/social/garment-well';
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { wearsLabel } from '@/features/closet/item-name';
-import { stableImageSource } from '@/features/closet/use-image-urls';
 import type { FriendItem } from '@/features/social-graph/types';
 import { useTheme } from '@/theme/tokens';
 import { MAX_DISPLAY_SCALE } from '@/theme/type-scale';
@@ -74,26 +73,24 @@ function FriendItemCardComponent({ item, imageUri, onPress }: FriendItemCardProp
       className="px-1.5 pb-2.5">
       <Animated.View style={press.style}>
         <View className="h-[196px] w-full overflow-hidden rounded-md border border-hairline bg-tray">
-          {imageUri ? (
-            <Image
-              source={stableImageSource(imageUri)}
-              recyclingKey={item.id}
-              contentFit="cover"
-              transition={180}
-              cachePolicy="memory-disk"
-              style={{ flex: 1 }}
-              accessibilityIgnoresInvertColors
-            />
-          ) : (
-            <View className="flex-1 items-center justify-center">
+          {/* UX-06 — the same tshirt mark as before, but now it also stands in
+              for a decode failure and an expired token, not only for a path
+              that never signed. The card's 196pt well is unchanged in every
+              state, so a failure does not reflow the grid. */}
+          <GarmentWell
+            imageUri={imageUri}
+            recyclingKey={item.id}
+            contentFit="cover"
+            style={{ flex: 1 }}
+            fallback={
               <SymbolView
                 name="tshirt"
                 size={26}
                 tintColor={theme.hairline}
                 resizeMode="scaleAspectFit"
               />
-            </View>
-          )}
+            }
+          />
 
           {/* 9/600 tracked uppercase on the accent, 8pt in — the same badge
               build as the owner's never-worn badge, because it is the same

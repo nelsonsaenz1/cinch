@@ -1,11 +1,11 @@
-import { Image } from 'expo-image';
-import { memo } from 'react';
+import { Link, type Href } from 'expo-router';
+import { memo, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { GarmentWell } from '@/components/social/garment-well';
 import { Avatar } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { stableImageSource } from '@/features/closet/use-image-urls';
 import { profileName, type SocialProfile } from '@/features/social-graph/types';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -45,6 +45,16 @@ export type NewAdditionRowProps = {
   /** Signed URL for the plate — storage paths are not URLs. */
   imageUri?: string;
   onPress?: (entry: NewAddition) => void;
+  /**
+   * UX-09 — where the row goes, as a route rather than a callback, which is
+   * what `Link.Preview` needs in order to render the destination. When set, the
+   * tap is the Link's; `onPress` is ignored. Fixtures and any caller without a
+   * route keep the plain Pressable, so this component never depends on a
+   * navigator to render.
+   */
+  href?: Href;
+  /** `Link.MenuAction` elements. Only meaningful alongside `href`. */
+  menu?: ReactNode;
   isLast?: boolean;
 };
 
@@ -63,7 +73,15 @@ export type NewAdditionRowProps = {
  * no wear count, no original photograph — so, as with `FriendItemCard`, this
  * component could not leak those columns if it tried.
  */
-function NewAdditionRowComponent({ entry, owner, imageUri, onPress, isLast }: NewAdditionRowProps) {
+function NewAdditionRowComponent({
+  entry,
+  owner,
+  imageUri,
+  onPress,
+  href,
+  menu,
+  isLast,
+}: NewAdditionRowProps) {
   const theme = useTheme();
   const { item, isSelf } = entry;
 
@@ -76,15 +94,47 @@ function NewAdditionRowComponent({ entry, owner, imageUri, onPress, isLast }: Ne
   const when = sinceLabel(item.createdAt);
   const swatch = item.colors[0]?.hex ?? null;
 
-  return (
+  const interactive = Boolean(href || onPress);
+
+  /**
+   * UX-06 — what the well shows when there is no photograph, in preference
+   * order. The colour swatch first, because the tagger's answer is a fact about
+   * the garment and a mark is not; the hanger only when even that is unknown.
+   * Both are drawn at the well's full size, so a decode failure is the same
+   * square as a success.
+   */
+  const fallback = swatch ? (
+    // No render, but the tagger knew the colour — print the colour. An honest
+    // swatch beats a broken-image glyph.
+    <View
+      className="h-full w-full items-center justify-center px-1"
+      style={{ backgroundColor: swatch }}>
+      <Text
+        variant="colophon"
+        numberOfLines={2}
+        className="text-center"
+        style={{
+          letterSpacing: ATTRIBUTION_TRACKING,
+          color: isDarkHex(swatch) ? '#FFFFFFCC' : '#1C1A16AA',
+        }}>
+        {piece}
+      </Text>
+    </View>
+  ) : (
+    // The coat hanger, not an SF tshirt: the atlas's own garment mark, so an
+    // unrendered piece reads as "closet piece", not "missing image".
+    <HangerGlyph size={24} color={FALLBACK_GLYPH_INK} />
+  );
+
+  const row = (
     <Pressable
-      accessibilityRole={onPress ? 'button' : 'text'}
+      accessibilityRole={interactive ? 'button' : 'text'}
       accessibilityLabel={[piece, spec, `added by ${who}`, when].filter(Boolean).join(', ')}
       accessibilityHint={
-        onPress ? (isSelf ? 'Open this piece' : `Open ${who}’s closet`) : undefined
+        interactive ? (isSelf ? 'Open this piece' : `Open ${who}’s closet`) : undefined
       }
       onPress={onPress ? () => onPress(entry) : undefined}
-      disabled={!onPress}
+      disabled={!interactive}
       style={{ minHeight: MIN_TAP_TARGET }}
       className={[
  'flex-row items-center gap-3.5 px-4 py-3.5 active:opacity-60',
@@ -96,39 +146,13 @@ function NewAdditionRowComponent({ entry, owner, imageUri, onPress, isLast }: Ne
       <View
         style={{ width: PLATE, height: PLATE }}
         className="items-center justify-center overflow-hidden rounded-lg bg-tray">
-        {imageUri ? (
-          <Image
-            source={stableImageSource(imageUri)}
-            recyclingKey={item.id}
-            contentFit="contain"
-            transition={180}
-            cachePolicy="memory-disk"
-            style={{ width: '100%', height: '100%' }}
-            accessibilityIgnoresInvertColors
-          />
-        ) : swatch ? (
-          // No render yet, but the tagger knew the colour — print the colour.
-          // An honest swatch beats a broken-image glyph.
-          <View
-            className="h-full w-full items-center justify-center px-1"
-            style={{ backgroundColor: swatch }}>
-            <Text
-              variant="colophon"
-              numberOfLines={2}
-              className="text-center"
-              style={{
-                letterSpacing: ATTRIBUTION_TRACKING,
-                color: isDarkHex(swatch) ? '#FFFFFFCC' : '#1C1A16AA',
-              }}>
-              {piece}
-            </Text>
-          </View>
-        ) : (
-          // The coat hanger, not an SF tshirt: the atlas's own garment mark,
-          // so an unrendered piece reads as "closet piece", not "missing
-          // image".
-          <HangerGlyph size={24} color={FALLBACK_GLYPH_INK} />
-        )}
+        <GarmentWell
+          imageUri={imageUri}
+          recyclingKey={item.id}
+          contentFit="contain"
+          fallback={fallback}
+          style={{ width: '100%', height: '100%' }}
+        />
       </View>
 
       <View className="flex-1">
@@ -178,6 +202,27 @@ function NewAdditionRowComponent({ entry, owner, imageUri, onPress, isLast }: Ne
         </View>
       </View>
     </Pressable>
+  );
+
+  if (!href) return row;
+
+  /**
+   * UX-09 — the native accelerator, wrapped around the row that already works.
+   *
+   * `asChild` so the Link does not wrap the row in a `<Text>`; `Link.Trigger`
+   * so the preview machinery knows which element is the source. Off iOS, and
+   * inside a preview, `expo-router` drops `Link.Preview`/`Link.Menu` and renders
+   * the trigger through the ordinary link — so the visible fallback is not
+   * something this file has to arrange, it is the only thing that was ever
+   * there. `Link.Preview` with no children previews the `href` itself, which is
+   * the friend's closet: the destination, not a mock-up of it.
+   */
+  return (
+    <Link href={href} asChild>
+      <Link.Trigger>{row}</Link.Trigger>
+      <Link.Preview />
+      {menu ? <Link.Menu>{menu}</Link.Menu> : null}
+    </Link>
   );
 }
 

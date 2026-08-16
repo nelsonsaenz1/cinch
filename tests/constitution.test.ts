@@ -93,7 +93,10 @@ const FAINT_TEXT_DEBT = [
   // Group 5 and beyond. The four gap-feed entries, `ProfileRow` and
   // `friends/[userId]` came off this list when Group 5 rebuilt those surfaces;
   // what is left here is what Group 5 did not own.
-  'src/app/(tabs)/explore.tsx',
+  // `src/app/(tabs)/explore.tsx` came off this list in the UI-excellence
+  // packet: UX-04 moved the people-search block — every faint string on that
+  // page — into `people-search.tsx`, which was written to `muted` from the
+  // start rather than inheriting the debt.
   // `EventCard.tsx` came off this list in the launch-polish packet: LP-10 gave
   // its quietest line real information to carry, so it moved to `muted`.
   'src/features/explore/new-addition-row.tsx',
