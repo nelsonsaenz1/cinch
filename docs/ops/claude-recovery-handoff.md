@@ -48,7 +48,7 @@ something, never intended to ship) · `RECOVER` (genuinely missing intended work
 | 7 | `codex/ui-excellence-c` @ `d5d3af3` | worktree | UX-05 Profile/Settings split, route-local UX-08 | Integrated | `SUPERSEDED` | `git diff --name-status main codex/ui-excellence-c \| grep ^A` → empty |
 | 8 | `deno.lock` dirty line in `.claude/worktrees/agent-ad55de324e8efeaaa` | uncommitted | Adds `npm:expo-updates@~57.0.12` | `main` `deno.lock:120` pins `~57.0.13`; `package.json:46` declares `~57.0.14` | `SUPERSEDED` / `VERIFICATION-ONLY` | Worktree pin is strictly older than main's. Recovering it would *downgrade*. |
 | 9 | `skeleton.tsx` + `error-state.tsx` in `.claude/worktrees/agent-ad62cb0addaba2495` | uncommitted | Skeleton/error-state primitives | `main` versions are strictly more evolved | `SUPERSEDED` | See "Primitive supersession proof" below |
-| 10 | `9d67a0c` "Make a slow model a fact the app can see, say, and tune" | `claude/goofy-elbakyan-d74065` | Surface/tune slow-model latency | Not an ancestor of main | `UNKNOWN` → audited | See audit result below |
+| 10 | `9d67a0c` "Make a slow model a fact the app can see, say, and tune" | `claude/goofy-elbakyan-d74065` | Per-workload AI timeout/attempt config | `ai_config.timeout_ms` and nullable `ai_calls.attempts` both in main | `SUPERSEDED` | `supabase/migrations/20260808180000_ai_timeout_and_attempts.sql` carries the same column and `between 5000 and 120000` constraint; main wires it further through `supabase/functions/_shared/ai-config.ts:98,113` and keeps constants as `??` fallbacks — safer than the commit, which deleted them. Its model repoint is not in the diff at all (applied live, narrated only). Residual edge-function differences are service-owned; see "Scope not carried by this lane". |
 | 11 | 568-file staged snapshot in `.claude/worktrees/goofy-elbakyan-d74065` | staged, uncommitted | Legacy bulk snapshot incl. `_to_delete/`, stale lockfiles, PDFs, PNGs | n/a | `VERIFICATION-ONLY` — **never bulk-merge** | Left untouched and unstaged-from. Contains `_to_delete/*.lock.stale` and `_to_delete/unit-tests-stale/` — self-labelled dead weight. |
 | 12 | `claude/clothing-app-tech-stack-7c58b2` @ `ab49416` | branch | Superwall sourcing scratch | Reapplied in `src/features/billing/` | `SUPERSEDED` | The commit message itself records the supersession and an explicit "deliberately NOT carried over" list (`use-tier.ts`, `20260805120000_server_side_trial_clock.sql`, `04_trial_clock.sql`) including a warning that the migration dropped a still-needed RLS policy. Do not resurrect. |
 | 13 | `origin/posthog/instrumentation-gaps`, `origin/posthog/instrumentation-5a85ce` | remote | PostHog instrumentation | `fe4458f` is already an ancestor of `main` | `IN-MAIN` | `git branch --no-merged main` does not list it. Three files it added (`substitution-sheet.tsx`, `example-ghosts.tsx`, `progress-track.tsx`) were later deliberately removed in main. |
@@ -251,6 +251,141 @@ What genuinely remains is smaller and worth recording:
   `dev-*` routes are bounced in release builds (`_layout.tsx:160`)". The count is 166 low and the
   line reference has drifted (the guard is now at :162). **Not corrected by this lane** — that file
   is App Store release evidence and Codex holds release ownership. Flagged for Codex.
+
+## Row 6 — the per-intent audit of `codex/ui-excellence-b`, and the verdict it got wrong
+
+B was audited by comparing its authored diff *against its own parent*, not merely by diffing the
+branch against main. Of the 18 files it authors, **12 landed byte-identical in main** — the whole
+UX-10 "let it end" machinery (`src/features/explore/unseen.ts`, `use-explore-unseen.ts`,
+`contextual-actions.ts`, `feed.ts` including `CAUGHT_UP_LINE` at `feed.ts:51`), plus
+`garment-well.tsx`, `new-addition-row.tsx`, `FriendItemCard.tsx`, `(tabs)/_layout.tsx` and all three
+new test files. Two intents were deliberately improved on rather than dropped:
+
+- B used `theme.byline` for the "Earlier" rule and the caught-up line; main uses `theme.muted`,
+  because the widened contrast census frozen at UX-01 forbids `byline` as text (2.61:1). Changed by
+  `f9463b4`.
+- B called `Haptics.selectionAsync()` directly; main routes through `src/lib/haptics.ts` (UX-07,
+  intents not strengths), guarded by `tests/haptic-policy.test.ts`.
+
+### The people-search finding was wrong, and the check that caught it
+
+The audit reported one `GENUINELY-MISSING` item: two blocks of mutual-friendship copy in
+`src/app/people-search.tsx`, deleted by `2bfbf5c`. The circumstantial case was strong — a pure
+16-line deletion, no replacement, an **empty commit body**, inside a commit whose other ten files
+are all Today/mutations/wear-failure. It read exactly like out-of-scope collateral.
+
+It was not. The deletion is deliberate and guarded by a test that `2bfbf5c` shipped in the same
+commit:
+
+```
+tests/today-polish-phase-a.test.ts:24
+  assert.doesNotMatch(src, /friendship is mutual|closet opens to you/i);
+```
+
+It implements the Today polish handoff §5.1 ("both mutuality prose blocks gone"). The restoration
+was written, run, and **reverted** when the suite failed 1/1815 on exactly that assertion.
+
+Recorded because the lesson generalises: a commit's *shape* — pure deletion, empty body, unrelated
+subject — is suggestive but is not evidence of accident. The test suite is. Nothing in this lane was
+recovered on the strength of a diff's appearance alone.
+
+Status for row 6: **`SUPERSEDED`**, no recovery — confirmed at file level, at intent level, and by
+test.
+
+## Scope not carried by this lane
+
+This slice is documentation and test evidence only. It changes no route, component, token, copy
+string, dependency, schema, or service.
+
+Residual differences between `9d67a0c` and main that live in Supabase **edge functions** are not
+carried here. They reach users by deployment rather than by this branch, and the Chat Registry
+restricts production-service mutation to one recorded owner at a time — currently Codex. They are
+referred to the service owner rather than specified or implemented by this lane.
+
+## Verification evidence at the branch head
+
+Run in `/Users/nelsonsaenz/cinch-wt-recovery`, with `node_modules` symlinked to the primary
+checkout — this repo's documented worktree convention (`.gitignore:5`: "worktrees symlink
+node_modules rather than installing it").
+
+| Check | Command | Result |
+|---|---|---|
+| Typecheck | `npm run typecheck` (`tsc --noEmit`, TypeScript 6.0.3) | **clean — no diagnostics** |
+| Unit tests | `npm test` (`node scripts/run-tests.mjs`) | **1816 pass, 0 fail, 0 skipped** |
+| Working tree | `git status --porcelain` | clean |
+| Base | `git merge-base --is-ancestor main HEAD` | `main` = `b00d38d` = `origin/main` |
+
+The new regression test in `tests/today-polish-phase-a.test.ts` pins behavior that already ships:
+`src/app/(tabs)/index.tsx:963` computes `liked`, `:971` sends the reaction reason as `favorite` or
+`wear_rating_<n>`, and `src/features/styling/mutations.ts:233-234` passes `p_wear_rating` and
+`p_favorite` into `apply_outfit_reaction`. It evaluates the shipping
+ternary itself rather than a copy, so a silent edit fails the test instead of passing a stub. It
+adds no behavior; the count moves 1815 → 1816 and stays green.
+
+## Release classification: REQUIRES-NEW-STORE-BUILD
+
+Not a judgement call — two independent sources agree.
+
+```
+$ npm run check:fingerprint          # run in /Users/nelsonsaenz/cinch, which has ios/
+  recorded  d9cb8c3b77a5e69d793dcdbd2aec1484f54cb3c6   2026-08-16 @ 9345eb2
+  current   b07ed5b24bc13c26f79ddc34e02b0cba143d1632   73 sources
+  THE NATIVE LAYER HAS CHANGED.
+```
+
+```
+$ eas build:list --platform ios --limit 3      # read-only
+  Build number     38          Status   finished · production · store
+  Runtime Version  d9cb8c3b77a5e69d793dcdbd2aec1484f54cb3c6
+  Fingerprint      d9cb8c3b77a5e69d793dcdbd2aec1484f54cb3c6
+  Commit           9345eb29fc4403652aa1edde96cd5112cafe637c
+  Version          1.0.0
+```
+
+The last submitted store build (38, version 1.0.0) carries runtime `d9cb8c3b…` from commit
+`9345eb2`. Current `main` fingerprints to `b07ed5b2…`. **`main` at `b00d38d` cannot ship as an
+OTA** — it requires a new store build. This matches the launch-polish handoff's own statement that
+the native MapKit venue-search module needs a new EAS runtime and cannot ride an OTA.
+
+Method note: run `check:fingerprint` in the **primary** checkout. This recovery worktree has no
+`ios/` directory and fingerprints differently (`adafabd2…`, 72 sources); that figure is an artifact
+of the worktree, not a native change, and is not authoritative.
+
+Other read-only release state: EAS authenticated as `nelsonsaenz1@yahoo.com` (Owner of
+`nelsonsaenz` and `nelsonsaenzs-team`); 91 migrations, latest
+`20260816190545_today_ratings_favorites.sql`. Nothing was built, published, submitted, deployed,
+promoted, or merged.
+
+**Artifact manifest for Codex visual review: empty, and correctly so.** This branch's diff is
+documentation plus one regression test. It changes no rendered surface, so there is no visual state
+to capture and no screenshot that would carry meaning. No self-authored visual verdict is offered.
+
+## Remaining blockers, by owner
+
+**Founder only**
+- D-1 comment closure, D-2 board lock, D-5 StoreKit terms — the three release-gate rows recorded as
+  founder decisions. This lane is forbidden to guess them.
+- Any credential, 2FA, OAuth grant, legal agreement, financial action, paid upgrade, expedited-review
+  rationale, or irreversible Apple choice.
+
+**Codex (release and visual owner)**
+- Independent Simulator visual acceptance — the entire visual half of the gate, still `Pending`.
+- `PlaceField` rendered single-line baseline: declared geometry already agrees and is pinned by
+  `tests/today-polish-phase-a.test.ts:35-42`; confirming the rendered result needs device evidence
+  this lane does not have and will not fabricate.
+- A new store build (39) before any production promotion, then `npm run check:fingerprint -- --set`.
+- `docs/app-store/submission-runbook.md:122` says "The 39 `dev-*` routes are bounced in release
+  builds (`_layout.tsx:160`)" — there are 205, and the guard is now at `:162`. Left uncorrected here
+  because that file is App Store release evidence under Codex ownership.
+- Residual `9d67a0c` edge-function differences, per "Scope not carried by this lane".
+
+**Coordination**
+- A Codex session is live in the primary checkout and `main` moved once mid-session. Release
+  ownership is not held by this lane; sequencing must be agreed before any build or deploy.
+
+**Not a blocker, recorded for completeness**
+- Bundle hygiene: 205 `dev-*` fixture screens still compile into the production bundle. Guarded at
+  runtime by `_layout.tsx:162`, so this is size and build time, not correctness or review risk.
 
 ## Preserved, untouched
 
