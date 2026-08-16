@@ -94,7 +94,7 @@ function Grid({ uris, highlightFirst }: { uris: string[]; highlightFirst?: boole
       <View
         className="items-center justify-center rounded-md border border-dashed border-rule-strong"
         style={{ width: '31%', aspectRatio: 1 }}>
-        <Text variant="label" style={{ color: theme.faint }}>
+        <Text variant="label" style={{ color: theme.muted }}>
           + Add
         </Text>
       </View>
@@ -114,7 +114,7 @@ function W01() {
         </Text>
         <Text
           variant="caption"
-          style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.faint }}>
+          style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.muted }}>
           10 OF 10 · FULL
         </Text>
       </View>
@@ -125,7 +125,7 @@ function W01() {
       <View className="mt-auto border-t border-rule px-gutter pb-8 pt-3.5">
         <Text
           variant="caption"
-          style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.faint }}>
+          style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.muted }}>
           {`${today} OUTFITS · 10 PIECES`}
         </Text>
       </View>
@@ -232,7 +232,7 @@ function W03() {
           onSecondary={() => {}}
           onDismiss={() => setSheetOpen(false)}
         />
-        <Text variant="caption" className="px-gutter pb-6" style={{ color: theme.faint }}>
+        <Text variant="caption" className="px-gutter pb-6" style={{ color: theme.muted }}>
           The import is held, not cancelled. It’s here when there’s room.
         </Text>
       </View>
@@ -290,7 +290,7 @@ function W04() {
                 <Text
                   variant="caption"
                   className="mt-0.5"
-                  style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4, color: theme.faint }}>
+                  style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4, color: theme.muted }}>
                   {`${wornLabel(c.wearCount)} · IN ${c.outfitCount} OUTFITS`}
                 </Text>
               </View>
@@ -315,7 +315,7 @@ function W04() {
               {`${selected.outcome.from} → ${selected.outcome.swapped}`}
             </Text>
           </View>
-          <Text variant="caption" className="mt-1.5" style={{ color: theme.faint }}>
+          <Text variant="caption" className="mt-1.5" style={{ color: theme.muted }}>
             {selected.outcome.costOfSwap > 0
               ? `${selected.outcome.swapped - selected.outcome.from} more than you have now, ${selected.outcome.costOfSwap} fewer than keeping both. Storing is reversible at any time.`
               : `${selected.outcome.swapped - selected.outcome.from} more than you have now — storing this costs the count nothing. Storing is reversible at any time.`}
@@ -341,7 +341,7 @@ function W05() {
         </Text>
         <Text
           variant="caption"
-          style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.faint }}>
+          style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.muted }}>
           11 PIECES
         </Text>
       </View>
@@ -355,7 +355,7 @@ function W05() {
           <Text
             variant="caption"
             className="mb-1"
-            style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.faint }}>
+            style={{ fontFamily: 'ui-monospace', letterSpacing: 0.4, color: theme.muted }}>
             The boots are in
           </Text>
           <Text variant="title" trim style={{ fontSize: 26 }}>

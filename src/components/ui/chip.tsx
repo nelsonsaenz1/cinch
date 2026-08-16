@@ -1,8 +1,8 @@
-import * as Haptics from 'expo-haptics';
 import { useCallback } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import { haptics } from '@/lib/haptics';
 import { useTheme } from '@/theme/tokens';
 
 import { chipSpec } from './chip-spec';
@@ -90,11 +90,12 @@ export function Chip({
   const theme = useTheme();
   const spec = chipSpec({ tone, selected, selectedGround, size, pressable: Boolean(onPress) });
 
-  // The selection tick every other control in the app gives a tap. Best-effort:
-  // haptics no-op in Low Power Mode, and a failure must never eat the press.
+  // The selection tick every other control in the app gives a tap. A chip IS a
+  // selection, so this is the one intent it can spend. Best-effort by
+  // construction in lib/haptics — a failure never eats the press.
   const press = useCallback(() => {
     if (!onPress) return;
-    void Haptics.selectionAsync().catch(() => {});
+    haptics.selection();
     onPress();
   }, [onPress]);
 

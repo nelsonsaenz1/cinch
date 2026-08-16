@@ -107,7 +107,7 @@ function ReasonSheet({ flow }: { flow: ReportFlowState }) {
               placeholder={
                 flow.reason === 'Other' ? 'What happened?' : 'Anything else we should know?'
               }
-              placeholderTextColor={theme.faint}
+              placeholderTextColor={theme.muted}
               multiline
               maxLength={2000}
               accessibilityLabel="Additional details"

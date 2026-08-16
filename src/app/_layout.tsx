@@ -12,6 +12,7 @@ import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Text } from '@/components/ui/text';
+import { ToastHost } from '@/components/ui/toast-host';
 import { AnalyticsProperties } from '@/features/analytics/analytics-properties';
 import { isoWeek } from '@/features/analytics/signup-week';
 import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
@@ -264,6 +265,18 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {/*
+        UX-08's shared toast, mounted once at the root so `useToast()` reaches it
+        from any depth without a screen holding toast state. Outside the query
+        provider deliberately: it is chrome, it has no data of its own, and a
+        confirmation must not be torn down by a cache purge on sign-out.
+
+        Directly inside GestureHandlerRootView because the toast positions
+        absolutely and this is the view that fills the window. It cannot rise
+        above a NATIVE sheet presentation — see the note in toast-host.tsx; a
+        sheet-local confirmation still renders its own <Toast>.
+      */}
+      <ToastHost>
+      {/*
         Persisted, not plain. The closet, the wardrobe and the learned style
         profile are written to SQLite and restored on launch, so a cold start
         with no signal still has something to dress you from — the styling
@@ -470,6 +483,7 @@ export default function RootLayout() {
           </Analytics>
         </ThemeProvider>
       </PersistQueryClientProvider>
+      </ToastHost>
     </GestureHandlerRootView>
   );
 }

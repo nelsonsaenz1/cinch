@@ -250,7 +250,7 @@ export function CorrectionSheet({
                 onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
                 autoFocus={focusField === 'name'}
                 placeholder="Navy wool crewneck"
-                placeholderTextColor={theme.faint}
+                placeholderTextColor={theme.muted}
                 accessibilityLabel="Garment name"
                 returnKeyType="done"
                 editable={!busy}
@@ -288,7 +288,7 @@ export function CorrectionSheet({
                 onChangeText={(text) => setDraft((d) => ({ ...d, fabric: text.length > 0 ? text : null }))}
                 autoFocus={focusField === 'fabric'}
                 placeholder="Wool"
-                placeholderTextColor={theme.faint}
+                placeholderTextColor={theme.muted}
                 accessibilityLabel="Fabric"
                 returnKeyType="done"
                 editable={!busy}
@@ -303,7 +303,7 @@ export function CorrectionSheet({
                 onChangeText={(text) => setDraft((d) => ({ ...d, pattern: text.length > 0 ? text : null }))}
                 autoFocus={focusField === 'pattern'}
                 placeholder="Solid"
-                placeholderTextColor={theme.faint}
+                placeholderTextColor={theme.muted}
                 accessibilityLabel="Pattern"
                 returnKeyType="done"
                 editable={!busy}

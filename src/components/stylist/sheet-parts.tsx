@@ -545,7 +545,7 @@ export function Composer({
         // carried. Placeholder text is the case `faint` exists for: it is
         // not content, it vacates the moment anything is typed, and holding
         // it at `muted` made an empty field look like a filled one.
-        placeholderTextColor={theme.faint}
+        placeholderTextColor={theme.muted}
         multiline
         textAlignVertical="top"
         returnKeyType="send"

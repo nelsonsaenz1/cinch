@@ -224,7 +224,7 @@ export default function DevPlanScreen() {
       <ScrollView contentContainerClassName="pb-10">
         <View className="mb-1 flex-row items-baseline justify-between px-gutter">
           <Text variant="title">This week</Text>
-          <Text variant="label" className="text-faint">
+          <Text variant="label" className="text-muted">
             {weekRangeLabel}
           </Text>
         </View>

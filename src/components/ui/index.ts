@@ -15,6 +15,14 @@ export { DoorCondition, DoorPlate, type DoorPlateProps } from '@/components/ui/d
 export { EditorialFrame } from '@/components/ui/editorial-frame';
 export { EmptyState, type EmptyStateProps } from '@/components/ui/empty-state';
 export { ErrorState, type ErrorStateProps } from '@/components/ui/error-state';
+// UX-08's classifier. Not a component — the shared rule three lanes answer their
+// `Alert.alert` inventory against. See the file.
+export {
+  feedbackRationale,
+  feedbackSurface,
+  type FeedbackCase,
+  type FeedbackSurface,
+} from '@/components/ui/feedback';
 export { GHOSTED_RAIL_HEIGHT, GhostedRail } from '@/components/ui/ghosted-rail';
 export {
   KeyboardAvoidingScreen,
@@ -23,6 +31,12 @@ export {
 export { Notice, type NoticeProps } from '@/components/ui/notice';
 export { NoticeBand, type NoticeBandAction } from '@/components/ui/notice-band';
 export { PlateTile } from '@/components/ui/plate-tile';
+// UX-07's shared press. `usePressFeedback` is the hook it wraps and stays
+// exported for the controls that already compose it by hand.
+export {
+  PressableSurface,
+  type PressableSurfaceProps,
+} from '@/components/ui/pressable-surface';
 export { Rule } from '@/components/ui/rule';
 export { SearchField, type SearchFieldProps } from '@/components/ui/search-field';
 export { BackButton, ScreenHeader, type ScreenHeaderProps } from '@/components/ui/screen-header';
@@ -51,4 +65,8 @@ export {
 } from '@/components/ui/skeleton';
 export { Swatch, type SwatchProps } from '@/components/ui/swatch';
 export { Toast, type ToastProps } from '@/components/ui/toast';
+// The host is mounted once in app/_layout.tsx; `useToast()` is how a tab-level
+// surface raises one. A sheet still renders `Toast` itself — see toast-host.tsx.
+export { ToastHost, useToast, type ShowToastOptions } from '@/components/ui/toast-host';
 export { Text, type TextProps } from '@/components/ui/text';
+export { usePressFeedback } from '@/components/ui/use-press-feedback';

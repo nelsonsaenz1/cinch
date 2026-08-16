@@ -1,4 +1,3 @@
-import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +10,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
+import { haptics } from '@/lib/haptics';
 import { motion, useTheme } from '@/theme/tokens';
 
 import {
@@ -117,11 +117,10 @@ export function Button({
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       disabled={isDisabled}
       onPress={(event) => {
-        if (haptic) {
-          void Haptics.selectionAsync().catch(() => {
-            /* haptics are best-effort; never block the action */
-          });
-        }
+        // Through the UX-07 policy module rather than expo-haptics directly:
+        // `selection` is an INTENT, and which taptic call expresses it is
+        // lib/haptics' business. Best-effort and never awaited — see that file.
+        if (haptic) haptics.selection();
         onPress?.(event);
       }}
       onPressIn={(event) => {

@@ -25,6 +25,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 
 import tailwind from '../tailwind.config.js';
+import { NON_TEXT_TOKENS } from '../src/theme/contrast';
 import { MIN_TAP_TARGET, motion, shadow } from '../src/theme/metrics';
 import { RADIUS, VARIANTS } from '../src/components/ui/button-spec';
 
@@ -52,70 +53,133 @@ test('the nine constitution colours are exactly these hexes', () => {
 });
 
 /**
- * Files that set #8A8578 as type TODAY. Frozen 2026-08-12, at the Wave 3
- * shared-system checkpoint.
+ * The low-contrast census. UX-01 widened it; the shape is unchanged.
  *
- * The constitution says "NEVER #8A8578 as text" and the refusal list says "no
- * faint text"; on canvas it fails AA, which is the whole reason. The census
- * that produced this list found 20 files and 45 uses, so the rule was being
- * broken widely and quietly.
+ * It began as one token. The constitution says "NEVER #8A8578 as text" and the
+ * refusal list says "no faint text"; on canvas `faint` is 3.52:1, which is the
+ * whole reason. The census that produced the original list found 20 files and
+ * 45 uses, so the rule was being broken widely and quietly.
  *
- * This is a DEBT LIST, not a permission. It exists because fixing 20 files
- * spread across four groups from one checkpoint would collide with every lane
- * that owns them, and because several are genuinely the atlas's business:
- * `review-card` is RV-01..03, `garment-search-sheet` is DS-01..05,
- * `item-edit-sheet` is IT-03. Those get their colour decided by the frame that
- * draws them, not by a global sweep.
+ * What it never covered was the two tokens BELOW `faint`. `byline` is 2.61:1
+ * and `ghost` is 1.72:1, and both were set as type in files this test reported
+ * clean on — it looked only for the token it had been told about, which is the
+ * same failure mode Lane G3 caught when `placeholderTextColor` turned out to be
+ * missing from the patterns. So the census is no longer a hard-coded token: it
+ * is driven by `NON_TEXT_TOKENS` in `src/theme/contrast.ts`, which is the role
+ * table DE-01 asked for. A role declared `text: false` there is scanned for
+ * here, automatically, and the two files cannot disagree.
  *
- * The test's job meanwhile is to stop the bleeding: anything NOT on this list
- * fails. Delete entries as lanes burn them down; never add one.
- *
- * `placeholderTextColor` was added to the scan after Lane G3 pointed out that
- * the first version of this census missed it entirely — it reported clean on a
- * case it never looked at, which is the most expensive kind of green. A
- * placeholder is the ONLY text in an empty field, so it is text, and faint
- * fails AA there exactly as it does anywhere else. Adding the pattern grew the
- * census from 20 files to 26; the new entries are pre-existing debt, not
- * regressions, and they are listed separately so the reason stays legible.
+ * The lists below are DEBT, not permission. Anything not on them fails. Delete
+ * entries as lanes burn them down; never add one — a lane that needs a new
+ * entry is a lane that should have used `muted`.
  */
+
 /**
- * The three ways this codebase can set #8A8578 as type: the utility class, the
+ * The three ways this codebase can set a colour as type: the utility class, the
  * inline escape hatch a class-precedence bug would otherwise hide, and the
  * placeholder — which is text even though it does not look like a `<Text>`.
+ *
+ * `color:` is lower-case on purpose and it matters: `backgroundColor`,
+ * `borderColor` and `tintColor` all end in `Color:` with a capital C, so a fill
+ * or a border drawn in `faint` is correctly ignored. Those are not text.
  */
-const FAINT_AS_TEXT = [
-  /text-faint\b/,
-  /color:\s*theme\.faint\b/,
-  /placeholderTextColor=\{theme\.faint\}/,
+const asText = (token: string, utility: string) => [
+  new RegExp(`text-${utility}\\b`),
+  new RegExp(`color:\\s*theme\\.${token}\\b`),
+  new RegExp(`placeholderTextColor=\\{theme\\.${token}\\}`),
 ];
 
-const FAINT_TEXT_DEBT = [
-  // Group 5 and beyond. The four gap-feed entries, `ProfileRow` and
-  // `friends/[userId]` came off this list when Group 5 rebuilt those surfaces;
-  // what is left here is what Group 5 did not own.
-  'src/app/(tabs)/explore.tsx',
-  // `EventCard.tsx` came off this list in the launch-polish packet: LP-10 gave
-  // its quietest line real information to carry, so it moved to `muted`.
-  'src/features/explore/new-addition-row.tsx',
-  // Placeholders — see the note on `placeholderTextColor` above the scanner.
-  'src/app/item/[id].tsx',
-  'src/components/event-outfits/PostComposer.tsx',
-  'src/components/events/occasion-field.tsx',
-  'src/components/events/place-field.tsx',
-  'src/components/intake/CorrectionSheet.tsx',
-  'src/components/report/ReportFlowSheets.tsx',
-  'src/components/stylist/sheet-parts.tsx',
-  'src/features/profile/edit-profile-sheet.tsx',
-  'src/features/profile/handle-field.tsx',
-  // `__DEV__` fixture routes — never shipped, fixed opportunistically.
-  'src/app/dev-plan.tsx',
-  'src/app/dev-wall.tsx',
-];
+/** JS key → Tailwind utility name, for the two that differ. */
+const UTILITY: Record<string, string> = {
+  accentWarm: 'accent-warm',
+  ruleStrong: 'rule-strong',
+};
 
-test('no NEW surface sets #8A8578 as text', () => {
-  // Scanned rather than asserted about: the failure mode is a call site
-  // somebody adds next week, not a value in a config.
-  const offenders: string[] = [];
+const CENSUS = NON_TEXT_TOKENS.map((token) => ({
+  token,
+  patterns: asText(token, UTILITY[token] ?? token),
+}));
+
+/**
+ * Files that set a forbidden token as type TODAY, by token.
+ *
+ * `faint` frozen 2026-08-12 at the Wave 3 shared-system checkpoint and reduced
+ * since; `byline` and `ghost` frozen 2026-08-15 at the UX-01 checkpoint, from
+ * the census that first looked for them.
+ *
+ * The UX-01 integration pass burned five `faint` entries down — the three
+ * placeholder sheets and the two `__DEV__` fixtures — and stopped there
+ * deliberately. Every remaining entry belongs to a surface another lane is
+ * rebuilding in this same program, and a global sweep into those files would
+ * collide with the frame that is about to redraw them. Their colour gets
+ * decided by that frame, which is the same argument the original list made
+ * about `review-card` and `item-edit-sheet`.
+ */
+const TEXT_DEBT: Record<string, string[]> = {
+  faint: [
+    // Group 5 and beyond. The four gap-feed entries, `ProfileRow` and
+    // `friends/[userId]` came off this list when Group 5 rebuilt those surfaces;
+    // what is left here is what Group 5 did not own.
+    'src/app/(tabs)/explore.tsx',
+    // `EventCard.tsx` came off this list in the launch-polish packet: LP-10 gave
+    // its quietest line real information to carry, so it moved to `muted`.
+    'src/features/explore/new-addition-row.tsx',
+    // Placeholders — see the note on `placeholderTextColor` above the scanner.
+    // `CorrectionSheet`, `ReportFlowSheets` and `sheet-parts` came off here at
+    // UX-01; these four are owned by lanes A, B and C in this program.
+    'src/app/item/[id].tsx',
+    'src/components/event-outfits/PostComposer.tsx',
+    'src/components/events/occasion-field.tsx',
+    'src/components/events/place-field.tsx',
+    'src/features/profile/edit-profile-sheet.tsx',
+    'src/features/profile/handle-field.tsx',
+  ],
+  byline: [
+    // The Lately attribution voice, set in the token named after it. These are
+    // meaningful credit lines — whose piece a row is, when it landed — so they
+    // belong on `muted`, and the lanes rebuilding Explore, the social sheets and
+    // Profile in this program are the ones that will move them.
+    'src/app/profile.tsx',
+    'src/components/item/tagging-header.tsx',
+    'src/components/social/FriendOverflowSheet.tsx',
+    'src/components/social/friend-sheets.tsx',
+    'src/features/explore/new-addition-row.tsx',
+    // Button's `filled` disabled tone — a `byline` label on `sand`. NOT debt:
+    // WCAG 2.2 exempts an inactive control, and N-07 prints the reason
+    // underneath at full strength. Listed because the scanner cannot tell a
+    // disabled label from a live one, and `ROLES.disabled` is where the
+    // exemption is actually argued.
+    'src/components/ui/button.tsx',
+    // `__DEV__` fixture route — never shipped.
+    'src/app/dev-account.tsx',
+  ],
+  ghost: [
+    // Example content drawn as example content — the Plan atlas's ghost weekday
+    // and ghost trip label, and the unpickable past days in the date sheet.
+    // Also not debt: `ROLES.example` is the argument, and `tests/example-
+    // content.test.ts` is what keeps these from ever carrying real data.
+    'src/components/boards/board-edit-sheet.tsx',
+    'src/components/boards/keep-sheet.tsx',
+    'src/components/events/date-sheet.tsx',
+  ],
+};
+
+/** Strip the comments a census must not punish. See the note inside. */
+const scannable = (path: string) =>
+  readFileSync(path, 'utf8')
+    // Block comments and WHOLE-LINE `//` comments go first: several files
+    // explain in prose why they avoid these exact classes, and a rule that
+    // punishes its own documentation teaches people to stop writing it down. A
+    // TRAILING `// …` comment is NOT stripped, so writing one of these patterns
+    // after code on the same line still trips this. That is deliberate —
+    // stripping trailing comments means finding `//` in a string, and every URL
+    // in the codebase contains one. It fails closed.
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+const sourceFiles = () => {
+  const out: string[] = [];
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir)) {
       const path = `${dir}/${entry}`;
@@ -123,40 +187,56 @@ test('no NEW surface sets #8A8578 as text', () => {
         walk(path);
         continue;
       }
-      if (!/\.(ts|tsx)$/.test(entry)) continue;
-      // Block comments and WHOLE-LINE `//` comments are stripped first: three
-      // files explain in prose why they avoid this exact class, and a rule
-      // that punishes its own documentation teaches people to stop writing it
-      // down. A TRAILING `// …` comment is not stripped, so writing one of
-      // these patterns after code on the same line still trips this. That is
-      // deliberate — stripping trailing comments means finding `//` in a
-      // string, and every URL in the codebase contains one. It fails closed.
-      const src = readFileSync(path, 'utf8')
-        .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/^\s*\/\/.*$/gm, '');
-      // `text-faint` is the utility; `color: theme.faint` is the inline escape
-      // hatch a class-precedence bug would otherwise hide.
-      if (FAINT_AS_TEXT.some((re) => re.test(src))) offenders.push(path);
+      if (/\.(ts|tsx)$/.test(entry)) out.push(path);
     }
   };
   walk('src');
+  return out;
+};
 
-  const added = offenders.filter((f) => !FAINT_TEXT_DEBT.includes(f));
-  assert.deepEqual(added, [], `faint set as text in a file not on the debt list:\n${added.join('\n')}`);
+test('no NEW surface sets a sub-AA token as text', () => {
+  // Scanned rather than asserted about: the failure mode is a call site
+  // somebody adds next week, not a value in a config.
+  const files = sourceFiles().map((path) => ({ path, src: scannable(path) }));
+  const added: string[] = [];
+
+  for (const { token, patterns } of CENSUS) {
+    for (const { path, src } of files) {
+      if (!patterns.some((re) => re.test(src))) continue;
+      if (TEXT_DEBT[token]?.includes(path)) continue;
+      added.push(`${token}: ${path}`);
+    }
+  }
+
+  assert.deepEqual(added, [], `a sub-AA token set as text off the debt list:\n${added.join('\n')}`);
 });
 
-test('the faint-text debt list has no stale entries', () => {
+test('the text debt lists have no stale entries', () => {
   // A debt list nobody prunes becomes a permanent allowlist. This fails when a
   // lane fixes a file, which is the moment to delete its line.
-  const stale = FAINT_TEXT_DEBT.filter((f) => {
-    const src = readFileSync(f, 'utf8')
-      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '');
-    return !FAINT_AS_TEXT.some((re) => re.test(src));
-  });
-  assert.deepEqual(stale, [], `fixed — delete from FAINT_TEXT_DEBT:\n${stale.join('\n')}`);
+  const stale: string[] = [];
+  for (const [token, paths] of Object.entries(TEXT_DEBT)) {
+    const patterns = asText(token, UTILITY[token] ?? token);
+    for (const path of paths) {
+      if (!patterns.some((re) => re.test(scannable(path)))) stale.push(`${token}: ${path}`);
+    }
+  }
+  assert.deepEqual(stale, [], `fixed — delete from TEXT_DEBT:\n${stale.join('\n')}`);
+});
+
+test('the census covers every token the role table forbids', () => {
+  // The link between the two files, asserted rather than assumed. Adding a
+  // `text: false` role to `contrast.ts` must widen this scan; if this ever
+  // drifts, a new low-contrast token could be introduced with no census at all.
+  assert.deepEqual(
+    CENSUS.map((c) => c.token).sort(),
+    [...NON_TEXT_TOKENS].sort(),
+  );
+  // And the three that actually have debt are the three the palette ramps down
+  // through. `positive`, `warning`, `accentWarm` and `ruleStrong` are forbidden
+  // as text and used as text NOWHERE — which is the state the other three are
+  // being moved toward.
+  assert.deepEqual(Object.keys(TEXT_DEBT).sort(), ['byline', 'faint', 'ghost']);
 });
 
 // ---------------------------------------------------------------------------
