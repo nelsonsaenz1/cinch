@@ -395,6 +395,29 @@ export default function RootLayout() {
                     headerShown: false,
                   }}
                 />
+                {/* Settings (UX-05) — the administration half of what used to
+                    be one Profile screen, pushed from the gear in Profile's
+                    header. Same options as Privacy, Help, Notifications and
+                    Diary, and for the identical reason: it is reached from
+                    inside the Profile sheet, and a plain push would stack a
+                    card on top of one.
+
+                    A pushed route deliberately, not a fifth tab and not a
+                    route group. Settings are somewhere you go once and leave.
+                    Everything Settings itself pushes to (`/membership`,
+                    `/privacy`, `/friends`, `/borrow`, `/notifications`,
+                    `/help`) is already registered or already inherits, so the
+                    split adds exactly one screen to this stack. */}
+                <Stack.Screen
+                  name="settings"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
                 {/* Privacy (consent atlas A-06) is pushed FROM the profile
                     sheet, so it presents as a sheet in the same dialect —
                     its own back chevron returns to Profile, which stays

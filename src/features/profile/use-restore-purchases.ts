@@ -4,9 +4,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { PAYWALLS_ENABLED } from '@/features/billing/superwall';
+import type { RestoreOutcome } from '@/features/profile/settings-copy';
 
 /**
- * The Profile sheet's "Restore purchases" row — App Store Guideline 3.1.1
+ * The Settings page's "Restore purchases" row — App Store Guideline 3.1.1
  * expects a restore path anywhere subscriptions are sold, and a settings list
  * is where people go looking for it after a reinstall or a new phone.
  *
@@ -21,11 +22,34 @@ export type RestorePurchases = {
   restore: () => void;
 };
 
-function useSuperwallRestore(): RestorePurchases {
+export type RestoreOptions = {
+  /**
+   * UX-08, without moving the classification for a surface that did not ask
+   * for it.
+   *
+   * Two screens call this hook: Settings (this program's) and `/membership`
+   * (MB-08, nobody's in this pass). A restore that succeeds is a success and a
+   * restore that finds nothing is recoverable, so neither belongs in a blocking
+   * `Alert` — but silently deleting the alerts would leave the membership page
+   * with no ending at all, which is a worse failure than the wrong container.
+   *
+   * So the caller opts in. Pass `onOutcome` and the hook reports instead of
+   * interrupting, and the surface renders the toast or the notice band itself.
+   * Pass nothing and the alerts are exactly what they were.
+   */
+  onOutcome?: (outcome: RestoreOutcome) => void;
+};
+
+function useSuperwallRestore({ onOutcome }: RestoreOptions = {}): RestorePurchases {
   const restorePurchases = useSuperwall((state) => state.restorePurchases);
   const qc = useQueryClient();
   const [restoring, setRestoring] = useState(false);
 
+  // `onOutcome` is a plain dependency rather than a ref. A ref written during
+  // render is what `react-hooks/refs` rejects, and there is nothing to buy here
+  // anyway: the only caller passes `useState`'s own setter, which is stable for
+  // the life of the screen, so this callback's identity is as steady as it was
+  // before the option existed.
   const restore = useCallback(() => {
     if (restoring) return;
     setRestoring(true);
@@ -37,7 +61,10 @@ function useSuperwallRestore(): RestorePurchases {
           // beat. Invalidating asks for the fresh answer; usePlan's
           // refetch-on-focus would catch it eventually regardless.
           await qc.invalidateQueries({ queryKey: ['subscription'] });
-          Alert.alert('Purchases restored', 'Your membership is back on this device.');
+          if (onOutcome) onOutcome('restored');
+          else Alert.alert('Purchases restored', 'Your membership is back on this device.');
+        } else if (onOutcome) {
+          onOutcome('none');
         } else {
           // Our copy, not `result.errorMessage` — the SDK's message is a
           // StoreKit internals string, and the provider's `restoreFailed`
@@ -49,18 +76,22 @@ function useSuperwallRestore(): RestorePurchases {
         }
       })
       .catch(() => {
+        if (onOutcome) {
+          onOutcome('failed');
+          return;
+        }
         Alert.alert(
           'Could not restore purchases',
           'Something went wrong talking to the App Store. Nothing has changed — try again in a moment.',
         );
       })
       .finally(() => setRestoring(false));
-  }, [restoring, restorePurchases, qc]);
+  }, [restoring, restorePurchases, qc, onOutcome]);
 
   return { available: true, restoring, restore };
 }
 
-function useDisabledRestore(): RestorePurchases {
+function useDisabledRestore(_options: RestoreOptions = {}): RestorePurchases {
   return useMemo(() => ({ available: false, restoring: false, restore: () => {} }), []);
 }
 
@@ -71,6 +102,6 @@ function useDisabledRestore(): RestorePurchases {
  * reach the hook, and the branch cannot live inside one (the React Compiler
  * rejects conditional hook calls).
  */
-export const useRestorePurchases: () => RestorePurchases = PAYWALLS_ENABLED
+export const useRestorePurchases: (options?: RestoreOptions) => RestorePurchases = PAYWALLS_ENABLED
   ? useSuperwallRestore
   : useDisabledRestore;
