@@ -165,6 +165,9 @@ export default {
 
       let picks: OutfitRerank | null = null;
       let failure: string | null = null;
+      // Whether the last failure was the deadline rather than a refusal or an
+      // outage. The client says a different sentence for each.
+      let timedOut = false;
       let promptTokens: number | null = null;
       let completionTokens: number | null = null;
       let costUsd: number | null = null;
@@ -202,9 +205,11 @@ export default {
           costUsd = result.costUsd;
           latencyMs = result.latencyMs;
           failure = null;
+          timedOut = false;
           break;
         } catch (err) {
           failure = err instanceof Error ? err.message : String(err);
+          timedOut = err instanceof OpenRouterError && err.timedOut;
           // Wall clock across the failed attempts. The provider only reports
           // latency on a response, so failures used to be logged as 0 ms —
           // which read as instant and free, and they are neither.
@@ -233,7 +238,16 @@ export default {
         // 200, not 5xx. The client has perfectly good outfits already — this is
         // a degraded response, not a failed request, and modelling it as an
         // error would push the client into a retry loop for no benefit.
-        return Response.json({ ok: false, reason: 'styling_offline', error: failure });
+        //
+        // The reason is split because the two are not the same news. An outage
+        // is over when it is over; a model that ran out of time is a model that
+        // was working and too slow, and the person who pulled to refresh is
+        // owed that distinction rather than one sentence covering both.
+        return Response.json({
+          ok: false,
+          reason: timedOut ? 'styling_timeout' : 'styling_offline',
+          error: failure,
+        });
       }
 
       // Drop anything that does not correspond to a real candidate. Strict

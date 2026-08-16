@@ -58,10 +58,65 @@ export class OpenRouterError extends Error {
     message: string,
     readonly status?: number,
     readonly retryable = false,
+    /**
+     * The deadline elapsed, as opposed to the provider refusing or the network
+     * breaking. Callers surface this differently: "it is taking too long" is a
+     * true and useful thing to tell someone, and "something went wrong" is not.
+     */
+    readonly timedOut = false,
   ) {
     super(message);
     this.name = 'OpenRouterError';
   }
+}
+
+/**
+ * Turns whatever `fetch` or a body read threw into an OpenRouterError.
+ *
+ * Shared by both, and that sharing is the point. This used to live inline
+ * around the `fetch` call only, which left the body read — `response.json()`
+ * below — outside it. That is not a corner: OpenRouter answers a non-streaming
+ * request by sending headers promptly and the body when the model has finished,
+ * so a model that is merely slow resolves `fetch` and then stalls the read. The
+ * deadline rides on the same signal and fires there, and a DOMException from
+ * that read escaped as itself.
+ *
+ * Two things followed, and both were live in production. `ai_calls.error` filled
+ * up with the raw "Signal timed out." instead of a sentence naming the budget,
+ * so the table could not tell a slow model from a broken one without someone
+ * recognising the DOM's wording. And because a bare DOMException is not an
+ * OpenRouterError, `retryable` read as false and the retry loop broke after one
+ * attempt — the second attempt the loop was written for never happened, which
+ * is why every failure logged ~30s rather than ~60s.
+ */
+function asOpenRouterError(err: unknown, timeoutMs: number): OpenRouterError {
+  if (err instanceof OpenRouterError) return err;
+
+  const name = err instanceof Error ? err.name : '';
+
+  // A timeout is worth the caller's second attempt — it is usually a slow model
+  // rather than a broken request.
+  if (name === 'TimeoutError') {
+    return new OpenRouterError(
+      `OpenRouter did not respond within ${timeoutMs}ms.`,
+      undefined,
+      true,
+      true,
+    );
+  }
+
+  // A caller-supplied abort is not retryable: the work it belonged to is gone.
+  if (name === 'AbortError') {
+    return new OpenRouterError('OpenRouter request was cancelled.', undefined, false);
+  }
+
+  // Network-level failure, or a body that arrived truncated. Redacted like
+  // everything else here, because the message can quote the request.
+  return new OpenRouterError(
+    `OpenRouter request failed: ${redactUrls(err instanceof Error ? err.message : String(err))}`,
+    undefined,
+    true,
+  );
 }
 
 /**
@@ -94,9 +149,11 @@ export async function completeStructured<T>(opts: {
   const deadline = AbortSignal.timeout(timeoutMs);
   const signal = opts.signal ? AbortSignal.any([opts.signal, deadline]) : deadline;
 
-  let response: Response;
+  // Everything from here to the parsed body runs under one classifier, so the
+  // deadline is named the same way wherever it fires — including in the body
+  // read below, which is where a merely-slow model actually stalls.
   try {
-    response = await fetch(OPENROUTER_URL, {
+    const response = await fetch(OPENROUTER_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${opts.apiKey}`,
@@ -157,75 +214,54 @@ export async function completeStructured<T>(opts: {
         usage: { include: true },
       }),
     });
-  } catch (err) {
-    // A timeout is worth the caller's second attempt — it is usually a slow
-    // model rather than a broken request. A caller-supplied abort is not: the
-    // work it belonged to is already gone.
-    const name = err instanceof Error ? err.name : '';
-    if (name === 'TimeoutError') {
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      // 429 and 5xx are worth another attempt; 4xx generally is not — a malformed
+      // schema will fail identically forever and retrying just burns budget.
+      const retryable = response.status === 429 || response.status >= 500;
+      // Redact before slicing: slicing first can cut a signed URL mid-token and
+      // still leave the part that identifies the object.
       throw new OpenRouterError(
-        `OpenRouter did not respond within ${timeoutMs}ms.`,
-        undefined,
-        true,
+        `OpenRouter ${response.status}: ${redactUrls(body).slice(0, 400)}`,
+        response.status,
+        retryable,
       );
     }
-    if (name === 'AbortError') {
-      throw new OpenRouterError('OpenRouter request was cancelled.', undefined, false);
+
+    const json = await response.json();
+
+    const choice = json?.choices?.[0];
+    const finishReason = choice?.finish_reason;
+    if (finishReason === 'length') {
+      // Truncated mid-object — the JSON will not parse and retrying with the same
+      // max_tokens will truncate again. Surface it distinctly.
+      throw new OpenRouterError('Model output hit max_tokens before completing the object.');
     }
-    // Network-level failure. Redacted like everything else here, because the
-    // message can quote the request.
-    throw new OpenRouterError(
-      `OpenRouter request failed: ${redactUrls(err instanceof Error ? err.message : String(err))}`,
-      undefined,
-      true,
-    );
+
+    const raw = choice?.message?.content;
+    if (typeof raw !== 'string' || raw.length === 0) {
+      throw new OpenRouterError('Model returned no content.');
+    }
+
+    let parsed: T;
+    try {
+      parsed = JSON.parse(raw) as T;
+    } catch {
+      // Model output, which is prompt-derived, so it gets the same treatment.
+      throw new OpenRouterError(
+        `Model returned non-JSON content: ${redactUrls(raw).slice(0, 200)}`,
+      );
+    }
+
+    const usage = json?.usage ?? {};
+    return {
+      parsed,
+      promptTokens: usage.prompt_tokens ?? null,
+      completionTokens: usage.completion_tokens ?? null,
+      costUsd: typeof usage.cost === 'number' ? usage.cost : null,
+      latencyMs: Date.now() - started,
+    };
+  } catch (err) {
+    throw asOpenRouterError(err, timeoutMs);
   }
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    // 429 and 5xx are worth another attempt; 4xx generally is not — a malformed
-    // schema will fail identically forever and retrying just burns budget.
-    const retryable = response.status === 429 || response.status >= 500;
-    // Redact before slicing: slicing first can cut a signed URL mid-token and
-    // still leave the part that identifies the object.
-    throw new OpenRouterError(
-      `OpenRouter ${response.status}: ${redactUrls(body).slice(0, 400)}`,
-      response.status,
-      retryable,
-    );
-  }
-
-  const json = await response.json();
-
-  const choice = json?.choices?.[0];
-  const finishReason = choice?.finish_reason;
-  if (finishReason === 'length') {
-    // Truncated mid-object — the JSON will not parse and retrying with the same
-    // max_tokens will truncate again. Surface it distinctly.
-    throw new OpenRouterError('Model output hit max_tokens before completing the object.');
-  }
-
-  const raw = choice?.message?.content;
-  if (typeof raw !== 'string' || raw.length === 0) {
-    throw new OpenRouterError('Model returned no content.');
-  }
-
-  let parsed: T;
-  try {
-    parsed = JSON.parse(raw) as T;
-  } catch {
-    // Model output, which is prompt-derived, so it gets the same treatment.
-    throw new OpenRouterError(
-      `Model returned non-JSON content: ${redactUrls(raw).slice(0, 200)}`,
-    );
-  }
-
-  const usage = json?.usage ?? {};
-  return {
-    parsed,
-    promptTokens: usage.prompt_tokens ?? null,
-    completionTokens: usage.completion_tokens ?? null,
-    costUsd: typeof usage.cost === 'number' ? usage.cost : null,
-    latencyMs: Date.now() - started,
-  };
 }

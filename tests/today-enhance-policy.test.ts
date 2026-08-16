@@ -186,7 +186,12 @@ test('a failed or empty enhancement leaves the same complete outfits', () => {
   for (const branch of [
     /if \(ai\.isError\) return \{ outfits: base/,
     /if \(!decision\.enhance\) return \{ outfits: base/,
-    /outfits: base,\s*status: \(ai\.isFetching \? 'enhancing' : 'offline'\)/,
+    // `failed` rather than a literal: the function distinguishes a model that
+    // ran out of time from one that could not be reached, and this branch now
+    // carries that through. Still `base`, still `enhancing` while in flight —
+    // which is all this test is about. The split itself is pinned in
+    // tests/openrouter-timeout-classification.test.ts.
+    /outfits: base,\s*status: \(ai\.isFetching \? 'enhancing' : failed\)/,
     /enriched\s*\?\s*\{ outfits: merged[\s\S]{0,80}\{ outfits: base/,
   ]) {
     assert.match(src, branch);
