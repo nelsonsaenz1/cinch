@@ -68,10 +68,10 @@
  *     nobody else, because `profiles.visibility` defaults to `private` and no
  *     code in `src/` ever writes it. Contract §3.2 — the precision edit is to
  *     say what search does, not to deny it.
- *   * "You can hide a piece." There is no privacy toggle. `closet_hidden` and
- *     `stat_*_hidden` exist in the database (…privacy_layer.sql:22-25) with no
- *     UI writing them; storage is the only lever, and it costs the piece its
- *     place in the styling engine.
+ *   * "You can hide a piece." Still no per-piece toggle: storage is the only
+ *     lever for one thing, and it costs the piece its place in the styling
+ *     engine. The closet-level flags (…privacy_layer.sql:22-25) DO have a
+ *     control now — `/privacy/visibility` — so the articles name it.
  *
  * The per-article comments below carry the rest of the trace.
  *
@@ -282,8 +282,8 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     // — "No notification fires anywhere; silence is always ambiguous."
     body: [
       'Friends, and only friends. Friendship here is mutual: you add someone, they add you back, and that is the whole handshake — there is no request sitting in a queue waiting to be approved. There is no public profile and no discover tab, and search turns up only people you are already connected to, so a stranger typing your handle finds nothing.',
-      'A friend sees every piece in your active closet — what it is, what you have marked as lendable, and how many times you have worn it. Wear counts do cross: they are printed on the card, under the piece.',
-      'What stays with you is the price of any one thing, and every outfit you planned, changed or never shared. A friend sees an average cost per wear across the closet and no figure for a single piece. Removing a friend takes effect at once and quietly — nobody is told, and your closet leaves their app the next time they open it.',
+      'A friend sees every piece in your active closet — what it is, what you have marked as lendable, and how many times you have worn it. Wear counts do cross: they are printed on the card, under the piece. Unless you say otherwise: Settings → Privacy and data → What friends can see closes the closet altogether, or leaves it open and hides any of the three figures — how many pieces you own, how often you wear them, and what a piece costs you per wear. Hiding the closet hides all three with it, the change takes effect the next time a friend looks, and nobody is told you made it.',
+      'What stays with you either way is the price of any one thing, and every outfit you planned, changed or never shared. A friend sees an average cost per wear across the closet and no figure for a single piece. Removing a friend takes effect at once and quietly — nobody is told, and your closet leaves their app the next time they open it.',
     ],
     related: ['hide-a-piece', 'lending-loop'],
     keywords: ['privacy', 'visible', 'see', 'public', 'stranger', 'handle', 'search', 'follower'],
@@ -323,12 +323,14 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     id: 'hide-a-piece',
     group: 'friends',
     question: 'Can I hide a piece from friends?',
-    // There is no privacy toggle. `closet_hidden`, `stat_pieces_hidden`,
-    // `stat_wears_hidden` and `stat_cost_per_wear_hidden` exist on `profiles`
-    // (…privacy_layer.sql:22-25) and the migration says at :18 that the toggle
-    // UI "lands in a later Profile session; until then no row ever flips
-    // these". Nothing in `src/` writes them. So the article does not mention
-    // them; a column with no switch is not an answer.
+    // There is still no PER-PIECE privacy toggle, which is what this article is
+    // about, so its first line stands. What changed is the adjacent answer:
+    // `closet_hidden`, `stat_pieces_hidden`, `stat_wears_hidden` and
+    // `stat_cost_per_wear_hidden` (…privacy_layer.sql:22-25) finally have a
+    // control at `/privacy/visibility`. The migration's ":18 — the toggle UI
+    // lands in a later Profile session" is discharged. The article now points
+    // there, because "you cannot hide one piece, but you can hide the closet or
+    // the figures" is the honest shape of the answer.
     //
     // Storage is the lever, and it works because `friend_items` filters
     // `where not i.is_archived` (…privacy_layer.sql:44). The same filter is on
@@ -342,7 +344,7 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     // :32-35 and :61-71 — `items_enforce_limit_on_restore` fails a restore into
     // a full active closet with `closet_limit_reached`.
     body: [
-      'There is no per-piece privacy switch. The one way to take something out of a friend’s view today is to move it to storage — a stored piece is not in the closet a friend reads, and its photographs stop being served along with it.',
+      'There is no per-piece privacy switch. The one way to take a single thing out of a friend’s view is to move it to storage — a stored piece is not in the closet a friend reads, and its photographs stop being served along with it. If it is the whole closet you would rather not show, that is a different switch and it costs nothing: Settings → Privacy and data → What friends can see.',
       'That has a cost worth knowing before you use it. A stored piece also leaves the styling engine: Cinch stops building outfits from it, and stops counting it as part of the wardrobe it dresses you from. Storage is a way to put something down, not a way to keep wearing it in private.',
       'Nothing is deleted. Storage keeps every photograph, every wear and every figure, and restoring puts the piece back where it was. The only thing that can turn a restore away is a rotation that is already full, and then storing something else makes the room.',
     ],

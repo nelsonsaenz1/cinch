@@ -34,6 +34,8 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
   [
     'Group 1 · First-Run Hallway',
     [
+      ['Visibility off', '/dev-closet-visibility-hidden'],
+      ['Visibility', '/dev-closet-visibility'],
       ['M-07', '/dev-w3-g1-m-07'],
       ['PR-01', '/dev-w3-g1-pr-01'],
       ['PR-03', '/dev-w3-g1-pr-03'],

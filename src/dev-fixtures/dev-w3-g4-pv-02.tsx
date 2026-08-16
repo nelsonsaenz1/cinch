@@ -49,6 +49,7 @@ export default function DevW3G4Pv02() {
       initialOpen="Shopping partners"
       onBack={() => {}}
       onOpenConsent={() => {}}
+      onOpenVisibility={() => {}}
       onOpenExport={() => {}}
       onOpenDelete={() => {}}
     />

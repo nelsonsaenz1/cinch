@@ -1,3 +1,7 @@
+import {
+  VISIBILITY_INDEX_DETAIL,
+  VISIBILITY_INDEX_LABEL,
+} from '@/features/privacy/visibility-copy';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
@@ -256,6 +260,7 @@ export type PrivacyIndexPageProps = {
   initialOpen?: string;
   onBack: () => void;
   onOpenConsent: () => void;
+  onOpenVisibility: () => void;
   onOpenExport: () => void;
   onOpenDelete: () => void;
 };
@@ -269,6 +274,7 @@ export function PrivacyIndexPage({
   initialOpen,
   onBack,
   onOpenConsent,
+  onOpenVisibility,
   onOpenExport,
   onOpenDelete,
 }: PrivacyIndexPageProps) {
@@ -310,6 +316,16 @@ export function PrivacyIndexPage({
           gist={consentDetail}
           first={false}
           onPress={onOpenConsent}
+        />
+        {/* Above the export and the deletion because it is the one row here
+            that changes what another person can see, rather than what leaves
+            the phone. Its columns and their enforcement shipped in
+            20260808110000; until this row existed nothing could set them. */}
+        <PageRow
+          title={VISIBILITY_INDEX_LABEL}
+          gist={VISIBILITY_INDEX_DETAIL}
+          first={false}
+          onPress={onOpenVisibility}
         />
         <PageRow
           title="Take your data with you"

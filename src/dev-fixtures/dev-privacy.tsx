@@ -205,6 +205,7 @@ export default function DevPrivacyScreen() {
           onToggleShoppable={() => {}}
           onBack={back}
           onOpenConsent={() => setState('PD-02')}
+          onOpenVisibility={() => {}}
           onOpenExport={() => setState('PD-04')}
           onOpenDelete={() => setState('PD-06')}
         />

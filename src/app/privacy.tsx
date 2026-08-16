@@ -61,6 +61,7 @@ export default function PrivacyScreen() {
       shoppablePending={setShoppable.isPending}
       onBack={() => router.back()}
       onOpenConsent={() => router.push('/privacy/ai')}
+      onOpenVisibility={() => router.push('/privacy/visibility')}
       onOpenExport={() => router.push('/privacy/export')}
       onOpenDelete={() => router.push('/privacy/delete')}
     />
