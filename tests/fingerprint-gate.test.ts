@@ -127,27 +127,41 @@ test('no fingerprint input has moved since the commit build 38 was built from', 
    * content can move without any of these files changing — which is why
    * `--verify-control` exists. It is the fast guard in front of it.
    */
-  const inputs = [
-    'package.json',
-    'package-lock.json',
-    'app.config.ts',
-    'eas.json',
-    '.easignore',
-    '.gitignore',
-  ];
-  const changed = execFileSync(
-    'git',
-    ['diff', '--name-only', BUILD_38_COMMIT, 'HEAD', '--', ...inputs, 'plugins', 'modules'],
-    { encoding: 'utf8' },
-  )
-    .split('\n')
-    .filter(Boolean);
+  /**
+   * Recorded object ids rather than `git diff <build-38-commit> HEAD`.
+   *
+   * The diff version was written here first and failed in CI with "fatal: bad
+   * object 9345eb2" — `actions/checkout` clones shallow, so the commit build 38
+   * was built from is simply not in the CI checkout. Comparing recorded ids
+   * needs nothing but HEAD, which every checkout has, and it says the same
+   * thing: these are the exact trees and blobs that produced runtime
+   * d9cb8c3b… on the binary in the store.
+   */
+  const AT_BUILD_38: Record<string, string> = {
+    'package.json': 'b100309deb0b216591c1caff64405122d0f20d09',
+    'package-lock.json': 'b4b6f7ca4cdecc8538c19fadbc627f0cd841790b',
+    'app.config.ts': '6d5a05554bdd8a652988699f9bfdc79ee907b15f',
+    'eas.json': 'ee59b14e9b048b9121f5dbf39ae8d2052a3641e6',
+    '.easignore': '6e70ea0a25678378d28a4f9816b770010d72c8f3',
+    '.gitignore': 'f43ce861f415104d72feca1b6475fc5f10fbdb37',
+    plugins: 'ce9652504be622efc4ea13d46209a3c6eb478e37',
+    modules: 'f3aa0195a79b86ddc347781d88bf2c01c34ccd70',
+  };
+
+  const moved: string[] = [];
+  for (const [path, expected] of Object.entries(AT_BUILD_38)) {
+    const actual = execFileSync('git', ['rev-parse', `HEAD:${path}`], {
+      encoding: 'utf8',
+    }).trim();
+    if (actual !== expected) moved.push(`${path}  ${expected} -> ${actual}`);
+  }
 
   assert.deepEqual(
-    changed,
+    moved,
     [],
-    `these are native fingerprint inputs and have moved since build 38:\n${changed.join('\n')}\n` +
-      'If that is deliberate, the tree needs a Store build, not an OTA.',
+    `these are native fingerprint inputs and have moved since build 38:\n${moved.join('\n')}\n` +
+      'If that is deliberate, the tree needs a Store build, not an OTA, and these\n' +
+      'recorded ids should be re-taken at the moment that build is submitted.',
   );
 });
 
