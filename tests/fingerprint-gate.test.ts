@@ -109,6 +109,48 @@ test('release-ota still refuses to publish without this gate', () => {
   assert.match(ota, /run\('npm', \['run', 'check:fingerprint'\]/);
 });
 
+test('no fingerprint input has moved since the commit build 38 was built from', () => {
+  /**
+   * The cheap half of the runtime question, and the half that catches the
+   * accident rather than the intent.
+   *
+   * `@expo/fingerprint` hashes a specific, small set of inputs. A packet that
+   * only moves JavaScript around — this one moved 205 files and 22,592 lines —
+   * must not touch any of them, because doing so changes the runtime version
+   * every shipped binary is keyed to and turns an OTA into a Store build.
+   *
+   * It is easy to trip by reflex: adding an npm script for a dev helper, or a
+   * .gitignore line for a generated symlink, both move the hash. So the input
+   * set is compared to `9345eb2` directly instead of trusted.
+   *
+   * This does not replace the real computation — a dependency's own native
+   * content can move without any of these files changing — which is why
+   * `--verify-control` exists. It is the fast guard in front of it.
+   */
+  const inputs = [
+    'package.json',
+    'package-lock.json',
+    'app.config.ts',
+    'eas.json',
+    '.easignore',
+    '.gitignore',
+  ];
+  const changed = execFileSync(
+    'git',
+    ['diff', '--name-only', BUILD_38_COMMIT, 'HEAD', '--', ...inputs, 'plugins', 'modules'],
+    { encoding: 'utf8' },
+  )
+    .split('\n')
+    .filter(Boolean);
+
+  assert.deepEqual(
+    changed,
+    [],
+    `these are native fingerprint inputs and have moved since build 38:\n${changed.join('\n')}\n` +
+      'If that is deliberate, the tree needs a Store build, not an OTA.',
+  );
+});
+
 // The live one. Opt-in: two `npm ci` installs and two fingerprints.
 test(
   'CONTROL: build 38’s commit and HEAD both reproduce the runtime EAS stamped on build 38',
