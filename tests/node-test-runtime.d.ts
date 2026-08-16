@@ -44,6 +44,28 @@ declare module 'node:fs' {
   export function statSync(path: string): { isDirectory(): boolean };
 }
 
+declare module 'node:child_process' {
+  // `fingerprint-gate.test.ts` runs `check-fingerprint.mjs --verify-control`,
+  // which recomputes the commit Store build 38 was built from and must get back
+  // the runtime EAS stamped on it. That check is only meaningful if the real
+  // script runs, so the test shells out rather than reimplementing it. Opt-in —
+  // it performs two `npm ci` installs — so the default suite never pays for it.
+  export function execFileSync(
+    file: string,
+    args: readonly string[],
+    options: { encoding: 'utf8'; maxBuffer?: number },
+  ): string;
+}
+
+declare module 'node:process' {
+  // Scoped to the module specifier, exactly like the rest of this file. The
+  // note at the top is the reason this is not a `/// <reference types="node" />`
+  // and not a global `process`: React Native has no `process`, and the app's
+  // type space must not learn otherwise just because a test wanted an env flag.
+  const process: { env: Record<string, string | undefined> };
+  export default process;
+}
+
 declare module 'node:assert/strict' {
   interface Assert {
     (value: unknown, message?: string): asserts value;
