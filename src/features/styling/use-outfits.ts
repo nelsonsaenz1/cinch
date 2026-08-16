@@ -12,6 +12,7 @@ import {
 import { supabase } from '@/lib/supabase';
 
 import type { StyleProfile } from './queries';
+import { favorExactCores } from './favorite-ranking';
 import {
   acceptEnhancedName,
   compatibleNameOptions,
@@ -19,6 +20,7 @@ import {
   styleContextFingerprint,
 } from './outfit-names';
 import { shouldEnhanceWithAi } from './should-enhance';
+import { useFavoriteOutfits } from './use-favorite-outfits';
 
 /** How many candidates go up for re-ranking. */
 const SHORTLIST = 12;
@@ -105,16 +107,21 @@ export function useOutfits({
   count?: number;
   enabled?: boolean;
 }) {
+  const favorites = useFavoriteOutfits();
   // --- Stage 1: instant, local, synchronous -------------------------------
   const shortlist = useMemo(() => {
     if (!enabled || !wardrobe.length) return [];
-    return generateOutfits(wardrobe, context, {
+    const generated = generateOutfits(wardrobe, context, {
       weights: profile.weights,
       affinities: profile.affinities,
       count: SHORTLIST,
       diversity: 0.45,
     });
-  }, [enabled, wardrobe, context, profile.weights, profile.affinities]);
+    return favorExactCores(
+      generated,
+      (favorites.data ?? []).map((outfit) => outfit.itemIds),
+    );
+  }, [enabled, wardrobe, context, profile.weights, profile.affinities, favorites.data]);
 
   const base = useMemo(
     () => fromEngine(shortlist.slice(0, count), wardrobe, context),

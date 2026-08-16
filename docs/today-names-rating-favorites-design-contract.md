@@ -1,6 +1,6 @@
 # Cinch Today names, ratings, and favorites contract
 
-Status: **Design accepted except the founder decisions in “Approval gate”**  
+Status: **Founder-approved for implementation and production deployment**
 Version: v1 · 2026-08-16  
 Source revision: `2bfbf5c` on `codex/today-polish`
 
@@ -158,7 +158,8 @@ The implementation contract is additive:
 - `wear_outfit_tx` receives defaulted/backward-compatible rating, favorite, and
   accepted-name arguments and commits them with the existing wear atomically;
 - favorite updates use explicit desired state, not toggle semantics;
-- production migration/deployment is outside this contract.
+- production migration/deployment was explicitly authorized by the founder on
+  2026-08-16, after local checks and a reviewed dry run.
 
 No raw outfit name, rating, favorite status, identity, transcript, or garment
 list is added to analytics. Existing bounded success/failure events may record
@@ -167,7 +168,7 @@ and privacy review explicitly allow it.
 
 ## Learning contract
 
-Recommended policy, pending founder approval:
+Approved policy:
 
 - favorite: strongest positive signal for the exact outfit core;
 - 4–5: positive;
@@ -200,14 +201,13 @@ Recommended policy, pending founder approval:
 
 ## Approval gate
 
-Founder approval is required before schema/RPC/client implementation. Approving
-this contract accepts these choices:
+Founder approval was received on 2026-08-16 for these choices:
 
 1. unrated plus 1–5; no selectable zero;
 2. favorites owner-private only;
 3. one `Favorite outfits` rail in Closet, reusing existing detail paths;
 4. the learning policy above;
-5. additive local migration/RPC work, with no production application;
+5. additive migration/RPC work and production Supabase deployment after checks;
 6. online-only launch behavior with honest retry copy and no durable outbox.
 
 ## Implementation order after approval
@@ -219,4 +219,3 @@ this contract accepts these choices:
 3. Wear confirmation sheet and mutation wiring behind a local feature flag.
 4. Owner-private favorite query, Closet rail, detail control, and cache updates.
 5. Full automated checks and independent simulator/accessibility acceptance.
-

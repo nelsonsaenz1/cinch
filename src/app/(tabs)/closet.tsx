@@ -20,6 +20,7 @@ import { ClosetMenu } from '@/components/closet/closet-menu';
 import { ClosetSkeleton } from '@/components/closet/closet-skeleton';
 import { EmptyCloset } from '@/components/closet/empty-closet';
 import { ExampleCloset } from '@/components/closet/example-closet';
+import { FavoriteOutfitsRail } from '@/components/closet/favorite-outfits-rail';
 import { InsightCard } from '@/components/closet/insight-card';
 import { PLANS } from '@/features/billing/plans';
 import { useCapacity } from '@/features/billing/use-capacity';
@@ -675,6 +676,8 @@ function SecondaryInsights({
     // Same negative gutter as the masthead: the grid's contentContainer pads by
     // GUTTER, and these sections measure from the screen edge.
     <View style={{ marginHorizontal: -GUTTER }}>
+      <FavoriteOutfitsRail />
+
       {screen.latestPieces.length > 0 ? (
         <Rail
           title="Latest pieces"

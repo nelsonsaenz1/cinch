@@ -28,6 +28,7 @@ import { AX3_FONT_SCALE } from '@/theme/type-scale';
 import type { ReactionValue } from '@/components/today/reaction-bar';
 import { RepeatExhausted } from '@/components/today/repeat-exhausted';
 import { WeatherStrip } from '@/components/today/weather-strip';
+import { WearConfirmationSheet } from '@/components/today/wear-confirmation-sheet';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { Text } from '@/components/ui/text';
@@ -42,10 +43,15 @@ import { usePlan } from '@/features/billing/use-plan';
 import { useUnwearEntry } from '@/features/diary/mutations';
 import { useMyEvents } from '@/features/events/queries';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
-import { classifyWearFailure, type WearFailureKind } from '@/features/styling/wear-failure';
+import {
+  classifyWearFailure,
+  wearFailureCopy,
+  type WearFailureKind,
+} from '@/features/styling/wear-failure';
 import { exhaustionProgress, wearsOfCore } from '@/features/styling/repeat';
 import { canGenerate, MIN_CLOSET_FOR_OUTFITS, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits, type StyledOutfit } from '@/features/styling/use-outfits';
+import { nameOutfits } from '@/features/styling/outfit-names';
 import { useWornOutfits } from '@/features/styling/use-worn-outfits';
 import { useHasUnseenActivity } from '@/features/activity/queries';
 import {
@@ -71,10 +77,10 @@ import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
  * `explain()` call, no AI re-rank (a local swap is instant; waiting fifteen
  * seconds for a name defeats the point of "show me another").
  */
-function localStyledOutfit(candidate: OutfitCandidate): StyledOutfit {
+function localStyledOutfit(candidate: OutfitCandidate, context: Parameters<typeof nameOutfits>[1]): StyledOutfit {
   return {
     candidate,
-    name: candidate.notes.weather ?? 'From your closet',
+    name: nameOutfits([candidate], context).values().next().value ?? 'The Everyday Edit',
     reasoning: explain(candidate),
     swapNote: null,
     source: 'engine',
@@ -637,6 +643,8 @@ export default function TodayScreen() {
   const [slow, setSlow] = useState(false);
   // An explicit pull-to-refresh that came back with nothing to show for itself.
   const [refreshFailed, setRefreshFailed] = useState(false);
+  const [wearSelection, setWearSelection] = useState<StyledOutfit | null>(null);
+  const [wearSheetError, setWearSheetError] = useState<WearFailureKind | null>(null);
 
   const firstName = useFirstName();
 
@@ -709,8 +717,8 @@ export default function TodayScreen() {
   }
 
   const effectiveShown = useMemo(
-    () => shown.map((o, i) => (shownOverride[i] ? localStyledOutfit(shownOverride[i]!) : o)),
-    [shown, shownOverride],
+    () => shown.map((o, i) => (shownOverride[i] ? localStyledOutfit(shownOverride[i]!, context) : o)),
+    [shown, shownOverride, context],
   );
 
   const handleShowAnother = useCallback(
@@ -904,6 +912,16 @@ export default function TodayScreen() {
     (index: number) => {
       const outfit = effectiveShown[index];
       if (!outfit) return;
+      setWearSheetError(null);
+      setWearSelection(outfit);
+    },
+    [effectiveShown],
+  );
+
+  const confirmWear = useCallback(
+    ({ rating, favorite }: { rating: number | null; favorite: boolean }) => {
+      const outfit = wearSelection;
+      if (!outfit) return;
       const key = idOf(outfit.candidate.items);
 
       // Same shape as `handleReact` above, and for the same reason: the write
@@ -919,6 +937,8 @@ export default function TodayScreen() {
           context,
           name: outfit.name,
           reasoning: outfit.reasoning,
+          rating,
+          favorite,
         },
         {
           onSuccess: (outfitId) => {
@@ -934,13 +954,34 @@ export default function TodayScreen() {
             if (typeof outfitId === 'string') {
               setWornEntryIds((prev) => ({ ...prev, [key]: outfitId }));
             }
+            setWearSelection(null);
+            setWearSheetError(null);
+
+            // Only explicit feedback teaches taste. Favorite is the strongest
+            // positive signal and therefore overrides a conflicting star
+            // rating; 3 stars is neutral and an unrated wear remains a fact.
+            const liked = favorite ? true : rating && rating >= 4 ? true : rating && rating <= 2 ? false : null;
+            if (liked !== null) {
+              react.mutate({
+                candidate: outfit.candidate,
+                shownAlongside: outfits.shortlist,
+                liked,
+                profile,
+                outfitId: typeof outfitId === 'string' ? outfitId : null,
+                reason: favorite ? 'favorite' : `wear_rating_${rating}`,
+                source: 'today',
+              });
+            }
           },
-          onError: (error) =>
-            setWearState((prev) => ({ ...prev, [key]: classifyWearFailure(error) })),
+          onError: (error) => {
+            const failure = classifyWearFailure(error);
+            setWearState((prev) => ({ ...prev, [key]: failure }));
+            setWearSheetError(failure);
+          },
         },
       );
     },
-    [effectiveShown, context, wear],
+    [context, outfits.shortlist, profile, react, wear, wearSelection],
   );
 
   // ── The day's one statement of the weather (audit 57) ────────────────────
@@ -1427,6 +1468,19 @@ export default function TodayScreen() {
           ) : null}
         </ScrollView>
       </Animated.View>
+      <WearConfirmationSheet
+        key={wearSelection ? idOf(wearSelection.candidate.items) : 'closed'}
+        visible={wearSelection !== null}
+        outfitName={wearSelection?.name ?? ''}
+        pending={wear.isPending}
+        error={wearSheetError ? wearFailureCopy(wearSheetError).body : null}
+        onCancel={() => {
+          if (wear.isPending) return;
+          setWearSelection(null);
+          setWearSheetError(null);
+        }}
+        onConfirm={confirmWear}
+      />
     </SafeAreaView>
   );
 }

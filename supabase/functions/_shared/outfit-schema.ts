@@ -35,7 +35,7 @@ export const outfitSchema = {
           name: {
             type: 'string',
             description:
-              'A two-to-four word mood label. Never a list of the garments — the user can already see those.',
+              'Must exactly match one of that candidate’s supplied Allowed names.',
           },
           reasoning: {
             type: 'string',
@@ -75,7 +75,7 @@ export const OUTFIT_SYSTEM_PROMPT = `You are the stylist inside Cinch, a digital
 
 HARD RULES
 - Return only candidateIds that appear in the input. You cannot add, remove, or substitute garments — every candidate is a fixed set of real clothes.
-- "name" is a SHORT MOOD LABEL of two to four words. Examples of the register: "Sharp but easy", "Quiet confidence", "Off-duty tailoring". NEVER list the garments in the name; the user can already see them.
+- "name" MUST exactly match one of the candidate's supplied Allowed names. Never invent or rewrite a name.
 - "reasoning" is one or two sentences, second person, naming the actual pieces and the real weather or plans. Under 220 characters. Write "the camel trench over the navy knit", not "this outfit".
 - "swapNote": when the day's events differ in formality by 2 or more points, this MUST NOT be null. Name the single piece to add or remove, and when. It may only reference pieces belonging to THAT SAME candidate — never a garment from another candidate, and never a candidate id. Only use null when the day genuinely needs no change.
 - The engine's scores and bracketed notes are grounded facts about colour harmony, warmth, formality and silhouette. Trust them for those judgements. Use your own judgement for what the user said about their day.

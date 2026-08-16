@@ -1508,6 +1508,7 @@ export type Database = {
           board_id: string | null
           context_snapshot: Json | null
           created_at: string
+          favorited_at: string | null
           generated_by: Database["public"]["Enums"]["outfit_source"]
           id: string
           is_public: boolean
@@ -1520,12 +1521,14 @@ export type Database = {
           reasoning: string | null
           saved_at: string | null
           user_id: string
+          wear_rating: number | null
           worn_at: string | null
         }
         Insert: {
           board_id?: string | null
           context_snapshot?: Json | null
           created_at?: string
+          favorited_at?: string | null
           generated_by?: Database["public"]["Enums"]["outfit_source"]
           id?: string
           is_public?: boolean
@@ -1538,12 +1541,14 @@ export type Database = {
           reasoning?: string | null
           saved_at?: string | null
           user_id: string
+          wear_rating?: number | null
           worn_at?: string | null
         }
         Update: {
           board_id?: string | null
           context_snapshot?: Json | null
           created_at?: string
+          favorited_at?: string | null
           generated_by?: Database["public"]["Enums"]["outfit_source"]
           id?: string
           is_public?: boolean
@@ -1556,6 +1561,7 @@ export type Database = {
           reasoning?: string | null
           saved_at?: string | null
           user_id?: string
+          wear_rating?: number | null
           worn_at?: string | null
         }
         Relationships: [
@@ -2813,6 +2819,7 @@ export type Database = {
       wear_outfit_tx: {
         Args: {
           p_context?: Json
+          p_favorite?: boolean
           p_item_ids: string[]
           p_name?: string
           p_note?: string
@@ -2820,6 +2827,7 @@ export type Database = {
           p_origin?: string
           p_reasoning?: string
           p_source?: Database["public"]["Enums"]["outfit_source"]
+          p_wear_rating?: number
         }
         Returns: string
       }

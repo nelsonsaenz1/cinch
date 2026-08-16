@@ -54,7 +54,8 @@ const describeCandidate = (c: Candidate): string => {
     .map((i) => `${i.color} ${i.name}`.trim())
     .join(', ');
   const notes = c.notes.length ? ` [${c.notes.join('; ')}]` : '';
-  return `${c.id}: ${pieces} (fit score ${Math.round(c.score * 100)})${notes}`;
+  const names = c.nameOptions.length ? ` Allowed names: ${c.nameOptions.join(' | ')}.` : '';
+  return `${c.id}: ${pieces} (fit score ${Math.round(c.score * 100)})${notes}${names}`;
 };
 
 const describeContext = (ctx: ValidatedOutfitRequest): string => {
@@ -238,12 +239,17 @@ export default {
       // Drop anything that does not correspond to a real candidate. Strict
       // schemas constrain shape, not truthfulness, and a fabricated id would
       // otherwise surface as an outfit made of nothing.
-      const valid = new Set(candidates.map((c) => c.id));
+      const valid = new Map(candidates.map((c) => [c.id, c]));
       const seen = new Set<string>();
-      const cleaned = picks.picks.filter((p) => {
-        if (!valid.has(p.candidateId) || seen.has(p.candidateId)) return false;
+      const cleaned = picks.picks.flatMap((p) => {
+        const candidate = valid.get(p.candidateId);
+        if (!candidate || seen.has(p.candidateId)) return [];
         seen.add(p.candidateId);
-        return true;
+        const name = candidate.nameOptions.includes(p.name)
+          ? p.name
+          : candidate.nameOptions[0];
+        if (!name) return [];
+        return [{ ...p, name }];
       });
 
       if (!cleaned.length) {

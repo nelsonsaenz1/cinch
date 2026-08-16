@@ -147,9 +147,9 @@ export function useReactToOutfit() {
 /**
  * Persist a generated outfit and mark it worn.
  *
- * "Wear It" is the strongest positive signal the app receives — far stronger
- * than a tap on a heart — so it trains the model as a like in addition to
- * incrementing the wear counts.
+ * A wear is a fact, not automatically praise. Optional 1–5 feedback and the
+ * private favorite marker are persisted with that fact; callers decide which
+ * explicit feedback should update the learned model.
  *
  * One call, not three. This used to insert the outfit, insert its items, and
  * then call `log_outfit_wear`, which meant a dropped connection could leave an
@@ -173,6 +173,8 @@ export function useWearOutfit() {
       name,
       reasoning,
       origin = null,
+      rating = null,
+      favorite = false,
     }: {
       candidate: OutfitCandidate;
       context: unknown;
@@ -192,6 +194,10 @@ export function useWearOutfit() {
        * them: nothing came before it.
        */
       origin?: string | null;
+      /** Optional explicit feedback. Null is an honest unrated wear. */
+      rating?: number | null;
+      /** Owner-private favorite marker for the newly created wear. */
+      favorite?: boolean;
     }) => {
       // This is a bounded local preflight, not the write authority. The RPC
       // still carries the JWT and Postgres RLS still authorizes every row.
@@ -224,6 +230,8 @@ export function useWearOutfit() {
           p_context: context == null ? undefined : (context as Json),
           p_source: 'ai',
           p_origin: origin ?? undefined,
+          p_wear_rating: rating ?? undefined,
+          p_favorite: favorite,
         });
       } catch (error) {
         throw new WearMutationError(classifyWearFailure(error), error);
@@ -241,6 +249,7 @@ export function useWearOutfit() {
       // repeat and, eventually, an exhausted closet — it must see a wear the
       // moment it is logged, not on the next natural refetch.
       void qc.invalidateQueries({ queryKey: ['worn-outfits'] });
+      void qc.invalidateQueries({ queryKey: ['favorite-outfits'] });
     },
   });
 }

@@ -52,6 +52,8 @@ const MAX_ITEMS_PER_CANDIDATE = 12;
 const MAX_ITEM_FIELD_CHARS = 120;
 const MAX_NOTES_PER_CANDIDATE = 8;
 const MAX_NOTE_CHARS = 240;
+const MAX_NAME_OPTIONS = 10;
+const MAX_NAME_OPTION_CHARS = 80;
 const MAX_SUMMARY_LINES = 24;
 const MAX_SUMMARY_CHARS = 240;
 const MAX_CITY_CHARS = 120;
@@ -157,6 +159,7 @@ export type ValidatedCandidate = {
   items: { slot: string; name: string; color: string; formality: number }[];
   score: number;
   notes: string[];
+  nameOptions: string[];
 };
 
 export function parseCandidates(
@@ -191,6 +194,12 @@ export function parseCandidates(
         `${field}[${i}].notes`,
         MAX_NOTES_PER_CANDIDATE,
         MAX_NOTE_CHARS,
+      ),
+      nameOptions: stringList(
+        c.nameOptions,
+        `${field}[${i}].nameOptions`,
+        MAX_NAME_OPTIONS,
+        MAX_NAME_OPTION_CHARS,
       ),
     };
   });
