@@ -1,7 +1,7 @@
 # Cinch Today names, ratings, and favorites contract
 
 Status: **Founder-approved for implementation and production deployment**
-Version: v1 · 2026-08-16  
+Version: v1 · 2026-08-16
 Source revision: `2bfbf5c` on `codex/today-polish`
 
 ## Product truth
