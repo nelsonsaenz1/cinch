@@ -22,7 +22,7 @@ select lives_ok(
   $$select public.wear_outfit_tx(
       '64646464-6464-4464-8464-646464646464',
       array['63636363-6363-4363-8363-636363636363']::uuid[],
-      'Quiet Layers', null, null, 'ai', null, null, 5, true
+      'Quiet Layers', null, null, 'ai', null, null, 5::smallint, true
     )$$,
   'an owner can atomically log a rated favorite wear'
 );
@@ -47,7 +47,7 @@ select lives_ok(
   $$select public.wear_outfit_tx(
       '64646464-6464-4464-8464-646464646464',
       array['63636363-6363-4363-8363-636363636363']::uuid[],
-      'Quiet Layers', null, null, 'ai', null, null, 5, true
+      'Quiet Layers', null, null, 'ai', null, null, 5::smallint, true
     )$$,
   'retrying the same operation is safe'
 );
