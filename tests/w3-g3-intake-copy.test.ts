@@ -22,7 +22,7 @@ import {
 } from '../src/features/ingest/intake-routes';
 
 /** The chooser and its fixture — the two places the doors are named. */
-const DOOR_SURFACES = ['src/app/add-clothes.tsx', 'src/app/dev-add-clothes.tsx'];
+const DOOR_SURFACES = ['src/app/add-clothes.tsx', 'src/dev-fixtures/dev-add-clothes.tsx'];
 
 /** Comments stripped: the history of a rename is worth writing down. */
 function code(path: string): string {

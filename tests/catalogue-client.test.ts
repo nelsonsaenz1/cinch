@@ -296,7 +296,7 @@ test('the search holds a ticket and checks it after every await', () => {
 // ---------------------------------------------------------------------------
 
 test('every frame in the atlas has a dev route Codex can open', () => {
-  const routes = readdirSync('src/app').filter((f) => f.startsWith('dev-cpv2-'));
+  const routes = readdirSync('src/dev-fixtures').filter((f) => f.startsWith('dev-cpv2-'));
   const expected = [
     '01-idle',
     '02-listening',
@@ -325,8 +325,8 @@ test('every frame in the atlas has a dev route Codex can open', () => {
 });
 
 test('no fixture route can write or spend a request', () => {
-  for (const file of readdirSync('src/app').filter((f) => f.startsWith('dev-cpv2-'))) {
-    const src = stripComments(readFileSync(`src/app/${file}`, 'utf8'));
+  for (const file of readdirSync('src/dev-fixtures').filter((f) => f.startsWith('dev-cpv2-'))) {
+    const src = stripComments(readFileSync(`src/dev-fixtures/${file}`, 'utf8'));
     assert.ok(
       !/useCatalogueFlow|useCatalogueImport|useCatalogueSearch|supabase/.test(src),
       `${file} reaches a live hook`,

@@ -287,9 +287,9 @@ test('the route and the fixtures render the same components', () => {
     assert.ok(route.includes(component), `the route stopped using ${component}`);
   }
   for (const [file, component] of [
-    ['src/app/dev-cpv2-02-listening.tsx', 'ListeningScreen'],
-    ['src/app/dev-cpv2-03-transcript.tsx', 'SearchHeader'],
-    ['src/app/dev-cpv2-01-idle.tsx', 'SearchHeader'],
+    ['src/dev-fixtures/dev-cpv2-02-listening.tsx', 'ListeningScreen'],
+    ['src/dev-fixtures/dev-cpv2-03-transcript.tsx', 'SearchHeader'],
+    ['src/dev-fixtures/dev-cpv2-01-idle.tsx', 'SearchHeader'],
   ] as const) {
     const src = readFileSync(file, 'utf8');
     assert.ok(src.includes(component), `${file} does not render ${component}`);

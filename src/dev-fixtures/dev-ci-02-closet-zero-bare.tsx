@@ -1,7 +1,7 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/ui/text';
-import { ZeroClosetFrame } from '@/app/dev-ci-01-closet-zero';
+import { ZeroClosetFrame } from '@/dev-fixtures/dev-ci-01-closet-zero';
 
 /**
  * CI-02 — the same zero state on an account that has set nothing.

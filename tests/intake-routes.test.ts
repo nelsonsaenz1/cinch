@@ -36,7 +36,7 @@ const code = (p: string) =>
 const CHOOSERS = [
   'src/app/add-clothes.tsx',
   'src/components/onboarding/first-ten-doors.tsx',
-  'src/app/dev-add-clothes.tsx',
+  'src/dev-fixtures/dev-add-clothes.tsx',
 ];
 
 // ---------------------------------------------------------------------------

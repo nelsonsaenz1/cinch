@@ -1,7 +1,7 @@
 /**
  * The fixture index cannot go stale.
  *
- * `src/app/dev-screens.tsx` lists every `__DEV__` route in the app, because
+ * `src/dev-fixtures/dev-screens.tsx` lists every `__DEV__` route in the app, because
  * expo-router gives no runtime enumeration to build the list from and 154
  * hand-typed lines rot the moment somebody adds a frame and forgets. A stale
  * index is worse than none: it looks complete, so the missing route reads as a
@@ -15,13 +15,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 
-const routes = readdirSync('src/app')
+const routes = readdirSync('src/dev-fixtures')
   .filter((f) => f.startsWith('dev-') && f.endsWith('.tsx'))
   .map((f) => f.slice(0, -'.tsx'.length))
   // The index does not link to itself.
   .filter((f) => f !== 'dev-screens');
 
-const index = readFileSync('src/app/dev-screens.tsx', 'utf8');
+const index = readFileSync('src/dev-fixtures/dev-screens.tsx', 'utf8');
 
 test('every dev route is named in the fixture index', () => {
   const missing = routes.filter((r) => !index.includes(`'/${r}'`));

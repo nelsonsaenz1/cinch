@@ -28,9 +28,9 @@ const CLEARED = [
   'src/components/review/review-card.tsx',
   'src/components/ingest/garment-search-sheet.tsx',
   'src/components/item/item-edit-sheet.tsx',
-  'src/app/dev-capture.tsx',
-  'src/app/dev-closet.tsx',
-  'src/app/dev-describe.tsx',
+  'src/dev-fixtures/dev-capture.tsx',
+  'src/dev-fixtures/dev-closet.tsx',
+  'src/dev-fixtures/dev-describe.tsx',
 ];
 
 /** Comments stripped: a file EXPLAINING the rule must not read as breaking it. */

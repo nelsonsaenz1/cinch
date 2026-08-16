@@ -82,7 +82,7 @@ test('the stored screen draws no delete — the frame has one control', () => {
 // ── RV-03 / RV-01 ─────────────────────────────────────────────────────────
 
 /** Both surfaces: the deck and the fixture that has to mirror it. */
-const DECKS = ['src/app/review.tsx', 'src/app/dev-review.tsx'];
+const DECKS = ['src/app/review.tsx', 'src/dev-fixtures/dev-review.tsx'];
 
 test('the review deck prints its progress as a count with its denominator', () => {
   for (const f of DECKS) {

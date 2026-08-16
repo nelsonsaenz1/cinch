@@ -108,7 +108,7 @@ test('no Group 3 surface renders a progress bar', () => {
   const surfaces = [
     'src/app/capture.tsx',
     'src/app/add-clothes.tsx',
-    'src/app/dev-capture.tsx',
+    'src/dev-fixtures/dev-capture.tsx',
     'src/app/item/[id].tsx',
     'src/components/review/review-card.tsx',
     'src/components/ingest/garment-search-sheet.tsx',

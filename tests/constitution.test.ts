@@ -152,7 +152,7 @@ const TEXT_DEBT: Record<string, string[]> = {
     // exemption is actually argued.
     'src/components/ui/button.tsx',
     // `__DEV__` fixture route — never shipped.
-    'src/app/dev-account.tsx',
+    'src/dev-fixtures/dev-account.tsx',
   ],
   ghost: [
     // Example content drawn as example content — the Plan atlas's ghost weekday

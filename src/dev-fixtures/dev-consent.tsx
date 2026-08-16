@@ -18,7 +18,7 @@ import { Text } from '@/components/ui/text';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 import type { Item } from '@/schemas/item';
 
-import { DeclineExplainer } from './capture';
+import { DeclineExplainer } from '@/app/capture';
 
 /**
  * AI consent fixture — `cinch://dev-consent`.

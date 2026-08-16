@@ -103,7 +103,7 @@ test('no proration figure is derived — the App Store owns it and the copy says
 test('the shipping route and the fixture contain no price literal either', () => {
   // The strings above are only half the surface: a price typed straight into
   // JSX would pass every assertion so far.
-  for (const path of ['src/app/membership-upgrade.tsx', 'src/app/dev-w3-g6-mb-09.tsx']) {
+  for (const path of ['src/app/membership-upgrade.tsx', 'src/dev-fixtures/dev-w3-g6-mb-09.tsx']) {
     const src = readFileSync(path, 'utf8')
       .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
       .replace(/\/\*[\s\S]*?\*\//g, '')

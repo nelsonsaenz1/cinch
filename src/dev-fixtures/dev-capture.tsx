@@ -22,7 +22,7 @@ import {
 import { userFacingFailure } from '@/features/ingest/upload-queue';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
-import { DeclineExplainer } from './capture';
+import { DeclineExplainer } from '@/app/capture';
 
 /**
  * Capture fixture — `cinch://dev-capture`.

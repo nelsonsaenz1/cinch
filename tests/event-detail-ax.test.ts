@@ -153,7 +153,7 @@ test('the LP-04 capture route scrolls the same way the page does', () => {
   // Otherwise the fixture is a picture of a screen that does not exist, and
   // the next acceptance pass photographs a clip the product does not have —
   // or worse, misses one it does.
-  const fixture = readFileSync('src/app/dev-lp04-detail.tsx', 'utf8');
+  const fixture = readFileSync('src/dev-fixtures/dev-lp04-detail.tsx', 'utf8');
   const body = bodyScrollView(fixture);
   assert.ok(body, 'no body ScrollView found in the LP-04 fixture');
   assert.match(body, /className="flex-1"/);

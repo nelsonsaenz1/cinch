@@ -45,8 +45,8 @@ const CLEARED = [
   'src/components/report/ReportFlowSheets.tsx',
   'src/components/stylist/sheet-parts.tsx',
   // `__DEV__` fixture routes — never shipped, fixed because they were free.
-  'src/app/dev-plan.tsx',
-  'src/app/dev-wall.tsx',
+  'src/dev-fixtures/dev-plan.tsx',
+  'src/dev-fixtures/dev-wall.tsx',
 ];
 
 test('no cleared file sets faint as text again', () => {
