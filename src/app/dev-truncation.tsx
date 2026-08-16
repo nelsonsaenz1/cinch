@@ -154,7 +154,7 @@ export default function DevTruncationScreen() {
         <View className="px-gutter">
           <Section title="RailCard · cost per wear">
             <View className="flex-row gap-3">
-              <RailCard item={EXTREME} variant="favourite" />
+              <RailCard item={EXTREME} variant="mostWorn" />
               <RailCard item={ORDINARY} variant="latest" />
             </View>
           </Section>

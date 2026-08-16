@@ -1,13 +1,12 @@
-import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
+import { GarmentImage } from '@/components/media/garment-image';
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { pieceName } from '@/features/closet/item-name';
-import { stableImageSource } from '@/features/closet/use-image-urls';
 import { useLocalPhoto } from '@/features/ingest/local-photos';
 import { pieceCardAnnouncement, pieceMetaLine } from '@/features/closet/piece-meta';
 import type { Item } from '@/schemas/item';
@@ -193,28 +192,25 @@ function ItemCardComponent({
             // co-occur today, and if they ever do the louder one should win.
             !dimmed && stored ? { opacity: 0.72 } : null,
           ]}>
-          {displayUri ? (
-            <Image
-              source={stableImageSource(displayUri)}
-              recyclingKey={item.id}
-              contentFit={wearsListing ? 'contain' : 'cover'}
-              transition={180}
-              cachePolicy="memory-disk"
-              style={{ flex: 1 }}
-              accessibilityIgnoresInvertColors
-            />
-          ) : (
-            // No cutout yet. This is the default in the Simulator, where subject
-            // lifting cannot run — so it has to look considered, not broken.
-            <View className="flex-1 items-center justify-center">
+          {/* UX-06. The mark below is the same one this card always drew for a
+              piece whose cutout has not landed — the default in the Simulator,
+              where subject lifting cannot run — and `GarmentImage` now draws it
+              for an expired signature and a body that will not decode too,
+              instead of leaving the 168pt well empty and unexplained. */}
+          <GarmentImage
+            uri={displayUri}
+            recyclingKey={item.id}
+            contentFit={wearsListing ? 'contain' : 'cover'}
+            transition={180}
+            fallback={
               <SymbolView
                 name={needsReview ? 'exclamationmark.triangle' : 'tshirt'}
                 size={26}
                 tintColor={needsReview ? theme.warning : theme.hairline}
                 resizeMode="scaleAspectFit"
               />
-            </View>
-          )}
+            }
+          />
 
           {/* One badge, and never while selecting — the mode is about picking,
               not diagnosing.

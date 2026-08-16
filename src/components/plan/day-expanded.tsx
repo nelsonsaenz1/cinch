@@ -1,7 +1,7 @@
-import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { View } from 'react-native';
 
+import { GarmentImage } from '@/components/media/garment-image';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { type PlannedDay } from '@/features/plan/packing';
@@ -156,17 +156,17 @@ function PieceWell({ uri, label }: { uri: string | undefined; label: string }) {
       accessibilityLabel={label}
       className="items-center justify-center overflow-hidden rounded bg-tray"
       style={{ width: WELL, height: WELL, padding: 6 }}>
-      {uri ? (
-        <Image
-          source={{ uri }}
-          contentFit="contain"
-          transition={120}
-          style={{ width: '100%', height: '100%' }}
-          accessibilityIgnoresInvertColors
-        />
-      ) : (
-        <SymbolView name="tshirt" size={24} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
-      )}
+      {/* UX-06 — one considered mark for every way this well can end up with
+          no photograph in it, not just for a piece that never had one. */}
+      <GarmentImage
+        uri={uri}
+        contentFit="contain"
+        transition={120}
+        style={{ width: '100%', height: '100%' }}
+        fallback={
+          <SymbolView name="tshirt" size={24} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
+        }
+      />
     </View>
   );
 }

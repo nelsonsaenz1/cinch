@@ -58,7 +58,11 @@ export function chipFor(category: Item['category']): CategoryFilter {
 
 /** Top-N cutoffs. Small enough to stay highlights, not an inventory. */
 export const MOST_WORN_LIMIT = 5;
-export const FAVOURITE_LIMIT = 8;
+/**
+ * How many pieces the closet's wear rail carries, and how many the Latest rail
+ * matches it at. Named `FAVOURITE_LIMIT` until UX-02 — see `mostWornRail`.
+ */
+export const MOST_WORN_RAIL_LIMIT = 8;
 
 /**
  * How many reactions the style engine wants before it will say anything about
@@ -201,20 +205,36 @@ export function useClosetScreen() {
   const closetNumbers = useMemo(() => closetStats(items), [items]);
   const mostWorn = useMemo(() => mostWornItems(items, MOST_WORN_LIMIT), [items]);
 
-  // SEAM — favourites. No favourite flag exists in the schema yet and the DB
-  // agent owns migrations, so the rail is driven by wear data (the pieces the
-  // user demonstrably reaches for). When an `items.is_favourite` lands, swap
-  // this derivation for the flagged set; nothing else on the page changes.
-  const favourites = useMemo(() => mostWornItems(items, FAVOURITE_LIMIT), [items]);
+  /**
+   * THE WEAR RAIL — and the name it goes by, which is UX-02's one truth
+   * correction on this screen.
+   *
+   * This was called `favourites`, and the rail above it said "Favourites". It
+   * was never a favourite: no favourite flag exists in the schema, nothing in
+   * the app lets a person nominate one, and the derivation has always been
+   * `mostWornItems` — a ranking by wear count. A label claiming a nomination
+   * the reader never made is the kind of small lie that teaches people to stop
+   * believing the other labels, so the rail says what the derivation does.
+   *
+   * The SEAM the old comment recorded is gone with the name. UX-02's brief is
+   * explicit that this pass creates no fake favourite state and no backend
+   * contract for one; if an `items.is_favourite` ever lands it deserves its own
+   * rail beside this one, not a quiet swap underneath a label that would then
+   * be right for the first time.
+   *
+   * VISIBILITY IS UNCHANGED. It derives from `wearCount > 0` exactly as before,
+   * and the screen hides it rather than rendering it empty. No piece-count
+   * threshold gates it — see the implementation plan's refusal of the atlas's
+   * unbriefed 5/15 rules.
+   */
+  const mostWornRail = useMemo(() => mostWornItems(items, MOST_WORN_RAIL_LIMIT), [items]);
 
-  // Atlas C-01 draws BOTH rails at once for a worn-in closet — Latest is
-  // recency, Favourites is wear data, and they answer different questions.
-  // `items` already arrives newest-first from `useCloset`'s own ORDER BY, so
-  // Latest is a plain prefix. Favourites still derives from `wearCount > 0`
-  // (`mostWornItems` above); a closet with no wear data yet renders Latest
-  // alone, and the screen hides the empty Favourites rail.
-  const hasWearData = favourites.length > 0;
-  const latestPieces = useMemo(() => items.slice(0, FAVOURITE_LIMIT), [items]);
+  // Atlas C-01 draws BOTH rails for a worn-in closet — Latest is recency, Most
+  // worn is wear data, and they answer different questions. `items` already
+  // arrives newest-first from `useCloset`'s own ORDER BY, so Latest is a plain
+  // prefix. A closet with no wear data yet renders Latest alone.
+  const hasWearData = mostWornRail.length > 0;
+  const latestPieces = useMemo(() => items.slice(0, MOST_WORN_RAIL_LIMIT), [items]);
 
   // The grid's contents: narrowed first by the category chip, then by the
   // typed query. Empty query and "All" = the whole closet, newest first.
@@ -419,8 +439,9 @@ export function useClosetScreen() {
 
     // ── Rails ───────────────────────────────────────────────────────────
     latestPieces,
-    favourites,
-    /** Computed and preserved for parity; the atlas renders no rail for it. */
+    /** The wear rail: top pieces by wear count, `[]` when nothing is worn. */
+    mostWornRail,
+    /** The shorter top-5, computed and preserved for parity; no rail renders it. */
     mostWorn,
     hasWearData,
 

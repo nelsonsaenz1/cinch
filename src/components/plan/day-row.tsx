@@ -1,7 +1,7 @@
-import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, View } from 'react-native';
 
+import { GarmentImage } from '@/components/media/garment-image';
 import { Text } from '@/components/ui/text';
 import { describeWeather, formatTemp } from '@/features/context/weather';
 import { type PlannedDay } from '@/features/plan/packing';
@@ -254,17 +254,18 @@ function GarmentThumb({ uri }: { uri: string | undefined }) {
     <View
       className="items-center justify-center overflow-hidden rounded bg-tray"
       style={{ width: THUMB_W, height: THUMB_H, padding: 3 }}>
-      {uri ? (
-        <Image
-          source={{ uri }}
-          contentFit="contain"
-          transition={120}
-          style={{ width: '100%', height: '100%' }}
-          accessibilityIgnoresInvertColors
-        />
-      ) : (
-        <SymbolView name="tshirt" size={16} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
-      )}
+      {/* UX-06: the silhouette now stands for an expired signature and a body
+          that will not decode as well as for a piece with no render yet — the
+          44×52 well is too small for a blank to read as anything but a bug. */}
+      <GarmentImage
+        uri={uri}
+        contentFit="contain"
+        transition={120}
+        style={{ width: '100%', height: '100%' }}
+        fallback={
+          <SymbolView name="tshirt" size={16} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
+        }
+      />
     </View>
   );
 }
