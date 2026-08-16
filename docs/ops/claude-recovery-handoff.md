@@ -245,12 +245,15 @@ handled by design.
 
 What genuinely remains is smaller and worth recording:
 
-- **Bundle hygiene**: 205 fixture screens are still compiled into the production bundle. Not a
-  correctness or review risk; a size and build-time one.
-- **Stale count in a release document**: `docs/app-store/submission-runbook.md:122` states "The 39
+- ~~**Bundle hygiene**: 205 fixture screens are still compiled into the production bundle.~~
+  **RESOLVED.** The fixtures moved to `src/dev-fixtures/`, outside the directory Expo Router
+  registers, so none of the 22,592 lines reach the bundle. The runtime guard is kept as defence in
+  depth; `tests/dev-route-exclusion.test.ts` is what now enforces it.
+- ~~**Stale count in a release document**: `docs/app-store/submission-runbook.md:122` states "The 39
   `dev-*` routes are bounced in release builds (`_layout.tsx:160`)". The count is 166 low and the
-  line reference has drifted (the guard is now at :162). **Not corrected by this lane** — that file
-  is App Store release evidence and Codex holds release ownership. Flagged for Codex.
+  line reference has drifted.~~ **RESOLVED.** Corrected on the founder's authorisation, and then
+  superseded by the move: that line now records that zero `dev-*` routes ship, which is a stronger
+  claim than any count.
 
 ## Row 6 — the per-intent audit of `codex/ui-excellence-b`, and the verdict it got wrong
 
@@ -384,8 +387,9 @@ to capture and no screenshot that would carry meaning. No self-authored visual v
   ownership is not held by this lane; sequencing must be agreed before any build or deploy.
 
 **Not a blocker, recorded for completeness**
-- Bundle hygiene: 205 `dev-*` fixture screens still compile into the production bundle. Guarded at
-  runtime by `_layout.tsx:162`, so this is size and build time, not correctness or review risk.
+- ~~Bundle hygiene: 205 `dev-*` fixture screens still compile into the production bundle.~~
+  **RESOLVED** — moved out of the router root to `src/dev-fixtures/`. Nothing dev- ships; the
+  `_layout.tsx:162` guard stays as defence in depth.
 
 ## Preserved, untouched
 

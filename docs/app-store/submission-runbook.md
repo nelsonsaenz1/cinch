@@ -119,12 +119,16 @@ argues deliberately for not cutting the list off mid-parse.
 - Report and Block exist on comments, posted outfits and profiles; comments
   auto-hide after several distinct reports. `terms.html` now publishes that
   policy, which 1.2 asks for.
-- The 205 `dev-*` routes are bounced in release builds (`_layout.tsx:162`). The
-  guard is a prefix match on the segment, so it covers all of them generically
-  rather than by enumeration — the count moving does not weaken it. What the
-  count does mean is that 205 fixture screens are still compiled into the
-  production bundle: a size and build-time cost, not a correctness or review
-  one.
+- **Zero `dev-*` routes ship.** The 205 design fixtures live in
+  `src/dev-fixtures/`, outside the directory Expo Router registers, so the
+  bundler never reaches them — 22,592 lines that used to be compiled into the
+  production app are not in it. Previously this was a runtime mitigation only
+  (`_layout.tsx:162` bounces any `dev-`-prefixed segment in release builds); that
+  guard is kept as defence in depth and to catch a fixture reintroduced by
+  accident, but it is now unreachable rather than load-bearing.
+  `tests/dev-route-exclusion.test.ts` fails if any fixture returns to the router
+  at any depth, and `node scripts/dev-fixtures.mjs on` mounts them for design
+  review without them ever entering a build.
 - No external purchase path, no ATT/IDFA, no unused permission.
 - All sixteen edge functions typecheck.
 - 1,835 tests: 1,834 pass, 1 skip (the fingerprint control, which is opt-in
