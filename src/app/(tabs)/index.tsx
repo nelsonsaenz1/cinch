@@ -1472,6 +1472,8 @@ export default function TodayScreen() {
         key={wearSelection ? idOf(wearSelection.candidate.items) : 'closed'}
         visible={wearSelection !== null}
         outfitName={wearSelection?.name ?? ''}
+        garments={wearSelection?.candidate.items ?? []}
+        resolveImage={resolve}
         pending={wear.isPending}
         error={wearSheetError ? wearFailureCopy(wearSheetError).body : null}
         onCancel={() => {

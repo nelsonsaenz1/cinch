@@ -12,6 +12,12 @@ import { GUTTER, useTheme } from '@/theme/tokens';
 
 const CARD_WIDTH = 164;
 
+function wornDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(
+    new Date(value),
+  );
+}
+
 export function FavoriteOutfitsRail() {
   const router = useRouter();
   const theme = useTheme();
@@ -54,6 +60,9 @@ export function FavoriteOutfitsRail() {
               <View className="px-3 pb-2 pt-2.5">
                 <Text variant="note" numberOfLines={1} style={{ color: theme.ink }}>
                   {outfit.name}
+                </Text>
+                <Text variant="caption" className="mt-1">
+                  Worn {wornDate(outfit.wornAt)}
                 </Text>
               </View>
             </Pressable>

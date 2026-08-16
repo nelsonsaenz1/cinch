@@ -6,6 +6,7 @@ export type FavoriteOutfit = {
   id: string;
   name: string;
   favoritedAt: string;
+  wornAt: string;
   itemIds: string[];
   imagePaths: (string | null)[];
 };
@@ -14,6 +15,7 @@ type FavoriteRow = {
   id: string;
   name: string | null;
   favorited_at: string | null;
+  worn_at: string;
   outfit_items: {
     item_id: string;
     position: number;
@@ -32,7 +34,7 @@ export function useFavoriteOutfits() {
       const { data, error } = await supabase
         .from('outfits')
         .select(
-          'id, name, favorited_at, outfit_items(item_id, position, items(plate_path, cutout_path, thumb_path))',
+          'id, name, favorited_at, worn_at, outfit_items(item_id, position, items(plate_path, cutout_path, thumb_path))',
         )
         .eq('user_id', userId)
         .not('favorited_at', 'is', null)
@@ -49,6 +51,7 @@ export function useFavoriteOutfits() {
             id: row.id,
             name: row.name?.trim() || 'Favorite outfit',
             favoritedAt: row.favorited_at,
+            wornAt: row.worn_at,
             itemIds: pieces.map((piece) => piece.item_id),
             imagePaths: pieces.map(
               (piece) =>

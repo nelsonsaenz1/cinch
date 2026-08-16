@@ -2,13 +2,17 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GarmentCell } from '@/components/today/garment-cell';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import type { Garment } from '@/lib/styling';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 type WearConfirmationSheetProps = {
   visible: boolean;
   outfitName: string;
+  garments: Garment[];
+  resolveImage: (...paths: (string | null | undefined)[]) => string | undefined;
   pending: boolean;
   error: string | null;
   onCancel: () => void;
@@ -25,6 +29,8 @@ type WearConfirmationSheetProps = {
 export function WearConfirmationSheet({
   visible,
   outfitName,
+  garments,
+  resolveImage,
   pending,
   error,
   onCancel,
@@ -44,9 +50,9 @@ export function WearConfirmationSheet({
           <ScrollView contentContainerClassName="px-gutter pb-5 pt-6">
             <View className="flex-row items-start justify-between gap-4">
               <View className="flex-1">
-                <Text variant="eyebrow">MARK AS WORN</Text>
+                <Text variant="eyebrow">TODAY</Text>
                 <Text variant="title" className="mt-2" accessibilityRole="header">
-                  {outfitName}
+                  Log this outfit?
                 </Text>
               </View>
               <Pressable
@@ -61,6 +67,30 @@ export function WearConfirmationSheet({
               </Pressable>
             </View>
 
+            <View className="mt-6 rounded-lg bg-tray p-4">
+              <Text variant="heading" numberOfLines={2}>
+                {outfitName}
+              </Text>
+              <View className="mt-3 flex-row flex-wrap gap-2">
+                {garments.slice(0, 4).map((garment) => (
+                  <View
+                    key={garment.id}
+                    className="h-16 w-16 overflow-hidden rounded-md bg-surface"
+                    accessibilityLabel={garment.subcategory ?? garment.category}>
+                    <GarmentCell
+                      garment={garment}
+                      uri={resolveImage(garment.platePath, garment.cutoutPath, garment.thumbPath)}
+                    />
+                  </View>
+                ))}
+              </View>
+              <Text variant="caption" className="mt-3" numberOfLines={3}>
+                {garments
+                  .map((garment) => garment.subcategory?.trim() || garment.category)
+                  .join(' · ')}
+              </Text>
+            </View>
+
             <View className="mt-8">
               <Text variant="heading">How did it feel?</Text>
               <Text variant="note" className="mt-1">
@@ -69,13 +99,14 @@ export function WearConfirmationSheet({
               <View className="mt-4 flex-row justify-between" accessibilityRole="radiogroup">
                 {[1, 2, 3, 4, 5].map((value) => {
                   const selected = rating === value;
+                  const filled = rating !== null && value <= rating;
                   return (
                     <Pressable
                       key={value}
                       onPress={() => setRating(selected ? null : value)}
                       disabled={pending}
                       accessibilityRole="radio"
-                      accessibilityLabel={`${value} ${value === 1 ? 'star' : 'stars'}`}
+                      accessibilityLabel={`${value} out of 5 stars`}
                       accessibilityState={{ selected }}
                       style={{
                         minWidth: MIN_TAP_TARGET,
@@ -84,7 +115,7 @@ export function WearConfirmationSheet({
                         backgroundColor: selected ? theme.blush : theme.canvas,
                       }}
                       className="items-center justify-center rounded-full border">
-                      <Text variant="heading" style={{ color: selected ? theme.accent : theme.muted }}>
+                      <Text variant="heading" style={{ color: filled ? theme.accent : theme.muted }}>
                         ★
                       </Text>
                     </Pressable>
