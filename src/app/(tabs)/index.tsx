@@ -7,7 +7,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  TextInput,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -16,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CapacityNote } from '@/components/today/capacity-note';
 import { ClosetFloor } from '@/components/today/closet-floor';
+import { ContextComposer } from '@/components/today/context-composer';
+import { EMPTY_COMPOSER, type ComposerState } from '@/components/today/context-composer-state';
 import { contextLines, contextRungs, feelsClause } from '@/components/today/context-label';
 import { GapCard } from '@/components/today/gap-card';
 import { OccasionInterrupt } from '@/components/today/occasion-interrupt';
@@ -615,8 +616,11 @@ export default function TodayScreen() {
   const theme = useTheme();
   const qc = useQueryClient();
 
-  const [note, setNote] = useState('');
-  const [committedNote, setCommittedNote] = useState('');
+  // The day's context: what is in the field, what has been committed to the
+  // engine, and whether the field is open at all (UX-03). One piece of state
+  // rather than three that could disagree; the rules live in the reducer.
+  const [composer, setComposer] = useState<ComposerState>(EMPTY_COMPOSER);
+  const committedNote = composer.committed;
   const [reactions, setReactions] = useState<Record<string, ReactionValue>>({});
   const [wornIds, setWornIds] = useState<Set<string>>(new Set());
   // Wear, per outfit rather than per screen. `wear.isPending` is the mutation's
@@ -1239,66 +1243,18 @@ export default function TodayScreen() {
             onConnectCalendar={() => void requestCalendar()}
           />
 
-          {/* THE OCCASION COMPOSER — kept, and reported as a conflict.
-              T-01 does not draw this field, and correction 07 restores the
-              calendar-plus in the masthead in its place. But §11 of the atlas
-              explicitly does NOT authorise where the free-text composer goes,
-              and it is the only permission-free path the day's plans have into
-              the engine: `/event/new` writes a Cinch occasion, which
-              `useStyleContext` never reads, while this field and the device
-              calendar are the two inputs it does. Deleting it would silently
-              remove the ability to say "dinner at 7 then drinks after", which
-              is the sentence the engine exists for. It stays where it was
-              until the IA decision is made by someone authorised to make it. */}
-          {nothingWorks ? null : (
-            <>
-              <View className="mx-gutter mt-3 flex-row items-center gap-2 rounded-md bg-tray px-3.5 py-2.5">
-                <SymbolView
-                  name="plus"
-                  size={15}
-                  tintColor={theme.accentWarm}
-                  resizeMode="scaleAspectFit"
-                />
-                <TextInput
-                  value={note}
-                  onChangeText={setNote}
-                  onSubmitEditing={() => setCommittedNote(note.trim())}
-                  onBlur={() => setCommittedNote(note.trim())}
-                  returnKeyType="done"
-                  placeholder="What's on today?"
-                  placeholderTextColor={theme.muted}
-                  accessibilityLabel="Describe your plans today"
-                  className="flex-1 font-body text-callout text-ink"
-                />
-              </View>
-
-              {committedNote ? (
-                <View
-                  className="mx-gutter mt-1.5 flex-row items-center gap-2"
-                  accessibilityLiveRegion="polite">
-                  <Text variant="note" numberOfLines={2} className="flex-1">
-                    Styling for &ldquo;{committedNote}&rdquo;.
-                  </Text>
-                  <Pressable
-                    onPress={() => {
-                      setNote('');
-                      setCommittedNote('');
-                    }}
-                    hitSlop={14}
-                    accessibilityRole="button"
-                    accessibilityLabel="Clear your plans for today"
-                    className="active:opacity-60">
-                    <SymbolView
-                      name="xmark"
-                      size={11}
-                      tintColor={theme.muted}
-                      resizeMode="scaleAspectFit"
-                    />
-                  </Pressable>
-                </View>
-              ) : null}
-            </>
-          )}
+          {/* THE DAY'S CONTEXT — UX-03, progressive disclosure.
+              The field is KEPT, for the reason it was always kept: it is the
+              only permission-free path the day's plans have into the engine
+              (`/event/new` writes a Cinch occasion, which `useStyleContext`
+              never reads, while this and the device calendar are the two inputs
+              it does). What goes is its permanence. A collapsed `Add context`
+              affordance opens the same field on intent, so the three plates
+              below are the first substantial thing on the screen on every visit
+              that has nothing to add — which is nearly all of them.
+              `hidden` on the refusal, where there is no look for context to
+              change; that gate is unchanged. */}
+          <ContextComposer state={composer} onChange={setComposer} hidden={nothingWorks} />
 
           {/* An explicit pull always gets an answer, even when the answer is
               that nothing changed. */}

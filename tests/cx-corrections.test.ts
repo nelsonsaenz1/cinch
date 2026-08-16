@@ -373,9 +373,28 @@ test('CX-03/04 — bundled assets only, and one VoiceOver stop', () => {
 
 test('CX-04 — the example sits below owned content and never inside the grid', () => {
   const src = body(CLOSET);
-  // A footer, not a header and not an injected cell: the owned grid stays
-  // first and interactive, and nothing fictional is reachable by scrolling it.
-  assert.match(src, /ListFooterComponent=\{[\s\S]{0,200}ExampleCloset variant="compact"/);
+
+  // A FOOTER, not a header and not an injected cell: the owned grid stays first
+  // and interactive, and nothing fictional is reachable by scrolling it.
+  //
+  // This used to read `ListFooterComponent={` and the compact example within
+  // 200 characters of each other, which was true only while the example was the
+  // ONLY thing in the footer. UX-02 moved both rails and the insight card down
+  // there too — everything that is about the closet rather than in it — so the
+  // example is now the last block of `SecondaryInsights` rather than the whole
+  // footer. The rule CX-04 states is unchanged and is what is asserted: the
+  // compact example is rendered by the footer's component and by nothing above
+  // the grid.
+  assert.match(src, /ListFooterComponent=\{\s*<SecondaryInsights/);
+  const footer = src.slice(src.indexOf('function SecondaryInsights'));
+  assert.match(footer, /ExampleCloset variant="compact"/);
+  const header = src.slice(0, src.indexOf('function SecondaryInsights'));
+  assert.doesNotMatch(
+    header,
+    /ListHeaderComponent=\{[\s\S]{0,200}ExampleCloset/,
+    'the example climbed above the owned grid',
+  );
+
   assert.doesNotMatch(
     src,
     /items=\{[^}]*ExampleCloset|CELLS[\s\S]{0,40}screen\.items/,

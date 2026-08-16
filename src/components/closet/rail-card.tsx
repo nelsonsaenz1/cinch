@@ -1,13 +1,12 @@
-import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { memo } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
+import { GarmentImage } from '@/components/media/garment-image';
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { pieceName } from '@/features/closet/item-name';
-import { stableImageSource } from '@/features/closet/use-image-urls';
 import { type Item, costPerWear } from '@/schemas/item';
 import { useTheme } from '@/theme/tokens';
 
@@ -16,10 +15,15 @@ export type RailCardProps = {
   /**
    * `latest` — the 92×110 card of the LATEST PIECES rail: name below the well,
    * then a wears line (or NEVER WORN in the accent).
-   * `favourite` — the 74×74 card of the FAVOURITES rail: just the garment and
-   * its cost-per-wear; a favourite needs no introduction.
+   * `mostWorn` — the 74×74 card of the MOST WORN rail: just the garment and its
+   * cost-per-wear.
+   *
+   * This variant was called `favourite` until UX-02. Nothing about the rail
+   * changed — it was always `mostWornItems`, ranked by wear count — but calling
+   * wear data a favourite claimed a nomination the reader never made and a
+   * flag the schema does not have. The name now says what the derivation does.
    */
-  variant: 'latest' | 'favourite';
+  variant: 'latest' | 'mostWorn';
   /** Signed URL for the plate/cutout — storage paths are not URLs. */
   imageUri?: string;
   onPress?: (item: Item) => void;
@@ -42,23 +46,18 @@ function Well({
     <View
       className="overflow-hidden rounded-md border border-hairline bg-tray"
       style={{ width, height }}>
-      {imageUri ? (
-        <Image
-          source={stableImageSource(imageUri)}
-          recyclingKey={item.id}
-          contentFit="cover"
-          transition={180}
-          cachePolicy="memory-disk"
-          style={{ flex: 1 }}
-          accessibilityIgnoresInvertColors
-        />
-      ) : (
-        // No cutout yet — the norm in the Simulator, where subject lifting
-        // cannot run. Considered, not broken.
-        <View className="flex-1 items-center justify-center">
+      {/* No cutout yet is the norm in the Simulator, where subject lifting
+          cannot run; an expired signature and a body that will not decode land
+          on the same considered mark (UX-06), never on an empty well. */}
+      <GarmentImage
+        uri={imageUri}
+        recyclingKey={item.id}
+        contentFit="cover"
+        transition={180}
+        fallback={
           <SymbolView name="tshirt" size={20} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
-        </View>
-      )}
+        }
+      />
     </View>
   );
 }
@@ -85,7 +84,7 @@ function RailCardComponent({ item, variant, imageUri, onPress }: RailCardProps) 
     .filter(Boolean)
     .join(', ');
 
-  if (variant === 'favourite') {
+  if (variant === 'mostWorn') {
     return (
       <Pressable
         accessibilityRole="button"
@@ -97,9 +96,9 @@ function RailCardComponent({ item, variant, imageUri, onPress }: RailCardProps) 
         className="w-[74px]">
         <Animated.View style={press.style}>
           <Well item={item} imageUri={imageUri} width={74} height={74} />
-          {/* 10pt muted, per the atlas. Favourites are earned by cost-per-wear,
-              but the recency fallback can seat a piece here without a price —
-              the wears line keeps the caption honest instead of blank. */}
+          {/* 10pt muted, per the atlas. A piece can earn this rail on wears
+              alone, with no price to divide by — the wears line keeps the
+              caption honest instead of blank. */}
           <Text variant="caption" numberOfLines={1} className="mt-[5px]" style={{ fontSize: 10 }}>
             {cpw !== null
               ? `$${cpw.toFixed(2)} / wear`

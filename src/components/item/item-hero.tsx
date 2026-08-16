@@ -1,9 +1,9 @@
-import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
-import { useMemo } from 'react';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { GarmentImage } from '@/components/media/garment-image';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 export type ItemHeroProps = {
@@ -83,38 +83,21 @@ export function ItemHero({
 }: ItemHeroProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const onPhoto = imageUri !== null;
-
   /**
-   * expo-image reloads whenever `source` is a fresh object, and the URLs this
-   * screen is handed are signed — the query string rotates while the photograph
-   * does not. So the identity is memoised and the cache key is the path with the
-   * signature dropped.
+   * Whether there is a PHOTOGRAPH under the two floating discs — which is not
+   * the same question as whether there is a URL.
    *
-   * ── Why the stripping is CONDITIONAL ──────────────────────────────────────
+   * It starts at the URL's answer so the first frame is not wrong on the
+   * ordinary path, and `GarmentImage` corrects it the moment the well settles:
+   * a hero whose signed URL expired has a string here and a tray on screen, and
+   * a canvas-coloured chevron on a tray is an invisible way back.
    *
-   * Dropping the query unconditionally is wrong for any URL that carries its
-   * identity IN the query, and Metro's dev asset server is exactly that:
-   * `http://localhost:8081/assets/?unstable_path=.%2Fassets%2Fgarments%2Fcoat.jpg`.
-   * Stripping there yields `http://localhost:8081/assets/` for EVERY garment, so
-   * expo-image files them all under one key and the first photograph to decode
-   * is then served for all of them — which is precisely what `dev-item` showed:
-   * a mohair sweater under the title of a shearling coat.
-   *
-   * So the query is only dropped when what remains still names a file, which is
-   * true of the signed storage URLs this screen sees in production
-   * (`…/garments/{user}/{item}/cutout.jpg?token=…`) and false of anything whose
-   * path ends at a directory. When in doubt the whole URI is the key: an image
-   * re-downloaded once an hour is a cost, an image showing the WRONG GARMENT is
-   * a bug.
+   * The cache-key reasoning that used to live here — why the signature is
+   * stripped, and why the stripping is conditional on what remains naming a
+   * file — moved to `pictureKey` in components/media/media-state.ts, which is
+   * now the one copy of it and is under test.
    */
-  const source = useMemo(() => {
-    if (!imageUri) return undefined;
-    const withoutQuery = imageUri.split('?')[0];
-    const lastSegment = withoutQuery.slice(withoutQuery.lastIndexOf('/') + 1);
-    const namesAFile = lastSegment.includes('.');
-    return { uri: imageUri, cacheKey: namesAFile ? withoutQuery : imageUri };
-  }, [imageUri]);
+  const [onPhoto, setOnPhoto] = useState(imageUri !== null);
 
   // The atlas sets both discs 2 below the status bar block. `insets.top` is that
   // block on a real device, where the design's 54 was one phone's worth of it.
@@ -128,31 +111,31 @@ export function ItemHero({
           : 'w-full overflow-hidden bg-tray'
       }
       style={{ aspectRatio: stacked ? HERO_ASPECT_AX : HERO_ASPECT }}>
-      {source ? (
-        <Image
-          source={source}
-          contentFit={listing ? 'contain' : 'cover'}
-          transition={200}
-          cachePolicy="memory-disk"
-          style={{ width: '100%', height: '100%' }}
-          accessible
-          accessibilityRole="image"
-          accessibilityLabel={label}
-          accessibilityIgnoresInvertColors
-        />
-      ) : (
+      <GarmentImage
+        uri={imageUri}
+        contentFit={listing ? 'contain' : 'cover'}
+        transition={200}
+        style={{ width: '100%', height: '100%' }}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={label}
+        // The two discs invert with this, which is why the hero reads the WELL
+        // rather than the URL: on a hero whose signature expired, `imageUri` is
+        // a string and there is no photograph, and a canvas chevron on a pale
+        // tray is an invisible way out of the screen.
+        onWell={(well) => setOnPhoto(well === 'photograph')}
         // The same considered mark the closet grid draws for a piece whose
         // cutout has not landed (closet/item-card.tsx) — never a broken image,
         // and never an empty rectangle either.
-        <View className="flex-1 items-center justify-center">
+        fallback={
           <SymbolView
             name="tshirt"
             size={40}
             tintColor={theme.hairline}
             resizeMode="scaleAspectFit"
           />
-        </View>
-      )}
+        }
+      />
 
       {/* Live immediately, per I-03's note: a person can leave a screen that
  hasn't finished arriving. */}

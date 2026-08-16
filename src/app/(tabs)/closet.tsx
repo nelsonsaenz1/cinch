@@ -400,19 +400,22 @@ export default function ClosetScreen() {
         selectedIds={null}
         resolveImage={screen.resolve}
         refreshControl={refreshControl}
-        ListHeaderComponent={
-          <Masthead screen={screen} onSeeAll={seeAllPieces} onMenu={() => setMenuOpen(true)} />
-        }
-        // CX-04 — the example preview, BELOW the owned grid and never inside
-        // it. A footer rather than a header or an injected cell: the reader's
-        // own pieces stay first and interactive, and nothing fictional can be
-        // reached by scrolling the grid itself.
+        ListHeaderComponent={<Masthead screen={screen} onMenu={() => setMenuOpen(true)} />}
+        // Everything that is ABOUT the closet rather than IN it, below the
+        // closet — UX-02's whole shape. The two rails and the insight card used
+        // to sit between the stat row and the chips, which put roughly 300 pt
+        // of derived reading between opening the tab and seeing a garment.
+        //
+        // CX-04's example preview keeps its place at the very bottom, and keeps
+        // its rule: a footer rather than a header or an injected cell, so the
+        // reader's own pieces stay first and interactive and nothing fictional
+        // can be reached by scrolling the grid itself.
         ListFooterComponent={
-          exampleRemaining === null ? null : (
-            <View className="pt-8">
-              <ExampleCloset variant="compact" remaining={exampleRemaining} />
-            </View>
-          )
+          <SecondaryInsights
+            screen={screen}
+            onSeeAll={seeAllPieces}
+            exampleRemaining={exampleRemaining}
+          />
         }
         ListEmptyComponent={
           // The closet has pieces, but none under the chosen chip — the honest
@@ -541,28 +544,54 @@ function HeaderIcon({
   );
 }
 
-/** C-01's masthead — atlas sections 1–8, in order, inside the list header. */
-function Masthead({
-  screen,
-  onSeeAll,
-  onMenu,
-}: {
-  screen: ClosetScreenModel;
-  onSeeAll: () => void;
-  onMenu: () => void;
-}) {
+/**
+ * C-01's masthead, compressed to the four things a closet needs before it can
+ * show a garment — UX-02.
+ *
+ * ── WHAT WAS ABOVE THE FIRST ROW OF CARDS, AND WHAT IS NOW ────────────────
+ *
+ * The atlas's masthead was eight sections deep: eyebrow, a 66pt identity block,
+ * a full-width Edit button on its own line, the stat row, the capacity line,
+ * the Latest rail, the Most worn rail, the insight card, and only then the
+ * chips. On a 393×852 iPhone the first garment cleared the fold by nothing at
+ * all — a wardrobe app that opened on a profile and two summaries OF the
+ * wardrobe rather than on the wardrobe.
+ *
+ * Four sections survive here, and every one of them is either the person or a
+ * way into the grid:
+ *
+ *   · the eyebrow, with search and the menu
+ *   · identity — the face, the name, and Edit as a trailing action on the SAME
+ *     row rather than a button on its own line
+ *   · the stat row and the capacity line, which are four numbers, not a card
+ *   · the category chips, immediately above the pieces they filter
+ *
+ * NOTHING IS DELETED. Both rails and the insight card moved below the grid
+ * (`SecondaryInsights`), where they are still a scroll away and still say the
+ * same thing — see the ListFooterComponent note on the C-01 branch.
+ *
+ * `ZeroIdentityHeader` is untouched: the zero state has no grid to get out of
+ * the way of, and CI-01's identity → example → starter order is the whole
+ * product decision of that branch.
+ */
+function Masthead({ screen, onMenu }: { screen: ClosetScreenModel; onMenu: () => void }) {
   return (
     // The grid's contentContainer already pads by GUTTER; pull the masthead
     // back out so its own `px-gutter`/margins measure from the screen edge.
     <View style={{ marginHorizontal: -GUTTER }}>
       <EyebrowHeader onSearch={screen.toggleSearch} onMenu={onMenu} />
 
-      {/* Identity — the face and the name. Sub-line is the hook's derived
-          handle-and-city join, collapsing around whatever is missing. */}
-      <View className="mt-5 flex-row items-center gap-4 px-gutter">
+      {/* Identity — the face, the name, and the way to change them, on one row.
+          Sub-line is the hook's derived handle-and-city join, collapsing around
+          whatever is missing.
+
+          The avatar is 52 rather than 66. It is still the largest thing in the
+          block and still unmistakably the reader's own face; the 14pt bought
+          back is 14pt of garment. */}
+      <View className="mt-4 flex-row items-center gap-3.5 px-gutter">
         <Avatar
           name={screen.name}
-          size={66}
+          size={52}
           tone="accent"
           imageUri={screen.avatarUrl ?? undefined}
           fallback="?"
@@ -574,29 +603,34 @@ function Masthead({
             </Text>
           ) : null}
           {screen.handleLine ? (
-            <Text variant="label" className={screen.name ? 'mt-2.5' : ''}>
+            <Text variant="label" className={screen.name ? 'mt-2' : ''} numberOfLines={1}>
               {screen.handleLine}
             </Text>
           ) : null}
         </View>
+
+        {/* Edit, as the identity row's own trailing action.
+            A full-width bordered button on its own line cost about 50pt to say
+            what one word says here, and a control that is edge-to-edge reads as
+            the page's primary action — which on a closet it is not. The label
+            keeps its full sentence for VoiceOver, the hit region is padded past
+            the 44pt floor, and it stays quiet: the page spends its accent on
+            the unworn numeral. */}
+        <Pressable
+          onPress={() => screen.setEditing(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Edit your profile"
+          accessibilityHint="Change your name, handle, bio and photo"
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 8 }}
+          style={{ minHeight: 34, justifyContent: 'center' }}
+          className="active:opacity-60">
+          <Text variant="label" className="text-ink">
+            Edit
+          </Text>
+        </Pressable>
       </View>
 
-      {/* Edit profile — full-width, 34pt, rule border, per the atlas. Quiet on
-          purpose: the page spends its accent on the unworn numeral. */}
-      <Pressable
-        onPress={() => screen.setEditing(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Edit your profile"
-        accessibilityHint="Change your name, handle, bio and photo"
-        hitSlop={{ top: 5, bottom: 5 }}
-        style={{ height: 34 }}
-        className="mx-gutter mt-4 items-center justify-center rounded-md border border-rule active:opacity-60">
-        <Text variant="label" className="text-ink">
-          Edit profile
-        </Text>
-      </Pressable>
-
-      <View className="mt-5 px-gutter">
+      <View className="mt-4 px-gutter">
         <StatRow
           pieces={screen.stats.pieces}
           outfits={screen.stats.outfits}
@@ -610,9 +644,37 @@ function Masthead({
           being one. */}
       <CapacityColophon />
 
-      {/* Both rails, per atlas C-01 — Latest is recency, Favourites is wear
-          data. A closet with no wear data yet shows Latest alone; the
-          Favourites rail hides rather than rendering empty. */}
+      <CategoryChipsRow screen={screen} />
+    </View>
+  );
+}
+
+/**
+ * Everything the closet knows ABOUT itself, under the closet — UX-02.
+ *
+ * The two rails and the insight card are derived readings of the same pieces
+ * the grid above is already showing. They were worth keeping and they were not
+ * worth opening on, which is exactly what a footer is for.
+ *
+ * Both rails keep the visibility rules they have always had: Latest appears
+ * when there is anything at all, Most worn appears only once something has
+ * been worn, and neither renders empty. No piece-count threshold gates either
+ * one — the implementation plan refuses the atlas's unbriefed 5/15 rules.
+ */
+function SecondaryInsights({
+  screen,
+  onSeeAll,
+  exampleRemaining,
+}: {
+  screen: ClosetScreenModel;
+  onSeeAll: () => void;
+  /** Pieces still owed to the free ten, or null when none are. See the caller. */
+  exampleRemaining: number | null;
+}) {
+  return (
+    // Same negative gutter as the masthead: the grid's contentContainer pads by
+    // GUTTER, and these sections measure from the screen edge.
+    <View style={{ marginHorizontal: -GUTTER }}>
       {screen.latestPieces.length > 0 ? (
         <Rail
           title="Latest pieces"
@@ -638,19 +700,23 @@ function Masthead({
         </Rail>
       ) : null}
 
-      {screen.favourites.length > 0 ? (
+      {/* MOST WORN, not "Favourites" — UX-02's truth correction.
+          The set is `mostWornItems`, ranked by wear count, and it always was;
+          nothing in this app lets a person nominate a favourite and no column
+          records one. The rail now says what it is made of. */}
+      {screen.mostWornRail.length > 0 ? (
         <Rail
-          title="Favourites"
+          title="Most worn"
           aside={
             <Text variant="caption">
-              {`${screen.favourites.length} ${screen.favourites.length === 1 ? 'piece' : 'pieces'}`}
+              {`${screen.mostWornRail.length} ${screen.mostWornRail.length === 1 ? 'piece' : 'pieces'}`}
             </Text>
           }>
-          {screen.favourites.map((item) => (
+          {screen.mostWornRail.map((item) => (
             <RailCard
               key={item.id}
               item={item}
-              variant="favourite"
+              variant="mostWorn"
               imageUri={screen.resolve(item.listingPath, item.platePath, item.cutoutPath)}
               onPress={screen.openItem}
             />
@@ -666,7 +732,11 @@ function Masthead({
         />
       </View>
 
-      <CategoryChipsRow screen={screen} />
+      {exampleRemaining === null ? null : (
+        <View className="pt-8">
+          <ExampleCloset variant="compact" remaining={exampleRemaining} />
+        </View>
+      )}
     </View>
   );
 }

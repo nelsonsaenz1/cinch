@@ -1,8 +1,7 @@
-import { Image } from 'expo-image';
 import { View } from 'react-native';
 
+import { GarmentImage } from '@/components/media/garment-image';
 import { Text } from '@/components/ui/text';
-import { stableImageSource } from '@/features/closet/use-image-urls';
 import { oklchToHex } from '@/lib/color';
 import type { Garment } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
@@ -207,25 +206,13 @@ export function GarmentCell({
 }) {
   const theme = useTheme();
 
-  if (uri) {
-    return (
-      <Image
-        source={stableImageSource(uri)}
-        recyclingKey={garment.id}
-        contentFit="contain"
-        transition={paper ? 0 : 200}
-        cachePolicy="memory-disk"
-        style={{ width: '100%', height: '100%' }}
-        accessibilityIgnoresInvertColors
-      />
-    );
-  }
-
   // No cutout yet — background removal needs a native module that cannot run
-  // in the Simulator, so this path is the norm right now. The garment's real
-  // colour is honest: it is the value the palette rules actually scored. Text
-  // flips using OKLCH lightness — the perceptual space is exactly for this.
-  return (
+  // in the Simulator, so this path is the norm right now — and, since UX-06,
+  // a signature that expired between the render and the request or a body that
+  // will not decode. The garment's real colour is honest either way: it is the
+  // value the palette rules actually scored. Text flips using OKLCH lightness —
+  // the perceptual space is exactly for this.
+  const swatch = (
     <View
       className="h-full w-full items-center justify-center overflow-hidden px-1"
       style={{
@@ -246,5 +233,18 @@ export function GarmentCell({
         {garment.subcategory ?? garment.category}
       </Text>
     </View>
+  );
+
+  return (
+    <GarmentImage
+      uri={uri}
+      recyclingKey={garment.id}
+      contentFit="contain"
+      // `paper` disables the fade: view-shot would otherwise capture garments
+      // mid-transition, at partial opacity.
+      transition={paper ? 0 : 200}
+      style={{ width: '100%', height: '100%' }}
+      fallback={swatch}
+    />
   );
 }
