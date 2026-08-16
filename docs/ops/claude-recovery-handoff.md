@@ -132,7 +132,7 @@ commit messages. Verdicts:
 | `docs/launch-polish-backlog.md` | `LANDED-HISTORICAL` | The ranked ten map 1:1 to LP-01…LP-10. |
 | `docs/launch-polish-design-plan.md` | `LANDED-HISTORICAL` | Pre-acceptance brief; the handoff overrode its LP-02 sheet (which listed three items; `src/features/onboarding/ten-copy.ts:341` ships four, incl. `Edit details`). |
 | `docs/launch-polish-implementation-plan.md` | `LANDED-HISTORICAL` | A/B/C worktree topology matches the merged commits. |
-| `docs/ui-excellence-research.md` | `LANDED-HISTORICAL` + 1 live item | UX-01…UX-10 verified in source. See live items below. |
+| `docs/ui-excellence-research.md` | `LANDED-HISTORICAL` + 1 live item | UX-01…UX-10 verified in source. See "Still open" below. |
 | `docs/ui-excellence-design-plan.md` | `LANDED-HISTORICAL` | DE-01…DE-10 acceptance corrections visible in shipped code. |
 | `docs/ui-excellence-implementation-plan.md` | `LANDED-HISTORICAL` | Its "Protected state" clause naming "four existing untracked coordinator documents" is stale — there are 8. |
 | `docs/CINCH-TODAY-POLISH-HANDOFF-2026-08-16.md` | `LANDED-HISTORICAL` through Phase D, **its own §2/§3/§12 are stale** | Its "Not completed" section was written against base `f9463b4` and was overtaken by the 7 commits now in `main`. |
@@ -142,33 +142,86 @@ Verified-landed highlights from the Today handoff (§5.x), against source:
 - §5.4 `src/features/styling/outfit-names.ts` — 64-entry library; `tests/outfit-names.test.ts:8`
   asserts 50–100 entries, unique, 2–4 words, tagged.
 - §5.5 `WearMutationError` + `classifyWearFailure` / `classifyWearSessionFailure` in
-  `src/features/styling/mutations.ts:203-240`; bounded `getSession()` with `withDeadline`.
+  `src/features/styling/wear-failure.ts:14,39,48` (consumed at `mutations.ts:203-240`); bounded
+  `getSession()` with `withDeadline`.
 - §5.6 `supabase/migrations/20260816190545_today_ratings_favorites.sql` (`wear_rating smallint`
   1–5, `favorited_at`, owner-private partial index); pgTAP `supabase/tests/16_today_ratings_favorites.sql`.
 - Adjacent defects #4/#5/#6 all fixed (`mutations.ts:228`, `use-outfits.ts:146-152`,
   `src/lib/commands.ts:25-32` now typed rather than cast).
 
-### Genuinely live work carved out of those documents
+### Correction (2026-08-16, second pass): the learning items were reported wrong
 
-These are the only items the audit could not find implemented in `main`. They are recorded here so
-they are not left buried inside documents labelled "not yet executed".
+An earlier revision of this section listed rating-to-learning as unbuilt and a wear-learning
+behavioural gap as outstanding. Both claims were false against current source and are withdrawn.
+`confirmWear` in `src/app/(tabs)/index.tsx:921-985` implements the approved contract in full:
 
-1. **Rating → style-learning policy (Today handoff §11.4 / §5.6).** A 1–5 `wear_rating` is captured
-   and persisted, but feeds nothing: `src/features/styling/favorite-ranking.ts` contains no
-   reference to `rating`/`wear_rating`, and `apply_outfit_reaction` is called only from the
-   ReactionBar path (`mutations.ts:79`). The handoff itself marks this as requiring the founder's
-   product acceptance. **Founder decision — not guessed here.**
-2. **Wear-learning behavioural gap (adjacent defect #1).** `useWearOutfit.onSuccess`
-   (`mutations.ts:244-253`) only tracks and invalidates caches; no reaction/profile update. The
-   false *documentation* claim is gone from `src/`; the behaviour gap remains.
-3. **`PlaceField` single-line baseline (§5.2 / adjacent defect #7).**
-   `src/components/events/place-field.tsx:161-172` has no `textAlignVertical`, while
-   `src/components/events/occasion-field.tsx:416` does. `FieldBox` uses `flex-row items-center`, so
-   it may be harmless. `UNKNOWN` without simulator evidence — and the handoff forbids claiming it
-   fixed without that evidence. **Codex/Simulator item.**
-4. **Saved-plate wear counting (adjacent defects #2/#3).** Architecturally addressed via
-   `origin_outfit_id` (`src/features/boards/queries.ts:18,121-137`; `boards/mutations.ts:174`), but
-   no explicit decrement-on-delete path was found. `UNKNOWN`.
+- The wear is written **first**. `wear.mutate(... rating, favorite ...)` runs `wear_outfit_tx`
+  (`src/features/styling/mutations.ts:225-234`, passing `p_wear_rating` and `p_favorite`), and the
+  learning write happens inside that mutation's `onSuccess` — so a failed wear teaches nothing.
+- The lesson is then derived at `index.tsx:963`:
+  `favorite ? true : rating && rating >= 4 ? true : rating && rating <= 2 ? false : null`.
+  Favorite is the strongest positive signal and **overrides a conflicting low rating**; 4–5 is
+  positive; 1–2 is negative; 3 and an unrated wear are neutral.
+- Neutral teaches nothing at all: `if (liked !== null)` (`index.tsx:964`) is the only gate, so no
+  reaction row and no profile update is written for a 3-star or unrated wear.
+- When it does teach, it goes through the same RPC as the ReactionBar —
+  `react.mutate` → `supabase.rpc('apply_outfit_reaction', …)` (`mutations.ts:79-99`) — carrying
+  `outfitId` and a `reason` of `'favorite'` or `wear_rating_<n>` (`index.tsx:965-973`).
+
+**No founder decision is outstanding on this and no production change is required.** The contract
+is now pinned by a regression test —
+`tests/today-polish-phase-a.test.ts`, "A rated wear teaches taste only on explicit feedback, and
+only once the wear has landed" — which asserts the ordering (wear → `onSuccess` → lesson) and
+evaluates the shipping expression itself over favorite/4/5/3/null/1/2 rather than a copy of it.
+
+### Favorite-ranking evidence (bounded, and deliberately so)
+
+`src/features/styling/favorite-ranking.ts` is the whole of the favorite signal on generation.
+`favorExactCores` adds a flat `FAVORITE_BONUS = 0.03` to a candidate whose **exact** core matches a
+saved favorite — `core()` sorts and joins item ids, so it is set equality, not overlap — and it is
+applied *after* feasibility scoring, over the already-generated shortlist
+(`src/features/styling/use-outfits.ts:120-123`, fed by `useFavoriteOutfits`). Ties fall back to the
+generator's original index, so the bonus can settle a near-tie and nothing more.
+
+`tests/favorite-ranking.test.ts` pins both directions: an exact favorite wins a 0.80/0.78 pair, and
+cannot overtake a 0.90/0.78 one. This is the bound — a favorite nudges, it does not override
+feasibility.
+
+### Resolved: saved-plate deletion does not decrement historical wears (adjacent defects #2/#3)
+
+The earlier `UNKNOWN` ("no explicit decrement-on-delete path was found") was looking for something
+that must not exist. Deleting a saved plate and undoing a wear are two different operations:
+
+- **Deleting a saved plate** (`useDeletePlate`, `src/features/boards/mutations.ts:178-195`) deletes
+  only the `outfits` row for the kept plate. `outfit_items` goes on cascade; `items` is untouched,
+  so **no `wear_count` moves.** Wears that came from that plate survive it: `origin_outfit_id` is
+  declared `references outfits (id) on delete set null`
+  (`supabase/migrations/20260810100000_wear_diary_and_boards.sql:100`), so each wear keeps its own
+  row and simply loses the pointer. The only visible consequence is the lookbook's "worn 6×" count,
+  which is a live `count(*)` over `origin_outfit_id` (`src/features/boards/queries.ts:17-24,121-137`)
+  and correctly stops attributing those wears to a plate that no longer exists.
+- **Un-wearing** is the operation that decrements, and it is transactional, not a delete:
+  `unwear_outfit_tx` (same migration, `:234-291`) takes the row `for update`, refuses past 24 hours
+  with `22023`, sets `wear_count = greatest(0, wear_count - 1)` and recomputes `last_worn_at` from
+  the remaining wears, and only then deletes the outfit row. The client path is
+  `src/features/diary/mutations.ts:135-140` with `unwearRefusal` in `src/features/diary/entry.ts:552`.
+
+The migration states the reasoning in-file: deleting an outfit row alone would leave
+`items.wear_count` permanently inflated, which is why the correction is a transaction. Status:
+**resolved — behaving correctly, nothing to build.**
+
+### Still open (unchanged, and not enlarged)
+
+**`PlaceField` single-line baseline (§5.2 / adjacent defect #7).** Current-main evidence only:
+`src/components/events/place-field.tsx:161-173` renders a single-line `TextInput` with
+`className="flex-1 font-body text-body"` and `style={{ color: theme.ink, ...INPUT_RESET }}` inside a
+`FieldBox`, whose non-multiline branch is `flex-row items-center`
+(`src/components/events/occasion-field.tsx:210-211`). `occasion-field.tsx:416` sets
+`textAlignVertical={multiline ? 'top' : 'center'}` — on a single-line input that is the platform
+default, so the two fields' declared geometry already agrees, and
+`tests/today-polish-phase-a.test.ts:35-42` pins that shared contract. **No gap is claimed here.**
+Confirming the rendered baseline still needs simulator evidence, which this lane does not have and
+does not fabricate. **Codex/Simulator item.**
 
 ### Corrected finding: the `dev-*` routes
 

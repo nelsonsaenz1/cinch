@@ -70,6 +70,48 @@ test('Wear failures retain safe, distinct categories and never promise durable c
   }
 });
 
+test('A rated wear teaches taste only on explicit feedback, and only once the wear has landed', () => {
+  const src = body('src/app/(tabs)/index.tsx');
+  const start = src.indexOf('const confirmWear');
+  assert.ok(start > 0);
+  const scope = src.slice(start, src.indexOf('const weatherClause', start));
+
+  const wearAt = scope.indexOf('wear.mutate(');
+  const successAt = scope.indexOf('onSuccess:');
+  const likedAt = scope.indexOf('const liked =');
+  const reactAt = scope.indexOf('react.mutate(');
+  const errorAt = scope.indexOf('onError:');
+  assert.ok(wearAt >= 0 && wearAt < successAt);
+  assert.ok(successAt < likedAt && likedAt < reactAt && reactAt < errorAt);
+  assert.match(scope, /if \(liked !== null\) \{/);
+  assert.match(scope, /reason: favorite \? 'favorite' : `wear_rating_\$\{rating\}`/);
+
+  // The policy is evaluated from the shipping expression rather than a copy of
+  // it, so a silent edit to the ternary fails here instead of passing a stub.
+  const expression = /const liked = ([^;]+);/.exec(scope)?.[1];
+  assert.ok(expression);
+  const liked = new Function('favorite', 'rating', `return (${expression});`) as (
+    favorite: boolean,
+    rating: number | null,
+  ) => boolean | null;
+
+  assert.equal(liked(true, null), true);
+  assert.equal(liked(true, 1), true);
+  assert.equal(liked(true, 2), true);
+  assert.equal(liked(true, 3), true);
+  assert.equal(liked(false, 5), true);
+  assert.equal(liked(false, 4), true);
+  assert.equal(liked(false, 3), null);
+  assert.equal(liked(false, null), null);
+  assert.equal(liked(false, 2), false);
+  assert.equal(liked(false, 1), false);
+
+  const mutation = body('src/features/styling/mutations.ts');
+  assert.match(mutation, /supabase\.rpc\('apply_outfit_reaction'/);
+  assert.match(mutation, /p_wear_rating: rating \?\? undefined/);
+  assert.match(mutation, /p_favorite: favorite/);
+});
+
 test('Wear preserves one operation id through failure and settles it only on success', () => {
   const mutation = body('src/features/styling/mutations.ts');
   assert.match(mutation, /p_op_id: opIds\.for\(actionKey\)/);
