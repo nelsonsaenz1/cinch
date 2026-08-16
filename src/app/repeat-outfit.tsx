@@ -147,7 +147,12 @@ export default function RepeatOutfitScreen() {
       notes: {},
       harmonies: [],
     };
-    wear.mutate({ candidate, context: null, reasoning: 'Worn again from a repeat notification.' });
+    wear.mutate({
+      candidate,
+      context: null,
+      name: title,
+      reasoning: 'Worn again from a repeat notification.',
+    });
   };
 
   return (

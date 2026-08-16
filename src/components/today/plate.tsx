@@ -648,11 +648,8 @@ export function Plate({
             </Text>
           ) : null}
 
-          {!offline && !hideRationale && outfit.reasoning ? (
-            <Text variant="callout" className="mt-2 text-muted">
-              {outfit.reasoning}
-            </Text>
-          ) : null}
+          {/* Reasoning stays in the styling and persistence pipeline. Today
+              presents the name, composition and garment credits only. */}
 
           {/* ── The look: one grid, one scale, no overlap (audit 58). ── */}
           <View className="mt-4">

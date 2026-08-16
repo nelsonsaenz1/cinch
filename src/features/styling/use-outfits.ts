@@ -12,6 +12,12 @@ import {
 import { supabase } from '@/lib/supabase';
 
 import type { StyleProfile } from './queries';
+import {
+  acceptEnhancedName,
+  compatibleNameOptions,
+  nameOutfits,
+  styleContextFingerprint,
+} from './outfit-names';
 import { shouldEnhanceWithAi } from './should-enhance';
 
 /** How many candidates go up for re-ranking. */
@@ -51,11 +57,12 @@ function fromEngine(
   wardrobe: Garment[],
   ctx: StyleContext,
 ): StyledOutfit[] {
+  const names = nameOutfits(candidates, ctx);
   return candidates.map((candidate) => {
     const swap = suggestSwap(candidate.items, wardrobe, ctx.events);
     return {
       candidate,
-      name: candidate.notes.weather ?? 'From your closet',
+      name: names.get(candidateId(candidate)) ?? 'The Everyday Edit',
       reasoning: explain(candidate),
       swapNote: swap
         ? `Swap in your ${swap.item.colors[0]?.name ?? ''} ${swap.item.subcategory ?? 'layer'} for ${swap.forEvent.title.toLowerCase()}.`.replace(
@@ -129,7 +136,13 @@ export function useOutfits({
   const ai = useQuery({
     // Keyed on the actual candidate set, so an unchanged shortlist is a cache
     // hit even when the wardrobe array identity changes on refetch.
-    queryKey: ['outfit-rerank', shortlist.map(candidateId), context.note, count],
+    queryKey: [
+      'outfit-rerank',
+      shortlist.map(candidateId),
+      styleContextFingerprint(context),
+      profile.summary,
+      count,
+    ],
     enabled: enabled && shortlist.length > 0 && decision.enhance,
     staleTime: 15 * 60_000,
     // One shot. A failure here costs the user nothing — they already have
@@ -149,6 +162,7 @@ export function useOutfits({
               color: g.colors[0]?.name ?? '',
               formality: g.formality,
             })),
+            nameOptions: compatibleNameOptions(c, context),
           })),
           context: {
             weather: context.weather,
@@ -205,13 +219,18 @@ export function useOutfits({
      */
     const words = new Map(ai.data.picks.map((p) => [p.candidateId, p]));
     let enriched = 0;
+    const usedNames = new Set<string>();
     const merged: StyledOutfit[] = base.map((outfit) => {
       const pick = words.get(candidateId(outfit.candidate));
       if (!pick) return outfit;
+      const acceptedName = acceptEnhancedName(pick.name, outfit.candidate, context, usedNames);
+      const name = acceptedName ?? outfit.name;
+      usedNames.add(name);
+      if (!pick || !acceptedName) return { ...outfit, name };
       enriched += 1;
       return {
         ...outfit,
-        name: pick.name,
+        name,
         reasoning: pick.reasoning,
         swapNote: pick.swapNote,
         source: 'ai' as const,
@@ -221,7 +240,7 @@ export function useOutfits({
     return enriched
       ? { outfits: merged, status: 'ai' as StylingStatus }
       : { outfits: base, status: 'offline' as StylingStatus };
-  }, [ai.data, ai.isError, ai.isFetching, base, decision.enhance]);
+  }, [ai.data, ai.isError, ai.isFetching, base, context, decision.enhance]);
 
   return {
     outfits,

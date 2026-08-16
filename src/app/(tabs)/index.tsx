@@ -914,7 +914,12 @@ export default function TodayScreen() {
       setWearState((prev) => ({ ...prev, [key]: 'pending' }));
 
       wear.mutate(
-        { candidate: outfit.candidate, context, reasoning: outfit.reasoning },
+        {
+          candidate: outfit.candidate,
+          context,
+          name: outfit.name,
+          reasoning: outfit.reasoning,
+        },
         {
           onSuccess: (outfitId) => {
             setWearState((prev) => {

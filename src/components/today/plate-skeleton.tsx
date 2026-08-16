@@ -130,12 +130,6 @@ export function PlateSkeleton({
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           {/* The name, at the serif plate step's own height. */}
           <Block height={30} width="62%" style={breathing} />
-          {/* Two lines of reasoning. */}
-          <View style={{ marginTop: 10, gap: 6 }}>
-            <Block height={16} style={breathing} />
-            <Block height={16} width="78%" style={breathing} />
-          </View>
-
           {partial ? null : (
             <View style={{ marginTop: 16, gap: GRID_GAP }}>
               {rows.map((cells, rowIndex) => (

@@ -170,11 +170,13 @@ export function useWearOutfit() {
     mutationFn: async ({
       candidate,
       context,
+      name,
       reasoning,
       origin = null,
     }: {
       candidate: OutfitCandidate;
       context: unknown;
+      name: string;
       reasoning: string;
       /**
        * The kept plate this wearing came out of, when there was one.
@@ -217,7 +219,7 @@ export function useWearOutfit() {
         outfitId = await runCommand('wear_outfit_tx', {
           p_op_id: opIds.for(actionKey),
           p_item_ids: itemIds,
-          p_name: undefined,
+          p_name: name,
           p_reasoning: reasoning,
           p_context: context == null ? undefined : (context as Json),
           p_source: 'ai',
