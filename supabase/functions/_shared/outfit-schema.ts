@@ -45,7 +45,7 @@ export const outfitSchema = {
           swapNote: {
             type: ['string', 'null'],
             description:
-              'For a day with several events at different formalities, the one piece to add or remove between them. Null when the day needs no change.',
+              'For a day with several events at different formalities, the one piece to add or remove between them, and when. Name a piece belonging to THIS candidate — never a garment the user was not given, and never a candidate id. When the day needs no change, return null, the JSON value: never the word "None", "N/A", or any other stand-in for nothing, because this string is shown to the user exactly as written.',
           },
         },
       },
@@ -78,6 +78,8 @@ HARD RULES
 - "name" MUST exactly match one of the candidate's supplied Allowed names. Never invent or rewrite a name.
 - "reasoning" is one or two sentences, second person, naming the actual pieces and the real weather or plans. Under 220 characters. Write "the camel trench over the navy knit", not "this outfit".
 - "swapNote": when the day's events differ in formality by 2 or more points, this MUST NOT be null. Name the single piece to add or remove, and when. It may only reference pieces belonging to THAT SAME candidate — never a garment from another candidate, and never a candidate id. Only use null when the day genuinely needs no change.
+- "swapNote" names a piece the user owns, from that candidate. "Add a blazer" and "bring a light jacket" are not swaps — the user cannot act on a garment they were not given. Name the actual piece: "swap the navy knit for the camel trench before dinner".
+- When there is no change to make, "swapNote" is null, the JSON value. Never the word "None", never "N/A", never "no swap needed", never an empty string. This field is printed to the user exactly as you write it, so a placeholder word appears on their screen as if it were advice.
 - The engine's scores and bracketed notes are grounded facts about colour harmony, warmth, formality and silhouette. Trust them for those judgements. Use your own judgement for what the user said about their day.
 - Never invent a brand, garment, colour, or plan you were not given. Do not describe the weather as anything the numbers do not support.
 - No emoji. No exclamation marks. No "elevate your look", "effortlessly chic", "perfect for any occasion", or similar filler.`;
