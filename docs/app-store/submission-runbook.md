@@ -119,10 +119,16 @@ argues deliberately for not cutting the list off mid-parse.
 - Report and Block exist on comments, posted outfits and profiles; comments
   auto-hide after several distinct reports. `terms.html` now publishes that
   policy, which 1.2 asks for.
-- The 39 `dev-*` routes are bounced in release builds (`_layout.tsx:160`).
+- The 205 `dev-*` routes are bounced in release builds (`_layout.tsx:162`). The
+  guard is a prefix match on the segment, so it covers all of them generically
+  rather than by enumeration — the count moving does not weaken it. What the
+  count does mean is that 205 fixture screens are still compiled into the
+  production bundle: a size and build-time cost, not a correctness or review
+  one.
 - No external purchase path, no ATT/IDFA, no unused permission.
-- All thirteen edge functions typecheck.
-- 520 tests: 519 pass, 1 pre-existing skip.
+- All sixteen edge functions typecheck.
+- 1,835 tests: 1,834 pass, 1 skip (the fingerprint control, which is opt-in
+  because it costs an `npm ci` per revision — see `tests/fingerprint-gate.test.ts`).
 
 ## E. Known and deliberately not fixed
 

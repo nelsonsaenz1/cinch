@@ -105,12 +105,26 @@ blocked in the repository**. What remains for D-5 is App Store Connect product a
 is external operational truth and must be read live at decision time — it is not inferable here and
 is not asserted.
 
-## Release classification (carried forward, still current)
+## Release classification — CORRECTED 2026-08-16
 
-`main` cannot ship as an OTA. Store build 38 carries runtime/fingerprint
-`d9cb8c3b77a5e69d793dcdbd2aec1484f54cb3c6` from commit `9345eb2`; the current tree fingerprints
-differently. A new store build is required before any production promotion. Full evidence in
-`docs/ops/claude-recovery-handoff.md`.
+**Superseded.** This section previously read "`main` cannot ship as an OTA … a new store build is
+required before any production promotion." That was wrong, and acting on it would have built an
+identical runtime.
 
-Run `npm run check:fingerprint` in the **canonical** checkout only — worktrees without an `ios/`
-directory fingerprint differently and are not authoritative.
+`main` **is** OTA-eligible. Store build 38 carries runtime `d9cb8c3b77a5e69d793dcdbd2aec1484f54cb3c6`
+from `9345eb2`, and current `main` fingerprints to that **same** hash under the profile and install
+layout EAS actually uses.
+
+The old reading came from `check:fingerprint` hashing the working directory. `@expo/fingerprint`
+hashes resolved paths, and this checkout's `node_modules` is a Deno store of symlinks rather than
+the flat `npm ci` tree EAS installs from the lockfile — 73 sources and `b07ed5b2…` locally against
+168 and `d9cb8c3b…` for the identical commit. The advice to run it "in the canonical checkout only"
+made it worse: the canonical checkout was the poisoned one.
+
+Corrected by `d572070`, which takes the fingerprint over `git archive <rev>` with a clean `npm ci`.
+Its control — recomputing `9345eb2` and reproducing the runtime EAS stamped on build 38 — is
+`npm run check:fingerprint -- --verify-control`. A gitignored `ios/` was measured and is **inert**:
+it moves the source count 168 → 169 and not the hash.
+
+EAS has since derived `d9cb8c3b…` independently on builds 37 and 38 and on both production OTAs.
+Full evidence, including the incident log, is in `docs/ops/claude-release-gate-evidence.md`.
