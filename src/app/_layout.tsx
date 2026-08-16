@@ -477,6 +477,23 @@ export default function RootLayout() {
                     headerShown: false,
                   }}
                 />
+                {/* UX-04 — people search, lifted off Explore's masthead into
+                    its own sheet. Same dialect as the others: a task you
+                    complete and dismiss, not a place you go.
+
+                    Full height with no partial detent, unlike the stylist: the
+                    field autofocuses, so the keyboard is up on arrival and a
+                    0.75 detent would put the results behind it. */}
+                <Stack.Screen
+                  name="people-search"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
               </Stack>
               </AuthGate>
             </Superwall>

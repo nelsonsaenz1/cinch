@@ -120,7 +120,9 @@ const TEXT_DEBT: Record<string, string[]> = {
     // Group 5 and beyond. The four gap-feed entries, `ProfileRow` and
     // `friends/[userId]` came off this list when Group 5 rebuilt those surfaces;
     // what is left here is what Group 5 did not own.
-    'src/app/(tabs)/explore.tsx',
+    // `explore.tsx` came off this list in UX-04: people search moved into a
+    // dedicated sheet and the remaining feed copy uses the meaningful `muted`
+    // role rather than inheriting low-contrast text debt.
     // `EventCard.tsx` came off this list in the launch-polish packet: LP-10 gave
     // its quietest line real information to carry, so it moved to `muted`.
     'src/features/explore/new-addition-row.tsx',

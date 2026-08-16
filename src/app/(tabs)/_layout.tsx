@@ -1,6 +1,8 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 import { useTrialExpiredPlacement } from '@/features/billing/use-trial-expired';
+import { useEventInvites } from '@/features/events/queries';
+import { useExploreUnseenDot } from '@/features/explore/use-explore-unseen';
 import { dynamic } from '@/theme/tokens';
 
 /**
@@ -49,6 +51,31 @@ export default function TabsLayout() {
   // signed-in: the welcome screen must never open with a paywall.
   useTrialExpiredPlacement();
 
+  /**
+   * UX-10 — the app's two attention marks, and the whole of its notion of a
+   * badge: a quiet dot, never a number in a red circle. A count is a scoreboard
+   * and invites the arithmetic of falling behind; a dot says only "there is
+   * something here", which is the entire honest content of the signal.
+   *
+   * Both are read from authoritative state, and both suppress rather than guess.
+   *
+   * - **Plan** — `useEventInvites` is a server read of invitations addressed to
+   *   you and not yet answered. Actionable by construction: an invitation is a
+   *   question, and the dot clears when you answer it.
+   * - **Explore** — genuinely unseen friend activity, measured against a stored
+   *   authoritative timestamp. Every uncertain path returns false: no session,
+   *   the boundary never written, the feed still loading, the feed failed. See
+   *   `unseen.ts` for why an unproven boundary draws nothing at all.
+   *
+   * Mounting the two queries here is what makes a badge a badge — it has to be
+   * true on the tab you are NOT looking at. react-query then hands the same
+   * cache entries to Plan and Explore already warm, so the cost is one request
+   * each per session, not one per tab switch.
+   */
+  const invites = useEventInvites();
+  const invitesWaiting = invites.isSuccess && (invites.data?.length ?? 0) > 0;
+  const unseenInCircle = useExploreUnseenDot();
+
   return (
     <NativeTabs
       tintColor={dynamic('ink')}
@@ -78,10 +105,15 @@ export default function TabsLayout() {
       <NativeTabs.Trigger name="plan">
         <NativeTabs.Trigger.Icon sf="calendar" />
         <NativeTabs.Trigger.Label>Plan</NativeTabs.Trigger.Label>
+        {/* No children — SDK 57 draws a bare dot for a valueless badge, which
+            is exactly the mark we want. `hidden` rather than a conditional
+            child so the trigger's child set never changes shape. */}
+        <NativeTabs.Trigger.Badge hidden={!invitesWaiting} />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="explore">
         <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
         <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Badge hidden={!unseenInCircle} />
       </NativeTabs.Trigger>
     </NativeTabs>
   );
