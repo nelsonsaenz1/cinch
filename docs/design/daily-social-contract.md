@@ -72,20 +72,30 @@ Each is the more restrictive option, chosen deliberately.
 2. **Nothing new becomes public.** This unit adds no column whose default widens
    visibility. `is_public` stays `false` (`:35`, `:243`), `profiles.visibility`
    stays `'private'`, events stay `'invite_only'` (`20260807101000_events.sql:28`).
-3. **The visibility toggle ships first.** Daily Social must not surface a
-   friend's closet stats before that friend can turn them off. §5.1.
-4. **Reactions are private to the pair.** A reaction is visible to its author and
-   the owner of what was reacted to. No public tallies — consistent with the
-   private ratings already shipped on Today.
+3. **The visibility controls ship first, inside this packet.** *(Decision 1,
+   resolved.)* Daily Social must not surface a friend's closet or stats before
+   that friend can turn them off. Not a follow-on and not a separate packet —
+   sequenced first within this one. §5.1.
+4. **Exactly three reactions, fixed, private to the pair.** *(Decision 2,
+   resolved.)* A reaction is visible to its author and to the owner of what was
+   reacted to, and to nobody else. **No counts, no public aggregation, and no
+   negative signal** — there is no dislike, no downvote, no "meh". Three is the
+   number: enough to mean something, too few to become a rating scale.
+   Consistent with the private ratings already shipped on Today.
 5. **No new text surface.** The unit ships **no free-text field**. Reactions are
-   from a fixed set. This removes UGC moderation, text filtering and abuse
-   review from the unit entirely; `20260808005513_ugc_text_filter.sql` stays
-   scoped to the surfaces that already have text.
+   from the fixed set of three. This removes UGC moderation, text filtering and
+   abuse review from the unit entirely; `20260808005513_ugc_text_filter.sql`
+   stays scoped to the surfaces that already have text.
 6. **Daily means finite.** The unit has an end, and says so
    (`CAUGHT_UP_LINE`). It never paginates into infinity.
-7. **Opt-in cadence.** The daily push already exists and is preference-gated
-   (`20260810004436_push_tokens_and_prefs.sql`). The unit adds no new
-   notification category and no default-on interruption.
+7. **In-app first; push stays independent.** *(Decision 3, resolved.)* The
+   existing `friend_activity` sender (`20260810110100_push_senders.sql:160`)
+   continues to run exactly as it does today, on its existing preference and its
+   existing schedule. Daily Social **does not** become its destination in this
+   packet, **does not** add a notification category, **does not** request a new
+   permission, and **does not** change any default push behaviour. The unit is
+   something you open, not something that taps you on the shoulder. Whether the
+   two ever join up is a later question, and deliberately not this packet's.
 8. **A block is total and immediate.** Already enforced at the data layer
    (`20260807120000_event_content_block_filter.sql`, `20260809150305_block_retracts_votes.sql`);
    this unit adds no read path that bypasses it.
@@ -118,12 +128,52 @@ machinery already exists and must be reused, not reimplemented) → reacted
 
 ## 5 · Route / component / data / RLS / analytics / test map
 
-### 5.1 Precondition — the visibility toggle
+### 5.1 Precondition — the visibility controls *(in this packet, first)*
 
-**Blocking.** Ship before any Daily Social surface: a Profile/Settings control
-writing `profiles.closet_hidden`, `stat_pieces_hidden`, `stat_wears_hidden`.
-Schema and read path exist; only the control is missing (§2). Until it ships, the
-unit may not display friend closet stats.
+**Blocking, and inside this packet.** No friend-facing Daily Social surface may
+be built until this is shipped and green.
+
+**Scope — four flags, not three.** `profiles.closet_hidden`,
+`stat_pieces_hidden`, `stat_wears_hidden` **and `stat_cost_per_wear_hidden`**
+(`20260808110000_friend_closet_privacy_layer.sql:22-25`). The fourth was not in
+the instruction's phrasing and is included deliberately: cost-per-wear implies
+what someone paid for their clothes, which is the most sensitive of the four.
+Shipping a privacy control that covers three of them and silently omits the
+money one would be the wrong omission to make.
+
+**Why this is cheap.** Everything except the control already exists:
+
+- **Read-path enforcement is already immediate.** `friend_items` filters
+  `where p.user_id = i.user_id and not p.closet_hidden` (`:50`), and
+  `friend_closet_meta` nulls each stat behind
+  `case when p.closet_hidden or p.stat_*_hidden` (`:78-83`). A flag flips and
+  the next read is already correct — no cache to invalidate, no backfill.
+- **The write path is already authorised.** The migration records it: "Table-level
+  grants on profiles (20260806100000) cover the new columns; owner RLS already
+  scopes writes" (`:18-19`).
+- **The control primitive already ships.** `src/components/ui/settings-row.tsx`
+  with a `Switch`, the pattern `src/app/settings.tsx:226` already uses. **No new
+  atlas frame is required for this** — it is an existing row in an existing
+  screen, which is why it is not in the §10 brief.
+
+**Therefore: no migration, no RLS change, no new component.** UI plus a mutation.
+The release classification in §9 is unaffected.
+
+**Defaults — the one interpretation made here, flagged for cheap correction.**
+"Owner defaults remain private" is read as *keep today's defaults*:
+
+| Boundary | Default today | After this packet |
+|---|---|---|
+| Public / strangers | `profiles.visibility = 'private'` (`20260803210000:230`); `is_public = false` | **unchanged** |
+| Mutual friends | four flags default `false`, i.e. closet and stats **visible to mutual friends** | **unchanged default**, now switchable by the owner |
+
+The alternative reading — flipping the four flags to default `true` — was not
+taken, because it would retroactively hide content from friends who can see it
+today. That is a silent regression for existing users, and this codebase's rule
+is that behaviour changes are announced, not inflicted. Flipping them later is
+one migration and a decision; the control has to exist either way. **If the
+intent was the stronger default, say so and it is a small change to make now
+rather than after the atlas.**
 
 ### 5.2 Routes
 
@@ -167,7 +217,8 @@ existing `snake_case` verb-past convention:
 |---|---|---|
 | `daily_social_opened` | `item_count`, `state` (S-1…S-5) | Is it worth opening? Which state do people actually meet? |
 | `daily_social_completed` | `items_seen`, `reached_end` | Does "finite" work — do people reach the end? |
-| `daily_social_reacted` | `reaction`, `surface` | Is the fixed reaction set the right set? |
+| `daily_social_reacted` | `reaction` (one of the three), `surface` | Is the fixed set the right set — and is one of the three dead weight? |
+| `closet_visibility_changed` | `flag`, `hidden` (bool) | Do owners actually use the §5.1 controls, and which of the four? |
 | `daily_social_empty` | `reason` (`no_friends` / `quiet_day`) | Distinguishes the two very different emptinesses. |
 
 No user ids, no friend ids, no garment ids in properties — consistent with the
@@ -254,7 +305,7 @@ Acceptance is **Simulator evidence**, not assertion:
 
 | Dimension | Classification | Evidence |
 |---|---|---|
-| Migrations | **None expected.** Only if §5.4 dismissal extension is needed. | No new table by design. |
+| Migrations | **None expected.** Only if §5.4 dismissal extension is needed. The §5.1 precondition needs none — the four columns, their grants, their owner RLS and their read-path enforcement all shipped in `20260808110000`. | No new table by design. |
 | Edge functions | **None.** No AI call, no server compute. | The unit is a read of existing data. |
 | Native | **None.** No new package, no config plugin, no permission. | Keeps runtime `d9cb8c3b…`. |
 | Release | **JS-only → OTA**, reaching builds 37/38. | Verify with `npm run check:fingerprint` and `-- --verify-control` before publishing. |
@@ -288,12 +339,25 @@ decision about timing.
 > | DS-03 | **The day** — 3–5 friends' looks | The substance. Ordered, finite, clearly ending. |
 > | DS-04 | **Caught up** — the end | Terminal and satisfying. Copy is fixed: *"You're caught up with your circle."* Nothing may suggest more content exists. |
 > | DS-05 | **Offline / couldn't load** | Says *offline*, distinctly from DS-02's *quiet*. Two different sentences. |
-> | DS-06 | **A reaction being given** | From a small fixed set. Private between the two people. No count, no public tally, no text field. |
+> | DS-06 | **A reaction being given** | **Exactly three** reactions, fixed. Private between the two people. No count, no tally, no text field. Show the resting state and the chosen state. |
+>
+> **Name the three reactions.** This is the one naming decision delegated to the
+> atlas. They must be **short** — one or two words, Cinch's voice: plain,
+> specific, never marketing. All three are **positive or neutral; none may be
+> negative.** There is no dislike, no downvote, no "not for me". Think closer to
+> *noticing* than to *rating* — three different ways of saying "I saw this and
+> it was worth seeing", not three points on a scale. Draw them as they would
+> actually appear, and give the reasoning for the set in one line each.
 >
 > **Hard constraints.**
 > - **No free text anywhere.** No comment box, no caption field.
 > - **No counts of people** — no follower, like or view totals.
+> - **Exactly three reactions.** Not four, not a picker, not an emoji tray.
+> - **No negative reaction of any kind**, and nothing that reads as a score.
 > - Reactions are private to the pair. Nothing implies an audience.
+> - **Nothing that looks like a notification.** No badge, no bell, no "3 new".
+>   This surface is opened, never pushed; the daily push that exists is separate
+>   and stays that way.
 > - It ends. No infinite scroll, no "load more", no pagination affordance.
 > - Existing type scale, palette and 12px control radius. `byline` may not be
 >   used as text (2.61:1 contrast, banned by the census).
@@ -306,18 +370,29 @@ decision about timing.
 
 ---
 
-## 11 · Phase 0 status
+## 11 · Phase 0 status — all three decisions resolved
 
-Contract frozen at `86c1b2b`. No code, migration, package, service or public
-surface changed. Next action is the §10 brief; implementation begins only once
-an atlas exists and this document has been read against it.
+Contract frozen at `86c1b2b`, amended before atlas submission. No code,
+migration, package, service or public surface changed.
 
-**Open, and owned by the founder, not by implementation:**
+| # | Decision | Resolution | Where |
+|---|---|---|---|
+| 1 | Visibility controls | **Required precondition, inside this packet**, shipped before any friend-facing surface. Four flags. Read-path enforcement is already immediate; no migration, no RLS change, no new component. | §3.3, §5.1 |
+| 2 | Reactions | **Exactly three**, fixed, private to the pair. No counts, no free text, no negative signal, no public aggregation. The atlas names them, short, in Cinch voice. | §3.4, §5.6, §10 |
+| 3 | Push | **Stays independent.** `friend_activity` runs unchanged; Daily Social is in-app first, adds no notification category, no permission, no default push behaviour. | §3.7, §10 |
 
-1. **The §5.1 visibility toggle is a precondition** — schema shipped, UI never
-   did. Daily Social should not show a friend's stats before that friend can
-   hide them.
-2. **Reaction vocabulary** is a product decision. The contract fixes that it is
-   small, fixed and private; it does not choose the set.
-3. **Cadence** — whether the existing `friend_activity` push becomes this unit's
-   front door, or stays independent.
+**Build order, now fixed.** §5.1 controls → green → atlas accepted → friend-facing
+surface. The first step does not wait on the atlas; the third does not start
+without it.
+
+**One interpretation to confirm — cheap to change now, expensive later.**
+"Owner defaults remain private" is implemented as *keep today's defaults*: private
+at the public boundary (unchanged), visible to mutual friends by default, now
+switchable. Flipping the four flags to default-hidden would retroactively hide
+content from friends who can see it today, which is a silent regression this
+codebase's culture does not permit without saying so. §5.1 has the table and the
+alternative. **If the stronger default was intended, that is one migration and a
+release-note line, and it should be decided before the surface exists rather than
+after.**
+
+Nothing else is outstanding. The next action is the §10 brief.
