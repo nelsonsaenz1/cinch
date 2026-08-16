@@ -42,6 +42,7 @@ import { usePlan } from '@/features/billing/use-plan';
 import { useUnwearEntry } from '@/features/diary/mutations';
 import { useMyEvents } from '@/features/events/queries';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
+import { classifyWearFailure, type WearFailureKind } from '@/features/styling/wear-failure';
 import { exhaustionProgress, wearsOfCore } from '@/features/styling/repeat';
 import { canGenerate, MIN_CLOSET_FOR_OUTFITS, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits, type StyledOutfit } from '@/features/styling/use-outfits';
@@ -626,7 +627,7 @@ export default function TodayScreen() {
   // Wear, per outfit rather than per screen. `wear.isPending` is the mutation's
   // global flag, so keying off it froze and spun every plate at once when one
   // was tapped — and a failed write left no trace at all.
-  const [wearState, setWearState] = useState<Record<string, 'pending' | 'failed'>>({});
+  const [wearState, setWearState] = useState<Record<string, 'pending' | WearFailureKind>>({});
   // The diary entry each worn look created — T-14's Undo and its note both
   // address it by id.
   const [wornEntryIds, setWornEntryIds] = useState<Record<string, string>>({});
@@ -929,7 +930,8 @@ export default function TodayScreen() {
               setWornEntryIds((prev) => ({ ...prev, [key]: outfitId }));
             }
           },
-          onError: () => setWearState((prev) => ({ ...prev, [key]: 'failed' })),
+          onError: (error) =>
+            setWearState((prev) => ({ ...prev, [key]: classifyWearFailure(error) })),
         },
       );
     },
@@ -1336,7 +1338,7 @@ export default function TodayScreen() {
                     reacted={reactions[key] ?? null}
                     worn={wornIds.has(key)}
                     wearing={wearState[key] === 'pending'}
-                    wearFailed={wearState[key] === 'failed'}
+                    wearFailure={wearState[key] === 'pending' ? null : wearState[key]}
                     stacked={ax}
                     // One accent per frame: the interrupt takes it when it is
                     // on screen.

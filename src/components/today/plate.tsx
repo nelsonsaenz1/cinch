@@ -19,6 +19,10 @@ import {
 } from '@/components/today/cost-per-wear';
 import { GarmentCell } from '@/components/today/garment-cell';
 import { FailureBand, ReactionBar, type ReactionValue } from '@/components/today/reaction-bar';
+import {
+  wearFailureCopy,
+  type WearFailureKind,
+} from '@/features/styling/wear-failure';
 import { RepeatMark } from '@/components/today/repeat-mark';
 import { Swatch } from '@/components/ui/swatch';
 import { Text } from '@/components/ui/text';
@@ -373,7 +377,7 @@ export function Plate({
   onReact,
   reacted,
   wearing,
-  wearFailed,
+  wearFailure,
   worn,
   offline = false,
   preview = false,
@@ -396,8 +400,8 @@ export function Plate({
   resolveImage: (...paths: (string | null | undefined)[]) => string | undefined;
   reacted?: ReactionValue | null;
   wearing?: boolean;
-  /** The wear write came back with an error and has not been retried. */
-  wearFailed?: boolean;
+  /** The wear write came back with a classified error and has not been retried. */
+  wearFailure?: WearFailureKind | null;
   worn?: boolean;
   /**
    * The offline cut of the card: name, stack, and a footer saying the look
@@ -774,10 +778,9 @@ export function Plate({
                 product is about. Same band, same place, same grammar as a
                 failed reaction — the failure sits under the row that produced
                 it, and the decision is preserved. */}
-            {wearFailed ? (
+            {wearFailure ? (
               <FailureBand
-                title="Not logged"
-                body="Today is still marked here. Cinch will not lose it."
+                {...wearFailureCopy(wearFailure)}
                 onRetry={onWear!}
               />
             ) : null}

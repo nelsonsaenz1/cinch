@@ -1,7 +1,7 @@
-import type { PostgrestError } from '@supabase/supabase-js';
 import { uuid } from 'expo-modules-core';
 
 import { supabase } from '@/lib/supabase';
+import type { Database } from '@/types/database';
 
 /**
  * Transactional, idempotent server commands.
@@ -22,27 +22,14 @@ import { supabase } from '@/lib/supabase';
 
 /** The commands this module knows how to call. */
 type CommandName = 'wear_outfit_tx' | 'plan_outfit_tx';
-
-/**
- * `src/types/database.ts` is generated from the schema and has not been
- * regenerated since the migration landed, so `supabase.rpc` does not yet know
- * these two functions exist and would reject the call at compile time. The cast
- * is the narrowest thing that unblocks it: both commands return a single uuid,
- * so the shape asserted here is the shape the SQL actually returns. Delete it
- * after the next `npm run gen:types` and the call sites keep working.
- */
-type CommandRpc = (
-  fn: CommandName,
-  args: Record<string, unknown>,
-) => PromiseLike<{ data: string | null; error: PostgrestError | null }>;
+type Command<Name extends CommandName> = Database['public']['Functions'][Name];
 
 /** Run one transactional command and return the id of the outfit it produced. */
-export async function runCommand(
-  name: CommandName,
-  args: Record<string, unknown>,
+export async function runCommand<Name extends CommandName>(
+  name: Name,
+  args: Command<Name>['Args'],
 ): Promise<string> {
-  const rpc = supabase.rpc as unknown as CommandRpc;
-  const { data, error } = await rpc(name, args);
+  const { data, error } = await supabase.rpc(name, args);
 
   if (error) throw error;
   if (!data) throw new Error(`${name} did not return an outfit.`);

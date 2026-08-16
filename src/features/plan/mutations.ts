@@ -95,8 +95,8 @@ export function usePlanOutfit() {
         p_op_id: opIds.for(actionKey),
         p_item_ids: itemIds,
         p_planned_date: planned,
-        p_name: null,
-        p_note: note ?? null,
+        p_name: undefined,
+        p_note: note ?? undefined,
       });
 
       opIds.settle(actionKey);

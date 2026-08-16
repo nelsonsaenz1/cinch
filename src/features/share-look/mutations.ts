@@ -88,9 +88,9 @@ export function useComposeAndPostLook() {
         ? await runCommand('wear_outfit_tx', {
             p_op_id: opIds.for(actionKey),
             p_item_ids: vars.itemIds,
-            p_name: vars.title,
-            p_reasoning: caption,
-            p_context: null,
+            p_name: vars.title ?? undefined,
+            p_reasoning: caption ?? undefined,
+            p_context: undefined,
             p_source: 'user',
           })
         : await createOutfitWithoutWear(me, vars.itemIds, vars.title);

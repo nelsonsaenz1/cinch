@@ -353,25 +353,6 @@ export function StylistHeader({ onNewQuestion }: { onNewQuestion?: () => void })
         <Text variant="plate" trim accessibilityRole="header">
           Stylist
         </Text>
-        <Text
-          // S-01 sets this line at 12px in #8A8578. There is no 12px step on the
-          // native type scale — it goes `caption` 11 → `label` 13 — so this is
-          // `caption`, one pixel under the atlas, on purpose. Minting a 12px
-          // variant to close a 1px gap on one line would put a new size in the
-          // scale forever, which is the trade text.tsx and stylist-states.tsx
-          // both decline elsewhere. Record it as a decision, not an oversight.
-          variant="noteSmall"
-          // The colour goes inline rather than as a `text-faint` class because
-          // `caption` already carries `text-muted`, and NativeWind gives no
-          // precedence between two `text-*` colour utilities on one element —
-          // it resolved to #8A8578 only because `faint` happens to follow
-          // `muted` in tailwind.config.js's `colors`, so reordering that palette
-          // would have silently repainted this line. Same collision that shipped
-          // every primary button ink-on-oxblood once already (button.tsx). An
-          // inline style always wins.
-          className="mt-0.5">
-          Only your clothes — nothing invented
-        </Text>
       </View>
       {/* Reachable only once there is a thread to leave — the designed opening
           (greeting, four doors, questionnaire) was otherwise reachable exactly

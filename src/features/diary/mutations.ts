@@ -64,11 +64,11 @@ export function useWearAgain() {
       const outfitId = await runCommand('wear_outfit_tx', {
         p_op_id: opIds.for(actionKey),
         p_item_ids: itemIds,
-        p_name: entry.name,
-        p_reasoning: null,
-        p_context: null,
+        p_name: entry.name ?? undefined,
+        p_reasoning: undefined,
+        p_context: undefined,
         p_source: entry.source,
-        p_origin: entry.savedAt ? entry.id : entry.originOutfitId,
+        p_origin: entry.savedAt ? entry.id : (entry.originOutfitId ?? undefined),
       });
 
       opIds.settle(actionKey);

@@ -3,6 +3,7 @@ import { useRef } from 'react';
 
 import { createOperationIds, runCommand } from '@/lib/commands';
 import { track } from '@/lib/posthog';
+import type { Json } from '@/types/database';
 import {
   describeWeights,
   meanFeatures,
@@ -12,8 +13,14 @@ import {
   type OutfitCandidate,
 } from '@/lib/styling';
 import { getUserId, supabase } from '@/lib/supabase';
+import { withDeadline } from '@/features/closet/session';
 
 import type { StyleProfile } from './queries';
+import {
+  classifyWearSessionFailure,
+  classifyWearFailure,
+  WearMutationError,
+} from './wear-failure';
 
 export type ReactionSource = 'today' | 'chat' | 'shuffle' | 'onboarding_quiz';
 
@@ -184,23 +191,41 @@ export function useWearOutfit() {
        */
       origin?: string | null;
     }) => {
-      const userId = await getUserId();
-      if (!userId) throw new Error('Not signed in.');
+      // This is a bounded local preflight, not the write authority. The RPC
+      // still carries the JWT and Postgres RLS still authorizes every row.
+      // Avoiding getClaims() here removes a second unbounded network hop before
+      // the real command while still refusing an explicitly signed-out state.
+      try {
+        const { data } = await withDeadline(
+          supabase.auth.getSession(),
+          8_000,
+          'Sign-in check',
+        );
+        if (!data.session) throw new WearMutationError('signed_out');
+      } catch (error) {
+        if (error instanceof WearMutationError) throw error;
+        throw new WearMutationError(classifyWearSessionFailure(error), error);
+      }
 
       const itemIds = candidate.items.map((g) => g.id);
       // The garments are what identifies the action — the same set of clothes
       // tapped twice in a row is one wear being retried, not two wears.
       const actionKey = itemIds.join('.');
 
-      const outfitId = await runCommand('wear_outfit_tx', {
-        p_op_id: opIds.for(actionKey),
-        p_item_ids: itemIds,
-        p_name: null,
-        p_reasoning: reasoning,
-        p_context: context ?? null,
-        p_source: 'ai',
-        p_origin: origin,
-      });
+      let outfitId: string;
+      try {
+        outfitId = await runCommand('wear_outfit_tx', {
+          p_op_id: opIds.for(actionKey),
+          p_item_ids: itemIds,
+          p_name: undefined,
+          p_reasoning: reasoning,
+          p_context: context == null ? undefined : (context as Json),
+          p_source: 'ai',
+          p_origin: origin ?? undefined,
+        });
+      } catch (error) {
+        throw new WearMutationError(classifyWearFailure(error), error);
+      }
 
       opIds.settle(actionKey);
       return outfitId;

@@ -131,14 +131,7 @@ export default function PeopleSearchScreen() {
       </View>
 
       <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-16 pt-4">
-        {!searching ? (
-          // Not an empty state — nothing has been asked yet. One line saying
-          // what this field wants, and the rule that governs the answer.
-          <Text variant="body" className="text-muted" style={{ fontSize: 15, lineHeight: 22 }}>
-            Type a username to find someone. A friendship is mutual: when they add you back, their
-            closet opens to you and yours to them.
-          </Text>
-        ) : (
+        {!searching ? null : (
           <>
             <Card style={{ borderRadius: 16 }}>
               {search.isLoading ? (
@@ -237,13 +230,6 @@ export default function PeopleSearchScreen() {
               )}
             </Card>
 
-            <Text
-              variant="noteSmall"
-              className="mt-3"
-              style={{ fontSize: 12, lineHeight: 18, color: theme.muted }}>
-              A friendship is mutual: when they add you back, their closet opens to you and yours
-              to them.
-            </Text>
           </>
         )}
       </KeyboardAwareScrollView>
