@@ -228,12 +228,12 @@ test('every reachable state has at most one line, and it is never a retry', () =
     venueStatusLine(venueQueryReduce(base, { type: 'result', requestId: base.requestId, outcome }));
 
   assert.equal(venueStatusLine(base), 'Looking nearby…');
-  assert.equal(line({ ok: true, venues: [] }), 'No nearby matches — use what you typed.');
+  assert.equal(line({ ok: true, venues: [] }), 'No nearby matches.');
   assert.equal(line({ ok: true, venues: [venue()] }), null);
-  assert.equal(line({ ok: false, venues: [], failure: 'offline' }), 'Offline — use what you typed.');
+  assert.equal(line({ ok: false, venues: [], failure: 'offline' }), 'You’re offline.');
   assert.equal(
     line({ ok: false, venues: [], failure: 'error' }),
-    'Nearby search is unavailable — use what you typed.',
+    'Nearby search is unavailable.',
   );
   // The module being absent is not an apology: no venue affordance was ever
   // offered on that runtime, so there is nothing to explain.

@@ -554,6 +554,17 @@ export function venueRows(state: VenueQueryState): VenueRow[] {
  * One line each, never two, and never a retry button: the next keystroke is
  * the retry, and a button would ask the user to fix the network before
  * finishing a form that does not need the network at all.
+ *
+ * AND NEVER THE REMEDY, which these lines used to carry. Each ended with
+ * — use what you typed. — roughly half the sentence spent instructing the
+ * reader to do the thing the row directly above already offers: `venueRows`
+ * pushes the `typed` row unconditionally, behind the same `venuePanelOpen`
+ * guard this function returns null under, so a status line cannot appear
+ * without that tappable row above it. Naming an affordance that is already on
+ * screen and already tappable is not reassurance; it is the copy explaining
+ * the interface to itself.
+ *
+ * So each line states its fact and stops. The remedy is the row.
  */
 export function venueStatusLine(state: VenueQueryState): string | null {
   if (!venuePanelOpen(state)) return null;
@@ -562,19 +573,19 @@ export function venueStatusLine(state: VenueQueryState): string | null {
     case 'searching':
       return 'Looking nearby…';
     case 'ready':
-      return state.venues.length === 0 ? 'No nearby matches — use what you typed.' : null;
+      return state.venues.length === 0 ? 'No nearby matches.' : null;
     case 'failed':
       switch (state.failure) {
         case 'offline':
-          return 'Offline — use what you typed.';
+          return 'You’re offline.';
         case 'throttled':
-          return 'Too many searches just now — use what you typed.';
+          return 'Too many searches just now.';
         case 'unavailable':
           // The module is absent, so no venue affordance was ever offered and
           // there is nothing to explain. Silence, not an apology.
           return null;
         default:
-          return 'Nearby search is unavailable — use what you typed.';
+          return 'Nearby search is unavailable.';
       }
     default:
       return null;
