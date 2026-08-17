@@ -583,7 +583,54 @@ export type AppEvent =
   /** A group was renamed. No before, no after — both are user content. */
   | 'circle_renamed'
   /** A group was deleted. No size, no age: how big a room was when it closed identifies it. */
-  | 'circle_deleted';
+  | 'circle_deleted'
+  // ── Saved looks (OUTFIT-SAVING-HANDOFF §6) ────────────────────────────────
+  //
+  // The handoff writes these dotted — `saved.save_created`. They are underscored
+  // here because this union is snake_case throughout and the comment at the top
+  // of it says why: that is what PostHog's own UI, its SQL surface and every
+  // insight builder assume. The namespace survives as a prefix, one-to-one and
+  // reversibly, and `tests/saved-looks-client.test.ts` reads the handoff's table
+  // back to prove the mapping is total.
+  //
+  // Their properties are built by pure functions in
+  // `features/saved-looks/analytics.ts` under the Daily Social rule and one
+  // clause more: no user, friend, source-owner, look, item, collection or note
+  // identifier, name, image URL or free text, AND no raw count — every number
+  // below is banded to four values by `countBucket`. A feed's `item_count` is
+  // harmless because a feed is other people's content arriving; the exact size
+  // of a private collection is an attribute of one person.
+  //
+  // There is deliberately no `saved_look_opened` per look and no event carrying
+  // a collection's ordinal, even though §6's preamble permits the latter. Which
+  // private shelves a person visits, and how often, is not a thing to
+  // reconstruct inside a third-party store — the same refusal that kept
+  // `circle_opened` out of the eight above.
+  /** A save landed, or met one that already existed. `was_duplicate` is the database's answer. */
+  | 'saved_save_created'
+  /** A save was removed. `via` measures OS-07's claim that no action is gesture-only. */
+  | 'saved_save_removed'
+  /** Undo, inside the five-second window. No properties. */
+  | 'saved_confirmation_undo'
+  /** DENOMINATOR: the grid was genuinely on screen with cards in it. */
+  | 'saved_list_viewed'
+  | 'saved_collection_created'
+  /** A collection was renamed. No before, no after — both are user content. */
+  | 'saved_collection_renamed'
+  | 'saved_collection_deleted'
+  /** `is_all` only. Never which collection, never its name, never its ordinal. */
+  | 'saved_filter_applied'
+  /** `availability` and `has_note`. The only read on whether OS-06 is ever reached. */
+  | 'saved_detail_viewed'
+  /** An unavailable source was SEEN — in the grid or on the detail. */
+  | 'saved_source_unavailable_seen'
+  | 'saved_plan_started'
+  | 'saved_plan_created'
+  /** `find_similar` | `add_manual` | `skip` — skipping is an outcome, not an absence. */
+  | 'saved_plan_missing_action'
+  /** `loading` | `offline` | `error`: how often this screen shows no list at all. */
+  | 'saved_state_shown'
+  | 'saved_retry_tapped';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.

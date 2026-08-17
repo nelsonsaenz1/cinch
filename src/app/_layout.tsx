@@ -517,6 +517,49 @@ export default function RootLayout() {
                     headerShown: false,
                   }}
                 />
+                {/* Saved looks (OS-01 … OS-10) — the private shelf, pushed as
+                    ordinary cards.
+
+                    NOT a tab, and not `/saved`. The handoff puts this at the
+                    root of a fourth tab called Saved; this app's four are
+                    Today / Closet / Plan / Explore, and `/saved` is already the
+                    kept-plate lookbook that ships against atlas 35. Two accepted
+                    atlases want the same word, which is a product decision about
+                    what "Saved" means rather than an implementation detail — so
+                    this takes an unambiguous path and leaves the decision where
+                    it belongs. Every segment below is otherwise the handoff's §1.
+
+                    `saved-looks/index` and `saved-looks/[saveId]` inherit the
+                    stack's default card presentation and need no entry — this
+                    registers only the two that deviate.
+
+                    The two collection editors are form sheets in the same
+                    dialect as `profile` and `people-search`: a form you fill and
+                    dismiss, not a place you go. Full height with no partial
+                    detent because both autofocus a field, so the keyboard is up
+                    on arrival and a 0.75 detent would put the helper text and
+                    the Save button behind it — which is exactly what §9 asks not
+                    to happen ("Cancel/Save stay reachable"). */}
+                <Stack.Screen
+                  name="saved-looks/collections/new"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="saved-looks/collections/[collectionId]"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
               </Stack>
               </AuthGate>
             </Superwall>
