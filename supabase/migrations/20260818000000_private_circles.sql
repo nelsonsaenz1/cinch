@@ -680,7 +680,70 @@ end; $$;
 revoke execute on function on_block_sever_graph() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 9 · Grants. Explicit, and never to anon — 20260806100000.
+-- 9 · Identity, so a roster can render the people on it
+--
+-- `social_profiles` is the identity surface every roster in this app reads —
+-- no screen reads `profiles` directly. Its visibility test is: not self, not
+-- blocked, and then public OR `is_friend` OR a follow edge either way OR event
+-- co-membership. There was no circle branch, and the consequence is not
+-- cosmetic: members of a private group are mutual friends OF THE OWNER, not of
+-- each other, so a member reading the roster got a name for their own friends
+-- and null for everybody else, while PC-06 and PC-07 draw named rows for the
+-- whole group. The frames could not be built.
+--
+-- LAST DEFINITION CONFIRMED before writing this. The view is created in
+-- 20260807103000:23 and recreated in 20260808110000:123 with `bio` appended;
+-- every later mention (20260810150100, 20260811150000) is a comment. So the
+-- 20260808110000 body is the one carried forward here, with its five columns in
+-- their existing order — `create or replace view` refuses a reordering, and
+-- that is the failure mode which has caught `friend_items` twice.
+--
+-- TIGHTER THAN THE EVENT BRANCH IT SITS NEXT TO. That one matches co-membership
+-- in ANY state, so an invited-and-never-accepted person is named. This one
+-- requires BOTH sides `joined` in the same group, because that is the roster
+-- rule this packet already implements: a reader gets other people's rows only
+-- once they are joined, and naming somebody whose row you cannot see would hand
+-- back through the identity view exactly what the membership policy withholds.
+--
+-- The owner needs nothing extra. Everyone they invited passed `is_friend` at
+-- the invitation, so the existing friendship branch already names them —
+-- including invitations still waiting, which is what PC-07 renders.
+--
+-- The top-level `not blocked_between` sits above all of this, so a blocked pair
+-- stay nameless to each other however they are co-joined. Asserted rather than
+-- assumed, in 19_private_circles.sql.
+--
+-- No grant is restated: `create or replace view` replaces the body of the same
+-- object, so the `grant select on social_profiles ... to authenticated` made in
+-- 20260807103000:80 is untouched — which is also how 20260808110000 left it.
+-- ---------------------------------------------------------------------------
+
+create or replace view social_profiles
+with (security_invoker = false) as
+  select p.user_id, p.username, p.display_name, p.avatar_url, p.bio
+    from profiles p
+   where p.user_id <> (select auth.uid())
+     and not blocked_between((select auth.uid()), p.user_id)
+     and (
+       p.visibility = 'public'
+       or is_friend(p.user_id)
+       or exists (select 1 from follows f            -- either direction
+                   where (f.follower_id = (select auth.uid()) and f.followee_id = p.user_id)
+                      or (f.followee_id = (select auth.uid()) and f.follower_id = p.user_id))
+       or exists (select 1 from event_members me     -- co-membership
+                   join event_members them on them.event_id = me.event_id
+                  where me.user_id = (select auth.uid())
+                    and them.user_id = p.user_id)
+       or exists (select 1 from circle_members me    -- co-membership, BOTH joined
+                   join circle_members them on them.circle_id = me.circle_id
+                  where me.user_id = (select auth.uid())
+                    and me.state   = 'joined'
+                    and them.user_id = p.user_id
+                    and them.state = 'joined')
+     );
+
+-- ---------------------------------------------------------------------------
+-- 10 · Grants. Explicit, and never to anon — 20260806100000.
 --
 -- No DELETE on `circle_members`: departure (4). The verb list per table is
 -- derived from the policies above, and the two must agree or a policy is dead
