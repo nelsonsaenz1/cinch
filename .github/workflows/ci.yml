@@ -25,6 +25,21 @@ jobs:
 
       - run: npm ci
 
+      # `experiments.typedRoutes` turns every `href` into a union of the routes
+      # that actually exist, but the file that declares them —
+      # .expo/types/router.d.ts — is generated, gitignored, and absent on a
+      # fresh checkout. tsconfig.json includes it, so with no file the include
+      # matches nothing, `Href` falls back to `string`, and this job typechecks
+      # every route reference against nothing at all: `router.push('/nope')`
+      # passes CI. Expo's typed-routes reference names this exact command for
+      # "type checking on a Continuous Integration (CI) server", as the
+      # no-dev-server way to produce the same types `npx expo start` writes.
+      #
+      # It only ever writes the generated file here; tsconfig.json is already
+      # configured, so the command leaves it untouched.
+      - name: Generate route types
+        run: npm run types:routes
+
       - name: Typecheck
         run: npm run typecheck
 
