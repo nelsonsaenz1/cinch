@@ -154,6 +154,72 @@ over 2129 · `check:fingerprint` unchanged.
 - **Nothing force-pushed.** `main` was at `origin/main` on entry and is one commit ahead by
   `37aaccb` only.
 
+## Superwall: the asymmetry does not reproduce, and nothing was edited
+
+The directive states the diagnosis rather than asking for one: "Standard monthly renders a bare
+`/mo` with no price while Pro renders correctly; this is a binding bug on the Standard monthly
+token in the paywall editor, **NOT** a product-state issue." Read-only inspection does not support
+it. Every layer that could carry the asymmetry is symmetric.
+
+**Products** (project 28319, app 52618 `com.nelsonsaenz.cinch`) — all four present, entitlement
+mapping consistent and unchanged:
+
+| Superwall product | identifier | entitlement |
+|---|---|---|
+| `standardMonthly` | `cinch.standard.monthly` | 55809 |
+| `standardAnnual` | `cinch.standard.annual` | 55809 |
+| `proMonthly` | `cinch.pro.monthly` | 55806 |
+| `proAnnual` | `cinch.pro.annual` | 55806 |
+
+All four are attached to the one active paywall, **Cinch Membership v3** (`254200`,
+`cinch-membership-v3-e738-2026-08-09`).
+
+**Token bindings — symmetric.** Parsed from the live paywall document:
+
+```
+       proMonthly.price   x3   all suffixed  /mo
+  standardMonthly.price   x3   all suffixed  /mo
+        proAnnual.price   x5   3× /yr, plus the "Start Pro —" CTA
+   standardAnnual.price   x3   all suffixed  /yr
+   proAnnual.monthlyPrice x2  ·  standardAnnual.monthlyPrice x2
+```
+
+`{{ products.standardMonthly.price }}/mo` is bound **identically** to
+`{{ products.proMonthly.price }}/mo`, in the same count and the same shape. There is no defect on
+the Standard monthly token to fix, and editing it would mean changing markup that is provably the
+same as the markup said to work.
+
+**The rendered HTML in that same document has every price empty — Pro included.** The bare strings
+are `>/mo<`, `>/yr<`, `/mo billed yearly` (×2), and `Start Pro — /yr`. Pro renders bare there too,
+so that render is not evidence of a Standard-specific fault; it is evidence of a render performed
+with no StoreKit products resolved.
+
+**App Store Connect — also symmetric.** Group 22290564 "Cinch Membership":
+
+```
+cinch.pro.annual         WAITING_FOR_REVIEW
+cinch.pro.monthly        WAITING_FOR_REVIEW
+cinch.standard.annual    WAITING_FOR_REVIEW
+cinch.standard.monthly   WAITING_FOR_REVIEW
+```
+
+All four in the same state. The directive is right that "Pending" is expected and must not be
+"fixed" — but that state is shared by Pro, so it cannot explain a Standard-only symptom either.
+
+**Conclusion.** Two candidate causes, both measured, both symmetric. The reported asymmetry does
+not reproduce from configuration, and the reasoning offered for it — that Superwall showing correct
+prices rules out product state — does not hold: the dashboard shows the price on file from ASC
+metadata, which is not the same thing as StoreKit returning a product to a device at runtime.
+
+**No paywall edit was made and none is proposed yet.** Editing a correct binding on the strength of
+a diagnosis this evidence contradicts would risk breaking the Pro rendering that currently works.
+What would settle it is a device observation the CLI cannot produce: a Sandbox run against build 38
+with the four products, capturing which identifiers StoreKit actually returns. Until then the
+likeliest reading is a runtime product-resolution gap, not a template bug.
+
+Incidental: paywall `254200` has `published_at: null` while `status: active`. Worth a look — the
+directive speaks of "the published paywall".
+
 ## Open
 
 - Worktree dispositions — 32-row table, per-item approval outstanding.
