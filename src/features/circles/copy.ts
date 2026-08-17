@@ -46,7 +46,7 @@
  *   the row says so. Saying "blocked" would disclose the block.
  */
 
-import { CIRCLE_MAX_MEMBERS, type InviteIneligibility } from './contract-types';
+import { CIRCLE_MAX_MEMBERS, type InviteIneligibility } from './types';
 
 // ---------------------------------------------------------------------------
 // Numbers, spelled so a sentence reads like one

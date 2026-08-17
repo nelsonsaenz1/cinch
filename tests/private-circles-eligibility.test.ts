@@ -7,7 +7,7 @@
  * so a fresh group has ELEVEN invitations available. The preparation
  * document's §5 cases 14-15 counted invitations as if the owner sat outside
  * the cap; the atlas says "a group holds twelve people", and the pgTAP file's
- * assertions 39-40 are where that correction was made. This file is where the
+ * assertions 46-47 are where that correction was made. This file is where the
  * client's copy of it is held to the same number — read out of the migration
  * rather than typed twice, so the two cannot drift.
  *
@@ -72,8 +72,14 @@ test('a seat is invited OR joined, and the SQL says the same', () => {
 
 test('an exit frees the seat it held, which is what makes a mistake undoable', () => {
   // `removed`, `declined` and `left` hold nothing. A group is recoverable
-  // after a mis-tapped Remove without deleting any history, and pgTAP 43 is
+  // after a mis-tapped Remove without deleting any history, and pgTAP 50 is
   // the same fact from the other side.
+  //
+  // (This pin said 43 when this lane was written. Worker A's last commit
+  // renumbered the pgTAP assertions — the FACTS are all still there, and each
+  // pin below was re-checked against the assertion text rather than slid by
+  // seven. The numbers are a cross-reference and are meant to break loudly
+  // when the file they point into moves; that is what they just did.)
   const spent: CircleSeatRow[] = [
     { userId: 'owner', state: 'joined' },
     { userId: 'a', state: 'removed' },
@@ -82,7 +88,7 @@ test('an exit frees the seat it held, which is what makes a mistake undoable', (
   ];
   assert.equal(circleSeatsTaken(spent), 1);
   assert.equal(circleSeatsRemaining(spent), 11);
-  assert.match(PGTAP, /43 · a removed row consumes no seat/);
+  assert.match(PGTAP, /50 · a removed row consumes no seat/);
 });
 
 // ---------------------------------------------------------------------------
@@ -132,8 +138,8 @@ test('a fresh group has eleven invitations available, not twelve', () => {
 });
 
 test('the pgTAP file counts the same way — the eleventh fits, the twelfth does not', () => {
-  assert.match(PGTAP, /39 · the eleventh invitation takes the twelfth seat/);
-  assert.match(PGTAP, /40 · the twelfth is refused/);
+  assert.match(PGTAP, /46 · the eleventh invitation takes the twelfth seat/);
+  assert.match(PGTAP, /47 · the twelfth is refused/);
 });
 
 // ---------------------------------------------------------------------------
@@ -173,7 +179,7 @@ test('a group full of invitations nobody has accepted is still full', () => {
     ...strangers(11).map((userId): CircleSeatRow => ({ userId, state: 'invited' })),
   ];
   assert.equal(circleSeatsRemaining(members), 0);
-  assert.match(PGTAP, /41 · and it is full with a single person joined/);
+  assert.match(PGTAP, /48 · and it is full with a single person joined/);
 
   const [row] = circleInviteRows({
     candidateIds: ['z'],

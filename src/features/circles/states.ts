@@ -43,7 +43,7 @@
  * one branch, and the branch it got wrong would be the invitation.
  */
 
-import { CIRCLE_MAX_MEMBERS } from './contract-types';
+import { CIRCLE_MAX_MEMBERS } from './types';
 
 // ---------------------------------------------------------------------------
 // The union

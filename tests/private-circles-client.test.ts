@@ -57,9 +57,46 @@ const body = (path: string) =>
     .replace(/\/\/[^\n]*/g, '');
 
 const FEATURE_DIR = 'src/features/circles';
-const FEATURE_FILES = readdirSync(FEATURE_DIR)
-  .filter((name) => name.endsWith('.ts'))
-  .map((name) => `${FEATURE_DIR}/${name}`);
+
+/**
+ * THE DATA LANE'S OWN MODULES, NAMED — not everything in the directory.
+ *
+ * This was `readdirSync(FEATURE_DIR)` when this lane compiled alone, and the
+ * sweep below ("the data layer writes no prose") was sound on that reading
+ * because every file in the directory was this lane's. Integration put
+ * `copy.ts` and `states.ts` in the same directory, and `copy.ts` is SIX
+ * HUNDRED LINES OF PROSE ON PURPOSE — it is the module that owns the words.
+ * A directory scan would have failed on it and the honest reading of that
+ * failure is that the scan asked the wrong question, not that the copy is
+ * wrong.
+ *
+ * So the census is a list. The rule it enforces is unchanged and still the
+ * point: NOTHING IN THE DATA LAYER EMITS A SENTENCE. It is now stated over the
+ * files that claim to obey it, and a new data module has to be added here to
+ * be covered — which is why the guard below asserts the list is complete.
+ */
+const DATA_LANE = [
+  'types.ts',
+  'db-rows.ts',
+  'client.ts',
+  'queries.ts',
+  'mutations.ts',
+  'errors.ts',
+  'eligibility.ts',
+  'analytics.ts',
+];
+const FEATURE_FILES = DATA_LANE.map((name) => `${FEATURE_DIR}/${name}`);
+
+test('the data-lane census names every file that is not the copy lane’s', () => {
+  // The failure mode of a hand-written list is a module that quietly escapes
+  // it. `copy.ts` and `states.ts` are Worker C's and are prose by design; every
+  // other `.ts` in this directory is data-lane and must be on the list above.
+  const present = readdirSync(FEATURE_DIR).filter((name) => name.endsWith('.ts'));
+  const unaccounted = present.filter(
+    (name) => !DATA_LANE.includes(name) && name !== 'copy.ts' && name !== 'states.ts',
+  );
+  assert.deepEqual(unaccounted, [], 'a feature module is covered by no lane’s prose rule');
+});
 
 /** A PostgREST error, as the wire delivers it. */
 const pg = (code: string, message: string, hint = '') => ({

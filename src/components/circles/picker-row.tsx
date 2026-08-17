@@ -8,7 +8,7 @@ import {
   PICKER_HINT,
   pickerRowAccessibilityLabel,
 } from '@/features/circles/copy';
-import { type InviteIneligibility } from '@/features/circles/contract-types';
+import { type InviteIneligibility } from '@/features/circles/types';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**

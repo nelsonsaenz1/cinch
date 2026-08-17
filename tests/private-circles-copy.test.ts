@@ -68,7 +68,7 @@ import {
   seatsLeftLine,
   spelledCount,
 } from '../src/features/circles/copy.ts';
-import { CIRCLE_MAX_MEMBERS } from '../src/features/circles/contract-types.ts';
+import { CIRCLE_MAX_MEMBERS } from '../src/features/circles/types.ts';
 
 const body = (path: string) =>
   readFileSync(path, 'utf8')

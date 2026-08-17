@@ -514,6 +514,12 @@ export default function FriendsScreen() {
    */
   const openInvite = useCallback(() => router.push('/invite'), [router]);
 
+  /**
+   * Into the private-groups flow. `FriendsPage` argues the placement; this is
+   * only the router half of it.
+   */
+  const openGroups = useCallback(() => router.push('/groups'), [router]);
+
   return (
     <>
       <FriendsPage
@@ -548,6 +554,7 @@ export default function FriendsScreen() {
         showEmpty={showEmpty}
         canInvite={username.length > 0}
         onInvite={openInvite}
+        onOpenGroups={openGroups}
         refreshing={refreshing}
         onRefresh={refresh}
         showBlockedResult={blockedResult}

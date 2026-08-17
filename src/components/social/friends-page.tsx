@@ -1,3 +1,4 @@
+import { SymbolView } from 'expo-symbols';
 import { useRef } from 'react';
 import { Pressable, RefreshControl, View, type TextInput } from 'react-native';
 import Animated, { FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -31,6 +32,7 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { SearchField } from '@/components/ui/search-field';
 import { ListSkeleton, RowSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { GROUPS_TITLE } from '@/features/circles/copy';
 import { TwoPersonGlyph } from '@/features/explore/glyphs';
 import { type SocialProfile } from '@/features/social-graph/types';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -116,6 +118,14 @@ export type FriendsPageProps = {
    */
   showBlockedResult?: boolean;
   onManageBlocked?: () => void;
+
+  /**
+   * Opens the private-groups list.
+   *
+   * Optional because three dev fixtures mount this page over static data and
+   * have no router to hand it; the link simply does not draw for them.
+   */
+  onOpenGroups?: () => void;
 };
 
 export function FriendsPage(props: FriendsPageProps) {
@@ -144,6 +154,51 @@ export function FriendsPage(props: FriendsPageProps) {
           <Text variant="note" className="mt-2">
             {circleLine(openRequestCount, props.friends.length)}
           </Text>
+        ) : null}
+
+        {/* THE WAY INTO PRIVATE GROUPS, AND WHY IT IS HERE.
+
+            A group is made of "friends you both added" and of nobody else —
+            the INSERT policy checks mutuality at the invitation and there is no
+            other door in. So the surface that lists your mutual friends is the
+            surface where the small rooms made out of them belong, and it is the
+            place somebody goes when the thought is about their people rather
+            than about their clothes.
+
+            Not Explore, which was the other candidate: its "Your circle" link
+            is a FOOTER that draws in exactly two of the feed's branches (the
+            empty state and the end of a loaded feed), so a Groups link beside
+            it would be absent whenever the feed was mid-length — an entry point
+            that comes and goes with unrelated data. And not a sixth tab: five
+            exist, and a sixth is a navigation rewrite, not a link.
+
+            In the masthead rather than at the foot beside "Invite a friend",
+            because that one sits below the whole friends list and a person with
+            eighteen friends would never scroll to it looking for a group.
+
+            The word is `GROUPS_TITLE` from the circles copy module — "Groups",
+            the customer-facing half of the vocabulary contract. It sits under a
+            header that says "Your circle", and the two mean different things on
+            purpose: your circle is everyone you have both added, a group is a
+            small private room made from a few of them. */}
+        {props.onOpenGroups ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={GROUPS_TITLE}
+            onPress={props.onOpenGroups}
+            hitSlop={8}
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="mt-3 flex-row items-center gap-1.5 active:opacity-60">
+            <Text variant="label" style={{ color: theme.accent }}>
+              {GROUPS_TITLE}
+            </Text>
+            <SymbolView
+              name="chevron.right"
+              size={11}
+              tintColor={theme.accent}
+              resizeMode="scaleAspectFit"
+            />
+          </Pressable>
         ) : null}
 
         <SearchField

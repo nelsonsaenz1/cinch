@@ -23,7 +23,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { CIRCLE_MAX_MEMBERS } from '../src/features/circles/contract-types.ts';
+import { CIRCLE_MAX_MEMBERS } from '../src/features/circles/types.ts';
 import {
   CIRCLE_STATES,
   canInvite,
@@ -395,7 +395,11 @@ test('the resolver imports nothing that would stop it being callable from a test
   for (const path of [
     'src/features/circles/states.ts',
     'src/features/circles/copy.ts',
-    'src/features/circles/contract-types.ts',
+    // At integration this is Worker B's real `types.ts` rather than the local
+    // stand-in it replaced. The guard matters MORE now, not less: `states.ts`
+    // and `copy.ts` import it, so a runtime dependency landing in the shared
+    // vocabulary module would take the node runner down with it.
+    'src/features/circles/types.ts',
   ]) {
     const src = body(path);
     assert.doesNotMatch(src, /from 'react/, path);
@@ -431,13 +435,15 @@ test('the kit is presentational: nothing fetches, mutates or navigates', () => {
   }
 });
 
-test('this lane created none of Worker B’s modules', () => {
-  // `types.ts`, `queries.ts`, `mutations.ts`, `errors.ts`, `eligibility.ts` and
-  // `analytics.ts` belong to the data lane. `contract-types.ts` is the local
-  // stand-in and says so in its own header; a file here with one of those names
-  // is a collision at integration, not a convenience.
+test('the stand-in is gone and the data lane is the one that landed', () => {
+  // BEFORE INTEGRATION this test read the other way round: it asserted Worker
+  // B's modules were ABSENT and `contract-types.ts` was PRESENT, because this
+  // lane compiled alone against a local transcription of B's interface. Both
+  // halves of that premise are inverted once the lanes are one tree, so the
+  // assertion is inverted with them rather than deleted — the seam it watches
+  // is the same seam, and it is worth more closed than open.
   const owned = new Set(readdirSync('src/features/circles'));
-  for (const forbidden of [
+  for (const required of [
     'types.ts',
     'queries.ts',
     'mutations.ts',
@@ -445,10 +451,17 @@ test('this lane created none of Worker B’s modules', () => {
     'eligibility.ts',
     'analytics.ts',
   ]) {
-    assert.equal(owned.has(forbidden), false, `this lane created ${forbidden}, which Worker B owns`);
+    assert.ok(owned.has(required), `${required} did not survive integration`);
   }
-  assert.ok(owned.has('contract-types.ts'));
-  // And the header has to keep telling the integrator what to do with it.
-  const header = readFileSync('src/features/circles/contract-types.ts', 'utf8');
-  assert.match(header, /export \* from '\.\/types';/);
+  // No stand-in, and no re-export shim wearing its name: a placeholder that
+  // outlives the placement is a second name for `types.ts`, and two names for
+  // one type is how the next person ends up importing the wrong one.
+  assert.equal(owned.has('contract-types.ts'), false);
+  for (const file of [...owned].filter((f) => f.endsWith('.ts'))) {
+    assert.doesNotMatch(
+      readFileSync(`src/features/circles/${file}`, 'utf8'),
+      /contract-types/,
+      `${file} still refers to the stand-in`,
+    );
+  }
 });
