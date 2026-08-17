@@ -131,6 +131,17 @@ select set_config('request.jwt.claims',
 select is((select count(*)::int from public.friend_worn_outfits), 0,
   '9 · a non-friend sees nothing');
 
+-- A BLOCK IS NOT REVERSIBLE FIXTURE STATE, and this file learned that the
+-- expensive way. `on_block_sever_graph`
+-- (20260807100000_social_graph_blocks_borrow.sql:44) fires after insert on
+-- `user_blocks` and DELETES BOTH FOLLOW EDGES between the pair. Removing the
+-- block does not put them back — deliberately, because unblocking someone is
+-- not the same as asking to follow them again. So an unblock leaves two people
+-- who are no longer mutual, and this friendship has to be rebuilt by hand.
+--
+-- Left implicit, that fact silently ended the friendship for the whole rest of
+-- the transaction, and six later assertions failed for a reason that had
+-- nothing to do with what they were testing.
 select set_config('request.jwt.claims',
   '{"sub":"82828282-8282-4282-8282-828282828282","role":"authenticated"}', true);
 insert into public.user_blocks (blocker_id, blocked_id)
@@ -138,10 +149,20 @@ values ('82828282-8282-4282-8282-828282828282', '81818181-8181-4181-8181-8181818
 select is((select count(*)::int from public.friend_worn_outfits
             where user_id = '81818181-8181-4181-8181-818181818181'), 0,
   '10 · a block hides the looks');
+
+-- Unblock, then re-follow both ways, as the fixture owner. `reset role` is what
+-- gets the follows past `follows_require_terms`
+-- (20260808101000_social_terms_gate.sql:107) — that gate only bites when
+-- `current_user` is `authenticated`, and these two rows are setup, not a user
+-- action this file is claiming anyone may perform.
+reset role;
 delete from public.user_blocks
  where blocker_id = '82828282-8282-4282-8282-828282828282';
+insert into public.follows (follower_id, followee_id) values
+  ('81818181-8181-4181-8181-818181818181', '82828282-8282-4282-8282-828282828282'),
+  ('82828282-8282-4282-8282-828282828282', '81818181-8181-4181-8181-818181818181')
+on conflict do nothing;
 
-reset role;
 update public.profiles set closet_hidden = true
  where user_id = '81818181-8181-4181-8181-818181818181';
 set local role authenticated;
