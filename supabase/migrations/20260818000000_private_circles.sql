@@ -210,6 +210,21 @@ revoke execute on function handle_new_circle() from public, anon, authenticated;
 -- `removed`, `declined` and `left` rows do not consume a seat, which is what
 -- makes a group recoverable after a mistake without deleting any history.
 --
+-- AND THE SEAT CHECK GUARDS THE UPDATE PATH TOO, not only the insert. A row
+-- can arrive at a seat two ways: an invitation (INSERT), or a state change into
+-- `invited`/`joined` from a state that held no seat (UPDATE). Guarding only the
+-- first leaves two ways past twelve — the owner re-inviting somebody who was
+-- removed, and, subtler, an invitee who DECLINED and then accepts after the
+-- owner has refilled their seat. The second is reachable with nothing but the
+-- transitions this schema shipped with, so the cap was never actually an
+-- invariant until this trigger covered both verbs.
+--
+-- The count lives in ONE function with two callers rather than the same query
+-- written twice, because a cap enforced by two copies of a predicate is a cap
+-- that eventually disagrees with itself. It takes the row being changed as an
+-- exclusion: on INSERT that row does not exist yet and the exclusion is inert,
+-- on UPDATE it is what stops a row being counted against its own move.
+--
 -- SECURITY DEFINER because the count must be the truth about the group, not
 -- the truth as filtered by whoever happens to be writing.
 --
@@ -223,13 +238,41 @@ revoke execute on function handle_new_circle() from public, anon, authenticated;
 -- two would then be missing.
 -- ---------------------------------------------------------------------------
 
+create function circle_seats_taken(p_circle uuid, p_except_user uuid)
+returns integer
+language sql stable security definer set search_path = '' as $$
+  select count(*)::integer from public.circle_members
+   where circle_id = p_circle
+     and state in ('invited', 'joined')
+     and (p_except_user is null or user_id <> p_except_user);
+$$;
+-- Not granted to `authenticated`: no policy calls this, only the definer
+-- trigger below does, and it already holds the owner's rights.
+revoke execute on function circle_seats_taken(uuid, uuid)
+  from public, anon, authenticated;
+
 create function enforce_circle_size() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare v_count integer;
 begin
-  select count(*) into v_count from public.circle_members
-   where circle_id = new.circle_id
-     and state in ('invited', 'joined');
+  -- On UPDATE, only a row ENTERING a seat is counted. An accept
+  -- (`invited` -> `joined`) already held its seat and must not be re-checked,
+  -- or the twelfth person to accept would be refused a seat they were given at
+  -- the invitation — which is the exact race counting invitations exists to
+  -- prevent. A departure holds no seat and needs no check either.
+  --
+  -- Nested rather than one `tg_op = 'UPDATE' and ...` condition on purpose:
+  -- SQL's AND is not required to short-circuit, and `old` is an unassigned
+  -- record on INSERT, where reading a field of it is an error rather than a
+  -- null.
+  if tg_op = 'UPDATE' then
+    if not (new.state in ('invited', 'joined')
+            and old.state not in ('invited', 'joined')) then
+      return new;
+    end if;
+  end if;
+
+  v_count := public.circle_seats_taken(new.circle_id, new.user_id);
   if v_count >= 12 then
     raise exception 'circle_full: % of 12 seats taken', v_count
       using errcode = 'check_violation',
@@ -238,7 +281,7 @@ begin
   return new;
 end; $$;
 create trigger circle_members_enforce_size
-  before insert on circle_members
+  before insert or update on circle_members
   for each row execute function enforce_circle_size();
 revoke execute on function enforce_circle_size() from public, anon, authenticated;
 
@@ -324,15 +367,44 @@ create policy "circle_members: self or owner can update" on circle_members
 -- ---------------------------------------------------------------------------
 -- 6 · The state machine
 --
---   self : invited|declined -> joined|declined     (accept, decline, re-decide)
---          joined           -> left                (walk out)
---   owner: anything         -> removed             (and nothing else)
+--   self : invited|declined       -> joined|declined  (accept, decline, redecide)
+--          joined                 -> left             (walk out)
+--   owner: anything               -> removed          (eject)
+--          removed|left|declined  -> invited          (ask again)
 --
 -- The owner may NOT flip somebody to `joined`. Being in a group is a thing you
 -- agree to, and an owner who could write `joined` on your behalf could put you
 -- in a room you never entered. The owner may not write `left` on your behalf
 -- either: `left` is the record of a choice, and an ejection dressed as a
 -- departure is a lie told to everyone reading the roster.
+--
+-- BUT THE OWNER MAY ASK AGAIN, and this is what makes the model reversible
+-- rather than merely undoable-looking. Without it the primary key is a trap: a
+-- re-invitation cannot INSERT over an existing row, so one mis-tapped Remove
+-- would exclude somebody from a twelve-seat group permanently, with no path
+-- back for either party. The brief asks for roles that are "obvious and
+-- reversible", and PC-04 says so for the decline case in as many words — "You
+-- can be invited again later." An asking-again is an invitation, so it lands in
+-- `invited` and the invitee still has to accept it; nothing here writes
+-- `joined` for anybody.
+--
+-- A re-invitation re-checks eligibility exactly as the INSERT policy does,
+-- because time has passed since the first one. A block severs the follow edges
+-- permanently, so somebody blocked and later unblocked is no longer a mutual
+-- friend and must not be re-invitable without a fresh friendship — which is
+-- also what keeps PC-10's "No longer a mutual friend" an honest thing to say.
+-- The seat is re-checked by `enforce_circle_size`, which now covers UPDATE.
+--
+-- `created_at` and `invited_by` are deliberately left as they were: the row
+-- keeps the moment it first existed, and `invited_by` can only ever have been
+-- the owner, who is the same person asking again.
+--
+-- The invite rate limit does NOT cover this path, and that is a bounded gap
+-- rather than an oversight: it counts `created_at` on INSERT, and an asking-
+-- again is an UPDATE of a row that already exists. The fan-out it protects
+-- against is not reachable here — a re-invitation can only ever target the
+-- eleven-or-fewer people already in this one group's row set, each of whom the
+-- owner is still a mutual friend of.
 --
 -- The owner cannot leave their own group. The design record leaves owner
 -- departure unresolved and names the conservative default — the owner deletes
@@ -364,8 +436,21 @@ begin
     end if;
   else
     -- Owner path; the policy already guaranteed the caller owns the group.
-    if new.state <> 'removed' then
-      raise exception 'the owner may only remove' using errcode = '22023';
+    if new.state = 'removed' then
+      null;                                  -- eject, or re-affirm an ejection
+    elsif new.state = 'invited'
+          and old.state in ('removed', 'left', 'declined') then
+      -- Ask again. Same eligibility as a first invitation, re-tested now
+      -- rather than trusted from whenever the row was first written. 42501 so
+      -- the client maps it to the same sentence the INSERT path produces.
+      if public.blocked_between((select auth.uid()), old.user_id)
+         or not public.is_friend(old.user_id) then
+        raise exception 'you can only invite a mutual friend'
+          using errcode = '42501';
+      end if;
+    else
+      raise exception 'the owner may only remove or re-invite'
+        using errcode = '22023';
     end if;
   end if;
 
