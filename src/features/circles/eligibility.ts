@@ -98,15 +98,26 @@ export interface CircleInviteRowsInput {
 /**
  * Decide every picker row.
  *
- * ── WHAT COMES BACK, AND WHAT DOES NOT ────────────────────────────────────
+ * ── WHAT COMES BACK ───────────────────────────────────────────────────────
  *
- * One row per candidate WHO DOES NOT ALREADY HOLD A SEAT, in candidate order.
- * Somebody already `invited` or `joined` is not a picker row at all — they are
- * in the group, and offering to invite them again is an offer the primary key
- * would refuse. Somebody `removed`, `left` or `declined` IS a row: asking them
- * back is the path that makes one mis-tapped Remove undoable, and the seat
- * arithmetic treats them exactly as it treats a stranger, because their row
- * holds no seat.
+ * One row per candidate, in candidate order, and NOBODY IS DROPPED. Somebody
+ * already `joined` or `invited` cannot be chosen — the primary key would refuse
+ * the INSERT and `routeCircleInvites` drops them from the write anyway — but
+ * they are still drawn, saying "Already a member" or "Invite pending". PC-03
+ * keeps Ellis Moore and Jonah Beck on the list for that reason: a person
+ * looking for a friend who is not there learns nothing from an absence, and a
+ * row that answers the question is the whole of what PC-10's colour-independence
+ * rule asks for. Somebody `removed`, `left` or `declined` is an ordinary,
+ * choosable row: asking them back is the path that makes one mis-tapped Remove
+ * undoable, and the seat arithmetic treats them exactly as it treats a
+ * stranger, because their row holds no seat.
+ *
+ * ── WHY A SEAT-HOLDER'S REASON WINS OVER EVERYTHING ───────────────────────
+ *
+ * "Already a member" is true of somebody who is standing in the room, and it is
+ * the only reason that stays true no matter what else changes. Telling a person
+ * that their own co-member is "No longer a mutual friend" would be an
+ * accusation about somebody the reader can see on the roster two taps away.
  *
  * ── WHY `not_mutual` WINS OVER `group_full` ───────────────────────────────
  *
@@ -127,33 +138,44 @@ export function circleInviteRows(input: CircleInviteRowsInput): CircleInviteRow[
   const selectedIds = input.selectedIds ?? [];
   const mutual = new Set(input.mutualFriendIds);
   const selected = new Set(selectedIds);
-  const seated = new Set(
-    input.members.filter((member) => holdsCircleSeat(member.state)).map((member) => member.userId),
+  const seatOf = new Map(
+    input.members
+      .filter((member) => holdsCircleSeat(member.state))
+      .map((member) => [member.userId, member.state] as const),
   );
 
-  // Deduplicated, seat-holders dropped, order preserved.
+  // Deduplicated, order preserved. Nothing is dropped — see the header.
   const seen = new Set<string>();
   const rows: string[] = [];
   for (const userId of input.candidateIds) {
-    if (seen.has(userId) || seated.has(userId)) continue;
+    if (seen.has(userId)) continue;
     seen.add(userId);
     rows.push(userId);
   }
 
   // Only ticks that are actually going to be written count against the cap: a
   // stale selection of somebody who has since been invited by another device
-  // is already counted in `seated`, and counting it twice would refuse a seat
+  // is already counted in the roster, and counting it twice would refuse a seat
   // that exists.
-  const pending = rows.filter((userId) => selected.has(userId)).length;
+  const pending = rows.filter((userId) => selected.has(userId) && !seatOf.has(userId)).length;
   const remaining = circleSeatsRemaining(input.members, pending);
 
   return rows.map((userId) => {
-    const isSelected = selected.has(userId);
-    const ineligibility: InviteIneligibility = !mutual.has(userId)
-      ? 'not_mutual'
-      : isSelected || remaining > 0
-        ? null
-        : 'group_full';
+    // A seat-holder can never be ticked, so a stale tick against one is
+    // discarded here rather than drawn as a checkmark the send would ignore.
+    const seat = seatOf.get(userId);
+    const isSelected = seat === undefined && selected.has(userId);
+
+    const ineligibility: InviteIneligibility =
+      seat === 'joined'
+        ? 'already_member'
+        : seat === 'invited'
+          ? 'invite_pending'
+          : !mutual.has(userId)
+            ? 'not_mutual'
+            : isSelected || remaining > 0
+              ? null
+              : 'group_full';
 
     return { userId, ineligibility, selectable: ineligibility === null, selected: isSelected };
   });

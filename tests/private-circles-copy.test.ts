@@ -31,6 +31,7 @@ import {
   ALONE,
   acceptAccessibilityLabel,
   CAP_SPELLED,
+  closedRowAccessibilityLabel,
   COLOUR_INDEPENDENCE_RULE,
   CREATE,
   declineAccessibilityLabel,
@@ -39,35 +40,52 @@ import {
   deleteGroupBody,
   deleteGroupHeading,
   FULL,
+  GROUP_GONE,
   GROUPS_TITLE,
   groupRowAccessibilityLabel,
   groupRowLine,
+  groupSeatLine,
+  groupSubtitle,
   INELIGIBILITY_REASONS,
   ineligibilityReason,
   INVITATION,
   invitationFrom,
+  invitationMetaLine,
   invitationsWaiting,
+  invitationsWaitingRow,
+  inviteAgainAccessibilityLabel,
+  invitedLabel,
+  invitedSpokenLabel,
   joinedLabel,
   LEAVE_GROUP,
   leaveGroupHeading,
   MANAGE,
+  manageMemberSubtitle,
+  manageOwnerSubtitle,
   memberCountPhrase,
   memberLine,
+  memberPermissionNote,
   memberRowAccessibilityLabel,
+  membersHeading,
   NO_GROUPS,
   OFFLINE,
+  OVERVIEW,
   PENDING,
   pendingRowAccessibilityLabel,
   PICKER,
   PICKER_HINT,
   pickerRowAccessibilityLabel,
+  pickerSubtitle,
   REMOVE_MEMBER,
   removeAccessibilityLabel,
   removeMemberConfirm,
   removeMemberHeading,
   NAME_REFUSED,
   seatsLeftLine,
+  SEND_UNAVAILABLE_FULL,
+  sendInvitationsLabel,
   spelledCount,
+  timeAgo,
   WRITE_FAILED,
 } from '../src/features/circles/copy.ts';
 import { CIRCLE_MAX_MEMBERS } from '../src/features/circles/types.ts';
@@ -109,12 +127,56 @@ const ALL_COPY = [
   CREATE.placeholder,
   CREATE.helper,
   CREATE.action,
+  CREATE.actionSpoken,
   CREATE.cancel,
+  CREATE.aboutHeading,
+  ...CREATE.about,
   PICKER.title,
   PICKER.body,
-  PICKER.action,
   PICKER.cancel,
   PICKER_HINT,
+  SEND_UNAVAILABLE_FULL,
+  GROUP_GONE.title,
+  GROUP_GONE.body,
+  GROUP_GONE.action,
+  OVERVIEW.membersHeading,
+  OVERVIEW.waitingHeading,
+  OVERVIEW.invite,
+  OVERVIEW.footnote,
+  MANAGE.ownerTitle,
+  MANAGE.memberTitle,
+  MANAGE.done,
+  MANAGE.groupHeading,
+  MANAGE.memberHeading,
+  MANAGE.manageSpoken,
+  PENDING.waitingHeading,
+  PENDING.closedHeading,
+  PENDING.inviteAgain,
+  PENDING.declined,
+  PENDING.footnote,
+  FULL.action,
+  INVITATION.title,
+  manageOwnerSubtitle(NAME),
+  manageMemberSubtitle(NAME, INVITER),
+  manageMemberSubtitle(NAME, null),
+  memberPermissionNote(INVITER),
+  memberPermissionNote(null),
+  membersHeading(4),
+  membersHeading(1),
+  inviteAgainAccessibilityLabel(MEMBER),
+  closedRowAccessibilityLabel(MEMBER, PENDING.declined),
+  groupSeatLine(NAME, 12),
+  invitationMetaLine(INVITER, null).drawn,
+  invitationMetaLine(INVITER, null).spoken,
+  invitationMetaLine(null, null).drawn,
+  invitationMetaLine(null, null).spoken,
+  ...Array.from({ length: CIRCLE_MAX_MEMBERS + 2 }, (_, n) => [
+    pickerSubtitle(n),
+    sendInvitationsLabel(n),
+    invitationsWaitingRow(n),
+    groupSubtitle(n, true),
+    groupSubtitle(n, false),
+  ]).flat(),
   COLOUR_INDEPENDENCE_RULE,
   ...Object.values(INELIGIBILITY_REASONS),
   INVITATION.body,
@@ -265,6 +327,161 @@ test('PC-01 is transcribed exactly', () => {
   );
 });
 
+test('PC-02 is transcribed exactly, minus the one clause the app cannot keep', () => {
+  assert.equal(CREATE.title, 'New group');
+  assert.equal(CREATE.fieldLabel, 'Name');
+  assert.equal(CREATE.helper, 'Only members see this name.');
+  assert.equal(CREATE.action, 'Create');
+  assert.equal(CREATE.aboutHeading, 'What a group is');
+  assert.equal(CREATE.about[0], 'Two to twelve people.');
+  assert.equal(CREATE.about[1], 'Only friends you both added can be invited.');
+  // The frame's third line offers renaming. `useRenameCircle` is wired to no
+  // surface, so the word is dropped rather than printed as a promise the owner
+  // then cannot find a control for. THIS ASSERTION IS THE REMINDER: restoring
+  // the word and restoring the surface are one commit.
+  assert.doesNotMatch(CREATE.about.join(' '), /renam/i);
+  assert.match(CREATE.about[2], /^You own it\./);
+});
+
+test('PC-03 is transcribed exactly, and the send button counts', () => {
+  assert.equal(PICKER.title, 'Invite friends');
+  assert.equal(
+    PICKER.body,
+    'Only friends you both added appear here. Cinch never suggests anyone else.',
+  );
+  assert.equal(pickerSubtitle(3), 'Mutual friends only · 3 of 12 chosen');
+  assert.equal(sendInvitationsLabel(3), 'Send 3 invitations');
+  // One reads as English, and zero is a STATE rather than arithmetic — PC-10's
+  // disabled label, which never says "Send 0 invitations".
+  assert.equal(sendInvitationsLabel(1), 'Send 1 invitation');
+  assert.equal(sendInvitationsLabel(0), 'Send invitations');
+  for (let n = 0; n <= CIRCLE_MAX_MEMBERS; n += 1) {
+    assert.doesNotMatch(sendInvitationsLabel(n), /\b0\b|undefined|NaN/);
+  }
+});
+
+test('the picker names all four reasons a row can be inert', () => {
+  // PC-03 draws member / pending / not-mutual; PC-10 draws the seat cap. Every
+  // one of them is a WORD on the row — a row that simply vanished would answer
+  // nobody's question about a friend who is not in the list.
+  assert.equal(INELIGIBILITY_REASONS.already_member, 'Already a member');
+  assert.equal(INELIGIBILITY_REASONS.invite_pending, 'Invite pending');
+  assert.equal(Object.keys(INELIGIBILITY_REASONS).length, 4);
+  for (const reason of Object.values(INELIGIBILITY_REASONS)) {
+    assert.ok(reason.trim().length > 0);
+    // No reason may disclose a block, and none names anybody.
+    assert.doesNotMatch(reason, /block/i);
+  }
+});
+
+test('PC-05 is transcribed exactly, and the dated status is not a nudge', () => {
+  assert.equal(PENDING.waitingHeading, 'Waiting');
+  assert.equal(PENDING.closedHeading, 'Closed');
+  assert.equal(PENDING.withdraw, 'Revoke');
+  assert.equal(PENDING.inviteAgain, 'Invite again');
+  assert.equal(PENDING.declined, 'Declined');
+  assert.equal(
+    PENDING.footnote,
+    'Only you can see who was invited. Nobody is told who else received an invitation.',
+  );
+
+  const now = new Date('2026-03-10T12:00:00.000Z');
+  assert.equal(invitedLabel('2026-03-10T09:00:00.000Z', now), 'Invited today');
+  assert.equal(invitedLabel('2026-03-09T09:00:00.000Z', now), 'Invited yesterday');
+  assert.equal(invitedLabel('2026-03-08T09:00:00.000Z', now), 'Invited 2 days ago');
+  // No timestamp is the undated fallback, never a name with nothing under it.
+  assert.equal(invitedLabel(null, now), PENDING.status);
+  assert.equal(invitedLabel('not a date', now), PENDING.status);
+  assert.equal(invitedSpokenLabel(null, now), PENDING.spokenStatus);
+  // And nothing in it chases: no "still", no "any day now", no elapsed hours
+  // for the owner to read as overdue.
+  for (const days of [0, 1, 2, 9, 40]) {
+    const at = new Date(now.getTime() - days * 86_400_000).toISOString();
+    assert.doesNotMatch(invitedLabel(at, now), /still|overdue|hours|remind/i);
+  }
+});
+
+test('PC-06 is transcribed exactly, and the role is stated in words', () => {
+  assert.equal(OVERVIEW.membersHeading, 'Members');
+  assert.equal(OVERVIEW.waitingHeading, 'Waiting');
+  assert.equal(OVERVIEW.invite, 'Invite someone');
+  assert.equal(
+    OVERVIEW.footnote,
+    'Invite-only. Members see each other and nothing beyond this group. There is no way to find it from outside.',
+  );
+  assert.equal(groupSubtitle(4, true), '4 members · you own this group');
+  assert.equal(groupSubtitle(4, false), '4 members · private');
+  assert.equal(invitationsWaitingRow(2), '2 invitations waiting');
+  assert.equal(invitationsWaitingRow(1), '1 invitation waiting');
+  // The overview's invite control is not the liveness state's: the first sits
+  // under a roster with people already on it, and "a friend" there would imply
+  // the ones already in the group were something else.
+  assert.notEqual(OVERVIEW.invite, ALONE.action);
+});
+
+test('PC-07 and PC-07b are two screens, and each states its own boundary', () => {
+  assert.equal(MANAGE.ownerTitle, 'Manage');
+  assert.equal(MANAGE.memberTitle, 'This group');
+  assert.notEqual(MANAGE.ownerTitle, MANAGE.memberTitle);
+  assert.equal(MANAGE.done, 'Done');
+  assert.equal(MANAGE.groupHeading, 'Group');
+  assert.equal(MANAGE.memberHeading, 'What you can do');
+  assert.equal(MANAGE.leave, 'Leave group');
+  assert.equal(MANAGE.delete, 'Delete group');
+  assert.equal(manageOwnerSubtitle('Sunday tennis'), 'Sunday tennis · you are the owner');
+  assert.equal(
+    manageMemberSubtitle('Sunday tennis', 'Maya Okonkwo'),
+    'Sunday tennis · Maya Okonkwo owns it',
+  );
+  assert.equal(membersHeading(4), 'Members · 4');
+
+  // A member is told who holds the controls they cannot see, and that leaving
+  // is always theirs. Renaming is absent for the same reason it is absent from
+  // PC-02's card: there is no surface for it.
+  const note = memberPermissionNote('Maya');
+  assert.match(note, /^Only Maya can invite, remove members, or delete this group\./);
+  assert.match(note, /You can leave at any time\.$/);
+  assert.doesNotMatch(note, /renam/i);
+  // And it still reads when `social_profiles` gave no name for the owner.
+  for (const line of [manageMemberSubtitle(NAME, null), memberPermissionNote(null)]) {
+    assert.doesNotMatch(line, /undefined|null|\bnull\b/);
+  }
+});
+
+test('PC-09b says the group is gone without saying who did it', () => {
+  assert.equal(GROUP_GONE.title, 'This group no longer exists.');
+  assert.match(GROUP_GONE.body, /Nothing of yours was affected\./);
+  // The frame names the owner ("Maya deleted it."). The client cannot: a
+  // deleted group and a membership that ended are the same `null`, on purpose,
+  // and telling them apart would disclose that somebody was removed — the one
+  // fact PC-07 spends a whole sentence refusing to disclose.
+  assert.doesNotMatch(GROUP_GONE.body, /deleted it|removed you|owner/i);
+  assert.ok(GROUP_GONE.action.trim().length > 0);
+});
+
+test('PC-10 offers the remedy it names', () => {
+  assert.equal(FULL.action, 'Manage members');
+  assert.match(FULL.body, /Remove someone/);
+  // The disabled send says WHY, since `accessibilityState.disabled` says only
+  // that it is off.
+  assert.equal(SEND_UNAVAILABLE_FULL, 'Send invitations, unavailable, this group is full');
+  assert.equal(groupSeatLine('Sunday tennis', 12), 'Sunday tennis · 12 of 12');
+});
+
+test('elapsed time is coarse, never a clock, and never rounded up', () => {
+  const now = new Date('2026-03-10T12:00:00.000Z');
+  assert.equal(timeAgo('2026-03-10T11:59:30.000Z', now), 'just now');
+  assert.equal(timeAgo('2026-03-10T11:59:00.000Z', now), '1 minute ago');
+  assert.equal(timeAgo('2026-03-10T11:30:00.000Z', now), '30 minutes ago');
+  assert.equal(timeAgo('2026-03-10T10:00:00.000Z', now), '2 hours ago');
+  assert.equal(timeAgo('2026-03-09T10:00:00.000Z', now), 'yesterday');
+  assert.equal(timeAgo('2026-03-05T10:00:00.000Z', now), '5 days ago');
+  assert.equal(timeAgo(null, now), '');
+  assert.equal(timeAgo('not a date', now), '');
+  // A clock time beside somebody's name is a second fact about their habits.
+  assert.doesNotMatch(timeAgo('2026-03-10T10:00:00.000Z', now), /\d{1,2}:\d{2}/);
+});
+
 test('PC-04 is transcribed exactly, with the name as a parameter', () => {
   assert.equal(
     INVITATION.body,
@@ -279,6 +496,20 @@ test('PC-04 is transcribed exactly, with the name as a parameter', () => {
     declineNote(null),
     'Declining tells them only that you declined. You can be invited again later.',
   );
+  // The card LEADS with who asked — the frame's order, and the first question
+  // anybody has about an invitation.
+  assert.equal(INVITATION.title, 'Invitation');
+  assert.equal(invitationFrom('Maya Okonkwo'), 'Maya Okonkwo invited you');
+  assert.equal(invitationFrom(null), 'Someone you have both added invited you');
+
+  const now = new Date('2026-03-10T12:00:00.000Z');
+  const meta = invitationMetaLine('Maya Okonkwo', '2026-03-10T10:00:00.000Z', now);
+  assert.equal(meta.drawn, 'invited you · 2 hours ago');
+  // Spoken, the drawn separator goes and the sentence rebuilds around the name.
+  assert.equal(meta.spoken, 'Maya Okonkwo invited you 2 hours ago.');
+  assert.doesNotMatch(meta.spoken, /·/);
+  assert.equal(invitationMetaLine('Maya', null).drawn, 'invited you');
+  assert.equal(timeAgo('2026-03-10T12:00:00.000Z', now), 'just now');
 });
 
 test('PC-07 is transcribed exactly', () => {

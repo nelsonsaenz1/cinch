@@ -67,8 +67,21 @@ export type CircleInvitationAnswer = 'accepted' | 'declined';
  */
 export type CircleExit = 'left' | 'removed';
 
-/** Why the picker refused a row. The `null` case is not an event. */
-export type CircleInviteBlockedReason = Exclude<InviteIneligibility, null>;
+/**
+ * Why the picker refused a row. The `null` case is not an event.
+ *
+ * TWO VALUES, AND NOT THE FOUR `InviteIneligibility` HAS. The picker also draws
+ * "Already a member" and "Invite pending", and neither is a refusal worth
+ * recording: both mean the reader tapped somebody they had already asked, which
+ * says nothing about whether twelve is the right number or whether the mutual
+ * rule is the wall — the only two questions this event exists to answer. Pinned
+ * as a literal union rather than derived from `InviteIneligibility`, so a fifth
+ * ineligibility cannot widen an analytics payload by inheritance.
+ */
+export type CircleInviteBlockedReason = Extract<
+  InviteIneligibility,
+  'group_full' | 'not_mutual'
+>;
 
 /**
  * A group was made. No properties at all — not its name, not its size, and

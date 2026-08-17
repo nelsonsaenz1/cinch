@@ -17,12 +17,14 @@ export {
 } from './confirm-dialogs';
 export { GroupRow } from './group-row';
 export { InvitationCard } from './invitation-card';
-export { MemberRow, PendingInvitationRow } from './member-row';
+export { ClosedInvitationRow, MemberRow, PendingInvitationRow } from './member-row';
 export { PickerRow } from './picker-row';
 export {
   AcceptRefusedNotice,
   AloneState,
   GroupFullNotice,
+  GroupGoneNotice,
   GroupsOfflineState,
   NoGroupsState,
+  SCREEN_STATE_OWNS_GUTTER,
 } from './state-screens';

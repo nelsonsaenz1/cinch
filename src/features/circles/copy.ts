@@ -111,22 +111,47 @@ export const NO_GROUPS = {
 // ---------------------------------------------------------------------------
 
 export const CREATE = {
-  title: 'Name the group',
+  title: 'New group',
   fieldLabel: 'Name',
   /**
    * The atlas's own example. A place and a day, not a sentence — which is why
    * the schema caps the name at 60 characters rather than an event title's 80.
    */
   placeholder: 'Sunday tennis',
-  helper: 'Only the people in it will ever see this name.',
+  helper: 'Only members see this name.',
   /**
-   * "The group", not "a group": PC-01's button offers to start something and
-   * this one commits the thing on screen. Two different acts, two different
-   * articles, and a shared string would have made the second read as a repeat
-   * of the first.
+   * ONE WORD, BECAUSE IT SITS IN THE NAV BAR.
+   *
+   * PC-02 puts Cancel and Create at the top, in iOS's own create-sheet grammar,
+   * and there is no second commit anywhere on the frame. A nav-bar control is
+   * read against the title beside it ("New group" · "Create"), so the article
+   * the old full-width button needed — "Create the group" — is furniture here.
+   * The spoken label restores the noun; see `CREATE.actionSpoken`.
    */
-  action: 'Create the group',
+  action: 'Create',
+  /** What VoiceOver hears, since "Create" alone is a verb with no object. */
+  actionSpoken: 'Create group',
   cancel: 'Cancel',
+  /**
+   * PC-02's second half: the three facts, in a card, before anybody commits.
+   *
+   * ── ONE DEVIATION FROM THE FRAME, AND IT IS DELIBERATE ─────────────────────
+   *
+   * The atlas's third line reads "You own it. You can rename, remove, or delete
+   * it." Renaming has no surface in the shipped app — `useRenameCircle` is
+   * wired to nothing, by the accepted record's own decision — so printing the
+   * word here would be the create screen promising a control the owner then
+   * cannot find. The clause is dropped rather than the line, because the other
+   * two facts (ownership, and the two things an owner really can do) are the
+   * ones that make the following screens legible. Restore the word in the same
+   * commit that ships the rename surface, and not before.
+   */
+  aboutHeading: 'What a group is',
+  about: [
+    'Two to twelve people.',
+    'Only friends you both added can be invited.',
+    'You own it. You can remove people, or delete it.',
+  ],
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -134,16 +159,69 @@ export const CREATE = {
 // ---------------------------------------------------------------------------
 
 export const PICKER = {
-  title: 'Invite a friend',
+  /** Plural. The picker is a multi-select and PC-03 sends three at a time. */
+  title: 'Invite friends',
   /**
    * States the mutual rule before anybody taps, because it is the reason the
-   * list is as short as it is. Checked once, at the invitation, and never again
-   * on read — an unfollow must not be a second, invisible exit.
+   * list is as short as it is — and states the other half, which is the one
+   * people actually wonder about: nothing here is a suggestion. Checked once,
+   * at the invitation, and never again on read — an unfollow must not be a
+   * second, invisible exit.
+   *
+   * Set as the footnote UNDER the list rather than as a lead paragraph over it,
+   * exactly where PC-03 draws it: it explains a list somebody is already
+   * looking at, and above the list it would be explaining nothing yet.
    */
-  body: 'You can invite anyone you have both added. They choose whether to join.',
-  action: 'Send the invitation',
+  body: 'Only friends you both added appear here. Cinch never suggests anyone else.',
   cancel: 'Cancel',
 } as const;
+
+/**
+ * "Mutual friends only · 3 of 12 chosen" — the line under the title.
+ *
+ * The count is `chosen of the cap`, not `chosen of the candidates`: what the
+ * reader needs is how close they are to filling the room, and the room is the
+ * thing with a number on it. PC-10 draws the same line with the group's name in
+ * front and the seats exhausted ("Sunday tennis · 12 of 12"), which is
+ * `groupSeatLine` below — a different sentence for a different question.
+ */
+export function pickerSubtitle(chosen: number): string {
+  const n = Number.isFinite(chosen) ? Math.max(Math.floor(chosen), 0) : 0;
+  return `Mutual friends only · ${n} of ${CIRCLE_MAX_MEMBERS} chosen`;
+}
+
+/** PC-10's version: whose group, and that every seat in it is spoken for. */
+export function groupSeatLine(name: string, seatsTaken: number): string {
+  const n = Number.isFinite(seatsTaken) ? Math.max(Math.floor(seatsTaken), 0) : 0;
+  return `${name.trim()} · ${n} of ${CIRCLE_MAX_MEMBERS}`;
+}
+
+/**
+ * THE SEND BUTTON COUNTS WHAT IT IS ABOUT TO DO.
+ *
+ * "Send 3 invitations", verbatim from PC-03 — and the atlas is right that the
+ * number belongs on the control rather than beside it: this is the one tap in
+ * the flow that writes to other people's accounts, and a button that said only
+ * "Send" would leave the reader to remember how many rows they ticked.
+ *
+ * At zero it is PC-10's label — the button is inert, and a "Send 0 invitations"
+ * would be arithmetic where a state belongs.
+ */
+export function sendInvitationsLabel(chosen: number): string {
+  const n = Number.isFinite(chosen) ? Math.max(Math.floor(chosen), 0) : 0;
+  if (n === 0) return 'Send invitations';
+  if (n === 1) return 'Send 1 invitation';
+  return `Send ${n} invitations`;
+}
+
+/**
+ * The disabled send button, spoken — PC-10's own VoiceOver row.
+ *
+ * `accessibilityState.disabled` says the control is off; only these words say
+ * why, and a reader who cannot see the notice above the list is exactly the
+ * reader who needs them.
+ */
+export const SEND_UNAVAILABLE_FULL = 'Send invitations, unavailable, this group is full';
 
 /**
  * THE RULE PC-10 STATES ABOUT ITSELF, RECORDED RATHER THAN PRINTED.
@@ -162,17 +240,26 @@ export const COLOUR_INDEPENDENCE_RULE =
   'Every unavailable row states its reason on the row itself. Nothing is hidden and nothing is explained by colour alone.';
 
 /**
- * Why a row cannot be chosen — PC-10's two, and there is no third.
+ * Why a row cannot be chosen — PC-03's three and PC-10's fourth, verbatim.
  *
  * `not_mutual` is what a block looks like from here, and it is the honest thing
  * to say: the block deleted both follow edges, so the pair genuinely are no
  * longer mutual friends. A "blocked" reason would disclose the block; a greyed
  * row with no words at all would disclose nothing and explain nothing, which is
  * the failure the row-level reason exists to prevent.
+ *
+ * `already_member` and `invite_pending` are the two the picker used to answer
+ * by DELETING THE ROW. That was the same failure one channel further out: a
+ * friend who is simply not in the list is indistinguishable from a friend the
+ * app has never heard of, and the reader's question — "why can I not ask Ellis?"
+ * — went unanswered. Neither string names a group, a date or a third party;
+ * each says only what is true of the reader's own relationship to this room.
  */
 export const INELIGIBILITY_REASONS: Record<Exclude<InviteIneligibility, null>, string> = {
   group_full: 'Group is full',
   not_mutual: 'No longer a mutual friend',
+  already_member: 'Already a member',
+  invite_pending: 'Invite pending',
 };
 
 export function ineligibilityReason(reason: InviteIneligibility): string | null {
@@ -227,6 +314,8 @@ export function memberCountPhrase(memberCount: number): string {
 }
 
 export const INVITATION = {
+  /** The screen's own title, when an invitation is the whole of what is on it. */
+  title: 'Invitation',
   /**
    * The section over invitations addressed to the READER, on their own list.
    *
@@ -249,10 +338,73 @@ export const INVITATION = {
   decline: 'Decline',
 } as const;
 
-/** Who asked. Falls back to the group when a display name never arrived. */
+/**
+ * Who asked — PC-04's own phrase, and it leads the card.
+ *
+ * "Maya Okonkwo" over "invited you · 2 hours ago" is the frame's order, and the
+ * order is the argument: the first question anybody has about an invitation is
+ * who sent it, and the second is to what. The old "From Maya." read as a
+ * postmark under a headline about a group the reader has never heard of.
+ *
+ * The nameless fallback says how the pair are related rather than "someone",
+ * because `social_profiles` withholding a name does not withhold the fact that
+ * the two of them added each other — the INSERT policy would have refused the
+ * invitation otherwise.
+ */
 export function invitationFrom(inviterName: string | null): string {
   const name = inviterName?.trim();
-  return name ? `From ${name}.` : 'From someone you have both added.';
+  return name ? `${name} invited you` : 'Someone you have both added invited you';
+}
+
+/**
+ * HOW LONG AGO, IN THE COARSEST UNIT THAT IS STILL TRUE.
+ *
+ * Minutes for the first hour, hours for the first day, then days — and never a
+ * clock time, which would be a second fact about somebody's habits printed
+ * beside their name. Rounded DOWN, so nothing ever claims more elapsed time
+ * than has actually passed.
+ *
+ * Shared by PC-04's "invited you · 2 hours ago" and PC-05's "Invited 2 days
+ * ago", so an owner and their invitee are never looking at two different
+ * accounts of the same moment.
+ */
+export function timeAgo(iso: string | null, now: Date = new Date()): string {
+  if (!iso) return '';
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+
+  const minutes = Math.floor((now.getTime() - at.getTime()) / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+/**
+ * "invited you · 2 hours ago", and the same fact without the drawn separator.
+ *
+ * Two returns rather than one string the label strips, for the reason
+ * `memberCountPhrase` exists: a middle dot spoken is either silence or the
+ * words "middle dot", and a regex that removed it afterwards would be a second
+ * place the sentence is assembled.
+ */
+export function invitationMetaLine(
+  inviterName: string | null,
+  invitedAt: string | null,
+  now: Date = new Date(),
+): {
+  drawn: string;
+  spoken: string;
+} {
+  const when = timeAgo(invitedAt, now);
+  const who = invitationFrom(inviterName);
+  // The name leads the card on its own line, so this line is the verb phrase.
+  const drawn = when ? `invited you · ${when}` : 'invited you';
+  return { drawn, spoken: when ? `${who} ${when}.` : `${who}.` };
 }
 
 /**
@@ -296,18 +448,74 @@ export const ACCEPT_REFUSED_FULL = {
 export const PENDING = {
   /** The section over the outstanding invitations on the owner's manage page. */
   heading: 'Invitations',
+  /** PC-05's two sections: who has not answered, and who is no longer waiting. */
+  waitingHeading: 'Waiting',
+  closedHeading: 'Closed',
   /**
-   * The status under a name that has not answered. A fact, not a nudge: there
-   * is no reminder, no chaser and no "waiting 3 days" — an invitation that
-   * pressured somebody would be the opposite of what an invite-only room is
-   * for.
+   * The status under a name that has not answered, when no timestamp arrived.
+   * A fact, not a nudge: there is no reminder, no chaser and no "waiting 3
+   * days" — an invitation that pressured somebody would be the opposite of what
+   * an invite-only room is for. `invitedLabel` is the dated version PC-05 draws.
    */
   status: 'Invited · waiting for an answer',
   /** The same fact spoken. See `memberCountPhrase` for why the dot goes. */
   spokenStatus: 'Invited, waiting for an answer',
-  /** The owner's own way back out of an invitation they sent. */
-  withdraw: 'Withdraw',
+  /**
+   * The owner's own way back out of an invitation they sent — PC-05's word.
+   *
+   * "Revoke" rather than the old "Withdraw" because the frame says so, and
+   * because it is the word the lifecycle table uses for the state the row lands
+   * in (`pending → revoked`). One word for one transition, on the screen and in
+   * the record.
+   */
+  withdraw: 'Revoke',
+  /** PC-05's second control: the door back open, on a row that closed. */
+  inviteAgain: 'Invite again',
+  /** The status on a closed row the reader turned down. */
+  declined: 'Declined',
+  /**
+   * PC-05's footnote, and it is a promise about the OTHER invitees.
+   *
+   * True by construction: nothing in this feature ever hands one invitee
+   * another's row. The membership select policy is "your own row, always;
+   * everyone else's only if you are joined", so an invitee querying the roster
+   * gets exactly themselves.
+   */
+  footnote:
+    'Only you can see who was invited. Nobody is told who else received an invitation.',
 } as const;
+
+/**
+ * "Invited today", "Invited 2 days ago" — PC-05's row status.
+ *
+ * A date rather than a standing "waiting" label, which is the difference
+ * between a fact and a nudge: the row states when the owner asked and stops.
+ *
+ * COARSER THAN `timeAgo` ON PURPOSE, and PC-04 and PC-05 are drawn that way.
+ * The invitee is answering a thing that just arrived and the hour matters to
+ * them; the owner is looking down a list of people who have not replied, and
+ * "Invited 6 hours ago" invites exactly the arithmetic — is that long? should I
+ * ask again? — that this feature has no chaser for. Days, and nothing finer.
+ *
+ * Falls back to `PENDING.status` when no timestamp arrived, so the row is never
+ * a name with nothing under it.
+ */
+export function invitedLabel(invitedAt: string | null, now: Date = new Date()): string {
+  if (!invitedAt) return PENDING.status;
+  const at = new Date(invitedAt);
+  if (Number.isNaN(at.getTime())) return PENDING.status;
+
+  const days = Math.floor((now.getTime() - at.getTime()) / 86_400_000);
+  if (days <= 0) return 'Invited today';
+  if (days === 1) return 'Invited yesterday';
+  return `Invited ${days} days ago`;
+}
+
+/** The same, spoken — no middle dot, and it says what it is waiting for. */
+export function invitedSpokenLabel(invitedAt: string | null, now: Date = new Date()): string {
+  const drawn = invitedLabel(invitedAt, now);
+  return drawn === PENDING.status ? PENDING.spokenStatus : drawn;
+}
 
 /** "Invitations · 2 waiting" — the count beside the section heading. */
 export function invitationsWaiting(n: number): string {
@@ -322,6 +530,54 @@ export function invitationsWaiting(n: number): string {
 /** What a group row says about itself under its name. */
 export function groupRowLine(memberCount: number, isOwner: boolean): string {
   return isOwner ? `${memberLine(memberCount)} · you own it` : memberLine(memberCount);
+}
+
+/**
+ * PC-06's line under the group's name — "4 members · you own this group".
+ *
+ * Not `memberLine`, and the difference is the second half. On a LIST row the
+ * useful second fact is that the group is private, because the row sits beside
+ * other things in an app that has public surfaces. On the group's OWN screen
+ * the reader is already inside a room whose invite-only nature the footnote
+ * states in full at the foot; what they do not otherwise know is which of the
+ * two sets of controls below belongs to them. So the role goes here, in words,
+ * exactly as the access matrix requires ("every role is stated in words on the
+ * relevant screen").
+ */
+export function groupSubtitle(memberCount: number, isOwner: boolean): string {
+  return isOwner
+    ? `${memberCountPhrase(memberCount)} · you own this group`
+    : memberLine(memberCount);
+}
+
+/**
+ * PC-06's own strings: the two sections, the way in, and the closing promise.
+ */
+export const OVERVIEW = {
+  membersHeading: 'Members',
+  waitingHeading: 'Waiting',
+  /**
+   * "Invite someone", and not `ALONE.action`'s "Invite a friend".
+   *
+   * The liveness state is asking for THE first person and says so; this control
+   * sits under a roster that already has people on it, where "a friend" would
+   * imply the ones already there were something else. Same act, two rooms.
+   */
+  invite: 'Invite someone',
+  /**
+   * The closing footnote, and it is the sentence that makes the feature
+   * legible. True by construction, not by promise: `circles`' select policy is
+   * `can_see_circle(id)`, so a non-member's query returns nothing at all —
+   * there is no listing to find it in and no existence oracle to ask.
+   */
+  footnote:
+    'Invite-only. Members see each other and nothing beyond this group. There is no way to find it from outside.',
+} as const;
+
+/** "2 invitations waiting" — the row that leads to the outgoing invitations. */
+export function invitationsWaitingRow(n: number): string {
+  const count = Number.isFinite(n) ? Math.max(Math.floor(n), 0) : 0;
+  return count === 1 ? '1 invitation waiting' : `${count} invitations waiting`;
 }
 
 /**
@@ -362,6 +618,8 @@ export const MANAGE = {
    * of which the word "Members" prepares anybody for.
    */
   link: 'Manage',
+  /** Spoken, where "Manage" alone is a verb with no object — PC-06's own label. */
+  manageSpoken: 'Manage group',
   /** The word on the badge. Never a colour, never a crown — a word. */
   ownerBadge: 'Owner',
   remove: 'Remove',
@@ -383,9 +641,59 @@ export const MANAGE = {
    */
   ownerCannotLeave:
     'You made this group, so you cannot leave it. Deleting it is the way out, and there is no way to hand it to someone else yet.',
-  leave: 'Leave the group',
-  delete: 'Delete the group',
+  /** The row labels, PC-07 and PC-07b. Bare verbs: they sit inside a card. */
+  leave: 'Leave group',
+  delete: 'Delete group',
+  /** PC-07's own title, and PC-07b's — two screens, two different subjects. */
+  ownerTitle: 'Manage',
+  memberTitle: 'This group',
+  /** The nav-bar control that closes the surface without doing anything. */
+  done: 'Done',
+  /** PC-07's second section, over the group-level controls. */
+  groupHeading: 'Group',
+  /** PC-07b's, over the one control a member has. */
+  memberHeading: 'What you can do',
 } as const;
+
+/** "Sunday tennis · you are the owner" — PC-07's line under the title. */
+export function manageOwnerSubtitle(name: string): string {
+  return `${name.trim()} · you are the owner`;
+}
+
+/**
+ * "Sunday tennis · Maya Okonkwo owns it" — PC-07b's.
+ *
+ * Names the owner because a member's whole question on this screen is who the
+ * controls they cannot see belong to. Falls back when `social_profiles` gave no
+ * name: a co-member who is the owner's mutual friend but a stranger to the
+ * reader resolves to nothing, and "undefined owns it" is how that ships.
+ */
+export function manageMemberSubtitle(name: string, ownerName: string | null): string {
+  const owner = ownerName?.trim();
+  return owner
+    ? `${name.trim()} · ${owner} owns it`
+    : `${name.trim()} · somebody else owns it`;
+}
+
+/**
+ * PC-07b's footnote — the permission boundary, stated rather than implied by an
+ * absence of buttons.
+ *
+ * The atlas's version lists renaming among the owner's powers; renaming has no
+ * surface in the shipped app, so the word is dropped here for the same reason
+ * it is dropped from `CREATE.about` — a member should not be told about a
+ * control that does not exist, in either direction.
+ */
+export function memberPermissionNote(ownerName: string | null): string {
+  const owner = ownerName?.trim() || 'The owner';
+  return `Only ${owner} can invite, remove members, or delete this group. You can leave at any time.`;
+}
+
+/** "Members · 4" — PC-07's section heading, which counts as well as names. */
+export function membersHeading(memberCount: number): string {
+  const n = Number.isFinite(memberCount) ? Math.max(Math.floor(memberCount), 0) : 0;
+  return `${MANAGE.heading} · ${n}`;
+}
 
 /** "Joined Mar 4" — the quiet line under a name on the roster. */
 export function joinedLabel(joinedAt: string | null): string {
@@ -495,6 +803,36 @@ export const OFFLINE = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// PC-09b · The group that is not there any more
+// ---------------------------------------------------------------------------
+
+/**
+ * A READ THAT SUCCEEDED AND CAME BACK WITH NOTHING, WHICH IS NOT AN ERROR.
+ *
+ * Before this the screen drew its ordinary frame around a name that was the
+ * empty string and a member line reading "0 members · private" — a page
+ * asserting facts about a group that no longer exists.
+ *
+ * ── WHY IT NAMES NOBODY, WHERE THE FRAME DOES ─────────────────────────────
+ *
+ * PC-09b's body reads "Maya deleted it." The client cannot say that and must
+ * not learn how: `useCircle` answers `null` for a group that was deleted AND
+ * for one the reader was removed from, deliberately and identically — a client
+ * that could tell those apart would be telling somebody they were ejected,
+ * which is the fact PC-07 spends a whole sentence refusing to disclose. So the
+ * notice keeps the frame's second half, which is the load-bearing one, and
+ * drops the attribution it cannot make honestly.
+ *
+ * "Nothing of yours was affected" is a claim this state IS entitled to: no
+ * write was attempted, and a group's deletion cascades over its own rows only.
+ */
+export const GROUP_GONE = {
+  title: 'This group no longer exists.',
+  body: 'Nothing of yours was affected.',
+  action: 'Back to groups',
+} as const;
+
+// ---------------------------------------------------------------------------
 // PC-10 · Full
 // ---------------------------------------------------------------------------
 
@@ -509,6 +847,16 @@ export const OFFLINE = {
 export const FULL = {
   title: 'This group is full.',
   body: `A group holds ${CAP_SPELLED} people. Remove someone before inviting another.`,
+  /**
+   * The remedy, as a control rather than only as a clause.
+   *
+   * The sentence above already names it — "Remove someone before inviting
+   * another" — and PC-10 draws a way to go and do it, because the alternative
+   * is an owner reading an instruction and then hunting for the screen it
+   * refers to. It is a link, not a filled button: the page's one commitment is
+   * the (disabled) Send beneath, and nothing here is the act.
+   */
+  action: 'Manage members',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -641,9 +989,26 @@ export function removeAccessibilityLabel(name: string): string {
   return `${MANAGE.remove} ${name.trim()} from the group`;
 }
 
-/** An invitation still out, spoken with its status rather than only its name. */
-export function pendingRowAccessibilityLabel(name: string): string {
-  return `${name.trim()}. ${PENDING.spokenStatus}.`;
+/** PC-05's "Invite Dana Lin again" — the label spelled as a sentence. */
+export function inviteAgainAccessibilityLabel(name: string): string {
+  return `Invite ${name.trim()} again`;
+}
+
+/**
+ * An invitation still out, spoken with its status rather than only its name.
+ *
+ * The status is composed in rather than left to VoiceOver's traversal for the
+ * reason `groupRowAccessibilityLabel` gives: the row is a name over a quiet
+ * line, and swiping through two fragments of one fact is worse than hearing it
+ * once. `invitedAt` is optional so the undated fallback still reads.
+ */
+export function pendingRowAccessibilityLabel(name: string, invitedAt: string | null = null): string {
+  return `${name.trim()}. ${invitedSpokenLabel(invitedAt)}.`;
+}
+
+/** A closed invitation, spoken with the status printed on it. */
+export function closedRowAccessibilityLabel(name: string, status: string): string {
+  return `${name.trim()}. ${status}.`;
 }
 
 /**

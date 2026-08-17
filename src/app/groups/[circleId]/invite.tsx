@@ -12,12 +12,20 @@ import { ListSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { CIRCLE_EVENTS, circleInviteBlockedProps } from '@/features/circles/analytics';
-import { PICKER, PICKER_HINT, WRITE_FAILED } from '@/features/circles/copy';
-import { circleInviteRows } from '@/features/circles/eligibility';
+import {
+  groupSeatLine,
+  PICKER,
+  pickerSubtitle,
+  SEND_UNAVAILABLE_FULL,
+  sendInvitationsLabel,
+  WRITE_FAILED,
+} from '@/features/circles/copy';
+import { circleInviteRows, circleSeatsRemaining, circleSeatsTaken } from '@/features/circles/eligibility';
 import { routeCircleInvites } from '@/features/circles/invite-routing';
 import { classifyCircleError } from '@/features/circles/errors';
 import { useInviteMembers, useReInviteMember } from '@/features/circles/mutations';
 import { useCircle, useCircleMembers } from '@/features/circles/queries';
+import type { InviteIneligibility } from '@/features/circles/types';
 import { useFriends } from '@/features/social-graph/queries';
 import { profileName } from '@/features/social-graph/types';
 import { track } from '@/lib/posthog';
@@ -103,16 +111,29 @@ export default function InviteToGroupScreen() {
     [friendIds, seats, picked],
   );
 
-  /** Every row refused for room — the cap, reached in the picker. */
-  const full = rows.length > 0 && rows.every((row) => row.ineligibility === 'group_full');
+  /**
+   * The cap, read off the roster rather than off the drawn rows.
+   *
+   * It used to be "every row says group_full", which was true only by accident:
+   * the picker now KEEPS the people who already hold a seat, saying "Already a
+   * member" and "Invite pending", so a full group's rows are a mixture and that
+   * test would have gone quietly false exactly when the notice mattered most.
+   * The seats are the fact; the rows are a drawing of it.
+   */
+  const seatsTaken = circleSeatsTaken(seats);
+  const full = circleSeatsRemaining(seats) === 0;
 
   const toggle = useCallback(
-    (userId: string, selectable: boolean, reason: 'group_full' | 'not_mutual' | null) => {
+    (userId: string, selectable: boolean, reason: InviteIneligibility) => {
       if (!selectable) {
-        // A refused tap is the one moment the reason is worth recording: it is
+        // A refused tap is the one moment a reason is worth recording: it is
         // how "is twelve the right number" gets answered. The property is the
-        // reason and nothing else — never who, never which group.
-        if (reason) track(CIRCLE_EVENTS.inviteBlocked, circleInviteBlockedProps(reason));
+        // reason and nothing else — never who, never which group. Only the two
+        // reasons that are refusals go; "Already a member" is the reader
+        // tapping somebody they already asked, which measures nothing.
+        if (reason === 'group_full' || reason === 'not_mutual') {
+          track(CIRCLE_EVENTS.inviteBlocked, circleInviteBlockedProps(reason));
+        }
         return;
       }
       setPicked((prev) =>
@@ -183,24 +204,39 @@ export default function InviteToGroupScreen() {
 
   const loading = friends.isLoading || members.isLoading;
   const failed = friends.isError || members.isError;
+  const groupName = circle.data?.name ?? '';
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <ScreenHeader title={PICKER.title} backLabel={PICKER.cancel} />
+      <ScreenHeader backLabel={PICKER.cancel} />
 
-      <ScrollView contentContainerClassName="px-gutter pb-24">
+      <ScrollView contentContainerClassName={failed ? 'pb-24' : 'px-gutter pb-24'}>
         <Text variant="display" trim accessibilityRole="header" className="mt-3">
           {PICKER.title}
         </Text>
-        <Text variant="body" className="mt-3 text-muted" accessibilityHint={PICKER_HINT}>
-          {PICKER.body}
+        {/* PC-03's line under the title, and PC-10's when the room is closed.
+            Two sentences for two questions: how close am I to filling it, and
+            (once it is full) whose group is this and how many are in it. */}
+        <Text variant="note" className="mt-2">
+          {full ? groupSeatLine(groupName, seatsTaken) : pickerSubtitle(picked.length)}
         </Text>
 
         {/* PC-10, at the top of the picker — which is the whole reason the seat
             count includes outstanding invitations. Counting only members would
             push this sentence onto the twelfth person to tap Accept, who cannot
-            see the cause and could not have avoided it. */}
-        {full ? <GroupFullNotice /> : null}
+            see the cause and could not have avoided it. The remedy the sentence
+            names is attached to it as a control, because an instruction whose
+            screen the reader then has to go and find is half an instruction. */}
+        {full ? (
+          <GroupFullNotice
+            onManage={() =>
+              router.push({
+                pathname: '/groups/[circleId]/manage',
+                params: { circleId: id ?? '' },
+              })
+            }
+          />
+        ) : null}
 
         {loading ? (
           <View className="mt-6">
@@ -215,18 +251,28 @@ export default function InviteToGroupScreen() {
             retrying={friends.isRefetching || members.isRefetching}
           />
         ) : (
-          <Card className="mt-6">
-            {rows.map((row) => (
-              <PickerRow
-                key={row.userId}
-                name={nameFor(row.userId)}
-                avatarUrl={avatarFor(row.userId)}
-                selected={row.selected}
-                reason={row.ineligibility}
-                onToggle={() => toggle(row.userId, row.selectable, row.ineligibility)}
-              />
-            ))}
-          </Card>
+          <>
+            <Card className="mt-6">
+              {rows.map((row) => (
+                <PickerRow
+                  key={row.userId}
+                  name={nameFor(row.userId)}
+                  avatarUrl={avatarFor(row.userId)}
+                  selected={row.selected}
+                  reason={row.ineligibility}
+                  onToggle={() => toggle(row.userId, row.selectable, row.ineligibility)}
+                />
+              ))}
+            </Card>
+
+            {/* PC-03 sets this UNDER the list, not over it: it explains a list
+                the reader is already looking at, and above one it would be
+                explaining nothing yet. The second sentence is the one people
+                actually wonder about — nothing here is a suggestion. */}
+            <Text variant="note" className="mt-3">
+              {PICKER.body}
+            </Text>
+          </>
         )}
 
         {/* A refusal with nowhere else to sit. Above the button rather than
@@ -235,12 +281,26 @@ export default function InviteToGroupScreen() {
             announced rather than silently appearing under a thumb. */}
         {note ? <Notice message={note} tone="critical" className="mt-8" /> : null}
 
+        {/* The count is ON the control — PC-03's own label. This is the one tap
+            in the flow that writes to other people's accounts, and a button
+            saying only "Send" would leave the reader to remember how many rows
+            they ticked. Disabled, it says WHY in the spoken label rather than
+            leaving `accessibilityState.disabled` to be the whole message. */}
         <Button
-          title={PICKER.action}
+          title={sendInvitationsLabel(picked.length)}
           variant="primary"
           onPress={send}
           disabled={picked.length === 0 || invite.isPending || reInvite.isPending}
           loading={invite.isPending || reInvite.isPending}
+          accessibilityLabel={full ? SEND_UNAVAILABLE_FULL : sendInvitationsLabel(picked.length)}
+          // A SAND SLAB WHEN THERE IS A REASON, A DIMMED PILL WHEN THERE IS NOT
+          // — `button-spec.ts`'s own distinction, and PC-10 draws the first.
+          // A 40% pill above a fully-opaque sentence explaining the refusal
+          // reads as two different levels of switched-off; a solid ground reads
+          // as a control that is simply waiting on the sentence above it. With
+          // nothing ticked and no notice on screen there is no such sentence,
+          // so the ordinary dim is right.
+          disabledTone={full ? 'filled' : 'dim'}
           className="mt-8"
         />
       </ScrollView>

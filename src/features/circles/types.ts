@@ -93,6 +93,16 @@ export interface CircleMemberEntry {
    * accepted again.
    */
   joinedAt: string | null;
+  /**
+   * When the invitation was last made, and null in every other state — the
+   * mirror of `joinedAt`, and true for the same reason: a row that currently
+   * reads `invited` was last written at the moment it became `invited`.
+   *
+   * PC-05 prints it ("Invited 2 days ago", "Invited today") rather than a
+   * standing "waiting" label, because a date is a fact and a standing label
+   * starts to read as a nudge.
+   */
+  invitedAt: string | null;
 }
 
 /** One invitation waiting for the caller: PC-04's frame, in data. */
@@ -114,9 +124,23 @@ export interface CircleInvitationEntry {
 /**
  * Why a picker row cannot be chosen, or null when it can.
  *
- * Two reasons and no third. There is deliberately no `blocked`: a block
- * severs both follow edges permanently, so a blocked pair simply stop being
- * mutual friends and land in `not_mutual` — which is what lets PC-10 say "No
- * longer a mutual friend" without disclosing that a block exists.
+ * Four reasons, and PC-03's spec row draws all four —
+ * `disabled(member/pending/not-mutual)` beside the seat cap PC-10 draws. Two of
+ * them are facts about the ROOM (`group_full`, `invite_pending`), two are facts
+ * about the PERSON (`already_member`, `not_mutual`), and every one of them is
+ * printed on the row as words. A row that vanished instead would answer nobody:
+ * somebody hunting for a friend who is not in the list learns nothing from an
+ * absence, and PC-03 keeps Ellis Moore and Jonah Beck on screen saying "Already
+ * a member" and "Invite pending" for exactly that reason.
+ *
+ * There is deliberately no `blocked`: a block severs both follow edges
+ * permanently, so a blocked pair simply stop being mutual friends and land in
+ * `not_mutual` — which is what lets PC-10 say "No longer a mutual friend"
+ * without disclosing that a block exists.
  */
-export type InviteIneligibility = 'group_full' | 'not_mutual' | null;
+export type InviteIneligibility =
+  | 'group_full'
+  | 'not_mutual'
+  | 'already_member'
+  | 'invite_pending'
+  | null;

@@ -202,10 +202,13 @@ test('remaining seats never go negative', () => {
 // 4 · Who is a picker row at all
 // ---------------------------------------------------------------------------
 
-test('somebody who already holds a seat is not a row', () => {
+test('somebody who already holds a seat IS a row, and it says which seat', () => {
   // Offering to invite a person who is already `invited` or `joined` is an
-  // offer the primary key refuses. They are in the group; the roster is where
-  // they belong.
+  // offer the primary key refuses — so the row is inert. It is still DRAWN,
+  // because PC-03 draws it: Ellis Moore reads "Already a member" and Jonah Beck
+  // reads "Invite pending". Dropping them answered nothing — a friend who is
+  // simply absent from the list is indistinguishable from one the app has never
+  // heard of, and the reader's actual question is why they cannot ask Ellis.
   const members: CircleSeatRow[] = [
     { userId: 'owner', state: 'joined' },
     { userId: 'a', state: 'invited' },
@@ -217,9 +220,66 @@ test('somebody who already holds a seat is not a row', () => {
     members,
   });
   assert.deepEqual(
-    rows.map((row) => row.userId),
-    ['c'],
+    rows.map((row) => [row.userId, row.ineligibility, row.selectable]),
+    [
+      ['a', 'invite_pending', false],
+      ['b', 'already_member', false],
+      ['c', null, true],
+    ],
   );
+});
+
+test('a seat-holder never becomes selected, however stale the selection is', () => {
+  // The picker cannot tick them, but a selection made a moment before another
+  // device wrote the row can still name them. A drawn checkmark on a row the
+  // send is going to ignore (`routeCircleInvites` drops seat-holders) is the
+  // interface promising a write that will not happen.
+  const members: CircleSeatRow[] = [
+    { userId: 'owner', state: 'joined' },
+    { userId: 'a', state: 'invited' },
+  ];
+  const [row] = circleInviteRows({
+    candidateIds: ['a'],
+    mutualFriendIds: ['a'],
+    members,
+    selectedIds: ['a'],
+  });
+  assert.equal(row.selected, false);
+  assert.equal(row.ineligibility, 'invite_pending');
+});
+
+test('a stale tick on a seat-holder is not charged against the cap twice', () => {
+  // Their seat is already counted in the roster. Counting the tick as well
+  // would refuse a seat that genuinely exists.
+  const members: CircleSeatRow[] = [
+    { userId: 'owner', state: 'joined' },
+    ...strangers(10).map((userId): CircleSeatRow => ({ userId, state: 'invited' })),
+  ];
+  const rows = circleInviteRows({
+    candidateIds: ['u0', 'fresh'],
+    mutualFriendIds: ['u0', 'fresh'],
+    members,
+    selectedIds: ['u0'],
+  });
+  // One seat left, and the stale tick on `u0` has not eaten it.
+  assert.equal(rows[0].ineligibility, 'invite_pending');
+  assert.equal(rows[1].ineligibility, null);
+});
+
+test('being in the group outranks every other reason', () => {
+  // "No longer a mutual friend" said of somebody the reader can see on the
+  // roster two taps away is an accusation about a person who is standing in the
+  // room. And in a full group, "Group is full" about a member of it is absurd.
+  const members: CircleSeatRow[] = [
+    { userId: 'owner', state: 'joined' },
+    ...strangers(11).map((userId): CircleSeatRow => ({ userId, state: 'joined' })),
+  ];
+  const [row] = circleInviteRows({
+    candidateIds: ['u0'],
+    mutualFriendIds: [],
+    members,
+  });
+  assert.equal(row.ineligibility, 'already_member');
 });
 
 test('somebody who left, declined or was removed IS a row', () => {
