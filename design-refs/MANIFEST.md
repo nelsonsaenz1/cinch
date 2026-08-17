@@ -63,3 +63,37 @@ Today is a fresh standalone atlas; the screen was built from the older combined
 `Cinch.dc.html`. Delta unknown until read.
 
 Neither is a rebuild from zero. Both are **diff-and-reconcile** jobs.
+
+---
+
+## Addendum — the four launch features, retrieved 2026-08-17
+
+The manifest above documents the 8 August drop. The four features shipped or
+completed since then are recorded here. All four now have a local HTML export, a
+local PNG export and an acceptance record, which they did not before: Daily
+Social and Private Circles existed only as `*-ATLAS-SOURCE.md` pointers at a
+live claude.ai project, on the stated principle that "source of truth is the
+LIVE atlas, not a local export". That principle is fine until the project is
+unreachable, so the exports are now pinned here as well.
+
+Retrieved through the signed-in browser from the projects named in each source
+record, as `design-refs/` folder exports:
+`Cinch Daily Social Atlas.zip` (1 740 792 bytes) and
+`Private Circles design atlas.zip` (1 665 910 bytes).
+
+| Feature | HTML | PNG | Frames | Acceptance record | Implementation |
+|---|---|---|---|---|---|
+| **Daily Social** | `Cinch Daily Social Atlas.dc.html` + `DS-*.dc.html` | `png/DS-*/` | 10 (12 PNGs — DS-06 and DS-07 have resting/chosen and off/on) | `DAILY-SOCIAL-ATLAS-SOURCE.md`, founder-accepted, paired to branch contract `73cfabb` | `src/components/daily-social/`, `src/features/daily-social/` |
+| **Private Circles** | `Cinch Private Circles Atlas.dc.html` + `PC-*.dc.html` | `png/PC-*/` | 14 | `PRIVATE-CIRCLES-ATLAS-SOURCE.md`, shipped 2026-08-17 at `37b459a` | `src/app/groups/`, `src/components/circles/`, `src/features/circles/` |
+| **Activity Center** | `32 Notifications - Activity Atlas.dc.html` | `png/32-notifications/` | 5 (N-01…N-05) | 8 August drop | `src/app/activity.tsx`, `src/features/activity/`, `src/components/activity/` |
+| **Outfit Saving** | `35 Saved Plates - Boards Atlas.dc.html` | `png/35-saved-plates/` | 5 (B-01…B-05) | 8 August drop | `src/features/styling/use-favorite-outfits.ts`, `src/components/closet/favorite-outfits-rail.tsx`, `src/app/repeat-outfit.tsx` |
+
+**Pairing verified mechanically, not by eye.** Every one of the 24 `DS-*` and
+`PC-*` HTML frames has a matching PNG directory containing at least one export;
+unpaired frames: **zero**. The AX variants are present as their own frames
+(`DS-02-AX`, `DS-03-AX`, `PC-03-AX`, `PC-06-AX`) rather than folded into their
+base frame, so Dynamic Type behaviour is a drawn artifact and not a note.
+
+`ios-frame.jsx` and `support.js` arrived in both exports and are the shared
+rendering harness the `.dc.html` frames import. They are kept because the HTML
+does not render without them.
