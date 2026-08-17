@@ -116,9 +116,28 @@ select schemaname || '/view',
 union all
 -- prokind is filtered to f/p because pg_get_functiondef raises on aggregates
 -- and window functions rather than returning anything for them.
+--
+-- COMMENTS ARE STRIPPED, AND THE ORDER MATTERS. Every other section here is
+-- reconstructed by Postgres from a parse tree, so it cannot contain a comment;
+-- a function body is the one place the author's own text survives verbatim in
+-- prosrc. This repo's migrations reached production twice over — once as the
+-- committed file, once as a comment-stripped re-application under a clock-time
+-- version — so comparing raw bodies reports 16 functions as different when 15
+-- of them differ only in prose. Worse, stripping AFTER the whitespace collapse
+-- would be actively wrong: once newlines are spaces, `--` runs to the end of
+-- the whole definition and deletes the rest of the function. Block comments,
+-- then line comments, then collapse.
+--
+-- A `--` inside a string literal is stripped too. That is a real if unlikely
+-- false-equality, and it is the safe direction: both sides get the identical
+-- treatment, so this can hide a difference but can never invent one.
 select n.nspname || '/function',
        p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
-       regexp_replace(pg_get_functiondef(p.oid), '\s+', ' ', 'g')
+       btrim(regexp_replace(
+         regexp_replace(
+           regexp_replace(pg_get_functiondef(p.oid), '/\*.*?\*/', ' ', 'g'),
+           '--[^' || chr(10) || ']*', ' ', 'g'),
+         '\s+', ' ', 'g'))
   from pg_proc p
   join pg_namespace n on n.oid = p.pronamespace
  where n.nspname in ('public', 'auth', 'storage')
@@ -155,17 +174,40 @@ union all
 -- to the supabase_* internal roles and to PUBLIC are platform bookkeeping that
 -- a local stack has no reason to reproduce, and including them would drown the
 -- grants that actually decide whether one user can read another's closet.
-select table_schema || '/grant_table',
-       table_name || '.' || grantee || '.' || privilege_type,
+--
+-- pg_catalog ACLs rather than information_schema.role_table_grants, which is
+-- the trap this section originally fell into. Those views are defined to show
+-- only grants whose grantor or grantee is a *currently enabled role*, so the
+-- answer depends on who is connected: measured on the same production database,
+-- information_schema returned 783 rows where the ACLs hold 884. A fingerprint
+-- that changes with the connection string is not a fingerprint, and it would
+-- have reported a difference between CI and production that does not exist.
+-- aclexplode reads the stored ACL directly and is identical from any session.
+select n.nspname || '/grant_table',
+       c.relname || '.' || pg_get_userbyid(a.grantee) || '.' || a.privilege_type,
        'granted'
-  from information_schema.role_table_grants
- where table_schema in ('public', 'auth', 'storage')
-   and grantee in ('anon', 'authenticated', 'service_role')
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  cross join lateral aclexplode(c.relacl) a
+ where n.nspname in ('public', 'auth', 'storage')
+   and c.relkind in ('r', 'p', 'v', 'm')
+   and pg_get_userbyid(a.grantee) in ('anon', 'authenticated', 'service_role')
 
 union all
-select routine_schema || '/grant_routine',
-       routine_name || '.' || grantee || '.' || privilege_type,
+-- Keyed on the identity arguments, not the bare name, so two overloads of the
+-- same function stay two rows. information_schema's routine_name would have
+-- collapsed them, and its specific_name — the alternative — embeds the OID,
+-- which differs between any two databases and would make every routine grant a
+-- permanent false difference.
+select n.nspname || '/grant_routine',
+       p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ').'
+         || pg_get_userbyid(a.grantee) || '.' || a.privilege_type,
        'granted'
-  from information_schema.role_routine_grants
- where routine_schema in ('public', 'auth', 'storage')
-   and grantee in ('anon', 'authenticated', 'service_role')
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  cross join lateral aclexplode(p.proacl) a
+ where n.nspname in ('public', 'auth', 'storage')
+   and p.prokind in ('f', 'p')
+   and not exists (select 1 from pg_depend d
+                    where d.objid = p.oid and d.deptype = 'e')
+   and pg_get_userbyid(a.grantee) in ('anon', 'authenticated', 'service_role')
