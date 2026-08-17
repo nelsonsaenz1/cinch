@@ -10,13 +10,13 @@
  *   1. the install layout — `@expo/fingerprint` hashes RESOLVED PATHS, and this
  *      repo's `node_modules` is a Deno store of symlinks rather than the flat
  *      `npm ci` tree EAS installs (73 sources / `b07ed5b2…` against 168 /
- *      `d9cb8c3b…` for the identical commit);
+ *      `18938ff9…` for the identical commit);
  *   2. untracked local artifacts, `ios/` above all — gitignored and excluded by
  *      `.easignore:66`, so EAS never receives it.
  *
  * These pin the SHAPE of the repair, which is what a future edit can quietly
- * undo. The live proof — recomputing build 38's own commit and getting back the
- * runtime EAS actually stamped on build 38 — costs an `npm ci` per revision, so
+ * undo. The live proof — recomputing build 40's own commit and getting back the
+ * runtime EAS actually stamped on build 40 — costs an `npm ci` per revision, so
  * it is opt-in rather than in the default suite:
  *
  *     CINCH_FINGERPRINT_CONTROL=1 npm test
@@ -35,18 +35,18 @@ import { test } from 'node:test';
 const script = readFileSync('scripts/check-fingerprint.mjs', 'utf8');
 const body = script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 
-const BUILD_38_COMMIT = '9345eb29fc4403652aa1edde96cd5112cafe637c';
-const BUILD_38_RUNTIME = 'd9cb8c3b77a5e69d793dcdbd2aec1484f54cb3c6';
+const BUILD_40_COMMIT = 'ac06aec83105c0d9e0eb88a9d361ce4da1863432';
+const BUILD_40_RUNTIME = '18938ff9525bc2baed62a52ceb514ebefd438c1f';
 
-test('the control is the commit Store build 38 was built from, and its EAS runtime', () => {
-  assert.match(body, new RegExp(`CONTROL_COMMIT = '${BUILD_38_COMMIT}'`));
-  assert.match(body, new RegExp(`CONTROL_HASH = '${BUILD_38_RUNTIME}'`));
+test('the control is the commit Store build 40 was built from, and its EAS runtime', () => {
+  assert.match(body, new RegExp(`CONTROL_COMMIT = '${BUILD_40_COMMIT}'`));
+  assert.match(body, new RegExp(`CONTROL_HASH = '${BUILD_40_RUNTIME}'`));
 
   // And the recorded baseline is that same runtime, so "unchanged" means
   // "still what the store binary carries" rather than "still what some earlier
   // local run happened to produce".
   const baseline = JSON.parse(readFileSync('fingerprint.json', 'utf8'));
-  assert.equal(baseline.hash, BUILD_38_RUNTIME);
+  assert.equal(baseline.hash, BUILD_40_RUNTIME);
   assert.equal(baseline.platform, 'ios');
 });
 
@@ -109,7 +109,7 @@ test('release-ota still refuses to publish without this gate', () => {
   assert.match(ota, /run\('npm', \['run', 'check:fingerprint'\]/);
 });
 
-test('no fingerprint input has moved since the commit build 38 was built from', () => {
+test('no fingerprint input has moved since the commit build 40 was built from', () => {
   /**
    * The cheap half of the runtime question, and the half that catches the
    * accident rather than the intent.
@@ -131,16 +131,16 @@ test('no fingerprint input has moved since the commit build 38 was built from', 
    * Recorded object ids rather than `git diff <build-38-commit> HEAD`.
    *
    * The diff version was written here first and failed in CI with "fatal: bad
-   * object 9345eb2" — `actions/checkout` clones shallow, so the commit build 38
+   * object 9345eb2" — `actions/checkout` clones shallow, so the commit build 40
    * was built from is simply not in the CI checkout. Comparing recorded ids
    * needs nothing but HEAD, which every checkout has, and it says the same
    * thing: these are the exact trees and blobs that produced runtime
-   * d9cb8c3b… on the binary in the store.
+   * 18938ff9… on the binary in the store.
    */
-  const AT_BUILD_38: Record<string, string> = {
+  const AT_BUILD_40: Record<string, string> = {
     'package.json': 'b100309deb0b216591c1caff64405122d0f20d09',
     'package-lock.json': 'b4b6f7ca4cdecc8538c19fadbc627f0cd841790b',
-    'app.config.ts': '6d5a05554bdd8a652988699f9bfdc79ee907b15f',
+    'app.config.ts': 'bfc4159311a711a7fdc3e258682d670bfcaf0756',
     'eas.json': 'ee59b14e9b048b9121f5dbf39ae8d2052a3641e6',
     '.easignore': '6e70ea0a25678378d28a4f9816b770010d72c8f3',
     '.gitignore': 'f43ce861f415104d72feca1b6475fc5f10fbdb37',
@@ -149,7 +149,7 @@ test('no fingerprint input has moved since the commit build 38 was built from', 
   };
 
   const moved: string[] = [];
-  for (const [path, expected] of Object.entries(AT_BUILD_38)) {
+  for (const [path, expected] of Object.entries(AT_BUILD_40)) {
     const actual = execFileSync('git', ['rev-parse', `HEAD:${path}`], {
       encoding: 'utf8',
     }).trim();
@@ -159,7 +159,7 @@ test('no fingerprint input has moved since the commit build 38 was built from', 
   assert.deepEqual(
     moved,
     [],
-    `these are native fingerprint inputs and have moved since build 38:\n${moved.join('\n')}\n` +
+    `these are native fingerprint inputs and have moved since build 40:\n${moved.join('\n')}\n` +
       'If that is deliberate, the tree needs a Store build, not an OTA, and these\n' +
       'recorded ids should be re-taken at the moment that build is submitted.',
   );
@@ -167,17 +167,17 @@ test('no fingerprint input has moved since the commit build 38 was built from', 
 
 // The live one. Opt-in: two `npm ci` installs and two fingerprints.
 test(
-  'CONTROL: build 38’s commit and HEAD both reproduce the runtime EAS stamped on build 38',
+  'CONTROL: build 40’s commit and HEAD both reproduce the runtime EAS stamped on build 40',
   { skip: process.env.CINCH_FINGERPRINT_CONTROL ? false : 'set CINCH_FINGERPRINT_CONTROL=1' },
   () => {
     const out = execFileSync('node', ['scripts/check-fingerprint.mjs', '--verify-control'], {
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
     });
-    assert.match(out, /the method reproduces the runtime EAS stamped on build 38/);
+    assert.match(out, /the method reproduces the runtime EAS stamped on build 40/);
     assert.match(out, /HEAD carries that same runtime/);
     const hashes = [...out.matchAll(/\b([0-9a-f]{40})\b/g)].map((m) => m[1]);
     assert.ok(hashes.length >= 3);
-    for (const h of hashes) assert.equal(h, BUILD_38_RUNTIME);
+    for (const h of hashes) assert.equal(h, BUILD_40_RUNTIME);
   },
 );

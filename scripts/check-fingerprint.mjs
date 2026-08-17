@@ -47,13 +47,13 @@ const baselinePath = join(root, 'fingerprint.json');
 const PLATFORM = 'ios';
 
 /**
- * The commit Store builds 37 and 38 were built from, and the runtime EAS
- * stamped on them. Together they are the CONTROL for this script: a method that
+ * The commit Store build 40 (1.1.0) was built from, and the runtime EAS
+ * stamped on it. Together they are the CONTROL for this script: a method that
  * cannot reproduce a known-good answer is not evidence about anything, and this
  * one silently could not for a while. `--verify-control` runs it.
  */
-const CONTROL_COMMIT = '9345eb29fc4403652aa1edde96cd5112cafe637c';
-const CONTROL_HASH = 'd9cb8c3b77a5e69d793dcdbd2aec1484f54cb3c6';
+const CONTROL_COMMIT = 'ac06aec83105c0d9e0eb88a9d361ce4da1863432';
+const CONTROL_HASH = '18938ff9525bc2baed62a52ceb514ebefd438c1f';
 
 /**
  * WHY THIS DOES NOT HASH THE WORKING DIRECTORY.
@@ -197,12 +197,12 @@ if (process.argv.includes('--verify-control')) {
   const headOk = head.hash === CONTROL_HASH;
   lines.push(
     controlOk
-      ? '  ✓ the method reproduces the runtime EAS stamped on build 38.'
+      ? '  ✓ the method reproduces the runtime EAS stamped on build 40.'
       : '  ✗ the method does NOT reproduce build 38’s runtime — do not trust its verdict.',
   );
   lines.push(
     headOk
-      ? '  ✓ HEAD carries that same runtime: an OTA reaches builds 37 and 38.'
+      ? '  ✓ HEAD carries that same runtime: an OTA reaches build 40.'
       : '  · HEAD differs from build 38’s runtime — that is a real native change.',
   );
   lines.push('');
