@@ -20,16 +20,24 @@ import {
  * strength, because `friend_closet_meta` already nulls all three behind
  * `closet_hidden` and a live switch there would change nothing while claiming
  * otherwise. That is the frame worth checking at AX-XXXL.
+ *
+ * DS-07 rides the same fixture rather than a new one. It starts OFF, which is
+ * its real default and the state a reviewer must see first — nothing on this
+ * screen may suggest sharing is already on — and it is live, so the on
+ * position and its longer state line are one tap away at any text size.
  */
 export default function DevClosetVisibility() {
   const [visibility, setVisibility] = useState<ClosetVisibility>(ALL_VISIBLE);
+  const [wornSharing, setWornSharing] = useState(false);
 
   return (
     <ClosetVisibilityPage
       visibility={visibility}
+      wornSharing={wornSharing}
       onChange={(flag: VisibilityFlag, visible: boolean) =>
         setVisibility((prev) => ({ ...prev, [flag]: visible }))
       }
+      onWornSharingChange={setWornSharing}
       onBack={() => {}}
     />
   );

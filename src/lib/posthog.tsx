@@ -526,7 +526,35 @@ export type AppEvent =
    * Apple sheet is the single most common outcome, and splitting it out makes
    * the funnel harder to read, not easier.
    */
-  | 'auth_failed';
+  | 'auth_failed'
+  // ── Daily Social (docs/design/daily-social-contract.md §5.6) ──────────────
+  //
+  // THE FIRST SOCIAL EVENTS THIS TAXONOMY HAS EVER HAD. The 47 that precede
+  // them contain no `friend_added`, no `explore_viewed`, no `comment_posted` —
+  // so this is where social measurement starts, and it has to be right the
+  // first time.
+  //
+  // Their properties are built by pure functions in
+  // `features/daily-social/analytics.ts`, and the rule that governs them is
+  // absolute: NO user id, friend id, outfit id or item id in any property,
+  // ever. Counts, booleans and short bounded enums only.
+  //
+  // There is deliberately no `daily_social_look_viewed`, and the absence is
+  // the design. An event per friend's look would rebuild a record of who looks
+  // at whom, inside a third-party analytics store, which is worse than doing
+  // it in the database. `tests/daily-social-feed.test.ts` fails if one appears.
+  /** The daily read was opened. `item_count`, and which of the six states. */
+  | 'daily_social_opened'
+  /** `items_seen` and `reached_end` — whether "finite" actually works. */
+  | 'daily_social_completed'
+  /** `reaction`: which of the three, and nothing about who or what. */
+  | 'daily_social_reacted'
+  /** `flag` (the column) and `hidden` — are the four §5.1 controls used? */
+  | 'closet_visibility_changed'
+  /** `shared`. With a default of off, the number the unit lives or dies on. */
+  | 'worn_outfits_sharing_changed'
+  /** `reason`: three different emptinesses, one of which is a content problem. */
+  | 'daily_social_empty';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.
