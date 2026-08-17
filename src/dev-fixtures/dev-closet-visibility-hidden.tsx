@@ -18,19 +18,27 @@ import {
  *
  * Drawn as its own fixture rather than by tapping the sibling, so the state is
  * reachable in one deep link and cannot be missed at review.
+ *
+ * DS-07 is inert here too, and for the matching reason: `friend_worn_outfits`
+ * carries `not p.closet_hidden`, so with the closet off no look crosses however
+ * that switch is set. It is drawn ON so the frame shows an overridden switch
+ * that still remembers its position rather than one that merely looks off.
  */
 export default function DevClosetVisibilityHidden() {
   const [visibility, setVisibility] = useState<ClosetVisibility>({
     ...ALL_VISIBLE,
     closetVisible: false,
   });
+  const [wornSharing, setWornSharing] = useState(true);
 
   return (
     <ClosetVisibilityPage
       visibility={visibility}
+      wornSharing={wornSharing}
       onChange={(flag: VisibilityFlag, visible: boolean) =>
         setVisibility((prev) => ({ ...prev, [flag]: visible }))
       }
+      onWornSharingChange={setWornSharing}
       onBack={() => {}}
     />
   );

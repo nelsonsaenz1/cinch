@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import {
+  DAILY_SOCIAL_EVENTS,
+  closetVisibilityChangedProps,
+} from '@/features/daily-social/analytics';
+import { track } from '@/lib/posthog';
 import { getUserId, supabase } from '@/lib/supabase';
 
 import {
@@ -98,6 +103,17 @@ export function useSetClosetVisibility() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) qc.setQueryData(CLOSET_VISIBILITY_KEY, context.previous);
+    },
+    // Which of the four moved, and which way. These columns shipped without a
+    // control and then without any measurement either, so "do owners actually
+    // use this" has never been answerable — and the money one in particular is
+    // the flag most worth knowing about. Fired on the WRITE, not on the tap:
+    // an optimistic switch that rolled back did not change anything.
+    onSuccess: (_data, { flag, visible }) => {
+      track(
+        DAILY_SOCIAL_EVENTS.closetVisibilityChanged,
+        closetVisibilityChangedProps(flag, visible),
+      );
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: CLOSET_VISIBILITY_KEY });

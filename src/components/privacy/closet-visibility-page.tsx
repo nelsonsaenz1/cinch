@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
 import { PrivacyPage } from '@/components/privacy/privacy-page';
-import { Card, Rule } from '@/components/ui';
+import { Card, Rule, SectionHeader, Text } from '@/components/ui';
 import { ToggleRow } from '@/components/ui/settled-row';
 import {
   VISIBILITY_LABELS,
@@ -10,7 +10,15 @@ import {
   VISIBILITY_TITLE,
   visibilityState,
 } from '@/features/privacy/visibility-copy';
+import {
+  WORN_SHARING_LABEL,
+  WORN_SHARING_NOTE,
+  WORN_SHARING_OVERRIDDEN_REASON,
+  WORN_SHARING_SECTION,
+  wornSharingState,
+} from '@/features/privacy/worn-sharing-copy';
 import type { ClosetVisibility, VisibilityFlag } from '@/features/privacy/use-closet-visibility';
+import { useTheme } from '@/theme/tokens';
 
 /**
  * What friends can see — the control for the four flags that shipped without one.
@@ -30,16 +38,38 @@ import type { ClosetVisibility, VisibilityFlag } from '@/features/privacy/use-cl
  * whole closet and shows it again should find their stat choices where they
  * left them, not silently reset — the same promise the notification
  * preferences make.
+ *
+ * ── DS-07 LIVES HERE, NOT ON A ROUTE OF ITS OWN ───────────────────────────
+ *
+ * "Share what you wear" is the switch the whole Daily Social unit depends on,
+ * and it is a row on this page rather than a screen: it answers the same
+ * question the four above it answer — what do the friends I follow back get to
+ * see — and a second privacy screen is how two privacy screens start
+ * disagreeing about who "friends" means.
+ *
+ * It defaults OFF, which is the opposite of the four above it, and
+ * deliberately: those four preserved behaviour that already shipped, this one
+ * opens a path that never existed, and new exposure starts closed. It goes
+ * inert with the closet for the same reason the three stats do —
+ * `friend_worn_outfits` carries `not p.closet_hidden`, so with the closet
+ * hidden no look crosses however this is set, and an operable switch there
+ * would be a control that lies about its own effect.
  */
 export function ClosetVisibilityPage({
   visibility,
+  wornSharing,
   onChange,
+  onWornSharingChange,
   onBack,
 }: {
   visibility: ClosetVisibility;
+  /** DS-07. `profiles.worn_outfits_shared_since` is non-null. Default false. */
+  wornSharing: boolean;
   onChange: (flag: VisibilityFlag, visible: boolean) => void;
+  onWornSharingChange: (shared: boolean) => void;
   onBack: () => void;
 }) {
+  const { muted } = useTheme();
   const closetHidden = !visibility.closetVisible;
 
   const stats: VisibilityFlag[] = ['piecesVisible', 'wearsVisible', 'costPerWearVisible'];
@@ -73,6 +103,32 @@ export function ClosetVisibilityPage({
             </View>
           ))}
         </Card>
+      </View>
+
+      <View className="mx-gutter mt-8">
+        {/* Its own group, because it is not the closet. The four above govern
+            what a friend finds when they open your closet; this governs
+            something that leaves on its own and comes to them. */}
+        <SectionHeader title={WORN_SHARING_SECTION} className="mb-2.5" />
+        <Card>
+          <ToggleRow
+            label={WORN_SHARING_LABEL}
+            state={wornSharingState(wornSharing)}
+            value={wornSharing}
+            onValueChange={onWornSharingChange}
+            overridden={closetHidden}
+            overriddenReason={WORN_SHARING_OVERRIDDEN_REASON}
+          />
+        </Card>
+        {/* `callout` at 16px, not `note` at 13, and set in muted rather than
+            faint: this is a sentence about what the app does with somebody's
+            data, and the group's floor is that no such sentence is set below
+            15pt. Same treatment `PrivacyPage` gives its own intro. Tone is
+            inline — two `text-*` utilities on one element are resolved by
+            stylesheet order, not by intent. */}
+        <Text variant="callout" className="mt-3" style={{ color: muted }}>
+          {WORN_SHARING_NOTE}
+        </Text>
       </View>
     </PrivacyPage>
   );
