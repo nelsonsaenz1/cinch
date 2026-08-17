@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pressable, RefreshControl, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActivityEntryButton } from '@/components/activity-center';
 import { Card } from '@/components/ui/card';
 import {
   CaughtUpLine,
@@ -496,24 +497,34 @@ export default function ExploreScreen() {
             </View>
           </View>
 
-          {/* The door out of an empty page, and the way to grow a full one —
-              an explicit action rather than a permanent field. 44pt of
-              pressable around 17pt of glyph, labelled, because a lone
-              magnifying glass tells VoiceOver nothing about what it searches. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Find people"
-            accessibilityHint="Opens a sheet to search for friends by username"
-            onPress={openSearch}
-            style={{ width: MIN_TAP_TARGET, height: MIN_TAP_TARGET, marginRight: -11 }}
-            className="items-center justify-center active:opacity-60">
-            <SymbolView
-              name="magnifyingglass"
-              size={17}
-              tintColor={theme.ink}
-              resizeMode="scaleAspectFit"
-            />
-          </Pressable>
+          <View className="flex-row items-center" style={{ marginRight: -11 }}>
+            {/* The door out of an empty page, and the way to grow a full one —
+                an explicit action rather than a permanent field. 44pt of
+                pressable around 17pt of glyph, labelled, because a lone
+                magnifying glass tells VoiceOver nothing about what it searches. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Find people"
+              accessibilityHint="Opens a sheet to search for friends by username"
+              onPress={openSearch}
+              style={{ width: MIN_TAP_TARGET, height: MIN_TAP_TARGET }}
+              className="items-center justify-center active:opacity-60">
+              <SymbolView
+                name="magnifyingglass"
+                size={17}
+                tintColor={theme.ink}
+                resizeMode="scaleAspectFit"
+              />
+            </Pressable>
+
+            {/* The Activity Center's only entry point — AC-01's spec panel.
+                A PUSH from this header rather than a fifth tab, so the inbox
+                cannot compete for attention with the four destinations that
+                do live in the bar (ACTIVITY-CENTER-IMPLEMENTATION.md §13). It
+                carries a boolean presence dot and never a number; see
+                `components/activity-center/entry-button.tsx`. */}
+            <ActivityEntryButton />
+          </View>
         </View>
       </View>
 
