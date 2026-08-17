@@ -142,6 +142,98 @@ resolved.
 Checks at `37aaccb`: `tsc --noEmit` exit 0 · `expo lint` exit 0 · 2128 pass / 0 fail / 1 skipped
 over 2129 · `check:fingerprint` unchanged.
 
+## Worktree estate: 32 → 16, and every commit now in `main`
+
+**Pruned 16**, all fully merged: the 14 clean ones (`lp-a/b/c/int`, `ds-integration`,
+`pc-a-schema`, `pc-integration`, `today-polish`, `today-production`, `ui-excellence-integration`,
+`ai-timeout`, `closet-recut`, `recovery`, `cinch-new-project-b48011`), plus the two
+`agent/commerce-cowork*` entries, which needed `git worktree unlock` first — their `/sessions/rcw-…`
+paths do not exist on this machine and `prune` refuses locked entries. No branch was deleted;
+removal does not touch refs.
+
+**Merged for content — 3 branches, 10 commits, documentation only:**
+
+| Branch | Commits | Net effect on `main` |
+|---|---|---|
+| `claude/ds-a-schema` | 1 | **nothing** — its tree is already `main`'s |
+| `claude/dailysocial-phase0` | 6 | `+docs/design/daily-social-contract.md` |
+| `claude/privatecircles-phase0` | 3 | `+docs/design/private-circles-preparation.md` |
+
+The implementation from both lanes had already reached `main` through `ds-integration` and
+`pc-integration`; what was still outside was the contract doc and the history behind it.
+
+**Merged with `-s ours` — 8 branches: history recorded, content deliberately not taken.**
+`codex/ui-excellence-a/b/c`, `claude/ds-b-client`, `ds-c-states`, `pc-b-client`, `pc-c-states`,
+`claude/goofy-elbakyan-d74065`. Each is now an ancestor of `main` and no file changed.
+
+The justification is per-file, not a judgement. **All eight carry
+`20260810150000_trial_is_twenty_one_days.sql`** — the migration `3ade240` deleted today because it
+was never applied, production has written `interval '14 days'` since 5 August, and the ledger holds
+no row for that version. A content merge would have resurrected it eight times and re-opened a
+product discrepancy closed this morning. Beyond that:
+
+- `ui-excellence-a/c` and `goofy-elbakyan` carry `dev-*` fixture routes that `9a92767` moved out of
+  the router root; `tests/dev-route-exclusion.test.ts` fails if one compiles into the bundle.
+- `ds-c-states` and `pc-c-states` each carry a `contract-types.ts` whose own header calls it
+  "THE ONE FILE INTEGRATION DELETES" and instructs the integrator to replace it with
+  `export * from './types'`. `main` has both `types.ts` files.
+- `goofy-elbakyan` also carries `ghost-slot-grid.tsx`, `example-ghosts.tsx` and `progress-track.tsx`
+  (recorded as deliberately removed), the duplicate-apply migration `20260808160000`, and stale
+  copies of the two generated type files regenerated at `37aaccb`.
+
+`git branch --no-merged main` now lists only `backup/pre-rebase-recovery-20260816` (a backup, by
+definition not for merging), `claude/clothing-app-tech-stack-7c58b2` (recorded "do not resurrect" —
+its migration drops a still-needed RLS policy), and `c-work` / `claude/devroutes-c-docs`, which are
+the same single commit `3c40569` already superseded on `main`.
+
+### The ui-excellence work is live, checked file by file
+
+Asked directly whether the Codex ui-excellence work is in the shipping app. It is, and the check is
+positive rather than inferred. `codex/ui-excellence-integration` is an ancestor of `main` at
+`b00d38d`, and every file the three worker commits touched exists in `main` at equal or greater
+size:
+
+```
+garment-image.tsx 171/171 · media-state.ts 105/105 · context-composer.tsx 132/132
+context-composer-state.ts 100/100 · use-explore-unseen.ts 189/189 · contextual-actions.ts 96/96
+settings.tsx 488/488 · settings-copy.ts 146/146 · unseen.ts 160/159
+closet-content-first.test.ts 188/160 · context-composer.test.ts 148/148
+explore-unseen.test.ts 182/182 · profile-settings-split.test.ts 136/136
+```
+
+`git diff main <branch>` runs **12,876 deletions against 1,157 insertions** — the branches are
+behind `main`, not ahead. Moving to them would delete `src/lib/haptics.ts`, `theme/contrast.ts`,
+`theme/palette.ts`, `styling/outfit-names.ts` and more.
+
+The single file where a branch had more lines is `lately-button.tsx` (94 vs 92), and inspection
+shows `main` ahead there too: the branch calls `Haptics.selectionAsync()` inline, `main` calls the
+centralized `@/lib/haptics` wrapper — a 142-line module the branch does not contain at all.
+
+### Uncommitted work
+
+`preserve/agent-ad62-skeleton-error-state` (`0eda95d`) commits the modified `skeleton.tsx` and the
+untracked `error-state.tsx` from `.claude/worktrees/agent-ad62cb0addaba2495` — across 32 worktrees,
+the only bytes that existed nowhere in git. Kept as a branch and **not** merged, because
+`claude-recovery-handoff.md:60-81` measures `main` ahead on six axes and because restoring
+`PlateSkeleton` reintroduces the reflow `skeleton.tsx` documents as fixed.
+
+`agent-ad55…`'s dirty `deno.lock` was reverted: it pins `expo-updates ~57.0.12` where `main`'s
+`package.json` declares `~57.0.14`. Recovering it would have been a downgrade.
+
+The `goofy-elbakyan` 568-file staged index needed nothing — it is already `main`'s content.
+
+## ⚠️ Concurrency: a Codex session is writing to this checkout
+
+Observed directly, not inferred. `web/api/invite.js`, `web/api/waitlist.js` and `web/index.html`
+changed on disk at **11:02, mid-session**, and `Codex (Service)` / `Codex (Renderer)` processes are
+running. The edit is coherent, deliberate work: an `APP_LIVE` env flag so that invite and waitlist
+links fall back to `cinchstyle.com/#waitlist` instead of sending recipients to
+`apps.apple.com/app/id6798479578`, which 404s until the listing is public.
+
+**Left entirely untouched and not committed by this lane.** It is another actor's in-flight work,
+and `claude-recovery-handoff.md:83-94` records that release ownership sits with Codex. This is the
+second session in a row to observe the primary checkout moving underneath it.
+
 ## Not done, and why
 
 - **No migration repair, no `db reset`, no SQL against production.** Phase 1.3 as written would
