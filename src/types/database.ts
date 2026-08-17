@@ -571,6 +571,68 @@ export type Database = {
         }
         Relationships: []
       }
+      circle_members: {
+        Row: {
+          circle_id: string
+          created_at: string
+          invited_by: string | null
+          role: Database["public"]["Enums"]["circle_member_role"]
+          state: Database["public"]["Enums"]["circle_member_state"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          circle_id: string
+          created_at?: string
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["circle_member_role"]
+          state?: Database["public"]["Enums"]["circle_member_state"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          circle_id?: string
+          created_at?: string
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["circle_member_role"]
+          state?: Database["public"]["Enums"]["circle_member_state"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "circle_members_circle_id_fkey"
+            columns: ["circle_id"]
+            isOneToOne: false
+            referencedRelation: "circles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      circles: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       closet_likes: {
         Row: {
           created_at: string
@@ -610,6 +672,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closet_likes_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
             referencedColumns: ["id"]
           },
           {
@@ -756,6 +825,52 @@ export type Database = {
           subject_user?: string | null
         }
         Relationships: []
+      }
+      daily_social_reactions: {
+        Row: {
+          created_at: string
+          outfit_id: string
+          owner_id: string
+          reaction: string
+          reactor_id: string
+        }
+        Insert: {
+          created_at?: string
+          outfit_id: string
+          owner_id: string
+          reaction: string
+          reactor_id: string
+        }
+        Update: {
+          created_at?: string
+          outfit_id?: string
+          owner_id?: string
+          reaction?: string
+          reactor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_social_reactions_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_social_reactions_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_social_reactions_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       data_exports: {
         Row: {
@@ -923,6 +1038,13 @@ export type Database = {
             foreignKeyName: "event_outfit_posts_outfit_id_fkey"
             columns: ["outfit_id"]
             isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_outfit_posts_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
@@ -932,6 +1054,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_outfits"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_posts_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id", "user_id"]
           },
           {
             foreignKeyName: "event_posts_outfit_same_user"
@@ -1474,6 +1603,13 @@ export type Database = {
             foreignKeyName: "outfit_calendar_outfit_id_fkey"
             columns: ["outfit_id"]
             isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_calendar_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
@@ -1483,6 +1619,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_outfits"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_calendar_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id", "user_id"]
           },
           {
             foreignKeyName: "outfit_calendar_outfit_same_user"
@@ -1569,6 +1712,13 @@ export type Database = {
             foreignKeyName: "outfit_items_outfit_id_fkey"
             columns: ["outfit_id"]
             isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
@@ -1578,6 +1728,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_outfits"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id", "user_id"]
           },
           {
             foreignKeyName: "outfit_items_outfit_same_user"
@@ -1637,6 +1794,13 @@ export type Database = {
             foreignKeyName: "outfit_reactions_outfit_id_fkey"
             columns: ["outfit_id"]
             isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_reactions_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
@@ -1646,6 +1810,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_outfits"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_reactions_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id", "user_id"]
           },
           {
             foreignKeyName: "outfit_reactions_outfit_same_user"
@@ -1736,6 +1907,13 @@ export type Database = {
             foreignKeyName: "outfits_origin_outfit_id_fkey"
             columns: ["origin_outfit_id"]
             isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfits_origin_outfit_id_fkey"
+            columns: ["origin_outfit_id"]
+            isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
@@ -1786,6 +1964,7 @@ export type Database = {
           user_id: string
           username: string | null
           visibility: Database["public"]["Enums"]["profile_visibility"]
+          worn_outfits_shared_since: string | null
         }
         Insert: {
           activity_seen_at?: string | null
@@ -1824,6 +2003,7 @@ export type Database = {
           user_id: string
           username?: string | null
           visibility?: Database["public"]["Enums"]["profile_visibility"]
+          worn_outfits_shared_since?: string | null
         }
         Update: {
           activity_seen_at?: string | null
@@ -1862,6 +2042,7 @@ export type Database = {
           user_id?: string
           username?: string | null
           visibility?: Database["public"]["Enums"]["profile_visibility"]
+          worn_outfits_shared_since?: string | null
         }
         Relationships: []
       }
@@ -2018,6 +2199,13 @@ export type Database = {
             foreignKeyName: "style_feedback_outfit_id_fkey"
             columns: ["outfit_id"]
             isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "style_feedback_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
@@ -2027,6 +2215,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "public_outfits"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "style_feedback_outfit_same_user"
+            columns: ["outfit_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id", "user_id"]
           },
           {
             foreignKeyName: "style_feedback_outfit_same_user"
@@ -2668,6 +2863,65 @@ export type Database = {
         }
         Relationships: []
       }
+      friend_worn_outfit_items: {
+        Row: {
+          item_id: string | null
+          outfit_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outfit_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "friend_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "public_outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      friend_worn_outfits: {
+        Row: {
+          id: string | null
+          name: string | null
+          user_id: string | null
+          worn_at: string | null
+        }
+        Relationships: []
+      }
       public_items: {
         Row: {
           brand: string | null
@@ -2720,6 +2974,13 @@ export type Database = {
             foreignKeyName: "closet_likes_outfit_id_fkey"
             columns: ["outfit_id"]
             isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "closet_likes_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
             referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
@@ -2759,6 +3020,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "public_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outfit_items_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "friend_worn_outfits"
             referencedColumns: ["id"]
           },
           {
@@ -2918,10 +3186,16 @@ export type Database = {
       }
       blocked_between: { Args: { p_a: string; p_b: string }; Returns: boolean }
       blocked_term_in: { Args: { p_text: string }; Returns: string }
+      can_see_circle: { Args: { p_circle: string }; Returns: boolean }
       can_see_event: { Args: { p_event: string }; Returns: boolean }
       catalog_cycle_start: {
         Args: { p_at?: string; p_bill_day: number }
         Returns: string
+      }
+      circle_member_count: { Args: { p_circle: string }; Returns: number }
+      circle_seats_taken: {
+        Args: { p_circle: string; p_except_user: string }
+        Returns: number
       }
       claim_ai_quota: {
         Args: {
@@ -2998,6 +3272,7 @@ export type Database = {
         Returns: number
       }
       export_invoke: { Args: never; Returns: number }
+      friends_sharing_worn_outfits_count: { Args: never; Returns: number }
       has_accepted_social_terms: { Args: never; Returns: boolean }
       import_capacity: {
         Args: never
@@ -3022,6 +3297,8 @@ export type Database = {
         }[]
       }
       invite_card: { Args: { p_handle: string }; Returns: string }
+      is_circle_member: { Args: { p_circle: string }; Returns: boolean }
+      is_circle_owner: { Args: { p_circle: string }; Returns: boolean }
       is_event_host: { Args: { p_event: string }; Returns: boolean }
       is_event_member: { Args: { p_event: string }; Returns: boolean }
       is_friend: { Args: { p_other: string }; Returns: boolean }
@@ -3200,6 +3477,13 @@ export type Database = {
         | "closet_parsing"
         | "packing_brief"
       catalog_provider: "datafeedr" | "sovrn" | "amazon"
+      circle_member_role: "owner" | "member"
+      circle_member_state:
+        | "invited"
+        | "joined"
+        | "declined"
+        | "removed"
+        | "left"
       event_member_role: "host" | "attendee"
       event_member_state: "invited" | "joined" | "declined" | "removed"
       event_visibility: "invite_only" | "friends"
@@ -3376,6 +3660,8 @@ export const Constants = {
         "packing_brief",
       ],
       catalog_provider: ["datafeedr", "sovrn", "amazon"],
+      circle_member_role: ["owner", "member"],
+      circle_member_state: ["invited", "joined", "declined", "removed", "left"],
       event_member_role: ["host", "attendee"],
       event_member_state: ["invited", "joined", "declined", "removed"],
       event_visibility: ["invite_only", "friends"],
