@@ -56,13 +56,19 @@ Run two feature lanes in parallel, each as its own subagent in an isolated workt
 ### Phase 3 — Release integrity (sequential)
 1. **Restore release artifacts:** regenerate the missing HTML/PNG/manifest artifacts from the pipeline identified in Phase 0; commit or re-publish to wherever they're consumed. Verify by fetching/opening each artifact.
 2. **OTA parity:** verify iOS and Android are on the same update/runtime version per channel. If a platform is behind, publish the equalizing update and re-verify by querying the update endpoints.
-3. **Superwall/product metadata:** fix the known template-binding bug — Standard monthly renders a bare `/mo` with no price while Pro renders correctly; this is a binding bug on the Standard monthly token in the paywall editor, NOT a product-state issue (products show correct prices in Superwall). Verify all four products (standard/pro × monthly/annual) render prices on the published paywall. Confirm entitlement mapping unchanged. Note: products show "Pending" because ASC subscriptions are Waiting for Review — that is expected, do not "fix" it; purchases are Sandbox-only until Apple approves.
+3. **Superwall/product metadata — NOW REVENUE-CRITICAL.** As of 2026-08-17 the app is LIVE and all four subscriptions are **Approved** in ASC, so real purchases are possible today. Fix the template-binding bug: Standard monthly renders a bare `/mo` with no price while Pro renders `$14.99/mo`. Superwall holds the 7.99 price, so this is a binding bug on the Standard monthly token in the paywall editor, not a product-state issue. Verify all four products (standard/pro × monthly/annual) render prices on the published paywall, confirm the Superwall products have flipped out of "Pending" now that ASC approved them, and confirm entitlement mapping is unchanged. Also enable **Billing Grace Period** in ASC (currently unconfigured) — it recovers involuntary churn at zero cost.
 
 ### Phase 4 — Converge and ship
+**Context as of 2026-08-17: v1.0 (build 36) is APPROVED and LIVE on the App Store**, released automatically. This is no longer a first submission — it is an update, and 1.0 stays live and unaffected while 1.1 is in review.
+
 1. Reconcile everything to `main`, push, confirm `main == origin/main` and CI green. No dirty worktrees anywhere (`git worktree list` + status on each).
-2. Bump the iOS build number, produce a new native build (EAS build, production profile), and record build number + commit SHA in the log.
-3. Submit to TestFlight/App Store per the intended state. **Before submitting, tell me the current App Store review state** — the 1.0 build was Waiting for Review with the four subscriptions attached; if that review is still pending, submitting a replacement build resets queue position and detaches nothing but changes timing, so I decide whether this build replaces the in-review binary or waits. Do not cancel or replace an in-review submission without my explicit go-ahead.
-4. Verify availability: build visible in TestFlight, correct build number, correct version string, submission state recorded.
+2. **Split the release into two lanes and tell me which lane each change belongs to before building:**
+   - **OTA lane (no Apple review):** JS/TS, components, styling, copy, refacing work, bug fixes. Ship these via EAS Update to the matching runtime version — same day, no review.
+   - **Native lane (Apple review required):** native modules, Expo SDK bumps, permissions/`Info.plist`, icon/launch screen, entitlements, runtime-version changes.
+   If Activity Center and Outfit Saving turn out to be pure JS, say so — they ship OTA today and the native build becomes optional rather than blocking.
+3. If a native build is warranted: bump to **1.1** with a new build number (37+), produce an EAS production build, record build number + commit SHA in the log, and submit for review. Do not touch the live 1.0 listing while doing so.
+4. Metadata changes (description, keywords, screenshots, subtitle) are review-gated but decoupled from the binary — batch them onto the 1.1 submission. **Promotional text is editable with no review at all**; use it for anything urgent.
+5. Verify: build visible in TestFlight with correct build/version strings, 1.1 submission state recorded, and 1.0 still live and downloadable throughout.
 
 ### Final verification (subagent)
 Dispatch a fresh verification subagent with no prior context to independently confirm: clean tree, local==CI checks, migration ledger consistent, both features present and refaced on main, artifacts restored, OTA parity, paywall prices rendering, and the new build's number/state in ASC. Its report closes out `RECOVERY-LOG.md`.
@@ -75,4 +81,4 @@ Dispatch a fresh verification subagent with no prior context to independently co
 3. Any migration that executes SQL against prod
 4. Per-item worktree/snapshot discards
 5. Per-screen design acceptance (Phase 2)
-6. Replace-vs-wait on the in-review App Store submission
+6. OTA-vs-native lane assignment for each change, before any build is produced
