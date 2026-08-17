@@ -275,6 +275,19 @@ select throws_ok(
   '42501', null,
   '19 · and not un-revoke a withdrawn subject to bring its buttons back');
 
+-- Re-assert the caller before writing.
+--
+-- `throws_ok` runs its statement inside a PL/pgSQL block with an EXCEPTION
+-- handler, which is a subtransaction, and an aborted subtransaction restores
+-- GUCs — `request.jwt.claims` among them — to whatever they were when it
+-- opened. Tests 17-19 are three consecutive `throws_ok` calls, so by the time
+-- control reaches this line `auth.uid()` is no longer reliably the recipient,
+-- and the UPDATE below fails its WITH CHECK with "new row violates row-level
+-- security policy" rather than the guard's own message. That failure is the
+-- fixture losing its identity, not the policy being wrong.
+select set_config('request.jwt.claims',
+  '{"sub":"a0000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+
 -- The dismissal, and the fact the select policy hides it while the update
 -- policy does not — which is exactly what makes the five-second undo possible.
 update public.activity_events set dismissed_at = now()

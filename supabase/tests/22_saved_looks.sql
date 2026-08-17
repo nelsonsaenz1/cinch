@@ -98,7 +98,15 @@ insert into public.outfits (id, user_id, name, worn_at) values
 insert into public.events (id, host_id, title, starts_at)
 values ('e5e5e5e5-e5e5-45e5-85e5-e5e5e5e5e5e5',
         '53535353-5353-4353-8353-535353535353', 'Kit''s dinner', now() + interval '1 day');
+-- The HOST needs a membership row of his own. `assert_post_is_member` asks
+-- `is_event_member(poster)` and hosting is not joining — creating an event does
+-- not write an `event_members` row for its creator, so the post below is by
+-- somebody the trigger has never heard of unless this exists. Without it the
+-- fixture dies at the post with "join the event before posting", which is the
+-- trigger being right about a fixture that was wrong.
 insert into public.event_members (event_id, user_id, role, state, invited_by) values
+  ('e5e5e5e5-e5e5-45e5-85e5-e5e5e5e5e5e5', '53535353-5353-4353-8353-535353535353',
+   'host', 'joined', '53535353-5353-4353-8353-535353535353'),
   ('e5e5e5e5-e5e5-45e5-85e5-e5e5e5e5e5e5', '51515151-5151-4151-8151-515151515151',
    'attendee', 'joined', '53535353-5353-4353-8353-535353535353');
 insert into public.event_outfit_posts (id, event_id, user_id, outfit_id)
