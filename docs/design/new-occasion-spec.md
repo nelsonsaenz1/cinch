@@ -108,6 +108,33 @@ These follow the precedents fixed on the Stylist page (2026-08-07):
   itself, so the intent (make the name the page's hero) maps to the nearest
   step up from today's `title` (28).
 
+### Three drawn values the reface (2026-08-17) had to give up, and why
+
+Each was measured against real Helvetica Neue on the 393pt design width before
+it was changed; the arithmetic lives in the code beside the fix, and the
+thresholds are pure functions in `src/features/events/new-layout.ts` so they can
+be called from a test rather than sat in markup as constants.
+
+- **The time control's `118` is a `minWidth`, not a `width`** (§3.2). A fixed
+  width is a promise about how wide a formatted time is, and `12:30pm` breaks it
+  at fontScale **1.35** — the top of the *standard* Dynamic Type range, reached
+  without touching an accessibility size. 118 survives as a floor, so the row is
+  drawn exactly as accepted at the default size; above `AX_STACK_SCALE` (1.5)
+  the two controls stack, which is the same threshold the closet already uses
+  for labelled controls that stop fitting one measure.
+- **The place row stacks its name over its locality** (§5). Drawn inline, the
+  two shared 319pt and `The Stanley Hotel & Concert Hall` + `Estes Park` needed
+  319.1 at the DEFAULT size and 568.1 at the top of the scale. Because React
+  Native defaults `flexShrink` to 0 the name never ellipsised — the row grew and
+  the panel's `overflow-hidden` cut it off with nothing to show for it. Stacking
+  follows `EventCard`'s settled refusal to clamp a venue name at all.
+- **The counter is `N left`, and the note placeholder loses its second clause**
+  (§3.2). `Names cap at 60 characters — 4 left.` measured 389.7pt against a
+  353pt page and wrapped to two lines; the cap it announced was already being
+  enforced at the keyboard. The name placeholder drops to two examples for the
+  same measured reason: a single-line `TextInput` scrolls its placeholder rather
+  than wrapping it, so three ran off the end of the first field on the page.
+
 ---
 
 ## 2. Migration — `starts_at` becomes nullable

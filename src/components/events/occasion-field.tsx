@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Pressable,
   TextInput,
+  useWindowDimensions,
   View,
   type StyleProp,
   type TextInputProps,
@@ -9,7 +10,9 @@ import {
 } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import { fieldValueMaxLines } from '@/features/events/new-layout';
 import { useTheme, type ThemeColors } from '@/theme/tokens';
+import { MAX_TEXT_SCALE } from '@/theme/type-scale';
 
 /**
  * The labelled field the New Occasion form is built out of (N-03).
@@ -167,11 +170,21 @@ export function FieldGroup({
     <View className={className}>
       {/* 8px, carried by the row rather than by a margin on the control, so a
           caller can put anything at all underneath without knowing the gap. */}
-      <View className="mb-2 flex-row items-baseline justify-between">
+      <View className="mb-rhythm flex-row items-baseline justify-between gap-2">
         {/* Inline colour, never a second `text-*` class: `eyebrow` already
             carries `text-muted`, and NativeWind gives no precedence between
-            two colour utilities on one element. */}
-        <Text variant="eyebrow" style={alert ? { color: theme.accent } : undefined}>
+            two colour utilities on one element.
+
+            `shrink` because React Native — unlike the web — defaults
+            `flexShrink` to 0, so a Text in a row reports its full intrinsic
+            width and the ROW grows instead of the text wrapping. The eyebrows
+            this form draws all fit today; a translated one need not, and the
+            side that must give way is the label rather than the `Optional`
+            marker beside it. */}
+        <Text
+          variant="eyebrow"
+          className="shrink"
+          style={alert ? { color: theme.accent } : undefined}>
           {label}
         </Text>
         {/* `noteSmall`, not `caption` — `caption` is `font-medium` and renders
@@ -223,7 +236,7 @@ export type FieldNoteProps = {
 /** The quiet line under a control: the counter, the forecast clause. */
 export function FieldNote({ children, live = false }: FieldNoteProps) {
   return (
-    <View className="mt-2" accessibilityLiveRegion={live ? 'polite' : 'none'}>
+    <View className="mt-rhythm" accessibilityLiveRegion={live ? 'polite' : 'none'}>
       <Text variant="note">{children}</Text>
     </View>
   );
@@ -243,7 +256,7 @@ export function FieldAlert({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
 
   return (
-    <View className="mt-3 flex-row items-start gap-2.5" accessibilityLiveRegion="polite">
+    <View className="mt-bezel flex-row items-start gap-2.5" accessibilityLiveRegion="polite">
       <View
         className="rounded-full"
         style={{ width: 8, height: 8, marginTop: 6, backgroundColor: theme.accent }}
@@ -292,6 +305,7 @@ export function FieldButton({
   style,
 }: FieldButtonProps) {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
   const answered = Boolean(value);
 
   return (
@@ -309,13 +323,16 @@ export function FieldButton({
         {/* A disabled control keeps the placeholder colour rather than dimming
             the box: the time button is disabled only until a date exists, and
             a 40% box would read as broken instead of as not-yet. */}
-        {/* Two lines, not one. `Sat 9 Aug` fits on one line at every size the
-            atlas draws; at AX3 and above it does not, and a date the user
-            cannot read is a date they cannot check. The box grows to hold it
-            (see the metrics above) rather than truncating it. */}
+        {/* Two lines at the sizes the atlas draws, and NO clamp above them.
+            `Sat 9 Aug` fits on one line at the default size and two is slack
+            that is never spent; past `AX_FONT_SCALE` a formatted date needs
+            more than two and the clamp becomes the truncation it was meant to
+            prevent. The rule lives in `new-layout.ts` so it can be called and
+            tested rather than sat in the markup as a constant. The box grows
+            to hold whatever comes back (see the metrics above). */}
         <Text
           variant="body"
-          numberOfLines={2}
+          numberOfLines={fieldValueMaxLines(fontScale)}
           className="flex-1"
           style={{ color: answered ? theme.ink : theme.faint }}>
           {answered ? value : placeholder}
@@ -344,12 +361,6 @@ export type OccasionFieldProps = {
    * watches from the first keystroke reads as a warning."
    */
   counterFrom?: number;
-  /**
-   * The counter's sentence. The name field passes the atlas's own wording
-   * ("Names cap at 60 characters — 4 left."); the default is the generic form,
-   * because a note field is not full of names.
-   */
-  counterCopy?: (remaining: number, cap: number) => string;
   accessibilityLabel: string;
   accessibilityHint?: string;
   autoFocus?: boolean;
@@ -360,8 +371,20 @@ export type OccasionFieldProps = {
   className?: string;
 };
 
-const defaultCounterCopy = (remaining: number, cap: number) =>
-  `Caps at ${cap} characters — ${remaining} left.`;
+/**
+ * The counter, as short as a count can be said.
+ *
+ * It replaces two sentences — "Names cap at 60 characters — 4 left." on the
+ * name and "Caps at 280 characters — 12 left." on the note — and the clause
+ * both of them dropped is the cap itself. By the time this line appears the
+ * reader is inside the last ten characters and `maxLength` is already refusing
+ * the eleventh, so the number they are about to hit is being demonstrated
+ * rather than announced. What is left is the only part that was ever news.
+ *
+ * It also stops wrapping: the name's old sentence measured 389.7pt against a
+ * 353pt page at the top of the scale, so the one line under the field was two.
+ */
+const counterCopy = (remaining: number) => `${remaining} left`;
 
 /**
  * The labelled text field — N-03 assembled.
@@ -380,7 +403,6 @@ export function OccasionField({
   multiline = false,
   maxLength,
   counterFrom,
-  counterCopy = defaultCounterCopy,
   accessibilityLabel,
   accessibilityHint,
   autoFocus,
@@ -411,6 +433,15 @@ export function OccasionField({
           // app-wide convention and iOS's own, and the string is duplicated by
           // the label above it.
           placeholderTextColor={theme.faint}
+          // The app's own ceiling for running text, which a raw `TextInput`
+          // does not inherit — `Text` applies it and `type-scale.ts` names this
+          // exact call site: "a call site only needs one of these when it is
+          // setting the multiplier on a raw RNText, a TextInput…". Uncapped,
+          // the field's own text ran to 3.1× at AX5 while its label, its
+          // counter and every other word on the form stopped at 1.8×, so the
+          // one control the reader is looking at was the one place the type
+          // scale did not hold.
+          maxFontSizeMultiplier={MAX_TEXT_SCALE}
           maxLength={maxLength}
           multiline={multiline}
           textAlignVertical={multiline ? 'top' : 'center'}
@@ -434,9 +465,7 @@ export function OccasionField({
           style={{ color: theme.ink, ...INPUT_RESET }}
         />
       </FieldBox>
-      {showCounter ? (
-        <FieldNote live>{counterCopy(Math.max(remaining, 0), maxLength!)}</FieldNote>
-      ) : null}
+      {showCounter ? <FieldNote live>{counterCopy(Math.max(remaining, 0))}</FieldNote> : null}
     </FieldGroup>
   );
 }

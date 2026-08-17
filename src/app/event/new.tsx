@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { weatherLineFor, whenLabel } from '@/components/events/EventCard';
@@ -35,6 +35,10 @@ import {
   EVENT_DRAFT_DEBOUNCE_MS,
   type EventDraft,
 } from '@/features/events/event-draft';
+import {
+  TIME_CONTROL_MIN_WIDTH,
+  whenControlsStacked,
+} from '@/features/events/new-layout';
 import { useOccasionWeather } from '@/features/events/occasion-weather';
 import { socialDenialCopy, useCreateEvent } from '@/features/events/mutations';
 import {
@@ -43,7 +47,7 @@ import {
   venueMetaForColumn,
   type ResolvedVenueMeta,
 } from '@/features/events/venue-search';
-import { useTheme } from '@/theme/tokens';
+import { GUTTER, useTheme } from '@/theme/tokens';
 
 /**
  * New event — the New Occasion State Atlas, N-01…N-08, as corrected by LP-03,
@@ -96,6 +100,12 @@ const NOTE_MAX = 280;
  *  keystroke reads as a warning." */
 const COUNTER_FROM = 10;
 
+/** The docked footer's height before it has laid out once — the default-size
+ *  sum of its ink button and its insets. Only ever the value for the first
+ *  frame; `onLayout` replaces it with the real one, at whatever type size the
+ *  reader is actually at. */
+const FOOTER_HEIGHT_ESTIMATE = 120;
+
 /** The four the atlas draws, in ascending formality. Stored as the display
  *  string in `dress_code`, which is free text — older occasions hold whatever
  *  the previous free-text field took, and still render it. */
@@ -116,8 +126,27 @@ export default function NewOccasionScreen() {
   const navigation = useNavigation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
   const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
   const session = useSession();
+
+  /**
+   * The docked footer's real height, measured rather than assumed.
+   *
+   * The scroll used to end in a flat `pb-32` — 128pt of padding standing in for
+   * a footer whose height is the sum of a wrapping button label, an optional
+   * helper sentence, an optional failure line and the home indicator. At the
+   * top of the type scale that footer measures past 170pt, so the last of the
+   * Note field sat permanently underneath it with no scroll left to reveal it:
+   * the same shape of bug the largest-type walk found on Today, where "because
+   * the content fits without scrolling, there is no scroll to reveal what is
+   * hidden."
+   *
+   * `onLayout` is the only honest source for this. The fallback below is the
+   * default-size footer, used for the single frame before the first layout
+   * lands.
+   */
+  const [footerHeight, setFooterHeight] = useState(FOOTER_HEIGHT_ESTIMATE);
 
   const create = useCreateEvent();
 
@@ -158,6 +187,7 @@ export default function NewOccasionScreen() {
 
   const ready = name.trim().length > 0;
   const canCreate = ready && !create.isPending;
+  const stackWhen = whenControlsStacked(fontScale);
 
   // -------------------------------------------------------------------------
   // The draft
@@ -374,10 +404,14 @@ export default function NewOccasionScreen() {
       {/* The header is local rather than `ScreenHeader`: the atlas draws a text
           Cancel where every other screen draws the circular back disc, and this
           is the one screen you leave by abandoning rather than by going back. */}
-      <View className="flex-row items-center px-gutter pt-2">
+      <View className="flex-row items-center px-gutter pt-rhythm">
         <Pressable
           onPress={cancel}
-          hitSlop={8}
+          // 12, not 8. `Cancel` is one line of `body` — a 22pt line box — so
+          // eight points a side made a 38pt target, four short of the floor.
+          // Twelve clears it (46) and there is nothing else on this row for
+          // the extra slop to reach into.
+          hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Cancel"
           className="active:opacity-60">
@@ -399,17 +433,23 @@ export default function NewOccasionScreen() {
           one thing and never compound. */}
       <KeyboardAwareScrollView
         className="flex-1"
-        // Bottom padding clears the docked footer as well as the home
-        // indicator: the scroll's own inset accounts for the keyboard, not for
-        // the button floating above it.
-        contentContainerClassName="px-gutter pb-32"
+        // Bottom padding clears the docked footer as MEASURED, plus one gutter
+        // of air so the last field never ends flush against it. The scroll's
+        // own inset accounts for the keyboard; this accounts for the button
+        // floating above it, and a constant could not — see `footerHeight`.
+        contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: footerHeight + GUTTER }}
         showsVerticalScrollIndicator={false}>
         {/* Padding, not margin: `trim` carries negative margins of its own
             and a stacked `mt-*` resolves against them to roughly nothing.
             The headline and NOTHING under it: LP-06 gives this surface no
             supporting line, because `Name`, `When`, `Where`, `Dress code` and
-            `Note` already say what the form wants. */}
-        <View className="pb-5 pt-3">
+            `Note` already say what the form wants.
+
+            24 below, against the 20 between fields: the headline has to sit a
+            step further from the first eyebrow than the eyebrows sit from each
+            other, or the page reads as six things in a list instead of a title
+            over five. */}
+        <View className="pb-bare pt-bezel">
           <Text variant="display" trim>
             New event
           </Text>
@@ -422,34 +462,61 @@ export default function NewOccasionScreen() {
             setTouched(true);
             setName(text);
           }}
-          placeholder="Dinner, a wedding, a birthday…"
+          // Two examples, not three. A SINGLE-LINE `TextInput` does not wrap
+          // its placeholder — it scrolls, so an over-long one is simply cut at
+          // the right edge with nothing to show it was — and three examples
+          // measured 429.6pt against 323 at the top of the type scale, which
+          // put `a birthday…` off the end of the first field on the page. Two
+          // still say "any kind of occasion", one casual and one formal, and
+          // the ellipsis carries the rest.
+          placeholder="Dinner, a wedding…"
           maxLength={NAME_MAX}
           counterFrom={COUNTER_FROM}
-          counterCopy={(remaining, cap) => `Names cap at ${cap} characters — ${remaining} left.`}
           accessibilityLabel="Name of the occasion"
-          returnKeyType="next"
+          // `done`, not `next`. There is no next TEXT field to go to — what
+          // follows the name is two sheets and a row of chips — so a Next key
+          // was a promise the keyboard could not keep.
+          returnKeyType="done"
         />
 
-        {/* When — one question, two controls, so one eyebrow over both. */}
-        <FieldGroup label="When" optional className="mt-4">
-          <View className="flex-row gap-2">
+        {/* When — one question, two controls, so one eyebrow over both.
+            Across at the sizes that hold them and stacked above that; the
+            threshold and the arithmetic behind it are in `new-layout.ts`. */}
+        <FieldGroup label="When" optional className="mt-gutter">
+          <View className={stackWhen ? 'gap-2' : 'flex-row gap-2'}>
             <FieldButton
               value={day ? whenLabel(day, null) : null}
               placeholder="Pick a date"
               onPress={() => setDateSheet(true)}
               accessibilityLabel="Pick a date"
-              className="flex-1"
+              // `flex-1` only while the two share a ROW. In a column it is
+              // `flex-basis: 0` inside a container with no definite height,
+              // which is how a control ends up measuring nothing; stacked, the
+              // parent's own `stretch` gives it the full width already.
+              className={stackWhen ? '' : 'flex-1'}
             />
             <FieldButton
               value={minutes === null ? null : formatMinutes(minutes)}
-              placeholder="Time"
+              // `Pick a time`, matching its neighbour, because the two boxes
+              // are the only controls on this form that are NOT text fields
+              // and the verb is what says so. A bare `Time` under a `WHEN`
+              // eyebrow reads as an empty input beside a filled one.
+              placeholder="Pick a time"
               onPress={() => setTimeSheet(true)}
               // A time with no day is not an answer to anything, so the
               // control waits for the date rather than offering to be filled
-              // in an order that cannot be stored.
+              // in an order that cannot be stored — and says which, rather
+              // than leaving a screen reader with a dead control and no
+              // reason for it.
               disabled={!day}
               accessibilityLabel="Pick a time"
-              style={{ width: 118 }}
+              accessibilityHint={day ? undefined : 'Pick a date first.'}
+              // A FLOOR, never a width. The atlas's 118 was a promise about
+              // how wide a formatted time is, and `12:30pm` breaks it at 1.35
+              // — the top of the standard type range, reached without touching
+              // an accessibility size. Stacked, the control takes the measure
+              // and the floor stops mattering.
+              style={stackWhen ? undefined : { minWidth: TIME_CONTROL_MIN_WIDTH }}
             />
           </View>
           {weather ? <FieldNote>{weatherLineFor(weather)}</FieldNote> : null}
@@ -472,10 +539,10 @@ export default function NewOccasionScreen() {
             setPlaceText(selection.name);
             setVenueMeta(resolvedVenueMetaFor(selection));
           }}
-          className="mt-4"
+          className="mt-gutter"
         />
 
-        <FieldGroup label="Dress code" optional className="mt-4">
+        <FieldGroup label="Dress code" optional className="mt-gutter">
           <View className="flex-row flex-wrap gap-2">
             {DRESS_CODES.map((code) => (
               <Chip
@@ -505,13 +572,16 @@ export default function NewOccasionScreen() {
             setTouched(true);
             setNote(text);
           }}
-          placeholder="Anything they should know before they pick a look"
+          // The clause about picking a look came off: the placeholder sat
+          // under a `NOTE` eyebrow on a form whose whole subject is what to
+          // wear, so it was spending eight words to say where it already was.
+          placeholder="Anything they should know"
           optional
           multiline
           maxLength={NOTE_MAX}
           counterFrom={COUNTER_FROM}
           accessibilityLabel="Note for the group"
-          className="mt-4"
+          className="mt-gutter"
         />
       </KeyboardAwareScrollView>
 
@@ -523,8 +593,9 @@ export default function NewOccasionScreen() {
           that is already insetting itself. */}
       <KeyboardAvoidingScreen>
         <View
-          className="border-t border-hairline bg-canvas px-gutter pt-5"
-          style={{ paddingBottom: Math.max(insets.bottom, 20) }}>
+          className="border-t border-hairline bg-canvas px-gutter pt-gutter"
+          onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+          style={{ paddingBottom: Math.max(insets.bottom, GUTTER) }}>
           <Button
             // `Create event`, not `Create occasion`. The screen is titled
             // `New event` and the tab that opens it says events; the button is
@@ -545,7 +616,7 @@ export default function NewOccasionScreen() {
               moves the button. Whitespace is not a name: the check is on the
               trimmed string, so a spacebar leaves everything where it was. */}
           {!ready ? (
-            <View className="mt-2.5 items-center" accessibilityLiveRegion="polite">
+            <View className="mt-rhythm items-center" accessibilityLiveRegion="polite">
               <Text variant="note">Give it a name and Cinch can plan it.</Text>
             </View>
           ) : null}
