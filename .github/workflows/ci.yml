@@ -37,8 +37,17 @@ jobs:
       #
       # It only ever writes the generated file here; tsconfig.json is already
       # configured, so the command leaves it untouched.
+      #
+      # Invoked directly rather than through an npm script, and that is load
+      # bearing: package.json is an `@expo/fingerprint` input, so adding a
+      # one-line script to it moves the native runtime hash every shipped
+      # binary is keyed to and turns the next release from an OTA into a Store
+      # build. fingerprint-gate.test.ts names this exact reflex — "adding an
+      # npm script for a dev helper" — and failed on the commit that did it.
+      # A workflow file is not a fingerprint input, so this convenience costs
+      # nothing.
       - name: Generate route types
-        run: npm run types:routes
+        run: npx expo customize tsconfig.json
 
       - name: Typecheck
         run: npm run typecheck
