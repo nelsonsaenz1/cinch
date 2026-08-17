@@ -4,7 +4,7 @@ import { useWindowDimensions, View } from 'react-native';
 import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { REACTION_HINT, REACTION_LABELS, reactionAccessibilityLabel } from '@/features/daily-social/copy';
-import { DAILY_REACTIONS, type DailyReaction } from '@/features/daily-social/contract-types';
+import { DAILY_REACTIONS, type DailyReaction } from '@/features/daily-social/types';
 import { useTheme } from '@/theme/tokens';
 
 import {

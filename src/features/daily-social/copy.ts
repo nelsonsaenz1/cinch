@@ -48,7 +48,7 @@
 import { CAUGHT_UP_LINE } from '@/features/explore/feed';
 import { sinceLabel } from '@/features/explore/timeline';
 
-import { type DailyReaction } from './contract-types';
+import { type DailyReaction } from './types';
 
 /**
  * The end of the day, imported rather than retyped.
@@ -112,16 +112,28 @@ export function lookAccessibilityLabel({
 // S-1a · no circle
 // ---------------------------------------------------------------------------
 
+/**
+ * S-1a IS ALREADY ON SCREEN, AND THIS IS A TRANSCRIPT OF IT.
+ *
+ * Explore's own empty hero has drawn the no-circle state since long before this
+ * unit existed: an invitation rather than an error, no stranger suggestions, no
+ * "people you may know", and "Find a friend" as the one way out. That is
+ * exactly what §4 asks DS-01a to be, so the unit does not draw a second one —
+ * two no-circle screens on one page is a worse answer than either.
+ *
+ * The strings are repeated here, once, so the contract's claims about S-1a can
+ * be tested beside the other two emptinesses rather than being the one state
+ * nothing checks. `tests/daily-social-copy.test.ts` asserts that every line
+ * below still appears verbatim in `src/app/(tabs)/explore.tsx`, so this cannot
+ * quietly drift into a second version of copy nobody renders.
+ *
+ * Nothing imports it to draw with. If a component ever does, that component is
+ * the bug.
+ */
 export const NO_CIRCLE = {
-  symbol: 'person.2',
-  title: 'Nobody in your circle yet',
-  /**
-   * Names the one action, and says what makes it work — mutual, both ways.
-   * There is no stranger to suggest here and there will not be one: a public
-   * surface would need `profiles.visibility`'s default inverted, which is not
-   * something a screen gets to do.
-   */
-  body: 'This fills with what the friends you follow back have worn. Find someone by username; once you follow each other, their looks can land here.',
+  source: 'src/app/(tabs)/explore.tsx',
+  title: 'An empty page, for now',
+  body: 'This page fills with what your friends add to their closets. Find someone by username; when they add you back, their closet opens to you and yours to them.',
   action: 'Find a friend',
 } as const;
 

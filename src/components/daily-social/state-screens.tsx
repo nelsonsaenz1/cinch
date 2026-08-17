@@ -7,7 +7,6 @@ import { Text } from '@/components/ui/text';
 import {
   CAUGHT_UP_ACCESSIBILITY_LABEL,
   CAUGHT_UP_LINE,
-  NO_CIRCLE,
   NOBODY_SHARING,
   OFFLINE,
   QUIET_DAY,
@@ -15,24 +14,32 @@ import {
 } from '@/features/daily-social/copy';
 
 /**
- * FIVE OF THE SIX STATES, DRAWN — DS-01a, DS-01b, DS-02, DS-04, DS-05.
+ * FOUR OF THE SIX STATES, DRAWN — DS-01b, DS-02, DS-04, DS-05.
  *
- * The sixth (S-3, the day itself) is `look-card.tsx` in a list; it is the only
- * one that has content, and it is the one this file's five exist to be
- * distinguishable from.
+ * S-3, the day itself, is `look-card.tsx` in a list; it is the only one with
+ * content, and the one these exist to be distinguishable from.
+ *
+ * ── AND S-1a IS DRAWN BY THE PAGE, NOT BY THIS FILE ─────────────────────────
+ *
+ * A reader with no circle already meets Explore's own empty hero: an
+ * invitation, no stranger suggestions, "Find a friend" as the way out
+ * (`src/app/(tabs)/explore.tsx`). That is precisely what §4 asks DS-01a to be,
+ * and it shipped before this unit existed. A second no-circle screen would put
+ * two of them on one page, so the day begins where a circle does and this file
+ * draws four states rather than five. `resolveDailyState` still returns
+ * `no_circle` — the model is the contract's; only the drawing is delegated.
  *
  * Every one of these is presentational: props in, no query, no navigation, no
- * mutation. The actions are callbacks the integration owner wires — this lane
- * does not know where "Find a friend" goes.
+ * mutation. The actions are callbacks the integration owner wires.
  *
  * ── ONE NEW COMPOSITION, AND IT IS THE QUIET DAY ────────────────────────────
  *
- * Four of the five are the shared kit unchanged: `EmptyState` twice and
- * `ErrorState` once, so DS-01a, DS-01b and DS-05 inherit the claims discipline
- * those two components hold — an empty state describes the data, an error state
- * refuses to. That discipline is the whole reason the kit exists and re-drawing
- * these by hand would be how a failed read comes to be dressed as an empty
- * circle again.
+ * Three of the four are the shared kit unchanged: `EmptyState` and
+ * `ErrorState`, so DS-01b and DS-05 inherit the claims discipline those two
+ * components hold — an empty state describes the data, an error state refuses
+ * to. That discipline is the whole reason the kit exists and re-drawing these
+ * by hand would be how a failed read comes to be dressed as an empty circle
+ * again.
  *
  * `QuietDayState` is the exception and is argued below.
  *
@@ -43,34 +50,6 @@ import {
  * compositions grow and the page scrolls, which is the only answer the
  * accessibility contract permits.
  */
-
-// ---------------------------------------------------------------------------
-// S-1a · DS-01a — no mutual friends
-// ---------------------------------------------------------------------------
-
-/**
- * An invitation, not an error.
- *
- * `person.2` is the tab bar's own icon for this territory, so the state and the
- * tab that holds it agree about what "your circle" looks like.
- *
- * There is deliberately no suggestion list under this: no strangers, no "people
- * you may know", nothing derived from a contacts permission this app does not
- * request. `profiles.visibility` defaults to `'private'` and a discovery
- * surface would need that default inverted, which is not a decision a screen
- * gets to make.
- */
-export function NoCircleState({ onFindFriends }: { onFindFriends: () => void }) {
-  return (
-    <EmptyState
-      symbol={NO_CIRCLE.symbol}
-      title={NO_CIRCLE.title}
-      body={NO_CIRCLE.body}
-      actionTitle={NO_CIRCLE.action}
-      onAction={onFindFriends}
-    />
-  );
-}
 
 // ---------------------------------------------------------------------------
 // S-1b · DS-01b — mutuals exist, nobody has turned sharing on

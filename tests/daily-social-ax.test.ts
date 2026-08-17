@@ -28,7 +28,7 @@ import {
   dailyReactionVisual,
 } from '../src/components/daily-social/reaction-spec.ts';
 import { lookNameTrimmed } from '../src/components/daily-social/look-card-spec.ts';
-import { DAILY_REACTIONS } from '../src/features/daily-social/contract-types.ts';
+import { DAILY_REACTIONS } from '../src/features/daily-social/types.ts';
 import { REACTION_HINT, reactionAccessibilityLabel } from '../src/features/daily-social/copy.ts';
 import { MIN_TAP_TARGET } from '../src/theme/metrics.ts';
 

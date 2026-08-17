@@ -1,14 +1,40 @@
 import { Link, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo, type ReactNode } from 'react';
-import { Pressable, RefreshControl, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Pressable, RefreshControl, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui/card';
+import {
+  CaughtUpLine,
+  DailyLookSkeleton,
+  DailyOfflineState,
+  LookCard,
+  NobodySharingState,
+  QuietDayState,
+} from '@/components/daily-social';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import {
+  DAILY_SOCIAL_EVENTS,
+  dailySocialCompletedProps,
+  dailySocialEmptyProps,
+  dailySocialOpenedProps,
+  dailySocialReactedProps,
+  type DailySocialState,
+} from '@/features/daily-social/analytics';
+import { DAY_HEADING } from '@/features/daily-social/copy';
+import { useDailyLooks, useFriendsSharingCount } from '@/features/daily-social/queries';
+import { useMyDailyReactions, useSetDailyReaction } from '@/features/daily-social/reactions';
+import {
+  resolveDailyState,
+  showsCaughtUpLine,
+  showsLooks,
+  type DailyState,
+} from '@/features/daily-social/states';
+import { type DailyReaction } from '@/features/daily-social/types';
 import { actionTitle, EXPLORE_ROW_ACTIONS } from '@/features/explore/contextual-actions';
 import { CAUGHT_UP_LINE, circleEntries, showsCaughtUp } from '@/features/explore/feed';
 import {
@@ -24,6 +50,7 @@ import { groupByDay } from '@/features/explore/timeline';
 import { useExploreVisit } from '@/features/explore/use-explore-unseen';
 import { useMutedIds } from '@/features/social-graph/muted';
 import { useFriends } from '@/features/social-graph/queries';
+import { track } from '@/lib/posthog';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -35,6 +62,38 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * constants rather than tokens: no other screen speaks this dialect yet.
  */
 const CARD_RADIUS = 16;
+
+/**
+ * The state map's names, in the taxonomy's names.
+ *
+ * `states.ts` speaks in what a state MEANS (`nobody_sharing`) because that is
+ * what makes a resolver readable; §5.6 fixed the analytics property as `S-1a`…
+ * `S-5` before the resolver existed. Translating here, once, beats either file
+ * bending to the other — and beats a screen inventing a third spelling.
+ */
+const ANALYTICS_STATE: Record<DailyState, DailySocialState> = {
+  no_circle: 'S-1a',
+  nobody_sharing: 'S-1b',
+  quiet_day: 'S-2',
+  the_day: 'S-3',
+  caught_up: 'S-4',
+  offline: 'S-5',
+};
+
+/**
+ * Which emptinesses are worth a second event, and which is not one.
+ *
+ * `daily_social_empty` exists to separate three absences that look identical in
+ * a funnel: nobody to follow, nobody sharing, and a day where nothing happened.
+ * Only one of the three is a content problem. A failed read is not an emptiness
+ * at all and deliberately fires nothing here — counting it as one is how an
+ * outage comes to read as churn.
+ */
+const EMPTY_REASON: Partial<Record<DailyState, 'no_friends' | 'nobody_sharing' | 'quiet_day'>> = {
+  no_circle: 'no_friends',
+  nobody_sharing: 'nobody_sharing',
+  quiet_day: 'quiet_day',
+};
 
 type HeroProps = {
   glyph: ReactNode;
@@ -139,6 +198,15 @@ export default function ExploreScreen() {
   const friends = useFriends();
   const { muted, isMuted, setMuted } = useMutedIds();
 
+  // The day. Three reads, none of which the additions timeline waits on — a
+  // slow friend-worn query must never hold up the page's existing content, and
+  // a failed one resolves to S-5 inside its own section rather than taking the
+  // page with it.
+  const dailyLooks = useDailyLooks();
+  const sharingCount = useFriendsSharingCount();
+  const myReactions = useMyDailyReactions();
+  const setReaction = useSetDailyReaction();
+
   // Variant A plus the device-local mute, both at the read edge — before the
   // day grouping and the signed-URL work, so a hidden row simply never exists
   // for this page: no day header survives with only its entries behind it, and
@@ -153,11 +221,21 @@ export default function ExploreScreen() {
   // rule does not vanish in the same commit that clears the tab dot.
   const { dividerItemId } = useExploreVisit(entries, additions.isSuccess);
 
+  const looks = useMemo(() => dailyLooks.data ?? [], [dailyLooks.data]);
+
   // Plates first, cutouts next, the photograph last. The storage policies allow
   // friends exactly these three derivatives and never the original.
-  const { resolve } = useSignedUrls(
-    entries.flatMap((e) => [e.item.platePath, e.item.cutoutPath, e.item.thumbPath]),
-  );
+  //
+  // The day's pieces sign in the SAME pass as the timeline's. Two `useSignedUrls`
+  // calls would mean two batches over the same bucket, and the collage and the
+  // ledger line below it routinely draw the same garment — one list means one
+  // signature per path either way.
+  const { resolve } = useSignedUrls([
+    ...entries.flatMap((e) => [e.item.platePath, e.item.cutoutPath, e.item.thumbPath]),
+    ...looks.flatMap((look) =>
+      look.pieces.flatMap((piece) => [piece.platePath, piece.cutoutPath, piece.thumbPath]),
+    ),
+  ]);
 
   // Identity comes from the friends list rather than a second profile query:
   // `friend_items` and `useFriends` are gated on the same predicate, so anyone
@@ -171,15 +249,99 @@ export default function ExploreScreen() {
 
   const hasFriends = (friends.data ?? []).length > 0;
 
+  /**
+   * S-3 → S-4, measured rather than assumed.
+   *
+   * "Reached the end" is a fact about the reader, not the data, and hardcoding
+   * it true would make `daily_social_completed` answer its own question — the
+   * question being whether a finite unit actually gets finished. The day sits
+   * at the top of the page, so its end is inside the first viewport whenever it
+   * is short, and this is true on the first layout for those readers, which is
+   * correct: they have seen the end.
+   */
+  const [dailyEndSeen, setDailyEndSeen] = useState(false);
+  const dailyBottom = useRef(0);
+
+  const dailyFailed = dailyLooks.isError || sharingCount.isError;
+  const dailyLoading = dailyLooks.isLoading || sharingCount.isLoading || friends.isLoading;
+
+  const dailyState = resolveDailyState({
+    friendCount: (friends.data ?? []).length,
+    sharingFriendCount: sharingCount.data ?? 0,
+    lookCount: looks.length,
+    failed: dailyFailed,
+    reachedEnd: dailyEndSeen,
+  });
+
+  /**
+   * S-1a is not drawn here, and that is deliberate.
+   *
+   * A reader with no circle already meets this page's own empty hero — an
+   * invitation, no stranger suggestions, "Find a friend" as the way out — which
+   * is exactly what §4 asks S-1a to be, and it shipped before this unit existed.
+   * Mounting a second no-circle screen above it would put two of them on one
+   * page, so the day begins where a circle does.
+   */
+  const showsDaily = hasFriends;
+
+  // Analytics, once the reads have settled — a state reported while loading is
+  // a state nobody was ever in. No id of any kind goes with these (§5.6).
+  const dailyReported = useRef<DailySocialState | null>(null);
+  useEffect(() => {
+    if (!showsDaily || dailyLoading) return;
+
+    const reported = ANALYTICS_STATE[dailyState];
+    if (dailyReported.current === reported) return;
+    dailyReported.current = reported;
+
+    track(DAILY_SOCIAL_EVENTS.opened, dailySocialOpenedProps({
+      lookCount: looks.length,
+      state: reported,
+    }));
+
+    const reason = EMPTY_REASON[dailyState];
+    if (reason) track(DAILY_SOCIAL_EVENTS.empty, dailySocialEmptyProps(reason));
+  }, [showsDaily, dailyLoading, dailyState, looks.length]);
+
+  useEffect(() => {
+    if (!dailyEndSeen || looks.length === 0) return;
+    track(
+      DAILY_SOCIAL_EVENTS.completed,
+      dailySocialCompletedProps({ itemsSeen: looks.length, reachedEnd: true }),
+    );
+  }, [dailyEndSeen, looks.length]);
+
   // Both, because `refresh` refetches both: with one left out, a pull whose
   // slowest query was the friends list ended its spinner while that list was
   // still arriving — the gesture reported done before it was, which is the one
   // thing pull-to-refresh must never do.
-  const refreshing = additions.isRefetching || friends.isRefetching;
+  //
+  // The day joins on the same terms, for the same reason.
+  const refreshing =
+    additions.isRefetching ||
+    friends.isRefetching ||
+    dailyLooks.isRefetching ||
+    sharingCount.isRefetching;
 
   const refresh = () => {
     void additions.refetch();
     void friends.refetch();
+    void dailyLooks.refetch();
+    void sharingCount.refetch();
+  };
+
+  /**
+   * A reaction, and the one analytics property it may carry.
+   *
+   * `dailySocialReactedProps` takes the reaction and nothing else — not who
+   * gave it, not who received it, not which look. Taking it back fires nothing:
+   * there is no `daily_social_unreacted`, because the question §5.6 asks is
+   * whether the fixed set of three is the right set, and a withdrawal does not
+   * answer it.
+   */
+  const react = (outfitId: string, ownerId: string, reaction: DailyReaction | null) => {
+    setReaction.mutate({ outfitId, ownerId, reaction });
+    if (reaction) track(DAILY_SOCIAL_EVENTS.reacted, dailySocialReactedProps(reaction));
   };
 
   const openSearch = () => router.push('/people-search');
@@ -234,6 +396,85 @@ export default function ExploreScreen() {
       );
     });
 
+  /**
+   * THE DAY — S-1b, S-2, S-3, S-4 and S-5, above the timeline that was already
+   * here.
+   *
+   * It sits at the top because it is the perishable half of the page: a look
+   * leaves after seven days and a new piece in a closet does not, so the thing
+   * with a deadline goes first. It stays inside the one `ScrollView` because
+   * the unit is finite (§6) — forty looks at most, ending in a line that says
+   * so — and finiteness is precisely what makes a scroll view still the right
+   * container.
+   *
+   * The section never draws a spinner over content it already has: `looks` is
+   * whatever the last successful read returned, so a refetch leaves the day on
+   * screen and only the pull-to-refresh control moves.
+   */
+  const dailySection = !showsDaily ? null : (
+    <View
+      className="px-gutter"
+      onLayout={(e) => {
+        dailyBottom.current = e.nativeEvent.layout.y + e.nativeEvent.layout.height;
+      }}>
+      <SectionHeader title={DAY_HEADING} className="mb-2.5 mt-6" />
+
+      {dailyLoading ? (
+        <Card style={{ borderRadius: CARD_RADIUS }}>
+          <DailyLookSkeleton />
+        </Card>
+      ) : dailyState === 'offline' ? (
+        <DailyOfflineState
+          onRetry={() => {
+            void dailyLooks.refetch();
+            void sharingCount.refetch();
+          }}
+          retrying={dailyLooks.isRefetching || sharingCount.isRefetching}
+        />
+      ) : dailyState === 'nobody_sharing' ? (
+        <NobodySharingState onOpenSharing={() => router.push('/privacy/visibility')} />
+      ) : dailyState === 'quiet_day' ? (
+        <QuietDayState />
+      ) : showsLooks(dailyState) ? (
+        <View>
+          {looks.map((look) => {
+            const owner = owners.get(look.ownerId) ?? null;
+            return (
+              <View key={look.outfitId} className="mb-4">
+                <LookCard
+                  ownerName={owner?.displayName ?? owner?.username ?? 'A friend'}
+                  name={look.name}
+                  wornAt={look.wornAt}
+                  pieces={look.pieces.map((piece) => ({
+                    itemId: piece.itemId,
+                    imageUrl: resolve(piece.platePath, piece.cutoutPath, piece.thumbPath) ?? null,
+                  }))}
+                  reaction={myReactions.data?.[look.outfitId] ?? null}
+                  onReact={(next) => react(look.outfitId, look.ownerId, next)}
+                />
+              </View>
+            );
+          })}
+
+          {showsCaughtUpLine(dailyState) ? <CaughtUpLine /> : null}
+        </View>
+      ) : null}
+    </View>
+  );
+
+  /**
+   * Has the reader seen the bottom of the day?
+   *
+   * Cheap by design: a ref for the measurement, one boolean of state, and the
+   * comparison stops mattering the moment it is true. Nothing re-renders on
+   * scroll after that.
+   */
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (dailyEndSeen || !showsDaily || looks.length === 0) return;
+    const { contentOffset, layoutMeasurement } = e.nativeEvent;
+    if (contentOffset.y + layoutMeasurement.height >= dailyBottom.current) setDailyEndSeen(true);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="px-gutter pt-2">
@@ -286,9 +527,13 @@ export default function ExploreScreen() {
         // (hoisting them out of the ScrollView) costs the refresh gesture on
         // exactly the screen where "try again" matters most.
         contentContainerStyle={{ flexGrow: 1 }}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
         }>
+        {dailySection}
+
         {additions.isError ? (
           // A failed read is not an empty circle, and must never be dressed as
           // one — this hero exists for the same distinction `ErrorState` does,

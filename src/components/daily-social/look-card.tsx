@@ -2,7 +2,7 @@ import { useWindowDimensions, View } from 'react-native';
 
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { type DailyReaction } from '@/features/daily-social/contract-types';
+import { type DailyReaction } from '@/features/daily-social/types';
 import { lookAccessibilityLabel, UNNAMED_LOOK } from '@/features/daily-social/copy';
 import { sinceLabel } from '@/features/explore/timeline';
 

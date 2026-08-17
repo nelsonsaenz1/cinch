@@ -39,7 +39,7 @@ import {
   reactionAccessibilityLabel,
   UNNAMED_LOOK,
 } from '../src/features/daily-social/copy.ts';
-import { DAILY_REACTIONS } from '../src/features/daily-social/contract-types.ts';
+import { DAILY_REACTIONS } from '../src/features/daily-social/types.ts';
 import { collageRows } from '../src/components/daily-social/look-card-spec.ts';
 import { plateGrid } from '../src/components/today/plate-grid.ts';
 
@@ -141,8 +141,32 @@ test('each of the three names a different action, and S-1b’s is about the read
 test('S-1a never suggests a stranger', () => {
   const all = `${NO_CIRCLE.title} ${NO_CIRCLE.body} ${NO_CIRCLE.action}`;
   assert.doesNotMatch(all, /people you may know|suggested|discover|popular|nearby|browse/i);
-  // It names the mutual condition instead, which is the only way anyone gets in.
-  assert.match(all, /follow/i);
+  // It names the mutual condition instead, which is the only way anyone gets
+  // in. The shipped line says it as "when they add you back" rather than with
+  // the word "follow" — the same condition, in the words a person uses.
+  assert.match(all, /follow|add you back/i);
+});
+
+test('S-1a is the copy the page actually ships, not a second version of it', () => {
+  // The unit draws no no-circle screen: Explore's own empty hero has been that
+  // state since before the unit existed, and two of them on one page is a worse
+  // answer than either. `NO_CIRCLE` is a transcript kept testable — so it has
+  // to still BE the transcript.
+  const src = body(NO_CIRCLE.source);
+  for (const line of [NO_CIRCLE.title, NO_CIRCLE.body, NO_CIRCLE.action]) {
+    assert.ok(src.includes(line), `${NO_CIRCLE.source} no longer says "${line}"`);
+  }
+});
+
+test('nothing draws a second no-circle screen', () => {
+  const kit = readdirSync('src/components/daily-social');
+  for (const file of kit) {
+    assert.doesNotMatch(
+      readFileSync(`src/components/daily-social/${file}`, 'utf8'),
+      /NO_CIRCLE|NoCircleState/,
+      `${file} draws a no-circle state the page already draws`,
+    );
+  }
 });
 
 test('S-1b carries the non-retroactive promise, not a week of history', () => {
