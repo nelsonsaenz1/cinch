@@ -234,6 +234,50 @@ links fall back to `cinchstyle.com/#waitlist` instead of sending recipients to
 and `claude-recovery-handoff.md:83-94` records that release ownership sits with Codex. This is the
 second session in a row to observe the primary checkout moving underneath it.
 
+## ⚠️ Release integrity: production is running JS from a commit this repo does not have
+
+The most serious finding of the day, and Phase 3.2 was pointed away from it. The directive asks to
+compare iOS against Android; the real defect is on iOS alone.
+
+The live `production` channel's newest update — "Private groups: invite-only rooms of up to twelve
+mutual friends", published **2026-08-17T07:37:08Z**, `environment: production`, runtime
+`d9cb8c3b…` — records:
+
+```
+gitCommitHash            eadc262eed4115e5a538d84bb62faba0dc45da45
+isGitWorkingTreeDirty    false
+```
+
+**That commit does not exist in this repository.** Checked four ways after `git fetch --all`:
+
+```
+git cat-file -t eadc262…        fatal: could not get object info
+git branch -a --contains eadc262…  error: no such commit
+git reflog --all | grep eadc262    0
+```
+
+So the bundle currently reaching every device on build 38 cannot be reproduced, diffed, or audited
+from `main`. `isGitWorkingTreeDirty: false` makes it worse rather than better: the publish believed
+it was shipping a clean, identifiable tree, so this is not an "it was a dirty local build" story.
+The commit was published from somewhere — another clone, a worktree whose branch was later
+discarded, or a rebase that orphaned it — and never reached `origin`.
+
+**What this does not mean.** It is not evidence that the running JS is wrong or harmful; the update
+is plausibly the Private Circles work that is now in `main` by other commits. It means the claim
+"we know what is in production" is currently unsupported, which is the thing a release gate exists
+to protect.
+
+**Not fixed here, deliberately.** The remedy is to publish a fresh `production` update from a known
+`main` commit, and that is an outward-facing action on a live channel that the directive's own
+ground rules and approval checkpoints reserve. It also wants a decision this lane cannot make: the
+current `main` is 15+ commits beyond whatever `eadc262` contained, including this morning's
+timestamp fix, so republishing is a content change to production and not a like-for-like
+re-stamping.
+
+**Android is not a parity gap.** It has never shipped: no Android build profile, no submit config,
+`scripts/release-ota.mjs` hardcodes `--platform ios`, and `fingerprint.json` records `"platform":
+"ios"`. Publishing an "equalizing" Android update would be a first release, not a fix.
+
 ## Not done, and why
 
 - **No migration repair, no `db reset`, no SQL against production.** Phase 1.3 as written would
