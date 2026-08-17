@@ -691,3 +691,58 @@ figures and the CI artifact comparable at all.
 
 The fingerprint differs from the revision *before* `0a59fc1` only because the
 measuring SQL was fixed there, not because anything in production moved.
+
+---
+
+## ADDENDUM — the grant divergence is closed (17 August, later the same day)
+
+The open item above is resolved. `20260819000000_normalise_client_grants.sql` was
+written, replayed, tested and deployed.
+
+**Evidence chain.** Migration replay from zero on `052e11d`:
+[32043745171](https://github.com/nelsonsaenz1/cinch/actions/runs/32043745171) — green.
+CI on the same commit: [32043695556](https://github.com/nelsonsaenz1/cinch/actions/runs/32043695556)
+— green after re-running a `functions` job that had failed downloading
+`denoland/setup-deno` with HTTP 429. That failure was infrastructure, not the
+migration; the `database` job that replays migrations and runs pgTAP was never
+the failing one.
+
+**Production, measured after deployment:**
+
+| | before | after |
+|---|---|---|
+| `anon` DML grants on public tables | 52 | **0** |
+| `anon` table privileges, all types | 104 | **0** |
+| `anon` EXECUTE | 7 | **2 — `invite_card`, `join_waitlist`** |
+| `service_role` EXECUTE | 102 ambient | **102 explicit** |
+| `authenticated` EXECUTE on `log_outfit_wear` | ambient | **1, written down** |
+| public tables without RLS | 0 | **0** |
+| ledger rows | 91 | 92 |
+
+`anon` now holds **zero** privileges of any type on those 13 tables, which is
+where a clean replay also lands — the two converge at zero rather than meeting in
+the middle, which is why the migration revokes `all` and not the four DML verbs.
+
+**What was kept, and why.** `invite_card` and `join_waitlist` were never part of
+the 167 and are untouched. `log_outfit_wear` keeps its `authenticated` EXECUTE
+because binaries in the field still call it while a database built from this repo
+granted it to no role at all — that asymmetry was the actual defect. The 18
+ambient `authenticated` verbs are written down rather than revoked, because the
+RLS policies already admit those rows and revoking would leave the policies dead
+letter.
+
+**Still open: the ledger history repair (item I).** Not executed. Its
+precondition is a recoverable backup, and the ledger export remains the binding
+constraint: the repair deletes 42 rows and takes 374 006 bytes of applied SQL in
+`statements` with them, and that column exists nowhere else. `pg_dump` needs a
+direct Postgres connection, which is unavailable on this Mac and which the
+directive forbids retrying. The Supabase MCP *can* read the ledger — that is how
+the row count and byte figure above were measured — but streaming 374 KB through
+an agent context is not a backup either.
+
+**So the repair needs one human action first:** a PITR restore point or backup
+from the Supabase dashboard (Database → Backups), taken immediately before the
+repair window. The repair commands themselves are unchanged and are listed in
+"Proposed repairs" above. Nothing about the grant normalisation deployed here
+depends on that repair, and the repair is bookkeeping only — `migration repair`
+writes the tracking table and never runs or reverts SQL.
