@@ -401,3 +401,90 @@ directive speaks of "the published paywall".
 - `docs/app-store/submission-runbook.md:122` says 39 `dev-*` routes; there are 205 and the guard is
   at `_layout.tsx:162`. Left uncorrected — Codex-owned release evidence, as
   `claude-recovery-handoff.md:380` also recorded.
+
+---
+
+## Release evidence — 1.1 (2026-08-17, evening)
+
+### The premise that changed mid-run
+
+App Store version **1.0 moved from `WAITING_FOR_REVIEW` to `READY_FOR_SALE`** while this
+session was working, and all four subscriptions moved from `WAITING_FOR_REVIEW` to
+**`APPROVED`**. Every finding recorded earlier today about review state is superseded by
+that. The app is live and real purchases are possible.
+
+The immediate consequence was a failed submission. Build 39 finished cleanly and could not
+be submitted at all:
+
+```
+Submission ec8a6e74-3dc6-4b5a-8dab-799c99968c7c
+Error      SUBMISSION_SERVICE_IOS_OLD_APP_VERSION
+           "You've already submitted this version of the app."
+```
+
+Apple refuses a second submission of a released `CFBundleShortVersionString`. 1.0 was
+released, so 1.0.0 was closed. This is not a build defect — build 39 is finished and valid.
+
+### Builds
+
+| | Build 38 | Build 39 | Build 40 |
+|---|---|---|---|
+| EAS ID | `c719485b-…` | `dcddcdbb-a481-4098-ba0c-2bd66066e82e` | `db23da2e-732c-493a-a816-85b1c0b25c76` |
+| Commit | `9345eb2` | `a0ef07b` | `ac06aec` |
+| Version | 1.0.0 | 1.0.0 | **1.1.0** |
+| Runtime | `d9cb8c3b…` | `d9cb8c3b…` | **`18938ff9…`** |
+| Outcome | submitted, released | finished; submission refused | in progress |
+
+### The runtime boundary 1.1 creates
+
+`version` is an `@expo/fingerprint` input, so the version bump moved the runtime:
+
+```
+recorded  d9cb8c3b77a5e69d793dcdbd2aec1484f54cb3c6   build 38, 2026-08-16 @ 9345eb2
+current   18938ff9525bc2baed62a52ceb514ebefd438c1f   168 sources
+```
+
+168 sources on both sides — only the hash moved, which is what a config-only change looks
+like and rules out a native module having appeared or gone.
+
+**Build 40 is therefore not reachable by anything on the production channel today**,
+including this afternoon's update at `d9cb8c3b…`. After submission: `check:fingerprint --
+--set`, then publish a fresh OTA against `18938ff9…`, or 1.1 ships with only its embedded
+bundle.
+
+Measured twice, because the first measurement lied: `check-fingerprint.mjs` hashes
+`git archive HEAD`, not the working tree, so the bump was invisible until committed. That
+is by design — no untracked artifact can reach the hash — and it is the same trap the
+script's own header documents.
+
+### Naming
+
+The on-device name stays `Cinch`. It is `app.config.ts`'s `name`, it is a fingerprint
+input, and iOS truncates the home-screen label around 12 characters, so a longer one would
+both invalidate build 40 and read as `Cinch: Soc…` on the device.
+
+The App Store listing name becomes **`Cinch: Social Closet & Outfits`** (30/30). It replaces
+`Cinch: Outfit Planner & Closet` (30/30), against a subtitle of `Capsule Wardrobe, Packing
+List` (30/30) that is unchanged. Both fields were already fully used, so this is a trade and
+not an addition: it buys "Social", keeps "Closet" and "Outfits", and gives up "Planner".
+Applied to 1.1's editable app version — 1.0's is `READY_FOR_SALE` and locked.
+
+### Billing Grace Period — enabled
+
+Recorded as unconfigured in the directive, confirmed unconfigured, and now on:
+
+```
+optIn true · sandboxOptIn true · duration SIXTEEN_DAYS · renewalType ALL_RENEWALS
+```
+
+Sixteen days across all renewals is the widest recovery window Apple offers. It changes no
+price and creates no agreement; it only stops an involuntary payment failure from
+terminating a subscription immediately.
+
+### The web launch flip is still NOT safe
+
+`apps.apple.com/app/id6798479578` now returns **HTTP 200** where it returned 404 this
+morning, but `itunes.apple.com/lookup?id=6798479578&country=us` still returns
+**`resultCount = 0`**. `web/api/invite.js`'s own rule is explicit: *"A `resultCount` of 0
+means it is not live, whatever ASC says."* So `APP_LIVE` stays unset, and `web/index.html`
+still needs its three manual edits when the lookup catches up.
