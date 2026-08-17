@@ -1,0 +1,367 @@
+{
+  "generated_for": "gate-3 reconciliation audit",
+  "project_ref": "dugizuswuebrmcmvinmi",
+  "head": "3a48f59",
+  "ledger_md5_before": "ab12eaad03bc5dcb85240bc231d238fd",
+  "schema_fingerprint_before": "b78b28ee1e540e0f87275d28a1900e84",
+  "counts": {
+    "local_files": 93,
+    "ledger_rows": 91,
+    "matched": 49,
+    "local_only": 44,
+    "remote_only": 42
+  },
+  "equivalent_pairs": [
+    {
+      "remote_version": "20260806215954",
+      "remote_name": "20260807122000_ai_calls_survive_churn",
+      "local_version": "20260807122000",
+      "local_name": "ai_calls_survive_churn",
+      "evidence": "remote name embeds local version",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260807195454",
+      "remote_name": "ai_consent_v2",
+      "local_version": "20260808120000",
+      "local_name": "ai_consent_v2",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260808000152",
+      "remote_name": "friend_closet_privacy_layer",
+      "local_version": "20260808110000",
+      "local_name": "friend_closet_privacy_layer",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260808005513",
+      "remote_name": "ugc_text_filter",
+      "local_version": "20260808100000",
+      "local_name": "ugc_text_filter",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260808005527",
+      "remote_name": "social_terms_gate",
+      "local_version": "20260808101000",
+      "local_name": "social_terms_gate",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260808150625",
+      "remote_name": "events_optional_date",
+      "local_version": "20260808130000",
+      "local_name": "events_optional_date",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260808150750",
+      "remote_name": "20260808150000_listing_imagery",
+      "local_version": "20260808150000",
+      "local_name": "listing_imagery",
+      "evidence": "remote name embeds local version",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260808160000",
+      "remote_name": "ai_timeout_and_attempts",
+      "local_version": "20260808180000",
+      "local_name": "ai_timeout_and_attempts",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260808172536",
+      "remote_name": "event_host_can_read_back",
+      "local_version": "20260808140000",
+      "local_name": "event_host_can_read_back",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260808184759",
+      "remote_name": "ai_timeout_and_attempts",
+      "local_version": "20260808180000",
+      "local_name": "ai_timeout_and_attempts",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260808185119",
+      "remote_name": "ai_calls_attempts_nullable",
+      "local_version": "20260808180100",
+      "local_name": "ai_calls_attempts_nullable",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260809022927",
+      "remote_name": "free_closet_is_ten",
+      "local_version": "20260808190000",
+      "local_name": "free_closet_is_ten",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260809022949",
+      "remote_name": "active_and_stored_limits",
+      "local_version": "20260808190100",
+      "local_name": "active_and_stored_limits",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260809023038",
+      "remote_name": "look_owner_can_hide_comments",
+      "local_version": "20260808190200",
+      "local_name": "look_owner_can_hide_comments",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260809132832",
+      "remote_name": "trips",
+      "local_version": "20260809100000",
+      "local_name": "trips",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260809150305",
+      "remote_name": "block_retracts_votes",
+      "local_version": "20260809160000",
+      "local_name": "block_retracts_votes",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810004313",
+      "remote_name": "wear_diary_and_boards",
+      "local_version": "20260810100000",
+      "local_name": "wear_diary_and_boards",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810004413",
+      "remote_name": "activity_feed",
+      "local_version": "20260810100100",
+      "local_name": "activity_feed",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810004418",
+      "remote_name": "first_run_tour",
+      "local_version": "20260810100200",
+      "local_name": "first_run_tour",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810004436",
+      "remote_name": "push_tokens_and_prefs",
+      "local_version": "20260810100300",
+      "local_name": "push",
+      "evidence": "name changed after apply; needs object-level confirmation",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810011544",
+      "remote_name": "push_local_time",
+      "local_version": "20260810110000",
+      "local_name": "push_local_time",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810115129",
+      "remote_name": "push_senders",
+      "local_version": "20260810110100",
+      "local_name": "push_senders",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810115206",
+      "remote_name": "push_cron",
+      "local_version": "20260810110200",
+      "local_name": "push_cron",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810115319",
+      "remote_name": "push_net_out_of_public",
+      "local_version": "20260810110300",
+      "local_name": "push_net_out_of_public",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810123325",
+      "remote_name": "data_exports",
+      "local_version": "20260810120000",
+      "local_name": "data_exports",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810123336",
+      "remote_name": "invite_links",
+      "local_version": "20260810120100",
+      "local_name": "invite_links",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810123347",
+      "remote_name": "support_sends",
+      "local_version": "20260810120200",
+      "local_name": "support_sends",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810124142",
+      "remote_name": "exports_bucket",
+      "local_version": "20260810120250",
+      "local_name": "exports_bucket",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810125241",
+      "remote_name": "invite_card_falls_back_to_handle",
+      "local_version": "20260810120300",
+      "local_name": "invite_card_falls_back_to_handle",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810131700",
+      "remote_name": "failed_export_does_not_burn_the_day",
+      "local_version": "20260810120400",
+      "local_name": "failed_export_does_not_burn_the_day",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810131857",
+      "remote_name": "export_sweep_cron",
+      "local_version": "20260810120500",
+      "local_name": "export_sweep_cron",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810154107",
+      "remote_name": "waitlist",
+      "local_version": "20260810130000",
+      "local_name": "waitlist",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810185207",
+      "remote_name": "intake_sessions",
+      "local_version": "20260810140000",
+      "local_name": "intake_sessions",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810185229",
+      "remote_name": "intake_drafts",
+      "local_version": "20260810140100",
+      "local_name": "intake_drafts",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810185257",
+      "remote_name": "intake_commit",
+      "local_version": "20260810140200",
+      "local_name": "intake_commit",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810185316",
+      "remote_name": "intake_audio_bucket",
+      "local_version": "20260810140300",
+      "local_name": "intake_audio_bucket",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260810224247",
+      "remote_name": "intake_unconsumed",
+      "local_version": "20260811020000",
+      "local_name": "intake_unconsumed",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260811152719",
+      "remote_name": "commerce_preferences",
+      "local_version": "20260811150000",
+      "local_name": "commerce_preferences",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260811175259",
+      "remote_name": "commerce_alert_release",
+      "local_version": "20260811175712",
+      "local_name": "commerce_alert_release",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260813204518",
+      "remote_name": "ai_control_plane_and_demand",
+      "local_version": "20260813203052",
+      "local_name": "ai_control_plane_and_demand",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260813212449",
+      "remote_name": "nullable_draft_colour",
+      "local_version": "20260813212206",
+      "local_name": "nullable_draft_colour",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    },
+    {
+      "remote_version": "20260817031752",
+      "remote_name": "daily_social",
+      "local_version": "20260817000000",
+      "local_name": "daily_social",
+      "evidence": "identical migration name",
+      "classification": "equivalent_under_another_version"
+    }
+  ],
+  "remote_only_unmatched": [],
+  "local_only_unmatched": [
+    {
+      "local_version": "20260810150000",
+      "local_name": "trial_is_twenty_one_days"
+    },
+    {
+      "local_version": "20260810150100",
+      "local_name": "event_roster_block_filter"
+    },
+    {
+      "local_version": "20260812120000",
+      "local_name": "close_comments_and_lock_board"
+    }
+  ]
+}
