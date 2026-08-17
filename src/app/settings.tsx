@@ -23,6 +23,7 @@ import { SHOW_WHERE_TO_BUY_DETAIL, SHOW_WHERE_TO_BUY_LABEL } from '@/features/co
 import { useSetShowWhereToBuy } from '@/features/commerce/mutations';
 import { useShowWhereToBuy } from '@/features/commerce/queries';
 import { DeleteAccountCard } from '@/features/profile/delete-account-card';
+import { useMyProfile } from '@/features/profile/queries';
 import {
   DAILY_STYLING_FACT,
   DAILY_STYLING_LABEL,
@@ -99,6 +100,9 @@ export default function SettingsScreen() {
   const plan = usePlan();
   const closet = useCloset();
   const deleteAccount = useDeleteAccount();
+  // Only for the invite row's detail — the claimed handle IS the invite link,
+  // and an account that has not claimed one yet has nothing to share.
+  const username = useMyProfile().data?.username ?? '';
 
   // UX-08 — the restore ending, held on the page rather than thrown over it.
   // `null` is "nothing has happened yet", which is also what pressing the row
@@ -320,6 +324,23 @@ export default function SettingsScreen() {
               with the build is worse than one that simply says less. */}
           <SectionHeader title="People" className="mb-2.5 mt-6" />
           <Card>
+            {/* The card that administers every relationship in the account had
+                no way to add one: /invite was reachable from exactly one place,
+                behind the Friends screen's own CTA state. Nothing is minted, so
+                the row can never fail — the link is the handle, which is why
+                the handle is the detail rather than a sentence explaining it,
+                and why the row waits for `username` the same way friends/
+                index.tsx gates its own invite affordance. */}
+            {username.length > 0 ? (
+              <>
+                <SettingsRow
+                  label="Invite a friend"
+                  detail={`@${username}`}
+                  onPress={() => router.push('/invite')}
+                />
+                <Rule tone="hairline" />
+              </>
+            ) : null}
             <SettingsRow label="Friends" onPress={() => router.push('/friends')} />
             <Rule tone="hairline" />
             <SettingsRow

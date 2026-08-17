@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import type { RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
 import { Chip } from '@/components/ui/chip';
@@ -221,6 +221,7 @@ export function StylistOpening<K extends string>({
   line,
   starts,
   onStart,
+  footer,
 }: {
   /** "Evening" — the serif line. */
   salutation: string;
@@ -230,6 +231,17 @@ export function StylistOpening<K extends string>({
   starts: readonly { key: K; label: string }[];
   /** Absent on the fixture, which draws the doors without opening one. */
   onStart?: (key: K) => void;
+  /**
+   * The slot the closing caption used to occupy, in its exact place and
+   * rhythm — 12 under the doors.
+   *
+   * A SLOT RATHER THAN A FLAG, because this part's stated contract is props in
+   * and callbacks out: it must not read a plan, present a paywall or know that
+   * membership exists. The screen decides whether there is anything to say
+   * here; absent or null, the opening simply ends on the doors, which is what
+   * a member and the fixture both get.
+   */
+  footer?: ReactNode;
 }) {
   const theme = useTheme();
 
@@ -266,19 +278,18 @@ export function StylistOpening<K extends string>({
         ))}
       </View>
 
-      <Text
-        // S-01 sets this line at 13px in #8A8578 — `label`, not `caption`
-        // (11px), and one step quieter than `label`'s own `muted`. `faint` is
-        // right here for the reason text.tsx reserves it: the sentence restates
-        // in prose what the composer directly below already offers, so it is
-        // genuinely the redundant layer rather than content being whispered.
-        //
-        // Inline for the same precedence reason as the subline above.
-        variant="note"
-        className="mt-3">
-        Or just say it. The stylist answers with clothes you own — and tells you plainly when
-        you don&rsquo;t own the right thing.
-      </Text>
+      {/* WHAT USED TO BE HERE, and why it is a slot now. This closed on a
+          two-clause paragraph — "Or just say it. The stylist answers with
+          clothes you own — and tells you plainly when you don't own the right
+          thing." — which described the composer sitting 40pt below it and
+          repeated the promise the header had already made. It was the
+          redundant layer twice over, so it is gone rather than requoted.
+
+          The 12 under the doors is S-01's rhythm and stays with the slot: the
+          greeting, the doors and whatever closes them read as one block, and
+          nothing here changes when the slot is empty, because an empty slot
+          renders no View at all. */}
+      {footer ? <View className="mt-3">{footer}</View> : null}
     </View>
   );
 }

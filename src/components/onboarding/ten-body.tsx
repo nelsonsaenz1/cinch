@@ -4,7 +4,7 @@ import { ScrollView, View } from 'react-native';
 import { SlotCard } from '@/components/onboarding/slot-card';
 import { TenGrid } from '@/components/onboarding/ten-grid';
 import { Text } from '@/components/ui/text';
-import { TEN_SUPPORT, TEN_TITLE } from '@/features/onboarding/ten-copy';
+import { TEN_TITLE } from '@/features/onboarding/ten-copy';
 import {
   starterSuggestion,
   type StarterReadiness,
@@ -21,6 +21,12 @@ import { filledCount, nextSlot, type TenSlot } from '@/features/onboarding/ten-s
  * THE COUNT IS ABOVE THE TITLE, not beside it. "0 of 10" prints from the first
  * frame because the flow has genuinely started — it is a position, not a score,
  * and never a bar or a percentage.
+ *
+ * AND NOTHING ELSE BEFORE THE CLOTHES. The masthead used to print a third
+ * block, `TEN_SUPPORT` — "Build the ten pieces you reach for most." — which was
+ * static across all ten states: the count above it was the progress and the
+ * SlotCard below it is the instruction, written from this actual closet. It is
+ * gone and the space went to the grid. Count → title → clothing.
  *
  * `children` replaces the grid and the card entirely, which is how T-05 keeps
  * the masthead: a denied permission is drawn UNDER the count, so the work
@@ -77,18 +83,15 @@ export function TenBody({
         accessibilityLabel={`${filled} of ${slots.length} filled`}>
         {`${filled} of ${slots.length}`}
       </Text>
-      <View style={{ marginTop: 4, marginBottom: 8 }}>
+      <View style={{ marginTop: 4 }}>
         <Text variant="title" trim accessibilityRole="header" style={{ fontSize: 32 }}>
           {TEN_TITLE}
         </Text>
       </View>
-      <Text variant="note" style={{ fontSize: 15, lineHeight: 22 }}>
-        {TEN_SUPPORT}
-      </Text>
 
       {children ?? (
         <>
-          <View className="mt-4">
+          <View style={{ marginTop: 20 }}>
             <TenGrid
               slots={slots}
               foregroundedId={foregrounded?.id ?? null}

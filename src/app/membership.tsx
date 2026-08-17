@@ -8,10 +8,12 @@ import { ValueRow } from '@/components/ui/settled-row';
 import {
   CANCEL_ROW_DETAIL,
   CANCEL_ROW_LABEL,
+  CANCELLATION_NOTE,
   cancellationConsequence,
   entitlementBand,
+  freeCeilingMark,
   isManageablePlan,
-  paidAccessLine,
+  paidThroughMark,
   UPGRADE_ROW_LABEL,
   upgradeRowDetail,
 } from '@/features/billing/manage-membership';
@@ -66,6 +68,10 @@ export default function MembershipScreen() {
     stored: capacity.loading ? null : capacity.stored,
   });
 
+  // Empty until `current_period_end` has been read, and the colophon is simply
+  // not drawn — no softened clause standing in for a date nobody has.
+  const paidThrough = paidThroughMark(plan.currentPeriodEnd);
+
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScreenHeader title="Your membership" />
@@ -92,7 +98,22 @@ export default function MembershipScreen() {
           </Text>
         ) : (
           <>
-            <Text variant="body">{paidAccessLine(plan.copy, plan.currentPeriodEnd)}</Text>
+            {/* The masthead sets in type what used to be a run-on sentence:
+                tier as the plate, term as the data line under it. No colophon
+                at all when the period end has not been read — the type scale's
+                way of saying the same "no guessed date" the failed-read branch
+                above says in words. */}
+            <Text variant="eyebrow">MEMBERSHIP</Text>
+            {/* `trim` collapses the serif's tall line box to the cap height, so
+                the margins around it are larger than they look on paper. */}
+            <Text variant="plate" trim className="mt-3">
+              Cinch {plan.copy.name}
+            </Text>
+            {paidThrough ? (
+              <Text variant="colophon" className="mt-3">
+                {paidThrough}
+              </Text>
+            ) : null}
 
             {band.length > 0 ? (
               <Card padding="none" className="mt-5">
@@ -104,6 +125,18 @@ export default function MembershipScreen() {
                 ))}
               </Card>
             ) : null}
+
+            {/* The free ceilings, as the data line the band's numbers are
+                measured against. The whole original paragraph rides along as
+                the label, so VoiceOver still hears every clause — what stops,
+                what does not, and that nothing is deleted. */}
+            <Text
+              variant="colophon"
+              className="mt-2.5"
+              accessibilityLabel={cancellationConsequence(plan.currentPeriodEnd)}
+            >
+              {freeCeilingMark()}
+            </Text>
 
             <SectionHeader title="Changing it" className="mb-2.5 mt-6" />
             <Card padding="none">
@@ -142,7 +175,7 @@ export default function MembershipScreen() {
             </Card>
 
             <Text variant="note" className="mt-5">
-              {cancellationConsequence(plan.currentPeriodEnd)}
+              {CANCELLATION_NOTE}
             </Text>
           </>
         )}

@@ -43,8 +43,45 @@ import { PLANS, type Plan, type PlanCopy } from './plans';
 import { membershipDate } from './membership-row';
 
 /**
+ * The masthead's data line: "PAID THROUGH 12 SEPTEMBER".
+ *
+ * Empty when `current_period_end` has not been read — the colophon simply is
+ * not drawn, which is the same refusal `paidAccessLine` made in prose and one
+ * the type scale can express without a softening clause. The tier itself is set
+ * as the plate above it, so this line carries the one remaining fact.
+ */
+export function paidThroughMark(currentPeriodEnd: Date | null): string {
+  return currentPeriodEnd ? `PAID THROUGH ${membershipDate(currentPeriodEnd).toUpperCase()}` : '';
+}
+
+/**
+ * The rule line under the entitlement band: the free ceilings as a mark rather
+ * than as a clause inside `cancellationConsequence`. Both numbers come from
+ * `PLANS.free`, which is what `item_limit_for_plan()` and
+ * `item_total_limit_for_plan()` enforce.
+ */
+export function freeCeilingMark(): string {
+  const free = PLANS.free;
+  return `IF YOU CANCEL · FREE HOLDS ${free.items} ACTIVE · ${free.storedItems} STORED`;
+}
+
+/**
+ * The one load-bearing sentence left of `cancellationConsequence` — what a
+ * member has to *do* something about. The ceilings it used to spell out are the
+ * colophon above it; the whole original paragraph is still read aloud, as that
+ * colophon's `accessibilityLabel`.
+ */
+export const CANCELLATION_NOTE =
+  'Nothing is deleted. Adding and restoring stop until you are back under the free line.';
+
+/**
  * The page's opening sentence. Two facts: which tier, and how long the paid
  * access lasts — the second only when `current_period_end` is known.
+ *
+ * NO LONGER RENDERED on MB-08, which sets the same two facts as a plate and a
+ * colophon (`paidThroughMark`). Kept because the dev fixture still draws the
+ * prose drawing, and because deleting a traced string is not the same act as
+ * choosing not to set it as body copy.
  */
 export function paidAccessLine(copy: PlanCopy, currentPeriodEnd: Date | null): string {
   const tier = `Cinch ${copy.name}.`;
@@ -97,6 +134,11 @@ export const CANCEL_ROW_DETAIL = 'Opens the App Store, where the subscription li
  * docblock). The last sentence is the honest version of the atlas's chooser
  * promise: what a member can actually do about it today is store or delete
  * pieces themselves.
+ *
+ * SET NO LONGER AS BODY COPY. MB-08 draws `freeCeilingMark()` and
+ * `CANCELLATION_NOTE` instead, and hangs this whole string on the colophon's
+ * `accessibilityLabel` — so every clause still reaches a screen reader verbatim
+ * while the page reads as a plate with a data line rather than a letter.
  */
 export function cancellationConsequence(currentPeriodEnd: Date | null): string {
   const free = PLANS.free;

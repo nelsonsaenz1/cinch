@@ -26,6 +26,7 @@ import { useAiConsent, useGrantAiConsent } from '@/features/auth/use-consent';
 import { useCloset } from '@/features/closet/queries';
 import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count';
 import { Placement } from '@/features/billing/placements';
+import { PLANS } from '@/features/billing/plans';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { useGate } from '@/features/billing/use-gate';
 import { useCameraGate } from '@/features/ingest/use-camera-access';
@@ -1355,6 +1356,32 @@ function CaptureScreen() {
                     haptic
                     className="mt-4"
                   />
+                ) : null}
+
+                {/* The social half of the promise, offered at the first moment
+                    it is actually true: real pieces exist and they are
+                    photographed well enough for a friend to browse. The
+                    sign-in cover promises it twice and no onboarding surface
+                    has mentioned it since.
+
+                    A REMARK, NOT A BANNER — one quiet muted line under the
+                    batch that just landed. No accent: it is withheld until the
+                    closet is a real one (`PLANS.free.items`, never a typed
+                    figure) and never drawn beside the ListingOffer, which
+                    carries this screen's single oxblood. */}
+                {allDone &&
+                doneCount > 0 &&
+                !offerJob &&
+                (wardrobe.data?.length ?? 0) >= PLANS.free.items ? (
+                  <Pressable
+                    onPress={() => router.push('/invite')}
+                    accessibilityRole="button"
+                    className="items-center justify-center active:opacity-70"
+                    style={{ minHeight: MIN_TAP_TARGET }}>
+                    <Text variant="note" style={{ color: theme.muted }}>
+                      Let a friend borrow from these
+                    </Text>
+                  </Pressable>
                 ) : null}
               </>
             </View>

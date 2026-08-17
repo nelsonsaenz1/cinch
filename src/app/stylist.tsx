@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
-import { ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MessageBubble } from '@/components/stylist/message-bubble';
@@ -18,6 +18,10 @@ import {
 } from '@/components/stylist/sheet-parts';
 import { ClosetDidntLoad, ClosetTooSmall } from '@/components/stylist/stylist-states';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
+import { Text } from '@/components/ui/text';
+import { Placement } from '@/features/billing/placements';
+import { useGate } from '@/features/billing/use-gate';
+import { usePlan } from '@/features/billing/use-plan';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { formatTemp } from '@/features/context/weather';
@@ -28,6 +32,7 @@ import { useQuestionnaire } from '@/features/stylist/use-questionnaire';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { track } from '@/lib/posthog';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /** Temperatures elsewhere in the app default to Fahrenheit; match them. */
 const UNITS = 'F' as const;
@@ -76,6 +81,23 @@ export default function StylistScreen() {
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
   const { context } = useStyleContext();
+  const theme = useTheme();
+  const gate = useGate();
+
+  /**
+   * THE MEMBERSHIP LINE'S ONE CONDITION, and it fails closed.
+   *
+   * Until now the only membership signal on this screen fired at send time
+   * (`use-chat.ts` presents `OpenStylist`), which is after a free user has
+   * walked four doors and a whole questionnaire. Saying it once, up front, is
+   * the honest version — but only where it is TRUE, so the plan is `null` while
+   * the read is in flight or failed, exactly as Today does for `CapacityNote`.
+   * `usePlan` answers `free` in both of those cases, which is the right default
+   * for a gate and the wrong one for a sentence.
+   */
+  const planState = usePlan();
+  const knownPlan = planState.loading || planState.unconfirmed ? null : planState.plan;
+  const showMembershipLine = knownPlan === 'free' && !planState.trialing;
 
   const items = wardrobe.data ?? [];
   const profile = profileQuery.data ?? {
@@ -252,6 +274,31 @@ export default function StylistScreen() {
               line={hello.line}
               starts={QUICK_STARTS}
               onStart={questionnaire.start}
+              footer={
+                showMembershipLine ? (
+                  // One line, no price, no chat count, no accent — the header's
+                  // oxblood sparkle stays this screen's only accent, and the
+                  // doors above remain fully usable because nothing here gates
+                  // anything. It states where the stylist lives and opens the
+                  // same door `use-chat.ts` would have opened later.
+                  <View className="flex-row flex-wrap items-center" style={{ columnGap: 10 }}>
+                    <Text variant="note" style={{ flexShrink: 1 }}>
+                      Stylist is part of membership.
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="See plans"
+                      onPress={() => void gate.present(Placement.OpenStylist)}
+                      hitSlop={8}
+                      style={{ minHeight: MIN_TAP_TARGET }}
+                      className="justify-center active:opacity-60">
+                      <Text variant="label" className="underline" style={{ color: theme.ink }}>
+                        See plans
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null
+              }
             />
           ) : null}
 

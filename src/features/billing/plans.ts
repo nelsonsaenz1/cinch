@@ -116,7 +116,7 @@ export const PLANS = {
     storedItems: 450,
     outfits: 'A fresh outfit every day',
     outfitPromise: { count: 1, period: 'day' },
-    stylist: '30 messages a month',
+    stylist: '5 chats a month',
     eventHosting: 15,
     monthlyPriceHint: '$7.99',
     annualPriceHint: '$59',

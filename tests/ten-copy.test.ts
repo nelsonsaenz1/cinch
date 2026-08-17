@@ -17,6 +17,7 @@ import {
   TEN_SUPPORT,
   TEN_TITLE,
   filledTileLabel,
+  noRoomCopy,
   repairCopy,
   replaceFailureLine,
   replaceSheetCopy,
@@ -240,17 +241,36 @@ test('LP-02 · "try again in a moment" is never said to an account that is full'
   assert.doesNotMatch(full, /try again/);
   assert.doesNotMatch(full, /in a moment/);
 
-  // It names what is actually full, and both remedies the trigger's own hint
-  // names ("Delete a stored piece, or upgrade.").
-  assert.match(full, /Storage/);
-  assert.match(full, /delete/i);
-  assert.match(full, /upgrade/i);
-
-  // And it still says the two things every failure line says: which slot, and
-  // that nothing was taken away.
+  // It still says the two things every failure line says: which slot, and that
+  // nothing was taken away.
   assert.match(full, /Slot 6/);
   assert.match(full, /unchanged/);
-  assert.match(full, /Nothing you’ve photographed has been removed/);
+  assert.match(full, /nothing has been removed/i);
+
+  // THE REST IS NOW A PLATE, not a 44-word paragraph in a system alert. The
+  // cause and both remedies the trigger's own hint names ("Delete a stored
+  // piece, or upgrade.") are drawn — and the line above is that plate's note,
+  // so the two cannot say different things about the same refusal.
+  const plate = noRoomCopy(6);
+  assert.equal(full, plate.note);
+  assert.match(plate.headline, /Storage/);
+  assert.equal(plate.storage, 'Open Storage');
+  assert.equal(plate.plans, 'See plans');
+
+  // A reader who cannot see the plate hears the whole refusal instead — the
+  // paragraph the alert used to carry, unchanged, remedies included.
+  assert.match(plate.announcement, /Slot 6/);
+  assert.match(plate.announcement, /Storage/);
+  assert.match(plate.announcement, /delete/i);
+  assert.match(plate.announcement, /upgrade/i);
+  assert.match(plate.announcement, /Nothing you’ve photographed has been removed/);
+  assert.doesNotMatch(plate.announcement, /try again/);
+
+  // No price and no figure anywhere on it: `AddGarmentOverLimit` is the surface
+  // that quotes a tier, and `plans.ts` is the only place a number lives.
+  for (const line of [plate.eyebrow, plate.headline, plate.note, plate.storage, plate.plans]) {
+    assert.doesNotMatch(line, /\$|\d+ ?(pieces|items)/);
+  }
 
   // The free tier really does hold more rows than it styles, which is what
   // makes the two branches distinct states rather than a distinction on paper.

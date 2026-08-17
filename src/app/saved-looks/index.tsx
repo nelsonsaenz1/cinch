@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, useWindowDimensions, View } from 'react-native';
+import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -33,6 +34,7 @@ import {
   showsFilterBar,
   type SavedFilter,
 } from '@/features/saved-looks/states';
+import { haptics } from '@/lib/haptics';
 import { track } from '@/lib/posthog';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -79,6 +81,7 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 export default function SavedLooksScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const reduced = useReducedMotion();
   const { fontScale } = useWindowDimensions();
   const online = useConnectivity();
 
@@ -169,6 +172,10 @@ export default function SavedLooksScreen() {
   }, [refresh]);
 
   const choose = useCallback((next: SavedFilter) => {
+    // A chip toggled is exactly what `selection()` is reserved for — a value
+    // changing under the finger — and this was the one selection control in the
+    // area that acknowledged nothing at all.
+    haptics.selection();
     setFilter(next);
     track(SAVED_EVENTS.filterApplied, filterAppliedProps(next === null));
   }, []);
@@ -240,7 +247,13 @@ export default function SavedLooksScreen() {
         ) : state.kind === 'empty' ? (
           <SavedEmptyState />
         ) : (
-          <View
+          // Keyed on the filter so a chip tap remounts the grid and the page
+          // turns over rather than repainting in place. The container geometry
+          // is unchanged, so nothing shifts — only the cards fade. Skipped
+          // whole, not shortened, when Reduce Motion is on.
+          <Animated.View
+            key={filter ?? 'all'}
+            entering={reduced ? undefined : FadeIn.duration(160)}
             className={stacked ? 'gap-4 px-gutter' : 'flex-row flex-wrap gap-4 px-gutter'}
             accessibilityRole="list">
             {visible.map((save) => (
@@ -254,7 +267,7 @@ export default function SavedLooksScreen() {
                 />
               </View>
             ))}
-          </View>
+          </Animated.View>
         )}
       </ScrollView>
     </SafeAreaView>

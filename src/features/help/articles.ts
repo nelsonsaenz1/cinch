@@ -462,8 +462,8 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     // spelled and half not, and "a thousand and three thousand" was the
     // hardest clause in the article to parse for the number it was quoting.
     //
-    // Standard's messages read straight off `PLANS.standard.stylist`, which is
-    // already the phrase "30 messages a month" — the display string and the
+    // Standard's chats read straight off `PLANS.standard.stylist`, which is
+    // already the phrase "5 chats a month" — the display string and the
     // sentence are now the same characters.
     //
     // Pro's hundred a day is the one figure here that does NOT derive, and

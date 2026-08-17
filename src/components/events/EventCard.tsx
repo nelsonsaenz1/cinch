@@ -1,12 +1,14 @@
 import { Pressable, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
 import { formatTemp } from '@/features/context/weather';
 import { eventCardLabel, eventCardLines } from '@/features/events/event-lines';
 import { useRespondToInvite } from '@/features/events/mutations';
 import type { EventSummary } from '@/features/events/types';
+import { haptics } from '@/lib/haptics';
 import type { WeatherContext } from '@/lib/styling';
-import { useTheme } from '@/theme/tokens';
+import { motion, useTheme } from '@/theme/tokens';
 
 /**
  * The pure date helpers this file used to own, re-exported.
@@ -123,21 +125,50 @@ export function EventCard({ event, onPress }: { event: EventSummary; onPress: ()
           and LP-10 made this line carry real information (`4 of 6 going ·
           Your look shared`) rather than decoration. This file came off the
           FAINT_TEXT_DEBT list in tests/constitution.test.ts in the same
-          commit; putting `faint` back here would fail that test. */}
+          commit; putting `faint` back here would fail that test.
+
+          It fades IN because it is what an answered invitation settles into:
+          the two buttons below dissolve out and the headcount arrives in
+          their place. NativeWind's className does not reach Animated.* (the
+          css-interop transform only registers plain RN primitives), so
+          `mt-1.5` is the inline 6 — the wrapper pattern plan.tsx's mode panes
+          already use. */}
       {model.signal ? (
-        <Text variant="label" className="mt-1.5" style={{ color: theme.muted }}>
-          {model.signal}
-        </Text>
+        <Animated.View
+          style={{ marginTop: 6 }}
+          entering={FadeIn.duration(motion.duration.fast)}>
+          <Text variant="label" style={{ color: theme.muted }}>
+            {model.signal}
+          </Text>
+        </Animated.View>
       ) : null}
 
+      {/* The RSVP pair, and its exit. `FadeOut` rather than a hard unmount:
+          when the mutation lands the query refetches and this whole block
+          disappears in one frame, which reads as the card breaking rather
+          than as the answer being taken. Reanimated's timings carry
+          `ReduceMotion.System` in this codebase (tokens.ts), so the dissolve
+          settles instantly with Reduce Motion on — no separate guard here. */}
       {isInvited ? (
-        <>
+        <Animated.View exiting={FadeOut.duration(motion.duration.fast)}>
           <View className="mt-3.5 flex-row gap-2">
             {/* Ink and outline, never oxblood: accepting a plan is the card's
                 primary but not the screen's. hitSlop tops the 40pt row up to
-                the 44pt floor. */}
+                the 44pt floor.
+
+                The haptics go through `lib/haptics`, not expo-haptics: the
+                press is a `selection` (a value changing under the finger) and
+                ACCEPTING is a `success` — the intent whose own doc names "an
+                invite was accepted". Declining gets the selection tick and
+                nothing more; a refusal is not congratulated. */}
             <Pressable
-              onPress={() => respond.mutate({ eventId: event.id, response: 'joined' })}
+              onPress={() => {
+                haptics.selection();
+                respond.mutate(
+                  { eventId: event.id, response: 'joined' },
+                  { onSuccess: () => haptics.success() },
+                );
+              }}
               disabled={respond.isPending}
               hitSlop={{ top: 4, bottom: 4 }}
               accessibilityRole="button"
@@ -150,7 +181,10 @@ export function EventCard({ event, onPress }: { event: EventSummary; onPress: ()
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => respond.mutate({ eventId: event.id, response: 'declined' })}
+              onPress={() => {
+                haptics.selection();
+                respond.mutate({ eventId: event.id, response: 'declined' });
+              }}
               disabled={respond.isPending}
               hitSlop={{ top: 4, bottom: 4 }}
               accessibilityRole="button"
@@ -170,7 +204,7 @@ export function EventCard({ event, onPress }: { event: EventSummary; onPress: ()
               </Text>
             </View>
           ) : null}
-        </>
+        </Animated.View>
       ) : null}
     </Pressable>
   );

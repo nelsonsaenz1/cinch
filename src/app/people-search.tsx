@@ -71,6 +71,15 @@ export default function PeopleSearchScreen() {
     );
   };
 
+  /**
+   * Out to the invite link. Dismiss first, then push — the same order the
+   * friend-closet row below uses, so a page never stacks inside a sheet.
+   */
+  const openInvite = () => {
+    router.back();
+    router.push('/invite');
+  };
+
   /** What the right edge of a result says about where things stand. */
   const trailing = (profile: SocialProfile) => {
     if (friendIds.has(profile.userId)) {
@@ -131,7 +140,12 @@ export default function PeopleSearchScreen() {
       </View>
 
       <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-16 pt-4">
-        {!searching ? null : (
+        {!searching ? (
+          // The resting state, before two characters exist. The sheet is
+          // predicated on already knowing a handle; this is the one thing to
+          // say to somebody who does not.
+          <InviteWayOut onPress={openInvite} className="mt-6" />
+        ) : (
           <>
             <Card style={{ borderRadius: 16 }}>
               {search.isLoading ? (
@@ -230,11 +244,47 @@ export default function PeopleSearchScreen() {
               )}
             </Card>
 
+            {/* The miss, answered. A username search that finds nobody is the
+                commonest real dead end — you want a particular friend and do
+                not know what they called themselves — and the invite link is
+                the way through it. */}
+            {search.isSuccess && (search.data ?? []).length === 0 ? (
+              <InviteWayOut onPress={openInvite} className="mt-5" />
+            ) : null}
           </>
         )}
       </KeyboardAwareScrollView>
 
       {terms.sheet}
+    </View>
+  );
+}
+
+/**
+ * The one question this sheet cannot answer, and the one link that can.
+ *
+ * Ink, never accent: Cancel already spends this sheet's single oxblood in the
+ * masthead, and a second one here would put two primary actions on a screen
+ * whose primary action is typing. No banner, no illustration, no growth copy —
+ * a question and a link, in the two moments username search has nothing to give.
+ */
+function InviteWayOut({ onPress, className = '' }: { onPress: () => void; className?: string }) {
+  const theme = useTheme();
+
+  return (
+    <View className={className}>
+      <Text variant="note">Not sure of their username?</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Send an invite link"
+        onPress={onPress}
+        hitSlop={8}
+        style={{ minHeight: MIN_TAP_TARGET }}
+        className="justify-center active:opacity-60">
+        <Text variant="label" style={{ color: theme.ink }}>
+          Send an invite link
+        </Text>
+      </Pressable>
     </View>
   );
 }

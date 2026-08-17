@@ -10,7 +10,25 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 export type MaintenanceRow = {
   label: string;
-  caption: string;
+  /**
+   * The sentence UNDER the label — optional, and mostly absent.
+   *
+   * The plate carried one on every row, and five stacked explanations at the
+   * foot of a page about a garment is prose where a list should be. A caption
+   * is now spent where the tap has a consequence the label does not name: the
+   * destructive row, and the listing-photo row whose caption is live data
+   * (which retailer the image came from). Everything else says what it does in
+   * its own label, and its old sentence rides `hint` for a screen reader.
+   */
+  caption?: string;
+  /**
+   * The VoiceOver hint, when it is not the caption.
+   *
+   * Rows that dropped their visible sentence pass it here verbatim, so nothing
+   * a reader could have read is lost to someone who cannot see the row at all.
+   * Falls back to `caption` for the two rows that still print one.
+   */
+  hint?: string;
   onPress: () => void;
   tone?: 'ink' | 'accent';
   loading?: boolean;
@@ -57,20 +75,21 @@ const CAPTION_STYLE = { fontSize: 12, lineHeight: leading('helvetica', 12, 1.4) 
  * what it does, and a chevron — or a spinner while it is happening.
  *
  * Same shape as the account screen's `AccountRow` (app/profile.tsx), which is
- * the app's established grammar for "a list of things you can do", with a
- * caption added: these actions are irreversible in a way that opening Privacy
- * or Support is not, and the caption is where that gets said before anybody
- * taps. It is a caption rather than a confirmation dialog because a sentence
- * read BEFORE the tap costs nothing, where a dialog after it trains the thumb
- * to dismiss. `tone="accent"` is the destructive one, matching Delete account
- * rather than introducing a second destructive colour.
+ * the app's established grammar for "a list of things you can do". The caption
+ * is where a consequence gets said before anybody taps — a sentence read
+ * BEFORE the tap costs nothing, where a dialog after it trains the thumb to
+ * dismiss — but it is drawn ONLY when the caller passes one: a row whose label
+ * already says what it does was, five times over, a paragraph. Without it the
+ * row is a clean single line and keeps its 44pt floor from `minHeight`, so the
+ * plate's rhythm does not change. `tone="accent"` is the destructive one,
+ * matching Delete account rather than introducing a second destructive colour.
  *
  * Disabled while loading, so a slow re-read cannot be fired twice — the server
  * would refuse the second with a 409 anyway, but a control that visibly does
  * nothing is worse than one that is visibly busy. `accessibilityState` says
  * both `busy` and `disabled`, because VoiceOver has no way to see the spinner.
  */
-function Row({ label, caption, onPress, tone = 'ink', loading = false }: MaintenanceRow) {
+function Row({ label, caption, hint, onPress, tone = 'ink', loading = false }: MaintenanceRow) {
   const theme = useTheme();
   const accent = tone === 'accent';
   // The atlas draws the chevron at 35% ink (and 45% oxblood on the destructive
@@ -82,7 +101,7 @@ function Row({ label, caption, onPress, tone = 'ink', loading = false }: Mainten
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityHint={caption}
+      accessibilityHint={hint ?? caption}
       accessibilityState={{ busy: loading, disabled: loading }}
       onPress={onPress}
       disabled={loading}
@@ -94,9 +113,11 @@ function Row({ label, caption, onPress, tone = 'ink', loading = false }: Mainten
           style={{ ...LABEL_STYLE, color: accent ? theme.accent : theme.ink }}>
           {label}
         </Text>
-        <Text variant="caption" className="mt-0.5" style={CAPTION_STYLE}>
-          {caption}
-        </Text>
+        {caption ? (
+          <Text variant="caption" className="mt-0.5" style={CAPTION_STYLE}>
+            {caption}
+          </Text>
+        ) : null}
       </View>
       {loading ? (
         <ActivityIndicator size="small" color={iconColor} />

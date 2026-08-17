@@ -12,10 +12,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  CANCELLATION_NOTE,
   cancellationConsequence,
   entitlementBand,
+  freeCeilingMark,
   isManageablePlan,
   paidAccessLine,
+  paidThroughMark,
 } from '../src/features/billing/manage-membership';
 import { membershipRowFor, type MembershipRowInput } from '../src/features/billing/membership-row';
 import { PLANS } from '../src/features/billing/plans';
@@ -107,6 +110,9 @@ test('no membership surface prints a price or a duration', () => {
     paidAccessLine(PLANS.standard, null),
     cancellationConsequence(MARCH),
     cancellationConsequence(null),
+    paidThroughMark(MARCH),
+    freeCeilingMark(),
+    CANCELLATION_NOTE,
   ];
   for (const s of strings) {
     assert.doesNotMatch(s, /\$|\d+\s*\/\s*(month|year)|per month/i, `price in: ${s}`);
@@ -130,6 +136,22 @@ test('cancellation promises no automatic downgrade, and quotes the real free cei
   // Correction 35: no job moves overflow into storage, and no chooser flow
   // exists to be promised either (dependency C).
   assert.doesNotMatch(line, /will ask|move .* to storage|automatic/i);
+});
+
+test('the masthead and the rule line set the same facts as marks, never guesses', () => {
+  // The tier is the plate and the term is the colophon under it. No date read
+  // means no colophon at all — the same refusal the prose made, in type.
+  assert.match(paidThroughMark(MARCH), /^PAID THROUGH /);
+  assert.equal(paidThroughMark(null), '');
+
+  // The ceilings moved out of the paragraph and into the mark, so this is now
+  // the surface that has to keep quoting PLANS.free rather than a literal.
+  const mark = freeCeilingMark();
+  assert.match(mark, new RegExp(`${PLANS.free.items} ACTIVE`));
+  assert.match(mark, new RegExp(`${PLANS.free.storedItems} STORED`));
+
+  // And the one sentence left on screen still leads with the good news.
+  assert.match(CANCELLATION_NOTE, /Nothing is deleted/);
 });
 
 test('free never reaches the management page', () => {

@@ -127,7 +127,6 @@ export default function DevRepeatScreen() {
           since={exhaustion.since}
           now={P03_NOW}
           gap={gap}
-          currentCountOfKind={gap ? tallyOf(FIXTURE_REPEAT_WARDROBE)[gap.kind] : 0}
           topOutfitName="the linen and charcoal"
           topOutfitWearCount={3}
           onSeePlans={() => {}}

@@ -49,7 +49,13 @@ export const EMPTY_TITLE = 'Start your closet';
 export const EMPTY_ACTION = 'Add your first piece';
 
 /**
- * CX-03's body.
+ * CX-03's body — NO LONGER RENDERED, and deliberately still here.
+ *
+ * The card drew this sentence, the count line at the top of `(tabs)/closet.tsx`
+ * and the example card's heading, all stating the same ten. The mark row below
+ * says it once, as a shape, and the sentence's job is done — but the wording is
+ * still the approved one, so it stays exported for the fixtures and tests that
+ * quote it rather than being reworded out of existence.
  *
  * `PLANS.free.items` rather than a typed "10": every other statement of the
  * free closet reads from that constant, and a sentence that disagrees with the
@@ -90,12 +96,24 @@ export function EmptyCloset({ onAddClothes, flow = 'centred' }: EmptyClosetProps
           {EMPTY_TITLE}
         </Text>
 
-        {/* 16px prose in the regular cut. `note` is 13; the frame sets this one
-            a step up because it is the paragraph the whole screen is, not a
-            footnote under something else. */}
-        <Text variant="note" className="mt-4" style={{ fontSize: 16, lineHeight: 25 }}>
-          {emptyClosetBody()}
-        </Text>
+        {/* The paragraph, drawn instead of written.
+            `Add 10 pieces and Cinch can start building outfits…` was a sentence
+            doing a gauge's work, on the one screen that already states the same
+            ten twice above it. Ten cells, none filled, read the ceiling at a
+            glance and re-read as progress on the next visit — no new component,
+            no second number. `sand` is the track colour the app already uses
+            for a mark that sits back from its ground.
+            One node, not ten: read cell by cell VoiceOver announces nothing at
+            all, so the row carries the sentence's fact as its label. */}
+        <View
+          className="mt-4 flex-row gap-1"
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={`0 of ${PLANS.free.items} pieces filed`}>
+          {Array.from({ length: PLANS.free.items }, (_, i) => (
+            <View key={i} className="h-1.5 flex-1 rounded-xs bg-sand" />
+          ))}
+        </View>
 
         {/* Audit 100's approved positioning line, kept and moved rather than
             dropped: CX-03 fixes the paragraph above word for word, so the line

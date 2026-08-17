@@ -412,6 +412,21 @@ export default function ExploreScreen() {
    * whatever the last successful read returned, so a refetch leaves the day on
    * screen and only the pull-to-refresh control moves.
    */
+  /**
+   * Will the timeline below print the closure line itself?
+   *
+   * One page, one ending. `CaughtUpLine` and the timeline's closure are the
+   * same sentence, and a reader with a day AND additions used to meet it twice
+   * in one pull — once mid-page under the looks, once at the true bottom. The
+   * oxblood full stop means "this is the end of the page", so it draws where
+   * the page actually ends: under the day only when nothing follows it.
+   */
+  const timelineWillClose = showsCaughtUp({
+    isError: additions.isError,
+    isLoading: additions.isLoading,
+    visibleCount: entries.length,
+  });
+
   const dailySection = !showsDaily ? null : (
     <View
       className="px-gutter"
@@ -481,7 +496,7 @@ export default function ExploreScreen() {
             );
           })}
 
-          {showsCaughtUpLine(dailyState) ? <CaughtUpLine /> : null}
+          {showsCaughtUpLine(dailyState) && !timelineWillClose ? <CaughtUpLine /> : null}
         </View>
       ) : null}
     </View>
@@ -610,7 +625,10 @@ export default function ExploreScreen() {
               title={hasFriends ? 'Nothing new yet' : 'An empty page, for now'}
               body={
                 hasFriends
-                  ? 'Nobody in your circle has added a piece lately. When they do, it lands here — newest first, with the day it arrived.'
+                  // One sentence. The second used to narrate the layout —
+                  // day headings and newest-first order are visible on the
+                  // page the moment there is anything to see.
+                  ? 'Nobody in your circle has added a piece lately.'
                   : 'This page fills with what your friends add to their closets. Find someone by username; when they add you back, their closet opens to you and yours to them.'
               }
               actionTitle={hasFriends ? 'Find more friends' : 'Find a friend'}

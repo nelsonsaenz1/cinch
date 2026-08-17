@@ -25,20 +25,35 @@ function cap(s: string): string {
 export const WALKTHROUGH_INVITATION = {
   eyebrow: 'Describe your closet',
   headline: 'Open the wardrobe and talk.',
-  body: 'Say what you see, in whatever words you use for it. Cinch writes the list and you go through it afterwards, one card at a time.',
+  /**
+   * ONE SENTENCE. The second half — "Cinch writes the list and you go through
+   * it afterwards, one card at a time" — was said again, verbatim in substance,
+   * by `HEARD.body` on the very next screen, where it is actually actionable.
+   * The examples below are the body of this frame now.
+   */
+  body: 'Say what you see, in whatever words you use for it.',
   /**
    * Deliberately imperfect phrasing, set as italic prose rather than as chips.
    * They are teaching that the parser tolerates how people actually speak, and
    * a chip reads as a controlled vocabulary — the opposite lesson.
+   *
+   * Promoted from footnote to specimen: a ruled block at reading size, which is
+   * what the frame is teaching, rather than three leftovers under a paragraph.
    */
   examples: ['“white linen shirt”', '“those brown loafers”', '“a heavy grey coat”'],
   /**
-   * The consent sentence, above the button, naming both services the audio
-   * passes through. It states what happens and that a prompt follows; the
-   * system prompt is the actual request.
+   * The consent clause, above the button, naming what happens to the audio.
+   *
+   * It used to add "You will be asked to allow that before the microphone
+   * opens", which narrated the system prompt that arrives on its own a moment
+   * later — the prompt is the actual request, and describing it in advance is
+   * the app reading the OS aloud.
    */
-  consent:
-    'The recording goes to the service that turns speech into text, then to the model that reads the list. You will be asked to allow that before the microphone opens.',
+  // One sentence, but the WHOLE sentence: the audio leaves the device for a
+  // transcription service before Cinch's model reads the list, and this line
+  // is the only place on the screen that names the third party in that path.
+  // The trimmed clause was the one narrating the system prompt, never this.
+  consent: 'The recording goes to the service that turns speech into text, then to the model that reads the list.',
   action: 'Start recording',
   /** The other door, one tap away at every point in the voice path. */
   secondary: 'Photograph them instead',

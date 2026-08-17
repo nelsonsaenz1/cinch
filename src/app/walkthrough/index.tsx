@@ -7,7 +7,7 @@ import { LevelMeter } from '@/components/intake/LevelMeter';
 import { unmatchedTranscriptSpans } from '@/components/intake/Precipitate';
 import { FailureScreen, type WalkthroughFailure } from '@/components/intake/FailureScreen';
 import { ReadingBack } from '@/components/intake/ReadingBack';
-import { Button, Text } from '@/components/ui';
+import { Button, Rule, Text } from '@/components/ui';
 import {
   intakeParsed,
   intakeRecordingFinished,
@@ -383,20 +383,29 @@ export default function WalkthroughScreen() {
             {WALKTHROUGH_INVITATION.body}
           </Text>
           {/* Prose, italic, not chips — a chip reads as a controlled
-              vocabulary, and these exist to teach the opposite. */}
-          <View style={{ marginTop: 22, gap: 6 }}>
+              vocabulary, and these exist to teach the opposite.
+
+              THE SPECIMEN IS THE BODY OF THIS FRAME. The rule above it and the
+              reading size below turn three examples that used to look like
+              leftovers under a paragraph into the thing the frame is actually
+              showing: what saying it out loud sounds like. */}
+          <View style={{ marginTop: 26 }}>
+            <Rule />
+          </View>
+          <View style={{ marginTop: 18, gap: 10 }}>
             {WALKTHROUGH_INVITATION.examples.map((e) => (
-              <Text key={e} variant="note" className="italic" style={{ fontSize: 17 }}>
+              <Text key={e} variant="note" className="italic" style={{ fontSize: 19 }}>
                 {e}
               </Text>
             ))}
           </View>
         </ScrollView>
         <View className="px-gutter">
-          {/* The consent sentence sits directly above the action, because the
-              tap is the moment it is acted on. The system prompt follows it. */}
+          {/* One line, directly above the action, because the tap is the moment
+              it is acted on. The system permission prompt follows it and is the
+              actual request — this no longer describes it in advance. */}
           <View style={{ marginBottom: 12 }}>
-            <Text variant="note" style={{ fontSize: 14, lineHeight: 21 }}>
+            <Text variant="note" style={{ fontSize: 13, lineHeight: 20 }}>
               {WALKTHROUGH_INVITATION.consent}
             </Text>
           </View>

@@ -92,7 +92,10 @@ export const PLAN_LIMITS: Record<Plan, Record<AiQuotaKind, Allowance>> = {
     tagging: { limit: 400, period: 'month' },
     // A fresh outfit every morning plus real re-rolling, not a token allowance.
     outfit_generation: { limit: 15, period: 'day' },
-    stylist_chat: { limit: 30, period: 'month' },
+    // The promise is five chats a month (founder decision, 2026-08-17 — the
+    // stylist is a taste on Standard and a habit on Pro). Eight is the ceiling
+    // that keeps five deliverable through a failed call or two.
+    stylist_chat: { limit: 8, period: 'month' },
     // A 150-garment closet described end to end, plus a re-search for a third
     // of them — the realistic shape, since the first phrasing of "that navy
     // dress" often isn't the one that finds it. ~$1.60/month at the ceiling.

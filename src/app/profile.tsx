@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,7 +13,11 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { SettingsRow } from '@/components/ui/settings-row';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { Placement } from '@/features/billing/placements';
+import { UPGRADE_UNAVAILABLE_LINE } from '@/features/billing/upgrade-delta';
 import { useCapacity } from '@/features/billing/use-capacity';
+import { useGate } from '@/features/billing/use-gate';
+import { usePlan } from '@/features/billing/use-plan';
 import { ValueRow } from '@/components/ui/settled-row';
 import { ProfileCoachingCard } from '@/components/profile/profile-coaching-card';
 import { coachingDestination, PR_C2_IDENTITY_GAP } from '@/features/examples/example-copy';
@@ -123,6 +127,42 @@ export default function ProfileScreen() {
   const [editing, setEditing] = useState(false);
   // PR-C1 / PR-C2 — shown on the first Profile visit, dismissed for good.
   const coaching = useProfileCoaching();
+
+  // The door in the capacity band. Settings deliberately draws no membership
+  // row for a free account, so this card is the ONLY surface where a free
+  // member ever meets their ceiling — and until now it was a wall with nothing
+  // in it. The row appears at four fifths of the active limit, which is where
+  // the number stops being trivia and starts being a decision.
+  //
+  // `unconfirmed` is excluded as well as `loading`: `usePlan` answers `free` on
+  // an unreadable read, which is the right answer for a gate and a false claim
+  // for a label reading "Cinch Free".
+  const plan = usePlan();
+  const gate = useGate();
+  const [planUnavailable, setPlanUnavailable] = useState(false);
+  const nearCeiling =
+    !plan.loading &&
+    !plan.unconfirmed &&
+    plan.plan !== 'pro' &&
+    !capacity.loading &&
+    capacity.limit > 0 &&
+    capacity.used / capacity.limit >= 0.8;
+
+  const openPlans = useCallback(() => {
+    setPlanUnavailable(false);
+    // A Standard member has a page of their own to read; a free member has no
+    // membership to manage, so they get the file's own generic "See plans"
+    // door — the same placement and the same paywall as every other one.
+    if (plan.plan === 'standard') {
+      router.push('/membership-upgrade' as Href);
+      return;
+    }
+    void gate.present(Placement.RepeatUpsell).then((outcome) => {
+      // `declined` is somebody closing a paywall they read. Only a paywall
+      // that never arrived leaves the row looking like a dead control.
+      if (outcome === 'unavailable') setPlanUnavailable(true);
+    });
+  }, [gate, plan.plan, router]);
 
   const name = profileHeader.data?.name ?? '';
   const memberSince = profileHeader.data?.memberSince;
@@ -351,8 +391,31 @@ export default function ProfileScreen() {
                 label="Stored pieces"
                 value={`${capacity.stored} of ${capacity.storedLimit}`}
               />
+              {/* Not a button, and deliberately not an accent one: this
+                  screen's single oxblood is already spent on Done in the
+                  header. A plain chevron row inside the card the numbers are
+                  in, so the ceiling has a door beside it rather than a banner
+                  over it. */}
+              {nearCeiling ? (
+                <>
+                  <Rule tone="hairline" />
+                  <SettingsRow
+                    label={`Cinch ${plan.copy.name}`}
+                    detail="See plans"
+                    onPress={openPlans}
+                  />
+                </>
+              ) : null}
             </Card>
           )}
+
+          {/* Drawn only when a paywall was asked for and never arrived, so the
+              row above is never a control that appears to do nothing. */}
+          {planUnavailable ? (
+            <Text variant="note" className="mt-2.5">
+              {UPGRADE_UNAVAILABLE_LINE}
+            </Text>
+          ) : null}
 
           {/* What the engine has learned, in the user's own terms — the tray
               card, recessed rather than lifted. Showing this is what makes

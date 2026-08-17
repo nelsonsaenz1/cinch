@@ -13,6 +13,8 @@ import {
 import { FriendsPage, type RequestRowModel } from '@/components/social/friends-page';
 import type { RequestRowState, SearchRelation } from '@/components/social/friend-rows';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
+import { PLANS } from '@/features/billing/plans';
+import { usePlan } from '@/features/billing/use-plan';
 import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
 import { useMutedIds } from '@/features/social-graph/muted';
 import { useFollow, useUnfollow } from '@/features/social-graph/mutations';
@@ -520,6 +522,20 @@ export default function FriendsScreen() {
    */
   const openGroups = useCallback(() => router.push('/groups'), [router]);
 
+  /**
+   * What the closet the circle can see is allowed to hold.
+   *
+   * Free only, and never during a trial: on any paid tier the sentence is not
+   * a fact worth printing. The number comes from `PLANS.free.items` rather
+   * than the keyboard — every count this app shows a customer is the one the
+   * gate actually enforces. `FriendsPage` argues the placement; this is the
+   * plan half of it.
+   */
+  const { plan, trialing } = usePlan();
+  const planNote =
+    plan === 'free' && !trialing ? `${PLANS.free.items} pieces of it, on Free.` : undefined;
+  const openPlans = useCallback(() => router.push('/membership'), [router]);
+
   return (
     <>
       <FriendsPage
@@ -555,6 +571,8 @@ export default function FriendsScreen() {
         canInvite={username.length > 0}
         onInvite={openInvite}
         onOpenGroups={openGroups}
+        planNote={planNote}
+        onSeePlans={planNote ? openPlans : undefined}
         refreshing={refreshing}
         onRefresh={refresh}
         showBlockedResult={blockedResult}

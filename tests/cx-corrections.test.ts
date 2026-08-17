@@ -486,7 +486,10 @@ const ACCEPTED: Record<string, [path: string, headline: string, support: string]
   // Today is absent here on purpose: its headline is the GREETING, which is
   // computed rather than typed, so it cannot be matched as a literal between
   // two tags. Its own two tests are below.
-  Plan: [PLAN, 'Plan', 'Your upcoming events.'],
+  //
+  // Plan is absent for a different reason and has its own test below: it is
+  // the one surface in the table whose support line was WRONG in two of its
+  // three modes, so the line was withdrawn rather than reworded.
   // UX-04 replaced LP-06's "Looks and ideas to try." — the page curates
   // nothing, recommends nothing and styles nothing; these are the pieces
   // friends added to their own closets, and the line now says exactly that.
@@ -504,6 +507,22 @@ for (const [surface, [path, headline, support]] of Object.entries(ACCEPTED)) {
     assert.ok(src.includes(support), `${surface} is missing the accepted line "${support}"`);
   });
 }
+
+test('LP-06 — Plan is a masthead of two registers, with no support sentence', () => {
+  // The display headline is unchanged and still the page's H1.
+  const src = body(PLAN);
+  assert.match(src, /variant="display"[^>]*>\s*Plan\s*</);
+  // Its eyebrow — the computed date range — is the second register, and the
+  // whole of it. This is the pairing the rest of the app's mastheads use.
+  assert.match(src, /variant="eyebrow"[\s\S]{0,120}\{weekRangeLabel\}/);
+  // "Your upcoming events." rendered above the segmented control in ALL THREE
+  // modes, so it was false on Week and on Packing, and redundant on Events
+  // where the control itself says "Events" one row down. It must not return.
+  assert.ok(
+    !src.includes('Your upcoming events.'),
+    'the mode-agnostic support line is back on the Plan masthead',
+  );
+});
 
 test('LP-06 — the accepted support lines use the typographic apostrophe', () => {
   // Guards the one row that contains an apostrophe against a straight-quote

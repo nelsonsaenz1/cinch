@@ -52,6 +52,11 @@ export const TEN_TITLE = 'First 10';
  * eyebrow directly above it already prints `3 of 10`, so the progress half of
  * that sentence was the count said twice, and the accepted atlas allows one
  * headline and at most one supporting line before an action. This is that line.
+ *
+ * NOTHING DRAWS IT ANY MORE. The masthead's own count is the progress and the
+ * adaptive SlotCard under the grid is the instruction — this said neither, in
+ * the same words on all ten states, above the clothes. The constant stays
+ * because it is the accepted copy for the line if a surface ever needs one.
  */
 export const TEN_SUPPORT = 'Build the ten pieces you reach for most.';
 
@@ -389,14 +394,60 @@ export function replaceFailureLine(
     case 'library-denied':
       return `Slot ${slotId} is unchanged. Cinch couldn’t open your photo library.`;
     case 'no-room':
+      // The full-account branch is now a PLATE, not a line: `noRoomCopy` below
+      // carries the cause and both remedies in Cinch's own type, so all this
+      // has to say is the fact every failure line says. The 44-word paragraph
+      // it used to be survives verbatim as that plate's announcement, which is
+      // what a VoiceOver reader hears in place of the drawn one.
       return storageFull
-        ? `Slot ${slotId} is unchanged. Your closet and your Storage are both full on this plan, so there is nowhere for another photograph to go — delete a piece from Storage, or upgrade for a larger closet. Nothing you’ve photographed has been removed.`
+        ? noRoomCopy(slotId).note
         : `Slot ${slotId} is unchanged. Cinch couldn’t make room for the new photograph — try again in a moment.`;
     case 'processing-failed':
       return `Slot ${slotId} is unchanged. That photograph didn’t make it through — the one you had is still there.`;
     case 'restore-failed':
       return `Slot ${slotId} didn’t change, and the piece that was in it is in Storage rather than your closet. Nothing has been deleted — you can bring it back from Storage.`;
   }
+}
+
+export type NoRoomCopy = {
+  eyebrow: string;
+  headline: string;
+  note: string;
+  storage: string;
+  plans: string;
+  /** The whole refusal, in one sentence, for a reader who cannot see the plate. */
+  announcement: string;
+};
+
+/**
+ * The total ceiling, given a door.
+ *
+ * This used to be `Alert.alert('Nothing changed', …)` carrying a 44-word
+ * paragraph — the app's least designed surface, no serif, no tokens, no plate —
+ * and it NAMED AN UPGRADE WITH NO WAY TO REACH ONE. It is squarely reachable
+ * from onboarding: M-07's ceiling path parks pieces in Storage up to
+ * `PLANS.free.storedItems`, which is exactly the total this refusal fires on.
+ *
+ * NO PRICE AND NO NUMBER. 'See plans' opens `AddGarmentOverLimit`, the
+ * placement whose entire contract is a closet the server has already refused,
+ * so every figure stays in `plans.ts` and on the paywall that quotes it.
+ *
+ * The announcement is the old paragraph unchanged. A drawn plate says
+ * eyebrow → headline → note → two doors; a spoken one has to say it in prose,
+ * and this is the prose it was already saying.
+ */
+export function noRoomCopy(slotId: number): NoRoomCopy {
+  return {
+    eyebrow: 'No room',
+    headline: 'Your closet and your Storage are both full.',
+    note: `Slot ${slotId} is unchanged — nothing has been removed.`,
+    storage: 'Open Storage',
+    plans: 'See plans',
+    announcement:
+      `Slot ${slotId} is unchanged. Your closet and your Storage are both full on this plan, ` +
+      'so there is nowhere for another photograph to go — delete a piece from Storage, or ' +
+      'upgrade for a larger closet. Nothing you’ve photographed has been removed.',
+  };
 }
 
 /** Spoken after a successful swap. Names the position and what landed in it. */

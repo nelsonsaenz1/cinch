@@ -22,8 +22,10 @@ import { EmptyCloset } from '@/components/closet/empty-closet';
 import { ExampleCloset } from '@/components/closet/example-closet';
 import { FavoriteOutfitsRail } from '@/components/closet/favorite-outfits-rail';
 import { InsightCard } from '@/components/closet/insight-card';
+import { Placement } from '@/features/billing/placements';
 import { PLANS } from '@/features/billing/plans';
 import { useCapacity } from '@/features/billing/use-capacity';
+import { useGate } from '@/features/billing/use-gate';
 import { RailCard } from '@/components/closet/rail-card';
 import { SelectionBar } from '@/components/closet/selection-bar';
 import { StatRow } from '@/components/closet/stat-row';
@@ -884,7 +886,9 @@ function EmptySearch({ query, category }: { query: string; category: CategoryFil
  * stated fact here, never a disabled control: nothing on this screen greys
  * out or blocks the add tile at the limit (the closet-full sheet lives at
  * the moment of the attempt — capture.tsx's W-02 — not as a standing warning
- * on the masthead).
+ * on the masthead). Still true with the `See plans` link beside it: a link is
+ * a door, not a gate — the add tile stays live at ten, and the sheet it opens
+ * is the same one the attempt raises.
  *
  * The 10-piece threshold is the free plan's own ceiling
  * (`PLANS.free.items`), not a magic number re-typed here: once a plan's
@@ -895,6 +899,8 @@ function EmptySearch({ query, category }: { query: string; category: CategoryFil
 function CapacityColophon() {
   const theme = useTheme();
   const capacity = useCapacity();
+  const gate = useGate();
+  const [presenting, setPresenting] = useState(false);
   if (capacity.loading) return null;
 
   const label =
@@ -902,8 +908,13 @@ function CapacityColophon() {
       ? `${capacity.used} OF ${capacity.limit}${capacity.full ? ' · FULL' : ''}`
       : `${capacity.used} ${capacity.used === 1 ? 'PIECE' : 'PIECES'}`;
 
+  const seePlans = () => {
+    setPresenting(true);
+    void gate.present(Placement.AddGarmentOverLimit).finally(() => setPresenting(false));
+  };
+
   return (
-    <View className="mt-2 px-gutter">
+    <View className="mt-2 flex-row items-center justify-between px-gutter">
       {/* `style`, never a second `text-*` class: `caption` already carries
           `text-muted`, and NativeWind resolves two colour utilities on one
           element by key order, not by intent.
@@ -915,9 +926,36 @@ function CapacityColophon() {
           be if the sentence is the hardest thing on the screen to read. */}
       <Text
         variant="caption"
+        className="shrink"
         style={{ fontFamily: 'HelveticaNeue', fontSize: 11, letterSpacing: 0.4, color: theme.muted }}>
         {label}
       </Text>
+
+      {/* The door, only on the line that states the wall.
+          `AddGarmentOverLimit` already fires from capture, the garment search
+          sheet and the gap feed — every place the ceiling is HIT — while the
+          one surface that stands there every day saying FULL had nothing to
+          tap. Drawn only when it is true: nobody with room ever sees an upsell,
+          and the colophon's own wording is untouched.
+
+          Ink at 13px (`label`'s own size), never oxblood and never a filled
+          button: C-01 spends its single accent on the Unworn figure in StatRow,
+          and this has to stay a text link riding a colophon row. */}
+      {capacity.full ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="See plans"
+          accessibilityHint="Opens the membership options for a larger closet"
+          accessibilityState={{ busy: presenting, disabled: presenting }}
+          disabled={presenting}
+          onPress={seePlans}
+          hitSlop={12}
+          className="active:opacity-60">
+          <Text variant="label" className="text-ink">
+            See plans
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

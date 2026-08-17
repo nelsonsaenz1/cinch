@@ -226,7 +226,7 @@ export default {
       // this function could rely on it alone while packing was "any paying
       // plan". Packing became Pro-only on 2026-08-09
       // (docs/design/membership-packing-contract.md §2.4) and Standard still
-      // has 30 stylist messages a month, so the allowance would now let a
+      // has a stylist allowance of its own, so the allowance would now let a
       // Standard client straight through. The boundary has to be stated where
       // it is enforced.
       //

@@ -13,6 +13,7 @@ import {
   ClearAllDialog,
   OfflineBanner,
 } from '@/components/activity-center';
+import { Rule } from '@/components/ui/rule';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { useToast } from '@/components/ui/toast-host';
@@ -42,6 +43,7 @@ import {
   CLEAR_ALL,
   EDIT,
   EDIT_DONE,
+  FOOTER_MARK,
   FOOTER_PRIVACY,
   NAV_TITLE,
   RETENTION_NOTE,
@@ -451,16 +453,22 @@ export default function ActivityScreen() {
                 </View>
               ))}
 
-              {/* The two lines at the foot, in this order. The privacy line
-                  answers the question an inbox raises — who else sees this —
-                  and the retention line states the window rather than letting
-                  the reader discover a list that mysteriously stops. */}
-              <Text variant="note" className="mt-6 px-10 text-center" style={{ fontSize: 13 }}>
-                {FOOTER_PRIVACY}
-              </Text>
-              <Text variant="note" className="mt-3 px-10 text-center" style={{ fontSize: 13 }}>
-                {RETENTION_NOTE}
-              </Text>
+              {/* The foot of the timeline: a hairline to end it, then the two
+                  claims set as one colophon — who else sees this, and how long
+                  it is kept. Both sentences survive verbatim on the label, so
+                  the answers are still spoken; they have just stopped being 26
+                  words of centred body copy under a list of 13px rows. */}
+              {/* Inset by a padded wrapper rather than `mx-gutter` on the Rule
+                  itself: Rule is `w-full`, so a horizontal margin on it would
+                  overflow the row by the two gutters instead of insetting it. */}
+              <View className="mt-8 px-gutter">
+                <Rule tone="hairline" />
+              </View>
+              <View accessible accessibilityLabel={`${FOOTER_PRIVACY} ${RETENTION_NOTE}`}>
+                <Text variant="colophon" className="mt-4 text-center">
+                  {FOOTER_MARK}
+                </Text>
+              </View>
             </View>
           )}
         </ScrollView>

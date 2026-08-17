@@ -32,6 +32,16 @@ import { track } from '@/lib/posthog';
  */
 const COPIED_HOLD_MS = 4000;
 
+/**
+ * How long an arrival wears its mark.
+ *
+ * Two days, because the mark answers "did anyone come in since I last looked"
+ * and the honest window for that is a couple of days, not a session. Nothing
+ * clears it and nothing can be dismissed: it ages out by itself, which is why
+ * it needs no read state on either side of the network.
+ */
+const NEW_ARRIVAL_MS = 48 * 60 * 60 * 1000;
+
 export default function InviteScreen() {
   const router = useRouter();
 
@@ -52,11 +62,18 @@ export default function InviteScreen() {
 
   const rows = useMemo(() => {
     const now = new Date();
-    return (arrivals.data ?? []).map((arrival) => ({
-      userId: arrival.userId,
-      name: arrivalName(arrival),
-      subtitle: arrivalSubtitle(arrival, now),
-    }));
+    return (arrivals.data ?? []).map((arrival) => {
+      const joined = arrival.joinedAt ? new Date(arrival.joinedAt).getTime() : null;
+      return {
+        userId: arrival.userId,
+        name: arrivalName(arrival),
+        subtitle: arrivalSubtitle(arrival, now),
+        // Two days, off the same `now` the subtitle is written against, so the
+        // mark and the words can never disagree. A missing or unparseable
+        // timestamp is not new — the row already declines to claim a date.
+        isNew: joined !== null && !Number.isNaN(joined) && now.getTime() - joined < NEW_ARRIVAL_MS,
+      };
+    });
   }, [arrivals.data]);
 
   /**

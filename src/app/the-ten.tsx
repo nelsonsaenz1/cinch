@@ -9,12 +9,15 @@ import { CameraDenied } from '@/components/onboarding/camera-denied';
 import { FirstTenDoors } from '@/components/onboarding/first-ten-doors';
 import { TenBody } from '@/components/onboarding/ten-body';
 import { TenCamera } from '@/components/onboarding/ten-camera';
+import { TenNoRoomNotice } from '@/components/onboarding/ten-no-room-notice';
 import { TenRepair } from '@/components/onboarding/ten-repair';
 import { TenReplaceSheet } from '@/components/onboarding/ten-replace-sheet';
 import { TenStopSheet } from '@/components/onboarding/ten-stop-sheet';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Text } from '@/components/ui/text';
+import { Placement } from '@/features/billing/placements';
 import { useCapacity } from '@/features/billing/use-capacity';
+import { useGate } from '@/features/billing/use-gate';
 import { useRemoveItems } from '@/features/closet/mutations';
 import { useArchiveItems, useRestoreItems } from '@/features/closet/storage';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -23,7 +26,11 @@ import { selectActiveCount, useQueueStore } from '@/features/ingest/queue-store'
 import { useCameraAccess } from '@/features/ingest/use-camera-access';
 import { useUnfinishedWalkthrough } from '@/features/intake/queries';
 import { starterReadiness } from '@/features/onboarding/starter-readiness';
-import { replaceFailureLine, replacedAnnouncement } from '@/features/onboarding/ten-copy';
+import {
+  noRoomCopy,
+  replaceFailureLine,
+  replacedAnnouncement,
+} from '@/features/onboarding/ten-copy';
 import {
   applyReplace,
   initialReplaceState,
@@ -152,6 +159,23 @@ export default function TheTenScreen() {
    * found the door locked.
    */
   const [cameraRefused, setCameraRefused] = useState(false);
+  /**
+   * The slot a replacement was refused for because the ACCOUNT is full — the
+   * total ceiling, stored pieces counted.
+   *
+   * Held rather than alerted. This is the one failure whose remedy is not a
+   * retry and not a permission, so it is drawn under the grid (`TenNoRoomNotice`)
+   * where the reader can reach Storage or the plans from it. Every other
+   * failure keeps the system alert, which is right for a fact that stops being
+   * true the moment it is read.
+   */
+  // A reducer rather than useState for one mechanical reason: the slot is set
+  // from inside the failure effect below, and dispatching is the sanctioned
+  // way to move state from an effect (react-hooks/set-state-in-effect).
+  const [noRoomSlot, setNoRoomSlot] = useReducer(
+    (_prev: number | null, slot: number | null) => slot,
+    null,
+  );
   /** TR-05 is answered by walking through a door, and only asked once. */
   const [doorChosen, setDoorChosen] = useState(door === 'photograph');
 
@@ -205,6 +229,9 @@ export default function TheTenScreen() {
   } | null>(null);
 
   const capacity = useCapacity();
+  // Only ever used by the no-room plate's "See plans", whose placement is the
+  // one whose whole contract is a closet the server has already refused.
+  const gate = useGate();
   const archive = useArchiveItems();
   const restore = useRestoreItems();
   const discard = useRemoveItems();
@@ -317,6 +344,18 @@ export default function TheTenScreen() {
     // Nothing was replaced, so nothing on the grid changes — the only work
     // left is sweeping the half-written row and saying so.
     void sweepOrphan(orphanRef, discard);
+
+    // The total ceiling is DRAWN, not alerted: it names an upgrade, and an
+    // alert has nowhere to put a door. The spoken sentence is the paragraph
+    // this used to raise, unchanged, because a reader who cannot see the plate
+    // still has to hear both remedies.
+    if (state.failure === 'no-room' && capacity.storageFull) {
+      AccessibilityInfo.announceForAccessibility(noRoomCopy(state.slotId).announcement);
+      setNoRoomSlot(state.slotId);
+      dispatchReplace({ type: 'acknowledge' });
+      return;
+    }
+
     const line = replaceFailureLine(state.failure, state.slotId, capacity.storageFull);
     if (line) {
       AccessibilityInfo.announceForAccessibility(line);
@@ -637,14 +676,31 @@ export default function TheTenScreen() {
         onPhotograph={(id) => openCamera(id, 'camera')}
         onLibrary={(id) => openCamera(id, 'library')}
         footer={
-          needsRepair ? (
-            <TenRepair
-              readiness={readiness}
-              onCheckPiece={() =>
-                newestPlacedId ? router.push(`/item/${newestPlacedId}` as Href) : undefined
-              }
-            />
-          ) : undefined
+          <>
+            {needsRepair ? (
+              <TenRepair
+                readiness={readiness}
+                onCheckPiece={() =>
+                  newestPlacedId ? router.push(`/item/${newestPlacedId}` as Href) : undefined
+                }
+              />
+            ) : null}
+            {/* The refusal stands under the grid until the reader acts on it —
+                both doors clear it, because both of them answer it. */}
+            {noRoomSlot !== null ? (
+              <TenNoRoomNotice
+                slotId={noRoomSlot}
+                onOpenStorage={() => {
+                  setNoRoomSlot(null);
+                  router.push('/storage' as Href);
+                }}
+                onSeePlans={() => {
+                  setNoRoomSlot(null);
+                  void gate.present(Placement.AddGarmentOverLimit);
+                }}
+              />
+            ) : null}
+          </>
         }>
         {cameraRefused ? (
           // ── T-05 ──────────────────────────────────────────────────────────

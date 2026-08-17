@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
 import { Pressable, View } from 'react-native';
+import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { Text } from '@/components/ui/text';
@@ -76,6 +77,7 @@ export function TenTile({
   onPress?: () => void;
 }) {
   const theme = useTheme();
+  const reduced = useReducedMotion();
   const label = EMPTY_SLOT_LABEL;
   const garment = garmentName ?? null;
 
@@ -86,12 +88,23 @@ export function TenTile({
           className="overflow-hidden bg-tray"
           style={{ width: size, height, borderRadius: 12, borderWidth: 1, borderColor: theme.rule }}>
           {imageUri ? (
-            <Image
-              source={{ uri: imageUri }}
-              contentFit="cover"
-              style={{ width: '100%', height: '100%' }}
-              accessibilityIgnoresInvertColors
-            />
+            // The cutout settling into the position it was photographed for —
+            // the one moment this flow earns. KEYED ON THE URI so it plays when
+            // the cutout first resolves and never again on a scroll re-render,
+            // and guarded by `useReducedMotion` like every other entrance in
+            // the app. The tray well underneath already holds the geometry, so
+            // nothing moves while it fades.
+            <Animated.View
+              key={imageUri}
+              entering={reduced ? undefined : FadeIn.duration(240)}
+              style={{ width: '100%', height: '100%' }}>
+              <Image
+                source={{ uri: imageUri }}
+                contentFit="cover"
+                style={{ width: '100%', height: '100%' }}
+                accessibilityIgnoresInvertColors
+              />
+            </Animated.View>
           ) : null}
         </View>
       );

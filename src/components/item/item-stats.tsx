@@ -1,7 +1,9 @@
 import { View } from 'react-native';
+import Animated, { FadeIn, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
 import { leading } from '@/theme/font-metrics';
+import { motion } from '@/theme/tokens';
 
 export type ItemStatsProps = {
   wears: number;
@@ -103,17 +105,32 @@ function Cell({
   label,
   weight,
   a11yLabel,
+  animate,
 }: {
   figure: string;
   label: string;
   weight: number;
   a11yLabel: string;
+  /** False under Reduce Motion — the cell still arrives, just without the fade. */
+  animate: boolean;
 }) {
   return (
     // `alignItems: 'center'`, per §2.2 of the Refacing: both lines centre in an
     // equal-width figure-over-label column. The per-column `weight` is what
     // keeps "$9.10" from being crowded by "38".
-    <View
+    //
+    // ARRIVES RATHER THAN APPEARS. The band builds its cells, so saving a first
+    // price takes it from two columns to three and COST_WEIGHT shoves the
+    // neighbours sideways inside one frame — a layout snap on the single most
+    // rewarding edit this screen has. `entering` fades the new column in while
+    // `layout` slides the other two to their new weights.
+    //
+    // Style rides in `style`, never `className`: NativeWind's interop skips
+    // Reanimated components and the flex weight would be silently dropped —
+    // the lesson already recorded at (tabs)/closet.tsx:189-191.
+    <Animated.View
+      entering={animate ? FadeIn.duration(motion.duration.fast) : undefined}
+      layout={animate ? LinearTransition.duration(motion.duration.fast) : undefined}
       style={{ flex: weight, alignItems: 'center' }}
       accessible
       accessibilityRole="text"
@@ -137,7 +154,7 @@ function Cell({
       <Text variant="colophon" className="mt-1" style={LABEL_STYLE}>
         {label}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -217,6 +234,8 @@ export function ItemStats({
   stacked = false,
 }: ItemStatsProps) {
   const worn = wears > 0;
+  // The band's one motion, and the one place it is refused.
+  const reduced = useReducedMotion();
 
   const cells: { key: string; figure: string; label: string; weight: number; a11y: string }[] = [];
 
@@ -285,7 +304,14 @@ export function ItemStats({
   return (
     <View className="mx-gutter flex-row border-y border-rule py-[14px]">
       {cells.map((c) => (
-        <Cell key={c.key} figure={c.figure} label={c.label} weight={c.weight} a11yLabel={c.a11y} />
+        <Cell
+          key={c.key}
+          figure={c.figure}
+          label={c.label}
+          weight={c.weight}
+          a11yLabel={c.a11y}
+          animate={!reduced}
+        />
       ))}
     </View>
   );

@@ -20,7 +20,10 @@ import { ExampleEvents, ExampleWeek } from '@/components/plan/plan-examples';
 import { NoticeBand } from '@/components/ui/notice-band';
 import { Button, ErrorState, SectionHeader, Skeleton, SkeletonLead } from '@/components/ui';
 import { Text } from '@/components/ui/text';
+import { Placement } from '@/features/billing/placements';
 import { PLANS } from '@/features/billing/plans';
+import { useGate } from '@/features/billing/use-gate';
+import { usePlan } from '@/features/billing/use-plan';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { fetchForecast } from '@/features/context/weather';
@@ -307,6 +310,24 @@ export default function PlanScreen() {
   const invites = useEventInvites();
   const inviteCount = invites.data?.length ?? 0;
 
+  // The hosting ceiling, said BEFORE the database says it.
+  //
+  // Free hosts two at once (`event_limit_for_plan()`), and until now the only
+  // place that fact appeared was as a refused insert on event/new.tsx — the
+  // user met the boundary as a failed form. The screen that lists the very
+  // occasions being counted can say it quietly instead.
+  //
+  // `knownPlan` rather than `plan.plan`, for the reason index.tsx spells out:
+  // `usePlan` answers `free` both when the tier is unread and when it is
+  // unreadable, which is the right default for a GATE (refuse nothing on an
+  // outage) and the wrong one for a SENTENCE — a Standard host with two
+  // occasions would otherwise be told a ceiling that is not theirs.
+  const gate = useGate();
+  const planState = usePlan();
+  const knownPlan = planState.loading || planState.unconfirmed ? null : planState.plan;
+  const hostedCount = (myEvents.data ?? []).filter((e) => e.isHost).length;
+  const atHostingCeiling = knownPlan === 'free' && hostedCount >= PLANS.free.eventHosting;
+
   // --- Week ---------------------------------------------------------------
   const weekForecast = useQuery({
     queryKey: ['forecast', coords.latitude.toFixed(2), coords.longitude.toFixed(2), WEEK_DAYS],
@@ -425,13 +446,13 @@ export default function PlanScreen() {
           </Text>
         </View>
 
-        {/* LP-06's accepted support line. It sits above the segmented control
-            rather than inside either mode, because it describes the page the
-            tab bar just opened, not the mode currently selected — one headline
-            and at most one supporting line before an action. */}
-        <View style={{ marginTop: 6 }}>
-          <Text variant="note">Your upcoming events.</Text>
-        </View>
+        {/* LP-06's support line is GONE, and the masthead is better without
+            it. "Your upcoming events." rendered in all three modes, so it was
+            wrong on Week and wrong on Packing; on Events the segmented control
+            one row below already says "Events". What is left is the print-page
+            pairing the rest of the app uses — the title against its eyebrow
+            date range — and the line box it occupied becomes air above the
+            control. */}
       </View>
 
       <SegmentedControl mode={mode} onChange={setMode} inviteCount={inviteCount} />
@@ -526,17 +547,55 @@ export default function PlanScreen() {
                         onPress={() => router.push(`/event/${event.id}`)}
                       />
                     ))}
+                    {/* The ceiling, as a foot rather than a banner — the
+                        quiet-upgrade grammar `today/repeat-mark.tsx` already
+                        uses. The count and the limit both come from plans.ts,
+                        so nothing here can promise a number the database does
+                        not enforce, and the sentence explaining what
+                        membership ADDS is deliberately absent: context-lines
+                        carries it and the paywall renders it.
+
+                        The accent budget is intact. This screen's filled
+                        action stays "New event" in ink; "See plans" is a text
+                        link, the same weight as "Invite friends" above it.
+                        Joining is untouched and free on every tier — only
+                        hosting is rationed. */}
+                    {atHostingCeiling ? (
+                      <View className="mt-4 flex-row items-baseline justify-between gap-3">
+                        <Text variant="colophon" className="shrink">
+                          {`HOSTING ${hostedCount} OF ${PLANS.free.eventHosting}`}
+                        </Text>
+                        <Pressable
+                          onPress={() => void gate.present(Placement.EventHostingOverLimit)}
+                          accessibilityRole="button"
+                          accessibilityLabel="See plans"
+                          hitSlop={8}
+                          style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+                          className="active:opacity-60">
+                          <Text variant="label" style={{ color: theme.accent }}>
+                            See plans
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
                   </View>
                 ) : (invites.data?.length ?? 0) === 0 ? (
                   <>
-                    <View className="px-gutter pb-7 pt-7">
+                    <View className="px-gutter pb-5 pt-7">
                       <Text variant="title" trim>
                         Give everyone something to look forward to.
                       </Text>
-                      <Text variant="body" className="mt-5 text-muted">
-                        Create a dinner, wedding, or weekend away. Invite the people
-                        going, share looks before the day, and keep every occasion
-                        inside the circle you chose.
+                      {/* The three occasion types survive as a typographic
+                          list; the sentence around them does not. "Invite the
+                          people going, share looks before the day" is what
+                          `ExampleEvents` directly below DEMONSTRATES — two
+                          fictional occasions with dates, venues and
+                          monogrammed attendees — and "inside the circle you
+                          chose" is a privacy claim the occasion's own page
+                          already makes. `pb-5` rather than `pb-7` so the
+                          example sits closer to the headline it illustrates. */}
+                      <Text variant="colophon" className="mt-4">
+                        DINNERS · WEDDINGS · WEEKENDS AWAY
                       </Text>
                     </View>
                     {/* PL-C2 — two fictional events under the copy, in place
@@ -597,18 +656,33 @@ export default function PlanScreen() {
                     See the week before it starts.
                   </Text>
                 </View>
-                {/* "about ten" is `PLANS.free.items`, not a word typed into a
+                {/* Three claims welded into one measure — the days ahead, the
+                    weather, the closet, and repeats kept down — became one
+                    typographic register mark. `ExampleWeek` directly below
+                    SHOWS all four: seven dated rows, real weather strings,
+                    garment photographs. The paragraph was narrating a picture
+                    the reader is already looking at.
+
+                    The day count reads from `WEEK_DAYS`, the same constant the
+                    strip below is built from, so this line cannot drift from
+                    what it labels. `colophon` sets its own uppercase. */}
+                <Text variant="colophon" className="mt-5">
+                  {`${numberWord(WEEK_DAYS)} days · The forecast · Fewest repeats`}
+                </Text>
+                {/* The one actionable fact, kept whole.
+
+                    "about ten" is `PLANS.free.items`, not a word typed into a
                     sentence — the rule at `tour-copy.ts:17-28`. It is
                     deliberately NOT `MIN_CLOSET_FOR_OUTFITS` (8), which gates
                     the branch this copy sits in: eight is the engine's floor
                     for producing *a* look, it is internal, and no screen has
                     ever printed it. The number the user meets everywhere else
                     — the tour, The Ten, Today's empty state — is the free
- tier's, so it is the one this asks for, hedged with "about"
+                    tier's, so it is the one this asks for, hedged with "about"
                     because the real gate is a shape (a top and a bottom, or a
                     dress) rather than a count. */}
-                <Text variant="body" className="mt-5 text-muted">
-                  {`Cinch reads the days ahead, the weather, and what is already in your closet, then gives each day a look while keeping repeats to a minimum. Add about ${numberWord(PLANS.free.items)} pieces to begin.`}
+                <Text variant="body" className="mt-4 text-muted">
+                  {`Add about ${numberWord(PLANS.free.items)} pieces to begin.`}
                 </Text>
                 <Button
                   title="Add clothes"

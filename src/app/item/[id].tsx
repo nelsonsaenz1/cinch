@@ -56,6 +56,7 @@ import { useItemListing } from '@/features/match/use-match';
 import { useSetBorrowable } from '@/features/social-graph/mutations';
 import { useItemBorrowable } from '@/features/social-graph/queries';
 import { pairHarmony, toGarmentColors } from '@/lib/color';
+import { haptics } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 import { costPerWear, type Item } from '@/schemas/item';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -576,7 +577,17 @@ export default function ItemDetailScreen() {
         },
       },
       {
-        onSuccess: () => setEditing(false),
+        onSuccess: () => {
+          // The FIRST price only — the edit that unlocks the cost-per-wear
+          // column the band has been drawing around. Every later correction to
+          // the same figure is bookkeeping and gets nothing. Best-effort, like
+          // every other call site: haptics no-op in Low Power Mode and must
+          // never block the save.
+          if (item.purchasePrice === null && price !== null) {
+            haptics.selection();
+          }
+          setEditing(false);
+        },
         onError: () => setSaveFailed(true),
       },
     );
@@ -635,13 +646,21 @@ export default function ItemDetailScreen() {
    * guaranteed to disappoint. "Send back" additionally requires a piece that has
    * been confirmed — an item still in the queue cannot be sent somewhere it
    * already is.
+   *
+   * WHICH ROWS SPEAK. The plate used to print a sentence under every label, and
+   * five of them stacked at the foot of the page is a paragraph pretending to
+   * be a list. A caption is now spent only where the tap has a consequence the
+   * label cannot state — the destructive row — or where the sentence is live
+   * data (which retailer the listing image came from). The other four keep
+   * their exact wording on `hint`, so VoiceOver still reads what the eye no
+   * longer has to.
    */
   const maintenanceRows: MaintenanceRow[] = [
     ...(!isLocal && item.userVerified
       ? [
           {
             label: 'Send back to review',
-            caption: 'Returns it to the tag queue for a second pass. Nothing is re-read.',
+            hint: 'Returns it to the tag queue for a second pass. Nothing is re-read.',
             onPress: startSendBack,
             loading: sendBack.isPending,
           } satisfies MaintenanceRow,
@@ -659,9 +678,14 @@ export default function ItemDetailScreen() {
             // so nobody has to open the flow to learn where the image on their
             // own screen came from.
             label: hasListing ? 'Replace the listing photo' : 'Find the listing photo',
-            caption: hasListing
+            // The one caption that is DATA rather than explanation: where the
+            // image on the reader's own screen came from. With no source
+            // recorded there is nothing to state, and with no listing at all
+            // the label already says what the tap does — both fall to the hint.
+            caption: hasListing && listingSource ? `From ${listingSource}` : undefined,
+            hint: hasListing
               ? listingSource
-                ? `From ${listingSource}`
+                ? undefined
                 : 'The source of the current image wasn’t recorded.'
               : 'Cinch looks for the retailer’s own shot of this piece',
             onPress: () => setMatching(true),
@@ -676,7 +700,7 @@ export default function ItemDetailScreen() {
       ? [
           {
             label: 'View original photograph',
-            caption: 'The photograph you took. It has been on this piece all along.',
+            hint: 'The photograph you took. It has been on this piece all along.',
             onPress: () => setViewingOriginal(true),
           } satisfies MaintenanceRow,
         ]
@@ -685,7 +709,7 @@ export default function ItemDetailScreen() {
       ? [
           {
             label: retagging ? 'Reading this piece…' : 'Re-read this piece',
-            caption: retagging
+            hint: retagging
               ? // Not "again": this row also lights up for a piece still on its
                 // FIRST tagging pass, and telling that user her garment is being
                 // re-read would be describing something that never happened.
@@ -957,28 +981,55 @@ export default function ItemDetailScreen() {
           buy and what it would not, so the omission is a choice the user can
           act on rather than a gap".
 
-          Both sentences are the frame's. The second one matters more than it
-          looks: "Cinch does not guess what you paid" is the refusal about
-          estimated figures, stated to the person it protects.
+          ONE ROW, not two sentences. The tray printed the ask and then a
+          second line explaining the refusal behind it — "Cinch does not guess
+          what you paid. Nothing else about this piece depends on it." — while
+          the same ask is already made 300pt higher in the metadata line as the
+          accent words `Add what you paid`. The refusal is kept where it is
+          practised (nothing here is ever estimated); saying it twice under a
+          band of figures is the prose this page was drowning in. What is left
+          is what the tray is for: the missing column, named, with the way to
+          fill it on the right.
 
           Gated on the price alone, not on the wear count: a piece that has
           been worn forty times and still has no price is the reader with the
           most to gain from filling it in.
         */}
         {item.purchasePrice === null ? (
-          <View className="mx-gutter mt-4 rounded-md bg-tray p-3.5">
-            <Text variant="label" className="text-ink">
-              Add a price to see cost per wear
+          // A Pressable rather than the old inert well: the row draws a
+          // chevron, and a chevron that leads nowhere is the one thing worse
+          // than the sentence removed from under it. Same destination as the
+          // metadata line's accent words — the edit sheet — so the two asks
+          // cannot lead to different places. Ink, not oxblood: the screen
+          // spends its accent on the Delete row.
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add a price"
+            accessibilityHint="Opens the editor so cost per wear can be shown"
+            onPress={() => setEditing(true)}
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="mx-gutter mt-4 flex-row items-center justify-between gap-3 rounded-md bg-tray px-3.5 active:opacity-60">
+            <Text variant="label" className="flex-1 text-ink">
+              Cost per wear
             </Text>
-            <Text variant="note" className="mt-1">
-              Cinch does not guess what you paid. Nothing else about this piece depends on it.
-            </Text>
-          </View>
+            <View className="flex-row items-center gap-1.5">
+              <Text variant="label" className="text-ink">
+                Add a price
+              </Text>
+              <SymbolView
+                name="chevron.right"
+                size={13}
+                tintColor={theme.faint}
+                resizeMode="scaleAspectFit"
+              />
+            </View>
+          </Pressable>
         ) : null}
 
         <BorrowableCard
           value={borrowable.data}
           pending={setBorrowable.isPending}
+          onInvite={() => router.push('/invite')}
           onChange={(next) =>
             setBorrowable.mutate(
               { id: item.id, borrowable: next },
@@ -1173,15 +1224,26 @@ function OriginalPhotoSheet({
  * While the flag is loading the switch is WITHHELD rather than shown off, same
  * reasoning as Profile's consent toggle: a control that says "off" for a beat
  * and then flips reads as the app having lost the setting.
+ *
+ * THE MISSING HALF. With lending on, the caption names an audience — "Friends
+ * following you" — that a new account does not have, with nothing to tap. The
+ * app's only invite door is buried in the friends tab, so the borrow loop is
+ * switched on and then abandoned. `Invite a friend` finishes the sentence
+ * above it: shown ONLY while lending is on and the flag has landed, so it
+ * appears at the moment somebody has just said yes to sharing a piece and
+ * never as a standing growth prompt. Ink, never oxblood — this page spends its
+ * accent on the Delete row — and no banner, no count, no illustration.
  */
 function BorrowableCard({
   value,
   pending,
   onChange,
+  onInvite,
 }: {
   value: boolean | undefined;
   pending: boolean;
   onChange: (next: boolean) => void;
+  onInvite: () => void;
 }) {
   const theme = useTheme();
 
@@ -1203,6 +1265,20 @@ function BorrowableCard({
               ? 'Friends following you can ask for this piece.'
               : 'Marked not for lending. Friends still see it in your closet — there’s just no way to ask.'}
         </Text>
+        {value === true ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Invite a friend"
+            accessibilityHint="Opens your invite link"
+            onPress={onInvite}
+            hitSlop={8}
+            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+            className="items-end active:opacity-60">
+            <Text variant="label" className="text-ink">
+              Invite a friend
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
       {value !== undefined ? (
         <Switch

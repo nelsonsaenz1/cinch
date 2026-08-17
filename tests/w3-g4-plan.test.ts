@@ -27,8 +27,14 @@ const PLAN_SCREEN = readFileSync('src/app/(tabs)/plan.tsx', 'utf8').replace(
   '',
 );
 
-test('the empty week promises minimised repeats, never a hard cap', () => {
-  assert.match(PLAN_SCREEN, /keeping repeats to a minimum/);
+test('the week promises minimised repeats, never a hard cap', () => {
+  // The promise survived a change of REGISTER, not of meaning. The empty
+  // week's 44-word paragraph became a colophon — "Seven days · The forecast ·
+  // Fewest repeats" — and the planned week still carries "Repeats kept to a
+  // minimum" as its oxblood eyebrow. BOTH surfaces are asserted: an
+  // alternation here would let either one vanish behind the other.
+  assert.match(PLAN_SCREEN, /Fewest repeats/);
+  assert.match(PLAN_SCREEN, /Repeats kept to a minimum/);
   assert.doesNotMatch(PLAN_SCREEN, /no piece worn more than twice/i);
 });
 

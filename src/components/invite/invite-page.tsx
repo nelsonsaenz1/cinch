@@ -1,4 +1,5 @@
 import { ScrollView, View } from 'react-native';
+import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ArrivalRow, type ArrivalRowModel } from '@/components/invite/arrival-row';
@@ -66,15 +67,12 @@ export function InvitePage(props: InvitePageProps) {
         contentContainerStyle={{ paddingBottom: 48 }}
         showsVerticalScrollIndicator={false}>
         <View className="px-gutter pt-3">
+          {/* The display line and the serif link on ink are the whole
+              argument. The motivational subhead that used to sit here said
+              nothing the page does not show — and it pushed the hero roughly
+              60pt down a 393pt screen to say it. */}
           <Text variant="display" trim accessibilityRole="header">
             Invite a friend
-          </Text>
-          {/* The space is this element's own margin only because the sibling
-              above is the trimmed one — `mt-*` ON a trim'd serif Text cancels
-              to roughly nothing. See editorial-frame.tsx. */}
-          <Text variant="note" className="mt-2">
-            Cinch is better with two or three people in it. Send this to someone whose clothes you
-            would borrow.
           </Text>
         </View>
 
@@ -114,23 +112,31 @@ export function InvitePage(props: InvitePageProps) {
           />
         ) : props.arrivals.length === 0 ? (
           <Card padding="lg" className="mx-gutter">
-            {/* The honest empty. It says what the section is AND why it can
-                never be a list of people you invited: there is no record of
-                who the link went to, by design. */}
+            {/* The honest empty, cut to its two facts: nothing has happened
+                yet, and nothing could be listed even if it had — there is no
+                record of who the link went to, by design. The middle clause
+                described the section heading directly above it. */}
             <Text variant="note">
-              Nobody yet. When someone arrives through your link they appear here — before that
-              there is nothing to show, because Cinch keeps no record of who you sent it to.
+              Nobody yet. Cinch keeps no record of who you sent it to.
             </Text>
           </Card>
         ) : (
           <Card padding="none" className="mx-gutter">
+            {/* Arrivals land rather than appear — the same reanimated pattern
+                the requests card uses on friends-page.tsx, and for the same
+                reason: a row that fades in and a list that closes its own gaps
+                reads as something that happened, not as a re-render. */}
             {props.arrivals.map((arrival, i) => (
-              <ArrivalRow
+              <Animated.View
                 key={arrival.userId}
-                arrival={arrival}
-                onPress={props.onOpenArrival}
-                isLast={i === props.arrivals.length - 1}
-              />
+                entering={FadeIn.duration(260)}
+                layout={LinearTransition.duration(220)}>
+                <ArrivalRow
+                  arrival={arrival}
+                  onPress={props.onOpenArrival}
+                  isLast={i === props.arrivals.length - 1}
+                />
+              </Animated.View>
             ))}
           </Card>
         )}
@@ -142,11 +148,12 @@ export function InvitePage(props: InvitePageProps) {
 }
 
 /**
- * The dark card, its two actions and the footnote under them.
+ * The dark card and its two actions.
  *
- * One component because the three are one statement: the link, the two ways to
- * send it, and what is true of it forever. The no-handle branch keeps the same
- * shape and replaces all three, rather than dimming a link that does not exist.
+ * One component because the two are one statement: the link — with what is
+ * true of it forever set as a colophon on the card itself — and the two ways
+ * to send it. The no-handle branch keeps the same shape and replaces both,
+ * rather than dimming a link that does not exist.
  */
 function LinkCard({
   link,
@@ -195,9 +202,22 @@ function LinkCard({
           {loading ? 'cinchstyle.com' : link ? link.replace(/^https?:\/\//, '') : 'No link yet'}
         </Text>
 
+        {/* The two permanent facts, set as a tracked rule under the address
+            rather than as a standing footnote under the buttons: they are
+            properties of the thing on this card, and they belong on it. At the
+            eyebrow's own alpha, so the card reads as one object with a line of
+            small print top and bottom. */}
+        {link ? (
+          <Text variant="colophon" style={{ color: canvasAlpha(0.55), marginTop: 14 }}>
+            NEVER EXPIRES · NO CODE · ANY NUMBER OF PEOPLE
+          </Text>
+        ) : null}
+
+        {/* Cut to the half the sender can act on. The App Store hop is the
+            recipient's business and not a decision anybody makes here. */}
         <Text variant="note" style={{ color: canvasAlpha(0.7), marginTop: 14 }}>
           {link
-            ? 'Whoever opens it lands on a page with your name on it, then the App Store. You are friends as soon as they sign in.'
+            ? 'They land on a page with your name on it. You are friends as soon as they sign in.'
             : 'Your link is your handle, and you have not chosen one yet. Pick one and this card fills in.'}
         </Text>
       </View>
@@ -221,10 +241,20 @@ function LinkCard({
               />
             ) : null}
           </View>
-          <Text variant="noteSmall" className="mt-4 px-gutter">
-            {copied
-              ? 'Paste it wherever you like — it behaves the same everywhere.'
-              : 'The link never expires and works for as many people as you send it to.'}
+          {/* At rest this line is not there. What it used to say permanently —
+              no expiry, any number of people — is now the colophon on the card
+              itself, so the page is one line shorter until there is something
+              to say, and it says it only in the four seconds after a copy. */}
+          {/* Always mounted so the buttons above it never move: the line
+              appears by opacity, not by insertion, and the four-second
+              disappearance cannot shift the layout back. */}
+          <Text
+            variant="noteSmall"
+            className="mt-4 px-gutter"
+            style={{ opacity: copied ? 1 : 0 }}
+            accessibilityElementsHidden={!copied}
+            importantForAccessibility={copied ? 'auto' : 'no-hide-descendants'}>
+            Paste it wherever you like — it behaves the same everywhere.
           </Text>
         </>
       ) : (

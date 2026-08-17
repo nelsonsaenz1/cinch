@@ -50,6 +50,17 @@ export const FOOTER_PRIVACY =
 /** `retention.note`. AC-08's foot, and the only place the window is stated. */
 export const RETENTION_NOTE = 'Activity older than 30 days is grouped, then cleared automatically.';
 
+/**
+ * `footer.mark`. The same two claims as a colophon, which is what a data line
+ * under a list is set as — the timeline's rows are already 13px, so ending in
+ * two centred 13px paragraphs ends the page in prose rather than in a mark.
+ *
+ * It sits BESIDE the two strings above rather than replacing them: AC-02 draws
+ * this, and hangs `FOOTER_PRIVACY` and `RETENTION_NOTE` on the same element's
+ * `accessibilityLabel`, so both claims still reach a screen reader verbatim.
+ */
+export const FOOTER_MARK = 'PRIVATE TO YOU · KEPT 30 DAYS';
+
 // ---------------------------------------------------------------------------
 // AC-01 · empty
 // ---------------------------------------------------------------------------

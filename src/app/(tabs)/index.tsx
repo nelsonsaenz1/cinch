@@ -19,6 +19,7 @@ import { ContextComposer } from '@/components/today/context-composer';
 import { EMPTY_COMPOSER, type ComposerState } from '@/components/today/context-composer-state';
 import { contextLines, contextRungs, feelsClause } from '@/components/today/context-label';
 import { GapCard } from '@/components/today/gap-card';
+import { InviteLine } from '@/components/today/invite-line';
 import { OccasionInterrupt } from '@/components/today/occasion-interrupt';
 import { OFFLINE_ACTIONS_REASON, OfflineNotice } from '@/components/today/offline-notice';
 import { Plate } from '@/components/today/plate';
@@ -27,6 +28,7 @@ import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import { AX3_FONT_SCALE } from '@/theme/type-scale';
 import type { ReactionValue } from '@/components/today/reaction-bar';
 import { RepeatExhausted } from '@/components/today/repeat-exhausted';
+import { TasteMark } from '@/components/today/taste-mark';
 import { WeatherStrip } from '@/components/today/weather-strip';
 import { WearConfirmationSheet } from '@/components/today/wear-confirmation-sheet';
 import { Button } from '@/components/ui/button';
@@ -1353,7 +1355,6 @@ export default function TodayScreen() {
               total={exhaustion.total}
               since={exhaustion.since}
               gap={topGap}
-              currentCountOfKind={topGap ? currentTally[topGap.kind] : 0}
               topOutfitName={effectiveShown[0]?.name ?? null}
               topOutfitWearCount={
                 effectiveShown[0]
@@ -1479,18 +1480,24 @@ export default function TodayScreen() {
             <CapacityNote activePieces={items.length} plan={knownPlan} />
           )}
 
-          {/* Say plainly how much it has actually learned (S-09/S-10). */}
+          {/* Say plainly how much it has actually learned (S-09/S-10) — as a
+              mark rather than a sentence, since a gauge is what the copy was
+              describing. The old line survives verbatim as the block's
+              accessibilityLabel; see taste-mark.tsx. */}
           {shown.length > 0 && profileQuery.data ? (
             <View className="px-gutter pt-2">
-              <Text variant="note">
-                {feedbackCount < 8
-                  ? `${8 - feedbackCount} more reactions and Cinch will start recognising your taste.`
-                  : profile.summary.length
-                    ? `Learning from ${feedbackCount} reactions — it thinks you ${profile.summary[0]}.`
-                    : `Learning from ${feedbackCount} reactions.`}
-              </Text>
+              <TasteMark feedbackCount={feedbackCount} summary={profile.summary[0] ?? null} />
             </View>
           ) : null}
+
+          {/* The page signing off. Only on a day that worked — never over the
+              refusal, and the offline and empty-closet branches return long
+              before this line. */}
+          {nothingWorks ? null : (
+            <View className="px-gutter pt-4">
+              <InviteLine onInvite={() => router.push('/invite')} />
+            </View>
+          )}
         </ScrollView>
       </Animated.View>
       <WearConfirmationSheet

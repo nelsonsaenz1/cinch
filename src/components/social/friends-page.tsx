@@ -126,6 +126,19 @@ export type FriendsPageProps = {
    * have no router to hand it; the link simply does not draw for them.
    */
   onOpenGroups?: () => void;
+
+  /**
+   * What the closet the circle can see is allowed to hold, on Free — built in
+   * the route from `PLANS.free.items` and never a typed numeral.
+   *
+   * Optional in the same dialect as `onOpenGroups`: the three dev fixtures
+   * mount this page over static data with no `usePlan()` and no router, so
+   * both simply do not draw for them. It states a fact where the reader is
+   * already thinking about what their friends see — no badge, no lock, no
+   * price — and it is absent entirely on a paid or trialing account.
+   */
+  planNote?: string;
+  onSeePlans?: () => void;
 };
 
 export function FriendsPage(props: FriendsPageProps) {
@@ -365,6 +378,8 @@ function RequestsSection(props: FriendsPageProps & { count: number }) {
 }
 
 function FriendsSection(props: FriendsPageProps) {
+  const theme = useTheme();
+
   return (
     <>
       <SectionLine text={friendsHeading(props.friends.length)} className="mb-2.5 mt-6" />
@@ -406,9 +421,39 @@ function FriendsSection(props: FriendsPageProps) {
       {/* The closing line — the only count that matters: who can see your
           closet (F-02). */}
       {!props.friendsLoading && !props.friendsError && props.friends.length > 0 ? (
-        <Text variant="note" className="mt-4">
-          {closetAudienceLine(props.friends.length)}
-        </Text>
+        <>
+          <Text variant="note" className="mt-4">
+            {closetAudienceLine(props.friends.length)}
+          </Text>
+          {/* And how much of it there can be. The audience line is the one
+              sentence on this surface about the reach of what you own, and it
+              used to stop exactly where membership starts to matter.
+
+              Ink, not accent — the treatment `BlockedResult` already uses in
+              this file. The page's two oxblood controls (the Groups link in the
+              masthead, "Invite a friend" at the foot) are spent, and a third
+              would make none of them read as the primary one. */}
+          {props.planNote ? (
+            <>
+              <Text variant="note" className="mt-1">
+                {props.planNote}
+              </Text>
+              {props.onSeePlans ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="See plans"
+                  onPress={props.onSeePlans}
+                  hitSlop={8}
+                  style={{ minHeight: MIN_TAP_TARGET }}
+                  className="justify-center active:opacity-60">
+                  <Text variant="note" style={{ color: theme.ink }}>
+                    See plans
+                  </Text>
+                </Pressable>
+              ) : null}
+            </>
+          ) : null}
+        </>
       ) : null}
     </>
   );

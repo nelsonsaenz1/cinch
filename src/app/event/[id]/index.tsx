@@ -447,6 +447,13 @@ export default function EventDetailScreen() {
   // writes the two chips used to offer.
   const hostCanRepair = event.isHost && !canceled;
 
+  // The host is still the only name on the list. One boolean, read twice, so
+  // the row that offers the invite beside the empty roster and the row that
+  // stands down at the foot of the page can never disagree — the page must
+  // never carry two links to one route.
+  const invitingIsTheWholeJob =
+    event.isHost && !canceled && !members.isError && !members.isLoading && joinedCount <= 1;
+
   // Occasion, party size and dress code — real facts, and secondary ones.
   // They sit with the logistics below rather than as a fourth line under the
   // title. Member-only, same as the rest of the precise half.
@@ -806,6 +813,45 @@ export default function EventDetailScreen() {
               </View>
             )}
 
+            {/* The invitation, offered where the table is empty rather than
+                300pt below it.
+
+                A host who has just made an occasion sees "The guests · 1
+                going" and one roster row — themselves — and the only door to
+                anyone else was "Invite more people" at the very foot of the
+                page, under the colophon, the reservation, "Every option" and
+                "Table talk". That is below the fold at exactly the moment it
+                is the only thing the occasion needs.
+
+                The row is Plan's own grammar for a quiet secondary route
+                (plan.tsx's "Invite friends"), pushing the route that already
+                exists. No accent is spent: it is muted text, and the page's
+                one oxblood stays on Join.
+
+                Guarded on the roster having actually LOADED, which the
+                spec's `joinedCount <= 1` alone does not do — `roster` is `[]`
+                while the query is in flight, so a host with four guests would
+                see this row appear and then vanish, and the brief forbids the
+                jump. Once guests exist the page is exactly as it ships. */}
+            {invitingIsTheWholeJob ? (
+              <Pressable
+                onPress={() => router.push(`/event/${event.id}/invite`)}
+                accessibilityRole="button"
+                accessibilityLabel="Invite the table"
+                style={{ minHeight: MIN_TAP_TARGET }}
+                className="mt-2 flex-row items-center gap-1.5 py-2 active:opacity-60">
+                <Text variant="label" className="text-muted">
+                  Invite the table
+                </Text>
+                <SymbolView
+                  name="chevron.right"
+                  size={11}
+                  tintColor={theme.faint}
+                  resizeMode="scaleAspectFit"
+                />
+              </Pressable>
+            ) : null}
+
             {/* 7 — secondary logistics and host controls. These rows are
                 routes rather than board data, so they render whatever the
                 board fetch did: a dropped board is exactly when somebody is
@@ -839,7 +885,9 @@ export default function EventDetailScreen() {
                 trailing={openComments > 0 ? String(openComments) : undefined}
                 onPress={() => goComments()}
               />
-              {event.isHost && !canceled ? (
+              {/* Absent while the roster row above is offering the same route
+                  — one link per destination, per page. */}
+              {event.isHost && !canceled && !invitingIsTheWholeJob ? (
                 <NavRow
                   label="Invite more people"
                   onPress={() => router.push(`/event/${event.id}/invite`)}
