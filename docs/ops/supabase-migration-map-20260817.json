@@ -1,9 +1,16 @@
 {
   "generated_for": "gate-3 reconciliation audit",
-  "generated_on": "2026-08-17 (revised same day, after the 14-day decision)",
+  "generated_on": "2026-08-17 (revised same day, after the 14-day decision and the operative replay)",
   "project_ref": "dugizuswuebrmcmvinmi",
-  "head": "0a59fc1 for all measurements; corrected in the commit that removes 20260810150000",
-  "mutations_performed": "none - read-only audit. No production write of any kind: no migration repair, no db push, no DDL, no data write.",
+  "head": "3ade240. Both fingerprint inputs - scripts/schema-objects.sql and scripts/schema-fingerprint.sh - are byte-identical to 0a59fc1, which is the precondition that makes the production figures and the CI artifact comparable at all.",
+  "mutations_performed": "none - read-only audit. No production write of any kind: no migration repair, no db push, no DDL, no data write. Every production statement issued was a SELECT.",
+  "end_of_audit_controls": {
+    "ledger_rows": 91,
+    "ledger_md5": "ab12eaad03bc5dcb85240bc231d238fd",
+    "schema_fingerprint_total": "3025 / c6d5df0ba88239801e1f19d7556395c6",
+    "ledger_rows_for_20260810150000": 0,
+    "note": "Re-measured against production after the operative replay landed, and unchanged from the start of the session. The fingerprint was re-derived independently by running scripts/schema-objects.sql verbatim through the same double wrapping scripts/schema-fingerprint.sh applies, rather than copied forward from the previous revision."
+  },
   "counts": {
     "local_files": 92,
     "ledger_rows": 91,
@@ -464,12 +471,24 @@
     "production_evidence": "pg_get_functiondef(handle_new_subscription) contains \"14 days\" and does not contain \"21 days\"; supabase_migrations.schema_migrations has zero rows for version 20260810150000, so nothing has to be un-recorded either"
   },
   "schema_comparison": {
-    "replay_run": "https://github.com/nelsonsaenz1/cinch/actions/runs/32037294875",
-    "replay_commit": "0a59fc1 - i.e. WITH 20260810150000 still present",
+    "replay_run": "https://github.com/nelsonsaenz1/cinch/actions/runs/32038376626",
+    "replay_commit": "3ade240 - 92 files, WITHOUT 20260810150000; this is the operative replay",
+    "replay_result": "success - all 10 steps green, including the assertion that the local ledger row count equals the migration file count at 92, and `supabase test db`",
     "replay_total": [
       "2902",
-      "b009c0623ce8377ed0b9e577ef95bd9f"
+      "2828b51adf9e33c538c7644e29175c34"
     ],
+    "superseded_replay": {
+      "replay_run": "https://github.com/nelsonsaenz1/cinch/actions/runs/32037294875",
+      "replay_commit": "0a59fc1 - i.e. WITH 20260810150000 still present, 93 files",
+      "replay_total": [
+        "2902",
+        "b009c0623ce8377ed0b9e577ef95bd9f"
+      ],
+      "why_superseded": "predates the trial migration's removal, so its public/function hash carries the 21-day body. Retained because the two runs' grant and platform sections are byte-identical, which is what proves the removal touched nothing but one function body.",
+      "identical_to_operative_run": "every auth/*, storage/*, public/grant_table and public/grant_routine section matches the operative run on both count and md5; the sorted grant key lists compare equal byte for byte"
+    },
+    "ci_run": "https://github.com/nelsonsaenz1/cinch/actions/runs/32038374142 - CI on the same commit 3ade240, success",
     "production_total": [
       "3025",
       "c6d5df0ba88239801e1f19d7556395c6"
@@ -481,17 +500,29 @@
       "public/index",
       "public/policy",
       "public/view",
+      "public/function",
       "public/trigger",
       "public/type"
     ],
+    "app_owned_sections_identical_note": "All nine non-grant public sections match production on both object count and md5 - 1325 of 1325 objects agreeing hash for hash, handle_new_subscription() included. public/function joined this list in the operative replay 32038376626.",
+    "exact_equivalence_verdict": {
+      "structure_and_behaviour": "EQUIVALENT, EXACTLY. Every table, column, constraint, index, RLS policy, view, function body, trigger and enum this repo owns is byte-identical between a from-zero replay and production.",
+      "privileges": "NOT EQUIVALENT. 167 production-only grants across public/grant_table (884 vs 814) and public/grant_routine (142 vs 45). Production is strictly wider; zero grants exist that CI has and production does not.",
+      "whole_schema": "NOT ACHIEVED. The 167 grants do prevent exact whole-schema equivalence, and they are the reason the TOTAL fingerprints differ: 3025 / c6d5df0ba88239801e1f19d7556395c6 against 2902 / 2828b51adf9e33c538c7644e29175c34.",
+      "total_gap_decomposition": "3025 - 2902 = 123, with no remainder: public +167 (this repo's, actionable), auth +4 (GoTrue version), storage -48 (Storage version). 167 + 4 - 48 = 123. A TOTAL match is not a meaningful target - it would require the CI stack to run the same GoTrue and Storage builds as the hosted project, which no migration can arrange.",
+      "consequence_for_repair": "The repair precondition 'public/* fingerprint sections matching production' is NOT MET. No ledger repair is proposed for execution on the strength of this audit."
+    },
     "public/function": {
-      "verdict": "one function differs, and it is exactly the predicted one",
+      "verdict": "IDENTICAL - resolved by the operative replay",
       "objects_both_sides": 102,
-      "differing": [
-        "handle_new_subscription()"
-      ],
+      "differing": [],
+      "production_md5": "ed4a39f12202f2aac6c7f289e1fd6eee",
+      "replay_md5": "ed4a39f12202f2aac6c7f289e1fd6eee",
       "method": "md5 of the same normalized definition text the fingerprint hashes, computed per function on both sides and diffed by key",
-      "expected_after_removal": "identical - removing 20260810150000 leaves the replay building handle_new_subscription() from 20260805160000_membership_tiers.sql, which is the 14-day definition production carries"
+      "prediction_stated_before_the_run": "identical - removing 20260810150000 leaves the replay building handle_new_subscription() from 20260805160000_membership_tiers.sql, which is the 14-day definition production carries. Target hash predicted in advance: ed4a39f12202f2aac6c7f289e1fd6eee.",
+      "prediction_check_before": "Recomputing the superseded artifact's own public/function md5 from its rows reproduces 1335cdf65f45094b6bf81de538f39f9f exactly, which validates the method against scripts/schema-fingerprint.sh. Substituting production's normalized handle_new_subscription body into that same set yields ed4a39f12202f2aac6c7f289e1fd6eee - production's own public/function md5. The two bodies differ in one token: interval '21 days' vs interval '14 days'.",
+      "prediction_check_after": "CONFIRMED. The operative replay's public/function md5 is ed4a39f12202f2aac6c7f289e1fd6eee, equal to production's. Diffing the two artifacts' public/function rows returns exactly one changed key, handle_new_subscription(), with zero added and zero removed keys. The fresh body reads \"values (new.id, 'free', now() + interval '14 days')\" and the string \"21 days\" occurs in zero rows of the replayed public/function section.",
+      "why_the_object_count_did_not_change": "2902 on both runs. Removing a migration that only REDEFINED an existing function cannot change the object count; a count change would have meant the removal did more than intended."
     },
     "public/grant_table": {
       "verdict": "UNRESOLVED - production is strictly wider than a clean replay",
@@ -499,7 +530,9 @@
       "replay": 814,
       "production_only": 70,
       "replay_only": 0,
-      "detail": "24 table/role pairs differ, every one in the same direction. anon holds SELECT/INSERT/UPDATE/DELETE in production on 13 tables where a clean replay grants none: ai_calls, ai_usage_counters, chat_messages, chat_sessions, command_log, item_inquiries, outfit_calendar, outfit_reactions, style_feedback, style_profiles, tag_corrections, wardrobe_gaps, wishlist_items (52 grants). authenticated holds 18 further grants across 11 tables. 52 + 18 = 70, which closes the count exactly."
+      "detail": "24 table/role pairs differ (13 anon + 11 authenticated), every one in the same direction. anon holds SELECT/INSERT/UPDATE/DELETE in production on 13 tables where a clean replay grants none OF THOSE FOUR VERBS: ai_calls, ai_usage_counters, chat_messages, chat_sessions, command_log, item_inquiries, outfit_calendar, outfit_reactions, style_feedback, style_profiles, tag_corrections, wardrobe_gaps, wishlist_items (4 x 13 = 52 grants). authenticated holds 18 further grants across 11 tables: UPDATE on 9 (ai_calls, ai_usage_counters, chat_messages, closet_likes, follows, outfit_reactions, style_feedback, subscriptions, tag_corrections), DELETE on 6 (ai_calls, ai_usage_counters, command_log, item_inquiries, subscriptions, tag_corrections), INSERT on 3 (ai_calls, ai_usage_counters, subscriptions). 9 + 6 + 3 = 18. 52 + 18 = 70, which closes the count exactly.",
+      "counting_correction": "The fingerprint counts every privilege type aclexplode returns, not only the four DML verbs, so 'a clean replay grants none' required narrowing. On those same 13 tables the replay holds four anon privileges each - TRUNCATE, REFERENCES, TRIGGER, MAINTAIN, 52 of them - and production holds all eight (anon=arwdDxtm/postgres). The production-only set is exactly the four DML verbs, which is what the 52 counts. This strengthens the platform-default attribution: a residue of precisely the non-DML privileges is what an ambient default ACL leaves behind, and no hand-authored grant statement in this repo grants MAINTAIN.",
+      "service_role_agrees": "544 table grants on both sides, hash-identical, because 20260806101000_service_role_grants.sql wrote that half down. The entire 70 is anon + authenticated."
     },
     "public/grant_routine": {
       "verdict": "UNRESOLVED - production is strictly wider than a clean replay",
@@ -507,10 +540,61 @@
       "replay": 45,
       "production_only": 97,
       "replay_only": 0,
-      "detail": "service_role holds EXECUTE on all 102 public functions in production against 11 in a clean replay (91). anon holds EXECUTE on apply_outfit_reaction, claim_command, current_ai_consent_version, log_outfit_wear and plan_outfit_tx (5), and authenticated on log_outfit_wear (1). 91 + 5 + 1 = 97."
+      "detail": "service_role holds EXECUTE on all 102 public functions in production against 11 in a clean replay (91). anon holds EXECUTE on apply_outfit_reaction, claim_command, current_ai_consent_version, log_outfit_wear and plan_outfit_tx (5), and authenticated on log_outfit_wear (1). 91 + 5 + 1 = 97.",
+      "per_role_arithmetic": "production anon 7 / authenticated 33 / service_role 102 = 142. replay anon 2 / authenticated 32 / service_role 11 = 45. Deltas 5 + 1 + 91 = 97.",
+      "not_drift_anon_routine_grants": "The replay's only two anon EXECUTE grants are invite_card(p_handle text) and join_waitlist(p_email text, p_client_hash text, p_source text) - granted explicitly by 20260810120100_invite_links.sql and 20260810130000_waitlist.sql, each after a `revoke all ... from public`. They are present on BOTH sides and are therefore not part of the 167. They are also the only two SECURITY DEFINER functions anon can execute in production, which is why they were checked."
     },
     "root_cause_of_the_grant_divergence": "Supabase PROJECT-CREATION default privileges, which granted anon/authenticated/service_role full rights on every object created in public before 20260805213000 ran `alter default privileges in schema public revoke all on tables from anon, authenticated`. The current Supabase CLI image does not set those defaults, so a fresh replay never receives them. This is the same class of drift 20260806100000_explicit_client_grants.sql and 20260806101000_service_role_grants.sql were written to close for the authenticated-table and service_role-table halves; the anon-table and all-routine halves were never written down. Production's pg_default_acl still shows public/postgres functions as `postgres=X/postgres | service_role=X/postgres`, which is why every function carries service_role EXECUTE there and only the 11 explicitly granted ones do in CI.",
-    "risk_assessment": "RLS is enabled on all 13 anon-reachable tables, so a wider GRANT does not by itself expose rows - a policy is still required. The divergence is nonetheless real, app-owned and unwritten-down. The one difference that runs the other way in effect is log_outfit_wear: a database built from this repo would refuse it to authenticated, where production allows it. That function is superseded by wear_outfit_tx and is retained only for old clients.",
-    "resolution_status": "NOT RESOLVED IN GATE 3, BY CONSTRUCTION. Closing it means either revoking in production or writing new migrations that grant in CI - both are production or schema changes outside this gate's read-only remit. Carried forward with exact counts and object lists rather than left implicit."
+    "disposition_of_all_167": {
+      "principle": "'Platform default ACL' is an origin claim and 'harmless' is a security claim. Each of the 167 is given both, with the query result that establishes it. None is dismissed on the grounds of where it came from.",
+      "buckets": [
+        {
+          "grants": 91,
+          "what": "routine EXECUTE to service_role",
+          "origin": "platform default ACL - pg_default_acl for public/postgres functions is still `postgres=X/postgres | service_role=X/postgres`, never revoked, so every function created gets service_role EXECUTE automatically",
+          "security_consequence": "NONE. service_role has rolbypassrls=true and already holds all 544 public table grants - identical and hash-identical on both sides - so EXECUTE on 91 further functions adds nothing it cannot already do directly. Reachable only with the secret service key, never the anon key.",
+          "classification": "platform default ACL drift, no security consequence"
+        },
+        {
+          "grants": 70,
+          "what": "52 table DML verbs to anon on 13 tables, 18 to authenticated across 11",
+          "origin": "platform default ACL - the stored ACL reads anon=arwdDxtm/postgres, the full 8-privilege default set with grantor postgres, which no hand-authored grant in this repo would ever produce. 20260805213000 revoked the default going forward but `alter default privileges` does not reach objects already created.",
+          "security_consequence": "REACHABLE BUT CONTAINED BY RLS. All 55 public base tables have relrowsecurity=true (count without RLS: zero). On each of the 13 anon-reachable tables, the number of policies whose roles include anon or PUBLIC is zero, checked per table. anon and authenticated both have rolbypassrls=false and rolcanlogin=false. A wider GRANT therefore cannot return a row no policy admits.",
+          "classification": "platform default ACL drift, security-relevant in principle, contained in fact"
+        },
+        {
+          "grants": 6,
+          "what": "routine EXECUTE to anon on 5 functions, to authenticated on 1",
+          "origin": "APP-OWNED and never written down - this half was not covered by 20260806100000_explicit_client_grants.sql or 20260806101000_service_role_grants.sql",
+          "security_consequence": "CONTAINED. All six functions have prosecdef=false in production - apply_outfit_reaction, claim_command, current_ai_consent_version, log_outfit_wear, plan_outfit_tx - so they are SECURITY INVOKER, execute with the caller's own privileges, and collapse back into the RLS-gated case above. No drift grant lands on a SECURITY DEFINER function.",
+          "classification": "app-owned drift, security-relevant, contained"
+        }
+      ],
+      "the_check_that_would_have_changed_the_verdict": "anon EXECUTE on a SECURITY DEFINER function would defeat the RLS containment, so it was measured rather than assumed. Production holds 75 SECURITY DEFINER functions of 102, and exactly two are anon-executable: invite_card and join_waitlist. Both are granted by committed migrations, both appear in the replay's grant_routine section, and the replay has exactly two anon rows and no others - so both are intentional and neither is drift. Zero of the 167 confers RLS-bypassing capability.",
+      "honest_severity": "REAL, CONTAINED, AND OWED A MIGRATION. Not 'harmless' and not 'exposure'. The access matrix live in production is wider than the one this repo describes, in 167 places, and that gap is unwritten-down by definition. What the evidence rules out is the failure mode that would make it urgent.",
+      "one_difference_runs_the_other_way": "log_outfit_wear is executable by authenticated in production and has NO grant to any role in a database built from this repo, so a fresh environment would refuse that RPC. It is superseded by wear_outfit_tx and retained only for old clients, which is why nothing observably breaks - but a rebuilt-from-repo environment is not behaviourally identical to production."
+    },
+    "resolution_status": "NOT RESOLVED IN GATE 3, BY CONSTRUCTION. Closing it means either revoking in production or writing new migrations that grant in CI - both are production or schema changes outside this gate's read-only remit. Carried forward with exact counts and object lists rather than left implicit.",
+    "platform_managed_sections": {
+      "note": "Not evidence of anything. auth/* and storage/* track the running GoTrue and Storage versions and move in BOTH directions between a hosted project and a local CLI stack.",
+      "auth": {
+        "production": 441,
+        "replay": 437,
+        "delta": 4,
+        "detail": "auth/index 91 vs 87; every other auth section identical in count and md5"
+      },
+      "storage": {
+        "production": 233,
+        "replay": 281,
+        "delta": -48,
+        "detail": "storage/column 67 vs 85, storage/constraint 14 vs 19, storage/grant_table 98 vs 118, storage/index 17 vs 22 - the CLI stack carries MORE storage objects than the hosted project"
+      }
+    },
+    "public_object_delta": {
+      "production": 2351,
+      "replay": 2184,
+      "delta": 167,
+      "accounted_for": "167 = 70 grant_table + 97 grant_routine, exactly. Every non-grant public object matches on both count and hash."
+    }
   }
 }
