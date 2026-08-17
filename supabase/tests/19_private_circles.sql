@@ -7,7 +7,8 @@
 -- the only place the group's central promise is ever actually checked —
 -- "You will see who else is in it after you accept. Nothing of yours is shared
 -- until then." That promise is STRICTER than the events precedent this schema
--- otherwise copies, so assertions 8-11 are the ones to read first.
+-- otherwise copies, so assertions 11-14 are the ones to read first — and 14
+-- is how a count reaches an invitee without a roster reaching them with it.
 --
 -- THREE TRAPS THIS FILE IS WRITTEN AROUND, all three already paid for:
 --
@@ -37,12 +38,12 @@
 -- cases 14-15 there read "twelfth invitation succeeds / thirteenth refused",
 -- which counts the owner outside the cap. The owner is a member from birth and
 -- the atlas says a group holds twelve PEOPLE, so the eleventh invitation is the
--- last that fits and the twelfth is refused. Assertions 33-34.
+-- last that fits and the twelfth is refused. Assertions 39-40.
 --
 -- Preparation §5 also has no case for asking somebody back, because the model
 -- it describes cannot: the primary key refuses a second INSERT and the owner
--- had no transition out of `removed`. Assertions 38-44 cover the path that
--- makes the model reversible, and 44 is the one that keeps twelve a cap while
+-- had no transition out of `removed`. Assertions 44-50 cover the path that
+-- makes the model reversible, and 50 is the one that keeps twelve a cap while
 -- it does.
 -- ===========================================================================
 
@@ -50,7 +51,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(51);
+select plan(57);
 
 -- ---------------------------------------------------------------------------
 -- People. Nora owns; Priya accepts then leaves; Ellis is invited, declines,
@@ -81,7 +82,7 @@ update public.profiles
  where user_id in (select id from auth.users where email like 'pc-%');
 
 -- Mutual friendship: Nora with everyone she will ever invite, and Priya with
--- Sasha so that assertion 17 fails for exactly one reason (Priya is not the
+-- Sasha so that assertion 20 fails for exactly one reason (Priya is not the
 -- owner) rather than two.
 insert into public.follows (follower_id, followee_id) values
   ('c1111111-1111-4111-8111-111111111111', 'c2222222-2222-4222-8222-222222222222'),
@@ -105,7 +106,7 @@ select ('c9000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid,
   from generate_series(1, 14) i;
 
 -- ---------------------------------------------------------------------------
--- 1-5 · Creation and invitation, as Nora
+-- 1-6 · Creation and invitation, as Nora
 -- ---------------------------------------------------------------------------
 
 set local role authenticated;
@@ -170,7 +171,7 @@ select throws_ok(
   '6 · an invitation cannot be written as an acceptance — joining is the invitee''s act');
 
 -- ---------------------------------------------------------------------------
--- 7-8 · The stranger. Groups are invite-only: nobody can search for one, and
+-- 7-10 · The stranger. Groups are invite-only: nobody can search for one, and
 --       no one outside sees that it exists.
 -- ---------------------------------------------------------------------------
 
@@ -182,10 +183,21 @@ select is((select count(*)::int from public.circles), 0,
 select is((select count(*)::int from public.circle_members), 0,
   '8 · and no roster');
 
+-- The count is gated too, and the pair below is the anti-probing proof: a group
+-- the caller may not see answers exactly what an id that was never created
+-- answers, so nobody can walk uuids looking for one that reads differently.
+select is(
+  public.circle_member_count('cccc1111-1111-4111-8111-111111111111'), 0,
+  '9 · a stranger cannot count one either');
+
+select is(
+  public.circle_member_count('cccc9999-9999-4999-8999-999999999999'), 0,
+  '10 · which is the same 0 a group id that was never created returns — no existence oracle');
+
 -- ---------------------------------------------------------------------------
--- 9-14 · The invitee. THE ATLAS RULE, and the one place this schema is
---        deliberately stricter than `event_members`, whose roster policy uses
---        `can_see_event` and hands an invitee the whole participant list.
+-- The invitee. THE ATLAS RULE, and the one place this schema is deliberately
+-- stricter than `event_members`, whose roster policy uses `can_see_event` and
+-- hands an invitee the whole participant list.
 -- ---------------------------------------------------------------------------
 
 select set_config('request.jwt.claims',
@@ -195,42 +207,50 @@ select is(
   (select count(*)::int from public.circles
     where id = 'cccc1111-1111-4111-8111-111111111111'),
   1,
-  '9 · an invitee can see the group — an invitation you cannot see is not one');
+  '11 · an invitee can see the group — an invitation you cannot see is not one');
 
 select is(
   (select count(*)::int from public.circle_members
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'),
   1,
-  '10 · but exactly one membership row: their own');
+  '12 · but exactly one membership row: their own');
 
 select is(
   (select count(*)::int from public.circle_members
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'
       and user_id  <> 'c3333333-3333-4333-8333-333333333333'),
   0,
-  '11 · the roster is hidden until you accept — not even the owner''s row shows');
+  '13 · the roster is hidden until you accept — not even the owner''s row shows');
+
+-- ...and yet PC-04 draws a member count above that very sentence. This is the
+-- only thing that can serve it: three of the four rows in this group are
+-- invitations waiting to be answered, and none of them is counted, so what the
+-- invitee learns is how many people are in it and nothing whatever about who.
+select is(
+  public.circle_member_count('cccc1111-1111-4111-8111-111111111111'), 1,
+  '14 · but an invitee IS told how many are in it — a number, never a name');
 
 select is(
   (select invited_by::text from public.circle_members
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'
       and user_id   = 'c3333333-3333-4333-8333-333333333333'),
   'c1111111-1111-4111-8111-111111111111',
-  '12 · what an invitee does get is who asked them');
+  '15 · what an invitee does get is who asked them');
 
 select lives_ok(
   $$update public.circle_members set state = 'declined'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c3333333-3333-4333-8333-333333333333'$$,
-  '13 · an invitee may decline');
+  '16 · an invitee may decline');
 
 select lives_ok(
   $$update public.circle_members set state = 'joined'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c3333333-3333-4333-8333-333333333333'$$,
-  '14 · and may still accept afterwards — declining is not final');
+  '17 · and may still accept afterwards — declining is not final');
 
 -- ---------------------------------------------------------------------------
--- 15-20 · Joining, and what a member still may not do
+-- 18-23 · Joining, and what a member still may not do
 -- ---------------------------------------------------------------------------
 
 select set_config('request.jwt.claims',
@@ -239,7 +259,7 @@ select lives_ok(
   $$update public.circle_members set state = 'joined'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c2222222-2222-4222-8222-222222222222'$$,
-  '15 · an invitee accepts');
+  '18 · an invitee accepts');
 
 select set_config('request.jwt.claims',
   '{"sub":"c5555555-5555-4555-8555-555555555555","role":"authenticated"}', true);
@@ -253,7 +273,7 @@ select is(
   (select count(*)::int from public.circle_members
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'),
   4,
-  '16 · once joined, a member sees the whole roster — the other half of the promise');
+  '19 · once joined, a member sees the whole roster — the other half of the promise');
 
 select throws_ok(
   $$insert into public.circle_members (circle_id, user_id, invited_by)
@@ -261,30 +281,30 @@ select throws_ok(
             'c4444444-4444-4444-8444-444444444444',
             'c2222222-2222-4222-8222-222222222222')$$,
   '42501', null,
-  '17 · a member cannot invite even their own mutual friend — only the owner does');
+  '20 · a member cannot invite even their own mutual friend — only the owner does');
 
 select throws_ok(
   $$update public.circle_members set role = 'owner'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c2222222-2222-4222-8222-222222222222'$$,
   '42501', null,
-  '18 · and cannot promote themselves — role is immutable, by trigger');
+  '21 · and cannot promote themselves — role is immutable, by trigger');
 
 select lives_ok(
   $$update public.circle_members set state = 'removed'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c3333333-3333-4333-8333-333333333333'$$,
-  '19 · a member removing another member raises nothing at all...');
+  '22 · a member removing another member raises nothing at all...');
 
 select is(
   (select state::text from public.circle_members
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'
       and user_id   = 'c3333333-3333-4333-8333-333333333333'),
   'joined',
-  '20 · ...because the policy matched no row, and nothing moved');
+  '23 · ...because the policy matched no row, and nothing moved');
 
 -- ---------------------------------------------------------------------------
--- 21-26 · What the OWNER may not do. The owner may only remove: being in a
+-- 24-32 · What the OWNER may not do. The owner may only remove: being in a
 --         group is something you agree to, and leaving is something you choose.
 -- ---------------------------------------------------------------------------
 
@@ -301,20 +321,43 @@ select throws_ok(
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c9000000-0000-4000-8000-000000000013'$$,
   '22023', null,
-  '21 · the owner cannot accept an invitation on somebody else''s behalf');
+  '24 · the owner cannot accept an invitation on somebody else''s behalf');
 
 select throws_ok(
   $$update public.circle_members set state = 'left'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c9000000-0000-4000-8000-000000000013'$$,
   '22023', null,
-  '22 · nor dress an ejection up as a departure — `left` is not the owner''s to write');
+  '25 · nor dress an ejection up as a departure — `left` is not the owner''s to write');
 
 select lives_ok(
   $$update public.circle_members set state = 'removed'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c3333333-3333-4333-8333-333333333333'$$,
-  '23 · the owner removes a member');
+  '26 · the owner removes a member');
+
+-- The group now holds five rows in four different states — three joined, one
+-- invitation still waiting, one just removed — which is the only arrangement
+-- that can tell a joined-only count apart from a row count.
+select is(
+  public.circle_member_count('cccc1111-1111-4111-8111-111111111111'), 3,
+  '27 · the count is joined members only — the waiting invitation and the removed row are both absent from it');
+
+-- And PC-07's "Invitations · 2 waiting" needs nothing new: the owner is joined
+-- from birth and cannot leave or be removed, so the roster policy hands them
+-- every row in every state and the waiting count is a client-side filter over
+-- data they already hold.
+select is(
+  (select count(*)::int from public.circle_members
+    where circle_id = 'cccc1111-1111-4111-8111-111111111111'),
+  5,
+  '28 · while the owner still reads all five rows, invitations and exits included');
+
+select set_config('request.jwt.claims',
+  '{"sub":"c2222222-2222-4222-8222-222222222222","role":"authenticated"}', true);
+select is(
+  public.circle_member_count('cccc1111-1111-4111-8111-111111111111'), 3,
+  '29 · a joined member who is not the owner is told the same number');
 
 select set_config('request.jwt.claims',
   '{"sub":"c3333333-3333-4333-8333-333333333333","role":"authenticated"}', true);
@@ -322,12 +365,12 @@ select is(
   (select count(*)::int from public.circle_members
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'),
   1,
-  '24 · a removed member keeps the single row that says so, and loses the roster');
+  '30 · a removed member keeps the single row that says so, and loses the roster');
 select is(
   (select count(*)::int from public.circles
     where id = 'cccc1111-1111-4111-8111-111111111111'),
   0,
-  '25 · and no longer sees the group');
+  '31 · and no longer sees the group');
 
 select set_config('request.jwt.claims',
   '{"sub":"c1111111-1111-4111-8111-111111111111","role":"authenticated"}', true);
@@ -336,10 +379,10 @@ select throws_ok(
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c1111111-1111-4111-8111-111111111111'$$,
   '22023', null,
-  '26 · the owner cannot leave their own group — they delete it, or it dissolves');
+  '32 · the owner cannot leave their own group — they delete it, or it dissolves');
 
 -- ---------------------------------------------------------------------------
--- 27-29 · Leaving, which is why there are five states and not four
+-- 33-35 · Leaving, which is why there are five states and not four
 -- ---------------------------------------------------------------------------
 
 select set_config('request.jwt.claims',
@@ -348,7 +391,7 @@ select lives_ok(
   $$update public.circle_members set state = 'left'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c2222222-2222-4222-8222-222222222222'$$,
-  '27 · a member may leave');
+  '33 · a member may leave');
 
 select set_config('request.jwt.claims',
   '{"sub":"c1111111-1111-4111-8111-111111111111","role":"authenticated"}', true);
@@ -357,7 +400,7 @@ select is(
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'
       and user_id   = 'c2222222-2222-4222-8222-222222222222'),
   'left',
-  '28 · and the roster says they left, not that they were thrown out');
+  '34 · and the roster says they left, not that they were thrown out');
 
 select set_config('request.jwt.claims',
   '{"sub":"c2222222-2222-4222-8222-222222222222","role":"authenticated"}', true);
@@ -365,10 +408,10 @@ select is(
   (select count(*)::int from public.circles
     where id = 'cccc1111-1111-4111-8111-111111111111'),
   0,
-  '29 · somebody who left no longer sees the group');
+  '35 · somebody who left no longer sees the group');
 
 -- ---------------------------------------------------------------------------
--- 30-32 · The block cascade, and the floor that does not exist
+-- 36-38 · The block cascade, and the floor that does not exist
 --
 -- Nothing after this point re-uses Wren or Marlow: the block below deletes both
 -- follow edges permanently and no unblock restores them.
@@ -386,7 +429,7 @@ select is(
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'
       and user_id   = 'c5555555-5555-4555-8555-555555555555'),
   'removed',
-  '30 · blocking a joined member removes them from the group the blocker owns');
+  '36 · blocking a joined member removes them from the group the blocker owns');
 
 insert into public.user_blocks (blocker_id, blocked_id)
 values ('c1111111-1111-4111-8111-111111111111',
@@ -398,17 +441,17 @@ select throws_ok(
             'c6666666-6666-4666-8666-666666666666',
             'c1111111-1111-4111-8111-111111111111')$$,
   '42501', null,
-  '31 · and somebody the owner has blocked cannot be invited in the first place');
+  '37 · and somebody the owner has blocked cannot be invited in the first place');
 
 select is(
   (select count(*)::int from public.circle_members
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'
       and state = 'joined'),
   1,
-  '32 · the group has fallen to one joined member and is still perfectly legal — two is a liveness property, not an invariant');
+  '38 · the group has fallen to one joined member and is still perfectly legal — two is a liveness property, not an invariant');
 
 -- ---------------------------------------------------------------------------
--- 33-37 · Twelve seats, counted at the invitation
+-- 39-43 · Twelve seats, counted at the invitation
 -- ---------------------------------------------------------------------------
 
 insert into public.circles (id, owner_id, name)
@@ -427,7 +470,7 @@ select lives_ok(
     values ('cccc2222-2222-4222-8222-222222222222',
             'c9000000-0000-4000-8000-000000000011',
             'c1111111-1111-4111-8111-111111111111')$$,
-  '33 · the eleventh invitation takes the twelfth seat — the owner holds the first');
+  '39 · the eleventh invitation takes the twelfth seat — the owner holds the first');
 
 select throws_ok(
   $$insert into public.circle_members (circle_id, user_id, invited_by)
@@ -435,30 +478,30 @@ select throws_ok(
             'c9000000-0000-4000-8000-000000000012',
             'c1111111-1111-4111-8111-111111111111')$$,
   '23514', null,
-  '34 · the twelfth is refused — a group holds twelve people and the owner is one of them');
+  '40 · the twelfth is refused — a group holds twelve people and the owner is one of them');
 
 select is(
   (select count(*)::int from public.circle_members
     where circle_id = 'cccc2222-2222-4222-8222-222222222222'
       and state = 'joined'),
   1,
-  '35 · and it is full with a single person joined — the cap counts invitations, so nobody loses a race they could not see');
+  '41 · and it is full with a single person joined — the cap counts invitations, so nobody loses a race they could not see');
 
 select lives_ok(
   $$update public.circle_members set state = 'removed'
      where circle_id = 'cccc2222-2222-4222-8222-222222222222'
        and user_id   = 'c9000000-0000-4000-8000-000000000001'$$,
-  '36 · the owner withdraws one invitation');
+  '42 · the owner withdraws one invitation');
 
 select lives_ok(
   $$insert into public.circle_members (circle_id, user_id, invited_by)
     values ('cccc2222-2222-4222-8222-222222222222',
             'c9000000-0000-4000-8000-000000000012',
             'c1111111-1111-4111-8111-111111111111')$$,
-  '37 · a removed row consumes no seat, so the refused invitation now fits');
+  '43 · a removed row consumes no seat, so the refused invitation now fits');
 
 -- ---------------------------------------------------------------------------
--- 38-44 · Asking again
+-- 44-50 · Asking again
 --
 -- Without this the primary key is a trap. A re-invitation cannot INSERT over an
 -- existing row, so one mis-tapped Remove would exclude somebody from a
@@ -466,7 +509,7 @@ select lives_ok(
 -- not what "obvious and reversible" means, and PC-04 says the opposite for the
 -- decline case outright ("You can be invited again later").
 --
--- Assertion 44 is the one that matters most: the seat check has to cover the
+-- Assertion 50 is the one that matters most: the seat check has to cover the
 -- UPDATE path, or an owner could refill a group past twelve simply by removing
 -- somebody and asking them back.
 -- ---------------------------------------------------------------------------
@@ -475,7 +518,7 @@ select lives_ok(
   $$update public.circle_members set state = 'invited'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c3333333-3333-4333-8333-333333333333'$$,
-  '38 · the owner asks back somebody they removed');
+  '44 · the owner asks back somebody they removed');
 
 select set_config('request.jwt.claims',
   '{"sub":"c3333333-3333-4333-8333-333333333333","role":"authenticated"}', true);
@@ -483,7 +526,7 @@ select lives_ok(
   $$update public.circle_members set state = 'joined'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c3333333-3333-4333-8333-333333333333'$$,
-  '39 · and it is an invitation like any other — they still have to accept it themselves');
+  '45 · and it is an invitation like any other — they still have to accept it themselves');
 
 select set_config('request.jwt.claims',
   '{"sub":"c1111111-1111-4111-8111-111111111111","role":"authenticated"}', true);
@@ -491,37 +534,37 @@ select lives_ok(
   $$update public.circle_members set state = 'invited'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c2222222-2222-4222-8222-222222222222'$$,
-  '40 · somebody who LEFT can be asked back too — leaving is not a door that locks');
+  '46 · somebody who LEFT can be asked back too — leaving is not a door that locks');
 
 select is(
   (select count(*)::int from public.circle_members
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'),
   5,
-  '41 · asking again reuses the existing row — the roster does not grow a second one');
+  '47 · asking again reuses the existing row — the roster does not grow a second one');
 
 select is(
   (select count(*)::int from public.circle_members
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'
       and state in ('invited', 'joined')),
   4,
-  '42 · and an accepted re-invitation holds exactly one seat, never two');
+  '48 · and an accepted re-invitation holds exactly one seat, never two');
 
 select throws_ok(
   $$update public.circle_members set state = 'invited'
      where circle_id = 'cccc1111-1111-4111-8111-111111111111'
        and user_id   = 'c5555555-5555-4555-8555-555555555555'$$,
   '42501', null,
-  '43 · but somebody who is no longer a mutual friend cannot be asked back — the block severed that, and no unblock restores it');
+  '49 · but somebody who is no longer a mutual friend cannot be asked back — the block severed that, and no unblock restores it');
 
 select throws_ok(
   $$update public.circle_members set state = 'invited'
      where circle_id = 'cccc2222-2222-4222-8222-222222222222'
        and user_id   = 'c9000000-0000-4000-8000-000000000001'$$,
   '23514', null,
-  '44 · and asking back into a full group is refused — the seat check covers the update path, or twelve was never a cap');
+  '50 · and asking back into a full group is refused — the seat check covers the update path, or twelve was never a cap');
 
 -- ---------------------------------------------------------------------------
--- 45-48 · Who may delete, and what goes with it
+-- 51-54 · Who may delete, and what goes with it
 -- ---------------------------------------------------------------------------
 
 select set_config('request.jwt.claims',
@@ -532,19 +575,19 @@ update public.circle_members set state = 'joined'
 
 select lives_ok(
   $$delete from public.circles where id = 'cccc2222-2222-4222-8222-222222222222'$$,
-  '45 · a member deleting the group raises nothing...');
+  '51 · a member deleting the group raises nothing...');
 
 select is(
   (select count(*)::int from public.circles
     where id = 'cccc2222-2222-4222-8222-222222222222'),
   1,
-  '46 · ...because only the owner may delete, and the group is still there');
+  '52 · ...because only the owner may delete, and the group is still there');
 
 select set_config('request.jwt.claims',
   '{"sub":"c1111111-1111-4111-8111-111111111111","role":"authenticated"}', true);
 select lives_ok(
   $$delete from public.circles where id = 'cccc1111-1111-4111-8111-111111111111'$$,
-  '47 · the owner deletes the group');
+  '53 · the owner deletes the group');
 
 -- Outside RLS on purpose: this has to be absence, not invisibility.
 reset role;
@@ -552,10 +595,10 @@ select is(
   (select count(*)::int from public.circle_members
     where circle_id = 'cccc1111-1111-4111-8111-111111111111'),
   0,
-  '48 · and every membership row goes with it, pending invitations included');
+  '54 · and every membership row goes with it, pending invitations included');
 
 -- ---------------------------------------------------------------------------
--- 49-51 · The catalogue. No public surface, and no new data recipient.
+-- 55-57 · The catalogue. No public surface, and no new data recipient.
 -- ---------------------------------------------------------------------------
 
 select is(
@@ -564,7 +607,7 @@ select is(
     where has_table_privilege('anon', 'public.' || quote_ident(t),
             'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')),
   null,
-  '49 · anon holds no privilege of any kind on either table — the signed-in-only decision, in the catalogue');
+  '55 · anon holds no privilege of any kind on either table — the signed-in-only decision, in the catalogue');
 
 select is(
   (select array_agg(p.proname::text order by p.proname)
@@ -573,15 +616,15 @@ select is(
     where n.nspname = 'public'
       and p.proname in ('is_circle_member', 'is_circle_owner', 'can_see_circle',
                         'handle_new_circle', 'enforce_circle_size',
-                        'circle_seats_taken',
+                        'circle_seats_taken', 'circle_member_count',
                         'assert_circle_member_transition')
       and has_function_privilege('anon', p.oid, 'EXECUTE')),
   null,
-  '50 · and can execute none of the new predicates or triggers');
+  '56 · and can execute none of them — including `circle_member_count`, which is the one function here the client calls directly');
 
 select ok(
   not has_table_privilege('authenticated', 'public.circle_members', 'DELETE'),
-  '51 · authenticated holds no DELETE on circle_members — leaving is a state, never an erasure');
+  '57 · authenticated holds no DELETE on circle_members — leaving is a state, never an erasure');
 
 select * from finish();
 rollback;

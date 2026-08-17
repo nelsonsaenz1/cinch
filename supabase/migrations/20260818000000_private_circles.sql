@@ -165,6 +165,57 @@ grant  execute on function is_circle_owner(uuid)  to authenticated;
 grant  execute on function can_see_circle(uuid)   to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- 2a · How many, told to somebody who may not know who
+--
+-- PC-04 renders "4 members · private" directly above "You will see who else is
+-- in it after you accept." Both are right, and the roster policy below cannot
+-- serve the first: an invitee is not `joined`, so they read exactly their own
+-- row and there is nothing for a client to count. The frame is unbuildable
+-- without this function.
+--
+-- A COUNT IS NOT A ROSTER. It discloses how many and never who, which is
+-- exactly the line PC-04 draws, and it is the same instrument
+-- `friends_sharing_worn_outfits_count` (20260817000000:205) used for the same
+-- shape of problem: deliberately NOT a view, because a view is joinable back to
+-- the membership table and names people, while a scalar cannot be decomposed.
+--
+-- `joined` ONLY. Counting invitations would tell an invitee that three other
+-- people are "in" a group none of them has agreed to join yet — disclosing the
+-- existence of pending invitations to somebody outside the roster, which is a
+-- smaller version of the leak the roster policy exists to prevent.
+--
+-- Gated on `can_see_circle`, and RETURNS 0 rather than null when the gate
+-- fails. Both are safe against probing — the important property is that a
+-- circle the caller may not see returns exactly what a circle id that was never
+-- created returns, so this is not an existence oracle — and 0 is the better of
+-- the two because it is UNREACHABLE through the visible path: a group always
+-- has at least its owner joined (`handle_new_circle` puts them there, the
+-- transition trigger refuses to let them leave, and no one else can touch their
+-- row). So a client that receives 0 knows it means "not for you" and can never
+-- confuse it with an empty group, and it has no null to thread through.
+--
+-- No equivalent is needed for PC-07's "Invitations · 2 waiting". The owner is
+-- `joined` from birth and cannot leave or be removed, so `is_circle_member` is
+-- permanently true for their own group and the roster policy already hands them
+-- every row in every state. That count is a client-side filter over data they
+-- already hold. Asserted rather than assumed, in 19_private_circles.sql.
+-- ---------------------------------------------------------------------------
+
+create function circle_member_count(p_circle uuid) returns integer
+language sql stable security definer set search_path = '' as $$
+  select case
+           when public.can_see_circle(p_circle)
+           then (select count(*)::integer from public.circle_members
+                  where circle_id = p_circle and state = 'joined')
+           else 0
+         end;
+$$;
+-- Unlike `circle_seats_taken`, this one is called by the client, so the grant
+-- is the point rather than belt-and-braces.
+revoke execute on function circle_member_count(uuid) from public, anon, authenticated;
+grant  execute on function circle_member_count(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- 3 · The owner is a member from birth
 --
 -- Left to the client this is a group that can exist with nobody in it, and
