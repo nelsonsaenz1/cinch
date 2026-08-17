@@ -21,12 +21,22 @@ import {
  * ── WHAT THE SERVER HAS ALREADY DECIDED ───────────────────────────────────
  *
  * No predicate below says anything about who the recipient is, and none should.
- * `activity_events` is filtered by `recipient_id = auth.uid() and dismissed_at
- * is null`, so "your inbox" is not a clause this file writes — it is the only
- * thing the table can return. There is deliberately no `.eq('recipient_id', …)`
- * anywhere here: adding one would read as the security boundary and would be a
- * decoration in front of the real one, and the day somebody removed it as
- * redundant nobody would know whether it had been.
+ * `activity_events` is filtered by `recipient_id = auth.uid()`, so "your inbox"
+ * is not a clause this file writes — it is the only thing the table can return.
+ * There is deliberately no `.eq('recipient_id', …)` anywhere here: adding one
+ * would read as the security boundary and would be a decoration in front of the
+ * real one, and the day somebody removed it as redundant nobody would know
+ * whether it had been.
+ *
+ * DISMISSAL IS THIS FILE'S JOB, AND IT DID NOT USED TO BE. The policy carried
+ * `and dismissed_at is null` until the replay proved it could not: PostgreSQL
+ * applies SELECT policies to the NEW row of an UPDATE, so a row cannot be
+ * updated out of its own visibility, and `set dismissed_at = now()` failed with
+ * 42501 rather than hiding anything. The undo depended on the same row staying
+ * readable, so it could never have worked either. Hiding a dismissed row is a
+ * UX filter over the reader's own data rather than a privacy boundary, so it is
+ * written here, explicitly, where it can be seen and where the detail read can
+ * deliberately not apply it.
  *
  * There is also no window. §7's thirty days is enforced by the purge job, not
  * by a filter, so a client cannot disagree with it and cannot be made to show
@@ -134,6 +144,10 @@ export function useActivityEvents() {
       const { data, error } = await activityDb()
         .from('activity_events')
         .select(EVENT_COLUMNS)
+        // The list hides dismissed rows; the detail read below deliberately
+        // does not, because the undo toast has to be able to fetch the row it
+        // just removed.
+        .is('dismissed_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw new Error(error.message);

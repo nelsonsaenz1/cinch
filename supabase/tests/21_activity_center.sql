@@ -43,7 +43,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(26);
+select plan(28);
 
 -- ---------------------------------------------------------------------------
 -- People. Ava owns a group; Bo is invited and accepts; Cy is already in it and
@@ -275,30 +275,42 @@ select throws_ok(
   '42501', null,
   '19 · and not un-revoke a withdrawn subject to bring its buttons back');
 
--- Re-assert the caller before writing.
+-- The dismissal, and the undo it exists for.
 --
--- `throws_ok` runs its statement inside a PL/pgSQL block with an EXCEPTION
--- handler, which is a subtransaction, and an aborted subtransaction restores
--- GUCs — `request.jwt.claims` among them — to whatever they were when it
--- opened. Tests 17-19 are three consecutive `throws_ok` calls, so by the time
--- control reaches this line `auth.uid()` is no longer reliably the recipient,
--- and the UPDATE below fails its WITH CHECK with "new row violates row-level
--- security policy" rather than the guard's own message. That failure is the
--- fixture losing its identity, not the policy being wrong.
-select set_config('request.jwt.claims',
-  '{"sub":"a0000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
-
--- The dismissal, and the fact the select policy hides it while the update
--- policy does not — which is exactly what makes the five-second undo possible.
-update public.activity_events set dismissed_at = now()
- where recipient_id = 'a0000000-0000-4000-8000-000000000002'
-   and event_type   = 'circle.invite.received';
+-- This is where the replay earned its keep. The select policy used to read
+-- `... and dismissed_at is null`, and the UPDATE below failed against it with
+-- "new row violates row-level security policy": PostgreSQL applies SELECT
+-- policies to the NEW row of an UPDATE, so a row cannot be updated out of its
+-- own visibility. Dismissal was impossible rather than invisible, and the undo
+-- — which needs to read back the row it just hid — could never have worked.
+--
+-- The policy now states the security boundary alone, `recipient_id`, and the
+-- list query carries the dismissed filter. So the assertions change shape: the
+-- database's job is that the write succeeds and the row stays the reader's to
+-- take back, and hiding it is `queries.ts`'s job, asserted in
+-- `tests/activity-center-privacy.test.ts` rather than here.
+select lives_ok(
+  $$update public.activity_events set dismissed_at = now()
+     where recipient_id = 'a0000000-0000-4000-8000-000000000002'
+       and event_type   = 'circle.invite.received'$$,
+  '20 · a recipient may dismiss their own row');
 
 select is(
   (select count(*)::int from public.activity_events
-    where event_type = 'circle.invite.received'),
-  0,
-  '20 · a dismissed row leaves every read immediately');
+    where event_type = 'circle.invite.received' and dismissed_at is not null),
+  1,
+  '20a · and it is still theirs to read, which is what makes the undo possible');
+
+select lives_ok(
+  $$update public.activity_events set dismissed_at = null
+     where recipient_id = 'a0000000-0000-4000-8000-000000000002'
+       and event_type   = 'circle.invite.received'$$,
+  '20b · the five-second undo puts it back');
+
+-- Leave it dismissed for whatever follows, as the original fixture did.
+update public.activity_events set dismissed_at = now()
+ where recipient_id = 'a0000000-0000-4000-8000-000000000002'
+   and event_type   = 'circle.invite.received';
 
 -- ---------------------------------------------------------------------------
 -- 21-22 · Nobody may touch anybody else's inbox

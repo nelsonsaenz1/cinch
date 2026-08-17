@@ -185,9 +185,27 @@ alter table activity_events enable row level security;
 -- Live rows only. A dismissed row is gone as far as every read is concerned;
 -- the undo path below is an UPDATE, which is governed by the next policy and
 -- does not need to see the row through this one.
-create policy "activity_events: recipient reads own live rows" on activity_events
+-- Whose rows these are, and NOTHING about dismissal.
+--
+-- An earlier revision read `... and dismissed_at is null`, which reads as the
+-- stronger statement and is the one thing that cannot work. PostgreSQL applies
+-- SELECT policies to the NEW row of an UPDATE, so a row may not be updated out
+-- of its own visibility: `set dismissed_at = now()` produced
+-- "new row violates row-level security policy" and the dismissal was
+-- impossible, not merely invisible. Reproduced on a scratch table carrying only
+-- these three policies — `set seen_at` succeeded and `set dismissed_at` raised
+-- 42501 — so it is the policy shape, not the fixture.
+--
+-- That also means the undo the design rests on could never have worked: a row
+-- the reader cannot select is a row they cannot un-dismiss.
+--
+-- So the policy states the security boundary, which is `recipient_id`, and
+-- nothing else. Dismissal is a UX filter rather than a privacy one — it hides
+-- the reader's own row from the reader — and it belongs in the query, where
+-- `features/activity-center/queries.ts` now applies it explicitly.
+create policy "activity_events: recipient reads own rows" on activity_events
   for select to authenticated
-  using ((select auth.uid()) = recipient_id and dismissed_at is null);
+  using ((select auth.uid()) = recipient_id);
 
 -- Whose row this is. `assert_activity_event_update` decides what may change.
 -- Split for the same reason `circle_members` splits it: a policy answers
