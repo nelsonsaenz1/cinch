@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -9,9 +9,11 @@ import {
   ACCEPT_REFUSED_FULL,
   ALONE,
   FULL,
+  GROUP_GONE,
   NO_GROUPS,
   OFFLINE,
 } from '@/features/circles/copy';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
  * THE STATES WITH NO ROWS IN THEM — PC-01, PC-09, PC-10, and the liveness one.
@@ -26,7 +28,28 @@ import {
  * No heights, no `numberOfLines`, no capped containers. The compositions grow
  * and the page scrolls, which is the only answer the accessibility contract
  * permits for AX-XXXL.
+ *
+ * ── WHO OWNS THE GUTTER ─────────────────────────────────────────────────────
+ *
+ * Two of these wrap a HOUSE state (`EmptyState`, `ErrorState`) and those two
+ * carry `px-gutter` themselves, so `NoGroupsState` and `GroupsOfflineState`
+ * must be rendered from a container that does NOT pad — every frame in the
+ * atlas sets one 20pt page margin, and the shipped screens were nesting the
+ * kit's gutter inside their own and drawing the empty and offline copy at 40.
+ * `SCREEN_STATE_OWNS_GUTTER` is the flag the screens branch their
+ * `contentContainerClassName` on.
+ *
+ * Everything else here — the liveness state, the boundary notices — is this
+ * lane's own composition and carries no margin at all, so it sits on whatever
+ * gutter the screen already established.
  */
+
+/**
+ * The states that bring their own page margin, for a screen deciding whether
+ * to pad its scroller. Exported as data rather than left to each screen's memory:
+ * the failure it prevents is invisible until two screens are compared.
+ */
+export const SCREEN_STATE_OWNS_GUTTER = ['no_groups', 'offline'] as const;
 
 // ---------------------------------------------------------------------------
 // PC-01 · No groups yet
@@ -51,15 +74,39 @@ import {
 export function NoGroupsState({ onCreate }: { onCreate: () => void }) {
   return (
     <View className="flex-1">
-      <EmptyState
-        symbol={NO_GROUPS.symbol}
-        title={NO_GROUPS.title}
-        body={NO_GROUPS.body}
-        actionTitle={NO_GROUPS.action}
-        onAction={onCreate}
-      />
-      <View className="px-gutter pb-8">
-        <Text variant="note">{NO_GROUPS.footnote}</Text>
+      {/*
+        The explanation is the centred block and the action is NOT part of it —
+        which is PC-01's own composition, and the reason is legibility rather
+        than taste. The frame floats "No groups yet." with its body in the
+        middle of the page and pins the oxblood Create with its footnote to the
+        foot, so the two sentences that describe the thing are read together and
+        the commitment sits under the thumb with the promise about
+        discoverability attached to it. `EmptyState` renders its own action
+        directly beneath the body; here it is asked for the composition only.
+      */}
+      <EmptyState symbol={NO_GROUPS.symbol} title={NO_GROUPS.title} body={NO_GROUPS.body} />
+
+      <View className="px-gutter pb-2">
+        {/*
+          `primary`, not `EmptyState`'s ink default. The house rule is one
+          oxblood commitment per screen and empty-state ways forward are
+          normally ink so they do not spend it — but this screen has exactly one
+          action on it and PC-01 draws that action in the accent. There is
+          nothing here for the oxblood to compete with.
+        */}
+        <Button
+          title={NO_GROUPS.action}
+          variant="primary"
+          onPress={onCreate}
+          haptic
+          accessibilityLabel={NO_GROUPS.action}
+          className="self-stretch"
+        />
+        {/* Centred under the button, where the frame sets it: it is a caption
+            on the act, not a paragraph of the page. */}
+        <Text variant="note" className="mt-3.5 text-center">
+          {NO_GROUPS.footnote}
+        </Text>
       </View>
     </View>
   );
@@ -94,7 +141,7 @@ export function NoGroupsState({ onCreate }: { onCreate: () => void }) {
  */
 export function AloneState({ onInvite }: { onInvite: () => void }) {
   return (
-    <View className="flex-1 justify-center px-gutter" accessibilityRole="summary">
+    <View className="flex-1 justify-center" accessibilityRole="summary">
       <Text variant="title" trim>
         {ALONE.title}
       </Text>
@@ -174,9 +221,27 @@ export function GroupsOfflineState({
  * `summary` rather than `alert`: this is a fact about the group that is simply
  * true, not an event that arrived.
  */
-function BoundaryNotice({ title, body }: { title: string; body: string }) {
+function BoundaryNotice({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body: string;
+  /**
+   * The remedy, when the state has one and it lives somewhere else.
+   *
+   * A text control rather than a filled button, and never the page's accent
+   * fill: these states sit above whatever the screen is really for, and a
+   * second oxblood slab here would argue with it. Its own 44pt floor and
+   * `hitSlop`, because it is a navigation out of the state and a graze off the
+   * sentence above it would be a page change nobody asked for.
+   */
+  action?: { label: string; onPress: () => void };
+}) {
+  const theme = useTheme();
   return (
-    <View className="px-gutter py-6" accessibilityRole="summary">
+    <View className="py-6" accessibilityRole="summary">
       <Rule />
       <Text variant="plate" trim className="mt-5">
         {title}
@@ -184,6 +249,19 @@ function BoundaryNotice({ title, body }: { title: string; body: string }) {
       <Text variant="body" className="mt-3 text-muted">
         {body}
       </Text>
+      {action ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={action.label}
+          onPress={action.onPress}
+          hitSlop={8}
+          style={{ minHeight: MIN_TAP_TARGET }}
+          className="mt-2 justify-center self-start active:opacity-60">
+          <Text variant="label" style={{ color: theme.accent }}>
+            {action.label}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -195,9 +273,40 @@ function BoundaryNotice({ title, body }: { title: string; body: string }) {
  * is refused, which is the whole reason the seat count includes outstanding
  * invitations: counting only members would push this sentence onto the twelfth
  * person to tap Accept, who cannot see the cause and could not have avoided it.
+ *
+ * `onManage` is optional because the notice also appears on the group's own
+ * screen, where the manage surface is already one control away and a second
+ * door to it would be two links to one room.
  */
-export function GroupFullNotice() {
-  return <BoundaryNotice title={FULL.title} body={FULL.body} />;
+export function GroupFullNotice({ onManage }: { onManage?: () => void } = {}) {
+  return (
+    <BoundaryNotice
+      title={FULL.title}
+      body={FULL.body}
+      action={onManage ? { label: FULL.action, onPress: onManage } : undefined}
+    />
+  );
+}
+
+/**
+ * PC-09b · the group that is not there any more.
+ *
+ * A READ THAT SUCCEEDED AND CAME BACK WITH NOTHING. Not `ErrorState` — nothing
+ * failed, and "Cinch couldn't read this just now" would send somebody to pull
+ * to refresh a group that is never coming back. Not `EmptyState` either: the
+ * claim is about one row's absence, not about a collection being empty.
+ *
+ * So it is the boundary shape, with the way out attached, because this state's
+ * whole content is that there is nowhere further in.
+ */
+export function GroupGoneNotice({ onBack }: { onBack: () => void }) {
+  return (
+    <BoundaryNotice
+      title={GROUP_GONE.title}
+      body={GROUP_GONE.body}
+      action={{ label: GROUP_GONE.action, onPress: onBack }}
+    />
+  );
 }
 
 /**

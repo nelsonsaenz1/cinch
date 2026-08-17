@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Rule } from '@/components/ui/rule';
@@ -10,6 +11,7 @@ import {
   declineNote,
   INVITATION,
   invitationFrom,
+  invitationMetaLine,
   memberLine,
 } from '@/features/circles/copy';
 
@@ -49,6 +51,7 @@ import {
 export function InvitationCard({
   groupName,
   inviterName,
+  invitedAt = null,
   memberCount,
   onAccept,
   onDecline,
@@ -57,6 +60,8 @@ export function InvitationCard({
   groupName: string;
   /** Null when a display name never arrived — the copy falls back, not the UI. */
   inviterName: string | null;
+  /** When the invitation was last made. Null drops the "· 2 hours ago" clause. */
+  invitedAt?: string | null;
   /** `joined` only. How many, never who. */
   memberCount: number;
   onAccept: () => void;
@@ -64,26 +69,54 @@ export function InvitationCard({
   /** True while either answer is in flight. Both buttons go inert together. */
   pending?: boolean;
 }) {
+  const meta = invitationMetaLine(inviterName, invitedAt);
+
   return (
-    <Card padding="lg">
-      {/* The name is the heading, because the first question anybody has about
-          an invitation is what it is to. `trim` collapses the serif line box to
-          the cap height; it is safe here because the name is a heading with its
-          own line, and nothing sits tight underneath it. */}
-      <Text variant="plate" trim accessibilityRole="header">
-        {groupName}
-      </Text>
+    <View>
+      {/*
+        THE CARD IS THE INVITATION. THE BUTTONS ARE NOT PART OF IT.
 
-      <Text variant="note" className="mt-2">
-        {memberLine(memberCount)}
-      </Text>
-      <Text variant="note" className="mt-0.5">
-        {invitationFrom(inviterName)}
-      </Text>
+        PC-04 draws a bordered card holding the whole of what is being offered
+        and sets Accept and Decline on the canvas beneath it, and the split is
+        the argument: what the card contains is a claim about a group, and the
+        two controls are the reader's answer to it. Buttons inside the border
+        made the promise ("Nothing of yours is shared until then") read as part
+        of the same object as the button that shares something.
+      */}
+      <Card padding="lg">
+        {/* Who asked, first — the frame's order, and the first question anybody
+            has about an invitation. */}
+        <View
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={meta.spoken}
+          className="flex-row items-center gap-3">
+          <Avatar name={inviterName ?? ''} size={44} />
+          <View className="flex-1" style={{ minWidth: 0 }}>
+            <Text variant="body">{invitationFrom(inviterName)}</Text>
+            <Text variant="note" className="mt-0.5">
+              {meta.drawn}
+            </Text>
+          </View>
+        </View>
 
-      <Text variant="body" className="mt-4 text-muted">
-        {INVITATION.body}
-      </Text>
+        <View className="my-4">
+          <Rule tone="hairline" />
+        </View>
+
+        {/* What it is to. `trim` collapses the serif line box to the cap
+            height; safe here because the name is a heading on its own line. */}
+        <Text variant="plate" trim accessibilityRole="header">
+          {groupName}
+        </Text>
+        <Text variant="note" className="mt-2">
+          {memberLine(memberCount)}
+        </Text>
+
+        <Text variant="body" className="mt-4 text-muted">
+          {INVITATION.body}
+        </Text>
+      </Card>
 
       {/* Accept is the page's one ink action; Decline is the quiet peer beside
           it. Neither is oxblood: declining is not destructive — the invitation
@@ -107,12 +140,12 @@ export function InvitationCard({
         />
       </View>
 
-      <View className="mt-5">
-        <Rule />
-      </View>
-      <Text variant="note" className="mt-3">
+      {/* Centred under the pair, where PC-04 sets it: it is a caption on the
+          choice, and above the buttons it would be read before there was
+          anything to caption. */}
+      <Text variant="note" className="mt-4 text-center">
         {declineNote(inviterName)}
       </Text>
-    </Card>
+    </View>
   );
 }

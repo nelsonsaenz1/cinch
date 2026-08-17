@@ -9,6 +9,7 @@ import {
   GroupsOfflineState,
   InvitationCard,
   NoGroupsState,
+  SCREEN_STATE_OWNS_GUTTER,
 } from '@/components/circles';
 import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -98,6 +99,8 @@ export default function GroupsScreen() {
     [circles.isLoading, circles.isError, invitations.isLoading, invitations.isError, groups.length, waiting.length],
   );
 
+  const selfGuttered = (SCREEN_STATE_OWNS_GUTTER as readonly string[]).includes(state.kind);
+
   const refresh = useCallback(() => {
     void circles.refetch();
     void invitations.refetch();
@@ -157,6 +160,7 @@ export default function GroupsScreen() {
       <InvitationCard
         groupName={invitation.name}
         inviterName={invitation.inviterName}
+        invitedAt={invitation.invitedAt}
         memberCount={invitation.memberCount}
         pending={answering === invitation.circleId}
         onAccept={() => answer(invitation.circleId, 'accepted')}
@@ -168,7 +172,12 @@ export default function GroupsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <ScreenHeader title={GROUPS_TITLE} backLabel="Back" />
+      {/* No colophon in the nav row. PC-01 draws a bare back control above a
+          34pt title, and a `ScreenHeader` title here would set the word
+          "Groups" twice within 40pt of itself — once as a tracked micro-label
+          and once as the page's H1. Every frame in this flow has a nav bar
+          empty but for its chevron. */}
+      <ScreenHeader backLabel="Back" />
 
       <View className="px-gutter pt-3">
         <Text variant="display" trim accessibilityRole="header">
@@ -177,7 +186,13 @@ export default function GroupsScreen() {
       </View>
 
       <ScrollView
-        contentContainerClassName="px-gutter pb-24"
+        // The empty and offline states wrap house components that carry their
+        // own page margin, so the scroller stands down for those two rather
+        // than setting a second gutter inside the first. See
+        // `SCREEN_STATE_OWNS_GUTTER`.
+        contentContainerClassName={
+          selfGuttered ? 'pb-24' : 'px-gutter pb-24'
+        }
         contentContainerStyle={state.kind === 'no_groups' ? { flexGrow: 1 } : undefined}
         refreshControl={
           <RefreshControl

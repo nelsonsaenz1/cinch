@@ -3,6 +3,9 @@ import { Pressable, View } from 'react-native';
 import { Avatar } from '@/components/ui/avatar';
 import { Text } from '@/components/ui/text';
 import {
+  closedRowAccessibilityLabel,
+  inviteAgainAccessibilityLabel,
+  invitedLabel,
   joinedLabel,
   MANAGE,
   memberRowAccessibilityLabel,
@@ -149,11 +152,45 @@ export function MemberRow({
 }
 
 /**
- * PC-05 — an invitation still out in the world.
+ * The quiet, non-destructive control beside a name — Revoke, Invite again.
  *
- * The status is a fact, not a nudge: there is no chaser, no "waiting 3 days"
- * and no reminder control. An invite-only room that pressured people would be
- * the opposite of the thing it is for.
+ * Shares `RemoveButton`'s geometry and not its colour. Neither of these ends
+ * anybody's access to anything: revoking withdraws an offer nobody accepted,
+ * and inviting again reopens one. `critical` is spent on the one act that
+ * throws a person out of a room they are standing in.
+ */
+function RowAction({
+  label,
+  accessibilityLabel,
+  onPress,
+}: {
+  label: string;
+  accessibilityLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      hitSlop={8}
+      style={{ minHeight: MIN_TAP_TARGET, flexGrow: 0, flexShrink: 0 }}
+      className="justify-center px-2 active:opacity-60">
+      <Text variant="note">{label}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * PC-05's Waiting section — an invitation still out in the world.
+ *
+ * The status is a fact, not a nudge: it says when the owner asked and stops.
+ * There is no chaser, no "still waiting" and no reminder control; an
+ * invite-only room that pressured people would be the opposite of the thing it
+ * is for. The date is the frame's own treatment and it is the reason the
+ * standing "waiting for an answer" label is now only the undated fallback — a
+ * label that never changes starts, after a week of looking at it, to read as
+ * the app asking on the owner's behalf.
  *
  * `onWithdraw` is the owner's way back out. It is the same act as a removal in
  * the schema (`invited → removed`) and is worded differently on purpose —
@@ -161,26 +198,79 @@ export function MemberRow({
  */
 export function PendingInvitationRow({
   name,
+  invitedAt = null,
   onWithdraw,
 }: {
   name: string;
+  invitedAt?: string | null;
   onWithdraw?: () => void;
 }) {
   return (
     <View className="flex-row items-center gap-2 px-4 py-3" style={{ minHeight: MIN_TAP_TARGET }}>
-      <View accessible accessibilityRole="text" accessibilityLabel={pendingRowAccessibilityLabel(name)} className="flex-1" style={{ minWidth: 0 }}>
-        <Identity name={name} detail={PENDING.status} />
+      <View
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={pendingRowAccessibilityLabel(name, invitedAt)}
+        className="flex-1"
+        style={{ minWidth: 0 }}>
+        <Identity name={name} detail={invitedLabel(invitedAt)} />
       </View>
       {onWithdraw ? (
-        <Pressable
-          accessibilityRole="button"
+        <RowAction
+          label={PENDING.withdraw}
           accessibilityLabel={`${PENDING.withdraw} the invitation to ${name}`}
           onPress={onWithdraw}
-          hitSlop={8}
-          style={{ minHeight: MIN_TAP_TARGET, flexGrow: 0, flexShrink: 0 }}
-          className="justify-center px-2 active:opacity-60">
-          <Text variant="note">{PENDING.withdraw}</Text>
-        </Pressable>
+        />
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * PC-05's Closed section — an invitation that is no longer waiting on anybody.
+ *
+ * ── WHY THIS ROW EXISTS AT ALL, WHEN THE INVITATION IS OVER ─────────────────
+ *
+ * Because the door is not. The transition trigger permits
+ * `declined → invited`, and `can_see_circle` keeps a declined row visible
+ * precisely so that is reachable. Without this row the only record of a
+ * turned-down invitation is its absence, and an owner who wanted to ask again
+ * after a month would have to remember they ever asked.
+ *
+ * ── AND WHY IT SAYS ONLY WHAT IT KNOWS ─────────────────────────────────────
+ *
+ * PC-05 draws three closed statuses: "Declined", "Revoked by you" and
+ * "Canceled · no longer a mutual friend". Only the first is derivable — a
+ * revoked invitation and a removed member are the SAME `removed` state on the
+ * same column, deliberately, and there is no field to tell them apart. The
+ * `status` prop is therefore passed in rather than computed here, and the
+ * manage surface passes the one status it can stand behind.
+ */
+export function ClosedInvitationRow({
+  name,
+  status,
+  onInviteAgain,
+}: {
+  name: string;
+  status: string;
+  onInviteAgain?: () => void;
+}) {
+  return (
+    <View className="flex-row items-center gap-2 px-4 py-3" style={{ minHeight: MIN_TAP_TARGET }}>
+      <View
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={closedRowAccessibilityLabel(name, status)}
+        className="flex-1"
+        style={{ minWidth: 0 }}>
+        <Identity name={name} detail={status} />
+      </View>
+      {onInviteAgain ? (
+        <RowAction
+          label={PENDING.inviteAgain}
+          accessibilityLabel={inviteAgainAccessibilityLabel(name)}
+          onPress={onInviteAgain}
+        />
       ) : null}
     </View>
   );

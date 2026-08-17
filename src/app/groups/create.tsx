@@ -1,12 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { TextInput } from 'react-native';
+import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Notice } from '@/components/ui/notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { CIRCLE_EVENTS, circleCreatedProps } from '@/features/circles/analytics';
@@ -90,16 +91,51 @@ export default function CreateGroupScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <ScreenHeader title={CREATE.title} backLabel={CREATE.cancel} />
+      {/*
+        CANCEL AND CREATE IN THE NAV BAR, WHICH IS PC-02's WHOLE CHROME.
+
+        The frame draws no full-width button anywhere: the commit is the
+        top-right control and abandoning is the top-left one, iOS's own
+        create-sheet grammar. The back control stays the house 36pt disc rather
+        than becoming a text "Cancel" — nine screens share `ScreenHeader` and a
+        tenth spelling of the back affordance is how the app grows dialects —
+        but it announces itself as "Cancel", which is the act it performs here.
+      */}
+      <ScreenHeader
+        backLabel={CREATE.cancel}
+        trailing={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={CREATE.actionSpoken}
+            accessibilityState={{ disabled: !armed, busy: create.isPending }}
+            disabled={!armed}
+            onPress={submit}
+            hitSlop={8}
+            // Dimmed only when there is genuinely nothing to submit. While the
+            // write is in flight the control is inert too, but it is showing a
+            // spinner, and a 40% spinner reads as a rendering fault.
+            style={{ minHeight: MIN_TAP_TARGET, opacity: armed || create.isPending ? 1 : 0.4 }}
+            className="justify-center px-2 active:opacity-60">
+            {create.isPending ? (
+              <ActivityIndicator size="small" color={theme.accent} />
+            ) : (
+              <Text variant="label" style={{ color: theme.accent }}>
+                {CREATE.action}
+              </Text>
+            )}
+          </Pressable>
+        }
+      />
 
       <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-24">
         <Text variant="display" trim accessibilityRole="header" className="mt-3">
           {CREATE.title}
         </Text>
 
-        <Text variant="note" className="mt-4">
-          {CREATE.fieldLabel}
-        </Text>
+        {/* The tracked micro-label PC-02 sets over the field, and deliberately
+            not `note`: this is a field's name, not a sentence about it, and the
+            helper underneath is the sentence. */}
+        <SectionHeader title={CREATE.fieldLabel} className="mt-6" />
 
         <TextInput
           value={name}
@@ -139,20 +175,28 @@ export default function CreateGroupScreen() {
         {/* Under the field, because the field is what has to change. */}
         {note ? <Notice message={note} tone="critical" className="mt-4" /> : null}
 
-        <Button
-          title={CREATE.action}
-          variant="primary"
-          onPress={submit}
-          disabled={!armed}
-          loading={create.isPending}
-          className="mt-8"
-        />
+        {/*
+          PC-02's second half: what the reader is about to make, before they
+          make it.
 
-        {/* Nothing states the twelve-seat cap here, and nothing should: PC-01's
-            body already said "Two to twelve people" on the way in, and the only
-            other sentence about the cap in the copy module is PC-10's, which is
-            about a group that is ALREADY full. Writing a third would be new
-            copy nobody reviewed. */}
+          Three facts and no fourth. Two of them are the ones this screen's
+          absence of controls would otherwise leave unexplained — there is no
+          size field and no "who can invite" setting because the schema already
+          decided both — and the third names the one role that exists. The cap
+          is stated here rather than beside the name field, which is where the
+          old screen deliberately said nothing at all: this card is a definition
+          of the thing, so the number belongs in it.
+        */}
+        <SectionHeader title={CREATE.aboutHeading} className="mt-8" />
+        <Card padding="lg" className="mt-2.5">
+          <View style={{ gap: 8 }}>
+            {CREATE.about.map((line) => (
+              <Text key={line} variant="callout">
+                {line}
+              </Text>
+            ))}
+          </View>
+        </Card>
       </KeyboardAwareScrollView>
 
       {terms.sheet}

@@ -66,10 +66,26 @@ test('every row and every control carries the 44 pt floor, as a minimum not a he
   assert.equal(MIN_TAP_TARGET, 44);
   // A fixed 44 would clip a name the moment it wraps. Every geometry in the kit
   // is a `minHeight`, and the floor is imported rather than typed as a number.
-  for (const file of ['group-row.tsx', 'member-row.tsx', 'picker-row.tsx']) {
+  for (const file of ['group-row.tsx', 'member-row.tsx', 'picker-row.tsx', 'state-screens.tsx']) {
     const src = body(`${DIR}/${file}`);
     assert.match(src, /minHeight: MIN_TAP_TARGET/, `${file} does not carry the floor`);
     assert.doesNotMatch(src, /minHeight:\s*\d/, `${file} types the floor as a number`);
+  }
+});
+
+test('every control the ROUTES draw carries the floor as well', () => {
+  // The kit is not the whole surface: three of the atlas's controls live in
+  // nav bars, which are the screens' own — PC-02's Create, PC-06's Manage and
+  // PC-07's Done. A floor held only inside `components/circles/` would be a
+  // floor with three holes in it.
+  for (const file of [
+    'src/app/groups/create.tsx',
+    'src/app/groups/[circleId]/index.tsx',
+    'src/app/groups/[circleId]/manage.tsx',
+  ]) {
+    const src = body(file);
+    assert.match(src, /minHeight: MIN_TAP_TARGET/, `${file} draws a control under the floor`);
+    assert.match(src, /hitSlop=\{8\}/, `${file} has a nav control with no slop around it`);
   }
 });
 
@@ -173,9 +189,13 @@ test('an unavailable row is disabled ONLY by having a reason, so it can never be
   assert.doesNotMatch(src, /disabled\??:\s*boolean/);
 });
 
-test('both reasons resolve to a printable sentence, and nothing resolves to a colour', () => {
+test('every reason resolves to a printable sentence, and nothing resolves to a colour', () => {
   assert.equal(ineligibilityReason(null), null);
-  for (const reason of ['group_full', 'not_mutual'] as const) {
+  // All four PC-03 and PC-10 draw, not just the two refusals. A seat-holder's
+  // row is inert too, and an inert row with no words is the failure this whole
+  // mechanism exists to prevent — which is exactly how the picker used to
+  // handle them, by deleting the row.
+  for (const reason of ['group_full', 'not_mutual', 'already_member', 'invite_pending'] as const) {
     const text = ineligibilityReason(reason);
     assert.equal(text, INELIGIBILITY_REASONS[reason]);
     assert.ok(text && text.length > 0);

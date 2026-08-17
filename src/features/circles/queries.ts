@@ -250,6 +250,10 @@ export function useCircleMembers(circleId: string | null) {
           // every legal move out of `joined` lands somewhere else — so for a
           // row that reads `joined`, this is the moment they joined.
           joinedAt: row.state === 'joined' ? row.updated_at : null,
+          // The same reading one state along: a row that reads `invited` was
+          // last written when it became `invited`, including an asking-again.
+          // PC-05 prints it as "Invited today" / "Invited 2 days ago".
+          invitedAt: row.state === 'invited' ? row.updated_at : null,
         }))
         .sort(byOwnerThenName);
     },

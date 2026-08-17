@@ -7,13 +7,17 @@ import {
   AcceptRefusedNotice,
   AloneState,
   GroupFullNotice,
+  GroupGoneNotice,
   GroupsOfflineState,
   InvitationCard,
   MemberRow,
+  SCREEN_STATE_OWNS_GUTTER,
 } from '@/components/circles';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SectionHeader } from '@/components/ui/section-header';
+import { SettingsRow } from '@/components/ui/settings-row';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
@@ -21,7 +25,14 @@ import {
   CIRCLE_EVENTS,
   circleInvitationAnsweredProps,
 } from '@/features/circles/analytics';
-import { ALONE, MANAGE, memberLine, seatsLeftLine } from '@/features/circles/copy';
+import {
+  GROUPS_TITLE,
+  groupSubtitle,
+  INVITATION,
+  invitationsWaitingRow,
+  MANAGE,
+  OVERVIEW,
+} from '@/features/circles/copy';
 import { classifyCircleError } from '@/features/circles/errors';
 import { useAcceptInvitation, useDeclineInvitation } from '@/features/circles/mutations';
 import {
@@ -161,12 +172,68 @@ export default function GroupScreen() {
 
   const title = circle.data?.name ?? '';
 
+  const openManage = useCallback(
+    () =>
+      router.push({
+        pathname: '/groups/[circleId]/manage',
+        params: { circleId: id ?? '' },
+      }),
+    [router, id],
+  );
+
+  const openInvite = useCallback(
+    () =>
+      router.push({
+        pathname: '/groups/[circleId]/invite',
+        params: { circleId: id ?? '' },
+      }),
+    [router, id],
+  );
+
+  /**
+   * The group was deleted, or the reader's membership ended — and `useCircle`
+   * answers `null` for both, deliberately and identically.
+   *
+   * Guarded on `isSuccess` rather than on `!circle.data`, which would also be
+   * true of a read that has not answered: PC-09b is a fact about a group that
+   * came back missing, and drawing it over a pending fetch would tell somebody
+   * their group was gone every time they opened it on a slow connection.
+   */
+  const gone = circle.isSuccess && circle.data === null;
+
+  const selfGuttered =
+    (SCREEN_STATE_OWNS_GUTTER as readonly string[]).includes(state.kind) && !gone;
+
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <ScreenHeader title={title} backLabel="Back" />
+      {/* No colophon: PC-06 sets the group's name as the page's 34pt heading
+          and leaves the nav row to the back control and Manage. A colophon
+          here would print the name twice. Manage is offered to everyone who is
+          actually in the group — it is where a MEMBER leaves as well as where
+          an owner removes and deletes — and gated on `showsRoster`, which is
+          false for `invited`, so somebody who has not accepted gets no door
+          into a room they may not be in. */}
+      <ScreenHeader
+        backLabel={GROUPS_TITLE}
+        trailing={
+          showsRoster(state) && !gone ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={MANAGE.manageSpoken}
+              onPress={openManage}
+              hitSlop={8}
+              style={{ minHeight: MIN_TAP_TARGET }}
+              className="justify-center px-2 active:opacity-60">
+              <Text variant="label" style={{ color: theme.accent }}>
+                {MANAGE.link}
+              </Text>
+            </Pressable>
+          ) : undefined
+        }
+      />
 
       <ScrollView
-        contentContainerClassName="px-gutter pb-24"
+        contentContainerClassName={selfGuttered ? 'pb-24' : 'px-gutter pb-24'}
         contentContainerStyle={state.kind === 'alone' ? { flexGrow: 1 } : undefined}
         refreshControl={
           <RefreshControl
@@ -181,18 +248,31 @@ export default function GroupScreen() {
           </View>
         ) : state.kind === 'offline' ? (
           <GroupsOfflineState onRetry={refresh} retrying={circle.isRefetching} />
+        ) : gone ? (
+          // PC-09b. The read worked and there is nothing behind the id — a
+          // deleted group, or a membership that ended. Drawn before every other
+          // branch below, because each of them would otherwise describe a group
+          // that is not there: the old code fell through to the resting frame
+          // and set an empty name over "0 members · private".
+          <GroupGoneNotice onBack={() => router.dismissTo('/groups')} />
         ) : state.kind === 'invited' && invitation ? (
           // PC-04. No roster, no seat count, no manage surface — and the members
           // query's single row is never consulted on this branch.
-          <View className="mt-6">
-            <InvitationCard
-              groupName={invitation.name}
-              inviterName={invitation.inviterName}
-              memberCount={invitation.memberCount}
-              pending={answering}
-              onAccept={() => answer('accepted')}
-              onDecline={() => answer('declined')}
-            />
+          <View className="mt-3">
+            <Text variant="display" trim accessibilityRole="header">
+              {INVITATION.title}
+            </Text>
+            <View className="mt-6">
+              <InvitationCard
+                groupName={invitation.name}
+                inviterName={invitation.inviterName}
+                invitedAt={invitation.invitedAt}
+                memberCount={invitation.memberCount}
+                pending={answering}
+                onAccept={() => answer('accepted')}
+                onDecline={() => answer('declined')}
+              />
+            </View>
             {refused ? <AcceptRefusedNotice /> : null}
           </View>
         ) : state.kind === 'alone' ? (
@@ -200,75 +280,49 @@ export default function GroupScreen() {
            * The liveness state — a group that exists, is yours, and is waiting
            * for one person. Not empty and not broken.
            *
-           * The manage link is drawn UNDER it rather than left off, and that is
-           * not decoration: deleting is the owner's only exit, it lives on the
-           * manage surface, and a group whose roster is just its owner is the
-           * single most likely group to want deleting — made by mistake, named
-           * wrong, thought better of. Ending the branch at `AloneState` would
-           * have meant the owner had to invite somebody into a group they
-           * wanted to be rid of in order to reach the control that gets rid of
-           * it.
+           * The manage link that used to be drawn under it has moved into the
+           * nav bar with every other state's, which is where PC-06 puts it —
+           * and the argument for having it at all is unchanged: deleting is the
+           * owner's only exit, it lives on the manage surface, and a group
+           * whose roster is just its owner is the single most likely group to
+           * want deleting. It is simply no longer a second, differently-placed
+           * copy of a control the rest of the screen has at the top.
            */
           <View className="flex-1">
-            <AloneState
-              onInvite={() =>
-                router.push({
-                  pathname: '/groups/[circleId]/invite',
-                  params: { circleId: id ?? '' },
-                })
-              }
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={MANAGE.link}
-              onPress={() =>
-                router.push({
-                  pathname: '/groups/[circleId]/manage',
-                  params: { circleId: id ?? '' },
-                })
-              }
-              hitSlop={8}
-              style={{ minHeight: MIN_TAP_TARGET }}
-              className="mt-6 justify-center active:opacity-60">
-              <Text variant="label" style={{ color: theme.accent }}>
-                {MANAGE.link}
-              </Text>
-            </Pressable>
+            <Text variant="display" trim accessibilityRole="header" className="mt-3">
+              {title}
+            </Text>
+            <Text variant="note" className="mt-2">
+              {groupSubtitle(circle.data?.memberCount ?? 1, true)}
+            </Text>
+            <AloneState onInvite={openInvite} />
           </View>
         ) : (
           <>
             <Text variant="display" trim accessibilityRole="header" className="mt-3">
               {title}
             </Text>
+            {/* "4 members · you own this group" — the role in words, which the
+                access matrix requires on every screen that has one. */}
             <Text variant="note" className="mt-2">
-              {memberLine(state.kind === 'joined' ? state.memberCount : circle.data?.memberCount ?? 0)}
+              {groupSubtitle(
+                state.kind === 'joined' ? state.memberCount : circle.data?.memberCount ?? 0,
+                circle.data?.isOwner ?? false,
+              )}
             </Text>
 
-            {/* PC-10, and only ever for an owner — see the header. */}
+            {/* PC-10, and only ever for an owner — see the header. No manage
+                action on it: the manage surface is one control away in the nav
+                bar above, and two doors to one room is a choice nobody wants. */}
             {state.kind === 'full' ? <GroupFullNotice /> : null}
 
             {showsRoster(state) ? (
               <View className="mt-8">
-                {/* The roster gets its real heading now that the link out is
-                    its own word. The seats line is the owner's arithmetic and
-                    nobody else's: a member is not choosing whether to invite,
-                    so a count of free seats is a fact about a decision they do
-                    not have.
-
-                    `canInvite` stays the authority on WHETHER that line
-                    belongs; the `in` check is only there to narrow the union
-                    for the compiler. Re-deriving the condition as
-                    `kind === 'alone' || kind === 'owned'` would be this screen
-                    deciding for itself something `states.ts` deliberately owns,
-                    and the branch it eventually got wrong would be a real one. */}
-                <SectionHeader
-                  title={MANAGE.heading}
-                  trailing={
-                    canInvite(state) && 'seatsFree' in state ? (
-                      <Text variant="note">{seatsLeftLine(state.seatsFree)}</Text>
-                    ) : undefined
-                  }
-                />
+                {/* A bare eyebrow, as PC-06 draws it. The seat arithmetic that
+                    used to sit here has moved to the picker's own subtitle
+                    ("3 of 12 chosen"), which is where PC-03 puts it and where
+                    it is about a decision the reader is actually making. */}
+                <SectionHeader title={OVERVIEW.membersHeading} />
                 <Card className="mt-2.5">
                   {joined.map((member) => (
                     <MemberRow
@@ -285,61 +339,45 @@ export default function GroupScreen() {
               </View>
             ) : null}
 
-            {canInvite(state) ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={ALONE.action}
-                onPress={() =>
-                  router.push({
-                    pathname: '/groups/[circleId]/invite',
-                    params: { circleId: id ?? '' },
-                  })
-                }
-                hitSlop={8}
-                style={{ minHeight: MIN_TAP_TARGET }}
-                className="mt-8 justify-center active:opacity-60">
-                <Text variant="label" style={{ color: theme.accent }}>
-                  {ALONE.action}
-                </Text>
-              </Pressable>
+            {/* PC-06's Waiting section. Owner-only, and by construction as well
+                as by the check: the roster policy hands every row to anybody
+                who is `joined`, but only the owner has anything to do with an
+                unanswered invitation, and telling a member who has been asked
+                and not replied would be gossip. The row leads to the manage
+                surface, which is where the invitations are. */}
+            {(circle.data?.isOwner ?? false) && pending.length > 0 ? (
+              <View className="mt-8">
+                <SectionHeader title={OVERVIEW.waitingHeading} />
+                <Card className="mt-2.5">
+                  <SettingsRow
+                    label={invitationsWaitingRow(pending.length)}
+                    onPress={openManage}
+                  />
+                </Card>
+              </View>
             ) : null}
 
-            {/* Manage is offered to everyone who is actually in the group,
-                because it is where a MEMBER leaves as well as where an owner
-                removes and deletes. The two versions of the surface differ, and
-                `manage.tsx` is where that difference is argued.
+            {canInvite(state) ? (
+              // A bordered pill, not a text link: PC-06 draws it as a control
+              // the width of the page. `secondary` rather than the accent —
+              // this screen spends no oxblood, and the group's own name is the
+              // thing the eye should land on.
+              <Button
+                title={OVERVIEW.invite}
+                variant="secondary"
+                onPress={openInvite}
+                accessibilityLabel={OVERVIEW.invite}
+                className="mt-8 self-stretch"
+              />
+            ) : null}
 
-                Labelled `MANAGE.link` — "Manage" — and deliberately not
-                `MANAGE.heading`: a control saying "Members" directly beneath a
-                list of members reads as a heading for the list rather than a
-                door out of it, and the screen it opens is where somebody is
-                removed and where a group is left or deleted.
-
-                GATED ON `showsRoster`, which is true for exactly the four
-                states that mean "you are in this group". Not merely tidy: if
-                the group summary has not arrived yet the resolver answers from
-                the LIST counts, and it can say `invited` with no invitation for
-                THIS group in hand — in which case the branch above falls
-                through to here. `showsRoster` is false for `invited`, so that
-                reader gets no roster (the privacy promise holds by itself) and
-                now no manage link into a group they may not be in either. */}
+            {/* The closing promise, and it is true by construction rather than
+                by assertion: `circles`' select policy is `can_see_circle(id)`,
+                so a non-member's query returns nothing at all. */}
             {showsRoster(state) ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={MANAGE.link}
-                onPress={() =>
-                  router.push({
-                    pathname: '/groups/[circleId]/manage',
-                    params: { circleId: id ?? '' },
-                  })
-                }
-                hitSlop={8}
-                style={{ minHeight: MIN_TAP_TARGET }}
-                className="mt-6 justify-center active:opacity-60">
-                <Text variant="label" style={{ color: theme.accent }}>
-                  {MANAGE.link}
-                </Text>
-              </Pressable>
+              <Text variant="note" className="mt-3">
+                {OVERVIEW.footnote}
+              </Text>
             ) : null}
           </>
         )}
