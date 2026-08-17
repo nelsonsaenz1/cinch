@@ -107,11 +107,43 @@ const DEVICES = [
  * Three slashes, always. `cinch://dev-controls` parses "dev-controls" as the
  * HOST and expo-router never sees a path, so the app stays wherever it was.
  */
+/**
+ * REAL ROUTES, NOT FIXTURES — AND WHY THIS LIST CHANGED.
+ *
+ * This matrix used to deep-link to `dev-today`, `dev-closet`, `dev-truncation`
+ * and `dev-controls`. `9a92767` ("Take the 205 design fixtures out of the
+ * router") moved every `dev-*` screen to `src/dev-fixtures/`, outside the
+ * router root, so no route is generated for them any more and all four links
+ * navigated nowhere. The run did not error — it captured whatever the app was
+ * already showing, four times — and `collisions()` then failed it for four
+ * identical hashes. That is why no release PNGs or manifest have been produced
+ * since the fixture move; the harness broke silently and stayed broken.
+ *
+ * Pointing it back at the fixtures is not available: `_layout.tsx:162` bounces
+ * `dev-*` in release builds on purpose, and `tests/dev-route-exclusion.test.ts`
+ * fails if one compiles into the bundle. So the matrix now shoots the shipping
+ * screens.
+ *
+ * THE COST OF THAT, STATED PLAINLY: fixtures were deterministic and these are
+ * not. A real screen renders the signed-in account's own data, so the exact-byte
+ * diff only means something when the run and the baseline came from the SAME
+ * simulator with the SAME account and no data changed between them — which is
+ * what the "Cinch iPhone 17 Pro" clone in `udidFor()` is for. Re-baseline
+ * (`--baseline`) after any deliberate content change, or the diff reports the
+ * data moving rather than the layout.
+ *
+ * Ordered so the four tabs come first, then the surfaces added in the last two
+ * days — Private Circles (`groups`) had no coverage here at all.
+ */
 const SCREENS = [
-  { id: 'today', url: 'cinch:///dev-today' },
-  { id: 'closet', url: 'cinch:///dev-closet' },
-  { id: 'truncation', url: 'cinch:///dev-truncation' },
-  { id: 'controls', url: 'cinch:///dev-controls' },
+  { id: 'today', url: 'cinch:///(tabs)' },
+  { id: 'closet', url: 'cinch:///(tabs)/closet' },
+  { id: 'explore', url: 'cinch:///(tabs)/explore' },
+  { id: 'plan', url: 'cinch:///(tabs)/plan' },
+  { id: 'groups', url: 'cinch:///groups' },
+  { id: 'activity', url: 'cinch:///activity' },
+  { id: 'settings', url: 'cinch:///settings' },
+  { id: 'visibility', url: 'cinch:///privacy/visibility' },
 ];
 
 const argv = process.argv;
