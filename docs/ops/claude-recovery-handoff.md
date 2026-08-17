@@ -3,6 +3,11 @@
 Owner: Claude Code (recovery lane). This file is Claude-owned.
 The Codex-owned `docs/ops/cinch-implementation-release-ledger.md` is read-only to this lane and was not modified.
 
+> **Three statements in this file were superseded on 2026-08-17.** The release classification
+> (line 328), the 568-file snapshot hazard (row 11), and the worktree count (line 394) are each
+> annotated inline below. Everything else stands. See
+> `docs/ops/claude-recovery-verification-20260817.md`.
+
 Opened: 2026-08-16 15:30 EDT
 Recovery branch: `claude/recovery-reconciliation-20260816`
 Recovery worktree: `/Users/nelsonsaenz/cinch-wt-recovery`
@@ -49,7 +54,15 @@ something, never intended to ship) · `RECOVER` (genuinely missing intended work
 | 8 | `deno.lock` dirty line in `.claude/worktrees/agent-ad55de324e8efeaaa` | uncommitted | Adds `npm:expo-updates@~57.0.12` | `main` `deno.lock:120` pins `~57.0.13`; `package.json:46` declares `~57.0.14` | `SUPERSEDED` / `VERIFICATION-ONLY` | Worktree pin is strictly older than main's. Recovering it would *downgrade*. |
 | 9 | `skeleton.tsx` + `error-state.tsx` in `.claude/worktrees/agent-ad62cb0addaba2495` | uncommitted | Skeleton/error-state primitives | `main` versions are strictly more evolved | `SUPERSEDED` | See "Primitive supersession proof" below |
 | 10 | `9d67a0c` "Make a slow model a fact the app can see, say, and tune" | `claude/goofy-elbakyan-d74065` | Per-workload AI timeout/attempt config | `ai_config.timeout_ms` and nullable `ai_calls.attempts` both in main | `SUPERSEDED` | `supabase/migrations/20260808180000_ai_timeout_and_attempts.sql` carries the same column and `between 5000 and 120000` constraint; main wires it further through `supabase/functions/_shared/ai-config.ts:98,113` and keeps constants as `??` fallbacks — safer than the commit, which deleted them. Its model repoint is not in the diff at all (applied live, narrated only). Residual edge-function differences are service-owned; see "Scope not carried by this lane". |
-| 11 | 568-file staged snapshot in `.claude/worktrees/goofy-elbakyan-d74065` | staged, uncommitted | Legacy bulk snapshot incl. `_to_delete/`, stale lockfiles, PDFs, PNGs | n/a | `VERIFICATION-ONLY` — **never bulk-merge** | Left untouched and unstaged-from. Contains `_to_delete/*.lock.stale` and `_to_delete/unit-tests-stale/` — self-labelled dead weight. |
+| 11 | 568-file staged snapshot in `.claude/worktrees/goofy-elbakyan-d74065` | staged, uncommitted | Legacy bulk snapshot incl. `_to_delete/`, stale lockfiles, PDFs, PNGs | n/a | `VERIFICATION-ONLY` — **never bulk-merge** — *superseded 2026-08-17, see note* | Left untouched and unstaged-from. Contains `_to_delete/*.lock.stale` and `_to_delete/unit-tests-stale/` — self-labelled dead weight. |
+
+> **Row 11 superseded, 2026-08-17.** "Never bulk-merge" was the right instruction and is now moot:
+> there is nothing left to merge. The staged tree hashes to `455e6ddda9acd2f990acfaa4511054f1fb43eaa2`,
+> byte-identical to the tree of `752522f`, which is already an ancestor of `main`, and
+> `git diff --cached claude/cinch-new-project-b48011` returns zero files. All 568 files are
+> committed and reachable. The 442 `A` / 123 `M` / 3 `D` breakdown is measured against the
+> worktree's own detached HEAD, not against `main` — which is why it reads as pending work and is
+> not. The snapshot is discardable, not hazardous.
 | 12 | `claude/clothing-app-tech-stack-7c58b2` @ `ab49416` | branch | Superwall sourcing scratch | Reapplied in `src/features/billing/` | `SUPERSEDED` | The commit message itself records the supersession and an explicit "deliberately NOT carried over" list (`use-tier.ts`, `20260805120000_server_side_trial_clock.sql`, `04_trial_clock.sql`) including a warning that the migration dropped a still-needed RLS policy. Do not resurrect. |
 | 13 | `origin/posthog/instrumentation-gaps`, `origin/posthog/instrumentation-5a85ce` | remote | PostHog instrumentation | `fe4458f` is already an ancestor of `main` | `IN-MAIN` | `git branch --no-merged main` does not list it. Three files it added (`substitution-sheet.tsx`, `example-ghosts.tsx`, `progress-track.tsx`) were later deliberately removed in main. |
 | 14 | 8 untracked docs under `docs/` | working tree | Launch-polish / UI-excellence / Today handoff records | Their implementation branches are merged | see below | see below |
@@ -327,6 +340,19 @@ adds no behavior; the count moves 1815 → 1816 and stays green.
 
 ## Release classification: REQUIRES-NEW-STORE-BUILD
 
+> **WITHDRAWN, 2026-08-17.** The local figure below (`b07ed5b2…`, 73 sources) carries the defect
+> `scripts/check-fingerprint.mjs:58-92` now documents: `@expo/fingerprint` hashes the resolved path
+> of every autolinked package, and this repo's Deno-installed `node_modules/.deno/…` layout hashes
+> different sources from the flat `npm ci` tree EAS installs. The script's own comment records the
+> same two numbers — 73 / `b07ed5b2…` locally against 168 / `d9cb8c3b…` on `npm ci` at the identical
+> commit. Re-measured over `git archive` + clean `npm ci`, `main` is **`d9cb8c3b…` / 168 sources —
+> the runtime EAS stamped on builds 37 and 38.** `--verify-control` reproduces that from outside the
+> script. **An OTA reaches the store binary; a new native build is not required.** The MapKit
+> venue-search objection was checked: `modules/venue-search` is present at `9345eb2` and shipped
+> *in* build 38. See `docs/ops/claude-recovery-verification-20260817.md`.
+>
+> The two sources below did agree. They agreed because both read the same poisoned measurement.
+
 Not a judgement call — two independent sources agree.
 
 ```
@@ -376,7 +402,11 @@ to capture and no screenshot that would carry meaning. No self-authored visual v
 - `PlaceField` rendered single-line baseline: declared geometry already agrees and is pinned by
   `tests/today-polish-phase-a.test.ts:35-42`; confirming the rendered result needs device evidence
   this lane does not have and will not fabricate.
-- A new store build (39) before any production promotion, then `npm run check:fingerprint -- --set`.
+- ~~A new store build (39) before any production promotion, then `npm run check:fingerprint -- --set`.~~
+  **Not required as a native matter (2026-08-17)** — `main` carries build 38's runtime
+  `d9cb8c3b…`, confirmed against EAS by `--verify-control`, so an OTA reaches the store binary.
+  Cutting build 39 is now a product choice rather than a native necessity. If one *is* cut, `--set`
+  still follows submission and only then.
 - `docs/app-store/submission-runbook.md:122` says "The 39 `dev-*` routes are bounced in release
   builds (`_layout.tsx:160`)" — there are 205, and the guard is now at `:162`. Left uncorrected here
   because that file is App Store release evidence under Codex ownership.
@@ -395,7 +425,9 @@ to capture and no screenshot that would carry meaning. No self-authored visual v
 
 - `docs/commerce/health-runbook.md` — user-owned, protected. Not read into any diff, not staged.
 - `docs/ops/cinch-implementation-release-ledger.md` — Codex-owned. Not modified.
-- All 20 worktrees, including both `.claude/worktrees` dirty trees and the 568-file staged
+- All worktrees — **20 as counted here; the census was short, there are 32** (2026-08-17), of which
+  11 refs carry 18 commits not in `main`. Nothing was preserved less thoroughly for having been
+  miscounted; the statement below holds for all 32. Including both `.claude/worktrees` dirty trees and the 568-file staged
   `goofy-elbakyan` snapshot. Nothing reset, cleaned, checked out over, or unstaged.
 - The primary checkout `/Users/nelsonsaenz/cinch` remains on `main` at `b00d38d`, with its 8
   untracked docs in place.

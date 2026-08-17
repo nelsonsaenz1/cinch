@@ -51,7 +51,7 @@ published branch for cosmetic history is explicitly out of policy.
 | `.claude/worktrees/agent-ad55…` | `worktree-agent-ad55…` @ `b47fedc` | dirty: `deno.lock` (superseded) |
 | `.claude/worktrees/agent-ad62…` | `worktree-agent-ad62…` @ `9cf7334` | dirty: skeleton/error-state (superseded) |
 | `.claude/worktrees/cinch-new-project-b48011` | detached `752522f` | |
-| `.claude/worktrees/goofy-elbakyan-d74065` | detached `9d67a0c` | 568-file staged snapshot — never bulk-merge |
+| `.claude/worktrees/goofy-elbakyan-d74065` | detached `9d67a0c` | 568-file staged snapshot — never bulk-merge *(moot 2026-08-17: the staged tree is byte-identical to `752522f`, already an ancestor of `main`; nothing left to merge)* |
 | `.claude/worktrees/pdf-ui-mockups-eca23e` | detached `9d67a0c` | |
 | `/sessions/rcw-…/commerce-cowork`, `commerce-cowork2` | `agent/commerce-cowork*` | **locked**, remote-session paths |
 
