@@ -583,7 +583,33 @@ export type AppEvent =
   /** A group was renamed. No before, no after — both are user content. */
   | 'circle_renamed'
   /** A group was deleted. No size, no age: how big a room was when it closed identifies it. */
-  | 'circle_deleted';
+  | 'circle_deleted'
+  // ── Activity Center (design-refs/ACTIVITY-CENTER-IMPLEMENTATION.md §8) ────
+  //
+  // The private-groups rule, plus one clause the groups rule did not need: no
+  // PAYLOAD. Every property below is built by a pure function in
+  // `features/activity-center/analytics.ts`, and not one of them accepts an
+  // `ActivityEvent` — an event carries `actor_id`, `subject_id`, `circle_id`
+  // and a payload holding a group name, four disclosures one spread away from
+  // the wire, so the builders take the two or three bounded values instead and
+  // the narrowing is visible in the diff at the call site.
+  //
+  // NO `item_count`, which is where this is stricter than Daily Social. A
+  // feed's count describes a stream; this one would describe how much private
+  // traffic one specific person receives, and a shape plus a timestamp plus a
+  // device id is identifying in exactly the way `circle_deleted` argues above.
+  //
+  // There is deliberately no `activity_row_viewed`. An impression per row would
+  // rebuild, inside a third-party store, a record of who is in somebody's
+  // groups and who reacts to their looks.
+  /** The timeline was opened. `had_unseen` (the dot's own boolean) and a latency band. */
+  | 'activity_opened'
+  /** A row was opened. `event_type`, `was_grouped`, `is_revoked` — three bounded values. */
+  | 'activity_item_opened'
+  /** `action`: open | accept | decline | dismiss | undo | clear_all | retry, plus a coarse surface. */
+  | 'activity_action'
+  /** `error_class`: offline | unauthorized | server | unknown. Never the message. */
+  | 'activity_failed';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.
