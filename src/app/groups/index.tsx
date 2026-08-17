@@ -20,7 +20,12 @@ import {
   CIRCLE_EVENTS,
   circleInvitationAnsweredProps,
 } from '@/features/circles/analytics';
-import { GROUPS_TITLE, NO_GROUPS, PENDING, invitationsWaiting } from '@/features/circles/copy';
+import {
+  GROUPS_TITLE,
+  INVITATION,
+  NO_GROUPS,
+  invitationsWaiting,
+} from '@/features/circles/copy';
 import { classifyCircleError } from '@/features/circles/errors';
 import { useAcceptInvitation, useDeclineInvitation } from '@/features/circles/mutations';
 import { useCircleInvitations, useCircles } from '@/features/circles/queries';
@@ -210,8 +215,12 @@ export default function GroupsScreen() {
 
             {waiting.length > 0 ? (
               <View className="mt-8">
+                {/* The READER'S invitations, so `INVITATION.heading` —
+                    "Waiting for you" — and deliberately not `PENDING.heading`,
+                    which is the same noun for the opposite direction and sits
+                    over the owner's OUTGOING invitations two taps away. */}
                 <SectionHeader
-                  title={PENDING.heading}
+                  title={INVITATION.heading}
                   trailing={
                     <Text variant="note">{invitationsWaiting(waiting.length)}</Text>
                   }

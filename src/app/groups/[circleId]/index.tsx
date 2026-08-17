@@ -13,6 +13,7 @@ import {
 } from '@/components/circles';
 import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SectionHeader } from '@/components/ui/section-header';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
@@ -219,7 +220,7 @@ export default function GroupScreen() {
             />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={MANAGE.heading}
+              accessibilityLabel={MANAGE.link}
               onPress={() =>
                 router.push({
                   pathname: '/groups/[circleId]/manage',
@@ -230,7 +231,7 @@ export default function GroupScreen() {
               style={{ minHeight: MIN_TAP_TARGET }}
               className="mt-6 justify-center active:opacity-60">
               <Text variant="label" style={{ color: theme.accent }}>
-                {MANAGE.heading}
+                {MANAGE.link}
               </Text>
             </Pressable>
           </View>
@@ -248,24 +249,27 @@ export default function GroupScreen() {
 
             {showsRoster(state) ? (
               <View className="mt-8">
-                {/* The seats line is the owner's arithmetic and nobody else's:
-                    a member is not choosing whether to invite, so a count of
-                    free seats is a fact about a decision they do not have.
-                    Rendered as a plain note rather than a section heading —
-                    `MANAGE.heading` is spent below, on the link to the surface
-                    that heading actually belongs to. */}
-                {/* `canInvite` stays the authority on WHETHER the line belongs
-                    here; the `in` check is only there to narrow the union for
-                    the compiler. Re-deriving the condition as
+                {/* The roster gets its real heading now that the link out is
+                    its own word. The seats line is the owner's arithmetic and
+                    nobody else's: a member is not choosing whether to invite,
+                    so a count of free seats is a fact about a decision they do
+                    not have.
+
+                    `canInvite` stays the authority on WHETHER that line
+                    belongs; the `in` check is only there to narrow the union
+                    for the compiler. Re-deriving the condition as
                     `kind === 'alone' || kind === 'owned'` would be this screen
                     deciding for itself something `states.ts` deliberately owns,
                     and the branch it eventually got wrong would be a real one. */}
-                {canInvite(state) && 'seatsFree' in state ? (
-                  <Text variant="note" className="mb-2.5">
-                    {seatsLeftLine(state.seatsFree)}
-                  </Text>
-                ) : null}
-                <Card>
+                <SectionHeader
+                  title={MANAGE.heading}
+                  trailing={
+                    canInvite(state) && 'seatsFree' in state ? (
+                      <Text variant="note">{seatsLeftLine(state.seatsFree)}</Text>
+                    ) : undefined
+                  }
+                />
+                <Card className="mt-2.5">
                   {joined.map((member) => (
                     <MemberRow
                       key={member.userId}
@@ -305,12 +309,11 @@ export default function GroupScreen() {
                 removes and deletes. The two versions of the surface differ, and
                 `manage.tsx` is where that difference is argued.
 
-                LABELLED `MANAGE.heading` — "Members" — BECAUSE THERE IS NO
-                "Manage" STRING IN THE COPY MODULE. It is the heading of the
-                screen this opens, which is the ordinary convention for a
-                navigation label, and inventing a better word here would be
-                writing customer-facing copy nobody reviewed. Flagged in the
-                integration report as a copy gap rather than papered over.
+                Labelled `MANAGE.link` — "Manage" — and deliberately not
+                `MANAGE.heading`: a control saying "Members" directly beneath a
+                list of members reads as a heading for the list rather than a
+                door out of it, and the screen it opens is where somebody is
+                removed and where a group is left or deleted.
 
                 GATED ON `showsRoster`, which is true for exactly the four
                 states that mean "you are in this group". Not merely tidy: if
@@ -323,7 +326,7 @@ export default function GroupScreen() {
             {showsRoster(state) ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={MANAGE.heading}
+                accessibilityLabel={MANAGE.link}
                 onPress={() =>
                   router.push({
                     pathname: '/groups/[circleId]/manage',
@@ -334,7 +337,7 @@ export default function GroupScreen() {
                 style={{ minHeight: MIN_TAP_TARGET }}
                 className="mt-6 justify-center active:opacity-60">
                 <Text variant="label" style={{ color: theme.accent }}>
-                  {MANAGE.heading}
+                  {MANAGE.link}
                 </Text>
               </Pressable>
             ) : null}

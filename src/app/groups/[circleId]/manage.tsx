@@ -13,6 +13,7 @@ import {
 } from '@/components/circles';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Notice } from '@/components/ui/notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SectionHeader } from '@/components/ui/section-header';
 import { ListSkeleton } from '@/components/ui/skeleton';
@@ -23,7 +24,8 @@ import {
   circleDeletedProps,
   circleMembershipEndedProps,
 } from '@/features/circles/analytics';
-import { MANAGE, PENDING, invitationsWaiting } from '@/features/circles/copy';
+import { MANAGE, PENDING, WRITE_FAILED, invitationsWaiting } from '@/features/circles/copy';
+import { classifyCircleError } from '@/features/circles/errors';
 import {
   useDeleteCircle,
   useLeaveCircle,
@@ -71,6 +73,8 @@ export default function ManageGroupScreen() {
   const [removeFor, setRemoveFor] = useState<{ userId: string; name: string } | null>(null);
   const [askLeave, setAskLeave] = useState(false);
   const [askDelete, setAskDelete] = useState(false);
+  /** A refusal with no surface of its own — see `WRITE_FAILED`. */
+  const [note, setNote] = useState<string | null>(null);
 
   const isOwner = circle.data?.isOwner ?? false;
   const roster = useMemo(() => members.data ?? [], [members.data]);
@@ -91,20 +95,22 @@ export default function ManageGroupScreen() {
   }, [circle, members]);
 
   /**
-   * What a failed exit does, which on this screen is the same thing every time.
+   * What a failed remove, withdraw, leave or delete does.
    *
-   * `stale` is explicitly silent — `circleFailureIsSilent` says so, and the
-   * remedy is to refetch and let the reader see the state that was true all
-   * along. Every other kind reachable here (`unknown`, `rate_limited`) HAS NO
-   * SENTENCE IN THE COPY MODULE, so the honest response is the same one:
-   * redraw, and say nothing rather than invent a line nobody reviewed. This is
-   * recorded as a copy gap in the integration commit rather than filled in
-   * here. The branch is deliberately not written as two arms that do the same
-   * thing — that would read as a distinction this screen makes and does not.
+   * `stale` stays silent — the row moved, which is the interface's problem and
+   * not something to explain; refetching shows the state that was true all
+   * along. Everything else now SAYS SO, because a Delete that quietly does
+   * nothing is the same defect as a Leave an owner can tap: a control that
+   * fires and reports nothing. `unknown` does not claim the group is untouched,
+   * since the reply may have been lost after the server committed — it sends
+   * the reader to look, and the refetch below is what they will be looking at.
    */
   const onFailure = useCallback(
     (error: unknown, retry: () => void) => {
       if (terms.intercept(error, retry)) return;
+      const failure = classifyCircleError(error);
+      if (failure.kind === 'rate_limited') setNote(WRITE_FAILED.rateLimited);
+      else if (failure.kind !== 'stale') setNote(WRITE_FAILED.unknown);
       refresh();
     },
     [terms, refresh],
@@ -113,6 +119,7 @@ export default function ManageGroupScreen() {
   const confirmRemove = useCallback(() => {
     if (!id || !removeFor) return;
     const userId = removeFor.userId;
+    setNote(null);
     const run = () => {
       remove.mutate(
         { circleId: id, userId },
@@ -136,6 +143,7 @@ export default function ManageGroupScreen() {
     // consequence of this one being wrong is a silent no-op the user cannot
     // interpret — see the header.
     if (!id || isOwner) return;
+    setNote(null);
     const run = () => {
       leave.mutate(
         { circleId: id },
@@ -161,6 +169,7 @@ export default function ManageGroupScreen() {
 
   const confirmDelete = useCallback(() => {
     if (!id || !isOwner) return;
+    setNote(null);
     const run = () => {
       destroy.mutate(
         { circleId: id },
@@ -250,6 +259,8 @@ export default function ManageGroupScreen() {
                 </Card>
               </View>
             ) : null}
+
+            {note ? <Notice message={note} tone="critical" className="mt-8" /> : null}
 
             <View className="mt-10">
               {isOwner ? (

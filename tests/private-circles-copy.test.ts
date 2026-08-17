@@ -65,8 +65,10 @@ import {
   removeAccessibilityLabel,
   removeMemberConfirm,
   removeMemberHeading,
+  NAME_REFUSED,
   seatsLeftLine,
   spelledCount,
+  WRITE_FAILED,
 } from '../src/features/circles/copy.ts';
 import { CIRCLE_MAX_MEMBERS } from '../src/features/circles/types.ts';
 
@@ -147,6 +149,10 @@ const ALL_COPY = [
   FULL.title,
   FULL.body,
   CAP_SPELLED,
+  MANAGE.link,
+  INVITATION.heading,
+  ...Object.values(WRITE_FAILED),
+  ...Object.values(NAME_REFUSED),
   deleteGroupHeading(NAME),
   leaveGroupHeading(NAME),
   removeMemberHeading(MEMBER),
@@ -636,4 +642,82 @@ test('a picker row speaks its reason, and never announces its own selection twic
       /selected|chosen|checked/i,
     );
   }
+});
+
+// ---------------------------------------------------------------------------
+// 7 · The refusals that used to have no words at all
+// ---------------------------------------------------------------------------
+
+/**
+ * `classifyCircleError` names eight failures. Four have a surface of their own
+ * — `group_full` is PC-10's notice, `not_mutual` is a picker-row reason,
+ * `terms_required` raises the terms sheet, `stale` is silent by design. These
+ * are the other four, and until they were written a failed create or a failed
+ * delete did nothing and said nothing.
+ */
+const REFUSALS = [
+  WRITE_FAILED.unknown,
+  WRITE_FAILED.rateLimited,
+  NAME_REFUSED.blockedText,
+  NAME_REFUSED.invalidName,
+];
+
+test('all four refusals are real sentences, and no two of them are the same', () => {
+  for (const line of REFUSALS) {
+    assert.equal(typeof line, 'string');
+    assert.ok(line.trim().length > 0, 'a refusal is empty');
+    // A refusal that is not a sentence is a fragment on a screen. Every one of
+    // these ends the thought it starts.
+    assert.match(line, /[.!?]$/, `not a sentence: ${line}`);
+  }
+  assert.equal(new Set(REFUSALS).size, REFUSALS.length, 'two refusals say the same thing');
+});
+
+test('no refusal blames the reader or names a person', () => {
+  for (const line of REFUSALS) {
+    assert.doesNotMatch(line, /\byou (can't|cannot|failed|must not)\b/i, line);
+    assert.doesNotMatch(line, /invalid|illegal|forbidden|denied|error/i, line);
+    // The word that would disclose a block, which no reason may ever carry.
+    assert.doesNotMatch(line, /block/i, line);
+  }
+});
+
+test('only the two NAME refusals claim the group was not created', () => {
+  // They may: `assert_clean_ugc` and the length check both fire before the row
+  // exists, so "wasn't created" is a fact about a write that provably did not
+  // happen.
+  assert.match(NAME_REFUSED.blockedText, /wasn’t created/);
+  assert.match(NAME_REFUSED.invalidName, /wasn’t created/);
+
+  // These two may NOT. `unknown` covers the network never answering, which
+  // includes the server having committed and the reply having been lost, so any
+  // claim about what became of the data would be a guess presented as a fact.
+  // `rate_limited` is refused cleanly but is not about a group's existence.
+  for (const line of [WRITE_FAILED.unknown, WRITE_FAILED.rateLimited]) {
+    assert.doesNotMatch(line, /wasn’t created|nothing was|nothing changed|is safe/i, line);
+  }
+});
+
+test('the catch-all sends the reader to look rather than straight back to the button', () => {
+  // A bare "try again" on a write that may already have landed is how somebody
+  // ends up with two of something.
+  assert.match(WRITE_FAILED.unknown, /check/i);
+});
+
+test('the day limit states a boundary and not a number', () => {
+  // The 100/day limit is server-side and tunable; a sentence naming it would be
+  // a second place it has to be changed.
+  assert.doesNotMatch(WRITE_FAILED.rateLimited, /\d/);
+  assert.match(WRITE_FAILED.rateLimited, /tomorrow/i);
+});
+
+test('the two borrowed headings now have words of their own', () => {
+  // "Manage" is not "Members": the link sits under a roster and opens the
+  // screen where somebody is removed and a group is deleted.
+  assert.equal(MANAGE.link, 'Manage');
+  assert.notEqual(MANAGE.link, MANAGE.heading);
+  // And the reader's incoming invitations are not the owner's outgoing ones,
+  // which are the same noun for the opposite direction two taps away.
+  assert.notEqual(INVITATION.heading, PENDING.heading);
+  assert.ok(INVITATION.heading.trim().length > 0);
 });

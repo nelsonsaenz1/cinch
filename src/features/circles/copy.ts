@@ -228,6 +228,16 @@ export function memberCountPhrase(memberCount: number): string {
 
 export const INVITATION = {
   /**
+   * The section over invitations addressed to the READER, on their own list.
+   *
+   * Deliberately not `PENDING.heading`. That one is "Invitations" and sits over
+   * the owner's OUTGOING invitations on the manage surface — the same noun for
+   * the opposite direction. On the reader's list the distinction is the whole
+   * point: these are the ones waiting on THEM, and the two headings can appear
+   * within a couple of taps of each other.
+   */
+  heading: 'Waiting for you',
+  /**
    * The strictest promise on the surface, and the schema keeps it rather than
    * the client remembering to: the membership select policy is "your own row,
    * always; everyone else's only if you are joined" — a deliberate departure
@@ -341,6 +351,17 @@ export const ALONE = {
 
 export const MANAGE = {
   heading: 'Members',
+  /**
+   * The label on the way IN to this surface, from the group's own screen.
+   *
+   * Its own word rather than a second use of `heading`: the link sits directly
+   * beneath the roster, and a control labelled "Members" under a list of
+   * members reads as a heading for the list rather than a door out of it. It is
+   * also honest about the difference — the screen it opens is where somebody is
+   * removed, an invitation is withdrawn, and a group is left or deleted, none
+   * of which the word "Members" prepares anybody for.
+   */
+  link: 'Manage',
   /** The word on the badge. Never a colour, never a crown — a word. */
   ownerBadge: 'Owner',
   remove: 'Remove',
@@ -488,6 +509,83 @@ export const OFFLINE = {
 export const FULL = {
   title: 'This group is full.',
   body: `A group holds ${CAP_SPELLED} people. Remove someone before inviting another.`,
+} as const;
+
+// ---------------------------------------------------------------------------
+// When a write is refused
+// ---------------------------------------------------------------------------
+
+/**
+ * THE REFUSALS THAT HAVE NOWHERE ELSE TO GO.
+ *
+ * `classifyCircleError` names eight failures. Four of them already have a
+ * surface and are deliberately absent from this table: `group_full` is PC-10's
+ * notice, `not_mutual` is a reason printed on a picker row, `terms_required`
+ * raises the app's existing terms sheet, and `stale` is SILENT ON PURPOSE — the
+ * row moved, which is the interface's problem and not something to explain.
+ * These four are the remainder, and until they were written the flow answered
+ * an ordinary failed write with nothing at all.
+ *
+ * ── THE CLAIM DISCIPLINE, WHICH IS THE WHOLE DIFFICULTY HERE ────────────────
+ *
+ * The house rule is that a failed write SAYS SO and claims nothing about what
+ * became of the data. `OFFLINE.body` may end "Nothing changed." because a
+ * failed READ genuinely changed nothing. A failed WRITE is not entitled to that
+ * sentence, and the two halves of this table are split on exactly that line:
+ *
+ * · `blockedText` and `invalidName` are refusals of the group NAME, raised by
+ *   `assert_clean_ugc` and by `check (char_length(name) between 1 and 60)`.
+ *   Both fire BEFORE the row exists, so "wasn't created" is a fact and may be
+ *   stated. They belong beside the field, not in a banner: the thing to change
+ *   is the name, and the name is in the box above.
+ * · `rateLimited` and `unknown` may have landed. `enforce_social_rate_limits`
+ *   refuses cleanly, but `unknown` covers the network never answering — which
+ *   includes the server having committed and the reply having been lost. So
+ *   neither claims nothing happened, and `unknown` sends the reader to look
+ *   rather than telling them a state it cannot know.
+ *
+ * None of them blames the reader, none names a person, and none says "blocked".
+ */
+export const WRITE_FAILED = {
+  /**
+   * The catch-all, including the network never answering.
+   *
+   * It does NOT say "nothing was sent" or "try again" on its own: a retry of a
+   * write that may already have landed is how somebody ends up with two of
+   * something. Looking first is the honest instruction.
+   */
+  unknown: 'Cinch couldn’t finish that. Check the group before trying it again.',
+  /**
+   * `enforce_social_rate_limits` — 100 invitations a day, per inviter.
+   *
+   * States the boundary as a property of the day rather than an accusation.
+   * The number is not printed: it is a server-side limit that may be tuned,
+   * and a sentence naming 100 would be a second place it has to be changed.
+   */
+  rateLimited: 'That’s as many invitations as Cinch sends in one day. You can invite more tomorrow.',
+} as const;
+
+/**
+ * The two refusals of the NAME, for the line under the field.
+ *
+ * Both say the group was not created, because at the moment either fires the
+ * insert has definitively not happened — and a person staring at a name they
+ * just typed needs to know whether to change it or to walk away believing they
+ * have a group.
+ */
+export const NAME_REFUSED = {
+  /**
+   * `assert_clean_ugc`. Says the name cannot be used and stops — it does not
+   * quote the offending word back, does not explain which rule was hit, and
+   * does not call the reader anything.
+   */
+  blockedText: 'That name can’t be used. The group wasn’t created — try a different name.',
+  /**
+   * The length check. The field caps at 60 characters so the long end is
+   * unreachable from the app; the reachable half is a name that is empty once
+   * trimmed, and one sentence covers both ends without arithmetic.
+   */
+  invalidName: 'A group needs a name of 60 characters or fewer. The group wasn’t created.',
 } as const;
 
 // ---------------------------------------------------------------------------

@@ -84,6 +84,9 @@ const DATA_LANE = [
   'errors.ts',
   'eligibility.ts',
   'analytics.ts',
+  // Added at integration: which of two writes each picked person needs. Pure,
+  // prose-free, and squarely data-lane, so the sweep below covers it.
+  'invite-routing.ts',
 ];
 const FEATURE_FILES = DATA_LANE.map((name) => `${FEATURE_DIR}/${name}`);
 

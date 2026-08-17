@@ -5,11 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { Notice } from '@/components/ui/notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Text } from '@/components/ui/text';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { CIRCLE_EVENTS, circleCreatedProps } from '@/features/circles/analytics';
-import { CREATE } from '@/features/circles/copy';
+import { CREATE, NAME_REFUSED, WRITE_FAILED } from '@/features/circles/copy';
+import { classifyCircleError } from '@/features/circles/errors';
 import { useCreateCircle } from '@/features/circles/mutations';
 import { track } from '@/lib/posthog';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -41,12 +43,15 @@ export default function CreateGroupScreen() {
   const create = useCreateCircle();
 
   const [name, setName] = useState('');
+  /** Why the last attempt was refused, or null. Cleared on the next attempt. */
+  const [note, setNote] = useState<string | null>(null);
 
   const trimmed = name.trim();
   const armed = trimmed.length > 0 && !create.isPending;
 
   const submit = useCallback(() => {
     if (!armed) return;
+    setNote(null);
     const run = () => {
       create.mutate(
         { name: trimmed },
@@ -58,12 +63,24 @@ export default function CreateGroupScreen() {
             // to make it a second time.
             router.replace({ pathname: '/groups/[circleId]', params: { circleId: circle.id } });
           },
-          // The name is still on screen and the button is live again. The two
-          // refusals this can carry — a name the text filter rejected, and one
-          // outside 1-60 characters — have no sentence in the copy module, so
-          // this states nothing rather than inventing a sentence for them.
+          /**
+           * The name stays on screen and the button goes live again, with the
+           * reason under the field.
+           *
+           * The two NAME refusals belong there rather than in a banner: the
+           * thing to change is in the box directly above, and both may say the
+           * group was not created because `assert_clean_ugc` and the length
+           * check both fire before the row exists. `unknown` cannot make that
+           * claim — the reply may simply have been lost after the server
+           * committed — so it sends the reader to look instead.
+           */
           onError: (error) => {
-            terms.intercept(error, run);
+            if (terms.intercept(error, run)) return;
+            const failure = classifyCircleError(error);
+            if (failure.kind === 'blocked_text') setNote(NAME_REFUSED.blockedText);
+            else if (failure.kind === 'invalid_name') setNote(NAME_REFUSED.invalidName);
+            else if (failure.kind === 'rate_limited') setNote(WRITE_FAILED.rateLimited);
+            else if (failure.kind !== 'stale') setNote(WRITE_FAILED.unknown);
           },
         },
       );
@@ -118,6 +135,9 @@ export default function CreateGroupScreen() {
         <Text variant="note" className="mt-3 text-muted">
           {CREATE.helper}
         </Text>
+
+        {/* Under the field, because the field is what has to change. */}
+        {note ? <Notice message={note} tone="critical" className="mt-4" /> : null}
 
         <Button
           title={CREATE.action}
