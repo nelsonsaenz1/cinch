@@ -26,7 +26,7 @@ import {
   dailySocialReactedProps,
   type DailySocialState,
 } from '@/features/daily-social/analytics';
-import { DAY_HEADING } from '@/features/daily-social/copy';
+import { DAY_HEADING, daySubtitle } from '@/features/daily-social/copy';
 import { useDailyLooks, useFriendsSharingCount } from '@/features/daily-social/queries';
 import { useMyDailyReactions, useSetDailyReaction } from '@/features/daily-social/reactions';
 import {
@@ -418,7 +418,26 @@ export default function ExploreScreen() {
       onLayout={(e) => {
         dailyBottom.current = e.nativeEvent.layout.y + e.nativeEvent.layout.height;
       }}>
-      <SectionHeader title={DAY_HEADING} className="mb-2.5 mt-6" />
+      <View className="mb-2.5 mt-6">
+        <SectionHeader title={DAY_HEADING} />
+
+        {/* THE DAY, AND THE FACT THAT IT ENDS — the atlas's "Wednesday · four
+            looks, then done".
+
+            The atlas lists this line in its gestures table as the VISIBLE
+            EQUIVALENT of scrolling to the bottom: a reader who never reaches
+            the end still learns the day is finite and how finite, which is the
+            same promise the closure line keeps below, made where it is cheaper
+            to act on. It prints only over a loaded day that has looks in it —
+            over a quiet day or a failed read it would be counting something
+            that is not there, and both of those states already say what they
+            are in their own words. */}
+        {!dailyLoading && showsLooks(dailyState) ? (
+          <Text variant="note" className="mt-1.5">
+            {daySubtitle(looks.length)}
+          </Text>
+        ) : null}
+      </View>
 
       {dailyLoading ? (
         <Card style={{ borderRadius: CARD_RADIUS }}>
@@ -438,7 +457,7 @@ export default function ExploreScreen() {
         <QuietDayState />
       ) : showsLooks(dailyState) ? (
         <View>
-          {looks.map((look) => {
+          {looks.map((look, index) => {
             const owner = owners.get(look.ownerId) ?? null;
             return (
               <View key={look.outfitId} className="mb-4">
@@ -448,10 +467,15 @@ export default function ExploreScreen() {
                   wornAt={look.wornAt}
                   pieces={look.pieces.map((piece) => ({
                     itemId: piece.itemId,
+                    name: piece.name,
                     imageUrl: resolve(piece.platePath, piece.cutoutPath, piece.thumbPath) ?? null,
                   }))}
                   reaction={myReactions.data?.[look.outfitId] ?? null}
                   onReact={(next) => react(look.outfitId, look.ownerId, next)}
+                  // "Look 1 of 4", spoken. The subtitle above states the same
+                  // count once, in words; a reader swiping card by card gets it
+                  // per card because that is where an ending can be felt coming.
+                  position={{ index: index + 1, total: looks.length }}
                 />
               </View>
             );

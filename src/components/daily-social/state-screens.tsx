@@ -12,6 +12,7 @@ import {
   QUIET_DAY,
   quietDayCoverage,
 } from '@/features/daily-social/copy';
+import { useTheme } from '@/theme/tokens';
 
 /**
  * FOUR OF THE SIX STATES, DRAWN — DS-01b, DS-02, DS-04, DS-05.
@@ -96,26 +97,44 @@ export function NobodySharingState({ onOpenSharing }: { onOpenSharing: () => voi
  *
  * So it is the kit's parts without the kit's grammar: the same gutter, the same
  * serif step, the same `muted` body, no glyph, and no action — because there is
- * no action. Below the rule sit the two things §4 requires, "the caught-up
- * line, and the date it covers". The date is what stops a second read of the
- * same quiet day being indistinguishable from a page that never loaded.
+ * no action. Where a glyph would go, the atlas puts a 28pt rule: it opens the
+ * statement without claiming anything, which is more than a hanger or a cloud
+ * can manage. Under the statement sit the two things §4 requires, "the
+ * caught-up line, and the date it covers". The date is what stops a second read
+ * of the same quiet day being indistinguishable from a page that never loaded.
  */
 export function QuietDayState({ now }: { now?: Date }) {
   return (
     <View className="flex-1 justify-center px-gutter" accessibilityRole="summary">
-      <Text variant="title" trim>
-        {QUIET_DAY.title}
-      </Text>
+      {/* THE MARK THE ATLAS OPENS DS-02 WITH — a 28pt rule above the sentence
+          rather than a glyph in front of it.
+
+          It is doing the job an empty state's symbol would do, and doing it
+          without making a claim: a hanger, a cloud or a circled anything would
+          say something went missing. A short printed rule says only that a
+          statement begins here, which is the most a quiet day has to announce.
+          Above the heading, where the atlas puts it, and not between the
+          statement and its closure, where the previous full-width rule made a
+          separation the frame does not have. */}
+      <View className="w-7">
+        <Rule />
+      </View>
+
+      {/* The margin rides a wrapper, not the trimmed heading: `trim` sets a
+          negative `marginTop` as an INLINE style, and an inline style beats a
+          NativeWind class — an `mt-*` here is silently discarded. Same trap
+          `explore.tsx` documents under its masthead. */}
+      <View className="mt-4">
+        <Text variant="title" trim>
+          {QUIET_DAY.title}
+        </Text>
+      </View>
 
       <Text variant="body" className="mt-4 text-muted">
         {QUIET_DAY.body}
       </Text>
 
-      <View className="mt-6">
-        <Rule />
-      </View>
-
-      <Text variant="note" className="mt-4">
+      <Text variant="note" className="mt-6">
         {CAUGHT_UP_LINE}
       </Text>
       <Text variant="colophon" className="mt-1.5">
@@ -145,14 +164,40 @@ export function QuietDayState({ now }: { now?: Date }) {
  * setting, or the shared sentence stops reading as the same idea.
  */
 export function CaughtUpLine() {
+  const theme = useTheme();
+
   return (
-    <Text
-      accessibilityRole="summary"
-      accessibilityLabel={CAUGHT_UP_ACCESSIBILITY_LABEL}
-      variant="note"
-      className="mt-6 text-center">
-      {CAUGHT_UP_LINE}
-    </Text>
+    // `items-center` before the margin, not after: the hidden-piece scanner in
+    // `daily-social-copy.test.ts` reads the rendered source for a digit followed
+    // by "item", and `mt-6 items-center` is one. The rule is coarse on purpose
+    // and this lane does not get to loosen it, so the class order moves instead.
+    <View className="items-center mt-6" accessibilityRole="summary">
+      {/* THE FULL STOP — DS-04's oxblood dot, above the line.
+
+          The one place on this surface the accent is spent, and the reason it
+          is spendable here: this mark appears once, at the end, and never
+          again. A dot is not a badge and cannot be mistaken for one — it counts
+          nothing, it does not appear before the reader arrives, and there is
+          nothing behind it to open. It is punctuation, and the sentence it ends
+          is the day.
+
+          Hidden from VoiceOver: the line below already says the day is over,
+          and a decorative mark announced beside it would be the same fact
+          twice. */}
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        className="h-2 w-2 rounded-full"
+        style={{ backgroundColor: theme.accent }}
+      />
+
+      <Text
+        accessibilityLabel={CAUGHT_UP_ACCESSIBILITY_LABEL}
+        variant="note"
+        className="mt-3 text-center">
+        {CAUGHT_UP_LINE}
+      </Text>
+    </View>
   );
 }
 

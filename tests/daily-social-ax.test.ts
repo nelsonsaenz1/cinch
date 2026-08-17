@@ -27,9 +27,13 @@ import {
   dailyReactionsStacked,
   dailyReactionVisual,
 } from '../src/components/daily-social/reaction-spec.ts';
-import { lookNameTrimmed } from '../src/components/daily-social/look-card-spec.ts';
+import { lookMetaStacked, lookNameTrimmed } from '../src/components/daily-social/look-card-spec.ts';
 import { DAILY_REACTIONS } from '../src/features/daily-social/types.ts';
-import { REACTION_HINT, reactionAccessibilityLabel } from '../src/features/daily-social/copy.ts';
+import {
+  REACTION_HINT,
+  reactionAccessibilityLabel,
+  reactionGroupAccessibilityLabel,
+} from '../src/features/daily-social/copy.ts';
 import { MIN_TAP_TARGET } from '../src/theme/metrics.ts';
 
 const code = (path: string) => readFileSync(path, 'utf8');
@@ -109,14 +113,43 @@ test('the reaction announces its role, its label, its hint and whether it is cho
   // Four things, because three of them are not derivable from the fourth: a
   // chosen pill and a resting one differ only in fill and a tick, and neither
   // of those is audible.
+  //
+  // `radio`, not `button` — the atlas specifies a `radiogroup` of three, and
+  // that is what these are: one choice from a fixed, mutually exclusive set,
+  // where none chosen is a legitimate resting state. Announced as buttons, the
+  // three sounded like three separate actions rather than three answers to one
+  // question.
   const row = body(`${DIR}/reaction-row.tsx`);
-  assert.match(row, /accessibilityRole="button"/);
+  assert.match(row, /accessibilityRole="radio"/);
   assert.match(row, /accessibilityLabel=\{reactionAccessibilityLabel\(kind, lookName\)\}/);
   assert.match(row, /accessibilityHint=\{REACTION_HINT\}/);
   assert.match(row, /accessibilityState=\{visual\.accessibilityState\}/);
   for (const selected of [true, false]) {
-    assert.deepEqual(dailyReactionVisual(selected).accessibilityState, { selected });
+    // Both halves. `checked` is what a `radio` role carries and what the atlas
+    // draws as `aria-checked`; `selected` is what the atlas's own "selection
+    // without colour" clause names. Neither is derivable from the other in
+    // React Native, and the state is the only channel a screen reader has.
+    assert.deepEqual(dailyReactionVisual(selected).accessibilityState, {
+      checked: selected,
+      selected,
+    });
   }
+});
+
+test('the three sit in a labelled group that names the pair the reaction stays inside', () => {
+  // The group is what a reader lands on first, so the audience has to arrive
+  // before the three words do — not after whichever chip happened to be
+  // focused. The atlas writes it out: "React to Maya's look. Private to you and
+  // Maya."
+  const row = body(`${DIR}/reaction-row.tsx`);
+  assert.match(row, /accessibilityRole="radiogroup"/);
+  assert.match(row, /accessibilityLabel=\{reactionGroupAccessibilityLabel\(ownerName\)\}/);
+
+  const label = reactionGroupAccessibilityLabel('Maya');
+  assert.match(label, /private to you and Maya/i);
+  assert.match(label, /react to Maya/i);
+  // No count of anyone, and nothing implying a third reader.
+  assert.doesNotMatch(label, /\d|others?|everyone|friends/i);
 });
 
 test('every one of the three has a distinct spoken label', () => {
@@ -165,6 +198,24 @@ test('the three sit across a measure at standard sizes and stack at the accessib
   assert.equal(dailyReactionsStacked(1.2), false);
   for (const scale of [LARGEST_STANDARD, ...AX_SIZES]) {
     assert.equal(dailyReactionsStacked(scale), true, `still across at ${scale}`);
+  }
+});
+
+test('whose look it is and when stop sharing a baseline at the accessibility sizes', () => {
+  // A long tracked name squeezing a long tracked date is the shrinking the
+  // contract forbids by name; the atlas answers it the same way — "above
+  // fontScale 1.5 … card meta wraps". One threshold across the card, so it
+  // becomes its large-type self all at once rather than one element at a time.
+  assert.equal(lookMetaStacked(DEFAULT), false);
+  assert.equal(lookMetaStacked(1.2), false);
+  for (const scale of [LARGEST_STANDARD, ...AX_SIZES]) {
+    assert.equal(lookMetaStacked(scale), true, `still across at ${scale}`);
+  }
+  // The same number the reactions and the cap-trim read. Two thresholds for one
+  // decision is how a card comes apart in the middle of a size step.
+  for (const scale of [DEFAULT, 1.2, LARGEST_STANDARD, ...AX_SIZES]) {
+    assert.equal(lookMetaStacked(scale), dailyReactionsStacked(scale));
+    assert.equal(lookMetaStacked(scale), !lookNameTrimmed(scale));
   }
 });
 

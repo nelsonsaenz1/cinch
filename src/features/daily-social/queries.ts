@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { pieceName } from '@/features/closet/item-name';
 import { getUserId, supabase } from '@/lib/supabase';
+import type { Item } from '@/schemas/item';
 
 import { dailySocialDb, rowsOf } from './client';
 import type {
@@ -52,11 +54,20 @@ export const FRIENDS_SHARING_COUNT_KEY = ['friends-sharing-worn-outfits-count'] 
 const WORN_OUTFIT_COLUMNS = 'id, user_id, name, worn_at';
 
 /**
- * The image paths a collage needs, and nothing else. `friend_items` also
- * carries brand, material, description and wear counts; a look is drawn from
- * pictures and none of those belong on this surface.
+ * The image paths a collage needs, plus the three columns a garment is NAMED
+ * from — and nothing else.
+ *
+ * `friend_items` also carries brand, material, description, wear counts,
+ * `borrowable` and `shoppable`; none of those belong on this surface and none
+ * is asked for. `category`, `subcategory` and `colors` are, because the atlas's
+ * outfit line names the pieces and `pieceName()` reads exactly those three.
+ * That is not a widening of the friend boundary: the same view hands this
+ * caller the same three for the friend's closet grid, behind the same
+ * mutual-follow and `closet_hidden` gate. A piece its owner hid is absent from
+ * the view, so there is no name here for anything they kept.
  */
-const PIECE_IMAGE_COLUMNS = 'id, thumb_path, cutout_path, plate_path';
+const PIECE_IMAGE_COLUMNS =
+  'id, category, subcategory, colors, thumb_path, cutout_path, plate_path';
 
 /**
  * The day. Finite, ordered, and ending — see `feed.ts` for the four rules.
@@ -114,6 +125,15 @@ export function useDailyLooks() {
           {
             outfitId: link.outfit_id,
             itemId: link.item_id,
+            // The app's one naming derivation, not a second one for friends'
+            // clothes — the friend's closet grid already calls this garment
+            // exactly this, and two answers to "what is this called" is the
+            // drift `item-name.ts` was written to end.
+            name: pieceName({
+              category: image.category as Item['category'],
+              subcategory: image.subcategory,
+              colors: image.colors ?? [],
+            }),
             thumbPath: image.thumb_path,
             cutoutPath: image.cutout_path,
             platePath: image.plate_path,

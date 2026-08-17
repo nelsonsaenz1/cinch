@@ -61,7 +61,17 @@ export type DailyReactionVisual = {
   /** The second non-colour channel. See the header for why there is no third. */
   tick: boolean;
   minHeight: number;
-  accessibilityState: { selected: boolean };
+  /**
+   * Both halves, because the control is both things.
+   *
+   * `checked` is what the atlas draws (`aria-checked`) and what a `radio` role
+   * carries on iOS; `selected` is what the atlas's own "selection without
+   * colour" clause names, and what a reader who is not on the radio trait still
+   * hears. Neither is derivable from the other in React Native, and the state
+   * is the ONLY channel a screen reader has — a chosen chip and a resting one
+   * differ in a fill and a tick, and neither of those is audible.
+   */
+  accessibilityState: { checked: boolean; selected: boolean };
 };
 
 export function dailyReactionVisual(selected: boolean): DailyReactionVisual {
@@ -74,7 +84,7 @@ export function dailyReactionVisual(selected: boolean): DailyReactionVisual {
     label: selected ? 'canvas' : 'ink',
     tick: selected,
     minHeight: DAILY_REACTION_MIN_HEIGHT,
-    accessibilityState: { selected },
+    accessibilityState: { checked: selected, selected },
   };
 }
 

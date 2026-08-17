@@ -79,6 +79,83 @@ export const DAY_HEADING = 'What your circle wore';
 export const UNNAMED_LOOK = 'A look';
 
 /**
+ * Small numbers as words, up to the size a circle actually is.
+ *
+ * The atlas writes "four looks, then done" and not "4 looks", which is the
+ * house voice everywhere else too. Twelve is where it stops because that is
+ * where the circle stops (§1: one to a dozen mutual friends); past it a
+ * numeral is plainer than "thirty-seven" and the sentence is doing a different
+ * job anyway.
+ */
+const NUMBER_WORDS = [
+  'zero',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+  'eleven',
+  'twelve',
+] as const;
+
+function countWord(n: number): string {
+  return NUMBER_WORDS[n] ?? String(n);
+}
+
+/**
+ * THE DAY, AND THE FACT THAT IT ENDS — the atlas's "Wednesday · four looks,
+ * then done".
+ *
+ * Not decoration and not a count for its own sake. The atlas's gesture table
+ * lists this line as the VISIBLE EQUIVALENT of scrolling to the end: a reader
+ * who never scrolls, or who cannot, still learns the day is finite and how
+ * finite. That is the same promise `CAUGHT_UP_LINE` keeps at the bottom, made
+ * at the top where it is cheaper to act on.
+ *
+ * The weekday rides along for the reason `quietDayCoverage` carries its date —
+ * a look stays readable for up to seven days, so "today" is the wrong word and
+ * naming the day is the right one.
+ *
+ * It counts LOOKS, never garments. The number of looks is a fact about the
+ * reader's own page; the number of pieces inside one is a measurement of what
+ * an owner chose to hide, and nothing in this unit takes it.
+ */
+export function daySubtitle(lookCount: number, now: Date = new Date()): string {
+  const weekday = now.toLocaleDateString('en-US', { weekday: 'long' });
+  const looks = lookCount === 1 ? 'one look' : `${countWord(lookCount)} looks`;
+  return `${weekday} · ${looks}, then done`;
+}
+
+/**
+ * The pieces of a look, named and joined — the atlas's outfit line.
+ *
+ * ── WHY THIS EXISTS AT ALL, GIVEN THE COLLAGE IS RIGHT THERE ────────────────
+ *
+ * Because the collage is not readable. The atlas marks it `aria-hidden` and
+ * says so in as many words: "the visible pieces are read from the outfit line
+ * instead, so no per-tile alt can hint at an omitted garment." A per-tile label
+ * would put the owner's pieces in a list a reader could count position by
+ * position; one sentence naming what is there says the same thing and offers
+ * nothing to subtract from.
+ *
+ * Joined by " · " — the separator the card's own line uses and the one the
+ * atlas draws. Never "and", which would make the last piece sound like the
+ * completion of a set.
+ *
+ * **No count, and no ellipsis.** Every name that crossed is printed; there is
+ * no "+2 more", because there is no more to have and saying so would be the
+ * pagination affordance the unit refuses, applied to a wardrobe.
+ */
+export function piecesLine(names: readonly string[]): string {
+  return names.filter((name) => name.trim()).join(' · ');
+}
+
+/**
  * The card's one accessible sentence: whose it is, what it is called, when.
  *
  * Composed rather than left to VoiceOver's default traversal because the card
@@ -91,21 +168,46 @@ export const UNNAMED_LOOK = 'A look';
  * number of pieces on screen is the number the OWNER allowed to cross, so a
  * spoken count is a spoken measurement of what they hid. Nothing anywhere in
  * this unit counts them.
+ *
+ * It DOES name them, which is not the same thing and is the atlas's own
+ * instruction: the collage is hidden from VoiceOver so that no per-tile label
+ * can be counted off, and the pieces are read from the outfit line instead.
+ * Without the line a reader hears that a look exists and never what it was.
+ *
+ * `position` is the atlas's "Look 1 of 4" — a place in a finite set, spoken
+ * because the ending is the whole point of the unit and a reader swiping
+ * through cards has no other way to feel one coming. It counts LOOKS, which is
+ * a fact about this page, and never garments.
  */
 export function lookAccessibilityLabel({
   ownerName,
   name,
   wornAt,
+  pieces = [],
+  position,
   now,
 }: {
   ownerName: string;
   name: string | null;
   wornAt: string;
+  /** The pieces that crossed, already named. Never a count of them. */
+  pieces?: readonly string[];
+  /** One-based place in the day, and the day's length. */
+  position?: { index: number; total: number };
   now?: Date;
 }): string {
   const look = name?.trim() ? name.trim() : UNNAMED_LOOK;
   const when = sinceLabel(wornAt, now ?? new Date());
-  return when ? `${ownerName} wore ${look}. ${when}.` : `${ownerName} wore ${look}.`;
+  const worn = piecesLine(pieces);
+
+  return [
+    `${ownerName} wore ${look}.`,
+    when ? `${when}.` : '',
+    worn ? `${worn}.` : '',
+    position ? `Look ${position.index} of ${position.total}.` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 // ---------------------------------------------------------------------------
@@ -259,6 +361,23 @@ export function reactionAccessibilityLabel(
 ): string {
   const look = lookName?.trim() ? lookName.trim() : UNNAMED_LOOK;
   return `${REACTION_LABELS[reaction]}, on ${look}`;
+}
+
+/**
+ * What VoiceOver reads on the GROUP of three — the atlas's "React to Maya's
+ * look. Private to you and Maya."
+ *
+ * The audience is named here rather than only on each control because the
+ * group is what a reader lands on first: the fact that this is seen by two
+ * people and by nobody else should arrive before the three words do, not after
+ * whichever one happened to be focused.
+ *
+ * It names the owner, which the chips deliberately do not. A chip says which
+ * LOOK it belongs to, so five cards do not all announce "Sharp"; the group says
+ * which PERSON, because the promise being made is about a pair.
+ */
+export function reactionGroupAccessibilityLabel(ownerName: string): string {
+  return `React to ${ownerName}’s look. Private to you and ${ownerName}.`;
 }
 
 /**

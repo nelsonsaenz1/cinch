@@ -22,9 +22,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
+  WORN_SHARING_FOOTER,
   WORN_SHARING_LABEL,
   WORN_SHARING_NOTE,
   WORN_SHARING_OVERRIDDEN_REASON,
+  WORN_SHARING_SCOPE,
   WORN_SHARING_SECTION,
   wornSharingState,
 } from '@/features/privacy/worn-sharing-copy';
@@ -48,6 +50,8 @@ const ALL_COPY = [
   WORN_SHARING_SECTION,
   WORN_SHARING_LABEL,
   WORN_SHARING_NOTE,
+  WORN_SHARING_FOOTER,
+  ...WORN_SHARING_SCOPE.map((scope) => scope.title),
   WORN_SHARING_OVERRIDDEN_REASON,
   wornSharingState(true),
   wornSharingState(false),
@@ -120,6 +124,65 @@ test('the copy never promises privacy from anyone but friends', () => {
 test('nothing suggests sharing is already on, or that looks are already waiting', () => {
   assert.match(wornSharingState(false), /^Off\./);
   assert.doesNotMatch(ALL_COPY, /already (sharing|shared|waiting)|are waiting/i);
+});
+
+test('the scope list is the five facts DS-07 heads, and the note is derived from it', () => {
+  // Five headed facts rather than one paragraph: somebody at a privacy switch
+  // is LOOKING FOR the thing they are worried about, and five facts running
+  // together is where a reader decides they have understood and stops.
+  assert.deepEqual(
+    WORN_SHARING_SCOPE.map((scope) => scope.title),
+    [
+      'Mutual friends only',
+      'Sharing starts now',
+      'Each look, up to seven days',
+      'Pieces, outfit name, when worn',
+      'Hidden garments stay hidden',
+    ],
+  );
+
+  // The census is DERIVED, not a second copy — a hand-assembled one passes
+  // after the rendered words have moved, which is the whole failure it exists
+  // to catch. Every sentence the page draws is a sentence this file reads.
+  assert.equal(WORN_SHARING_NOTE, WORN_SHARING_SCOPE.map((scope) => scope.body).join(' '));
+
+  for (const scope of WORN_SHARING_SCOPE) {
+    assert.ok(scope.title.length > 0 && scope.body.length > 0);
+    assert.match(scope.body, /\.$/, `"${scope.title}" is not a sentence`);
+  }
+});
+
+test('a piece its owner hid stays hidden inside a shared look, and the copy says so', () => {
+  // The atlas heads this and no sentence in the app said it. Somebody who has
+  // taken the trouble to hide a piece is owed the fact that the trouble still
+  // counts — and this is the OWNER's own screen, so saying it here reveals
+  // nothing to anybody. Nothing on the friend-facing side may hint at it, which
+  // is what `daily-social-copy.test.ts` holds.
+  const hidden = WORN_SHARING_SCOPE.find((scope) => scope.title === 'Hidden garments stay hidden');
+  assert.ok(hidden, 'the hidden-garment fact left the scope list');
+  assert.match(hidden.body, /left out of a shared look/i);
+  // Not a count, here either. "One of your pieces" would be the same
+  // measurement, told to the person it belongs to and then to nobody else.
+  assert.doesNotMatch(hidden.body, /\d/);
+});
+
+test('the way back out is stated, and it is immediate', () => {
+  // §6's "revocation is immediate" had no sentence anywhere a person could read
+  // it: everything printed beside the switch described turning sharing ON.
+  // Knowing the way back is instant is what makes trying it a small decision.
+  assert.match(WORN_SHARING_FOOTER, /turn it off/i);
+  assert.match(WORN_SHARING_FOOTER, /immediately/i);
+  // And the SQL is why the word is honest — the boundary is read per query, so
+  // the next fetch on a friend's device already returns nothing.
+  assert.match(MIGRATION, /worn_outfits_shared_since is not null/);
+});
+
+test('the page draws the scope list and the footer, not the paragraph', () => {
+  assert.match(PAGE, /WORN_SHARING_SCOPE\.map/);
+  assert.match(PAGE, /\{WORN_SHARING_FOOTER\}/);
+  // The derived census is testable prose, not something to render — drawing it
+  // as well would print every sentence twice.
+  assert.doesNotMatch(PAGE, /WORN_SHARING_NOTE/);
 });
 
 // ---------------------------------------------------------------------------

@@ -35,6 +35,27 @@ export function lookNameTrimmed(fontScale: number): boolean {
 }
 
 /**
+ * Whether the card's meta line stops sitting across the measure and stacks.
+ *
+ * Whose look it is and when it was worn share one baseline at standard sizes —
+ * name at the left margin, date at the right — because that is one attribution
+ * line and the app's own dated rows are set that way. Two steps up the same row
+ * is a long tracked name squeezing a long tracked date, and squeezing is the
+ * failure mode the accessibility contract forbids by name.
+ *
+ * So at AX sizes it becomes two lines. Nothing is capped, nothing is removed
+ * and nothing shrinks; only the arrangement changes, which is the atlas's own
+ * answer — "above fontScale 1.5 … card meta wraps under the avatar".
+ *
+ * The SAME threshold as the reaction row and the name's cap-trim. One number,
+ * so the card becomes its large-type self all at once rather than one element
+ * at a time.
+ */
+export function lookMetaStacked(fontScale: number): boolean {
+  return Number.isFinite(fontScale) && fontScale >= AX_FONT_SCALE;
+}
+
+/**
  * The pieces, cut into the rows `plateGrid()` lays out for their number.
  *
  * Pure and generic so the invariant that matters can be asserted directly:

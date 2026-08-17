@@ -77,6 +77,9 @@ const look = (outfitId: string, wornAt: string, ownerId = `owner-${outfitId}`): 
 const piece = (outfitId: string, itemId: string): WornPieceEntry => ({
   outfitId,
   itemId,
+  // Named, because the atlas's outfit line names them and the collage is hidden
+  // from VoiceOver so that it cannot. A name is not a count.
+  name: `A ${itemId}`,
   thumbPath: `${itemId}/thumb.jpg`,
   cutoutPath: null,
   platePath: null,

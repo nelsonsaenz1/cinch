@@ -41,13 +41,23 @@ export interface FriendWornOutfitItemRow {
 }
 
 /**
- * The four columns of `friend_items` a collage actually needs. A narrow
- * projection rather than `FriendItemRow`: a look is drawn from pictures, and
- * brand, material, description and wear counts are the friend's closet page's
- * business, not this surface's.
+ * The columns of `friend_items` a shared look actually needs: three image
+ * paths, and the three the app names a garment from.
+ *
+ * Still a narrow projection rather than `FriendItemRow` — brand, material,
+ * description, wear counts, `borrowable` and `shoppable` are the friend's
+ * closet page's business, not this surface's. `category`, `subcategory` and
+ * `colors` are here because the atlas's outfit line names the pieces, and
+ * `pieceName()` is the one derivation in the app that turns those three into
+ * "Charcoal wool coat". They add no exposure: `friend_items` already hands this
+ * caller all three for that friend's closet grid, behind the same mutual-follow
+ * and `closet_hidden` gate.
  */
 export interface FriendWornPieceImageRow {
   id: string;
+  category: string;
+  subcategory: string | null;
+  colors: { name: string }[] | null;
   thumb_path: string | null;
   cutout_path: string | null;
   plate_path: string | null;
