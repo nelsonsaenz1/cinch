@@ -97,3 +97,52 @@ base frame, so Dynamic Type behaviour is a drawn artifact and not a note.
 `ios-frame.jsx` and `support.js` arrived in both exports and are the shared
 rendering harness the `.dc.html` frames import. They are kept because the HTML
 does not render without them.
+
+---
+
+## Correction to the addendum above — the dedicated AC/OS atlases (2026-08-17, later)
+
+The addendum mapped **Activity Center** to `32 Notifications - Activity Atlas` and
+**Outfit Saving** to `35 Saved Plates - Boards Atlas` from the 8 August drop.
+That mapping is superseded. Two *dedicated* Claude Design projects exist, both
+updated roughly 14 hours before this retrieval, and they are the current design
+truth for those features:
+
+| Project | Frames | Contract |
+|---|---|---|
+| Cinch Activity Center Atlas | `AC-01` … `AC-10` + `Atlas.dc.html` | `ACTIVITY-CENTER-IMPLEMENTATION.md` |
+| Outfit Saving Atlas | `OS-01` … `OS-10` | `OUTFIT-SAVING-HANDOFF.md` |
+
+Retrieved as folder exports: `Cinch Activity Center Atlas.zip` (1 550 152 bytes)
+and `Outfit Saving Atlas.zip` (4 266 246 bytes). The 8 August sheets are not
+wrong, they are older and narrower; they stay in place as the earlier cut.
+
+**Also correcting an earlier claim of mine.** A previous review recorded that
+"AC" means *Add Clothes* and not Activity Center. That is true of
+`docs/design/refacing/README.md`, where AC-01…AC-05 are the Add Clothes entry
+chooser — and false as a general statement, because in this atlas `AC-01`…`AC-10`
+are Activity Center. Two documents, two meanings, and the prefix alone does not
+disambiguate them.
+
+### Coverage, verified mechanically
+
+44 HTML frames and 44 PNG directories across the four features — DS 10, PC 14,
+AC 10, OS 10 — with **zero unpaired frames**.
+
+### Implementation gap — the shipped features are an earlier cut
+
+This is the part that matters for planning, and it is measured rather than
+assumed. Both features exist in `main` and ship today, but neither matches its
+new atlas:
+
+| Atlas requirement | Shipped state |
+|---|---|
+| `AC-10` clear-all destructive confirmation | **absent** — no `clear all` / `dismiss all` path in `src/app/activity.tsx`, `src/features/activity/`, or `src/components/activity/` |
+| `AC-08` grouped older state | **partial** — `retention.ts` bounds the window at 30 days, but there is no grouped-older presentation |
+| `OS-05` create / rename / delete collection | **absent** — no "collection" concept anywhere in `src/features/styling/` or `src/components/closet/`; the nearest shipped primitive is `boards` |
+| `OS-08` saved look → Plan with manual fallback | not verified |
+
+So "Activity Center and Outfit Saving are already implemented" — true of the
+earlier cut — should not be read as "the atlases are satisfied". Closing the gap
+is feature work with its own schema, RLS, pgTAP, tests and screenshot passes, not
+a reconciliation task, and it is **not** done here.
