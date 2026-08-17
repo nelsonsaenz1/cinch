@@ -52,8 +52,32 @@ const crypto = require('node:crypto');
 // Constants
 // ---------------------------------------------------------------------------
 
+/**
+ * The single flip for launch day. See the same block in `invite.js`.
+ *
+ * While false, nothing here sends anyone to a listing that 404s.
+ */
+const APP_LIVE = process.env.APP_LIVE === '1';
+
 /** ASC app id 6798479578. Apple redirects this to the localised listing. */
-const APP_STORE_URL = 'https://apps.apple.com/app/id6798479578';
+const APP_STORE_LISTING = 'https://apps.apple.com/app/id6798479578';
+
+/** Where a would-be installer goes while the listing is not yet public. */
+const WAITLIST_URL = 'https://cinchstyle.com/#waitlist';
+
+const APP_STORE_URL = APP_LIVE ? APP_STORE_LISTING : WAITLIST_URL;
+
+/**
+ * The words move with the link. See the same block in `invite.js`.
+ *
+ * A CTA reading "Get Cinch on the App Store" that lands on the waitlist anchor
+ * reads as a broken link rather than an honest "not yet", so the label is
+ * derived from `APP_LIVE` rather than written out again at each call site.
+ */
+const APP_STORE_CTA = APP_LIVE ? 'Get Cinch on the App Store' : 'Join the list';
+const AVAILABILITY_NOTE = APP_LIVE
+  ? 'Cinch is an iPhone app, free to start.'
+  : 'Cinch is an iPhone app, coming to the App Store shortly. Free to start.';
 
 /** RFC 5321's practical ceiling. The same bound is a CHECK in the schema. */
 const EMAIL_MAX = 254;
@@ -322,8 +346,8 @@ function joined() {
     would rather say that than have you watch an empty inbox. If you would like
     the address taken off again, <a href="/support">tell us</a> and it goes.
   </p>
-  <a class="cta" href="${esc(APP_STORE_URL)}">Get Cinch on the App Store</a>
-  <p class="cta-note">Cinch is an iPhone app, free to start.</p>`,
+  <a class="cta" href="${esc(APP_STORE_URL)}">${APP_STORE_CTA}</a>
+  <p class="cta-note">${AVAILABILITY_NOTE}</p>`,
   });
 }
 
@@ -350,7 +374,7 @@ function slowDown() {
     has passed. Nothing was saved this time. Leave it an hour and it will work
     again.
   </p>
-  <a class="cta" href="${esc(APP_STORE_URL)}">Get Cinch on the App Store</a>`,
+  <a class="cta" href="${esc(APP_STORE_URL)}">${APP_STORE_CTA}</a>`,
   });
 }
 

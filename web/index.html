@@ -29,6 +29,27 @@
 
 <main>
 
+<!--
+  LAUNCH DAY: this file does not flip itself.
+
+  `web/api/invite.js` and `web/api/waitlist.js` read `APP_LIVE=1` from the Vercel
+  environment and swap their links and labels together. This page is static —
+  there is no environment here — so setting APP_LIVE alone leaves it pointing at
+  the waitlist forever.
+
+  When `curl -s 'https://itunes.apple.com/lookup?id=6798479578&country=us'`
+  reports a non-zero resultCount, change all three of these BY HAND:
+
+    · hero CTA        href="#waitlist"        -> https://apps.apple.com/app/id6798479578
+                      "Join the list"         -> "Get Cinch on the App Store"
+    · hero cta-note   "coming to the App Store shortly" -> "Free to start, and ten
+                      pieces stays free — that is the tier, not a trial."
+    · closer CTA      same two changes as the hero CTA
+
+  The waitlist section heading ("Be there the day it opens.") is also written for
+  the pre-launch state and wants revisiting at the same moment.
+-->
+
 <div class="hero">
   <p class="eyebrow">For iPhone</p>
   <h1>Ten pieces is a wardrobe.</h1>
@@ -36,10 +57,10 @@
     Photograph ten things you already own. Cinch does the arithmetic, and
     dresses you every morning from there.
   </p>
-  <a class="cta" href="https://apps.apple.com/app/id6798479578">Get Cinch on the App Store</a>
+  <a class="cta" href="#waitlist">Join the list</a>
   <p class="cta-note">
-    Free to start, and ten pieces stays free — that is the tier, not a trial.
-    Cinch is an iPhone app.
+    Cinch is an iPhone app, coming to the App Store shortly. Ten pieces will
+    stay free — that is the tier, not a trial.
   </p>
 </div>
 
@@ -139,7 +160,7 @@
 </section>
 
 <section class="waitlist" id="waitlist">
-  <h2>Not on an iPhone right now?</h2>
+  <h2>Be there the day it opens.</h2>
   <p>
     Leave an address and we will write to you once, when there is something
     worth opening — a link, and nothing after it.
@@ -172,7 +193,7 @@
 
 <section class="closer">
   <h2>Ten photographs, and it starts working.</h2>
-  <a class="cta" href="https://apps.apple.com/app/id6798479578">Get Cinch on the App Store</a>
+  <a class="cta" href="#waitlist">Join the list</a>
   <p class="cta-note">
     Free to start. iPhone only, for now.
   </p>

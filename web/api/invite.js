@@ -39,8 +39,47 @@
 
 const INVITE_HOST = 'cinchstyle.com';
 
+/**
+ * The single flip for launch day.
+ *
+ * Until the listing is public, `apps.apple.com/app/id6798479578` 404s, so
+ * every invite would land its recipient on a dead Apple page — the worst
+ * possible first impression, and it is the referral loop that carries it.
+ * While this is false, an invite falls back to the waitlist instead.
+ *
+ * Set to `true` (or `APP_LIVE=1` in the Vercel environment) at the moment the
+ * App Store product page actually resolves. Verify with:
+ *   curl -s 'https://itunes.apple.com/lookup?id=6798479578&country=us'
+ * A `resultCount` of 0 means it is not live, whatever ASC says.
+ */
+const APP_LIVE = process.env.APP_LIVE === '1';
+
 /** ASC app id 6798479578. Apple redirects this to the localised listing. */
-const APP_STORE_URL = 'https://apps.apple.com/app/id6798479578';
+const APP_STORE_LISTING = 'https://apps.apple.com/app/id6798479578';
+
+/** Where a would-be installer goes while the listing is not yet public. */
+const WAITLIST_URL = 'https://cinchstyle.com/#waitlist';
+
+const APP_STORE_URL = APP_LIVE ? APP_STORE_LISTING : WAITLIST_URL;
+
+/**
+ * The words move with the link, or the flip is only half done.
+ *
+ * A button reading "See Cinch on the App Store" that lands on a waitlist is a
+ * worse first impression than the 404 it was meant to avoid — it reads as a
+ * broken link rather than an honest "not yet". So every label the flip touches
+ * is derived from `APP_LIVE` here rather than written out a second time at each
+ * call site, which is how one of them comes to be missed.
+ *
+ * `AVAILABILITY` is a fragment, deliberately: it appears mid-sentence in the
+ * invite notes and has to read as naturally there as the phrase it replaces.
+ */
+const GET_CTA = APP_LIVE ? 'Get Cinch' : 'Join the list';
+const SEE_CTA = APP_LIVE ? 'See Cinch on the App Store' : 'Join the list';
+const AVAILABILITY = APP_LIVE ? 'free on the App Store' : 'coming to the App Store shortly';
+const AVAILABILITY_SENTENCE = APP_LIVE
+  ? 'Free on the App Store.'
+  : 'Coming to the App Store shortly.';
 
 /** Mirrors `src/features/invite/link.ts` — a path segment that cannot be a
  *  handle is not a handle, and passing it to the RPC is a guaranteed miss. */
@@ -229,7 +268,7 @@ function resolved({ name, handle, onApplePhone }) {
   // carries the link to a phone instead. `mailto:` rather than a form, because
   // the CSP sets `form-action 'none'` and there is no script to submit one.
   const action = onApplePhone
-    ? `<a class="invite-action" href="${esc(APP_STORE_URL)}">Get Cinch</a>`
+    ? `<a class="invite-action" href="${esc(APP_STORE_URL)}">${GET_CTA}</a>`
     : `<a class="invite-action" href="mailto:?subject=${encodeURIComponent(
         headline,
       )}&amp;body=${encodeURIComponent(`https://${link}`)}">Send this link to your phone</a>`;
@@ -240,10 +279,10 @@ function resolved({ name, handle, onApplePhone }) {
   // again once Cinch is installed is what completes it, and that sentence
   // stays correct whether or not deferred-link attribution is ever added.
   const note = onApplePhone
-    ? `Free on the App Store. If you already have Cinch, this link opens it.
+    ? `${AVAILABILITY_SENTENCE} If you already have Cinch, this link opens it.
         Installing now? Tap this link once more when Cinch is on your phone —
         that is the tap that puts you and ${esc(name)} together.`
-    : `Cinch is an iPhone app, free on the App Store. Open the link on your
+    : `Cinch is an iPhone app, ${AVAILABILITY}. Open the link on your
         iPhone, install Cinch, then tap the link once more — that is the tap
         that puts you and ${esc(name)} together.`;
 
@@ -281,12 +320,12 @@ function closed({ onApplePhone }) {
     'Cinch is a closet you actually use — what you own, what you wore, and what your friends would lend you.';
 
   const action = onApplePhone
-    ? `<a class="invite-action" href="${esc(APP_STORE_URL)}">Get Cinch</a>`
-    : `<a class="invite-action" href="${esc(APP_STORE_URL)}">See Cinch on the App Store</a>`;
+    ? `<a class="invite-action" href="${esc(APP_STORE_URL)}">${GET_CTA}</a>`
+    : `<a class="invite-action" href="${esc(APP_STORE_URL)}">${SEE_CTA}</a>`;
 
   const note = onApplePhone
-    ? 'Free on the App Store. You can add friends by handle once you are in.'
-    : 'Cinch is an iPhone app, free on the App Store. You can add friends by handle once you are in.';
+    ? `${AVAILABILITY_SENTENCE} You can add friends by handle once you are in.`
+    : `Cinch is an iPhone app, ${AVAILABILITY}. You can add friends by handle once you are in.`;
 
   const body = `    <p class="invite-eyebrow">Cinch</p>
     <h1 class="invite-headline">This invite has been closed</h1>
