@@ -72,7 +72,16 @@ export function LookCollage({ pieces }: { pieces: readonly LookCollagePiece[] })
   if (rows.length === 0) return null;
 
   return (
-    <View style={{ gap: GRID_GAP }}>
+    // Hidden from VoiceOver by name, not merely by sitting inside the card's
+    // `accessible` wrapper — the atlas marks the collage `aria-hidden` and says
+    // why: "the visible pieces are read from the outfit line instead, so no
+    // per-tile alt can hint at an omitted garment." A tile a reader could focus
+    // is a tile they could count, and a count is the one thing this frame owes
+    // nobody.
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{ gap: GRID_GAP }}>
       {rows.map((slice, rowIndex) => (
         <View
           key={`row-${rowIndex}`}

@@ -11,9 +11,10 @@ import {
   visibilityState,
 } from '@/features/privacy/visibility-copy';
 import {
+  WORN_SHARING_FOOTER,
   WORN_SHARING_LABEL,
-  WORN_SHARING_NOTE,
   WORN_SHARING_OVERRIDDEN_REASON,
+  WORN_SHARING_SCOPE,
   WORN_SHARING_SECTION,
   wornSharingState,
 } from '@/features/privacy/worn-sharing-copy';
@@ -69,7 +70,7 @@ export function ClosetVisibilityPage({
   onWornSharingChange: (shared: boolean) => void;
   onBack: () => void;
 }) {
-  const { muted } = useTheme();
+  const { ghost, ink, muted } = useTheme();
   const closetHidden = !visibility.closetVisible;
 
   const stats: VisibilityFlag[] = ['piecesVisible', 'wearsVisible', 'costPerWearVisible'];
@@ -120,14 +121,51 @@ export function ClosetVisibilityPage({
             overriddenReason={WORN_SHARING_OVERRIDDEN_REASON}
           />
         </Card>
-        {/* `callout` at 16px, not `note` at 13, and set in muted rather than
-            faint: this is a sentence about what the app does with somebody's
-            data, and the group's floor is that no such sentence is set below
-            15pt. Same treatment `PrivacyPage` gives its own intro. Tone is
-            inline — two `text-*` utilities on one element are resolved by
-            stylesheet order, not by intent. */}
-        <Text variant="callout" className="mt-3" style={{ color: muted }}>
-          {WORN_SHARING_NOTE}
+        {/* DS-07'S SCOPE LIST — five headed facts, not one paragraph.
+
+            Somebody standing at a privacy switch is looking for the one thing
+            they are worried about, and five facts running together is where a
+            reader decides they have understood and stops. Each title is the
+            question in three words; the sentence under it is the answer.
+
+            `callout` at 16px for the bodies, not `note` at 13, and set in muted
+            rather than faint: these are sentences about what the app does with
+            somebody's data, and the group's floor is that no such sentence is
+            set below 15pt. Same treatment `PrivacyPage` gives its own intro.
+            Tone is inline — two `text-*` utilities on one element are resolved
+            by stylesheet order, not by intent.
+
+            The dot is `aria-hidden` furniture and the pair is one accessible
+            element: a reader should hear "Sharing starts now. Turning this on
+            starts from the moment you tap it." as one fact, not as a bullet
+            followed by a sentence. */}
+        <View className="mt-5 gap-4">
+          {WORN_SHARING_SCOPE.map((scope) => (
+            <View key={scope.title} className="flex-row gap-2.5" accessible>
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                className="mt-2 h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: ghost }}
+              />
+              <View className="min-w-0 flex-1">
+                <Text variant="label" style={{ color: ink }}>
+                  {scope.title}
+                </Text>
+                <Text variant="callout" className="mt-1" style={{ color: muted }}>
+                  {scope.body}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* The way back out, and how soon — §6's "revocation is immediate",
+            which had no sentence anywhere a person could read it. Everything
+            above describes turning sharing ON; this is what makes trying it a
+            small decision. */}
+        <Text variant="callout" className="mt-5" style={{ color: muted }}>
+          {WORN_SHARING_FOOTER}
         </Text>
       </View>
     </PrivacyPage>

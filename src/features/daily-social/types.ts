@@ -57,6 +57,19 @@ export function isDailyReaction(value: unknown): value is DailyReaction {
  */
 export interface DailyLookPiece {
   itemId: string;
+  /**
+   * What the garment is CALLED — "Charcoal wool coat", from the app's one
+   * naming derivation (`features/closet/item-name.ts`).
+   *
+   * The atlas's outfit line, and the only readable account of a look: the
+   * collage is hidden from VoiceOver so that no per-tile label can be counted
+   * off one by one, so if the pieces are not named in text they are not
+   * available to a reader at all. Derived from the same three columns the
+   * friend's own closet page already names them with — `category`,
+   * `subcategory`, `colors` — so this adds no exposure, only a word for
+   * something already on screen as a picture.
+   */
+  name: string;
   thumbPath: string | null;
   cutoutPath: string | null;
   platePath: string | null;

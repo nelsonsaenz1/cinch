@@ -3,7 +3,12 @@ import { useWindowDimensions, View } from 'react-native';
 
 import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
-import { REACTION_HINT, REACTION_LABELS, reactionAccessibilityLabel } from '@/features/daily-social/copy';
+import {
+  REACTION_HINT,
+  REACTION_LABELS,
+  reactionAccessibilityLabel,
+  reactionGroupAccessibilityLabel,
+} from '@/features/daily-social/copy';
 import { DAILY_REACTIONS, type DailyReaction } from '@/features/daily-social/types';
 import { useTheme } from '@/theme/tokens';
 
@@ -24,6 +29,15 @@ export type ReactionRowProps = {
   onReact: (reaction: DailyReaction | null) => void;
   /** Named in each control's label so five cards do not all say "Sharp". */
   lookName: string | null;
+  /**
+   * Whose look this is — named on the GROUP, not on the chips.
+   *
+   * The group is what a reader lands on first, and the fact it has to carry is
+   * the audience: this is seen by the two of you and by nobody else. A chip
+   * says which look it belongs to; the group says which person, because the
+   * promise being made is about a pair.
+   */
+  ownerName: string;
 };
 
 /**
@@ -49,19 +63,29 @@ export type ReactionRowProps = {
  *
  * ── Accessibility ───────────────────────────────────────────────────────────
  *
- * Every control is a labelled button with a hint, at ≥44 pt (the floor comes
- * from `PressableSurface`, which is the reason it was used instead of a bare
+ * **A `radiogroup` of three `radio`s**, which the atlas specifies and which is
+ * what these actually are: one choice from a fixed, mutually exclusive set,
+ * where none chosen is a legitimate resting state. VoiceOver reads the group's
+ * promise once, then "Sharp, radio button" and "selected" on the one that is —
+ * so the audience arrives before the words do rather than after whichever chip
+ * happened to be focused. Announced as a button, all three sounded like three
+ * separate actions instead of three answers to one question.
+ *
+ * Every control is labelled and hinted, at ≥44 pt (the floor comes from
+ * `PressableSurface`, which is the reason it was used instead of a bare
  * `Pressable`). At AX sizes the three stack rather than shrink — nothing is
  * capped, truncated or scaled down, and the labels wrap inside a control that
  * is allowed to grow.
  */
-export function ReactionRow({ reaction, onReact, lookName }: ReactionRowProps) {
+export function ReactionRow({ reaction, onReact, lookName, ownerName }: ReactionRowProps) {
   const theme = useTheme();
   const { fontScale } = useWindowDimensions();
   const stacked = dailyReactionsStacked(fontScale);
 
   return (
     <View
+      accessibilityRole="radiogroup"
+      accessibilityLabel={reactionGroupAccessibilityLabel(ownerName)}
       style={{
         flexDirection: stacked ? 'column' : 'row',
         gap: DAILY_REACTION_GAP,
@@ -77,7 +101,7 @@ export function ReactionRow({ reaction, onReact, lookName }: ReactionRowProps) {
         return (
           <PressableSurface
             key={kind}
-            accessibilityRole="button"
+            accessibilityRole="radio"
             accessibilityLabel={reactionAccessibilityLabel(kind, lookName)}
             accessibilityHint={REACTION_HINT}
             accessibilityState={visual.accessibilityState}

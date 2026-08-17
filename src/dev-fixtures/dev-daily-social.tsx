@@ -13,7 +13,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
-import { DAY_HEADING } from '@/features/daily-social/copy';
+import { DAY_HEADING, daySubtitle } from '@/features/daily-social/copy';
 import { showsCaughtUpLine, showsLooks, type DailyState } from '@/features/daily-social/states';
 import { type DailyReaction } from '@/features/daily-social/types';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -70,10 +70,10 @@ const LOOKS = [
     name: 'Weekend layers',
     wornAt: hoursAgo(5),
     pieces: [
-      { itemId: 'p1', imageUrl: COAT },
-      { itemId: 'p2', imageUrl: SWEATER },
-      { itemId: 'p3', imageUrl: BLOUSE },
-      { itemId: 'p4', imageUrl: PONCHO },
+      { itemId: 'p1', name: 'Cognac shearling coat', imageUrl: COAT },
+      { itemId: 'p2', name: 'Cream mohair sweater', imageUrl: SWEATER },
+      { itemId: 'p3', name: 'White linen blouse', imageUrl: BLOUSE },
+      { itemId: 'p4', name: 'Cream crochet poncho', imageUrl: PONCHO },
     ],
   },
   {
@@ -83,9 +83,9 @@ const LOOKS = [
     name: null,
     wornAt: hoursAgo(30),
     pieces: [
-      { itemId: 'p5', imageUrl: BLOUSE },
-      { itemId: 'p6', imageUrl: COAT },
-      { itemId: 'p7', imageUrl: SWEATER },
+      { itemId: 'p5', name: 'White linen blouse', imageUrl: BLOUSE },
+      { itemId: 'p6', name: 'Cognac shearling coat', imageUrl: COAT },
+      { itemId: 'p7', name: 'Cream mohair sweater', imageUrl: SWEATER },
     ],
   },
   {
@@ -96,8 +96,8 @@ const LOOKS = [
     name: 'Rain again',
     wornAt: hoursAgo(52),
     pieces: [
-      { itemId: 'p8', imageUrl: PONCHO },
-      { itemId: 'p9', imageUrl: SWEATER },
+      { itemId: 'p8', name: 'Cream crochet poncho', imageUrl: PONCHO },
+      { itemId: 'p9', name: 'Cream mohair sweater', imageUrl: SWEATER },
     ],
   },
 ];
@@ -134,7 +134,17 @@ export default function DevDailySocial() {
 
       <ScrollView contentContainerClassName="pb-24">
         <View className="px-gutter">
-          <SectionHeader title={DAY_HEADING} className="mb-2.5 mt-6" />
+          <View className="mb-2.5 mt-6">
+            <SectionHeader title={DAY_HEADING} />
+            {/* The same subtitle the page prints, on the same condition — the
+                fixture is evidence about the screen, so a line that appeared
+                only in one of them would be evidence about nothing. */}
+            {state !== 'loading' && showsLooks(state) ? (
+              <Text variant="note" className="mt-1.5">
+                {daySubtitle(LOOKS.length)}
+              </Text>
+            ) : null}
+          </View>
 
           {state === 'loading' ? (
             <Card style={{ borderRadius: 16 }}>
@@ -148,7 +158,7 @@ export default function DevDailySocial() {
             <QuietDayState />
           ) : showsLooks(state) ? (
             <View>
-              {LOOKS.map((look) => (
+              {LOOKS.map((look, i) => (
                 <View key={look.outfitId} className="mb-4">
                   <LookCard
                     ownerName={look.ownerName}
@@ -159,6 +169,7 @@ export default function DevDailySocial() {
                     onReact={(next) =>
                       setReactions((prev) => ({ ...prev, [look.outfitId]: next }))
                     }
+                    position={{ index: i + 1, total: LOOKS.length }}
                   />
                 </View>
               ))}

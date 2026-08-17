@@ -12,7 +12,11 @@ import type { Item } from '@/schemas/item';
  * column, and unqualified, because that is all the column is.
  *
  * One derivation, imported by the rail, the grid and the detail screen, so
- * they cannot drift again.
+ * they cannot drift again — and, since the Daily Social atlas, by a friend's
+ * shared look as well. It takes the three columns it reads rather than a whole
+ * `Item` for that fourth caller's sake: `friend_items` is a narrower projection
+ * than the closet's own row and could not satisfy the full schema, and a second
+ * naming function for friends' clothes is exactly the drift this file ended.
  */
 
 /** The fallback name. `category` defaults to 'other' for an untagged piece,
@@ -28,7 +32,7 @@ const UNTAGGED = 'Untagged item';
  * bucket and only stands in when the tagger had nothing better — and never
  * when even that is just 'other'.
  */
-export function pieceName(item: Item): string {
+export function pieceName(item: Pick<Item, 'category' | 'subcategory' | 'colors'>): string {
   const kind = item.subcategory ?? (item.category === 'other' ? null : item.category);
   if (!kind) return UNTAGGED;
 

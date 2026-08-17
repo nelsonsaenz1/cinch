@@ -28,15 +28,18 @@ import {
   CAUGHT_UP_ACCESSIBILITY_LABEL,
   CAUGHT_UP_LINE,
   DAY_HEADING,
+  daySubtitle,
   lookAccessibilityLabel,
   NO_CIRCLE,
   NOBODY_SHARING,
   OFFLINE,
+  piecesLine,
   QUIET_DAY,
   quietDayCoverage,
   REACTION_HINT,
   REACTION_LABELS,
   reactionAccessibilityLabel,
+  reactionGroupAccessibilityLabel,
   UNNAMED_LOOK,
 } from '../src/features/daily-social/copy.ts';
 import { DAILY_REACTIONS } from '../src/features/daily-social/types.ts';
@@ -77,6 +80,11 @@ const NOW = new Date(2026, 7, 16, 10, 0, 0);
  */
 const ALL_COPY = [
   DAY_HEADING,
+  daySubtitle(1, NOW),
+  daySubtitle(4, NOW),
+  daySubtitle(40, NOW),
+  piecesLine(['Charcoal wool coat', 'Cream rollneck']),
+  reactionGroupAccessibilityLabel('Maya'),
   UNNAMED_LOOK,
   NO_CIRCLE.title,
   NO_CIRCLE.body,
@@ -101,6 +109,8 @@ const ALL_COPY = [
     ownerName: 'Ada',
     name: 'Weekend layers',
     wornAt: new Date(2026, 7, 15, 9, 0, 0).toISOString(),
+    pieces: ['Charcoal wool coat', 'Cream rollneck'],
+    position: { index: 1, total: 4 },
     now: NOW,
   }),
   lookAccessibilityLabel({ ownerName: 'Ada', name: null, wornAt: NOW.toISOString(), now: NOW }),
@@ -266,18 +276,66 @@ test('nor does any string inside the components, VoiceOver labels included', () 
   }
 });
 
-test('the look’s spoken sentence carries no piece count at all', () => {
+test('the look’s spoken sentence names the pieces and counts none of them', () => {
   // `plate.tsx` announces "<name>, <n> pieces" and is right to — that is the
   // reader's own look. Here the number on screen IS what the owner allowed to
-  // cross, so speaking it is speaking a measurement of what they hid.
+  // cross, so speaking it is speaking a measurement of what they hid. Naming
+  // them is the opposite move and the atlas's own instruction: the collage is
+  // hidden from VoiceOver so that no per-tile label can be counted off, and the
+  // pieces are read from the outfit line instead. Without it a reader hears
+  // that a look exists and never what it was.
   const label = lookAccessibilityLabel({
     ownerName: 'Ada',
     name: 'Weekend layers',
     wornAt: new Date(2026, 7, 15, 9, 0, 0).toISOString(),
+    pieces: ['Charcoal wool coat', 'Cream rollneck'],
+    position: { index: 1, total: 4 },
     now: NOW,
   });
-  assert.equal(label, 'Ada wore Weekend layers. Yesterday.');
+  assert.equal(
+    label,
+    'Ada wore Weekend layers. Yesterday. Charcoal wool coat · Cream rollneck. Look 1 of 4.',
+  );
   assert.doesNotMatch(label, /piece|item|garment/i);
+
+  // Every part past the first is optional, and a card drawn alone — no pieces
+  // visible, no place in a list — says only what it knows.
+  assert.equal(
+    lookAccessibilityLabel({ ownerName: 'Ada', name: null, wornAt: NOW.toISOString(), now: NOW }),
+    `Ada wore ${UNNAMED_LOOK}. Just now.`,
+  );
+});
+
+test('the outfit line prints every name that crossed, and never a stand-in for one that did not', () => {
+  assert.equal(piecesLine(['Charcoal wool coat', 'Cream rollneck']), 'Charcoal wool coat · Cream rollneck');
+  assert.equal(piecesLine(['Charcoal wool coat']), 'Charcoal wool coat');
+  // A look whose pieces its owner all kept prints nothing rather than a
+  // sentence about the silence — an apology here is a statement about what was
+  // withheld, which is the inference the atlas removed.
+  assert.equal(piecesLine([]), '');
+  assert.equal(piecesLine(['  ', '']), '');
+  // No ellipsis and no remainder. There is no "more" to have.
+  assert.doesNotMatch(piecesLine(['a', 'b', 'c', 'd', 'e', 'f']), /…|\.\.\.|more/);
+});
+
+test('the day says how many looks it holds and that it ends', () => {
+  // The atlas lists this line as the VISIBLE EQUIVALENT of scrolling to the
+  // bottom: a reader who never reaches the end still learns the day is finite.
+  const wednesday = new Date(2026, 7, 19, 10, 0, 0);
+  assert.equal(daySubtitle(4, wednesday), 'Wednesday · four looks, then done');
+  assert.equal(daySubtitle(1, wednesday), 'Wednesday · one look, then done');
+  // Past a dozen the numeral is plainer than the word, and a circle is one to a
+  // dozen anyway.
+  assert.equal(daySubtitle(13, wednesday), 'Wednesday · 13 looks, then done');
+
+  for (const n of [1, 2, 5, 12, 40]) {
+    // It counts LOOKS, which is a fact about this page. It must never read as a
+    // count of people, of reactions, or of what is inside a look.
+    assert.doesNotMatch(daySubtitle(n, wednesday), /piece|item|garment|friend|people|reaction/i);
+    // And it never implies there is more past the end — that is the whole point
+    // of saying "then done".
+    assert.match(daySubtitle(n, wednesday), /then done$/);
+  }
 });
 
 test('a shorter look composes without a hole, at every length', () => {

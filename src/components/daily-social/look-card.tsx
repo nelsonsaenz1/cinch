@@ -3,15 +3,22 @@ import { useWindowDimensions, View } from 'react-native';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { type DailyReaction } from '@/features/daily-social/types';
-import { lookAccessibilityLabel, UNNAMED_LOOK } from '@/features/daily-social/copy';
+import { lookAccessibilityLabel, piecesLine, UNNAMED_LOOK } from '@/features/daily-social/copy';
 import { sinceLabel } from '@/features/explore/timeline';
 
 import { LookCollage, type LookCollagePiece } from './look-collage';
-import { lookNameTrimmed } from './look-card-spec';
+import { lookMetaStacked, lookNameTrimmed } from './look-card-spec';
 import { ReactionRow } from './reaction-row';
 
-/** Re-exported so a call site takes one import for the card and its pieces. */
-export type LookCardPiece = LookCollagePiece;
+/**
+ * A piece as the card takes it — the collage's picture, plus the word for it.
+ *
+ * The name is the card's business rather than the collage's: the collage is
+ * hidden from VoiceOver on purpose, and a name inside it would be a per-tile
+ * label, which is the thing the atlas removed. It is printed once, in the
+ * outfit line, where it names what is there and offers nothing to count.
+ */
+export type LookCardPiece = LookCollagePiece & { name: string };
 
 export type LookCardProps = {
   /**
@@ -45,6 +52,19 @@ export type LookCardProps = {
   /** The reader's own reaction, or null. Never anybody else's, ever. */
   reaction: DailyReaction | null;
   onReact: (reaction: DailyReaction | null) => void;
+  /**
+   * Where this look sits in a finite day — the atlas's "Look 1 of 4", spoken
+   * and not drawn.
+   *
+   * Spoken because the ending is the point of the unit and a reader swiping
+   * card by card has no other way to feel one coming; not drawn because the
+   * subtitle over the list already says how many there are, and a second
+   * counter on every card would be the running tally this surface refuses.
+   *
+   * Optional: a card rendered alone (a fixture, a single look) has no position
+   * to report and says nothing rather than "1 of 1".
+   */
+  position?: { index: number; total: number };
   /** Injectable clock, so the relative date is testable. */
   now?: Date;
 };
@@ -89,27 +109,63 @@ export function LookCard({
   pieces,
   reaction,
   onReact,
+  position,
   now,
 }: LookCardProps) {
   const { fontScale } = useWindowDimensions();
+  const stackedMeta = lookMetaStacked(fontScale);
   const displayName = name?.trim() ? name.trim() : UNNAMED_LOOK;
   const when = sinceLabel(wornAt, now ?? new Date());
+  const worn = piecesLine(pieces.map((piece) => piece.name));
 
   return (
     <Card padding="md">
       <View
         accessible
         accessibilityRole="summary"
-        accessibilityLabel={lookAccessibilityLabel({ ownerName, name, wornAt, now })}>
-        <Text variant="eyebrow">{ownerName}</Text>
+        accessibilityLabel={lookAccessibilityLabel({
+          ownerName,
+          name,
+          wornAt,
+          pieces: pieces.map((piece) => piece.name),
+          position,
+          now,
+        })}>
+        {/* WHOSE, AND WHEN, ABOVE THE PICTURE — the atlas's card header.
 
-        {/* The serif at the plate step, cap-trimmed for the one line it is at
-            standard sizes and untrimmed the moment it can wrap — see
-            `look-card-spec.ts`. */}
-        <View style={{ marginTop: 4 }}>
-          <Text variant="plate" trim={lookNameTrimmed(fontScale)}>
-            {displayName}
+            Attribution comes first because the unit's whole subject is that
+            these are someone else's clothes, and the date joins it there rather
+            than sitting under the collage: read in that order the card is
+            "Maya, this morning, here is what it looked like", which is the
+            sentence a person would actually say.
+
+            ONE ROW, WHERE THE ATLAS STACKS THEM, and that is a translation
+            rather than a departure. The atlas can stack because its name is
+            17pt ink and its timestamp is 13pt sentence-case muted — two clearly
+            different voices. In this app both are tracked uppercase micro-labels
+            (`eyebrow` and `colophon`), so stacked they read as one noisy block
+            with no subject in it. Set across a baseline they read as what they
+            are: one attribution line, name at the left margin, date at the
+            right, the arrangement the app's own dated rows already use.
+
+            At AX sizes the row becomes two lines — see `lookMetaStacked`. A
+            long tracked name squeezing a long tracked date is the shrinking the
+            accessibility contract forbids by name, and the atlas answers it the
+            same way: above fontScale 1.5 the card meta wraps.
+
+            "YESTERDAY", "5H AGO", "14 JUL" — uppercased and tracked by the
+            variant. `sinceLabel` writes it sentence-case so the same string
+            reads correctly inside the accessible sentence above. */}
+        <View
+          style={
+            stackedMeta
+              ? { gap: 3 }
+              : { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }
+          }>
+          <Text variant="eyebrow" className={stackedMeta ? '' : 'min-w-0 flex-1'}>
+            {ownerName}
           </Text>
+          {when ? <Text variant="colophon">{when}</Text> : null}
         </View>
 
         {/* Conditional on the wrapper, not just inside the collage: a look
@@ -122,19 +178,34 @@ export function LookCard({
           </View>
         ) : null}
 
-        {/* When it was worn, in the colophon the rest of the app dates things
-            with — "YESTERDAY", "5H AGO", "14 JUL". Uppercased and tracked by
-            the variant; written sentence-case by `sinceLabel` so the same
-            string reads correctly in the accessible sentence above. */}
-        {when ? (
-          <Text variant="colophon" style={{ marginTop: 10 }}>
-            {when}
+        {/* The serif at the plate step, cap-trimmed for the one line it is at
+            standard sizes and untrimmed the moment it can wrap — see
+            `look-card-spec.ts`. Under the collage, where the atlas puts it: the
+            picture is the look and the name is the caption on it. */}
+        <View style={{ marginTop: 12 }}>
+          <Text variant="plate" trim={lookNameTrimmed(fontScale)}>
+            {displayName}
+          </Text>
+        </View>
+
+        {/* The outfit line — what was worn, in words, joined by the same
+            separator the atlas draws. It is the only readable account of the
+            look: the collage is hidden from VoiceOver so no per-tile label can
+            be counted off, so without this line a reader hears that a look
+            exists and never what it was.
+
+            No count and no ellipsis. Every name that crossed is printed, and a
+            look whose pieces its owner all kept prints nothing here rather than
+            a sentence about the silence. */}
+        {worn ? (
+          <Text variant="note" style={{ marginTop: 4 }}>
+            {worn}
           </Text>
         ) : null}
       </View>
 
       <View className="mt-3.5 border-t border-rule pt-3.5">
-        <ReactionRow reaction={reaction} onReact={onReact} lookName={name} />
+        <ReactionRow reaction={reaction} onReact={onReact} lookName={name} ownerName={ownerName} />
       </View>
     </Card>
   );
