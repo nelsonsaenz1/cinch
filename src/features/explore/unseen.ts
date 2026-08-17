@@ -47,13 +47,14 @@ export function lastSeenStorageKey(userId: string): string {
 /**
  * Two timestamps, compared as instants rather than as strings.
  *
- * Deliberately NOT `localeCompare`, which the sort in `queries.ts` can afford
- * because both of its operands come from the same Postgres column in the same
- * response. Here one side has been round-tripped through AsyncStorage and the
- * other is fresh from the wire, and `+00:00` versus `Z` — the same instant,
- * spelled two ways — orders wrongly under a lexicographic compare. Returns
- * `null` when either side is unparseable, which every caller reads as "cannot
- * prove", never as "newer".
+ * Deliberately not a string compare at all. `byCreatedAtDescending` in
+ * `feed.ts` can compare the strings themselves because both of its operands
+ * come from the same Postgres column in the same response. Here one side has
+ * been round-tripped through AsyncStorage and the other is fresh from the wire,
+ * and `+00:00` versus `Z` — the same instant, spelled two ways — orders wrongly
+ * under any lexicographic compare, `localeCompare` and codepoint order alike.
+ * Returns `null` when either side is unparseable, which every caller reads as
+ * "cannot prove", never as "newer".
  */
 function compareInstants(a: string, b: string): number | null {
   const at = Date.parse(a);

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { closetSession, closetUserId } from '@/features/closet/session';
+import { compareIsoTimestamps } from '@/lib/date';
 import { supabase } from '@/lib/supabase';
 import { costPerWear, type Item } from '@/schemas/item';
 
@@ -143,11 +144,18 @@ export function closetStats(items: Item[]): ClosetStats {
  * The most-worn pieces, descending, ties broken oldest-first so the list is
  * stable across refetches. Only items actually worn qualify — a bar chart with
  * zero-length bars is a list of things the section is not about.
+ *
+ * The tiebreak compares with `compareIsoTimestamps`, not `localeCompare`: two
+ * pieces on equal wear counts are exactly the case where the timestamps are
+ * likely to differ only by a fraction of a second (one import, one
+ * transaction), and that is the pair ICU collation orders backwards. "Oldest
+ * first" has to actually mean oldest first or the rail's rank is arbitrary
+ * below the top row.
  */
 export function mostWornItems(items: Item[], limit: number): Item[] {
   return items
     .filter((i) => i.wearCount > 0)
-    .sort((a, b) => b.wearCount - a.wearCount || a.createdAt.localeCompare(b.createdAt))
+    .sort((a, b) => b.wearCount - a.wearCount || compareIsoTimestamps(a.createdAt, b.createdAt))
     .slice(0, limit);
 }
 

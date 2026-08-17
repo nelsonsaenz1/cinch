@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { byCreatedAtDescending } from '@/features/explore/feed';
 import type { FriendItemRow } from '@/features/social/db-rows';
 import { toFriendItem, type FriendItem } from '@/features/social-graph/types';
 import { getUserId, supabase } from '@/lib/supabase';
@@ -95,7 +96,7 @@ export function useNewAdditions() {
           const item = toFriendItem(row);
           return { item, ownerId: item.userId, isSelf: item.userId === me };
         })
-        .sort((a, b) => b.item.createdAt.localeCompare(a.item.createdAt))
+        .sort((a, b) => byCreatedAtDescending(a.item, b.item))
         .slice(0, NEW_ADDITIONS_LIMIT);
     },
   });

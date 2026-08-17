@@ -18,7 +18,14 @@
  *
  * Both run before day grouping and before the signed-URL batch, so a hidden row
  * costs no header, no fetch, and no unread mark.
+ *
+ * The timeline's *order* lives here too, for the same reason the filters do:
+ * `useNewAdditions` merges two server-ordered halves into one list, and the rule
+ * that re-establishes "newest first" across that seam is the part most worth
+ * testing and the part least in need of React.
  */
+
+import { compareIsoTimestamps } from '@/lib/date';
 
 /** The shape both filters need. Structural, so tests need no query fixtures. */
 export interface CircleRow {
@@ -49,6 +56,28 @@ export function circleEntries<T extends CircleRow>(
  * claim the app cannot make.
  */
 export const CAUGHT_UP_LINE = 'You’re caught up with your circle.';
+
+/** The shape the ordering rule needs. Structural, like `CircleRow`. */
+export interface CreatedAtRow {
+  createdAt: string;
+}
+
+/**
+ * Most recently added first.
+ *
+ * The string comparison is `compareIsoTimestamps` rather than `localeCompare`,
+ * for the ICU-collation reason spelled out in `lib/date.ts` — under collation a
+ * garment added a fraction of a second later sorts EARLIER, and the timeline
+ * shows its own days out of order. Both operands come from the same
+ * `created_at` column in the same response, which is the precondition that
+ * makes comparing the text legitimate at all.
+ *
+ * Ties report 0 rather than inventing a second key: `sort` is stable, so two
+ * garments added in the same instant keep the order the query returned them in.
+ */
+export function byCreatedAtDescending(a: CreatedAtRow, b: CreatedAtRow): number {
+  return compareIsoTimestamps(b.createdAt, a.createdAt);
+}
 
 /** Whether the closure line may print. */
 export function showsCaughtUp(opts: {

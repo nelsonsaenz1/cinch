@@ -126,6 +126,34 @@ test('the rail ranks by wear count and drops what has never been worn', () => {
   assert.match(stripped(HOOK), /MOST_WORN_RAIL_LIMIT = 8/, 'the rail changed length');
 });
 
+test('neither closet ordering compares timestamps with localeCompare', () => {
+  // `localeCompare` gives punctuation variable collation weight, so it reports
+  // a fractional-second timestamp as EARLIER than the whole second it follows
+  // — see `compareIsoTimestamps` and its tests in date.test.ts. Both of this
+  // screen's orderings are built on `created_at`: the grid's newest-first sort
+  // and the rail's oldest-first tiebreak. Asserted as source for the same
+  // reason the ranking above is — `profile.ts` reaches Supabase and the hook is
+  // a hook, so neither can be called from this bundle.
+  for (const [label, src] of [
+    ['the grid', stripped(HOOK)],
+    ['the most-worn rail', stripped('src/features/closet/profile.ts')],
+  ] as const) {
+    assert.doesNotMatch(
+      src,
+      /createdAt\.localeCompare/,
+      `${label} orders timestamps by collation again`,
+    );
+    assert.match(src, /compareIsoTimestamps\(/, `${label} stopped using the shared comparator`);
+  }
+  // Direction, which the comparator itself cannot enforce: the grid is newest
+  // first, the rail's tiebreak is oldest first.
+  assert.match(stripped(HOOK), /compareIsoTimestamps\(b\.createdAt, a\.createdAt\)/);
+  assert.match(
+    stripped('src/features/closet/profile.ts'),
+    /compareIsoTimestamps\(a\.createdAt, b\.createdAt\)/,
+  );
+});
+
 // ---------------------------------------------------------------------------
 // The visibility rules that were NOT allowed to change
 // ---------------------------------------------------------------------------

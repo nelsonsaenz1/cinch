@@ -9,6 +9,7 @@ import { useCloset, useReviewCount } from '@/features/closet/queries';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useFollowerCount } from '@/features/profile/queries';
 import { useStyleProfile } from '@/features/styling/queries';
+import { compareIsoTimestamps } from '@/lib/date';
 import type { Item } from '@/schemas/item';
 
 /**
@@ -242,7 +243,11 @@ export function useClosetScreen() {
     const q = query.trim().toLowerCase();
     return items
       .filter((i) => (category === 'All' || chipFor(i.category) === category) && matchesSearch(i, q))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      // Newest first, by codepoint order rather than `localeCompare` — see
+      // `compareIsoTimestamps`. Collation puts a piece added a fraction of a
+      // second later ahead of the one before it, which on a grid whose whole
+      // claim is "newest first" is visible as an out-of-order first row.
+      .sort((a, b) => compareIsoTimestamps(b.createdAt, a.createdAt));
   }, [items, query, category]);
 
   // The chips' live counts, query-aware for the same reason `visible` is.

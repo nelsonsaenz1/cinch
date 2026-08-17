@@ -16,7 +16,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { dateKey } from '../src/lib/date';
+import { compareIsoTimestamps, dateKey } from '../src/lib/date';
 
 /** Run `fn` with the process in `tz`, restoring the previous zone afterwards. */
 function inZone(tz: string, fn: () => void) {
@@ -121,4 +121,81 @@ test('is stable — the same Date always produces the same key', () => {
     assert.equal(dateKey(d), dateKey(d));
     assert.equal(dateKey(d), '2026-06-15'); // BST, UTC+1 => 23:30 local
   });
+});
+
+// ---------------------------------------------------------------------------
+// Ordering Postgres timestamps
+// ---------------------------------------------------------------------------
+//
+// The second bug class in this file, and the one that hides better: every list
+// keyed on `created_at` or `worn_at` — the Explore timeline, the closet grid,
+// the most-worn rail, the daily looks — is only chronological because these
+// strings compare correctly as text. `localeCompare` is the wrong tool for it
+// and looks like the right one, which is how it got into four sorts.
+
+/** The pair that collation gets backwards: one whole second, one fraction of it. */
+const WHOLE = '2026-08-16T10:00:00+00:00';
+const FRACTION = '2026-08-16T10:00:00.5+00:00';
+
+test('a fractional second sorts after the whole second it follows', () => {
+  // The regression. Under `localeCompare` this pair reports the opposite,
+  // because ICU gives the `.` variable collation weight — so a row written
+  // half a second later lands above the row it came after, and any list built
+  // on it shows its own days out of order.
+  assert.ok(compareIsoTimestamps(WHOLE, FRACTION) < 0);
+  assert.ok(compareIsoTimestamps(FRACTION, WHOLE) > 0);
+
+  // Anchored to chronology by an oracle that has nothing to do with string
+  // collation, so the two assertions above are pinned to the fact rather than
+  // to a habit.
+  assert.ok(Date.parse(FRACTION) > Date.parse(WHOLE));
+});
+
+test('sorting with it puts oldest first, and reversing the arguments puts newest first', () => {
+  const stamps = [
+    '2026-08-16T10:00:00.5+00:00',
+    '2026-08-14T08:00:00+00:00',
+    '2026-08-16T10:00:00+00:00',
+    '2026-08-15T09:00:00+00:00',
+  ];
+  assert.deepEqual([...stamps].sort(compareIsoTimestamps), [
+    '2026-08-14T08:00:00+00:00',
+    '2026-08-15T09:00:00+00:00',
+    '2026-08-16T10:00:00+00:00',
+    '2026-08-16T10:00:00.5+00:00',
+  ]);
+  assert.deepEqual([...stamps].sort((a, b) => compareIsoTimestamps(b, a)), [
+    '2026-08-16T10:00:00.5+00:00',
+    '2026-08-16T10:00:00+00:00',
+    '2026-08-15T09:00:00+00:00',
+    '2026-08-14T08:00:00+00:00',
+  ]);
+});
+
+test('varying precision still orders chronologically', () => {
+  // Postgres trims trailing zeroes, so a single column genuinely yields all of
+  // these widths depending on when the row was written. That trimming is also
+  // what keeps codepoint order safe here: the whole second ends in `+`, which
+  // sorts below the `.` that opens a fraction.
+  const ordered = [
+    '2026-08-16T10:00:00+00:00',
+    '2026-08-16T10:00:00.25+00:00',
+    '2026-08-16T10:00:00.5+00:00',
+    '2026-08-16T10:00:00.75+00:00',
+    '2026-08-16T10:00:01+00:00',
+  ];
+  for (let i = 0; i + 1 < ordered.length; i++) {
+    assert.ok(
+      compareIsoTimestamps(ordered[i], ordered[i + 1]) < 0,
+      `${ordered[i]} should sort before ${ordered[i + 1]}`,
+    );
+    assert.ok(Date.parse(ordered[i]) < Date.parse(ordered[i + 1]));
+  }
+  assert.deepEqual([...ordered].reverse().sort(compareIsoTimestamps), ordered);
+});
+
+test('identical timestamps tie rather than inventing an order', () => {
+  // Callers depend on this: `sort` is stable, so a tie means "keep the order
+  // the query returned", and the most-worn rail layers its own tiebreak on top.
+  assert.equal(compareIsoTimestamps(WHOLE, WHOLE), 0);
 });
