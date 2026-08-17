@@ -915,7 +915,7 @@ function CapacityColophon() {
           be if the sentence is the hardest thing on the screen to read. */}
       <Text
         variant="caption"
-        style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4, color: theme.muted }}>
+        style={{ fontFamily: 'HelveticaNeue', fontSize: 11, letterSpacing: 0.4, color: theme.muted }}>
         {label}
       </Text>
     </View>

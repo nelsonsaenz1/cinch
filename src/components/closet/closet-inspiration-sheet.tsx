@@ -35,11 +35,11 @@ export function ClosetInspirationSheet({
           accessibilityLabel="Close closet inspiration"
           onPress={onDismiss}
           className="absolute inset-0"
-          style={{ backgroundColor: 'rgba(28, 26, 22, 0.48)' }}
+          style={{ backgroundColor: theme.scrim }}
         />
         <SafeAreaView
           edges={['bottom']}
-          className="max-h-[92%] rounded-t-[24px]"
+          className="max-h-[92%] rounded-t-plate"
           style={{ backgroundColor: theme.canvas }}>
           <View className="items-center pt-2.5" accessibilityElementsHidden>
             <View className="h-1 w-10 rounded-full bg-rule" />

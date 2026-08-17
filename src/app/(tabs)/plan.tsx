@@ -133,6 +133,9 @@ function Segment({
       accessibilityState={{ selected: active }}
       accessibilityLabel={showDot ? `${label}, new invitations` : label}
       style={{ minHeight: MIN_TAP_TARGET - 8 }}
+      // The box is drawn 8 short so the pill sits inside its track; the
+      // hitSlop pays the difference back, keeping the 44pt floor.
+      hitSlop={{ top: 4, bottom: 4 }}
       className="flex-1 flex-row items-center justify-center active:opacity-70">
       <Text variant="label" style={{ color: active ? theme.canvas : theme.muted }}>
         {label}
@@ -409,8 +412,17 @@ export default function PlanScreen() {
           <Text variant="display">Plan</Text>
           {/* The tracked caps register, same as Today's day line. The atlas
               sets it in `faint`; it stays `muted` per the 2026-08-06 contrast
-              pass — faint fails AA as text on canvas. */}
-          <Text variant="eyebrow">{weekRangeLabel}</Text>
+              pass — faint fails AA as text on canvas.
+
+              `shrink` for the same reason `FieldGroup` carries it
+              (occasion-field.tsx): React Native defaults `flexShrink` to 0, so
+              a Text in a row reports its full intrinsic width and the ROW
+              grows past the gutter instead of the text yielding. On a 320pt
+              width, or with Dynamic Type pushing both sides up, the side that
+              must give way is the date range rather than the title. */}
+          <Text variant="eyebrow" className="shrink" numberOfLines={1}>
+            {weekRangeLabel}
+          </Text>
         </View>
 
         {/* LP-06's accepted support line. It sits above the segmented control

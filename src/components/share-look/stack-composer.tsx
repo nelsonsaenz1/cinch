@@ -155,7 +155,7 @@ function StackRow({
           variant="caption"
           style={{
             width: 20,
-            fontFamily: 'ui-monospace',
+            fontFamily: 'HelveticaNeue',
             fontSize: 11,
             // `muted`, never `faint`: this numeral is the piece's own stack
             // position, real information a poster reads back, not a

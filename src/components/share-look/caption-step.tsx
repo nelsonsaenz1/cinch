@@ -85,7 +85,7 @@ export function CaptionStep({
           <Text variant="caption">Caption</Text>
           <Text
             variant="caption"
-            style={{ fontFamily: 'ui-monospace' }}>{`${caption.length} / ${CAPTION_DISPLAY_MAX}`}</Text>
+            style={{ fontFamily: 'HelveticaNeue' }}>{`${caption.length} / ${CAPTION_DISPLAY_MAX}`}</Text>
         </View>
       </View>
 

@@ -161,7 +161,10 @@ export default function SavedLookDetailScreen() {
 
       {state.kind === 'loading' || state.kind === 'missing' ? (
         <View className="gap-4 px-gutter pt-4" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Skeleton className="h-[300px] w-full rounded-plate" />
+          {/* 360, not 300 — the Hero's own height for a save with an image,
+              which is nearly all of them. Anything shorter drops the title and
+              everything under it 60pt the moment the photo lands. */}
+          <Skeleton className="h-[360px] w-full rounded-plate" />
           <Skeleton className="h-[26px] w-2/3 rounded-sm" />
           <Skeleton className="h-[60px] w-full rounded-md" />
         </View>

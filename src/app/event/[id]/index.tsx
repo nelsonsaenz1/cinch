@@ -766,9 +766,23 @@ export default function EventDetailScreen() {
                 />
               </View>
             ) : members.isLoading ? (
-              <View className="mt-3 gap-3">
-                <Skeleton className="h-8 w-2/3 rounded-md" />
-                <Skeleton className="h-8 w-1/2 rounded-md" />
+              // RosterRow's own geometry, not two loose bars: same `mt-1`
+              // list inset, same 44pt row with `py-2.5`, the same 32pt avatar
+              // and hairline between rows — so the section keeps its height
+              // when the real guests land.
+              <View className="mt-1">
+                {[0, 1].map((i) => (
+                  <View
+                    key={i}
+                    style={{ minHeight: MIN_TAP_TARGET }}
+                    className={[
+                      'flex-row items-center gap-3 py-2.5',
+                      i === 1 ? '' : 'border-b border-hairline',
+                    ].join(' ')}>
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <Skeleton className={`h-4 rounded-sm ${i === 0 ? 'w-2/5' : 'w-1/3'}`} />
+                  </View>
+                ))}
               </View>
             ) : (
               <View className="mt-1">

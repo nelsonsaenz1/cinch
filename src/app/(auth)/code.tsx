@@ -19,6 +19,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { atlas, AuthHeader, MAX_DISPLAY_SCALE, MAX_TEXT_SCALE } from '@/components/auth/chrome';
+import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { sendEmailCode, verifyEmailCode } from '@/features/auth/actions';
 import { describeThrownSignInError } from '@/features/auth/sign-in-errors';
 import { MIN_TAP_TARGET } from '@/theme/tokens';
@@ -226,7 +227,9 @@ export default function CodeScreen() {
     <View style={{ flex: 1, backgroundColor: atlas.paper, paddingTop: insets.top }}>
       <StatusBar style="dark" />
       <AuthHeader onBack={() => router.back()} backDisabled={verifying} />
-      <View style={{ paddingHorizontal: 34, paddingTop: 40 }}>
+      <KeyboardAwareScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 34, paddingTop: 40, paddingBottom: 40 }}>
         <RNText
           accessibilityRole="header"
           maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
@@ -336,7 +339,7 @@ export default function CodeScreen() {
           }}>
           {statusLine}
         </RNText>
-      </View>
+      </KeyboardAwareScrollView>
     </View>
   );
 }

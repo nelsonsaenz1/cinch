@@ -308,10 +308,10 @@ function QuietBody({ status, name }: { status: 'hidden' | 'lapsed' | 'empty'; na
     return (
       <View className="pt-5">
         <View
-          className="h-[110px] rounded-md border border-dashed"
+          className="h-[110px] rounded-md border border-dashed bg-tray"
           // The atlas's dashed frame: .18 ink over a paper a step off canvas.
-          // Neither value has a token; both ride inline, per the escape hatch.
-          style={{ borderColor: 'rgba(28,26,22,0.18)', backgroundColor: '#F7F4EC' }}
+          // The border alpha has no token and rides inline, per the escape hatch.
+          style={{ borderColor: 'rgba(28,26,22,0.18)' }}
         />
         <Text variant="plate" className="mt-4" accessibilityRole="header">
           Nothing in here yet

@@ -31,6 +31,13 @@ export default function WallSwapScreen() {
   const archive = useArchiveItems();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  /**
+   * The confirmation bar is absolute and opaque, and its real height moves with
+   * the piece's name, the outcome copy and the reader's type size — so the list
+   * reserves what the bar actually measures, not a guessed padding. 160 is the
+   * bar at its shortest, used only for the first frame.
+   */
+  const [footerHeight, setFooterHeight] = useState(160);
 
   const candidates = model.candidates;
   const selected = candidates.find((c) => c.id === selectedId) ?? candidates[0];
@@ -77,7 +84,9 @@ export default function WallSwapScreen() {
     );
   } else {
     body = (
-      <ScrollView contentContainerClassName="px-gutter pb-32">
+      <ScrollView
+        contentContainerClassName="px-gutter"
+        contentContainerStyle={{ paddingBottom: footerHeight }}>
         <Text variant="title" trim style={{ fontSize: 30, lineHeight: 34 }}>
           Which piece goes away?
         </Text>
@@ -112,7 +121,7 @@ export default function WallSwapScreen() {
                   <Text
                     variant="caption"
                     className="mt-0.5"
-                    style={{ fontFamily: 'ui-monospace', fontSize: 11, letterSpacing: 0.4, color: theme.muted }}>
+                    style={{ fontFamily: 'HelveticaNeue', fontSize: 11, letterSpacing: 0.4, color: theme.muted }}>
                     {`${wornLabel(c.wearCount)} · IN ${c.outfitCount} ${c.outfitCount === 1 ? 'OUTFIT' : 'OUTFITS'}`}
                   </Text>
                 </View>
@@ -137,7 +146,8 @@ export default function WallSwapScreen() {
       {selected ? (
         <View
           className="absolute inset-x-0 bottom-0 border-t border-rule bg-surface px-gutter pb-8 pt-4"
-          style={{ paddingBottom: 34 }}>
+          style={{ paddingBottom: 34 }}
+          onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
           <View className="flex-row items-baseline justify-between">
             <Text variant="body" style={{ color: theme.muted }}>
               {`${selected.piece.name} out, room for ${nounWithArticle(add)}`}

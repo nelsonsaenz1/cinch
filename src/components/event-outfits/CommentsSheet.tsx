@@ -19,7 +19,7 @@ import {
 import type { PostedLook } from '@/features/event-outfits/types';
 import { useCommentThread } from '@/features/event-outfits/use-comment-thread';
 import { useReportFlow } from '@/features/social-graph/use-report-flow';
-import { useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 type ResolveImage = (...paths: (string | null | undefined)[]) => string | undefined;
 
@@ -160,6 +160,7 @@ export function CommentsSheet({
                 accessibilityLabel="Close comments"
                 onPress={onClose}
                 hitSlop={10}
+                style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
                 className="active:opacity-60">
                 <Text variant="label" style={{ color: theme.accent }}>
                   Done

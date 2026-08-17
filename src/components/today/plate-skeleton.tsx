@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -10,13 +10,13 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
-import { motion } from '@/theme/tokens';
+import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
 import { GRID_GAP, plateGrid, ROW_RATIO } from './plate-grid';
 import { W3_ROW_HEIGHT, W3_WEAR_WEIGHT } from './reaction-spec';
 
-/** The sand a placeholder block is drawn in — the constitution's own #EAE5DB. */
-const BLOCK = { borderRadius: 12, backgroundColor: '#EAE5DB' } as const;
+/** The radius a placeholder block is drawn at. Its ground is the `sand` token. */
+const BLOCK_RADIUS = 12;
 
 /**
  * One placeholder block. A module-level component, not a closure inside the
@@ -40,10 +40,11 @@ function Block({
    */
   style: ReturnType<typeof useAnimatedStyle<{ opacity: number }>>;
 }) {
+  const theme = useTheme();
   return (
     <Animated.View
       style={[
-        BLOCK,
+        { borderRadius: BLOCK_RADIUS, backgroundColor: theme.sand },
         grow != null
           ? { height, flexGrow: grow, flexShrink: 1, flexBasis: 0 }
           : { height, width },
@@ -187,14 +188,17 @@ export function SlowNotice({ onShowAnyway }: { onShowAnyway: () => void }) {
       <Text variant="note" className="mt-1">
         The pieces are yours and already chosen. Cinch is still writing the reason it chose them.
       </Text>
-      <Text
+      <Pressable
         accessibilityRole="button"
         accessibilityLabel="Show it without the reason"
-        variant="note"
-        className="mt-2.5 underline"
+        hitSlop={8}
+        style={{ minHeight: MIN_TAP_TARGET - 12, justifyContent: 'center' }}
+        className="mt-1 active:opacity-60"
         onPress={onShowAnyway}>
-        Show it without the reason
-      </Text>
+        <Text variant="note" className="underline">
+          Show it without the reason
+        </Text>
+      </Pressable>
     </View>
   );
 }
