@@ -136,11 +136,30 @@ assumes the backend has (flag anything that smells new).
 DEVIATIONS: anything that differs from the brief, and whether deliberate.
 ```
 
-Write it thorough — this message is the build fleet's spec. Claude Code
-ingests the files from Downloads, builds exactly to frame, verifies
-(typecheck, tests, lint, adversarial review), commits, pushes, ships OTA,
-and records the page in
-`docs/design/redesign-2026-08/BUILD-LEDGER.md`.
+Write it thorough — this message is the build fleet's spec.
+
+**What Claude Code does with it (so you know what to expect and verify):**
+
+1. Ingests the files from `~/Downloads` into the repo.
+2. Dispatches Opus 5 builder agents + Sonnet 5/Opus 5 adversarial
+   reviewers to build exactly to frame.
+3. Verifies: typecheck, full test suite, lint, adversarial diff review.
+4. **Runs the app in the iOS Simulator and screenshots the rebuilt page**
+   — no page ships unseen.
+5. Commits, pushes, ships via EAS OTA (`npm run release:ota`), and
+   **verifies the update actually published to the store build's runtime**
+   — not just that the command ran.
+6. If the page needed native changes (NEEDS-NATIVE yes, or the
+   fingerprint check fails), Claude Code runs a full EAS build and
+   TestFlight submission instead of OTA, and says so.
+7. Records the page in `docs/design/redesign-2026-08/BUILD-LEDGER.md`
+   and replies with a **SHIP REPORT**: commit hash, OTA update ID (or EAS
+   build ID), and confirmation the simulator screenshot matched the
+   artifact.
+
+A page is NOT done until you have seen its SHIP REPORT. A build with no
+ship report is the exact failure this pipeline exists to kill — chase it
+(§6), never assume it shipped.
 
 Then go straight back to Chrome and start the next page.
 
@@ -149,18 +168,25 @@ Then go straight back to Chrome and start the next page.
 Check the Claude desktop app roughly every 10 minutes, and whenever
 Claude Design is generating:
 
-- **If Claude Code asked a question**: answer from DIRECTIVE.md, this
-  runbook, or the artifact itself. If the answer truly needs Nelson
-  (money, accounts, deleting things), reply "hold for Nelson" and note it
-  in your final report.
-- **If Claude Code reports a page shipped**: note the slug — that's your
-  progress ledger.
-- **If Claude Code errors or stalls** (no output for 30+ minutes on a
-  build): type "status?" once. If still stuck, re-send the §5 message
-  once. Never spam.
-- **If a permission dialog appears in the desktop app**: approve only
-  actions inside `/Users/nelsonsaenz/cinch`, `~/Downloads` reads, git
-  push, and `npm run release:ota`. Anything else — decline and note it.
+- **Do not stop for approvals.** Nelson has pre-authorized this entire
+  pipeline. Answer Claude Code's questions yourself from DIRECTIVE.md,
+  this runbook, or the artifact — decisively, without deferring. The ONLY
+  things that hold for Nelson: spending new money, account credentials,
+  and deleting user data. Everything else, decide and move.
+- **If a permission dialog appears in the desktop app**: approve it —
+  builds, file edits, git push, EAS/OTA commands, simulator control, test
+  runs are all pre-authorized. Decline only credential prompts or
+  anything reaching outside the project, Downloads, EAS, and the
+  simulator.
+- **If Claude Code sends a SHIP REPORT**: check it names the page's
+  commit AND its OTA update ID (or EAS build ID) AND the simulator
+  verification. All three present → mark the page done in your notes.
+  Anything missing → reply asking for the missing proof.
+- **Be patient.** Claude Design generations take several minutes; Claude
+  Code builds take 20–60 minutes per page. Waiting is normal. Only treat
+  it as a stall after 45+ minutes of no output on a build: type "status?"
+  once. If still stuck 15 minutes later, re-send the §5 message once.
+  Never spam, never assume failure early.
 
 Do not type anything into the prompt box except §5 handoffs, answers to
 its questions, and a single "status?" per stall.
