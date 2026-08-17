@@ -36,6 +36,9 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     [
       ['Visibility off', '/dev-closet-visibility-hidden'],
       ['Visibility', '/dev-closet-visibility'],
+      // The day's five drawn states, on one tappable cycler. It sits beside the
+      // visibility frames because the switch that turns it on is one of them.
+      ['Daily Social', '/dev-daily-social'],
       ['M-07', '/dev-w3-g1-m-07'],
       ['PR-01', '/dev-w3-g1-pr-01'],
       ['PR-03', '/dev-w3-g1-pr-03'],
