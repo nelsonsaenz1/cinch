@@ -55,11 +55,14 @@ Checked against source, not against commit messages or older docs.
 | "Closet visibility is user-controlled" | **False today.** `profiles.closet_hidden`, `stat_pieces_hidden`, `stat_wears_hidden` exist (`20260808110000_friend_closet_privacy_layer.sql:22-24`), the read path honours them (`src/features/social/db-rows.ts`, `src/features/social-graph/types.ts`), and **no UI sets them** — the migration's own note says "the toggle UI lands in a later Profile session", and it never did. | This is the single largest privacy gap the unit inherits. §5 makes shipping that toggle a **precondition**, not a follow-on. |
 | "Activity is a stored feed" | Only **dismissals** are stored — `activity_dismissals` is the whole table (`20260810100100_activity_feed.sql`). The feed itself is derived per read. | Daily Social follows the same shape. No feed table. §4 keeps derivation. |
 | "We measure social engagement" | **No social analytics exist.** The taxonomy has 47 events and not one is social — no `friend_added`, no `explore_viewed`, no `comment_posted`. | §7 defines the first social events. This unit is where social measurement starts, so the taxonomy must be right the first time. |
+| "Friends can see what you wore" | **False, and there is no path at all.** `outfits` is owner-only select; its one non-owner policy needs `is_public`, which defaults `false` and which **nothing in `src/` ever writes** (the only two mentions are comments at `explore.tsx:121` and `explore/queries.ts:20` explaining the projections are unreachable). No view exposes a friend's outfit — `friend_items` is items-only, `event_post_items` is event-scoped. | The unit's core premise required a read path that did not exist. §5.4 defines the smallest one; it is why this contract now carries a migration. |
 | "Push already nudges friends" | True, and further along than the UI — `push_claim_friend_activity()` (`20260810110100_push_senders.sql:160`) already batches follow-backs and new pieces into one daily-shaped notification. | The daily cadence is already **half-built in the backend**. Daily Social should be its destination, not a parallel mechanism. |
 
-**The headline.** The backend for a daily social rhythm largely exists and is
-private by default. What is missing is a surface, a visibility control users can
-actually reach, and any measurement at all.
+**The headline, revised.** The backend for a daily social *rhythm* largely
+exists and is private by default. What was missing is larger than first written:
+a surface, a visibility control users can actually reach — now shipped, §11 —
+any measurement at all, **and the friend-worn read path itself, which did not
+exist in any form.**
 
 ---
 
@@ -72,23 +75,30 @@ Each is the more restrictive option, chosen deliberately.
 2. **Nothing new becomes public.** This unit adds no column whose default widens
    visibility. `is_public` stays `false` (`:35`, `:243`), `profiles.visibility`
    stays `'private'`, events stay `'invite_only'` (`20260807101000_events.sql:28`).
-3. **The visibility controls ship first, inside this packet.** *(Decision 1,
+3. **Sharing what you wore is opt-in and defaults OFF.** *(Approved after the
+   §5.4 correction.)* `profiles.worn_outfits_shared` defaults `false`, so
+   **nothing anyone has already worn becomes visible to anyone** — no
+   retroactive exposure, ever. This is the opposite default from the four §5.1
+   flags, and deliberately: those preserved behaviour that already shipped,
+   this creates a path that never existed. New exposure starts closed. It is
+   also mutual-only, never public, and it expires after seven days.
+4. **The visibility controls ship first, inside this packet.** *(Decision 1,
    resolved.)* Daily Social must not surface a friend's closet or stats before
    that friend can turn them off. Not a follow-on and not a separate packet —
-   sequenced first within this one. §5.1.
-4. **Exactly three reactions, fixed, private to the pair.** *(Decision 2,
+   sequenced first within this one. §5.1. **Shipped and live** — see §11.
+5. **Exactly three reactions, fixed, private to the pair.** *(Decision 2,
    resolved.)* A reaction is visible to its author and to the owner of what was
    reacted to, and to nobody else. **No counts, no public aggregation, and no
    negative signal** — there is no dislike, no downvote, no "meh". Three is the
    number: enough to mean something, too few to become a rating scale.
    Consistent with the private ratings already shipped on Today.
-5. **No new text surface.** The unit ships **no free-text field**. Reactions are
+6. **No new text surface.** The unit ships **no free-text field**. Reactions are
    from the fixed set of three. This removes UGC moderation, text filtering and
    abuse review from the unit entirely; `20260808005513_ugc_text_filter.sql`
    stays scoped to the surfaces that already have text.
-6. **Daily means finite.** The unit has an end, and says so
+7. **Daily means finite.** The unit has an end, and says so
    (`CAUGHT_UP_LINE`). It never paginates into infinity.
-7. **In-app first; push stays independent.** *(Decision 3, resolved.)* The
+8. **In-app first; push stays independent.** *(Decision 3, resolved.)* The
    existing `friend_activity` sender (`20260810110100_push_senders.sql:160`)
    continues to run exactly as it does today, on its existing preference and its
    existing schedule. Daily Social **does not** become its destination in this
@@ -96,7 +106,7 @@ Each is the more restrictive option, chosen deliberately.
    permission, and **does not** change any default push behaviour. The unit is
    something you open, not something that taps you on the shoulder. Whether the
    two ever join up is a later question, and deliberately not this packet's.
-8. **A block is total and immediate.** Already enforced at the data layer
+9. **A block is total and immediate.** Already enforced at the data layer
    (`20260807120000_event_content_block_filter.sql`, `20260809150305_block_retracts_votes.sql`);
    this unit adds no read path that bypasses it.
 
@@ -106,18 +116,22 @@ Each is the more restrictive option, chosen deliberately.
 
 **Entry.** Tab, once a day. Optionally from the existing `friend_activity` push.
 
-**The five states.** Every one must be drawn; four are failure or emptiness, and
-those are where the unit is actually judged.
+**The six states.** Every one must be drawn; five are failure or emptiness, and
+those are where the unit is actually judged. S-1 split in two once sharing
+became opt-in and default off: with nobody sharing yet, "no friends" and
+"friends who have not turned it on" are different problems with different
+actions, and the second is the state most people meet on day one.
 
 | # | State | Condition | What it says |
 |---|---|---|---|
-| S-1 | **Nothing yet** | No mutual friends | Invite path. Never a stranger suggestion. |
+| S-1a | **No circle** | No mutual friends | Invite path. Never a stranger suggestion. |
+| S-1b | **Nobody sharing yet** | Mutuals exist, none has `worn_outfits_shared` | Invites *you* to go first, not to invite more people. The only state whose action is about yourself. |
 | S-2 | **Quiet day** | Friends exist, nothing new since last read | The caught-up line, and the date it covers. Not an error, not empty-styled. |
 | S-3 | **The day** | 1–N items from mutuals | The unit's substance. Finite, ordered, ends in the caught-up line. |
 | S-4 | **Caught up** | Reached the end of S-3 | Terminal. No infinite scroll, no "load more". |
 | S-5 | **Offline / failed** | Query failed or device offline | Distinguishes *offline* from *nothing happened* — the same distinction Today now draws between `styling_timeout` and `styling_offline` (`src/features/styling/use-outfits.ts`). Never blames the network for emptiness. |
 
-**Transitions.** S-1 → S-2 on first mutual. S-2 ⇄ S-3 by content. S-3 → S-4 by
+**Transitions.** S-1a → S-1b on first mutual; S-1b → S-2 when any mutual opts in. S-2 ⇄ S-3 by content. S-3 → S-4 by
 reaching the end. Any → S-5 on failure, and back without losing scroll position.
 
 **Per-item states.** Unseen → seen (the `unseen.ts` / `use-explore-unseen.ts`
@@ -190,23 +204,97 @@ Reuse: `src/components/ui/*` primitives, `error-state.tsx` (has `kicker`),
 `src/features/explore/{feed,unseen,timeline,contextual-actions}.ts`.
 New components must be justified against an existing primitive in review.
 
-### 5.4 Data
+### 5.4 Data — CORRECTED
 
-**No new table.** Derive per read, as Activity does. If dismissal is needed,
-extend `activity_dismissals` (`kind` + `subject_key` is already generic) rather
-than adding a second dismissal store.
+> **This section previously said "No new table" and §5.5 said "No new policy
+> should be needed". Both were wrong, and wrong at the premise.** Checked
+> against source: `outfits` is owner-only select, its one non-owner policy
+> requires `is_public` which defaults `false` and which **nothing in `src/`
+> ever writes**, and no view exposes a friend's outfit — `friend_items` is
+> items-only, `event_post_items` is event-scoped. **There is no data path for
+> "what my friends wore" at all.** The unit's whole premise needed one.
+>
+> No existing table can hold the reactions either: `outfit_reactions` is
+> owner-only RLS (the owner of what was reacted to could never see it), its
+> domain is `check (reaction in (-1, 1))` — it *is* the negative signal §3.4
+> forbids — and it is the styling learner's training corpus. `closet_likes` is
+> `for select to anon, authenticated using (true)`, world-readable, and has no
+> reaction kind. `event_outfit_votes` is one-vote-per-event contest semantics.
 
-Read through the existing privacy views — `friend_items`, `friend_closet_meta`,
-`social_profiles` (`20260808110000_friend_closet_privacy_layer.sql`) — never
-directly from `items`/`outfits`/`profiles`.
+**The approved model: opt-in, default hidden, mutual-only, seven days.** One
+migration, four objects.
 
-### 5.5 RLS
+| Object | Shape | Why |
+|---|---|---|
+| `profiles.worn_outfits_shared` | `boolean not null default false` | New exposure, so the default is off. **Nothing already worn becomes visible to anyone.** Named positively: `worn_outfits_hidden default true` is a double negative nobody reads correctly. |
+| `friend_worn_outfits` | view, `security_invoker = false` | `o.worn_at is not null and p.worn_outfits_shared and not p.closet_hidden and o.worn_at > now() - interval '7 days' and is_friend(o.user_id)` |
+| `friend_worn_outfit_items` | view | Joins `outfit_items` to the view above, `where exists (select 1 from friend_items fi where fi.id = oi.item_id)` — **adds no new item exposure**; a piece the owner hid stays hidden inside a shared look. |
+| `daily_social_reactions` | table | `(outfit_id, reactor_id)` primary key, `owner_id` denormalised, `reaction text check (… three values …)`. No count column and no aggregate view. |
 
-No new policy should be needed; that is the test. Any new read path must be
-expressible through the existing views and `is_friend()`. **If a new policy is
-required, the design is reaching for data the unit should not have.** Any policy
-that does land needs a pgTAP test in `supabase/tests/` — the `database` CI job is
-the only thing that observes RLS (`.github/workflows/ci.yml`).
+**Four columns cross, and the omissions are the design:** `id`, `user_id`,
+`name`, `worn_at`. Not `reasoning` (model prose about the owner's day), not
+`context_snapshot` (weather, location, event titles), not `note` (500 characters
+of private diary), not `rating` / `wear_rating` / `favorited_at` (private taste,
+shipped deliberately private), not `saved_at` / `board_id` / `origin_outfit_id`.
+A daily read needs what they wore and when.
+
+`is_friend()` (`20260807100000_social_graph_blocks_borrow.sql:102`) already means
+mutual follows, not blocked, not self, so the block rule is inherited rather than
+restated.
+
+### 5.5 RLS — CORRECTED
+
+New policies **are** required, and the old rule — "if a new policy is required,
+the design is reaching for data the unit should not have" — was a good instinct
+applied to the wrong question. It is right about *reusing* data and wrong about
+*creating* a path. The safeguard is kept in a form that still bites: the new
+path is opt-in, defaults off, expires, and carries the four narrowest columns.
+
+```
+reactor can select   using (auth.uid() = reactor_id)
+owner   can select   using (auth.uid() = owner_id)
+reactor can insert   with check (auth.uid() = reactor_id
+                       and exists (select 1 from friend_worn_outfits f
+                                    where f.id = outfit_id and f.user_id = owner_id))
+reactor can update/delete  using (auth.uid() = reactor_id)
+grant select on friend_worn_outfits, friend_worn_outfit_items to authenticated;  -- never anon
+```
+
+The insert check routes through the view, so **you can only react to something
+you can currently see**. Sharing turned off means no new reactions, with no
+second rule to keep in sync.
+
+"No public aggregation" is enforced by there being nothing to aggregate: no
+count column, no aggregate view, and RLS that shows a reactor only their own
+row and an owner only their own outfits'.
+
+#### The pgTAP matrix — `supabase/tests/18_daily_social.sql`
+
+The `database` CI job is the only thing that observes RLS, and — as
+`17_closet_visibility.sql` proved by failing on its first run — it is also the
+only thing that observes these files at all. Fifteen cases:
+
+| # | Case | Expected |
+|---|---|---|
+| 1 | default account, mutual friend reads | **0 rows** — nothing shared retroactively |
+| 2 | owner opts in | their worn outfits appear to the friend |
+| 3 | non-friend / one-way follow | 0 rows |
+| 4 | blocked either direction | 0 rows |
+| 5 | opted in but `closet_hidden` | 0 rows |
+| 6 | worn 8 days ago | 0 rows — expiry is SQL, not client |
+| 7 | `worn_at is null` | 0 rows |
+| 8 | item hidden from friends | look appears, that piece does not |
+| 9 | friend inserts a reaction | succeeds |
+| 10 | owner turns sharing off, friend inserts | **refused** |
+| 11 | stranger inserts | refused |
+| 12 | third friend selects another's reaction | 0 rows — pair-private |
+| 13 | owner selects reactions to their own outfit | visible |
+| 14 | `anon` selects either view | refused |
+| 15 | reactor updates their own reaction | succeeds, still one row |
+
+Rows are created by `on_auth_user_created`, never inserted into `profiles`
+directly — the trigger already makes them, and inserting again is the
+duplicate-key error that took `17_closet_visibility.sql` two CI runs to learn.
 
 ### 5.6 Analytics — the first social events
 
@@ -217,21 +305,28 @@ existing `snake_case` verb-past convention:
 |---|---|---|
 | `daily_social_opened` | `item_count`, `state` (S-1…S-5) | Is it worth opening? Which state do people actually meet? |
 | `daily_social_completed` | `items_seen`, `reached_end` | Does "finite" work — do people reach the end? |
-| `daily_social_reacted` | `reaction` (one of the three), `surface` | Is the fixed set the right set — and is one of the three dead weight? |
+| `daily_social_reacted` | `reaction` (one of the three) | Is the fixed set the right set — and is one of the three dead weight? |
 | `closet_visibility_changed` | `flag`, `hidden` (bool) | Do owners actually use the §5.1 controls, and which of the four? |
-| `daily_social_empty` | `reason` (`no_friends` / `quiet_day`) | Distinguishes the two very different emptinesses. |
+| `worn_outfits_sharing_changed` | `shared` (bool) | Does anyone opt in? With a default of off, this is the number the unit lives or dies on. |
+| `daily_social_empty` | `reason` (`no_friends` / `nobody_sharing` / `quiet_day`) | Three different emptinesses, and only one of them is a content problem. |
 
-No user ids, no friend ids, no garment ids in properties — consistent with the
-manual-screen-view rule at `src/app/_layout.tsx` ("joined segments are stable
-route identifiers, never params").
+**No user id, friend id, outfit id or item id in any property**, and
+`daily_social_reacted` carries which of the three and nothing about who or what.
+Consistent with the manual-screen-view rule at `src/app/_layout.tsx` ("joined
+segments are stable route identifiers, never params").
+
+**No event fires on viewing a particular friend's look.** That would rebuild a
+record of who looks at whom, which is the thing this unit exists not to be —
+and it would do it in a third-party analytics store, which is worse than doing
+it in the database.
 
 ### 5.7 Tests
 
 | Layer | Where | Must assert |
 |---|---|---|
 | Feed logic | `tests/` node suite | Ordering, finiteness, caught-up boundary, unseen transitions. Pure functions, no renderer — house style. |
-| Privacy | `supabase/tests/*.sql` (pgTAP) | A non-mutual sees nothing; a blocked pair sees nothing in either direction; a hidden stat is absent from the view. |
-| Copy | `tests/` | No em-dash/placeholder violations; the five states each have distinct copy. |
+| Privacy | `supabase/tests/*.sql` (pgTAP) | The fifteen-case matrix in §5.5, `18_daily_social.sql`. A default account shares nothing; a non-mutual and a blocked pair see nothing; an expired look is gone; a reaction is pair-private. |
+| Copy | `tests/` | No em-dash/placeholder violations; the six states each have distinct copy — S-1a, S-1b and S-2 are three different emptinesses and must not share a sentence. |
 | A11y | `tests/` | Reaction targets ≥44pt; every control has an `accessibilityLabel` — the pattern in `tests/event-detail-ax.test.ts`. |
 | Contrast | `tests/contrast.test.ts` | Any new colour pairing passes the frozen census (`src/theme/contrast.ts`). `theme.byline` remains banned as text (2.61:1). |
 
@@ -242,12 +337,23 @@ route identifiers, never params").
 **Privacy.** Mutual-only; read through the privacy views; no new public column;
 no free text (§3.5). The §5.1 toggle is a precondition.
 
-**Deletion.** `delete-account` (v30, ACTIVE) must remove everything this unit
-adds. Because the unit adds no table, this is satisfied by construction — which
-is one reason to add none. Any dismissal rows extend a table already covered.
+**Deletion — covered by construction, though the unit now does add a table.**
+Every foreign key on `daily_social_reactions` is `on delete cascade` to
+`auth.users`, so `delete-account` (v30, ACTIVE), which deletes the auth user,
+takes the reactions with it. `unwear_outfit_tx` deletes the `outfits` row and the
+reactions cascade; deleting a saved plate is the same. **Nothing new for deletion
+to miss, and no sweep to forget to write.**
 
-**Expiry.** The unit is *daily*: content ages out of the day, it is not retained
-as a feed. Precedent windows in this schema are `24 hours`, `7 days`, `14 days`;
+**Revocation is immediate.** `worn_outfits_shared` is read per query, exactly
+like the four §5.1 flags — turn it off and the next read is already correct. Past
+reactions remain readable to their own pair and stop being reachable through the
+feed, because the outfit has left the view.
+
+**Expiry — seven days, in SQL.** `friend_worn_outfits` carries
+`o.worn_at > now() - interval '7 days'`, so a look leaves the friend layer on its
+own and no sweep job is needed. Seven days is an existing precedent in this
+schema rather than a new number. The unit is *daily*: content ages out of the
+day, it is not retained as a feed. Precedent windows in this schema are `24 hours`, `7 days`, `14 days`;
 pick from those rather than inventing one. Expiry must be enforced in SQL, not
 only in the client — the house rule from `unwear_outfit_tx`'s 24-hour refusal
 ("a client-side check is a courtesy; this is the rule").
@@ -275,8 +381,8 @@ first, friend content when it lands, which is the Today architecture.
 
 Acceptance is **Simulator evidence**, not assertion:
 
-1. All **five states** (§4) captured at standard text size.
-2. S-2 and S-3 captured at **AX-XXXL** Dynamic Type, showing no clipped meaning.
+1. All **six states** (§4) plus the DS-07 sharing switch, captured at standard text size.
+2. S-2, S-3 and DS-07 captured at **AX-XXXL** Dynamic Type, showing no clipped meaning.
 3. Light and dark, if the design specifies both.
 4. Reduce Motion on: no animation that conveys information is lost.
 5. A **measured** check for any alignment claim — pixel measurement, as with the
@@ -305,10 +411,11 @@ Acceptance is **Simulator evidence**, not assertion:
 
 | Dimension | Classification | Evidence |
 |---|---|---|
-| Migrations | **None expected.** Only if §5.4 dismissal extension is needed. The §5.1 precondition needs none — the four columns, their grants, their owner RLS and their read-path enforcement all shipped in `20260808110000`. | No new table by design. |
+| Migrations | **One, required.** `worn_outfits_shared`, two views, `daily_social_reactions`, their grants and RLS, plus `supabase/tests/18_daily_social.sql`. §5.4/§5.5. The §5.1 precondition needed none and is already live. | The read path did not exist; it cannot be derived. |
+| Deploy order | **Migration first, then OTA.** The client reads objects that must already exist. | A JS bundle that queries a missing view fails closed, but noisily. |
 | Edge functions | **None.** No AI call, no server compute. | The unit is a read of existing data. |
 | Native | **None.** No new package, no config plugin, no permission. | Keeps runtime `d9cb8c3b…`. |
-| Release | **JS-only → OTA**, reaching builds 37/38. | Verify with `npm run check:fingerprint` and `-- --verify-control` before publishing. |
+| Release | **Client is still JS-only → OTA**, reaching builds 37/38. Verified: no `supabase/` path is a fingerprint input, so a migration does not move the runtime. | Verify with `npm run check:fingerprint` and `-- --verify-control` before publishing. |
 | Gate | `tests/fingerprint-gate.test.ts` fails if any fingerprint input moves. | Adding an npm script or `.gitignore` line **would** move it. |
 
 **If any row above changes, the release classification changes with it** — a new
@@ -330,16 +437,25 @@ decision about timing.
 > friends who do too. Opens this once a day, out of affection rather than
 > obligation, and wants it to end.
 >
-> **Draw these six frames.**
+> **Sharing is opt-in and defaults off.** Nothing anyone has already worn
+> becomes visible to anyone; a person's looks cross only after they turn it on,
+> only to friends they follow back, and only for seven days.
+>
+> **Draw these eight frames.**
 >
 > | # | Frame | Requirement |
 > |---|---|---|
-> | DS-01 | **Nothing yet** — no mutual friends | An invitation, not an error. No stranger suggestions, no "people you may know". |
+> | DS-01a | **No circle** — no mutual friends | An invitation, not an error. No stranger suggestions, no "people you may know". |
+> | DS-01b | **Nobody sharing yet** — mutuals exist, none has turned it on | The state most people meet on day one. Its action is about *you*: go first. Not "invite more people", which is the wrong answer to this problem. |
 > | DS-02 | **Quiet day** — friends, nothing new | The day was quiet; that is a fine outcome. Must not read as broken or as empty-state failure. |
-> | DS-03 | **The day** — 3–5 friends' looks | The substance. Ordered, finite, clearly ending. |
+> | DS-03 | **The day** — 3–5 friends' looks | The substance. Ordered, finite, clearly ending. **A look is the pieces, the outfit's name, and when it was worn — nothing else.** Not the reasoning, not the note, not the weather or occasion, not any rating or favourite, not cost per wear. A piece its owner has hidden from friends does not appear even inside a shared look. |
 > | DS-04 | **Caught up** — the end | Terminal and satisfying. Copy is fixed: *"You're caught up with your circle."* Nothing may suggest more content exists. |
 > | DS-05 | **Offline / couldn't load** | Says *offline*, distinctly from DS-02's *quiet*. Two different sentences. |
+> | DS-07 | **Your own sharing switch** | Off by default, and the room the whole unit depends on. Says plainly what turning it on does: friends you follow back see what you wore for the last seven days — and never the note, the weather, the rating, the occasion, or what it cost. |
 > | DS-06 | **A reaction being given** | **Exactly three** reactions, fixed. Private between the two people. No count, no tally, no text field. Show the resting state and the chosen state. |
+>
+> **Nothing may imply that sharing is on by default**, or that a friend's looks
+> are already waiting. On day one they are not.
 >
 > **Name the three reactions.** This is the one naming decision delegated to the
 > atlas. They must be **short** — one or two words, Cinch's voice: plain,
@@ -361,8 +477,8 @@ decision about timing.
 > - It ends. No infinite scroll, no "load more", no pagination affordance.
 > - Existing type scale, palette and 12px control radius. `byline` may not be
 >   used as text (2.61:1 contrast, banned by the census).
-> - Every state must survive **AX-XXXL Dynamic Type** — draw DS-02 and DS-03 at
->   that size as well, so eight frames total.
+> - Every state must survive **AX-XXXL Dynamic Type** — draw DS-02, DS-03 and
+>   DS-07 at that size as well, so **eleven frames total**.
 >
 > **Deliver** as the usual paired export: `design-refs/html/DS-*.dc.html` plus
 > `design-refs/png/DS-*/` from the same run, so the PNG cannot disagree with the
@@ -370,7 +486,7 @@ decision about timing.
 
 ---
 
-## 11 · Phase 0 status — all three decisions resolved
+## 11 · Phase 0 status — three decisions resolved, one premise corrected
 
 Contract frozen at `86c1b2b`, amended before atlas submission. No code,
 migration, package, service or public surface changed.
@@ -379,11 +495,29 @@ migration, package, service or public surface changed.
 |---|---|---|---|
 | 1 | Visibility controls | **Required precondition, inside this packet**, shipped before any friend-facing surface. Four flags. Read-path enforcement is already immediate; no migration, no RLS change, no new component. | §3.3, §5.1 |
 | 2 | Reactions | **Exactly three**, fixed, private to the pair. No counts, no free text, no negative signal, no public aggregation. The atlas names them, short, in Cinch voice. | §3.4, §5.6, §10 |
+| 4 | Worn-outfit exposure | **New private read path, opt-in, default off, mutual-only, seven days.** No retroactive exposure, no public access, no reuse of learner/like/vote tables. | §3.3, §5.4, §5.5 |
 | 3 | Push | **Stays independent.** `friend_activity` runs unchanged; Daily Social is in-app first, adds no notification category, no permission, no default push behaviour. | §3.7, §10 |
 
-**Build order, now fixed.** §5.1 controls → green → atlas accepted → friend-facing
-surface. The first step does not wait on the atlas; the third does not start
-without it.
+### Amendment, after read-only preparation against `4a95431`
+
+Two sections of this contract were **wrong at the premise** and are corrected
+above rather than quietly patched: §5.4 said "no new table" and §5.5 said "no new
+policy should be needed". Checked against source, there is no data path for a
+friend's worn outfit at all, and no existing table can hold a pair-private
+reaction — `outfit_reactions` is owner-only RLS with a `(-1, 1)` domain that *is*
+the negative signal §3.5 forbids, `closet_likes` is world-readable to `anon`, and
+`event_outfit_votes` is contest semantics.
+
+The approved resolution is the privacy-first one: a new read path that starts
+closed. `worn_outfits_shared` defaults `false`, so no existing wear is exposed
+retroactively; the view is mutual-only via `is_friend()`, carries four columns,
+and expires at seven days in SQL. §5.4, §5.5, §6 and §9 now say so, and §10 gains
+DS-01b and DS-07 because a default of off changes which frames matter.
+
+**Build order, now fixed.** §5.1 controls (**done — live on `4a95431`, OTA
+`01a00d04…`**) → revised atlas accepted → migration → friend-facing surface.
+Implementation of the surface does not begin until the revised PNG/HTML atlas
+lands and is read against this document.
 
 **One interpretation to confirm — cheap to change now, expensive later.**
 "Owner defaults remain private" is implemented as *keep today's defaults*: private
