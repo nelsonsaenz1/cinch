@@ -19,7 +19,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(24);
 
 insert into auth.users (id, email) values
   ('81818181-8181-4181-8181-818181818181', 'ds-recent@example.test'),
@@ -232,6 +232,32 @@ select set_config('request.jwt.claims',
 select is((select count(*)::int from public.friend_worn_outfits
             where name = 'Inside The Window'), 1,
   '21 · an on-to-on write leaves the boundary alone and retracts nothing');
+
+-- ---------------------------------------------------------------------------
+-- 22-24 · The count, which is the only way "nobody shares yet" and "a quiet
+--         day" can be two different screens
+-- ---------------------------------------------------------------------------
+
+select set_config('request.jwt.claims',
+  '{"sub":"83838383-8383-4383-8383-838383838383","role":"authenticated"}', true);
+select is(public.friends_sharing_worn_outfits_count(), 0,
+  '22 · somebody with no mutuals counts nobody');
+
+select set_config('request.jwt.claims',
+  '{"sub":"82828282-8282-4282-8282-828282828282","role":"authenticated"}', true);
+select is(public.friends_sharing_worn_outfits_count(), 2,
+  '23 · both sharing mutuals are counted, even the one with nothing to show');
+
+-- Sharing off is a real transition through the trigger, not a fixture edit.
+select set_config('request.jwt.claims',
+  '{"sub":"84848484-8484-4484-8484-848484848484","role":"authenticated"}', true);
+update public.profiles set worn_outfits_shared_since = null
+ where user_id = '84848484-8484-4484-8484-848484848484';
+
+select set_config('request.jwt.claims',
+  '{"sub":"82828282-8282-4282-8282-828282828282","role":"authenticated"}', true);
+select is(public.friends_sharing_worn_outfits_count(), 1,
+  '24 · turning sharing off drops you out of the count immediately');
 
 select * from finish();
 rollback;

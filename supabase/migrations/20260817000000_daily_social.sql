@@ -182,7 +182,41 @@ create policy "daily_social_reactions: reactor can delete"
   using ((select auth.uid()) = reactor_id);
 
 -- ---------------------------------------------------------------------------
--- 5 · Grants. Explicit, and never to anon — the house rule from
+-- 5 · How many of your mutuals share at all — a number, and only a number
+--
+-- The state map (contract §4) makes "nobody is sharing yet" and "a quiet day"
+-- two DIFFERENT screens with two different actions: the first asks you to go
+-- first, the second says the day was quiet and asks nothing. The client cannot
+-- tell them apart from an empty look list, because empty is what both look
+-- like, and it cannot read anybody else's `worn_outfits_shared_since` —
+-- `profiles` RLS shows the caller their own row and public ones, which is
+-- exactly right and stays that way.
+--
+-- So this returns an integer and nothing else. Not a list, not an id, not a
+-- name, not a timestamp. The one fact it discloses is that SOME mutual has
+-- sharing on, and having it on is a decision that person made in order to be
+-- seen by their mutuals — so the disclosure is the thing they asked for, told
+-- to exactly the audience they asked to tell.
+--
+-- Deliberately NOT a view: a view would be joinable back to `follows` and
+-- would name people. A scalar cannot be decomposed.
+-- ---------------------------------------------------------------------------
+
+create function friends_sharing_worn_outfits_count() returns integer
+language sql stable security definer set search_path = '' as $$
+  select count(*)::integer
+    from public.profiles p
+   where p.worn_outfits_shared_since is not null
+     and not p.closet_hidden
+     and public.is_friend(p.user_id);
+$$;
+
+revoke execute on function friends_sharing_worn_outfits_count()
+  from public, anon, authenticated;
+grant execute on function friends_sharing_worn_outfits_count() to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 6 · Grants. Explicit, and never to anon — the house rule from
 --     20260806100000_explicit_client_grants.sql.
 -- ---------------------------------------------------------------------------
 
