@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { useEffect, useReducer, useRef, useState, type Dispatch } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Pressable, TextInput, useWindowDimensions, View } from 'react-native';
 
 import {
   FieldAlert,
@@ -11,6 +11,7 @@ import {
 } from '@/components/events/occasion-field';
 import { Text } from '@/components/ui/text';
 import { searchPlaces, type Place } from '@/features/context/weather';
+import { fieldValueMaxLines } from '@/features/events/new-layout';
 import {
   searchVenues,
   setVenueSearchProvider,
@@ -31,6 +32,7 @@ import {
 } from '@/features/events/venue-search';
 import { useDebouncedValue } from '@/lib/use-debounced-value';
 import { useTheme } from '@/theme/tokens';
+import { MAX_TEXT_SCALE } from '@/theme/type-scale';
 
 import { VenueSearch } from '../../../modules/venue-search';
 
@@ -168,6 +170,11 @@ export function PlaceField({
           accessibilityLabel={accessibilityLabel}
           autoCorrect={false}
           returnKeyType="search"
+          // The app's ceiling for running text — see the same line in
+          // `occasion-field.tsx`. A raw `TextInput` does not inherit what
+          // `Text` applies, and the two fields must scale together or the
+          // form has two type scales in it.
+          maxFontSizeMultiplier={MAX_TEXT_SCALE}
           className="flex-1 font-body text-body"
           style={{ color: theme.ink, ...INPUT_RESET }}
         />
@@ -200,6 +207,8 @@ function VenuePanel({
   onChoose: (selection: PlaceSelection) => void;
 }) {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const maxLines = fieldValueMaxLines(fontScale);
   const [locationState, setLocationState] = useState<LocationState>('idle');
   /** A ref, not state: a coarse region changes what the NEXT search asks for,
    *  and re-rendering the panel to record it would be noise. */
@@ -272,7 +281,8 @@ function VenuePanel({
   return (
     <>
       <View
-        className="mt-2.5 overflow-hidden rounded-md border border-rule"
+        className="mt-rhythm overflow-hidden rounded-md border border-rule"
+        accessibilityRole="list"
         accessibilityLabel="Place results">
         {rows.map((row, index) =>
           row.kind === 'venue' ? (
@@ -285,14 +295,16 @@ function VenuePanel({
                 row.venue.locality ? `${row.venue.name}, ${row.venue.locality}` : row.venue.name
               }
               onPress={() => onChoose(venueSelection(row.venue))}>
-              {/* Venue name first, short locality second. No image — the
-                  program's rule, and a row with a photo in it stops being a
-                  list of names and starts being a directory. */}
-              <Text variant="body" numberOfLines={1}>
+              {/* Venue name over its short locality. No image — the program's
+                  rule, and a row with a photo in it stops being a list of
+                  names and starts being a directory. The clamp comes off at
+                  the accessibility sizes; see `PlaceRow` for why the two are
+                  stacked rather than sharing a baseline. */}
+              <Text variant="body" numberOfLines={maxLines}>
                 {row.venue.name}
               </Text>
               {row.venue.locality ? (
-                <Text variant="note" className="flex-1" numberOfLines={1}>
+                <Text variant="note" numberOfLines={maxLines}>
                   {row.venue.locality}
                 </Text>
               ) : null}
@@ -300,13 +312,16 @@ function VenuePanel({
           ) : (
             /* Always last of the answers, always present. The escape hatch,
                set in `muted` so it reads as the quieter of the offers without
-               being hidden. */
+               being hidden. It echoes the whole typed string, which is the
+               longest thing this panel ever prints — 598pt of it against a
+               319pt row at the top of the scale — so it is the one row that
+               must never be clamped to a width it cannot have. */
             <PlaceRow
               key="typed"
               divided={offerLocation}
               accessibilityLabel={`Use ${row.text} as typed`}
               onPress={() => onChoose({ kind: 'typed', name: row.text })}>
-              <Text variant="body" numberOfLines={1} style={{ color: theme.muted }}>
+              <Text variant="body" style={{ color: theme.muted }}>
                 {`Use “${row.text}” as typed`}
               </Text>
             </PlaceRow>
@@ -320,7 +335,7 @@ function VenuePanel({
             accessibilityHint="Ranks nearby places using your location. Asks permission first."
             onPress={() => void searchNearMe()}
             disabled={locationState === 'asking'}>
-            <Text variant="body" numberOfLines={1} style={{ color: theme.muted }}>
+            <Text variant="body" style={{ color: theme.muted }}>
               {locationState === 'asking' ? 'Checking…' : 'Search near me'}
             </Text>
           </PlaceRow>
@@ -343,7 +358,7 @@ function VenuePanel({
  *  it changes while a screen reader may be sitting on the field. */
 function QuietLine({ children }: { children: React.ReactNode }) {
   return (
-    <View className="mt-2" accessibilityLiveRegion="polite">
+    <View className="mt-rhythm" accessibilityLiveRegion="polite">
       <Text variant="note">{children}</Text>
     </View>
   );
@@ -370,6 +385,8 @@ function GazetteerPanel({
   onChoose: (selection: PlaceSelection) => void;
 }) {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const maxLines = fieldValueMaxLines(fontScale);
   const [outcome, setOutcome] = useState<{ places: Place[]; failed: boolean } | null>(null);
 
   const query = state.query;
@@ -406,7 +423,8 @@ function GazetteerPanel({
     <>
       {panelOpen ? (
         <View
-          className="mt-2.5 overflow-hidden rounded-md border border-rule"
+          className="mt-rhythm overflow-hidden rounded-md border border-rule"
+          accessibilityRole="list"
           accessibilityLabel="Place results">
           {results.map((place) => (
             <PlaceRow
@@ -430,10 +448,10 @@ function GazetteerPanel({
                   placeId: null,
                 })
               }>
-              <Text variant="body" numberOfLines={1}>
+              <Text variant="body" numberOfLines={maxLines}>
                 {place.name}
               </Text>
-              <Text variant="note" className="flex-1" numberOfLines={1}>
+              <Text variant="note" numberOfLines={maxLines}>
                 {regionOf(place)}
               </Text>
             </PlaceRow>
@@ -442,7 +460,7 @@ function GazetteerPanel({
             divided={false}
             accessibilityLabel={`Use ${query} as typed`}
             onPress={() => onChoose({ kind: 'typed', name: query })}>
-            <Text variant="body" numberOfLines={1} style={{ color: theme.muted }}>
+            <Text variant="body" style={{ color: theme.muted }}>
               {`Use “${query}” as typed`}
             </Text>
           </PlaceRow>
@@ -453,19 +471,52 @@ function GazetteerPanel({
         // No retry button, by design: the next keystroke is the retry, and a
         // button would ask the user to fix the network before finishing a form
         // that does not need the network at all.
-        <FieldAlert>
-          Couldn’t look up places just now. What you typed is kept — the occasion just won’t carry a
-          forecast.
-        </FieldAlert>
+        //
+        // The forecast clause came off the sentence for the same reason: it
+        // explained a consequence nothing on screen was about to show — the
+        // weather line simply does not appear — while the reader's actual
+        // question at that moment is whether their typing survived.
+        <FieldAlert>Couldn’t look up places just now. What you typed is kept.</FieldAlert>
       ) : null}
     </>
   );
 }
 
-/** One row of the results panel — 48pt tall at the spec's padding, so the 44pt
- *  floor is drawn rather than borrowed from hitSlop. `items-baseline` keeps the
- *  locality's baseline on the name's, which is what stops the second line
- *  drifting as Dynamic Type grows. */
+/**
+ * One row of the results panel — 48pt tall at the spec's padding, so the 44pt
+ * floor is drawn rather than borrowed from hitSlop.
+ *
+ * ── WHY THIS IS A COLUMN AND NOT A ROW ─────────────────────────────────────
+ *
+ * It used to be `flex-row items-baseline gap-2`, name and locality sharing one
+ * baseline, and that is the shape the atlas draws. It is also where the New
+ * Event page was cutting text off, at every Dynamic Type size including the
+ * default one.
+ *
+ * React Native defaults `flexShrink` to 0, unlike the web. The name carried no
+ * flex at all, so it reported its full intrinsic width to the row and the row
+ * grew rather than the name wrapping; the locality, on `flex-1` (basis 0), was
+ * squeezed to nothing; and the panel's `overflow-hidden` then cut the overrun
+ * off at the border with no ellipsis to show for it. `numberOfLines={1}` did
+ * nothing, because — in the words of the largest-type walk that found the same
+ * bug on the closet cards — "`numberOfLines={1}` does nothing until something
+ * constrains the width."
+ *
+ * Measured against real Helvetica Neue on the 393pt design width, where the row
+ * has 319pt of text to spend:
+ *
+ *   `The Stanley Hotel & Concert Hall` + `Estes Park`
+ *     at the default size   249.0 + 8 + 62.1 = 319.1pt   — over, by a hair
+ *     at the top of the scale 448.3 + 8 + 111.8 = 568.1pt — over by 249pt
+ *
+ * The fix is not a tighter clamp. `EventCard` settled this exact question when
+ * it stopped clamping venue names — "a one-line clamp on a venue name is
+ * exactly the forced truncation the stress board forbids… the venue is how
+ * somebody finds the room" — so the row stacks the name over its locality,
+ * each on the full measure, and grows downward the way every other list row in
+ * the app does. Nothing is cut at any size, and the panel reads as a list of
+ * places rather than a run-on line.
+ */
 function PlaceRow({
   children,
   onPress,
@@ -489,7 +540,10 @@ function PlaceRow({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      className={`flex-row items-baseline gap-2 px-4 py-3.5 active:opacity-60 ${
+      // Padding untouched at the atlas's `py-3.5 px-4`, so a one-line row is
+      // the 48pt it was drawn as. Only the two-line rows grow, and only by the
+      // locality they were losing.
+      className={`gap-0.5 px-4 py-3.5 active:opacity-60 ${
         divided ? 'border-b border-rule' : ''
       }`}>
       {children}
