@@ -222,6 +222,22 @@ the only bytes that existed nowhere in git. Kept as a branch and **not** merged,
 
 The `goofy-elbakyan` 568-file staged index needed nothing — it is already `main`'s content.
 
+**Precision correction, from an independent verification pass.** Two statements in earlier revisions
+of this file were looser than the evidence:
+
+- *"No worktree is dirty."* Wrong as written. `.claude/worktrees/goofy-elbakyan-d74065` carries
+  **568 staged, tracked** paths (442 `A`, 123 `M`, 3 `D`) — not untracked files. Both facts hold at
+  once and neither cancels the other: the index is dirty **relative to that worktree's own detached
+  HEAD**, and the tree it stages is byte-identical to `752522f`, already in `main`. So there is
+  nothing to recover, and the worktree is nonetheless not clean. Only the primary checkout was ever
+  clean in the plain sense.
+- *"Only four branches remain unmerged, all expected."* Undercounts. `git branch --no-merged main`
+  lists **five**: the four named plus `preserve/agent-ad62-skeleton-error-state`, which is unmerged
+  **by design** — it exists precisely so those bytes live in git without reaching `main`. It should
+  have been named as an expected leftover rather than omitted. Separately,
+  `origin/posthog/instrumentation-5a85ce` and `origin/posthog/instrumentation-gaps` are unmerged on
+  the remote; the 16 August lane recorded their content as already in `main` via `fe4458f`.
+
 ## ⚠️ Concurrency: a Codex session is writing to this checkout
 
 Observed directly, not inferred. `web/api/invite.js`, `web/api/waitlist.js` and `web/index.html`
@@ -267,12 +283,31 @@ is plausibly the Private Circles work that is now in `main` by other commits. It
 "we know what is in production" is currently unsupported, which is the thing a release gate exists
 to protect.
 
-**Not fixed here, deliberately.** The remedy is to publish a fresh `production` update from a known
-`main` commit, and that is an outward-facing action on a live channel that the directive's own
-ground rules and approval checkpoints reserve. It also wants a decision this lane cannot make: the
-current `main` is 15+ commits beyond whatever `eadc262` contained, including this morning's
-timestamp fix, so republishing is a content change to production and not a like-for-like
-re-stamping.
+### RESOLVED — republished from `main` on explicit instruction
+
+Published via `npm run release:ota`, which refuses unless the tree is clean, the branch is `main`,
+`HEAD` equals `origin/main`, the fingerprint matches the recorded build runtime, and every EAS
+production variable matches `eas.json` — then re-reads its own receipt and fails if the published
+runtime is not the build's.
+
+```
+Update   01a0105c-26f8-7993-9134-a5f4207c349e   group e2db7ab9-265b-45a6-9912-4fdf92881860
+Runtime  d9cb8c3b77a5e69d793dcdbd2aec1484f54cb3c6      (= builds 37/38)
+Commit   1aa33fe7e572…        isGitWorkingTreeDirty: false
+```
+
+Provenance is restored, and checked rather than assumed: `1aa33fe` exists, is an ancestor of `main`,
+and is the **exact tip of `origin/main`**. The channel's newest update can now be reproduced from
+this repository, which is the property `eadc262` had destroyed.
+
+This is a content change and not a re-stamping — `main` is well beyond whatever `eadc262` held,
+this morning's timestamp fix (`60f73fb`) included. The orphaned update remains in the channel's
+history as the second-newest group; it is superseded, not deleted.
+
+**Live-review note, recorded because it was a real consideration:** App Store version 1.0 is
+`WAITING_FOR_REVIEW`, and build 38 is the binary under review, so this update changes what a
+reviewer launches. An update was already published to that channel at 07:37 today, so an OTA
+reaching the in-review binary was the existing state rather than something introduced here.
 
 **Android is not a parity gap.** It has never shipped: no Android build profile, no submit config,
 `scripts/release-ota.mjs` hardcodes `--platform ios`, and `fingerprint.json` records `"platform":
