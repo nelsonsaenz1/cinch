@@ -137,7 +137,18 @@ const config: ExpoConfig = {
   name: 'Cinch',
   slug: 'cinch',
   scheme: 'cinch',
-  version: '1.0.0',
+  // 1.1 is the first UPDATE. 1.0 is approved and live on the App Store, which
+  // is why build 39 could not be submitted under 1.0.0 at all — Apple rejects a
+  // second submission of a released CFBundleShortVersionString
+  // (SUBMISSION_SERVICE_IOS_OLD_APP_VERSION). 1.0 stays live and unaffected
+  // while this is in review.
+  //
+  // This line is a fingerprint input, so bumping it moves the runtime version
+  // and the resulting binary is NOT reachable by the updates already published
+  // to the production channel at d9cb8c3b…. A fresh OTA has to be published
+  // against the new runtime after the build, or 1.1 ships with only its
+  // embedded bundle.
+  version: '1.1.0',
   orientation: 'portrait',
   // Light only. Cinch is a print lookbook, and a print object has one
   // appearance — this pins the app to light regardless of the system setting,
