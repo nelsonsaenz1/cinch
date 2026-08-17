@@ -1,0 +1,101 @@
+name: Migration replay
+
+# Manual only. This is audit evidence, not a gate: it answers "does the
+# migration set in this repo still build a database from zero, and what exactly
+# does that database contain?" — a question worth asking before a migration
+# history repair, and not worth asking on every push. ci.yml already replays the
+# same migrations on every PR via `supabase db start` in its `database` job;
+# what this workflow adds is the exported schema artifact, which is only useful
+# when somebody is about to go and compare it to something.
+on:
+  workflow_dispatch:
+
+# NOTHING HERE CAN REACH PRODUCTION.
+#
+# No `secrets` are referenced, so SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD
+# are absent from the environment and every CLI subcommand that could address
+# the linked project fails closed rather than silently picking a target. The
+# only database addressed by name is 127.0.0.1:54322, which is the stack
+# `supabase db start` boots inside this runner. `supabase link` is never run and
+# the project ref is never written down. Read-only-against-production is not
+# something this workflow has to be careful about; it is something it is
+# structurally unable to violate.
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Matches ci.yml's `database` job: v3 rather than v1, which runs on the
+      # deprecated Node 20 action runtime.
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      # THE REPLAY PROOF ITSELF. `db start` creates an empty Postgres and
+      # applies supabase/migrations in filename order, stopping on the first
+      # error. A green step here is the statement "all 93 files apply cleanly
+      # to an empty database, in order, with no manual intervention" — which is
+      # precisely what the production ledger can no longer be used to assert,
+      # since 42 of its rows were stamped with versions the files do not carry.
+      - name: Replay every migration from zero
+        run: supabase db start
+
+      # `db start` succeeding is necessary but not sufficient: it would also
+      # succeed if a file were skipped. Comparing the local ledger's row count
+      # to the file count closes that gap.
+      - name: Every migration file is in the local ledger
+        run: |
+          files=$(ls supabase/migrations/*.sql | wc -l | tr -d ' ')
+          rows=$(psql "$DB_URL" -At --no-psqlrc \
+            -c 'select count(*) from supabase_migrations.schema_migrations')
+          echo "migration files: $files"
+          echo "local ledger rows: $rows"
+          if [ "$files" != "$rows" ]; then
+            echo "::error::replay applied $rows of $files migrations"
+            exit 1
+          fi
+        env:
+          DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      # Row level security is the reason any of this matters, and a schema that
+      # replays but does not enforce is not the schema production is meant to
+      # have. Same command ci.yml runs; cheap here because the stack is already up.
+      - name: RLS and storage policy tests
+        run: supabase test db
+
+      - name: Export normalized schema and fingerprint
+        run: |
+          chmod +x scripts/schema-fingerprint.sh
+          scripts/schema-fingerprint.sh \
+            postgresql://postgres:postgres@127.0.0.1:54322/postgres \
+            "$RUNNER_TEMP/cinch-schema"
+
+      # Put the fingerprint on the run's summary page so the comparison against
+      # the production figures can be made without downloading anything.
+      - name: Fingerprint to job summary
+        run: |
+          {
+            echo '### Replayed local schema fingerprint'
+            echo
+            echo 'commit `${{ github.sha }}`'
+            echo
+            echo '| section | objects | md5 |'
+            echo '|---|---|---|'
+            awk -F'\t' '{printf "| `%s` | %s | `%s` |\n", $1, $2, $3}' \
+              "$RUNNER_TEMP/cinch-schema/schema-fingerprint.tsv"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: replayed-schema
+          path: ${{ runner.temp }}/cinch-schema/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
