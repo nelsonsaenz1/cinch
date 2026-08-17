@@ -554,7 +554,36 @@ export type AppEvent =
   /** `shared`. With a default of off, the number the unit lives or dies on. */
   | 'worn_outfits_sharing_changed'
   /** `reason`: three different emptinesses, one of which is a content problem. */
-  | 'daily_social_empty';
+  | 'daily_social_empty'
+  // ── Private groups (internal programme: Private Circles) ──────────────────
+  //
+  // The Daily Social rule, and one clause stricter. Their properties are built
+  // by pure functions in `features/circles/analytics.ts`, and NO id of any
+  // kind may appear in one — but neither may a COUNT. A feed's `item_count` is
+  // harmless; a group's size is one of the most identifying things about it,
+  // because a group is a small closed set of specific people rather than a
+  // stream. Where the useful measure is a count, it is taken by counting
+  // events: one `circle_invite_sent` per invitation actually written.
+  //
+  // There is deliberately no `circle_opened` and no `circle_roster_viewed`.
+  // Which small rooms a person visits, and how often, is not a thing to
+  // reconstruct inside a third-party store.
+  /** A group was made. No properties at all. */
+  | 'circle_created'
+  /** One invitation was written. No properties — the count is the event count. */
+  | 'circle_invite_sent'
+  /** `reason`: 'group_full' | 'not_mutual'. Blocked and no-longer-mutual are one value. */
+  | 'circle_invite_blocked'
+  /** `answer`: 'accepted' | 'declined'. Never which group, never who asked. */
+  | 'circle_invitation_answered'
+  /** Somebody was asked back — the reversibility path. No properties. */
+  | 'circle_member_reinvited'
+  /** `how`: 'left' | 'removed'. One event, because the pair is only read as a pair. */
+  | 'circle_membership_ended'
+  /** A group was renamed. No before, no after — both are user content. */
+  | 'circle_renamed'
+  /** A group was deleted. No size, no age: how big a room was when it closed identifies it. */
+  | 'circle_deleted';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.
