@@ -1,5 +1,18 @@
 # Migration history audit — 2026-08-12
 
+> **SUPERSEDED IN PART, 17 August 2026.** This file is a dated record and its
+> *measurements* stand. Two of its forward-looking instructions do not:
+>
+> * **Step 0 ("decide the trial") is closed.** The decision is **14 days**, which
+>   is what production has always issued. `20260810150000_trial_is_twenty_one_days`
+>   was an erroneous local migration that never reached production; it was removed
+>   from `supabase/migrations` on 17 August 2026. Do not apply it, do not repair a
+>   ledger row for it, and ignore its entry in Step 2 below.
+> * The counts here (86 local / 84 remote / 45 matched) are from 12 August and have
+>   since moved. The current reconciliation, with per-version dispositions and a
+>   schema comparison, is
+>   `docs/ops/supabase-migration-reconciliation-20260817.md`.
+
 Read-only. Nothing was pushed, repaired, pulled, reset or executed against
 production beyond `SELECT` against the catalogue. This file records what the
 divergence actually is, what it is not, and the exact commands that would
@@ -59,23 +72,25 @@ count reconciles.
 These are the only local files with no remote name match (besides the new one).
 Both were checked against the live catalogue rather than inferred:
 
-### 1. `20260810150000_trial_is_twenty_one_days` — NOT APPLIED
+### 1. `20260810150000_trial_is_twenty_one_days` — NOT APPLIED → **FILE REMOVED, 17 Aug 2026**
 
-Production `handle_new_subscription()` still reads:
+Production `handle_new_subscription()` reads, and correctly reads:
 
 ```
 values (new.id, 'free', now() + interval '14 days')
 ```
 
-The column comment the migration adds is absent (`col_description` → none).
-**Every account created since 2026-08-10 has been given a 14-day trial, not 21.**
+**14 days is the intended behaviour.** As measured on 12 August this file was the
+one local migration whose SQL had never run; on 17 August it was resolved not by
+applying it but by deleting it, because the repo — not production — was the thing
+that was wrong. Every account created since 2026-08-10 has a 14-day trial, which
+is what it should have.
 
-This is not currently a lie on any screen — the app draws no trial duration
-anywhere (correction 06), and the only "14-day" mentions are code comments in
-`src/features/plan/use-packing-access.ts`, which match production. But it is a
-live behavioural difference from repo truth, and it means **`db push` would
-change the trial length for new signups as a side effect** of shipping the
-event lock. That has to be a deliberate decision, not a side effect.
+The app draws no trial duration anywhere (correction 06), and the only "14-day"
+mentions are code comments in `src/features/plan/use-packing-access.ts`, which
+match production and needed no change. With the file gone, `db push` can no
+longer change trial length as a side effect of shipping anything else — the
+hazard this section was written to flag is closed at the source.
 
 The migration's own docblock is explicit that it does **not** backfill: existing
 `trial_ends_at` values are untouched, so applying it changes new signups only.
@@ -201,11 +216,12 @@ a question for Superwall support, not something to fix by writing to the API.
 `supabase/tests/11_event_lock.sql` has never run and the migration has never
 been parsed by a Postgres. **That is the gating precondition.**
 
-### Step 0 — decide the trial
+### Step 0 — decide the trial — **CLOSED, 14 days, 17 August 2026**
 
-`20260810150000` changes new-signup trial length from 14 to 21 days. Decide
-whether that ships. It is a product decision, and it must not ride along
-silently inside a `db push`.
+`20260810150000` would have changed new-signup trial length from 14 to 21 days.
+The decision was taken explicitly: **the trial is 14 days.** Production already
+did exactly that, so nothing was applied and nothing was reversed. The migration
+file was removed from the local chain. There is no step here any more.
 
 ### Step 1 — do NOT repair the history
 
@@ -230,8 +246,8 @@ packet with the full list reviewed, not a step inside a feature ship.
 supabase db test
 ```
 
-Then apply the three outstanding migrations **individually and in order**, so a
-failure names itself. `db push` would apply all three at once and would also
+Then apply the outstanding migrations **individually and in order**, so a
+failure names itself. `db push` would apply them at once and would also
 re-attempt the 38 name-matched files unless they are repaired first — which is
 precisely why it is the wrong instrument here.
 
@@ -239,9 +255,15 @@ Preferred, one file at a time, each verified by read-back before the next:
 
 1. `20260810150100_event_roster_block_filter` — the safety drift, independent
    of everything else.
-2. `20260810150000_trial_is_twenty_one_days` — only if step 0 said yes.
+2. ~~`20260810150000_trial_is_twenty_one_days`~~ — **removed 17 Aug 2026, never
+   apply.** Step 0 answered *no*; the trial is 14 days and production already
+   issues 14. There is no file left to apply.
 3. `20260812120000_close_comments_and_lock_board` — after the idempotency fix
    in finding 1, and it ships with the JS that already asserts its rules.
+
+As of the 17 August reconciliation both surviving items above were found
+**already live in production** without ledger rows, so neither needs an apply
+either — see `docs/ops/supabase-migration-reconciliation-20260817.md`.
 
 ### Step 3 — read back
 

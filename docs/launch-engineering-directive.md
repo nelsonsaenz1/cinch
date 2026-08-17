@@ -140,19 +140,28 @@ roughly 2.4× the MRR. It is a week of work and it costs nothing to run.
 
 ---
 
-## P1-2 · Trial 14 → 21 days
+## P1-2 · Trial 14 → 21 days — **WITHDRAWN, 17 August 2026**
 
-Two places in `supabase/migrations/20260805160000_membership_tiers.sql`:
+**The trial is 14 days. That is the intended product behaviour and it is what
+production has always done.** This item is kept for the record and must not be
+picked up.
 
-- **line 57** — `now() + interval '14 days'` (the backfill)
-- **line 78** — `now() + interval '14 days'` inside the signup trigger ← **this is the
-  one that matters going forward**
+What happened: a migration `20260810150000_trial_is_twenty_one_days` was written
+against the reasoning below, was never applied to production, and was removed
+from `supabase/migrations` on 17 August 2026 when the 14-day decision was taken
+explicitly. Production needed no change — `handle_new_subscription()` writes
+`now() + interval '14 days'` and always has. Nothing was pushed, repaired or
+mutated to reverse this; the file simply left the local chain.
 
-Migrations are append-only — **write a new migration**, don't edit that file.
+The original argument, which no longer governs: trial→paid runs **25.5% at ≤4
+days, 37.4% at 5–9, and 42.5% at 17–32 days**, and twenty-one days sits in the
+top band. That reasoning was not judged to outweigh keeping the shipped
+behaviour. The 14-day comment at line 31 of
+`supabase/migrations/20260805160000_membership_tiers.sql` is **correct as
+written** and needs no update.
 
-Trial→paid runs **25.5% at ≤4 days, 37.4% at 5–9, and 42.5% at 17–32 days.** Twenty-one
-days sits in the top band. The comment at line 31 explaining the 14-day choice should be
-updated in the new migration's header so the reasoning doesn't rot.
+Evidence and full reconciliation:
+`docs/ops/supabase-migration-reconciliation-20260817.md`.
 
 ---
 
@@ -228,7 +237,7 @@ seasonal peg. Type: **App Launch**. Three-week minimum lead — file it this wee
 - [ ] `reveal_complete` fires on both intake paths, after the number
 - [ ] A free user completing a 40-garment walkthrough reaches the ceiling screen with
       **nothing deleted** and a working "keep ten" picker
-- [ ] New signups get 21 days
+- [x] New signups get 14 days (P1-2 withdrawn 17 Aug 2026 — already true in production)
 - [ ] Clean-device run end to end: install → auth → verification email returns to the
       app → intake → Reveal → paywall → value action → next-day return
 - [ ] Build uploaded, DSA trader status set, real subscription review screenshot

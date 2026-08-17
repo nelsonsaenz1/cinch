@@ -37,7 +37,7 @@ jobs:
 
       # THE REPLAY PROOF ITSELF. `db start` creates an empty Postgres and
       # applies supabase/migrations in filename order, stopping on the first
-      # error. A green step here is the statement "all 93 files apply cleanly
+      # error. A green step here is the statement "all 92 files apply cleanly
       # to an empty database, in order, with no manual intervention" — which is
       # precisely what the production ledger can no longer be used to assert,
       # since 42 of its rows were stamped with versions the files do not carry.

@@ -44,7 +44,12 @@ both would have created two competing impression denominators. Same for `auth_st
 which main already fires at the method-chosen beat; keeping the branch's second call
 would have roughly thirded your apparent conversion rate.
 
-**Trial 14 → 21 days.** New migration, signup trigger redefined.
+**Trial stays 14 days.** ~~New migration, signup trigger redefined.~~ Reversed on
+17 August 2026. The 21-day migration (`20260810150000_trial_is_twenty_one_days`)
+was written but never reached production, and the decision was taken to keep 14.
+The file has been removed from `supabase/migrations`; production was not touched,
+because it was already issuing 14-day trials. See
+`docs/ops/supabase-migration-reconciliation-20260817.md`.
 
 **One real Guideline 1.2 gap found and closed.** `blocked_between` was missing from the
 `event_members` select policy — a blocked user showed up as a *nameless person* in the

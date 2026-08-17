@@ -1,30 +1,86 @@
 {
   "generated_for": "gate-3 reconciliation audit",
-  "generated_on": "2026-08-17",
+  "generated_on": "2026-08-17 (revised same day, after the 14-day decision)",
   "project_ref": "dugizuswuebrmcmvinmi",
-  "head": "3a48f59",
-  "mutations_performed": "none - read-only audit",
+  "head": "0a59fc1 for all measurements; corrected in the commit that removes 20260810150000",
+  "mutations_performed": "none - read-only audit. No production write of any kind: no migration repair, no db push, no DDL, no data write.",
   "counts": {
-    "local_files": 93,
+    "local_files": 92,
     "ledger_rows": 91,
     "matched": 49,
-    "local_only": 44,
+    "local_only": 43,
     "remote_only": 42,
-    "divergent_total": 86
+    "divergent_total": 85,
+    "note": "local_files dropped 93 -> 92 and local_only 44 -> 43 with the removal of 20260810150000. ledger_rows, matched and remote_only are unchanged because that version never had a ledger row."
   },
   "dispositions": {
     "renamed_equivalent": 40,
     "name_differs_content_confirmed": 1,
     "duplicate_reapplication": 1,
     "already_live_unrecorded": 2,
-    "genuinely_pending": 1,
+    "genuinely_pending": 0,
     "remote_only_unique": 0,
-    "ambiguous": 0
+    "ambiguous": 0,
+    "removed_erroneous_never_deployed": 1,
+    "note": "removed_erroneous_never_deployed is not part of divergent_total: the file no longer exists, so it is no longer a local-only version. The 85 divergent versions are 42 remote-only + 43 local-only."
   },
   "production_schema_fingerprint": {
-    "method": "scripts/schema-objects.sql wrapped as a hash rollup; see the doc",
-    "total_objects": 2913,
-    "total_md5": "94361af27b8b094f0a458e202ec3e427"
+    "method": "scripts/schema-objects.sql wrapped as a hash rollup by scripts/schema-fingerprint.sh; measured over the Supabase MCP endpoint",
+    "measured_on": "2026-08-17",
+    "sql_revision": "0a59fc1 - the aclexplode/comment-stripping revision. Figures from earlier revisions of that SQL are NOT comparable.",
+    "total_objects": 3025,
+    "total_md5": "c6d5df0ba88239801e1f19d7556395c6",
+    "superseded": {
+      "total_md5": "94361af27b8b094f0a458e202ec3e427",
+      "total_objects": 2913,
+      "why": "measured with the pre-0a59fc1 SQL, which read public.grant_table out of information_schema (783 rows against the 884 the ACLs actually hold) and hashed function bodies without stripping comments. Not comparable to anything produced by the current SQL."
+    },
+    "sections": {
+      "public/table": [
+        "55",
+        "24e13b6fb021c6c5bb9dbb3e69cc546b"
+      ],
+      "public/column": [
+        "510",
+        "07b9c4fb68f65a0d6dfc33d16a196ee0"
+      ],
+      "public/constraint": [
+        "282",
+        "b7c34a83592763717f36d62e3029fe66"
+      ],
+      "public/index": [
+        "159",
+        "9e29d0f95e3d49ac0d976b4e08c95d80"
+      ],
+      "public/policy": [
+        "129",
+        "d1d6c062c7a0faeb9ff761463d1dfa45"
+      ],
+      "public/view": [
+        "13",
+        "d5d1828a84e97f22c894860d73c13e21"
+      ],
+      "public/function": [
+        "102",
+        "ed4a39f12202f2aac6c7f289e1fd6eee"
+      ],
+      "public/trigger": [
+        "58",
+        "016428f6030daea99770ee6c16dfbe98"
+      ],
+      "public/type": [
+        "17",
+        "4cca3f0045ee055a409886d35038491c"
+      ],
+      "public/grant_table": [
+        "884",
+        "1d0aa915e954a2eed5e436be3beec18e"
+      ],
+      "public/grant_routine": [
+        "142",
+        "f7b0b34bfd8a08dec230c5781c5e3880"
+      ]
+    }
   },
   "pairs": [
     {
@@ -379,9 +435,9 @@
     },
     {
       "local_version": "20260810150000",
-      "local_name": "trial_is_twenty_one_days",
-      "disposition": "genuinely_pending",
-      "evidence": "Production handle_new_subscription() writes now() + interval '14 days'. The local file writes '21 days'. NOT LIVE. Requires a controlled production application, never a history repair."
+      "local_name": "trial_is_twenty_one_days (REMOVED)",
+      "disposition": "removed_erroneous_never_deployed",
+      "evidence": "Production handle_new_subscription() writes now() + interval '14 days', which is the INTENDED behaviour as decided on 2026-08-17. The local file wrote '21 days' and was never applied: zero ledger rows carry version 20260810150000. It was an erroneous, never-deployed local migration and was removed from supabase/migrations rather than applied. This version is NOT pending and NOT intended. No production mutation was required or performed. Recoverable at git show 0a59fc1:supabase/migrations/20260810150000_trial_is_twenty_one_days.sql"
     }
   ],
   "matched_but_ledger_row_empty": [
@@ -397,5 +453,64 @@
       "disposition": "ledger_row_without_statements",
       "evidence": "Version matches a local file, but the ledger row carries 0 statements and a NULL created_by. Effects verified live independently: tables circles and circle_members (RLS on), enum types circle_member_role/circle_member_state, 9 circle functions, 4 indexes and 9 triggers all exist."
     }
-  ]
+  ],
+  "trial_decision": {
+    "decided_on": "2026-08-17",
+    "decision": "The trial is 14 days. This is the intended product behaviour.",
+    "decided_by": "explicit user decision",
+    "production_action_required": "none - production already issues 14-day trials and always has",
+    "repo_action_taken": "supabase/migrations/20260810150000_trial_is_twenty_one_days.sql removed from the canonical migration chain",
+    "recoverable_at": "git show 0a59fc1:supabase/migrations/20260810150000_trial_is_twenty_one_days.sql",
+    "production_evidence": "pg_get_functiondef(handle_new_subscription) contains \"14 days\" and does not contain \"21 days\"; supabase_migrations.schema_migrations has zero rows for version 20260810150000, so nothing has to be un-recorded either"
+  },
+  "schema_comparison": {
+    "replay_run": "https://github.com/nelsonsaenz1/cinch/actions/runs/32037294875",
+    "replay_commit": "0a59fc1 - i.e. WITH 20260810150000 still present",
+    "replay_total": [
+      "2902",
+      "b009c0623ce8377ed0b9e577ef95bd9f"
+    ],
+    "production_total": [
+      "3025",
+      "c6d5df0ba88239801e1f19d7556395c6"
+    ],
+    "app_owned_sections_identical": [
+      "public/table",
+      "public/column",
+      "public/constraint",
+      "public/index",
+      "public/policy",
+      "public/view",
+      "public/trigger",
+      "public/type"
+    ],
+    "public/function": {
+      "verdict": "one function differs, and it is exactly the predicted one",
+      "objects_both_sides": 102,
+      "differing": [
+        "handle_new_subscription()"
+      ],
+      "method": "md5 of the same normalized definition text the fingerprint hashes, computed per function on both sides and diffed by key",
+      "expected_after_removal": "identical - removing 20260810150000 leaves the replay building handle_new_subscription() from 20260805160000_membership_tiers.sql, which is the 14-day definition production carries"
+    },
+    "public/grant_table": {
+      "verdict": "UNRESOLVED - production is strictly wider than a clean replay",
+      "production": 884,
+      "replay": 814,
+      "production_only": 70,
+      "replay_only": 0,
+      "detail": "24 table/role pairs differ, every one in the same direction. anon holds SELECT/INSERT/UPDATE/DELETE in production on 13 tables where a clean replay grants none: ai_calls, ai_usage_counters, chat_messages, chat_sessions, command_log, item_inquiries, outfit_calendar, outfit_reactions, style_feedback, style_profiles, tag_corrections, wardrobe_gaps, wishlist_items (52 grants). authenticated holds 18 further grants across 11 tables. 52 + 18 = 70, which closes the count exactly."
+    },
+    "public/grant_routine": {
+      "verdict": "UNRESOLVED - production is strictly wider than a clean replay",
+      "production": 142,
+      "replay": 45,
+      "production_only": 97,
+      "replay_only": 0,
+      "detail": "service_role holds EXECUTE on all 102 public functions in production against 11 in a clean replay (91). anon holds EXECUTE on apply_outfit_reaction, claim_command, current_ai_consent_version, log_outfit_wear and plan_outfit_tx (5), and authenticated on log_outfit_wear (1). 91 + 5 + 1 = 97."
+    },
+    "root_cause_of_the_grant_divergence": "Supabase PROJECT-CREATION default privileges, which granted anon/authenticated/service_role full rights on every object created in public before 20260805213000 ran `alter default privileges in schema public revoke all on tables from anon, authenticated`. The current Supabase CLI image does not set those defaults, so a fresh replay never receives them. This is the same class of drift 20260806100000_explicit_client_grants.sql and 20260806101000_service_role_grants.sql were written to close for the authenticated-table and service_role-table halves; the anon-table and all-routine halves were never written down. Production's pg_default_acl still shows public/postgres functions as `postgres=X/postgres | service_role=X/postgres`, which is why every function carries service_role EXECUTE there and only the 11 explicitly granted ones do in CI.",
+    "risk_assessment": "RLS is enabled on all 13 anon-reachable tables, so a wider GRANT does not by itself expose rows - a policy is still required. The divergence is nonetheless real, app-owned and unwritten-down. The one difference that runs the other way in effect is log_outfit_wear: a database built from this repo would refuse it to authenticated, where production allows it. That function is superseded by wear_outfit_tx and is retained only for old clients.",
+    "resolution_status": "NOT RESOLVED IN GATE 3, BY CONSTRUCTION. Closing it means either revoking in production or writing new migrations that grant in CI - both are production or schema changes outside this gate's read-only remit. Carried forward with exact counts and object lists rather than left implicit."
+  }
 }
