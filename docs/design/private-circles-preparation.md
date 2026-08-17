@@ -250,6 +250,99 @@ directly.
 
 ---
 
+## 6a · The handoff gate — four validations, then the fan-out
+
+Standing instruction, recorded so execution is mechanical rather than improvised.
+Nothing below runs until the atlas arrives.
+
+**Asset capture first, because last time it nearly did not happen.** The Daily
+Social atlas returned **403 to WebFetch** and was only readable through the
+authenticated browser, and `design-refs/html/` is gitignored (`.gitignore:71-72`),
+so no local mirror survived. Capture the supplied source/assets on arrival and
+write the record — URL, frame inventory, the resolved vocabulary, and every
+constraint — to `design-refs/html/PRIVATE-CIRCLES-ATLAS-SOURCE.md` before
+validating anything. A gate run against a document nobody can re-open is not
+evidence.
+
+### Gate 1 — Naming, and it is the one that can stop the packet
+
+Confirm the atlas does **not** overload "circle". The friend graph already owns
+that word on five shipped surfaces (Finding A). Pass requires one of:
+
+- the group takes a distinct in-app noun, and the standing *"your circle"* copy
+  is untouched; **or**
+- the atlas renames the friend-graph copy, in which case the packet grows a copy
+  migration across `explore.tsx`, `plan.tsx`, `contextual-actions.ts`,
+  `screen-header.tsx` and the Daily Social strings, plus the
+  `tests/daily-social-copy.test.ts` and `cx-corrections.test.ts` pins.
+
+**The tension to resolve, not paper over:** the feature is *called* Private
+Circles. A product name and an in-app noun can legitimately differ — but if the
+atlas uses "circle" as the interface word for the group while Explore and Daily
+Social keep using it for mutual friends, that is the overload, and shipping both
+is the failure this gate exists to catch. **Fail the gate and report rather than
+pick a word myself** — vocabulary that appears in shipped copy is a founder
+decision.
+
+### Gate 2 — Privacy and RLS
+
+- Every circle-scoped read **intersects** the owner's existing flags
+  (`closet_hidden`, the three stat flags, `worn_outfits_shared_since`); nothing
+  bypasses them (Finding D).
+- No new public boundary; `profiles.visibility` stays `'private'` by default and
+  nothing writes `is_public`.
+- No `to anon` anywhere; explicit grants only.
+- Membership predicates are `security definer set search_path = ''`, revoked from
+  `public, anon, authenticated`, granted to `authenticated`.
+- Block behaviour matches what the copy promises, exactly (Finding C).
+- No retroactive exposure: if the atlas implies content flows through a circle,
+  it needs a boundary of the `worn_outfits_shared_since` kind, not a boolean.
+
+### Gate 3 — Accessibility and Reduce Motion
+
+- Every state survives **AX-XXXL** with no clipped meaning; no fixed heights
+  where text lives, no `numberOfLines` on meaning-bearing copy.
+- Targets ≥44pt; every control carries an `accessibilityLabel`.
+- **Reduce Motion honoured** — `useReducedMotion()` is the house pattern; no
+  animation that conveys information may be the only carrier of it.
+- Any new colour pairing passes the frozen census (`src/theme/contrast.ts`);
+  `theme.byline` remains banned as text.
+
+### Gate 4 — State coverage
+
+Every state the atlas draws has a resolver branch, distinct copy, and a test —
+and the emptinesses do not share a sentence, the rule
+`tests/daily-social-copy.test.ts` now enforces for Daily Social. Expect at
+minimum: no circles yet; invited-not-yet-accepted; a circle below the liveness
+floor of two; a healthy circle; at the 12-seat cap; removed/left; and offline
+distinguished from empty.
+
+### Then the fan-out — migration and RLS first
+
+Four isolated worktrees off current `main`, one integration owner:
+
+| Worker | Scope | Gate |
+|---|---|---|
+| **A · schema** | migration + RLS + `19_private_circles.sql` (§5) | **Lands first.** Everything else branches from A's commit, because the client cannot be typed against objects that do not exist |
+| **B · client** | data layer: queries, membership mutations, the cap and invite paths | Binds to an interface A fixes |
+| **C · states** | the states and their copy, presentational only | Binds to the same interface; touches no route |
+| **Integration** | cherry-pick A→B→C, wire the route, full gates, Simulator, fingerprint control, push, CI | Owns the only merge |
+
+**Two process corrections from the Daily Social run, both of which cost real
+time and must not repeat:**
+
+1. **Branch the workers from A's *final* commit, not from an early one.** Last
+   run B, C and integration were cut from A's second commit and A's pgTAP fix
+   landed after — so main shipped a pre-fix test and CI failed on a bug already
+   solved. Re-point every worktree after A is green.
+2. **Deploy migration first, then OTA — and publish from a clean `git archive`
+   checkout** with the `eas.json` production profile env applied, verifying with
+   `npm run check:fingerprint -- --verify-control` **before** publishing. A local
+   publish computes the runtime from a working directory carrying a gitignored
+   `ios/` and sends the update to a runtime no installed build has.
+
+---
+
 ## 7 · What Phase 0 must not spend
 
 Two shortcuts would be cheap now and would quietly consume the design space of
