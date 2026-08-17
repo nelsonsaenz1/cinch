@@ -14,9 +14,57 @@ foreclosed.
 
 ---
 
+## 0 · The vocabulary contract — DECIDED, and binding
+
+Finding A is resolved by founder decision. It is recorded here rather than left
+in the open-questions list because everything downstream — schema identifiers,
+copy, analytics, tests — depends on it, and a naming rule that lives only in a
+conversation is a naming rule that drifts.
+
+| Layer | Word | Rule |
+|---|---|---|
+| Programme / packet / branch names | **Private Circles** | Internal label only. Never rendered to a customer. |
+| Every customer-facing string in the new flow | **Group**, **Private group** | Titles, body, buttons, empty states, VoiceOver labels, push copy, help articles. |
+| Existing friend-graph copy | **circle**, unchanged | *"Your circle"*, *"You're caught up with your circle."*, *"Nobody in your circle has worn anything new."* — untouched, on all five surfaces. |
+| Schema, functions, columns, files, analytics events | **`circle`** | Internal, so it follows the internal label. |
+
+**Why the schema keeps `circle` rather than following the customer noun**, which
+is the one part of this that is a judgement rather than a transcription:
+
+- It matches the internal label the decision just fixed, so an engineer reading a
+  migration and a reviewer reading the packet name see the same word.
+- **`group` is a RESERVED word in Postgres** (`pg_get_keywords()`, verified
+  against production: `group` → reserved, `groups` → non-reserved). A `groups`
+  table is legal, but the singular is not: `group_id` is fine while a bare
+  `group` column, alias or CTE breaks unquoted, and it is exactly the identifier
+  a tired hand writes. `circles` / `circle_members` / `is_circle_member` sidestep
+  the whole neighbourhood.
+- It keeps one crisp, testable invariant instead of two fuzzy ones:
+  **identifiers say circle, strings say group.**
+
+### The invariant is testable, and should be tested
+
+Two assertions in the node suite, in the house source-assertion style, which
+together make the contract enforceable rather than aspirational:
+
+1. **No customer-facing string in the new flow contains "circle"** (case
+   insensitive) — scanned over the new copy module and its components, the way
+   `tests/daily-social-copy.test.ts` already scans for the hidden-piece cue.
+2. **The five existing friend-graph strings still say "circle"** — pinned by
+   value, so a well-meaning global rename cannot quietly take them. The Daily
+   Social lines are already pinned in `tests/daily-social-copy.test.ts`; the
+   Explore masthead and `Your circle` link are pinned in
+   `tests/cx-corrections.test.ts`.
+
+Assertion 2 matters as much as assertion 1: the risk after a decision like this
+is not only that the new flow says the old word, but that a sweep renames the old
+flow to the new one.
+
+---
+
 ## 1 · The audit, and the four findings that change the shape
 
-### Finding A — "circle" is already a shipped word, and it means something else
+### Finding A — RESOLVED · "circle" was already a shipped word, and it means something else
 
 `Your circle` is live copy for **your mutual friends**: the standing link at the
 foot of Explore (`src/app/(tabs)/explore.tsx:362`), the row-menu action
@@ -31,11 +79,12 @@ the word "circle", the app says "your circle" to mean two different populations
 on adjacent screens, and the Daily Social copy silently becomes ambiguous the
 day Private Circles lands.
 
-**This is a naming decision for the atlas, and it is load-bearing rather than
-cosmetic.** Either the group takes a different word, or the existing friend-graph
-copy is renamed — which is a copy migration across five shipped surfaces plus the
-`tests/daily-social-copy.test.ts` and `cx-corrections.test.ts` pins. It is much
-cheaper to decide before the atlas fixes the vocabulary than after.
+**Resolved by §0:** the group is a **Group** / **Private group** to customers,
+"Private Circles" survives only as the internal programme label, and the existing
+friend-graph copy is untouched. The alternative — renaming the friend graph —
+was not taken, and its cost is why: a copy migration across five shipped surfaces
+plus the `tests/daily-social-copy.test.ts` and `cx-corrections.test.ts` pins,
+spent to move a word that is already correct where it stands.
 
 ### Finding B — the closest existing construct is `event_members`, not the invite system
 
@@ -232,8 +281,9 @@ directly.
 
 ## 6 · Open questions — for the atlas, not for me
 
-1. **The word.** Finding A. Does the group take a new name, or does the friend
-   graph give "circle" up? This decides shipped copy on five surfaces.
+*(1 · The word — **CLOSED**. Decided in §0: Group / Private group to customers,
+Private Circles internal only, friend-graph copy unchanged. Five remain.)*
+
 2. **Must a member be a mutual friend?** Reusing `is_friend` at invite time
    inherits block semantics for free. But re-checking on *read* would mean an
    unfollow silently ejects someone from a group — a second, invisible exit.
@@ -264,25 +314,23 @@ constraint — to `design-refs/html/PRIVATE-CIRCLES-ATLAS-SOURCE.md` before
 validating anything. A gate run against a document nobody can re-open is not
 evidence.
 
-### Gate 1 — Naming, and it is the one that can stop the packet
+### Gate 1 — Naming, now a conformance check rather than a question
 
-Confirm the atlas does **not** overload "circle". The friend graph already owns
-that word on five shipped surfaces (Finding A). Pass requires one of:
+§0 settled it, so this gate no longer asks anything: it checks the atlas against
+a decided contract.
 
-- the group takes a distinct in-app noun, and the standing *"your circle"* copy
-  is untouched; **or**
-- the atlas renames the friend-graph copy, in which case the packet grows a copy
-  migration across `explore.tsx`, `plan.tsx`, `contextual-actions.ts`,
-  `screen-header.tsx` and the Daily Social strings, plus the
-  `tests/daily-social-copy.test.ts` and `cx-corrections.test.ts` pins.
+- Every customer-facing string in the atlas says **Group** / **Private group**;
+  none says "circle".
+- No frame renames or restyles the existing friend-graph *"your circle"* copy.
+- "Private Circles" appears, if at all, only as a title on the atlas itself —
+  never inside a drawn frame.
 
-**The tension to resolve, not paper over:** the feature is *called* Private
-Circles. A product name and an in-app noun can legitimately differ — but if the
-atlas uses "circle" as the interface word for the group while Explore and Daily
-Social keep using it for mutual friends, that is the overload, and shipping both
-is the failure this gate exists to catch. **Fail the gate and report rather than
-pick a word myself** — vocabulary that appears in shipped copy is a founder
-decision.
+**If the atlas still says "circle" to the customer, the copy is corrected to the
+contract rather than the contract to the atlas**, and the correction is reported
+in the handoff summary. This is a transcription task now, not a decision, so it
+does not stop the packet — the only thing that would stop it is an atlas whose
+*information architecture* depends on the two meanings being the same, which is
+worth reading for and would be a genuine escalation.
 
 ### Gate 2 — Privacy and RLS
 
