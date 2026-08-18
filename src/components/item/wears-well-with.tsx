@@ -6,6 +6,11 @@ import Animated from 'react-native-reanimated';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
+import {
+  NO_PAIRING_COPY,
+  RAIL_HEADING,
+  RAIL_QUALIFIER,
+} from '@/features/item/item-spec';
 import { GUTTER, useTheme } from '@/theme/tokens';
 
 export type RailPiece = {
@@ -51,10 +56,11 @@ const TILE_HEIGHT = 104;
  * itself the signal that there is no number here to report. In `coWear` the
  * caption is per-tile DATA (11× against 4×), which earns its line.
  */
-const HEADERS: Record<WearsWellWithProps['mode'], string> = {
-  coWear: 'Wears well with',
-  harmony: 'Pairs by colour',
-};
+/**
+ * The headings and their qualifiers live in `features/item/item-spec.ts` now —
+ * pure, and therefore assertable by a test that runs them rather than one that
+ * greps this file. The claim a heading makes is policy, not presentation.
+ */
 
 /** The tile's image well — tray ground, hairline ring, 10px radius, per I-01. */
 function Well({ piece }: { piece: RailPiece }) {
@@ -160,15 +166,46 @@ function Tile({
  * container with NO horizontal padding.
  */
 export function WearsWellWith({ pieces, mode, onPressPiece }: WearsWellWithProps) {
-  if (pieces.length === 0) return null;
+  // ── THE NO-DATA STATE IS A STATE, NOT AN ABSENCE — redesign 15 ───────────
+  //
+  // This returned null, so a piece with no co-wear and no colour peers simply
+  // had no section at all. That reads as a screen that failed to finish rather
+  // than as an honest answer, and it teaches nothing: somebody who has worn a
+  // coat alone every time never learns that wearing it WITH something is what
+  // fills the rail.
+  //
+  // What it must never become is filler. The copy says outright that there is
+  // nothing to show that would be true.
+  if (pieces.length === 0) {
+    return (
+      <View className="px-gutter">
+        <SectionHeader title={RAIL_HEADING.coWear} className="px-0" />
+        <Text variant="label" className="mt-2">
+          {NO_PAIRING_COPY.title}
+        </Text>
+        <Text variant="note" className="mt-1.5">
+          {NO_PAIRING_COPY.body}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View>
       <SectionHeader
-        title={HEADERS[mode]}
+        title={RAIL_HEADING[mode]}
         trailing={<Text variant="caption">{`${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'}`}</Text>}
         className="px-gutter"
       />
+      {/* THE QUALIFIER. A heading is easy to skim past, so the claim is made
+          again in prose: co-wear says these were worn together, and colour
+          says explicitly that they were NOT. Without this line "Pairs by
+          colour" could still be read as a record. */}
+      {RAIL_QUALIFIER[mode] ? (
+        <Text variant="note" className="px-gutter">
+          {RAIL_QUALIFIER[mode]}
+        </Text>
+      ) : null}
       {/* ScrollView, not FlatList — the same shape the closet masthead's rails
           use, and a co-wear rail is a handful of tiles rather than a list worth
           virtualising. The 10px lead sits in `contentContainerStyle` with the

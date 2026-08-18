@@ -2,6 +2,7 @@ import { View } from 'react-native';
 import Animated, { FadeIn, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
+import { BAND_CELL_PAD, BAND_RADIUS } from '@/features/item/item-spec';
 import { leading } from '@/theme/font-metrics';
 import { motion } from '@/theme/tokens';
 
@@ -301,8 +302,21 @@ export function ItemStats({
     );
   }
 
+  // ── A DESIGNED BAND, NOT TWO RULES — redesign 15 ──────────────────────────
+  //
+  // It was a row of cells between a top and bottom hairline, which is a
+  // typographic device rather than an object: the three figures read as a
+  // caption strip under the hero instead of as the piece's own record. A
+  // filled band with a radius makes them one thing you can look at, which is
+  // what "stats as a designed band" asks for.
+  //
+  // The AX composition above is untouched. At an accessibility size the same
+  // cells become ruled label-left / figure-right rows, and a filled ground
+  // there would fight the rules that separate them.
   return (
-    <View className="mx-gutter flex-row border-y border-rule py-[14px]">
+    <View
+      className="mx-gutter flex-row bg-tray"
+      style={{ borderRadius: BAND_RADIUS, paddingVertical: BAND_CELL_PAD }}>
       {cells.map((c) => (
         <Cell
           key={c.key}

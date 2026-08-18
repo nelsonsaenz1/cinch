@@ -129,6 +129,10 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     [['Capacity, chips and selection', '/dev-r14-closet']],
   ],
   [
+    'Redesign 15 · Item detail',
+    [['Price, pairings and consequences', '/dev-r15-item']],
+  ],
+  [
     'Group 3 · Closet and Intake',
     [
       ['AC-03', '/dev-w3-g3-ac-03'],

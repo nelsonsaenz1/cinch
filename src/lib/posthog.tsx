@@ -762,7 +762,40 @@ export type AppEvent =
   /** Which of the three walls: room | active_full | total_full. */
   | 'closet_capacity_state'
   /** The plans door was opened. No plan, no price, no ceiling. */
-  | 'closet_plans_door_opened';
+  | 'closet_plans_door_opened'
+
+  // ── Redesign 15 · Item detail ─────────────────────────────────────────────
+  //
+  // Eight additions, all bounded, all built by
+  // `features/item/item-analytics.ts` — a module with no import of this one,
+  // so the node suite can execute every builder and assert the payloads.
+  //
+  // Three forbidden things are worth naming here as well as there. THE PRICE
+  // VALUE is what somebody paid for a coat, which is income data by another
+  // name. A WEAR COUNT is a behavioural fingerprint. And FRIEND IDENTITY is
+  // the reason lending reports a bare boolean: who may borrow a piece is a
+  // fact about two people and only one of them is here.
+
+  /** The visit. Nothing about the piece — not even whether it has a price. */
+  | 'item_detail_viewed'
+  /** WHETHER a price was added. Never the number. */
+  | 'price_added'
+  /** WHETHER lending was turned on. Never for whom, and never to whom. */
+  | 'lending_set'
+  /** Which maintenance door was used: retag | send_back | view_original. */
+  | 'maintenance_action'
+  /** WHETHER the listing photograph was removed. */
+  | 'listing_photo_removed'
+  /** WHETHER storing landed. */
+  | 'item_stored'
+  /** WHETHER deleting landed. */
+  | 'item_deleted'
+  /**
+   * Why something did not land, as a bounded CAUSE — never the server's
+   * message. A raw error string is free text with an unbounded shape, and the
+   * one time it carries a row id nobody notices until it is in a warehouse.
+   */
+  | 'action_failed';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.

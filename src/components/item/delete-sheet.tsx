@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { deleteConsequence, storeConsequence } from '@/features/item/item-spec';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { shadow, useTheme } from '@/theme/tokens';
 
@@ -235,8 +236,19 @@ export function DeleteSheet({
                 variant="label"
                 className="mt-2.5"
                 style={{ fontSize: 14, lineHeight: 21, color: theme.muted }}>
-                Storage keeps the piece and its {wears} wears, hides it from the closet grid and
-                stops it appearing in plans. Deleting removes the photo for good.
+                {/* ── WHAT DELETING ACTUALLY COSTS, NAMED ────────────────
+                    "Deleting removes the photo for good" was true and was the
+                    SMALLEST part of it. What goes is the piece, its
+                    photographs and every wear ever logged against it — and the
+                    wear history is the part nobody expects to lose, because it
+                    is the part they never see a file for.
+
+                    The camera-roll sentence is the other half. Somebody who
+                    photographed a coat in this app reasonably reads "its
+                    photographs are deleted" as covering the picture still in
+                    their library, and hesitates over a destructive action for
+                    a reason that is not real. */}
+                {storeConsequence(wears)} {deleteConsequence(wears)}
               </Text>
             </View>
 
@@ -258,7 +270,7 @@ export function DeleteSheet({
               />
               <OutlinedDestructiveButton
                 title="Delete permanently"
-                hint="Removes the photo for good. This cannot be undone."
+                hint="Removes the piece, its photographs and its wears. This cannot be undone." 
                 loading={busy && pending === 'delete'}
                 disabled={busy}
                 onPress={() => {

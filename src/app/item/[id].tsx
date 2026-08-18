@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -58,6 +58,20 @@ import { useItemBorrowable } from '@/features/social-graph/queries';
 import { pairHarmony, toGarmentColors } from '@/lib/color';
 import { haptics } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
+import {
+  ITEM_EVENTS,
+  actionFailedProps,
+  deletedProps,
+  itemViewedProps,
+  lendingSetProps,
+  listingPhotoRemovedProps,
+  maintenanceProps,
+  priceAddedProps,
+  storedProps,
+  type FailureCause,
+} from '@/features/item/item-analytics';
+import { DELETE_FAILURE_COPY, LENDING_FAILURE } from '@/features/item/item-spec';
+import { track } from '@/lib/posthog';
 import { costPerWear, type Item } from '@/schemas/item';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -157,6 +171,27 @@ function sinceLastWorn(item: Item): string | null {
  *   instead of a signed URL. The screen becomes the manual tagging editor: same
  *   page, chips instead of returned tags.
  */
+/**
+ * A thrown error reduced to one of four bounded causes.
+ *
+ * The server's message NEVER travels. It is free text with an unbounded shape,
+ * and the one time it carries a row id or a storage path nobody notices until
+ * it is already in a warehouse — which on this screen would mean a signed URL
+ * in analytics. So the payload carries a cause and the message stays on the
+ * device, where the reader can see it.
+ */
+function causeOf(error: unknown): FailureCause {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  if (message.includes('not signed in') || message.includes('sign in')) return 'signed_out';
+  if (message.includes('network') || message.includes('fetch') || message.includes('timeout')) {
+    return 'network';
+  }
+  if (message.includes('permission') || message.includes('denied') || message.includes('policy')) {
+    return 'rejected';
+  }
+  return 'unexpected';
+}
+
 export default function ItemDetailScreen() {
   /**
    * `match=1` opens the listing-photo flow on arrival.
@@ -214,6 +249,16 @@ export default function ItemDetailScreen() {
    * different header with no per-tile count, because "worn together" said about
    * a pairing that has never been worn would be a lie the rail tells silently.
    */
+  // The visit. Nothing about the piece travels with it — not its id, not its
+  // name, not whether it has a price. Once per mount, because opening the same
+  // garment tomorrow is a second visit.
+  const viewed = useRef(false);
+  useEffect(() => {
+    if (viewed.current) return;
+    viewed.current = true;
+    track(ITEM_EVENTS.viewed, itemViewedProps());
+  }, []);
+
   const coWorn = coWear.data ?? [];
   const railSource: { piece: Item; count?: number }[] = coWorn.length
     ? coWorn.flatMap((c) => {
@@ -434,6 +479,7 @@ export default function ItemDetailScreen() {
 
   const startRetag = () => {
     setMaintenanceError(null);
+    track(ITEM_EVENTS.maintenance, maintenanceProps('retag'));
     retag.mutate(
       { item },
       {
@@ -454,6 +500,7 @@ export default function ItemDetailScreen() {
    */
   const startSendBack = () => {
     setMaintenanceError(null);
+    track(ITEM_EVENTS.maintenance, maintenanceProps('send_back'));
     sendBack.mutate(
       { item },
       {
@@ -492,7 +539,13 @@ export default function ItemDetailScreen() {
         qc.invalidateQueries({ queryKey: ['closet'] }),
         qc.invalidateQueries({ queryKey: ['item-listing', item.id] }),
       ]);
-    } catch {
+      // WHETHER it was removed. The owner's photograph comes back underneath
+      // because it was signed alongside the listing all along, so this is
+      // reversible by searching again — and nothing about either image travels.
+      track(ITEM_EVENTS.listingPhotoRemoved, listingPhotoRemovedProps(true));
+    } catch (error) {
+      track(ITEM_EVENTS.listingPhotoRemoved, listingPhotoRemovedProps(false));
+      track(ITEM_EVENTS.actionFailed, actionFailedProps(causeOf(error)));
       // The server's own text is never shown: it can quote the request back.
       setMaintenanceError(
  'Cinch couldn’t remove the listing photo. Your own photograph is untouched.',
@@ -512,16 +565,20 @@ export default function ItemDetailScreen() {
       { ids: [item.id] },
       {
         onSuccess: () => {
+          track(ITEM_EVENTS.stored, storedProps(true));
           setConfirmingDelete(false);
           router.back();
         },
-        onError: (err) =>
+        onError: (err) => {
+          track(ITEM_EVENTS.stored, storedProps(false));
+          track(ITEM_EVENTS.actionFailed, actionFailedProps(causeOf(err)));
           Alert.alert(
- 'Could not move this piece to storage',
+            'Could not move this piece to storage',
             err instanceof Error
               ? err.message
               : 'Something went wrong. The piece is still in your closet.',
-          ),
+          );
+        },
       },
     );
   };
@@ -537,16 +594,26 @@ export default function ItemDetailScreen() {
       { ids: [item.id] },
       {
         onSuccess: () => {
+          track(ITEM_EVENTS.deleted, deletedProps(true));
           setConfirmingDelete(false);
           router.back();
         },
-        onError: (err) =>
-          Alert.alert(
- 'Could not remove this piece',
-            err instanceof Error
-              ? err.message
-              : 'Something went wrong. The piece is still in your closet.',
-          ),
+        onError: (err) => {
+          track(ITEM_EVENTS.deleted, deletedProps(false));
+          track(ITEM_EVENTS.actionFailed, actionFailedProps(causeOf(err)));
+          // NOTHING WAS PARTLY REMOVED, and the copy says so.
+          //
+          // `useRemoveItems` treats a storage-bucket failure as fatal BEFORE
+          // it touches a row — reporting success while the photographs are
+          // still in the bucket is the one thing it refuses — so there is
+          // genuinely no partial state to describe. Saying that outright is
+          // the difference between a reader retrying and a reader wondering
+          // what is half-gone.
+          Alert.alert(DELETE_FAILURE_COPY.title, DELETE_FAILURE_COPY.body, [
+            { text: DELETE_FAILURE_COPY.retry },
+            { text: DELETE_FAILURE_COPY.dismiss, style: 'cancel' },
+          ]);
+        },
       },
     );
   };
@@ -586,9 +653,19 @@ export default function ItemDetailScreen() {
           if (item.purchasePrice === null && price !== null) {
             haptics.selection();
           }
+          // WHETHER a price now exists, never the number. What somebody paid
+          // for a coat is income data by another name.
+          track(ITEM_EVENTS.priceAdded, priceAddedProps(price !== null));
           setEditing(false);
         },
-        onError: () => setSaveFailed(true),
+        onError: (err) => {
+          track(ITEM_EVENTS.actionFailed, actionFailedProps(causeOf(err)));
+          // THE TYPED WORK SURVIVES. `saveFailed` shows the refusal and the
+          // sheet stays open on the draft the reader entered — a failed save
+          // that also discarded the fields would charge them for the app's
+          // error.
+          setSaveFailed(true);
+        },
       },
     );
   };
@@ -1034,13 +1111,25 @@ export default function ItemDetailScreen() {
             setBorrowable.mutate(
               { id: item.id, borrowable: next },
               {
-                onError: (err) =>
-                  Alert.alert(
- 'Could not update lending',
-                    err instanceof Error
-                      ? err.message
-                      : 'Something went wrong. The setting has not changed.',
-                  ),
+                onSuccess: () => {
+                  // WHETHER lending is on. Never for which piece, and never
+                  // for whom — who may borrow a thing is a fact about two
+                  // people and only one of them is here.
+                  track(ITEM_EVENTS.lendingSet, lendingSetProps(next));
+                },
+                onError: () => {
+                  track(ITEM_EVENTS.actionFailed, actionFailedProps('unexpected'));
+                  // ALWAYS ABOUT THE WRITE, NEVER ABOUT A PERSON. The server's
+                  // own message is deliberately NOT shown here, unlike the
+                  // other failures on this screen: a lending refusal is the one
+                  // place a backend string could name a block, a mute or an
+                  // account state, and that would answer a question the asker
+                  // did not ask and is not entitled to.
+                  //
+                  // The switch is unchanged either way — it renders the
+                  // server's value and never leads the write.
+                  Alert.alert('Could not update lending', LENDING_FAILURE);
+                },
               },
             )
           }
