@@ -178,13 +178,27 @@ test('restore keeps all three of its endings, and each keeps its recovery', () =
   assert.ok(SETTINGS.includes('NoticeBand') && SETTINGS.includes('Toast'));
 });
 
-test('the membership page keeps the alerts it did not ask to lose', () => {
-  // `/membership` is not this program's surface. The hook reports instead of
-  // interrupting only when a caller opts in, so the page that passes nothing
-  // behaves exactly as it shipped.
+test('both restore surfaces now report rather than interrupt', () => {
+  // UPDATED BY REDESIGN 30. This pin used to read "the membership page keeps
+  // the alerts it did not ask to lose", and the argument in its own comment was
+  // that `/membership` was not redesign 29's surface — the option existed, and
+  // moving a second page's classification without a brief for that page would
+  // have been the change nobody reviewed.
+  //
+  // Redesign 30 IS that brief. Its frames draw all three restore endings on the
+  // membership page itself — restored, none found, failed — with the row that
+  // caused them still on screen and still pressable underneath. So the page
+  // opts in, and what the pin protects is no longer "one caller opts in" but
+  // the mechanism: the hook reports when asked and still alerts when not, so a
+  // third caller added later inherits the safe default rather than silence.
   assert.match(RESTORE_HOOK, /if \(onOutcome\) onOutcome\('restored'\)/);
   assert.ok(RESTORE_HOOK.includes('Alert.alert'), 'the un-opted-in path still alerts');
-  const membership = readFileSync('src/app/membership.tsx', 'utf8');
-  assert.match(membership, /useRestorePurchases\(\)/, 'membership opts out by passing nothing');
   assert.match(SETTINGS, /useRestorePurchases\(\{ onOutcome: setRestoreOutcome \}\)/);
+
+  const membership = readFileSync('src/app/membership.tsx', 'utf8');
+  assert.match(membership, /useRestorePurchases\(\{ onOutcome \}\)/, 'membership opts in');
+  // And it draws all three, rather than opting in and then dropping one.
+  for (const ending of ['restoreRestored', 'RESTORE_NONE', 'RESTORE_FAILED']) {
+    assert.ok(membership.includes(ending), `membership drops the ${ending} ending`);
+  }
 });

@@ -601,6 +601,36 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    // Redesign 30. The two APP-OWNED membership surfaces only — paywall 254200
+    // is a Superwall document and is redesigned in the Superwall editor, so
+    // there is no frame for it here and there could not be one: nothing in this
+    // repository renders it.
+    'Membership — manage and upgrade — redesign 30',
+    [
+      ['MM-01 · confirmed Standard (also AX)', '/dev-mm-01-standard'],
+      ['MM-02 · Pro, no upgrade row', '/dev-mm-02-pro'],
+      ['MM-03 · trialing, the server’s own date', '/dev-mm-03-trialing'],
+      ['MM-04 · the read in flight', '/dev-mm-04-reading'],
+      ['MM-05 · the read failed', '/dev-mm-05-unconfirmed'],
+      ['MM-06 · confirmed free, deep-link refusal', '/dev-mm-06-free-refusal'],
+      ['MM-07 · counts still loading', '/dev-mm-07-counts-loading'],
+      ['MM-08 · two active slots left', '/dev-mm-08-active-near-limit'],
+      ['MM-09 · three stored slots left', '/dev-mm-09-stored-near-limit'],
+      ['MM-10 · period end not read', '/dev-mm-10-period-end-unknown'],
+      ['MM-11 · restore offered', '/dev-mm-11-restore-available'],
+      ['MM-12 · restore in flight', '/dev-mm-12-restore-pending'],
+      ['MM-13 · restored', '/dev-mm-13-restore-restored'],
+      ['MM-14 · nothing to restore', '/dev-mm-14-restore-none'],
+      ['MM-15 · restore failed', '/dev-mm-15-restore-failed'],
+      ['MM-16 · restore not configured', '/dev-mm-16-restore-unavailable'],
+      ['MM-17 · the upgrade page', '/dev-mm-17-upgrade'],
+      ['MM-18 · opening the paywall', '/dev-mm-18-upgrade-opening'],
+      ['MM-19 · paywall declined', '/dev-mm-19-upgrade-declined'],
+      ['MM-20 · paywall unavailable', '/dev-mm-20-upgrade-unavailable'],
+      ['MM-21 · upgrade deep-link refusal', '/dev-mm-21-upgrade-refusal'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],
