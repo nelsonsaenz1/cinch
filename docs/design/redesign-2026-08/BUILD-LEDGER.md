@@ -42,6 +42,7 @@ accepted bundle.
 | 19-auth-run | §3 · 19 Email + code + name | design-refs/redesign-2026-08/19-auth-run/ | 1 HTML + 21 PNG | 2026-08-18 | not built |
 | 20-tour | §3 · 20 Tour | design-refs/redesign-2026-08/20-tour/ | 1 HTML + 10 PNG | 2026-08-18 | not built |
 | 21-the-ten | §3 · 21 The Ten | design-refs/redesign-2026-08/21-the-ten/ | 1 HTML + 19 PNG | 2026-08-18 | not built |
+| 22-capture | §3 · 22 Capture | design-refs/redesign-2026-08/22-capture/ | 1 HTML + 22 PNG | 2026-08-18 | not built |
 
-Pages 10–16 have no accepted artifact in the repository yet, so 17–21
+Pages 10–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
