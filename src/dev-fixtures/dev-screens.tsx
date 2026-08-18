@@ -349,6 +349,19 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Friends — the circle — redesign 08',
+    [
+      ['FL-01 · requests, presence, footer', '/dev-fl-01-default'],
+      ['FL-02 · resting, no band', '/dev-fl-02-resting'],
+      ['FL-03 · nobody here yet', '/dev-fl-03-empty'],
+      ['FL-10 · presence gone, silently', '/dev-fl-10-presence-revoked'],
+      ['FL-14 · opening', '/dev-fl-14-loading'],
+      ['FL-16 · the circle didn’t load', '/dev-fl-16-friends-failed'],
+      ['FL-17 · offline, facts withheld', '/dev-fl-17-offline'],
+      ['FL-26 · largest accessibility text', '/dev-fl-26-ax'],
+    ],
+  ],
+  [
     'Profile — your own room — redesign 07',
     [
       ['PF-01 · standard plan', '/dev-pf-01-default'],

@@ -88,6 +88,12 @@ function pageProps(overrides: Partial<FriendsPageProps>): FriendsPageProps {
   return {
     query: '',
     onQueryChange: noop,
+    onBack: noop,
+    searchOpen: false,
+    onSearchOpen: noop,
+    presence: new Map(),
+    presenceWithheld: false,
+    large: false,
     searching: false,
     searchLoading: false,
     searchError: false,

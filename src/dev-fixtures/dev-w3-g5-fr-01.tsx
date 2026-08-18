@@ -81,6 +81,12 @@ export default function DevW3G5FR01() {
         onInvite={() => undefined}
         refreshing={false}
         onRefresh={() => undefined}
+        onBack={() => undefined}
+        searchOpen={false}
+        onSearchOpen={() => undefined}
+        presence={new Map()}
+        presenceWithheld={false}
+        large={false}
       />
     </View>
   );

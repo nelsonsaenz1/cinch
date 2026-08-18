@@ -7,7 +7,19 @@ import {
   personLine,
   setAsideDetail,
   setAsideLine,
+  ADD,
+  ADDING,
+  WANTS_TO_BE_FRIENDS,
+  WITHDRAW,
+  WORN_TODAY,
+  worePieceLine,
 } from '@/components/social/friends-lines';
+import { GarmentImage } from '@/components/media/garment-image';
+import { useSignedUrls } from '@/features/closet/use-image-urls';
+import type {
+  PresenceFact,
+  PresencePiece,
+} from '@/features/social-graph/friends-presence';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -105,6 +117,26 @@ export const FRIEND_ROW_HEIGHT = 68;
 /** 44pt, the atlas's — and the tap target's — number, in one place. */
 const AVATAR = 44;
 
+// ---------------------------------------------------------------------------
+// Redesign 08 — the card
+// ---------------------------------------------------------------------------
+
+/** The accepted frame's card: 18pt corner, 78pt tall, 52pt face. */
+export const CARD_RADIUS = 18;
+export const FRIEND_CARD_HEIGHT = 78;
+export const FRIEND_CARD_AVATAR = 52;
+
+/** The garment well beside the name: 50×54 at a 12pt corner. */
+export const PRESENCE_WELL_W = 50;
+export const PRESENCE_WELL_H = 54;
+export const PRESENCE_WELL_RADIUS = 12;
+
+/** The mark before "Worn today". A drawing, never a badge and never a count. */
+export const WORN_DOT = 7;
+
+/** Every control grows to 56pt at the accessibility sizes. */
+export const AX_CONTROL_HEIGHT = 56;
+
 /**
  * Identity block: 44pt disc, the name, one quiet line under it.
  *
@@ -170,18 +202,23 @@ function QuietTextButton({
   onPress,
   accessibilityLabel,
   tone,
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
   accessibilityLabel?: string;
   /** `accent` for the one reversal (Undo); ink everywhere else. */
   tone?: 'accent';
+  /** In flight — the control stays visible and stops accepting a second tap. */
+  disabled?: boolean;
 }) {
   const theme = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       hitSlop={8}
       style={{ minHeight: MIN_TAP_TARGET, flexGrow: 0, flexShrink: 0 }}
@@ -236,6 +273,8 @@ export type RequestRowProps = {
   onUndo: () => void;
   /** `failed` only. */
   onRetry: () => void;
+  /** Dynamic Type past the threshold: the row stacks instead of shrinking. */
+  large?: boolean;
 };
 
 export function RequestRow({
@@ -246,6 +285,7 @@ export function RequestRow({
   onNotNow,
   onUndo,
   onRetry,
+  large = false,
 }: RequestRowProps) {
   const theme = useTheme();
   const name = profileName(profile);
@@ -281,7 +321,7 @@ export function RequestRow({
     );
   }
 
-  const quiet = personLine(profile);
+  const quiet = WANTS_TO_BE_FRIENDS;
   // How long it has waited is real (`follows.created_at`) and useful, but it is
   // not one of the four things audit 89 lets the row PRINT. It survives as
   // speech on the action, where it answers "how old is this?" without adding a
@@ -294,7 +334,7 @@ export function RequestRow({
         className="flex-row items-center gap-3 px-4"
         style={{ minHeight: FRIEND_ROW_HEIGHT }}>
         <Identity profile={profile} subtitle={quiet} />
-        <PendingLabel>Accepting…</PendingLabel>
+        <PendingLabel>{ADDING}</PendingLabel>
       </View>
     );
   }
@@ -335,26 +375,40 @@ export function RequestRow({
   // this row any more: audit 89 leaves the quiet line to handle and bio.
   return (
     <View
-      className="flex-row items-center gap-2 px-4"
-      style={{ minHeight: FRIEND_ROW_HEIGHT }}>
+      className={large ? '' : 'flex-row items-center gap-2'}
+      style={{ minHeight: large ? undefined : FRIEND_ROW_HEIGHT, gap: large ? 12 : undefined }}>
+      {/* "Wants to be friends", not the handle: this row is about a decision,
+          and the handle is identity the reader does not need to make it. */}
       <Identity profile={profile} subtitle={quiet} />
-      <View style={{ flexGrow: 0, flexShrink: 0 }}>
+      {/* At the largest sizes the two controls leave the line entirely and
+          stack full width at 56pt. Side by side they squeeze the name column to
+          nothing — composition changes, and height is allowed. */}
+      <View
+        className={large ? '' : 'flex-row items-center gap-2'}
+        style={{ flexGrow: 0, flexShrink: 0, gap: large ? 8 : undefined }}>
         <Button
-          title="Accept"
-          variant="ink"
+          title={ADD}
+          variant="primary"
           onPress={onAccept}
-          accessibilityLabel={
-            since
-              ? `Accept ${name}’s friend request, asked ${since}`
-              : `Accept ${name}’s friend request`
-          }
+          className={large ? 'w-full min-h-[56px]' : undefined}
+          accessibilityLabel={since ? `Add ${name}, asked ${since}` : `Add ${name}`}
         />
+        {large ? (
+          <Button
+            title={NOT_NOW}
+            variant="secondary"
+            onPress={onNotNow}
+            className="w-full min-h-[56px]"
+            accessibilityLabel={`Not now — set aside ${name}’s request. Nothing is sent.`}
+          />
+        ) : (
+          <QuietTextButton
+            label={NOT_NOW}
+            onPress={onNotNow}
+            accessibilityLabel={`Not now — set aside ${name}’s request. Nothing is sent.`}
+          />
+        )}
       </View>
-      <QuietTextButton
-        label={NOT_NOW}
-        onPress={onNotNow}
-        accessibilityLabel={`Not now — set aside ${name}’s request. Nothing is sent.`}
-      />
     </View>
   );
 }
@@ -367,6 +421,18 @@ export type FriendRowProps = {
   profile: SocialProfile;
   onPress: () => void;
   onOverflow: () => void;
+  /**
+   * The one authorized fact, or nothing.
+   *
+   * `null`/absent is the ONLY way a missing fact is expressed, and it draws no
+   * element at all — no dash, no dimmed well, no "nothing shared". A friend who
+   * revoked sharing, whose look aged out of the seven-day window, who hid the
+   * piece, or who never wore anything all arrive here identically, and the card
+   * must not let a reader tell them apart. See `friends-presence.ts`.
+   */
+  presence?: PresenceFact | null;
+  /** Dynamic Type has passed the threshold: the card stacks instead of shrinking. */
+  large?: boolean;
 };
 
 /**
@@ -375,18 +441,86 @@ export type FriendRowProps = {
  * actions, and they stay on the row as their own 44pt target rather than
  * collapsing into a sheet that lists everyone.
  */
-export function FriendRow({ profile, onPress, onOverflow }: FriendRowProps) {
+export function FriendRow({
+  profile,
+  onPress,
+  onOverflow,
+  presence,
+  large = false,
+}: FriendRowProps) {
   const theme = useTheme();
   const name = profileName(profile);
 
+  // ONE element to VoiceOver, and its label is the card's whole sentence.
+  // "Priya Raman, wore the wool coat, opens profile" — and when there is no
+  // fact, simply "Priya Raman, opens profile". A reader hears no gap where a
+  // fact would have been, which is the same promise the eye gets.
+  const spoken = presence
+    ? presence.kind === 'piece'
+      ? `${name}, ${worePieceLine(presence.label).toLowerCase()}`
+      : `${name}, ${WORN_TODAY.toLowerCase()}`
+    : name;
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${name} — view closet`}
-      onPress={onPress}
-      style={{ minHeight: FRIEND_ROW_HEIGHT }}
-      className="flex-row items-center px-4 active:opacity-60">
-      <Identity profile={profile} subtitle={personLine(profile)} />
+    <View
+      className="flex-row items-center bg-tray"
+      style={{
+        borderRadius: CARD_RADIUS,
+        minHeight: large ? undefined : FRIEND_CARD_HEIGHT,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        gap: 13,
+      }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={spoken}
+        accessibilityHint="Opens their profile"
+        onPress={onPress}
+        style={{ flex: 1, minWidth: 0 }}
+        className="active:opacity-60">
+        {large ? (
+          <View style={{ gap: 12 }}>
+            <View className="flex-row items-center" style={{ gap: 12 }}>
+              <Avatar name={name} size={FRIEND_CARD_AVATAR} imageUri={profile.avatarUrl} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text variant="body">{name}</Text>
+              </View>
+            </View>
+            {presence ? <PresenceBlock presence={presence} large /> : null}
+          </View>
+        ) : (
+          <View className="flex-row items-center" style={{ gap: 13 }}>
+            <Avatar name={name} size={FRIEND_CARD_AVATAR} imageUri={profile.avatarUrl} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text variant="body" numberOfLines={2}>
+                {name}
+              </Text>
+              {presence?.kind === 'piece' ? (
+                <Text variant="note" numberOfLines={1} className="mt-0.5">
+                  {worePieceLine(presence.label)}
+                </Text>
+              ) : null}
+              {presence?.kind === 'worn_today' ? (
+                <View className="flex-row items-center mt-0.5" style={{ gap: 6 }}>
+                  <View
+                    style={{
+                      width: WORN_DOT,
+                      height: WORN_DOT,
+                      borderRadius: WORN_DOT / 2,
+                      backgroundColor: theme.accent,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Text variant="note" style={{ color: theme.accent }}>
+                    {WORN_TODAY}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            {presence?.kind === 'piece' ? <PresenceWell presence={presence} /> : null}
+          </View>
+        )}
+      </Pressable>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`More about ${name}`}
@@ -394,11 +528,82 @@ export function FriendRow({ profile, onPress, onOverflow }: FriendRowProps) {
         hitSlop={10}
         // 44pt of its own — a destructive menu must never be a graze off the
         // navigation tap beside it.
-        style={{ minWidth: MIN_TAP_TARGET, minHeight: MIN_TAP_TARGET }}
+        style={{ minWidth: MIN_TAP_TARGET, minHeight: MIN_TAP_TARGET, flexShrink: 0 }}
         className="items-end justify-center active:opacity-60">
         <OverflowDots color={theme.byline} />
       </Pressable>
-    </Pressable>
+    </View>
+  );
+}
+
+/**
+ * The garment well beside a name.
+ *
+ * `contentFit="contain"` and the sand ground, the same treatment every other
+ * borrowed garment gets in this app: the image is an already-authorized
+ * derivative (thumb, cutout or plate — never an original and never a public
+ * URL), and a failed load degrades to the ground with the fact's text intact
+ * rather than to a broken box.
+ *
+ * Marked decorative. The card's own label already speaks the fact, and a
+ * second announcement of the same garment is a stutter.
+ */
+function PresenceWell({ presence }: { presence: PresencePiece }) {
+  const { resolve } = useSignedUrls([
+    presence.thumbPath,
+    presence.cutoutPath,
+    presence.platePath,
+  ]);
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      className="bg-sand"
+      style={{
+        width: PRESENCE_WELL_W,
+        height: PRESENCE_WELL_H,
+        borderRadius: PRESENCE_WELL_RADIUS,
+        overflow: 'hidden',
+        flexShrink: 0,
+      }}>
+      <GarmentImage
+        uri={resolve(presence.thumbPath, presence.cutoutPath, presence.platePath)}
+        contentFit="contain"
+        style={{ flex: 1, minWidth: 0 }}
+        fallback={<View className="flex-1 bg-sand" style={{ minWidth: 0 }} />}
+      />
+    </View>
+  );
+}
+
+/** At the largest sizes the fact drops under the name and takes its own row. */
+function PresenceBlock({ presence, large }: { presence: PresenceFact; large: boolean }) {
+  const theme = useTheme();
+  if (presence.kind === 'worn_today') {
+    return (
+      <View className="flex-row items-center" style={{ gap: 8 }}>
+        <View
+          style={{
+            width: WORN_DOT,
+            height: WORN_DOT,
+            borderRadius: WORN_DOT / 2,
+            backgroundColor: theme.accent,
+            flexShrink: 0,
+          }}
+        />
+        <Text variant="body" style={{ color: theme.accent }}>
+          {WORN_TODAY}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View className="flex-row items-center" style={{ gap: 12 }}>
+      <PresenceWell presence={presence} />
+      <Text variant={large ? 'body' : 'note'} style={{ flex: 1, minWidth: 0 }}>
+        {worePieceLine(presence.label)}
+      </Text>
+    </View>
   );
 }
 
@@ -407,14 +612,41 @@ export function FriendRow({ profile, onPress, onOverflow }: FriendRowProps) {
 // ---------------------------------------------------------------------------
 
 /** A request still out in the world. Nothing to do but wait, so it says so. */
-export function SentRow({ profile }: { profile: SocialProfile }) {
+export function SentRow({
+  profile,
+  onWithdraw,
+  withdrawing = false,
+}: {
+  profile: SocialProfile;
+  /** Withdrawing is the only thing to do with a request nobody has answered. */
+  onWithdraw?: () => void;
+  withdrawing?: boolean;
+}) {
+  const name = profileName(profile);
   return (
     <View
-      accessibilityLabel={`${profileName(profile)} — request sent, waiting`}
-      className="flex-row items-center gap-3 px-4"
-      style={{ minHeight: FRIEND_ROW_HEIGHT }}>
+      className="flex-row items-center bg-tray"
+      style={{
+        borderRadius: CARD_RADIUS,
+        minHeight: FRIEND_CARD_HEIGHT,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        gap: 13,
+      }}>
       <Identity profile={profile} subtitle={personLine(profile)} />
-      <Text variant="note">Waiting</Text>
+      {onWithdraw ? (
+        <QuietTextButton
+          label={WITHDRAW}
+          tone="accent"
+          // Named for the person, because a column of identical "Withdraw"
+          // buttons is unusable by voice.
+          accessibilityLabel={`Withdraw your request to ${name}`}
+          onPress={onWithdraw}
+          disabled={withdrawing}
+        />
+      ) : (
+        <Text variant="note">Waiting</Text>
+      )}
     </View>
   );
 }

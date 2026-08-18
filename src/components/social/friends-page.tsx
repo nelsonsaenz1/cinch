@@ -8,14 +8,26 @@ import {
   BLOCKED_ACTION,
   BLOCKED_BODY,
   BLOCKED_TITLE,
-  circleLine,
-  EMPTY_BODY,
-  EMPTY_TITLE,
-  friendsHeading,
-  REQUESTS_HEADING,
+  FIND_SOMEONE,
+  FRIENDS_FAILED_BODY,
+  FRIENDS_FAILED_TITLE,
+  INVITE_MUTUAL_NOTE,
+  INVITE_TITLE,
+  NOBODY_YET_BODY,
+  NOBODY_YET_TITLE,
+  NO_RESULTS_BODY,
+  NO_RESULTS_TITLE,
+  OFFLINE_BODY,
+  OFFLINE_TITLE,
+  REQUESTS_FAILED,
+  SENT_HEADING,
+  SENT_NOTE,
+  TRY_AGAIN,
+  WAITING_ON_YOU,
 } from '@/components/social/friends-lines';
 import {
-  closetAudienceLine,
+  CARD_RADIUS,
+  FRIEND_CARD_HEIGHT,
   FriendRow,
   RequestRow,
   SearchResultRow,
@@ -28,14 +40,14 @@ import { Card } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Rule } from '@/components/ui/rule';
-import { ScreenHeader } from '@/components/ui/screen-header';
 import { SearchField } from '@/components/ui/search-field';
-import { ListSkeleton, RowSkeleton } from '@/components/ui/skeleton';
+import { RowSkeleton, Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { GROUPS_TITLE } from '@/features/circles/copy';
 import { TwoPersonGlyph } from '@/features/explore/glyphs';
 import { type SocialProfile } from '@/features/social-graph/types';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import type { PresenceFact } from '@/features/social-graph/friends-presence';
+import { MIN_TAP_TARGET, useTheme, warningAlpha } from '@/theme/tokens';
 
 /**
  * Friends, rendered (atlas F-01…F-03, F-05). Render-only on the closet.tsx /
@@ -51,6 +63,13 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * group you can do the least about.
  */
 
+/** The band and the footer card share the accepted frame's 20pt corner. */
+const BAND_RADIUS = 20;
+/** The gap between friend cards. */
+const CARD_GAP = 8;
+/** The oxblood tile on the footer card. */
+const INVITE_TILE = 46;
+
 export type RequestRowModel = {
   profile: SocialProfile;
   requestedAt: string;
@@ -62,6 +81,11 @@ export type SearchRowModel = { profile: SocialProfile; relation: SearchRelation 
 export type FriendsPageProps = {
   query: string;
   onQueryChange: (q: string) => void;
+  /** The way back, which the frame draws as a 44pt disc rather than a bar. */
+  onBack: () => void;
+  /** Search is revealed by its control; the field is unchanged underneath. */
+  searchOpen: boolean;
+  onSearchOpen: () => void;
   /** ≥2 typed chars — search replaces the sections while true. */
   searching: boolean;
 
@@ -86,6 +110,25 @@ export type FriendsPageProps = {
   onRetryAccept: (row: RequestRowModel) => void;
 
   friends: SocialProfile[];
+  /**
+   * Redesign 08 — the one authorized fact per friend, keyed by user id.
+   *
+   * A friend absent from this map draws no presence element at all. Absence is
+   * the only expression of "no fact", and it covers revoked sharing, an expired
+   * look, a hidden piece, a muted friend and someone who simply never wore
+   * anything — all indistinguishable on purpose. See `friends-presence.ts`.
+   */
+  presence: ReadonlyMap<string, PresenceFact>;
+  /**
+   * The names are cached and the facts are not shown.
+   *
+   * A cached presence fact asserts a permission that may already have been
+   * withdrawn, so going offline withholds every one of them and says so. Names
+   * are identity and do not expire that way, so they stay.
+   */
+  presenceWithheld: boolean;
+  /** Dynamic Type past the threshold: cards stack rather than shrink. */
+  large: boolean;
   friendsLoading: boolean;
   friendsError: boolean;
   friendsRetrying: boolean;
@@ -94,6 +137,10 @@ export type FriendsPageProps = {
   onOverflow: (profile: SocialProfile) => void;
 
   sent: SocialProfile[];
+  /** Withdraw an outgoing request. Reuses the same unfollow the search row does. */
+  onWithdrawSent?: (profile: SocialProfile) => void;
+  /** The outgoing request whose withdrawal is in flight, if any. */
+  withdrawingId?: string | null;
 
   /** F-03 — no friends, no requests, no sent, not searching, queries settled. */
   showEmpty: boolean;
@@ -150,58 +197,82 @@ export function FriendsPage(props: FriendsPageProps) {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <ScreenHeader title="Your circle" backLabel="Back to Lately" />
+      {/* The compact header the accepted frame draws: a 44pt tray disc for the
+          way back, the serif page title, and the search affordance as its
+          mirror. `ScreenHeader`'s eyebrow-plus-display masthead is gone with
+          it, and so is the `2 requests · 18 friends` line beneath — that line
+          was two counts about the reader's own circle, and the redesign's rule
+          is that this page states no quantity of anything. `circleLine` stays
+          exported for the older fixtures that still pose it. */}
+      <View
+        className="flex-row items-center justify-between"
+        style={{ paddingHorizontal: 16, paddingBottom: 8, gap: 12 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={props.onBack}
+          className="items-center justify-center bg-tray active:opacity-60"
+          style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0 }}>
+          <SymbolView
+            name="chevron.left"
+            size={17}
+            tintColor={theme.ink}
+            resizeMode="scaleAspectFit"
+          />
+        </Pressable>
 
-      <View className="px-gutter pt-3">
-        <Text variant="display" trim accessibilityRole="header">
+        <Text variant="plate" trim accessibilityRole="header">
           Friends
         </Text>
 
-        {/* FR-01's masthead line: `2 requests · 18 friends`, 13pt regular
-            secondary. It replaces the standing paragraph about mutuality — the
-            paragraph cost the first viewport a row and a half, and the rule it
-            stated is stated again where it is actually needed (the search row's
-            "nothing opens until they say yes", and FR-02's empty body).
-            Dropped entirely when both counts are zero. */}
-        {circleLine(openRequestCount, props.friends.length) ? (
-          <Text variant="note" className="mt-2">
-            {circleLine(openRequestCount, props.friends.length)}
-          </Text>
-        ) : null}
+        {/* Search is a control rather than a standing field — the frame keeps
+            the resting page to its people. The field itself is unchanged and
+            still the only way anyone is found; it simply arrives when asked
+            for, and the query surviving in state is what keeps a result list
+            from vanishing under a stray tap. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Find a friend by username"
+          onPress={() => {
+            props.onSearchOpen();
+            searchRef.current?.focus();
+          }}
+          className="items-center justify-center bg-tray active:opacity-60"
+          style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0 }}>
+          <SymbolView
+            name="magnifyingglass"
+            size={17}
+            tintColor={theme.ink}
+            resizeMode="scaleAspectFit"
+          />
+        </Pressable>
+      </View>
 
-        {/* THE WAY INTO PRIVATE GROUPS, AND WHY IT IS HERE.
+      {props.searchOpen ? (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+          <SearchField
+            inputRef={searchRef}
+            value={props.query}
+            onChangeText={props.onQueryChange}
+            placeholder="Find a friend by username"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+      ) : null}
 
-            A group is made of "friends you both added" and of nobody else —
-            the INSERT policy checks mutuality at the invitation and there is no
-            other door in. So the surface that lists your mutual friends is the
-            surface where the small rooms made out of them belong, and it is the
-            place somebody goes when the thought is about their people rather
-            than about their clothes.
-
-            Not Explore, which was the other candidate: its "Your circle" link
-            is a FOOTER that draws in exactly two of the feed's branches (the
-            empty state and the end of a loaded feed), so a Groups link beside
-            it would be absent whenever the feed was mid-length — an entry point
-            that comes and goes with unrelated data. And not a sixth tab: five
-            exist, and a sixth is a navigation rewrite, not a link.
-
-            In the masthead rather than at the foot beside "Invite a friend",
-            because that one sits below the whole friends list and a person with
-            eighteen friends would never scroll to it looking for a group.
-
-            The word is `GROUPS_TITLE` from the circles copy module — "Groups",
-            the customer-facing half of the vocabulary contract. It sits under a
-            header that says "Your circle", and the two mean different things on
-            purpose: your circle is everyone you have both added, a group is a
-            small private room made from a few of them. */}
-        {props.onOpenGroups ? (
+      {/* THE WAY INTO PRIVATE GROUPS. A group is made of "friends you both
+          added" and of nobody else, so the surface that lists your mutual
+          friends is where the small rooms made out of them belong. */}
+      {props.onOpenGroups ? (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={GROUPS_TITLE}
             onPress={props.onOpenGroups}
             hitSlop={8}
             style={{ minHeight: MIN_TAP_TARGET }}
-            className="mt-3 flex-row items-center gap-1.5 active:opacity-60">
+            className="flex-row items-center gap-1.5 active:opacity-60">
             <Text variant="label" style={{ color: theme.accent }}>
               {GROUPS_TITLE}
             </Text>
@@ -212,22 +283,12 @@ export function FriendsPage(props: FriendsPageProps) {
               resizeMode="scaleAspectFit"
             />
           </Pressable>
-        ) : null}
-
-        <SearchField
-          inputRef={searchRef}
-          value={props.query}
-          onChangeText={props.onQueryChange}
-          placeholder="Find a friend by username"
-          autoCapitalize="none"
-          autoCorrect={false}
-          className="mt-4"
-        />
-      </View>
+        </View>
+      ) : null}
 
       <KeyboardAwareScrollView
-        contentContainerClassName="px-gutter pb-24"
-        contentContainerStyle={props.showEmpty ? { flexGrow: 1 } : undefined}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 96 }}
+
         refreshControl={
           <RefreshControl
             refreshing={props.refreshing}
@@ -251,31 +312,64 @@ export function FriendsPage(props: FriendsPageProps) {
           <>
             {showRequests ? <RequestsSection {...props} count={openRequestCount} /> : null}
             <FriendsSection {...props} />
-            {props.sent.length > 0 ? <SentSection sent={props.sent} /> : null}
+            {props.sent.length > 0 ? (
+              <SentSection
+                sent={props.sent}
+                onWithdraw={props.onWithdrawSent}
+                withdrawingId={props.withdrawingId}
+              />
+            ) : null}
 
             {/* The way in for the invite link, in the resting state as well as
                 the empty one. Atlas 39 reaches IV-01 from Friends, and someone
                 with two friends is exactly as able to want a third as someone
                 with none — the empty state is not the only moment the thought
                 occurs. Quiet, at the foot, with no count and no nudge. */}
-            {props.canInvite ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Invite a friend"
-                accessibilityHint="Opens your invite link"
-                onPress={props.onInvite}
-                hitSlop={8}
-                style={{ minHeight: MIN_TAP_TARGET }}
-                className="mt-8 justify-center active:opacity-60">
-                <Text variant="label" style={{ color: theme.accent }}>
-                  Invite a friend
-                </Text>
-              </Pressable>
-            ) : null}
+            {props.canInvite ? <InviteFooter onInvite={props.onInvite} /> : null}
           </>
         )}
       </KeyboardAwareScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * The invite footer — a designed card, not a bare link (brief §8, page 10).
+ *
+ * The last thing on the page and the only filled oxblood on it: a 46pt tile
+ * with a plus, the invitation, and the sentence that says what a friendship
+ * here actually is. It routes to `/invite`, which is page 10's own screen —
+ * nothing about the link is minted or explained here.
+ */
+function InviteFooter({ onInvite }: { onInvite: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={INVITE_TITLE}
+      accessibilityHint="Opens your invite link"
+      onPress={onInvite}
+      className="mt-8 flex-row items-center bg-sand active:opacity-60"
+      style={{ borderRadius: BAND_RADIUS, padding: 16, gap: 14, minHeight: MIN_TAP_TARGET }}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        className="items-center justify-center"
+        style={{
+          width: INVITE_TILE,
+          height: INVITE_TILE,
+          borderRadius: 14,
+          backgroundColor: theme.accent,
+          flexShrink: 0,
+        }}>
+        <View style={{ width: 16, height: 2, backgroundColor: theme.canvas, position: 'absolute' }} />
+        <View style={{ width: 2, height: 16, backgroundColor: theme.canvas, position: 'absolute' }} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <Text variant="body">{INVITE_TITLE}</Text>
+        <Text variant="note">{INVITE_MUTUAL_NOTE}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -338,15 +432,33 @@ function SectionLine({ text, className = '' }: { text: string; className?: strin
   );
 }
 
+/**
+ * The requests band — redesign 08.
+ *
+ * A blush plate at the top of the page, present only when something is actually
+ * waiting. With nothing waiting it is absent entirely rather than an empty
+ * shell, which is what keeps the resting page from looking like it is missing
+ * something.
+ *
+ * A labelled group for VoiceOver, so the band announces as "Waiting on you"
+ * once rather than each row re-stating which section it is in.
+ */
 function RequestsSection(props: FriendsPageProps & { count: number }) {
+  const theme = useTheme();
   return (
-    <>
-      <SectionLine text={REQUESTS_HEADING} className="mb-2.5 mt-6" />
-      <Card>
+    <View
+      accessibilityRole="summary"
+      accessibilityLabel={WAITING_ON_YOU}
+      className="bg-blush"
+      style={{ borderRadius: BAND_RADIUS, padding: 14, gap: 10, marginBottom: 12 }}>
+      <Text variant="eyebrow" accessibilityRole="header" style={{ color: theme.accent }}>
+        {WAITING_ON_YOU}
+      </Text>
+      <View>
         {props.requestsError ? (
           <ErrorState
             compact
-            title="Couldn’t load your requests."
+            title={REQUESTS_FAILED}
             body="This didn’t load. It doesn’t mean nobody has asked."
             onRetry={props.onRetryRequests}
             retrying={props.requestsRetrying}
@@ -368,110 +480,181 @@ function RequestsSection(props: FriendsPageProps & { count: number }) {
                 onNotNow={() => props.onNotNow(row.profile)}
                 onUndo={() => props.onUndo(row.profile)}
                 onRetry={() => props.onRetryAccept(row)}
+                large={props.large}
               />
             </Animated.View>
           ))
         )}
-      </Card>
-    </>
+      </View>
+    </View>
   );
 }
 
+/**
+ * The circle — redesign 08.
+ *
+ * Cards, alphabetical, always. Presence never reorders the list and there is no
+ * "active recently" section, so nobody can infer how often a friend posts from
+ * where they sit. The sort is `useFriends`'s own, which is by display name.
+ *
+ * THREE FAILURES, THREE DIFFERENT SENTENCES. A read that failed with names
+ * cached is an offline page that keeps its names and withholds every fact; a
+ * read that failed with nothing cached says so and never renders as an empty
+ * circle; a read still in flight is card-shaped skeletons and no claim at all.
+ */
 function FriendsSection(props: FriendsPageProps) {
-  const theme = useTheme();
+  const cached = props.friends.length > 0;
 
+  if (props.friendsError && cached) {
+    return (
+      <>
+        <OfflineBand onRetry={props.onRetryFriends} retrying={props.friendsRetrying} />
+        <FriendCards {...props} />
+      </>
+    );
+  }
+
+  if (props.friendsError) {
+    return (
+      <ErrorState
+        title={FRIENDS_FAILED_TITLE}
+        body={FRIENDS_FAILED_BODY}
+        onRetry={props.onRetryFriends}
+        retrying={props.friendsRetrying}
+        retryTitle={TRY_AGAIN}
+      />
+    );
+  }
+
+  if (props.friendsLoading) {
+    // Card-shaped skeletons. No invented copy, no count, and no claim that the
+    // circle is empty — the one thing a loading friends list must never say.
+    return (
+      <View style={{ gap: CARD_GAP }}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Skeleton key={i} style={{ height: FRIEND_CARD_HEIGHT, borderRadius: CARD_RADIUS }} />
+        ))}
+      </View>
+    );
+  }
+
+  return <FriendCards {...props} />;
+}
+
+function FriendCards(props: FriendsPageProps) {
   return (
-    <>
-      <SectionLine text={friendsHeading(props.friends.length)} className="mb-2.5 mt-6" />
-      <Card>
-        {props.friendsError ? (
-          <ErrorState
-            compact
-            title="Couldn’t load your friends."
-            body="This is a connection problem. It doesn’t mean your circle is empty — nothing has changed."
-            onRetry={props.onRetryFriends}
-            retrying={props.friendsRetrying}
-          />
-        ) : props.friendsLoading ? (
-          // The shared list skeleton, ragged-width, instead of two identical
-          // bars: a column of matching bars reads as a loading graphic, a
-          // ragged one reads as names about to arrive.
-          <View className="-mx-gutter py-2">
-            <ListSkeleton count={3} />
-          </View>
-        ) : props.friends.length === 0 ? (
-          // Reachable only with requests or sent on the page (F-03 owns the
-          // fully-empty screen), so the way forward is the section above.
-          <Text variant="body" className="px-4 py-6 text-muted">
-            No friends yet. Accept a request above and your circle starts here.
-          </Text>
-        ) : (
-          props.friends.map((profile, i) => (
-            <View key={profile.userId}>
-              {i > 0 ? <Rule tone="hairline" /> : null}
-              <FriendRow
-                profile={profile}
-                onPress={() => props.onOpenFriend(profile)}
-                onOverflow={() => props.onOverflow(profile)}
-              />
-            </View>
-          ))
-        )}
-      </Card>
-      {/* The closing line — the only count that matters: who can see your
-          closet (F-02). */}
-      {!props.friendsLoading && !props.friendsError && props.friends.length > 0 ? (
-        <>
-          <Text variant="note" className="mt-4">
-            {closetAudienceLine(props.friends.length)}
-          </Text>
-          {/* And how much of it there can be. The audience line is the one
-              sentence on this surface about the reach of what you own, and it
-              used to stop exactly where membership starts to matter.
-
-              Ink, not accent — the treatment `BlockedResult` already uses in
-              this file. The page's two oxblood controls (the Groups link in the
-              masthead, "Invite a friend" at the foot) are spent, and a third
-              would make none of them read as the primary one. */}
-          {props.planNote ? (
-            <>
-              <Text variant="note" className="mt-1">
-                {props.planNote}
-              </Text>
-              {props.onSeePlans ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="See plans"
-                  onPress={props.onSeePlans}
-                  hitSlop={8}
-                  style={{ minHeight: MIN_TAP_TARGET }}
-                  className="justify-center active:opacity-60">
-                  <Text variant="note" style={{ color: theme.ink }}>
-                    See plans
-                  </Text>
-                </Pressable>
-              ) : null}
-            </>
-          ) : null}
-        </>
-      ) : null}
-    </>
+    <View style={{ gap: CARD_GAP }}>
+      {props.friends.map((profile) => (
+        <FriendRow
+          key={profile.userId}
+          profile={profile}
+          // Withheld offline, and absent whenever the server did not authorize
+          // one. Both arrive here as `undefined` and draw nothing.
+          presence={props.presenceWithheld ? null : props.presence.get(profile.userId) ?? null}
+          large={props.large}
+          onPress={() => props.onOpenFriend(profile)}
+          onOverflow={() => props.onOverflow(profile)}
+        />
+      ))}
+      {props.planNote ? <PlanNote note={props.planNote} onSeePlans={props.onSeePlans} /> : null}
+    </View>
   );
 }
 
-function SentSection({ sent }: { sent: SocialProfile[] }) {
+/**
+ * The offline band — amber, and every word on it in ink.
+ *
+ * `warning` is a FILL and the contrast record says ink goes on it, so the band
+ * is the token at an alpha. Same construction as the trips shelf and the
+ * profile page, so the app's three "this did not load" moments read as one
+ * object.
+ */
+function OfflineBand({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
   return (
-    <>
-      <SectionLine text="Sent" className="mb-2.5 mt-6" />
-      <Card>
-        {sent.map((profile, i) => (
-          <View key={profile.userId}>
-            {i > 0 ? <Rule tone="hairline" /> : null}
-            <SentRow profile={profile} />
-          </View>
-        ))}
-      </Card>
-    </>
+    <View
+      accessibilityLiveRegion="polite"
+      style={{
+        backgroundColor: warningAlpha(0.22),
+        borderRadius: BAND_RADIUS,
+        padding: 16,
+        gap: 10,
+        marginBottom: 12,
+      }}>
+      <Text variant="body" accessibilityRole="header">
+        {OFFLINE_TITLE}
+      </Text>
+      <Text variant="note">{OFFLINE_BODY}</Text>
+      <Button
+        title={TRY_AGAIN}
+        variant="secondary"
+        loading={retrying}
+        onPress={onRetry}
+        className="self-start px-6"
+      />
+    </View>
+  );
+}
+
+/**
+ * The free-plan note. Quiet, factual, and not a place to sell.
+ *
+ * No price, no trial copy and no filled button — the page's one oxblood is
+ * spent on the invite footer. "See plans" stays a text control in ink, exactly
+ * as it shipped.
+ */
+function PlanNote({ note, onSeePlans }: { note: string; onSeePlans?: () => void }) {
+  const theme = useTheme();
+  return (
+    <View style={{ paddingTop: 6, gap: 6 }}>
+      <Text variant="note">{note}</Text>
+      {onSeePlans ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="See plans"
+          onPress={onSeePlans}
+          hitSlop={8}
+          style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
+          className="active:opacity-60">
+          <Text variant="label" style={{ color: theme.ink }}>
+            See plans
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Your own outgoing requests — redesign 08.
+ *
+ * Each one withdrawable, and no read receipt: there is deliberately no
+ * indication of whether the other person has seen it, because there is no such
+ * fact in the schema and inventing one would be a claim about somebody else's
+ * attention. The closing note says what the whole page is built on — nothing
+ * moves in either direction until a request is accepted.
+ */
+function SentSection({
+  sent,
+  onWithdraw,
+  withdrawingId,
+}: {
+  sent: SocialProfile[];
+  onWithdraw?: (profile: SocialProfile) => void;
+  withdrawingId?: string | null;
+}) {
+  return (
+    <View style={{ marginTop: 24, gap: CARD_GAP }}>
+      <SectionLine text={SENT_HEADING} />
+      {sent.map((profile) => (
+        <SentRow
+          key={profile.userId}
+          profile={profile}
+          onWithdraw={onWithdraw ? () => onWithdraw(profile) : undefined}
+          withdrawing={withdrawingId === profile.userId}
+        />
+      ))}
+      <Text variant="note">{SENT_NOTE}</Text>
+    </View>
   );
 }
 
@@ -493,9 +676,13 @@ function SearchSection(props: FriendsPageProps) {
             retrying={props.searchRetrying}
           />
         ) : props.searchRows.length === 0 ? (
-          <Text variant="body" className="px-4 py-3.5 text-muted">
-            No one by that username.
-          </Text>
+          // Worded so it says nothing about the person. Either claim — that the
+          // account exists or that it does not — would leak the existence of a
+          // blocked or private profile to whoever typed the handle.
+          <View className="px-4 py-3.5" style={{ gap: 4 }}>
+            <Text variant="body">{NO_RESULTS_TITLE}</Text>
+            <Text variant="note">{NO_RESULTS_BODY}</Text>
+          </View>
         ) : (
           props.searchRows.map((row, i) => (
             <View key={row.profile.userId}>
@@ -544,36 +731,38 @@ function EmptySection({
       <TwoPersonGlyph size={34} color={theme.muted} />
       <View className="mt-4">
         <Text variant="title" trim className="text-center">
-          {EMPTY_TITLE}
+          {NOBODY_YET_TITLE}
         </Text>
       </View>
       {/* FR-02: the empty state leads with what friendship MEANS for privacy
           rather than with an exhortation to invite. Both halves are shipping
           truth — a look is seen where it was shared, and lending is per garment
           (`items.borrowable`), never a standing permission. */}
+      {/* No stranger suggestions and no contact-book offer. Two honest routes:
+          search for someone you already know, or invite them. */}
       <Text variant="body" className="mt-4 text-center text-muted">
-        {EMPTY_BODY}
+        {NOBODY_YET_BODY}
       </Text>
       {/* The page's ONE oxblood action, and it sits here. Without a claimed
           handle there is no link to send, so the accent is not spent on a
           control that cannot complete — the ink alternative takes its place. */}
       {canInvite ? (
         <>
-          <Button title="Invite someone" variant="primary" onPress={onInvite} className="mt-6" />
+          <Button title={INVITE_TITLE} variant="primary" onPress={onInvite} className="mt-6" />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Find someone by username"
+            accessibilityLabel={FIND_SOMEONE}
             onPress={onFindFriend}
             hitSlop={8}
             style={{ minHeight: MIN_TAP_TARGET }}
             className="mt-2 justify-center px-2 active:opacity-60">
             <Text variant="note" style={{ color: theme.ink }}>
-              Find someone by username
+              {FIND_SOMEONE}
             </Text>
           </Pressable>
         </>
       ) : (
-        <Button title="Find a friend" variant="ink" onPress={onFindFriend} className="mt-6" />
+        <Button title={FIND_SOMEONE} variant="ink" onPress={onFindFriend} className="mt-6" />
       )}
     </View>
   );

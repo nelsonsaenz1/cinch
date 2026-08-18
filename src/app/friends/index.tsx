@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, useWindowDimensions } from 'react-native';
 
 import {
   BlockConfirmSheet,
@@ -16,6 +16,8 @@ import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { PLANS } from '@/features/billing/plans';
 import { usePlan } from '@/features/billing/use-plan';
 import { useBlockUser, useReportContent } from '@/features/social-graph/moderation';
+import { FRIENDS_STACK_SCALE, withoutMuted } from '@/features/social-graph/friends-presence';
+import { useFriendsPresence } from '@/features/social-graph/use-friends-presence';
 import { useMutedIds } from '@/features/social-graph/muted';
 import { useFollow, useUnfollow } from '@/features/social-graph/mutations';
 import {
@@ -79,8 +81,17 @@ type RequestProfile = SocialProfile & { requestedAt: string };
 export default function FriendsScreen() {
   const router = useRouter();
   const qc = useQueryClient();
+  const { fontScale } = useWindowDimensions();
 
   const [query, setQuery] = useState('');
+  /**
+   * Search is revealed by its control rather than standing on the page.
+   *
+   * Once open it stays open — a field that closed under a stray tap would take
+   * a typed query with it, and the query is the only thing on this page the
+   * reader cannot get back by scrolling.
+   */
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const friends = useFriends();
   const requests = useFriendRequests();
@@ -281,6 +292,36 @@ export default function FriendsScreen() {
     () => new Set((friends.data ?? []).map((p) => p.userId)),
     [friends.data],
   );
+  /**
+   * The one authorized fact per friend — redesign 08.
+   *
+   * Its own query with its own key, so a failure here is a page of name-only
+   * cards (frame 10, a state the design already accepts) while the list, the
+   * band and every action stay live. Every privacy predicate is in SQL; this
+   * hook adds no filter of its own except the local mute below.
+   */
+  const presenceQuery = useFriendsPresence(useMemo(() => [...friendIds], [friendIds]));
+
+  /**
+   * Muting is the ONE exclusion the client makes, and it removes the entry
+   * rather than marking it: a muted friend's card has to be indistinguishable
+   * from a friend with nothing to show, or the mute becomes visible on the very
+   * page that performs it.
+   */
+  const presence = useMemo(
+    () => withoutMuted(presenceQuery.data ?? new Map(), isMuted),
+    [presenceQuery.data, isMuted],
+  );
+
+  /**
+   * Offline withholds every fact and keeps every name.
+   *
+   * A cached fact asserts a permission that may already have been withdrawn —
+   * sharing revoked, the look aged out, the piece hidden — so a failed read of
+   * either the facts or the circle means no fact is drawn at all.
+   */
+  const presenceWithheld = presenceQuery.isError || friends.isError;
+
   const followingIds = useMemo(() => new Set(following.data ?? []), [following.data]);
   const inboxIds = useMemo(
     () => new Set((requests.data ?? []).map((p) => p.userId)),
@@ -541,6 +582,9 @@ export default function FriendsScreen() {
       <FriendsPage
         query={query}
         onQueryChange={setQuery}
+        onBack={() => router.back()}
+        searchOpen={searchOpen || query.length > 0}
+        onSearchOpen={() => setSearchOpen(true)}
         searching={searching}
         searchLoading={search.isLoading}
         searchError={search.isError}
@@ -551,6 +595,11 @@ export default function FriendsScreen() {
         onAcceptFromSearch={acceptFromSearch}
         onCancelAsk={cancelAsk}
         searchPendingId={searchPendingId}
+        onWithdrawSent={cancelAsk}
+        withdrawingId={searchPendingId}
+        presence={presence}
+        presenceWithheld={presenceWithheld}
+        large={fontScale >= FRIENDS_STACK_SCALE}
         requests={requestRows}
         requestsError={requests.isError}
         requestsRetrying={requests.isRefetching}
