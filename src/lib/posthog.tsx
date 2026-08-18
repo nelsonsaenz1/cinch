@@ -795,7 +795,44 @@ export type AppEvent =
    * message. A raw error string is free text with an unbounded shape, and the
    * one time it carries a row id nobody notices until it is in a warehouse.
    */
-  | 'action_failed';
+  | 'action_failed'
+
+  // ── Redesign 16 · The Stylist ─────────────────────────────────────────────
+  //
+  // Ten additions, all bounded, all built by
+  // `features/stylist/stylist-analytics.ts` — a module with no import of this
+  // one, so the node suite can execute every builder and assert the payloads.
+  //
+  // The forbidden list is led by one thing: THE PROMPT. A stylist question is
+  // somebody describing their own life in their own words — a funeral, an
+  // interview, a first date — and it is the most sensitive string this app
+  // ever holds. It is answered on the device or sent to one bounded model
+  // boundary, and it reaches a warehouse under no circumstances.
+
+  /** The desk was opened. Nothing about the person or their closet. */
+  | 'stylist_opened'
+  /** WHICH of the four doors, by position. Never its label or its intent. */
+  | 'door_tapped'
+  /** How far into the on-device questionnaire. A step, never an answer. */
+  | 'questionnaire_step'
+  /** THAT a question was sent. Never the question. */
+  | 'chat_sent'
+  /** THAT a reply landed. Never the reply. */
+  | 'chat_reply_ok'
+  /**
+   * Why a turn failed: plan_excluded | quota | transport | consent. Four
+   * bounded causes with four different remedies, and never the server's
+   * message.
+   */
+  | 'chat_error'
+  /** THAT a question was answered on the device, which spends no allowance. */
+  | 'local_fact_answered'
+  /** How many plates the reply drew — a property of the reply, not the closet. */
+  | 'plates_shown'
+  /** THAT a plate was opened. Never which garment. */
+  | 'plate_tapped'
+  /** WHETHER the quiet chats-left mark was on screen. */
+  | 'allowance_mark_shown';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.

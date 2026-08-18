@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -25,8 +25,28 @@ import { usePlan } from '@/features/billing/use-plan';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { formatTemp } from '@/features/context/weather';
-import { greeting, QUICK_STARTS } from '@/features/stylist/opening';
+import { greeting } from '@/features/stylist/opening';
 import type { ComposedAsk, EntryKey } from '@/features/stylist/questionnaire';
+import {
+  STYLIST_EVENTS,
+  allowanceMarkShownProps,
+  chatSentProps,
+  doorTappedProps,
+  questionnaireStepProps,
+  openedProps,
+  plateTappedProps,
+  platesShownProps,
+  type PlateCount,
+  type StepNumber,
+} from '@/features/stylist/stylist-analytics';
+import {
+  DOORS,
+  allowanceDisplay,
+  allowanceMarkLabel,
+  doorIndex,
+  showsAllowanceMark,
+  type Door,
+} from '@/features/stylist/stylist-spec';
 import { useChat, type ChatMessage } from '@/features/stylist/use-chat';
 import { useQuestionnaire } from '@/features/stylist/use-questionnaire';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
@@ -95,11 +115,49 @@ export default function StylistScreen() {
    * `usePlan` answers `free` in both of those cases, which is the right default
    * for a gate and the wrong one for a sentence.
    */
+  /**
+   * Successful remote replies this period, as the SERVER counts them.
+   *
+   * Null until a server response carries it. Deliberately not a state the
+   * client can advance: the value is a fact about an account across every
+   * device, and this screen only ever displays what it was told.
+   */
+  const serverSuccessfulUsed: number | null = null;
+
   const planState = usePlan();
   const knownPlan = planState.loading || planState.unconfirmed ? null : planState.plan;
   const showMembershipLine = knownPlan === 'free' && !planState.trialing;
 
-  const items = wardrobe.data ?? [];
+  // ── THE QUIET CHATS-LEFT MARK ─────────────────────────────────────────────
+  //
+  // Built, gated and tested — and it renders only from a count THE SERVER
+  // SUPPLIED. `stylist-chat` does not yet return one: `enforceAiQuota` gets
+  // `{allowed, used, limit}` back from `claim_ai_quota` and discards it on the
+  // success path, so today `successfulUsed` is null and the mark never draws.
+  //
+  // THAT IS THE CORRECT FAILURE, and the alternative was refused deliberately.
+  // Counting successful replies on the device would be wrong the moment
+  // somebody used a second phone, and a wrong allowance is worse than none —
+  // it is a promise the server will break. The remedy is a one-line addition
+  // to the edge function's success body, not an inference here; see the
+  // ledger, which names the exact change and why it was not made inside a
+  // presentation-only page that touches a helper seven production functions
+  // share.
+  //
+  // The threshold is against the PROMISE of five, never the enforcement
+  // ceiling of eight. The three-chat gap exists so five survives a failed call
+  // or two; a mark computed from eight would over-promise by three.
+  const allowance = allowanceDisplay(serverSuccessfulUsed);
+  const markVisible = showsAllowanceMark({
+    plan: knownPlan ?? '',
+    planLoading: planState.loading || planState.unconfirmed,
+    usageLoading: serverSuccessfulUsed === null,
+    display: allowance,
+  });
+
+  // Memoised: a fresh `[]` identity on every render would invalidate the door
+  // memo below, which re-signs four images for no reason.
+  const items = useMemo(() => wardrobe.data ?? [], [wardrobe.data]);
   const profile = profileQuery.data ?? {
     weights: DEFAULT_WEIGHTS,
     affinities: EMPTY_AFFINITIES,
@@ -113,6 +171,10 @@ export default function StylistScreen() {
     (text: string) => {
       if (!text.trim() || isSending) return;
       void Haptics.selectionAsync().catch(() => {});
+      // THAT a question was sent. Never the question — a stylist prompt is
+      // somebody describing their own life in their own words, and it is the
+      // most sensitive string this app ever holds.
+      track(STYLIST_EVENTS.chatSent, chatSentProps());
       setDraft('');
       void ask(text);
     },
@@ -133,11 +195,18 @@ export default function StylistScreen() {
       if (composed.brief) {
         // Counts and fixed enums only — never the composed sentence, which is
         // as close to user content as anything the person types.
-        track('stylist_questionnaire_completed', {
-          steps: composed.steps,
-          mood: composed.brief.mood ?? 'none',
-          entry,
-        });
+        // ── REPLACED BY THE ALLOWLISTED EVENT — redesign 16 ──────────────
+        //
+        // This sent `{steps, mood, entry}`. All three were bounded, and two of
+        // them were still more than the contract allows: `mood` and `entry`
+        // describe what somebody said about their own day, and the accepted
+        // allowlist carries HOW FAR they got and nothing about where they were
+        // going. A step number answers "do people finish the flow"; a mood
+        // answers a question nobody asked.
+        track(
+          STYLIST_EVENTS.questionnaireStep,
+          questionnaireStepProps(Math.min(4, Math.max(1, composed.steps)) as StepNumber),
+        );
       }
       void ask(composed.message, { brief: composed.brief, intent: composed.intent });
     },
@@ -150,6 +219,67 @@ export default function StylistScreen() {
     temperature: context.weather ? formatTemp(context.weather.feelsLikeC, UNITS) : null,
     onComplete,
   });
+
+  /**
+   * A door tap. LOCAL, always — nothing here reaches a model.
+   *
+   * `questionnaire` doors open the existing on-device step flow; `compose`
+   * doors seed the composer and hand over the keyboard, because three of the
+   * four need a noun only the owner can supply — which trip, which piece,
+   * which question — and a door that guessed would be inventing the very thing
+   * this screen refuses to invent.
+   */
+  // The desk was opened. Nothing about the person or their closet travels.
+  const platesReported = useRef(new Set<string>());
+  const openedOnce = useRef(false);
+  useEffect(() => {
+    if (openedOnce.current) return;
+    openedOnce.current = true;
+    track(STYLIST_EVENTS.opened, openedProps());
+  }, []);
+
+  // WHETHER the mark was on screen — never the number behind it, which is an
+  // account fact rather than a screen fact.
+  const markReported = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (markReported.current === markVisible) return;
+    markReported.current = markVisible;
+    track(STYLIST_EVENTS.allowanceMarkShown, allowanceMarkShownProps(markVisible));
+  }, [markVisible]);
+
+  /**
+   * How many plates a settled reply drew.
+   *
+   * A property of the REPLY, capped at three — it is not a wardrobe size and
+   * cannot be read as one. Reported once per turn, keyed by the message, so a
+   * re-render is silent.
+   */
+  useEffect(() => {
+    for (const m of messages) {
+      if (m.role !== 'assistant' || m.pending || m.failed) continue;
+      if (platesReported.current.has(m.id)) continue;
+      platesReported.current.add(m.id);
+      const count = Math.min(3, m.outfits.length) as PlateCount;
+      track(STYLIST_EVENTS.platesShown, platesShownProps(count));
+    }
+  }, [messages]);
+
+  const openDoor = useCallback(
+    (key: Door['key']) => {
+      const door = DOORS.find((d) => d.key === key);
+      if (!door) return;
+      // WHICH door, by position. Never its label, and never its intent text.
+      track(STYLIST_EVENTS.doorTapped, doorTappedProps(doorIndex(key)));
+      void Haptics.selectionAsync().catch(() => {});
+      if (door.action.kind === 'questionnaire') {
+        questionnaire.start(door.action.entry);
+        return;
+      }
+      setDraft(door.action.seed);
+      inputRef.current?.focus();
+    },
+    [questionnaire, setDraft],
+  );
 
   /** Abandon the flow and hand the person the keyboard they asked for. */
   const { cancel: cancelQuestionnaire } = questionnaire;
@@ -174,6 +304,31 @@ export default function StylistScreen() {
       m.outfits.flatMap((o) => o.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath])),
     ),
   );
+
+  /**
+   * The doors, each wearing a piece the reader already owns.
+   *
+   * Drawn from the wardrobe already in memory and already signed for this
+   * screen — never a stock photograph, an illustration or a product shot. A
+   * stylist that decorates itself with clothes you do not own has broken its
+   * promise before you tap anything. With too few pieces the wells are simply
+   * empty, which is the same neutral ground every unresolvable image takes.
+   */
+  const doorCards = useMemo(
+    () =>
+      DOORS.map((door, i) => ({
+        key: door.key,
+        label: door.label,
+        hint: door.hint,
+        imageUri: resolve(
+          items[i]?.platePath,
+          items[i]?.cutoutPath,
+          items[i]?.thumbPath,
+        ),
+      })),
+    [items, resolve],
+  );
+
 
   const showOpening = messages.length === 0 && !questionnaire.active;
 
@@ -272,10 +427,18 @@ export default function StylistScreen() {
             <StylistOpening
               salutation={hello.salutation}
               line={hello.line}
-              starts={QUICK_STARTS}
-              onStart={questionnaire.start}
+              starts={doorCards}
+              onStart={openDoor}
               footer={
-                showMembershipLine ? (
+                markVisible && allowance ? (
+                  // A MARK, NOT A COUNTER. One quiet line in the back half of
+                  // the allowance — no badge, no ring, no countdown from five,
+                  // and nothing that turns five chats into a game worth
+                  // rationing. It never appears while entitlement or usage is
+                  // loading, because a mark that arrives and then corrects
+                  // itself is worse than one that arrives late.
+                  <Text variant="note">{allowanceMarkLabel(allowance.remaining)}</Text>
+                ) : showMembershipLine ? (
                   // One line, no price, no chat count, no accent — the header's
                   // oxblood sparkle stays this screen's only accent, and the
                   // doors above remain fully usable because nothing here gates
@@ -310,9 +473,12 @@ export default function StylistScreen() {
               // Today is directly beneath the sheet — dismiss, don't push.
               // The canGoBack guard covers exotic cold-start states where
               // the sheet is somehow the only route.
-              onPressOutfit={() =>
-                router.canGoBack() ? router.back() : router.replace('/(tabs)')
-              }
+              onPressOutfit={() => {
+                // THAT a plate was opened. Never which garment.
+                track(STYLIST_EVENTS.plateTapped, plateTappedProps());
+                if (router.canGoBack()) router.back();
+                else router.replace('/(tabs)');
+              }}
               onRetry={() => retry(message.id)}
             />
           ))}

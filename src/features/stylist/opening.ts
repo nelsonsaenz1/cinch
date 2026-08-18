@@ -1,7 +1,6 @@
 import { formatTemp } from '@/features/context/weather';
 import type { WeatherContext } from '@/lib/styling';
 
-import type { EntryKey } from './questionnaire';
 
 /**
  * What the stylist says before anyone has said anything.
@@ -136,9 +135,22 @@ export function greeting({
  * browsing has done none, and "help me get dressed" is the default because it
  * is the reason the app exists.
  */
-export const QUICK_STARTS: { key: EntryKey; label: string }[] = [
-  { key: 'dressed', label: 'Help me get dressed' },
-  { key: 'event', label: 'I have an event' },
-  { key: 'surprise', label: 'Surprise me' },
-  { key: 'browse', label: 'Just browsing' },
-];
+/**
+ * THE FOUR DOORS MOVED TO `stylist-spec.ts` — redesign 16.
+ *
+ * They were four text rows keyed by `EntryKey`: dressed, event, surprise,
+ * browse. The accepted design replaces them with four image-led cards named
+ * for what somebody actually came to do — what should I wear, pack for a trip,
+ * make this piece work, ask about my closet — and each maps to a path that
+ * already exists and already works.
+ *
+ * `EntryKey` and `buildSteps` are UNTOUCHED. `event`, `surprise` and `browse`
+ * lose their door, not their capability: `event`'s occasions are reachable
+ * through the first questionnaire step, and the other two were prompts rather
+ * than doors. Nothing was deleted from the model to change a surface.
+ *
+ * The doors live in the spec because which door exists, in which order, and
+ * whether tapping one can reach a model are POLICY — and policy that a test
+ * can execute is worth more than policy a component happens to render.
+ */
+export { DOORS } from './stylist-spec';

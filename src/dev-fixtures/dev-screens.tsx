@@ -133,6 +133,10 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     [['Price, pairings and consequences', '/dev-r15-item']],
   ],
   [
+    'Redesign 16 · Stylist',
+    [['Openings, allowance and denials', '/dev-r16-stylist']],
+  ],
+  [
     'Group 3 · Closet and Intake',
     [
       ['AC-03', '/dev-w3-g3-ac-03'],

@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { Asset } from 'expo-asset';
 import { Fragment, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -19,7 +20,8 @@ import { ClosetDidntLoad, ClosetTooSmall } from '@/components/stylist/stylist-st
 import { Chip } from '@/components/ui/chip';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { Text } from '@/components/ui/text';
-import { greeting, QUICK_STARTS } from '@/features/stylist/opening';
+import { greeting } from '@/features/stylist/opening';
+import { DOORS } from '@/features/stylist/stylist-spec';
 import { buildSteps, type Step } from '@/features/stylist/questionnaire';
 import type { ChatMessage } from '@/features/stylist/use-chat';
 import { toGarmentColors } from '@/lib/color';
@@ -370,7 +372,23 @@ type StateId = (typeof STATES)[number]['id'];
 // ---------------------------------------------------------------------------
 
 export default function DevStylistScreen() {
-  const [state, setState] = useState<StateId>('S-01');
+  // ── DEEP-LINKABLE — `cinch:///dev-stylist?state=S-05` ────────────────────
+  //
+  // `simctl` opens URLs and cannot tap, so a picker-driven fixture can be
+  // looked at by hand and never photographed. The URL is the source of truth
+  // and a tap is an override the URL clears — expo-router does not remount a
+  // screen when only the query string changes, so seeding `useState` once
+  // would ignore every link after the first.
+  const params = useLocalSearchParams<{ state?: string }>();
+  const linked = (STATES as readonly { id: string }[]).some((s) => s.id === params.state)
+    ? (params.state as StateId)
+    : 'S-01';
+  const [state, setState] = useState<StateId>(linked);
+  const [seenLink, setSeenLink] = useState(linked);
+  if (linked !== seenLink) {
+    setSeenLink(linked);
+    setState(linked);
+  }
   /**
    * Photographs or colour fills.
    *
@@ -507,7 +525,7 @@ export default function DevStylistScreen() {
               <StylistOpening
                 salutation={hello.salutation}
                 line={hello.line}
-                starts={QUICK_STARTS}
+                starts={DOORS}
               />
             ) : null}
 

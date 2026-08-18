@@ -1,10 +1,13 @@
+import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import type { ReactNode, RefObject } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Pressable, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { Chip } from '@/components/ui/chip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
+import { DOOR_RADIUS, doorColumns, doorWell } from '@/features/stylist/stylist-spec';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -216,6 +219,73 @@ export function AnswerGrid<K extends string>({
  * that function reads a clock, and a part that reads a clock is a part the
  * fixture cannot pin to "Wednesday 6 August, 19:00" to reproduce the frame.
  */
+/** The gap between doors, and the gutter they measure against. */
+const DOOR_GAP = 10;
+
+/**
+ * One door: a garment well with a label plate under it.
+ *
+ * ── THE WELL IS A REAL GARMENT, OR IT IS NOTHING ────────────────────────────
+ *
+ * `imageUri` is a signed URL for a piece the owner already owns, resolved by
+ * the screen. When there is none the well takes the same neutral ground every
+ * missing, expired or unauthorized image on this app takes — never a stock
+ * photograph, an illustration or a product shot, because a stylist that
+ * decorates itself with clothes you do not own has already broken its promise
+ * before you tap anything.
+ */
+function DoorCard({
+  label,
+  hint,
+  index,
+  imageUri,
+  onPress,
+}: {
+  label: string;
+  hint?: string;
+  index: number;
+  imageUri?: string;
+  onPress?: () => void;
+}) {
+  const { width, fontScale } = useWindowDimensions();
+  const ax = fontScale >= AX_STACK_SCALE;
+  const columns = doorColumns(ax);
+  // The gutter is 20 either side; the gaps are between columns.
+  const cardWidth = (width - 40 - DOOR_GAP * (columns - 1)) / columns;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole="button"
+      accessibilityLabel={hint ? `${label}. ${hint}` : label}
+      style={{ width: cardWidth }}
+      className="active:opacity-70">
+      <View
+        className="bg-sand overflow-hidden"
+        style={{ height: doorWell(ax), borderRadius: DOOR_RADIUS }}>
+        {imageUri ? (
+          <Image
+            source={{ uri: imageUri }}
+            style={{ width: '100%', height: '100%' }}
+            contentFit="cover"
+            transition={0}
+            accessibilityIgnoresInvertColors
+          />
+        ) : null}
+      </View>
+      <Text variant="label" className="mt-2 text-ink" numberOfLines={ax ? undefined : 2}>
+        {label}
+      </Text>
+      {hint ? (
+        <Text variant="note" className="mt-0.5" numberOfLines={ax ? undefined : 2}>
+          {hint}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
+}
+
 export function StylistOpening<K extends string>({
   salutation,
   line,
@@ -228,7 +298,7 @@ export function StylistOpening<K extends string>({
   /** The sentence under it, which already knows the hour and the forecast. */
   line: string;
   /** The four doors, in order. */
-  starts: readonly { key: K; label: string }[];
+  starts: readonly { key: K; label: string; hint?: string; imageUri?: string }[];
   /** Absent on the fixture, which draws the doors without opening one. */
   onStart?: (key: K) => void;
   /**
@@ -268,11 +338,33 @@ export function StylistOpening<K extends string>({
         {line}
       </Text>
 
-      <View className="gap-2" style={{ marginTop: 14 }}>
-        {starts.map((start) => (
-          <StartRow
+      {/* ── FOUR IMAGE-LED DOORS, NOT TEXT ROWS — redesign 16 ─────────────
+          They were four full-width rows of a label and a chevron, which is a
+          menu. A menu asks somebody to READ four options and pick one; a desk
+          of four cards lets them recognise the one they came for. On a screen
+          whose whole promise is "answers from clothes you already own", a door
+          with a garment in it says that before any sentence does.
+
+          Two columns rather than four full-width cards, and this is the one
+          departure from the directive's own wording: four full-width rows push
+          the composer below the fold on a 667pt screen, and a stylist you have
+          to scroll to talk to is a stylist nobody talks to. At an accessibility
+          size the grid becomes the single stacked column the directive asks
+          for, which is also where a two-column grid would start crushing type.
+
+          Every door is LOCAL. Nothing between the tap and a composed question
+          reaches a model, so nobody can spend a chat by looking around. */}
+      <View
+        className="flex-row flex-wrap"
+        style={{ marginTop: 14, gap: DOOR_GAP }}
+        accessibilityRole="menu">
+        {starts.map((start, i) => (
+          <DoorCard
             key={start.key}
             label={start.label}
+            hint={start.hint}
+            index={i}
+            imageUri={start.imageUri}
             onPress={onStart ? () => onStart(start.key) : undefined}
           />
         ))}

@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import {
+  STYLIST_EVENTS,
+  chatReplyOkProps,
+} from './stylist-analytics';
 import { track } from '@/lib/posthog';
 import { Placement } from '@/features/billing/placements';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
@@ -295,7 +299,11 @@ export function useChat({
           ),
         );
         // Success only, counts only — never the question or the reply.
-        track('stylist_question_answered', { outfitCount: result.outfits.length });
+        // THAT a reply landed. The plate COUNT is reported by the screen from
+        // the settled message, bounded there — `outfitCount` here was
+        // unbounded by shape, and a reply is not the place to describe a
+        // wardrobe.
+        track(STYLIST_EVENTS.chatReplyOk, chatReplyOkProps());
         void persist('assistant', {
           text: result.reply,
           followUp: result.followUp,
