@@ -38,6 +38,7 @@ accepted bundle.
 
 | Page | Directive brief | Artifact set | Files | Imported | Build status |
 |---|---|---|---|---|---|
+| 10-invite-share | §3 · 10 Invite / Share page | design-refs/redesign-2026-08/10-invite-share/ | 1 HTML + 23 PNG | 2026-08-18 | DESIGN ACCEPTED · not built |
 | 17-explore | §3 · 17 Explore (Daily Social) | design-refs/redesign-2026-08/17-explore/ | 1 HTML + 15 PNG | 2026-08-18 | not built |
 | 18-welcome-sign-in | §3 · 18 Welcome / Sign-in | design-refs/redesign-2026-08/18-welcome-sign-in/ | 1 HTML + 8 PNG | 2026-08-18 | not built |
 | 19-auth-run | §3 · 19 Email + code + name | design-refs/redesign-2026-08/19-auth-run/ | 1 HTML + 21 PNG | 2026-08-18 | not built |
@@ -45,7 +46,7 @@ accepted bundle.
 | 21-the-ten | §3 · 21 The Ten | design-refs/redesign-2026-08/21-the-ten/ | 1 HTML + 19 PNG | 2026-08-18 | not built |
 | 22-capture | §3 · 22 Capture | design-refs/redesign-2026-08/22-capture/ | 1 HTML + 22 PNG | 2026-08-18 | not built |
 
-Pages 10–16 have no accepted artifact in the repository yet, so 17–22
+Pages 11–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
 
 ### 08-friends-list — why this set replaced an earlier one
