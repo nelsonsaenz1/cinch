@@ -18,6 +18,17 @@ export type GapPiece = {
 
 export type GapFeedModel = {
   loading: boolean;
+  /**
+   * A read is in flight over content that is already on screen — a pull, a
+   * retry, or a window refocus.
+   *
+   * Distinct from `loading`, which TanStack raises only for the FIRST load of a
+   * query: without this the screen had no way to tell "still arriving" from
+   * "arriving again", so a pull-to-refresh spun for one frame and a retry after
+   * a failure gave no sign it had started. Redesign 26's refresh frames are
+   * about exactly this state.
+   */
+  refreshing: boolean;
   /** True once the wardrobe query has actually resolved — distinguishes "loading" from "empty". */
   ready: boolean;
   /** True when the wardrobe read failed outright — the screen's own ErrorState branch. */
@@ -85,6 +96,7 @@ export function useGapFeed(): GapFeedModel {
 
   return {
     loading: wardrobe.isLoading || closet.isLoading,
+    refreshing: wardrobe.isFetching || closet.isFetching,
     ready: wardrobe.isSuccess,
     error: wardrobe.isError,
     refetch: () => void wardrobe.refetch(),

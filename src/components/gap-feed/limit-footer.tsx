@@ -2,6 +2,8 @@ import { View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { CARD } from '@/features/closet/gap-feed-spec';
+import { useTheme } from '@/theme/tokens';
 
 /**
  * GF-04 — the active shelf is full, drawn as the gap card's own tray footer.
@@ -38,6 +40,30 @@ import { Text } from '@/components/ui/text';
  * NO TIER, NO PRICE, NO PAYWALL. Capacity is arithmetic from the current plan;
  * membership is reached from Profile. That is `add-clothes.tsx`'s rule for the
  * same notice and it holds here.
+ *
+ * ── REDESIGN 26: THE FRAME'S "SEE PLANS" IS NOT ADDED HERE ─────────────────
+ *
+ * The artifact draws this footer as a blush panel whose ONLY action is an
+ * oxblood "See plans". The panel is adopted; the action is not, on two grounds
+ * that point the same way.
+ *
+ * The packet's own law is that the See-plans placement "fires exactly as
+ * shipped — placement key, trigger, routing; restyle only". As shipped there is
+ * no See-plans trigger on the FEED at all: the placement
+ * (`Placement.AddGarmentOverLimit`) is reached from the gap DETAIL screen, by
+ * way of the closet-full sheet. Putting a second door on the feed would be a
+ * new trigger for the same key, which is the one thing "as shipped" rules out.
+ *
+ * And the paragraph above this one already refused a paywall in this exact
+ * position, for the reason `add-clothes.tsx` refuses it in the same notice: the
+ * ceiling is arithmetic, and answering "you are full" with "pay us" skips the
+ * free remedy that is sitting right there. Both remedies this footer offers are
+ * real, and both still work at the ceiling.
+ *
+ * The restyle IS taken: the blush ground, the ink headline over a muted body,
+ * and the panel inset inside the card's tray region, so a capacity notice and a
+ * merchant tray occupy the same slot in the same geometry. Reported as a
+ * deviation with this reasoning.
  */
 export type GapLimitFooterProps = {
   /** 'active' — storing frees a slot. 'total' — it does not. */
@@ -62,31 +88,57 @@ export function GapLimitFooter({
 }: GapLimitFooterProps) {
   const active = ceiling === 'active';
 
-  const count = active ? `${used} of ${limit} active pieces` : `${used} of ${limit} pieces in all`;
+  // Redesign 26's wording, with the app's own figures in it. Both forms still
+  // derive every number from `useCapacity`, which mirrors the limit triggers —
+  // nothing here is typed, and the sentence follows a plan change on its own.
+  const count = active
+    ? `Your closet is full at ${limit} active pieces`
+    : `You are at ${used} of ${limit} total pieces`;
 
   const body = active
     ? `Store something you are not reaching for and the new piece can take its place. ${STORED_KEEPS_SENTENCE}`
     : `Every slot is taken, stored ones included, so storing another piece would not make room. Deleting a stored piece frees one. ${STORED_KEEPS_SENTENCE}`;
 
-  return (
-    <View className="bg-tray" style={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 16 }}>
-      <Text variant="body" style={{ fontSize: 15 }}>
-        {count}
-      </Text>
-      <Text variant="note" className="mt-1">
-        {body}
-      </Text>
+  const theme = useTheme();
 
-      <View className="mt-3 flex-row" style={{ gap: 8 }}>
-        {active && onChooseToStore ? (
-          // Ink, not oxblood: this is the workhorse action, and the accent is
-          // not spent on a capacity decision.
+  return (
+    <View
+      style={{
+        backgroundColor: theme.sand,
+        paddingHorizontal: CARD.trayPaddingX,
+        paddingTop: CARD.trayPaddingTop,
+        paddingBottom: CARD.trayPaddingBottom,
+      }}>
+      <View
+        accessible
+        accessibilityLabel={`${count}. ${body}`}
+        style={{
+          borderRadius: 14,
+          backgroundColor: theme.blush,
+          paddingHorizontal: 16,
+          paddingVertical: 15,
+        }}>
+        {/* Ink over muted, never a weight: the app has two cuts and neither is
+            Medium (TY-01). The frame's bold headline is carried by size and
+            colour instead. */}
+        <Text variant="body" style={{ fontSize: 17, lineHeight: 23 }}>
+          {count}
+        </Text>
+        <Text variant="body" className="mt-1.5" style={{ color: theme.muted, lineHeight: 22 }}>
+          {body}
+        </Text>
+
+        <View className="mt-3.5 flex-row" style={{ gap: 8 }}>
+          {active && onChooseToStore ? (
+            // Ink, not oxblood: this is the workhorse action, and the accent is
+            // not spent on a capacity decision.
+            <View className="flex-1">
+              <Button title="Choose one to store" variant="ink" onPress={onChooseToStore} />
+            </View>
+          ) : null}
           <View className="flex-1">
-            <Button title="Choose one to store" variant="ink" onPress={onChooseToStore} />
+            <Button title="See stored" variant="secondary" onPress={onSeeStored} />
           </View>
-        ) : null}
-        <View className="flex-1">
-          <Button title="See stored" variant="secondary" onPress={onSeeStored} />
         </View>
       </View>
     </View>

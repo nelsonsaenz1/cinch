@@ -316,6 +316,17 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['EV-03', '/dev-w3-g5-ev-03'],
       ['FR-01', '/dev-w3-g5-fr-01'],
       ['FR-02', '/dev-w3-g5-fr-02'],
+      // Redesign 26. The `w3-g5-gf-*` entries below are the SUPERSEDED atlas's
+      // frames and are kept deliberately: they are the standing evidence for
+      // audits 84 and 85 and for correction 19, and a frame deleted the day it
+      // stops matching the newest artifact is a proof nobody can re-run.
+      ['26 · GF-01 · standard', '/dev-gf-01'],
+      ['26 · GF-02 · silence', '/dev-gf-02'],
+      ['26 · GF-03 · ceilings', '/dev-gf-03'],
+      ['26 · GF-04 · AX', '/dev-gf-04'],
+      ['26 · GF-05 · waiting, empty, stopped', '/dev-gf-05'],
+      ['26 · GF-06 · merchant trays', '/dev-gf-06'],
+      ['26 · GF-07 · product sheets', '/dev-gf-07'],
       ['GF-01', '/dev-w3-g5-gf-01'],
       ['GF-02', '/dev-w3-g5-gf-02'],
       ['GF-02 / AX', '/dev-w3-g5-gf-02-ax'],

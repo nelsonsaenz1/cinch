@@ -143,8 +143,20 @@ export function provenanceLine(merchantName: string): string {
  */
 export const LISTING_SERVICE_LINE = 'Found through Cinch’s listing service.';
 
-/** GF-02's conditional clause introducing the merchant tray. */
-export const BUY_CLAUSE = 'If you want to buy one';
+/**
+ * GF-02's clause introducing the merchant tray.
+ *
+ * Redesign 26 sets it as a tracked oxblood eyebrow over the rows rather than a
+ * running sentence, and the words follow the frame: "Where to find one". This
+ * is NOT a disclosure and never was — the disclosures are `PAID_LINK_LABEL`,
+ * the per-row action, and the commission sentence, all of which are unchanged
+ * and none of which this clause substitutes for. It only says what the block
+ * beneath it is. The previous wording ("If you want to buy one") made the tray
+ * conditional on an intention the reader had not expressed; the eyebrow states
+ * the block's subject, which is what an eyebrow does everywhere else in the
+ * app, and claims nothing about money in either form.
+ */
+export const BUY_CLAUSE = 'Where to find one';
 
 /**
  * C-02's header paragraph — verbatim from the directive, disclosed every

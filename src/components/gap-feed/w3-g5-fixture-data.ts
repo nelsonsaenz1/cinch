@@ -95,6 +95,39 @@ export const DIRECT_MATCH: ShopMatch = {
 
 export const FIXTURE_MATCHES: readonly ShopMatch[] = [JOINED_MATCH, DIRECT_MATCH];
 
+/**
+ * A third joined match, so redesign 26's "three paid, the cap" frame is a real
+ * three rows rather than two rows and an argument. `MAX_ROWS` is 3 and
+ * `MAX_MERCHANTS` is 3 on the server; a fixture with four would be drawing a
+ * state the policy cannot produce.
+ */
+export const SECOND_JOINED_MATCH: ShopMatch = {
+  id: 'cos-cotton-poplin',
+  title: 'Cotton-poplin trouser',
+  brand: 'COS',
+  colour: 'stone',
+  priceCents: 9_900,
+  currency: 'USD',
+  imageUrl: OVERSHIRT,
+  merchantName: 'COS',
+  url: 'https://example.invalid/cos',
+  paid: true,
+};
+
+/**
+ * A match whose price the catalogue does not carry.
+ *
+ * `priceCents: null` is the real shape — the row prints the merchant alone and
+ * never a placeholder, a dash or a zero. The frame for this state is
+ * `merchant-row-price-unknown-omitted`.
+ */
+export const PRICELESS_MATCH: ShopMatch = {
+  ...DIRECT_MATCH,
+  id: 'uniqlo-no-price',
+  priceCents: null,
+  currency: null,
+};
+
 /** The GF-03 product sheet's own product — always exactly one merchant. */
 export const SHEET_PRODUCT: ShopMatch = {
   ...JOINED_MATCH,

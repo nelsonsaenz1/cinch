@@ -1,15 +1,32 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GapCard } from '@/components/gap-feed/gap-card';
+import {
+  CompactGapRow,
+  DominantFootnote,
+  GapFeedEmpty,
+  GapFeedSkeleton,
+  GapFeedStop,
+  LeadGapCard,
+  ScrollHint,
+  useAx,
+} from '@/components/gap-feed/gap-feed-parts';
 import { productReason } from '@/components/gap-feed/gap-prose';
 import { GapLimitFooter } from '@/components/gap-feed/limit-footer';
 import { ProductSheet } from '@/components/gap-feed/product-sheet';
 import { GapShopFooter } from '@/components/gap-feed/shop-row';
-import { EmptyState, ErrorState, ScreenHeader, Text } from '@/components/ui';
+import { Button, ScreenHeader, Text } from '@/components/ui';
 import { gapLabelLower } from '@/features/closet/gap-feed';
+import {
+  CARD,
+  FEED_CARDS,
+  GAP_FEED_COPY,
+  TYPE,
+  mastheadLine,
+  rankEyebrow,
+} from '@/features/closet/gap-feed-spec';
 import type { CountedKind, Gain } from '@/features/closet/outfit-count';
 import { useGapFeed } from '@/features/closet/use-gap-feed';
 import { SLOT_FOR_GAP_KIND } from '@/features/commerce/slot';
@@ -17,166 +34,240 @@ import type { ShopMatch } from '@/features/commerce/use-shop-match';
 import { useTheme } from '@/theme/tokens';
 
 /**
- * The Gap Feed — GF-01, GF-02 and GF-04.
+ * The Gap Feed. Redesign 26.
  *
  * THE GAP IS THE PRODUCT. SHOPPING IS THE FOOTNOTE. Every card on this screen
  * is computed from the closet before any shop is consulted, and a card renders
- * complete with no merchant tray at all — GF-01 is the acceptance case for
- * exactly that, and nothing about it looks like a card with a missing row.
+ * complete with no merchant tray at all — the "no merchants" frame is the
+ * acceptance case for exactly that, and nothing about it looks like a card with
+ * a missing row.
  *
- * ── AUDIT 84 · A COMPUTED GAP IN THE FIRST VIEWPORT ────────────────────────
+ * ── WHAT REDESIGN 26 CHANGED ───────────────────────────────────────────────
  *
- * The masthead is one serif line and one sentence. It used to be a 30pt
- * headline plus a two-line paragraph plus an eyebrow, which pushed the first
- * card's headline down by roughly 50pt for no information. Measured layout, at
- * 393pt and the default text scale, with the numbers each line contributes:
+ * The imagery leads. The shipped card opened with a headline and a two-sentence
+ * paragraph and put three thumbnails underneath as supporting evidence; the
+ * brief is "gap cards led by the outfit-you-can't-make imagery", so the wells
+ * run first and the prose is cut to the one sentence audit 85 requires. See
+ * `gap-feed-parts.tsx` for why the sentence that survived is the arithmetic and
+ * not the evidence.
  *
- *     safe-area top inset (393×852 device)                       59
- *     ScreenHeader: pt-2 + a 36pt disc                            8 + 36
- *     masthead paddingTop                                        10
- *     "What your closet is missing" — 30pt Instrument Serif,
- *       trimmed to its cap height                                ~21
- *     sentence marginTop 6 + one 15/22.5 line                     6 + 22
- *     scroll paddingTop                                          14
- *     card padding 18 + 11pt eyebrow (~13) + 6pt gap             18 + 13 + 6
- *     ───────────────────────────────────────────────────────────────────
- *     first gap headline, top of frame                          ≈213
+ * The runner-ups compact. Three full cards of garment wells would make the feed
+ * a catalogue of absences and flatten the gap that actually matters most, so
+ * the second and third gaps become rows: rank, label, one line, chevron.
  *
- * The atlas annotates 112pt. Its own GF-01 frame does not measure 112 either:
- * summing that frame's declared boxes (52 status + 10 + 31.8 + 6 + 22.5 + 16 +
- * 18 + 13.2 + 6) puts its first card headline at ≈175pt, and 112 lands inside
- * the masthead sentence. The 112 is unreachable on a real device for a reason
- * the frame cannot show: the frame has no navigation affordance, and this
- * route is PUSHED — dropping the header to buy 44pt would leave a pushed
- * screen with no way back, which is a worse defect than a headline 100pt
- * lower. What audit 84 actually asks a reviewer to check (§14) is "the first
- * computed gap is in the first viewport at 393pt", and at 213pt of an 852pt
- * frame the whole first card — headline, explanation and evidence — is above
- * the fold with room to spare.
+ * ── THE HEADER STAYS, AND THE FRAMES DO NOT DRAW ONE ───────────────────────
+ *
+ * Every frame in this packet opens with the masthead hard against the status
+ * bar and no back affordance. This route is PUSHED — from Today's own gap card
+ * and from the closet menu — so dropping `ScreenHeader` would buy ~44pt of
+ * headline height and leave a pushed screen with no way out but a system edge
+ * swipe. That is the standing "never a dead end" refusal, and it costs the
+ * frame's exact vertical rhythm rather than the reader's exit. Deviation.
  *
  * ── CORRECTION 21 · A CATALOGUE FAILURE IS SILENT ──────────────────────────
  *
  * There is no outage branch on this screen. `GapShopFooter` renders nothing
  * when the match comes back empty for ANY reason — nothing matched, the
- * preference is off, the provider is down — and the gap is drawn on its own,
- * because the gap never depended on the partner. Provider outages belong to
- * the health alerts, and nothing here reports one to the user.
+ * preference is off, the account is signed out, the provider is down — and the
+ * gap is drawn on its own, because the gap never depended on the partner. The
+ * packet's three silence frames all draw exactly this. Provider outages belong
+ * to the health alerts, and nothing here reports one to the user.
+ *
+ * ── NOTHING ON THIS SCREEN BUILDS A LINK ───────────────────────────────────
+ *
+ * The affiliate URL, the publisher ids and the refusal to attach any per-user
+ * parameter all live in `supabase/functions/_shared/commerce.ts` and
+ * `gap-shop-match/policy.ts`, neither of which this build touched. This screen
+ * receives a `ShopMatch` with a `url` already decided and hands it to
+ * `Linking.openURL` unmodified.
  */
 export default function GapFeedScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const ax = useAx();
   const model = useGapFeed();
   const [sheet, setSheet] = useState<{ product: ShopMatch; gain: Gain } | null>(null);
 
+  /**
+   * NO HAPTIC HERE, and that is the policy rather than an omission.
+   *
+   * The wave's brief asks for "light impact on card taps". `lib/haptics.ts` is
+   * the app's only door onto the taptic engine and it deliberately exports no
+   * navigation intent — "a tab change, a push, a sheet presentation and a
+   * scroll all arrive with their own system feedback, and adding a tick to them
+   * is the texture Apple's HIG warns about". `tests/haptic-policy.test.ts`
+   * holds it. A gap card opens a detail route; it commits nothing. Reaching for
+   * `haptics.commit()` here would be calling a write intent on a read, which is
+   * worse than the missing tick. Deviation.
+   */
   const openDetail = (kind: CountedKind) => router.push(`/gap-feed/${kind}`);
+
+  const refresh = () => model.refetch();
+
+  const nothingWorthNaming =
+    model.outfitsToday === 0 && model.ranked.every((g) => g.gain === 0);
+
+  const cards = model.dominant ?? model.ranked.slice(0, FEED_CARDS);
+
+  // Two ceilings, two remedies — `useCapacity` keeps them apart because the
+  // database does (migration 20260808190100). The total ceiling wins when both
+  // are hit: storing cannot help there.
+  const ceiling: 'active' | 'total' | null = model.capacity.storageFull
+    ? 'total'
+    : model.capacity.full
+      ? 'active'
+      : null;
 
   let body: React.ReactNode;
 
   if (model.error) {
     body = (
-      <ErrorState
-        title="Couldn't read your closet"
-        body="Check your connection and try again."
-        onRetry={model.refetch}
-      />
-    );
-  } else if (model.loading && !model.ready) {
-    body = (
-      <View className="flex-1 items-center justify-center px-gutter">
-        <Text variant="label">Reading your closet…</Text>
+      <View style={{ gap: 14 }}>
+        <GapFeedStop retrying={model.refreshing} />
+        <Button
+          title={
+            model.refreshing ? GAP_FEED_COPY.readError.retrying : GAP_FEED_COPY.readError.action
+          }
+          variant="primary"
+          loading={model.refreshing}
+          onPress={refresh}
+        />
       </View>
     );
-  } else if (model.outfitsToday === 0 && model.ranked.every((g) => g.gain === 0)) {
-    // A closet too small or too empty to have a gap worth naming. Honest
-    // rather than padded with a suggestion that gains nothing.
+  } else if (model.loading && !model.ready) {
+    body = <GapFeedSkeleton />;
+  } else if (nothingWorthNaming) {
+    // A closet too small or too empty to have a gap worth naming. Honest rather
+    // than padded with a suggestion that gains nothing.
     body = (
-      <EmptyState
-        symbol="sparkles"
-        title="Nothing to suggest yet"
-        body="Add a few more pieces and Cinch can work out what one more would unlock."
-      />
+      <View style={{ gap: 20 }}>
+        <GapFeedEmpty pieces={model.pairingsFor('tops', 2).shown} />
+        <Button
+          title={GAP_FEED_COPY.empty.action}
+          variant="primary"
+          onPress={() => router.push('/add-clothes')}
+        />
+      </View>
     );
   } else {
-    const cards = model.dominant ?? model.ranked.slice(0, 3);
-
-    // Two ceilings, two remedies — `useCapacity` keeps them apart because the
-    // database does (migration 20260808190100). The total ceiling wins when
-    // both are hit: storing cannot help there.
-    const ceiling: 'active' | 'total' | null = model.capacity.storageFull
-      ? 'total'
-      : model.capacity.full
-        ? 'active'
-        : null;
-
     body = (
-      <ScrollView contentContainerClassName="px-5 pb-10 pt-3.5" contentContainerStyle={{ gap: 12 }}>
-        {cards.map((gain, i) => (
-          <GapCard
-            key={gain.kind}
-            eyebrow={i === 0 ? 'Biggest gap' : i === 1 ? 'Second gap' : 'Third gap'}
-            gain={gain}
-            tally={model.tally}
-            pairings={model.pairingsFor(gain.kind)}
-            // The unit is defined once, on the card that introduces it.
-            gloss={i === 0}
-            onPress={() => openDetail(gain.kind)}
-            footer={
-              // The limit is stated ONCE, on the leading card, and it takes the
-              // tray footer that would otherwise hold merchants: a screen that
-              // cannot accept a new piece has no business leading with where to
-              // buy one.
-              i === 0 && ceiling ? (
-                <GapLimitFooter
-                  ceiling={ceiling}
-                  used={ceiling === 'active' ? model.capacity.used : model.capacity.stored}
-                  limit={ceiling === 'active' ? model.capacity.limit : model.capacity.storedLimit}
-                  onChooseToStore={
-                    ceiling === 'active'
-                      ? () => router.push(`/wall-swap?add=${gain.kind}`)
-                      : undefined
-                  }
-                  onSeeStored={() => router.push('/storage')}
-                />
-              ) : (
-                <GapShopFooter
-                  slot={SLOT_FOR_GAP_KIND[gain.kind]}
-                  onOpenProduct={(product) => setSheet({ product, gain })}
-                />
-              )
-            }
-          />
-        ))}
+      <View style={{ gap: CARD.gap }}>
+        {cards.map((gain, i) =>
+          i === 0 ? (
+            <LeadGapCard
+              key={gain.kind}
+              eyebrow={rankEyebrow(i)}
+              gain={gain}
+              tally={model.tally}
+              pieces={model.pairingsFor(gain.kind, 2).shown}
+              // The unit is defined once, on the card that introduces it.
+              gloss
+              onPress={() => openDetail(gain.kind)}
+              footer={
+                // The limit is stated ONCE, on the leading card, and it takes
+                // the tray footer that would otherwise hold merchants: a screen
+                // that cannot accept a new piece has no business leading with
+                // where to buy one.
+                ceiling ? (
+                  <GapLimitFooter
+                    ceiling={ceiling}
+                    used={ceiling === 'active' ? model.capacity.used : model.capacity.stored}
+                    limit={ceiling === 'active' ? model.capacity.limit : model.capacity.storedLimit}
+                    onChooseToStore={
+                      ceiling === 'active'
+                        ? () => router.push(`/wall-swap?add=${gain.kind}`)
+                        : undefined
+                    }
+                    onSeeStored={() => router.push('/storage')}
+                  />
+                ) : (
+                  <GapShopFooter
+                    slot={SLOT_FOR_GAP_KIND[gain.kind]}
+                    onOpenProduct={(product) => setSheet({ product, gain })}
+                  />
+                )
+              }
+            />
+          ) : (
+            <CompactGapRow
+              key={gain.kind}
+              eyebrow={rankEyebrow(i)}
+              gain={gain}
+              tally={model.tally}
+              onPress={() => openDetail(gain.kind)}
+            />
+          ),
+        )}
+
+        {/* At the largest type only the leading card fits a viewport, so the
+            fact that there is more is stated rather than left to be found. */}
+        {ax ? <ScrollHint remaining={cards.length - 1} /> : null}
 
         {model.dominant ? (
-          <Text variant="caption" style={{ color: theme.muted }}>
-            {`Nothing else comes close: ${gapLabelLower(model.tally, nextWeakestKind(model))} adds nothing at all until there’s something new to wear it with.`}
-          </Text>
+          <DominantFootnote label={gapLabelLower(model.tally, nextWeakestKind(model))} />
         ) : null}
-      </ScrollView>
+      </View>
     );
   }
+
+  /**
+   * ONE FACT, ONE REPORT.
+   *
+   * The packet draws two refresh states — a pull indicator and a "checking for
+   * changes from your other device" band — and they are the same fact reported
+   * twice: a read is in flight over content already on screen. `useGapFeed` has
+   * no way to tell a user's pull from a window-refocus refetch, and inventing
+   * one so a banner could claim the refresh came from another DEVICE would be
+   * asserting something this screen does not know. The system refresh indicator
+   * says it once, in the place iOS users already look. Deviation.
+   */
+  const refreshing = model.ready && !model.error && model.refreshing;
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScreenHeader align="leading" onBack={() => router.back()} />
 
-      <View className="px-6 pt-2.5">
-        <Text variant="title" trim style={{ fontSize: 30, lineHeight: 32 }}>
-          What your closet is missing
+      <ScrollView
+        contentContainerClassName="px-gutter pb-12 pt-1"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.accent} />
+        }>
+        <Text
+          variant="title"
+          trim
+          style={{
+            fontSize: ax ? TYPE.mastheadAx : TYPE.masthead,
+            lineHeight: ax ? TYPE.mastheadAx + 4 : TYPE.mastheadLineHeight,
+          }}>
+          {GAP_FEED_COPY.title}
         </Text>
-        {/* ONE sentence. The atlas draws "computed from what you own and what
-            you actually wear" — the second half is not true of this app and is
-            not implemented here: `rankGaps` reads the tally only
+
+        {/* ONE line. The atlas's earlier draft read "computed from what you own
+            and what you actually wear" — the second half is not true of this
+            app and is not implemented here: `rankGaps` reads the tally only
             (`features/closet/outfit-count.ts`), and no wear record enters the
             ranking. Claiming the wear log was consulted would be a claim about
             how the advice was produced, which is the one thing this screen
             cannot get wrong. */}
-        <Text variant="body" className="mt-1.5" style={{ color: theme.muted, fontSize: 15, lineHeight: 22 }}>
-          {subtitle(model)}
-        </Text>
-      </View>
+        {model.error ? null : (
+          <Text
+            variant="body"
+            className="mt-2"
+            style={{
+              color: theme.muted,
+              fontSize: ax ? TYPE.supportingAx : TYPE.supporting,
+              lineHeight: ax ? TYPE.supportingAxLineHeight : 22,
+            }}>
+            {mastheadLine({
+              activeFull: model.capacity.full,
+              totalFull: model.capacity.storageFull,
+              cards: cards.length,
+            })}
+          </Text>
+        )}
 
-      {body}
+        <View className="mt-4">{body}</View>
+      </ScrollView>
 
       <ProductSheet
         product={sheet?.product ?? null}
@@ -185,25 +276,6 @@ export default function GapFeedScreen() {
       />
     </SafeAreaView>
   );
-}
-
-/**
- * The masthead's one sentence.
- *
- * At an active limit it names the limit, because that is the fact that governs
- * every card under it. Otherwise it counts the cards actually drawn — "three
- * gaps" over two cards is a small lie the reader can see.
- */
-function subtitle(model: ReturnType<typeof useGapFeed>): string {
-  if (model.capacity.storageFull) {
-    return 'Every slot you have is taken, stored pieces included.';
-  }
-  if (model.capacity.full) {
-    return 'Your active shelf is full, so adding means swapping first.';
-  }
-  const n = (model.dominant ?? model.ranked.slice(0, 3)).length;
-  const word = n === 1 ? 'One gap' : n === 2 ? 'Two gaps' : 'Three gaps';
-  return `${word}, computed from what you own.`;
 }
 
 /** The weakest ranked kind — the "adds nothing" line under a dominant gap. */
