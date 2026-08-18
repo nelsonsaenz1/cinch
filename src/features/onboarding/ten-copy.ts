@@ -35,13 +35,15 @@ function plural(n: number, one: string, many = `${one}s`): string {
  * The one title the whole hallway's ten-piece surface carries — TR-05, TR-06,
  * T-01 and T-02 all print it, so it is written once.
  *
- * THE NUMERAL IS DELIBERATE, and it is the one place in the product where the
- * free ten is not spelled out. CX-01/CX-02 write the eyebrow as "Your first
- * 10", and an eyebrow is a label rather than prose — the same register as the
- * "0 of 10 pieces" count, not the same as "ten pieces is enough to begin".
- * House style spells numbers in sentences; this is not a sentence.
+ * REDESIGN 21 SPELLED IT. It was `First 10`, and the numeral was argued for on
+ * the grounds that a masthead is a label rather than prose — the same register
+ * as the "0 of 10" count that used to sit above it. That count is now a
+ * designed band with `FOUR OF TEN` written across it in words, so the numeral
+ * in the title had nothing left to agree with and was the only figure on the
+ * page. The approved frames set `The ten`, and every surface that draws this
+ * constant moves with it: T-01, T-02 and the two door frames, TR-05 and TR-06.
  */
-export const TEN_TITLE = 'First 10';
+export const TEN_TITLE = 'The ten';
 
 /**
  * The one supporting line beneath that title (LP-06's accepted copy table).
@@ -59,6 +61,190 @@ export const TEN_TITLE = 'First 10';
  * because it is the accepted copy for the line if a surface ever needs one.
  */
 export const TEN_SUPPORT = 'Build the ten pieces you reach for most.';
+
+// ---------------------------------------------------------------------------
+// Redesign 21 · the masthead, the band and the foot
+// ---------------------------------------------------------------------------
+
+/**
+ * What the page is DOING, which is a different question from how full it is.
+ *
+ * The count answers "how many wells are taken"; this answers "and what is
+ * happening to them right now". They are separate because they move
+ * independently: a tray can be four-tenths full and settling, or ten-tenths
+ * full and not styleable, and a single enum over both would have to invent
+ * combinations the flow cannot reach.
+ *
+ *  - `filling`   — the ordinary state, at any count.
+ *  - `settling`  — a photograph is being read. Never `ready`, however full the
+ *                  tray is: a readiness verdict taken mid-tag is a verdict about
+ *                  a garment Cinch has not read yet, and it would flip a moment
+ *                  later. See the note on `settling` in `the-ten.tsx`.
+ *  - `ready`     — ten filed, and the classifier's own arithmetic agrees.
+ *  - `unready`   — ten filed, and it does not. The repair plate's state.
+ *  - `swapped`   — a replacement has just landed. Reported for one render so the
+ *                  band can say what changed; the count deliberately has not.
+ */
+export type TenPhase = 'filling' | 'settling' | 'ready' | 'unready' | 'swapped';
+
+export type TenBandCopy = {
+  /** `FOUR OF TEN`. Uppercase is applied here so no component decides case. */
+  label: string;
+  /** `Six to go`, `Ready`, `Settling`, `Swapped` — or null when there is none. */
+  trailing: string | null;
+  /** The whole band in one sentence, for a reader who cannot see the pips. */
+  announcement: string;
+};
+
+/**
+ * The progress band's two lines of type.
+ *
+ * NO NUMERAL, ANYWHERE. The band draws ten pips and writes the count in words,
+ * which is the register the rest of the page is in now that the title spells
+ * its own ten. `total` is the grid's own length, so the word "ten" is never
+ * typed here either — a grid of a different size prints a different word rather
+ * than a sentence that lies.
+ *
+ * THE ZERO CASE IS `NONE`, not `ZERO`. `numberWord(0)` is "zero", which is a
+ * quantity in an arithmetic sentence; a band reporting an untouched tray is
+ * naming an absence, and the frames write it as such.
+ */
+export function tenBandCopy(filled: number, total: number, phase: TenPhase): TenBandCopy {
+  const word = filled === 0 ? 'none' : numberWord(filled);
+  const label = `${word} of ${numberWord(total)}`.toUpperCase();
+  const remaining = Math.max(total - filled, 0);
+
+  const trailing = (() => {
+    if (phase === 'settling') return 'Settling';
+    if (phase === 'swapped') return 'Swapped';
+    if (phase === 'ready') return 'Ready';
+    // `unready` gets no trailing word at all. Every candidate for it — "Not
+    // ready", "Almost" — is a verdict, and the verdict is the repair plate's to
+    // deliver in a full sentence directly underneath. A one-word refusal in the
+    // band would be the bad news said twice and the first time without a remedy.
+    if (phase === 'unready' || remaining === 0) return null;
+    return `${cap(numberWord(remaining))} to go`;
+  })();
+
+  return {
+    label,
+    trailing,
+    announcement: trailing ? `${cap(word)} of ${numberWord(total)} filed. ${trailing}.` : `${cap(word)} of ${numberWord(total)} filed.`,
+  };
+}
+
+/**
+ * The one supporting line under the title — the frames' whole allowance for
+ * prose above the tray.
+ *
+ * It is a SENTENCE ABOUT THE TRAY, never an instruction and never the count
+ * again. The band directly beneath says how many; this says what that means,
+ * and at the two ends of the run it is the only editorial voice on the page.
+ *
+ * `name` is the garment being read, when there is one. A settling line that can
+ * name the piece ("Filing the camel shirt.") is the difference between a status
+ * and a reassurance, and the fallback is the same sentence with its subject
+ * generalised rather than a different one — the classifier not having a name yet
+ * is ordinary, not an error.
+ */
+export function tenSubtitle({
+  filled,
+  total,
+  phase,
+  name = null,
+}: {
+  filled: number;
+  total: number;
+  phase: TenPhase;
+  name?: string | null;
+}): string {
+  const named = name?.trim();
+  if (phase === 'settling') {
+    return named ? `Filing the ${named.toLowerCase()}.` : 'Filing the newest piece.';
+  }
+  if (phase === 'swapped') return 'Your count hasn’t changed.';
+  if (phase === 'ready') return 'Enough to dress you tomorrow.';
+  if (phase === 'unready' || filled >= total) return 'Every well is taken.';
+
+  const remaining = total - filled;
+  // Near the end the line stops being about the plan and starts being about the
+  // gap: two wells left is a thing a reader can see, and restating the opening
+  // promise over a nearly-full tray reads as a screen that has not noticed.
+  if (remaining <= 2) {
+    return `${cap(numberWord(remaining))} well${remaining === 1 ? '' : 's'} still open.`;
+  }
+  return `${cap(numberWord(total))} pieces is enough to start.`;
+}
+
+/**
+ * The foot's filled capsule, whose LABEL is the argument.
+ *
+ * This replaces `SlotCard` — a bordered plate that reasoned about the next
+ * piece in three lines and then offered two buttons. The frames put the whole
+ * of that reasoning into one label that changes four times across the run, and
+ * the trade is deliberate: a sentence explaining why to photograph something is
+ * read once and skipped nine times, whereas a button that says "Add the last
+ * one" is read every time because it is the thing being pressed.
+ *
+ * NULL IS A REAL ANSWER. Ten filed and not styleable draws no page action at
+ * all: `TenRepair` is on screen with the only action that helps, and a second
+ * capsule beside it would be offering an eleventh photograph to a closet whose
+ * problem is not the number of photographs in it.
+ */
+export function tenActionLabel({
+  filled,
+  total,
+  phase,
+}: {
+  filled: number;
+  total: number;
+  phase: TenPhase;
+}): string | null {
+  if (phase === 'settling') return 'Filing…';
+  if (phase === 'unready') return null;
+  if (filled >= total) return 'See your first outfits';
+  if (filled === 0) return 'Photograph a piece';
+  return total - filled === 1 ? 'Add the last one' : 'Add the next';
+}
+
+/**
+ * The quiet action under it, or null.
+ *
+ * TWO CALL SITES, ONE CONTROL. On a complete tray it is the frames' own "Add
+ * another piece" — the door that keeps a finished run from being a dead end.
+ * Mid-run it is the library, which is a DEVIATION FROM FRAME recorded in the
+ * build report: the frames draw no library door between the chooser and the
+ * end, and dropping it would mean a reader who would rather not stand over a
+ * wardrobe with a camera has exactly one place to say so — the first screen,
+ * before they have filed anything. The control the frames drew is reused rather
+ * than a new one invented, so the page still has one capsule and one text
+ * action, never two capsules.
+ */
+export function tenSecondaryLabel({
+  filled,
+  total,
+  phase,
+}: {
+  filled: number;
+  total: number;
+  phase: TenPhase;
+}): string | null {
+  if (phase === 'settling' || phase === 'unready') return null;
+  if (filled >= total) return 'Add another piece';
+  return 'Choose from your library';
+}
+
+/**
+ * The word inside the spanning tenth well.
+ *
+ * The only well on the tray that carries a label, and it carries one because it
+ * is the only one whose SHAPE is different — a reader has to be told that the
+ * wide band at the bottom is a well and not a footer. `ordinalWord(total)` so a
+ * grid of a different length names its own last position.
+ */
+export function tenthWellLabel(total: number): string {
+  return `${cap(ordinalWord(total))} piece`;
+}
 
 /**
  * The camera's own title. Generic, like the tile it was opened from.

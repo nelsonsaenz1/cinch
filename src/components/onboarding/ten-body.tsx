@@ -1,121 +1,167 @@
 import type { ReactNode } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
 
-import { SlotCard } from '@/components/onboarding/slot-card';
-import { TenGrid } from '@/components/onboarding/ten-grid';
-import { Text } from '@/components/ui/text';
-import { TEN_TITLE } from '@/features/onboarding/ten-copy';
+import { TenBand, TenFoot, TenMasthead, TenTray } from '@/components/onboarding/ten-parts';
 import {
-  starterSuggestion,
-  type StarterReadiness,
-} from '@/features/onboarding/starter-readiness';
+  TEN_TITLE,
+  tenActionLabel,
+  tenSecondaryLabel,
+  tenSubtitle,
+  type TenPhase,
+} from '@/features/onboarding/ten-copy';
+import { PAD, tenMeasure } from '@/features/onboarding/ten-spec';
 import { filledCount, nextSlot, type TenSlot } from '@/features/onboarding/ten-slots';
 
 /**
- * The Ten's page — T-01, T-02, T-02/AX, and the masthead T-05 keeps.
+ * Redesign 21 — The Ten's page.
  *
- * Extracted from the route so the fixture routes photograph the SAME object
- * the app ships rather than a second layout that agrees with it by hand. The
- * route owns the state machine; this owns the page.
+ * Extracted from the route so the fixture routes photograph the SAME object the
+ * app ships rather than a second layout that agrees with it by hand. The route
+ * owns the state machine; this owns the page, and `ten-parts.tsx` owns the ink.
  *
- * THE COUNT IS ABOVE THE TITLE, not beside it. "0 of 10" prints from the first
- * frame because the flow has genuinely started — it is a position, not a score,
- * and never a bar or a percentage.
+ * THE ORDER IS TITLE → LINE → BAND → TRAY → PLATES → CAPSULE, and it is the
+ * frames' order rather than the shipped one. What changed and why:
  *
- * AND NOTHING ELSE BEFORE THE CLOTHES. The masthead used to print a third
- * block, `TEN_SUPPORT` — "Build the ten pieces you reach for most." — which was
- * static across all ten states: the count above it was the progress and the
- * SlotCard below it is the instruction, written from this actual closet. It is
- * gone and the space went to the grid. Count → title → clothing.
+ *  - the count moved from an 11pt eyebrow ABOVE the title to a designed band
+ *    BELOW it. Above the title it was the first thing read on the first screen
+ *    of the app, in the register of a form label, and it competed with the
+ *    masthead for the same job. Below it, with ten pips and a ground that
+ *    changes, it is the thing the page is actually about;
+ *  - `SlotCard` — a bordered plate arguing for the next piece — is gone, and
+ *    the argument is now the capsule's own label (`tenActionLabel`). The
+ *    reasoning it carried was written once and skipped nine times;
+ *  - the tray grew. Portrait wells, a wider gutter between them, and a tenth
+ *    that spans the page. `ten-spec.ts` holds every number.
  *
- * `children` replaces the grid and the card entirely, which is how T-05 keeps
- * the masthead: a denied permission is drawn UNDER the count, so the work
- * already done stays visible from the failure. The repair state (ten filed,
- * still not styleable) uses the same door.
- *
- * `readiness` is the REAL closet, read from the classifier. The page cannot
- * derive it from `slots` and must not try: a position knows which garment id
- * sits in it and nothing whatever about what that garment turned out to be.
+ * `children` replaces the tray and the foot entirely, which is how the camera
+ * refusal keeps the masthead: a denied permission is drawn UNDER the count, so
+ * the work already done stays visible from the failure. `plates` is the other
+ * door — drawn under the tray, never instead of it, for the state where the
+ * grid is full and still has to stay tappable.
  */
 export function TenBody({
   slots,
-  readiness,
+  phase,
   foregroundedId,
+  settlingId,
+  settlingName,
   garmentNames,
   imageUris,
   onSlotPress,
   onPhotograph,
   onLibrary,
+  onFinish,
+  onAddAnother,
   fontScale,
-  footer,
+  screenHeight,
+  banner,
+  plates,
   children,
 }: {
   slots: readonly TenSlot[];
-  readiness: StarterReadiness;
-  /** The slot the actions will fill. Defaults to the next empty one. */
+  /** What the page is doing — see `TenPhase`. Never derived from `slots` here. */
+  phase: TenPhase;
+  /** The slot the action will fill. Defaults to the next empty one. */
   foregroundedId?: number | null;
+  settlingId?: number | null;
+  /** The garment being read, when the classifier has a name for it yet. */
+  settlingName?: string | null;
   garmentNames?: Record<number, string | null>;
   imageUris?: Record<number, string | undefined>;
   onSlotPress?: (slotId: number) => void;
   onPhotograph?: (slotId: number) => void;
   onLibrary?: (slotId: number) => void;
-  /** Overridable so a fixture can photograph the AX layout without the OS. */
+  /** The complete tray's capsule — the one exit this page has to the reveal. */
+  onFinish?: () => void;
+  /** The complete tray's quiet action — a door out, not an eleventh well. */
+  onAddAnother?: () => void;
+  /** Overridable so a fixture can photograph a composition without the OS. */
   fontScale?: number;
-  /**
-   * Drawn UNDER the grid, never instead of it. The repair state uses this
-   * rather than `children` on purpose: a full grid that cannot be styled must
-   * stay tappable, because tapping a piece is the whole fix.
-   */
-  footer?: ReactNode;
-  /** Replaces the grid and the card entirely. T-05's fork passes its own. */
+  screenHeight?: number;
+  /** Drawn between the band and the tray: the trouble and resume plates. */
+  banner?: ReactNode;
+  /** Drawn under the tray, never instead of it: repair, and the no-room plate. */
+  plates?: ReactNode;
+  /** Replaces the tray and the foot entirely. The camera refusal passes its own. */
   children?: ReactNode;
 }) {
+  const window = useWindowDimensions();
+  const measure = tenMeasure({
+    fontScale: fontScale ?? window.fontScale,
+    height: screenHeight ?? window.height,
+  });
+
   const filled = filledCount(slots);
+  const total = slots.length;
   const foregrounded = slots.find((s) => s.id === foregroundedId) ?? nextSlot(slots) ?? null;
-  const suggestion = starterSuggestion(readiness);
+
+  const action = tenActionLabel({ filled, total, phase });
+  const secondary = tenSecondaryLabel({ filled, total, phase });
 
   return (
-    <ScrollView contentContainerClassName="px-gutter pb-8" keyboardShouldPersistTaps="handled">
-      <Text
-        variant="eyebrow"
-        className="pt-1"
-        style={{ fontVariant: ['tabular-nums'] }}
-        accessibilityLabel={`${filled} of ${slots.length} filled`}>
-        {`${filled} of ${slots.length}`}
-      </Text>
-      <View style={{ marginTop: 4 }}>
-        <Text variant="title" trim accessibilityRole="header" style={{ fontSize: 32 }}>
-          {TEN_TITLE}
-        </Text>
+    <ScrollView
+      contentContainerStyle={{ paddingHorizontal: PAD, paddingTop: 4, paddingBottom: 32 }}
+      keyboardShouldPersistTaps="handled">
+      <TenMasthead
+        title={TEN_TITLE}
+        subtitle={tenSubtitle({ filled, total, phase, name: settlingName })}
+        measure={measure}
+      />
+
+      <View style={{ marginTop: 16 }}>
+        <TenBand filled={filled} total={total} phase={phase} measure={measure} />
       </View>
+
+      {banner ? <View style={{ marginTop: 16 }}>{banner}</View> : null}
 
       {children ?? (
         <>
-          <View style={{ marginTop: 20 }}>
-            <TenGrid
+          <View style={{ marginTop: 16 }}>
+            <TenTray
               slots={slots}
+              measure={measure}
               foregroundedId={foregrounded?.id ?? null}
+              settlingId={settlingId}
               garmentNames={garmentNames}
               imageUris={imageUris}
               onSlotPress={onSlotPress}
-              fontScale={fontScale}
             />
           </View>
 
-          {foregrounded ? (
-            <View className="mt-5">
-              <SlotCard
-                readiness={readiness}
-                suggestion={suggestion}
-                slotId={foregrounded.id}
-                fontScale={fontScale}
-                onPhotograph={() => onPhotograph?.(foregrounded.id)}
-                onLibrary={() => onLibrary?.(foregrounded.id)}
-              />
-            </View>
-          ) : null}
+          {plates ? <View style={{ marginTop: 20 }}>{plates}</View> : null}
 
-          {footer}
+          {/* The foot is spaced off the tray rather than pinned to the bottom
+              edge: at accessibility sizes the tray is five rows and scrolls, and
+              a pinned capsule would sit on top of the last well. */}
+          <View style={{ marginTop: 24 }}>
+            <TenFoot
+              measure={measure}
+              action={action}
+              secondary={secondary}
+              // A settling tray refuses the next photograph rather than hiding
+              // the control: the label says `Filing…`, which is a reason, and a
+              // control that vanishes mid-run is a page that lost its action.
+              disabled={phase === 'settling'}
+              onAction={() => {
+                if (filled >= total) {
+                  onFinish?.();
+                  return;
+                }
+                if (foregrounded) onPhotograph?.(foregrounded.id);
+              }}
+              onSecondary={() => {
+                // A full tray has no well to fill, so "Add another piece" is a
+                // door OUT of this flow rather than a second library picker —
+                // only the route knows whether there is room for an eleventh,
+                // and `/add-clothes` is the surface that owns that question.
+                if (filled >= total) {
+                  onAddAnother?.();
+                  return;
+                }
+                if (foregrounded) onLibrary?.(foregrounded.id);
+              }}
+            />
+          </View>
         </>
       )}
     </ScrollView>

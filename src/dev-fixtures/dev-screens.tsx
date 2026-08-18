@@ -46,16 +46,12 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['R-02', '/dev-w3-g1-r-02'],
       ['R-04', '/dev-w3-g1-r-04'],
       ['R-05', '/dev-w3-g1-r-05'],
-      ['T-01', '/dev-w3-g1-t-01'],
-      ['T-02', '/dev-w3-g1-t-02'],
-      ['T-02 / AX', '/dev-w3-g1-t-02-ax'],
-      // T-04 (the substitution sheet) is gone with the named-slot template —
-      // a generic cell has nothing to decline. T-07 is what replaced it: ten
-      // filed, and still not styleable.
-      ['T-05', '/dev-w3-g1-t-05'],
-      ['T-06', '/dev-w3-g1-t-06'],
-      ['T-06 · sheet', '/dev-w3-g1-t-06-sheet'],
-      ['T-07 · repair', '/dev-w3-g1-t-07-repair'],
+      // T-01…T-07 have moved to 'Redesign 21 · The Ten' below. The frames they
+      // posed are the superseded atlas's — a landscape three-up grid, an
+      // eyebrow count and the reasoning card — and none of those exist any
+      // more, so a route drawing them would be drawing a screen the app does
+      // not have. T-04 (the substitution sheet) went two waves earlier, with
+      // the named-slot template: a generic cell has nothing to decline.
       ['TD-00', '/dev-w3-g1-td-00'],
       ['TD-00 / AX', '/dev-w3-g1-td-00-ax'],
       ['TR-01', '/dev-w3-g1-tr-01'],
@@ -160,6 +156,27 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['TR-03 · the ritual, two ways out', '/dev-tr-03-ritual'],
       ['TR-04 · largest accessibility text', '/dev-tr-04-ax'],
       ['TR-05 · short device', '/dev-tr-05-short'],
+    ],
+  ],
+  [
+    // Every one of these takes `?scale=` and `?height=`, so the accessibility
+    // and short-device compositions are reachable from any of the twelve
+    // without touching iOS Settings — which is what the two recompositions in
+    // `ten-spec.ts` are checked against.
+    'Redesign 21 · The Ten',
+    [
+      ['T-01 · nothing filed', '/dev-tt-01-empty'],
+      ['T-02 · four of ten', '/dev-tt-02-partial'],
+      ['T-03 · nine of ten', '/dev-tt-03-near'],
+      ['T-04 · ten of ten', '/dev-tt-04-complete'],
+      ['T-05 · settling', '/dev-tt-05-settling'],
+      ['T-06 · swapped', '/dev-tt-06-swapped'],
+      ['T-07 · ten filed, not styleable', '/dev-tt-07-unready'],
+      ['T-08 · no room', '/dev-tt-08-no-room'],
+      ['T-09 · camera denied', '/dev-tt-09-denied'],
+      ['T-10 · offline', '/dev-tt-10-offline'],
+      ['T-11 · the read failed', '/dev-tt-11-error'],
+      ['T-12 · opening', '/dev-tt-12-loading'],
     ],
   ],
   [
@@ -511,7 +528,6 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['share', '/dev-share'],
       ['share look', '/dev-share-look'],
       ['stylist', '/dev-stylist'],
-      ['ten', '/dev-ten'],
       ['today', '/dev-today'],
       ['tour', '/dev-tour'],
       ['truncation', '/dev-truncation'],

@@ -40,11 +40,12 @@ test('the slot list IS the free closet — the two numbers may never drift', () 
   assert.equal(emptyTen().length, PLANS.free.items);
 });
 
-test('LP-06 · First 10 carries the accepted headline and its one support line', () => {
-  // Straight off the accepted copy table. The headline was `Your first 10` and
-  // the support was `tenProgressLine`, a per-state sentence that repeated the
-  // count already printed in the eyebrow above it.
-  assert.equal(TEN_TITLE, 'First 10');
+test('the ten-piece surface carries the accepted headline and its one support line', () => {
+  // Straight off the accepted copy table. The headline was `Your first 10`,
+  // then `First 10`, and redesign 21's frames set it as a spelled phrase — see
+  // `tests/w3-g1-hallway-copy.test.ts` for why the numeral argument expired
+  // rather than being overruled. The support line is untouched.
+  assert.equal(TEN_TITLE, 'The ten');
   assert.equal(TEN_SUPPORT, 'Build the ten pieces you reach for most.');
 });
 
@@ -301,23 +302,30 @@ test('LP-02 · an unnamed piece falls back to its position alone', () => {
   }
 });
 
-test('LP-02 · the tile speaks that label and nothing of its own', () => {
-  // Source rather than rendered: `ten-tile.tsx` imports React Native and
-  // expo-image, and the test bundler cannot parse React Native's Flow source.
-  // Comments are stripped first — a sentence quoted in prose is not a sentence
-  // spoken.
-  const tile = readFileSync('src/components/onboarding/ten-tile.tsx', 'utf8')
+test('LP-02 · the well speaks that label and nothing of its own', () => {
+  // Source rather than rendered: the cell imports React Native and expo-image,
+  // and the test bundler cannot parse React Native's Flow source. Comments are
+  // stripped first — a sentence quoted in prose is not a sentence spoken.
+  //
+  // REDESIGN 21 moved the cell from `ten-tile.tsx` into `ten-parts.tsx` and
+  // renamed it `TenWell`. Nothing this test is about moved with it: the label is
+  // still the copy module's, the name is still spoken and never printed, and the
+  // empty cell still names its position. Only the file did.
+  const well = readFileSync('src/components/onboarding/ten-parts.tsx', 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/[^\n]*/g, '');
 
   // One wording, owned by the copy module above, reached through the garment
-  // name the grid passes down. A literal here would be a second wording.
-  assert.match(tile, /accessibilityLabel=\{[\s\S]*?filledTileLabel\(slot\.id, total, garment\)/);
-  assert.doesNotMatch(tile, /Look \$\{slot\.id\} of/);
+  // name the tray passes down. A literal here would be a second wording.
+  assert.match(
+    well,
+    /accessibilityLabel=\{[\s\S]*?filledTileLabel\(slot\.id, total, garmentName \?\? null\)/,
+  );
+  assert.doesNotMatch(well, /Look \$\{slot\.id\} of/);
 
-  // The name is SPOKEN, never printed: a filled tile still draws no caption.
-  assert.doesNotMatch(tile, /\{garmentName\}/);
+  // The name is SPOKEN, never printed: a filled well still draws no caption.
+  assert.doesNotMatch(well, /\{garmentName\}/);
 
-  // The empty tile's label is untouched by the correction and stays as it was.
-  assert.match(tile, /Slot \$\{slot\.id\}, empty/);
+  // The empty well's label is untouched by the correction and stays as it was.
+  assert.match(well, /slot \$\{slot\.id\}, empty/);
 });

@@ -1,20 +1,19 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, View } from 'react-native';
+import { AccessibilityInfo, Alert, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button } from '@/components/ui/button';
 import { CameraUnavailable } from '@/components/ingest/camera-unavailable';
 import { CameraDenied } from '@/components/onboarding/camera-denied';
 import { FirstTenDoors } from '@/components/onboarding/first-ten-doors';
 import { TenBody } from '@/components/onboarding/ten-body';
 import { TenCamera } from '@/components/onboarding/ten-camera';
+import { TenMasthead, TroublePlate } from '@/components/onboarding/ten-parts';
 import { TenNoRoomNotice } from '@/components/onboarding/ten-no-room-notice';
 import { TenRepair } from '@/components/onboarding/ten-repair';
 import { TenReplaceSheet } from '@/components/onboarding/ten-replace-sheet';
 import { TenStopSheet } from '@/components/onboarding/ten-stop-sheet';
 import { ScreenHeader } from '@/components/ui/screen-header';
-import { Text } from '@/components/ui/text';
 import { Placement } from '@/features/billing/placements';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { useGate } from '@/features/billing/use-gate';
@@ -27,10 +26,13 @@ import { useCameraAccess } from '@/features/ingest/use-camera-access';
 import { useUnfinishedWalkthrough } from '@/features/intake/queries';
 import { starterReadiness } from '@/features/onboarding/starter-readiness';
 import {
+  TEN_TITLE,
   noRoomCopy,
   replaceFailureLine,
   replacedAnnouncement,
+  type TenPhase,
 } from '@/features/onboarding/ten-copy';
+import { PAD, TEN, WELL_RADIUS, tenMeasure } from '@/features/onboarding/ten-spec';
 import {
   applyReplace,
   initialReplaceState,
@@ -176,11 +178,31 @@ export default function TheTenScreen() {
     (_prev: number | null, slot: number | null) => slot,
     null,
   );
+  /**
+   * The position a replacement has just landed in, or null — redesign 21's
+   * `swapped` band.
+   *
+   * KEPT UNTIL THE READER MOVES, never on a timer. The frame draws "TEN OF TEN
+   * · Swapped" over "Linen coat filed. Camel shirt archived.", which is a
+   * report on a write that has finished; a report that erases itself after two
+   * seconds is one a reader who looked away has no way to get back. Every next
+   * action clears it, because every next action supersedes it.
+   *
+   * A reducer for the same mechanical reason `noRoomSlot` is one: it is set
+   * from inside the retire effect, and dispatching is the sanctioned way to move
+   * state from an effect (react-hooks/set-state-in-effect).
+   */
+  const [swappedSlot, setSwappedSlot] = useReducer(
+    (_prev: number | null, slot: number | null) => slot,
+    null,
+  );
   /** TR-05 is answered by walking through a door, and only asked once. */
   const [doorChosen, setDoorChosen] = useState(door === 'photograph');
 
   const openCamera = useCallback(
     (slotId: number, mode: 'camera' | 'library') => {
+      // Any next action supersedes the swap report — see `swappedSlot`.
+      setSwappedSlot(null);
       if (mode === 'camera' && camera.access === 'blocked') {
         setCameraRefused(true);
         return;
@@ -227,6 +249,17 @@ export default function TheTenScreen() {
     uri?: string;
     name: string | null;
   } | null>(null);
+
+  /**
+   * The composition, for the two states that draw chrome without a tray.
+   *
+   * Read here rather than inside the error and loading branches because those
+   * are early returns and a hook cannot live behind one. `TenBody` measures
+   * again for itself — the same pure function over the same window, so the two
+   * cannot disagree, and neither has to be handed the other's answer.
+   */
+  const window = useWindowDimensions();
+  const chromeMeasure = tenMeasure({ fontScale: window.fontScale, height: window.height });
 
   const capacity = useCapacity();
   // Only ever used by the no-room plate's "See plans", whose placement is the
@@ -296,6 +329,10 @@ export default function TheTenScreen() {
       setSlots((prev) => (prev ? applyReplace(prev, ending) : prev));
       orphanRef.current = null;
       AccessibilityInfo.announceForAccessibility(replacedAnnouncement(slotId));
+      // Only a swap that actually stored the outgoing piece is a swap. A
+      // `retire-failed` ending leaves the new photograph filed and the old one
+      // still in the closet, which is a state the band must not celebrate.
+      if (stored) setSwappedSlot(slotId);
       dispatchReplace(event);
     })();
     return () => {
@@ -459,24 +496,25 @@ export default function TheTenScreen() {
   // connection is the first minute of the app and has no way out of it.
   if (!slots && wardrobe.isError) {
     return (
-      <SafeAreaView className="flex-1 justify-center bg-canvas px-gutter">
-        <View accessibilityRole="alert">
-          <Text variant="title" trim>
-            Couldn&rsquo;t read your closet
-          </Text>
-          <Text variant="body" className="mt-3.5 text-muted">
-            Nothing you&rsquo;ve photographed is lost. Check your connection and try again.
-          </Text>
-          {/* Wrapper carries the offset: `Button` omits `style` from its props. */}
-          <View style={{ marginTop: 30 }}>
-            <Button
-              title="Try again"
-              variant="secondary"
-              loading={wardrobe.isRefetching}
-              onPress={() => void wardrobe.refetch()}
-              className="self-stretch"
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+        <View style={{ paddingHorizontal: PAD, paddingTop: 4 }} accessibilityRole="alert">
+          {/* The title stays, and the band does not. A tray that could not be
+              read has no count to report, and drawing `NONE OF TEN` over a
+              failed read would be asserting an empty closet — which is the one
+              thing this state exists to avoid claiming. */}
+          <TenMasthead title={TEN_TITLE} subtitle={null} measure={chromeMeasure} />
+          <View style={{ marginTop: 16 }}>
+            <TroublePlate
+              measure={chromeMeasure}
+              eyebrow="Couldn’t open your tray"
+              body="Something went wrong reading what you’ve filed. Your pieces are safe — this is only the read."
+              primary={{ label: 'Try again', onPress: () => void wardrobe.refetch() }}
+              secondary={{ label: 'Back to Today', onPress: () => router.replace('/(tabs)' as Href) }}
             />
           </View>
+          {/* One row of ghost wells under it. The frame draws them and they earn
+              their place: they say what the plate is standing in front of. */}
+          <GhostRow />
         </View>
       </SafeAreaView>
     );
@@ -484,8 +522,21 @@ export default function TheTenScreen() {
 
   if (!slots) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-canvas">
-        <Text variant="label">Loading your closet…</Text>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+        <View
+          style={{ paddingHorizontal: PAD, paddingTop: 4 }}
+          accessibilityRole="progressbar"
+          accessibilityLabel="Opening your tray">
+          {/* The title is REAL and everything under it is a shape. A skeleton
+              that also greys the masthead has nothing on it a reader can hold
+              on to; the frame keeps the one word that is already known. */}
+          <TenMasthead title={TEN_TITLE} subtitle={null} measure={chromeMeasure} />
+          <Bone height={14} width={150} radius={7} top={10} />
+          <Bone height={54} radius={18} top={16} />
+          <GhostRow />
+          <GhostRow />
+          <GhostRow />
+        </View>
       </SafeAreaView>
     );
   }
@@ -524,6 +575,32 @@ export default function TheTenScreen() {
   // in front of a full grid with nowhere to go.
   const needsRepair = isComplete(slots) && !settling && !readiness.ready;
   const newestPlacedId = placedIds(slots).at(-1) ?? null;
+
+  // ── Redesign 21 · what the page is DOING ─────────────────────────────────
+  //
+  // The band and the foot both need this and neither may derive it for itself:
+  // `settling` is read off the ingest queue, `readiness` off the classifier and
+  // `swappedSlot` off the replacement machine, and a component that had to
+  // reach all three would be a second copy of this screen's state.
+  //
+  // THE ORDER IS THE PRIORITY, and settling wins. A tray that is ten-tenths
+  // full with a photograph still being read is not ready — a verdict taken then
+  // is a verdict about a garment Cinch has not looked at, and it would flip a
+  // moment later, which is worse than waiting. Same rule, and the same sentence,
+  // as `showStop` above.
+  const settlingSlot =
+    settling && newestPlacedId
+      ? (slots.find((s) => s.garmentId === newestPlacedId)?.id ?? null)
+      : null;
+  const phase: TenPhase = settling
+    ? 'settling'
+    : swappedSlot !== null
+      ? 'swapped'
+      : isComplete(slots)
+        ? readiness.ready
+          ? 'ready'
+          : 'unready'
+        : 'filling';
 
   // `cameraStart === 'library'` falls THROUGH to `TenCamera`, which opens the
   // picker on mount and never touches a viewfinder. Without that the notice
@@ -648,8 +725,10 @@ export default function TheTenScreen() {
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <TenBody
         slots={slots}
-        readiness={readiness}
+        phase={phase}
         foregroundedId={foregrounded?.id ?? null}
+        settlingId={settlingSlot}
+        settlingName={settlingSlot === null ? null : (garmentNames[settlingSlot] ?? null)}
         garmentNames={garmentNames}
         imageUris={imageUris}
         // A filled tile opens a focused review of the piece in it — LP-02.
@@ -664,6 +743,8 @@ export default function TheTenScreen() {
         // is busy, and a second flow over the top of it would be two writes
         // racing for one position.
         onSlotPress={(id) => {
+          // Any next action supersedes the swap report — see `swappedSlot`.
+          setSwappedSlot(null);
           const slot = slots.find((s) => s.id === id);
           if (slot?.status === 'filled' && slot.garmentId) {
             if (replace.phase !== 'closed') return;
@@ -675,21 +756,35 @@ export default function TheTenScreen() {
         }}
         onPhotograph={(id) => openCamera(id, 'camera')}
         onLibrary={(id) => openCamera(id, 'library')}
-        footer={
+        // The complete tray's capsule. The SAME destination the stop sheet's
+        // first action has, deliberately: a reader who waved the sheet away
+        // still has the one exit this flow was counting down to, and there is
+        // exactly one route to the reveal rather than two that could drift.
+        onFinish={() => {
+          setStopDismissed(true);
+          router.replace('/reveal');
+        }}
+        // And its quiet one. `/add-clothes` owns the capacity question — there
+        // is no eleventh well here to fill, so this is a door out rather than a
+        // second picker.
+        onAddAnother={() => router.push('/add-clothes?from=ten' as Href)}
+        plates={
           <>
             {needsRepair ? (
               <TenRepair
                 readiness={readiness}
+                measure={chromeMeasure}
                 onCheckPiece={() =>
                   newestPlacedId ? router.push(`/item/${newestPlacedId}` as Href) : undefined
                 }
               />
             ) : null}
-            {/* The refusal stands under the grid until the reader acts on it —
+            {/* The refusal stands under the tray until the reader acts on it —
                 both doors clear it, because both of them answer it. */}
             {noRoomSlot !== null ? (
               <TenNoRoomNotice
                 slotId={noRoomSlot}
+                measure={chromeMeasure}
                 onOpenStorage={() => {
                   setNoRoomSlot(null);
                   router.push('/storage' as Href);
@@ -753,6 +848,65 @@ export default function TheTenScreen() {
         onBackToGrid={() => setStopDismissed(true)}
       />
     </SafeAreaView>
+  );
+}
+
+/**
+ * A skeleton bar. The loading frame's own vocabulary and nothing else's.
+ *
+ * Static rather than shimmering: a pulse is motion, motion on a loading state is
+ * the one place `useReducedMotion` gets forgotten, and the frame draws stillness.
+ */
+function Bone({
+  height,
+  width,
+  radius,
+  top,
+}: {
+  height: number;
+  width?: number;
+  radius: number;
+  top: number;
+}) {
+  return (
+    <View
+      style={{
+        height,
+        width: width ?? '100%',
+        borderRadius: radius,
+        marginTop: top,
+        backgroundColor: TEN.wellEmpty,
+      }}
+    />
+  );
+}
+
+/**
+ * One row of empty wells, drawn as furniture rather than as slots.
+ *
+ * Used by the loading and error frames, where there are no `TenSlot`s to hand
+ * `TenTray` yet. Deliberately NOT pressable and carrying no label: it is a
+ * picture of the tray, and a reader who tabbed onto it would find three
+ * controls that cannot do anything. `accessibilityElementsHidden` says so.
+ */
+function GhostRow() {
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+      {[0, 1, 2].map((i) => (
+        <View
+          key={i}
+          style={{
+            flex: 1,
+            height: 118,
+            borderRadius: WELL_RADIUS,
+            backgroundColor: TEN.wellEmpty,
+          }}
+        />
+      ))}
+    </View>
   );
 }
 

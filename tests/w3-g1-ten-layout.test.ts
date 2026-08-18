@@ -1,11 +1,25 @@
 /**
- * Wave 3 Group 1 — The Ten's grid geometry and its one AX recomposition, plus
- * the procession's drop band.
+ * Wave 3 Group 1 — the procession's drop band, and its fixture data.
  *
- * These are the rules a component would otherwise state as magic numbers. The
- * atlas is explicit that larger type is solved "with height, wrapping and
- * recomposition — never by capping the scale further or adding ellipses", and a
- * rule stated only inside a `<View style>` is a rule nothing can hold.
+ * ── WHAT LEFT THIS FILE, AND WHERE IT WENT ─────────────────────────────────
+ *
+ * This used to open with five tests over `features/onboarding/ten-layout.ts`:
+ * the three-up grid, the two-column accessibility recomposition, the 86/111
+ * landscape cell, the 8pt gap, and the column arithmetic. Redesign 21 replaced
+ * that module with `ten-spec.ts` and every one of those numbers with a
+ * different one — the wells are PORTRAIT now, the gap is 12 across and 8 down,
+ * and the tenth well spans the tray instead of taking a cell — so the tests
+ * were not adjusted, they were superseded. Their successors are in
+ * `tests/the-ten-layout.test.ts`, which pins the same five rules against the
+ * frames that are actually shipping, plus the band and the foot the old atlas
+ * had no equivalent of.
+ *
+ * The AX THRESHOLD is the one value that crossed over unchanged (1.35, still
+ * argued the same way), and it is asserted in the new file so the recomposition
+ * boundary never became unpinned in the move.
+ *
+ * What stays here is the half of this file that was never about The Ten: the
+ * procession's drop band, and the twenty-three-card fixture deck.
  */
 
 import assert from 'node:assert/strict';
@@ -18,60 +32,6 @@ import {
   processionReducer,
   UNDO_DEPTH,
 } from '../src/features/intake/procession';
-import {
-  isAccessibilityScale,
-  TEN_AX_FONT_SCALE,
-  TEN_COLUMNS,
-  TEN_COLUMNS_AX,
-  TEN_GAP,
-  tenColumns,
-  tenTileHeight,
-  tenTileWidth,
-} from '../src/features/onboarding/ten-layout';
-
-test('the grid is three columns at every ordinary type size', () => {
-  for (const scale of [1, 1.1, 1.2, 1.34]) {
-    assert.equal(tenColumns(scale), TEN_COLUMNS, `at ${scale}`);
-    assert.equal(isAccessibilityScale(scale), false, `at ${scale}`);
-  }
-});
-
-test('T-02 / AX — at accessibility sizes the grid drops to two columns', () => {
-  for (const scale of [TEN_AX_FONT_SCALE, 1.5, 1.8]) {
-    assert.equal(tenColumns(scale), TEN_COLUMNS_AX, `at ${scale}`);
-    assert.equal(isAccessibilityScale(scale), true, `at ${scale}`);
-  }
-});
-
-test('the cell is landscape normally and square at accessibility sizes', () => {
-  // 393pt frame, 20pt gutters: the atlas's own measured column, to a point.
-  const content = 393 - 40;
-  const wide = tenTileWidth(content, 1);
-  assert.equal(Math.round(wide), 112);
-  // Landscape, at the ratio the atlas draws — 86 tall in a 111 column — rather
-  // than at its own stale "111×135 pt" annotation, which the drawing does not
-  // agree with. A square cell here costs ~44% more height than the grid has and
-  // pushes the tenth slot below the fold, which breaks the single rule T-01
-  // states outright.
-  assert.ok(tenTileHeight(wide, 1) < wide);
-  assert.equal(tenTileHeight(wide, 1), Math.round(wide * (86 / 111)));
-
-  const ax = tenTileWidth(content, 1.8);
-  // Two columns, so the cell is wider — and square, which buys the label the
-  // height it needs at the largest setting instead of shrinking it.
-  assert.ok(ax > wide);
-  assert.equal(tenTileHeight(ax, 1.8), Math.round(ax));
-});
-
-test('the gap is on the spacing scale', () => {
-  assert.ok([1, 8, 12, 20, 24, 28, 44].includes(TEN_GAP));
-});
-
-test('column arithmetic accounts for the gaps, at both column counts', () => {
-  const content = 353;
-  assert.equal(tenTileWidth(content, 1) * 3 + TEN_GAP * 2, content);
-  assert.equal(tenTileWidth(content, 1.8) * 2 + TEN_GAP, content);
-});
 
 // ---------------------------------------------------------------------------
 // PR-05 — the drop band

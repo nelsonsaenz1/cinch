@@ -52,7 +52,16 @@ test('the ten-piece surface has one title, and it is not the flow’s codename',
   // LP-06's accepted copy table then dropped the possessive: `Your first 10`
   // became `First 10`. Both surfaces move together because both read this
   // constant.
-  assert.equal(TEN_TITLE, 'First 10');
+  //
+  // REDESIGN 21 SPELLED IT BACK OUT, and the numeral argument above expired
+  // rather than being overruled. It rested on the count beside the title being
+  // written as `0 of 10` — same register, both labels. The approved frames
+  // replace that count with a designed band reading `NONE OF TEN` in words, so
+  // the numeral had nothing left to agree with and was the only figure on the
+  // page. The one thing this test has always been for still holds: it is not
+  // the flow's codename, `The Ten`, and the two surfaces still move together.
+  assert.equal(TEN_TITLE, 'The ten');
+  assert.notEqual(TEN_TITLE, 'The Ten');
 });
 
 test('TR-06 — resume is a count, never a bar', () => {
