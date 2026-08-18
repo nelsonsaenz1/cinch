@@ -39,6 +39,7 @@ accepted bundle.
 
 | Page | Directive brief | Artifact set | Files | Imported | Build status |
 |---|---|---|---|---|---|
+| 11-today | §3 · 11 Today | design-refs/redesign-2026-08/11-today/ | 1 HTML + 30 PNG | 2026-08-18 | DESIGN ACCEPTED · not built |
 | 17-explore | §3 · 17 Explore (Daily Social) | design-refs/redesign-2026-08/17-explore/ | 1 HTML + 15 PNG | 2026-08-18 | not built |
 | 18-welcome-sign-in | §3 · 18 Welcome / Sign-in | design-refs/redesign-2026-08/18-welcome-sign-in/ | 1 HTML + 8 PNG | 2026-08-18 | not built |
 | 19-auth-run | §3 · 19 Email + code + name | design-refs/redesign-2026-08/19-auth-run/ | 1 HTML + 21 PNG | 2026-08-18 | not built |
@@ -46,7 +47,7 @@ accepted bundle.
 | 21-the-ten | §3 · 21 The Ten | design-refs/redesign-2026-08/21-the-ten/ | 1 HTML + 19 PNG | 2026-08-18 | not built |
 | 22-capture | §3 · 22 Capture | design-refs/redesign-2026-08/22-capture/ | 1 HTML + 22 PNG | 2026-08-18 | not built |
 
-Pages 11–16 have no accepted artifact in the repository yet, so 17–22
+Pages 12–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
 
 ### 10-invite-share — the block guard the roster was missing

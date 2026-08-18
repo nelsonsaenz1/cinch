@@ -146,3 +146,21 @@ So "Activity Center and Outfit Saving are already implemented" — true of the
 earlier cut — should not be read as "the atlases are satisfied". Closing the gap
 is feature work with its own schema, RLS, pgTAP, tests and screenshot passes, not
 a reconciliation task, and it is **not** done here.
+
+---
+
+## Where the 2026-08 redesign wave lives
+
+This manifest describes the **2026-08-08** drop only — twelve atlases ingested
+into `design-refs/html/` and `design-refs/png/`, whose naming is one
+`<Atlas Name>.dc.html` per bundle and one directory per PNG sheet.
+
+The later **redesign 2026-08** programme (directive pages 01–30) does not use
+that shape. Each accepted page is one self-contained artifact plus its state
+PNGs, co-located so a page's frames cannot drift from its HTML:
+
+    design-refs/redesign-2026-08/<NN-slug>/cinch-<NN>-<slug>-<state>.{html,png}
+
+Its manifest — accepted-vs-built status, commits, OTA evidence — is
+`docs/design/redesign-2026-08/BUILD-LEDGER.md`, not this file. Pages 01–11 are
+imported there today.
