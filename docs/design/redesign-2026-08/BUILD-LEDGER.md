@@ -28,6 +28,7 @@ it means.
 | 06-trip-detail | design-refs/redesign-2026-08/06-trip-detail/ (10 files) | d5e8d20 | OTA 01a012ee-0d0e-70a5-8f32-1ba44772ea1a · runtime 18938ff9 · 2026-08-18 | progress frame matched; checkable tiles, note, delete sheet live; trips.note migration adopted from colliding session |
 | 07-profile | design-refs/redesign-2026-08/07-profile/ (7 files) | 070b913 | OTA 01a0130e-f4fe-76fd-8f69-7252f0454591 · runtime 18938ff9 · 2026-08-18 | all six frames matched at standard and AX-XXXL; rails, marks, quiet plan door and bled closet grid live; no tab bar (Profile stays the Today form sheet) |
 | 08-friends-list | design-refs/redesign-2026-08/08-friends-list/ (29 files) | 340fe50 | OTA 01a0134e-4307-7caf-961c-78eb7605c17b · runtime 18938ff9 · 2026-08-18 | default, presence-revoked, resting, empty, loading, friends-failed and offline matched at standard; AX-XXXL matched after fixing a request-row collapse. ZERO backend change — the existing daily-social views already enforce every rule. pgTAP committed but UNEXECUTED: GitHub Actions is blocked on account billing and this machine has no Docker |
+| 15-item-detail | design-refs/redesign-2026-08/15-item-detail/ (37 files · 36 unique PNG hashes, all 790×1708, 37/37 byte-identical to source) | d4c7692 | OTA 01a0145a-3a64-7955-beb5-102bdd165343 · group 06651fe8-3982-4bac-b59c-c4c1ee9dcaf7 · runtime 18938ff9 · 2026-08-18 | eleven decision states matched at standard and AX-XXXL on 932pt and 852pt (44 frames) — the four price/wear combinations, the three pairing modes, both destructive consequences and the lending refusal. ZERO backend, native, dependency and permission change, verified. Three gaps closed (delete did not name the wears it takes, the pairing section vanished instead of answering, the screen had no analytics). 667pt and the sheet states not captured — see below |
 | 14-closet | design-refs/redesign-2026-08/14-closet/ (33 files) | 0a57b84 | OTA 01a01440-74d7-7335-999b-3c028226a849 · group ee097ce7-39e1-4874-a825-7c48fbb4058d · runtime 18938ff9 · 2026-08-18 | eleven decision states matched at standard and AX-XXXL on 932pt and 852pt — the three tiers' ceilings, both capacity walls with their two remedies, chips with query-aware counts, selection at one/many/all, and the empty closet. ZERO backend, ZERO native, ZERO dependency change, verified. Three defects found and fixed (a swallowed delete-failure alert, a plus glyph that clipped at AX, the empty title saying a different ask from Today). 667pt not captured |
 | 13-wear-confirm | design-refs/redesign-2026-08/13-wear-confirm/ (29 files) | 4b26cd1 | OTA 01a0141d-5b1d-7b81-9038-d396a759a068 · group 15be378d-f1ac-4f55-819b-30fa028e78a2 · runtime 18938ff9 · 2026-08-18 | fifteen states matched at standard and AX-XXXL on 932pt and 852pt — default, five rating states, favourite, the override note, confirming, settled, settled-idempotent, network, offline, signed-out, rejected, long name and many garments. ZERO backend and ZERO native change, verified against production. Three simulator defects found and fixed (invisible heart, a header the frames do not have, five states no capture could reach). 667pt not captured |
 | 12-reveal | design-refs/redesign-2026-08/12-reveal/ (31 files) | 3453c35 | OTA 01a013fc-09bb-7d42-ad3c-f455b5cdf092 · group 7add9969-063a-42d8-86c9-b1c30207df5d · runtime 18938ff9 · 2026-08-18 | sixteen states matched at standard and AX-XXXL on 932pt and 852pt — the seven beats, and singular, large, partial-tagging, substitution, offline, missing-image, zero, trialing and lapsed-free. ZERO backend and ZERO native change. Two simulator defects found and fixed (collapsed zero copy, ignored deep link). The artifact's own digits are wrong in two frames — see below. 667pt not captured |
@@ -52,6 +53,95 @@ accepted bundle.
 
 Pages 12–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
+
+### 15-item-detail — what was already right, and the three things that were not
+
+**Most of this contract was already shipping, and is left alone.** Verified
+before changing anything: `costPerWear` already returned null for a missing
+price and for zero wears; the rail already preferred real co-wear with counts
+and fell back to colour peers drawn from the owner's own closet; the hero
+already preferred the signed listing image then the owner's photograph; the
+delete sheet already offered storage first and locked every control while a
+write was open. The smallest complete change was therefore presentation plus
+three genuine gaps.
+
+**ZERO BACKEND CHANGE, verified rather than assumed.** The only Supabase
+surface this route touches is the existing `garment-search` edge function that
+detaches a listing photograph — `tests/item-detail-page.test.ts` asserts the
+whole Supabase surface of the file is that single call and that no `.rpc(`
+exists. No table, column, RPC, view, policy or grant moved, and
+`git status supabase/` is empty.
+
+**The three gaps.**
+
+1. *The destructive sheet did not name what it took.* "Deleting removes the
+   photo for good" is true and is the smallest part of it: what goes is the
+   piece, its photographs and every wear ever logged against it. The wear
+   history is the part nobody expects to lose, because it is the part they
+   never see a file for. It also said nothing about the camera roll, so a
+   reader could reasonably think the picture in their library was at risk. And
+   a failed delete showed the server's message rather than stating that
+   **nothing was partly removed** — which is true, because `useRemoveItems`
+   treats a storage-bucket failure as fatal before it touches a row.
+2. *The pairing section vanished.* `WearsWellWith` returned null when it had
+   nothing, so a piece worn alone every time simply had no section — which
+   reads as a screen that failed to finish. There is a no-data state now, and
+   the colour fallback gained its qualifier in prose: a heading is easy to skim
+   past, and "Suggested by colour — not worn together yet" is the sentence that
+   stops a suggestion reading as a record.
+3. *No analytics at all.* Eight bounded events where there were none.
+
+**Analytics: nothing numeric leaves this screen.** A test asserts no payload
+carries a number, which is the strongest available form of "no price value and
+no wear count" — a price is income data by another name and a wear count is a
+behavioural fingerprint. Lending reports a bare boolean because who may borrow
+a piece is a fact about two people and only one of them is here. Failures
+report a bounded CAUSE, never the server's message, because a raw error string
+is free text that one day carries a path. Three separate tests assert no signed
+URL reaches a payload, an accessibility label, a Text node or a log.
+
+**One deliberate asymmetry, documented.** Every other failure on this screen
+shows the server's own message — usually the most specific true thing
+available. Lending does not, and must not: it is the one place a backend string
+could name a block, a mute or an account state, which would answer a question
+the asker did not ask and is not entitled to.
+
+**One deviation carried from the artifact.** The co-wear rail stays a
+horizontal scroller rather than becoming the handoff's two-column grid. The
+existing rail is shared shape with the closet masthead's rails and already
+carries the frequency on each tile; converting it would have re-cut a component
+two other surfaces draw, for a layout change the accepted frames themselves
+label as the artifact's own deviation from the brief. Recorded rather than
+silently applied — the reverse of the handoff's own choice, and for the same
+kind of reason.
+
+**Simulator coverage, stated exactly.** 44 frames: eleven decision states ×
+932pt and 852pt × standard and AX-XXXL. Those are the frames whose correctness
+is a matter of which cell exists and which sentence is said, and a still
+settles them. The remaining accepted frames — the edit sheet, the tagging
+editor, the original-photo viewer, loading, not-found, signed-out and offline —
+are states of the shipping route reachable only with a signed-in account, and
+the project simulator has been signed out since page 07. The fixture draws no
+photographs at all: every image on the real screen is a private signed URL for
+the reader's own garment, so the tiles take the same neutral fallback a
+missing, expired or unauthorized image takes, which is also the accepted
+missing-image frame.
+
+**Two blockers, unresolved and not worked around.** The 667pt capture could not
+be taken, for the fifth time and the same reason: a freshly created iPhone SE
+simulator's development client will not connect to Metro without a tap on its
+"Open in Cinch?" alert. The deterministic substitutes are the `targetHeight`
+and `heroHeight` assertions plus the AX-XXXL captures on a real device, where
+the hero yields to 150pt and the band becomes ruled rows with nothing clipped.
+Reduce Motion is asserted rather than photographed — `ItemStats` reads
+`useReducedMotion()` and passes `animate={!reduced}`, which no still can show.
+
+GitHub Actions run **32125346514** (commit `d4c7692`) reports all three jobs —
+`database`, `functions`, `check` — as `failure` with ZERO steps and no
+retrievable log. That is the account-level billing block, external to this
+change, not a code failure. The same gates ran locally and are green:
+typecheck, lint, 2965 unit tests, styling and typography smoke, and a
+dependency/native/permission diff that is empty.
 
 ### 14-closet — one capacity line that knew one wall, and there are two
 
