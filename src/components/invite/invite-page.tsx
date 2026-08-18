@@ -1,132 +1,413 @@
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SymbolView } from 'expo-symbols';
 
 import { ArrivalRow, type ArrivalRowModel } from '@/components/invite/arrival-row';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { ErrorState } from '@/components/ui/error-state';
-import { ScreenHeader } from '@/components/ui/screen-header';
-import { SectionHeader } from '@/components/ui/section-header';
-import { ListSkeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { canvasAlpha, useTheme } from '@/theme/tokens';
+import {
+  ARRIVALS_FAILED_BODY,
+  ARRIVALS_FAILED_TITLE,
+  ARRIVALS_HEADING,
+  COPIED_ACTION,
+  COPY_ACTION,
+  EARLIER_HEADING,
+  EMPTY_BODY,
+  EMPTY_TITLE,
+  INVITATION_EYEBROW,
+  INVITE_TITLE,
+  LINK_FAILED_BODY,
+  LINK_FAILED_TITLE,
+  LINK_NOTE,
+  NO_HANDLE_ACTION,
+  NO_HANDLE_BODY,
+  NO_HANDLE_TITLE,
+  OFFLINE_BODY,
+  OFFLINE_TITLE,
+  SHARE_ACTION,
+  SHARE_FAILED_BODY,
+  SHARE_FAILED_TITLE,
+  SHARE_RETRY_ACTION,
+  BACK_SIZE,
+  GUTTER_X,
+  PLATE_HEIGHT,
+  PLATE_HEIGHT_AX,
+  PLATE_RADIUS,
+  PRIMARY_HEIGHT,
+  PRIMARY_HEIGHT_AX,
+  SECONDARY_HEIGHT,
+  SECONDARY_HEIGHT_AX,
+  TRY_AGAIN,
+} from '@/features/invite/invite-lines';
+import { MIN_TAP_TARGET, useTheme, warningAlpha } from '@/theme/tokens';
 
 /**
- * Invite a friend, rendered (atlas 39, IV-01 and IV-03).
+ * Invite / Share — the card you hand someone. Redesign 10.
  *
- * Render-only, on the `FriendsPage` precedent: every query, every timer and
- * the two native calls live in the route (`src/app/invite.tsx`), and
- * `dev-invite-link` mounts this same component over fixtures — so what a
- * reviewer signs off there is what ships, by construction.
+ * Render-only, on the `FriendsPage` precedent: every query, every timer and the
+ * two native calls live in the route (`src/app/invite.tsx`), so the accepted
+ * frames can be posed without a session.
  *
- * THE LINK IS THE HERO. It is set in serif on the dark card because it is a
- * thing you own, not a field to fill: there is no code to generate, nothing to
- * revoke and no expiry, so the card states a fact rather than offering a
- * control. Everything else on the page is smaller than it.
+ * ── THE ONE IDEA ────────────────────────────────────────────────────────────
  *
- * IV-02 is not here. The share sheet is the OS's, raised by `Share` from the
- * route; the atlas draws what iOS renders. What this file owns is the button
- * that raises it.
+ * The link is not a field, a code or a control — it is a thing you already own,
+ * so the page sets it as a card with your handle on it and offers two ways to
+ * hand it over. There is nothing to mint, nothing to revoke, no expiry and no
+ * per-invite token, which is why the card can state a fact instead of managing
+ * a resource.
+ *
+ * ── TWO READS THAT NEVER WAIT ON EACH OTHER ─────────────────────────────────
+ *
+ * The link and `invite_arrivals()` are independent queries and the frames pair
+ * every failure of one with a healthy other. A failed link leaves the roster
+ * opening profiles; a failed roster leaves both actions fully live. Offline is
+ * the asymmetric case and the reason the split matters: the link is permanent
+ * so a cached one is still true and still shareable, while the roster can have
+ * changed and is withheld rather than shown stale.
+ *
+ * ── WHAT AN ARRIVAL PROVES ──────────────────────────────────────────────────
+ *
+ * Exactly one thing: that person joined Cinch through this link.
+ * `invite_arrivals()` reads `profiles.invited_by`, which is written once and
+ * never cleared — while the friendship `apply_invite` created CAN be undone by
+ * a removal or a block. So a row is not evidence of a current friendship, of
+ * mutual authorization, or of any closet being visible, and nothing on this
+ * page may say it is. The row's tap opens their profile, where the server
+ * decides what a visitor may see; the page itself claims nothing.
  */
 
 export type InvitePageProps = {
   /** `https://cinchstyle.com/i/@handle`, or null when no handle is claimed. */
   link: string | null;
+  /** The same address without its scheme — what the card prints. */
+  linkDisplay: string | null;
+  /** `@handle`, set in serif as the card's hero. */
+  handle: string | null;
   linkLoading: boolean;
   linkError: boolean;
   onRetryLink: () => void;
-  /** IV-01's no-handle branch — sends to the profile sheet to claim one. */
+  /** The no-handle branch — sends to the profile sheet to claim one. */
   onChooseHandle: () => void;
 
   onShare: () => void;
+  /**
+   * The sheet could not be presented.
+   *
+   * Distinct from a dismissal, which is not a failure and says nothing: this
+   * is the one share outcome the page reports, and it reports it by saying
+   * NOTHING WAS SENT first.
+   */
+  shareFailed: boolean;
+  onRetryShare: () => void;
+
+  /** Absent, never disabled, on a binary without the clipboard module. */
   onCopy?: () => void;
-  /** IV-03 — the Copy button holds its confirmation for four seconds. */
+  /** Held for exactly four seconds, in a box the same height as the resting one. */
   copied: boolean;
 
   arrivals: ArrivalRowModel[];
   arrivalsLoading: boolean;
   arrivalsError: boolean;
+  /** Offline — the roster is withheld rather than served stale. */
+  arrivalsWithheld: boolean;
   onRetryArrivals: () => void;
   onOpenArrival: (userId: string) => void;
 
   onBack?: () => void;
+  /** Dynamic Type past the threshold: the page recomposes rather than shrinks. */
+  large: boolean;
 };
 
 export function InvitePage(props: InvitePageProps) {
-  return (
-    <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-      <ScreenHeader
-        title="Your circle"
-        align="leading"
-        onBack={props.onBack}
-        backLabel="Back to friends"
-      />
+  const theme = useTheme();
 
+  return (
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 48 }}
+        contentContainerStyle={{ paddingHorizontal: GUTTER_X, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}>
-        <View className="px-gutter pt-3">
-          {/* The display line and the serif link on ink are the whole
-              argument. The motivational subhead that used to sit here said
-              nothing the page does not show — and it pushed the hero roughly
-              60pt down a 393pt screen to say it. */}
-          <Text variant="display" trim accessibilityRole="header">
-            Invite a friend
-          </Text>
-        </View>
+        {/* The way back, as a disc rather than a bar. At the accessibility
+            sizes the frame drops it — the page is one column of very large
+            type by then and a floating control above it is a row of nothing.
+            The system's own back gesture is unaffected either way. */}
+        {props.onBack && !props.large ? (
+          <View style={{ paddingTop: 8, paddingBottom: 4 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+              onPress={props.onBack}
+              className="items-center justify-center bg-tray active:opacity-60"
+              style={{ width: BACK_SIZE, height: BACK_SIZE, borderRadius: 14 }}>
+              <SymbolView
+                name="chevron.left"
+                size={17}
+                tintColor={theme.ink}
+                resizeMode="scaleAspectFit"
+              />
+            </Pressable>
+          </View>
+        ) : null}
 
         {props.linkError ? (
-          <ErrorState
-            compact
-            title="Couldn't read your link"
-            body="Your link is your handle, and this device couldn't reach the profile it lives on. Nothing has changed — the link itself never expires."
-            onRetry={props.onRetryLink}
-          />
+          <View style={{ paddingTop: 12 }}>
+            <ErrorState
+              title={LINK_FAILED_TITLE}
+              body={LINK_FAILED_BODY}
+              onRetry={props.onRetryLink}
+              retryTitle={TRY_AGAIN}
+            />
+          </View>
+        ) : props.link === null && !props.linkLoading ? (
+          <NoHandle onChooseHandle={props.onChooseHandle} large={props.large} />
         ) : (
-          <LinkCard
-            link={props.link}
-            loading={props.linkLoading}
-            onChooseHandle={props.onChooseHandle}
-            onShare={props.onShare}
-            onCopy={props.onCopy}
-            copied={props.copied}
-          />
+          <>
+            <LinkPlate
+              handle={props.handle}
+              linkDisplay={props.linkDisplay}
+              loading={props.linkLoading}
+              large={props.large}
+            />
+            <Actions {...props} />
+          </>
         )}
 
-        {/* IV-01's second section. The atlas drew "Waiting on" here — named
-            recipients with send times — which the rules panel on the same page
-            rules out: no per-invite codes and no contact upload means the app
-            cannot know a link was sent to anybody. This is what it can know.
-            Contract §3.5. */}
-        <SectionHeader title="Came in from your link" className="mb-2.5 mt-7 px-gutter" />
+        <Arrivals {...props} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
 
-        {props.arrivalsLoading ? (
-          <ListSkeleton count={2} avatar />
+// ---------------------------------------------------------------------------
+// The plate — the thing being handed over, made visible
+// ---------------------------------------------------------------------------
+
+function LinkPlate({
+  handle,
+  linkDisplay,
+  loading,
+  large,
+}: {
+  handle: string | null;
+  linkDisplay: string | null;
+  loading: boolean;
+  large: boolean;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View
+      accessible
+      accessibilityRole="summary"
+      accessibilityLabel={
+        loading || !handle ? INVITE_TITLE : `${INVITATION_EYEBROW}, ${handle}, ${linkDisplay ?? ''}`
+      }
+      className="items-center justify-center bg-blush"
+      style={{
+        marginTop: 8,
+        minHeight: large ? PLATE_HEIGHT_AX : PLATE_HEIGHT,
+        borderRadius: PLATE_RADIUS,
+        borderWidth: 1,
+        borderColor: theme.blushRule,
+        paddingHorizontal: 20,
+        paddingVertical: 20,
+        gap: 8,
+      }}>
+      {/* Dropped at the accessibility sizes: the frame spends that height on
+          the handle, which is the thing being shared. */}
+      {/* The frame paints this eyebrow in clay. Clay is 2.98:1 and
+          `theme/contrast.ts` declares it `text: false`, so it cannot carry
+          type — the eyebrow takes `muted`, which is one step darker, the same
+          quiet layer, and the substitution the rest of this wave already
+          makes. */}
+      {large ? null : <Text variant="eyebrow">{INVITATION_EYEBROW}</Text>}
+
+      {loading ? (
+        <>
+          <Skeleton style={{ height: 44, width: '60%', borderRadius: 12 }} />
+          <Skeleton style={{ height: 14, width: '75%', borderRadius: 7 }} />
+        </>
+      ) : (
+        <>
+          {/* The handle IS the invitation, so it is the largest thing on the
+              page. It wraps rather than truncating: a clipped handle is the one
+              string on this screen that would be wrong rather than merely
+              short. */}
+          <Text variant="display" trim style={{ textAlign: 'center' }}>
+            {handle}
+          </Text>
+          {/* Printed without its scheme: `https://` turns an address a person
+              owns into a URL a machine parses. Everything that SENDS the link
+              uses the full one. */}
+          <Text variant="note" style={{ textAlign: 'center' }}>
+            {linkDisplay}
+          </Text>
+        </>
+      )}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The two ways to hand it over
+// ---------------------------------------------------------------------------
+
+function Actions(props: InvitePageProps) {
+  const { large } = props;
+
+  // The sheet failed to present. Copy is promoted to the filled action, the URL
+  // stays legible on the card above, and the first thing said is that nothing
+  // went out.
+  if (props.shareFailed) {
+    return (
+      <View style={{ marginTop: 16, gap: 10 }}>
+        <View
+          accessibilityLiveRegion="polite"
+          style={{
+            backgroundColor: warningAlpha(0.22),
+            borderRadius: PLATE_RADIUS,
+            padding: 16,
+            gap: 8,
+          }}>
+          <Text variant="body" accessibilityRole="header">
+            {SHARE_FAILED_TITLE}
+          </Text>
+          <Text variant="note">{SHARE_FAILED_BODY}</Text>
+        </View>
+        {props.onCopy ? (
+          <Button
+            title={props.copied ? COPIED_ACTION : COPY_ACTION}
+            variant="primary"
+            onPress={props.onCopy}
+            className="w-full"
+          />
+        ) : null}
+        <Button
+          title={SHARE_RETRY_ACTION}
+          variant="secondary"
+          onPress={props.onRetryShare}
+          className="w-full"
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ marginTop: 16, gap: 10 }}>
+      <View style={{ minHeight: large ? PRIMARY_HEIGHT_AX : PRIMARY_HEIGHT }}>
+        <Button
+          title={SHARE_ACTION}
+          variant="primary"
+          onPress={props.onShare}
+          disabled={!props.link}
+          className="w-full"
+        />
+      </View>
+
+      {/* Absent, never disabled, on a binary whose clipboard module is missing.
+          Share alone is a complete way to send a link, not a degraded one.
+
+          THE BOX DOES NOT MOVE. Resting and confirming are the same control at
+          the same height in the same place: only the word and the fill change,
+          so a confirmation that lasts four seconds cannot shift anything above
+          or below it. */}
+      {props.onCopy ? (
+        <View style={{ minHeight: large ? SECONDARY_HEIGHT_AX : SECONDARY_HEIGHT }}>
+          <Button
+            title={props.copied ? COPIED_ACTION : COPY_ACTION}
+            variant="secondary"
+            onPress={props.onCopy}
+            disabled={!props.link}
+            className="w-full"
+            accessibilityLabel={props.copied ? COPIED_ACTION : COPY_ACTION}
+          />
+        </View>
+      ) : null}
+
+      <Text variant="note" style={{ marginTop: 2 }}>
+        {LINK_NOTE}
+      </Text>
+    </View>
+  );
+}
+
+/** No handle, so no link. The action goes where one is claimed. */
+function NoHandle({ onChooseHandle, large }: { onChooseHandle: () => void; large: boolean }) {
+  return (
+    <View style={{ marginTop: 8, gap: 12 }}>
+      <View
+        className="items-center justify-center bg-tray"
+        style={{
+          minHeight: large ? PLATE_HEIGHT_AX : PLATE_HEIGHT,
+          borderRadius: PLATE_RADIUS,
+          paddingHorizontal: 20,
+        }}>
+        <Text variant="display" trim style={{ textAlign: 'center' }}>
+          @
+        </Text>
+      </View>
+      <Text variant="body" accessibilityRole="header">
+        {NO_HANDLE_TITLE}
+      </Text>
+      <Text variant="note">{NO_HANDLE_BODY}</Text>
+      <View style={{ minHeight: large ? PRIMARY_HEIGHT_AX : PRIMARY_HEIGHT }}>
+        <Button
+          title={NO_HANDLE_ACTION}
+          variant="primary"
+          onPress={onChooseHandle}
+          className="w-full"
+        />
+      </View>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Who came in — and the four things this list refuses to be
+// ---------------------------------------------------------------------------
+
+function Arrivals(props: InvitePageProps) {
+  const fresh = props.arrivals.filter((a) => a.isNew);
+  const earlier = props.arrivals.filter((a) => !a.isNew);
+
+  return (
+    <View style={{ marginTop: 28 }}>
+      <Text variant="eyebrow" accessibilityRole="header">
+        {ARRIVALS_HEADING}
+      </Text>
+
+      <View style={{ marginTop: 10, gap: 8 }}>
+        {props.arrivalsWithheld ? (
+          // Offline. The link above is still shareable because it never
+          // changes; this list could have changed, so it is withheld rather
+          // than served stale.
+          <Notice title={OFFLINE_TITLE} body={OFFLINE_BODY} />
+        ) : props.arrivalsLoading ? (
+          [0, 1].map((i) => (
+            <Skeleton key={i} style={{ height: 60, borderRadius: 18 }} />
+          ))
         ) : props.arrivalsError ? (
           <ErrorState
-            compact
-            title="Couldn't read the list"
-            body="This is the only thing on the page that needs the network. Your link works regardless."
+            title={ARRIVALS_FAILED_TITLE}
+            body={ARRIVALS_FAILED_BODY}
             onRetry={props.onRetryArrivals}
+            retryTitle={TRY_AGAIN}
           />
         ) : props.arrivals.length === 0 ? (
-          <Card padding="lg" className="mx-gutter">
-            {/* The honest empty, cut to its two facts: nothing has happened
-                yet, and nothing could be listed even if it had — there is no
-                record of who the link went to, by design. The middle clause
-                described the section heading directly above it. */}
-            <Text variant="note">
-              Nobody yet. Cinch keeps no record of who you sent it to.
+          <View style={{ gap: 8, paddingTop: 4 }}>
+            <Text variant="body" accessibilityRole="header">
+              {EMPTY_TITLE}
             </Text>
-          </Card>
+            {/* Says only that nobody has joined. It does NOT say how many were
+                invited, because there is no record of who the link went to —
+                by design, and permanently. */}
+            <Text variant="note">{EMPTY_BODY}</Text>
+          </View>
         ) : (
-          <Card padding="none" className="mx-gutter">
-            {/* Arrivals land rather than appear — the same reanimated pattern
-                the requests card uses on friends-page.tsx, and for the same
-                reason: a row that fades in and a list that closes its own gaps
-                reads as something that happened, not as a re-render. */}
-            {props.arrivals.map((arrival, i) => (
+          <>
+            {fresh.map((arrival) => (
               <Animated.View
                 key={arrival.userId}
                 entering={FadeIn.duration(260)}
@@ -134,139 +415,46 @@ export function InvitePage(props: InvitePageProps) {
                 <ArrivalRow
                   arrival={arrival}
                   onPress={props.onOpenArrival}
-                  isLast={i === props.arrivals.length - 1}
+                  large={props.large}
                 />
               </Animated.View>
             ))}
-          </Card>
+            {fresh.length > 0 && earlier.length > 0 ? (
+              <Text variant="eyebrow" accessibilityRole="header" style={{ marginTop: 12 }}>
+                {EARLIER_HEADING}
+              </Text>
+            ) : null}
+            {earlier.map((arrival) => (
+              <ArrivalRow
+                key={arrival.userId}
+                arrival={arrival}
+                onPress={props.onOpenArrival}
+                large={props.large}
+              />
+            ))}
+          </>
         )}
-      </ScrollView>
-
-      {/* The toast is mounted by the route, over this whole page. */}
-    </SafeAreaView>
+      </View>
+    </View>
   );
 }
 
-/**
- * The dark card and its two actions.
- *
- * One component because the two are one statement: the link — with what is
- * true of it forever set as a colophon on the card itself — and the two ways
- * to send it. The no-handle branch keeps the same shape and replaces both,
- * rather than dimming a link that does not exist.
- */
-function LinkCard({
-  link,
-  loading,
-  onChooseHandle,
-  onShare,
-  onCopy,
-  copied,
-}: {
-  link: string | null;
-  loading: boolean;
-  onChooseHandle: () => void;
-  onShare: () => void;
-  onCopy?: () => void;
-  copied: boolean;
-}) {
-  const theme = useTheme();
-
+/** The amber band this page uses for a fact it is withholding on purpose. */
+function Notice({ title, body }: { title: string; body: string }) {
   return (
-    <View>
-      <View
-        className="mx-gutter mt-6 rounded-plate"
-        style={{
-          backgroundColor: theme.ink,
-          paddingHorizontal: 22,
-          paddingVertical: 26,
-        }}>
-        {/* On an ink ground the colour is inline, never a second `text-*`
-            class: the variant already carries `text-muted` and NativeWind
-            gives no precedence between two colour utilities on one element. */}
-        <Text variant="eyebrow" style={{ color: canvasAlpha(0.55) }}>
-          Your invite link
-        </Text>
-
-        {/* `plate` (24px) rather than the atlas's 26: it is the app's compact
-            serif step, and at 24 the whole address still sets on one line
-            inside the card's 309pt measure. At `title` (28) it wraps. */}
-        <Text
-          variant="plate"
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          style={{ color: theme.canvas, marginTop: 10 }}>
-          {/* Printed without the scheme, as the atlas sets it: `https://` on
-              this card turns an address a person owns into a URL a machine
-              parses. Everything that SENDS the link uses the full `link`. */}
-          {loading ? 'cinchstyle.com' : link ? link.replace(/^https?:\/\//, '') : 'No link yet'}
-        </Text>
-
-        {/* The two permanent facts, set as a tracked rule under the address
-            rather than as a standing footnote under the buttons: they are
-            properties of the thing on this card, and they belong on it. At the
-            eyebrow's own alpha, so the card reads as one object with a line of
-            small print top and bottom. */}
-        {link ? (
-          <Text variant="colophon" style={{ color: canvasAlpha(0.55), marginTop: 14 }}>
-            NEVER EXPIRES · NO CODE · ANY NUMBER OF PEOPLE
-          </Text>
-        ) : null}
-
-        {/* Cut to the half the sender can act on. The App Store hop is the
-            recipient's business and not a decision anybody makes here. */}
-        <Text variant="note" style={{ color: canvasAlpha(0.7), marginTop: 14 }}>
-          {link
-            ? 'They land on a page with your name on it. You are friends as soon as they sign in.'
-            : 'Your link is your handle, and you have not chosen one yet. Pick one and this card fills in.'}
-        </Text>
-      </View>
-
-      {link ? (
-        <>
-          <View className="mt-5 gap-2.5 px-gutter">
-            <Button title="Share link" variant="ink" onPress={onShare} />
-            {/* Copy is absent, never disabled, on a binary whose clipboard
-                module is missing — the rule Profile already follows for the
-                Notifications row: a control that cannot work is a dead end
-                wearing a label. Share alone is a complete way to send a link.
-                Not disabled while it reads "Copied" either: a 40% pill looks
-                broken, and pressing again copies again and re-arms the hold. */}
-            {onCopy ? (
-              <Button
-                title={copied ? 'Copied' : 'Copy link'}
-                variant="secondary"
-                onPress={onCopy}
-                accessibilityLabel={copied ? 'Copied. Copy link again' : 'Copy link'}
-              />
-            ) : null}
-          </View>
-          {/* At rest this line is not there. What it used to say permanently —
-              no expiry, any number of people — is now the colophon on the card
-              itself, so the page is one line shorter until there is something
-              to say, and it says it only in the four seconds after a copy. */}
-          {/* Always mounted so the buttons above it never move: the line
-              appears by opacity, not by insertion, and the four-second
-              disappearance cannot shift the layout back. */}
-          <Text
-            variant="noteSmall"
-            className="mt-4 px-gutter"
-            style={{ opacity: copied ? 1 : 0 }}
-            accessibilityElementsHidden={!copied}
-            importantForAccessibility={copied ? 'auto' : 'no-hide-descendants'}>
-            Paste it wherever you like — it behaves the same everywhere.
-          </Text>
-        </>
-      ) : (
-        <View className="mt-5 px-gutter">
-          <Button
-            title="Choose a handle"
-            variant="ink"
-            onPress={onChooseHandle}
-            disabled={loading}
-          />
-        </View>
-      )}
+    <View
+      accessibilityLiveRegion="polite"
+      style={{
+        backgroundColor: warningAlpha(0.22),
+        borderRadius: 18,
+        padding: 16,
+        gap: 8,
+        minHeight: MIN_TAP_TARGET,
+      }}>
+      <Text variant="body" accessibilityRole="header">
+        {title}
+      </Text>
+      <Text variant="note">{body}</Text>
     </View>
   );
 }

@@ -1,12 +1,16 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Share, View } from 'react-native';
+import { Share, useWindowDimensions, View } from 'react-native';
 
 import { InvitePage } from '@/components/invite/invite-page';
-import { Toast } from '@/components/ui/toast';
-import { arrivalName, arrivalSubtitle } from '@/features/invite/arrivals';
+import { arrivalName } from '@/features/invite/arrivals';
 import { CLIPBOARD_AVAILABLE, copyText } from '@/features/invite/clipboard';
-import { shareMessage } from '@/features/invite/link';
+import { inviteUrlForDisplay, shareMessage } from '@/features/invite/link';
+import {
+  COPIED_HOLD_MS,
+  INVITE_STACK_SCALE,
+  isFreshArrival,
+} from '@/features/invite/invite-lines';
 import { useInviteArrivals, useInviteLink } from '@/features/invite/queries';
 import { track } from '@/lib/posthog';
 
@@ -30,25 +34,19 @@ import { track } from '@/lib/posthog';
  * one event: the button confirming and the toast saying so should arrive and
  * leave together, not stagger.
  */
-const COPIED_HOLD_MS = 4000;
-
-/**
- * How long an arrival wears its mark.
- *
- * Two days, because the mark answers "did anyone come in since I last looked"
- * and the honest window for that is a couple of days, not a session. Nothing
- * clears it and nothing can be dismissed: it ages out by itself, which is why
- * it needs no read state on either side of the network.
- */
-const NEW_ARRIVAL_MS = 48 * 60 * 60 * 1000;
+// Exactly four seconds, from the copy module so the test asserts the shipped
+// number rather than a second copy of it.
 
 export default function InviteScreen() {
   const router = useRouter();
+  const { fontScale } = useWindowDimensions();
 
   const { link, loading, error, refetch } = useInviteLink();
   const arrivals = useInviteArrivals();
 
   const [copied, setCopied] = useState(false);
+  /** The sheet could not be presented — distinct from being dismissed. */
+  const [shareFailed, setShareFailed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleared on unmount: the hold is chrome, and a timer that outlives its
@@ -62,18 +60,18 @@ export default function InviteScreen() {
 
   const rows = useMemo(() => {
     const now = new Date();
-    return (arrivals.data ?? []).map((arrival) => {
-      const joined = arrival.joinedAt ? new Date(arrival.joinedAt).getTime() : null;
-      return {
-        userId: arrival.userId,
-        name: arrivalName(arrival),
-        subtitle: arrivalSubtitle(arrival, now),
-        // Two days, off the same `now` the subtitle is written against, so the
-        // mark and the words can never disagree. A missing or unparseable
-        // timestamp is not new — the row already declines to claim a date.
-        isNew: joined !== null && !Number.isNaN(joined) && now.getTime() - joined < NEW_ARRIVAL_MS,
-      };
-    });
+    return (arrivals.data ?? []).map((arrival) => ({
+      userId: arrival.userId,
+      name: arrivalName(arrival),
+      // The accepted row's second line is the handle, not a join date: the
+      // date was the only thing on the row that could go stale, and a handle
+      // is what somebody would actually recognise. `arrivalSubtitle` stays
+      // exported — the arrival page still speaks in dates.
+      handle: arrival.username ? `@${arrival.username}` : null,
+      // A missing or unparseable timestamp is not fresh; the row already
+      // declines to claim a date, and a mark is a claim about a date.
+      isNew: isFreshArrival(arrival.joinedAt, now),
+    }));
   }, [arrivals.data]);
 
   /**
@@ -109,13 +107,26 @@ export default function InviteScreen() {
     // `board_shared`'s, so "shares that carried a link" is one query across
     // all three rather than three queries with an exception in the middle.
     track('invite_shared', { has_link: true, surface: 'invite_screen' });
+    setShareFailed(false);
     void Share.share(
       { message: shareMessage(), url: link.url },
       // Undefined rather than an empty string when there is no display name to
       // build it from: an email with a blank subject is better than one headed
       // " added you on Cinch".
       { subject: link.title ?? undefined },
-    ).catch(() => {});
+    )
+      // A DISMISSAL IS NOT A FAILURE AND IS NOT A SUCCESS.
+      //
+      // `dismissedAction` resolves — it lands here, in the fulfilled branch,
+      // and does nothing at all: no toast, no "sent", no arrival row, nothing
+      // beyond the enum React Native already returned. The page is left
+      // exactly as it was, which is the only honest report of a share that did
+      // not happen.
+      .then(() => {})
+      // Only a REJECTION means the sheet could not be presented, and that is
+      // the one share outcome worth telling somebody about — because in that
+      // case they may believe something went out. Nothing did.
+      .catch(() => setShareFailed(true));
   }, [link.url, link.title]);
 
   /**
@@ -150,12 +161,19 @@ export default function InviteScreen() {
     <View className="flex-1 bg-canvas">
       <InvitePage
         link={link.url}
+        // The card prints the address without its scheme and the handle in
+        // serif above it; the two come from the same `link`, derived once here
+        // rather than string-edited in the render tree.
+        linkDisplay={link.handle ? inviteUrlForDisplay(link.handle) : null}
+        handle={link.handle ? `@${link.handle}` : null}
         linkLoading={loading}
         linkError={error}
         onRetryLink={refetch}
         // The handle lives on the profile sheet, which the integrator owns.
         onChooseHandle={() => router.push('/profile')}
         onShare={share}
+        shareFailed={shareFailed}
+        onRetryShare={share}
         // Absent, not inert, on a binary without the clipboard module — the
         // same rule Profile uses for the Notifications row. Share alone is a
         // complete way to send a link, not a degraded one.
@@ -164,20 +182,23 @@ export default function InviteScreen() {
         arrivals={rows}
         arrivalsLoading={arrivals.isPending}
         arrivalsError={arrivals.isError}
+        // Offline withholds the roster and keeps the link: the link is
+        // permanent so a cached one is still true, while who came in can have
+        // changed since.
+        arrivalsWithheld={arrivals.isError && !arrivals.isRefetching && arrivals.isPaused}
         onRetryArrivals={() => void arrivals.refetch()}
+        large={fontScale >= INVITE_STACK_SCALE}
         onOpenArrival={(userId) =>
           router.push({ pathname: '/friends/[userId]', params: { userId } })
         }
         onBack={() => router.back()}
       />
 
-      {/* No trailing verb, as the atlas draws it. `Toast` used to require the
-          pair — it was invented for BR-06, where the whole object exists to
-          offer an undo — and this toast has nothing to offer: it repeats a
-          confirmation the button already gave, and a copy to the clipboard is
-          not reversible. The verb is optional now rather than filled with a
-          "Done" that only dismissed itself. */}
-      <Toast message="Link copied to your clipboard" visible={copied} />
+      {/* NO TOAST. The accepted frames confirm on the control and nowhere else:
+          the button's own box swaps its word and its fill for four seconds and
+          nothing else on the page moves. A toast over the top would be a second
+          confirmation of one act, and it was the only thing on this page that
+          could cover a row. */}
     </View>
   );
 }

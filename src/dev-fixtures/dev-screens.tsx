@@ -349,6 +349,21 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Invite / Share — redesign 10',
+    [
+      ['IV-01 · the card and the roster', '/dev-iv-01-default'],
+      ['IV-03 · nobody has come in yet', '/dev-iv-03-empty'],
+      ['IV-05 · link failed, arrivals fine', '/dev-iv-05-link-failed'],
+      ['IV-07 · arrivals failed, sharing works', '/dev-iv-07-arrivals-failed'],
+      ['IV-08 · offline, arrivals withheld', '/dev-iv-08-offline'],
+      ['IV-09 · no handle yet', '/dev-iv-09-no-handle'],
+      ['IV-12 · share unavailable', '/dev-iv-12-share-unavailable'],
+      ['IV-14 · copied, four seconds', '/dev-iv-14-copy-confirmed'],
+      ['IV-15 · copy unavailable', '/dev-iv-15-copy-unavailable'],
+      ['IV-20 · largest accessibility text', '/dev-iv-20-ax'],
+    ],
+  ],
+  [
     'Friends — the circle — redesign 08',
     [
       ['FL-01 · requests, presence, footer', '/dev-fl-01-default'],

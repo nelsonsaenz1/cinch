@@ -6,7 +6,8 @@ import { ArrivalPage, type ArrivalPageState } from '@/components/invite/arrival-
 import { InvitePage } from '@/components/invite/invite-page';
 import { Chip, Text } from '@/components/ui';
 import { Toast } from '@/components/ui/toast';
-import { arrivalName, arrivalSubtitle, type InviteArrival } from '@/features/invite/arrivals';
+import { arrivalName, type InviteArrival } from '@/features/invite/arrivals';
+import { isFreshArrival } from '@/features/invite/invite-lines';
 import { inviteUrl, shareMessage, shareTitle } from '@/features/invite/link';
 
 /**
@@ -115,7 +116,8 @@ export default function DevInviteLinkScreen() {
   const rows = (state === 'IV-01c' ? [] : ARRIVALS).map((arrival) => ({
     userId: arrival.userId,
     name: arrivalName(arrival),
-    subtitle: arrivalSubtitle(arrival, now),
+    handle: arrival.username ? `@${arrival.username}` : null,
+    isNew: isFreshArrival(arrival.joinedAt, now),
   }));
 
   /** The copy hold, performed rather than described — four seconds, then off. */
@@ -139,17 +141,23 @@ export default function DevInviteLinkScreen() {
       ) : (
         <InvitePage
           link={state === 'IV-01b' ? null : LINK}
+          linkDisplay={state === 'IV-01b' ? null : LINK.replace(/^https?:\/\//, '')}
+          handle={state === 'IV-01b' ? null : '@sophie'}
           linkLoading={false}
           linkError={state === 'IV-01f'}
           onRetryLink={() => setState('IV-01')}
           onChooseHandle={() => setState('IV-01')}
           onShare={() => setState('IV-02')}
+          shareFailed={false}
+          onRetryShare={() => setState('IV-02')}
           onCopy={copy}
           copied={state === 'IV-03'}
           arrivals={rows}
           arrivalsLoading={state === 'IV-01d'}
           arrivalsError={state === 'IV-01e'}
+          arrivalsWithheld={false}
           onRetryArrivals={() => setState('IV-01')}
+          large={false}
           onOpenArrival={() => setState('IV-01')}
           onBack={() => setState('IV-01')}
         />

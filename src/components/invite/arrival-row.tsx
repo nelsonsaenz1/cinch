@@ -1,105 +1,137 @@
-import { SymbolView } from 'expo-symbols';
 import { Pressable, View } from 'react-native';
 
 import { Avatar } from '@/components/ui/avatar';
 import { Text } from '@/components/ui/text';
+import {
+  FRESH_MARK,
+  ROW_AVATAR,
+  ROW_AVATAR_AX,
+  ROW_HEIGHT,
+  ROW_HEIGHT_AX,
+  ROW_RADIUS,
+} from '@/features/invite/invite-lines';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 export type ArrivalRowModel = {
   userId: string;
   name: string;
-  /** "Arrived yesterday", or null when the timestamp is missing. */
-  subtitle: string | null;
+  /** `@handle`, or null — the row never invents one. */
+  handle: string | null;
   /**
-   * Arrived within the last two days — the row wears a mark while true.
+   * Arrived within the last two days — the row wears its mark while true.
    *
-   * Optional in the dialect `FriendsPage`'s router props already use: the dev
-   * fixture builds these rows from a static list with no clock of its own, and
-   * an absent flag simply draws no mark.
+   * Optional in the dialect the friends rows already use: a fixture builds
+   * these from a static list with no clock of its own, and an absent flag
+   * simply draws no mark.
    */
   isNew?: boolean;
 };
 
-/** The mark. A full stop's worth of oxblood, not a badge. */
-const NEW_DOT = 6;
-
 /**
  * One person who came in through the link.
  *
- * Not `ProfileRow`: that row takes a `SocialProfile`, and this list comes from
- * a definer RPC that returns four columns and no avatar — hydrating a whole
- * social profile per row to reuse a component would be a round trip bought for
- * a type. The grammar is the same on purpose (disc, name, quiet line).
+ * ── WHAT THIS ROW CLAIMS, AND WHAT IT USED TO ───────────────────────────────
  *
- * The row opens their closet, because by the time it is drawn you are already
- * friends — `apply_invite` wrote both edges. That is a door, not a nudge: there
- * is nothing here to chase, no "remind" and no state to act on.
+ * It claims that this person joined Cinch through your link. That is the whole
+ * of `invite_arrivals()`: rows whose `profiles.invited_by` is you.
+ *
+ * It used to claim more. The previous version of this file said the row "opens
+ * their closet, because by the time it is drawn you are already friends —
+ * `apply_invite` wrote both edges", and the card above it told the reader "You
+ * are friends as soon as they sign in." Both were true at the instant somebody
+ * arrived and neither stayed true: `invited_by` is written once and never
+ * cleared, while the two `follows` edges can be undone by a removal or a block
+ * (`on_block_sever_graph` deletes them outright). So the roster outlives the
+ * friendship, and a row is not evidence of a current one.
+ *
+ * The row therefore says a name, a handle and — for two days — that they are
+ * new. It opens their profile, where the server decides what a visitor may
+ * see. It does not describe the relationship, and it does not promise a closet.
  */
 export function ArrivalRow({
   arrival,
   onPress,
-  isLast,
+  large = false,
 }: {
   arrival: ArrivalRowModel;
   onPress?: (userId: string) => void;
-  isLast: boolean;
+  large?: boolean;
 }) {
   const theme = useTheme();
+
+  // One sentence, in reading order, with the mark spoken as the word it is.
+  // Never "1 new" — there is no count of fresh arrivals anywhere in this page.
+  const spoken = [arrival.name, arrival.handle, arrival.isNew ? FRESH_MARK : null]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : 'text'}
-      accessibilityLabel={[arrival.name, arrival.subtitle].filter(Boolean).join(', ')}
+      accessibilityLabel={spoken}
+      accessibilityHint={onPress ? 'Opens their profile' : undefined}
       onPress={onPress ? () => onPress(arrival.userId) : undefined}
       disabled={!onPress}
-      style={{ minHeight: MIN_TAP_TARGET }}
-      className={`flex-row items-center gap-3 px-4 py-3.5 active:opacity-60 ${
-        isLast ? '' : 'border-b border-hairline'
-      }`}>
-      <Avatar name={arrival.name} size={34} tone="sand" />
+      className={arrival.isNew ? 'flex-row items-center bg-blush' : 'flex-row items-center bg-tray'}
+      style={{
+        minHeight: large ? ROW_HEIGHT_AX : ROW_HEIGHT,
+        borderRadius: ROW_RADIUS,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        gap: 12,
+        ...(arrival.isNew ? { borderWidth: 1, borderColor: theme.blushRule } : null),
+      }}>
+      <Avatar
+        name={arrival.name}
+        size={large ? ROW_AVATAR_AX : ROW_AVATAR}
+        tone={arrival.isNew ? 'accent' : 'sand'}
+      />
 
-      <View className="flex-1">
-        <Text variant="body" numberOfLines={1}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        {/* The name truncates; the handle does not. A shortened name is still
+            the person, where a shortened handle is a different address. */}
+        <Text variant="body" numberOfLines={large ? undefined : 1}>
           {arrival.name}
         </Text>
-        {/* `noteSmall`, not `caption`: the atlas sets this line at a regular
-            weight and `caption` carries `font-medium`, which would render a
-            quiet timestamp as bold grey. In `muted`, not the atlas's #8A8578 —
-            3.52:1 is an AA failure. */}
-        {arrival.subtitle ? (
-          <Text variant="noteSmall" numberOfLines={1} className="mt-0.5">
-            {arrival.subtitle}
+        {arrival.handle ? (
+          <Text variant="noteSmall" className="mt-0.5">
+            {arrival.handle}
+          </Text>
+        ) : null}
+        {/* At the accessibility sizes the mark leaves the row's end and takes a
+            line of its own rather than being dropped. The frame draws the row
+            without it there; a mark carried only by the blush ground would be
+            colour as the sole carrier of meaning, which is the one way this
+            could fail a reader it is specifically for. */}
+        {arrival.isNew && large ? (
+          <Text variant="note" style={{ color: theme.accent, marginTop: 2 }}>
+            {FRESH_MARK}
           </Text>
         ) : null}
       </View>
 
-      {/* Somebody signing up through your link is the whole payoff of the
-          invite loop, and it used to arrive looking exactly like a row from
-          March. The mark is the punctuation grammar `CaughtUpLine` already
-          uses — one oxblood dot, no count, no "1 new", nothing to dismiss. It
-          ages out on its own after two days. Hidden from VoiceOver because
-          "Arrived yesterday", already in the label, says the same thing. */}
-      {arrival.isNew ? (
+      {/* A WORD, never a badge and never a number. Hidden from VoiceOver
+          because the row's own label already speaks it, and announcing it twice
+          is a stutter. */}
+      {arrival.isNew && !large ? (
         <View
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
+          className="items-center justify-center bg-accent"
           style={{
-            width: NEW_DOT,
-            height: NEW_DOT,
-            borderRadius: NEW_DOT / 2,
-            backgroundColor: theme.accent,
-          }}
-        />
-      ) : null}
-
-      {onPress ? (
-        <SymbolView
-          name="chevron.right"
-          size={13}
-          tintColor={theme.muted}
-          resizeMode="scaleAspectFit"
-        />
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            minHeight: 32,
+            flexShrink: 0,
+          }}>
+          <Text variant="label" style={{ color: theme.canvas }}>
+            {FRESH_MARK}
+          </Text>
+        </View>
       ) : null}
     </Pressable>
   );
 }
+
+/** Kept for the row's own floor, which is the tap target's. */
+export const ARRIVAL_ROW_MIN = MIN_TAP_TARGET;
