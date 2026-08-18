@@ -37,6 +37,7 @@ accepted bundle.
 
 | Page | Directive brief | Artifact set | Files | Imported | Build status |
 |---|---|---|---|---|---|
+| 08-friends-list | §3 · 8 Friends list | design-refs/redesign-2026-08/08-friends-list/ | 1 HTML + 28 PNG | 2026-08-18 | DESIGN ACCEPTED · not built |
 | 17-explore | §3 · 17 Explore (Daily Social) | design-refs/redesign-2026-08/17-explore/ | 1 HTML + 15 PNG | 2026-08-18 | not built |
 | 18-welcome-sign-in | §3 · 18 Welcome / Sign-in | design-refs/redesign-2026-08/18-welcome-sign-in/ | 1 HTML + 8 PNG | 2026-08-18 | not built |
 | 19-auth-run | §3 · 19 Email + code + name | design-refs/redesign-2026-08/19-auth-run/ | 1 HTML + 21 PNG | 2026-08-18 | not built |
@@ -46,3 +47,18 @@ accepted bundle.
 
 Pages 10–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
+
+### 08-friends-list — why this set replaced an earlier one
+
+The first export of this page was REJECTED at review: it drew a friend's
+activity count, which the privacy contract does not permit a friend row to
+state. All eight of its files left the directory in the same commit that added
+the corrected set, so nothing can be built from the rejected frames by mistake
+— four (`-ax`, `-error`, `-limited`, `-requests`) have no counterpart in the
+corrected bundle and were DELETED, and four (the artifact, `-default`,
+`-empty`, `-loading`) kept their names and were REPLACED byte-for-byte.
+
+The corrected bundle imported here passed privacy QA: 28 frames covering the
+mutual-only model, blocked-user invisibility, share-visibility rules, the
+request and report flows, and presence marks that carry no count. It is DESIGN
+ACCEPTED and NOT BUILT — no route, no component, no OTA, no simulator run.
