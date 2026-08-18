@@ -65,11 +65,23 @@ export const FOOTER_MARK = 'PRIVATE TO YOU · KEPT 30 DAYS';
 // AC-01 · empty
 // ---------------------------------------------------------------------------
 
-/** `empty.title`. */
-export const EMPTY_TITLE = 'You’re all caught up';
+/**
+ * `empty.title` / `empty.body`.
+ *
+ * REDESIGN 28 rewrote both, and the frame they come from is
+ * `activity-list-empty`. What changed is the register, not the claim: the page
+ * still says only that nothing has arrived and names what would. "You're all
+ * caught up" was a congratulation for having no mail, which is engagement
+ * grammar in a soft voice — it implies there is a state of being behind. There
+ * is not. The body is two clauses shorter and drops the trailing "only for
+ * you", because the colophon at the foot of every state now says exactly that
+ * and saying it twice on the emptiest screen in the app is the one place it
+ * reads as anxiety.
+ */
+export const EMPTY_TITLE = 'Nothing yet';
 /** `empty.body`. */
 export const EMPTY_BODY =
-  'When someone in your circles invites you or reacts to a look you shared, it’ll appear here — only for you.';
+  'When someone invites you to a group or reacts to what you wore, it arrives here.';
 
 // ---------------------------------------------------------------------------
 // AC-06 · loading  ·  AC-07 · offline and error
@@ -83,14 +95,30 @@ export const EMPTY_BODY =
  */
 export const LOADING_STATUS = 'Loading your activity…';
 
-/** `offline.banner`. Sits ABOVE the last-cached list, never instead of it. */
-export const OFFLINE_BANNER = 'You’re offline. Showing your last saved activity.';
+/**
+ * `offline.banner`. Sits ABOVE the last-cached list, never instead of it.
+ *
+ * Redesign 28's wording, from `activity-list-offline-cached`. The shipped line
+ * said the list was "saved", which is a claim about a cache; this one says what
+ * the reader actually needs to know — that the list is complete up to the
+ * moment signal went, so an absent row is not misread as a thing that never
+ * happened.
+ */
+export const OFFLINE_BANNER = 'You are offline. This is what arrived before you lost signal.';
 
-/** `error.title` / `error.body` / `error.retry`. */
-export const ERROR_TITLE = 'Couldn’t refresh';
+/**
+ * `error.title` / `error.body` / `error.retry`, from `activity-list-read-error`.
+ *
+ * The body is the redesign's most load-bearing copy change on this surface. A
+ * blank inbox and a failed read look identical and mean opposite things, and
+ * the fear a blank inbox creates is that something was LOST. "Your activity is
+ * safe on the server" answers that fear directly, where "check your connection"
+ * answered a question nobody was asking.
+ */
+export const ERROR_TITLE = 'Couldn’t load';
 export const ERROR_BODY =
-  'We couldn’t reach Cinch just now. Check your connection and try again.';
-export const ERROR_RETRY = 'Retry';
+  'Your activity is safe on the server. This device could not read it just now.';
+export const ERROR_RETRY = 'Try again';
 
 // ---------------------------------------------------------------------------
 // Row sentences · §5's templates
@@ -263,6 +291,18 @@ export const SECTION_EARLIER = 'Earlier';
 export const SECTION_EARLIER_WEEK = 'Earlier this week';
 export const SECTION_EARLIER_MONTH = 'Earlier this month';
 
+/**
+ * The Show / Hide pair on the oldest section's heading — redesign 28's
+ * `activity-list-older-month-collapsed` and `-expanded`.
+ *
+ * A WORD, not a chevron, for the same reason `ROW_REMOVE` is: the control
+ * folds away a run of the reader's own history, and a glyph asks them to infer
+ * that from a shape. It is also what lets the heading stay one accessible
+ * element with `accessibilityState.expanded` on it.
+ */
+export const SECTION_SHOW = 'Show';
+export const SECTION_HIDE = 'Hide';
+
 // ---------------------------------------------------------------------------
 // AC-10 · edit mode and clear all
 // ---------------------------------------------------------------------------
@@ -281,7 +321,21 @@ export const EDIT_DONE = 'Done';
 /** The per-row affordance Edit reveals. */
 export const ROW_REMOVE = 'Remove';
 /** The Clear All control Edit reveals, and the sheet's own confirm. */
-export const CLEAR_ALL = 'Clear All';
+export const CLEAR_ALL = 'Clear all';
+
+/**
+ * The line Edit mode puts above the list — redesign 28's
+ * `edit-mode-visible-row-removal`.
+ *
+ * It exists because Remove is the one control on this surface whose SCOPE is
+ * not obvious. A reader clearing a row that says "Marisol invited you to Sunday
+ * Roasts" has every reason to believe they have just declined an invitation.
+ * They have not: `activity_events` and `circle_members` are different tables and
+ * this touches only the first. Saying so where the control appears is what stops
+ * somebody tidying an inbox and believing they refused something.
+ */
+export const EDIT_NOTE =
+  'Removing a notice hides it from your inbox only. It answers nothing and tells nobody.';
 
 /** `clear.title`. */
 export const CLEAR_TITLE = 'Clear all activity?';

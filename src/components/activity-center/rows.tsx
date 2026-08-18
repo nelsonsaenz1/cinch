@@ -1,44 +1,70 @@
 import { useState } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import Svg, { Path } from 'react-native-svg';
 
-import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import { Avatar } from '@/components/ui/avatar';
 import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import {
+  dotOffset,
+  META_GAP,
+  META_LEADING,
+  META_SIZE,
+  ROW_GAP,
+  ROW_PAD_Y,
+  rowMetrics,
+  UNSEEN_DOT,
+} from '@/features/activity-center/activity-spec';
+import {
   INVITE_ACCEPT,
   INVITE_DECLINE,
   OPEN_HINT,
-  ROW_REMOVE,
+  SECTION_HIDE,
+  SECTION_SHOW,
 } from '@/features/activity-center/copy';
 import type { ActivityEntry } from '@/features/activity-center/grouping';
 import type { ActivityActionId, ActivityLine } from '@/features/activity-center/sentence';
 import { haptics } from '@/lib/haptics';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { GUTTER, MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
+import { ActivityRemoveDisc, removeLabel } from './activity-parts';
 import { CircleMark, UnreadDot } from './glyphs';
 
 /**
- * AC-02's row anatomy, and AC-08's collapsed summary.
+ * REDESIGN 28's row — a face, one written sentence, the day, and a warm dot.
  *
- * In order, left to right: an 8pt presence gutter, the 36pt mark, the sentence
- * with its subtitle and any inline actions, and the trailing stamp. AC-09 turns
- * that horizontal arrangement into a vertical one at accessibility type sizes —
- * nothing is removed and nothing is capped, only the arrangement changes, which
- * is the one thing the accessibility contract allows.
+ * That list is the page brief verbatim, and it is also the whole anatomy. In
+ * order, leading to trailing: the 44pt mark, the sentence with the day beneath
+ * it, and the unseen dot at the trailing edge. Nothing else is on a row.
+ *
+ * ── WHAT CAME OFF THE ROW ─────────────────────────────────────────────────
+ *
+ * · The 8pt LEADING PRESENCE GUTTER, held open on every row so that reading one
+ *   did not shift it sideways. The dot moved to the trailing column, which the
+ *   stamp vacated, so no gutter has to be reserved for it.
+ * · The TRAILING STAMP. It needed a one-line sentence to stay level with, and
+ *   most sentences here are two. The day sits under the sentence — where the
+ *   legacy half of this same list already put it — and reads as the second line
+ *   of the row rather than as a column in a table.
+ * · The TINTED GROUND behind an unread row. The frames have none, and it was
+ *   never the carrier of the state: "New" is a WORD at the head of the row's
+ *   composed accessibility label, which is what actually satisfies the
+ *   colour-independence rule.
+ * · The AX VERTICAL RECOMPOSITION. `activity-list-ax-xxxl` holds the same
+ *   arrangement at accessibility size — the sentence simply wraps further and
+ *   the row grows. The recomposition existed to get a trailing stamp out of a
+ *   27pt sentence's way, and there is no trailing stamp now. See `rowMetrics`.
  *
  * ── EMPHASIS IS CARRIED BY COLOUR, NOT WEIGHT ─────────────────────────────
  *
- * The atlas draws the actor's name and the group's name in semibold. This
- * repository removed weight from the product (TY-01) and
- * `components/activity/ActivityRow.tsx` already re-expresses the same emphasis
- * as ink-against-muted for the AV rows. These rows sit in the SAME LIST as
- * those, so they follow it: two dialects of emphasis interleaved down one page
- * would be far more visible than either choice on its own. It also survives at
- * every Dynamic Type size, which a weight difference at 14pt barely does.
+ * The frames set the actor's name and the group's name in semibold. This
+ * repository removed weight from the product (TY-01, held by
+ * `tests/type-weight.test.ts`) and expresses the same emphasis as ink-against-
+ * muted. That is unchanged here, and it is not a matter of taste on this
+ * surface: these rows sit in the SAME LIST as the legacy ones, which have
+ * always drawn emphasis that way, and two dialects of emphasis interleaved down
+ * one page would be far more visible than either choice on its own.
  *
  * ── THE WHOLE ROW IS THE TAP TARGET ───────────────────────────────────────
  *
@@ -48,27 +74,24 @@ import { CircleMark, UnreadDot } from './glyphs';
  * required to reach either.
  */
 
-const MARK = 36;
-
 // ---------------------------------------------------------------------------
-// The 34pt control
+// The inline control
 // ---------------------------------------------------------------------------
 
 /**
- * The atlas's 34pt inline action.
+ * The invitation's Accept / Decline, at the 44pt floor.
  *
- * Not the shared `Button`: that pill is fixed at a 44pt floor, a 12pt radius and
- * a 17px label, and an inline invitation row draws two of them under a sentence
- * at 34/9/13. This is the same local composition `components/activity/
- * ActivityRow.tsx` already ships for the AV rows — press feedback, haptics and
- * the 44pt hit target (via `hitSlop`) match `Button` exactly, and at AX sizes it
- * becomes full-width and stacked rather than clipping.
+ * Not the shared `Button`: that pill is fixed at a 17px label and a 12pt
+ * radius, and an inline invitation row draws two of them under a 15.5pt
+ * sentence. Grown from the 34pt the surface shipped to the artifact's "in-row
+ * pills 44pt minimum", which also retires the `hitSlop` that used to make up the
+ * difference — a control whose visual size is its touch target cannot drift out
+ * of compliance when somebody edits its padding.
  *
  * SOLID MEANS INK, NEVER OXBLOOD, in the timeline. A page of rows each spending
- * the accent on its affirmative is precisely how the one-accent-per-screen rule
- * dies; the accent on this page belongs to the presence dot and to a failure.
- * AC-03's detail screen is the exception and says why in its own file: it is one
- * screen with one decision on it.
+ * the accent on its affirmative is precisely how one-accent-per-screen dies; the
+ * accent on this page belongs to the unseen dot, the section eyebrows and a
+ * failure. AC-03's detail screen is the exception and says why in its own file.
  */
 function InlineAction({
   label,
@@ -92,7 +115,6 @@ function InlineAction({
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
       disabled={disabled}
-      hitSlop={(MIN_TAP_TARGET - 34) / 2}
       onPress={() => {
         haptics.selection();
         onPress();
@@ -105,13 +127,12 @@ function InlineAction({
         style={[
           press.style,
           {
-            // At AX sizes the control grows to hold a wrapped label rather than
-            // clipping it, and stretches to the row's width so two of them stack
-            // as full-width blocks — AC-09's own drawing.
-            minHeight: stacked ? MIN_TAP_TARGET : 34,
-            borderRadius: 9,
-            paddingHorizontal: solid ? 14 : 2,
-            paddingVertical: stacked ? 10 : 0,
+            // At AX sizes the pair stretches to the row's width and stacks, so
+            // a wrapped label grows the control rather than clipping inside it.
+            minHeight: MIN_TAP_TARGET,
+            borderRadius: 12,
+            paddingHorizontal: solid ? 18 : 6,
+            paddingVertical: 10,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
@@ -120,61 +141,10 @@ function InlineAction({
         ]}>
         <Text
           variant={solid ? 'body' : 'note'}
-          style={{ fontSize: 13, lineHeight: 17, color: solid ? theme.canvas : theme.ink }}>
+          style={{ fontSize: 15, lineHeight: 20, color: solid ? theme.canvas : theme.ink }}>
           {label}
         </Text>
       </Animated.View>
-    </Pressable>
-  );
-}
-
-/** The disclosure chevron on a collapsed group. Rotates a quarter turn when open. */
-function Chevron({ open }: { open: boolean }) {
-  const theme = useTheme();
-
-  return (
-    <Svg
-      width={16}
-      height={16}
-      viewBox="0 0 22 22"
-      fill="none"
-      style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>
-      <Path
-        d="M8.5 4.5 15 11l-6.5 6.5"
-        stroke={theme.muted}
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-/**
- * Edit mode's per-row Remove.
- *
- * §11's gesture rule, made visible: swipe-to-dismiss and long-press each need an
- * equivalent that can be reached without a gesture, and this is it. It is a
- * WORD rather than a minus-in-a-circle, because a glyph here would be the one
- * destructive control on the page identified by shape alone.
- */
-function RemoveButton({ onPress, label }: { onPress: () => void; label: string }) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={() => {
-        haptics.commit();
-        onPress();
-      }}
-      hitSlop={10}
-      style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-      className="active:opacity-60">
-      <Text variant="note" style={{ fontSize: 13, color: theme.accent }}>
-        {ROW_REMOVE}
-      </Text>
     </Pressable>
   );
 }
@@ -187,13 +157,24 @@ export type ActivityCenterRowProps = {
   line: ActivityLine;
   /** The actor's photograph, when the reader is related to them. Initials otherwise. */
   avatarUri?: string | null;
+  /**
+   * Whether the row draws the warm dot.
+   *
+   * Passed IN rather than derived from `line.event.seenAt`, so that both halves
+   * of the merged list answer to the same authority: the section a row landed
+   * in. `sectionOf` already decides unseen for these rows and `legacySection`
+   * decides it for the other kind, and a row drawing a dot its section
+   * disagreed with is the one way "New" could stop meaning what the heading
+   * above it says.
+   */
+  unseen?: boolean;
   /** Fires with the row's own href. Absent on a row with nowhere to go. */
   onOpen?: () => void;
   /** Fires for the inline Accept/Decline on a live invitation. */
   onAction?: (action: ActivityActionId) => void;
   /** True while an Accept or Decline is in flight — both controls go inert. */
   pending?: boolean;
-  /** Edit mode. Reveals Remove and suppresses navigation. */
+  /** Edit mode. Reveals the Remove disc and suppresses navigation. */
   editing?: boolean;
   onRemove?: () => void;
   isLast?: boolean;
@@ -202,6 +183,7 @@ export type ActivityCenterRowProps = {
 export function ActivityCenterRow({
   line,
   avatarUri,
+  unseen = false,
   onOpen,
   onAction,
   pending = false,
@@ -209,75 +191,73 @@ export function ActivityCenterRow({
   onRemove,
   isLast = false,
 }: ActivityCenterRowProps) {
-  const theme = useTheme();
   const { fontScale } = useWindowDimensions();
-  const stacked = fontScale >= AX_FONT_SCALE;
+  const metrics = rowMetrics(fontScale);
 
-  const unread = line.event.seenAt === null && !line.event.revokedAt;
   const openable = Boolean(onOpen && line.href) && !editing;
+  // The day, and in Edit mode nothing: `edit-mode-visible-row-removal` drops
+  // every stamp, because the question in that mode is which row to remove and
+  // the age of a notice is not part of it.
+  const meta = editing ? null : line.stamp;
 
   const body = (
     <View
-      className={stacked ? '' : 'flex-row items-start gap-3'}
-      style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
-      {/* The presence gutter. It holds its 8pt whether or not there is a dot in
-          it, so nothing on the row shifts sideways when a row is read. */}
-      <View
-        className={stacked ? 'flex-row items-center gap-3' : 'flex-row items-start gap-3'}
-        style={stacked ? { marginBottom: 10 } : undefined}>
-        <View style={{ width: 8, paddingTop: stacked ? 0 : 14 }}>{unread ? <UnreadDot /> : null}</View>
+      className="flex-row items-start"
+      style={{ paddingVertical: ROW_PAD_Y, paddingHorizontal: GUTTER, gap: ROW_GAP }}>
+      {editing && onRemove ? (
+        <View style={{ paddingTop: (metrics.avatar - 28) / 2 }}>
+          <ActivityRemoveDisc onPress={onRemove} label={removeLabel(line.spoken)} />
+        </View>
+      ) : null}
 
-        {line.mark.kind === 'person' ? (
-          <Avatar name={line.mark.name} size={MARK} imageUri={avatarUri ?? null} />
-        ) : (
-          <CircleMark />
-        )}
+      {line.mark.kind === 'person' ? (
+        <Avatar name={line.mark.name} size={metrics.avatar} imageUri={avatarUri ?? null} />
+      ) : (
+        <CircleMark size={metrics.avatar} />
+      )}
 
-        {/* At AX sizes the stamp joins the mark on its own line rather than
-            competing with a 27pt sentence for the right-hand edge. */}
-        {stacked && line.stamp ? (
-          <Text variant="note" style={{ fontSize: 13 }}>
-            {line.stamp}
-          </Text>
-        ) : null}
-      </View>
-
-      <View className={stacked ? '' : 'flex-1'} style={{ minWidth: 0 }}>
+      <View className="flex-1" style={{ minWidth: 0 }}>
         {/* One `Text` with nested runs, not a row of them: the names have to
             wrap with the rest of the sentence, and a flex row of words breaks in
             the wrong places and loses the spaces between them. */}
-        <Text variant="body" style={{ fontSize: 15, lineHeight: 21 }}>
+        <Text variant="body" style={{ fontSize: metrics.size, lineHeight: metrics.leading }}>
           {line.segments.map((segment, i) => (
             <Text
               key={i}
               variant="body"
               className={segment.bold ? 'text-ink' : 'text-muted'}
-              style={{ fontSize: 15, lineHeight: 21 }}>
+              style={{ fontSize: metrics.size, lineHeight: metrics.leading }}>
               {segment.text}
             </Text>
           ))}
         </Text>
 
-        {line.subtitle ? (
-          <Text variant="note" style={{ marginTop: 3, fontSize: 13 }}>
+        {line.subtitle && !editing ? (
+          <Text
+            variant="note"
+            style={{ marginTop: META_GAP, fontSize: META_SIZE, lineHeight: META_LEADING }}>
             {line.subtitle}
           </Text>
         ) : null}
 
-        {editing && onRemove ? (
-          <View style={{ marginTop: 4, alignSelf: 'flex-start' }}>
-            <RemoveButton onPress={onRemove} label={`${ROW_REMOVE} — ${line.spoken}`} />
-          </View>
-        ) : line.actions.length > 0 && onAction ? (
+        {meta ? (
+          <Text
+            variant="note"
+            style={{ marginTop: META_GAP, fontSize: META_SIZE, lineHeight: META_LEADING }}>
+            {meta}
+          </Text>
+        ) : null}
+
+        {!editing && line.actions.length > 0 && onAction ? (
           <View
-            className={stacked ? '' : 'flex-row gap-2'}
-            style={{ marginTop: 8, gap: stacked ? 10 : undefined }}>
+            className={metrics.stacksActions ? '' : 'flex-row'}
+            style={{ marginTop: 10, gap: 8 }}>
             {line.actions.map((action) => (
               <InlineAction
                 key={action}
                 label={action === 'accept' ? INVITE_ACCEPT : INVITE_DECLINE}
                 solid={action === 'accept'}
-                stacked={stacked}
+                stacked={metrics.stacksActions}
                 disabled={pending}
                 onPress={() => onAction(action)}
               />
@@ -286,10 +266,12 @@ export function ActivityCenterRow({
         ) : null}
       </View>
 
-      {!stacked && line.stamp ? (
-        <Text variant="note" style={{ fontSize: 13, paddingTop: 2 }}>
-          {line.stamp}
-        </Text>
+      {/* The trailing column. It holds the dot on the sentence's FIRST LINE, so
+          a two-line sentence never drags it down the row. */}
+      {unseen ? (
+        <View style={{ width: UNSEEN_DOT, paddingTop: dotOffset(metrics.leading) }}>
+          <UnreadDot />
+        </View>
       ) : null}
     </View>
   );
@@ -304,22 +286,19 @@ export function ActivityCenterRow({
           accessibilityLabel={line.label}
           accessibilityHint={OPEN_HINT}
           onPress={onOpen}
-          // The tinted ground AC-02 draws behind an unread row. A second,
-          // non-colour channel for the same fact, which is what makes the tint
-          // safe to use at all.
-          style={unread ? { backgroundColor: theme.tray } : undefined}
           className="active:opacity-70">
           {body}
         </Pressable>
       ) : (
-        <View
-          accessible
-          accessibilityLabel={line.label}
-          style={unread ? { backgroundColor: theme.tray } : undefined}>
+        <View accessible={!editing} accessibilityLabel={editing ? undefined : line.label}>
           {body}
         </View>
       )}
-      {isLast ? null : <Rule tone="hairline" />}
+      {isLast ? null : (
+        <View className="px-gutter">
+          <Rule tone="hairline" />
+        </View>
+      )}
     </View>
   );
 }
@@ -334,12 +313,13 @@ export function ActivityCenterRow({
  * EXPANDS IN PLACE rather than pushing to a screen of its own. The rows it
  * stands for are the least consequential things on the page — arrivals and
  * reactions from three weeks ago — and sending somebody to a new screen to read
- * them would spend a navigation on the cheapest content in the inbox. Expanding
- * also means the summary stays visible above what it summarises, so the reader
- * can see what they opened.
+ * them would spend a navigation on the cheapest content in the inbox.
  *
- * The chevron is `accessibilityState.expanded`, and the whole header is one
- * button, so VoiceOver announces "expanded"/"collapsed" without a gesture.
+ * REDESIGN 28 replaced the chevron with the WORD, for the same reason the
+ * oldest section's heading carries one: `activity-list-older-month-collapsed`
+ * draws `Show`, and a word states the affordance where a rotating glyph asks
+ * the reader to infer it. The header is still one button with
+ * `accessibilityState.expanded`, so VoiceOver announces the state either way.
  */
 export function ActivityGroupRow({
   entry,
@@ -357,9 +337,11 @@ export function ActivityGroupRow({
   onRemoveLine?: (line: ActivityLine) => void;
   isLast?: boolean;
 }) {
+  const theme = useTheme();
   const [open, setOpen] = useState(false);
   const { fontScale } = useWindowDimensions();
-  const stacked = fontScale >= AX_FONT_SCALE;
+  const metrics = rowMetrics(fontScale);
+  const word = open ? SECTION_HIDE : SECTION_SHOW;
 
   return (
     <View>
@@ -374,35 +356,40 @@ export function ActivityGroupRow({
         }}
         className="active:opacity-70">
         <View
-          className={stacked ? '' : 'flex-row items-center gap-3'}
-          style={{ paddingVertical: 12, paddingHorizontal: 16, minHeight: MIN_TAP_TARGET }}>
-          <View className="flex-row items-center gap-3" style={stacked ? { marginBottom: 8 } : undefined}>
-            {/* The gutter is held empty: a collapsed run is never unread,
-                because `sectionOf` files unseen rows into `New` and only the
-                oldest section collapses. */}
-            <View style={{ width: 8 }} />
-            <CircleMark />
-            {stacked ? <Chevron open={open} /> : null}
-          </View>
+          className="flex-row items-center"
+          style={{
+            paddingVertical: ROW_PAD_Y,
+            paddingHorizontal: GUTTER,
+            gap: ROW_GAP,
+            minHeight: MIN_TAP_TARGET,
+          }}>
+          {/* The gutter is never unread here: `sectionOf` files unseen rows
+              into `New` and only the oldest section collapses. */}
+          <CircleMark size={metrics.avatar} />
 
-          <View className={stacked ? '' : 'flex-1'} style={{ minWidth: 0 }}>
-            <Text variant="body" className="text-ink" style={{ fontSize: 15, lineHeight: 21 }}>
+          <View className="flex-1" style={{ minWidth: 0 }}>
+            <Text
+              variant="body"
+              className="text-ink"
+              style={{ fontSize: metrics.size, lineHeight: metrics.leading }}>
               {entry.title}
             </Text>
             {entry.subtitle ? (
-              <Text variant="note" style={{ marginTop: 3, fontSize: 13 }}>
+              <Text
+                variant="note"
+                style={{ marginTop: META_GAP, fontSize: META_SIZE, lineHeight: META_LEADING }}>
                 {entry.subtitle}
               </Text>
             ) : null}
           </View>
 
-          {stacked ? null : <Chevron open={open} />}
+          <Text style={{ fontSize: 17, color: theme.accent }}>{word}</Text>
         </View>
       </Pressable>
 
       {open
         ? entry.lines.map((line, i) => (
-            <View key={line.key} style={{ paddingLeft: 16 }}>
+            <View key={line.key} style={{ paddingLeft: GUTTER }}>
               <ActivityCenterRow
                 line={line}
                 avatarUri={avatarFor?.(line) ?? null}
@@ -415,7 +402,11 @@ export function ActivityGroupRow({
           ))
         : null}
 
-      {isLast ? null : <Rule tone="hairline" />}
+      {isLast ? null : (
+        <View className="px-gutter">
+          <Rule tone="hairline" />
+        </View>
+      )}
     </View>
   );
 }

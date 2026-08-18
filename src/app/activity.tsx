@@ -1,21 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ActivityRow } from '@/components/activity/ActivityRow';
-import {
-  ActivityCenterRow,
-  ActivityEmpty,
-  ActivityError,
-  ActivityGroupRow,
-  ActivitySkeleton,
-  ClearAllDialog,
-  OfflineBanner,
-} from '@/components/activity-center';
-import { Rule } from '@/components/ui/rule';
-import { SectionHeader } from '@/components/ui/section-header';
-import { Text } from '@/components/ui/text';
+import { ActivityBody, ClearAllDialog } from '@/components/activity-center';
 import { useToast } from '@/components/ui/toast-host';
 import { useActivityAnswers } from '@/features/activity/answers';
 import {
@@ -39,17 +25,7 @@ import {
   ACTIVITY_EVENTS,
   classifyActivityError,
 } from '@/features/activity-center/analytics';
-import {
-  CLEAR_ALL,
-  EDIT,
-  EDIT_DONE,
-  FOOTER_MARK,
-  FOOTER_PRIVACY,
-  NAV_TITLE,
-  RETENTION_NOTE,
-  UNDO,
-  UNDO_DISMISSED,
-} from '@/features/activity-center/copy';
+import { UNDO, UNDO_DISMISSED } from '@/features/activity-center/copy';
 import { buildSections } from '@/features/activity-center/grouping';
 import { hasNew, isEmpty, mergeLegacy } from '@/features/activity-center/merge';
 import {
@@ -68,14 +44,18 @@ import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
 import { useAcceptInvitation, useDeclineInvitation } from '@/features/circles/mutations';
 import { haptics } from '@/lib/haptics';
 import { track } from '@/lib/posthog';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
- * The Activity Center — AC-01 through AC-10.
+ * The Activity Center — AC-01 through AC-10, redrawn by REDESIGN 28.
  *
  * `cinch://activity`. Reached by a PUSH from the Daily Social header
  * (`ActivityEntryButton`), never from the tab bar, so it cannot compete for
  * attention with the four destinations that live there. §13.
+ *
+ * This file is the WIRING — two queries, five mutations, the seen stamp and the
+ * analytics. Everything drawn lives in `components/activity-center/
+ * activity-body.tsx`, which is what lets the eight `dev-av-*` fixtures pose
+ * every state against the same component the app mounts.
  *
  * ── ONE PAGE, TWO SOURCES ─────────────────────────────────────────────────
  *
@@ -88,8 +68,8 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * merge.ts` is where the interleaving lives and argues itself.
  *
  * The legacy rows keep their own component (`components/activity/ActivityRow`)
- * with its answer states, its undo and its retry. Nothing was reimplemented to
- * make them fit.
+ * with its answer states, its undo and its retry. Redesign 28 gave that
+ * component the merged list's measurements and nothing else.
  *
  * ── WHAT THIS PAGE WILL NOT DO ────────────────────────────────────────────
  *
@@ -103,10 +83,9 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * · **No "mark all read".** Opening the page is the whole gesture.
  * · **No infinite history.** Thirty days, enforced by the purge job. There is
  *   no pagination to reach past it and no window filter here to disagree with
- *   it.
+ *   it, and the colophon at the foot of every state says so.
  */
 export default function ActivityScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const toast = useToast();
 
@@ -162,7 +141,9 @@ export default function ActivityScreen() {
    * NEITHER STAMP REFETCHES THE LIST, deliberately. If it did, every row would
    * come back with a `seen_at` and the `New` heading the reader is looking at
    * would dissolve under them mid-scroll. The rows stay New for the visit that
-   * found them, and are Earlier on the next one.
+   * found them, and are Earlier on the next one. The artifact names this
+   * exactly: "the transition happens between visits, not under the reader's
+   * eyes."
    */
   const marked = useRef(false);
   const stampSeen = markSeen.mutate;
@@ -299,180 +280,57 @@ export default function ActivityScreen() {
     }
   };
 
-  const answering = accept.isPending || decline.isPending;
-
   /** The actor's photograph, or nothing — `Avatar` falls back to initials. */
   const faceFor = (line: ActivityLine): string | null =>
     (line.event.actorId ? centre.faces.get(line.event.actorId) : null) ?? null;
 
-  // -------------------------------------------------------------------------
-  // Chrome
-  // -------------------------------------------------------------------------
+  const legacyFaceFor = (line: LegacyLine): string | null =>
+    (line.row.actorId ? legacy.faces.get(line.row.actorId) : null) ?? null;
 
   /**
-   * `Edit` / `Done`, and — while editing — `Clear All` beside it.
+   * `Edit` / `Done`, and — while editing — the Clear all bar above the colophon.
    *
-   * This pair is §11's gesture requirement, not a convenience: swipe-to-dismiss
-   * and long-press each need a visible equivalent, and Edit mode is where both
-   * live. It is hidden on an empty or failed page, because a control that edits
-   * nothing is a control that teaches the reader it does nothing.
+   * Withheld on an empty, loading or failed page, because a control that edits
+   * nothing is a control that teaches the reader it does nothing. Passing
+   * `undefined` rather than a flag is what makes that structural: the masthead
+   * has no branch for "editable but with nothing to edit".
    */
-  const chrome =
-    blank || loading || (failed && !cached) ? null : (
-      <View className="flex-row items-center gap-4">
-        {editing ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={CLEAR_ALL}
-            accessibilityHint="Opens a confirmation. Clearing cannot be undone."
-            onPress={() => {
-              // §10 asks for a warning on present — the reader is being shown
-              // something irreversible, before they have chosen it.
-              haptics.warning();
-              setConfirming(true);
-            }}
-            hitSlop={10}
-            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-            className="active:opacity-60">
-            <Text style={{ fontSize: 17, color: theme.accent }}>{CLEAR_ALL}</Text>
-          </Pressable>
-        ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={editing ? EDIT_DONE : EDIT}
-          accessibilityHint={
-            editing ? undefined : 'Reveals Remove on each item, and Clear All'
-          }
-          onPress={() => {
-            haptics.selection();
-            setEditing((was) => !was);
-          }}
-          hitSlop={10}
-          style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-          className="active:opacity-60">
-          <Text style={{ fontSize: 17, color: theme.accent }}>{editing ? EDIT_DONE : EDIT}</Text>
-        </Pressable>
-      </View>
-    );
+  const editable = !(blank || loading || (failed && !cached));
 
   return (
     <>
-      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-        <View className="flex-row items-start justify-between gap-3 px-gutter pt-3">
-          <Text variant="display" trim accessibilityRole="header">
-            {NAV_TITLE}
-          </Text>
-          {chrome}
-        </View>
-
-        {cached ? <OfflineBanner /> : null}
-
-        <ScrollView
-          contentContainerClassName="pb-10"
-          // `flexGrow`, not `flex`: the two hero states centre with `flex-1`,
-          // which collapses to nothing inside a content-sized scroll container
-          // — and hoisting them out would cost pull-to-refresh on exactly the
-          // screen where "try again" matters most. Same reasoning as Lately's.
-          contentContainerStyle={{ flexGrow: 1 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={centre.isRefetching || legacy.isRefetching}
-              onRefresh={() => {
-                // §10: `impactLight` at the pull threshold. `commit()` is the
-                // policy's name for that weight.
-                haptics.commit();
-                refresh();
-              }}
-              tintColor={theme.muted}
-            />
-          }>
-          {loading ? (
-            <ActivitySkeleton />
-          ) : failed && !cached ? (
-            <ActivityError
-              onRetry={retry}
-              lastUpdated={
-                centre.updatedAt ? spokenElapsed(new Date(centre.updatedAt).toISOString(), now) : null
-              }
-            />
-          ) : blank ? (
-            <ActivityEmpty />
-          ) : (
-            <View>
-              {sections.map((section) => (
-                <View key={section.key}>
-                  <SectionHeader title={section.title} className="mb-1 mt-5 px-gutter" />
-                  {section.data.map((entry, i) => {
-                    const isLast = i === section.data.length - 1;
-
-                    if (entry.kind === 'group') {
-                      return (
-                        <ActivityGroupRow
-                          key={entry.key}
-                          entry={entry}
-                          avatarFor={faceFor}
-                          editing={editing}
-                          onOpenLine={(line) => openLine(line, true)}
-                          onRemoveLine={removeLine}
-                          isLast={isLast}
-                        />
-                      );
-                    }
-
-                    if (entry.kind === 'legacy') {
-                      return (
-                        <ActivityRow
-                          key={entry.key}
-                          line={entry.line}
-                          avatarUri={
-                            entry.line.row.actorId ? legacy.faces.get(entry.line.row.actorId) : null
-                          }
-                          state={answers.stateOf(entry.key)}
-                          onAnswer={(actionId) => answers.answer(entry.line, actionId)}
-                          onNavigate={(actionId) => navigateLegacy(entry.line, actionId)}
-                          onUndo={() => answers.undo(entry.line)}
-                          isLast={isLast}
-                        />
-                      );
-                    }
-
-                    return (
-                      <ActivityCenterRow
-                        key={entry.key}
-                        line={entry.line}
-                        avatarUri={faceFor(entry.line)}
-                        editing={editing}
-                        pending={answering}
-                        onOpen={() => openLine(entry.line, false)}
-                        onAction={(action) => answerInvitation(entry.line, action)}
-                        onRemove={() => removeLine(entry.line)}
-                        isLast={isLast}
-                      />
-                    );
-                  })}
-                </View>
-              ))}
-
-              {/* The foot of the timeline: a hairline to end it, then the two
-                  claims set as one colophon — who else sees this, and how long
-                  it is kept. Both sentences survive verbatim on the label, so
-                  the answers are still spoken; they have just stopped being 26
-                  words of centred body copy under a list of 13px rows. */}
-              {/* Inset by a padded wrapper rather than `mx-gutter` on the Rule
-                  itself: Rule is `w-full`, so a horizontal margin on it would
-                  overflow the row by the two gutters instead of insetting it. */}
-              <View className="mt-8 px-gutter">
-                <Rule tone="hairline" />
-              </View>
-              <View accessible accessibilityLabel={`${FOOTER_PRIVACY} ${RETENTION_NOTE}`}>
-                <Text variant="colophon" className="mt-4 text-center">
-                  {FOOTER_MARK}
-                </Text>
-              </View>
-            </View>
-          )}
-        </ScrollView>
-      </SafeAreaView>
+      <ActivityBody
+        status={loading ? 'loading' : failed && !cached ? 'error' : 'ready'}
+        sections={sections}
+        cached={cached}
+        editing={editing}
+        onToggleEdit={editable ? () => setEditing((was) => !was) : undefined}
+        onBack={() => router.back()}
+        onRetry={retry}
+        lastUpdated={
+          centre.updatedAt ? spokenElapsed(new Date(centre.updatedAt).toISOString(), now) : null
+        }
+        isRefetching={centre.isRefetching || legacy.isRefetching}
+        onRefresh={() => {
+          // §10: `impactLight` at the pull threshold. `commit()` is the
+          // policy's name for that weight.
+          haptics.commit();
+          refresh();
+        }}
+        faceFor={faceFor}
+        onOpenLine={openLine}
+        onAction={answerInvitation}
+        onRemoveLine={removeLine}
+        answering={accept.isPending || decline.isPending}
+        legacyFaceFor={legacyFaceFor}
+        legacyStateOf={answers.stateOf}
+        onLegacyAnswer={(line, actionId) => answers.answer(line, actionId)}
+        onLegacyNavigate={navigateLegacy}
+        onLegacyUndo={(line) => answers.undo(line)}
+        onClearAll={() => {
+          setConfirming(true);
+        }}
+      />
 
       <ClearAllDialog
         visible={confirming}

@@ -574,6 +574,19 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Activity — the inbox — redesign 28',
+    [
+      ['AV-01 · new and earlier, both sources', '/dev-av-01-populated'],
+      ['AV-02 · nothing yet', '/dev-av-02-empty'],
+      ['AV-03 · opening', '/dev-av-03-loading'],
+      ['AV-04 · the read failed', '/dev-av-04-read-error'],
+      ['AV-05 · offline, over a cached list', '/dev-av-05-offline-cached'],
+      ['AV-06 · everything already seen', '/dev-av-06-no-unseen'],
+      ['AV-07 · edit mode', '/dev-av-07-edit-mode'],
+      ['AV-08 · missing actor, revoked row', '/dev-av-08-edges'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],

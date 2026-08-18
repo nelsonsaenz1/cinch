@@ -27,20 +27,31 @@ import { useTheme } from '@/theme/tokens';
  * substitution this repository already made for the AV glyphs.
  */
 
-const MARK = 36;
-const GLYPH = 17;
-const TRAY_RADIUS = 11;
-
 /**
- * The group mark: a ring, in a rounded-square tray.
+ * The group mark: a ring, on a round tray at the face's own diameter.
  *
  * A ring rather than a cluster of figures. AC-02's own glyph is `◍` — a circle
  * — and the reason it is not three little people is that the roster is exactly
  * what a private group does not show you until you are in it; a mark that drew
  * a crowd would be promising a list the membership policy withholds.
+ *
+ * ── REDESIGN 28 MADE IT A CIRCLE, AND GREW IT TO 44 ───────────────────────
+ *
+ * It was a 36pt ROUNDED SQUARE, on the argument that a reader scanning a column
+ * should be able to tell a room from a person without reading either. Every
+ * frame in redesign 28 draws one column of 44pt discs, and the reason the old
+ * argument does not survive is that the distinction it bought was never worth
+ * what it cost: the sentence beside the mark names the room in bold in its own
+ * first clause, so the shape was a second, weaker copy of a fact already on the
+ * row — and it made every group row half a step smaller than its neighbours in
+ * a list whose whole rhythm is one repeated disc.
+ *
+ * `size` so the row can grow it with Dynamic Type (`ROW_AVATAR_AX`) exactly as
+ * it grows an `Avatar`, and so the invitation detail can draw it at hero scale.
  */
-export function CircleMark() {
+export function CircleMark({ size = 44 }: { size?: number }) {
   const theme = useTheme();
+  const glyph = Math.round(size * 0.39);
 
   return (
     <View
@@ -48,9 +59,9 @@ export function CircleMark() {
       // about the mark as well would read the row twice.
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      className="items-center justify-center bg-tray"
-      style={{ width: MARK, height: MARK, borderRadius: TRAY_RADIUS }}>
-      <Svg width={GLYPH} height={GLYPH} viewBox="0 0 22 22" fill="none">
+      className="items-center justify-center rounded-full bg-tray"
+      style={{ width: size, height: size }}>
+      <Svg width={glyph} height={glyph} viewBox="0 0 22 22" fill="none">
         <Circle cx={11} cy={11} r={7.4} stroke={theme.muted} strokeWidth={1.6} />
         <Circle cx={11} cy={11} r={2.4} fill={theme.muted} />
       </Svg>
@@ -124,19 +135,39 @@ export function PresenceDot({ size = 9 }: { size?: number }) {
 }
 
 /**
- * The row's own unread mark — AC-02's 8pt disc in the left gutter.
+ * The row's own unseen mark — redesign 28's warm dot, at the TRAILING edge.
  *
- * No canvas ring: it sits on the row's tinted ground rather than on a
- * photograph, and a ring there reads as a hole.
+ * ── WHAT MOVED, AND WHY ───────────────────────────────────────────────────
+ *
+ * It was an 8pt disc in an 8pt gutter at the row's LEADING edge, ahead of the
+ * face, with a tinted ground behind the whole row as a second channel for the
+ * same fact. Redesign 28 moves it to the trailing edge at nine points and drops
+ * the tint. Three reasons, in order of weight:
+ *
+ *  1. The leading gutter had to be held open on every row, read or unread, so
+ *     nothing shifted sideways when a row was seen — which meant every row on
+ *     the page paid 8pt of indent for a mark most of them did not carry.
+ *  2. The trailing column was freed. The stamp used to live there and now sits
+ *     under the sentence (`activity-spec.ts`, `STAMP_PLACEMENT`), so the dot
+ *     lands in a column that is otherwise empty and can never collide with a
+ *     two-line sentence.
+ *  3. The tint is gone because the frames have no tint, and losing it costs
+ *     nothing: unseen was never carried by colour alone. It is the word "New"
+ *     at the head of the row's composed label — `rowAccessibilityLabel` — which
+ *     is the channel that actually satisfies the colour-independence rule.
+ *
+ * Same nine points as `PresenceDot` on the entry glyph, deliberately: the mark
+ * that says "there is something here" is one mark in two places. No ring here,
+ * because a row's ground is paper rather than a photograph.
  */
-export function UnreadDot() {
+export function UnreadDot({ size = 9 }: { size?: number }) {
   const theme = useTheme();
 
   return (
     <View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.accent }}
+      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.accent }}
     />
   );
 }

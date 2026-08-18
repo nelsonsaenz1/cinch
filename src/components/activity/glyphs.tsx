@@ -77,7 +77,7 @@ function Heart({ color }: { color: string }) {
 }
 
 /** The 36pt tray disc that stands in for a face when no single person did it. */
-export function ActivityGlyphMark({ glyph }: { glyph: ActivityGlyph }) {
+export function ActivityGlyphMark({ glyph, size = MARK }: { glyph: ActivityGlyph; size?: number }) {
   const theme = useTheme();
 
   return (
@@ -87,7 +87,7 @@ export function ActivityGlyphMark({ glyph }: { glyph: ActivityGlyph }) {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       className="items-center justify-center rounded-full bg-tray"
-      style={{ width: MARK, height: MARK }}>
+      style={{ width: size, height: size }}>
       {glyph === 'calendar' ? <Calendar color={theme.muted} /> : null}
       {glyph === 'hanger' ? <Hanger color={theme.muted} /> : null}
       {glyph === 'bars' ? <Bars color={theme.muted} /> : null}

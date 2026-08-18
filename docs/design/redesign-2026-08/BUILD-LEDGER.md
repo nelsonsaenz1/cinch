@@ -56,7 +56,7 @@ accepted bundle.
 | 25-storage | §3 · 25 Storage | design-refs/redesign-2026-08/25-storage/ | 1 HTML + 42 PNG | 2026-08-18 | not built |
 | 26-gap-feed-shop | §3 · 26 Gap feed / shop | design-refs/redesign-2026-08/26-gap-feed-shop/ | 1 HTML + 44 PNG | 2026-08-18 | not built |
 | 27-groups-room | §3 · 27 Groups + group room | design-refs/redesign-2026-08/27-groups-room/ | 1 HTML + 52 PNG | 2026-08-18 | not built |
-| 28-activity | §3 · 28 Activity | design-refs/redesign-2026-08/28-activity/ | 1 HTML + 52 PNG | 2026-08-18 | not built |
+| 28-activity | §3 · 28 Activity | design-refs/redesign-2026-08/28-activity/ | 1 HTML + 52 PNG | 2026-08-18 | built, visual-checked, UNSHIPPED (batch) |
 | 29-settings | §3 · 29 Settings | design-refs/redesign-2026-08/29-settings/ | 1 HTML + 48 PNG | 2026-08-18 | not built |
 | 30-manage-membership | §3 · 30 Manage membership | design-refs/redesign-2026-08/30-manage-membership/ | 1 HTML + 50 PNG | 2026-08-18 | not built; Superwall 254200 frames are vendor-editor reference only |
 

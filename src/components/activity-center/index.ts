@@ -6,6 +6,16 @@
  * `components/circles/index.ts` and `components/daily-social/index.ts`.
  */
 
+export { ActivityBody, type ActivityBodyProps, type ActivityBodyStatus } from './activity-body';
+export {
+  ActivityClearAllBar,
+  ActivityColophon,
+  ActivityEditNote,
+  ActivityMasthead,
+  ActivityRemoveDisc,
+  ActivitySectionHeading,
+  removeLabel,
+} from './activity-parts';
 export { ClearAllDialog } from './clear-all-dialog';
 export { ActivityEntryButton, ActivityEntryLink } from './entry-button';
 export {

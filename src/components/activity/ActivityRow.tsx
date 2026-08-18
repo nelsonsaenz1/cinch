@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
+import { UnreadDot } from '@/components/activity-center/glyphs';
 import { Avatar } from '@/components/ui/avatar';
 import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
@@ -16,7 +17,19 @@ import {
   type ActivityActionId,
   type ActivityLine,
 } from '@/features/activity/sentence';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import {
+  dotOffset,
+  META_GAP,
+  META_LEADING,
+  META_SIZE,
+  ROW_AVATAR,
+  ROW_GAP,
+  ROW_PAD_Y,
+  SENTENCE_LEADING,
+  SENTENCE_SIZE,
+  UNSEEN_DOT,
+} from '@/features/activity-center/activity-spec';
+import { GUTTER, MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 import { ActivityGlyphMark } from './glyphs';
 
@@ -27,9 +40,26 @@ import { ActivityGlyphMark } from './glyphs';
  * The elapsed label is ranged left UNDER the sentence rather than floating
  * right, which is the atlas's own note and the reason a two-line sentence never
  * pushes it out of true.
+ *
+ * ── WHY THIS FILE TOOK REDESIGN 28'S MEASUREMENTS ─────────────────────────
+ *
+ * These are the LEGACY rows — friend requests, borrows, event invitations,
+ * votes, compliments — and they are not drawn on a page of their own. They are
+ * interleaved into the Activity Center's one timeline by `merge.ts`, sitting
+ * directly above and below the materialised rows. So the mark, the padding, the
+ * sentence and the day all read from `activity-center/activity-spec.ts`: a
+ * 36pt mark and a 14pt sentence beside a 44pt mark and a 15.5pt sentence would
+ * make the seam between the two data sources the most visible thing on the
+ * page, and the artifact's own caption for the mixed frame is that "the reader
+ * cannot tell which table a row came from, and should not have to."
+ *
+ * What did NOT come across is the answer machinery. The pending participles,
+ * the was-told outcome lines, the retry and the undo are this taxonomy's alone
+ * and are untouched.
  */
 
-const MARK = 36;
+/** The mark, at redesign 28's 44 — one diameter down the whole merged column. */
+const MARK = ROW_AVATAR;
 
 /**
  * The atlas's 34pt control.
@@ -133,6 +163,17 @@ export type ActivityRowProps = {
   line: ActivityLine;
   /** The actor's photograph, when there is one. Initials otherwise. */
   avatarUri?: string | null;
+  /**
+   * Whether the row draws the warm dot — redesign 28.
+   *
+   * Passed in from the section this row landed in, exactly as the materialised
+   * rows take it. This taxonomy has no per-row seen state to derive it from
+   * (the legacy feed keeps one surface-wide `profiles.activity_seen_at`), and
+   * `merge.ts` has already applied that comparison per row to decide the
+   * section. Reading it back off the section is what keeps the dot and the
+   * heading above it saying the same thing.
+   */
+  unseen?: boolean;
   state: AnswerState;
   /** Fires for the two answering verbs. */
   onAnswer: (actionId: ActivityActionId) => void;
@@ -146,6 +187,7 @@ export type ActivityRowProps = {
 export function ActivityRow({
   line,
   avatarUri,
+  unseen = false,
   state,
   onAnswer,
   onNavigate,
@@ -162,18 +204,23 @@ export function ActivityRow({
 
   return (
     <View>
-      <View className="flex-row items-start gap-3" style={{ paddingVertical: 14, paddingHorizontal: 16 }}>
+      <View
+        className="flex-row items-start"
+        style={{ paddingVertical: ROW_PAD_Y, paddingHorizontal: GUTTER, gap: ROW_GAP }}>
         {line.mark.kind === 'person' ? (
           <Avatar name={line.mark.name} size={MARK} imageUri={avatarUri} />
         ) : (
-          <ActivityGlyphMark glyph={line.mark.glyph} />
+          <ActivityGlyphMark glyph={line.mark.glyph} size={MARK} />
         )}
 
         <View className="flex-1" style={{ minWidth: 0 }}>
           {/* One `Text` with nested runs, not a row of them: the name has to
               wrap with the rest of the sentence, and a flex row of words
               breaks at the wrong places and loses the space between them. */}
-          <Text variant="body" accessibilityLabel={line.spoken} style={{ fontSize: 14, lineHeight: 20 }}>
+          <Text
+            variant="body"
+            accessibilityLabel={line.spoken}
+            style={{ fontSize: SENTENCE_SIZE, lineHeight: SENTENCE_LEADING }}>
             {line.segments.map((segment, i) => (
               <Text
                 key={i}
@@ -185,18 +232,21 @@ export function ActivityRow({
                 // and it survives at every Dynamic Type size, which a weight
                 // difference at 14 pt barely does.
                 className={segment.bold ? 'text-ink' : 'text-muted'}
-                style={{ fontSize: 14, lineHeight: 20 }}>
+                style={{ fontSize: SENTENCE_SIZE, lineHeight: SENTENCE_LEADING }}>
                 {segment.text}
               </Text>
             ))}
           </Text>
 
           {line.elapsed ? (
-            // AUDIT 91 — 13pt REGULAR secondary, on its own line under the
-            // sentence, so it never competes with it. Previously `colophon`:
-            // 10px tracked uppercase MEDIUM, which is a label's treatment and
-            // made a timestamp look like a category.
-            <Text variant="note" style={{ marginTop: 4 }}>
+            // AUDIT 91 — REGULAR secondary, on its own line under the sentence,
+            // so it never competes with it. Previously `colophon`: 10px tracked
+            // uppercase MEDIUM, which is a label's treatment and made a
+            // timestamp look like a category. Redesign 28 set it at the same
+            // 12.5 the materialised rows use.
+            <Text
+              variant="note"
+              style={{ marginTop: META_GAP, fontSize: META_SIZE, lineHeight: META_LEADING }}>
               {line.elapsed}
             </Text>
           ) : null}
@@ -268,8 +318,20 @@ export function ActivityRow({
             </View>
           ) : null}
         </View>
+
+        {/* The trailing column — the same warm dot, at the same nine points and
+            on the same first line, as the materialised rows beside it. */}
+        {unseen ? (
+          <View style={{ width: UNSEEN_DOT, paddingTop: dotOffset(SENTENCE_LEADING) }}>
+            <UnreadDot />
+          </View>
+        ) : null}
       </View>
-      {isLast ? null : <Rule tone="hairline" />}
+      {isLast ? null : (
+        <View className="px-gutter">
+          <Rule tone="hairline" />
+        </View>
+      )}
     </View>
   );
 }
