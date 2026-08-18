@@ -10,7 +10,6 @@ import { lookName } from '@/components/event-outfits/OutfitPostCard';
 import { ErrorState } from '@/components/ui/error-state';
 import { NoticeBand } from '@/components/ui/notice-band';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
-import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
@@ -166,29 +165,39 @@ export default function EventCommentsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-canvas">
       <KeyboardAvoidingScreen className="flex-1">
-        <ScreenHeader align="leading" title={look ? 'On this look' : 'Table talk'} />
+        {/*
+          ── Redesign 03 · the accepted frame's masthead ────────────────────
 
-        <View className="px-gutter">
-          <Text variant="title" trim numberOfLines={1} className="mt-4">
+          A serif word and the audience, on one baseline. The back chevron went
+          with the push: the route is a sheet now (see `event/_layout.tsx`) and
+          a sheet's way out is its grabber and its swipe, so a header row whose
+          only content was a duplicate dismissal is a row of nothing.
+
+          Audit 94 is unchanged and is the reason the scope is UP here rather
+          than under the field: the closed thread has no composer, so a line
+          beneath it vanishes exactly when a reader most needs to know who can
+          still see what they wrote.
+
+          THE ARTIFACT'S OWN LABEL IS NOT USED. It sets this eyebrow to
+          "FRIENDS ONLY", and that is not what the server does — the read
+          policy is `is_event_member(event_id)`, membership rather than
+          friendship, and an event member need not be a friend of the reader.
+          `audienceScopeLine` says the true thing and `comments-column.test.ts`
+          pins the words; the frame's typography is kept and its claim is not.
+        */}
+        <View className="flex-row items-baseline justify-between gap-3 px-gutter pt-4 pb-3">
+          <Text variant="title" trim numberOfLines={1} className="min-w-0 flex-shrink">
             {title}
           </Text>
-          {/*
-            Audit 94 — the privacy scope lives in the MASTHEAD, not in a
-            footnote under the composer. It used to sit beneath the field,
-            which is both the least-read position on the screen and the one
-            place it vanishes from: the closed thread has no composer, so the
-            audience line disappeared exactly when a reader most needed to know
-            who could still see what they had written.
-
-            The comment count joins it because the two answer one question —
-            how much is here, and who can read it.
-          */}
-          <Text variant="note" className="mt-2">
-            {[visibleCount > 0 ? commentCountLine(visibleCount) : null, audienceScopeLine]
-              .filter(Boolean)
-              .join(' · ')}
+          <Text variant="eyebrow" style={{ flexShrink: 0 }}>
+            {audienceScopeLine}
           </Text>
         </View>
+        {visibleCount > 0 ? (
+          <Text variant="note" className="px-gutter pb-2">
+            {commentCountLine(visibleCount)}
+          </Text>
+        ) : null}
 
         {event.isError || posts.isError ? (
           <View className="flex-1 pt-4">

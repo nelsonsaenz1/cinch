@@ -138,34 +138,60 @@ function scrollViewTags(source: string): string[] {
     });
 }
 
-/** The tag that draws the page body — the one holding the content padding. */
-function bodyScrollView(source: string): string | undefined {
-  return scrollViewTags(source).find((tag) => tag.includes('contentContainerClassName'));
-}
-
+/**
+ * SUPERSEDED BY REDESIGN 03 — in owner and in spelling, not in substance.
+ *
+ * The scroll view moved from the route to `event-detail-body.tsx` when the
+ * page was split, and with it the whole reason this test exists: the poster
+ * pins a band above and a foot below, and the region between them is the one
+ * that has to give. So the flex is now expressed as a `style` on that region
+ * rather than a `className` on a full-page scroller, and the property being
+ * pinned is the same one — a ScrollView with no flex in a flex column measures
+ * against its CONTENT rather than the viewport, and at the accessibility sizes
+ * the page then grows past the screen with nothing left to scroll.
+ *
+ * The LP-04 capture route it also pinned is gone: `dev-lp04-detail` and
+ * `dev-event-detail` photographed a composition built from `FactRow`,
+ * `NavRow` and `StatePill`, none of which exists any more. The six accepted
+ * frames are posed by `dev-ed-01…06` out of `event-detail-fixtures.ts`, and
+ * they render the SAME component the route renders — which is a stronger
+ * guarantee than a fixture that merely copied the page's scroll props.
+ */
 test('the event detail page scrolls against the viewport, not its content', () => {
-  const body = bodyScrollView(readFileSync('src/app/event/[id]/index.tsx', 'utf8'));
-  assert.ok(body, 'no body ScrollView found on the event detail page');
-  assert.match(body, /className="flex-1"/);
+  const body = readFileSync('src/components/events/event-detail-body.tsx', 'utf8');
+  const tags = scrollViewTags(body);
+  assert.equal(tags.length, 1, 'the poster should have exactly one scrolling region');
+  assert.match(tags[0]!, /style=\{\{ flex: 1, minHeight: 0 \}\}/);
 });
 
-test('the LP-04 capture route scrolls the same way the page does', () => {
-  // Otherwise the fixture is a picture of a screen that does not exist, and
-  // the next acceptance pass photographs a clip the product does not have —
-  // or worse, misses one it does.
-  const fixture = readFileSync('src/dev-fixtures/dev-lp04-detail.tsx', 'utf8');
-  const body = bodyScrollView(fixture);
-  assert.ok(body, 'no body ScrollView found in the LP-04 fixture');
-  assert.match(body, /className="flex-1"/);
-  assert.match(body, /contentContainerClassName="px-gutter pb-16"/);
-  // The scenario rail's 48pt cap clipped its own pills at AX5.
-  assert.doesNotMatch(fixture, /max-h-12/);
+test('the accepted frames are posed from the component the route draws', () => {
+  // Otherwise a fixture is a picture of a screen that does not exist, and the
+  // next acceptance pass photographs a clip the product does not have — or
+  // worse, misses one it does.
+  for (const frame of ['01-default', '02-empty', '03-loading', '04-error', '06-ax']) {
+    const fixture = readFileSync(`src/dev-fixtures/dev-ed-${frame}.tsx`, 'utf8');
+    assert.match(fixture, /<EventDetailBody/, `dev-ed-${frame} does not draw the real body`);
+    assert.match(fixture, /EVENT_DETAIL_POSES/, `dev-ed-${frame} invents its own pose`);
+  }
+  // And the AX frame is posed at the AX composition, not merely named for it.
+  assert.match(readFileSync('src/dev-fixtures/dev-ed-06-ax.tsx', 'utf8'), /large=\{true\}/);
 });
 
 test('the page reads the reader’s setting rather than assuming one', () => {
   const page = readFileSync('src/app/event/[id]/index.tsx', 'utf8');
   assert.match(page, /useWindowDimensions\(\)/);
-  assert.match(page, /trim=\{detailTitleTrimmed\(fontScale\)\}/);
-  // The bare `trim` that shipped is the regression; it must not come back.
-  assert.doesNotMatch(page, /<Text\s+variant="title"\s+trim\s/);
+  // One threshold, the app's own, rather than a number typed on this page.
+  assert.match(page, /fontScale >= AX_STACK_SCALE/);
+
+  // THE TRIM IS GONE, and its absence is now the thing being kept.
+  //
+  // `detailTitleTrimmed` existed because LP-04 set the title as a single line
+  // at the default size and the cap-trim was right there. The poster's name
+  // WRAPS at the default size — two lines, in the accepted frame — and `trim`
+  // subtracts a margin sized for one line, which is precisely the failure the
+  // function was written to prevent. The frames replace it with the opposite
+  // instruction: a few points of tail so the descenders clear.
+  const body = readFileSync('src/components/events/event-detail-body.tsx', 'utf8');
+  assert.doesNotMatch(body, /variant="display"[^>]*\btrim\b/, 'the poster name was trimmed');
+  assert.match(body, /paddingBottom: large \? 6 : 4/, 'the name lost its descender tail');
 });

@@ -31,6 +31,25 @@ export default function EventLayout() {
           sheetCornerRadius: 30,
         }}
       />
+      {/*
+        Redesign 03 · the comment thread is a SHEET over the poster, which is
+        what "one tap down, not on the poster" looks like when you draw it: the
+        accepted frame shows the poster dimmed behind a rounded top edge and a
+        grabber, and the composer is the only input on the route, so the
+        keyboard state belongs to it rather than to the page underneath.
+
+        One detent, not two: a half-height thread with a keyboard in it is a
+        composer looking at three words of context.
+      */}
+      <Stack.Screen
+        name="[id]/comments"
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [1],
+          sheetGrabberVisible: true,
+          sheetCornerRadius: 30,
+        }}
+      />
       <Stack.Screen
         name="[id]/invite"
         options={{

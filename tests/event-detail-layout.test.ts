@@ -1,0 +1,428 @@
+/**
+ * Event Detail — the poster. The layout bargain, and the decisions under it.
+ * Redesign 03.
+ *
+ * Written to the shape `plan-week-layout.test.ts`, `new-event-layout.test.ts`
+ * and `people-search-layout.test.ts` set: the drawn body is asserted as TEXT,
+ * because esbuild cannot parse React Native's Flow source and there is no
+ * renderer in this runner; everything the page DECIDES before it draws lives in
+ * `event-detail-spec.ts` and is imported and exercised directly.
+ *
+ * This page has one thing to get wrong that neither of the other three does,
+ * and it is not a layout: it is the only rebuilt surface that draws OTHER
+ * PEOPLE. The roster is `event_members` and `event_members` is a policy, so the
+ * half of this file that matters most is the half that checks the chips can
+ * only ever narrow the set they are handed — a widened roster is a privacy
+ * failure that looks exactly like a nicer screenshot.
+ */
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+import {
+  CHIP_AVATAR,
+  CTA_MIN_HEIGHT,
+  CTA_MIN_HEIGHT_AX,
+  CTA_SECONDARY_MIN_HEIGHT,
+  EVENT_DETAIL_COPY,
+  NAV_ROW_MIN_HEIGHT,
+  PLATE_GAP,
+  PLATE_ROW,
+  PLATE_ROW_AX,
+  ROSTER_CHIP_LIMIT,
+  emptyLookBody,
+  heroTone,
+  logisticsLine,
+  moreFriendsLine,
+  posterLine,
+  posterLinesAx,
+  primaryGround,
+  rosterChips,
+} from '../src/features/events/event-detail-spec';
+
+const RAW = readFileSync('src/components/events/event-detail-body.tsx', 'utf8');
+const ROUTE_RAW = readFileSync('src/app/event/[id]/index.tsx', 'utf8');
+const SPEC_RAW = readFileSync('src/features/events/event-detail-spec.ts', 'utf8');
+
+/** Comments describe the intent; the code is what ships. */
+function code(source: string): string {
+  return source
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+}
+
+const CODE = code(RAW);
+const ROUTE = code(ROUTE_RAW);
+const SPEC = code(SPEC_RAW);
+
+// ---------------------------------------------------------------------------
+// The layout bargain
+// ---------------------------------------------------------------------------
+
+test('a column that can grow is a column that can shrink', () => {
+  // `flex: 1` alone does not permit a child to go smaller than its content in
+  // every RN layout path; the zero minimum on the flexed axis is what makes the
+  // shrink actually available. Horizontal boxes state `minWidth: 0`; the one
+  // vertical region — the scrolling middle of the poster — states
+  // `minHeight: 0`, which is the same bargain about the axis it flexes.
+  const flexed = CODE.match(/flex: 1[^}]*}/g) ?? [];
+  assert.ok(
+    flexed.length >= 6,
+    `expected the plate wells, the band buttons, the actions and the text columns — got ${flexed.length}`,
+  );
+  for (const column of flexed) {
+    assert.match(column, /min(Width|Height): 0/, `a flexible box without a zero minimum — ${column}`);
+  }
+
+  // The plate's wide well is `flex: 2` and needs the same promise.
+  assert.match(CODE, /flex: 2, minWidth: 0/, 'the plate’s wide well can overflow its row');
+});
+
+test('the fixed parts of a row keep their points explicitly', () => {
+  // The other half of the same bargain: if the fixed parts do not say they are
+  // fixed, the text column is not the one that gives. The band buttons, the
+  // chip's avatar disc, the clay bead, the failure band's dot and the count
+  // beside the chevron each state it.
+  assert.ok(
+    (CODE.match(/flexShrink: 0/g) ?? []).length >= 6,
+    'a fixed part of a row can be squeezed by the text beside it',
+  );
+});
+
+test('the one quiet line truncates at standard size and wraps at large type', () => {
+  // The governing clause — "in every case composition changes and height is
+  // allowed. Nothing is capped, truncated, ellipsised or scaled below its
+  // documented size" — so the ellipsis that the frame draws on the logistics
+  // line is a STANDARD-SIZE treatment and lifts entirely above the threshold.
+  assert.match(CODE, /numberOfLines=\{large \? undefined : 1\}/, 'the quiet line never stops truncating');
+});
+
+test('at the accessibility sizes the poster recomposes rather than shrinking', () => {
+  // Four composition changes, each drawn in the accepted AX frame.
+  assert.match(CODE, /flexDirection: large \? 'column' : 'row'/, 'the chips stop wrapping and stack');
+  assert.match(CODE, /flexDirection: large \? 'column' : 'row', gap: 10/, 'the RSVP buttons stack');
+  assert.match(CODE, /view\.linesAx\.map/, 'the venue does not take its own line');
+  assert.match(CODE, /\{large \? null : well\(/, 'the plate keeps its third well at large type');
+
+  // And the poster line itself splits rather than being squeezed.
+  const input = { venueName: 'Contramar', dateLine: 'Sat 12 Sep · 8:30 pm' };
+  assert.equal(posterLine(input), 'Contramar · Sat 12 Sep · 8:30 pm');
+  assert.deepEqual(posterLinesAx(input), ['Contramar', 'Sat 12 Sep · 8:30 pm']);
+  // Nothing was lost in the split — the same words, differently arranged.
+  assert.equal(posterLinesAx(input).join(' · '), posterLine(input));
+});
+
+test('nothing on this page answers large type by shrinking text', () => {
+  for (const [name, src] of [['body', CODE], ['spec', SPEC]] as const) {
+    assert.doesNotMatch(src, /maxFontSizeMultiplier|adjustsFontSize|allowFontScaling=\{false\}/, name);
+  }
+  // The AX measures are LARGER than the standard ones, in every pair.
+  assert.ok(CTA_MIN_HEIGHT_AX > CTA_MIN_HEIGHT);
+  assert.ok(CTA_MIN_HEIGHT > CTA_SECONDARY_MIN_HEIGHT);
+  // The one measure that shrinks is the plate's ROW, and only because the AX
+  // frame draws one row where the standard frame draws two — the plate is
+  // shorter overall and the type below it gets the height.
+  assert.ok(PLATE_ROW_AX < PLATE_ROW * 2 + PLATE_GAP);
+});
+
+test('no fixed height sits under anything that carries type', () => {
+  // Every literal height in the body has to belong to a picture box, a mark, a
+  // glyph or a skeleton — never to a label that grows with Dynamic Type.
+  const heights = CODE.match(/\bheight: [^,\n}]+/g) ?? [];
+  assert.ok(heights.length > 0);
+  for (const line of heights) {
+    assert.match(
+      line,
+      /avatar|row \* 2|large \? row|\bDOT\b|NOTICE_DOT|PLATE_ROW|\bsize\b|'100%'|\bh\b|\b(12|13)\b|CTA_MIN_HEIGHT|NAV_ROW_MIN_HEIGHT|MIN_TAP_TARGET/,
+      `a fixed height under something that carries type — ${line}`,
+    );
+  }
+});
+
+test('every control on the poster clears the 44pt floor', () => {
+  assert.ok(CTA_MIN_HEIGHT >= 44, 'the primary action is below the tap floor');
+  assert.ok(CTA_SECONDARY_MIN_HEIGHT >= 44, 'the secondary action is below the tap floor');
+  assert.ok(NAV_ROW_MIN_HEIGHT >= 44, 'the door down is below the tap floor');
+
+  // The band's buttons, the `Change` target and the chips each state it.
+  assert.ok(
+    (CODE.match(/MIN_TAP_TARGET/g) ?? []).length >= 3,
+    'a control on the poster has no 44pt floor',
+  );
+  assert.ok(CHIP_AVATAR < 44, 'the avatar disc is a mark inside the chip, not the target');
+});
+
+test('waiting is drawn with skeletons, never a spinner', () => {
+  assert.match(CODE, /<Skeleton/);
+  assert.doesNotMatch(CODE, /ActivityIndicator|<Spinner/, 'a spinner reached the poster');
+  // And the band still paints, so the reader is not looking at a grey screen.
+  assert.match(CODE, /view\.loading \? null : \(/, 'the loading band lost its composition');
+});
+
+// ---------------------------------------------------------------------------
+// Colour
+// ---------------------------------------------------------------------------
+
+test('no colour in the slice is a literal', () => {
+  for (const [name, src] of [['body', CODE], ['spec', SPEC], ['route', ROUTE]] as const) {
+    assert.doesNotMatch(src, /#[0-9a-fA-F]{3,8}\b/, `a hardcoded colour in the ${name}`);
+    assert.doesNotMatch(src, /rgba\(/, `a hand-composited colour in the ${name}`);
+  }
+
+  // The artifact's hexes ARE the tokens', which is exactly why typing one
+  // would stay invisible until the palette moved.
+  assert.doesNotMatch(CODE, /E3BFB1|FBF2EC|DFD9CC|E4DED2|D8D1C2|EFEBE1|EEDFD6|8B8375/, 'an artifact hex');
+  assert.doesNotMatch(CODE, /F5E4C8|7A5312|B98A2A/, 'an artifact amber reached the poster');
+
+  // The band's translucent buttons, its date line and the failure ground are
+  // tokens at an alpha, not four new browns.
+  assert.match(CODE, /canvasAlpha\(0\.14\)/, 'the band’s button wells');
+  assert.match(CODE, /canvasAlpha\(0\.7\)/, 'the band’s date line');
+  assert.match(CODE, /warningAlpha\(0\.22\)/, 'the failure band’s ground');
+});
+
+test('clay never carries type on this page', () => {
+  // `accentWarm` is 2.98:1 and `theme/contrast.ts` declares it `text: false`.
+  // The artifact paints both eyebrows, the plate caption and the "6" beside
+  // the chevron in it; every one of those is `muted` here, via `colophon`.
+  assert.doesNotMatch(CODE, /color: theme\.accentWarm/, 'clay set as type');
+  // It is still the band's second ground and the logistics bead.
+  assert.match(CODE, /backgroundColor: theme\.accentWarm/, 'clay lost its two legitimate jobs');
+});
+
+test('the poster spends one filled oxblood per state', () => {
+  // The constitution's accent budget, decided ONCE so that no two controls on
+  // the foot can both believe they are the primary.
+  //
+  // The BAND is not a control and is not counted: it is the poster's ground,
+  // and the artifact's whole idea is that the name sits on it. What the budget
+  // governs is how many things you can PRESS that are filled with the accent,
+  // and the answer is one. `view.tone` is the band; the bare `tone` is Action.
+  const grounds = CODE.match(/[^.]\btone === 'accent' \? theme\.accent/g) ?? [];
+  assert.equal(grounds.length, 1, 'more than one control can fill itself with oxblood');
+  assert.match(CODE, /view\.tone === 'accent' \? theme\.accent : theme\.accentWarm/, 'the band lost a tint');
+  assert.match(CODE, /tone === 'accent' \? theme\.canvas/, 'and canvas is what goes on it');
+  assert.equal((CODE.match(/primaryGround\(\{/g) ?? []).length, 1, 'the budget is decided twice');
+
+  // And the decision itself: exactly one claimant in every state.
+  assert.equal(primaryGround({ failed: true, hasLook: true, canRsvp: true }), 'retry');
+  assert.equal(primaryGround({ failed: false, hasLook: false, canRsvp: true }), 'plan');
+  assert.equal(primaryGround({ failed: false, hasLook: true, canRsvp: true }), 'rsvp');
+  assert.equal(primaryGround({ failed: false, hasLook: true, canRsvp: false }), 'none');
+  // The empty frame's arrangement: planning takes the fill, so BOTH RSVP
+  // buttons demote to tints rather than one of them staying filled.
+  assert.notEqual(primaryGround({ failed: false, hasLook: false, canRsvp: true }), 'rsvp');
+});
+
+test('the band’s two tints say what the line beneath them says', () => {
+  assert.equal(heroTone({ venueName: 'Contramar' }), 'accent');
+  assert.equal(heroTone({ venueName: null }), 'clay', 'an unplanned evening reads as settled');
+  // A reader who has only been invited cannot see the venue, so their band
+  // must not claim a completeness they are not being shown.
+  assert.equal(heroTone({ venueName: 'Contramar', coarse: true }), 'clay');
+});
+
+// ---------------------------------------------------------------------------
+// The gesture
+// ---------------------------------------------------------------------------
+
+test('the haptic goes through the policy, and is spent on the commit', () => {
+  for (const [name, src] of [['body', CODE], ['route', ROUTE]] as const) {
+    assert.doesNotMatch(src, /expo-haptics/, `the ${name} reached past the policy`);
+  }
+  assert.match(CODE, /haptic="commit"/, 'the RSVP commits without a tick');
+  // Navigation gets none: opening the comments or the menu is a tap with a
+  // visible result, and UX-07 reserves the vocabulary for what changes.
+  assert.doesNotMatch(CODE, /haptic="[a-z]+"[\s\S]{0,200}onPress=\{view\.onComments\}/, 'the door down ticks');
+});
+
+// ---------------------------------------------------------------------------
+// Privacy — the half that matters most
+// ---------------------------------------------------------------------------
+
+const MEMBERS = [
+  { userId: 'a', state: 'joined', role: 'host', displayName: 'Alexandria', username: 'alex' },
+  { userId: 'b', state: 'joined', role: 'member', displayName: 'Priya', username: 'priya' },
+  { userId: 'c', state: 'invited', role: 'member', displayName: 'Marisol', username: 'mar' },
+];
+
+test('a guest’s chips show who is coming, and nobody who is still deciding', () => {
+  const guest = rosterChips(MEMBERS, { isHost: false, me: 'b' });
+  assert.deepEqual(guest.chips.map((c) => c.userId), ['a', 'b']);
+  assert.ok(
+    !guest.chips.some((c) => c.userId === 'c'),
+    'a still-deciding guest was named to somebody who is not the host',
+  );
+});
+
+test('the host sees the still-deciding rows, and they are marked as such', () => {
+  const host = rosterChips(MEMBERS, { isHost: true, me: 'a' });
+  assert.deepEqual(host.chips.map((c) => c.userId), ['a', 'b', 'c']);
+  assert.equal(host.chips.find((c) => c.userId === 'c')?.going, false);
+  // The section is headed "Going", so the chip that is not going must be able
+  // to say so — the body reads this flag for both the tone and the label.
+  assert.match(CODE, /going \? name : `\$\{name\}, still deciding`/);
+});
+
+test('the chips can only ever narrow the set they are handed', () => {
+  // The rule expressed as a property rather than as a case: whatever goes in,
+  // what comes out is a subset of it, and no chip can be conjured.
+  for (const isHost of [true, false]) {
+    const out = rosterChips(MEMBERS, { isHost, me: null });
+    assert.ok(out.chips.length <= MEMBERS.length);
+    for (const chip of out.chips) {
+      assert.ok(MEMBERS.some((m) => m.userId === chip.userId), `${chip.userId} was invented`);
+    }
+  }
+  // And it cannot reach for a row: it has no query, no client, no fetch.
+  assert.doesNotMatch(SPEC, /supabase|socialFrom|useQuery|fetch\(/, 'the spec grew a data source');
+});
+
+test('the overflow chip is a count of people and never a list of them', () => {
+  const many = Array.from({ length: 7 }, (_, i) => ({
+    userId: `u${i}`,
+    state: 'joined',
+    role: 'member',
+    displayName: `Person ${i}`,
+    username: `p${i}`,
+  }));
+  const out = rosterChips(many, { isHost: false, me: null });
+  assert.equal(out.chips.length, ROSTER_CHIP_LIMIT);
+  assert.equal(out.overflow?.count, 7 - ROSTER_CHIP_LIMIT);
+  assert.equal(out.overflow?.label, '3 more friends');
+  // No name in it, at any count.
+  for (const person of many) {
+    assert.ok(!out.overflow!.label.includes(person.displayName), 'the overflow chip named somebody');
+  }
+  assert.equal(moreFriendsLine(1), '1 more friend', 'the singular is not a plural with an s');
+  assert.equal(moreFriendsLine(0), '0 more friends');
+});
+
+test('an invitee’s poster carries no venue, no address and no thread', () => {
+  // §7.1, at the two places the poster could leak it.
+  assert.equal(posterLine({ venueName: 'Contramar', dateLine: 'Sat 12 Sep', coarse: true }), 'Sat 12 Sep');
+  assert.deepEqual(posterLinesAx({ venueName: 'Contramar', dateLine: 'Sat 12 Sep', coarse: true }), [
+    'Sat 12 Sep',
+  ]);
+  // The route withholds rather than the line inventing a missing-state.
+  assert.match(ROUTE, /venueName: isMember \? event\.venueName : null/);
+  assert.match(ROUTE, /commentCount: isMember \? openComments : null/);
+  // The board read never fires for a non-member — the gate is membership, not
+  // the route.
+  assert.match(ROUTE, /const boardEventId = isMember \? \(id \?\? null\) : null/);
+});
+
+test('the route does not widen the member query it reads from', () => {
+  // `useEventMembers` selects three columns and filters to joined|invited. The
+  // page must consume that and nothing else — no second query, no extra column.
+  assert.doesNotMatch(ROUTE, /socialFrom\(|\.select\(|useEventInviteRoster/, 'the page fetched members itself');
+  assert.match(ROUTE, /useEventMembers\(id \?\? ''\)/);
+});
+
+// ---------------------------------------------------------------------------
+// What survived the poster losing its rows
+// ---------------------------------------------------------------------------
+
+test('the report affordance lives in the band’s menu, as the artifact places it', () => {
+  assert.match(ROUTE, /reportFlow\.open\(\{/, 'the event cannot be reported');
+  assert.match(ROUTE, /subject: 'event'/, 'the report has no subject');
+  assert.match(ROUTE, /<ReportFlowSheets flow=\{reportFlow\} \/>/, 'the RP-01…RP-04 sheets are unmounted');
+});
+
+test('the destructive and organiser affordances are still reachable', () => {
+  // The host cancels, everybody else leaves, and the host can still remove a
+  // guest — the row that used to carry each of them is gone; none of them is.
+  for (const affordance of [
+    'Cancel this occasion',
+    'Leave this occasion',
+    'Remove someone',
+    'Invite more people',
+    'Every option',
+    'Table talk',
+    'Add a date',
+    'Add a place',
+  ]) {
+    assert.ok(ROUTE.includes(affordance), `${affordance} left the page`);
+  }
+  // And each destructive one still goes through its confirmation.
+  assert.match(ROUTE, /HOST_CANCELLATION_FACTS/, 'the host’s confirmation lost its facts');
+  assert.match(ROUTE, /CANCELLATION_FACTS/, 'the cancellation band is gone');
+  assert.match(ROUTE, /destructiveButtonIndex/, 'the menu does not mark its destructive row');
+});
+
+// ---------------------------------------------------------------------------
+// What the poster will and will not say
+// ---------------------------------------------------------------------------
+
+test('the copy is the artifact’s, to the character', () => {
+  assert.equal(EVENT_DETAIL_COPY.yourLook, 'Your look');
+  assert.equal(EVENT_DETAIL_COPY.change, 'Change');
+  assert.equal(EVENT_DETAIL_COPY.going, 'Going');
+  assert.equal(EVENT_DETAIL_COPY.decline, 'Can’t make it');
+  assert.equal(EVENT_DETAIL_COPY.planLook, 'Plan a look');
+  assert.equal(EVENT_DETAIL_COPY.emptyLookTitle, 'No look planned yet');
+  assert.equal(EVENT_DETAIL_COPY.noReplies, 'Nobody else has replied');
+  assert.equal(EVENT_DETAIL_COPY.comments, 'Comments & outfit votes');
+  assert.equal(EVENT_DETAIL_COPY.rsvpErrorTitle, 'Your reply didn’t send');
+  assert.equal(EVENT_DETAIL_COPY.rsvpErrorBody, 'Nobody has been notified yet.');
+  assert.equal(EVENT_DETAIL_COPY.tryAgain, 'Try again');
+  assert.equal(EVENT_DETAIL_COPY.venueTbc, 'Venue to be confirmed');
+
+  // The typographic apostrophe, which is the app's convention and the
+  // artifact's. A straight quote is a different string from the accepted one.
+  for (const line of [EVENT_DETAIL_COPY.decline, EVENT_DETAIL_COPY.rsvpErrorTitle]) {
+    assert.doesNotMatch(line, /'/, `a straight apostrophe in "${line}"`);
+  }
+});
+
+test('the empty line says the true thing, and says nothing when there is none', () => {
+  // The frame's sentence is what is true when the HOST has not named a venue —
+  // not a general-purpose empty state, and not something to print over an
+  // occasion with a confirmed table.
+  assert.equal(
+    emptyLookBody({ isMember: true, hostName: 'Theo', venueKnown: false }),
+    'Theo hasn’t said where. Plan something anyway.',
+  );
+  assert.equal(emptyLookBody({ isMember: true, hostName: 'Theo', venueKnown: true }), null);
+  assert.match(emptyLookBody({ isMember: true, hostName: null, venueKnown: false }) ?? '', /^Nobody/);
+  // An invitee gets the withheld-data explanation LP-04 wrote, verbatim.
+  assert.equal(
+    emptyLookBody({ isMember: false, hostName: 'Theo', venueKnown: false }),
+    'Joining puts it on your Plan — and shows you where and when.',
+  );
+});
+
+test('the quiet line collapses the logistics, and is absent rather than blank', () => {
+  assert.equal(
+    logisticsLine({ venueAddress: 'Calle Durango 200', note: 'table under Priya' }),
+    'Calle Durango 200 · table under Priya',
+  );
+  assert.equal(logisticsLine({ partySize: 6 }), 'table for 6');
+  // Nothing to say means no bead: a dot with no sentence after it reads as a
+  // loading state that never finishes.
+  assert.equal(logisticsLine({}), null);
+  assert.equal(logisticsLine({ venueAddress: '', note: '   ' }), null);
+  // The order is the artifact's — where, then what kind of evening, then how
+  // many, then what to wear, then the host's note, then the weather.
+  assert.equal(
+    logisticsLine({
+      venueAddress: 'Calle Durango 200',
+      occasion: 'dinner',
+      partySize: 6,
+      dressCode: 'smart',
+      note: 'bring the gift',
+      weather: 'Feels 70°',
+    }),
+    'Calle Durango 200 · dinner · table for 6 · smart · bring the gift · Feels 70°',
+  );
+});
+
+test('the poster promises no count of anything it cannot count', () => {
+  // The door down prints the comment count and nothing else claims a number.
+  // A headcount stays coarse: the chips are people, the overflow is a total,
+  // and neither is a claim about who answered what.
+  assert.doesNotMatch(CODE, /\b\d+ (going|coming|attending)\b/i);
+  assert.doesNotMatch(SPEC, /\b\d+ (going|coming|attending)\b/i);
+});

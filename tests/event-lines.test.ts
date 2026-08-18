@@ -205,19 +205,45 @@ test('the spoken label reads the card in the order the card is drawn', () => {
 });
 
 // ---------------------------------------------------------------------------
-// LP-04 — the detail page's fixed order, read off the source
+// The detail page's fixed order, read off the source
 // ---------------------------------------------------------------------------
+//
+// SUPERSEDED BY REDESIGN 03, and superseded rather than dropped.
+//
+// LP-04's page opened with a `ScreenHeader`, a `variant="title"`, two
+// `FactRow`s labelled When and Where, and a `YourLookCard`. The accepted
+// artifact replaces that composition wholesale with the poster: a tinted band
+// carrying the name and one small line, then the look as the dominant plate,
+// then the roster as chips. None of those four components exists any more, so
+// an assertion naming them is an assertion about a screen nobody can open.
+//
+// Every RULE below is the rule it always was — the fixed order above the fold,
+// the venue printed once, no fixed height under a fact, a way back from every
+// branch, and §7.1 — asked of the surfaces that own them now. The page was
+// also split route/body the way plan-week and new-event were, so the drawing
+// rules are read from the body and the gating rules from the route.
 
 const DETAIL = readFileSync('src/app/event/[id]/index.tsx', 'utf8');
-const detailBody = DETAIL.replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/^\s*\/\/.*$/gm, '');
+const DETAIL_BODY_SRC = readFileSync('src/components/events/event-detail-body.tsx', 'utf8');
+
+/** Comments describe the intent; the code is what ships. */
+function code(source: string): string {
+  return source
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+}
+
+const detailBody = code(DETAIL);
+const poster = code(DETAIL_BODY_SRC);
 
 test('the four things above the fold appear in the brief’s order', () => {
-  const order = ['<ScreenHeader', 'variant="title"', '<FactRow', '<YourLookCard'];
+  // The poster's order, and the artifact's: the band (name over its tinted
+  // ground), `Your look` with its Change action, the plate, then the roster.
+  const order = ['<Band', 'EVENT_DETAIL_COPY.yourLook', 'view.plate.kind', '<Roster'];
   let cursor = -1;
   for (const marker of order) {
-    const next = detailBody.indexOf(marker, cursor + 1);
+    const next = poster.indexOf(marker, cursor + 1);
     assert.ok(next > cursor, `${marker} is not after ${order[order.indexOf(marker) - 1]}`);
     cursor = next;
   }
@@ -226,36 +252,70 @@ test('the four things above the fold appear in the brief’s order', () => {
 test('the sentence-shaped status lines are gone from the page', () => {
   // They still exist in `occasion-copy.ts` and are still tested there. What
   // changed is that this page stopped restating what its own labels say.
-  assert.doesNotMatch(detailBody, /hostStatusLine/, 'the host status sentence is back');
-  assert.doesNotMatch(detailBody, /readyLine/, '"n have chosen a look" duplicates "n of m shared"');
+  for (const src of [detailBody, poster]) {
+    assert.doesNotMatch(src, /hostStatusLine/, 'the host status sentence is back');
+    assert.doesNotMatch(src, /readyLine/, '"n have chosen a look" duplicates "n of m shared"');
+  }
 });
 
 test('the venue is printed once on the detail page', () => {
-  assert.doesNotMatch(detailBody, /<VenueCard/, 'the venue card duplicates the Where row');
-  assert.match(detailBody, /label="Where"/);
-  // Its one unique fact survived the removal.
+  assert.doesNotMatch(detailBody, /<VenueCard/, 'the venue card is back');
+  // Once, in the line under the name. The ADDRESS is a different fact and
+  // belongs to the one quiet line; the name belongs to the poster line.
+  assert.match(detailBody, /posterLine\(/);
+  assert.doesNotMatch(poster, /venueName/, 'the body composes a venue line of its own');
+  // Its one unique fact survived the poster losing the row it sat on: the
+  // reservation is in the overflow menu, spelled by the same helper.
   assert.match(detailBody, /reservationLabel\(/);
 });
 
-test('every fact row grows with Dynamic Type rather than being boxed', () => {
-  const from = DETAIL.indexOf('function FactRow');
-  const to = DETAIL.indexOf('export function DetailSkeleton');
-  assert.ok(from > -1 && to > from, 'FactRow moved or was renamed');
-  const src = DETAIL.slice(from, to);
-  assert.match(src, /minHeight: MIN_TAP_TARGET/, 'the row lost its 44pt floor');
-  assert.match(src, /flexBasis: 'auto'/, 'a zero flex-basis pins the row to its minimum');
-  assert.doesNotMatch(src, /numberOfLines/, 'a fact is truncated to one line');
-  assert.doesNotMatch(src, /\bheight:/, 'a fixed height is back on a box that holds text');
+test('every fact grows with Dynamic Type rather than being boxed', () => {
+  // The rule, unchanged: a box sized for standard type clips at AX. The
+  // poster's chips and its actions state FLOORS, and the only literal
+  // `height:` in the body belongs to the plate, an avatar disc, a bead or a
+  // skeleton — never to something carrying a sentence.
+  assert.match(poster, /minHeight: large \? CHIP_MIN_HEIGHT_AX : MIN_TAP_TARGET/, 'the chip lost its floor');
+
+  // The action states a FLOOR and grows past it. Read from the function's own
+  // slice, because the loading frame draws bars at exactly those measures —
+  // and a `height` on a Skeleton is right: a skeleton holds no type.
+  const from = poster.indexOf('function Action(');
+  const to = poster.indexOf('function FailureBand(');
+  assert.ok(from > -1 && to > from, 'Action moved or was renamed');
+  const action = poster.slice(from, to);
+  assert.match(action, /minHeight: large\s*\n?\s*\? CTA_MIN_HEIGHT_AX/, 'the action lost its floor');
+  assert.doesNotMatch(action, /\bheight: /, 'an action was given a fixed height');
+
+  // `minHeight:` is not matched — the capital H makes these two different
+  // words, which is the whole distinction being enforced.
+  for (const line of (poster.match(/\bheight: [^,\n}]+/g) ?? []).map((l) => l.trim())) {
+    assert.match(
+      line,
+      // A picture box, a mark, a glyph, or a skeleton bar drawn at the measure
+      // the real control will settle at — never a label that grows with type.
+      /avatar|row \* 2|large \? row|\bDOT\b|NOTICE_DOT|PLATE_ROW|\bsize\b|'100%'|\bh\b|\b(12|13)\b|CTA_MIN_HEIGHT|NAV_ROW_MIN_HEIGHT|MIN_TAP_TARGET/,
+      `a fixed height under something that carries type — ${line}`,
+    );
+  }
 });
 
 test('the page keeps its back affordance in every branch it can render', () => {
   // LP-08: a pushed screen always has a visible way back, including the two
-  // failure branches and the not-found branch.
+  // failure branches and the not-found branch. The poster's own way back is
+  // the band's button, which is why the loading branch renders the body rather
+  // than a bare skeleton; the two failure branches keep the `ScreenHeader`.
   const headers = detailBody.match(/<ScreenHeader/g) ?? [];
-  assert.ok(headers.length >= 4, `only ${headers.length} branches carry a header`);
+  assert.ok(headers.length >= 2, `only ${headers.length} failure branches carry a header`);
+  assert.match(detailBody, /loadingView\(\(\) => router\.back\(\)\)/, 'the loading branch has no way back');
+  assert.match(poster, /onPress=\{view\.onBack\}/, 'the band lost its back button');
 });
 
-test('§7.1 is enforced by the Where row not existing before joining', () => {
-  assert.match(detailBody, /\{isMember \? \(\s*<FactRow\s*label="Where"/);
+test('§7.1 is enforced by the venue not reaching the poster before joining', () => {
+  // The Where row is gone; the withholding is not. The route hands the band a
+  // venue of `null` for a non-member and asks for the coarse date, so the
+  // poster line has nothing to print and no missing-state to invent.
+  assert.match(detailBody, /venueName: isMember \? event\.venueName : null/);
   assert.match(detailBody, /coarse: !isMember/);
+  // The address, the party size and the dress code are the same rule.
+  assert.match(detailBody, /logistics: isMember\s*\?/);
 });

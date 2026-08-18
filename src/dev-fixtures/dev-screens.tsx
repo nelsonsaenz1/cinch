@@ -295,6 +295,20 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Event detail — the poster — redesign 03',
+    [
+      ['ED-01 · going, look planned', '/dev-ed-01-default'],
+      ['ED-02 · no look, no replies', '/dev-ed-02-empty'],
+      ['ED-03 · opening', '/dev-ed-03-loading'],
+      ['ED-04 · reply didn’t send', '/dev-ed-04-error'],
+      // ED-05 is the comment composer with the keyboard up. It belongs to the
+      // `event/[id]/comments` route, whose thread rows and composer are shared
+      // with the Look Board's own sheet — so it has no pose of its own here
+      // until that page's artifact is built. See the redesign 03 build report.
+      ['ED-06 · largest accessibility text', '/dev-ed-06-ax'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],
@@ -308,11 +322,12 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['describe', '/dev-describe'],
       ['diary', '/dev-diary'],
       ['empty closet', '/dev-empty-closet'],
-      ['event detail', '/dev-event-detail'],
-      // Launch polish, integration owner. `dev-event-detail` above still draws
-      // the pre-LP-04 composition (it is the E-01…E-10 atlas and remains a
-      // true picture of that); this one is the reordered fold.
-      ['event detail · LP-04 fold', '/dev-lp04-detail'],
+      // `dev-event-detail` (the E-01…E-10 atlas) and `dev-lp04-detail` (the
+      // reordered fold) both went with redesign 03. They photographed a page
+      // built from `StatePill`, `FactRow` and `NavRow`, none of which exists
+      // any more — a fixture of a screen that does not exist is worse than no
+      // fixture, because the next acceptance pass compares against it. The six
+      // accepted frames are `ED-01…ED-06` below.
       ['friend closet', '/dev-friend-closet'],
       ['friends', '/dev-friends'],
       ['gap feed', '/dev-gap-feed'],

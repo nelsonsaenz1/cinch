@@ -494,6 +494,8 @@ const PLAN = 'src/app/(tabs)/plan.tsx';
 /** Redesign 01 split the drawing out of the route; the copy went to the spec. */
 const PLAN_BODY = 'src/components/plan/plan-week-body.tsx';
 const EVENT_DETAIL = 'src/app/event/[id]/index.tsx';
+/** Redesign 03 split the drawing out of the route, as redesign 01 did for Plan. */
+const EVENT_DETAIL_BODY = 'src/components/events/event-detail-body.tsx';
 
 const ACCEPTED: Record<string, [path: string, headline: string, support: string]> = {
   // Today is absent here on purpose: its headline is the GREETING, which is
@@ -600,15 +602,37 @@ test('LP-06 — the New Event button creates an event, not an occasion', () => {
 });
 
 test('LP-06 — event detail is a title and a hierarchy, not a status paragraph', () => {
-  const src = body(EVENT_DETAIL);
-  // Title, then the two labelled fact rows, then the look.
-  assert.match(src, /variant="title"[^>]*>\s*\{event\.title\}/);
-  assert.ok(src.includes('label="When"'), 'the When row is gone');
-  assert.ok(src.includes('label="Where"'), 'the Where row is gone');
-  assert.ok(src.indexOf('label="When"') < src.indexOf('label="Where"'), 'When must precede Where');
+  // SUPERSEDED BY REDESIGN 03, and superseded rather than dropped — the same
+  // move this file already made for Plan's error copy above.
+  //
+  // LP-06's correction was that the page must LEAD with the occasion's name
+  // and then a hierarchy of facts, instead of opening with a paragraph that
+  // restated what its own labels said. The accepted artifact keeps that
+  // correction and sharpens it: the name is now the poster's display heading
+  // over a tinted band, and the two labelled fact rows have become the one
+  // small line beneath it. What the correction actually forbade — the status
+  // paragraph — is still forbidden, and is asserted against both halves of the
+  // split page rather than against the single file it used to live in.
+  const route = body(EVENT_DETAIL);
+  const drawn = body(EVENT_DETAIL_BODY);
+
+  // The name leads, and it is the page's H1.
+  assert.match(drawn, /variant="display"[\s\S]{0,160}\{view\.title\}/);
+  assert.match(drawn, /accessibilityRole="header"/, 'the occasion’s name is not the page heading');
+
+  // When and Where survive as facts in a fixed order — the venue, then the
+  // date — composed by one function so they cannot be spelled twice.
+  assert.ok(route.includes('posterLine('), 'the when/where line is gone');
+  assert.match(
+    body('src/features/events/event-detail-spec.ts'),
+    /\[input\.venueName \|\| EVENT_DETAIL_COPY\.venueTbc, input\.dateLine\]/,
+    'the venue must precede the date',
+  );
+
   // The status and readiness sentences the correction removed stay removed.
   for (const gone of ['hostStatusLine', 'readyLine']) {
-    assert.ok(!src.includes(gone), `the status paragraph is back (${gone})`);
+    assert.ok(!route.includes(gone), `the status paragraph is back (${gone})`);
+    assert.ok(!drawn.includes(gone), `the status paragraph is back (${gone})`);
   }
 });
 
