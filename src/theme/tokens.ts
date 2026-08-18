@@ -78,6 +78,25 @@ export const accentAlpha = (alpha: number) => `rgba(110,43,43,${alpha})`;
  */
 export const warningAlpha = (alpha: number) => `rgba(197,138,46,${alpha})`;
 
+/**
+ * The positive green, composited — for the "Trip planned" mark New Trip draws
+ * the moment a packing plan lands.
+ *
+ * Same discipline as `canvasAlpha`, `accentAlpha` and `warningAlpha`, and the
+ * same reason: redesign 05's completion frame washes its badge in a pale green
+ * (#DCE8D9), and the choice is between deriving that from the palette's own
+ * `positive` or eyedropping a green nobody can trace back to a token.
+ * `positive` (#1A8754) is a FILL colour like `warning` — the frame's #33562F
+ * label is neither a palette token nor derivable from it — so a badge built
+ * from this takes the colour at a low alpha for the ground and `ink` for the
+ * label, exactly as the offline band on the trips shelf does with amber.
+ *
+ * Keep to the same small set of steps: ~0.16 for a badge's ground, 1.0 for the
+ * mark itself. A ramp with twelve values is a second palette wearing a
+ * function's clothes.
+ */
+export const positiveAlpha = (alpha: number) => `rgba(26,135,84,${alpha})`;
+
 export function useTheme(): ThemeColors & { scheme: ColorSchemeName } {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   return { ...palette[scheme], scheme };

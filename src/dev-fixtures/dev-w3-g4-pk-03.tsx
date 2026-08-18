@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/text';
 import { buildPackingList, type PackingResult } from '@/features/plan/packing';
 import { lookSchedule } from '@/features/plan/packing-math';
-import { PackingMemo, type PackingMemoBriefState } from '@/features/plan/packing-trip';
+import { PackingMemo } from '@/features/plan/packing-trip';
 import { formalityForPart, type Trip } from '@/features/plan/trip';
 import { G } from '@/features/plan/w3-g4-fixtures';
 import { DEFAULT_WEIGHTS, type StyleContext, type WeatherContext } from '@/lib/styling';
@@ -93,14 +93,6 @@ const WARDROBE = [
   G.crossbody,
 ];
 
-const BRIEF: PackingMemoBriefState = {
-  isPending: false,
-  data: {
-    observation:
-      'Two dinners, one dressier evening and warm afternoons. The linen blouse carries three of the four days and the boots handle every evening, so nothing else has to travel twice.',
-  },
-};
-
 export default function DevW3G4PK03() {
   // Hooks run before the `__DEV__` early return: `__DEV__` is a build-time
   // constant so the shape never actually changes, but the lint rule cannot
@@ -136,7 +128,7 @@ export default function DevW3G4PK03() {
           trip={TRIP}
           days={4}
           packing={packing}
-          brief={BRIEF}
+          mark="24°/13°"
           byId={byId}
           // Every fixture garment carries its asset URI in all three path
           // fields, so the resolver is the identity of the first non-empty one
@@ -149,9 +141,6 @@ export default function DevW3G4PK03() {
           membershipRetrying={false}
           onOpenLastList={noop}
           onRetryMembership={noop}
-          savedNotice={false}
-          onSaveToPlan={noop}
-          savingToPlan={false}
           onSwapDay={noop}
           onShare={noop}
           shareMounted={false}

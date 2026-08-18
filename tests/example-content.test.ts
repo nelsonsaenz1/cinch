@@ -280,8 +280,14 @@ test('Closet owns a separate one-time profile invitation', () => {
 });
 
 test('a subscribed first trip sees the example below destination search', () => {
-  const src = code('src/features/plan/trip-questionnaire.tsx');
-  const destination = src.indexOf('<DestinationStep');
+  // Redesign 05 split the questionnaire into a route half (`trip-questionnaire.tsx`,
+  // the queries) and a drawn half, and renamed `DestinationStep` to
+  // `DestinationCard`. The RULE this pins is untouched — PL-C3's payoff sits
+  // below the destination search on the first card — so the assertion follows
+  // the composition to where it now lives rather than being deleted with the
+  // component name it happened to be written against.
+  const src = code('src/components/plan/new-trip-body.tsx');
+  const destination = src.indexOf('<DestinationCard');
   const example = src.indexOf('<ExampleTrip');
   assert.ok(destination > -1 && example > destination, 'the trip example is not below destination search');
 });

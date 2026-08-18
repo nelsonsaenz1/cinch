@@ -319,6 +319,22 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    // The paywall frame is deliberately absent: that sheet is Superwall's
+    // document, configured in the dashboard, and this repo does not draw it.
+    // What this repo owns at that moment is the gate and the locked plate,
+    // which are posed at `/dev-packing-questions`.
+    'New trip — the stepped flow — redesign 05',
+    [
+      ['NT-01 · step 1, untouched', '/dev-nt-01-empty'],
+      ['NT-02 · typing the city', '/dev-nt-02-keyboard'],
+      ['NT-03 · step 3, what’s happening', '/dev-nt-03-default'],
+      ['NT-04 · the plate building', '/dev-nt-04-loading'],
+      ['NT-05 · the plate didn’t come back', '/dev-nt-05-error'],
+      ['NT-06 · trip planned', '/dev-nt-06-planned'],
+      ['NT-07 · largest accessibility text', '/dev-nt-07-ax'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],

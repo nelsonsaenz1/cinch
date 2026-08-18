@@ -103,28 +103,31 @@ export const DAY_PARTS = [
 export type DayPartKey = (typeof DAY_PARTS)[number]['key'];
 
 /**
- * Every question in order.
+ * Every question in order — THREE CARDS, and still four answers.
  *
- * `shape` is the one screen that asks two things — the vibe and the day parts —
- * because they are the same decision seen from two sides, and because the
- * running arithmetic under them ("two day parts across four days is eight
- * looks") only means anything once both are on screen.
+ * Redesign 05 turned this into a stepped card flow with three progress dots and
+ * three questions: where, when, what's happening. `companions` stopped being a
+ * card of its own, and it did NOT stop being asked — `trips.companions` is `not
+ * null` (migration 20260809100000) and `describeTrip` reads it, so dropping the
+ * answer would be a row the database refuses and a sentence the model never
+ * gets. It is asked inside `shape`, under its own label, beside the vibes and
+ * the day parts.
+ *
+ * `shape` was already the one screen that asked two things, for the reason the
+ * running arithmetic gives — "two day parts across four days is eight looks"
+ * only means anything once both are on screen. It now asks three, and the
+ * card scrolls; that is what the accepted AX frame draws and what
+ * `canLeaveStep` in `new-trip-spec.ts` guards.
  */
-export type TripStepKey = 'destination' | 'companions' | 'dates' | 'shape';
+export type TripStepKey = 'destination' | 'dates' | 'shape';
 
-export const TRIP_STEPS: readonly TripStepKey[] = [
-  'destination',
-  'companions',
-  'dates',
-  'shape',
-] as const;
+export const TRIP_STEPS: readonly TripStepKey[] = ['destination', 'dates', 'shape'] as const;
 
 /** What the stylist says at each step. One line, its own voice, no wizard cruft. */
 export const TRIP_QUESTIONS: Record<TripStepKey, string> = {
   destination: 'Where are you going?',
-  companions: 'Who is going with you?',
   dates: 'When are you there?',
-  shape: "What's the vibe? And which parts of the day?",
+  shape: 'What’s happening there?',
 };
 
 // ---------------------------------------------------------------------------

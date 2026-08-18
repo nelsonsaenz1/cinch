@@ -10,10 +10,7 @@ import { addDays, formalityForPart, toIsoDate, type Trip } from '@/features/plan
 import {
   ForecastHorizonFailure,
   PackingMemo,
-  ResearchSteps,
   ShortfallFailure,
-  type PackingMemoBriefState,
-  type ResearchStep,
 } from '@/features/plan/packing-trip';
 import { resolveColorName } from '@/lib/color';
 import { DEFAULT_WEIGHTS, type Garment, type StyleContext, type WeatherContext } from '@/lib/styling';
@@ -140,48 +137,24 @@ function buildFixturePacking(wardrobe: Garment[], trip: Trip): PackingResult {
 const GOOD_PACKING = buildFixturePacking(GOOD_WARDROBE, FIXTURE_TRIP);
 const THIN_PACKING = buildFixturePacking(THIN_WARDROBE, FIXTURE_TRIP);
 
-const BRIEF_OK: PackingMemoBriefState = {
-  isPending: false,
-  data: {
-    observation:
- "It's warm until it isn't — the evenings drop and Sunday brings rain. The linen blouse does three of your four dinners, and the loafers stay on your feet on the plane.",
-  },
-};
-
 /**
- * K-06's fourth frame used to be "the brief did not come back". It cannot
- * happen any more — the memo is computed from the bag drawn underneath it — so
- * the frame now shows the only state left: the moment before the capsule
- * finishes, where the prose is a skeleton and the bag is already real.
+ * K-04's ticked research lines and K-06's "the brief did not come back" are
+ * both gone from this route, and for different reasons.
+ *
+ * The research lines were replaced wholesale by redesign 05's building plate,
+ * which has its own fixtures (`dev-nt-04-loading`). The brief failure cannot
+ * happen at all — the memo is computed from the bag drawn underneath it — and
+ * what stood in for it here was the moment before the capsule finishes, which
+ * the building plate now draws honestly.
  */
-const BRIEF_PENDING: PackingMemoBriefState = {
-  isPending: true,
-  data: null,
-};
-
-const RESEARCH_EARLY: ResearchStep[] = [
-  { key: 'forecast', title: 'Forecast pulled', detail: '19–27°C, one wet day.', done: true },
-  { key: 'closet', title: 'Closet read', detail: '10 pieces, 7 of them right for this weather.', done: true },
-  { key: 'looks', title: 'Building eight looks', detail: null, done: false },
-  { key: 'memo', title: 'Writing the memo', detail: null, done: false },
-];
-
-const RESEARCH_LATE: ResearchStep[] = [
-  ...RESEARCH_EARLY.slice(0, 2),
-  { key: 'looks', title: 'Building eight looks', detail: '6 pieces carry every look, repeats counted so the bag stays small.', done: true },
-  { key: 'memo', title: 'Writing the memo', detail: null, done: false },
-];
-
-type Mode = 'k04-early' | 'k04-late' | 'k05' | 'f1' | 'f2' | 'f3' | 'f4';
+type Mode = 'k05' | 'f1' | 'f2' | 'f3' | 'f4';
 
 const MODES: { key: Mode; label: string }[] = [
-  { key: 'k04-early', label: 'K-04 · early' },
-  { key: 'k04-late', label: 'K-04 · late' },
-  { key: 'k05', label: 'K-05 · memo' },
+  { key: 'k05', label: 'K-05 · plate' },
   { key: 'f1', label: 'K-06 · no forecast' },
   { key: 'f2', label: 'K-06 · closet thin' },
   { key: 'f3', label: 'K-06 · membership' },
-  { key: 'f4', label: 'K-06 · memo failed' },
+  { key: 'f4', label: 'K-06 · no forecast mark' },
 ];
 
 function Switcher({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
@@ -227,20 +200,14 @@ export default function DevPackingMemoScreen() {
       </View>
       <Switcher mode={mode} onChange={setMode} />
 
-      {mode === 'k04-early' ? (
-        <ResearchSteps steps={RESEARCH_EARLY} colophon="LISBON · 4 DAYS · WARM CITY" days={4} />
-      ) : null}
 
-      {mode === 'k04-late' ? (
-        <ResearchSteps steps={RESEARCH_LATE} colophon="LISBON · 4 DAYS · WARM CITY" days={4} />
-      ) : null}
 
       {mode === 'k05' ? (
         <PackingMemo
           trip={FIXTURE_TRIP}
           days={4}
           packing={GOOD_PACKING}
-          brief={BRIEF_OK}
+          mark="27°/13°"
           byId={byId}
           resolve={() => undefined}
           membershipUnconfirmed={false}
@@ -248,9 +215,6 @@ export default function DevPackingMemoScreen() {
           membershipRetrying={false}
           onOpenLastList={noop}
           onRetryMembership={noop}
-          savedNotice={false}
-          onSaveToPlan={noop}
-          savingToPlan={false}
           onSwapDay={noop}
           onShare={noop}
           shareMounted={false}
@@ -287,7 +251,7 @@ export default function DevPackingMemoScreen() {
           trip={FIXTURE_TRIP}
           days={4}
           packing={GOOD_PACKING}
-          brief={BRIEF_OK}
+          mark="27°/13°"
           byId={byId}
           resolve={() => undefined}
           membershipUnconfirmed
@@ -295,9 +259,6 @@ export default function DevPackingMemoScreen() {
           membershipRetrying={false}
           onOpenLastList={noop}
           onRetryMembership={noop}
-          savedNotice={false}
-          onSaveToPlan={noop}
-          savingToPlan={false}
           onSwapDay={noop}
           onShare={noop}
           shareMounted={false}
@@ -311,7 +272,7 @@ export default function DevPackingMemoScreen() {
           trip={FIXTURE_TRIP}
           days={4}
           packing={GOOD_PACKING}
-          brief={BRIEF_PENDING}
+          mark={null}
           byId={byId}
           resolve={() => undefined}
           membershipUnconfirmed={false}
@@ -319,9 +280,6 @@ export default function DevPackingMemoScreen() {
           membershipRetrying={false}
           onOpenLastList={noop}
           onRetryMembership={noop}
-          savedNotice={false}
-          onSaveToPlan={noop}
-          savingToPlan={false}
           onSwapDay={noop}
           onShare={noop}
           shareMounted={false}
