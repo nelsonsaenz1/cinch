@@ -15,6 +15,7 @@
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { WalkthroughBand, WalkthroughChrome } from '@/components/intake/walkthrough-parts';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { kindOfSlot } from '@/features/closet/outfit-count';
@@ -25,6 +26,7 @@ import {
   heardHeadline,
   unmatchedTitle,
 } from '@/features/intake/walkthrough-copy';
+import { CHIP } from '@/features/intake/walkthrough-spec';
 
 export default function Fixture() {
   if (!__DEV__) {
@@ -52,10 +54,9 @@ export default function Fixture() {
   return (
     <View className="flex-1 bg-canvas">
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+        <WalkthroughChrome exit={{ label: 'Cancel', onPress: () => {} }} />
         <ScrollView contentContainerClassName="px-gutter pb-4" style={{ flex: 1 }}>
-          <Text variant="eyebrow" className="pt-4">
-            {HEARD.eyebrow}
-          </Text>
+          <Text variant="eyebrow">{HEARD.eyebrow}</Text>
           <View style={{ marginTop: 6, marginBottom: 12 }}>
             <Text variant="display" trim accessibilityRole="header">
               {heardHeadline(pieces)}
@@ -69,22 +70,23 @@ export default function Fixture() {
               <View
                 key={chip}
                 className="bg-tray"
-                style={{ borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 }}>
-                <Text variant="body" style={{ fontSize: 14 }}>
+                style={{
+                  borderRadius: CHIP.radius,
+                  paddingHorizontal: CHIP.paddingHorizontal,
+                  paddingVertical: CHIP.paddingVertical,
+                }}>
+                <Text variant="body" style={{ fontSize: 15 }}>
                   {chip}
                 </Text>
               </View>
             ))}
           </View>
           {missedTitle ? (
-            <View style={{ marginTop: 24 }}>
-              <Text variant="heading" className="mb-1" style={{ fontSize: 15 }}>
-                {missedTitle}
-              </Text>
-              <Text variant="note" style={{ fontSize: 14, lineHeight: 21 }}>
-                {HEARD.unmatchedBody}
-              </Text>
-            </View>
+            <WalkthroughBand
+              title={missedTitle}
+              body={HEARD.unmatchedBody}
+              style={{ marginTop: 20 }}
+            />
           ) : null}
         </ScrollView>
         <View className="px-gutter">

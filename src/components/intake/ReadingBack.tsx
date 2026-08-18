@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 
+import { CardSkeletons, WalkthroughBand } from '@/components/intake/walkthrough-parts';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { READING_BACK, readingBackHeadline } from '@/features/intake/walkthrough-copy';
@@ -24,8 +25,6 @@ import { READING_BACK, readingBackHeadline } from '@/features/intake/walkthrough
  * failure. The state above it does not change; one tray band arrives.
  */
 
-const SKELETON_OPACITIES = [1, 0.72, 0.48, 0.28];
-
 export function ReadingBack({
   durationMs,
   slow,
@@ -43,47 +42,41 @@ export function ReadingBack({
 }) {
   return (
     <View className="flex-1">
-      <View className="px-gutter" style={{ paddingTop: 44 }}>
+      <View className="px-gutter">
         <Text variant="eyebrow">{READING_BACK.eyebrow}</Text>
-        <View style={{ marginTop: 10, marginBottom: 12 }}>
-          <Text variant="title" trim accessibilityRole="header" style={{ fontSize: 36 }}>
+        <View style={{ marginTop: 6, marginBottom: 12 }}>
+          <Text variant="display" trim accessibilityRole="header">
             {readingBackHeadline(durationMs)}
           </Text>
         </View>
-        <Text variant="note" style={{ fontSize: 16, lineHeight: 25 }}>
+        <Text variant="note" style={{ fontSize: 17, lineHeight: 26 }}>
           {READING_BACK.body}
         </Text>
       </View>
 
-      <View
-        className="px-gutter"
-        style={{ paddingTop: 28, gap: 10 }}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants">
-        {SKELETON_OPACITIES.map((opacity, i) => (
-          <View
-            key={i}
-            className="border border-rule bg-surface"
-            style={{ height: 52, borderRadius: 12, opacity }}
-          />
-        ))}
+      {/* The card's geometry, at a row's height. See `CardSkeletons` for why
+          three and why they do not shimmer. */}
+      <View className="px-gutter" style={{ paddingTop: 24 }}>
+        <CardSkeletons />
       </View>
 
       <View style={{ flex: 1 }} />
 
       {slow ? (
-        <View className="px-gutter" style={{ paddingBottom: 20 }}>
-          <View className="bg-tray" style={{ borderRadius: 12, padding: 16 }} accessibilityRole="alert">
-            <Text variant="heading" style={{ fontSize: 15 }}>
-              {READING_BACK.slowTitle}
-            </Text>
-            <Text variant="note" style={{ fontSize: 14, lineHeight: 21, marginTop: 3 }}>
-              {READING_BACK.slowBody}
-            </Text>
-          </View>
+        // ADDITIVE. It arrives under a layout that does not otherwise change,
+        // because a slow response must never look like a different failure.
+        <View className="px-gutter" style={{ paddingBottom: 12, gap: 10 }}>
+          <WalkthroughBand
+            alert
+            title={READING_BACK.slowTitle}
+            body={READING_BACK.slowBody}
+          />
+          {/* The notice is information, not a control: acknowledging it leaves
+              the wait exactly where it was, which is why it is a secondary and
+              never the frame's filled action. */}
           <Button
             title={READING_BACK.slowAction}
-            variant="ghost"
+            variant="secondary"
             onPress={onLeaveRunning}
             className="self-stretch"
           />

@@ -11,6 +11,9 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
+import { barTone, WAVEFORM, WAVEFORM_PITCH } from '@/features/intake/walkthrough-spec';
+import { useTheme } from '@/theme/tokens';
+
 /**
  * V-02's seismograph.
  *
@@ -66,8 +69,26 @@ export type LevelMeterProps = {
   style?: StyleProp<ViewStyle>;
 };
 
+/**
+ * ── REDESIGN 24: WIDER, WARMER, SAME MECHANISM ─────────────────────────────
+ *
+ * Every geometry and colour value below now comes from `walkthrough-spec.ts`,
+ * transcribed from the approved artifact: "Waveform 76pt tall, 4pt bars, 3pt
+ * gaps, alternating oxblood and clay." The strokes grew, the gaps tightened,
+ * the field went from 40pt to 76pt, and the single ink-at-35% tone became the
+ * two warm accents.
+ *
+ * WHAT DID NOT CHANGE IS THE PART THAT WAS ARGUED. Same ~11Hz sampling of the
+ * caller's shared value, same 48-stroke history, same strip-chart translate,
+ * same Reduce Motion collapse, same `accessibilityElementsHidden`. This is a
+ * paint pass over a mechanism that already represents amplitude honestly, and
+ * the tone alternates by INDEX rather than by sample (`barTone`) precisely so
+ * that colour never encodes loudness — a hue that moved with volume would be
+ * the waveform inferring content, which is the one thing it must never do.
+ */
+
 /** ~48 strokes, per the directive, exactly. */
-const STROKE_COUNT = 48;
+const STROKE_COUNT = WAVEFORM.count;
 /** One extra slot, held just past the right edge, mid-transition into view. */
 const BUFFER_SIZE = STROKE_COUNT + 1;
 /**
@@ -78,22 +99,16 @@ const BUFFER_SIZE = STROKE_COUNT + 1;
  * need to catch every instantaneous peak, only to keep proving it is awake.
  */
 const STROKE_INTERVAL_MS = 90;
-const STROKE_WIDTH = 3;
-const STROKE_GAP = 4;
-const PITCH = STROKE_WIDTH + STROKE_GAP;
+const STROKE_WIDTH = WAVEFORM.barWidth;
+const STROKE_GAP = WAVEFORM.gap;
+const PITCH = WAVEFORM_PITCH;
 /** A stroke never fully disappears — a flat line reads as broken, not calm. */
-const STROKE_MIN_HEIGHT = 3;
-const STROKE_MAX_HEIGHT = 40;
-/**
- * Ink at 35%, exactly as the directive states it. Not exposed as a token:
- * `rule` (12%) and `rule-strong` (28%) are tokens.ts's own committed steps on
- * this ramp, and neither is this value — following the same pattern rather
- * than reaching for a third one, since no other surface needs ink at 35%.
- */
-const STROKE_COLOR = 'rgba(28,26,22,0.35)';
+const STROKE_MIN_HEIGHT = WAVEFORM.minHeight;
+const STROKE_MAX_HEIGHT = WAVEFORM.height;
 
 export function LevelMeter({ amplitude, active = true, style }: LevelMeterProps) {
   const reduceMotion = useReducedMotion();
+  const theme = useTheme();
   // Reduce Motion: the continuous scroll and the per-stroke grow/shrink both
   // collapse to instant steps. The meter still updates every tick and still
   // proves the app is listening — only the gliding motion between ticks is
@@ -134,7 +149,13 @@ export function LevelMeter({ amplitude, active = true, style }: LevelMeterProps)
       style={[styles.frame, style]}>
       <Animated.View style={[styles.row, rowStyle]}>
         {Array.from({ length: BUFFER_SIZE }, (_, i) => i).map((i) => (
-          <Stroke key={i} index={i} buffer={buffer} duration={tickDuration} />
+          <Stroke
+            key={i}
+            index={i}
+            buffer={buffer}
+            duration={tickDuration}
+            colour={theme[barTone(i)]}
+          />
         ))}
       </Animated.View>
     </View>
@@ -145,10 +166,14 @@ function Stroke({
   index,
   buffer,
   duration,
+  colour,
 }: {
   index: number;
   buffer: SharedValue<number[]>;
   duration: number;
+  /** Resolved from `barTone(index)` by the caller — fixed for this stroke's
+   *  lifetime, so nothing about the colour tracks the sample. */
+  colour: string;
 }) {
   const style = useAnimatedStyle(() => {
     const sample = buffer.value[index] ?? 0;
@@ -166,7 +191,7 @@ function Stroke({
     };
   });
 
-  return <Animated.View style={[styles.stroke, style]} />;
+  return <Animated.View style={[styles.stroke, { backgroundColor: colour }, style]} />;
 }
 
 const styles = StyleSheet.create({
@@ -184,6 +209,5 @@ const styles = StyleSheet.create({
     width: STROKE_WIDTH,
     marginRight: STROKE_GAP,
     borderRadius: STROKE_WIDTH / 2,
-    backgroundColor: STROKE_COLOR,
   },
 });

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CorrectionSheet, type CorrectionDraft, type CorrectionField } from '@/components/intake/CorrectionSheet';
 import { CountStepper } from '@/components/intake/CountStepper';
 import { GarmentCard } from '@/components/intake/GarmentCard';
+import { WalkthroughChrome } from '@/components/intake/walkthrough-parts';
 import { Button, ErrorState, Skeleton, Text } from '@/components/ui';
 import { PLANS } from '@/features/billing/plans';
 import { commitIntake } from '@/features/intake/actions';
@@ -97,27 +98,33 @@ export default function WalkthroughReviewScreen() {
   if (procession.finished) {
     return (
       <View className="flex-1 bg-canvas">
-        <SafeAreaView edges={['top', 'bottom']} className="flex-1 justify-end">
-          <View className="px-gutter">
-            <View style={{ marginBottom: 10 }}>
-              <Text variant="display">
+        <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+          {/* The end of the list reads top-down like every other phase of the
+              walkthrough, rather than sitting on the floor of the screen: the
+              count is the headline, the promise is the line under it, and the
+              one action is at the thumb. */}
+          <WalkthroughChrome />
+          <View className="flex-1 px-gutter">
+            <View style={{ marginBottom: 12 }}>
+              <Text variant="display" trim accessibilityRole="header">
                 {procession.confirmed.length}{' '}
                 {procession.confirmed.length === 1 ? 'piece' : 'pieces'} kept.
               </Text>
             </View>
-            <Text variant="body" className="text-muted">
+            <Text variant="note" style={{ fontSize: 17, lineHeight: 26 }}>
               {procession.confirmed.length > PLANS.free.items
                 ? 'Cinch is holding all of them. Let’s see what they make.'
                 : 'Let’s see what they make.'}
             </Text>
-            <View style={{ marginTop: 24 }}>
-              <Button
-                title={committing ? 'Saving…' : 'See the outfits'}
-                onPress={() => void commit()}
-                disabled={committing}
-                haptic
-              />
-            </View>
+          </View>
+          <View className="px-gutter">
+            <Button
+              title={committing ? 'Saving…' : 'See the outfits'}
+              onPress={() => void commit()}
+              disabled={committing}
+              haptic
+              className="self-stretch"
+            />
           </View>
         </SafeAreaView>
       </View>

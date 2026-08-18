@@ -1,12 +1,14 @@
 import { Linking, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { WalkthroughChrome } from '@/components/intake/walkthrough-parts';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import {
   failureCopy,
   type WalkthroughFailureCause,
 } from '@/features/intake/walkthrough-copy';
+import { CARD } from '@/features/intake/walkthrough-spec';
 
 /**
  * V-13a…e — five named causes, five screens, five actions.
@@ -74,16 +76,36 @@ export function FailureScreen({
     return onPhotograph;
   };
 
+  /**
+   * The chrome's exit, and only where the copy has not already drawn one.
+   *
+   * `offline` names "Leave it for later" as its own second control, so a Cancel
+   * beside it would be the same door twice with two names — the exact
+   * duplication a frame's chrome is supposed to remove.
+   */
+  const showChromeExit = !copy.secondaries.includes('Leave it for later');
+
   return (
     <View className="flex-1 bg-canvas">
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+        <WalkthroughChrome
+          exit={
+            showChromeExit
+              ? {
+                  label: 'Cancel',
+                  onPress: onLeaveForLater,
+                  hint: 'Leaves this for later. Nothing is discarded.',
+                }
+              : undefined
+          }
+        />
         <ScrollView contentContainerClassName="px-gutter" style={{ flex: 1 }}>
-          <View accessibilityRole="alert" style={{ marginTop: 44, marginBottom: 10 }}>
-            <Text variant="title" trim accessibilityRole="header" style={{ fontSize: 30 }}>
+          <View accessibilityRole="alert" style={{ marginBottom: 12 }}>
+            <Text variant="display" trim accessibilityRole="header">
               {copy.headline}
             </Text>
           </View>
-          <Text variant="note" style={{ fontSize: 16, lineHeight: 25 }}>
+          <Text variant="note" style={{ fontSize: 17, lineHeight: 26 }}>
             {copy.body}
           </Text>
           {failure.cause === 'unparsed' ? (
@@ -91,7 +113,9 @@ export function FailureScreen({
             // work" into "here is what it heard, and now you can see why". It
             // is the reader's own speech and never leaves this screen — not to
             // analytics, not to the closet.
-            <View className="bg-tray" style={{ marginTop: 20, borderRadius: 12, padding: 16 }}>
+            <View
+              className="bg-tray"
+              style={{ marginTop: 20, borderRadius: CARD.radius, padding: CARD.padding }}>
               <Text variant="body" style={{ fontSize: 16, lineHeight: 25 }}>
                 {failure.transcript}
               </Text>
@@ -103,12 +127,14 @@ export function FailureScreen({
           {copy.secondaries.map((label, i) => (
             // The wrapper carries the offset: `Button` omits `style` from its
             // props on purpose, so spacing is spent outside it.
-            <View key={label} style={{ marginTop: i === 0 ? 10 : 0 }}>
+            <View key={label} style={{ marginTop: 10 }}>
               <Button
                 title={label}
-                // The first named exit is a real control; anything after it is
-                // the quiet way out. Neither is oxblood — the frame spent it.
-                variant={i === 0 && copy.secondaries.length > 1 ? 'secondary' : 'ghost'}
+                // Redesign 24 draws every named exit on these frames as a
+                // filled tray control the full width of the action above it —
+                // a real door, not a footnote. Anything past the first stays
+                // the quiet way out. Neither is oxblood: the frame spent it.
+                variant={i === 0 ? 'secondary' : 'ghost'}
                 onPress={secondaryPress(label)}
                 className="self-stretch"
               />

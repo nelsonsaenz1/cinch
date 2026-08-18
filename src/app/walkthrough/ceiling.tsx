@@ -3,12 +3,15 @@ import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { WalkthroughChrome } from '@/components/intake/walkthrough-parts';
 import { Button, Chip, ErrorState, Rule, Skeleton, Text } from '@/components/ui';
 import { PLANS } from '@/features/billing/plans';
 import { resolveIntakeCeiling } from '@/features/intake/actions';
 import { defaultKeptDraftIds, totalQuantity } from '@/features/intake/ceiling';
 import { useDrafts } from '@/features/intake/queries';
 import { ceilingCopy, ceilingRows } from '@/features/intake/walkthrough-copy';
+import { CARD } from '@/features/intake/walkthrough-spec';
+import { useTheme } from '@/theme/tokens';
 
 /**
  * M-07 / M-08 — the ceiling after a large voice intake.
@@ -26,6 +29,7 @@ import { ceilingCopy, ceilingRows } from '@/features/intake/walkthrough-copy';
  */
 export default function CeilingScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const { session, committed: committedParam } = useLocalSearchParams<{
     session?: string;
     committed?: string;
@@ -105,10 +109,11 @@ export default function CeilingScreen() {
     return (
       <View className="flex-1 bg-canvas">
         <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-          <View className="flex-1 px-gutter" style={{ paddingTop: 44 }}>
+          <WalkthroughChrome />
+          <View className="flex-1 px-gutter">
             <Text variant="eyebrow">{copy.eyebrow}</Text>
-            <View style={{ marginTop: 10, marginBottom: 12 }}>
-              <Text variant="title" trim accessibilityRole="header" style={{ fontSize: 36 }}>
+            <View style={{ marginTop: 6, marginBottom: 12 }}>
+              <Text variant="display" trim accessibilityRole="header">
                 {copy.headline}
               </Text>
             </View>
@@ -116,27 +121,36 @@ export default function CeilingScreen() {
               {copy.body}
             </Text>
 
-            {/* The ruled band — values right-aligned, Medium for this closet's
-                own figures and quiet for the capacity that is merely context. */}
-            <View style={{ marginTop: 28 }}>
-              {rows.map((row) => (
+            {/* THE ARITHMETIC, AS A BAND. Redesign 24 lifts the three rows off
+                the page's own rules and into the blush ground the group gives
+                anything that wants a beat — the same object the cap notice and
+                the ambiguous count are drawn in. Values right-aligned and set
+                in the serif figure cut, labels left; the capacity row is quiet
+                because it is context about the plan rather than a figure about
+                this closet.
+
+                Still a CAPACITY FACT and not an upsell: no tier is named, no
+                price appears, and every number is passed in. */}
+            <View
+              className="bg-blush"
+              style={{ marginTop: 26, borderRadius: CARD.radius, paddingHorizontal: CARD.padding }}>
+              {rows.map((row, i) => (
                 <View key={row.label}>
-                  <Rule />
+                  {i > 0 ? <View style={{ height: 1, backgroundColor: theme.blushRule }} /> : null}
                   <View
                     className="flex-row items-center justify-between"
-                    style={{ paddingVertical: 12 }}>
+                    style={{ paddingVertical: 16 }}>
                     <Text variant={row.quiet ? 'note' : 'body'} style={{ fontSize: 16 }}>
                       {row.label}
                     </Text>
                     <Text
-                      variant={row.quiet ? 'note' : 'heading'}
-                      style={{ fontSize: 16, fontVariant: ['tabular-nums'] }}>
+                      variant={row.quiet ? 'note' : 'stat'}
+                      style={{ fontVariant: ['tabular-nums'] }}>
                       {row.value}
                     </Text>
                   </View>
                 </View>
               ))}
-              <Rule />
             </View>
           </View>
 
@@ -171,8 +185,11 @@ export default function CeilingScreen() {
   return (
     <View className="flex-1 bg-canvas">
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+        <WalkthroughChrome state={`${selectedQty} of ${ceiling}`} />
         <View className="px-gutter" style={{ marginBottom: 14 }}>
-          <Text variant="display">Keep {ceiling} for now.</Text>
+          <Text variant="display" trim accessibilityRole="header">
+            Keep {ceiling} for now.
+          </Text>
           <View style={{ marginTop: 6 }}>
             <Text variant="body" className="text-muted">
               Tap to swap. Nothing you spoke is deleted — the rest waits in Storage until you

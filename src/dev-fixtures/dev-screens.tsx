@@ -61,6 +61,10 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['TR-05', '/dev-w3-g1-tr-05'],
       ['TR-06', '/dev-w3-g1-tr-06'],
       ['V-01', '/dev-w3-g1-v-01'],
+      // Redesign 24's signature frame. It has no other way of being
+      // photographed — the live route needs a microphone and a simulator has
+      // none — so the fixture hands the real `LevelMeter` a constant amplitude.
+      ['V-02 · recording', '/dev-w3-g1-v-02'],
       ['V-04', '/dev-w3-g1-v-04'],
       ['V-04 · slow', '/dev-w3-g1-v-04-slow'],
       ['V-05', '/dev-w3-g1-v-05'],

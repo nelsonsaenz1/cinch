@@ -7,7 +7,19 @@ import { LevelMeter } from '@/components/intake/LevelMeter';
 import { unmatchedTranscriptSpans } from '@/components/intake/Precipitate';
 import { FailureScreen, type WalkthroughFailure } from '@/components/intake/FailureScreen';
 import { ReadingBack } from '@/components/intake/ReadingBack';
-import { Button, Rule, Text } from '@/components/ui';
+import {
+  ConsentLine,
+  SpokenExamples,
+  WalkthroughBand,
+  WalkthroughChrome,
+} from '@/components/intake/walkthrough-parts';
+import { Button, Text } from '@/components/ui';
+import {
+  CHIP,
+  recordingStateLabel,
+  recordingSupportLine,
+  TYPE,
+} from '@/features/intake/walkthrough-spec';
 import {
   intakeParsed,
   intakeRecordingFinished,
@@ -216,6 +228,25 @@ export default function WalkthroughScreen() {
     if (sessionId.current) router.replace(`/walkthrough/review?session=${sessionId.current}`);
   }, [router]);
 
+  /**
+   * The named exit redesign 24 draws in every frame's chrome.
+   *
+   * IT DISCARDS NOTHING, which is the only reason it is allowed to exist as a
+   * pure navigation. It is the same "Leave it for later" the offline failure
+   * already offers, and it rests on the same shipped contract: the session row
+   * and its drafts are server-side and resumable, the recording stays on the
+   * phone, and TR-06 draws the unfinished walkthrough as a card to come back
+   * to. Nothing is stopped, cancelled or deleted on the way out.
+   *
+   * `back()` where there is somewhere to go back to — the reader arrived here
+   * from Add clothes or The Ten and expects to land there — and the tab root
+   * otherwise, so a cold deep link cannot leave them on a dead screen.
+   */
+  const leaveForLater = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  }, [router]);
+
   // ── V-13 ────────────────────────────────────────────────────────────────
   if (phase === 'failed' && failure) {
     return (
@@ -244,35 +275,71 @@ export default function WalkthroughScreen() {
   }
 
   // ── V-02 / V-03 ─────────────────────────────────────────────────────────
+  //
+  // NO EXIT IN THE CHROME, and this is the one place redesign 24's frames draw
+  // a control that is not built. Every other phase's "Cancel" is lossless — the
+  // session is resumable and the recording is on the phone, which is TR-06's
+  // own promise — but a Cancel here would have to answer "and the audio?", and
+  // the only honest answers are discard it (a deletion this flow has nowhere
+  // else) or keep it (which is what Done already does). Adding it would be a
+  // recording-lifecycle change wearing a chrome change's clothes. The frame's
+  // deviation is recorded rather than guessed at.
   if (phase === 'listening') {
     return (
-      <View className="flex-1 bg-canvas" style={{ justifyContent: 'center' }}>
-        <SafeAreaView edges={['bottom']}>
-          <LevelMeter amplitude={recorder.amplitude} active={!recorder.isPaused} />
-          <View className="items-center" style={{ marginTop: 28 }}>
-            <Text variant="display" style={{ fontVariant: ['tabular-nums'] }}>
+      <View className="flex-1 bg-canvas">
+        <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+          <WalkthroughChrome state={recordingStateLabel(recorder.isPaused)} />
+
+          {/* The elapsed figure is the frame's hero and it is LEADING, not
+              centred: it reads as a measurement the page is taking, which is
+              what it is. Tabular so the digits do not dance. No `trim` — the
+              serif variants' cap-trim table is computed at each variant's own
+              size, and applying `display`'s 40pt trim to a 58pt glyph is the
+              clipping bug that table exists to prevent. */}
+          <View className="px-gutter" style={{ marginTop: 8 }}>
+            <Text
+              variant="display"
+              accessibilityLiveRegion="polite"
+              style={{
+                fontSize: TYPE.timer,
+                lineHeight: Math.round(TYPE.timer * TYPE.timerLeading),
+                fontVariant: ['tabular-nums'],
+              }}>
               {clock(recorder.elapsedMs)}
             </Text>
           </View>
+
+          <View className="items-center" style={{ marginTop: 22 }}>
+            <LevelMeter amplitude={recorder.amplitude} active={!recorder.isPaused} />
+          </View>
+
+          {/* Fact, not encouragement, and it changes with the recorder rather
+              than with anything that was heard — nothing has been read yet. */}
+          <View className="px-gutter" style={{ marginTop: 22 }}>
+            <Text variant="note" style={{ fontSize: 17, lineHeight: 26 }}>
+              {recordingSupportLine(recorder.isPaused)}
+            </Text>
+          </View>
+
           {showNudge ? (
-            <View className="items-center" style={{ marginTop: 10 }}>
-              <Text variant="body" className="text-muted">
-                {NUDGES[nudge]}
-              </Text>
+            // V-03, in the group's band rather than as a floating word. Tray
+            // and `polite`: it is additive and it is never a failure.
+            <View className="px-gutter" style={{ marginTop: 16 }}>
+              <WalkthroughBand body={NUDGES[nudge]!} />
             </View>
           ) : null}
-          <View className="px-gutter flex-row gap-3" style={{ marginTop: 44 }}>
-            <View className="flex-1">
-              <Button
-                title={recorder.isPaused ? 'Resume' : 'Pause'}
-                variant="secondary"
-                onPress={recorder.isPaused ? recorder.resume : recorder.pause}
-                haptic
-              />
-            </View>
-            <View className="flex-1">
-              <Button title="Done" onPress={() => void finish()} haptic />
-            </View>
+
+          <View style={{ flex: 1 }} />
+
+          <View className="px-gutter" style={{ gap: 10 }}>
+            <Button title="Done" onPress={() => void finish()} haptic className="self-stretch" />
+            <Button
+              title={recorder.isPaused ? 'Resume' : 'Pause'}
+              variant="secondary"
+              onPress={recorder.isPaused ? recorder.resume : recorder.pause}
+              haptic
+              className="self-stretch"
+            />
           </View>
         </SafeAreaView>
       </View>
@@ -284,6 +351,13 @@ export default function WalkthroughScreen() {
     return (
       <View className="flex-1 bg-canvas">
         <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+          <WalkthroughChrome
+            exit={{
+              label: 'Cancel',
+              onPress: leaveForLater,
+              hint: 'Leaves this running. The list will be waiting.',
+            }}
+          />
           <ReadingBack
             durationMs={durationMs}
             slow={slow}
@@ -309,17 +383,23 @@ export default function WalkthroughScreen() {
     return (
       <View className="flex-1 bg-canvas">
         <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+          <WalkthroughChrome
+            exit={{
+              label: 'Cancel',
+              onPress: leaveForLater,
+              hint: 'Leaves the list for later. Nothing is discarded.',
+            }}
+          />
           <ScrollView contentContainerClassName="px-gutter pb-4" style={{ flex: 1 }}>
-            <Text variant="eyebrow" className="pt-4">
-              {HEARD.eyebrow}
-            </Text>
+            <Text variant="eyebrow">{HEARD.eyebrow}</Text>
             <View style={{ marginTop: 6, marginBottom: 12 }}>
               <Text variant="display" trim accessibilityRole="header">
                 {heardHeadline(drafts.length)}
               </Text>
             </View>
-            {/* The sentence says what the chips are BEFORE the numbers are
-                read: counts of what was heard, not of what will be kept. */}
+            {/* The principle, verbatim, and the sentence that says what the
+                chips are BEFORE the numbers are read: counts of what was heard,
+                not of what will be kept. */}
             <Text variant="note" style={{ fontSize: 17, lineHeight: 26 }}>
               {HEARD.body}
             </Text>
@@ -329,8 +409,12 @@ export default function WalkthroughScreen() {
                 <View
                   key={chip}
                   className="bg-tray"
-                  style={{ borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 }}>
-                  <Text variant="body" style={{ fontSize: 14 }}>
+                  style={{
+                    borderRadius: CHIP.radius,
+                    paddingHorizontal: CHIP.paddingHorizontal,
+                    paddingVertical: CHIP.paddingVertical,
+                  }}>
+                  <Text variant="body" style={{ fontSize: 15 }}>
                     {chip}
                   </Text>
                 </View>
@@ -338,24 +422,25 @@ export default function WalkthroughScreen() {
             </View>
 
             {capped ? (
-              <View style={{ marginTop: 18 }}>
-                <Text variant="note">
-                  The recording reached its twelve-minute limit. Everything up to it was kept.
-                </Text>
-              </View>
+              // Blush, because the cap is the reason the list stops where it
+              // does and that is worth a beat. Still a fact and still not a
+              // failure: everything spoken up to it was kept.
+              <WalkthroughBand
+                tone="blush"
+                title="Twelve minutes read"
+                body="The recording reached its twelve-minute limit. Everything up to it was kept."
+                style={{ marginTop: 20 }}
+              />
             ) : null}
 
             {missedTitle ? (
               // Named as KEPT, never silently discarded — the same rule the
               // rejection state relies on.
-              <View style={{ marginTop: 24 }}>
-                <Text variant="heading" className="mb-1" style={{ fontSize: 15 }}>
-                  {missedTitle}
-                </Text>
-                <Text variant="note" style={{ fontSize: 14, lineHeight: 21 }}>
-                  {HEARD.unmatchedBody}
-                </Text>
-              </View>
+              <WalkthroughBand
+                title={missedTitle}
+                body={HEARD.unmatchedBody}
+                style={{ marginTop: 20 }}
+              />
             ) : null}
           </ScrollView>
           <View className="px-gutter">
@@ -370,10 +455,11 @@ export default function WalkthroughScreen() {
   return (
     <View className="flex-1 bg-canvas">
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+        <WalkthroughChrome
+          exit={{ label: 'Cancel', onPress: leaveForLater, hint: 'Nothing has been recorded' }}
+        />
         <ScrollView contentContainerClassName="px-gutter" style={{ flex: 1 }}>
-          <Text variant="eyebrow" className="pt-4">
-            {WALKTHROUGH_INVITATION.eyebrow}
-          </Text>
+          <Text variant="eyebrow">{WALKTHROUGH_INVITATION.eyebrow}</Text>
           <View style={{ marginTop: 6, marginBottom: 12 }}>
             <Text variant="display" trim accessibilityRole="header">
               {WALKTHROUGH_INVITATION.headline}
@@ -382,45 +468,38 @@ export default function WalkthroughScreen() {
           <Text variant="note" style={{ fontSize: 17, lineHeight: 26 }}>
             {WALKTHROUGH_INVITATION.body}
           </Text>
-          {/* Prose, italic, not chips — a chip reads as a controlled
-              vocabulary, and these exist to teach the opposite.
-
-              THE SPECIMEN IS THE BODY OF THIS FRAME. The rule above it and the
-              reading size below turn three examples that used to look like
-              leftovers under a paragraph into the thing the frame is actually
-              showing: what saying it out loud sounds like. */}
-          <View style={{ marginTop: 26 }}>
-            <Rule />
-          </View>
-          <View style={{ marginTop: 18, gap: 10 }}>
-            {WALKTHROUGH_INVITATION.examples.map((e) => (
-              <Text key={e} variant="note" className="italic" style={{ fontSize: 19 }}>
-                {e}
-              </Text>
-            ))}
+          {/* THE SPECIMEN IS THE BODY OF THIS FRAME. Redesign 24 pushes the
+              three examples to serif italic at reading-plus scale and drops the
+              rule that used to fence them off — with the examples at this size
+              the rule was separating the page from its own subject. See
+              `SpokenExamples` for why they stay prose and never become chips. */}
+          <View style={{ marginTop: 24 }}>
+            <SpokenExamples examples={WALKTHROUGH_INVITATION.examples} />
           </View>
         </ScrollView>
         <View className="px-gutter">
           {/* One line, directly above the action, because the tap is the moment
               it is acted on. The system permission prompt follows it and is the
-              actual request — this no longer describes it in advance. */}
-          <View style={{ marginBottom: 12 }}>
-            <Text variant="note" style={{ fontSize: 13, lineHeight: 20 }}>
-              {WALKTHROUGH_INVITATION.consent}
-            </Text>
-          </View>
+              actual request — this no longer describes it in advance. Verbatim,
+              whole, and the only copy of this sentence in the product. */}
+          <ConsentLine text={WALKTHROUGH_INVITATION.consent} />
           <Button
             title={WALKTHROUGH_INVITATION.action}
             onPress={() => void begin()}
             haptic
             className="self-stretch"
           />
-          <Button
-            title={WALKTHROUGH_INVITATION.secondary}
-            variant="ghost"
-            onPress={() => router.replace('/the-ten?door=photograph')}
-            className="self-stretch"
-          />
+          <View style={{ marginTop: 10 }}>
+            {/* Secondary, not ghost: the frames draw the photograph door as a
+                filled tray control the same width as the record action. It is
+                the other real door, not a footnote under one. */}
+            <Button
+              title={WALKTHROUGH_INVITATION.secondary}
+              variant="secondary"
+              onPress={() => router.replace('/the-ten?door=photograph')}
+              className="self-stretch"
+            />
+          </View>
         </View>
       </SafeAreaView>
     </View>

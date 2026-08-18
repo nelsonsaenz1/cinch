@@ -12,6 +12,7 @@ import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ReadingBack } from '@/components/intake/ReadingBack';
+import { WalkthroughChrome } from '@/components/intake/walkthrough-parts';
 import { Text } from '@/components/ui/text';
 import { DEV_DURATION_MS } from '@/features/intake/dev-fixtures';
 
@@ -27,6 +28,7 @@ export default function Fixture() {
   return (
     <View className="flex-1 bg-canvas">
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+        <WalkthroughChrome exit={{ label: 'Cancel', onPress: () => {} }} />
         <ReadingBack durationMs={DEV_DURATION_MS} slow={false} onLeaveRunning={() => {}} />
       </SafeAreaView>
     </View>

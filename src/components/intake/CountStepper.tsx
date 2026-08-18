@@ -3,22 +3,25 @@ import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CardFace, WalkthroughBand } from '@/components/intake/walkthrough-parts';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { numberWord } from '@/features/onboarding/reveal-copy';
 import type { IntakeDraftRow } from '@/features/intake/queries';
-import { shadow, useTheme } from '@/theme/tokens';
+import { useTheme } from '@/theme/tokens';
 
+import { slotLabel } from './CorrectionSheet';
 import { ProcessionMasthead } from './ProcessionMasthead';
 
 /**
  * PR-03 — the ambiguous quantity.
  *
  * Fires when `parse-closet` returned a plural or a low-confidence count — "a
- * few plain black tees". It is the SAME card as PR-01, with the attribute chips
- * replaced by the one question the parse could not answer: the masthead, the
- * spoken phrase, the rule, the name. A separate screen would break the
- * procession's rhythm for a card that is otherwise ordinary.
+ * few plain black tees". It is the SAME card as PR-01 — literally: it draws
+ * `CardFace`, the same component the ordinary card draws, and adds one blush
+ * band carrying the single question the parse could not answer. A separate
+ * screen would break the procession's rhythm for a card that is otherwise
+ * ordinary, and a hand-built second copy of the card face is how the two drift.
  *
  * THE PRIMARY ACTION CARRIES THE CHOSEN NUMBER — "Keep three" — so the decision
  * is readable without looking back up at the stepper.
@@ -70,7 +73,6 @@ export function CountStepper({
   busy = false,
 }: CountStepperProps) {
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
 
   // Re-seeded on the render that receives a NEW ambiguous draft — "adjust state
   // during render, keyed by identity", rather than an effect that would show
@@ -105,38 +107,28 @@ export function CountStepper({
       />
 
       <ScrollView contentContainerClassName="px-gutter pb-4" showsVerticalScrollIndicator={false}>
-        <View
-          className="bg-surface"
-          style={{
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: theme.rule,
-            padding: 20,
-            shadowColor: theme.ink,
-            shadowOpacity: 0.16,
-            shadowRadius: shadow.contact.blur,
-            shadowOffset: { width: shadow.contact.dx, height: shadow.contact.dy },
-          }}>
-          <Text variant="eyebrow">You said</Text>
-          <Text
-            variant="note"
-            className="italic"
-            style={{ fontSize: 17, lineHeight: 26, marginTop: 6 }}>
-            {`“${draft.utterance}”`}
-          </Text>
-          <View
-            style={{ height: 1, backgroundColor: theme.rule, marginTop: 18, marginBottom: 18 }}
-          />
-          <Text variant="display" trim accessibilityRole="header" style={{ fontSize: 32 }}>
-            {draft.name}
-          </Text>
-          <Text variant="note" style={{ fontSize: 16, lineHeight: 25, marginTop: 12 }}>
-            {`Cinch could not tell how many “${draft.utterance}” is. Set the number and they go in as separate pieces.`}
-          </Text>
+        {/* THE SAME FACE AS THE ORDINARY CARD, drawn by the same component. A
+            second copy of the plate, the facts and the quoted utterance is how
+            the two cards drift apart, and the whole point of PR-03 is that it
+            is an ordinary card with one extra question on it. */}
+        <CardFace
+          name={draft.name}
+          facts={[{ field: 'kind', label: slotLabel(draft.slot) }]}
+          utterance={draft.utterance ?? ''}
+          onCorrectField={() => {}}
+        />
 
+        {/* The one question the parse could not answer, in the band the group
+            says everything additive in. Blush, because it is the only thing on
+            this card that is waiting on the reader. */}
+        <WalkthroughBand
+          tone="blush"
+          title="How many?"
+          body={`Cinch could not tell how many “${draft.utterance}” is. Set the number and they go in as separate pieces.`}
+          style={{ marginTop: 12 }}>
           <View
-            className="flex-row items-center justify-center"
-            style={{ marginTop: 20, gap: 20 }}
+            className="flex-row items-center"
+            style={{ marginTop: 14, gap: 16 }}
             accessibilityRole="adjustable"
             accessibilityLabel="How many"
             accessibilityValue={{ min: MIN_QUANTITY, max: MAX_QUANTITY, now: quantity }}
@@ -160,7 +152,7 @@ export function CountStepper({
             />
             <Text
               variant="display"
-              style={{ minWidth: 56, textAlign: 'center', fontVariant: ['tabular-nums'] }}>
+              style={{ minWidth: 44, textAlign: 'center', fontVariant: ['tabular-nums'] }}>
               {quantity}
             </Text>
             <StepButton
@@ -169,38 +161,44 @@ export function CountStepper({
               disabled={quantity >= MAX_QUANTITY || busy}
               onPress={increment}
             />
+            {/* The range, stated rather than discovered by pressing into a
+                dead cell. `1–12` is exactly what the reducer clamps to. */}
+            <Text variant="note" style={{ fontSize: 15 }}>
+              {`${MIN_QUANTITY}–${MAX_QUANTITY}`}
+            </Text>
           </View>
 
-          <Text variant="note" style={{ fontSize: 15, marginTop: 12, textAlign: 'center' }}>
+          <Text variant="note" style={{ fontSize: 15, marginTop: 12 }}>
             {floorReason
               ? 'At least one.'
               : `${quantity} piece${quantity === 1 ? '' : 's'} of ${total} heard`}
           </Text>
-        </View>
+        </WalkthroughBand>
       </ScrollView>
 
+      {/* The same decision bar as the ordinary card: the filled action first,
+          the peers beneath. There is no Fix here — the one thing this card is
+          uncertain about is the number, and the stepper above IS its
+          correction. */}
       <View
-        className="flex-row px-gutter"
-        style={{ gap: 12, paddingBottom: Math.max(insets.bottom, 12) + 6 }}>
-        <View style={{ width: 96 }}>
-          <Button
-            title="Drop"
-            variant="secondary"
-            onPress={onDrop}
-            accessibilityHint="Marks this card dropped. Undo puts it back exactly as it was."
-            className="self-stretch"
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          {/* The action names the number it will keep. */}
-          <Button
-            title={`Keep ${numberWord(quantity)}`}
-            loading={busy}
-            onPress={() => onConfirm(quantity)}
-            accessibilityHint={`Creates ${quantity} separate cards for this garment`}
-            className="self-stretch"
-          />
-        </View>
+        className="px-gutter"
+        style={{ gap: 10, paddingBottom: Math.max(insets.bottom, 12) + 6 }}>
+        {/* The action names the number it will keep. */}
+        <Button
+          title={`Keep ${numberWord(quantity)}`}
+          loading={busy}
+          onPress={() => onConfirm(quantity)}
+          haptic
+          accessibilityHint={`Creates ${quantity} separate cards for this garment`}
+          className="self-stretch"
+        />
+        <Button
+          title="Drop"
+          variant="secondary"
+          onPress={onDrop}
+          accessibilityHint="Marks this card dropped. Undo puts it back exactly as it was."
+          className="self-stretch"
+        />
       </View>
     </View>
   );
