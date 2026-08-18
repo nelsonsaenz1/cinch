@@ -111,9 +111,9 @@ test('every intent is fire-and-forget — none of them returns a promise', () =>
  * lanes touch them. Delete entries, never add one.
  */
 const DIRECT_HAPTICS_DEBT = [
-  'src/app/(auth)/code.tsx',
-  'src/app/(auth)/email.tsx',
-  'src/app/(auth)/name.tsx',
+  // The email, code and name screens PAID OFF by redesign 19: all three now
+  // fire through `@/lib/haptics`. `sign-in.tsx` stays — the welcome screen is
+  // excluded from that redesign by founder order, so nobody touched it.
   'src/app/(auth)/sign-in.tsx',
   // `src/app/(tabs)/index.tsx` PAID OFF by redesign 13: the committed-wear
   // haptic moved into `wear-confirmation-sheet.tsx`, which fires it through

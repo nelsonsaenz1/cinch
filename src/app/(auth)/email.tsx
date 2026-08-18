@@ -1,290 +1,262 @@
-import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, Text as RNText, TextInput, View } from 'react-native';
-import Animated, {
-  interpolateColor,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { Linking, Text as RNText, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { atlas, MAX_TEXT_SCALE, PRIVACY_URL, TERMS_URL } from '@/components/auth/chrome';
 import {
-  atlas,
-  AuthHeader,
-  MAX_DISPLAY_SCALE,
-  MAX_TEXT_SCALE,
-  PillSpinner,
-  PRIVACY_URL,
-  TERMS_URL,
-} from '@/components/auth/chrome';
+  RunButton,
+  RunField,
+  RunFieldError,
+  RunHeader,
+  RunPrompt,
+  RunSubline,
+  TroubleCard,
+} from '@/components/auth/run-parts';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { sendEmailCode } from '@/features/auth/actions';
+import {
+  AX_STACK_SCALE,
+  EMAIL_CTA,
+  EMAIL_CTA_SENDING,
+  EMAIL_FIELD_LABEL,
+  EMAIL_HEADLINE,
+  EMAIL_INVALID,
+  EMAIL_PLACEHOLDER,
+  EMAIL_STEP,
+  EMAIL_SUBLINE,
+  LEGAL_PREFIX,
+  LEGAL_SIZE,
+  PAD,
+  RATE_LIMIT_S,
+  offlineTrouble,
+  rateLimitedTrouble,
+  sendFailedTrouble,
+  showsOwnCta,
+  thrownTrouble,
+  type Trouble,
+} from '@/features/auth/auth-run-spec';
+import { useConnectivity } from '@/features/auth/use-connectivity';
 import { isValidEmail, normalizeEmail } from '@/features/auth/email';
 import { describeThrownSignInError } from '@/features/auth/sign-in-errors';
-import { MIN_TAP_TARGET } from '@/theme/tokens';
-
-/** W-12's two sentences — the only copy the tray callout ever shows, plus a
- * thrown storage failure, which must surface rather than be silent. */
-const SEND_FAILED_COPY =
-  'We couldn’t send the code just now. This is on us, not you — try again in a moment.';
-const RATE_LIMITED_COPY = 'Too many codes requested. Try again in five minutes.';
-
-const SEND_TIMEOUT_MS = 8000;
-
-const LABEL_STYLE = {
-  fontFamily: 'HelveticaNeue',
-  fontSize: 9,
-  letterSpacing: 9 * 0.2,
-  textTransform: 'uppercase' as const,
-} as const;
-
-function LegalLink({ label, url }: { label: string; url: string }) {
-  const [pressed, setPressed] = useState(false);
-  return (
-    <RNText
-      accessibilityRole="link"
-      suppressHighlighting
-      onPress={() => void Linking.openURL(url)}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
-      style={{ color: pressed ? '#8a3a35' : atlas.oxblood }}>
-      {label}
-    </RNText>
-  );
-}
+import { haptics } from '@/lib/haptics';
 
 /**
- * W-04…07 and W-12: the address, on paper. One field, one button, and a label
- * line that becomes the error line rather than adding a row — nothing below
- * ever moves. Validation runs on blur or submit only, never per keystroke.
+ * Redesign 19, step one — the address.
+ *
+ * ── WHAT MOVED, AND WHAT DID NOT ────────────────────────────────────────────
+ *
+ * Moved: the composition. Header wordmark → back well plus progress bar; the
+ * underline field → a boxed one; the label-line-that-doubles-as-an-error and
+ * the tray callout → a refusal line and a trouble card; the pill → one filled
+ * capsule CTA. Copy is the frame's, which is shorter everywhere.
+ *
+ * Did NOT move: the send. `sendEmailCode` is called with the same argument,
+ * raced against the same 8s ceiling, and its three outcomes (ok, rate-limited,
+ * anything else) are read exactly as before. Validation still runs on blur or
+ * submit and never per keystroke. A thrown failure still surfaces rather than
+ * going silent.
+ *
+ * ── THE ONE BEHAVIOUR THIS ADDS ─────────────────────────────────────────────
+ *
+ * The frames draw an offline state and a counting rate limit, neither of which
+ * the shipped screen had. Both are refusals to START a request that was going
+ * to fail; neither changes what happens when a request IS made. `RATE_LIMIT_S`
+ * is the five minutes the shipped sentence already promised, now counted out
+ * loud instead of asserted once and left to go stale.
  */
 export default function EmailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const reduced = useReducedMotion();
+  const { fontScale } = useWindowDimensions();
+  const online = useConnectivity();
 
   const [email, setEmail] = useState('');
+  const [focused, setFocused] = useState(false);
   const [invalid, setInvalid] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'sending' | 'failed'>('idle');
-  const [failCopy, setFailCopy] = useState(SEND_FAILED_COPY);
+  const [sending, setSending] = useState(false);
+  const [trouble, setTrouble] = useState<Trouble | null>(null);
+  const [rateLimitLeft, setRateLimitLeft] = useState(0);
   const fieldRef = useRef<TextInput>(null);
 
+  const large = fontScale >= AX_STACK_SCALE;
   const armed = isValidEmail(email);
-  const sending = status === 'sending';
 
-  // The Continue pill fills to ink over 180ms the moment the address first
-  // parses (W-05). Under Reduce Motion the fill is instant.
-  const fill = useSharedValue(0);
+  // The rate limit counts itself down. Presentation only — see the spec's note
+  // on `rateLimitBody`; nothing here decides whether a send is permitted.
   useEffect(() => {
-    fill.value = withTiming(armed ? 1 : 0, { duration: reduced ? 0 : 180 });
-  }, [armed, reduced, fill]);
-  const pillStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(fill.value, [0, 1], [atlas.pillDisabled, atlas.ink]),
-  }));
+    if (rateLimitLeft <= 0) return;
+    const id = setTimeout(() => setRateLimitLeft((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [rateLimitLeft]);
+
+  /**
+   * The rate-limit card is DERIVED from the count, never stored beside it.
+   *
+   * Holding it in state would mean writing a new card object every second from
+   * inside an effect — a cascading render per tick, and two facts (the number
+   * and the sentence quoting it) that can disagree. It outranks a stored
+   * trouble because it is the one the user must act on: the others all say
+   * "try again", and while the window is open trying again is exactly what
+   * cannot happen.
+   */
+  const shownTrouble = rateLimitLeft > 0 ? rateLimitedTrouble(rateLimitLeft) : trouble;
 
   const validateNow = useCallback(() => {
     setInvalid(email.trim().length > 0 && !isValidEmail(email));
   }, [email]);
 
   const onSubmit = useCallback(async () => {
-    if (sending) return;
+    if (sending || rateLimitLeft > 0) return;
     if (!isValidEmail(email)) {
       setInvalid(true);
       return;
     }
-    void Haptics.selectionAsync().catch(() => {});
+    haptics.selection();
     setInvalid(false);
-    setStatus('sending');
+
+    // Refusing before the request, not after it — the frame's offline card says
+    // "Nothing has been sent", and that has to be true when it is drawn.
+    if (!online) {
+      haptics.warning();
+      setTrouble(offlineTrouble());
+      return;
+    }
+
+    setTrouble(null);
+    setSending(true);
     try {
-      // An open request past 8s falls into W-12 — the button must never sit
-      // on "Sending" forever.
+      // An open request past 8s is a failure the user can act on — the button
+      // must never sit on "Sending…" forever. Unchanged from the shipped race.
       const result = await Promise.race([
         sendEmailCode(email),
         new Promise<{ ok: false; reason: 'failed' }>((resolve) =>
-          setTimeout(() => resolve({ ok: false, reason: 'failed' }), SEND_TIMEOUT_MS),
+          setTimeout(() => resolve({ ok: false, reason: 'failed' }), 8000),
         ),
       ]);
       if (result.ok) {
-        setStatus('idle');
+        setSending(false);
         router.push({ pathname: '/(auth)/code', params: { email: normalizeEmail(email) } });
         return;
       }
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      setFailCopy(result.reason === 'rate-limited' ? RATE_LIMITED_COPY : SEND_FAILED_COPY);
-      setStatus('failed');
+      haptics.failure();
+      if (result.reason === 'rate-limited') setRateLimitLeft(RATE_LIMIT_S);
+      else setTrouble(sendFailedTrouble());
     } catch (err) {
       // Thrown, not returned — the storage layer escaping. Surface it.
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      setFailCopy(describeThrownSignInError(err));
-      setStatus('failed');
+      haptics.failure();
+      setTrouble(thrownTrouble(describeThrownSignInError(err)));
+    } finally {
+      setSending(false);
     }
-  }, [email, sending, router]);
+  }, [email, sending, rateLimitLeft, online, router]);
 
-  const labelInvalid = invalid && !sending;
+  const fieldTone = sending ? 'busy' : invalid ? 'refused' : focused ? 'active' : 'rest';
+  const ownCta = showsOwnCta(shownTrouble);
 
   return (
     <View style={{ flex: 1, backgroundColor: atlas.paper, paddingTop: insets.top }}>
       <StatusBar style="dark" />
-      <AuthHeader onBack={() => router.back()} backDisabled={sending} />
+      <RunHeader step={EMAIL_STEP} onBack={() => router.back()} backDisabled={sending} />
       <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 34, paddingTop: 40, paddingBottom: 40 }}>
-        <RNText
-          accessibilityRole="header"
-          maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
-          style={{
-            fontFamily: 'InstrumentSerif_400Regular',
-            fontSize: 36,
-            lineHeight: 40,
-            color: atlas.ink,
-          }}>
-          What’s your email?
-        </RNText>
-        <RNText
-          maxFontSizeMultiplier={MAX_TEXT_SCALE}
-          style={{
-            marginTop: 12,
-            fontFamily: 'HelveticaNeue',
-            fontSize: 15,
-            lineHeight: 23,
-            color: atlas.muted,
-          }}>
-          We’ll send a six-digit code. No password to remember, ever.
-        </RNText>
+        contentContainerStyle={{ paddingHorizontal: PAD, paddingTop: 26, paddingBottom: 40 }}>
+        <RunPrompt headline={EMAIL_HEADLINE}>
+          <RunSubline>{EMAIL_SUBLINE}</RunSubline>
+        </RunPrompt>
 
-        <TextInput
-          ref={fieldRef}
-          value={email}
-          onChangeText={(t) => {
-            setEmail(t);
-            // Only CLEARING here — flagging waits for blur or submit.
-            if (invalid) setInvalid(false);
-          }}
-          onBlur={validateNow}
-          onSubmitEditing={() => void onSubmit()}
-          editable={!sending}
-          autoFocus
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          spellCheck={false}
-          autoComplete="email"
-          textContentType="emailAddress"
-          returnKeyType="go"
-          placeholder="you@example.com"
-          placeholderTextColor="#B4AFA3"
-          selectionColor={atlas.oxblood}
-          accessibilityLabel="Email address"
-          style={{
-            marginTop: 36,
-            paddingBottom: 10,
-            paddingTop: 0,
-            minHeight: MIN_TAP_TARGET,
-            borderBottomWidth: 1.5,
-            borderBottomColor: labelInvalid
-              ? atlas.oxblood
-              : sending
-                ? 'rgba(28,26,22,0.3)'
-                : atlas.ink,
-            fontFamily: 'HelveticaNeue',
-            fontSize: 20,
-            color: sending ? atlas.label : atlas.ink,
-          }}
-        />
-        {/* The label line IS the error line — it swaps, nothing below moves. */}
-        <RNText
-          maxFontSizeMultiplier={MAX_TEXT_SCALE}
-          accessibilityLiveRegion="polite"
-          numberOfLines={1}
-          style={{
-            marginTop: 12,
-            ...LABEL_STYLE,
-            color: labelInvalid ? atlas.oxblood : atlas.label,
-          }}>
-          {labelInvalid ? 'That address is missing something' : 'Email address'}
-        </RNText>
+        <View style={{ marginTop: 26 }}>
+          <RunField
+            ref={fieldRef}
+            tone={fieldTone}
+            value={email}
+            onChangeText={(t) => {
+              setEmail(t);
+              // Only CLEARING here — flagging waits for blur or submit.
+              if (invalid) setInvalid(false);
+              if (trouble && rateLimitLeft <= 0) setTrouble(null);
+            }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => {
+              setFocused(false);
+              validateNow();
+            }}
+            onSubmitEditing={() => void onSubmit()}
+            autoFocus
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="go"
+            placeholder={EMAIL_PLACEHOLDER}
+            accessibilityLabel={EMAIL_FIELD_LABEL}
+          />
+        </View>
 
-        {status === 'failed' ? (
-          <View
-            accessibilityLiveRegion="polite"
-            style={{
-              marginTop: 22,
-              backgroundColor: atlas.callout,
-              borderLeftWidth: 2,
-              borderLeftColor: atlas.oxblood,
-              paddingVertical: 12,
-              paddingHorizontal: 14,
-            }}>
-            <RNText
-              maxFontSizeMultiplier={MAX_TEXT_SCALE}
-              style={{
-                fontFamily: 'HelveticaNeue',
-                fontSize: 13,
-                lineHeight: 20,
-                color: atlas.calloutText,
-              }}>
-              {failCopy}
-            </RNText>
+        {invalid && !sending ? <RunFieldError>{EMAIL_INVALID}</RunFieldError> : null}
+
+        {shownTrouble ? (
+          <View style={{ marginTop: 16 }}>
+            <TroubleCard
+              trouble={shownTrouble}
+              large={large}
+              busy={sending}
+              onAction={() => void onSubmit()}
+            />
           </View>
         ) : null}
 
-        <Pressable
-          onPress={() => void onSubmit()}
-          disabled={sending}
-          accessibilityRole="button"
-          accessibilityLabel={status === 'failed' ? 'Try again' : 'Continue'}
-          accessibilityState={{ disabled: sending, busy: sending }}
-          style={{ marginTop: status === 'failed' ? 18 : 30 }}>
-          <Animated.View
-            style={[
-              {
-                minHeight: Math.max(MIN_TAP_TARGET, 51),
-                // 12, not 32. §1.3 of the Refacing: a labelled control is `md`,
-                // full stop — `full` and everything approaching it belongs to
-                // circles. At 51pt tall a 32 radius is a capsule in all but
-                // name, and this page's dialect (§3.1) covers its voice and
-                // spacing, not its shape.
-                borderRadius: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                paddingVertical: 17,
-                paddingHorizontal: 16,
-              },
-              pillStyle,
-              sending ? { backgroundColor: atlas.ink } : null,
-            ]}>
-            {sending ? <PillSpinner /> : null}
-            <RNText
-              maxFontSizeMultiplier={MAX_TEXT_SCALE}
-              style={{
-                fontFamily: 'HelveticaNeue',
-                fontSize: 15,
-                color: armed || sending ? atlas.cream : atlas.pillDisabledLabel,
-              }}>
-              {sending ? 'Sending' : status === 'failed' ? 'Try again' : 'Continue'}
-            </RNText>
-          </Animated.View>
-        </Pressable>
+        {ownCta ? (
+          <View style={{ marginTop: 16 }}>
+            <RunButton
+              label={sending ? EMAIL_CTA_SENDING : EMAIL_CTA}
+              onPress={() => void onSubmit()}
+              disabled={!armed || rateLimitLeft > 0}
+              busy={sending}
+              large={large}
+            />
+          </View>
+        ) : null}
 
         <RNText
           maxFontSizeMultiplier={MAX_TEXT_SCALE}
           style={{
-            marginTop: 18,
+            marginTop: 14,
             fontFamily: 'HelveticaNeue',
-            fontSize: 12,
-            lineHeight: 19,
-            color: atlas.label,
+            fontSize: LEGAL_SIZE,
+            lineHeight: 20,
+            color: atlas.muted,
           }}>
-          By continuing you agree to the <LegalLink label="Terms" url={TERMS_URL} /> and{' '}
+          {LEGAL_PREFIX}
+          <LegalLink label="Terms" url={TERMS_URL} />
+          {' and '}
           <LegalLink label="Privacy Policy" url={PRIVACY_URL} />.
         </RNText>
       </KeyboardAwareScrollView>
     </View>
+  );
+}
+
+/**
+ * A legal link inside the consent sentence.
+ *
+ * Still a text span rather than a `RunInlineAction`: these two are part of a
+ * sentence the user is agreeing to, and lifting them out into boxes would break
+ * the sentence into three controls. The 44pt floor does not apply to a link
+ * inside running prose — WCAG's target-size rule exempts text-flow links, and
+ * the paragraph itself is the target.
+ */
+function LegalLink({ label, url }: { label: string; url: string }) {
+  return (
+    <RNText
+      accessibilityRole="link"
+      suppressHighlighting
+      onPress={() => void Linking.openURL(url)}
+      style={{ color: atlas.oxblood, textDecorationLine: 'underline' }}>
+      {label}
+    </RNText>
   );
 }

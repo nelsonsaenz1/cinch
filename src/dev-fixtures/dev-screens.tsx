@@ -137,6 +137,18 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     [['Openings, allowance and denials', '/dev-r16-stylist']],
   ],
   [
+    // The welcome / sign-in screen is excluded from the redesign by founder
+    // order, so it has no fixture here and none of these draw it.
+    'Redesign 19 · Auth run',
+    [
+      ['AR-01 · email, seven states', '/dev-ar-01-email'],
+      ['AR-02 · code, eight states', '/dev-ar-02-code'],
+      ['AR-03 · name, four states', '/dev-ar-03-name'],
+      ['AR-04 · handoff, new and returning', '/dev-ar-04-handoff'],
+      ['AR-05 · largest accessibility text', '/dev-ar-05-ax'],
+    ],
+  ],
+  [
     'Redesign 17 · Explore',
     [
       ['Feed, reactions and privacy line', '/dev-ex-01-feed'],
