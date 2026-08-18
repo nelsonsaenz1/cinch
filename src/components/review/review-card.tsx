@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Chip } from '@/components/ui/chip';
+import { Decisions } from '@/components/ingest/capture-parts';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Swatch } from '@/components/ui/swatch';
 import { Text } from '@/components/ui/text';
@@ -40,13 +41,14 @@ const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
  */
 const CONFIRM_OVERLAY_GREEN = '#3E6B4A';
 
-/**
- * RV-01's action height. Both peers take it, so neither can end up the taller
- * one — the deviation ledger records "Skip lighter than Looks right" as the
- * fault this replaces, and a difference in height is a difference in weight
- * whatever the fill says.
+/*
+ * RV-01's `ACTION_HEIGHT` stood here at 52. Redesign 22's three decisions are
+ * 60 and take it from `DECISION.height` in `capture-spec.ts`, which is the one
+ * place both halves of this redesign read it from — the rule it enforced (no
+ * decision may end up the taller one, because a difference in height is a
+ * difference in weight whatever the fill says) is enforced there instead, on
+ * three controls rather than two.
  */
-const ACTION_HEIGHT = 52;
 
 const CATEGORY_OPTIONS: { key: ItemCategory; label: string }[] = [
   // "Tops", plural, matches the handoff's exact "Tops · Knitwear" (Frame 08)
@@ -476,62 +478,50 @@ export function ReviewCard({
     ) : null;
 
   /**
-   * AUDIT 72 — TWO PEERS OF EQUAL WEIGHT, AND THE CONSEQUENCE PRINTED.
+   * REDESIGN 22 — KEEP · FIX · DROP, AS THREE TINTED SLABS.
    *
-   * "Skip and Looks right are both 52 pt and both full half-width peers; only
-   * the accepting one is filled, and the consequence of skipping is printed
-   * under them rather than discovered afterwards."
+   * Audit 72's settlement was "Skip and Looks right are both 52 pt and both
+   * full half-width peers; only the accepting one is filled, and the
+   * consequence of skipping is printed under them rather than discovered
+   * afterwards." Frames 11, 20 and 22 keep every clause of that and change the
+   * arrangement: three decisions rather than two, at 60 pt, "differentiated by
+   * shape and weight, not colour alone" — an oxblood slab, a sand slab and a
+   * bordered outline, at three different widths.
    *
-   * RV-01 / AX changes the arrangement and nothing else: "Accept moves above
-   * Skip because a stacked pair has no dominant side; it is the filled one
-   * either way." Both are hand-built rather than one `Button` beside one
-   * `Pressable` — that pairing let the two controls take different intrinsic
-   * heights, which is exactly the "Skip lighter than Looks right" the deviation
-   * ledger records.
+   * THE SEMANTICS ARE THE SHIPPED ONES AND NOTHING HERE IS DESTRUCTIVE.
    *
-   * The swipe is the fast path, not the only path: a pan gesture is unavailable
-   * to VoiceOver and Switch Control, and awkward one-handed on a large phone.
+   *   Keep  → `confirmFromButton`, the write this deck has always made.
+   *   Fix   → reveals the correction chips and the price editor on this card.
+   *           Frame 12 draws Fix as a separate editor page with a Save; the
+   *           editable surface here is the one the shipped card already owns,
+   *           and a second editor would be a second implementation of the same
+   *           patch. Recorded as a deviation.
+   *   Drop  → `skip`. Frame 13 draws a confirmation claiming the photograph is
+   *           deleted from Cinch. Skip deletes nothing — it is "ask me later",
+   *           and the piece returns to this queue — so the sheet is NOT built:
+   *           it would either state something the app does not do, or require a
+   *           destructive mutation this redesign was not asked to add. Recorded
+   *           as a deviation, and the consequence is printed under the row in
+   *           audit 72's own grammar.
+   *
+   * `Decisions` is `components/ingest/capture-parts.tsx`, shared with the
+   * capture page so the two halves of redesign 22 cannot draw the same control
+   * two ways. It spends the haptic — one selection tick per decision.
+   *
+   * The swipe is still the fast path, not the only path: a pan gesture is
+   * unavailable to VoiceOver and Switch Control, and awkward one-handed on a
+   * large phone.
    */
-  const skipAction = (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Skip for now"
-      accessibilityHint="Leaves the tags unconfirmed. This item returns next time you review."
-      onPress={skip}
-      style={{ minHeight: ACTION_HEIGHT }}
-      className={`${stacked ? 'w-full' : 'flex-1'} items-center justify-center rounded-md border border-rule active:opacity-70`}>
-      {/* Regular weight — the constitution reserves Medium for labels and
-          FILLED actions, and this one is outlined. */}
-      <Text variant="body" className="text-ink">
-        Skip for now
-      </Text>
-    </Pressable>
-  );
-
-  const acceptAction = (
-    /*
-      Not the shared Button: its "primary" variant is the oxblood accent, and
-      the accepting action here is ink-filled instead — the "ink-selected"
-      treatment the design system reserves for exactly this case, hand-built
-      rather than repurposing a component whose whole job is guarding the accent.
-    */
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Looks right"
-      accessibilityHint="Marks these tags as correct and removes the item from the review queue."
-      onPress={confirmFromButton}
-      style={{ minHeight: ACTION_HEIGHT }}
-      className={`${stacked ? 'w-full' : 'flex-1'} items-center justify-center rounded-md bg-ink active:opacity-70`}>
-      {/* Inline style, not `text-canvas`. Two colour utilities on one element
-          are resolved by their order in the GENERATED stylesheet — the order of
-          the palette in tailwind.config.js — not by which the call site wrote
-          last, so `text-canvas` here would lose to the variant's `text-ink`
-          (canvas is declared first, ink later) and the label would vanish into
-          the ink fill. Same trap as the item-detail hero tile. */}
-      <Text variant="body" style={{ color: theme.canvas }}>
-        Looks right
-      </Text>
-    </Pressable>
+  const decisions = (
+    <Decisions
+      stacked={stacked}
+      onKeep={confirmFromButton}
+      onFix={() => setAxChangeOpen((open) => !open)}
+      onDrop={skip}
+      keepHint="Marks these tags as correct and removes the item from the review queue."
+      fixHint="Shows the fields you can correct on this piece"
+      dropHint="Leaves the tags unconfirmed. This item returns next time you review."
+    />
   );
 
   return (
@@ -750,21 +740,6 @@ export function ReviewCard({
                 )}
 
                 {/*
-                  TWO CHIPS, NOT THE FRAME'S THREE. The frame draws Change
-                  category, Change colour and Add a price. This card can patch
-                  category and price and nothing else (`useVerifyItem`), and the
-                  rule it already held is the right one: a control whose tap
-                  does nothing reads as broken, which is worse than its absence.
-                  The colour chip is therefore not drawn rather than drawn dead.
-                  Recorded as a deviation in the report.
-
-                  The chips are `Chip` at the shared 12pt radius — labelled
-                  controls are 12, never capsules.
-                */}
-                {!stacked ? correctionChips : null}
-                {!stacked ? priceEditor : null}
-
-                {/*
                   The footnote, and only ever a footnote.
 
                   This is what the tagger could not read on rows the card cannot
@@ -783,37 +758,38 @@ export function ReviewCard({
                 {unsavedNotice}
 
                 <View className="mt-auto border-t border-hairline pt-4">
-                  {stacked ? (
-                    <View className="gap-2">
-                      {acceptAction}
-                      {skipAction}
-                      {/* The three chips, collapsed into one row. Tapping it
-                          reveals the named chips rather than guessing which
-                          field is wrong. */}
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Change something"
-                        accessibilityState={{ expanded: axChangeOpen }}
-                        accessibilityHint="Shows the fields you can correct on this piece"
-                        onPress={() => setAxChangeOpen((open) => !open)}
-                        style={{ minHeight: ACTION_HEIGHT }}
-                        className="w-full items-center justify-center rounded-md bg-tray active:opacity-70">
-                        <Text variant="body" className="text-ink">
-                          Change something
-                        </Text>
-                      </Pressable>
-                      {axChangeOpen ? correctionChips : null}
-                      {axChangeOpen ? priceEditor : null}
+                  {/*
+                    FIX OPENS THESE, IN BOTH COMPOSITIONS.
+
+                    The chips used to be printed inline on the wide card and
+                    hidden behind a "Change something" row only at AX sizes.
+                    Frame 11 draws no editing affordance on the card at all —
+                    the cut-out, what Cinch read from it, and three decisions —
+                    so the correction surface is what Fix reveals, on every
+                    size. That also retires the AX-only row, which was a fourth
+                    control saying what Fix says.
+
+                    TWO CHIPS, NOT THE FRAME'S THREE. The old frame drew Change
+                    category, Change colour and Add a price. This card can patch
+                    category and price and nothing else (`useVerifyItem`), and
+                    the rule it already held is the right one: a control whose
+                    tap does nothing reads as broken, which is worse than its
+                    absence. The colour chip is therefore not drawn rather than
+                    drawn dead. Recorded as a deviation in the report.
+                  */}
+                  {axChangeOpen ? (
+                    <View className="mb-3">
+                      {correctionChips}
+                      {priceEditor}
                     </View>
-                  ) : (
-                    <View className="flex-row items-center gap-2.5">
-                      {skipAction}
-                      {acceptAction}
-                    </View>
-                  )}
-                  {/* Printed under them, not discovered afterwards. */}
+                  ) : null}
+
+                  {decisions}
+
+                  {/* Printed under them, not discovered afterwards — audit 72's
+                      own rule, kept, with Drop's name in place of Skip's. */}
                   <Text variant="note" className="mt-2.5">
-                    Skipping keeps the piece and the photograph. It comes back to this queue.
+                    Dropping keeps the piece and the photograph. It comes back to this queue.
                   </Text>
                 </View>
               </>

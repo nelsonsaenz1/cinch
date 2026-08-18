@@ -485,6 +485,20 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Capture — camera and batch review — redesign 22',
+    [
+      ['CP-01 · live viewfinder, empty', '/dev-cp-01-viewfinder'],
+      ['CP-02 · a batch held', '/dev-cp-02-held'],
+      ['CP-03 · filing, early', '/dev-cp-03-filing'],
+      ['CP-04 · filing, one piece short', '/dev-cp-04-filing-trouble'],
+      ['CP-05 · batch settled', '/dev-cp-05-settled'],
+      ['CP-06 · ten pieces in', '/dev-cp-06-celebration'],
+      ['CP-07 · the ask, before the prompt', '/dev-cp-07-permission'],
+      ['CP-08 · keep · fix · drop', '/dev-cp-08-decisions'],
+      ['CP-09 · offline, error, resume', '/dev-cp-09-trouble'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],

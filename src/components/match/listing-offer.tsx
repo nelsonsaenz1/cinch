@@ -1,10 +1,11 @@
-import { SymbolView } from 'expo-symbols';
 import { Pressable, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
-import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { usePressFeedback } from '@/components/ui/use-press-feedback';
+import { PAGE } from '@/features/ingest/capture-spec';
 import { leading } from '@/theme/font-metrics';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { canvasAlpha, useTheme } from '@/theme/tokens';
 
 /**
  * M-03 — "Want the listing photo instead?", the ingest invitation.
@@ -15,10 +16,30 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * closet and complete, and the only thing on the table is whether the shop's
  * own shot should be what the closet displays.
  *
- * Two affordances and no more. The oxblood action opens the match flow; the
- * 28pt disc dismisses the card for good. There is deliberately no "not now" —
- * a third control would make declining feel like a deferral, and the item
- * detail row is the permanent way in for anyone who changes their mind.
+ * ── WHAT REDESIGN 22 CHANGED (frame 15) ────────────────────────────────────
+ *
+ * The card was a bordered `surface` plate with an oxblood pill in it and a 28pt
+ * dismissal disc in its top corner. Frame 15 paints the WHOLE CARD oxblood —
+ * "a single oxblood moment" — with a canvas capsule for the look and the
+ * dismissal promoted from a disc to a labelled row under it. Still exactly two
+ * affordances, which is the rule the disc was serving; a disc is simply a worse
+ * way to say "not now" than the words are.
+ *
+ * ── WHAT IT DID NOT CHANGE ─────────────────────────────────────────────────
+ *
+ * The substance, which the artifact insists on twice: "unchanged in substance",
+ * "it introduces no price, no vendor, no billing surface". The sentence is the
+ * shipped one, and it is about a PHOTOGRAPH — Cinch looking for the retailer's
+ * own shot of a piece and using it in the closet. Frame 15's own words
+ * ("Cinch can write the listing from the photograph you just took") describe
+ * selling the garment, which is a different feature and one this card has never
+ * opened; adopting them would have the card promise something the tap does not
+ * do. Recorded as a deviation.
+ *
+ * Frame 15 also draws a thumbnail well beside the headline. This component is
+ * handed a brand and a kind, not an image, and the piece it is about is the one
+ * the user is already looking at on the page above — so the well is not drawn
+ * rather than drawn with a placeholder garment in it. Recorded as a deviation.
  *
  * Purely presentational: it owns no persistence, no query and no knowledge of
  * whether it has been dismissed before. The capture screen decides whether this
@@ -26,35 +47,15 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * the account rather than about the card.
  */
 
-/**
- * The card's radius, and the action's. 12px is `rounded-md` — the labelled
- * control radius, never a capsule — but `Card` draws itself at `rounded-plate`
- * (20px) with no prop to change it, and a second `rounded-*` class beside its
- * own has no defined precedence. A plain View at the atlas's radius rather than
- * a Card fighting its own class.
- */
-const CARD_RADIUS = 12;
+/** The serif title, at frame 15's 25px on the oxblood ground. */
+const TITLE_STYLE = { fontSize: 25, lineHeight: leading('instrument', 25, 1.05) };
 
-/** The atlas's 18pt inner inset — between `Card`'s `lg` (16) and `xl` (20). */
-const CARD_PADDING = 18;
+/** The body, at frame 15's 14.5px. Size and line height move together. */
+const BODY_STYLE = { fontSize: 14.5, lineHeight: leading('helvetica', 14.5, 1.5) };
 
-/**
- * The serif title, at 22px. Between `plate` (24) and nothing below it, so the
- * size moves inline while the family and colour stay with the variant — the
- * precedence hazard documented in ui/text.tsx. The line height is computed
- * from Instrument Serif's real metrics rather than typed, because a leading
- * below the face's own line box slices the ascenders.
- */
-const TITLE_STYLE = { fontSize: 22, lineHeight: leading('instrument', 22, 1.2) };
-
-/**
- * The body, at 15px — between `label` (13) and `callout` (16). Size and line
- * height move together; overriding one without the other is what clips glyphs.
- */
-const BODY_STYLE = { fontSize: 15, lineHeight: leading('helvetica', 15, 1.5) };
-
-/** The atlas's dismissal disc. 28pt drawn, 44pt to the thumb via `hitSlop`. */
-const CLOSE_DIAMETER = 28;
+/** The card's two actions, at the frame's 54 and 48 — both over the 44pt floor. */
+const LOOK_HEIGHT = 54;
+const DISMISS_HEIGHT = 48;
 
 export type ListingOfferProps = {
   /**
@@ -78,6 +79,8 @@ export type ListingOfferProps = {
 
 export function ListingOffer({ brand, piece, onFind, onDismiss }: ListingOfferProps) {
   const theme = useTheme();
+  const lookPress = usePressFeedback();
+  const dismissPress = usePressFeedback();
 
   // Both sentences end on the same promise, because it is the same promise:
   // the photograph they took is kept whatever they choose here.
@@ -87,34 +90,73 @@ export function ListingOffer({ brand, piece, onFind, onDismiss }: ListingOfferPr
 
   return (
     <View
-      className="mt-4 border border-rule bg-surface"
-      style={{ borderRadius: CARD_RADIUS, padding: CARD_PADDING }}>
-      <View className="flex-row items-start justify-between gap-3">
-        <Text variant="plate" className="flex-1" style={TITLE_STYLE}>
-          Want the listing photo instead?
-        </Text>
-        {/* The second affordance, and the reason this card is never an ambush.
-            A disc, not a labelled control — `rounded-full` on a 1:1 box is the
-            one shape the radius scale allows it on. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Dismiss the listing photo offer"
-          accessibilityHint="Hides this offer for good. You can still find the listing photo from the piece itself."
-          onPress={onDismiss}
-          hitSlop={(MIN_TAP_TARGET - CLOSE_DIAMETER) / 2}
-          className="items-center justify-center rounded-full border border-rule active:opacity-60"
-          style={{ width: CLOSE_DIAMETER, height: CLOSE_DIAMETER }}>
-          <SymbolView name="xmark" size={10} tintColor={theme.faint} resizeMode="scaleAspectFit" />
-        </Pressable>
-      </View>
+      style={{
+        borderRadius: PAGE.offerRadius,
+        padding: 20,
+        gap: 14,
+        backgroundColor: theme.accent,
+      }}>
+      {/* Inline colour throughout, never a `text-*` class: every variant here
+          carries `text-ink` or `text-muted`, and NativeWind resolves two colour
+          utilities on one element by key order in the generated stylesheet
+          rather than by intent — which on this ground is the difference between
+          a headline and a smudge. */}
+      <Text variant="plate" style={{ ...TITLE_STYLE, color: theme.canvas }}>
+        Want the listing photo instead?
+      </Text>
 
-      {/* Tone inline: `body` carries `text-ink`, and NativeWind resolves two
-          colour utilities on one element by key order rather than by intent. */}
-      <Text variant="body" className="mt-2.5" style={{ ...BODY_STYLE, color: theme.muted }}>
+      <Text variant="body" style={{ ...BODY_STYLE, color: canvasAlpha(0.78) }}>
         {body}
       </Text>
 
-      <Button title="Find the listing photo" className="mt-4" onPress={onFind} />
+      <View style={{ gap: 8 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Have a look"
+          accessibilityHint="Opens the listing-photo search for this piece"
+          onPress={onFind}
+          onPressIn={lookPress.onPressIn}
+          onPressOut={lookPress.onPressOut}
+          style={{ minHeight: LOOK_HEIGHT }}>
+          <Animated.View
+            style={[
+              {
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: LOOK_HEIGHT / 2,
+                backgroundColor: theme.canvas,
+              },
+              lookPress.style,
+            ]}>
+            <Text variant="body" style={{ fontSize: 16, color: theme.accent }}>
+              Have a look
+            </Text>
+          </Animated.View>
+        </Pressable>
+
+        {/* The second affordance, and the reason this card is never an ambush.
+            It was a 28pt disc in the corner; the frame gives it words, which is
+            the only change — the outcome is identical and still permanent. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Not now"
+          accessibilityHint="Hides this offer for good. You can still find the listing photo from the piece itself."
+          onPress={onDismiss}
+          onPressIn={dismissPress.onPressIn}
+          onPressOut={dismissPress.onPressOut}
+          style={{ minHeight: DISMISS_HEIGHT }}>
+          <Animated.View
+            style={[
+              { flex: 1, alignItems: 'center', justifyContent: 'center' },
+              dismissPress.style,
+            ]}>
+            <Text variant="body" style={{ fontSize: 15, color: canvasAlpha(0.8) }}>
+              Not now
+            </Text>
+          </Animated.View>
+        </Pressable>
+      </View>
     </View>
   );
 }
