@@ -734,7 +734,35 @@ export type AppEvent =
    * function of one person's wardrobe with a long tail: 184 is close to
    * unique, and joined to a timestamp it is a fingerprint.
    */
-  | 'outfit_count_bucket';
+  | 'outfit_count_bucket'
+
+  // ── Redesign 14 · The Closet ──────────────────────────────────────────────
+  //
+  // Six additions, all bounded, all built by
+  // `features/closet/closet-analytics.ts` — a module with no import of this
+  // one, so the node suite can execute every builder and assert the payloads
+  // rather than grep the call sites.
+
+  /** WHICH rails were on screen: none | worn | outfits | both. */
+  | 'closet_viewed'
+  /**
+   * WHICH KINDS of filter were active: category | search | both. Never the
+   * category as text, and never the query — somebody typing a brand or
+   * "interview" into their own closet is telling this app about their life.
+   */
+  | 'closet_filter'
+  /**
+   * One, many or all — never the number. A wardrobe size is a wealth proxy and
+   * a near-unique figure, which is why the bucket travels and the count does
+   * not.
+   */
+  | 'closet_selection'
+  /** What was attempted and whether it landed. Never to what. */
+  | 'closet_bulk'
+  /** Which of the three walls: room | active_full | total_full. */
+  | 'closet_capacity_state'
+  /** The plans door was opened. No plan, no price, no ceiling. */
+  | 'closet_plans_door_opened';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.

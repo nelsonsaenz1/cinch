@@ -2,6 +2,7 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useWindowDimensions, View } from 'react-native';
 
 import { ItemCard } from '@/components/closet/item-card';
+import { GRID_GUTTER, gridColumns } from '@/features/closet/closet-spec';
 import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
 import type { Item } from '@/schemas/item';
 import { GUTTER } from '@/theme/tokens';
@@ -84,11 +85,20 @@ export function ClosetGrid({
     <FlashList
       ref={listRef}
       data={items}
-      numColumns={stacked ? 1 : 2}
+      // THREE COLUMNS, not two — redesign 14. A denser grid is what makes this
+      // read as a material library rather than a product listing: at two
+      // columns a closet of eighty is eight scrolls of large cards, and the
+      // thing somebody came here to do — find a piece by looking at it — is
+      // faster the more pieces are in one glance.
+      //
+      // Not two and a half, either. A partially cut third column reads as a
+      // horizontal scroll affordance this grid does not have, and it does not
+      // reflow cleanly to the one-column accessibility layout.
+      numColumns={gridColumns(stacked)}
       // FlashList memoizes cells against the data array; the column count is
       // not part of it, so a Dynamic Type change while the grid is mounted
       // would otherwise leave every cell drawn in the old composition.
-      extraData={stacked ? `stacked:${selectedIds?.size ?? -1}` : selectedIds}
+      extraData={stacked ? `stacked:${selectedIds?.size ?? -1}` : `grid:${selectedIds?.size ?? -1}`}
       keyExtractor={(item) => item.id}
       // `extraData` above is also what makes a selection visible: FlashList
       // memoizes cells against the data array, which does not change when a
@@ -101,6 +111,7 @@ export function ClosetGrid({
           selecting={selectedIds !== null}
           selected={selectedIds?.has(item.id) ?? false}
           stacked={stacked}
+          dense={!stacked}
           stored={stored}
           metaLine={metaFor?.(item)}
           imageUri={resolveImage?.(item.listingPath, item.thumbPath, item.cutoutPath)}
@@ -114,7 +125,10 @@ export function ClosetGrid({
       // bottom padding, and nothing errors. `GUTTER` is the same measure
       // `px-gutter` gives every other page; 96 = pb-24.
       contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: 96 }}
-      ItemSeparatorComponent={() => <View className="h-1" />}
+      // Minimal gutters: the wells do the separating, and a generous gap
+      // between tiles at three columns spends on air what the grid wants to
+      // spend on pieces.
+      ItemSeparatorComponent={() => <View style={{ height: stacked ? 8 : GRID_GUTTER }} />}
       refreshControl={refreshControl}
       showsVerticalScrollIndicator={false}
       // Search mode puts a live text field directly above this grid; scrolling

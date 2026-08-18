@@ -10,6 +10,17 @@ import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useFollowerCount } from '@/features/profile/queries';
 import { useStyleProfile } from '@/features/styling/queries';
 import { compareIsoTimestamps } from '@/lib/date';
+import {
+  categoryCounts,
+  chipFor,
+  matchesSearch,
+  sentenceCase,
+  MOST_WORN_LIMIT,
+  MOST_WORN_RAIL_LIMIT,
+  TASTE_THRESHOLD,
+  type CategoryFilter,
+} from './closet-query';
+import { CLOSET_COPY, bulkFailureBody } from './closet-spec';
 import type { Item } from '@/schemas/item';
 
 /**
@@ -30,100 +41,25 @@ import type { Item } from '@/schemas/item';
  * shared by the identity view and search mode, so the two can never disagree
  * about which chip is selected.
  */
-export type CategoryFilter = 'All' | 'Tops' | 'Bottoms' | 'Outerwear' | 'Shoes' | 'Accessories';
-export const CATEGORIES: CategoryFilter[] = [
-  'All',
-  'Tops',
-  'Bottoms',
-  'Outerwear',
-  'Shoes',
-  'Accessories',
-];
-
-/** Which of the five browsing chips a stored `ItemCategory` falls under. Total: every value maps somewhere. */
-export function chipFor(category: Item['category']): CategoryFilter {
-  switch (category) {
-    case 'top':
-    case 'dress':
-      return 'Tops';
-    case 'bottom':
-      return 'Bottoms';
-    case 'outerwear':
-      return 'Outerwear';
-    case 'footwear':
-      return 'Shoes';
-    default:
-      return 'Accessories';
-  }
-}
-
-/** Top-N cutoffs. Small enough to stay highlights, not an inventory. */
-export const MOST_WORN_LIMIT = 5;
 /**
- * How many pieces the closet's wear rail carries, and how many the Latest rail
- * matches it at. Named `FAVOURITE_LIMIT` until UX-02 — see `mostWornRail`.
+ * The query policy lives in `closet-query.ts` — pure, and therefore testable.
+ * Re-exported here so every existing call site keeps importing it from the
+ * place it reads naturally, beside the hook that uses it.
  */
-export const MOST_WORN_RAIL_LIMIT = 8;
+export {
+  CATEGORIES,
+  categoryCounts,
+  chipFor,
+  matchesSearch,
+  plural,
+  sentenceCase,
+  MOST_WORN_LIMIT,
+  MOST_WORN_RAIL_LIMIT,
+  TASTE_THRESHOLD,
+  type CategoryCount,
+  type CategoryFilter,
+} from './closet-query';
 
-/**
- * How many reactions the style engine wants before it will say anything about
- * taste. Mirrors the constant of the same name in app/profile.tsx — the chips
- * below fall back to the learned style summary, and showing a "taste" the
- * engine itself would disown breaks the app's honesty rule.
- */
-export const TASTE_THRESHOLD = 8;
-
-/** Chips and captions open with a capital; tags arrive lowercase from the DB. */
-export function sentenceCase(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-/** "1 Piece", not "1 Pieces". The stats row is the app's most-read line of
- *  type and it was ungrammatical at n=1 on three of its four numbers. */
-export function plural(count: number, singular: string): string {
-  return count === 1 ? singular : `${singular}s`;
-}
-
-/**
- * Live search over the words a person would actually type: what it is, its
- * colour, the brand — and now the fabric, because the search footer promises
- * "name, colour and fabric" and a matcher that skipped `material` made that
- * sentence a lie. `q` must arrive trimmed and lowercased; the hook does that
- * once per keystroke rather than once per item.
- */
-export function matchesSearch(item: Item, q: string): boolean {
-  if (!q) return true;
-  return [item.subcategory, item.category, item.brand, item.material, ...item.colors.map((c) => c.name)]
-    .filter(Boolean)
-    .some((s) => s!.toLowerCase().includes(q));
-}
-
-/** One chip's label and its live count, for the browsing row. */
-export type CategoryCount = { category: CategoryFilter; count: number };
-
-/**
- * Counts for the category chips — `All 148`, `Tops 41`, … — computed over the
- * query-matched set so the numbers stay honest inside search, where chip and
- * typed query compose. Categories with nothing filed under them are dropped
- * (a chip promising an empty grid teaches people to stop reading the row);
- * `All` always survives, because zero pieces is a fact the row must still
- * be able to state.
- */
-export function categoryCounts(items: Item[], q: string): CategoryCount[] {
-  const matched = items.filter((i) => matchesSearch(i, q));
-  const byChip = new Map<CategoryFilter, number>();
-  for (const item of matched) {
-    const chip = chipFor(item.category);
-    byChip.set(chip, (byChip.get(chip) ?? 0) + 1);
-  }
-  return CATEGORIES.flatMap((category) => {
-    const count = category === 'All' ? matched.length : (byChip.get(category) ?? 0);
-    if (count === 0 && category !== 'All') return [];
-    return [{ category, count }];
-  });
-}
-
-/** The insight card's numbers — see `wornThisYear` for what each one claims. */
 export type WornThisYear = {
   /** Pieces worn AND worn recently enough to count for this calendar year. */
   worn: number;
@@ -173,7 +109,23 @@ export function wornThisYear(items: Item[], now: Date = new Date()): WornThisYea
  * `useReviewCount` shares the `review-queue` key prefix so every existing
  * invalidation keeps the menu badge current.
  */
-export function useClosetScreen() {
+export function useClosetScreen({
+  onBulk,
+}: {
+  /**
+   * Reports a bulk write's outcome — redesign 14's `closet_bulk`.
+   *
+   * A CALLBACK rather than a `track()` call inside the hook, and the reason is
+   * testability rather than taste: this module is executed by the node suite,
+   * and `@/lib/posthog` pulls in expo-updates and the PostHog SDK, which the
+   * bundler cannot follow. Handing the report outward keeps the hook runnable
+   * and keeps the payload's shape assertable where it is built.
+   *
+   * It carries WHAT was attempted and WHETHER it landed. Never to what, never
+   * how many — a count of owned pieces is a wardrobe size.
+   */
+  onBulk?: (action: 'recategorise' | 'store' | 'restore' | 'delete', result: 'ok' | 'failed') => void;
+} = {}) {
   const router = useRouter();
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
@@ -339,9 +291,18 @@ export function useClosetScreen() {
 
     Alert.alert(
       ids.length === 1 ? 'Remove this piece?' : `Remove ${ids.length} pieces?`,
+      // THE CAMERA ROLL SENTENCE IS LOAD-BEARING — redesign 14.
+      //
+      // The old copy said the photographs are deleted and stopped there, which
+      // is true of Cinch's copies and says nothing about the originals. A
+      // person who photographed a coat in this app reasonably reads "its photos
+      // are deleted" as covering the picture still sitting in their library,
+      // and hesitates over a destructive action for a reason that is not real.
+      // Naming what leaves AND what stays is what makes the confirmation
+      // answerable.
       ids.length === 1
-        ? 'It leaves your closet and its photos are deleted. This can’t be undone.'
-        : 'They leave your closet and their photos are deleted. This can’t be undone.',
+        ? 'This removes it and its photograph from Cinch, along with its wear history. Pictures in your own camera roll stay where they are.'
+        : 'This removes them and their photographs from Cinch, along with their wear history. Pictures in your own camera roll stay where they are.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -351,14 +312,24 @@ export function useClosetScreen() {
             remove.mutate(
               { ids },
               {
-                onSuccess: () => setPicked(null),
-                onError: (err) =>
+                onSuccess: () => {
+                  onBulk?.('delete', 'ok');
+                  setPicked(null);
+                },
+                onError: (err) => {
+                  onBulk?.('delete', 'failed');
+                  // The selection is deliberately NOT cleared: a failed delete
+                  // that also lost the choice makes the reader rebuild it
+                  // before they can retry, which is the app charging them for
+                  // its own error.
                   Alert.alert(
-                    ids.length === 1 ? 'Could not remove this piece' : 'Could not remove these pieces',
+                    CLOSET_COPY.deleteFailedTitle,
                     err instanceof Error
                       ? err.message
-                      : 'Something went wrong. Nothing has been removed.',
-                  ),
+                      : bulkFailureBody('delete', ids.length, ids.length),
+                    [{ text: CLOSET_COPY.bulkRetry }, { text: CLOSET_COPY.bulkDismiss, style: 'cancel' }],
+                  );
+                },
               },
             ),
         },
@@ -388,14 +359,17 @@ export function useClosetScreen() {
       await Promise.all(
         ids.map((id) => verify.mutateAsync({ id, patch: { category }, verify: false })),
       );
+      onBulk?.('recategorise', 'ok');
       setPicked(null);
     } catch (err) {
+      onBulk?.('recategorise', 'failed');
       // Some writes may have landed — the invalidations in `useVerifyItem`
       // keep the grid honest about which — so the mode stays open with the
       // selection intact for a retry rather than pretending it finished.
       Alert.alert(
-        'Could not move those pieces',
-        err instanceof Error ? err.message : 'Something went wrong. Try again.',
+        'That didn’t move',
+        err instanceof Error ? err.message : bulkFailureBody('recategorise', ids.length, ids.length),
+        [{ text: CLOSET_COPY.bulkRetry }, { text: CLOSET_COPY.bulkDismiss, style: 'cancel' }],
       );
     }
   };

@@ -22,6 +22,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { MOST_WORN_RAIL_LIMIT, categoryCounts } from '../src/features/closet/closet-query';
+import { CLOSET_COPY } from '../src/features/closet/closet-spec';
+
 const code = (p: string) => readFileSync(p, 'utf8');
 /** Source with comments stripped — a rule quoted in prose is not a rule kept. */
 const stripped = (p: string) =>
@@ -57,29 +60,54 @@ function secondary(): string {
 
 test('the masthead is four sections deep, and the last of them is the chips', () => {
   const src = masthead();
-  for (const section of ['<EyebrowHeader', '<Avatar', '<StatRow', '<CapacityColophon', '<CategoryChipsRow']) {
+  // `<CapacityColophon` became `<CapacityBandRow` in redesign 14: the 11pt
+  // line stating a bare count became a designed band stating BOTH ceilings,
+  // and telling the two capacity walls apart. Same slot, same order.
+  for (const section of ['<EyebrowHeader', '<Avatar', '<StatRow', '<CapacityBandRow', '<CategoryChipsRow']) {
     assert.ok(src.includes(section), `the masthead lost ${section}`);
   }
   // The chips are the last thing before the grid: a filter row that sits under
   // a summary of the thing it filters is a row nobody reaches.
   const chips = src.indexOf('<CategoryChipsRow');
-  for (const earlier of ['<EyebrowHeader', '<Avatar', '<StatRow', '<CapacityColophon']) {
+  for (const earlier of ['<EyebrowHeader', '<Avatar', '<StatRow', '<CapacityBandRow']) {
     assert.ok(src.indexOf(earlier) < chips, `${earlier} fell below the category chips`);
   }
 });
 
-test('nothing derived sits between the reader and their garments', () => {
+test('nothing that is merely ABOUT the closet sits above the garments', () => {
+  // ── REDESIGN 14 MOVED THE RAILS, AND ONLY THE RAILS ─────────────────────
+  //
+  // This used to refuse every rail above the grid, on the previous wave's
+  // argument that derived readings should not delay the first garment. That
+  // argument was right when the grid was two large columns and the rails were
+  // three of them. At three dense columns the grid still starts within a
+  // screen, and the directive asks for Most worn and Favourites at the top.
+  //
+  // The distinction that survives — and the one this test now holds — is
+  // between PIECES and READINGS. The rails are pieces: tapping one opens a
+  // garment. The insight card is a reading about pieces, and it stays below.
   const src = masthead();
-  assert.doesNotMatch(src, /<Rail\b/, 'a rail climbed back above the grid');
-  assert.doesNotMatch(src, /<InsightCard/, 'the insight card climbed back above the grid');
+  assert.doesNotMatch(src, /<InsightCard/, 'the insight card climbed above the grid');
+  assert.doesNotMatch(src, /<ExampleCloset/, 'the fictional example climbed above the grid');
 });
 
-test('the rails and the insight card are still there, below the grid', () => {
-  // Content-first is a reordering, not a deletion: every one of these still
-  // says exactly what it said.
+test('the rails sit above the grid, and each is absent rather than empty', () => {
+  const src = stripped(CLOSET);
+  assert.match(src, /<ClosetRails screen=\{screen\} \/>/, 'the rails are not in the header');
+  const rails = src.slice(src.indexOf('function ClosetRails'), src.indexOf('function SecondaryInsights'));
+  // Each guards on its own data having landed. A rail that rendered empty
+  // would tell somebody who has worn nothing that they have most-worn pieces.
+  assert.match(rails, /screen\.mostWornRail\.length > 0 \?/);
+  assert.match(rails, /if \(rails === 'none'\) return null;/);
+  // And the favourite rail is the private OUTFITS rail, not a garment state.
+  assert.match(rails, /<FavoriteOutfitsRail \/>/);
+});
+
+test('the readings are still there, below the grid', () => {
+  // Redesign 14 is a reordering, not a deletion. Latest pieces and the insight
+  // card keep the footer; Most worn moved up with the favourite outfits rail.
   const src = secondary();
   assert.match(src, /title="Latest pieces"/);
-  assert.match(src, /title="Most worn"/);
   assert.match(src, /<InsightCard/);
   assert.match(src, /accessibilityLabel="See all pieces"/, 'the Latest rail lost its way into the grid');
   assert.match(stripped(CLOSET), /ListFooterComponent=\{\s*<SecondaryInsights/);
@@ -101,7 +129,10 @@ test('Edit rides the identity row instead of a full-width button of its own', ()
 
 test('the wear rail says what it is made of', () => {
   const src = stripped(CLOSET);
-  assert.match(src, /title="Most worn"/);
+  // Built from the shared copy now, so the closet and the spec cannot drift
+  // apart about what the rail is called.
+  assert.match(src, /title=\{CLOSET_COPY\.mostWorn\}/);
+  assert.equal(CLOSET_COPY.mostWorn, 'Most worn');
   assert.doesNotMatch(src, /Favourites|favourites/, 'the closet still claims a favourite');
   assert.doesNotMatch(stripped(HOOK), /favourite/i, 'the derivation still claims a favourite');
   assert.doesNotMatch(stripped(RAIL), /favourite/i, 'the rail card still claims a favourite');
@@ -123,7 +154,9 @@ test('the rail ranks by wear count and drops what has never been worn', () => {
   const src = stripped('src/features/closet/profile.ts');
   assert.match(src, /filter\(\(i\) => i\.wearCount > 0\)/, 'a never-worn piece can reach the rail');
   assert.match(src, /sort\(\(a, b\) => b\.wearCount - a\.wearCount/, 'the rail is not ranked by wear');
-  assert.match(stripped(HOOK), /MOST_WORN_RAIL_LIMIT = 8/, 'the rail changed length');
+  // The limit moved to `closet-query.ts` with the rest of the pure policy, and
+  // is now read rather than grepped.
+  assert.equal(MOST_WORN_RAIL_LIMIT, 8, 'the rail changed length');
 });
 
 test('neither closet ordering compares timestamps with localeCompare', () => {
@@ -165,16 +198,31 @@ test('both rails keep the visibility rules they shipped with', () => {
   // renders empty; no piece count gates either.
   const src = secondary();
   assert.match(src, /screen\.latestPieces\.length > 0 \?/);
-  assert.match(src, /screen\.mostWornRail\.length > 0 \?/);
+  // Most worn moved to `ClosetRails` in redesign 14 and kept its guard.
+  assert.match(stripped(CLOSET), /screen\.mostWornRail\.length > 0 \?/);
   assert.doesNotMatch(src, /items\.length (>|>=|<) *(5|15)\b/, 'a piece-count threshold was invented');
   assert.doesNotMatch(stripped(HOOK), /=== 5|>= 15|> 15/, 'a piece-count threshold was invented');
 });
 
 test('the category chips still drop only what is empty', () => {
-  // `categoryCounts` hides a category with nothing filed under it and always
-  // keeps `All`. Untouched by this packet, and asserted so it stays that way.
-  const src = stripped(HOOK);
-  assert.match(src, /if \(count === 0 && category !== 'All'\) return \[\];/);
+  // ── NOW EXECUTED RATHER THAN GREPPED ────────────────────────────────────
+  //
+  // `categoryCounts` used to be asserted by matching a regex against the
+  // hook's source, because the hook imports react-query, expo-router and React
+  // Native and the node bundler cannot follow those. Redesign 14 moved the
+  // pure query policy into `closet-query.ts`, so the rule can be checked by
+  // running it.
+  const item = (category: string) =>
+    ({ category, subcategory: null, brand: null, material: null, colors: [] }) as never;
+  const counts = categoryCounts([item('top'), item('top')], '');
+  assert.deepEqual(
+    counts.map((c) => c.category),
+    ['All', 'Tops'],
+    'a category with nothing filed under it survived',
+  );
+  // `All` survives an empty closet, because zero pieces is a fact the row must
+  // still be able to state.
+  assert.deepEqual(categoryCounts([], ''), [{ category: 'All', count: 0 }]);
 });
 
 test('the other closet states are still branches of their own', () => {

@@ -32,6 +32,16 @@ export type ItemCardProps = {
    */
   stacked?: boolean;
   /**
+   * The three-column grid — redesign 14.
+   *
+   * The tile loses height and the label loses a size step, because a 168pt
+   * well is more than half as tall again as a three-up tile is wide, and a
+   * 15pt name under a 118pt tile wraps on almost every garment. Nothing is
+   * clamped or ellipsised that was not already: the name still holds one line,
+   * on a tile whose proportions it fits.
+   */
+  dense?: boolean;
+  /**
    * C-07 — the STORED state of this card, which the component inventory lists
    * alongside photo, silhouette, selected and skeleton.
    *
@@ -90,6 +100,7 @@ function ItemCardComponent({
   selecting = false,
   selected = false,
   stacked = false,
+  dense = false,
   stored = false,
   metaLine,
 }: ItemCardProps) {
@@ -152,14 +163,14 @@ function ItemCardComponent({
       // No width class: FlashList's two-column layout already sizes the cell.
       // px-1.5 both sides = the atlas's 12pt column gap; pb + the grid's h-1
       // separator = its 14pt row gap.
-      className="px-1.5 pb-2.5">
+      className={dense && !stacked ? 'px-0.5 pb-2' : 'px-1.5 pb-2.5'}>
       {/* C-01 / AX: at the largest type the card is a ROW — garment on the
           leading edge, name and metadata stacked beside it, "metadata wraps to
           two lines", "no truncation, no ellipsis". The composition changes;
           nothing shrinks. */}
       <Animated.View style={press.style} className={stacked ? 'flex-row items-center' : undefined}>
         <View
-          className={`overflow-hidden rounded-md ${stacked ? '' : 'h-[168px] w-full'} ${
+          className={`overflow-hidden rounded-md ${stacked ? '' : dense ? 'w-full' : 'h-[168px] w-full'} ${
             // A confirmed listing photo is a product shot the retailer already
             // set on white, so it sits on white and is CONTAINED — cropping it
             // to fill would cut the garment the shop framed deliberately. A
@@ -186,6 +197,9 @@ function ItemCardComponent({
           }`}
           style={[
             stacked ? { width: 140, height: 170 } : null,
+            // 132pt at three columns — inside the accepted 128–150 band, and
+            // roughly square against a tile about 118pt wide on a 393pt frame.
+            !stacked && dense ? { height: 132 } : null,
             dimmed ? { opacity: 0.55 } : null,
             // C-07's own value. After the selection dim, so a stored card in a
             // selection would not compound the two — the two states never
@@ -287,7 +301,7 @@ function ItemCardComponent({
             // push the metadata out of alignment across the row.
             numberOfLines={stacked ? undefined : 1}
             className="text-ink"
-            style={{ fontSize: 15, lineHeight: 20 }}>
+            style={dense && !stacked ? { fontSize: 13, lineHeight: 17 } : { fontSize: 15, lineHeight: 20 }}>
             {name}
           </Text>
 

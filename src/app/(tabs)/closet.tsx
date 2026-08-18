@@ -1,7 +1,7 @@
 import type { FlashListRef } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -14,6 +14,7 @@ import {
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CapacityBand } from '@/components/closet/capacity-band';
 import { ClosetGrid } from '@/components/closet/closet-grid';
 import { ClosetInspirationSheet } from '@/components/closet/closet-inspiration-sheet';
 import { ClosetMenu } from '@/components/closet/closet-menu';
@@ -21,16 +22,40 @@ import { ClosetSkeleton } from '@/components/closet/closet-skeleton';
 import { EmptyCloset } from '@/components/closet/empty-closet';
 import { ExampleCloset } from '@/components/closet/example-closet';
 import { FavoriteOutfitsRail } from '@/components/closet/favorite-outfits-rail';
+import { useFavoriteOutfits } from '@/features/styling/use-favorite-outfits';
 import { InsightCard } from '@/components/closet/insight-card';
 import { Placement } from '@/features/billing/placements';
 import { PLANS } from '@/features/billing/plans';
 import { useCapacity } from '@/features/billing/use-capacity';
+import { usePlan } from '@/features/billing/use-plan';
 import { useGate } from '@/features/billing/use-gate';
 import { RailCard } from '@/components/closet/rail-card';
 import { SelectionBar } from '@/components/closet/selection-bar';
 import { StatRow } from '@/components/closet/stat-row';
 import { ZeroIdentityHeader } from '@/components/closet/zero-identity-header';
 import { Avatar, Chip, EmptyState, ErrorState, SearchField, Text } from '@/components/ui';
+import {
+  CLOSET_EVENTS,
+  closetBulkProps,
+  closetCapacityProps,
+  closetFilterProps,
+  closetPlansDoorProps,
+  closetSelectionProps,
+  closetViewedProps,
+} from '@/features/closet/closet-analytics';
+import {
+  CLOSET_COPY,
+  FAB_BOTTOM,
+  FAB_RIGHT,
+  FAB_SIZE,
+  addPieceDisabled,
+  capacityState,
+  filterKind,
+  mastheadCounts,
+  railsPresent,
+  selectAllLabel,
+  selectionSize,
+} from '@/features/closet/closet-spec';
 import { searchSummary } from '@/features/closet/search-summary';
 import { useClosetInspiration } from '@/features/closet/use-closet-inspiration';
 import {
@@ -40,6 +65,7 @@ import {
 } from '@/features/closet/use-closet-screen';
 import { EditProfileSheet } from '@/features/profile/edit-profile-sheet';
 import type { Item } from '@/schemas/item';
+import { track } from '@/lib/posthog';
 import { GUTTER, MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
 /**
@@ -102,7 +128,38 @@ const CATEGORY_CHOICES: { label: string; value: Item['category'] }[] = [
 export default function ClosetScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const screen = useClosetScreen();
+  const screen = useClosetScreen({
+    onBulk: (action, result) => track(CLOSET_EVENTS.bulk, closetBulkProps(action, result)),
+  });
+
+  // WHICH KINDS of filter are active — never the category as text, and never
+  // the query. Somebody typing a brand or "interview" into their own closet is
+  // telling this app about their life, and none of it belongs on a server.
+  const kind = filterKind(screen.category, screen.query);
+  const reportedFilter = useRef<string | null>(null);
+  useEffect(() => {
+    if (kind === null) {
+      reportedFilter.current = null;
+      return;
+    }
+    if (reportedFilter.current === kind) return;
+    reportedFilter.current = kind;
+    track(CLOSET_EVENTS.filter, closetFilterProps(kind));
+  }, [kind]);
+
+  // One, many or all — never the number.
+  const pickedCount = screen.picked?.size ?? 0;
+  const size = selectionSize(pickedCount, screen.items.length);
+  const reportedSize = useRef<string | null>(null);
+  useEffect(() => {
+    if (size === null) {
+      reportedSize.current = null;
+      return;
+    }
+    if (reportedSize.current === size) return;
+    reportedSize.current = size;
+    track(CLOSET_EVENTS.selection, closetSelectionProps(size));
+  }, [size]);
   const inspiration = useClosetInspiration();
   const [menuOpen, setMenuOpen] = useState(false);
   const insets = useSafeAreaInsets();
@@ -403,16 +460,30 @@ export default function ClosetScreen() {
         selectedIds={null}
         resolveImage={screen.resolve}
         refreshControl={refreshControl}
-        ListHeaderComponent={<Masthead screen={screen} onMenu={() => setMenuOpen(true)} />}
-        // Everything that is ABOUT the closet rather than IN it, below the
-        // closet — UX-02's whole shape. The two rails and the insight card used
-        // to sit between the stat row and the chips, which put roughly 300 pt
-        // of derived reading between opening the tab and seeing a garment.
+        ListHeaderComponent={
+          <>
+            <Masthead screen={screen} onMenu={() => setMenuOpen(true)} />
+            {/* THE RAILS MOVED ABOVE THE GRID — redesign 14, and the
+                directive's own "Most worn / Favourites rails surfaced at top".
+                They were a footer, on the previous wave's argument that
+                derived readings should not delay the first garment. That was
+                right when the grid was two large columns and the rails were
+                three of them; at three dense columns the grid still starts
+                within a screen, and a rail nobody scrolls to is a rail that
+                may as well not exist.
+                Each is absent when its derivation has no data — never an empty
+                rail, which would promise something the screen cannot show. */}
+            <ClosetRails screen={screen} />
+          </>
+        }
+        // What is ABOUT the closet rather than IN it stays below it: the
+        // insight card and the example preview. Only the two RAILS moved up —
+        // they are pieces, and a rail of pieces belongs with the pieces.
         //
-        // CX-04's example preview keeps its place at the very bottom, and keeps
-        // its rule: a footer rather than a header or an injected cell, so the
-        // reader's own pieces stay first and interactive and nothing fictional
-        // can be reached by scrolling the grid itself.
+        // CX-04's example preview keeps its rule: a footer rather than a
+        // header or an injected cell, so the reader's own pieces stay first
+        // and interactive and nothing fictional can be reached by scrolling
+        // the grid itself.
         ListFooterComponent={
           <SecondaryInsights
             screen={screen}
@@ -436,6 +507,54 @@ export default function ClosetScreen() {
       <View style={{ flex: 1, opacity: menuOpen ? 0.4 : 1 }} pointerEvents={menuOpen ? 'none' : 'auto'}>
         {body}
       </View>
+
+      {/* ADD PIECE — persistent, and NEVER DISABLED. Redesign 14.
+          The wall is met at the ADD ATTEMPT, truthfully, by the server. A
+          control greyed out before the attempt teaches somebody the app is
+          broken rather than that their closet is full, and it removes the one
+          moment where the limit can be explained with its remedy.
+          `addPieceDisabled()` is a stated function rather than an absent prop
+          so a test has something to hold when somebody reaches for `disabled`.
+
+          100pt above the frame bottom so it clears the native Liquid Glass tab
+          bar at every device height — that bar cannot be dismissed from JS and
+          draws over anything at bottom: 0. Hidden while picking and while the
+          menu is open: a floating add control over a selection bar is two
+          primaries arguing. */}
+      {selecting || menuOpen || screen.items.length === 0 ? null : (
+        <Pressable
+          onPress={() => router.push('/add-clothes')}
+          disabled={addPieceDisabled()}
+          accessibilityRole="button"
+          accessibilityLabel={CLOSET_COPY.addPiece}
+          className="absolute items-center justify-center bg-accent active:opacity-80"
+          style={{
+            right: FAB_RIGHT,
+            bottom: FAB_BOTTOM,
+            width: FAB_SIZE,
+            height: FAB_SIZE,
+            borderRadius: FAB_SIZE / 2,
+          }}>
+          <SymbolView
+            name="plus"
+            size={24}
+            tintColor={theme.canvas}
+            resizeMode="scaleAspectFit"
+            fallback={
+              // `allowFontScaling={false}`: the plus is an ICON, not type.
+              // At AX-XXXL a scaling glyph outgrows the 60pt circle and clips
+              // into something that reads as a different symbol entirely —
+              // which is exactly what the first AX capture showed.
+              <Text
+                variant="label"
+                allowFontScaling={false}
+                style={{ color: theme.canvas, fontSize: 26 }}>
+                +
+              </Text>
+            }
+          />
+        </Pressable>
+      )}
 
       <ClosetMenu
         visible={menuOpen}
@@ -633,6 +752,15 @@ function Masthead({ screen, onMenu }: { screen: ClosetScreenModel; onMenu: () =>
         </Pressable>
       </View>
 
+      {/* "84 active · 26 stored" — the accepted masthead line.
+          Two numbers rather than one, because the closet has two populations
+          and the stored one is invisible on this screen: a person who put
+          twenty pieces away and sees only "84" has no way to tell whether they
+          are still there. */}
+      <View className="mt-1 px-gutter">
+        <ClosetCountsLine />
+      </View>
+
       <View className="mt-4 px-gutter">
         <StatRow
           pieces={screen.stats.pieces}
@@ -645,7 +773,7 @@ function Masthead({ screen, onMenu }: { screen: ClosetScreenModel; onMenu: () =>
       {/* The Wall, W-01/W-05 — full reads as a stated count, never a
           disabled control, and the ceiling disappears the moment it stops
           being one. */}
-      <CapacityColophon />
+      <CapacityBandRow large={false} />
 
       <CategoryChipsRow screen={screen} />
     </View>
@@ -664,6 +792,73 @@ function Masthead({ screen, onMenu }: { screen: ClosetScreenModel; onMenu: () =>
  * been worn, and neither renders empty. No piece-count threshold gates either
  * one — the implementation plan refuses the atlas's unbriefed 5/15 rules.
  */
+/**
+ * The two rails, above the grid. Redesign 14.
+ *
+ * ── ABSENT, NEVER EMPTY ─────────────────────────────────────────────────────
+ *
+ * Most worn renders only once something has been worn, because it is a
+ * DERIVATION and a derivation with no data has nothing to say. Favourite
+ * outfits renders only when outfits have been favourited — and it is the
+ * private favourite-OUTFITS rail from redesign 13, not a favourite-garment
+ * state. No garment on this screen carries a favourite marker, because no
+ * such state exists and drawing one would invent it.
+ *
+ * A rail that rendered empty would be worse than either: it would tell
+ * somebody who has worn nothing that they have most-worn pieces, and then show
+ * them a blank.
+ */
+function ClosetRails({ screen }: { screen: ClosetScreenModel }) {
+  // Read here as well as inside the rail, so the PRESENCE decision and the
+  // rail's own render agree. `useFavoriteOutfits` is a react-query hook, so
+  // this is one cache read rather than a second request.
+  const favorites = useFavoriteOutfits();
+
+  // Which rails were on screen. Never what is in them, never how many — a
+  // count of owned pieces is a wardrobe size and does not travel.
+  const rails = railsPresent(
+    screen.mostWornRail.length > 0,
+    (favorites.data?.length ?? 0) > 0,
+  );
+  const reported = useRef<string | null>(null);
+  useEffect(() => {
+    if (reported.current === rails) return;
+    reported.current = rails;
+    track(CLOSET_EVENTS.viewed, closetViewedProps(rails));
+  }, [rails]);
+
+  if (rails === 'none') return null;
+
+  return (
+    <View style={{ marginHorizontal: -GUTTER }}>
+      {screen.mostWornRail.length > 0 ? (
+        // MOST WORN, not "Favourites" — the set is `mostWornItems`, ranked by
+        // wear count. Nothing in this app lets a person nominate a favourite
+        // GARMENT and no column records one; the rail says what it is made of.
+        <Rail
+          title={CLOSET_COPY.mostWorn}
+          aside={
+            <Text variant="caption">
+              {`${screen.mostWornRail.length} ${screen.mostWornRail.length === 1 ? 'piece' : 'pieces'}`}
+            </Text>
+          }>
+          {screen.mostWornRail.map((item) => (
+            <RailCard
+              key={item.id}
+              item={item}
+              variant="mostWorn"
+              imageUri={screen.resolve(item.listingPath, item.platePath, item.cutoutPath)}
+              onPress={screen.openItem}
+            />
+          ))}
+        </Rail>
+      ) : null}
+
+      <FavoriteOutfitsRail />
+    </View>
+  );
+}
+
 function SecondaryInsights({
   screen,
   onSeeAll,
@@ -678,8 +873,6 @@ function SecondaryInsights({
     // Same negative gutter as the masthead: the grid's contentContainer pads by
     // GUTTER, and these sections measure from the screen edge.
     <View style={{ marginHorizontal: -GUTTER }}>
-      <FavoriteOutfitsRail />
-
       {screen.latestPieces.length > 0 ? (
         <Rail
           title="Latest pieces"
@@ -698,30 +891,6 @@ function SecondaryInsights({
               key={item.id}
               item={item}
               variant="latest"
-              imageUri={screen.resolve(item.listingPath, item.platePath, item.cutoutPath)}
-              onPress={screen.openItem}
-            />
-          ))}
-        </Rail>
-      ) : null}
-
-      {/* MOST WORN, not "Favourites" — UX-02's truth correction.
-          The set is `mostWornItems`, ranked by wear count, and it always was;
-          nothing in this app lets a person nominate a favourite and no column
-          records one. The rail now says what it is made of. */}
-      {screen.mostWornRail.length > 0 ? (
-        <Rail
-          title="Most worn"
-          aside={
-            <Text variant="caption">
-              {`${screen.mostWornRail.length} ${screen.mostWornRail.length === 1 ? 'piece' : 'pieces'}`}
-            </Text>
-          }>
-          {screen.mostWornRail.map((item) => (
-            <RailCard
-              key={item.id}
-              item={item}
-              variant="mostWorn"
               imageUri={screen.resolve(item.listingPath, item.platePath, item.cutoutPath)}
               onPress={screen.openItem}
             />
@@ -855,9 +1024,11 @@ function SelectionHeader({ screen }: { screen: ClosetScreenModel }) {
         className="text-ink">
         {`${count} selected`}
       </Text>
+      {/* The label is derived rather than branched on a second boolean, so the
+          word and the action can never disagree. */}
       {screen.allSelected
-        ? sideButton('Deselect all', screen.deselectAll)
-        : sideButton('Select all', screen.selectAll)}
+        ? sideButton(selectAllLabel(count, count), screen.deselectAll)
+        : sideButton(selectAllLabel(count, count + 1), screen.selectAll)}
     </View>
   );
 }
@@ -896,66 +1067,87 @@ function EmptySearch({ query, category }: { query: string; category: CategoryFil
  * printed at all, exactly as W-05 requires ("the counter stops saying 'of
  * 10' entirely").
  */
-function CapacityColophon() {
-  const theme = useTheme();
+/**
+ * Capacity, as the designed band. Redesign 14.
+ *
+ * ── WHAT THIS REPLACES, AND WHY ─────────────────────────────────────────────
+ *
+ * `CapacityColophon` — an 11pt line reading "84 PIECES", with "· FULL"
+ * appended and a See plans link beside it. Three things were wrong with it.
+ *
+ * It printed a bare count on paid plans and a fraction only under ten, so the
+ * one number that matters — how much room is left — was invisible to exactly
+ * the people with a lot of pieces. It showed a WALL as a suffix on a colophon,
+ * which is the smallest type on the screen carrying the largest fact. And it
+ * knew only one wall: `capacity.full` was true whether or not storage had room,
+ * so somebody who could have stored a piece and somebody who could not were
+ * shown the same line and offered the same door.
+ *
+ * The band states both ceilings on one track, and `capacityState` tells the two
+ * walls apart so each gets the remedy that actually works.
+ *
+ * The client displays and preflights; the server decides. Nothing here gates a
+ * write, and `addPieceDisabled()` is stated as a function so the "Add piece is
+ * never disabled" contract has something a test can hold.
+ */
+/** The masthead's own line: how many are out, and how many are put away. */
+function ClosetCountsLine() {
   const capacity = useCapacity();
+  if (capacity.loading) return null;
+  return (
+    <Text variant="note">
+      {mastheadCounts(capacity.used, Math.max(0, capacity.stored - capacity.used))}
+    </Text>
+  );
+}
+
+function CapacityBandRow({ large }: { large: boolean }) {
+  const capacity = useCapacity();
+  const { plan, copy } = usePlan();
   const gate = useGate();
-  const [presenting, setPresenting] = useState(false);
+  const router = useRouter();
+  const reported = useRef<string | null>(null);
+
+  const state = capacityState({
+    active: capacity.used,
+    activeLimit: capacity.limit,
+    stored: capacity.stored,
+    storedLimit: capacity.storedLimit,
+  });
+
+  // Which of three walls, and nothing about the ceiling or the usage — a
+  // wardrobe size is a wealth proxy and a near-unique number.
+  useEffect(() => {
+    if (capacity.loading || reported.current === state) return;
+    reported.current = state;
+    track(CLOSET_EVENTS.capacityState, closetCapacityProps(state));
+  }, [capacity.loading, state]);
+
   if (capacity.loading) return null;
 
-  const label =
-    capacity.limit <= 10
-      ? `${capacity.used} OF ${capacity.limit}${capacity.full ? ' · FULL' : ''}`
-      : `${capacity.used} ${capacity.used === 1 ? 'PIECE' : 'PIECES'}`;
-
-  const seePlans = () => {
-    setPresenting(true);
-    void gate.present(Placement.AddGarmentOverLimit).finally(() => setPresenting(false));
-  };
-
   return (
-    <View className="mt-2 flex-row items-center justify-between px-gutter">
-      {/* `style`, never a second `text-*` class: `caption` already carries
-          `text-muted`, and NativeWind resolves two colour utilities on one
-          element by key order, not by intent.
-
-          `muted`, not `faint`. This line is where a person learns their closet
-          is full, at 11px, and `faint` measures about 3.5:1 on canvas — the
-          standing refusal. The whole point of The Wall is that the limit is
-          stated plainly rather than discovered at the camera, which it cannot
-          be if the sentence is the hardest thing on the screen to read. */}
-      <Text
-        variant="caption"
-        className="shrink"
-        style={{ fontFamily: 'HelveticaNeue', fontSize: 11, letterSpacing: 0.4, color: theme.muted }}>
-        {label}
-      </Text>
-
-      {/* The door, only on the line that states the wall.
-          `AddGarmentOverLimit` already fires from capture, the garment search
-          sheet and the gap feed — every place the ceiling is HIT — while the
-          one surface that stands there every day saying FULL had nothing to
-          tap. Drawn only when it is true: nobody with room ever sees an upsell,
-          and the colophon's own wording is untouched.
-
-          Ink at 13px (`label`'s own size), never oxblood and never a filled
-          button: C-01 spends its single accent on the Unworn figure in StatRow,
-          and this has to stay a text link riding a colophon row. */}
-      {capacity.full ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="See plans"
-          accessibilityHint="Opens the membership options for a larger closet"
-          accessibilityState={{ busy: presenting, disabled: presenting }}
-          disabled={presenting}
-          onPress={seePlans}
-          hitSlop={12}
-          className="active:opacity-60">
-          <Text variant="label" className="text-ink">
-            See plans
-          </Text>
-        </Pressable>
-      ) : null}
+    <View className="px-gutter" style={{ paddingTop: 12 }}>
+      <CapacityBand
+        plan={plan}
+        planName={copy.name}
+        active={capacity.used}
+        activeLimit={capacity.limit}
+        archived={Math.max(0, capacity.stored - capacity.used)}
+        total={capacity.stored}
+        storedLimit={capacity.storedLimit}
+        state={state}
+        large={large}
+        onDoor={(door) => {
+          if (door === 'store') {
+            router.push('/storage');
+            return;
+          }
+          // The plans door, reported as opened and never with a plan or a
+          // price attached.
+          track(CLOSET_EVENTS.plansDoor, closetPlansDoorProps());
+          void gate.present(Placement.AddGarmentOverLimit);
+        }}
+      />
     </View>
   );
 }

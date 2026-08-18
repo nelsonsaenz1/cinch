@@ -19,6 +19,8 @@ import { readFileSync } from 'node:fs';
 import { WEEK_COPY } from '../src/features/plan/plan-week-spec';
 import { test } from 'node:test';
 
+import { CLOSET_COPY } from '../src/features/closet/closet-spec';
+
 import {
   INTAKE_ROUTES,
   TEN_RECOMMENDED_BADGE,
@@ -330,7 +332,12 @@ test('CX-03/04 — the example badge and compact title carry the disclosure with
 
 test('CX-03 — the empty closet’s title, body and action, exactly', () => {
   const empty = code('src/components/closet/empty-closet.tsx');
-  assert.match(empty, /EMPTY_TITLE = 'Start your closet'/);
+  // Redesign 14 aligned this to the activation copy: Today's floor, The Ten
+  // and the free plan all say TEN, and this screen — the one place somebody
+  // arrives with nothing — said a number-free encouragement instead. It is
+  // derived from `CLOSET_COPY` now, so the two cannot drift.
+  assert.match(empty, /EMPTY_TITLE = CLOSET_COPY\.emptyTitle/);
+  assert.equal(CLOSET_COPY.emptyTitle, 'Start with ten pieces');
   assert.match(empty, /EMPTY_ACTION = 'Add your first piece'/);
   // The body is composed from the free tier rather than typed, and at today's
   // value it reads exactly as the correction writes it.

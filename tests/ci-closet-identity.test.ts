@@ -18,6 +18,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { CLOSET_COPY } from '../src/features/closet/closet-spec';
+
 // Leaf modules — no React Native anywhere in either graph, so the arithmetic
 // below is checked for real rather than asserted about as text.
 import { leading } from '../src/theme/font-metrics.js';
@@ -165,7 +167,12 @@ test('CI-01 — the starter card keeps its approved words and its existing route
   // from CX-03, and the body is still composed from the free tier's own
   // ceiling rather than a typed ten.
   const empty = code(EMPTY);
-  assert.match(empty, /EMPTY_TITLE = 'Start your closet'/);
+  // Redesign 14 aligned this to the activation copy: Today's floor, The Ten
+  // and the free plan all say TEN, and this screen — the one place somebody
+  // arrives with nothing — said a number-free encouragement instead. It is
+  // derived from `CLOSET_COPY` now, so the two cannot drift.
+  assert.match(empty, /EMPTY_TITLE = CLOSET_COPY\.emptyTitle/);
+  assert.equal(CLOSET_COPY.emptyTitle, 'Start with ten pieces');
   assert.match(empty, /EMPTY_ACTION = 'Add your first piece'/);
   assert.match(empty, /`Add \$\{PLANS\.free\.items\} pieces and Cinch can start building outfits from what you own\.`/);
   assert.equal(PLANS.free.items, 10);

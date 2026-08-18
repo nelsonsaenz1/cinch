@@ -1,6 +1,7 @@
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import { CLOSET_COPY } from '@/features/closet/closet-spec';
 import { PLANS } from '@/features/billing/plans';
 import { useTheme } from '@/theme/tokens';
 
@@ -42,8 +43,20 @@ import { useTheme } from '@/theme/tokens';
 export const POSITIONING_LINE =
   'Your closet first. Shop only when something is genuinely missing.';
 
-/** CX-03's title. */
-export const EMPTY_TITLE = 'Start your closet';
+/**
+ * CX-03's title, aligned to the activation copy in redesign 14.
+ *
+ * It read "Start your closet", which is a fine sentence and was the wrong one:
+ * Today's activation floor, The Ten and the free plan all say TEN, and this
+ * screen — the one place somebody arrives with nothing — said a number-free
+ * encouragement instead. A person who reads "Start with ten pieces" on Today
+ * and "Start your closet" here has been given two different asks for the same
+ * thing.
+ *
+ * Built from `CLOSET_COPY` so the closet and the spec cannot drift, and
+ * `CLOSET_COPY.emptyTitle` is the same string Today's floor prints.
+ */
+export const EMPTY_TITLE = CLOSET_COPY.emptyTitle;
 
 /** CX-03's action. Named for the first photograph, not for the chooser. */
 export const EMPTY_ACTION = 'Add your first piece';

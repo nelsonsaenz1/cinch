@@ -125,6 +125,10 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     [['Every state, one link apart', '/dev-r13-wear-confirm']],
   ],
   [
+    'Redesign 14 · Closet',
+    [['Capacity, chips and selection', '/dev-r14-closet']],
+  ],
+  [
     'Group 3 · Closet and Intake',
     [
       ['AC-03', '/dev-w3-g3-ac-03'],
