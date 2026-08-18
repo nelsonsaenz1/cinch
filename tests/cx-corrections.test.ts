@@ -454,7 +454,16 @@ test('UX-04 — the masthead carries a search ACTION, and the search itself move
 });
 
 test('UX-04 — the people-search sheet exists and is registered as one', () => {
-  const sheet = code('src/app/people-search.tsx');
+  // Redesign 09 (2026-08-17) split the page: `people-search.tsx` is the state
+  // machine and the mutations, `people-search-body.tsx` is the drawing, so the
+  // six accepted frames can be posed as fixtures. UX-04's claim is about the
+  // SHEET, which is both files together — so both are read here. What UX-04
+  // asserted has not moved an inch: a field, opened with the keyboard up, and
+  // a way out that is not a chevron.
+  const route = code('src/app/people-search.tsx');
+  const drawn = code('src/components/social/people-search-body.tsx');
+  const sheet = `${route}\n${drawn}`;
+
   assert.match(sheet, /<SearchField/, 'the sheet has no search field');
   assert.match(sheet, /autoFocus/, 'the sheet opens without the keyboard');
   assert.match(sheet, /accessibilityLabel="Close search"/, 'the sheet has no way out');

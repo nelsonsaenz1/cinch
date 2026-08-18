@@ -1,47 +1,54 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
-import { Alert, Pressable, TextInput, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Alert, TextInput, useWindowDimensions } from 'react-native';
 
-import { Avatar } from '@/components/ui/avatar';
-import { Card } from '@/components/ui/card';
-import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
-import { Rule } from '@/components/ui/rule';
-import { SearchField } from '@/components/ui/search-field';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
+import {
+  PeopleSearchBody,
+  type PeopleRow,
+  type PeopleSearchView,
+} from '@/components/social/people-search-body';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
-import { LatelyButton } from '@/features/explore/lately-button';
+import { useMyProfile } from '@/features/profile/queries';
 import { useFollow } from '@/features/social-graph/mutations';
+import {
+  INVITE_ROUTE,
+  PEOPLE_SEARCH_STACK_SCALE,
+} from '@/features/social-graph/people-search-spec';
 import { useFollowing, useFriends, useProfileSearch } from '@/features/social-graph/queries';
-import { profileName, type SocialProfile } from '@/features/social-graph/types';
-import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+import { useRecentPeople } from '@/features/social-graph/recent-people';
+import type { SocialProfile } from '@/features/social-graph/types';
+import { haptics } from '@/lib/haptics';
 
 /**
- * Finding people — UX-04's other half.
+ * Finding people — the state machine and the mutations. Redesign 09.
  *
- * Explore used to carry this as a permanent masthead block: a labelled field
- * sitting above the timeline on every visit, whether or not anybody was looking
- * for anyone. It cost roughly a fifth of the first fold to a job most sessions
- * do not have, and it pushed the thing the page is *for* — what your friends
- * have added — below the fold on the smallest iPhone. The accepted design moves
- * it here, behind an explicit search action in the header, and keeps it
- * prominent in exactly the one state where finding people IS the job: the empty
- * circle, whose hero button opens this sheet.
+ * The drawing is in `components/social/people-search-body.tsx`; this file is
+ * only the wiring, which is the split every other rebuilt page in the repo
+ * makes and the reason the six accepted frames can be opened as fixtures.
  *
- * Nothing about *what* can be searched changed. `useProfileSearch` reads the
- * same `social_profiles`/`public_profiles` projections it always did, under the
- * same contract, and a friendship is still mutual. The composition below —
- * 36pt disc, 15px name, 12px handle, the outlined Add — is the one Explore used
- * to draw, moved rather than redesigned.
+ * ── WHAT THE REDESIGN CHANGED, AND WHAT IT DID NOT ────────────────────────
  *
- * A sheet rather than a tab or a pushed page: this is a task you complete and
- * dismiss, which is the same argument `stylist` and `profile` already make in
- * the root layout, and it is registered there in the same dialect.
+ * Changed: the page is now a designed surface rather than a field with a list
+ * under it — two invite rows that leave the moment typing starts, a recent
+ * list, drawn empty and error states, and the overlap defect closed in the
+ * row's own layout rather than in the data that happened to fit.
+ *
+ * Not changed, and deliberately: WHAT can be searched. `useProfileSearch`
+ * reads the same `social_profiles`/`public_profiles` projections under the
+ * same contract, a friendship is still mutual, a request is still a follow
+ * edge, and the privacy layer still decides who is nameable. Nothing here
+ * widens a query, caches a person the server would no longer name, or sends
+ * a username anywhere. There is no analytics call on this page at all — the
+ * one thing a search screen must never emit is what was typed into it.
+ *
+ * The sheet presentation, and its reasoning, are unchanged: this is a task
+ * you complete and dismiss, registered as a `formSheet` in `_layout.tsx`
+ * alongside `stylist` and `profile`.
  */
 export default function PeopleSearchScreen() {
   const router = useRouter();
-  const theme = useTheme();
   const searchRef = useRef<TextInput>(null);
+  const { fontScale } = useWindowDimensions();
 
   const [query, setQuery] = useState('');
 
@@ -50,18 +57,46 @@ export default function PeopleSearchScreen() {
   const following = useFollowing();
   const follow = useFollow();
   const terms = useSocialTermsGate();
+  const me = useMyProfile();
+  const recent = useRecentPeople();
 
-  const friendIds = new Set((friends.data ?? []).map((p) => p.userId));
-  const followingIds = new Set(following.data ?? []);
+  const friendIds = useMemo(
+    () => new Set((friends.data ?? []).map((p) => p.userId)),
+    [friends.data],
+  );
+  const followingIds = useMemo(() => new Set(following.data ?? []), [following.data]);
 
-  const searching = query.trim().replace(/^@/, '').length >= 2;
+  /**
+   * Where a person stands with you, resolved once for every list on the page.
+   *
+   * `isSelf` comes from the search itself — a username field is the one place
+   * looking yourself up is reasonable, and the row says "You" rather than
+   * offering an Add that could only ever fail.
+   */
+  const rowFor = (profile: SocialProfile & { isSelf?: boolean }): PeopleRow => ({
+    ...profile,
+    state: profile.isSelf
+      ? 'you'
+      : friendIds.has(profile.userId)
+        ? 'friends'
+        : followingIds.has(profile.userId)
+          ? 'requested'
+          : 'add',
+  });
 
-  const addFriend = (profile: SocialProfile) => {
+  const addFriend = (row: PeopleRow) => {
     follow.mutate(
-      { userId: profile.userId },
+      { userId: row.userId },
       {
+        onSuccess: () => {
+          // The user was waiting on a round trip, which is the whole of this
+          // app's rule for a success notification — and it fires here, after
+          // the server agreed, never on the tap.
+          haptics.success();
+          recent.remember(row.userId);
+        },
         onError: (err) => {
-          if (terms.intercept(err, () => addFriend(profile))) return;
+          if (terms.intercept(err, () => addFriend(row))) return;
           Alert.alert(
             'Could not send that request',
             err instanceof Error ? err.message : 'Something went wrong. Try again.',
@@ -72,219 +107,49 @@ export default function PeopleSearchScreen() {
   };
 
   /**
-   * Out to the invite link. Dismiss first, then push — the same order the
-   * friend-closet row below uses, so a page never stacks inside a sheet.
+   * Out to Share — page 10, and the single destination of every invite
+   * affordance on this page. Dismiss first, then push: a page opened from
+   * inside a sheet would otherwise stack on top of one.
    */
-  const openInvite = () => {
+  const openShare = () => {
     router.back();
-    router.push('/invite');
+    router.push(INVITE_ROUTE);
   };
 
-  /** What the right edge of a result says about where things stand. */
-  const trailing = (profile: SocialProfile) => {
-    if (friendIds.has(profile.userId)) {
-      return (
-        <Text variant="caption" style={{ fontSize: 12, lineHeight: 16, color: theme.muted }}>
-          Friends
-        </Text>
-      );
-    }
-    if (followingIds.has(profile.userId)) {
-      return (
-        <Text variant="caption" style={{ fontSize: 12, lineHeight: 16, color: theme.muted }}>
-          Requested
-        </Text>
-      );
-    }
-    return (
-      <LatelyButton title="Add" disabled={follow.isPending} onPress={() => addFriend(profile)} />
-    );
+  const openProfile = (row: PeopleRow) => {
+    haptics.commit();
+    recent.remember(row.userId);
+    router.back();
+    router.push({ pathname: '/friends/[userId]', params: { userId: row.userId } });
+  };
+
+  const view: PeopleSearchView = {
+    query,
+    onChangeQuery: setQuery,
+    onCancel: () => router.back(),
+    shareHandle: me.data?.username || null,
+    onShare: openShare,
+    results: (search.data ?? []).map(rowFor),
+    recent: recent.people.map(rowFor),
+    // `isLoading` and not `isFetching`: the first answer to a new query is
+    // what the skeletons stand in for. A background refetch of a list already
+    // on screen must not replace it with grey bars.
+    loading: search.isLoading,
+    error: search.isError ? search.error : null,
+    onRetry: () => void search.refetch(),
+    onOpenProfile: openProfile,
+    onAdd: addFriend,
+    adding: follow.isPending,
+    inputRef: searchRef,
+    // The sheet exists because the user asked to search; opening it with the
+    // keyboard down would make them ask twice.
+    autoFocus: true,
   };
 
   return (
-    <View className="flex-1 bg-canvas">
-      <View className="px-gutter pt-5">
-        <View className="flex-row items-start justify-between gap-3">
-          <Text variant="title" trim accessibilityRole="header">
-            Find people
-          </Text>
-          {/* Cancel, not a chevron: the sheet has no page behind it to go back
-              to, and iOS's own search sheets end this way. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close search"
-            onPress={() => router.back()}
-            hitSlop={12}
-            style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-            className="active:opacity-60">
-            <Text variant="label" style={{ color: theme.accent }}>
-              Cancel
-            </Text>
-          </Pressable>
-        </View>
-
-        <View style={{ marginTop: 14 }}>
-          <SearchField
-            inputRef={searchRef}
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Find a friend by username"
-            accessibilityLabel="Find a friend by username"
-            // The sheet exists because the user asked to search; opening it
-            // with the keyboard down would make them ask twice.
-            autoFocus
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-      </View>
-
-      <KeyboardAwareScrollView contentContainerClassName="px-gutter pb-16 pt-4">
-        {!searching ? (
-          // The resting state, before two characters exist. The sheet is
-          // predicated on already knowing a handle; this is the one thing to
-          // say to somebody who does not.
-          <InviteWayOut onPress={openInvite} className="mt-6" />
-        ) : (
-          <>
-            <Card style={{ borderRadius: 16 }}>
-              {search.isLoading ? (
-                // The result row's own geometry — a 36pt disc and two bars — so
-                // nothing jumps when the names land.
-                <View className="flex-row items-center gap-3 px-4 py-3.5">
-                  <Skeleton style={{ width: 36, height: 36, borderRadius: 18 }} />
-                  <View className="flex-1" style={{ gap: 7 }}>
-                    <Skeleton className="rounded-chip" style={{ height: 13, width: '52%' }} />
-                    <Skeleton className="rounded-chip" style={{ height: 10, width: '28%' }} />
-                  </View>
-                </View>
-              ) : search.isError ? (
-                // What it still refuses to claim is unchanged: a failed search
-                // says nothing about who is on Cinch.
-                <View accessibilityRole="alert" style={{ padding: 16 }}>
-                  <Text style={{ fontFamily: 'HelveticaNeue', fontSize: 15, lineHeight: 20 }}>
-                    Couldn’t search just now.
-                  </Text>
-                  <Text
-                    className="text-muted"
-                    style={{ marginTop: 6, fontSize: 13, lineHeight: 20 }}>
-                    This is a connection problem, not an answer about who is on Cinch.
-                  </Text>
-                  <View className="self-start" style={{ marginTop: 12 }}>
-                    <LatelyButton
-                      title="Try again"
-                      height={36}
-                      onPress={() => void search.refetch()}
-                    />
-                  </View>
-                </View>
-              ) : (search.data ?? []).length === 0 ? (
-                // A sentence, not an empty state — the page is not empty, the
-                // query is.
-                <Text
-                  variant="body"
-                  className="px-4 py-3.5"
-                  style={{ fontSize: 15, lineHeight: 20, color: theme.muted }}>
-                  No one by that username.
-                </Text>
-              ) : (
-                (search.data ?? []).map((profile, i) => {
-                  const name = profileName(profile);
-                  const subtitle = profile.username ? `@${profile.username}` : null;
-                  const opens = friendIds.has(profile.userId);
-                  return (
-                    <View key={profile.userId}>
-                      {i > 0 ? <Rule tone="hairline" /> : null}
-                      <Pressable
-                        accessibilityRole={opens ? 'button' : 'text'}
-                        accessibilityLabel={[name, subtitle].filter(Boolean).join(', ')}
-                        onPress={
-                          opens
-                            ? () => {
-                                // Dismiss first: a closet pushed from inside a
-                                // sheet would stack a page on top of one.
-                                router.back();
-                                router.push({
-                                  pathname: '/friends/[userId]',
-                                  params: { userId: profile.userId },
-                                });
-                              }
-                            : undefined
-                        }
-                        disabled={!opens}
-                        style={{ minHeight: MIN_TAP_TARGET }}
-                        className="flex-row items-center gap-3 px-4 py-3.5 active:opacity-60">
-                        <Avatar name={name} size={36} imageUri={profile.avatarUrl} />
-                        <View className="flex-1">
-                          <Text
-                            variant="body"
-                            numberOfLines={1}
-                            style={{ fontSize: 15, lineHeight: 20 }}>
-                            {name}
-                          </Text>
-                          {subtitle ? (
-                            <Text
-                              variant="caption"
-                              numberOfLines={1}
-                              style={{
-                                marginTop: 1,
-                                fontSize: 12,
-                                lineHeight: 16,
-                                color: theme.muted,
-                              }}>
-                              {subtitle}
-                            </Text>
-                          ) : null}
-                        </View>
-                        {trailing(profile)}
-                      </Pressable>
-                    </View>
-                  );
-                })
-              )}
-            </Card>
-
-            {/* The miss, answered. A username search that finds nobody is the
-                commonest real dead end — you want a particular friend and do
-                not know what they called themselves — and the invite link is
-                the way through it. */}
-            {search.isSuccess && (search.data ?? []).length === 0 ? (
-              <InviteWayOut onPress={openInvite} className="mt-5" />
-            ) : null}
-          </>
-        )}
-      </KeyboardAwareScrollView>
-
+    <>
+      <PeopleSearchBody view={view} large={fontScale >= PEOPLE_SEARCH_STACK_SCALE} />
       {terms.sheet}
-    </View>
-  );
-}
-
-/**
- * The one question this sheet cannot answer, and the one link that can.
- *
- * Ink, never accent: Cancel already spends this sheet's single oxblood in the
- * masthead, and a second one here would put two primary actions on a screen
- * whose primary action is typing. No banner, no illustration, no growth copy —
- * a question and a link, in the two moments username search has nothing to give.
- */
-function InviteWayOut({ onPress, className = '' }: { onPress: () => void; className?: string }) {
-  const theme = useTheme();
-
-  return (
-    <View className={className}>
-      <Text variant="note">Not sure of their username?</Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Send an invite link"
-        onPress={onPress}
-        hitSlop={8}
-        style={{ minHeight: MIN_TAP_TARGET }}
-        className="justify-center active:opacity-60">
-        <Text variant="label" style={{ color: theme.ink }}>
-          Send an invite link
-        </Text>
-      </Pressable>
-    </View>
+    </>
   );
 }

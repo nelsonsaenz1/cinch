@@ -14,13 +14,29 @@ const body = (path: string) =>
   code(path).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 
 test('People Search keeps the task UI without repeating mutual-friendship lessons', () => {
-  const src = body('src/app/people-search.tsx');
+  // Redesign 09 (2026-08-17) rebuilt this page to an accepted atlas and split
+  // it in two — the route holds the wiring, `people-search-body.tsx` the
+  // drawing, and the strings moved into `people-search-spec.ts` where
+  // `tests/people-search-spec.test.ts` pins them verbatim.
+  //
+  // Two of the assertions below were the OLD copy and are now the accepted
+  // copy: "Couldn’t search just now" became "Search couldn’t reach Cinch" and
+  // "No one by that username" became "No one goes by that username". What this
+  // test is actually for is untouched, and is the last line: the page states
+  // its task and does not re-teach the friendship model somebody already read
+  // on Friends.
+  const src = [
+    body('src/app/people-search.tsx'),
+    body('src/components/social/people-search-body.tsx'),
+    body('src/features/social-graph/people-search-spec.ts'),
+  ].join('\n');
+
   assert.match(src, /Find people/);
   assert.match(src, /<SearchField/);
   assert.match(src, /autoFocus/);
   assert.match(src, /Close search/);
-  assert.match(src, /Couldn’t search just now/);
-  assert.match(src, /No one by that username/);
+  assert.match(src, /Search couldn’t reach Cinch/);
+  assert.match(src, /No one goes by that username/);
   assert.doesNotMatch(src, /friendship is mutual|closet opens to you/i);
 });
 

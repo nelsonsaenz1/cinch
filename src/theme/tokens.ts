@@ -60,6 +60,24 @@ export const canvasAlpha = (alpha: number) => `rgba(251,250,246,${alpha})`;
  */
 export const accentAlpha = (alpha: number) => `rgba(110,43,43,${alpha})`;
 
+/**
+ * The warning amber, composited — for the one status pill People Search draws
+ * when a search could not leave the phone.
+ *
+ * Same discipline as `canvasAlpha` and `accentAlpha`, and the same reason:
+ * the accepted frame washes its OFFLINE pill in a pale amber, and the choice
+ * is between deriving that from the palette's own `warning` or eyedropping a
+ * fourth amber nobody can trace back to a token. `warning` (#C58A2E) is a
+ * FILL colour, not a ground — the contrast record already says canvas-on-
+ * warning is 2.85:1 and that ink is what goes on it — so a pill built from it
+ * takes the colour at a low alpha for the ground and `ink` for the label.
+ *
+ * Keep to the same small set of steps: ~0.22 for a pill's ground, 1.0 for the
+ * mark itself. A ramp with twelve values is a second palette wearing a
+ * function's clothes.
+ */
+export const warningAlpha = (alpha: number) => `rgba(197,138,46,${alpha})`;
+
 export function useTheme(): ThemeColors & { scheme: ColorSchemeName } {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   return { ...palette[scheme], scheme };

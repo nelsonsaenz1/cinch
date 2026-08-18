@@ -262,6 +262,17 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'People Search — redesign 09',
+    [
+      ['PS-01 · default, at rest', '/dev-ps-01-default'],
+      ['PS-02 · keyboard, results', '/dev-ps-02-keyboard'],
+      ['PS-03 · no results', '/dev-ps-03-empty'],
+      ['PS-04 · loading', '/dev-ps-04-loading'],
+      ['PS-05 · offline', '/dev-ps-05-error'],
+      ['PS-06 · largest accessibility text', '/dev-ps-06-ax'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],
