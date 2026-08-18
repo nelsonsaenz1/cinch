@@ -18,13 +18,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FIXTURE_OUTFIT } from '@/components/dev/fixtures';
 import { RevealCount } from '@/components/reveal/reveal-count';
 import { RevealStage } from '@/components/reveal/reveal-stage';
+import { displayFontSize } from '@/features/onboarding/reveal-spec';
 import { Plate } from '@/components/today/plate';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import type { Tally } from '@/features/closet/outfit-count';
+import { countOutfits, type Tally } from '@/features/closet/outfit-count';
 import {
   compositionChips,
-  headline,
   substitutionDerivation,
 } from '@/features/onboarding/reveal-copy';
 
@@ -43,9 +43,11 @@ export default function Fixture() {
     <RevealStage>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
         <RevealCount
-          headline={headline(10, TALLY)}
+          count={countOutfits(TALLY)}
+          fontSize={displayFontSize(countOutfits(TALLY), false, false)}
           derivation={substitutionDerivation(TALLY, 'tops')}
           chips={compositionChips(TALLY, true, true)}
+          spokenLabel={substitutionDerivation(TALLY, 'tops')}
         />
         <View style={{ marginTop: 24 }}>
           <Text variant="eyebrow">The first one</Text>

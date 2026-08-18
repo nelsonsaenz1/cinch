@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
-import type { MissingRow } from '@/features/onboarding/reveal-copy';
+import { REVEAL_COPY } from '@/features/onboarding/reveal-spec';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -24,15 +24,22 @@ import { useTheme } from '@/theme/tokens';
 export function RevealEmpty({
   headline,
   body,
-  rows,
+  needs,
   fix,
   onFix,
   onOpenToday,
 }: {
-  /** "Ten pieces. No outfits yet." — from `zeroHeadline()`. */
+  /** "Not an outfit yet." — the result, stated as a result. */
   headline: string;
   body: string;
-  rows: MissingRow[];
+  /**
+   * What is missing, as things a person could photograph — from
+   * `missingPhrases()`. This was a label/value TABLE and the accepted frames
+   * replace it with phrases, because a reader who has just been told the
+   * arithmetic came back nothing should not have to do the arithmetic again to
+   * work out what to do.
+   */
+  needs: string[];
   /** The smallest real fix — from `smallestFix()`; null closets never reach here. */
   fix: string | null;
   onFix: () => void;
@@ -50,32 +57,20 @@ export function RevealEmpty({
           {body}
         </Text>
 
-        {/* Only the kinds that bear on the failure are listed — a closet with a
-            dress and no shoes shows Dresses and Shoes, never a Bottoms row
-            nobody's outfit needs. */}
+        {/* Only what bears on the failure is listed — a closet with a dress
+            and no shoes names shoes, never a bottom nobody's outfit needs. */}
         <View style={{ marginTop: 26 }}>
-          {rows.map((row) => (
-            <View key={row.label}>
+          {needs.map((need) => (
+            <View key={need}>
               <Rule />
-              <View
-                className="flex-row items-center justify-between"
-                style={{ paddingVertical: 12 }}>
-                <Text variant="body" style={{ fontSize: 16 }}>
-                  {row.label}
-                </Text>
-                <Text
-                  variant="heading"
-                  style={{
-                    fontSize: 16,
-                    fontVariant: ['tabular-nums'],
-                    color: row.needed ? theme.accent : theme.ink,
-                  }}>
-                  {row.value}
+              <View style={{ paddingVertical: 14 }}>
+                <Text variant="body" style={{ fontSize: 16, color: theme.ink }}>
+                  {need}
                 </Text>
               </View>
             </View>
           ))}
-          <Rule />
+          {needs.length > 0 ? <Rule /> : null}
         </View>
       </View>
 
@@ -84,7 +79,7 @@ export function RevealEmpty({
         {/* Nothing is withheld by leaving: the pieces are already in the closet
             and every other surface still works. */}
         <Button
-          title="Open Today anyway"
+          title={REVEAL_COPY.zeroOpenToday}
           variant="ghost"
           onPress={onOpenToday}
           className="self-stretch"

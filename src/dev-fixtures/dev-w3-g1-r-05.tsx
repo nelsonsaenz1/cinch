@@ -19,13 +19,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RevealEmpty } from '@/components/reveal/reveal-empty';
 import { RevealStage } from '@/components/reveal/reveal-stage';
+import {
+  REVEAL_COPY,
+  missingPhrases,
+  piecesToFirstOutfit,
+  zeroBodyLine,
+} from '@/features/onboarding/reveal-spec';
 import { Text } from '@/components/ui/text';
 import type { Tally } from '@/features/closet/outfit-count';
 import {
-  missingRows,
   smallestFix,
-  zeroBody,
-  zeroHeadline,
 } from '@/features/onboarding/reveal-copy';
 
 /** Ten tops and nothing else — the closet the atlas draws this state for. */
@@ -43,10 +46,10 @@ export default function Fixture() {
   return (
     <RevealStage>
       <RevealEmpty
-        headline={zeroHeadline(10)}
-        body={zeroBody(TALLY)}
-        rows={missingRows(TALLY)}
-        fix={smallestFix(TALLY)}
+        headline={REVEAL_COPY.zeroTitle}
+        body={zeroBodyLine(10, TALLY, piecesToFirstOutfit(TALLY))}
+        needs={missingPhrases(TALLY)}
+        fix={smallestFix(TALLY) ? REVEAL_COPY.zeroRepair : null}
         onFix={() => {}}
         onOpenToday={() => {}}
       />

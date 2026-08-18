@@ -8,18 +8,23 @@ import { RevealArrival } from '@/components/reveal/reveal-arrival';
 import { RevealCount } from '@/components/reveal/reveal-count';
 import { RevealEmpty } from '@/components/reveal/reveal-empty';
 import { RevealStage } from '@/components/reveal/reveal-stage';
+import {
+  REVEAL_COPY,
+  arrivalBody,
+  arrivalTitle,
+  derivationLine,
+  displayFontSize,
+  missingPhrases,
+  piecesToFirstOutfit,
+  zeroBodyLine,
+} from '@/features/onboarding/reveal-spec';
 import { Plate } from '@/components/today/plate';
 import { Text } from '@/components/ui/text';
-import type { Tally } from '@/features/closet/outfit-count';
+import { countOutfits, type Tally } from '@/features/closet/outfit-count';
 import {
   compositionChips,
-  defaultDerivation,
-  headline,
-  missingRows,
   smallestFix,
   substitutionDerivation,
-  zeroBody,
-  zeroHeadline,
 } from '@/features/onboarding/reveal-copy';
 
 /**
@@ -92,6 +97,9 @@ function PageR01() {
         ]}
         lastUri={SAMPLE_ASSET.tote}
         pieceCount={10}
+        title={arrivalTitle(10)}
+        body={arrivalBody(10)}
+        tail={REVEAL_COPY.arrivalBody}
       />
     </RevealStage>
   );
@@ -101,9 +109,11 @@ function PageR02() {
   return (
     <RevealStage>
       <RevealCount
-        headline={headline(10, CANONICAL_TALLY)}
-        derivation={defaultDerivation(CANONICAL_TALLY)}
+        count={countOutfits(CANONICAL_TALLY)}
+        fontSize={displayFontSize(countOutfits(CANONICAL_TALLY), false, false)}
+        derivation={derivationLine(10, CANONICAL_TALLY)}
         chips={compositionChips(CANONICAL_TALLY, true, true)}
+        spokenLabel={derivationLine(10, CANONICAL_TALLY)}
       />
     </RevealStage>
   );
@@ -134,9 +144,11 @@ function PageR04() {
   return (
     <RevealStage>
       <RevealCount
-        headline={headline(10, DEVIATED_TALLY)}
+        count={countOutfits(DEVIATED_TALLY)}
+        fontSize={displayFontSize(countOutfits(DEVIATED_TALLY), false, false)}
         derivation={substitutionDerivation(DEVIATED_TALLY, 'tops')}
         chips={compositionChips(DEVIATED_TALLY, true, true)}
+        spokenLabel={substitutionDerivation(DEVIATED_TALLY, 'tops')}
       />
     </RevealStage>
   );
@@ -146,10 +158,10 @@ function PageR05() {
   return (
     <RevealStage>
       <RevealEmpty
-        headline={zeroHeadline(10)}
-        body={zeroBody(BARE_TALLY)}
-        rows={missingRows(BARE_TALLY)}
-        fix={smallestFix(BARE_TALLY)}
+        headline={REVEAL_COPY.zeroTitle}
+        body={zeroBodyLine(10, BARE_TALLY, piecesToFirstOutfit(BARE_TALLY))}
+        needs={missingPhrases(BARE_TALLY)}
+        fix={smallestFix(BARE_TALLY) ? REVEAL_COPY.zeroRepair : null}
         onFix={() => {}}
         onOpenToday={() => {}}
       />

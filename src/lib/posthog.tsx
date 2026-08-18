@@ -707,7 +707,34 @@ export type AppEvent =
   /** Nothing clean and suitable was available. An outcome, not an error. */
   | 'no_viable_combination'
   /** The activation floor was shown: "Start with ten pieces." */
-  | 'closet_floor_shown';
+  | 'closet_floor_shown'
+
+  // ── Redesign 12 · The Reveal ──────────────────────────────────────────────
+  //
+  // Three additions, all bounded, all built by
+  // `features/onboarding/reveal-analytics.ts` — a module with no import of
+  // this one, so the node suite can execute every builder and assert the
+  // payloads rather than grep the call sites.
+
+  /**
+   * Which beat the sequence reached: arriving | computing | counting |
+   * settled | cascade | complete | zero. Never a duration, never what drew.
+   */
+  | 'reveal_phase'
+  /**
+   * How the reader left: open_today | dismissed | unavailable | purchase |
+   * zero_repair | zero_open_today. `dismissed` and `unavailable` stay apart
+   * because a refusal and an outage are different facts, even though both
+   * land on the same Today with the same free tier intact.
+   */
+  | 'reveal_exit'
+  /**
+   * WHICH OF FIVE BUCKETS the outfit count fell into — 0 | 1 | 2-9 | 10-49 |
+   * 50+ — and never the count itself. The exact number is a deterministic
+   * function of one person's wardrobe with a long tail: 184 is close to
+   * unique, and joined to a timestamp it is a fingerprint.
+   */
+  | 'outfit_count_bucket';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.

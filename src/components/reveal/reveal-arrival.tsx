@@ -25,6 +25,9 @@ export function RevealArrival({
   otherUris,
   lastUri,
   pieceCount,
+  title,
+  body,
+  tail,
 }: {
   /** The rest of the closet, dimmed behind the last piece. */
   otherUris: (string | undefined)[];
@@ -36,6 +39,12 @@ export function RevealArrival({
    * the Reveal is reachable from routes that do not fill the grid.
    */
   pieceCount: number;
+  /** "That's ten" — derived from the count in hand, never typed. */
+  title: string;
+  /** "Ten pieces are in your closet." */
+  body: string;
+  /** "Every one of them photographed by you." */
+  tail: string;
 }) {
   const theme = useTheme();
 
@@ -96,18 +105,24 @@ export function RevealArrival({
         </View>
       </View>
 
+      {/* Redesign 12: the beat states the TRUE piece count and no computed
+          number at all. It used to end on "Working out what it makes…", which
+          was a promise about a number — harmless on a closet that makes some,
+          and a lie for a second and a half on the closet that makes none. The
+          computing beat now owns that sentence, after the tally has resolved. */}
       <View style={{ marginTop: 22 }}>
-        <Text variant="eyebrow">
-          {`${cap(numberWord(pieceCount))} of ${numberWord(pieceCount)}`}
-        </Text>
+        <Text variant="eyebrow">{`${cap(numberWord(pieceCount))} of ${numberWord(pieceCount)}`}</Text>
       </View>
       <View style={{ marginTop: 8 }}>
         <Text variant="display" trim>
-          That&rsquo;s your closet.
+          {title}
         </Text>
       </View>
       <Text variant="note" style={{ marginTop: 10, fontSize: 15 }}>
-        Working out what it makes&hellip;
+        {body}
+      </Text>
+      <Text variant="note" style={{ marginTop: 4, fontSize: 15 }}>
+        {tail}
       </Text>
     </View>
   );

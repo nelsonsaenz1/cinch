@@ -18,14 +18,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FIXTURE_OUTFIT } from '@/components/dev/fixtures';
 import { RevealCount } from '@/components/reveal/reveal-count';
 import { RevealStage } from '@/components/reveal/reveal-stage';
+import { derivationLine, displayFontSize } from '@/features/onboarding/reveal-spec';
 import { Plate } from '@/components/today/plate';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import type { Tally } from '@/features/closet/outfit-count';
+import { countOutfits, type Tally } from '@/features/closet/outfit-count';
 import {
   compositionChips,
-  defaultDerivation,
-  headline,
 } from '@/features/onboarding/reveal-copy';
 
 const TALLY: Tally = { tops: 3, bottoms: 2, dresses: 1, shoes: 2 };
@@ -43,9 +42,11 @@ export default function Fixture() {
     <RevealStage>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
         <RevealCount
-          headline={headline(10, TALLY)}
-          derivation={defaultDerivation(TALLY)}
+          count={countOutfits(TALLY)}
+          fontSize={displayFontSize(countOutfits(TALLY), false, false)}
+          derivation={derivationLine(10, TALLY)}
           chips={compositionChips(TALLY, true, true)}
+          spokenLabel={derivationLine(10, TALLY)}
         />
         <View style={{ marginTop: 24 }}>
           <Text variant="eyebrow">The first one</Text>

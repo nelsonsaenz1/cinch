@@ -110,6 +110,17 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    // Redesign 12 rebuilt the Reveal's composition — the number became the
+    // hero and the sentence became the derivation — so its frames get their own
+    // group. The R-0x fixtures in Group 1 are kept and updated: they still
+    // document the atlas states, now drawn the way the app draws them.
+    'Redesign 12 · Reveal',
+    [
+      ['The seven beats', '/dev-r12-reveal'],
+      ['The nine other states', '/dev-r12-states'],
+    ],
+  ],
+  [
     'Group 3 · Closet and Intake',
     [
       ['AC-03', '/dev-w3-g3-ac-03'],
