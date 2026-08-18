@@ -116,7 +116,6 @@ const DIRECT_HAPTICS_DEBT = [
   'src/app/(auth)/name.tsx',
   'src/app/(auth)/sign-in.tsx',
   'src/app/(tabs)/index.tsx',
-  'src/app/(tabs)/plan.tsx',
   'src/app/capture.tsx',
   'src/app/stylist.tsx',
   'src/app/tour.tsx',

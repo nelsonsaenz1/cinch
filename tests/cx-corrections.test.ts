@@ -15,6 +15,8 @@
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+
+import { WEEK_COPY } from '../src/features/plan/plan-week-spec';
 import { test } from 'node:test';
 
 import {
@@ -489,6 +491,8 @@ test('UX-04 — the people-search sheet exists and is registered as one', () => 
 
 const TODAY = 'src/app/(tabs)/index.tsx';
 const PLAN = 'src/app/(tabs)/plan.tsx';
+/** Redesign 01 split the drawing out of the route; the copy went to the spec. */
+const PLAN_BODY = 'src/components/plan/plan-week-body.tsx';
 const EVENT_DETAIL = 'src/app/event/[id]/index.tsx';
 
 const ACCEPTED: Record<string, [path: string, headline: string, support: string]> = {
@@ -611,6 +615,21 @@ test('LP-06 — event detail is a title and a hierarchy, not a status paragraph'
 test('LP-06 — the destructive and recovery copy the table must not displace', () => {
   // The accepted headlines sit ABOVE these; none of them may be pushed out.
   assert.ok(body(EVENT_DETAIL).includes('CANCELLATION_FACTS'), 'the cancellation band is gone');
-  assert.match(body(PLAN), /Couldn’t lay out your week/, 'the week error copy changed');
+  // SUPERSEDED BY REDESIGN 01, and superseded rather than dropped.
+  //
+  // "Couldn't lay out your week" belonged to a full-page `ErrorState` that
+  // covered the whole Week mode when the closet or the forecast failed. The
+  // accepted frames refuse that takeover in as many words — "Strip and event
+  // stay usable; only the plate reports" — because the calendar above the
+  // plate is still perfectly functional when a day's proposal cannot be built,
+  // and greying it out claimed a wider failure than had occurred.
+  //
+  // So the sentence moved INTO the plate and got narrower with it. The rule
+  // this test is actually keeping — that the recovery copy is present and is
+  // not displaced by anything above it — is unchanged; only the words and
+  // their owner moved, and they are now pinned in the spec where the body
+  // reads them from, so neither can drift without the other.
+  assert.equal(WEEK_COPY.errorTitle, 'The plate didn’t load', 'the plate error copy changed');
+  assert.match(body(PLAN_BODY), /WEEK_COPY\.errorTitle/, 'the plate stopped reporting');
   assert.match(body(EXPLORE), /Couldn’t read your circle\./, 'the circle error copy changed');
 });

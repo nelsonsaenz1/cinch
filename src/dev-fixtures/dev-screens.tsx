@@ -284,6 +284,17 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Plan — the week — redesign 01',
+    [
+      ['PW-01 · planned day', '/dev-pw-01-default'],
+      ['PW-02 · month sheet', '/dev-pw-02-month'],
+      ['PW-03 · nothing planned', '/dev-pw-03-empty'],
+      ['PW-04 · plate building', '/dev-pw-04-loading'],
+      ['PW-05 · plate unavailable', '/dev-pw-05-error'],
+      ['PW-06 · largest accessibility text', '/dev-pw-06-ax'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],

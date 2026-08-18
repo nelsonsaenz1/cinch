@@ -28,14 +28,34 @@ const PLAN_SCREEN = readFileSync('src/app/(tabs)/plan.tsx', 'utf8').replace(
 );
 
 test('the week promises minimised repeats, never a hard cap', () => {
-  // The promise survived a change of REGISTER, not of meaning. The empty
-  // week's 44-word paragraph became a colophon — "Seven days · The forecast ·
-  // Fewest repeats" — and the planned week still carries "Repeats kept to a
-  // minimum" as its oxblood eyebrow. BOTH surfaces are asserted: an
-  // alternation here would let either one vanish behind the other.
+  // The empty week's colophon is untouched — "Seven days · The forecast ·
+  // Fewest repeats" still sits over the example week.
   assert.match(PLAN_SCREEN, /Fewest repeats/);
-  assert.match(PLAN_SCREEN, /Repeats kept to a minimum/);
+
+  // "Repeats kept to a minimum" is GONE, and its absence is the stronger
+  // reading of this test's own title rather than a weakening of it.
+  //
+  // That eyebrow labelled a list of seven day-cards that redesign 01 replaces
+  // with one selected day. Over a single plate the line has nothing to be true
+  // of: repeats are a property of a WEEK seen at once, and the sentence would
+  // be describing days the reader can no longer see. The accepted frames carry
+  // no such claim anywhere, which is the outcome this file has always been
+  // protecting — the hard cap this test forbids was removed once before for
+  // printing a promise the week below it visibly broke, and the redesign
+  // simply stops making the softer promise as well.
+  //
+  // What survives is the REFUSAL, which is the half that matters and the half
+  // that a later edit could actually get wrong.
+  assert.doesNotMatch(PLAN_SCREEN, /Repeats kept to a minimum/);
   assert.doesNotMatch(PLAN_SCREEN, /no piece worn more than twice/i);
+
+  // And no surface in the slice promises a COUNT of outfits, which is the
+  // week engine's standing contract.
+  const BODY = readFileSync('src/components/plan/plan-week-body.tsx', 'utf8');
+  const SPEC = readFileSync('src/features/plan/plan-week-spec.ts', 'utf8');
+  for (const src of [PLAN_SCREEN, BODY, SPEC]) {
+    assert.doesNotMatch(src, /\b\d+ (outfits|looks) (for|this)\b/i, 'a count was promised');
+  }
 });
 
 const w = (lowC: number, highC: number): WeatherContext => ({
