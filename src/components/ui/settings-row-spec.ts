@@ -27,11 +27,23 @@ export type SettingsRowInput = {
   external?: boolean;
   loading?: boolean;
   disabled?: boolean;
+  /**
+   * The THIRD promise, added by redesign 29.
+   *
+   * `chevron.right` says "further in" and `arrow.up.right` says "out of the
+   * app". Restore purchases says neither: it acts in place and reports into a
+   * toast or a notice band on this same page. It shipped wearing a chevron
+   * anyway, which promised a destination that never existed, and the redesign's
+   * frames draw it bare. A row with no glyph is a row making no promise —
+   * which is the honest drawing of a row that does something rather than
+   * leading somewhere.
+   */
+  affordance?: 'chevron' | 'none';
 };
 
 export type SettingsRowSpec = {
-  /** Which SF Symbol the trailing glyph draws. */
-  glyph: 'chevron.right' | 'arrow.up.right';
+  /** Which SF Symbol the trailing glyph draws, or null for a row that acts in place. */
+  glyph: 'chevron.right' | 'arrow.up.right' | null;
   /** Token for the glyph (and the spinner that replaces it). */
   icon: keyof ThemeColors;
   /** The label's colour class. */
@@ -51,10 +63,14 @@ export function settingsRowSpec({
   external = false,
   loading = false,
   disabled = false,
+  affordance = 'chevron',
 }: SettingsRowInput = {}): SettingsRowSpec {
   const inert = disabled || loading;
   return {
-    glyph: external ? 'arrow.up.right' : 'chevron.right',
+    // `external` still wins if a caller ever asks for both: leaving the app is
+    // the louder promise, and a bare row that opened Safari would be silent
+    // about the one thing that must never be silent.
+    glyph: external ? 'arrow.up.right' : affordance === 'none' ? null : 'chevron.right',
     icon: tone === 'accent' ? 'accent' : external ? 'byline' : 'faint',
     labelClass: tone === 'accent' ? 'text-accent' : 'text-ink',
     minHeight: MIN_TAP_TARGET,

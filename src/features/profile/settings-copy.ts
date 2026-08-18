@@ -32,8 +32,23 @@ export const SETTINGS_TITLE = 'Settings';
  * in for is now written out, in a row that makes no offer at all.
  */
 export const DAILY_STYLING_LABEL = 'Daily outfit styling';
-export const DAILY_STYLING_FACT =
-  'Always on. Outfits are built from your closet, on this phone — no network, no AI, and nothing to switch off.';
+/**
+ * Redesign 29 shortens the VISIBLE line and keeps the whole claim audible.
+ *
+ * The frame draws "Always on. Three outfits every morning from what you own." —
+ * the directive's "less text, always" applied to a row whose job is to say the
+ * thing has no switch. The sentence it replaces made three further claims (on
+ * this phone, no network, no AI) that are true, load-bearing, and exactly the
+ * kind of prose the directive's own constraint refuses to let a redesign
+ * delete: "VoiceOver labels preserve any removed prose."
+ *
+ * So it did not move out of the app, it moved into the row's accessibility
+ * label. `DAILY_STYLING_DISCLOSURE` is what a screen reader hears after the
+ * fact; the two together are the sentence that shipped.
+ */
+export const DAILY_STYLING_FACT = 'Always on. Three outfits every morning from what you own.';
+export const DAILY_STYLING_DISCLOSURE =
+  'Outfits are built from your closet, on this phone — no network, no AI, and nothing to switch off.';
 
 /**
  * UX-08 — sign out stops being a blocking alert.
@@ -49,8 +64,12 @@ export const DAILY_STYLING_FACT =
  * the sheet's own rule.
  */
 export const SIGN_OUT_CONFIRM = {
-  title: 'Sign out',
-  body: 'You can sign back in anytime — your closet stays put.',
+  // Redesign 29 asks the question as a question and names what survives item by
+  // item. "Your closet stays put" was true and general; the frame's line is the
+  // same promise made specific, and specificity is what stops somebody reading
+  // a sign-out prompt as a deletion prompt at a glance.
+  title: 'Sign out of Cinch?',
+  body: 'Your closet, outfits and friends stay exactly as they are. Signing back in brings everything with it.',
   keepLabel: 'Stay signed in',
   destructiveLabel: 'Sign out',
 } as const;
@@ -75,20 +94,27 @@ export type RestoreOutcome = 'restored' | 'none' | 'failed';
 export const RESTORE_OUTCOMES = {
   restored: {
     kind: 'toast',
-    message: 'Purchases restored — your membership is back on this device.',
+    message: 'Membership restored — it is active again on this device.',
   },
   none: {
     kind: 'notice',
-    cause: 'NO SUBSCRIPTION FOUND',
-    title: 'No Cinch subscription on this Apple ID',
-    body: "We couldn't find a Cinch subscription on this Apple ID. If you paid on another account, sign in to that one and try again.",
+    cause: 'NOTHING TO RESTORE',
+    title: 'Nothing to restore',
+    // Redesign 29's distinction, kept: the store ANSWERED, and the answer was
+    // no purchase. That is not a failure, and the sentence has to say so or a
+    // reader concludes their membership vanished.
+    body: 'No purchase was found for this Apple ID. Nothing changed and nothing is locked.',
     action: 'Try again',
   },
   failed: {
     kind: 'notice',
     cause: "COULDN'T REACH THE APP STORE",
-    title: 'Could not restore purchases',
-    body: 'Something went wrong talking to the App Store. Nothing has changed — try again in a moment.',
+    title: 'Couldn’t reach the App Store',
+    // "Your membership is unchanged" is the same promise the shipped copy made
+    // with "Nothing has changed", said about the thing the reader is actually
+    // frightened for. The second clause is the whole point of the reword: this
+    // was a connection problem, not a purchase problem.
+    body: 'Your membership is unchanged. This was a connection problem, not a purchase problem.',
     action: 'Try again',
   },
 } as const;

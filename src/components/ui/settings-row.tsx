@@ -34,6 +34,8 @@ export function SettingsRow({
    */
   external = false,
   disabled = false,
+  /** `none` for a row that acts in place rather than leading anywhere. */
+  affordance = 'chevron',
 }: {
   label: string;
   onPress: () => void;
@@ -64,9 +66,10 @@ export function SettingsRow({
    * nowhere after a toggle is a worse surprise than one that waits.
    */
   disabled?: boolean;
+  affordance?: 'chevron' | 'none';
 }) {
   const theme = useTheme();
-  const spec = settingsRowSpec({ tone, external, loading, disabled });
+  const spec = settingsRowSpec({ tone, external, loading, disabled, affordance });
   const iconColor = theme[spec.icon];
 
   return (
@@ -96,14 +99,14 @@ export function SettingsRow({
         ) : null}
         {loading ? (
           <ActivityIndicator size="small" color={iconColor} />
-        ) : (
+        ) : spec.glyph ? (
           <SymbolView
             name={spec.glyph}
             size={13}
             tintColor={iconColor}
             resizeMode="scaleAspectFit"
           />
-        )}
+        ) : null}
       </View>
     </Pressable>
   );

@@ -587,6 +587,20 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Settings — administration — redesign 29',
+    [
+      ['SE-01 · confirmed Standard, the whole page (also AX)', '/dev-se-01-paid-standard'],
+      ['SE-02 · trialing, the server’s own date', '/dev-se-02-trialing'],
+      ['SE-03 · membership still reading', '/dev-se-03-membership-reading'],
+      ['SE-04 · one read failed, counts omitted', '/dev-se-04-read-errors-partial'],
+      ['SE-05 · confirmed free, four rows absent', '/dev-se-05-free-and-absent-rows'],
+      ['SE-06 · commerce off, write failed', '/dev-se-06-commerce-off-write-failed'],
+      ['SE-07 · restore, nothing found', '/dev-se-07-restore-endings'],
+      ['SE-08 · signing out', '/dev-se-08-sign-out'],
+      ['SE-09 · delete card, no build number', '/dev-se-09-delete-and-diagnostics'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],

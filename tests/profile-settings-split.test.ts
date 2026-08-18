@@ -21,17 +21,36 @@ import { readFileSync } from 'node:fs';
 
 import {
   CAPABILITY_HOMES,
-  DAILY_STYLING_FACT,
+  DAILY_STYLING_DISCLOSURE,
   RESTORE_OUTCOMES,
   SIGN_OUT_CONFIRM,
 } from '../src/features/profile/settings-copy';
 
 const PROFILE = readFileSync('src/app/profile.tsx', 'utf8');
-const SETTINGS = readFileSync('src/app/settings.tsx', 'utf8');
 const LAYOUT = readFileSync('src/app/_layout.tsx', 'utf8');
 const RESTORE_HOOK = readFileSync('src/features/profile/use-restore-purchases.ts', 'utf8');
 /** Redesign 07 — the page's markup, which is where the controls now live. */
 const BODY = readFileSync('src/components/profile/profile-body.tsx', 'utf8');
+
+/**
+ * Redesign 29 splits Settings the way redesign 07 split Profile: the route
+ * keeps the reads, the writes and the router, and every line of drawing moves
+ * into `components/settings/`. That is the same move this test was written to
+ * survive — it already reads `profile-body.tsx` alongside `profile.tsx` for
+ * exactly this reason — so "the settings surface" is now the three files
+ * together rather than the route alone.
+ *
+ * The reverse direction is what makes the widening safe: a Profile capability
+ * that turned up anywhere in this concatenation still fails, so the check that
+ * actually catches mistakes (two controls over one piece of state) is
+ * unweakened, and it now covers more source than it did.
+ */
+const SETTINGS_ROUTE = readFileSync('src/app/settings.tsx', 'utf8');
+const SETTINGS = [
+  SETTINGS_ROUTE,
+  readFileSync('src/components/settings/settings-body.tsx', 'utf8'),
+  readFileSync('src/components/settings/settings-parts.tsx', 'utf8'),
+].join('\n');
 
 const SOURCE = { profile: PROFILE, settings: SETTINGS };
 
@@ -99,10 +118,22 @@ test('the nonfunctional Daily outfit styling switch is gone', () => {
 
   // The true thing the switch was standing in for survives as prose, and says
   // plainly that there is nothing to operate.
+  //
+  // Redesign 29 shortens the VISIBLE line to the frame's seven words and moves
+  // the rest into the row's accessibility label — the directive's own
+  // constraint, "VoiceOver labels preserve any removed prose". So the claim is
+  // pinned where it now lives, and the row is pinned to say it: a shortened
+  // line with the disclosure dropped on the floor would pass an assertion
+  // against the visible copy and fail the reader.
   assert.ok(SETTINGS.includes('DAILY_STYLING_FACT'));
-  assert.match(DAILY_STYLING_FACT, /nothing to switch off/);
-  // The real toggle beside it is untouched and still writes.
-  assert.match(SETTINGS, /onValueChange=\{\(value\) => setShowWhereToBuy\.mutate\(value\)\}/);
+  assert.ok(SETTINGS.includes('DAILY_STYLING_DISCLOSURE'));
+  assert.match(DAILY_STYLING_DISCLOSURE, /nothing to switch off/);
+  // The real toggle beside it is untouched and still writes. The write moved
+  // from an inline `onValueChange` to a named handler when the drawing moved
+  // out of the route — the mutation is the capability, not the arrow function
+  // it used to be spelled with.
+  assert.match(SETTINGS_ROUTE, /setShowWhereToBuy\.mutate\(value\)/);
+  assert.match(SETTINGS, /onChange=\{props\.onWhereToBuy\}/);
 });
 
 test('UX-08 — the only blocking Alert left on these surfaces is none', () => {
@@ -118,8 +149,12 @@ test('UX-08 — the only blocking Alert left on these surfaces is none', () => {
 test('the sign-out question keeps its option named for what is kept', () => {
   assert.equal(SIGN_OUT_CONFIRM.keepLabel, 'Stay signed in');
   assert.notEqual(SIGN_OUT_CONFIRM.keepLabel, 'Cancel');
-  // The promise that makes it non-blocking in the first place.
-  assert.match(SIGN_OUT_CONFIRM.body, /sign back in anytime/);
+  // The promise that makes it non-blocking in the first place. Redesign 29
+  // rewords it from "You can sign back in anytime" to "Signing back in brings
+  // everything with it" and names what survives item by item; the assertion
+  // tracks the promise rather than the sentence it was first written in.
+  assert.match(SIGN_OUT_CONFIRM.body, /[Ss]igning back in/);
+  assert.match(SIGN_OUT_CONFIRM.body, /closet/);
 });
 
 test('restore keeps all three of its endings, and each keeps its recovery', () => {
@@ -131,7 +166,15 @@ test('restore keeps all three of its endings, and each keeps its recovery', () =
   assert.ok(RESTORE_OUTCOMES.none.action.length > 0);
   assert.ok(RESTORE_OUTCOMES.failed.action.length > 0);
   // The failure copy still promises what it always promised about the store.
-  assert.match(RESTORE_OUTCOMES.failed.body, /Nothing has changed/);
+  // Redesign 29 says it about the thing the reader is frightened for — "Your
+  // membership is unchanged" rather than the general "Nothing has changed" —
+  // and adds the distinction the whole reword exists for: a connection problem
+  // is not a purchase problem.
+  assert.match(RESTORE_OUTCOMES.failed.body, /membership is unchanged/);
+  assert.match(RESTORE_OUTCOMES.failed.body, /not a purchase problem/);
+  // "Nothing found" must never read as "something went wrong": the store
+  // answered, and the answer was no purchase.
+  assert.match(RESTORE_OUTCOMES.none.body, /Nothing changed and nothing is locked/);
   assert.ok(SETTINGS.includes('NoticeBand') && SETTINGS.includes('Toast'));
 });
 
