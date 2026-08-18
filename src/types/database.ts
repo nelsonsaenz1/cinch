@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_dismissals: {
@@ -2378,6 +2353,33 @@ export type Database = {
         }
         Relationships: []
       }
+      stylist_chat_reservations: {
+        Row: {
+          created_at: string
+          id: string
+          period_start: string
+          settled_at: string | null
+          state: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          period_start: string
+          settled_at?: string | null
+          state: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          period_start?: string
+          settled_at?: string | null
+          state?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           current_period_end: string | null
@@ -3409,6 +3411,10 @@ export type Database = {
         Args: { p_cooldown_hours?: number; p_key: string }
         Returns: boolean
       }
+      claim_stylist_chat: {
+        Args: { p_limit: number; p_user_id: string }
+        Returns: Json
+      }
       claim_superwall_alias: {
         Args: { p_alias: string; p_user_id: string }
         Returns: {
@@ -3444,6 +3450,10 @@ export type Database = {
           committed: number
           held: number
         }[]
+      }
+      complete_stylist_chat: {
+        Args: { p_limit: number; p_reservation_id: string; p_user_id: string }
+        Returns: Json
       }
       current_ai_consent_version: { Args: never; Returns: number }
       current_social_terms_version: { Args: never; Returns: number }
@@ -3637,12 +3647,17 @@ export type Database = {
         Returns: boolean
       }
       release_commerce_alert: { Args: { p_key: string }; Returns: undefined }
+      release_stylist_chat: {
+        Args: { p_limit: number; p_reservation_id: string; p_user_id: string }
+        Returns: Json
+      }
       release_support_send: {
         Args: { p_booking_id: string; p_user_id: string }
         Returns: boolean
       }
       request_data_export: { Args: never; Returns: string }
       squeeze_for_moderation: { Args: { p_text: string }; Returns: string }
+      stylist_reservation_window: { Args: never; Returns: string }
       sweep_catalog_cache: { Args: never; Returns: number }
       unwear_outfit_tx: {
         Args: { p_op_id: string; p_outfit_id: string }
@@ -3853,9 +3868,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       activity_event_type: [

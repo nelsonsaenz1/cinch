@@ -377,10 +377,23 @@ test('the hold is client-side and invents no server contract', () => {
   const src = readFileSync('src/features/catalogue/held-selection.ts', 'utf8');
   assert.ok(!/supabase|from\('/.test(stripComments(src)), 'the hold reaches the server');
   assert.match(src, /AsyncStorage/);
+  // Narrowed from a bare /held/, which matched
+  // `20260824030000_stylist_capacity_held.sql` — an unrelated stylist refusal
+  // reason. The invariant is unchanged and now checked more strictly: no
+  // migration NAMES the catalogue hold, and no migration BODY creates a table
+  // for it either, which the filename test alone never proved.
   const migrations = readdirSync('supabase/migrations');
   assert.ok(
-    !migrations.some((f) => /held|hold_selection/.test(f)),
+    !migrations.some((f) => /held_selection|hold_selection|catalogue_hold/.test(f)),
     'a migration was added for the hold',
+  );
+  assert.ok(
+    !migrations.some((f) =>
+      /held_selection|catalogue_held|held_colour/i.test(
+        readFileSync(`supabase/migrations/${f}`, 'utf8'),
+      ),
+    ),
+    'a migration creates storage for the hold',
   );
 });
 

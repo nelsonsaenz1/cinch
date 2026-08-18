@@ -115,45 +115,10 @@ export default function StylistScreen() {
    * `usePlan` answers `free` in both of those cases, which is the right default
    * for a gate and the wrong one for a sentence.
    */
-  /**
-   * Successful remote replies this period, as the SERVER counts them.
-   *
-   * Null until a server response carries it. Deliberately not a state the
-   * client can advance: the value is a fact about an account across every
-   * device, and this screen only ever displays what it was told.
-   */
-  const serverSuccessfulUsed: number | null = null;
-
   const planState = usePlan();
   const knownPlan = planState.loading || planState.unconfirmed ? null : planState.plan;
   const showMembershipLine = knownPlan === 'free' && !planState.trialing;
 
-  // ── THE QUIET CHATS-LEFT MARK ─────────────────────────────────────────────
-  //
-  // Built, gated and tested — and it renders only from a count THE SERVER
-  // SUPPLIED. `stylist-chat` does not yet return one: `enforceAiQuota` gets
-  // `{allowed, used, limit}` back from `claim_ai_quota` and discards it on the
-  // success path, so today `successfulUsed` is null and the mark never draws.
-  //
-  // THAT IS THE CORRECT FAILURE, and the alternative was refused deliberately.
-  // Counting successful replies on the device would be wrong the moment
-  // somebody used a second phone, and a wrong allowance is worse than none —
-  // it is a promise the server will break. The remedy is a one-line addition
-  // to the edge function's success body, not an inference here; see the
-  // ledger, which names the exact change and why it was not made inside a
-  // presentation-only page that touches a helper seven production functions
-  // share.
-  //
-  // The threshold is against the PROMISE of five, never the enforcement
-  // ceiling of eight. The three-chat gap exists so five survives a failed call
-  // or two; a mark computed from eight would over-promise by three.
-  const allowance = allowanceDisplay(serverSuccessfulUsed);
-  const markVisible = showsAllowanceMark({
-    plan: knownPlan ?? '',
-    planLoading: planState.loading || planState.unconfirmed,
-    usageLoading: serverSuccessfulUsed === null,
-    display: allowance,
-  });
 
   // Memoised: a fresh `[]` identity on every render would invalidate the door
   // memo below, which re-signs four images for no reason.
@@ -165,7 +130,40 @@ export default function StylistScreen() {
     summary: [],
   };
 
-  const { messages, ask, retry, clear, isSending } = useChat({ wardrobe: items, context, profile });
+  const {
+    messages,
+    ask,
+    retry,
+    clear,
+    isSending,
+    allowance: serverAllowance,
+  } = useChat({ wardrobe: items, context, profile });
+
+  // ── THE QUIET CHATS-LEFT MARK ─────────────────────────────────────────────
+  //
+  // Rendered from a count THE SERVER SUPPLIED and nothing else.
+  // `stylist-chat` now settles each Standard chat against a dedicated
+  // reservation and returns `{promiseLimit, successfulUsed, remaining}` on a
+  // confirmed success — and on a 429, so the screen that refuses can also say
+  // how many are left.
+  //
+  // The client counts nothing. A number assembled here would be wrong the
+  // moment somebody used a second phone, and a wrong allowance is worse than
+  // none — it is a promise the server will break.
+  //
+  // The threshold is against the PROMISE of five, never the enforcement
+  // ceiling of eight. Eight is failure and abuse slack: the gap is what keeps
+  // five deliverable through a failed call or two, and a mark computed from it
+  // would over-promise by three.
+  const allowance = allowanceDisplay(serverAllowance?.successfulUsed ?? null);
+  const markVisible = showsAllowanceMark({
+    plan: knownPlan ?? '',
+    planLoading: planState.loading || planState.unconfirmed,
+    // Until the server has said, there is nothing to show — which is the same
+    // honest silence as before the first chat of the month.
+    usageLoading: serverAllowance === null,
+    display: allowance,
+  });
 
   const submit = useCallback(
     (text: string) => {

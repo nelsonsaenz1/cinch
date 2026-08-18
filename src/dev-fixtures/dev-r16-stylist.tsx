@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StylistOpening } from '@/components/stylist/sheet-parts';
 import { Text } from '@/components/ui/text';
 import {
+  CAPACITY_HELD_COPY,
   DENIAL_COPY,
   DOORS,
   LOCAL_FACT_MARK,
@@ -48,6 +49,7 @@ type Pose =
   | 'denial-quota'
   | 'denial-consent'
   | 'denial-transport'
+  | 'capacity-held'
   | 'local-fact';
 
 const POSES: readonly Pose[] = [
@@ -61,6 +63,7 @@ const POSES: readonly Pose[] = [
   'denial-quota',
   'denial-consent',
   'denial-transport',
+  'capacity-held',
   'local-fact',
 ];
 
@@ -72,6 +75,11 @@ const PLANS: Partial<Record<Pose, [string, boolean, boolean, number | null]>> = 
   pro: ['pro', false, false, null],
   trialing: ['pro', true, false, null],
   'plan-loading': ['', false, true, null],
+  // FOUR successes and a fifth slot momentarily held. The mark and the
+  // sentence are posed TOGETHER here on purpose: this frame exists to prove
+  // they agree, because the defect it closes was a refusal saying the month
+  // was spent directly above a mark saying one chat was left.
+  'capacity-held': ['standard', false, false, 4],
 };
 
 const DENIALS: Partial<Record<Pose, keyof typeof DENIAL_COPY>> = {
@@ -82,7 +90,19 @@ const DENIALS: Partial<Record<Pose, keyof typeof DENIAL_COPY>> = {
 };
 
 export default function DevR16Stylist() {
-  const params = useLocalSearchParams<{ pose?: string }>();
+  const params = useLocalSearchParams<{ pose?: string; chrome?: string; only?: string }>();
+  // `?chrome=off` drops the pose picker. At AX-XXXL the picker alone is taller
+  // than the viewport, so without this the state being photographed is below
+  // the fold and the evidence cannot be taken at all — while the shipping
+  // screen has no picker and starts where this one starts with it hidden.
+  const chrome = params.chrome !== 'off';
+  // `?only=state` drops the four door cards and keeps the allowance mark with
+  // whatever sentence accompanies it. At AX-XXXL one column of four doors is
+  // several viewports tall, so the MARK AND THE SENTENCE — the pair whose
+  // agreement is the whole point of the capacity-held frame — cannot both be
+  // photographed any other way. On the shipping screen the reader scrolls;
+  // a screenshot cannot.
+  const onlyState = params.only === 'state';
   const linked = (POSES as readonly string[]).includes(params.pose ?? '')
     ? (params.pose as Pose)
     : 'standard-back-half';
@@ -120,6 +140,7 @@ export default function DevR16Stylist() {
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScrollView contentContainerClassName="pb-24">
+        {chrome ? (
         <View className="px-gutter pt-4">
           <Text variant="eyebrow">Redesign 16 · Stylist</Text>
           <View className="mt-2 flex-row" style={{ gap: 6, flexWrap: 'wrap' }}>
@@ -136,8 +157,19 @@ export default function DevR16Stylist() {
             ))}
           </View>
         </View>
+        ) : null}
 
-        {plan ? (
+        {plan && onlyState ? (
+          <View className="px-gutter" style={{ paddingTop: 20 }}>
+            {markVisible && display ? (
+              <Text variant="note">{allowanceMarkLabel(display.remaining)}</Text>
+            ) : line ? (
+              <Text variant="note">{line}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {plan && !onlyState ? (
           <View style={{ paddingTop: 20 }}>
             <StylistOpening
               salutation="Evening"
@@ -169,6 +201,17 @@ export default function DevR16Stylist() {
                 {quotaResetLine('month')}
               </Text>
             ) : null}
+          </View>
+        ) : null}
+
+        {pose === 'capacity-held' ? (
+          <View className="px-gutter" style={{ paddingTop: 32 }}>
+            <Text variant="title" trim>
+              {CAPACITY_HELD_COPY.title}
+            </Text>
+            <Text variant="note" className="mt-3">
+              {CAPACITY_HELD_COPY.body}
+            </Text>
           </View>
         ) : null}
 

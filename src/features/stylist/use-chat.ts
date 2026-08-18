@@ -5,6 +5,7 @@ import {
   STYLIST_EVENTS,
   chatReplyOkProps,
 } from './stylist-analytics';
+import { CAPACITY_HELD_COPY, STANDARD_PROMISE } from './stylist-spec';
 import { track } from '@/lib/posthog';
 import { Placement } from '@/features/billing/placements';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
@@ -20,6 +21,99 @@ const SHORTLIST = 10;
 
 /** Everything a tapped-through questionnaire knows that the sentence does not. */
 export type AskOptions = { brief?: StylistBrief; intent?: BriefIntent };
+
+/**
+ * The allowance, or null.
+ *
+ * ── STRICT, BECAUSE THIS DRAWS A PROMISE ────────────────────────────────────
+ *
+ * Total by construction: anything missing, malformed, fractional, negative, or
+ * inconsistent with the Standard contract reads as "the server did not say",
+ * which is the same honest silence as never having asked.
+ *
+ * The contract is checked in full rather than field by field. Three numbers
+ * that are individually plausible can still be nonsense together — `4 used, 4
+ * remaining` out of five is a payload no correct server produces, and drawing
+ * "4 chats left" from it would be worse than drawing nothing. So the sum is
+ * asserted too, and a body that fails any part of it is discarded whole.
+ */
+export type StylistAllowance = {
+  promiseLimit: number;
+  successfulUsed: number;
+  remaining: number;
+};
+
+function readAllowance(raw: unknown): StylistAllowance | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const a = raw as Record<string, unknown>;
+  // Integers, not "number-ish". `Number('4')` and `Number(true)` both coerce,
+  // and a string that arrived where an integer belongs means the shape is
+  // already wrong somewhere upstream. Narrowed one at a time so the checks
+  // below are reading numbers rather than `unknown`.
+  const isInt = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n);
+  const limit = a.promiseLimit;
+  const used = a.successfulUsed;
+  const remaining = a.remaining;
+  if (!isInt(limit) || !isInt(used) || !isInt(remaining)) return null;
+
+  // The Standard contract, exactly. Five is the promise; the eight-attempt
+  // ceiling is internal slack and must never arrive here as a limit.
+  if (limit !== STANDARD_PROMISE) return null;
+  if (used < 0 || used > STANDARD_PROMISE) return null;
+  if (remaining < 0 || remaining > STANDARD_PROMISE) return null;
+  if (used + remaining !== STANDARD_PROMISE) return null;
+
+  return { promiseLimit: limit, successfulUsed: used, remaining };
+}
+
+/**
+ * Whether a failure was the server declining to guess at the allowance.
+ *
+ * A 503 carrying `allowance_unavailable`. Anything else — including a 503 from
+ * somewhere else in the stack — is left to the transport sentence, because
+ * claiming to know why a request failed when you do not is how an outage comes
+ * to read as a billing problem.
+ */
+async function isAllowanceUnavailable(error: unknown): Promise<boolean> {
+  return (await read503(error)) === 'allowance_unavailable';
+}
+
+/**
+ * Whether every slot is momentarily held by a chat that has not settled.
+ *
+ * A separate sentence from exhaustion because it is a separate fact: fewer
+ * than five successes are on record and this clears on its own. It also must
+ * not open a paywall, which is why the server answers 503 rather than 429 —
+ * the shared denial classifier routes every 429 to an upgrade placement, and
+ * selling somebody an upgrade for a fifteen-second wait would be absurd.
+ */
+async function isCapacityHeld(error: unknown): Promise<boolean> {
+  return (await read503(error)) === 'stylist_capacity_held';
+}
+
+/** The bounded error code a 503 carried, or null. */
+async function read503(error: unknown): Promise<string | null> {
+  const response = (error as { context?: unknown })?.context;
+  if (!(response instanceof Response) || response.status !== 503) return null;
+  try {
+    const body = (await response.clone().json()) as { error?: string };
+    return typeof body.error === 'string' ? body.error : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The allowance a 429 carried, so the refusal can update the mark. */
+async function readAllowanceFromError(error: unknown): Promise<StylistAllowance | null> {
+  const response = (error as { context?: unknown })?.context;
+  if (!(response instanceof Response)) return null;
+  try {
+    const body = (await response.clone().json()) as { allowance?: unknown };
+    return readAllowance(body.allowance);
+  } catch {
+    return null;
+  }
+}
 
 export type ChatMessage = {
   id: string;
@@ -262,7 +356,19 @@ export function useChat({
         .map((id) => byId.get(id))
         .filter((c): c is OutfitCandidate => Boolean(c));
 
-      return { reply: data.reply as string, outfits, followUp: (data.followUp ?? null) as string | null };
+      return {
+        reply: data.reply as string,
+        outfits,
+        followUp: (data.followUp ?? null) as string | null,
+        // ── THE SERVER'S OWN ALLOWANCE FACT ───────────────────────────────
+        //
+        // Three bounded integers, present only for a confirmed Standard
+        // settlement — Pro sends null, because "unlimited" has no remainder.
+        // Read rather than derived: the client counts nothing, because a
+        // number assembled here would be wrong the moment somebody used a
+        // second phone.
+        allowance: readAllowance(data.allowance),
+      };
     },
   });
 
@@ -272,6 +378,15 @@ export function useChat({
    * drives no render of its own — the `retryable` flag on the message does.
    */
   const failedAsks = useRef(new Map<string, { question: string; options?: AskOptions }>());
+
+  /**
+   * The last allowance the SERVER reported. Null until it says.
+   *
+   * State rather than a ref, because the opening's chats-left mark renders
+   * from it. It is only ever assigned from a settled reply or a refusal that
+   * carried the fact — never incremented, never decremented, never guessed.
+   */
+  const [allowance, setAllowance] = useState<StylistAllowance | null>(null);
 
   /**
    * One model turn against an already-mounted assistant bubble. Shared by
@@ -304,6 +419,7 @@ export function useChat({
         // unbounded by shape, and a reply is not the place to describe a
         // wardrobe.
         track(STYLIST_EVENTS.chatReplyOk, chatReplyOkProps());
+        if (result.allowance) setAllowance(result.allowance);
         void persist('assistant', {
           text: result.reply,
           followUp: result.followUp,
@@ -317,13 +433,43 @@ export function useChat({
         // throws away the one moment they are most likely to upgrade.
         const denial = consent ? null : await classifyDenial(err);
 
+        // ── 503 · THE ALLOWANCE COULD NOT BE CHECKED ──────────────────────
+        //
+        // Read here rather than in `classifyDenial`, which is shared with
+        // Today, the Reveal and the gap feed and has no business learning a
+        // stylist-only status. It is RETRYABLE — the server refused to guess,
+        // not to serve — and it is neither a paywall nor an outage, so it gets
+        // its own sentence rather than borrowing one that would misdescribe it.
+        const unavailable = !consent && !denial && (await isAllowanceUnavailable(err));
+        const held = !consent && !denial && !unavailable && (await isCapacityHeld(err));
+
+        // A refusal that carried the allowance fact updates the mark, so the
+        // screen that says no also says how many are left. Both the exhausted
+        // 429 and the capacity-held 503 carry it.
+        if (denial?.kind === 'quota_exceeded' || held) {
+          const carried = await readAllowanceFromError(err);
+          if (carried) setAllowance(carried);
+        }
+
         const text = consent
           ? 'Cinch needs your permission to use AI before it can answer. You can turn it on from the Add clothes screen.'
           : denial?.kind === 'plan_excluded'
             ? 'The stylist is part of Standard and Pro.'
             : denial?.kind === 'quota_exceeded'
-              ? 'You have used this month’s stylist messages.'
-              : 'The stylist could not be reached. Your outfits on the Today tab still work — they are built on your phone.';
+              ? 'You have used this month’s stylist chats.'
+              : unavailable
+                // "No SUCCESSFUL chat was used" rather than "nothing was
+                // used". The separate internal attempt ceiling has already
+                // been consumed by this request, and a blanket "nothing" would
+                // be a small lie about the thing the reader cannot see. What
+                // they are promised — five successful chats — is intact.
+                ? 'Cinch could not check your stylist allowance just now. No successful chat was used — try again in a moment.'
+                : held
+                  // NOT "you have used this month's chats" — fewer than five
+                  // are on record, and the mark beside this still says so.
+                  // Nothing about another device, or that one exists.
+                  ? CAPACITY_HELD_COPY.body
+                : 'The stylist could not be reached. Your outfits on the Today tab still work — they are built on your phone.';
 
         // Only a transport failure earns a retry affordance; a refusal would
         // simply refuse again, and the denial path below already offers its
@@ -439,5 +585,7 @@ export function useChat({
     retry,
     clear,
     isSending: send.isPending,
+    /** The server's own allowance fact, or null until it has said. */
+    allowance,
   };
 }

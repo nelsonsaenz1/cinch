@@ -14,6 +14,13 @@ import {
   type ValidatedChatRequest,
 } from '../_shared/input-bounds.ts';
 import { enforceAiQuota } from '../_shared/quota.ts';
+import {
+  completeStylistChat,
+  releaseStylistChat,
+  reserveStylistChat,
+  resolveStylistPlan,
+  type StylistAllowance,
+} from '../_shared/stylist-allowance.ts';
 
 /**
  * stylist-chat — conversational styling grounded in a real closet.
@@ -95,6 +102,112 @@ export default {
       //    anything that costs money. ────────────────────────────────────────
       const quotaResponse = await enforceAiQuota(admin, userId, 'stylist_chat');
       if (quotaResponse) return quotaResponse;
+
+      // ── THE PRODUCT ALLOWANCE, WHICH IS NOT THE CEILING ABOVE ───────────
+      //
+      // `enforceAiQuota` has just claimed one of Standard's EIGHT monthly
+      // attempts. Eight is abuse and failure slack; the number Standard is
+      // sold is FIVE SUCCESSFUL chats, and it is counted separately because a
+      // failed call must not spend one.
+      //
+      // Reserved BEFORE the provider call so the boundary is true across
+      // devices: the database serialises two claimants on a per-user advisory
+      // lock, so a second phone reading the fifth slot finds it taken. Settled
+      // by opaque id afterwards, which is what makes completion and release
+      // idempotent — a retried release finds the row already settled, and a
+      // release arriving after the reply landed cannot erase a real success.
+      //
+      // Pro does not reserve at all: it is unlimited as a product, and its
+      // 100/day ceiling is enforced above and never shown.
+      const plan = await resolveStylistPlan(admin, userId);
+
+      // ── FAIL CLOSED, BEFORE THE PROVIDER ────────────────────────────────
+      //
+      // A plan we cannot determine is not a free plan. Guessing `free` here
+      // would skip the reservation and call the provider anyway, which is an
+      // uncounted chat for a Standard account — so the request stops instead.
+      if (plan === null) {
+        return Response.json(
+          {
+            error: 'allowance_unavailable',
+            message: 'We could not check your stylist allowance. Please try again shortly.',
+          },
+          { status: 503, headers: { 'Retry-After': '30' } },
+        );
+      }
+
+      const reservation = await reserveStylistChat(admin, userId, plan);
+
+      if (reservation.kind === 'plan_excluded') {
+        // Entitlement changed between `enforceAiQuota`'s read and this one.
+        // The same 402 contract a free account gets, and no provider call —
+        // the client shows an upgrade rather than a clock, because "try again
+        // tomorrow" would never come true.
+        return Response.json(
+          {
+            error: 'plan_upgrade_required',
+            kind: 'stylist_chat',
+            plan,
+            message: 'The stylist is part of Standard and Pro.',
+          },
+          { status: 402 },
+        );
+      }
+
+      if (reservation.kind === 'unavailable') {
+        // Same rule, same reason. `enforceAiQuota` already answers 503 on an
+        // unreachable counter; a second counter that failed open would make
+        // that one pointless.
+        return Response.json(
+          {
+            error: 'allowance_unavailable',
+            message: 'We could not check your stylist allowance. Please try again shortly.',
+          },
+          { status: 503, headers: { 'Retry-After': '30' } },
+        );
+      }
+
+      if (reservation.kind === 'capacity_held') {
+        // NOT the paywall path, and not "you have used this month's chats".
+        // Fewer than five successes are on record; the slots are momentarily
+        // held and will clear. 503 rather than 429 deliberately: 429 is routed
+        // by the shared client classifier straight to an upgrade placement,
+        // and selling somebody an upgrade for a fifteen-second wait is the
+        // opposite of what this refusal means.
+        //
+        // Nothing here names another device or another request.
+        return Response.json(
+          {
+            error: 'stylist_capacity_held',
+            allowance: reservation.allowance,
+            retryAfterSeconds: reservation.retryAfterSeconds,
+            message: 'Another stylist chat is still finishing. Try again in a moment.',
+          },
+          {
+            status: 503,
+            headers: { 'Retry-After': String(reservation.retryAfterSeconds) },
+          },
+        );
+      }
+
+      if (reservation.kind === 'exhausted') {
+        return Response.json(
+          {
+            error: 'ai_quota_exceeded',
+            kind: 'stylist_chat',
+            plan,
+            period: 'month',
+            // The same bounded fact a success carries, so the client can show
+            // the allowance on the screen that refused it.
+            allowance: reservation.allowance,
+            message: "You have used this month's stylist chats.",
+          },
+          { status: 429 },
+        );
+      }
+
+      /** Null for Pro, which does not reserve. */
+      const reservationId = reservation.kind === 'reserved' ? reservation.id : null;
 
       const candidates = body.candidates;
 
@@ -225,6 +338,10 @@ export default {
       });
 
       if (!result) {
+        // The provider never answered, so this cost no chat. Best effort: if
+        // the release itself fails the reservation expires on its own window,
+        // which costs a quarter of an hour and never a chat.
+        await releaseStylistChat(admin, reservationId, userId);
         return Response.json({ ok: false, reason: 'stylist_offline', error: failure });
       }
 
@@ -233,11 +350,50 @@ export default {
       const valid = new Set(candidates.map((c) => c.id));
       const outfitIds = result.outfitIds.filter((id) => valid.has(id)).slice(0, 3);
 
+      // ── SETTLEMENT IS AUTHORITATIVE ─────────────────────────────────────
+      //
+      // The provider answered, but a reply is only delivered once the success
+      // is ON RECORD. Delivering alongside a settlement that failed — or one
+      // the database refused because an expired reservation no longer fitted —
+      // would hand out an uncounted chat through the back end of the request
+      // instead of the front.
+      const settlement = await completeStylistChat(admin, reservationId, userId);
+
+      if (settlement.kind === 'unavailable') {
+        // The reservation stays `reserved` and expires on its own window, so
+        // the slot returns without another call that could also fail.
+        return Response.json(
+          {
+            error: 'allowance_unavailable',
+            message: 'We could not record this chat. Please try again shortly.',
+          },
+          { status: 503, headers: { 'Retry-After': '30' } },
+        );
+      }
+
+      if (settlement.kind === 'exhausted') {
+        return Response.json(
+          {
+            error: 'ai_quota_exceeded',
+            kind: 'stylist_chat',
+            plan,
+            period: 'month',
+            allowance: settlement.allowance,
+            message: "You have used this month's stylist chats.",
+          },
+          { status: 429 },
+        );
+      }
+
+      const allowance: StylistAllowance | null =
+        settlement.kind === 'completed' ? settlement.allowance : null;
+
       return Response.json({
         ok: true,
         reply: result.reply,
         outfitIds,
         followUp: result.followUp,
+        allowance,
         usage: { promptTokens, completionTokens, costUsd, latencyMs },
       });
     },

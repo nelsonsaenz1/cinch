@@ -12,6 +12,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import { CAPACITY_HELD_COPY } from '../src/features/stylist/stylist-spec';
+
 const ROUTE_RAW = readFileSync('src/app/stylist.tsx', 'utf8');
 const CHAT_RAW = readFileSync('src/features/stylist/use-chat.ts', 'utf8');
 const PARTS_RAW = readFileSync('src/components/stylist/sheet-parts.tsx', 'utf8');
@@ -108,18 +110,89 @@ test('the model boundary is the only place that sends', () => {
 // The allowance is never inferred
 // ---------------------------------------------------------------------------
 
-test('the client counts nothing', () => {
-  // `serverSuccessfulUsed` is the only source, and nothing on this screen
-  // increments it. A number assembled locally would be wrong the moment
-  // somebody used a second device.
-  assert.match(ROUTE, /const serverSuccessfulUsed: number \| null = null;/);
-  assert.doesNotMatch(ROUTE, /setSuccessfulUsed|successfulUsed \+ 1|used \+\+/);
+test('THE CLIENT COUNTS NOTHING — it reads the server and never derives', () => {
+  // Redesign 16's first pass hard-coded this to null, so the mark shipped
+  // dark. It is now fed by the server's own settled allowance, which is a
+  // strictly stronger claim: the value exists AND it is not the client's.
+  //
+  // Nothing here increments, decrements or seeds a count. A number assembled
+  // locally would be wrong the moment somebody used a second device, and a
+  // wrong allowance is a promise the server will break.
+  assert.match(ROUTE, /allowance: serverAllowance,\s*\n\s*\} = useChat\(/);
+  assert.match(ROUTE, /allowanceDisplay\(serverAllowance\?\.successfulUsed \?\? null\)/);
+  assert.doesNotMatch(ROUTE, /setSuccessfulUsed|successfulUsed \+ 1|used \+\+|remaining -/);
+});
+
+test('the hook only ever assigns the allowance from a server response', () => {
+  const chat = stripped(readFileSync('src/features/stylist/use-chat.ts', 'utf8'));
+  const writes = [...chat.matchAll(/setAllowance\([^)]*\)/g)].map((m) => m[0]);
+  assert.ok(writes.length > 0, 'the allowance is never assigned');
+  for (const w of writes) {
+    // From a settled reply, or from the fact a 429 carried. Never arithmetic.
+    assert.match(w, /setAllowance\((result\.allowance|carried)\)/, w);
+  }
+  // And the reader is total, on the exact Standard contract rather than on
+  // "finite and not negative" — which accepted 2.5 of 5, and accepted a limit
+  // of eight, the one number this page may never show.
+  assert.match(chat, /if \(!isInt\(limit\) \|\| !isInt\(used\) \|\| !isInt\(remaining\)\) return null;/);
+  assert.match(chat, /if \(limit !== STANDARD_PROMISE\) return null;/);
+  assert.match(chat, /if \(used < 0 \|\| used > STANDARD_PROMISE\) return null;/);
+  assert.match(chat, /if \(remaining < 0 \|\| remaining > STANDARD_PROMISE\) return null;/);
+  assert.match(chat, /if \(used \+ remaining !== STANDARD_PROMISE\) return null;/);
 });
 
 test('the mark is gated on all four conditions at the call site', () => {
   assert.match(ROUTE, /showsAllowanceMark\(\{/);
-  assert.match(ROUTE, /usageLoading: serverSuccessfulUsed === null/);
+  assert.match(ROUTE, /usageLoading: serverAllowance === null/);
   assert.match(ROUTE, /planLoading: planState\.loading \|\| planState\.unconfirmed/);
+});
+
+test('a 503 allowance failure is retryable and is not a paywall or an outage', () => {
+  const chat = stripped(readFileSync('src/features/stylist/use-chat.ts', 'utf8'));
+  assert.match(chat, /read503\(error\)\) === 'allowance_unavailable'/);
+  assert.match(chat, /response\.status !== 503/);
+  // Read locally rather than by broadening the shared denial classifier, which
+  // Today, the Reveal and the gap feed also use.
+  // Asserted on drawn code: `use-gate.ts`'s own comment already explains that
+  // a 503 is deliberately not a denial — which is the rule this relies on —
+  // and a grep over prose would read that explanation as a violation.
+  const gate = stripped(readFileSync('src/features/billing/use-gate.ts', 'utf8'));
+  assert.doesNotMatch(gate, /allowance_unavailable/);
+  assert.doesNotMatch(gate, /status === 503|status !== 503/);
+  // Retryable: the server declined to guess, not to serve.
+  assert.match(chat, /const retryable = !consent && !denial;/);
+});
+
+test('A HELD SLOT IS ITS OWN STATE, AND NOT EXHAUSTION', () => {
+  const chat = stripped(readFileSync('src/features/stylist/use-chat.ts', 'utf8'));
+  assert.match(chat, /read503\(error\)\) === 'stylist_capacity_held'/);
+  // Read at 503, so it never travels the 429 route that opens the paywall.
+  const gate = stripped(readFileSync('src/features/billing/use-gate.ts', 'utf8'));
+  assert.doesNotMatch(gate, /stylist_capacity_held/);
+  // Retryable, because waiting is exactly what fixes it.
+  assert.match(chat, /const held = !consent && !denial && !unavailable && \(await isCapacityHeld\(err\)\);/);
+});
+
+test('THE HELD-SLOT LINE CLAIMS NO SUCCESSES AND NAMES NO OTHER DEVICE', () => {
+  // Read from the spec, which is the one copy the hook and the fixture both
+  // draw — so the evidence frame and the shipping sentence cannot drift.
+  const line = CAPACITY_HELD_COPY.body;
+  const chat = stripped(readFileSync('src/features/stylist/use-chat.ts', 'utf8'));
+  assert.match(chat, /\? CAPACITY_HELD_COPY\.body/);
+  assert.ok(line.length > 0, 'the held-slot copy is gone');
+  // It says nothing was spent, which is true, and offers a retry.
+  assert.match(line, /No successful chat was used/);
+  // It does not say the month is spent — the mark beside it says four of five.
+  assert.doesNotMatch(line, /this month|used all|out of chats|upgrade/i);
+  // And it does not disclose that a second device, session or person exists.
+  assert.doesNotMatch(line, /device|phone|someone|somebody|another user|session|elsewhere|signed in/i);
+});
+
+test('a held slot still updates the mark from the fact it carried', () => {
+  const chat = stripped(readFileSync('src/features/stylist/use-chat.ts', 'utf8'));
+  // Both refusals carry the allowance, so the number beside either one is the
+  // server's and not a guess.
+  assert.match(chat, /if \(denial\?\.kind === 'quota_exceeded' \|\| held\) \{/);
 });
 
 // ---------------------------------------------------------------------------

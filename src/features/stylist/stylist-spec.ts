@@ -265,6 +265,33 @@ export const DENIAL_COPY: Record<DenialKind, { title: string; body: string }> = 
   },
 };
 
+/**
+ * A slot held for a moment — the fifth refusal, and the only retryable one
+ * that is not a transport failure.
+ *
+ * ── WHY IT IS NOT `quota` ───────────────────────────────────────────────────
+ *
+ * `quota` says "that is this period's chats". This state means the opposite:
+ * fewer than five successes are on record, and the mark rendered beside this
+ * sentence says so out loud. Saying both would put a contradiction two lines
+ * apart — which is exactly the defect this copy was written to close.
+ *
+ * ── WHAT IT MAY NOT SAY ─────────────────────────────────────────────────────
+ *
+ * That another device exists. That somebody else is signed in. That a second
+ * session is open. All three are true causes and none of them is this reader's
+ * business — an allowance refusal is not a place to disclose the shape of an
+ * account. "Another stylist chat is still finishing" is a fact about the
+ * allowance itself, which the reader already knows they have.
+ *
+ * It also may not offer an upgrade. There is nothing to buy: the fifth chat is
+ * already theirs and arrives in under a minute.
+ */
+export const CAPACITY_HELD_COPY = {
+  title: 'One moment',
+  body: 'Another stylist chat is still finishing. No successful chat was used — try again in a moment.',
+} as const;
+
 // ---------------------------------------------------------------------------
 // Local facts
 // ---------------------------------------------------------------------------
