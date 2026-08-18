@@ -5,15 +5,19 @@ import { Pressable, RefreshControl, View, type NativeScrollEvent, type NativeSyn
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActivityEntryButton } from '@/components/activity-center';
-import { Card } from '@/components/ui/card';
+import { NobodySharingState, QuietDayState } from '@/components/daily-social';
 import {
-  CaughtUpLine,
-  DailyLookSkeleton,
-  DailyOfflineState,
-  LookCard,
-  NobodySharingState,
-  QuietDayState,
-} from '@/components/daily-social';
+  AdditionsEndMark,
+  CaughtUpMark,
+  CircleErrorBand,
+  CircleSheet,
+  EarlierRule,
+  LookEntryCard,
+  LookFeedSkeleton,
+  NewSinceRule,
+  type CircleRow,
+} from '@/components/explore';
+import { Card } from '@/components/ui/card';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
@@ -23,21 +27,26 @@ import {
   dailySocialCompletedProps,
   dailySocialEmptyProps,
   dailySocialOpenedProps,
-  dailySocialReactedProps,
   type DailySocialState,
 } from '@/features/daily-social/analytics';
-import { DAY_HEADING, daySubtitle } from '@/features/daily-social/copy';
+import { daySubtitle } from '@/features/daily-social/copy';
 import { useDailyLooks, useFriendsSharingCount } from '@/features/daily-social/queries';
 import { useMyDailyReactions, useSetDailyReaction } from '@/features/daily-social/reactions';
+import { useWornSharing } from '@/features/daily-social/use-worn-sharing';
 import {
   resolveDailyState,
-  showsCaughtUpLine,
   showsLooks,
   type DailyState,
 } from '@/features/daily-social/states';
 import { type DailyReaction } from '@/features/daily-social/types';
 import { actionTitle, EXPLORE_ROW_ACTIONS } from '@/features/explore/contextual-actions';
-import { CAUGHT_UP_LINE, circleEntries, showsCaughtUp } from '@/features/explore/feed';
+import {
+  ADDITION_CARD_RADIUS,
+  EXPLORE_COPY,
+  FEED_GAP,
+  newSinceLabel,
+} from '@/features/explore/explore-spec';
+import { circleEntries, showsCaughtUp } from '@/features/explore/feed';
 import {
   CircledExclamationGlyph,
   HangerGlyph,
@@ -45,24 +54,15 @@ import {
   TwoPersonGlyph,
 } from '@/features/explore/glyphs';
 import { LatelyButton } from '@/features/explore/lately-button';
-import { NewAdditionRow, NewAdditionsSkeleton } from '@/features/explore/new-addition-row';
+import { NewAdditionRow } from '@/features/explore/new-addition-row';
 import { useNewAdditions } from '@/features/explore/queries';
 import { groupByDay } from '@/features/explore/timeline';
+import { unseenBoundaryIndex } from '@/features/explore/unseen';
 import { useExploreVisit } from '@/features/explore/use-explore-unseen';
 import { useMutedIds } from '@/features/social-graph/muted';
 import { useFriends } from '@/features/social-graph/queries';
 import { track } from '@/lib/posthog';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
-
-/**
- * The Lately atlas's local grammar, where it departs from the shared kit.
- *
- * The cards here sit at 16, not the plate's 20 — a ledger line is smaller
- * furniture than an outfit plate. The hero glyphs draw at 28%
- * (`HERO_GLYPH_INK`, named in glyphs.tsx beside the row fallback's 22%). Local
- * constants rather than tokens: no other screen speaks this dialect yet.
- */
-const CARD_RADIUS = 16;
 
 /**
  * The state map's names, in the taxonomy's names.
@@ -107,89 +107,72 @@ type HeroProps = {
 };
 
 /**
- * The full-page state: glyph, serif line, body, one filled way forward —
- * centred, where the shared `EmptyState`/`ErrorState` kit sets its states
- * hard-left. The Lately atlas centres all three of this page's heroes, so the
- * composition is local; the kit's claims discipline still governs which branch
- * renders it — an empty describes the data, an error refuses to.
+ * The full-page state: glyph, serif line, body, one filled way forward.
+ *
+ * Hard-left on the gutter rather than centred, which is where redesign 17 puts
+ * it and where the shared `EmptyState`/`ErrorState` kit already sets its own —
+ * the old centring was this page's private dialect and there was never a
+ * reason for it. The kit's claims discipline still governs which branch
+ * renders it: an empty describes the data, an error refuses to.
  */
 function Hero({ glyph, title, body, actionTitle: action, onAction, alert = false }: HeroProps) {
   return (
-    <View
-      accessibilityRole={alert ? 'alert' : 'summary'}
-      className="flex-1 items-center justify-center"
-      style={{ paddingHorizontal: 42 }}>
+    <View accessibilityRole={alert ? 'alert' : 'summary'} className="px-gutter pt-8">
       {glyph}
-      <View style={{ marginTop: 18 }}>
-        <Text variant="title" trim className="text-center">
+      <View style={{ marginTop: 22 }}>
+        <Text variant="title" trim>
           {title}
         </Text>
       </View>
-      <Text className="mt-2.5 text-center text-muted" style={{ fontSize: 15, lineHeight: 23 }}>
+      <Text className="mt-3.5 text-muted" style={{ fontSize: 17, lineHeight: 26 }}>
         {body}
       </Text>
-      <View style={{ marginTop: 20 }}>
-        <LatelyButton
-          title={action}
-          onPress={onAction}
-          filled
-          height={44}
-          fontSize={15}
-          paddingX={20}
-        />
+      <View style={{ marginTop: 24 }}>
+        <LatelyButton title={action} onPress={onAction} filled height={56} fontSize={17} paddingX={24} />
       </View>
     </View>
   );
 }
 
 /**
- * UX-10 — the rule between what is new and what you have already seen.
+ * EXPLORE — what your circle wore.
  *
- * A rule with a word on it, not a coloured pill: the boundary is a fact about
- * your last visit, not an alert. It only ever draws when both sides of it
- * exist, which `unseenBoundaryIndex` decides — see `unseen.ts` for why a
- * divider above the first row, or below the last, is nothing worth drawing.
- */
-function NewSinceRule() {
-  const theme = useTheme();
-  return (
-    <View
-      accessibilityRole="header"
-      accessibilityLabel="New since your last visit, above this line"
-      className="flex-row items-center gap-2.5 px-4 py-2.5">
-      <View className="h-hair flex-1" style={{ backgroundColor: theme.rule }} />
-      <Text variant="colophon" style={{ color: theme.muted, letterSpacing: 1.2 }}>
-        Earlier
-      </Text>
-      <View className="h-hair flex-1" style={{ backgroundColor: theme.rule }} />
-    </View>
-  );
-}
-
-/**
- * Explore — what has lately arrived in the closets you can see.
+ * ── REDESIGN 17: THE LOOKS ARE THE PAGE ─────────────────────────────────────
  *
- * **Feed-first (UX-04).** The timeline is the page. Username search used to sit
- * permanently above it, costing the first fold to a job most sessions do not
- * have; it is now an explicit action in the header and a dedicated sheet
- * (`people-search.tsx`), still the hero button of the empty state, where
- * finding people genuinely is the job.
+ * The page used to be a timeline of pieces friends ADDED to their closets,
+ * with the day's looks bolted above it as a section. That was backwards on the
+ * unit's own terms: a look leaves after seven days and a garment in a closet
+ * does not, so the perishable thing is the page and the durable thing is the
+ * appendix. Redesign 17 makes each look a LARGER, PHOTO-FIRST card
+ * (`LookEntryCard`), and the additions timeline becomes "Also new in your
+ * circle" underneath — same query, same rows, same context menu, less
+ * furniture.
  *
- * **What this page is allowed to show, and why.** Everything below the masthead
- * comes from `friend_items`, and that view is gated row-by-row on mutual
- * friendship. So this is a *friends-only* surface, deliberately: the public
- * projections exist but require both `items.is_public` and a public profile,
- * neither of which any screen sets, and opening the boundary is not something a
- * feature branch gets to do. Nothing here can surface a stranger's wardrobe.
+ * ── THE PRIVACY CONSTITUTION, UNCHANGED BY ANY OF IT ────────────────────────
  *
- * The query still returns the caller's own recent pieces — that contract is
- * untouched — and `circleEntries` drops them here, at the existing `isSelf`
- * seam (Variant A). See `feed.ts` for why a page whose one honest sentence is
- * "New in your circle" may not be half your own uploads.
+ * Nothing in this redesign moves a default, a visibility or a boundary:
  *
- * The Plate grammar, not the feed grammar: dated headings over a ruled card of
- * catalogue lines, no counts, no likes, no square photo grid, and — UX-10 — an
- * ending. See `new-addition-row.tsx` for the reasoning on the row itself.
+ * · **Sharing is OFF by default.** No control on this page turns anybody's
+ *   sharing on; the one state whose action is about the reader (S-1b) sends
+ *   them to their own switch, and the circle sheet only ever links to it.
+ * · **Seven days, exactly as queried.** `useDailyLooks` decides the window;
+ *   this file neither widens nor narrows it, and the ending says the number
+ *   out loud so a reader knows what they have seen the whole of.
+ * · **Reactions are the owner's to see.** RLS shows a reactor their own row
+ *   and shows an owner the reactions on their own looks. There is no count
+ *   anywhere on this page — not on a card, not in a label, not in a hint — and
+ *   the control shows the reader's own state and nobody else's. There is
+ *   nothing to aggregate by construction, which is what makes the absence a
+ *   guarantee rather than an omission.
+ * · **A hidden piece is silently absent.** The well simply does not draw, and
+ *   nothing marks that it did not.
+ * · **Friends only.** Everything below the masthead comes from views gated row
+ *   by row on mutual friendship; the public projections require both
+ *   `items.is_public` and a public profile, neither of which any screen sets.
+ *   Nothing here can surface a stranger's wardrobe.
+ *
+ * All data flows through the hooks that already existed. No server change, no
+ * new table, no new query.
  */
 export default function ExploreScreen() {
   const router = useRouter();
@@ -208,6 +191,10 @@ export default function ExploreScreen() {
   const myReactions = useMyDailyReactions();
   const setReaction = useSetDailyReaction();
 
+  // Read-only, and only so the circle sheet can say "Off" beside the door to
+  // the switch. Nothing on this page writes it.
+  const sharing = useWornSharing();
+
   // Variant A plus the device-local mute, both at the read edge — before the
   // day grouping and the signed-URL work, so a hidden row simply never exists
   // for this page: no day header survives with only its entries behind it, and
@@ -219,10 +206,29 @@ export default function ExploreScreen() {
   );
 
   // UX-10 — the boundary this visit renders against, frozen on arrival so the
-  // rule does not vanish in the same commit that clears the tab dot.
-  const { dividerItemId } = useExploreVisit(entries, additions.isSuccess);
+  // rule does not vanish in the same commit that clears the tab dot. The
+  // machinery is untouched: `unseen.ts` still proves the boundary from an
+  // authoritative `created_at`, still reports nothing when it cannot, and
+  // still advances only when the visit ends.
+  const { boundary, dividerItemId } = useExploreVisit(entries, additions.isSuccess);
 
   const looks = useMemo(() => dailyLooks.data ?? [], [dailyLooks.data]);
+
+  /**
+   * Where the rule falls in the LOOK feed — the accepted
+   * `feed-new-since-divider` frame.
+   *
+   * The same proven boundary and the same pure function the timeline has
+   * always used; nothing about how a boundary is established, stored or
+   * advanced changes. `unseenBoundaryIndex` returns `null` in all three cases
+   * that should draw the same nothing — no boundary, nothing new, nothing old
+   * — so an unproven reader sees no rule, and a rule never separates the page
+   * from itself.
+   */
+  const lookDividerIndex = useMemo(
+    () => unseenBoundaryIndex(looks, (look) => look.wornAt, boundary),
+    [looks, boundary],
+  );
 
   // Plates first, cutouts next, the photograph last. The storage policies allow
   // friends exactly these three derivatives and never the original.
@@ -255,13 +261,24 @@ export default function ExploreScreen() {
    *
    * "Reached the end" is a fact about the reader, not the data, and hardcoding
    * it true would make `daily_social_completed` answer its own question — the
-   * question being whether a finite unit actually gets finished. The day sits
-   * at the top of the page, so its end is inside the first viewport whenever it
-   * is short, and this is true on the first layout for those readers, which is
-   * correct: they have seen the end.
+   * question being whether a finite unit actually gets finished.
    */
   const [dailyEndSeen, setDailyEndSeen] = useState(false);
   const dailyBottom = useRef(0);
+
+  /**
+   * Which look's last reaction write failed.
+   *
+   * One id, not a set: a reader taps one chip at a time, and a page that
+   * remembered every failure would keep showing a strip for a card they have
+   * long since scrolled past. It clears on the next attempt, and the retry
+   * replays the exact reaction that did not land.
+   */
+  const [reactionFailure, setReactionFailure] = useState<{
+    outfitId: string;
+    ownerId: string;
+    reaction: DailyReaction | null;
+  } | null>(null);
 
   const dailyFailed = dailyLooks.isError || sharingCount.isError;
   const dailyLoading = dailyLooks.isLoading || sharingCount.isLoading || friends.isLoading;
@@ -275,13 +292,12 @@ export default function ExploreScreen() {
   });
 
   /**
-   * S-1a is not drawn here, and that is deliberate.
+   * S-1a is not drawn by the Daily Social kit, and that is deliberate.
    *
-   * A reader with no circle already meets this page's own empty hero — an
-   * invitation, no stranger suggestions, "Find a friend" as the way out — which
-   * is exactly what §4 asks S-1a to be, and it shipped before this unit existed.
-   * Mounting a second no-circle screen above it would put two of them on one
-   * page, so the day begins where a circle does.
+   * A reader with no circle meets this page's own empty hero — an invitation,
+   * no stranger suggestions, "Find a friend" as the way out — which is exactly
+   * what §4 asks S-1a to be. Mounting a second no-circle screen above it would
+   * put two of them on one page, so the day begins where a circle does.
    */
   const showsDaily = hasFriends;
 
@@ -316,8 +332,6 @@ export default function ExploreScreen() {
   // slowest query was the friends list ended its spinner while that list was
   // still arriving — the gesture reported done before it was, which is the one
   // thing pull-to-refresh must never do.
-  //
-  // The day joins on the same terms, for the same reason.
   const refreshing =
     additions.isRefetching ||
     friends.isRefetching ||
@@ -331,45 +345,87 @@ export default function ExploreScreen() {
     void sharingCount.refetch();
   };
 
+  const retryDaily = () => {
+    void dailyLooks.refetch();
+    void sharingCount.refetch();
+  };
+
   /**
    * A reaction, and the one analytics property it may carry.
    *
-   * `dailySocialReactedProps` takes the reaction and nothing else — not who
-   * gave it, not who received it, not which look. Taking it back fires nothing:
-   * there is no `daily_social_unreacted`, because the question §5.6 asks is
-   * whether the fixed set of three is the right set, and a withdrawal does not
-   * answer it.
+   * The event is fired by the MUTATION (`useSetDailyReaction`'s `onSuccess`),
+   * not here. It used to be fired in both places, which double-counted every
+   * reaction in the funnel and made the only question §5.6 asks — whether the
+   * fixed set of three is the right set — answerable only by halving a number
+   * nobody documented. Taking a reaction back stays silent: there is no
+   * `daily_social_unreacted`, because a withdrawal does not answer that
+   * question either.
+   *
+   * The failure is caught per look so the card can offer a retry that says
+   * NOTHING WAS SENT — which is true, and is the fact a reader whose tap
+   * visibly undid itself actually needs.
    */
   const react = (outfitId: string, ownerId: string, reaction: DailyReaction | null) => {
-    setReaction.mutate({ outfitId, ownerId, reaction });
-    if (reaction) track(DAILY_SOCIAL_EVENTS.reacted, dailySocialReactedProps(reaction));
+    setReactionFailure(null);
+    setReaction.mutate(
+      { outfitId, ownerId, reaction },
+      { onError: () => setReactionFailure({ outfitId, ownerId, reaction }) },
+    );
   };
 
   const openSearch = () => router.push('/people-search');
 
+  const [circleOpen, setCircleOpen] = useState(false);
+
   /**
-   * The page's one standing link, written once. Requests, blocks and the full
-   * friends list live on the Friends screen; this page does not duplicate
-   * them, it points at them — and it is the visible equivalent of the row
-   * menu's "Your circle" action (UX-09).
+   * The circle sheet's three doors — the accepted `friend-management-reachable`
+   * frame.
+   *
+   * Built here rather than in the sheet because every one of them is a
+   * NAVIGATION, and navigation is the route's job: the component takes rows
+   * and draws them, which is what lets the frame be posed as a fixture without
+   * a navigator. It is also the visible equivalent of the row menu's "Your
+   * circle" action (UX-09) and the same destination.
+   *
+   * The search row reads "Find someone" and is labelled "Find people": the
+   * visible word is the invitation, and the spoken one names the noun a reader
+   * is hunting for in a rotor list. It is the same explicit action UX-04
+   * replaced the permanent search field with — a job most sessions do not
+   * have, one tap away instead of one fold wide.
    */
-  const circleLink = (
-    <Pressable
-      onPress={() => router.push('/friends')}
-      accessibilityRole="button"
-      accessibilityLabel="Open your circle"
-      className="mt-5 flex-row items-center gap-1.5 py-2 active:opacity-60">
-      <Text variant="label" className="text-muted">
-        Your circle
-      </Text>
-      <SymbolView
-        name="chevron.right"
-        size={11}
-        tintColor={theme.byline}
-        resizeMode="scaleAspectFit"
-      />
-    </Pressable>
-  );
+  const circleRows: CircleRow[] = [
+    {
+      id: 'friends',
+      title: EXPLORE_COPY.circleFriends,
+      accessibilityLabel: 'Open your circle',
+      onPress: () => {
+        setCircleOpen(false);
+        router.push('/friends');
+      },
+    },
+    {
+      id: 'find',
+      title: EXPLORE_COPY.circleFind,
+      accessibilityLabel: 'Find people',
+      accessibilityHint: 'Opens a sheet to search for friends by username',
+      onPress: () => {
+        setCircleOpen(false);
+        openSearch();
+      },
+    },
+    {
+      id: 'sharing',
+      title: EXPLORE_COPY.circleSharing,
+      // Read-only, and the only state this sheet reports. Whether it is on is
+      // a fact about the reader's own switch; the sheet shows it and the
+      // screen behind the chevron is the only thing that can change it.
+      value: sharing.data ? EXPLORE_COPY.circleSharingOn : EXPLORE_COPY.circleSharingOff,
+      onPress: () => {
+        setCircleOpen(false);
+        router.push('/privacy/visibility');
+      },
+    },
+  ];
 
   /**
    * UX-09 — the row's context menu, built from the inventory in
@@ -398,86 +454,59 @@ export default function ExploreScreen() {
     });
 
   /**
-   * THE DAY — S-1b, S-2, S-3, S-4 and S-5, above the timeline that was already
-   * here.
+   * THE LOOKS — the page.
    *
-   * It sits at the top because it is the perishable half of the page: a look
-   * leaves after seven days and a new piece in a closet does not, so the thing
-   * with a deadline goes first. It stays inside the one `ScrollView` because
-   * the unit is finite (§6) — forty looks at most, ending in a line that says
-   * so — and finiteness is precisely what makes a scroll view still the right
-   * container.
+   * One `ScrollView`, because the unit is finite (§6): forty looks at most,
+   * ending in a mark that says the week is over. Finiteness is precisely what
+   * makes a scroll view still the right container, and it is why there is no
+   * sentinel, no pager and no "load more" anywhere below.
    *
    * The section never draws a spinner over content it already has: `looks` is
    * whatever the last successful read returned, so a refetch leaves the day on
    * screen and only the pull-to-refresh control moves.
    */
-  /**
-   * Will the timeline below print the closure line itself?
-   *
-   * One page, one ending. `CaughtUpLine` and the timeline's closure are the
-   * same sentence, and a reader with a day AND additions used to meet it twice
-   * in one pull — once mid-page under the looks, once at the true bottom. The
-   * oxblood full stop means "this is the end of the page", so it draws where
-   * the page actually ends: under the day only when nothing follows it.
-   */
-  const timelineWillClose = showsCaughtUp({
-    isError: additions.isError,
-    isLoading: additions.isLoading,
-    visibleCount: entries.length,
-  });
-
   const dailySection = !showsDaily ? null : (
     <View
       className="px-gutter"
       onLayout={(e) => {
         dailyBottom.current = e.nativeEvent.layout.y + e.nativeEvent.layout.height;
       }}>
-      <View className="mb-2.5 mt-6">
-        <SectionHeader title={DAY_HEADING} />
-
-        {/* THE DAY, AND THE FACT THAT IT ENDS — the atlas's "Wednesday · four
-            looks, then done".
-
-            The atlas lists this line in its gestures table as the VISIBLE
-            EQUIVALENT of scrolling to the bottom: a reader who never reaches
-            the end still learns the day is finite and how finite, which is the
-            same promise the closure line keeps below, made where it is cheaper
-            to act on. It prints only over a loaded day that has looks in it —
-            over a quiet day or a failed read it would be counting something
-            that is not there, and both of those states already say what they
-            are in their own words. */}
-        {!dailyLoading && showsLooks(dailyState) ? (
-          <Text variant="note" className="mt-1.5">
-            {daySubtitle(looks.length)}
-          </Text>
-        ) : null}
-      </View>
-
       {dailyLoading ? (
-        <Card style={{ borderRadius: CARD_RADIUS }}>
-          <DailyLookSkeleton />
-        </Card>
+        <View className="pt-4">
+          <LookFeedSkeleton />
+        </View>
       ) : dailyState === 'offline' ? (
-        <DailyOfflineState
-          onRetry={() => {
-            void dailyLooks.refetch();
-            void sharingCount.refetch();
-          }}
-          retrying={dailyLooks.isRefetching || sharingCount.isRefetching}
-        />
+        <View className="pt-4">
+          <CircleErrorBand
+            onRetry={retryDaily}
+            onBack={() => router.push('/')}
+            retrying={dailyLooks.isRefetching || sharingCount.isRefetching}
+          />
+        </View>
       ) : dailyState === 'nobody_sharing' ? (
         <NobodySharingState onOpenSharing={() => router.push('/privacy/visibility')} />
       ) : dailyState === 'quiet_day' ? (
         <QuietDayState />
       ) : showsLooks(dailyState) ? (
-        <View>
+        <View className="pt-4" style={{ gap: FEED_GAP }}>
+          {/* THE DAY'S LENGTH, ONCE, BEFORE THE CARDS.
+              The atlas lists this line in its gestures table as the VISIBLE
+              EQUIVALENT of scrolling to the bottom: a reader who never reaches
+              the end still learns the day is finite and how finite. It counts
+              LOOKS — a fact about this page — and never garments, which would
+              be a measurement of what an owner chose to hide. */}
+          <Text variant="note" accessibilityRole="summary">
+            {daySubtitle(looks.length)}
+          </Text>
+
           {looks.map((look, index) => {
             const owner = owners.get(look.ownerId) ?? null;
+            const ownerName = owner?.displayName ?? owner?.username ?? 'A friend';
             return (
-              <View key={look.outfitId} className="mb-4">
-                <LookCard
-                  ownerName={owner?.displayName ?? owner?.username ?? 'A friend'}
+              <View key={look.outfitId} style={{ gap: FEED_GAP }}>
+                {index === lookDividerIndex ? <EarlierRule /> : null}
+                <LookEntryCard
+                  ownerName={ownerName}
                   name={look.name}
                   wornAt={look.wornAt}
                   pieces={look.pieces.map((piece) => ({
@@ -487,16 +516,24 @@ export default function ExploreScreen() {
                   }))}
                   reaction={myReactions.data?.[look.outfitId] ?? null}
                   onReact={(next) => react(look.outfitId, look.ownerId, next)}
-                  // "Look 1 of 4", spoken. The subtitle above states the same
-                  // count once, in words; a reader swiping card by card gets it
-                  // per card because that is where an ending can be felt coming.
+                  reactionFailed={reactionFailure?.outfitId === look.outfitId}
+                  onRetryReaction={() =>
+                    reactionFailure
+                      ? react(
+                          reactionFailure.outfitId,
+                          reactionFailure.ownerId,
+                          reactionFailure.reaction,
+                        )
+                      : undefined
+                  }
+                  // "Look 1 of 4", spoken. The line above states the same count
+                  // once, in words; a reader swiping card by card gets it per
+                  // card because that is where an ending can be felt coming.
                   position={{ index: index + 1, total: looks.length }}
                 />
               </View>
             );
           })}
-
-          {showsCaughtUpLine(dailyState) && !timelineWillClose ? <CaughtUpLine /> : null}
         </View>
       ) : null}
     </View>
@@ -515,6 +552,13 @@ export default function ExploreScreen() {
     if (contentOffset.y + layoutMeasurement.height >= dailyBottom.current) setDailyEndSeen(true);
   };
 
+  /** Will anything print an ending? One page, one full stop. */
+  const timelineClosed = showsCaughtUp({
+    isError: additions.isError,
+    isLoading: additions.isLoading,
+    visibleCount: entries.length,
+  });
+
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="px-gutter pt-2">
@@ -524,32 +568,38 @@ export default function ExploreScreen() {
               Explore
             </Text>
 
-            {/* UX-04's copy correction. "Looks and ideas to try" described a
-                curation surface this app does not have and will not build —
-                these are the pieces friends added to their own closets, and
-                nothing about them was chosen, styled or recommended for you.
-                The support line rides in a wrapper with a `marginTop`, not an
-                `mt-*` class: `Explore` is cap-trimmed, and a margin utility on
-                the sibling competes with the trim's negative optical margin. */}
-            <View style={{ marginTop: 6 }}>
-              <Text variant="note">New in your circle.</Text>
+            {/* The support line, in the second register every masthead in this
+                app uses. It is the day's own heading — what your circle wore —
+                because that is what the page is now. It replaced "New in your
+                circle.", a sentence about pieces added to a closet, which is
+                what the SECONDARY section below is about and where that
+                sentence went. The wrapper carries the margin rather than an
+                `mt-*` class: `Explore` is cap-trimmed, and `trim` sets a
+                negative margin as an INLINE style, which beats a NativeWind
+                class silently. */}
+            <View style={{ marginTop: 8 }}>
+              <Text variant="eyebrow">{EXPLORE_COPY.support}</Text>
             </View>
           </View>
 
           <View className="flex-row items-center" style={{ marginRight: -11 }}>
-            {/* The door out of an empty page, and the way to grow a full one —
-                an explicit action rather than a permanent field. 44pt of
+            {/* FRIEND MANAGEMENT, REACHABLE AND NOT COMPETING.
+                One control, always here, whether the page is full or empty; it
+                opens three doors and no fourth (`CircleSheet`). It is not a
+                permanent search field — UX-04 removed exactly that, because a
+                search block on a feed page spends the first fold on a job most
+                sessions do not have — and it is not a second tab. 44pt of
                 pressable around 17pt of glyph, labelled, because a lone
-                magnifying glass tells VoiceOver nothing about what it searches. */}
+                ellipsis tells VoiceOver nothing about what it opens. */}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Find people"
-              accessibilityHint="Opens a sheet to search for friends by username"
-              onPress={openSearch}
+              accessibilityLabel="Open your circle"
+              accessibilityHint={EXPLORE_COPY.circleActionHint}
+              onPress={() => setCircleOpen(true)}
               style={{ width: MIN_TAP_TARGET, height: MIN_TAP_TARGET }}
               className="items-center justify-center active:opacity-60">
               <SymbolView
-                name="magnifyingglass"
+                name="ellipsis"
                 size={17}
                 tintColor={theme.ink}
                 resizeMode="scaleAspectFit"
@@ -559,9 +609,10 @@ export default function ExploreScreen() {
             {/* The Activity Center's only entry point — AC-01's spec panel.
                 A PUSH from this header rather than a fifth tab, so the inbox
                 cannot compete for attention with the four destinations that
-                do live in the bar (ACTIVITY-CENTER-IMPLEMENTATION.md §13). It
-                carries a boolean presence dot and never a number; see
-                `components/activity-center/entry-button.tsx`. */}
+                do live in the bar. It carries a boolean presence dot and never
+                a number. Kept through this redesign deliberately: removing it
+                would delete the Activity Center's only door, which is a
+                feature decision and not a presentation one. */}
             <ActivityEntryButton />
           </View>
         </View>
@@ -569,12 +620,11 @@ export default function ExploreScreen() {
 
       <KeyboardAwareScrollView
         contentContainerClassName="pb-24"
-        // `flexGrow`, not `flex`: the hero empty and error states centre with
-        // `flex-1`, which needs a parent of known height and silently collapses
-        // to nothing inside a content-sized scroll container. Growing the
-        // content container to the viewport is what lets those states keep
-        // their designed composition AND keep pull-to-refresh — the alternative
-        // (hoisting them out of the ScrollView) costs the refresh gesture on
+        // `flexGrow`, not `flex`: the hero states need a parent of known
+        // height and silently collapse to nothing inside a content-sized
+        // scroll container. Growing the content container to the viewport is
+        // what lets them keep their designed composition AND keep
+        // pull-to-refresh — the alternative costs the refresh gesture on
         // exactly the screen where "try again" matters most.
         contentContainerStyle={{ flexGrow: 1 }}
         onScroll={onScroll}
@@ -582,72 +632,93 @@ export default function ExploreScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
         }>
+        {/* UX-10 — the rule between what is new and what you have already seen,
+            over the looks. It draws above the FIRST card, which is where the
+            accepted frame puts it, and only when `unseen.ts` has proven a
+            boundary and there is something on both sides of it. */}
+        {showsDaily && !dailyLoading && showsLooks(dailyState) && lookDividerIndex !== null ? (
+          <View className="px-gutter pt-4">
+            <NewSinceRule label={newSinceLabel(boundary)} />
+          </View>
+        ) : null}
+
         {dailySection}
 
-        {additions.isError ? (
-          // A failed read is not an empty circle, and must never be dressed as
-          // one — this hero exists for the same distinction `ErrorState` does,
-          // and claims no more than it did: the read failed, nothing moved.
-          // The glyph is the circled exclamation in oxblood, not warning
-          // amber — the atlas spends the accent on the one state that stops
-          // the page.
-          <View className="flex-1">
+        {!hasFriends && !friends.isLoading ? (
+          // S-1a. The copy is typed here rather than imported because this is
+          // the page that ships it; `daily-social/copy.ts` keeps a transcript
+          // so the contract's claims about this state can be tested beside the
+          // other two emptinesses. Both must say the same words, and a test
+          // asserts they do.
+          <Hero
+            glyph={<TwoPersonGlyph size={40} color={HERO_GLYPH_INK} />}
+            title="Explore is just your people"
+            body="Add a friend you already know and you’ll see what they wore — only if you’re both friends, and only if they’ve turned sharing on."
+            actionTitle="Find a friend"
+            onAction={openSearch}
+          />
+        ) : additions.isError ? (
+          // A failed read is not an empty circle and must never be dressed as
+          // one. This hero claims no more than `ErrorState` does: the read
+          // failed, nothing moved. Oxblood, not warning amber — the timeline
+          // failing while the looks loaded is the one case where the whole
+          // secondary section is gone rather than merely stale.
+          <View className="pt-2">
             <Hero
               alert
               glyph={<CircledExclamationGlyph size={34} color={theme.accent} />}
-              title="Couldn’t read your circle."
-              body="This didn’t load, which is a connection problem rather than a change to anyone’s closet. Nothing has moved."
-              actionTitle="Try again"
+              title="Couldn’t reach your circle"
+              body={EXPLORE_COPY.offlineBody}
+              actionTitle={EXPLORE_COPY.offlineRetry}
               onAction={() => void additions.refetch()}
             />
           </View>
         ) : additions.isLoading ? (
           <View className="px-gutter">
-            <SectionHeader title="Reading your circle" className="mb-2.5 mt-6" />
-            <Card style={{ borderRadius: CARD_RADIUS }}>
-              <NewAdditionsSkeleton />
+            <SectionHeader title={EXPLORE_COPY.loadingHeading} className="mb-2.5 mt-8" />
+            <Card style={{ borderRadius: ADDITION_CARD_RADIUS }}>
+              <LookFeedSkeleton count={1} />
             </Card>
           </View>
         ) : entries.length === 0 ? (
-          // Three different absences, told apart. Someone with friends whose
-          // circle is quiet is not someone with no friends, and neither is
-          // someone who has muted everyone who posts. None blames the user, and
-          // each names the one action that changes it.
-          <View className="flex-1">
-            <Hero
-              glyph={
-                hasFriends ? (
-                  <HangerGlyph size={34} color={HERO_GLYPH_INK} />
-                ) : (
-                  <TwoPersonGlyph size={34} color={HERO_GLYPH_INK} />
-                )
-              }
-              title={hasFriends ? 'Nothing new yet' : 'An empty page, for now'}
-              body={
-                hasFriends
-                  // One sentence. The second used to narrate the layout —
-                  // day headings and newest-first order are visible on the
-                  // page the moment there is anything to see.
-                  ? 'Nobody in your circle has added a piece lately.'
-                  : 'This page fills with what your friends add to their closets. Find someone by username; when they add you back, their closet opens to you and yours to them.'
-              }
-              actionTitle={hasFriends ? 'Find more friends' : 'Find a friend'}
-              onAction={openSearch}
-            />
-            <View className="px-gutter">{circleLink}</View>
-          </View>
+          hasFriends ? (
+            // Friends, but nothing added lately — and nothing to do about it.
+            // Not an error, not an empty-styled apology, and no action: the
+            // read succeeded and a retry would return the same nothing.
+            <View className="px-gutter pt-8">
+              <HangerGlyph size={28} color={HERO_GLYPH_INK} />
+              <Text variant="note" className="mt-4">
+                Nobody in your circle has added a piece lately.
+              </Text>
+            </View>
+          ) : null
         ) : (
-          <View className="px-gutter">
+          <View className="px-gutter pt-2">
+            {/* THE SECONDARY LIST — pieces friends added to their closets.
+                Demoted, not deleted: it is the durable half of the circle and
+                still the only place a new garment shows up, but it is not what
+                the page is about. Same query, same rows, same UX-09 context
+                menu, and the same day headings it always had. */}
+            <SectionHeader title={EXPLORE_COPY.additionsHeading} className="mb-2.5 mt-8" />
+
             {groups.map((group) => (
               <View key={group.key}>
-                <SectionHeader title={group.label} className="mb-2.5 mt-6" />
-                <Card style={{ borderRadius: CARD_RADIUS }}>
+                <SectionHeader title={group.label} className="mb-2 mt-4" />
+                <Card style={{ borderRadius: ADDITION_CARD_RADIUS }}>
                   {group.entries.map((entry, i) => {
                     const owner = owners.get(entry.ownerId) ?? null;
                     const ownerName = owner?.displayName ?? owner?.username ?? 'their';
                     return (
                       <View key={entry.item.id}>
-                        {entry.item.id === dividerItemId ? <NewSinceRule /> : null}
+                        {/* The timeline's own side of the same boundary,
+                            driven by the same untouched machinery: `unseen.ts`
+                            names the row the rule sits above, and the screen
+                            draws it there. */}
+                        {entry.item.id === dividerItemId ? (
+                          <View className="px-4">
+                            <EarlierRule />
+                          </View>
+                        ) : null}
                         <NewAdditionRow
                           entry={entry}
                           owner={owner}
@@ -670,25 +741,31 @@ export default function ExploreScreen() {
               </View>
             ))}
 
-            {/* UX-10 — the ending. Explore stops, and says so. */}
-            {showsCaughtUp({
-              isError: additions.isError,
-              isLoading: additions.isLoading,
-              visibleCount: entries.length,
-            }) ? (
-              <Text
-                accessibilityRole="summary"
-                variant="noteSmall"
-                className="mt-6 text-center"
-                style={{ fontSize: 13, lineHeight: 18, color: theme.muted }}>
-                {CAUGHT_UP_LINE}
-              </Text>
+            {timelineClosed ? (
+              <View className="mt-8">
+                <AdditionsEndMark />
+              </View>
             ) : null}
-
-            <View className="items-center">{circleLink}</View>
           </View>
         )}
+
+        {/* THE ENDING — one page, one full stop, and it belongs to the week.
+            It prints under everything, over a page that actually loaded and
+            actually has looks on it. A closure over a failed read would be a
+            claim the app cannot make, and a closure over a page with nothing
+            on it would be closing nothing. */}
+        {showsDaily && !dailyLoading && showsLooks(dailyState) ? (
+          <View className="px-gutter pt-10">
+            <CaughtUpMark />
+          </View>
+        ) : null}
       </KeyboardAwareScrollView>
+
+      <CircleSheet
+        visible={circleOpen}
+        rows={circleRows}
+        onDismiss={() => setCircleOpen(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -76,11 +76,29 @@ export type DailyReactionVisual = {
 
 export function dailyReactionVisual(selected: boolean): DailyReactionVisual {
   return {
-    // Ink, not oxblood. The frame's one accent belongs to the state that stops
-    // the page (the offline kicker); a reaction is a small, frequent, private
-    // thing and spending the accent on three of them per card would make a
-    // page of looks read as a page of alerts.
-    ground: selected ? 'bg-ink' : 'border border-rule',
+    // ── OXBLOOD, WHERE THIS USED TO SAY INK ─────────────────────────────────
+    //
+    // The earlier note here argued for ink: "the frame's one accent belongs to
+    // the state that stops the page (the offline kicker), and spending it on
+    // three chips per card would make a page of looks read as a page of
+    // alerts." Redesign 17's accepted frames settle both halves of that
+    // differently, and they are the design of record:
+    //
+    //   · The state that stops the page is no longer oxblood. The recoverable
+    //     failures — a circle that would not load, a reaction that did not
+    //     save — are drawn on the warning amber at a low alpha, which is the
+    //     app's own recoverable-trouble ground. The accent is not spoken for.
+    //   · Only ONE chip per card is ever filled, and most cards have none.
+    //     What the reader sees on a scroll is their own occasional mark, not a
+    //     column of alerts — and `look-reaction-chosen` is precisely the frame
+    //     that shows it warm rather than black.
+    //
+    // The resting chip changes with it: `sand`, the app's recessed tile, in
+    // place of an outline. A chip that is a ring and a chip that is a fill are
+    // two different objects; a chip that is a quiet tile and a chip that is a
+    // warm one are the same object in two states, which is what a reversible
+    // choice should look like.
+    ground: selected ? 'bg-accent' : 'bg-sand',
     label: selected ? 'canvas' : 'ink',
     tick: selected,
     minHeight: DAILY_REACTION_MIN_HEIGHT,

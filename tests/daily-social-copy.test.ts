@@ -91,6 +91,9 @@ const ALL_COPY = [
   NO_CIRCLE.action,
   NOBODY_SHARING.title,
   NOBODY_SHARING.body,
+  // Redesign 17 moved the non-retroactive promise into its own line under the
+  // action. It is user-facing copy and is scanned as such.
+  NOBODY_SHARING.note,
   NOBODY_SHARING.action,
   QUIET_DAY.title,
   QUIET_DAY.body,
@@ -152,9 +155,14 @@ test('S-1a never suggests a stranger', () => {
   const all = `${NO_CIRCLE.title} ${NO_CIRCLE.body} ${NO_CIRCLE.action}`;
   assert.doesNotMatch(all, /people you may know|suggested|discover|popular|nearby|browse/i);
   // It names the mutual condition instead, which is the only way anyone gets
-  // in. The shipped line says it as "when they add you back" rather than with
-  // the word "follow" — the same condition, in the words a person uses.
-  assert.match(all, /follow|add you back/i);
+  // in. Redesign 17 says it as "only if you’re both friends" where the shipped
+  // line said "when they add you back" — the same condition, and the new
+  // phrasing also names the SECOND condition the old one silently omitted:
+  // that friend's own sharing switch, which is off by default. Someone who
+  // added a friend on the strength of the old sentence and then met an empty
+  // page had been told something untrue.
+  assert.match(all, /follow|add you back|both friends/i);
+  assert.match(all, /sharing/i, 'S-1a no longer names the sharing condition');
 });
 
 test('S-1a is the copy the page actually ships, not a second version of it', () => {
@@ -183,9 +191,19 @@ test('S-1b carries the non-retroactive promise, not a week of history', () => {
   // Someone turning sharing on from this screen is deciding about their own
   // past. A sentence implying a week of it is about to appear would be false
   // and is the exact wording the atlas correction removed.
-  assert.match(NOBODY_SHARING.body, /from that moment|from the moment/i);
-  assert.match(NOBODY_SHARING.body, /never anything you have already worn/i);
-  assert.doesNotMatch(NOBODY_SHARING.body, /last seven days|past week|previous looks/i);
+  //
+  // REDESIGN 17 MOVED THE PROMISE, AND THE TEST MOVED WITH IT. The accepted
+  // frame leads the body with the fact that explains the empty page — sharing
+  // is off by default for everyone — and puts the non-retroactivity in its own
+  // line directly under the button that acts on it, which is where a person
+  // reads it. Both halves are still required; they are simply required across
+  // the two strings the state now ships, and the state must still ship both.
+  const promise = `${NOBODY_SHARING.body} ${NOBODY_SHARING.note}`;
+  assert.match(promise, /from that moment|from the moment|before today/i);
+  assert.match(promise, /never anything you have already worn|nothing you wore before today/i);
+  assert.doesNotMatch(promise, /last seven days|past week|previous looks/i);
+  // And the body still says the thing the empty page is actually caused by.
+  assert.match(NOBODY_SHARING.body, /off by default/i);
 });
 
 // ---------------------------------------------------------------------------

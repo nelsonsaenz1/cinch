@@ -67,13 +67,26 @@ import { useTheme } from '@/theme/tokens';
  */
 export function NobodySharingState({ onOpenSharing }: { onOpenSharing: () => void }) {
   return (
-    <EmptyState
-      symbol={NOBODY_SHARING.symbol}
-      title={NOBODY_SHARING.title}
-      body={NOBODY_SHARING.body}
-      actionTitle={NOBODY_SHARING.action}
-      onAction={onOpenSharing}
-    />
+    <View className="flex-1">
+      <EmptyState
+        symbol={NOBODY_SHARING.symbol}
+        title={NOBODY_SHARING.title}
+        body={NOBODY_SHARING.body}
+        actionTitle={NOBODY_SHARING.action}
+        onAction={onOpenSharing}
+      />
+
+      {/* THE NON-RETROACTIVE PROMISE, UNDER THE BUTTON THAT ACTS ON IT.
+          Redesign 17 moved it out of the body and into its own quiet line,
+          which is where the accepted frame puts it and where a person actually
+          reads it: on the way to the control, not three clauses back. It is
+          not decoration — someone turning sharing on here is making a decision
+          about their own history, and `worn_outfits_shared_since` is the
+          column that keeps this sentence true. */}
+      <Text variant="note" className="mt-4 px-gutter">
+        {NOBODY_SHARING.note}
+      </Text>
+    </View>
   );
 }
 

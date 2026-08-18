@@ -137,6 +137,19 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     [['Openings, allowance and denials', '/dev-r16-stylist']],
   ],
   [
+    'Redesign 17 · Explore',
+    [
+      ['Feed, reactions and privacy line', '/dev-ex-01-feed'],
+      ['New since your last visit', '/dev-ex-02-divider'],
+      ['The designed ending', '/dev-ex-03-ending'],
+      ['Nobody sharing yet', '/dev-ex-04-nobody-sharing'],
+      ['Hidden pieces, silently omitted', '/dev-ex-05-hidden'],
+      ['Your circle', '/dev-ex-06-circle'],
+      ['Loading', '/dev-ex-07-loading'],
+      ['Offline, recoverable', '/dev-ex-08-offline'],
+    ],
+  ],
+  [
     'Group 3 · Closet and Intake',
     [
       ['AC-03', '/dev-w3-g3-ac-03'],

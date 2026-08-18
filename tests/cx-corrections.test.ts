@@ -20,6 +20,7 @@ import { WEEK_COPY } from '../src/features/plan/plan-week-spec';
 import { test } from 'node:test';
 
 import { CLOSET_COPY } from '../src/features/closet/closet-spec';
+import { EXPLORE_COPY } from '../src/features/explore/explore-spec';
 
 import {
   INTAKE_ROUTES,
@@ -454,11 +455,34 @@ test('CX-06/LP-06 — Explore is the sole heading, and keeps its header role', (
 test('UX-04 — the masthead carries a search ACTION, and the search itself moved out', () => {
   const src = code(EXPLORE);
   assert.doesNotMatch(src, /<SearchField/, 'the permanent search field survives on Explore');
-  assert.match(src, /accessibilityLabel="Find people"/, 'no labelled search action in the header');
+
+  // ── REDESIGN 17 MOVED THE ACTION, NOT THE RULE ───────────────────────────
+  //
+  // UX-04's claim is that finding people is an EXPLICIT ACTION on this page
+  // rather than a permanent field spending the first fold on a job most
+  // sessions do not have. That is still exactly true; the action is now the
+  // "Find someone" row inside the circle sheet the masthead opens, so the
+  // label is written as an object property on the sheet's inventory instead
+  // of as a JSX attribute on a header button. Both spellings are accepted
+  // here — what is asserted is that the labelled action and its destination
+  // are both still owned by this route, which is what stops the search
+  // quietly becoming unreachable.
+  assert.match(
+    src,
+    /accessibilityLabel[:=]\s*["']Find people["']/,
+    'no labelled search action on Explore',
+  );
   assert.match(src, /push\('\/people-search'\)/, 'the search action does not open the sheet');
+
   // The rest of the page is the same page: its loading section is still here,
   // and the empty state still leads to search rather than dead-ending.
-  assert.ok(src.includes('Reading your circle'), 'Explore lost its "Reading your circle" section');
+  //
+  // The heading moved to `explore-spec.ts` with the rest of redesign 17's copy
+  // — the same move Plan and Closet made to `plan-week-spec` and
+  // `closet-spec` — so the string is checked at its source and the route is
+  // checked for rendering it.
+  assert.equal(EXPLORE_COPY.loadingHeading, 'Reading your circle');
+  assert.match(src, /EXPLORE_COPY\.loadingHeading/, 'Explore lost its "Reading your circle" section');
   assert.ok(src.includes('Find a friend'), 'the empty circle lost its way out');
 });
 
@@ -513,10 +537,26 @@ const ACCEPTED: Record<string, [path: string, headline: string, support: string]
   // the one surface in the table whose support line was WRONG in two of its
   // three modes, so the line was withdrawn rather than reworded.
   // UX-04 replaced LP-06's "Looks and ideas to try." — the page curates
-  // nothing, recommends nothing and styles nothing; these are the pieces
-  // friends added to their own closets, and the line now says exactly that.
-  Explore: [EXPLORE, 'Explore', 'New in your circle.'],
+  // nothing, recommends nothing and styles nothing.
+  //
+  // Redesign 17 replaced UX-04's "New in your circle." for the same kind of
+  // reason: that sentence described a timeline of pieces ADDED to closets,
+  // which is now the page's secondary section. What the page is about is what
+  // people wore, and the masthead says so — the day's own heading, in the
+  // second register every masthead in this app uses. The support line is
+  // read from the spec rather than typed twice.
+  // The third column is what must appear in the ROUTE. Explore renders its
+  // support line from the spec, so the token is what the route contains and
+  // the sentence itself is asserted against the spec just below.
+  Explore: [EXPLORE, 'Explore', 'EXPLORE_COPY.support'],
 };
+
+test('LP-06/R17 — Explore’s support line is the day’s own heading', () => {
+  assert.equal(EXPLORE_COPY.support, 'What your circle wore');
+  // And it is not the sentence it replaced, which described the secondary
+  // section rather than the page.
+  assert.notEqual(EXPLORE_COPY.support, 'New in your circle.');
+});
 
 for (const [surface, [path, headline, support]] of Object.entries(ACCEPTED)) {
   test(`LP-06 — ${surface} carries the accepted headline and support line`, () => {
@@ -662,5 +702,17 @@ test('LP-06 — the destructive and recovery copy the table must not displace', 
   // reads them from, so neither can drift without the other.
   assert.equal(WEEK_COPY.errorTitle, 'The plate didn’t load', 'the plate error copy changed');
   assert.match(body(PLAN_BODY), /WEEK_COPY\.errorTitle/, 'the plate stopped reporting');
-  assert.match(body(EXPLORE), /Couldn’t read your circle\./, 'the circle error copy changed');
+  // SUPERSEDED BY REDESIGN 17, on the same terms as the Plan line above.
+  //
+  // "Couldn't read your circle." was the headline of a full-page error hero.
+  // The accepted `offline-recoverable` frame keeps the sentence and refuses
+  // the takeover: a band at the top of the page, the ghost of the feed still
+  // under it, a retry and a way back to Today. The verb went from "read" to
+  // "reach" with it, which is the more honest word for a connection that
+  // dropped, and the refusal the line exists to make is unchanged and pinned
+  // in the spec — this is a connection problem, NOT an empty circle, and
+  // nothing has changed for anyone.
+  assert.equal(EXPLORE_COPY.offlineCause, 'Couldn’t reach your circle');
+  assert.match(EXPLORE_COPY.offlineBody, /not an empty circle/i, 'the error started claiming emptiness');
+  assert.match(body(EXPLORE), /Couldn’t reach your circle/, 'the circle error copy changed');
 });

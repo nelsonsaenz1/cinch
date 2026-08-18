@@ -234,8 +234,25 @@ export function lookAccessibilityLabel({
  */
 export const NO_CIRCLE = {
   source: 'src/app/(tabs)/explore.tsx',
-  title: 'An empty page, for now',
-  body: 'This page fills with what your friends add to their closets. Find someone by username; when they add you back, their closet opens to you and yours to them.',
+  /**
+   * Redesign 17 rewrote all three lines, and the rewrite is a correction
+   * rather than a restyling.
+   *
+   * The shipped copy ("This page fills with what your friends add to their
+   * closets") described the page Explore USED to be — a timeline of pieces
+   * added to closets. The page is what your circle WORE now, and the timeline
+   * is the secondary list under it. It also promised the wrong thing about
+   * arrival: adding someone back opens their closet, but it does not put a
+   * single look on this page, because sharing worn outfits is a separate
+   * switch that is off by default for everyone. Someone who added a friend on
+   * the strength of the old sentence and then met an empty page had been told
+   * something untrue.
+   *
+   * The new body states BOTH conditions, in the order they bind: mutual
+   * friendship, then that friend's own sharing switch.
+   */
+  title: 'Explore is just your people',
+  body: 'Add a friend you already know and you’ll see what they wore — only if you’re both friends, and only if they’ve turned sharing on.',
   action: 'Find a friend',
 } as const;
 
@@ -245,20 +262,38 @@ export const NO_CIRCLE = {
 
 export const NOBODY_SHARING = {
   symbol: 'tshirt',
-  title: 'You could go first',
+  title: 'Nobody’s sharing yet',
   /**
-   * The only state whose action is about the reader, and the sentence has to
-   * carry the non-retroactivity with it — someone turning sharing on from this
-   * screen is making a decision about their own history and must not be
-   * surprised by it. "From the moment you turn it on" is the whole promise
-   * `worn_outfits_shared_since` exists to keep; "never anything you have
-   * already worn" is the half a boolean would have broken.
+   * The only state whose action is about the reader.
    *
-   * It does NOT say "invite more people". More friends who are also not
+   * ── REDESIGN 17 MOVED THE NON-RETROACTIVITY, AND KEPT IT ───────────────────
+   *
+   * The shipped body carried two promises in one sentence: that sharing starts
+   * from the moment you turn it on, and that nothing you have already worn is
+   * ever included. Both are load-bearing — `worn_outfits_shared_since` exists
+   * to keep the first, and the second is the half a plain boolean would have
+   * broken — and both survive. What changed is where they sit.
+   *
+   * The accepted frame leads with the fact that explains the empty page, which
+   * the old copy left implicit: sharing is OFF BY DEFAULT FOR EVERYONE. A
+   * reader meeting this state has not been ignored and nobody has opted out of
+   * them; nothing was ever on. It then states the two limits of going first —
+   * mutual friends only, seven days only — and puts the non-retroactive
+   * promise in `note`, immediately under the button that acts on it, which is
+   * where a person actually needs it.
+   *
+   * It still does NOT say "invite more people". More friends who are also not
    * sharing changes nothing about this page.
    */
-  body: 'Your friends are here, and none of them is sharing what they wore yet. Turn yours on and they will see what you wear from that moment — never anything you have already worn.',
-  action: 'Turn on sharing',
+  body: 'Your circle is here, but sharing worn outfits is off by default for everyone. You can go first — only your mutual friends would see it, and only for seven days.',
+  /**
+   * The non-retroactive promise, in the frame's own words and in the frame's
+   * own place: under the action, quieter than the body, impossible to miss on
+   * the way to the button. Same fact as "never anything you have already
+   * worn", said forwards.
+   */
+  note: 'Nothing you wore before today would be shared.',
+  action: 'Go first',
 } as const;
 
 // ---------------------------------------------------------------------------
