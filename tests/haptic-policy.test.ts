@@ -120,7 +120,8 @@ const DIRECT_HAPTICS_DEBT = [
   // this policy module, and Today now has no haptics at all.
   'src/app/capture.tsx',
   'src/app/stylist.tsx',
-  'src/app/tour.tsx',
+  // `src/app/tour.tsx` PAID OFF by redesign 20: both of its selection ticks
+  // now fire through `@/lib/haptics`.
   'src/components/activity/ActivityRow.tsx',
   'src/components/event-outfits/VotePill.tsx',
   'src/components/intake/ColourGrid.tsx',

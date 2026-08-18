@@ -149,6 +149,20 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    // The gate has no fixture here and cannot have one: whether the tour opens
+    // at all is decided by `(auth)/handoff.tsx` against a server column, and a
+    // dev route that drew "the tour, loading" would be drawing a screen the app
+    // never shows. See `tests/tour-layout.test.ts` for where that is pinned.
+    'Redesign 20 · Tour',
+    [
+      ['TR-01 · the promise, ink ground', '/dev-tr-01-promise'],
+      ['TR-02 · the camera, drawn', '/dev-tr-02-camera'],
+      ['TR-03 · the ritual, two ways out', '/dev-tr-03-ritual'],
+      ['TR-04 · largest accessibility text', '/dev-tr-04-ax'],
+      ['TR-05 · short device', '/dev-tr-05-short'],
+    ],
+  ],
+  [
     'Redesign 17 · Explore',
     [
       ['Feed, reactions and privacy line', '/dev-ex-01-feed'],

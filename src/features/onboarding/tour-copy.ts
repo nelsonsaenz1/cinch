@@ -113,7 +113,39 @@ export const TOUR_FRAMES: readonly TourFrame[] = [
  * out. The day and the sky stay the atlas's, because this is a picture of a
  * page and is announced to VoiceOver as one — the same settlement
  * `SamplePlate` already ships under.
+ *
+ * REDESIGN 20 SPLIT THE LINE IN TWO. The miniature is now a card with a header
+ * row — the weekday on the left in the serif, the weather on the right in the
+ * sans — so "Wednesday · 63° and grey" became "Wednesday" and "63°F · Grey".
+ * The sky is capitalised because it now opens its own phrase rather than
+ * trailing a temperature, and the unit letter is appended because the two facts
+ * are separated by a dot instead of by the word "and": "63° · Grey" reads as a
+ * temperature with something missing. `formatTemp` still produces the number
+ * and the degree sign; `TOUR_UNITS` is the app's own unit, not a typed glyph.
  */
 export const TOUR_SAMPLE_WEEKDAY = 'Wednesday';
 export const TOUR_SAMPLE_FEELS_C = 17;
-export const TOUR_SAMPLE_SKY = 'and grey';
+export const TOUR_SAMPLE_SKY = 'Grey';
+/** The app's units. Same constant, same value, as `stylist.tsx`. */
+export const TOUR_UNITS = 'F' as const;
+
+/**
+ * The two lines under TR-03's miniature: what the sample look is, and when it
+ * was last worn. Both are furniture on a picture of a page — the plate is
+ * announced to VoiceOver as a sample, so neither is ever mistaken for the
+ * reader's own wear history.
+ */
+export const TOUR_SAMPLE_LOOK = 'Blouse, skirt, loafers';
+export const TOUR_SAMPLE_LAST_WORN = 'Last worn Friday';
+
+/**
+ * TR-02's result card — what the photographed piece comes back as.
+ *
+ * The frame prints a name and a colour·category line, because the sentence
+ * above it promises exactly those two things ("cuts it out, names the colour
+ * and files it") and a picture that shows the cut-out without the naming is
+ * illustrating half a claim. Sample data, announced as such.
+ */
+export const TOUR_SAMPLE_ITEM = 'Camel shirt';
+export const TOUR_SAMPLE_ITEM_COLOUR = 'Camel';
+export const TOUR_SAMPLE_ITEM_CATEGORY = 'Tops';

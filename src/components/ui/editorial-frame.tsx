@@ -14,6 +14,15 @@ import { useTheme } from '@/theme/tokens';
  * cover needs, and the last three waves each rebuilt a component that already
  * existed one screen over.
  *
+ * NO LONGER USED BY THE TOUR — redesign 20. The approved frames put the
+ * illustration ABOVE the eyebrow and set the words beneath it, and this
+ * component renders `children` after the body by construction, so the tour
+ * composes its own spread now (`features/onboarding/tour-frames.tsx`). It is
+ * kept, unchanged, because the Season-in-review cover it was also written for
+ * still wants exactly this shape — but reaching for it from the tour again
+ * would silently undo the redesign, and `tests/tour-layout.test.ts` fails if
+ * anybody does.
+ *
  * ON THE DARK GROUND
  *
  * `ground="ink"` paints the frame in ink and inverts the type. This is NOT a

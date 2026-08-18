@@ -2,13 +2,43 @@
  * The first-run tour's copy and its once-ever predicate, held against the
  * exact wording and rules in design-refs/html/36 First-Run Tour Atlas.dc.html
  * and docs/design/diary-boards-activity-contract.md §1 (the TR- renaming).
+ *
+ * ── WHAT REDESIGN 20 MOVED, AND WHAT IT DID NOT ─────────────────────────────
+ *
+ * Nothing in this file changed shape. The deck, the once-ever predicate and the
+ * exit matrix are the shipped machinery — redesign 20 restyled the frames and
+ * left every decision they turn on alone, which is why the assertions below are
+ * the same ones that shipped.
+ *
+ * What is NEW here is the sample data the redrawn plates print. The frames
+ * split TR-03's one weather sentence into a card header — "Wednesday" on the
+ * left, "63°F · Grey" on the right — so `TOUR_SAMPLE_SKY` moved from "and grey"
+ * to "Grey", and the miniature grew a footer row and a result card that print
+ * four more sample strings. They are pinned here for the same reason the body
+ * copy is: they are words a new user reads, and a silent change to them is a
+ * silent change to what the app claims it does.
+ *
+ * The LAYOUT contract — skippability at every size, the permission-free module
+ * graph, the gate living in the handoff rather than in the route — lives in
+ * `tests/tour-layout.test.ts`. It is not duplicated here.
  */
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { PLANS } from '../src/features/billing/plans';
-import { TOUR_CLOSET_TARGET, TOUR_FRAMES } from '../src/features/onboarding/tour-copy';
+import {
+  TOUR_CLOSET_TARGET,
+  TOUR_FRAMES,
+  TOUR_SAMPLE_ITEM,
+  TOUR_SAMPLE_ITEM_CATEGORY,
+  TOUR_SAMPLE_ITEM_COLOUR,
+  TOUR_SAMPLE_LAST_WORN,
+  TOUR_SAMPLE_LOOK,
+  TOUR_SAMPLE_SKY,
+  TOUR_SAMPLE_WEEKDAY,
+  TOUR_UNITS,
+} from '../src/features/onboarding/tour-copy';
 import {
   exitDestination,
   frameAt,
@@ -75,6 +105,27 @@ test('TR-03 — the ritual, and two real ways out', () => {
   );
   assert.equal(f.action, 'Start with the camera');
   assert.equal(f.secondary, 'I’ll look around first');
+});
+
+test('the sample data on the plates is sample data, and says so', () => {
+  // Redesign 20's plates print more than a temperature: a filed piece with a
+  // name and a colour·category line on TR-02, and a look plus a wear line under
+  // TR-03's miniature. Every one is furniture on a drawing — the plates are
+  // announced to VoiceOver as samples — but they are still sentences a first
+  // user reads, so they are pinned rather than left to drift.
+  assert.equal(TOUR_SAMPLE_WEEKDAY, 'Wednesday');
+  // "and grey" until the header split it off the temperature. It opens its own
+  // phrase now, so it is capitalised.
+  assert.equal(TOUR_SAMPLE_SKY, 'Grey');
+  assert.equal(TOUR_UNITS, 'F');
+  assert.equal(TOUR_SAMPLE_LOOK, 'Blouse, skirt, loafers');
+  assert.equal(TOUR_SAMPLE_LAST_WORN, 'Last worn Friday');
+  assert.equal(TOUR_SAMPLE_ITEM, 'Camel shirt');
+  assert.equal(TOUR_SAMPLE_ITEM_COLOUR, 'Camel');
+  assert.equal(TOUR_SAMPLE_ITEM_CATEGORY, 'Tops');
+  // The card illustrates the sentence above it — "cuts it out, names the colour
+  // and files it" — so its colour word has to be the colour in its own name.
+  assert.ok(TOUR_SAMPLE_ITEM.toLowerCase().startsWith(TOUR_SAMPLE_ITEM_COLOUR.toLowerCase()));
 });
 
 test('skip is on every frame but the last, where the two choices replace it', () => {

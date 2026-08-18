@@ -1,4 +1,3 @@
-import * as Haptics from 'expo-haptics';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useRef, useState } from 'react';
@@ -12,9 +11,16 @@ import {
   type TourExit,
 } from '@/features/onboarding/tour-state';
 import { useWardrobe } from '@/features/styling/queries';
+import { haptics } from '@/lib/haptics';
 
 /**
- * The first-run tour — atlas 36, TR-01…TR-03.
+ * The first-run tour — atlas 36, TR-01…TR-03, redrawn by redesign 20.
+ *
+ * This route is the state machine and the exit; `tour-frames.tsx` is the
+ * screen, `tour-spec.ts` is every measurement and colour on it, and the brief's
+ * three-word direction — "image-led frames over text" — lands entirely in those
+ * two. Nothing in this file changed shape for the redesign except the haptic,
+ * which now goes through the UX-07 policy module.
  *
  * Shown on the first launch after sign-in and never again, on any device. It
  * is not in Settings and there is no way back to it: `profiles.toured_at` is
@@ -69,7 +75,11 @@ export default function TourScreen() {
   const frame = frameAt(index);
 
   const advance = useCallback(() => {
-    void Haptics.selectionAsync().catch(() => {});
+    // Through the UX-07 policy module rather than `expo-haptics` directly:
+    // advancing a beat is a SELECTION, and which taptic call expresses that is
+    // `lib/haptics`' business. Paid this file off the direct-haptics debt list
+    // in `tests/haptic-policy.test.ts` while redesign 20 was in here.
+    haptics.selection();
     const next = nextIndex(index);
     if (next != null) setIndex(next);
   }, [index]);
@@ -86,7 +96,7 @@ export default function TourScreen() {
     (to: TourExit) => {
       if (leaving.current) return;
       leaving.current = true;
-      void Haptics.selectionAsync().catch(() => {});
+      haptics.selection();
       markToured.mutate();
       // `replace`, never `push`: the tour must not sit under the app on the
       // back stack. The root layout anchors every stack on `(tabs)`, so
