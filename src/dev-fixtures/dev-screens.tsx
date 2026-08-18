@@ -309,6 +309,16 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Trips — the list — redesign 04',
+    [
+      ['TL-01 · upcoming and past', '/dev-tl-01-default'],
+      ['TL-02 · no trips yet', '/dev-tl-02-empty'],
+      ['TL-03 · opening', '/dev-tl-03-loading'],
+      ['TL-04 · offline, cached trips', '/dev-tl-04-error'],
+      ['TL-05 · largest accessibility text', '/dev-tl-05-ax'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],

@@ -167,6 +167,46 @@ export function useRecentDestinations(limit = 3) {
   });
 }
 
+/**
+ * Every trip this reader has, for the Trips list — redesign 04.
+ *
+ * Here rather than in `features/trips/` because of the rule at the top of this
+ * file: `.from('trips')` is defined in ONE module, and a fifth surface reading
+ * the table is exactly the drift that rule exists to prevent. No new table, no
+ * new column, no server-side grouping — the partition into upcoming and past
+ * and the two sorts are pure functions in `trips-list-spec.ts`, where they can
+ * be tested without a database.
+ *
+ * Unsaved rows are included on purpose. A row exists from the moment the
+ * questionnaire is answered, and a trip somebody has booked but not yet packed
+ * for is still a trip they are taking — the frame has a "Packed" badge
+ * precisely so the list can hold both without lying about either.
+ *
+ * The cap is the shelf's, not the database's: nobody scrolls two hundred trips,
+ * and an unbounded select on a page that opens on a tap is how a cold start on
+ * a slow connection becomes a blank screen.
+ */
+export function useAllTrips() {
+  return useQuery({
+    queryKey: ['trips', 'all'],
+    staleTime: 60_000,
+    queryFn: async (): Promise<SavedTrip[]> => {
+      const userId = await getUserId();
+      if (!userId) return [];
+
+      const { data, error } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('user_id', userId)
+        .order('starts_on', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      return ((data ?? []) as Row[]).map(toTrip);
+    },
+  });
+}
+
 /** The most recent trip of any kind, saved or not — K-06's "your answers are saved". */
 export function useLastTrip() {
   return useQuery({

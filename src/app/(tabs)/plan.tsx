@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -55,6 +55,7 @@ import {
 import type { Trip } from '@/features/plan/trip';
 import { STALL_DEADLINE_MS, useStalled } from '@/features/plan/use-stalled';
 import { weekSubtitle } from '@/features/plan/week-lines';
+import { TRIPS_COPY } from '@/features/trips/trips-list-spec';
 import { useWearOutfit } from '@/features/styling/mutations';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { dateKey } from '@/lib/date';
@@ -272,7 +273,26 @@ function SegmentedControl({
 export default function PlanScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const [mode, setMode] = useState<Mode>('week');
+  /**
+   * The mode can arrive as a param — redesign 04's "Plan a trip", pressed on
+   * the Trips list, means Packing and not the week calendar. Read in an initial
+   * state AND in an effect because this tab is usually already mounted when the
+   * push arrives: the initialiser covers a cold arrival, the effect covers a
+   * return to a screen that is still alive.
+   */
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<Mode>(() =>
+    MODES.includes(params.mode as Mode) ? (params.mode as Mode) : 'week',
+  );
+  // Adjusted DURING render rather than in an effect, which is React's own
+  // guidance for "reset some state when a prop changes" and what
+  // `react-hooks/set-state-in-effect` is refusing: an effect would paint the
+  // week for one frame and then swap to Packing.
+  const [seenModeParam, setSeenModeParam] = useState(params.mode);
+  if (params.mode !== seenModeParam) {
+    setSeenModeParam(params.mode);
+    if (MODES.includes(params.mode as Mode)) setMode(params.mode as Mode);
+  }
   /** The answered packing questionnaire — see the Packing branch below. */
   const [trip, setTrip] = useState<Trip | null>(null);
   /**
@@ -688,9 +708,28 @@ export default function PlanScreen() {
               grows past the gutter instead of the text yielding. On a 320pt
               width, or with Dynamic Type pushing both sides up, the side that
               must give way is the date range rather than the title. */}
-          <Text variant="eyebrow" className="shrink" numberOfLines={1}>
-            {weekRangeLabel}
-          </Text>
+          {/* Redesign 04's first entry point. On PACKING the trailing slot
+              carries the door to the trips list instead of a week range, which
+              is the one register that reads as a date on a mode that has
+              nothing to do with this week's calendar. Events keeps the range
+              exactly as it was — the same slot, the same size, one word
+              different, which is the minimal addition the brief asks for. */}
+          {mode === 'packing' ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={TRIPS_COPY.seeAll}
+              onPress={() => router.push('/trips')}
+              hitSlop={8}
+              className="min-h-tap shrink justify-center active:opacity-60">
+              <Text variant="eyebrow" numberOfLines={1} style={{ color: theme.accent }}>
+                {TRIPS_COPY.seeAll}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text variant="eyebrow" className="shrink" numberOfLines={1}>
+              {weekRangeLabel}
+            </Text>
+          )}
         </View>
 
         {/* LP-06's support line is GONE, and the masthead is better without

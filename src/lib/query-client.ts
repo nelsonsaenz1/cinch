@@ -48,6 +48,14 @@ export const persister = createSyncStoragePersister({
  *   closet         — the grid, so it paints instead of spinning
  *   wardrobe       — the engine's scoring inputs
  *   style-profile  — the learned weights the engine scores with
+ *   trips          — the shelf on `trips/index.tsx`, so the page that exists to
+ *                    say "here is everywhere you are going" still says it on a
+ *                    plane. Its offline frame's own words are "These are the
+ *                    ones saved on this device", which is only a true sentence
+ *                    if something was saved; without this key that state draws
+ *                    an amber band over nothing. Rows, not URLs — the
+ *                    photographs still come from `signed-urls`, which is
+ *                    excluded below and correctly so.
  *
  * Together those are exactly what `generateOutfits` needs, which is what makes
  * the offline claim in the App Store listing true rather than aspirational.
@@ -70,7 +78,7 @@ export const persister = createSyncStoragePersister({
  * Only successful queries are written; persisting an error state would show a
  * failure that has not happened yet on next launch.
  */
-const PERSISTED_KEYS = new Set(['closet', 'wardrobe', 'style-profile']);
+const PERSISTED_KEYS = new Set(['closet', 'wardrobe', 'style-profile', 'trips']);
 
 export function shouldDehydrateQuery(query: Query): boolean {
   if (query.state.status !== 'success') return false;

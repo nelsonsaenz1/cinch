@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, ScrollView, View } from 'react-native';
 
@@ -17,6 +18,7 @@ import {
 import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
 import { usePlan } from '@/features/billing/use-plan';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
+import { TRIPS_COPY } from '@/features/trips/trips-list-spec';
 import { DEFAULT_WEIGHTS } from '@/lib/styling';
 import type { Item } from '@/schemas/item';
 import { useTheme } from '@/theme/tokens';
@@ -867,6 +869,7 @@ export function PackingMemo({
   shareViewRef: RefObject<View | null>;
   onCardReady: () => void;
 }) {
+  const router = useRouter();
   const groups = groupLooksByDay(packing.looks);
   const filledLooks = packing.looks.filter((l) => l.outfit).length;
 
@@ -979,11 +982,32 @@ export function PackingMemo({
         <Button title="Save to Plan" onPress={onSaveToPlan} loading={savingToPlan} haptic className="flex-1" />
       </View>
 
-      <Pressable onPress={onShare} accessibilityRole="button" className="mt-6 self-center active:opacity-60">
-        <Text variant="label" className="underline">
-          Share
-        </Text>
-      </Pressable>
+      {/* Redesign 04's second entry point. The memo IS the post-planning
+          success screen, and until this page existed a finished trip was
+          unreachable the moment you left it — so the way back to all of them
+          sits beside Share, in the quiet-link register this foot already uses,
+          rather than as a new control competing with "Save to Plan". */}
+      <View className="mt-6 flex-row justify-center gap-7">
+        <Pressable
+          onPress={() => router.push('/trips')}
+          accessibilityRole="button"
+          accessibilityLabel={TRIPS_COPY.seeAll}
+          hitSlop={8}
+          className="min-h-tap justify-center active:opacity-60">
+          <Text variant="label" className="underline">
+            {TRIPS_COPY.seeAll}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onShare}
+          accessibilityRole="button"
+          hitSlop={8}
+          className="min-h-tap justify-center active:opacity-60">
+          <Text variant="label" className="underline">
+            Share
+          </Text>
+        </Pressable>
+      </View>
 
       {shareMounted ? (
         <View
