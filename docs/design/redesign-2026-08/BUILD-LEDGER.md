@@ -51,8 +51,14 @@ accepted bundle.
 | 20-tour | §3 · 20 Tour | design-refs/redesign-2026-08/20-tour/ | 1 HTML + 10 PNG | 2026-08-18 | not built |
 | 21-the-ten | §3 · 21 The Ten | design-refs/redesign-2026-08/21-the-ten/ | 1 HTML + 19 PNG | 2026-08-18 | not built |
 | 22-capture | §3 · 22 Capture | design-refs/redesign-2026-08/22-capture/ | 1 HTML + 22 PNG | 2026-08-18 | not built |
+| 23-add-clothes-choice | §3 · 23 Add-clothes choice | design-refs/redesign-2026-08/23-add-clothes-choice/ | 1 HTML + 36 PNG | 2026-08-18 | not built |
+| 24-voice-walkthrough | §3 · 24 Voice walkthrough | design-refs/redesign-2026-08/24-voice-walkthrough/ | 1 HTML + 44 PNG | 2026-08-18 | not built |
+| 25-storage | §3 · 25 Storage | design-refs/redesign-2026-08/25-storage/ | 1 HTML + 42 PNG | 2026-08-18 | not built |
+| 26-gap-feed-shop | §3 · 26 Gap feed / shop | design-refs/redesign-2026-08/26-gap-feed-shop/ | 1 HTML + 44 PNG | 2026-08-18 | not built |
+| 27-groups-room | §3 · 27 Groups + group room | design-refs/redesign-2026-08/27-groups-room/ | 1 HTML + 52 PNG | 2026-08-18 | not built |
+| 28-activity | §3 · 28 Activity | design-refs/redesign-2026-08/28-activity/ | 1 HTML + 52 PNG | 2026-08-18 | not built |
 
-Pages 12–16 have no accepted artifact in the repository yet, so 17–22
+Pages 12–16 have no accepted artifact in the repository yet, so 17–28
 arriving before them is expected rather than a gap in this table.
 
 ### 16-stylist — four doors, and one mark that ships dark on purpose
