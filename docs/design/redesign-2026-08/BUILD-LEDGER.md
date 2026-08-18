@@ -28,6 +28,7 @@ it means.
 | 06-trip-detail | design-refs/redesign-2026-08/06-trip-detail/ (10 files) | d5e8d20 | OTA 01a012ee-0d0e-70a5-8f32-1ba44772ea1a · runtime 18938ff9 · 2026-08-18 | progress frame matched; checkable tiles, note, delete sheet live; trips.note migration adopted from colliding session |
 | 07-profile | design-refs/redesign-2026-08/07-profile/ (7 files) | 070b913 | OTA 01a0130e-f4fe-76fd-8f69-7252f0454591 · runtime 18938ff9 · 2026-08-18 | all six frames matched at standard and AX-XXXL; rails, marks, quiet plan door and bled closet grid live; no tab bar (Profile stays the Today form sheet) |
 | 08-friends-list | design-refs/redesign-2026-08/08-friends-list/ (29 files) | 340fe50 | OTA 01a0134e-4307-7caf-961c-78eb7605c17b · runtime 18938ff9 · 2026-08-18 | default, presence-revoked, resting, empty, loading, friends-failed and offline matched at standard; AX-XXXL matched after fixing a request-row collapse. ZERO backend change — the existing daily-social views already enforce every rule. pgTAP committed but UNEXECUTED: GitHub Actions is blocked on account billing and this machine has no Docker |
+| 14-closet | design-refs/redesign-2026-08/14-closet/ (33 files) | 0a57b84 | OTA 01a01440-74d7-7335-999b-3c028226a849 · group ee097ce7-39e1-4874-a825-7c48fbb4058d · runtime 18938ff9 · 2026-08-18 | eleven decision states matched at standard and AX-XXXL on 932pt and 852pt — the three tiers' ceilings, both capacity walls with their two remedies, chips with query-aware counts, selection at one/many/all, and the empty closet. ZERO backend, ZERO native, ZERO dependency change, verified. Three defects found and fixed (a swallowed delete-failure alert, a plus glyph that clipped at AX, the empty title saying a different ask from Today). 667pt not captured |
 | 13-wear-confirm | design-refs/redesign-2026-08/13-wear-confirm/ (29 files) | 4b26cd1 | OTA 01a0141d-5b1d-7b81-9038-d396a759a068 · group 15be378d-f1ac-4f55-819b-30fa028e78a2 · runtime 18938ff9 · 2026-08-18 | fifteen states matched at standard and AX-XXXL on 932pt and 852pt — default, five rating states, favourite, the override note, confirming, settled, settled-idempotent, network, offline, signed-out, rejected, long name and many garments. ZERO backend and ZERO native change, verified against production. Three simulator defects found and fixed (invisible heart, a header the frames do not have, five states no capture could reach). 667pt not captured |
 | 12-reveal | design-refs/redesign-2026-08/12-reveal/ (31 files) | 3453c35 | OTA 01a013fc-09bb-7d42-ad3c-f455b5cdf092 · group 7add9969-063a-42d8-86c9-b1c30207df5d · runtime 18938ff9 · 2026-08-18 | sixteen states matched at standard and AX-XXXL on 932pt and 852pt — the seven beats, and singular, large, partial-tagging, substitution, offline, missing-image, zero, trialing and lapsed-free. ZERO backend and ZERO native change. Two simulator defects found and fixed (collapsed zero copy, ignored deep link). The artifact's own digits are wrong in two frames — see below. 667pt not captured |
 | 11-today | design-refs/redesign-2026-08/11-today/ (31 files) | 833b7c5 | OTA 01a013d3-cf4d-7bfa-af9a-9b946102932b · group 310fcb32-d9b3-4959-b7cf-a493886d93b1 · runtime 18938ff9 · 2026-08-18 | the day, the chips and four weather states, the wear flow, the four refusals and the floor matched at standard and AX-XXXL on 932pt and 852pt. ZERO backend and ZERO native change. Two AX defects found and fixed in the simulator (collapsed image placeholder, weather mark covering the first tile at AX). 667pt not captured — see below |
@@ -51,6 +52,96 @@ accepted bundle.
 
 Pages 12–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
+
+### 14-closet — one capacity line that knew one wall, and there are two
+
+**The defect worth naming first.** `CapacityColophon` printed a bare count at
+11pt and appended "· FULL", and `capacity.full` was true whether or not storage
+had room. Somebody who could have stored a piece and somebody who could not
+were shown the same line and offered the same door — and one of those doors is
+bricked up. `capacityState` separates them because they have DIFFERENT
+REMEDIES:
+
+| State | Remedy | Door |
+|---|---|---|
+| `active_full`, storage has room, paid | "Storing a piece frees an active slot and keeps it in your total." | Store pieces |
+| `active_full`, storage has room, free | "Store a piece to free a slot, or see what a larger closet holds." | See plans |
+| `total_full` | "Storage is full too, so storing will not free a slot. Delete a piece or move to a larger closet." | See plans |
+
+Free and paid differ at the same state deliberately: ten active is small enough
+that storing is a treadmill, a hundred and fifty is a closet somebody built. The
+free line still opens on the free remedy rather than the price.
+
+**Zero backend, verified rather than assumed.** The ceilings already matched the
+brief — Free 10/30, Standard 150/450, Pro 1000/3000, read from `plans.ts` — and
+`useCapacity` already exposed both counts and both limits. `useArchiveItems`,
+`useRestoreItems`, `useRemoveItems` and the verify-patch recategorise path all
+existed with the right semantics, and `categoryCounts` was already query-aware
+and already hid zero-count chips except All. Nothing in `supabase/` changed and
+no migration was needed.
+
+**A test-visibility improvement that came out of the work.** `matchesSearch`,
+`categoryCounts` and `chipFor` are pure policy that lived in a module importing
+react-query, expo-router and React Native — which the node bundler cannot follow
+past `import typeof` in RN's own index. The closet's search and chip rules could
+therefore only be asserted by grepping the hook for a regex. They moved to
+`closet-query.ts`; the hook re-exports every name, no call site changed, and two
+pre-existing tests now execute the rules they used to match as text.
+
+**The rails moved up, and only the rails.** The previous wave put every derived
+reading below the grid so nothing stood between the reader and their garments —
+right at two large columns. At three dense columns the grid still starts within
+a screen, and the directive asks for Most worn and Favourites at the top. The
+distinction that survives is between PIECES and READINGS: the rails are pieces
+and moved, the insight card is a reading and stayed. `tests/closet-content-first`
+was updated to hold that line instead of the old one.
+
+**Two things that were quietly wrong before this.** The delete confirmation said
+the photographs are deleted and stopped there — true of Cinch's copies, silent
+about the originals, and a reason to hesitate that is not real. It now names
+what leaves and what stays. And the empty closet said "Start your closet" while
+Today's floor, The Ten and the free plan all say TEN; it is derived from one
+string now.
+
+**Analytics: nothing numeric leaves this screen.** Six bounded events. The
+search query never travels, and neither does a count of owned pieces — a
+wardrobe size is a wealth proxy and a near-unique number, so a selection reports
+one, many or all. `tests/closet-analytics.test.ts` asserts no payload carries a
+number *at all*, which is the strongest available form of that rule.
+`use-closet-screen.ts` reports bulk outcomes through a callback rather than
+tracking directly, so the hook stays executable by the node suite.
+
+**One deviation carried from the artifact, one added.** Carried: a true
+three-column grid rather than a peeking 2.5, because a partially cut column
+reads as a horizontal scroll affordance the grid does not have and does not
+reflow cleanly to the one-column AX layout. Added: the empty closet keeps its
+ten-cell gauge rather than the frame's body sentence — the gauge was a
+deliberate earlier decision, states the same ten visually, and the frame's title
+is now verbatim.
+
+**Three defects the captures caught.** A stray `return` left mid-edit would have
+swallowed every delete-failure alert — lint found it, and it is exactly the
+partial-failure path the contract cares about. A plus glyph that scaled at
+AX-XXXL until it clipped into a different symbol (`allowFontScaling={false}`;
+the plus is an icon, not type). And the two capacity walls were confirmed to
+read differently at a glance, which was the point of separating them.
+
+**Two blockers, unresolved and not worked around.** The 667pt capture could not
+be taken, for the fourth time and the same reason: a freshly created iPhone SE
+simulator's development client will not connect to Metro without a tap on its
+"Open in Cinch?" alert, and this session cannot tap one. The deterministic
+substitute is `FAB_BOTTOM >= 88` asserted against the tab bar, plus the AX-XXXL
+captures on a real device. The shipping route itself could not be photographed
+signed in — the project simulator is signed out, as it has been since page 07 —
+so the evidence is the real components at their shipping measures on a
+deep-linkable fixture, which is what makes the set reproducible at all.
+
+GitHub Actions run **32122920161** (commit `0a57b84`) reports all three jobs —
+`database`, `functions`, `check` — as `failure` with ZERO steps and no
+retrievable log. That is the account-level billing block, external to this
+change, not a code failure. The same gates ran locally and are green: typecheck,
+lint, 2896 unit tests, styling and typography smoke, and a dependency/native/
+permission diff that is empty.
 
 ### 13-wear-confirm — what was wrong, and what the captures caught
 
