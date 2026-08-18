@@ -145,17 +145,25 @@ test('the page transition honours Reduce Motion explicitly', () => {
   assert.match(ROUTE_CODE, /FadeOut\.duration\([^)]*\)\.reduceMotion\(ReduceMotion\.System\)/);
 });
 
-test('there is exactly one haptic on Today, and it fires after a committed wear', () => {
-  // The call sites, not the enum members: `NotificationFeedbackType.Success`
-  // is an argument to the one call, not a second buzz.
-  const haptics = ROUTE_CODE.match(/Haptics\.\w+Async\(/g) ?? [];
-  assert.equal(haptics.length, 1, `Today fires ${haptics.length} haptics: ${haptics.join(', ')}`);
-  // Not a selection tick on the tap: a tick before the server has answered is
-  // the phone congratulating somebody for a write that may still fail.
-  assert.match(
-    ROUTE_CODE,
-    /setWornIds[\s\S]{0,600}Haptics\.notificationAsync\(Haptics\.NotificationFeedbackType\.Success\)/,
-  );
+test('Today itself fires no haptic at all', () => {
+  // It fired exactly one when redesign 11 shipped — the committed wear — and
+  // redesign 13 moved that one into the wear sheet, where it belongs: the sheet
+  // now holds the settled composition instead of vanishing, so the buzz, the
+  // line and the VoiceOver announcement land together on one screen. Firing it
+  // here as well would be two buzzes for one wear.
+  //
+  // The invariant this test has always been about is unchanged and is now
+  // absolute: nothing on Today buzzes for a swipe, a chip, a plate swap or the
+  // enhancement landing.
+  assert.doesNotMatch(ROUTE_CODE, /Haptics\.\w+Async\(/);
+  assert.doesNotMatch(ROUTE_CODE, /haptics\.\w+\(\)/);
+});
+
+test('the committed-wear haptic lives with the state transition it marks', () => {
+  const sheet = stripped(readFileSync('src/components/today/wear-confirmation-sheet.tsx', 'utf8'));
+  // After the transaction settles, never on the tap: a tick before the server
+  // has answered congratulates somebody for a write that may still fail.
+  assert.match(sheet, /if \(!settled\)[\s\S]{0,300}haptics\.success\(\)/);
 });
 
 test('no haptic fires on a swipe, a chip, or the enhancement landing', () => {
@@ -224,7 +232,12 @@ test('cancelling writes nothing at all', () => {
   const cancel = ROUTE_CODE.slice(ROUTE_CODE.indexOf('onCancel={'));
   const body = cancel.slice(0, cancel.indexOf('}}'));
   assert.doesNotMatch(body, /mutate|track\(/, `cancel writes: ${body}`);
-  assert.match(body, /setWearSelection\(null\)/);
+  // Redesign 13 routes every close through one function, so a reset can never
+  // be half-done — a `wearSettled` left true would show the NEXT wear as
+  // already logged before it had been.
+  assert.match(body, /closeWearSheet\(\)/);
+  const close = ROUTE_CODE.slice(ROUTE_CODE.indexOf('const closeWearSheet'));
+  assert.doesNotMatch(close.slice(0, 400), /mutate|track\(/, 'the close path writes');
 });
 
 test('a wear goes through the existing mutation, not a new one', () => {

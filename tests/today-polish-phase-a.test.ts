@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { tasteSignal } from '../src/features/today/wear-confirm-spec';
+
 import {
   classifyWearSessionFailure,
   classifyWearFailure,
@@ -102,14 +104,19 @@ test('A rated wear teaches taste only on explicit feedback, and only once the we
   assert.match(scope, /if \(liked !== null\) \{/);
   assert.match(scope, /reason: favorite \? 'favorite' : `wear_rating_\$\{rating\}`/);
 
-  // The policy is evaluated from the shipping expression rather than a copy of
-  // it, so a silent edit to the ternary fails here instead of passing a stub.
-  const expression = /const liked = ([^;]+);/.exec(scope)?.[1];
-  assert.ok(expression);
-  const liked = new Function('favorite', 'rating', `return (${expression});`) as (
-    favorite: boolean,
-    rating: number | null,
-  ) => boolean | null;
+  // ── REDESIGN 13 MOVED THE POLICY OUT OF THE TERNARY ────────────────────
+  //
+  // It used to be an inline expression, and this test read it back out with a
+  // regex and evaluated it through `new Function` — which worked, and was as
+  // close to executing the shipping code as a string can get. It is now
+  // `tasteSignal` in `features/today/wear-confirm-spec.ts`, so the same ten
+  // assertions run against the REAL function instead of a reconstruction of
+  // it, and `tests/wear-confirm-spec.test.ts` extends them.
+  //
+  // The invariant is unchanged and is now stronger: the route must call the
+  // policy rather than reimplement it, which is what the assertion above pins.
+  assert.match(scope, /const liked = tasteSignal\(rating, favorite\)/);
+  const liked = (favorite: boolean, rating: number | null) => tasteSignal(rating, favorite);
 
   assert.equal(liked(true, null), true);
   assert.equal(liked(true, 1), true);

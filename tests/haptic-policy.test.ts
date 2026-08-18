@@ -115,7 +115,9 @@ const DIRECT_HAPTICS_DEBT = [
   'src/app/(auth)/email.tsx',
   'src/app/(auth)/name.tsx',
   'src/app/(auth)/sign-in.tsx',
-  'src/app/(tabs)/index.tsx',
+  // `src/app/(tabs)/index.tsx` PAID OFF by redesign 13: the committed-wear
+  // haptic moved into `wear-confirmation-sheet.tsx`, which fires it through
+  // this policy module, and Today now has no haptics at all.
   'src/app/capture.tsx',
   'src/app/stylist.tsx',
   'src/app/tour.tsx',

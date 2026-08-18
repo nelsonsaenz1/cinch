@@ -1,5 +1,4 @@
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
-import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -63,6 +62,7 @@ import { RepeatExhausted } from '@/components/today/repeat-exhausted';
 import { TasteMark } from '@/components/today/taste-mark';
 import { WeatherStrip } from '@/components/today/weather-strip';
 import { WearConfirmationSheet } from '@/components/today/wear-confirmation-sheet';
+import { tasteSignal } from '@/features/today/wear-confirm-spec';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { Text } from '@/components/ui/text';
@@ -700,6 +700,24 @@ export default function TodayScreen() {
   const [refreshFailed, setRefreshFailed] = useState<null | 'offline' | 'timeout'>(null);
   const [wearSelection, setWearSelection] = useState<StyledOutfit | null>(null);
   const [wearSheetError, setWearSheetError] = useState<WearFailureKind | null>(null);
+  /**
+   * The wear landed and the sheet is showing it. Redesign 13.
+   *
+   * The sheet used to close the instant the transaction returned, which left
+   * the reader looking at Today with no evidence that anything had been
+   * written. Holding the settled state — one line, one Done — is the difference
+   * between a commit somebody watched happen and one they have to trust.
+   */
+  const [wearSettled, setWearSettled] = useState(false);
+  /**
+   * The settled write was a RETRY that found the original.
+   *
+   * Worth telling the reader, because it is the one moment the idempotency
+   * guarantee is visible: they pressed twice, or pressed again after a failure,
+   * and there is still exactly one wear. `opIds` makes it true; this makes it
+   * legible.
+   */
+  const [wearRetried, setWearRetried] = useState(false);
 
   const firstName = useFirstName();
 
@@ -1034,11 +1052,27 @@ export default function TodayScreen() {
   // about the one she actually put on, which is the only opinion with a day
   // behind it.
 
+  /**
+   * The one way this sheet closes.
+   *
+   * Cancel, Done and the sign-in exit all come through here, so the reset can
+   * never be half-done — a `wearSettled` left true would show the next wear as
+   * already logged before it had been.
+   */
+  const closeWearSheet = useCallback(() => {
+    setWearSelection(null);
+    setWearSheetError(null);
+    setWearSettled(false);
+    setWearRetried(false);
+  }, []);
+
   const handleWear = useCallback(
     (index: number) => {
       const outfit = effectiveShown[index];
       if (!outfit) return;
       setWearSheetError(null);
+      setWearSettled(false);
+      setWearRetried(false);
       setWearSelection(outfit);
       // The INTENT, not the write. Its pair with `wear_result` is what makes
       // an abandoned confirmation legible: a `wear_started` with no result is
@@ -1054,6 +1088,12 @@ export default function TodayScreen() {
       const outfit = wearSelection;
       if (!outfit) return;
       const key = idOf(outfit.candidate.items);
+
+      // A confirm that follows a failure is a RETRY, and it reuses the same
+      // operation id — `useWearOutfit` holds it until settlement. Recorded here
+      // so the settled sheet can say "Logged once. Nothing was duplicated."
+      // rather than leaving the guarantee invisible.
+      if (wearSheetError !== null) setWearRetried(true);
 
       // Same shape as `handleReact` above, and for the same reason: the write
       // is an online-only command with no queue behind it, so the card has to
@@ -1079,14 +1119,22 @@ export default function TodayScreen() {
               return next;
             });
             setWornIds((prev) => new Set(prev).add(key));
+            // The sheet stays open on the settled composition; `onDone` closes
+            // it. It used to be closed here, which meant the wear's own
+            // confirmation was a screen the reader never saw.
+            setWearSettled(true);
             track(TODAY_EVENTS.wearResult, wearResultProps('ok'));
-            // The ONE haptic on this screen, and it fires here rather than on
-            // the tap: a tick before the server has answered is the phone
-            // congratulating somebody for a write that may still fail. Swipes,
-            // chips and the enhancement landing get nothing at all.
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
-              () => {},
-            );
+            // THE COMMITTED-WEAR HAPTIC MOVED TO THE SHEET (redesign 13), and
+            // it moved for a reason rather than tidiness: it belongs with the
+            // state transition the reader actually sees. The sheet now holds
+            // the settled composition instead of vanishing, so the buzz, the
+            // line and the announcement land together on one screen. Firing it
+            // here as well would be two buzzes for one wear.
+            //
+            // Today therefore has NO haptics at all. Swipes, chips, the
+            // enhancement landing and the plate swap were always silent; this
+            // was the last one, and `tests/today-redesign-11.test.ts` pins the
+            // count at zero so it cannot creep back.
             // Whether feedback was given, never which. An unrated wear is a
             // legal wear and reports `false` rather than going unreported —
             // "how often does anybody rate" is only answerable if both halves
@@ -1099,13 +1147,17 @@ export default function TodayScreen() {
             if (typeof outfitId === 'string') {
               setWornEntryIds((prev) => ({ ...prev, [key]: outfitId }));
             }
-            setWearSelection(null);
             setWearSheetError(null);
 
-            // Only explicit feedback teaches taste. Favorite is the strongest
-            // positive signal and therefore overrides a conflicting star
-            // rating; 3 stars is neutral and an unrated wear remains a fact.
-            const liked = favorite ? true : rating && rating >= 4 ? true : rating && rating <= 2 ? false : null;
+            // Only explicit feedback teaches taste, and the mapping lives in
+            // `wear-confirm-spec.ts` rather than inline here — it is the one
+            // place a wear becomes an opinion, and a test should be able to
+            // execute it across every input rather than read it.
+            //
+            // Favourite is the strongest positive signal and overrides a
+            // conflicting rating; three stars is neutral; and an UNRATED wear
+            // returns null, which means the learner is never called at all.
+            const liked = tasteSignal(rating, favorite);
             if (liked !== null) {
               react.mutate({
                 candidate: outfit.candidate,
@@ -1130,7 +1182,7 @@ export default function TodayScreen() {
         },
       );
     },
-    [context, outfits.shortlist, profile, react, wear, wearSelection],
+    [context, outfits.shortlist, profile, react, wear, wearSelection, wearSheetError],
   );
 
   // ── The day's one statement of the weather (audit 57) ────────────────────
@@ -1854,20 +1906,47 @@ export default function TodayScreen() {
           )}
         </ScrollView>
       </Animated.View>
+      {/* Redesign 13. The sheet is handed a PHASE rather than a boolean and a
+          pre-rendered error string: the four states it draws — idle,
+          confirming, settled, failed — are distinct compositions, and a
+          `pending` boolean could not tell a settled wear from an untouched one.
+
+          `wearSettled` keeps the sheet open after the transaction lands so the
+          reader sees the wear become history rather than the sheet vanishing
+          underneath them, which is what the accepted frames draw and what
+          leaves somebody unsure whether it saved. */}
       <WearConfirmationSheet
         key={wearSelection ? idOf(wearSelection.candidate.items) : 'closed'}
         visible={wearSelection !== null}
         outfitName={wearSelection?.name ?? ''}
         garments={wearSelection?.candidate.items ?? []}
         resolveImage={resolve}
-        pending={wear.isPending}
-        error={wearSheetError ? wearFailureCopy(wearSheetError).body : null}
+        phase={
+          wear.isPending
+            ? 'confirming'
+            : wearSettled
+              ? 'settled'
+              : wearSheetError
+                ? 'failed'
+                : 'idle'
+        }
+        error={wearSheetError}
+        offline={offline}
+        idempotent={wearRetried}
         onCancel={() => {
+          // Belt and braces: the sheet refuses to offer a dismissal while
+          // confirming, and this refuses to act on one. Two guards because the
+          // cost of a dismissal landing mid-write is a transaction nobody is
+          // waiting for the answer to.
           if (wear.isPending) return;
-          setWearSelection(null);
-          setWearSheetError(null);
+          closeWearSheet();
         }}
         onConfirm={confirmWear}
+        onSignIn={() => {
+          closeWearSheet();
+          router.push('/(auth)/sign-in');
+        }}
+        onDone={closeWearSheet}
       />
     </SafeAreaView>
   );
