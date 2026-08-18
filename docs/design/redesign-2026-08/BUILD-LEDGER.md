@@ -28,6 +28,7 @@ it means.
 | 06-trip-detail | design-refs/redesign-2026-08/06-trip-detail/ (10 files) | d5e8d20 | OTA 01a012ee-0d0e-70a5-8f32-1ba44772ea1a · runtime 18938ff9 · 2026-08-18 | progress frame matched; checkable tiles, note, delete sheet live; trips.note migration adopted from colliding session |
 | 07-profile | design-refs/redesign-2026-08/07-profile/ (7 files) | 070b913 | OTA 01a0130e-f4fe-76fd-8f69-7252f0454591 · runtime 18938ff9 · 2026-08-18 | all six frames matched at standard and AX-XXXL; rails, marks, quiet plan door and bled closet grid live; no tab bar (Profile stays the Today form sheet) |
 | 08-friends-list | design-refs/redesign-2026-08/08-friends-list/ (29 files) | 340fe50 | OTA 01a0134e-4307-7caf-961c-78eb7605c17b · runtime 18938ff9 · 2026-08-18 | default, presence-revoked, resting, empty, loading, friends-failed and offline matched at standard; AX-XXXL matched after fixing a request-row collapse. ZERO backend change — the existing daily-social views already enforce every rule. pgTAP committed but UNEXECUTED: GitHub Actions is blocked on account billing and this machine has no Docker |
+| 10-invite-share | design-refs/redesign-2026-08/10-invite-share/ (24 files) | 169d5d3 | OTA 01a0136e-1520-71c1-8743-7f5cac6e5935 · group 9d5d98ec-1244-42c2-8bc6-61aa4ae828c0 · runtime 18938ff9 · 2026-08-18 | default, empty, link-failed, arrivals-failed, offline, no-handle, share-unavailable, copied and copy-unavailable matched at standard; AX-XXXL matched after enlarging the row avatar to stop the monogram clipping. ZERO backend change. QR variant (frame 23, marked extra/opt-in) deliberately not built |
 
 ## Accepted artifacts — imported, not built
 
@@ -38,7 +39,6 @@ accepted bundle.
 
 | Page | Directive brief | Artifact set | Files | Imported | Build status |
 |---|---|---|---|---|---|
-| 10-invite-share | §3 · 10 Invite / Share page | design-refs/redesign-2026-08/10-invite-share/ | 1 HTML + 23 PNG | 2026-08-18 | DESIGN ACCEPTED · not built |
 | 17-explore | §3 · 17 Explore (Daily Social) | design-refs/redesign-2026-08/17-explore/ | 1 HTML + 15 PNG | 2026-08-18 | not built |
 | 18-welcome-sign-in | §3 · 18 Welcome / Sign-in | design-refs/redesign-2026-08/18-welcome-sign-in/ | 1 HTML + 8 PNG | 2026-08-18 | not built |
 | 19-auth-run | §3 · 19 Email + code + name | design-refs/redesign-2026-08/19-auth-run/ | 1 HTML + 21 PNG | 2026-08-18 | not built |
@@ -48,6 +48,15 @@ accepted bundle.
 
 Pages 11–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
+
+### 10-invite-share — the QR variant, and why it is absent
+
+Frame 23 draws an optional QR card and the artifact marks it "extra, opt-in"
+— it "earns its space only in person". It was not built. Doing so with only
+`react-native-svg` means hand-writing a QR encoder: version selection, the
+Reed-Solomon error correction, the mask evaluation. A code that renders but
+scans wrong, or scans to the wrong string, is worse than no code at all, and
+nothing on this page depends on it. The other 22 frames are implemented.
 
 ### 08-friends-list — why this set replaced an earlier one
 
