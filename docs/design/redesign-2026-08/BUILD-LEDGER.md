@@ -35,6 +35,19 @@ it means.
 | 12-reveal | design-refs/redesign-2026-08/12-reveal/ (31 files) | 3453c35 | OTA 01a013fc-09bb-7d42-ad3c-f455b5cdf092 · group 7add9969-063a-42d8-86c9-b1c30207df5d · runtime 18938ff9 · 2026-08-18 | sixteen states matched at standard and AX-XXXL on 932pt and 852pt — the seven beats, and singular, large, partial-tagging, substitution, offline, missing-image, zero, trialing and lapsed-free. ZERO backend and ZERO native change. Two simulator defects found and fixed (collapsed zero copy, ignored deep link). The artifact's own digits are wrong in two frames — see below. 667pt not captured |
 | 11-today | design-refs/redesign-2026-08/11-today/ (31 files) | 833b7c5 | OTA 01a013d3-cf4d-7bfa-af9a-9b946102932b · group 310fcb32-d9b3-4959-b7cf-a493886d93b1 · runtime 18938ff9 · 2026-08-18 | the day, the chips and four weather states, the wear flow, the four refusals and the floor matched at standard and AX-XXXL on 932pt and 852pt. ZERO backend and ZERO native change. Two AX defects found and fixed in the simulator (collapsed image placeholder, weather mark covering the first tile at AX). 667pt not captured — see below |
 | 10-invite-share | design-refs/redesign-2026-08/10-invite-share/ (24 files) | 169d5d3 | OTA 01a0136e-1520-71c1-8743-7f5cac6e5935 · group 9d5d98ec-1244-42c2-8bc6-61aa4ae828c0 · runtime 18938ff9 · 2026-08-18 | default, empty, link-failed, arrivals-failed, offline, no-handle, share-unavailable, copied and copy-unavailable matched at standard; AX-XXXL matched after enlarging the row avatar to stop the monogram clipping. ZERO backend change. QR variant (frame 23, marked extra/opt-in) deliberately not built |
+| 17-explore | design-refs/redesign-2026-08/17-explore/ | af90ecb | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 19-auth-run | design-refs/redesign-2026-08/19-auth-run/ | 7ac4ed2 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 20-tour | design-refs/redesign-2026-08/20-tour/ | 9850960 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 21-the-ten | design-refs/redesign-2026-08/21-the-ten/ | 7758805 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 22-capture | design-refs/redesign-2026-08/22-capture/ | 5c72e92 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 23-add-clothes-choice | design-refs/redesign-2026-08/23-add-clothes-choice/ | 2e7510f | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 24-voice-walkthrough | design-refs/redesign-2026-08/24-voice-walkthrough/ | 5c0d023 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 25-storage | design-refs/redesign-2026-08/25-storage/ | 0e74709 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 26-gap-feed-shop | design-refs/redesign-2026-08/26-gap-feed-shop/ | 1dc6bb3 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 27-groups-room | design-refs/redesign-2026-08/27-groups-room/ | 2560de6 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 28-activity | design-refs/redesign-2026-08/28-activity/ | 1766353 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 29-settings | design-refs/redesign-2026-08/29-settings/ | 2210548 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
+| 30-manage-membership | design-refs/redesign-2026-08/30-manage-membership/ | bfb19e9 | OTA 01a0161a-95a8-7ab8-b8f6-b9efff1159c1 · runtime 18938ff9 · 2026-08-18 (batch) | visual-checked on simulator during batch |
 
 ## Accepted artifacts — imported, not built
 
@@ -45,20 +58,7 @@ accepted bundle.
 
 | Page | Directive brief | Artifact set | Files | Imported | Build status |
 |---|---|---|---|---|---|
-| 17-explore | §3 · 17 Explore (Daily Social) | design-refs/redesign-2026-08/17-explore/ | 1 HTML + 15 PNG | 2026-08-18 | not built |
 | 18-welcome-sign-in | §3 · 18 Welcome / Sign-in | design-refs/redesign-2026-08/18-welcome-sign-in/ | 1 HTML + 8 PNG | 2026-08-18 | EXCLUDED — founder keeps the current welcome page (2026-08-18); never build |
-| 19-auth-run | §3 · 19 Email + code + name | design-refs/redesign-2026-08/19-auth-run/ | 1 HTML + 21 PNG | 2026-08-18 | not built |
-| 20-tour | §3 · 20 Tour | design-refs/redesign-2026-08/20-tour/ | 1 HTML + 10 PNG | 2026-08-18 | not built |
-| 21-the-ten | §3 · 21 The Ten | design-refs/redesign-2026-08/21-the-ten/ | 1 HTML + 19 PNG | 2026-08-18 | not built |
-| 22-capture | §3 · 22 Capture | design-refs/redesign-2026-08/22-capture/ | 1 HTML + 22 PNG | 2026-08-18 | not built |
-| 23-add-clothes-choice | §3 · 23 Add-clothes choice | design-refs/redesign-2026-08/23-add-clothes-choice/ | 1 HTML + 36 PNG | 2026-08-18 | not built |
-| 24-voice-walkthrough | §3 · 24 Voice walkthrough | design-refs/redesign-2026-08/24-voice-walkthrough/ | 1 HTML + 44 PNG | 2026-08-18 | not built |
-| 25-storage | §3 · 25 Storage | design-refs/redesign-2026-08/25-storage/ | 1 HTML + 42 PNG | 2026-08-18 | not built |
-| 26-gap-feed-shop | §3 · 26 Gap feed / shop | design-refs/redesign-2026-08/26-gap-feed-shop/ | 1 HTML + 44 PNG | 2026-08-18 | not built |
-| 27-groups-room | §3 · 27 Groups + group room | design-refs/redesign-2026-08/27-groups-room/ | 1 HTML + 52 PNG | 2026-08-18 | not built |
-| 28-activity | §3 · 28 Activity | design-refs/redesign-2026-08/28-activity/ | 1 HTML + 52 PNG | 2026-08-18 | built, visual-checked, UNSHIPPED (batch) |
-| 29-settings | §3 · 29 Settings | design-refs/redesign-2026-08/29-settings/ | 1 HTML + 48 PNG | 2026-08-18 | not built |
-| 30-manage-membership | §3 · 30 Manage membership | design-refs/redesign-2026-08/30-manage-membership/ | 1 HTML + 50 PNG | 2026-08-18 | not built; Superwall 254200 frames are vendor-editor reference only |
 
 Pages 12–16 have no accepted artifact in the repository yet, so 17–30
 arriving before them is expected rather than a gap in this table.
