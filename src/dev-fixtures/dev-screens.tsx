@@ -155,6 +155,36 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    // Twelve of the artifact's forty-two states — the decision states, meaning
+    // the ones where the screen has to CHOOSE something rather than redraw the
+    // same choice at a different measure. The other thirty are pressed
+    // variants, per-tier repeats of one grammar (ST-01 and ST-02 already prove
+    // the rule is the plan and not the tier), device and Dynamic Type measures
+    // the real screen derives at runtime, and the two image-fallback states,
+    // which are one treatment by construction — see the redesign 25 build
+    // report.
+    //
+    // Every number on these is DERIVED by the real spec from the pose's raw
+    // counts. On a screen whose whole subject is arithmetic, a fixture that
+    // transcribed its figures would photograph as proof of a ceiling nobody
+    // computed.
+    'Redesign 25 · Storage',
+    [
+      ['ST-01 · standard, room on both', '/dev-st-01-populated-standard'],
+      ['ST-02 · free, same grammar', '/dev-st-02-free-arithmetic'],
+      ['ST-03 · capacity unknown, clauses dropped', '/dev-st-03-capacity-unknown'],
+      ['ST-04 · nothing put away', '/dev-st-04-empty'],
+      ['ST-05 · first read in flight', '/dev-st-05-loading'],
+      ['ST-06 · read failed, not empty', '/dev-st-06-read-error'],
+      ['ST-07 · active full, action disarmed', '/dev-st-07-active-full'],
+      ['ST-08 · total full, restore still works', '/dev-st-08-total-full'],
+      ['ST-09 · both full', '/dev-st-09-both-full'],
+      ['ST-10 · two ways forward', '/dev-st-10-two-ways'],
+      ['ST-11 · the chooser', '/dev-st-11-chooser'],
+      ['ST-12 · restored, lightly', '/dev-st-12-restored'],
+    ],
+  ],
+  [
     // The welcome / sign-in screen is excluded from the redesign by founder
     // order, so it has no fixture here and none of these draw it.
     'Redesign 19 · Auth run',
