@@ -1,9 +1,9 @@
 import { Pressable, View } from 'react-native';
 
+import { WarmBand } from '@/components/circles/room-parts';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
 import {
   ACCEPT_REFUSED_FULL,
@@ -135,27 +135,32 @@ export function NoGroupsState({ onCreate }: { onCreate: () => void }) {
  * somebody who has just succeeded, and they would go looking for what they had
  * done wrong.
  *
- * So it is the kit's parts without the kit's grammar: the same gutter, the same
- * serif step, the same `muted` body, the same ink action — and no glyph,
- * because every glyph in the states kit means absence.
+ * So it is the kit's parts without the kit's grammar: the same serif step, the
+ * same `muted` body — and no glyph, because every glyph in the states kit means
+ * absence.
+ *
+ * ── AND IT NO LONGER CARRIES THE BUTTON ─────────────────────────────────────
+ *
+ * It used to. In redesign 27 the room's invite control is pinned to the foot of
+ * the screen for every state that has one, so an `alone` group whose action sat
+ * mid-page would be the one composition where the same act appeared somewhere
+ * else. `ALONE.action` is still the label — "Invite a friend" is not
+ * `OVERVIEW.invite`'s "Invite someone", because this state is asking for THE
+ * first person — the room screen just chooses between the two words. The band
+ * is what this component is now: the sentence, on the warm ground, above the
+ * table it is talking about.
  */
-export function AloneState({ onInvite }: { onInvite: () => void }) {
+export function AloneState() {
   return (
-    <View className="flex-1 justify-center" accessibilityRole="summary">
-      <Text variant="title" trim>
-        {ALONE.title}
-      </Text>
-      <Text variant="body" className="mt-4 text-muted">
-        {ALONE.body}
-      </Text>
-      <Button
-        title={ALONE.action}
-        onPress={onInvite}
-        haptic
-        variant="ink"
-        className="mt-8 self-stretch"
-        accessibilityLabel={ALONE.action}
-      />
+    <View accessibilityRole="summary">
+      <WarmBand>
+        <Text variant="plate" trim>
+          {ALONE.title}
+        </Text>
+        <Text variant="body" className="mt-3 text-muted">
+          {ALONE.body}
+        </Text>
+      </WarmBand>
     </View>
   );
 }
@@ -225,6 +230,7 @@ function BoundaryNotice({
   title,
   body,
   action,
+  tone = 'tray',
 }: {
   title: string;
   body: string;
@@ -238,30 +244,50 @@ function BoundaryNotice({
    * sentence above it would be a page change nobody asked for.
    */
   action?: { label: string; onPress: () => void };
+  /** `tray` for a boundary, `blush` for an offer. See `WarmBand`. */
+  tone?: 'blush' | 'tray';
 }) {
   const theme = useTheme();
   return (
-    <View className="py-6" accessibilityRole="summary">
-      <Rule />
-      <Text variant="plate" trim className="mt-5">
-        {title}
-      </Text>
-      <Text variant="body" className="mt-3 text-muted">
-        {body}
-      </Text>
-      {action ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={action.label}
-          onPress={action.onPress}
-          hitSlop={8}
-          style={{ minHeight: MIN_TAP_TARGET }}
-          className="mt-2 justify-center self-start active:opacity-60">
-          <Text variant="label" style={{ color: theme.accent }}>
-            {action.label}
-          </Text>
-        </Pressable>
-      ) : null}
+    <View className="mt-6" accessibilityRole="summary">
+      {/*
+        A BAND, WHERE THIS USED TO BE A RULE AND A SERIF LINE.
+
+        The shipped composition was a hairline with a headline under it, which
+        on a page made of hairlines and headlines was invisible — the one state
+        that has to interrupt the reader looked like the next section. The
+        redesign gives it the recessed ground and lets the page's own margin do
+        the separating.
+
+        The ARGUMENT for the shape is unchanged and is the reason it is still
+        not `EmptyState` or `ErrorState`. A full group has twelve people in it,
+        so a glyph of absence over it would be false in the most literal way
+        available; and nothing failed, so "Cinch couldn't read this just now"
+        would be a lie about which half went wrong. `summary` rather than
+        `alert`: this is a fact about the room that is simply true, not an event
+        that arrived.
+      */}
+      <WarmBand tone={tone}>
+        <Text variant="plate" trim>
+          {title}
+        </Text>
+        <Text variant="body" className="mt-3 text-muted">
+          {body}
+        </Text>
+        {action ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={action.label}
+            onPress={action.onPress}
+            hitSlop={8}
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="mt-1 justify-center self-start active:opacity-60">
+            <Text variant="label" style={{ color: theme.accent }}>
+              {action.label}
+            </Text>
+          </Pressable>
+        ) : null}
+      </WarmBand>
     </View>
   );
 }
@@ -325,6 +351,14 @@ export function GroupGoneNotice({ onBack }: { onBack: () => void }) {
  */
 export function AcceptRefusedNotice() {
   return (
-    <BoundaryNotice title={ACCEPT_REFUSED_FULL.title} body={ACCEPT_REFUSED_FULL.body} />
+    // Blush, unlike the other two boundaries: this one sits directly under the
+    // invitation band it belongs to, and it is not telling the reader the door
+    // is closed — it is telling them the invitation is still theirs. A tray
+    // ground beneath a blush band would read as the offer being withdrawn.
+    <BoundaryNotice
+      tone="blush"
+      title={ACCEPT_REFUSED_FULL.title}
+      body={ACCEPT_REFUSED_FULL.body}
+    />
   );
 }

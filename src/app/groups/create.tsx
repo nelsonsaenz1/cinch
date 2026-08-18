@@ -157,12 +157,29 @@ export default function CreateGroupScreen() {
            * on a database refusal with no sentence to explain it.
            */
           maxLength={60}
+          /**
+           * A BORDERED WELL, WHERE THIS USED TO BE AN UNDERLINE.
+           *
+           * Redesign 27's frame draws the name field as a rounded box with a
+           * ring around it, and the change is worth more here than on any other
+           * field in the app: this screen has exactly one input on it, no
+           * placeholder text below the fold, and a nav-bar commit rather than a
+           * button under the thumb. An underline on an otherwise empty page is
+           * a hairline somebody has to find. A well is a place to type.
+           *
+           * `ruleStrong` rather than `rule` for the same reason — the ring IS
+           * the affordance here, and at 12% ink over canvas it was closer to
+           * absent than to quiet. Radius and padding come from the concentric
+           * family the plates use, so the field belongs to the same page.
+           */
           style={{
             marginTop: 8,
-            minHeight: MIN_TAP_TARGET,
-            paddingBottom: 10,
-            borderBottomWidth: 1.5,
-            borderBottomColor: theme.rule,
+            minHeight: MIN_TAP_TARGET + 12,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            borderWidth: 1,
+            borderRadius: 14,
+            borderColor: theme.ruleStrong,
             color: theme.ink,
             fontSize: 17,
           }}

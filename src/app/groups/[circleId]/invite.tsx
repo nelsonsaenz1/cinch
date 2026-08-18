@@ -6,7 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GroupFullNotice, GroupsOfflineState, PickerRow } from '@/components/circles';
 import { Notice } from '@/components/ui/notice';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -252,7 +251,13 @@ export default function InviteToGroupScreen() {
           />
         ) : (
           <>
-            <Card className="mt-6">
+            {/* Plates with air between them rather than rows inside one card.
+                The picker deliberately KEEPS the people who cannot be chosen —
+                a row that vanished would answer nobody looking for a friend who
+                is not there — so the list is a mixture, and the ground is what
+                makes the chooseable half findable at a glance. It is never the
+                only signal: every unavailable row still prints its reason. */}
+            <View className="mt-6">
               {rows.map((row) => (
                 <PickerRow
                   key={row.userId}
@@ -263,7 +268,7 @@ export default function InviteToGroupScreen() {
                   onToggle={() => toggle(row.userId, row.selectable, row.ineligibility)}
                 />
               ))}
-            </Card>
+            </View>
 
             {/* PC-03 sets this UNDER the list, not over it: it explains a list
                 the reader is already looking at, and above one it would be

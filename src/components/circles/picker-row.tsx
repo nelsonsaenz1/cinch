@@ -40,9 +40,28 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * label is NOT changed to "…, selected": a reader with both VoiceOver and the
  * visual state would hear the change announced twice.
  *
+ * ══ AND THE PLATE IS THE OTHER HALF OF THE SAME DISTINCTION ════════════════
+ *
+ * Redesign 27 draws a CHOOSABLE row as a warm slab and an unavailable one as
+ * bare canvas. That is a third channel agreeing with the two above, never a
+ * replacement for either: the reason is still printed as a word, the state is
+ * still `accessibilityState.disabled`, and a reader who cannot see the ground
+ * loses nothing. What the ground buys is that the rows a person can actually
+ * act on are findable at a glance in a list that deliberately keeps the ones
+ * they cannot.
+ *
+ * The empty ring on a chooseable row follows the same rule and is why it is
+ * drawn ONLY there. An unavailable row gets no ring, because an empty box
+ * beside "No longer a mutual friend" would read as "not chosen yet" rather
+ * than "not available" — which is exactly the confusion the printed reason
+ * exists to end.
+ *
  * Presentational only. `onToggle` is a callback; nothing here sends anything,
  * and PC-03's own copy says so ("Nothing is sent until you confirm").
  */
+/** The unticked ring. Matches the checkmark's optical size, not its box. */
+const RING = 22;
+
 export function PickerRow({
   name,
   avatarUrl,
@@ -72,7 +91,9 @@ export function PickerRow({
       disabled={unavailable}
       onPress={onToggle}
       style={{ minHeight: MIN_TAP_TARGET }}
-      className="flex-row items-center gap-3 px-4 py-3 active:opacity-60">
+      className={`mb-2 flex-row items-center gap-3 rounded-plate px-4 py-3 active:opacity-60 ${
+        unavailable ? '' : 'bg-tray'
+      }`}>
       <Avatar name={name} size={44} imageUri={avatarUrl} />
 
       <View className="flex-1" style={{ minWidth: 0 }}>
@@ -100,7 +121,25 @@ export function PickerRow({
             resizeMode="scaleAspectFit"
           />
         </View>
-      ) : null}
+      ) : unavailable ? null : (
+        // The empty ring — the frames' own affordance, and only ever on a row
+        // that can be chosen. See the header for why an unavailable row has
+        // none. A border rather than a glyph, so nothing about it needs a
+        // second colour or a second symbol.
+        <View
+          className="rounded-full"
+          style={{
+            flexGrow: 0,
+            flexShrink: 0,
+            width: RING,
+            // Never a height: the kit forbids a fixed one around anything
+            // sharing a row with a sentence that grows.
+            aspectRatio: 1,
+            borderWidth: 1.5,
+            borderColor: theme.ruleStrong,
+          }}
+        />
+      )}
     </Pressable>
   );
 }

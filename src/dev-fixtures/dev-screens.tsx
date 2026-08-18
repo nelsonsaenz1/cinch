@@ -327,6 +327,18 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['26 · GF-05 · waiting, empty, stopped', '/dev-gf-05'],
       ['26 · GF-06 · merchant trays', '/dev-gf-06'],
       ['26 · GF-07 · product sheets', '/dev-gf-07'],
+      // Redesign 27 · Groups and the group room. The room as a table, the
+      // invitations as warm bands, and every privacy refusal drawn rather than
+      // described — GR-09 is the one that carries them.
+      ['27 · GR-01 · groups list', '/dev-gr-01'],
+      ['27 · GR-02 · invitation bands', '/dev-gr-02'],
+      ['27 · GR-03 · no groups yet', '/dev-gr-03'],
+      ['27 · GR-04 · the room as a table', '/dev-gr-04'],
+      ['27 · GR-05 · just you, so far', '/dev-gr-05'],
+      ['27 · GR-06 · twelve seats taken', '/dev-gr-06'],
+      ['27 · GR-07 · manage, owner', '/dev-gr-07'],
+      ['27 · GR-08 · invite picker', '/dev-gr-08'],
+      ['27 · GR-09 · gone, refused, offline', '/dev-gr-09'],
       ['GF-01', '/dev-w3-g5-gf-01'],
       ['GF-02', '/dev-w3-g5-gf-02'],
       ['GF-02 / AX', '/dev-w3-g5-gf-02-ax'],

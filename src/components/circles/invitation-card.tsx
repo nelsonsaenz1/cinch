@@ -1,9 +1,8 @@
 import { View } from 'react-native';
 
+import { WarmBand } from '@/components/circles/room-parts';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Rule } from '@/components/ui/rule';
 import { Text } from '@/components/ui/text';
 import {
   acceptAccessibilityLabel,
@@ -82,8 +81,16 @@ export function InvitationCard({
         two controls are the reader's answer to it. Buttons inside the border
         made the promise ("Nothing of yours is shared until then") read as part
         of the same object as the button that shares something.
+
+        WHAT CHANGED IN REDESIGN 27: the border became a GROUND. The frames
+        draw every invitation on the app's warmest surface — blush — and the
+        reason is the brief's own phrase, "invitations as warm bands". An
+        invitation is the one thing on this whole flow that is being offered to
+        the reader rather than reported at them, and a hairline card said the
+        opposite: it looked exactly like the four other white cards the app
+        uses for facts. The words are untouched.
       */}
-      <Card padding="lg">
+      <WarmBand>
         {/* Who asked, first — the frame's order, and the first question anybody
             has about an invitation. */}
         <View
@@ -100,9 +107,13 @@ export function InvitationCard({
           </View>
         </View>
 
-        <View className="my-4">
-          <Rule tone="hairline" />
-        </View>
+        {/* Air, where the shipped card drew a hairline. Every rule token in the
+            palette is warm ink at a low alpha and goes muddy over `blush` —
+            `blushRule` exists for exactly this and `Rule` does not offer it —
+            so the separation is spent as space instead. It was never carrying
+            meaning; it was carrying the card's own grammar, and the card is a
+            band now. */}
+        <View className="mt-5" />
 
         {/* What it is to. `trim` collapses the serif line box to the cap
             height; safe here because the name is a heading on its own line. */}
@@ -116,16 +127,24 @@ export function InvitationCard({
         <Text variant="body" className="mt-4 text-muted">
           {INVITATION.body}
         </Text>
-      </Card>
+      </WarmBand>
 
-      {/* Accept is the page's one ink action; Decline is the quiet peer beside
-          it. Neither is oxblood: declining is not destructive — the invitation
-          survives it and can be accepted later — and spending the accent here
-          would say otherwise. */}
+      {/* Accept is the page's one oxblood commitment; Decline is the quiet peer
+          beside it.
+
+          THE ACCENT MOVED HERE IN REDESIGN 27, from ink. The old argument was
+          that oxblood on Accept would make Decline read as the destructive
+          twin — but oxblood in this app is the ACTION colour, not the warning
+          one (`critical` is the warning one, and it is a different hex), and
+          every frame of this flow draws Accept filled in it. The screen has
+          exactly one commitment on it and this is the commitment. Decline stays
+          `secondary`, which is what actually says it is not destructive:
+          declining is reversible — `can_see_circle` admits `declined` precisely
+          so it is — and nothing about it is dressed as a loss. */}
       <View className="mt-5" style={{ gap: 10 }}>
         <Button
           title={INVITATION.accept}
-          variant="ink"
+          variant="primary"
           loading={pending}
           onPress={onAccept}
           accessibilityLabel={acceptAccessibilityLabel(groupName)}

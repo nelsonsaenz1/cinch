@@ -41,10 +41,36 @@ import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
  * remover field on `circle_members` to leak, and no row here goes looking for
  * one. `removed` and `left` rows are not drawn at all — the roster this
  * component fills is the `joined` one.
+ *
+ * ── AND WHY EACH ROW IS NOW ITS OWN PLATE ───────────────────────────────────
+ *
+ * Redesign 27 sets the roster as separate warm slabs with air between them
+ * rather than as hairline-separated rows inside one card, and gives the WAITING
+ * rows the blush ground the invitation bands use. Two reasons, and neither is
+ * decoration:
+ *
+ * · A destructive control sits on most of these rows. Air around each plate
+ *   works WITH the `hitSlop` rather than instead of it, and unlike a hairline
+ *   it is visible — the separation between "Remove Alexandria" and "Remove
+ *   Christopher" is now a gap you can see rather than a line you can measure.
+ * · The two sections are different kinds of thing. Members are people in a
+ *   room; waiting invitations are offers out in the world. The frames separate
+ *   them by GROUND — and the headings above them, plus the status ON each row,
+ *   say the same thing in words, so nothing is carried by the fill alone.
  */
 
 /** 44pt, which is both the disc and the tap target. One number, one place. */
 const AVATAR = 44;
+
+/**
+ * The two grounds a roster plate can have.
+ *
+ * `tray` is somebody who is here. `blush` is a seat that is promised — the same
+ * warmth the invitation bands carry, because it is the same fact seen from the
+ * other side. Never the only carrier of that difference: every blush row also
+ * prints its status as a word.
+ */
+const PLATE = 'mb-2 flex-row items-center gap-2 rounded-plate px-4 py-3';
 
 /**
  * The identity block, shared by both rows.
@@ -138,7 +164,7 @@ export function MemberRow({
   onRemove?: () => void;
 }) {
   return (
-    <View className="flex-row items-center gap-2 px-4 py-3" style={{ minHeight: MIN_TAP_TARGET }}>
+    <View className={`${PLATE} bg-tray`} style={{ minHeight: MIN_TAP_TARGET }}>
       <View accessible accessibilityRole="text" accessibilityLabel={memberRowAccessibilityLabel({ name, isOwner, joinedAt })} className="flex-1" style={{ minWidth: 0 }}>
         <Identity
           name={name}
@@ -206,7 +232,7 @@ export function PendingInvitationRow({
   onWithdraw?: () => void;
 }) {
   return (
-    <View className="flex-row items-center gap-2 px-4 py-3" style={{ minHeight: MIN_TAP_TARGET }}>
+    <View className={`${PLATE} bg-blush`} style={{ minHeight: MIN_TAP_TARGET }}>
       <View
         accessible
         accessibilityRole="text"
@@ -256,7 +282,7 @@ export function ClosedInvitationRow({
   onInviteAgain?: () => void;
 }) {
   return (
-    <View className="flex-row items-center gap-2 px-4 py-3" style={{ minHeight: MIN_TAP_TARGET }}>
+    <View className={`${PLATE} bg-tray`} style={{ minHeight: MIN_TAP_TARGET }}>
       <View
         accessible
         accessibilityRole="text"

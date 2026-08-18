@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   AcceptRefusedNotice,
@@ -10,14 +10,12 @@ import {
   GroupGoneNotice,
   GroupsOfflineState,
   InvitationCard,
-  MemberRow,
   SCREEN_STATE_OWNS_GUTTER,
 } from '@/components/circles';
+import { SeatTable } from '@/components/circles/room-parts';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SectionHeader } from '@/components/ui/section-header';
-import { SettingsRow } from '@/components/ui/settings-row';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
@@ -26,10 +24,10 @@ import {
   circleInvitationAnsweredProps,
 } from '@/features/circles/analytics';
 import {
+  ALONE,
   GROUPS_TITLE,
   groupSubtitle,
   INVITATION,
-  invitationsWaitingRow,
   MANAGE,
   OVERVIEW,
 } from '@/features/circles/copy';
@@ -80,6 +78,7 @@ export default function GroupScreen() {
   const { circleId } = useLocalSearchParams<{ circleId: string }>();
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const terms = useSocialTermsGate();
 
   const id = circleId ?? null;
@@ -233,8 +232,7 @@ export default function GroupScreen() {
       />
 
       <ScrollView
-        contentContainerClassName={selfGuttered ? 'pb-24' : 'px-gutter pb-24'}
-        contentContainerStyle={state.kind === 'alone' ? { flexGrow: 1 } : undefined}
+        contentContainerClassName={selfGuttered ? 'pb-12' : 'px-gutter pb-12'}
         refreshControl={
           <RefreshControl
             refreshing={circle.isRefetching || members.isRefetching}
@@ -275,29 +273,19 @@ export default function GroupScreen() {
             </View>
             {refused ? <AcceptRefusedNotice /> : null}
           </View>
-        ) : state.kind === 'alone' ? (
-          /**
-           * The liveness state — a group that exists, is yours, and is waiting
-           * for one person. Not empty and not broken.
-           *
-           * The manage link that used to be drawn under it has moved into the
-           * nav bar with every other state's, which is where PC-06 puts it —
-           * and the argument for having it at all is unchanged: deleting is the
-           * owner's only exit, it lives on the manage surface, and a group
-           * whose roster is just its owner is the single most likely group to
-           * want deleting. It is simply no longer a second, differently-placed
-           * copy of a control the rest of the screen has at the top.
-           */
-          <View className="flex-1">
-            <Text variant="display" trim accessibilityRole="header" className="mt-3">
-              {title}
-            </Text>
-            <Text variant="note" className="mt-2">
-              {groupSubtitle(circle.data?.memberCount ?? 1, true)}
-            </Text>
-            <AloneState onInvite={openInvite} />
-          </View>
         ) : (
+          /**
+           * THE ROOM AS A TABLE — redesign 27, and the reason `alone` no longer
+           * has a branch of its own.
+           *
+           * The liveness state used to be drawn as a separate, centred
+           * composition, which said "there is nothing here yet" with its
+           * layout while its words said the opposite. It is the same room with
+           * one seat filled, so it is the same drawing: the name, the role in
+           * words, the table, and — where the state has one — the way to add
+           * somebody. What `alone` gets that the others do not is the band
+           * saying so, which is `AloneState`.
+           */
           <>
             <Text variant="display" trim accessibilityRole="header" className="mt-3">
               {title}
@@ -306,7 +294,7 @@ export default function GroupScreen() {
                 access matrix requires on every screen that has one. */}
             <Text variant="note" className="mt-2">
               {groupSubtitle(
-                state.kind === 'joined' ? state.memberCount : circle.data?.memberCount ?? 0,
+                state.kind === 'joined' ? state.memberCount : circle.data?.memberCount ?? 1,
                 circle.data?.isOwner ?? false,
               )}
             </Text>
@@ -316,59 +304,50 @@ export default function GroupScreen() {
                 bar above, and two doors to one room is a choice nobody wants. */}
             {state.kind === 'full' ? <GroupFullNotice /> : null}
 
+            {/* The liveness sentence, above the table rather than instead of
+                it: the owner IS at the table, and a state that hid the one seat
+                that is taken would be telling somebody who just made a group
+                that it has nobody in it. */}
+            {state.kind === 'alone' ? <AloneState /> : null}
+
             {showsRoster(state) ? (
-              <View className="mt-8">
-                {/* A bare eyebrow, as PC-06 draws it. The seat arithmetic that
-                    used to sit here has moved to the picker's own subtitle
-                    ("3 of 12 chosen"), which is where PC-03 puts it and where
-                    it is about a decision the reader is actually making. */}
-                <SectionHeader title={OVERVIEW.membersHeading} />
-                <Card className="mt-2.5">
-                  {joined.map((member) => (
-                    <MemberRow
-                      key={member.userId}
-                      name={member.displayName ?? ''}
-                      isOwner={member.role === 'owner'}
-                      joinedAt={member.joinedAt}
-                      // No `onRemove` anywhere on this screen. Removing is the
-                      // manage surface's act, and it carries a confirmation and
-                      // the sentence about what the removed person is told.
-                    />
-                  ))}
-                </Card>
-              </View>
-            ) : null}
+              <View className="mt-7">
+                {/*
+                  THE TABLE, AND WHO IS AT IT.
 
-            {/* PC-06's Waiting section. Owner-only, and by construction as well
-                as by the check: the roster policy hands every row to anybody
-                who is `joined`, but only the owner has anything to do with an
-                unanswered invitation, and telling a member who has been asked
-                and not replied would be gossip. The row leads to the manage
-                surface, which is where the invitations are. */}
-            {(circle.data?.isOwner ?? false) && pending.length > 0 ? (
-              <View className="mt-8">
-                <SectionHeader title={OVERVIEW.waitingHeading} />
-                <Card className="mt-2.5">
-                  <SettingsRow
-                    label={invitationsWaitingRow(pending.length)}
-                    onPress={openManage}
-                  />
-                </Card>
-              </View>
-            ) : null}
+                  Members and the owner's outstanding invitations in ONE grid,
+                  because that is what a seat is — taken or promised, it is off
+                  the twelve either way, which is exactly how
+                  `enforce_circle_size` counts. The pending seats are passed
+                  only when the reader owns the group: the roster policy hands
+                  every row in every state to anybody who is `joined`, but only
+                  the owner has business with an unanswered invitation, and
+                  showing a member who has been asked and has not replied would
+                  be gossip. That is the same rule the shipped screen kept with
+                  its separate Waiting section; it is now kept by what goes into
+                  the table instead of by a section beside it.
 
-            {canInvite(state) ? (
-              // A bordered pill, not a text link: PC-06 draws it as a control
-              // the width of the page. `secondary` rather than the accent —
-              // this screen spends no oxblood, and the group's own name is the
-              // thing the eye should land on.
-              <Button
-                title={OVERVIEW.invite}
-                variant="secondary"
-                onPress={openInvite}
-                accessibilityLabel={OVERVIEW.invite}
-                className="mt-8 self-stretch"
-              />
+                  No `onRemove` anywhere near this. Removing is the manage
+                  surface's act and it carries a confirmation and the sentence
+                  about what the removed person is told.
+                */}
+                <SectionHeader title={OVERVIEW.membersHeading} className="mb-4" />
+                <SeatTable
+                  members={joined.map((member) => ({
+                    userId: member.userId,
+                    name: member.displayName ?? '',
+                  }))}
+                  pending={
+                    (circle.data?.isOwner ?? false)
+                      ? pending.map((member) => ({
+                          userId: member.userId,
+                          name: member.displayName ?? '',
+                          invitedAt: member.invitedAt,
+                        }))
+                      : []
+                  }
+                />
+              </View>
             ) : null}
 
             {/* The closing promise, and it is true by construction rather than
@@ -382,6 +361,37 @@ export default function GroupScreen() {
           </>
         )}
       </ScrollView>
+
+      {/*
+        THE ONE COMMITMENT, PINNED WHERE THE THUMB IS.
+
+        Every frame of this room draws the invite control as a full-width
+        oxblood slab at the foot, and it is a footer rather than the last thing
+        in the scroller for a reason the shipped screen had no way to hit: a
+        twelve-seat table is taller than the viewport, so a control at the end
+        of the content is a control an owner has to scroll past their whole
+        group to find.
+
+        `canInvite` decides whether it exists at all, and it is false for a
+        member and false at the cap — the control is ABSENT rather than
+        disabled, and PC-10's sentence above says why. Two labels for one act:
+        `ALONE.action` asks for the first person, `OVERVIEW.invite` asks for
+        another, and the difference is the whole reason the copy module holds
+        both.
+      */}
+      {canInvite(state) && !gone ? (
+        <View
+          className="px-gutter pt-2"
+          style={{ paddingBottom: Math.max(insets.bottom, 12) + 4 }}>
+          <Button
+            title={state.kind === 'alone' ? ALONE.action : OVERVIEW.invite}
+            variant="primary"
+            onPress={openInvite}
+            accessibilityLabel={state.kind === 'alone' ? ALONE.action : OVERVIEW.invite}
+            className="self-stretch"
+          />
+        </View>
+      ) : null}
 
       {terms.sheet}
     </SafeAreaView>

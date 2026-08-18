@@ -11,7 +11,6 @@ import {
   NoGroupsState,
   SCREEN_STATE_OWNS_GUTTER,
 } from '@/components/circles';
-import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SectionHeader } from '@/components/ui/section-header';
 import { ListSkeleton } from '@/components/ui/skeleton';
@@ -177,12 +176,44 @@ export default function GroupsScreen() {
           "Groups" twice within 40pt of itself — once as a tracked micro-label
           and once as the page's H1. Every frame in this flow has a nav bar
           empty but for its chevron. */}
-      <ScreenHeader backLabel="Back" />
+      <ScreenHeader
+        backLabel="Back"
+        trailing={
+          // THE WAY IN, MOVED TO THE CHROME. Every populated frame of redesign
+          // 27 carries it here, and the reason is that the shipped foot link
+          // sat below the list: somebody with five groups had to scroll past
+          // all of them to make a sixth. The word is `NO_GROUPS.action`, which
+          // is the same offer the empty state makes — an invitation to start
+          // something, never the create screen's own commit.
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={NO_GROUPS.action}
+            onPress={() => router.push('/groups/create')}
+            hitSlop={8}
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="justify-center px-2 active:opacity-60">
+            <Text variant="label" style={{ color: theme.accent }}>
+              {NO_GROUPS.action}
+            </Text>
+          </Pressable>
+        }
+      />
 
       <View className="px-gutter pt-3">
         <Text variant="display" trim accessibilityRole="header">
           {GROUPS_TITLE}
         </Text>
+        {/* The promise, promoted out of the empty state and onto the page it is
+            actually about. It is the sentence that makes the whole feature
+            legible — and it is true by construction rather than by claim, since
+            `circles`' select policy is `can_see_circle(id)` and a non-member's
+            query returns nothing at all. On the empty state it was read once
+            and never again; here it is under the masthead every time. */}
+        {state.kind === 'groups' || state.kind === 'invited' ? (
+          <Text variant="note" className="mt-2">
+            {NO_GROUPS.footnote}
+          </Text>
+        ) : null}
       </View>
 
       <ScrollView
@@ -216,24 +247,17 @@ export default function GroupsScreen() {
           <View>{invitationCards}</View>
         ) : (
           <>
-            <Card className="mt-6">
-              {groups.map((group) => (
-                <GroupRow
-                  key={group.id}
-                  name={group.name}
-                  memberCount={group.memberCount}
-                  isOwner={group.isOwner}
-                  onOpen={() => openGroup(group.id)}
-                />
-              ))}
-            </Card>
+            {/* THE INVITATIONS COME FIRST, AND THEY ARE BANDS.
 
+                The frames put the warm band above the reader's own rooms, and
+                the ordering is the argument: an unanswered invitation is the
+                only thing on this screen that is waiting on the reader. The
+                heading over them is `INVITATION.heading` — "Waiting for you" —
+                and deliberately not `PENDING.heading`, which is the same noun
+                for the opposite direction and sits over the owner's OUTGOING
+                invitations two taps away. */}
             {waiting.length > 0 ? (
-              <View className="mt-8">
-                {/* The READER'S invitations, so `INVITATION.heading` —
-                    "Waiting for you" — and deliberately not `PENDING.heading`,
-                    which is the same noun for the opposite direction and sits
-                    over the owner's OUTGOING invitations two taps away. */}
+              <View className="mt-6">
                 <SectionHeader
                   title={INVITATION.heading}
                   trailing={
@@ -244,24 +268,21 @@ export default function GroupsScreen() {
               </View>
             ) : null}
 
-            {/* The way in for a second group, in the resting state as well as
-                the empty one — the same argument `FriendsPage` makes for its
-                foot link: somebody with one group is exactly as able to want
-                another as somebody with none, and the empty state is not the
-                only moment the thought occurs. PC-01's string, because this is
-                PC-01's act: an offer to start something, not the commit on the
-                create screen ("Create THE group"). */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={NO_GROUPS.action}
-              onPress={() => router.push('/groups/create')}
-              hitSlop={8}
-              style={{ minHeight: MIN_TAP_TARGET }}
-              className="mt-8 justify-center active:opacity-60">
-              <Text variant="label" style={{ color: theme.accent }}>
-                {NO_GROUPS.action}
-              </Text>
-            </Pressable>
+            {/* Plates with air between them, not rows inside one card — see
+                `group-row.tsx` for why: these rooms have nothing to do with one
+                another, and a card of rows implies a set where there is only a
+                collection. */}
+            <View className={waiting.length > 0 ? 'mt-8' : 'mt-6'} style={{ gap: 12 }}>
+              {groups.map((group) => (
+                <GroupRow
+                  key={group.id}
+                  name={group.name}
+                  memberCount={group.memberCount}
+                  isOwner={group.isOwner}
+                  onOpen={() => openGroup(group.id)}
+                />
+              ))}
+            </View>
           </>
         )}
       </ScrollView>

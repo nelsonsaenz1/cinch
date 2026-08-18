@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -12,11 +12,9 @@ import {
   PendingInvitationRow,
   RemoveMemberDialog,
 } from '@/components/circles';
-import { Card } from '@/components/ui/card';
 import { Notice } from '@/components/ui/notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SectionHeader } from '@/components/ui/section-header';
-import { SettingsRow } from '@/components/ui/settings-row';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useSocialTermsGate } from '@/features/auth/use-social-terms-gate';
@@ -292,8 +290,12 @@ export default function ManageGroupScreen() {
                 : manageMemberSubtitle(groupName, ownerName)}
             </Text>
 
-            <SectionHeader title={membersHeading(joined.length)} className="mt-8" />
-            <Card className="mt-2.5">
+            {/* Plates with air between them rather than rows inside one card —
+                `member-row.tsx` argues it: most of these rows carry a
+                destructive control, and a visible gap protects a mis-tap in a
+                way a hairline never did. */}
+            <SectionHeader title={membersHeading(joined.length)} className="mt-8 mb-2.5" />
+            <View>
               {joined.map((member) => {
                 const name = member.displayName ?? '';
                 // The owner may remove anybody but themselves. Everyone else
@@ -311,7 +313,7 @@ export default function ManageGroupScreen() {
                   />
                 );
               })}
-            </Card>
+            </View>
 
             {/* PC-07's promise about what a removed person is told, stated
                 where the act is, not in a dialog they have already opened. */}
@@ -339,9 +341,10 @@ export default function ManageGroupScreen() {
                   <>
                     <SectionHeader
                       title={PENDING.waitingHeading}
+                      className="mb-2.5"
                       trailing={<Text variant="note">{invitationsWaiting(pending.length)}</Text>}
                     />
-                    <Card className="mt-2.5">
+                    <View>
                       {pending.map((member) => (
                         <PendingInvitationRow
                           key={member.userId}
@@ -356,14 +359,14 @@ export default function ManageGroupScreen() {
                           }
                         />
                       ))}
-                    </Card>
+                    </View>
                   </>
                 ) : null}
 
                 {closed.length > 0 ? (
                   <>
-                    <SectionHeader title={PENDING.closedHeading} className="mt-6" />
-                    <Card className="mt-2.5">
+                    <SectionHeader title={PENDING.closedHeading} className="mt-6 mb-2.5" />
+                    <View>
                       {closed.map((member) => (
                         <ClosedInvitationRow
                           key={member.userId}
@@ -372,7 +375,7 @@ export default function ManageGroupScreen() {
                           onInviteAgain={() => inviteAgain(member.userId)}
                         />
                       ))}
-                    </Card>
+                    </View>
                   </>
                 ) : null}
 
@@ -387,48 +390,48 @@ export default function ManageGroupScreen() {
 
             {note ? <Notice message={note} tone="critical" className="mt-8" /> : null}
 
-            {/* THE EXIT, AS A ROW IN A CARD — PC-07's "Group" section and
-                PC-07b's "What you can do".
+            {/* THE EXIT — PC-07's "Group" section and PC-07b's "What you can
+                do", drawn as redesign 27 draws it: one sand-toned slab the
+                width of the page, carrying the label in oxblood.
 
-                A row rather than the full-width bordered button it used to be,
-                and the difference is not cosmetic: a page-wide pill reads as
-                the screen's primary act, and on this surface the primary act is
-                whatever brought the reader here — usually removing somebody. A
-                list row is a door, which is what deleting and leaving are.
+                NOT A FILLED OXBLOOD BUTTON, which is the thing to be clear
+                about. Every other page in this wave puts its commitment in a
+                solid accent slab at the foot; this one deliberately does not,
+                because deleting a group and leaving one are the two acts on
+                this whole flow that nobody should be able to complete by
+                reaching for the obvious control. A tinted ground with an
+                oxblood label reads as a door rather than as the screen's
+                purpose — and the confirmation behind it is where the real
+                commitment lives, with the safe choice drawn first.
 
-                `tone="accent"` is the second use in the app of a treatment
-                `settings-row.tsx` records as belonging to Delete account alone.
-                It is taken deliberately: PC-07 and PC-07b BOTH draw this label
-                in oxblood, and the rule the profile atlas states — one
-                critical-coloured thing per screen — is kept, because this row
-                is the only accent in either version's CONTENT. The oxblood in
-                the nav bar is the atlas's chrome tint, which every frame in the
-                flow uses for back, Manage, Done, Cancel and Create alike.
+                It is still the only accent in either version's CONTENT, so the
+                one-accent-per-screen rule holds. The oxblood in the nav bar is
+                the atlas's chrome tint, which every frame in the flow uses for
+                back, Manage, Done, Cancel and Create alike.
 
                 No Rename row. PC-07 draws one; `useRenameCircle` is wired to no
                 surface by the accepted record's own decision, and a row that
                 opened nothing would be worse than its absence. */}
             <SectionHeader
               title={isOwner ? MANAGE.groupHeading : MANAGE.memberHeading}
-              className="mt-10"
+              className="mt-10 mb-2.5"
             />
-            <Card className="mt-2.5">
-              {isOwner ? (
-                <SettingsRow
-                  label={MANAGE.delete}
-                  tone="accent"
-                  loading={destroy.isPending}
-                  onPress={() => setAskDelete(true)}
-                />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isOwner ? MANAGE.delete : MANAGE.leave}
+              accessibilityState={{ busy: isOwner ? destroy.isPending : leave.isPending }}
+              onPress={() => (isOwner ? setAskDelete(true) : setAskLeave(true))}
+              hitSlop={8}
+              style={{ minHeight: MIN_TAP_TARGET }}
+              className="items-center justify-center rounded-plate bg-tray px-5 py-4 active:opacity-60">
+              {(isOwner ? destroy.isPending : leave.isPending) ? (
+                <ActivityIndicator size="small" color={theme.accent} />
               ) : (
-                <SettingsRow
-                  label={MANAGE.leave}
-                  tone="accent"
-                  loading={leave.isPending}
-                  onPress={() => setAskLeave(true)}
-                />
+                <Text variant="label" style={{ color: theme.accent }}>
+                  {isOwner ? MANAGE.delete : MANAGE.leave}
+                </Text>
               )}
-            </Card>
+            </Pressable>
 
             {/* The footnote states the boundary rather than leaving an absence
                 of controls to imply it. For the owner it is the refusal itself,
