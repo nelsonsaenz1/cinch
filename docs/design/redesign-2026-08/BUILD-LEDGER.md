@@ -28,6 +28,7 @@ it means.
 | 06-trip-detail | design-refs/redesign-2026-08/06-trip-detail/ (10 files) | d5e8d20 | OTA 01a012ee-0d0e-70a5-8f32-1ba44772ea1a · runtime 18938ff9 · 2026-08-18 | progress frame matched; checkable tiles, note, delete sheet live; trips.note migration adopted from colliding session |
 | 07-profile | design-refs/redesign-2026-08/07-profile/ (7 files) | 070b913 | OTA 01a0130e-f4fe-76fd-8f69-7252f0454591 · runtime 18938ff9 · 2026-08-18 | all six frames matched at standard and AX-XXXL; rails, marks, quiet plan door and bled closet grid live; no tab bar (Profile stays the Today form sheet) |
 | 08-friends-list | design-refs/redesign-2026-08/08-friends-list/ (29 files) | 340fe50 | OTA 01a0134e-4307-7caf-961c-78eb7605c17b · runtime 18938ff9 · 2026-08-18 | default, presence-revoked, resting, empty, loading, friends-failed and offline matched at standard; AX-XXXL matched after fixing a request-row collapse. ZERO backend change — the existing daily-social views already enforce every rule. pgTAP committed but UNEXECUTED: GitHub Actions is blocked on account billing and this machine has no Docker |
+| 11-today | design-refs/redesign-2026-08/11-today/ (31 files) | 833b7c5 | OTA 01a013d3-cf4d-7bfa-af9a-9b946102932b · group 310fcb32-d9b3-4959-b7cf-a493886d93b1 · runtime 18938ff9 · 2026-08-18 | the day, the chips and four weather states, the wear flow, the four refusals and the floor matched at standard and AX-XXXL on 932pt and 852pt. ZERO backend and ZERO native change. Two AX defects found and fixed in the simulator (collapsed image placeholder, weather mark covering the first tile at AX). 667pt not captured — see below |
 | 10-invite-share | design-refs/redesign-2026-08/10-invite-share/ (24 files) | 169d5d3 | OTA 01a0136e-1520-71c1-8743-7f5cac6e5935 · group 9d5d98ec-1244-42c2-8bc6-61aa4ae828c0 · runtime 18938ff9 · 2026-08-18 | default, empty, link-failed, arrivals-failed, offline, no-handle, share-unavailable, copied and copy-unavailable matched at standard; AX-XXXL matched after enlarging the row avatar to stop the monogram clipping. ZERO backend change. QR variant (frame 23, marked extra/opt-in) deliberately not built |
 
 ## Accepted artifacts — imported, not built
@@ -39,7 +40,6 @@ accepted bundle.
 
 | Page | Directive brief | Artifact set | Files | Imported | Build status |
 |---|---|---|---|---|---|
-| 11-today | §3 · 11 Today | design-refs/redesign-2026-08/11-today/ | 1 HTML + 30 PNG | 2026-08-18 | DESIGN ACCEPTED · not built |
 | 17-explore | §3 · 17 Explore (Daily Social) | design-refs/redesign-2026-08/17-explore/ | 1 HTML + 15 PNG | 2026-08-18 | not built |
 | 18-welcome-sign-in | §3 · 18 Welcome / Sign-in | design-refs/redesign-2026-08/18-welcome-sign-in/ | 1 HTML + 8 PNG | 2026-08-18 | not built |
 | 19-auth-run | §3 · 19 Email + code + name | design-refs/redesign-2026-08/19-auth-run/ | 1 HTML + 21 PNG | 2026-08-18 | not built |
@@ -49,6 +49,65 @@ accepted bundle.
 
 Pages 12–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
+
+### 11-today — three contradictions, resolved rather than papered over
+
+The accepted frames and repo truth disagreed in three places, and all three
+were reported before any code was written rather than after:
+
+**The occasion chip could not have worked.** The composer it replaces fed
+`StyleContext.note`, which is read by the outfit-naming hash and by the
+enhancement gate and by no scorer. Typing "dinner" re-rolled three NAMES and
+changed no outfit. The chips land on `targetOccasion` and `targetFormality`
+instead — the two fields `occasionRule` and `resolveTargetFormality` already
+read — so the row now does what it appears to promise.
+
+**"Start with ten pieces" was not true.** Today gated on `canGenerate`, whose
+floor is eight and whose own docblock says eight "is internal and is never used
+as an instruction". A closet of eight got outfits under copy quoting ten; a
+closet of nine got nothing. The gate moved to `belowActivationFloor`
+(`PLANS.free.items`, ten) and the sentence is BUILT from
+`numberWord(TODAY_ACTIVATION_FLOOR)` rather than quoted, so it cannot drift
+again. `MIN_CLOSET_FOR_OUTFITS` is unchanged and still governs the stylist,
+packing and the help article — it answers a different question.
+
+**There was no stale weather state.** `resolveWeather` now separates `ok`,
+`stale`, `off` and `unavailable`. A dated reading keeps its words and gains an
+hour rather than being dropped; `off` and `unavailable` stay apart because a
+permission not given and a reading not gettable would blame different things.
+
+**Deliberate departures from the frames.** The reaction bar is not drawn: the
+accepted frames have none and the specified VoiceOver order has no slot for
+one. Taste learning survives through the wear sheet's rating and favourite,
+which still call `useReactToOutfit`. `components/today/plate.tsx` is untouched
+because Reveal, Repeat and the share artifact all still draw it, so Today got
+its own card and the blast radius stopped at this screen.
+
+**Analytics.** Thirteen events, and `outfit_set_viewed` removed from this route
+— it carried a COUNT of plates, which this page forbids, and `plate_viewed`
+carries a POSITION instead. Every payload is built by a module with no PostHog
+import so `tests/today-analytics.test.ts` executes each builder across every
+legal input rather than grepping call sites. `weather_state` reports which of
+four states and never the reading.
+
+**Two blockers, unresolved and not worked around.** The 667pt capture the brief
+asked for could not be taken: a freshly created iPhone SE simulator's
+development client would not connect to Metro without a tap on its "Open in
+Cinch?" alert, and this session has no way to tap one. What was photographed
+instead is 932pt and 852pt at both type sizes, and
+`tests/today-redesign-11.test.ts` pins the three things a short screen actually
+depends on — the floor's `ScrollView`, the collage shrinking to 168pt at AX,
+and both plate lines dropping their `numberOfLines` clamp. The sixteen Deno
+edge checks also could not run: `deno check` cannot resolve
+`npm:@supabase/server` against this machine's `node_modules` and rewrites
+`deno.lock` when it tries. Zero edge-function files are in this commit, so the
+gate is uninformative here rather than failing; `deno.lock` was reverted.
+
+**One release-log wart, recorded rather than hidden.** A stray production
+update was published with the message `"x"` while recovering the group id for
+this table. Its code is byte-identical to the release either side of it — same
+commit, clean tree — so no client behaviour differs, and the branch head was
+republished with the correct message immediately after.
 
 ### 10-invite-share — the block guard the roster was missing
 
