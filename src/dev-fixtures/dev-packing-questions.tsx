@@ -194,10 +194,7 @@ function K03Answered() {
     <TripQuestionnaire
       onComplete={() => {}}
       devSeed={{
-        // The last card. Three steps now, not four — redesign 05 folded the
-        // companions question into `shape` (see `trip.ts`), so the final index
-        // is 2.
-        index: 2,
+        index: 3,
         draft: {
           destination: LISBON_PT,
           companions: 'friends',

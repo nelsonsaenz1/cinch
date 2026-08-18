@@ -558,14 +558,23 @@ test('the shelf’s withheld chevron is armed', () => {
 });
 
 test('"See this trip" lands on this trip', () => {
-  // Redesign 05's deviation #4 retired: the primary used to land on the shelf
-  // because this page did not resolve.
-  assert.match(PACKING_TRIP, /onSeeThisTrip: \(\) =>[\s\S]{0,200}'\/trips\/\[id\]'/, 'the primary still dead-ends on the shelf');
-  // The fallback survives: `useStartTrip` swallows its own failure, so a plate
+  // Redesign 05's deviation #4 stays retired: the primary used to land on the
+  // shelf because this page did not resolve, and this page resolves.
+  //
+  // RETARGETED 2026-08-18. The assertions above named `onSeeThisTrip:` and
+  // `onAllTrips:` — the props of redesign 05's completion plate, which the
+  // founder reverted along with the questionnaire. THIS page is not reverted,
+  // so the doors onto it are not either: they are underlined links in the
+  // restored packing memo's foot again. What is pinned is unchanged in
+  // substance — the primary opens `/trips/[id]`, and the shelf is still the
+  // second door — asserted against the composition that actually ships.
+  assert.match(PACKING_TRIP, /pathname: '\/trips\/\[id\]'/, 'the primary still dead-ends on the shelf');
+  assert.match(PACKING_TRIP, /TRIPS_COPY\.seeThis/, 'the memo lost its door to this trip');
+  // The fallback survives: `useStartTrip` swallows its own failure, so a memo
   // can be real with no row behind it, and there is then no page to open.
   assert.match(PACKING_TRIP, /tripId\s*\?[\s\S]{0,260}:\s*router\.push\('\/trips'\)/, 'an unsaved trip pushes at a null id');
-  // "All trips" is untouched — the second door still goes to the shelf.
-  assert.match(PACKING_TRIP, /onAllTrips: \(\) => router\.push\('\/trips'\)/, 'the second door moved');
+  // "See all trips" is untouched — the second door still goes to the shelf.
+  assert.match(PACKING_TRIP, /TRIPS_COPY\.seeAll/, 'the second door moved');
 });
 
 test('the detail route is a pushed page, not a sheet, and not a fixture', () => {

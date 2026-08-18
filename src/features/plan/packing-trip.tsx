@@ -1,47 +1,49 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { Pressable, ScrollView, View } from 'react-native';
 
-import { PackingPlateBody, type PlateDay } from '@/components/plan/packing-plate-body';
+import { PlateThumb } from '@/components/closet/plate-thumb';
 import { PackingMemoCard } from '@/components/share/packing-memo-card';
-import { Button, Card, EmptyState, SectionHeader, Skeleton, Text } from '@/components/ui';
+import { Button, Card, EmptyState, Notice, Rule, SectionHeader, Skeleton, Text } from '@/components/ui';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import {
   fetchForecastRange,
   fetchSeasonalNormals,
-  formatTemp,
   hasForecastFor,
 } from '@/features/context/weather';
 import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
 import { usePlan } from '@/features/billing/use-plan';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
+import { TRIPS_COPY } from '@/features/trips/trips-list-spec';
 import { DEFAULT_WEIGHTS } from '@/lib/styling';
-import { haptics } from '@/lib/haptics';
 import type { Item } from '@/schemas/item';
+import { useTheme } from '@/theme/tokens';
 import type { Json } from '@/types/database';
 
+import { buildPackingList, swapDay, type PackedLook, type PackedPiece, type PackingResult } from './packing';
+import { lookSchedule, packedPieceChip, repeatLabel } from './packing-math';
 import {
-  NEW_TRIP_STACK_SCALE,
-  PLATE_TILES,
-  answerRows,
-  plannedColophon,
-  plateDayLabel,
-  tripDatesLine,
-  weatherMark,
-} from './new-trip-spec';
-import { buildPackingList, swapDay, type PackingResult } from './packing';
-import { lookSchedule, repeatLabel } from './packing-math';
-import {
+  bagHeaderLine,
+  bagProseLine,
   buildSavedMemo,
+  buildingLooksDetail,
+  buildingLooksTitle,
+  closetSummaryLine,
+  closetWeatherFit,
   dayCaption,
   dayTempLabel,
   firstUnfilledPart,
+  forecastSummaryLine,
+  garmentLabel,
   groupLooksByDay,
+  lookGarmentNames,
   memoHeadline,
   normalsSummaryLine,
+  pieceCoverage,
   shortfallSentence,
   type SavedMemo,
 } from './packing-memo';
@@ -49,8 +51,8 @@ import {
   dayPartOf,
   formalityForPart,
   fromIsoDate,
+  tripColophon,
   tripDays,
-  vibeOf,
   type DayPartKey,
   type Trip,
 } from './trip';
@@ -58,38 +60,15 @@ import { usePackingBrief } from './use-packing-brief';
 import { useLastPackedTrip, useSaveTrip, useStartTrip, type SavedTrip } from './use-trips';
 
 /**
- * One trip, from the answered questionnaire to the packing plate.
- * Redesign 05.
+ * K-04 (researching), K-05 (the memo) and K-06 (the four failures) — one
+ * trip, read start to finish.
  *
- * ── WHAT CHANGED IN THIS WAVE ────────────────────────────────────────────────
- *
- * The three states the accepted frames draw now come from
- * `components/plan/packing-plate-body.tsx`, which this file feeds:
- *
- *   · BUILDING — the plate's geometry, arriving, with the wait expressed as the
- *     CTA's own clay fill. It replaces K-04's four ticked research lines. Those
- *     lines described a screen that narrated its own work; the frames show the
- *     shape of what is coming instead, and nothing moves when it lands.
- *   · FAILED — new, and it closes a real hang. `researching` was `!packing ||
- *     !memoStepDone`, and `packing` needs `forecasts`, which needs a query that
- *     can ERROR. A failed weather or closet read left the research lines ticking
- *     for ever with no way out. It is now the frames' amber band, the three
- *     preserved answers, and two real ways forward.
- *   · PLANNED — the completion moment. Pieces GRIDDED by day, a success haptic,
- *     and two clear paths out.
- *
- * K-06's other two failures are NOT in the accepted frames and keep their
- * existing composition: dates past the forecast horizon (`ForecastHorizonFailure`)
- * and a closet too thin to fill every look (`ShortfallFailure`). Both are
- * honest, both are reachable, and inventing frames for them was not this wave's
- * brief.
- *
- * ── WHAT THIS FILE STILL DOES NOT DO ─────────────────────────────────────────
- *
- * It does not gate anything. `PackingTab` checks `usePackingAccess` before this
- * component is rendered and that check fails closed; the membership read here
- * only ever adds a banner, because a member who cannot be VERIFIED is treated
- * as a member and the server checks independently.
+ * REPLACES THE PREVIOUS THREE-LAYER SCREEN (brief · capsule · browsable
+ * closet grid) wholesale. That design predates this wave's atlas; the new
+ * one has no closet grid at all — the memo is prose, then the bag, then the
+ * days, "not a checklist app", and everything on it is either the model's one
+ * paragraph or the deterministic capsule `buildPackingList` already computed
+ * on device. Browsing the whole closet mid-trip is the Closet tab's job.
  */
 
 /**
@@ -240,21 +219,210 @@ export function MembershipUnconfirmedBanner({
 }
 
 // ---------------------------------------------------------------------------
-// K-04 and K-05 are gone from this file
+// K-06 · the prose slot
 // ---------------------------------------------------------------------------
 //
-// The four ticked research lines, the packed-piece grid with its repeat chips,
-// and the per-day rows of garment NAMES were the previous atlas's answer to
-// "what did it pack". Redesign 05 replaced all three with one plate — the day,
-// then that day's pieces, three across, as photographs. See
-// `components/plan/packing-plate-body.tsx`, and the deviation list in the
-// build report for what the frames dropped and why.
-//
-// The prose slot went earlier and for its own reason, recorded here because it
-// still explains an absence: the memo used to be a model call with four
-// distinct failures — offline, consent withdrawn, allowance spent, not
-// deployed — each with its own card and a "Try again". All four described a
-// network this screen no longer touches.
+// There is no failure component here any more. The memo used to be a model
+// call with four distinct failures — offline, consent withdrawn, allowance
+// spent, not deployed — each with its own card and a "Try again". All four
+// described a network this screen no longer touches: the prose is computed
+// from the bag rendered directly beneath it. Keeping the cards would have
+// meant keeping four sentences that can no longer be true, including one that
+// told the user packing draws on the stylist's allowance.
+// ---------------------------------------------------------------------------
+// K-04 — researching the destination
+// ---------------------------------------------------------------------------
+
+export type ResearchStep = { key: string; title: string; detail: string | null; done: boolean };
+
+function ResearchLine({ step, isLast }: { step: ResearchStep; isLast: boolean }) {
+  const theme = useTheme();
+  return (
+    <View className={isLast ? '' : 'mb-5'}>
+      <View className="flex-row items-center gap-3">
+        <View
+          className="items-center justify-center rounded-full border"
+          style={{
+            width: 22,
+            height: 22,
+            borderColor: step.done ? theme.ink : theme.rule,
+            backgroundColor: step.done ? theme.ink : 'transparent',
+          }}>
+          {step.done ? <Text style={{ color: theme.canvas, fontSize: 12 }}>✓</Text> : null}
+        </View>
+        <Text variant="body" style={{ color: step.done ? theme.ink : theme.muted }}>
+          {step.title}
+        </Text>
+      </View>
+      {step.done && step.detail ? (
+        <Text variant="label" className="ml-[34px] mt-1.5">
+          {step.detail}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+export function ResearchSteps({
+  steps,
+  colophon,
+  days,
+}: {
+  steps: ResearchStep[];
+  colophon: string;
+  days: number;
+}) {
+  return (
+    <View className="px-gutter pt-2">
+      <Text variant="eyebrow">{colophon}</Text>
+      <View className="mt-3 mb-8">
+        <Text variant="title" trim>
+          {`Packing ${days} ${days === 1 ? 'day' : 'days'}.`}
+        </Text>
+      </View>
+      {steps.map((step, i) => (
+        <ResearchLine key={step.key} step={step} isLast={i === steps.length - 1} />
+      ))}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// K-05 — the bag and the days
+// ---------------------------------------------------------------------------
+
+/** The atlas's packed-piece well, and the itinerary's smaller reuse of it. */
+const PACKED_WELL = 92;
+const ITINERARY_THUMB = 32;
+
+/**
+ * A garment at any size, with the SILHOUETTE as the fallback.
+ *
+ * `PlateThumb` needs a real `Item` row, and a packed garment can be absent from
+ * the closet read for the ordinary reason that the read has not landed yet.
+ * The old fallback was a rectangle filled with the garment's tagged colour,
+ * which is precisely what audit 81 is about — an anonymous coloured square is
+ * not a likeness of a piece of clothing. The silhouette at least has the right
+ * shape, and it is the same fallback the diary and the plan week use.
+ */
+function GarmentWell({
+  item,
+  uri,
+  size,
+  radius,
+  glyph,
+}: {
+  item: Item | undefined;
+  uri?: string;
+  size: number;
+  radius: number;
+  glyph: number;
+}) {
+  const theme = useTheme();
+  return item ? (
+    <PlateThumb item={item} uri={uri} size={size} radius={radius} showFallbackLabel={false} />
+  ) : (
+    <SymbolView name="tshirt" size={glyph} tintColor={theme.hairline} resizeMode="scaleAspectFit" />
+  );
+}
+
+/**
+ * PK-03 — one packed piece, drawn as itself.
+ *
+ * Audit 81: the bag is understandable WITHOUT READING A LIST, because every
+ * packed piece is its own photograph rather than a colour square with a name
+ * beside it. The count sits ON the garment as a paper chip at its foot, which
+ * is audit 82's other half — it removes the summary strip of numbers entirely.
+ *
+ * A piece with no photograph draws the silhouette at the same 92pt scale, so a
+ * described closet packs the same way. The colour-square fallback is gone: an
+ * anonymous rectangle is exactly what audit 81 is about, and a swatch is not a
+ * more honest likeness of a garment than a silhouette of the right shape.
+ */
+export function BagPiece({
+  item,
+  uri,
+  piece,
+  chip,
+}: {
+  item: Item | undefined;
+  uri?: string;
+  piece: PackedPiece;
+  chip: string | null;
+}) {
+  const label = garmentLabel(piece.garment);
+
+  return (
+    <View
+      accessible
+      // "Linen blouse, worn on three days" — the count as WORDS, so a screen
+      // reader is not handed "×3".
+      accessibilityLabel={chip ? `${label}, ${chip.toLowerCase()}` : label}
+      style={{ width: PACKED_WELL }}>
+      <View
+        className="items-center justify-center overflow-hidden rounded bg-tray"
+        style={{ width: PACKED_WELL, height: PACKED_WELL, padding: 6 }}>
+        <GarmentWell item={item} uri={uri} size={PACKED_WELL - 12} radius={8} glyph={28} />
+      </View>
+      {chip ? (
+        <View className="mt-1.5 self-start rounded-sm bg-sand px-1.5 py-0.5">
+          <Text variant="colophon">{chip}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * PK-03's itinerary row — the SAME pictures again, at 32pt.
+ *
+ * Audit 81's second half: the bag and the days have to be visibly the same
+ * garments rather than two abstract systems, so the row reuses the photographs
+ * the bag just showed and keeps the names beside them.
+ */
+export function DayLookRow({
+  part,
+  look,
+  resolve,
+  byId,
+}: {
+  part: DayPartKey;
+  look: PackedLook;
+  resolve?: (...paths: (string | null | undefined)[]) => string | undefined;
+  byId?: Map<string, Item>;
+}) {
+  const names = lookGarmentNames(look);
+  const pieces = look.outfit?.items ?? [];
+
+  return (
+    <View className="flex-row items-center gap-3 py-2">
+      <View style={{ width: 56 }}>
+        <Text variant="colophon">{dayPartOf(part).title}</Text>
+      </View>
+      {pieces.length && resolve ? (
+        <View className="flex-row" style={{ gap: 4 }}>
+          {pieces.slice(0, 4).map((g) => (
+            <View
+              key={g.id}
+              className="items-center justify-center overflow-hidden rounded-sm bg-tray"
+              style={{ width: ITINERARY_THUMB, height: ITINERARY_THUMB, padding: 2 }}>
+              <GarmentWell
+                item={byId?.get(g.id)}
+                uri={resolve(g.platePath, g.cutoutPath, g.thumbPath)}
+                size={ITINERARY_THUMB - 4}
+                radius={4}
+                glyph={13}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
+      <View className="flex-1">
+        <Text variant="note">{names || 'Nothing found for this look.'}</Text>
+      </View>
+    </View>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // The screen
@@ -262,8 +430,6 @@ export function MembershipUnconfirmedBanner({
 
 export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: () => void }) {
   const qc = useQueryClient();
-  const { fontScale } = useWindowDimensions();
-  const large = fontScale >= NEW_TRIP_STACK_SCALE;
 
   const closet = useCloset();
   const wardrobeQuery = useWardrobe();
@@ -386,7 +552,7 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
 
   const [acknowledgedShortfall, setAcknowledgedShortfall] = useState(false);
 
-  // ── What the plate waits on ────────────────────────────────────────────
+  // ── K-04's four lines ──────────────────────────────────────────────────
   const requestedLooks = lookSchedule(trip.startsOn, days, trip.parts).length;
 
   // Computed here rather than fetched. See `use-packing-brief.ts` — the memo
@@ -398,6 +564,8 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
     packing,
     requestedLooks,
   });
+  const fit = useMemo(() => closetWeatherFit(wardrobe, forecasts ?? []), [wardrobe, forecasts]);
+
   const forecastStepDone = forecastsReady;
   const closetStepDone = !wardrobeQuery.isLoading && wardrobeQuery.isSuccess && forecastsReady;
   const looksStepDone = Boolean(packing);
@@ -405,54 +573,46 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
   // is no fourth thing to wait for.
   const memoStepDone = brief.isSuccess;
 
-  /**
-   * The wait, as a fraction.
-   *
-   * The four things the plate is waiting on are the same four K-04 used to tick
-   * off one line at a time. The frames removed the narration and kept the
-   * arithmetic: the CTA's clay fill is how far through those four the screen is,
-   * which means the bar can only move when something real finished. It is not a
-   * timer and it never fakes forward motion.
-   */
-  const done = [forecastStepDone, closetStepDone, looksStepDone, memoStepDone].filter(Boolean).length;
-  const progress = done / 4;
+  const steps: ResearchStep[] = [
+    {
+      key: 'forecast',
+      title: withinHorizon ? 'Forecast pulled' : 'Typical weather pulled',
+      detail: forecastStepDone
+        ? withinHorizon
+          ? forecasts?.length
+            ? forecastSummaryLine(forecasts)
+            : null
+          : normalsQuery.data
+            ? normalsSummaryLine(trip.destination.name, monthName, normalsQuery.data.lowC, normalsQuery.data.highC)
+            : null
+        : null,
+      done: forecastStepDone,
+    },
+    {
+      key: 'closet',
+      title: 'Closet read',
+      detail: closetStepDone ? closetSummaryLine(fit) : null,
+      done: closetStepDone,
+    },
+    {
+      key: 'looks',
+      title: buildingLooksTitle(requestedLooks),
+      detail: looksStepDone && packing ? buildingLooksDetail(packing.items) : null,
+      done: looksStepDone,
+    },
+    {
+      key: 'memo',
+      title: 'Writing the memo',
+      detail: brief.data ? brief.data.gaps ?? brief.data.observation : null,
+      done: memoStepDone,
+    },
+  ];
 
-  /**
-   * The read that cannot recover on its own.
-   *
-   * `packing` needs `forecasts`, `forecasts` needs a query, and a query can
-   * ERROR — at which point `computed` is null for ever and the old screen
-   * ticked its research lines until the app was killed. Naming the state is
-   * what turns a hang into the frames' failure card, which has a retry on it.
-   *
-   * `wardrobeQuery` is folded in for the same reason: a closet read that failed
-   * leaves `canGenerate` unanswerable, not empty, and "empty" is a different
-   * screen (`closetTooThin` below) with a different true sentence on it.
-   */
-  const weatherFailed = withinHorizon ? forecastQuery.isError : normalsQuery.isError;
-  const researchFailed = !packing && (weatherFailed || wardrobeQuery.isError);
+  const researching = !packing || !memoStepDone;
 
-  const researching = !researchFailed && (!packing || !memoStepDone);
-
-  const [retrying, setRetrying] = useState(false);
-
-  /**
-   * Re-read whichever weather source this trip is on, plus the closet.
-   *
-   * `refetch` rather than an invalidate: these two queries are the only thing
-   * the failure is about, and invalidating by key would also drop the closet
-   * reads every other mounted screen is holding.
-   */
-  const handleRetryResearch = useCallback(() => {
-    setRetrying(true);
-    void Promise.allSettled([
-      withinHorizon ? forecastQuery.refetch() : normalsQuery.refetch(),
-      wardrobeQuery.refetch(),
-    ]).finally(() => setRetrying(false));
-  }, [withinHorizon, forecastQuery, normalsQuery, wardrobeQuery]);
-
-  // ── The completion write ──────────────────────────────────────────────
+  // ── K-05's actions ────────────────────────────────────────────────────
   const saveTrip = useSaveTrip();
+  const [savedNotice, setSavedNotice] = useState(false);
 
   const handleSaveToPlan = useCallback(async () => {
     if (!packing) return;
@@ -479,8 +639,7 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
       memo: memo as unknown as Json,
       weatherSource,
     });
-    // No notice: the "Trip planned" badge on the plate IS the confirmation, and
-    // it is drawn from the same moment this write is fired from.
+    setSavedNotice(true);
   }, [packing, tripId, startTrip, trip, brief.data, weatherSource, days, saveTrip]);
 
   /**
@@ -530,53 +689,6 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
       .catch(() => {})
       .finally(() => setShareMounted(false));
   }, []);
-
-  /**
-   * Has the plate actually landed?
-   *
-   * Computed as one expression rather than inferred from which early return
-   * fired, because the completion EFFECT below needs the same answer and a hook
-   * cannot live after a return.
-   */
-  const planned =
-    !viewingSaved &&
-    !closetTooThin &&
-    (withinHorizon || packAnyway) &&
-    !researching &&
-    !researchFailed &&
-    packing !== null &&
-    (packing.unfilled === 0 || acknowledgedShortfall);
-
-  /**
-   * "Trip planned" — the moment, made true.
-   *
-   * TWO THINGS FIRE HERE AND BOTH ARE ONCE-ONLY.
-   *
-   * The success haptic, because this is precisely what `haptics.success()` is
-   * reserved for: an operation the user was WAITING on, which could have gone
-   * the other way (see the failure state above), landing. Not `commit()` — the
-   * user did not just tap anything.
-   *
-   * And the save. The frames assert "Trip planned" as a fact, and it was only a
-   * fact once somebody found and pressed a "Save to Plan" button — until then
-   * the row carried no `saved_at`, the trips shelf showed no "Packed" badge, and
-   * "Open last list" had nothing to open. A completion moment that claims
-   * something the database does not know is a lie the next screen exposes, so
-   * the write happens with the claim. It costs the user nothing: `useStartTrip`
-   * already wrote the row unprompted the moment the questionnaire was answered,
-   * and this adds the counts and the memo to it.
-   *
-   * Fire-and-forget, like every other write on this path — a failed save costs
-   * the ability to reopen this list later, which is not worth turning a landed
-   * packing plan into an error screen over.
-   */
-  const plannedRef = useRef(false);
-  useEffect(() => {
-    if (!planned || plannedRef.current) return;
-    plannedRef.current = true;
-    haptics.success();
-    void handleSaveToPlan();
-  }, [planned, handleSaveToPlan]);
 
   // ── "Open last list" (K-06 · Failure 3) ─────────────────────────────────
   if (viewingSaved) {
@@ -632,47 +744,21 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
     );
   }
 
-  /**
-   * The plate that did not come back.
-   *
-   * Ordered BEFORE `researching`, because `researching` is defined as "not
-   * failed and not ready" — putting the failure second would make it
-   * unreachable. The answers shown are the ones the user gave, read straight
-   * off the trip rather than off a copy.
-   */
-  if (researchFailed) {
-    return (
-      <PackingPlateBody
-        large={large}
-        view={{
-          state: 'failed',
-          answers: answerRows({
-            destination: trip.destination,
-            startsOn: trip.startsOn,
-            endsOn: trip.endsOn,
-            vibeLabels: trip.vibes.map((v) => vibeOf(v).label),
-          }),
-          onRetry: handleRetryResearch,
-          retrying,
-          // Exactly today's abandon behaviour: the row `useStartTrip` wrote is
-          // left where it is and the flow returns to the questionnaire.
-          onSaveAndFinishLater: onStartAgain,
-        }}
-      />
-    );
-  }
-
   if (researching) {
     return (
-      <PackingPlateBody
-        large={large}
-        view={{
-          state: 'building',
-          destination: trip.destination.name,
-          colophon: tripDatesLine(trip.startsOn, trip.endsOn),
-          progress,
-        }}
-      />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-16">
+        {membershipUnconfirmed ? (
+          <View className="px-gutter">
+            <MembershipUnconfirmedBanner
+              onOpenLastList={() => setViewingSaved(true)}
+              onRetry={retryMembership}
+              retrying={membershipRetrying}
+              hasLastList={Boolean(lastPacked.data)}
+            />
+          </View>
+        ) : null}
+        <ResearchSteps steps={steps} colophon={tripColophon(trip)} days={days} />
+      </ScrollView>
     );
   }
 
@@ -704,19 +790,17 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
       trip={trip}
       days={days}
       packing={packingResult}
-      mark={weatherMark(
-        forecasts?.length ? bandOf(forecasts) : null,
-        (c) => formatTemp(c, 'F'),
-        false,
-      )}
+      brief={brief}
       byId={byId}
       resolve={resolve}
-      large={large}
       membershipUnconfirmed={membershipUnconfirmed}
       hasLastList={Boolean(lastPacked.data)}
       membershipRetrying={membershipRetrying}
       onOpenLastList={() => setViewingSaved(true)}
       onRetryMembership={retryMembership}
+      savedNotice={savedNotice}
+      onSaveToPlan={() => void handleSaveToPlan()}
+      savingToPlan={saveTrip.isPending || startTrip.isPending}
       onSwapDay={handleSwapDay}
       onShare={handleShare}
       shareMounted={shareMounted}
@@ -727,75 +811,39 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
   );
 }
 
-/**
- * The trip's high and low, across every day the forecast covers.
- *
- * The plate's colophon prints ONE pair for the whole trip, which is what the
- * frames draw — so it is the widest range the trip actually contains rather
- * than the first day's, which would describe an afternoon and label it a week.
- * Null in, null out: no forecast means no mark, never a guessed number.
- */
-function bandOf(forecasts: readonly { highC: number; lowC: number }[]): { lowC: number; highC: number } | null {
-  if (!forecasts.length) return null;
-  return {
-    highC: Math.max(...forecasts.map((f) => f.highC)),
-    lowC: Math.min(...forecasts.map((f) => f.lowC)),
-  };
-}
-
 // ---------------------------------------------------------------------------
-// The plate, the presentational half — exported so `dev-packing-memo.tsx` and
-// `dev-w3-g4-pk-03.tsx` can drive it with fixtures instead of live hooks, the
-// same way `dev-share.tsx` feeds fixtures straight to `PlateCard`.
+// K-05, the presentational half — exported so `dev-packing-memo.tsx` can
+// drive it with fixtures instead of live hooks, the same way `dev-share.tsx`
+// feeds fixtures straight to `PlateCard`.
 // ---------------------------------------------------------------------------
 
 /**
- * Kept as a type for the fixture routes that still declare one.
+ * What the memo section needs, which is now only the prose.
  *
- * The prose is no longer drawn on this screen — the plate shows the pieces
- * instead — but `buildSavedMemo` still writes it into the trip row and the
- * share card still sets the headline, so the shape has not gone anywhere.
- *
- * @deprecated The plate does not read a brief. Nothing needs to pass one.
+ * `isError` / `error` / `refetch` are gone with the model call: a pure
+ * computation over the bag rendered underneath has nothing to fail at and
+ * nothing to retry. `null` is the not-yet state.
  */
 export type PackingMemoBriefState = {
   isPending: boolean;
   data: { observation: string } | null;
 };
 
-/**
- * "Trip planned", drawn.
- *
- * This is the frames' completion plate, and its whole content is the trip's
- * days with that day's pieces under each. What it does NOT draw, and where
- * those things went:
- *
- *   · The prose paragraph — gone from the screen, still written to the row.
- *   · The bag grid with its repeat chips — the pieces are on the days now, and
- *     a second grid of the same garments was the app abstracting one suitcase
- *     twice. `bagHeaderLine` and `bagProseLine` are untouched in
- *     `packing-memo.ts`, which is why the memo tests still pass unmodified.
- *   · "Save to Plan" — the save happens with the "Trip planned" claim, so a
- *     button asking the user to make a statement the screen already made would
- *     be a control with nothing left to do. See the effect in `PackingTrip`.
- *
- * "Swap a day" and "Share" survive as the quiet links the foot has always had
- * room for: the frames give the foot two filled controls and the accent budget
- * is spent by those two.
- */
 export function PackingMemo({
   trip,
   days,
   packing,
-  mark,
+  brief,
   byId,
   resolve,
-  large = false,
   membershipUnconfirmed,
   hasLastList,
   membershipRetrying,
   onOpenLastList,
   onRetryMembership,
+  savedNotice,
+  onSaveToPlan,
+  savingToPlan,
   onSwapDay,
   onShare,
   shareMounted,
@@ -806,16 +854,17 @@ export function PackingMemo({
   trip: Trip;
   days: number;
   packing: PackingResult;
-  /** `24°/15°`, or null when no forecast reached the trip. Never a guess. */
-  mark: string | null;
+  brief: PackingMemoBriefState;
   byId: Map<string, Item>;
   resolve: (...paths: (string | null | undefined)[]) => string | undefined;
-  large?: boolean;
   membershipUnconfirmed: boolean;
   hasLastList: boolean;
   membershipRetrying: boolean;
   onOpenLastList: () => void;
   onRetryMembership: () => void;
+  savedNotice: boolean;
+  onSaveToPlan: () => void;
+  savingToPlan: boolean;
   onSwapDay: () => void;
   onShare: () => void;
   shareMounted: boolean;
@@ -827,6 +876,10 @@ export function PackingMemo({
    * Passed in rather than read here: the id is owned by `PackingTrip`'s own
    * save effect, and a second source for it is how the plate and the save
    * eventually disagree about which trip is on screen.
+   *
+   * Re-added during the 2026-08-18 revert of redesign 05. This memo predates
+   * `tripId`, but Trip Detail at `/trips/[id]` is NOT being reverted, so the
+   * foot keeps the door redesign 06 opened onto it.
    */
   tripId: string | null;
 }) {
@@ -834,92 +887,170 @@ export function PackingMemo({
   const groups = groupLooksByDay(packing.looks);
   const filledLooks = packing.looks.filter((l) => l.outfit).length;
 
-  /**
-   * One day's pieces, de-duplicated across its looks.
-   *
-   * A day dressed for two parts wears the same trousers twice as often as not,
-   * and three wells showing one garment twice is a grid that misreports the
-   * day. First appearance wins, which keeps the engine's own ordering.
-   */
-  const plateDays: PlateDay[] = groups.map((group) => {
-    const seen = new Set<string>();
-    const tiles: { uri?: string }[] = [];
-    for (const look of group.looks) {
-      for (const garment of look.outfit?.items ?? []) {
-        if (tiles.length >= PLATE_TILES || seen.has(garment.id)) continue;
-        seen.add(garment.id);
-        const item = byId.get(garment.id);
-        tiles.push({
-          uri: item
-            ? resolve(item.platePath, item.cutoutPath, item.thumbPath)
-            : resolve(garment.platePath, garment.cutoutPath, garment.thumbPath),
-        });
-      }
-    }
-
-    const weather = group.looks.find((l) => l.weather)?.weather ?? null;
-    const caption = [dayTempLabel(weather), dayCaption(group.dayIndex, days, weather)]
-      .filter(Boolean)
-      .join(' · ');
-
-    return {
-      key: String(group.dayIndex),
-      label: plateDayLabel(group.date, group.dayIndex, days),
-      caption: caption || null,
-      tiles,
-    };
-  });
+  // PK-03: a piece earns a tile when it repeats, or when it is the one worn on
+  // departure. Everything else is named in the prose line under the grid.
+  const tiles = packing.items.filter((p) => p.worn || p.looks > 1);
+  const bagProse = bagProseLine(packing.items.filter((p) => !p.worn && p.looks <= 1));
 
   return (
-    <View className="flex-1">
-      {/* The fail-open membership banner keeps its place above the plate. It is
-          never a gate — a member who cannot be VERIFIED is treated as one, and
-          the server checks independently — so it adds a line and changes
-          nothing else about this screen. */}
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-gutter pb-16 pt-2">
       {membershipUnconfirmed ? (
-        <View className="px-gutter pt-2">
-          <MembershipUnconfirmedBanner
-            onOpenLastList={onOpenLastList}
-            onRetry={onRetryMembership}
-            retrying={membershipRetrying}
-            hasLastList={hasLastList}
-          />
+        <MembershipUnconfirmedBanner
+          onOpenLastList={onOpenLastList}
+          onRetry={onRetryMembership}
+          retrying={membershipRetrying}
+          hasLastList={hasLastList}
+        />
+      ) : null}
+
+      <Text variant="eyebrow">{tripColophon(trip)}</Text>
+
+      <View className="mt-2">
+        <Text variant="title" trim>
+          {memoHeadline(packing.items.length, filledLooks)}
+        </Text>
+      </View>
+
+      {/* Prose first — the required order is prose, bag, days, and audit 82
+          tightens the vertical gaps between those three blocks from 28 to 20. */}
+      <View className="mt-4">
+        {/* No failure branch, because there is no longer a failure. The memo
+            is computed from the bag rendered directly below it — if that
+            exists, so does this. */}
+        {brief.data ? (
+          <Text variant="body" className="text-muted">
+            {brief.data.observation}
+          </Text>
+        ) : (
+          <TextSkeleton lines={2} />
+        )}
+      </View>
+
+      {/* Then the bag — audit 82's 20pt gap, not 28. */}
+      <View className="mt-5">
+        <SectionHeader title={`The bag · ${bagHeaderLine(packing.items)}`} />
+        <View className="mt-3 flex-row flex-wrap gap-3">
+          {tiles.map((piece) => (
+            <BagPiece
+              key={piece.garment.id}
+              piece={piece}
+              chip={packedPieceChip(pieceCoverage(packing.looks, piece))}
+              item={byId.get(piece.garment.id)}
+              uri={resolve(piece.garment.platePath, piece.garment.cutoutPath)}
+            />
+          ))}
+        </View>
+        {/* The pieces that need no count are named in prose rather than
+            padding the grid with a chip that says "1". */}
+        {bagProse ? (
+          <Text variant="note" className="mt-3">
+            {bagProse}
+          </Text>
+        ) : null}
+      </View>
+
+      {/* Then the days. */}
+      {groups.map((group) => {
+        const weather = group.looks.find((l) => l.weather)?.weather ?? null;
+        const dateLabel = fromIsoDate(group.date).toLocaleDateString(undefined, {
+          weekday: 'long',
+          day: 'numeric',
+        });
+        const caption = dayCaption(group.dayIndex, days, weather);
+        const temp = dayTempLabel(weather);
+        const trailing = [temp, caption].filter(Boolean).join(' · ');
+
+        return (
+          <View key={group.dayIndex} className="mt-5">
+            <SectionHeader
+              title={dateLabel}
+              trailing={trailing ? <Text variant="label">{trailing}</Text> : undefined}
+            />
+            <View className="mt-2">
+              {group.looks.map((look) => (
+                <DayLookRow
+                  key={`${group.dayIndex}-${look.part}`}
+                  part={look.part}
+                  look={look}
+                  resolve={resolve}
+                  byId={byId}
+                />
+              ))}
+            </View>
+          </View>
+        );
+      })}
+
+      <View className="mt-6">
+        <Rule />
+      </View>
+
+      {savedNotice ? (
+        <View className="mt-4">
+          <Notice message="Saved to Plan." />
         </View>
       ) : null}
 
-      <PackingPlateBody
-        large={large}
-        view={{
-          state: 'planned',
-          destination: trip.destination.name,
-          colophon: plannedColophon(trip.startsOn, trip.endsOn, mark),
-          days: plateDays,
-          /**
-           * "See this trip" lands on THIS trip — redesign 06.
-           *
-           * It used to land on the shelf, because `trips/[id]` did not resolve
-           * and a dead primary is worse than an indirect one; that was listed as
-           * redesign 05's deviation #4. The page exists now, so the primary goes
-           * where its label always claimed.
-           *
-           * The fallback survives on purpose. `tripId` is null when the row was
-           * never written — `useStartTrip` swallows its own failure so a packing
-           * run is never blocked by a write — and a plate the user is looking at
-           * is real whether or not Postgres heard about it. In that case there is
-           * no page to open, and the shelf is the honest destination.
-           */
-          onSeeThisTrip: () =>
+      <View className="mt-4 flex-row gap-3">
+        <Button title="Swap a day" variant="secondary" onPress={onSwapDay} haptic className="flex-1" />
+        <Button title="Save to Plan" onPress={onSaveToPlan} loading={savingToPlan} haptic className="flex-1" />
+      </View>
+
+      {/* Redesign 04's second entry point, plus redesign 06's. The memo IS the
+          post-planning success screen, and until /trips existed a finished trip
+          was unreachable the moment you left it — so the ways back sit beside
+          Share, in the quiet-link register this foot already uses, rather than
+          as new controls competing with "Save to Plan".
+
+          Both doors survive the 2026-08-18 revert of redesign 05 because the
+          pages they open — /trips and /trips/[id] — are not being reverted.
+          What changed is only the register: they were two filled controls on
+          the reverted completion plate and they are underlined links again
+          here, which is this foot's own language. */}
+      <View className="mt-6 flex-row justify-center gap-6">
+        <Pressable
+          // Lands on THIS trip. The fallback is not dead code: `useStartTrip`
+          // swallows its own failure so a packing run is never blocked by a
+          // write, which means a plate the user is looking at can be real with
+          // no row behind it. There is then no page to open, and the shelf —
+          // where this trip is the hero card by construction — is the honest
+          // destination.
+          onPress={() =>
             tripId
               ? router.push({
                   pathname: '/trips/[id]',
                   params: { id: tripId, destination: trip.destination.name },
                 })
-              : router.push('/trips'),
-          onAllTrips: () => router.push('/trips'),
-          onSwapDay,
-          onShare,
-        }}
-      />
+              : router.push('/trips')
+          }
+          accessibilityRole="button"
+          accessibilityLabel={TRIPS_COPY.seeThis}
+          hitSlop={8}
+          className="min-h-tap justify-center active:opacity-60">
+          <Text variant="label" className="underline">
+            {TRIPS_COPY.seeThis}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.push('/trips')}
+          accessibilityRole="button"
+          accessibilityLabel={TRIPS_COPY.seeAll}
+          hitSlop={8}
+          className="min-h-tap justify-center active:opacity-60">
+          <Text variant="label" className="underline">
+            {TRIPS_COPY.seeAll}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onShare}
+          accessibilityRole="button"
+          hitSlop={8}
+          className="min-h-tap justify-center active:opacity-60">
+          <Text variant="label" className="underline">
+            Share
+          </Text>
+        </Pressable>
+      </View>
 
       {shareMounted ? (
         <View
@@ -934,10 +1065,9 @@ export function PackingMemo({
           />
         </View>
       ) : null}
-    </View>
+    </ScrollView>
   );
 }
-
 
 // ---------------------------------------------------------------------------
 // K-06 · Failure 3's "Open last list" — a read-only recovery view. Text

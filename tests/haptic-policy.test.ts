@@ -118,6 +118,16 @@ const DIRECT_HAPTICS_DEBT = [
   // `src/app/(tabs)/index.tsx` PAID OFF by redesign 13: the committed-wear
   // haptic moved into `wear-confirmation-sheet.tsx`, which fires it through
   // this policy module, and Today now has no haptics at all.
+  // REINSTATED 2026-08-18, the one exception to "never add one".
+  //
+  // Redesign 01 paid this entry off — its rebuilt week fired the mode tick
+  // through `@/lib/haptics` — and the founder reverted that page. The debt is
+  // not new: this is the same pre-existing `Haptics.selectionAsync()` on the
+  // segmented control that the list carried until redesign 01, returning with
+  // the file it lives in. The rule the list encodes is unchanged, since no new
+  // direct call was written; the entry comes off again when the restored page
+  // is converted.
+  'src/app/(tabs)/plan.tsx',
   // `src/app/capture.tsx` PAID OFF by redesign 22: the shutter's tick and the
   // two doors' now fire through `@/lib/haptics`, and so do the review deck's
   // three decisions in `capture-parts.tsx`.

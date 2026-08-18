@@ -116,45 +116,26 @@ export function useTripQuestionnaire(
 
   const step: TripStepKey = TRIP_STEPS[index] ?? TRIP_STEPS[0]!;
 
-  /**
-   * Record an answer WITHOUT moving.
-   *
-   * Redesign 05 separated the two halves that used to be one call. The frames
-   * put a "Next" on the foot of every card and draw it inactive until the card
-   * is answered, so choosing a place is a revisable answer rather than a
-   * commitment — a mis-tapped city used to advance the flow and then had to be
-   * walked back. Named-step guarded for the same reason `next` is: a patch that
-   * arrives from a card the user has already left is stale.
-   */
-  const set = useCallback((answered: TripStepKey, patch: Partial<TripDraft>) => {
+  /** Answer the *named* step and advance. A tap for any other step is stale. */
+  const answer = useCallback((answered: TripStepKey, patch: Partial<TripDraft>) => {
     setRun((run) =>
-      TRIP_STEPS[run.index] !== answered ? run : { ...run, draft: { ...run.draft, ...patch } },
-    );
-  }, [setRun]);
-
-  /**
-   * Leave the *named* step. A tap for any other step is stale.
-   *
-   * The step name makes a second tap landing in the same frame a no-op instead
-   * of a second advance — a double tap on "Next", or a fat-fingered pair, both
-   * read the pre-tap index and would otherwise skip a question. Same hazard the
-   * stylist's `runRef` closes by a different route.
-   */
-  const next = useCallback((from: TripStepKey) => {
-    setRun((run) =>
-      TRIP_STEPS[run.index] !== from
+      TRIP_STEPS[run.index] !== answered
         ? run
-        : { ...run, index: Math.min(run.index + 1, TRIP_STEPS.length - 1) },
+        : {
+            index: Math.min(run.index + 1, TRIP_STEPS.length - 1),
+            draft: { ...run.draft, ...patch },
+          },
     );
   }, [setRun]);
 
   /**
-   * The last question does not advance on tap, and asks three things.
+   * The last question does not advance on tap, and asks two things.
    *
    * The vibes are a set and the day parts are a set — "pick as many as are
-   * true" — so the step needs an explicit finish, which is the pinned "Build
-   * the packing plan". Both toggles keep their answer in vocabulary order
-   * however it was tapped, so the answer row reads the same way twice.
+   * true" — so the step needs an explicit finish, which is also the only place
+   * a primary button appears in the whole flow. Both toggles keep their answer
+   * in vocabulary order however it was tapped, so the summary row reads the
+   * same way twice.
    */
   const togglePart = useCallback((key: DayPartKey) => {
     setRun((run) => {
@@ -250,15 +231,12 @@ export function useTripQuestionnaire(
   return useMemo(
     () => ({
       step,
-      /** 0-based — the progress dots derive from it. See `progressDots`. */
-      index,
-      /** 1-based, for VoiceOver's "step 2 of 3". Every step here is really asked. */
+      /** 1-based, for "2 of 5". Honest: every step here is really asked. */
       position: index + 1,
       total: TRIP_STEPS.length,
       draft,
       canGoBack: index > 0,
-      set,
-      next,
+      answer,
       togglePart,
       toggleVibe,
       setDates,
@@ -272,8 +250,7 @@ export function useTripQuestionnaire(
       step,
       index,
       draft,
-      set,
-      next,
+      answer,
       togglePart,
       toggleVibe,
       setDates,

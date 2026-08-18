@@ -60,6 +60,16 @@ export const TRIPS_COPY = {
   tryAgain: 'Try again',
   /** The two entry points, worded identically on both surfaces. */
   seeAll: 'See all trips',
+  /**
+   * The packing memo's third door: this trip's own detail page.
+   *
+   * Lives here rather than in `new-trip-spec.ts` — which also spells it, and
+   * which Trip Detail still imports for its date lines — because that module
+   * belongs to the completion plate reverted on 2026-08-18, and the restored
+   * memo should not depend on a reverted design for its copy. The two strings
+   * are deliberately identical: the label the user learned did not change.
+   */
+  seeThis: 'See this trip',
   open: (destination: string) => `Open ${destination}`,
 } as const;
 

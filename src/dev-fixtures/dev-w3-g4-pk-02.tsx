@@ -63,10 +63,7 @@ export default function DevW3G4PK02() {
           devSeed={{
             // Index 3 is `shape` — the one multi-select question, and the one
             // the atlas draws.
-            // The last card. Three steps now, not four — redesign 05 folded the
-        // companions question into `shape` (see `trip.ts`), so the final index
-        // is 2.
-        index: 2,
+            index: 3,
             draft: {
               destination: {
                 name: 'Lisbon',

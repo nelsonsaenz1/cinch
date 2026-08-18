@@ -35,7 +35,6 @@ import {
   sortUpcoming,
   tripDatesLine,
 } from '../src/features/trips/trips-list-spec';
-import { CTA_SECONDARY_MIN_HEIGHT as PLATE_CTA_SECONDARY } from '../src/features/plan/new-trip-spec';
 
 const RAW = readFileSync('src/components/trips/trips-list-body.tsx', 'utf8');
 const ROUTE_RAW = readFileSync('src/app/trips/index.tsx', 'utf8');
@@ -43,8 +42,6 @@ const SPEC_RAW = readFileSync('src/features/trips/trips-list-spec.ts', 'utf8');
 const FIXTURES_RAW = readFileSync('src/features/trips/trips-list-fixtures.ts', 'utf8');
 const PLAN_RAW = readFileSync('src/app/(tabs)/plan.tsx', 'utf8');
 const MEMO_RAW = readFileSync('src/features/plan/packing-trip.tsx', 'utf8');
-/** Redesign 05's completion plate — where the memo's foot controls moved. */
-const PLATE_RAW = readFileSync('src/components/plan/packing-plate-body.tsx', 'utf8');
 const USE_TRIPS_RAW = readFileSync('src/features/plan/use-trips.ts', 'utf8');
 
 /** Comments describe the intent; the code is what ships. */
@@ -61,7 +58,6 @@ const SPEC = code(SPEC_RAW);
 const FIXTURES = code(FIXTURES_RAW);
 const PLAN = code(PLAN_RAW);
 const MEMO = code(MEMO_RAW);
-const PLATE = code(PLATE_RAW);
 const USE_TRIPS = code(USE_TRIPS_RAW);
 
 // ---------------------------------------------------------------------------
@@ -145,14 +141,13 @@ test('every control on the shelf clears the 44pt floor', () => {
   assert.ok((CODE.match(/MIN_TAP_TARGET/g) ?? []).length >= 5, 'a control on the shelf has no 44pt floor');
   // The two entry points are targets too, not bare text.
   assert.match(PLAN, /min-h-tap[\s\S]{0,200}TRIPS_COPY\.seeAll|TRIPS_COPY\.seeAll[\s\S]{0,200}min-h-tap/, 'Plan’s door to the list is under the floor');
-  // The memo's door is no longer an underlined link with a `min-h-tap` class on
-  // it. Redesign 05's completion frame promotes it to one of the plate's two
-  // pinned controls — `NEW_TRIP_COPY.allTrips`, a tinted 52pt fill — so the
-  // floor is now stated as geometry rather than as a utility class, and it is
-  // stated in the file that draws it. The RULE is unchanged and is checked more
-  // strictly than before: 52 > 44, asserted against the constant itself.
-  assert.ok(PLATE_CTA_SECONDARY >= 44, 'the plate’s door to the list is under the tap floor');
-  assert.match(PLATE, /NEW_TRIP_COPY\.allTrips/, 'the plate lost its door to the list');
+  // RESTORED 2026-08-18. Redesign 05 promoted the memo's door to a 52pt fill on
+  // its completion plate, and this assertion moved to that plate's constant.
+  // The founder reverted that build: the door is an underlined link in the
+  // memo's foot again, so the floor is stated as `min-h-tap` on the Pressable
+  // and is asserted where it is stated. The RULE — the door clears 44pt — is
+  // unchanged.
+  assert.match(MEMO, /min-h-tap[\s\S]{0,240}TRIPS_COPY\.seeAll|TRIPS_COPY\.seeAll[\s\S]{0,240}min-h-tap/, 'the memo’s door to the list is under the floor');
 });
 
 test('waiting is drawn with skeletons, never a spinner', () => {
@@ -474,18 +469,17 @@ test('both surfaces the brief names carry the door to the list', () => {
   assert.match(PLAN, /router\.push\('\/trips'\)/, 'Plan does not route to the list');
   assert.match(PLAN, /weekRangeLabel/, 'the week range was removed rather than moved aside');
 
-  // The post-planning success screen — now redesign 05's "Trip planned" plate.
+  // The post-planning success screen — the packing memo, restored 2026-08-18.
   //
-  // The artifact supersedes the COPY this used to pin. `TRIPS_COPY.seeAll`
-  // ("See all trips") was the quiet link the memo carried; the accepted
-  // completion frame gives the foot two named controls, "See this trip" and
-  // "All trips", and the second one IS this door. What the rule protects — the
-  // post-planning screen reaches the list, and Share is not displaced by it —
-  // is asserted below against the new composition.
-  assert.match(MEMO, /NEW_TRIP_COPY\.allTrips|onAllTrips/, 'the plate lost its door');
-  assert.match(MEMO, /router\.push\('\/trips'\)/, 'the plate does not route to the list');
-  assert.match(MEMO, /onShare/, 'Share was displaced by the addition');
-  assert.match(PLATE, /onPress=\{view\.onShare\}|NEW_TRIP_COPY\.share/, 'Share left the plate');
+  // Redesign 05 replaced this foot with a completion plate whose two named
+  // controls were "See this trip" and "All trips", and this assertion was
+  // retargeted at that plate's copy. The founder reverted that build, so the
+  // quiet link is back and `TRIPS_COPY.seeAll` is the door again — which is
+  // what this test pinned in the first place.
+  assert.match(MEMO, /TRIPS_COPY\.seeAll/, 'the memo lost its door');
+  assert.match(MEMO, /router\.push\('\/trips'\)/, 'the memo does not route to the list');
+  // Share stays exactly where it was; the additions are siblings, not a swap.
+  assert.match(MEMO, /onPress=\{onShare\}/, 'Share was displaced by the addition');
 });
 
 test('the list route is a pushed page, not a sheet, and not a fixture', () => {

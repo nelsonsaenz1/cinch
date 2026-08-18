@@ -455,17 +455,9 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['PS-06 · largest accessibility text', '/dev-ps-06-ax'],
     ],
   ],
-  [
-    'Plan — the week — redesign 01',
-    [
-      ['PW-01 · planned day', '/dev-pw-01-default'],
-      ['PW-02 · month sheet', '/dev-pw-02-month'],
-      ['PW-03 · nothing planned', '/dev-pw-03-empty'],
-      ['PW-04 · plate building', '/dev-pw-04-loading'],
-      ['PW-05 · plate unavailable', '/dev-pw-05-error'],
-      ['PW-06 · largest accessibility text', '/dev-pw-06-ax'],
-    ],
-  ],
+  // Redesign 01's PW-01…06 are gone: the founder reverted the week page to the
+  // pre-redesign day cards on 2026-08-18, and the poses drew a body that no
+  // longer exists. The restored page's own states are posed under W3-G4.
   [
     'Event detail — the poster — redesign 03',
     [
@@ -490,22 +482,10 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
       ['TL-05 · largest accessibility text', '/dev-tl-05-ax'],
     ],
   ],
-  [
-    // The paywall frame is deliberately absent: that sheet is Superwall's
-    // document, configured in the dashboard, and this repo does not draw it.
-    // What this repo owns at that moment is the gate and the locked plate,
-    // which are posed at `/dev-packing-questions`.
-    'New trip — the stepped flow — redesign 05',
-    [
-      ['NT-01 · step 1, untouched', '/dev-nt-01-empty'],
-      ['NT-02 · typing the city', '/dev-nt-02-keyboard'],
-      ['NT-03 · step 3, what’s happening', '/dev-nt-03-default'],
-      ['NT-04 · the plate building', '/dev-nt-04-loading'],
-      ['NT-05 · the plate didn’t come back', '/dev-nt-05-error'],
-      ['NT-06 · trip planned', '/dev-nt-06-planned'],
-      ['NT-07 · largest accessibility text', '/dev-nt-07-ax'],
-    ],
-  ],
+  // Redesign 05's NT-01…07 are gone with the same revert: the questionnaire is
+  // the four-step flow again and the completion plate no longer exists. The
+  // restored flow is posed at `/dev-packing-questions` and `/dev-packing-memo`,
+  // which is where it was posed before redesign 05 and still is.
   [
     'Trip detail — the packing plate, revisited — redesign 06',
     [
