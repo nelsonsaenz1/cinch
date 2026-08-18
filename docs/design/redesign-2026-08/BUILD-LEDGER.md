@@ -28,6 +28,7 @@ it means.
 | 06-trip-detail | design-refs/redesign-2026-08/06-trip-detail/ (10 files) | d5e8d20 | OTA 01a012ee-0d0e-70a5-8f32-1ba44772ea1a · runtime 18938ff9 · 2026-08-18 | progress frame matched; checkable tiles, note, delete sheet live; trips.note migration adopted from colliding session |
 | 07-profile | design-refs/redesign-2026-08/07-profile/ (7 files) | 070b913 | OTA 01a0130e-f4fe-76fd-8f69-7252f0454591 · runtime 18938ff9 · 2026-08-18 | all six frames matched at standard and AX-XXXL; rails, marks, quiet plan door and bled closet grid live; no tab bar (Profile stays the Today form sheet) |
 | 08-friends-list | design-refs/redesign-2026-08/08-friends-list/ (29 files) | 340fe50 | OTA 01a0134e-4307-7caf-961c-78eb7605c17b · runtime 18938ff9 · 2026-08-18 | default, presence-revoked, resting, empty, loading, friends-failed and offline matched at standard; AX-XXXL matched after fixing a request-row collapse. ZERO backend change — the existing daily-social views already enforce every rule. pgTAP committed but UNEXECUTED: GitHub Actions is blocked on account billing and this machine has no Docker |
+| 13-wear-confirm | design-refs/redesign-2026-08/13-wear-confirm/ (29 files) | 4b26cd1 | OTA 01a0141d-5b1d-7b81-9038-d396a759a068 · group 15be378d-f1ac-4f55-819b-30fa028e78a2 · runtime 18938ff9 · 2026-08-18 | fifteen states matched at standard and AX-XXXL on 932pt and 852pt — default, five rating states, favourite, the override note, confirming, settled, settled-idempotent, network, offline, signed-out, rejected, long name and many garments. ZERO backend and ZERO native change, verified against production. Three simulator defects found and fixed (invisible heart, a header the frames do not have, five states no capture could reach). 667pt not captured |
 | 12-reveal | design-refs/redesign-2026-08/12-reveal/ (31 files) | 3453c35 | OTA 01a013fc-09bb-7d42-ad3c-f455b5cdf092 · group 7add9969-063a-42d8-86c9-b1c30207df5d · runtime 18938ff9 · 2026-08-18 | sixteen states matched at standard and AX-XXXL on 932pt and 852pt — the seven beats, and singular, large, partial-tagging, substitution, offline, missing-image, zero, trialing and lapsed-free. ZERO backend and ZERO native change. Two simulator defects found and fixed (collapsed zero copy, ignored deep link). The artifact's own digits are wrong in two frames — see below. 667pt not captured |
 | 11-today | design-refs/redesign-2026-08/11-today/ (31 files) | 833b7c5 | OTA 01a013d3-cf4d-7bfa-af9a-9b946102932b · group 310fcb32-d9b3-4959-b7cf-a493886d93b1 · runtime 18938ff9 · 2026-08-18 | the day, the chips and four weather states, the wear flow, the four refusals and the floor matched at standard and AX-XXXL on 932pt and 852pt. ZERO backend and ZERO native change. Two AX defects found and fixed in the simulator (collapsed image placeholder, weather mark covering the first tile at AX). 667pt not captured — see below |
 | 10-invite-share | design-refs/redesign-2026-08/10-invite-share/ (24 files) | 169d5d3 | OTA 01a0136e-1520-71c1-8743-7f5cac6e5935 · group 9d5d98ec-1244-42c2-8bc6-61aa4ae828c0 · runtime 18938ff9 · 2026-08-18 | default, empty, link-failed, arrivals-failed, offline, no-handle, share-unavailable, copied and copy-unavailable matched at standard; AX-XXXL matched after enlarging the row avatar to stop the monogram clipping. ZERO backend change. QR variant (frame 23, marked extra/opt-in) deliberately not built |
@@ -50,6 +51,79 @@ accepted bundle.
 
 Pages 12–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
+
+### 13-wear-confirm — what was wrong, and what the captures caught
+
+**The backend claim was checked, not taken.** The handoff says no new schema,
+RPC, RLS policy or grant is expected. Verified against production rather than
+against the migration file: `wear_outfit_tx` is **security-invoker** (so RLS
+authorises every row against the caller — a definer function here would make
+the client's guard the only guard), granted to `authenticated` alone, and
+`public_outfits` carries `(id, user_id, name, occasion, created_at)` while
+`friend_worn_outfits` carries `(id, user_id, name, worn_at)`. Neither has ever
+carried `wear_rating` or `favorited_at`. Zero migrations, zero pgTAP changes,
+nothing to deploy before the client.
+
+**Three things were genuinely wrong, not merely plain.**
+
+1. *The sheet vanished on success.* It closed the instant the transaction
+   returned, leaving the reader on Today with no evidence anything was written.
+   It now holds the settled composition, and `closeWearSheet` is the single
+   path out — so a reset cannot be half-done and leave the NEXT wear looking
+   already logged.
+2. *One error string for five failures.* A session that ended and a connection
+   that dropped got the same body and the same "Try again" — a control that
+   would fail identically for the first. `wearErrorView` tells them apart,
+   routes signed-out to sign-in, and separates a connection that was never
+   there from one that dropped mid-write.
+3. *The taste policy was an inline ternary.* `tests/today-polish-phase-a` had to
+   read it back out with a regex and evaluate it through `new Function`. It is
+   now `tasteSignal`, executed directly by two suites.
+
+**The haptic moved, and Today went silent.** The committed-wear buzz now fires
+in the sheet, with the state transition the reader sees — buzz, line and
+VoiceOver announcement land together. `src/app/(tabs)/index.tsx` came OFF the
+direct-haptics debt list in `tests/haptic-policy.test.ts` as a result.
+
+**Two accepted-artifact conflicts, resolved and recorded.**
+
+| Conflict | Resolution |
+|---|---|
+| 27 frames draw Cancel BELOW the CTA; the VoiceOver overlay numbers it 2, before the collage | The drawn frames win — they are what was accepted 27 times and what the evidence is compared against. RN core offers no supported way to reorder VoiceOver independently of layout. The cost is small: `onRequestClose` is wired, so a two-finger scrub dismisses from ANY element, which is a stronger guarantee than being second in the list |
+| Frame 01 shows "Optional" and frame 09 shows "Skip if you like" for the SAME state (nothing chosen) | One hint, "Optional". A third string would be a difference the reader could see and the app could not explain. "Cleared" remains distinct, because it marks a rating that was taken back |
+
+**The captures caught three defects.** A sand heart on a sand row was an
+invisible control — the row's resting ground moved to `tray` so the glyph
+exists at all. A drawn "Log today's outfit" header the accepted frames do not
+have, removed (it is the modal's announcement, not a heading). And five states
+— every rating and the favourite — that no non-interactive capture could reach,
+because `simctl` opens URLs and cannot tap. The sheet now takes two documented
+test-only seeds defaulting to exactly what opening gives you, with a test
+asserting the shipping route passes neither.
+
+**One deviation carried from the artifact, one added.** Carried: the heart fills
+oxblood on blush rather than a warmer clay, because clay on blush fails the
+contrast floor against the sand resting state. Added: the section eyebrow stays
+the repo's `muted` rather than the frame's clay — `accentWarm` measures 2.98:1
+and the constitution test caught exactly this on page 10.
+
+**Two blockers, unresolved and not worked around.** The 667pt capture could not
+be taken, for the third time and the same reason: a freshly created iPhone SE
+simulator's development client will not connect to Metro without a tap on its
+"Open in Cinch?" alert. What stands in is deterministic rather than a promise —
+`collageHeight(667, false)` is asserted to tighten to 118pt, both actions are
+pinned outside the scroll region, and the AX-XXXL captures exercise the same
+tightening on a real device. Reduce Motion and VoiceOver are likewise asserted
+rather than photographed, because neither shows in a still: the tests pin
+`animationType={reduced ? 'fade' : 'slide'}`, that `reduced` is read exactly
+twice so nothing else branches on it, and every role, label, state and the full
+element order.
+
+GitHub Actions run **32119445676** (commit `4b26cd1`) reports all three jobs —
+`database`, `functions`, `check` — as `failure` with ZERO steps and no
+retrievable log. That is the account-level billing block, external to this
+change, not a code failure. The same gates ran locally and are green:
+typecheck, lint, 2843 unit tests, styling and typography smoke.
 
 ### 12-reveal — the artifact's numbers, and why the engine won
 
