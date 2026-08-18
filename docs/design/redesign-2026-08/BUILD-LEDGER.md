@@ -27,6 +27,7 @@ it means.
 | 05-new-trip | design-refs/redesign-2026-08/05-new-trip/ (9 files) | 8fa9afb | OTA 01a012d5-654e-7c78-acfd-785e0aa90cfa · runtime 18938ff9 · 2026-08-17 | default step + planned frames matched; PackingAccess gate zero-diff |
 | 06-trip-detail | design-refs/redesign-2026-08/06-trip-detail/ (10 files) | d5e8d20 | OTA 01a012ee-0d0e-70a5-8f32-1ba44772ea1a · runtime 18938ff9 · 2026-08-18 | progress frame matched; checkable tiles, note, delete sheet live; trips.note migration adopted from colliding session |
 | 07-profile | design-refs/redesign-2026-08/07-profile/ (7 files) | 070b913 | OTA 01a0130e-f4fe-76fd-8f69-7252f0454591 · runtime 18938ff9 · 2026-08-18 | all six frames matched at standard and AX-XXXL; rails, marks, quiet plan door and bled closet grid live; no tab bar (Profile stays the Today form sheet) |
+| 08-friends-list | design-refs/redesign-2026-08/08-friends-list/ (29 files) | 340fe50 | OTA 01a0134e-4307-7caf-961c-78eb7605c17b · runtime 18938ff9 · 2026-08-18 | default, presence-revoked, resting, empty, loading, friends-failed and offline matched at standard; AX-XXXL matched after fixing a request-row collapse. ZERO backend change — the existing daily-social views already enforce every rule. pgTAP committed but UNEXECUTED: GitHub Actions is blocked on account billing and this machine has no Docker |
 
 ## Accepted artifacts — imported, not built
 
@@ -37,7 +38,6 @@ accepted bundle.
 
 | Page | Directive brief | Artifact set | Files | Imported | Build status |
 |---|---|---|---|---|---|
-| 08-friends-list | §3 · 8 Friends list | design-refs/redesign-2026-08/08-friends-list/ | 1 HTML + 28 PNG | 2026-08-18 | DESIGN ACCEPTED · not built |
 | 17-explore | §3 · 17 Explore (Daily Social) | design-refs/redesign-2026-08/17-explore/ | 1 HTML + 15 PNG | 2026-08-18 | not built |
 | 18-welcome-sign-in | §3 · 18 Welcome / Sign-in | design-refs/redesign-2026-08/18-welcome-sign-in/ | 1 HTML + 8 PNG | 2026-08-18 | not built |
 | 19-auth-run | §3 · 19 Email + code + name | design-refs/redesign-2026-08/19-auth-run/ | 1 HTML + 21 PNG | 2026-08-18 | not built |
@@ -60,5 +60,24 @@ corrected bundle and were DELETED, and four (the artifact, `-default`,
 
 The corrected bundle imported here passed privacy QA: 28 frames covering the
 mutual-only model, blocked-user invisibility, share-visibility rules, the
-request and report flows, and presence marks that carry no count. It is DESIGN
-ACCEPTED and NOT BUILT — no route, no component, no OTA, no simulator run.
+request and report flows, and presence marks that carry no count. It was built on
+2026-08-18 and now appears in the shipped table above.
+
+**What the build did NOT need.** The artifact's own shipping note called for a
+new security-definer RPC over a new view. It was not built, because repo truth
+says it is unnecessary: `friend_worn_outfits` → `friend_worn_outfit_items` →
+`friend_items` already enforce mutual friendship, both directions of blocking,
+the owner's opt-in, the non-retroactive boundary, the seven-day window,
+`closet_hidden` and archived-item omission — all in SQL, all verified against
+production before a line was written. No migration, view, function, policy or
+column was added, so there was no backend deploy to sequence ahead of the OTA.
+
+**What could not be verified.** `supabase/tests/23_friends_presence.sql` (14
+assertions) is committed and has never been executed. `npm run test:db` needs a
+local Supabase stack and this machine has no Docker runtime; CI would run it,
+but every GitHub Actions run since 2026-08-17 has failed to start with "recent
+account payments have failed or your spending limit needs to be increased".
+Both are outside this build's authority to fix — one is an install, the other is
+money. The predicates the file asserts were instead confirmed by reading the
+live view definitions in production, which is weaker evidence than an executed
+test and is recorded here as such.
