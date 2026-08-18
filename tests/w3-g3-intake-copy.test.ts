@@ -17,6 +17,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
+  SHELF_FULL_TITLE,
+  capacityColophon,
+} from '../src/features/ingest/add-clothes-spec';
+import {
   CATALOGUE_ROUTE_NAME,
   INTAKE_ROUTES,
 } from '../src/features/ingest/intake-routes';
@@ -148,8 +152,33 @@ test('AC-03 — the recovery is free: no tier, no price, no paywall on the choos
 test('AC-03 — the repository word is "active", never "awake"', () => {
   // Vocabulary follows the repository, per the corrected frame. Two names for
   // one count across two screens is how a number stops being believed.
+  //
+  // READ FROM THE SPEC, NOT FROM THE SCREEN. Redesign 23 moved this page's
+  // sentences into `features/ingest/add-clothes-spec.ts` — the same split every
+  // redesigned page in this wave makes, and the reason `ten-copy.ts` exists —
+  // so a literal-match against `add-clothes.tsx` now checks the wrong file and
+  // would pass vacuously the day somebody renamed the constant. The assertion
+  // that survives is about the WORDS, wherever they are, plus the fact that the
+  // screen still renders them.
+  //
+  // The colophon's wording changed with the frame: "12 of 30 active pieces
+  // filed." became "12 OF 30 ACTIVE PIECES", set as a tracked colophon rather
+  // than a sentence. "Active" is what is being pinned and "active" is still
+  // there; "filed" was never the contested word.
+  assert.match(capacityColophon(12, 30), /^12 of 30 active pieces$/);
+  assert.equal(SHELF_FULL_TITLE, 'The active shelf is full');
+
   const src = code('src/app/add-clothes.tsx');
-  assert.match(src, /active pieces filed/);
-  assert.match(src, /The active shelf is full/);
-  assert.ok(!/awake/i.test(src), '"awake" is the atlas\'s word, not this app\'s');
+  assert.match(src, /capacityColophon\(capacity\.used, capacity\.limit\)/);
+  assert.match(src, /\{SHELF_FULL_TITLE\}/);
+
+  // Comments stripped on both, as ever: the history of the correction is worth
+  // writing down, and both files write it down.
+  const spec = code('src/features/ingest/add-clothes-spec.ts');
+  for (const [where, text] of [
+    ['the screen', src],
+    ['the spec', spec],
+  ] as const) {
+    assert.ok(!/awake/i.test(text), `"awake" is the atlas's word, not this app's — in ${where}`);
+  }
 });

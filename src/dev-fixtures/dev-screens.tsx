@@ -133,6 +133,24 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     [['Openings, allowance and denials', '/dev-r16-stylist']],
   ],
   [
+    // Eight of the artifact's thirty-six states. The other twenty-eight are
+    // either pressed variants of these (the exports draw no depression), atlas
+    // colophons, or behaviour this build does not have — see the deviation list
+    // in the redesign 23 build report. `/dev-add-clothes` below still draws the
+    // superseded refacing-era atlas and is kept for the record.
+    'Redesign 23 · Add clothes',
+    [
+      ['AC-01 · four peers, no favourite', '/dev-ac-01-default'],
+      ['AC-02 · the lead door', '/dev-ac-02-lead-door'],
+      ['AC-03 · camera denied', '/dev-ac-03-camera-blocked'],
+      ['AC-04 · no camera module', '/dev-ac-04-camera-unavailable'],
+      ['AC-05 · consent declined', '/dev-ac-05-consent-declined'],
+      ['AC-06 · at the ceiling', '/dev-ac-06-at-cap'],
+      ['AC-07 · capacity unresolved', '/dev-ac-07-loading-capacity'],
+      ['AC-08 · back from Settings', '/dev-ac-08-camera-returned'],
+    ],
+  ],
+  [
     // The welcome / sign-in screen is excluded from the redesign by founder
     // order, so it has no fixture here and none of these draw it.
     'Redesign 19 · Auth run',

@@ -1,6 +1,7 @@
 import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DoorArt } from '@/components/ingest/door-art';
 import { Button, DoorCondition, DoorPlate, Text } from '@/components/ui';
 import { CATALOGUE_DISCLOSURE, INTAKE_ROUTES } from '@/features/ingest/intake-routes';
 import { useTheme } from '@/theme/tokens';
@@ -143,14 +144,14 @@ function Doors({ cameraBlocked = false }: { cameraBlocked?: boolean }) {
       <DoorPlate
         name={route.camera.name}
         line={route.camera.line}
-        symbol={route.camera.symbol}
+        art={<DoorArt kind="camera" />}
         onPress={() => {}}
         condition={
           cameraBlocked ? (
             <DoorCondition>
-              <View className="flex-1">
-                <Text variant="note">Cinch cannot open the camera until you allow it.</Text>
-              </View>
+              <Text variant="note" style={{ color: theme.ink }}>
+                Cinch cannot open the camera until you allow it.
+              </Text>
               <Text variant="note" style={{ color: theme.accent }}>
                 Open Settings
               </Text>
@@ -163,7 +164,7 @@ function Doors({ cameraBlocked = false }: { cameraBlocked?: boolean }) {
           key={r.key}
           name={r.name}
           line={r.line}
-          symbol={r.symbol}
+          art={<DoorArt kind={r.key} />}
           onPress={() => {}}
         />
       ))}
