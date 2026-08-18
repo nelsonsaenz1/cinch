@@ -49,6 +49,47 @@ accepted bundle.
 Pages 11–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
 
+### 10-invite-share — the block guard the roster was missing
+
+The redesign-10 audit found that `invite_arrivals()` filtered neither blocking
+nor current friendship, so a person the inviter later blocked kept a row — with
+their display name and handle — on the inviter's private Invite / Share page.
+Everywhere else in the schema a block means mutual invisibility; this one read
+did not ask.
+
+Fixed by `supabase/migrations/20260823000000_invite_arrivals_respects_blocks.sql`,
+applied to production as ledger version `20260818055848`. It is a `create or
+replace` of the identical signature adding one predicate — `not
+public.blocked_between((select auth.uid()), p.user_id)` — through the schema's
+one definition of "blocked", which is already symmetric. No table, column,
+index, policy or type moved, the returned columns are unchanged, and no
+generated type or client code changed, so **no OTA was warranted**: the shipped
+JS bundle is byte-identical.
+
+**The semantics, stated so they can be argued with.** Blocked in either
+direction → absent. Deletion requested → absent, unchanged. Unfriended →
+RETAINED, deliberately: an arrival is a fact about the caller's own link and
+stays true after a friendship ends, and a row that vanished when a friendship
+ended would prove exactly the thing this page's contract says an arrival never
+proves. Profile visibility → considered and declined as a second, unasked
+semantic change.
+
+**Impact at deploy: zero rows.** `user_blocks` was empty and no profile carried
+an `invited_by`, measured read-only before the change, so this is a lock fitted
+before the door is used.
+
+**Verification.** `supabase/tests/24_invite_arrivals_blocks.sql` adds 12 pgTAP
+assertions (both block directions, unfriended retention, non-blocked retention,
+missing fields as nulls, mid-deletion, anon denied, a different caller's empty
+roster) — committed and, like `23_friends_presence.sql`, NEVER EXECUTED: this
+machine has no Docker for `supabase test db`, and every GitHub Actions run since
+2026-08-17 fails to start with "recent account payments have failed or your
+spending limit needs to be increased". What was done instead, and is weaker: the
+predicate was proven read-only against production over synthetic rows before
+deploy, and the live function was verified after deploy by definition and
+privilege inspection plus a null-caller execution — no user row was read or
+returned at any point.
+
 ### 10-invite-share — the QR variant, and why it is absent
 
 Frame 23 draws an optional QR card and the artifact marks it "extra, opt-in"

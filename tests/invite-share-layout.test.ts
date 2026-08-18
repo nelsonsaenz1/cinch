@@ -57,6 +57,15 @@ const MIGRATION_RAW = readFileSync(
   'supabase/migrations/20260810120100_invite_links.sql',
   'utf8',
 );
+/** The block guard, added after the redesign-10 audit found the roster kept one. */
+const ARRIVALS_FIX_RAW = readFileSync(
+  'supabase/migrations/20260823000000_invite_arrivals_respects_blocks.sql',
+  'utf8',
+);
+/** The function as it SHIPS — the replacement, not the original definition. */
+const ARRIVALS_FN = ARRIVALS_FIX_RAW.slice(
+  ARRIVALS_FIX_RAW.indexOf('create or replace function public.invite_arrivals'),
+);
 
 /** Comments describe the intent; the code is what ships. */
 function code(source: string): string {
@@ -186,10 +195,30 @@ test('the roster outlives the friendship, which is why it claims none', () => {
   // outright. So a row is not evidence of a current friendship.
   assert.match(MIGRATION_RAW, /invited_by is null/, 'invited_by must be write-once');
   assert.match(MIGRATION_RAW, /insert into public\.follows/);
-  // And the read filters neither blocking nor current friendship, which is
-  // exactly why the page may not infer either from a row's presence.
-  const arrivals = MIGRATION_RAW.slice(MIGRATION_RAW.indexOf('create function public.invite_arrivals'));
-  assert.doesNotMatch(arrivals.slice(0, 900), /user_blocks|follows/);
+  // And the shipped read does NOT gate on friendship — a row that vanished
+  // when a friendship ended would report that ending, which is the inference
+  // the page exists to refuse.
+  assert.doesNotMatch(ARRIVALS_FN, /public\.follows|is_friend/, 'the roster became a friends list');
+});
+
+test('but a block removes the arrival, in either direction', () => {
+  // The one guard the permanent fact does need. `invited_by` cannot be cleared,
+  // so without this a blocked person keeps a row with their name and handle on
+  // the inviter's private roster — while every other read in this schema
+  // refuses across a block.
+  assert.match(ARRIVALS_FN, /not public\.blocked_between\(\(select auth\.uid\(\)\), p\.user_id\)/);
+  // Through the schema's one definition of "blocked", which is already
+  // symmetric, rather than a second hand-written copy of the predicate.
+  assert.doesNotMatch(ARRIVALS_FN, /user_blocks/, 'the predicate was copied instead of called');
+  // And the replacement keeps the signature, so no generated type moves.
+  assert.match(
+    ARRIVALS_FIX_RAW,
+    /returns table \(user_id uuid, display_name text, username text, joined_at timestamptz\)/,
+  );
+  assert.match(ARRIVALS_FIX_RAW, /create or replace function public\.invite_arrivals\(\)/);
+  // Still authenticated-only after the replacement.
+  assert.match(ARRIVALS_FIX_RAW, /grant execute on function public\.invite_arrivals\(\) to authenticated/);
+  assert.match(ARRIVALS_FIX_RAW, /revoke all on function public\.invite_arrivals\(\) from anon/);
 });
 
 // ---------------------------------------------------------------------------
