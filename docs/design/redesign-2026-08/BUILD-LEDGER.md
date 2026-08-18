@@ -103,6 +103,13 @@ edge checks also could not run: `deno check` cannot resolve
 `deno.lock` when it tries. Zero edge-function files are in this commit, so the
 gate is uninformative here rather than failing; `deno.lock` was reverted.
 
+GitHub Actions is still refusing to start jobs, unchanged since 2026-08-17.
+Run **32112558582** (commit `833b7c5`) reports all three jobs — `database`,
+`functions`, `check` — as `failure` with ZERO steps and no retrievable log,
+which is what the account-level billing block looks like from here rather than
+a test that broke. The same three gates were run locally and are green:
+typecheck, lint, 2689 unit tests, the styling and typography smoke runs.
+
 **One release-log wart, recorded rather than hidden.** A stray production
 update was published with the message `"x"` while recovering the group id for
 this table. Its code is byte-identical to the release either side of it — same
