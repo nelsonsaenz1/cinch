@@ -28,6 +28,7 @@ it means.
 | 06-trip-detail | design-refs/redesign-2026-08/06-trip-detail/ (10 files) | d5e8d20 | OTA 01a012ee-0d0e-70a5-8f32-1ba44772ea1a · runtime 18938ff9 · 2026-08-18 | progress frame matched; checkable tiles, note, delete sheet live; trips.note migration adopted from colliding session |
 | 07-profile | design-refs/redesign-2026-08/07-profile/ (7 files) | 070b913 | OTA 01a0130e-f4fe-76fd-8f69-7252f0454591 · runtime 18938ff9 · 2026-08-18 | all six frames matched at standard and AX-XXXL; rails, marks, quiet plan door and bled closet grid live; no tab bar (Profile stays the Today form sheet) |
 | 08-friends-list | design-refs/redesign-2026-08/08-friends-list/ (29 files) | 340fe50 | OTA 01a0134e-4307-7caf-961c-78eb7605c17b · runtime 18938ff9 · 2026-08-18 | default, presence-revoked, resting, empty, loading, friends-failed and offline matched at standard; AX-XXXL matched after fixing a request-row collapse. ZERO backend change — the existing daily-social views already enforce every rule. pgTAP committed but UNEXECUTED: GitHub Actions is blocked on account billing and this machine has no Docker |
+| 12-reveal | design-refs/redesign-2026-08/12-reveal/ (31 files) | 3453c35 | OTA 01a013fc-09bb-7d42-ad3c-f455b5cdf092 · group 7add9969-063a-42d8-86c9-b1c30207df5d · runtime 18938ff9 · 2026-08-18 | sixteen states matched at standard and AX-XXXL on 932pt and 852pt — the seven beats, and singular, large, partial-tagging, substitution, offline, missing-image, zero, trialing and lapsed-free. ZERO backend and ZERO native change. Two simulator defects found and fixed (collapsed zero copy, ignored deep link). The artifact's own digits are wrong in two frames — see below. 667pt not captured |
 | 11-today | design-refs/redesign-2026-08/11-today/ (31 files) | 833b7c5 | OTA 01a013d3-cf4d-7bfa-af9a-9b946102932b · group 310fcb32-d9b3-4959-b7cf-a493886d93b1 · runtime 18938ff9 · 2026-08-18 | the day, the chips and four weather states, the wear flow, the four refusals and the floor matched at standard and AX-XXXL on 932pt and 852pt. ZERO backend and ZERO native change. Two AX defects found and fixed in the simulator (collapsed image placeholder, weather mark covering the first tile at AX). 667pt not captured — see below |
 | 10-invite-share | design-refs/redesign-2026-08/10-invite-share/ (24 files) | 169d5d3 | OTA 01a0136e-1520-71c1-8743-7f5cac6e5935 · group 9d5d98ec-1244-42c2-8bc6-61aa4ae828c0 · runtime 18938ff9 · 2026-08-18 | default, empty, link-failed, arrivals-failed, offline, no-handle, share-unavailable, copied and copy-unavailable matched at standard; AX-XXXL matched after enlarging the row avatar to stop the monogram clipping. ZERO backend change. QR variant (frame 23, marked extra/opt-in) deliberately not built |
 
@@ -49,6 +50,90 @@ accepted bundle.
 
 Pages 12–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
+
+### 12-reveal — the artifact's numbers, and why the engine won
+
+Two accepted frames draw a count that does not follow from the composition
+printed beside it:
+
+| Frame | Composition drawn | Digit drawn | `countOutfits` |
+|---|---|---|---|
+| 05 · count settled | 4 tops, 3 bottoms, 1 dress, 2 pairs of shoes | 27 | **26** |
+| 23 · large count | 11 tops, 8 bottoms, 4 dresses, 8 pairs of shoes | 184 | **736** |
+
+The build follows `countOutfits(tallyOf(items))`. Honouring an illustrative
+digit over the engine would break the single promise this screen exists to keep
+— its own handoff says the number comes only from the engine and nothing is
+estimated — and the number, the derivation and the composition chips are now
+all computed from one tally, so they cannot disagree at all.
+
+**"No digit before the arithmetic resolves" is now a named rule with a test.**
+`mayDrawDigit(phase)` answers false for `arriving`, `computing` and `zero`, and
+`computing` draws words instead. A digit-shaped placeholder is itself a claim,
+and `tests/reveal-spec.test.ts` walks 256 generated closets asserting every
+renderable digit is the engine's and is bounded by it at every frame of the
+count-up.
+
+**One register per sentence — the one deliberate departure from the frames.**
+Frame 23 spells "A hundred and eighty-four". `numberWord` stops at ninety-nine
+by an argued decision written into its own docblock: past a hundred the words
+get longer than the figure. Printing "736 outfits from thirty-one pieces" would
+mix registers inside one sentence, which that same docblock calls worse than
+either option. So a sentence needing a figure anywhere uses figures throughout.
+
+**Partial tagging was silently wrong before this.** `useWardrobe` filters to
+tagged pieces — correctly, since a piece with no slot cannot enter an outfit —
+so somebody who photographed ten and saw a number derived from seven had
+nothing on screen to explain the gap. `useUntaggedCount` is a HEAD count on the
+same `items` table under the same RLS: no new table, view, RPC or policy, no
+rows, no ids, and it fails to zero so a failed secondary fact cannot break the
+primary one.
+
+**The membership moment is state-correct.** A paying member is never presented
+a placement, and `plan.trialing` is folded into that test because `plan`
+resolves to `pro` during the trial — reading the plan alone would have skipped
+the moment for exactly the people it is for. `unconfirmed` counts as paying on
+K-06's rule. Offline skips it too. Cinch draws one line about the count and one
+sentence about access; no price, product, term, StoreKit string or vendor
+layout, and no line promises a new trial, because the 14 days are server-side
+access and there are zero Apple introductory offers. Navigation does not branch
+on the outcome: on a non-gated campaign `present()` resolves `granted` for
+somebody who bought nothing, so a granted result never implies purchase and
+never routes to thanks. The zero path presents nothing at all.
+
+**Analytics: the count never travels.** The exact outfit count is a
+deterministic function of one wardrobe with a long tail — 736 is close to
+unique, and joined to a timestamp it is a fingerprint — so it travels only as
+one of five buckets. `tests/reveal-analytics.test.ts` executes every builder
+across every legal input and asserts no unbounded string, identifier-shaped
+key, uuid, path or url comes out.
+
+**Two defects the simulator caught.** The zero screen's headline, body and rows
+collapsed to nothing inside a container with no height for its own `flex-1` to
+fill; and every deep link after the first was ignored, because expo-router does
+not remount a screen when only the query string changes and the pose was seeded
+into `useState` once. Both fixed — the second is why the fixtures are
+deep-linkable at all, which is what made a reproducible evidence set possible:
+`simctl` opens URLs and cannot tap, so a cycler driven only by buttons can be
+looked at by hand and never photographed.
+
+**Two blockers, unresolved and not worked around.** The 667pt capture could not
+be taken, for the same reason as page 11: a freshly created iPhone SE
+simulator's development client will not connect to Metro without a tap on its
+"Open in Cinch?" alert, and this session cannot tap one. What stands in is
+structural rather than a promise — `tests/reveal-page.test.ts` asserts the
+composition scrolls, the exit does NOT, and the exit sits in a bottom-edge
+`SafeAreaView` rather than at a fixed offset, which is what a short screen
+actually depends on. The Deno edge checks are uninformative here rather than
+failing: zero `supabase/` files are in this commit, and `deno check` still
+cannot resolve `npm:@supabase/server` against this machine's `node_modules`.
+
+GitHub Actions is still refusing to start jobs, unchanged since 2026-08-17. Run
+**32116402538** (commit `3453c35`) reports all three jobs — `database`,
+`functions`, `check` — as `failure` with ZERO steps and no retrievable log,
+which is the account-level billing block rather than a broken test. All the
+same gates ran locally and are green: typecheck, lint, 2773 unit tests, the
+styling and typography smoke runs.
 
 ### 11-today — three contradictions, resolved rather than papered over
 
