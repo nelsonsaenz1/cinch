@@ -656,7 +656,58 @@ export type AppEvent =
   | 'saved_plan_missing_action'
   /** `loading` | `offline` | `error`: how often this screen shows no list at all. */
   | 'saved_state_shown'
-  | 'saved_retry_tapped';
+  | 'saved_retry_tapped'
+  /**
+   * ── TODAY, REDESIGN 11 ────────────────────────────────────────────────────
+   *
+   * Thirteen events and a closed allowlist: Today emits these and nothing else.
+   * The screen previously sent `outfit_set_viewed` with a plate COUNT; that is
+   * gone from this surface, replaced by `plate_viewed` with a position, because
+   * a count of somebody's morning is a fact about their wardrobe and a position
+   * is a fact about the carousel.
+   *
+   * Every payload is built by a pure function in `features/today/analytics.ts`
+   * and every one of them is a bounded enum or a boolean. Forbidden in all
+   * thirteen: user id, garment id, outfit id, image URL or path, garment or
+   * outfit name, city, coordinates, precise or coarse location, calendar text,
+   * and free text of any kind. `tests/today-analytics.test.ts` walks every
+   * builder and every legal enum value rather than trusting this comment.
+   */
+  | 'today_opened'
+  /** Which of the three plates is on screen — a position, never a count. */
+  | 'plate_viewed'
+  /** A context chip was opened. Says which chip, never what it currently says. */
+  | 'context_opened'
+  /**
+   * A context option was chosen, as an enum from the fixed list.
+   *
+   * An occasion the reader typed has no member in that list and is reported as
+   * `other`, which is the only reason `other` exists: free text must never
+   * travel, not even once, not even short.
+   */
+  | 'context_set'
+  /** Which engine produced the set being read: the device, or the enhancement. */
+  | 'outfits_source'
+  /**
+   * Which of the four truthful weather states the read is in.
+   *
+   * The STATE only. Never the temperature and never the condition, because a
+   * reading plus a timestamp is a location to anybody holding enough of them.
+   */
+  | 'weather_state'
+  | 'wear_started'
+  /** Whether the write landed. A failure is retryable, so this can fire twice. */
+  | 'wear_result'
+  /** Whether a rating was given at all — never which one. */
+  | 'rating_set'
+  /** Whether the look was kept — never which look. */
+  | 'favorite_set'
+  /** Show another ran out of genuinely different looks and said so. */
+  | 'repeat_exhausted'
+  /** Nothing clean and suitable was available. An outcome, not an error. */
+  | 'no_viable_combination'
+  /** The activation floor was shown: "Start with ten pieces." */
+  | 'closet_floor_shown';
 
 /*
  * `client_error` WAS HERE, AND WAS DELETED RATHER THAN WIRED.
