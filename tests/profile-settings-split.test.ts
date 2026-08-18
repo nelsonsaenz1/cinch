@@ -30,6 +30,8 @@ const PROFILE = readFileSync('src/app/profile.tsx', 'utf8');
 const SETTINGS = readFileSync('src/app/settings.tsx', 'utf8');
 const LAYOUT = readFileSync('src/app/_layout.tsx', 'utf8');
 const RESTORE_HOOK = readFileSync('src/features/profile/use-restore-purchases.ts', 'utf8');
+/** Redesign 07 — the page's markup, which is where the controls now live. */
+const BODY = readFileSync('src/components/profile/profile-body.tsx', 'utf8');
 
 const SOURCE = { profile: PROFILE, settings: SETTINGS };
 
@@ -55,10 +57,11 @@ test('no capability is left behind in the surface it moved off', () => {
 test('the reconciliation covers the whole of the old screen', () => {
   // A guard on the guard. Relaxing the check by deleting a row from the table
   // is exactly as bad as deleting the capability, and silent in the same way.
-  assert.equal(CAPABILITY_HOMES.length, 22);
+  // 23 since redesign 07 added the friends count as a capability of its own.
+  assert.equal(CAPABILITY_HOMES.length, 23);
   const ids = CAPABILITY_HOMES.map((c) => c.id);
   assert.equal(new Set(ids).size, ids.length, 'duplicate capability id');
-  assert.equal(CAPABILITY_HOMES.filter((c) => c.home === 'profile').length, 7);
+  assert.equal(CAPABILITY_HOMES.filter((c) => c.home === 'profile').length, 8);
 });
 
 test('Settings is a pushed route, not a tab and not a route group', () => {
@@ -73,9 +76,17 @@ test('Settings is a pushed route, not a tab and not a route group', () => {
 test('Profile reaches Settings through a labelled control', () => {
   // A bare glyph is unreachable by VoiceOver and unnameable by anyone
   // describing the app to somebody else.
-  assert.match(PROFILE, /accessibilityLabel=\{SETTINGS_TITLE\}/);
-  assert.match(PROFILE, /gearshape/);
+  //
+  // Redesign 07 moved the gear off the page and into the overflow control the
+  // artifact draws at the end of the identity row, so the shape of the proof
+  // changes and the requirement does not: the route still owns the push, still
+  // names the door with the pushed route's own title, and the control that
+  // opens the menu is labelled rather than left as three anonymous dots.
+  assert.match(PROFILE, /settingsLabel: SETTINGS_TITLE/);
   assert.match(PROFILE, /router\.push\('\/settings'/);
+  assert.match(BODY, /accessibilityLabel=\{settingsLabel\}|accessibilityLabel=\{label\}/);
+  assert.match(BODY, /accessibilityLabel=\{PROFILE_COPY\.more\}/);
+  assert.match(BODY, /accessibilityHint=\{PROFILE_COPY\.moreHint\}/);
 });
 
 test('the nonfunctional Daily outfit styling switch is gone', () => {

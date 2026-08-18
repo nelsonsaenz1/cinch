@@ -349,6 +349,17 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Profile — your own room — redesign 07',
+    [
+      ['PF-01 · standard plan', '/dev-pf-01-default'],
+      ['PF-02 · free plan, the quiet door', '/dev-pf-02-plan-free'],
+      ['PF-03 · a new account', '/dev-pf-03-empty'],
+      ['PF-04 · opening', '/dev-pf-04-loading'],
+      ['PF-05 · the rails didn’t load', '/dev-pf-05-error'],
+      ['PF-06 · largest accessibility text', '/dev-pf-06-ax'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],

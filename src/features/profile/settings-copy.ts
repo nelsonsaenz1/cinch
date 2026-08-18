@@ -119,9 +119,23 @@ export const CAPABILITY_HOMES: readonly CapabilityHome[] = [
   { id: 'coaching-card', home: 'profile', evidence: 'ProfileCoachingCard', note: 'PR-C1 first-visit coaching' },
   { id: 'identity-header', home: 'profile', evidence: 'fetchProfileHeader', note: 'avatar, name, handle' },
   { id: 'edit-profile', home: 'profile', evidence: 'EditProfileSheet', note: 'the public fields' },
-  { id: 'capacity', home: 'profile', evidence: 'Active pieces', note: 'PR-01 capacity band' },
-  { id: 'learned', home: 'profile', evidence: 'What Cinch has learned', note: 'style profile summary' },
-  { id: 'wear-diary', home: 'profile', evidence: 'Wear diary', note: 'the record of what was worn' },
+  // Redesign 07 folded PR-01's two-counter band into the single quiet plan
+  // door the founder's spec asks for, so the evidence moves from the row's old
+  // label to the hook the row is still built from. The capability is the same
+  // one: this screen is where a member meets their ceiling.
+  { id: 'capacity', home: 'profile', evidence: 'useCapacity', note: 'the capacity/plan door' },
+  // Same move, same reason: "What Cinch has learned" was a titled card of
+  // paragraph copy and is now one quiet line under the marks. The read behind
+  // it is untouched.
+  { id: 'learned', home: 'profile', evidence: 'useStyleProfile', note: 'style profile summary' },
+  // The diary is now a row in the overflow menu rather than a card on the page,
+  // so the evidence is the handler that opens it rather than the label, which
+  // lives in `profile-spec.ts` with the rest of the page's copy.
+  { id: 'wear-diary', home: 'profile', evidence: 'onOpenDiary', note: 'the record of what was worn' },
+  // NEW with redesign 07, and the founder's own words: "a tappable friends
+  // count — '12 friends' opens the friends list". Profile now carries a door to
+  // the circle as well as Settings; see the note on `friends` below.
+  { id: 'friends-count', home: 'profile', evidence: 'onOpenFriends', note: 'the tappable friends count' },
   // Quoted, because the unquoted path is a substring of this module's own
   // import specifier (`@/features/profile/settings-copy`) and would match in
   // the wrong file.
@@ -132,7 +146,12 @@ export const CAPABILITY_HOMES: readonly CapabilityHome[] = [
   { id: 'daily-styling', home: 'settings', evidence: 'DAILY_STYLING_FACT', note: 'honest styling statement' },
   { id: 'where-to-buy', home: 'settings', evidence: 'SHOW_WHERE_TO_BUY_LABEL', note: 'C-03 merchant toggle' },
   { id: 'privacy-data', home: 'settings', evidence: 'Privacy & data', note: 'consent, export, deletion' },
-  { id: 'friends', home: 'settings', evidence: 'Friends', note: 'the circle' },
+  // Two doors to one list, on purpose. Settings administers the circle; the
+  // count in Profile's identity block is the founder's spec and is a different
+  // affordance for the same destination — which is why the evidence is the
+  // ROW, not the word, and why `friends-count` above is its own capability.
+  // Nothing is written from either place, so there is no state to disagree on.
+  { id: 'friends', home: 'settings', evidence: 'label="Friends"', note: 'the circle' },
   { id: 'borrow', home: 'settings', evidence: 'Borrow requests', note: 'incoming asks and their count' },
   { id: 'blocked', home: 'settings', evidence: 'Blocked people', note: 'block list and its count' },
   { id: 'notifications', home: 'settings', evidence: 'NOTIFICATION_SETTINGS_AVAILABLE', note: 'push settings, where the build has them' },
