@@ -343,7 +343,9 @@ export function FieldButton({
 }
 
 export type OccasionFieldProps = {
-  label: string;
+  /** `null` omits the eyebrow — for a sheet whose own title asks the question,
+   *  the same allowance `FieldGroup` and `PlaceField` already make. */
+  label: string | null;
   value: string;
   onChangeText: (text: string) => void;
   placeholder: string;

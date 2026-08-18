@@ -14,6 +14,23 @@ import { Stack } from 'expo-router';
 export default function EventLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      {/* The composer is a SHEET now — redesign 02's first sentence, and the
+          reason the frames draw a grabber over a dimmed page. Full detent
+          only: it is a form with a docked CTA, and a half-height detent would
+          put the create button under the keyboard at every type size. The
+          30pt corner is the artifact's own, against the 38 the half sheets
+          below use — the composer sits closer to the screen edge because it
+          fills it. Draft preservation is unaffected: the swipe-down dismiss
+          raises the same `beforeRemove` guard the Cancel text does. */}
+      <Stack.Screen
+        name="new"
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [1],
+          sheetGrabberVisible: true,
+          sheetCornerRadius: 30,
+        }}
+      />
       <Stack.Screen
         name="[id]/invite"
         options={{

@@ -586,9 +586,13 @@ test('LP-06 — the New Event button creates an event, not an occasion', () => {
   // The screen is titled `New event` and the tab that opens it says events.
   // The primary button is the last word before committing and it must say the
   // same noun. "Occasion" is data-layer vocabulary; nobody reads it.
-  const src = body('src/app/event/new.tsx');
-  assert.match(src, /title="Create event"/, 'the primary CTA does not say "Create event"');
-  assert.doesNotMatch(src, /title="Create occasion"/);
+  // Redesign 02 moved the composer's copy into `new-event-spec.ts`, where the
+  // page's strings are data rather than props — but LP-06's correction is
+  // about the NOUN and it is unchanged, so this reads the spec instead of the
+  // markup and asserts exactly what it always did.
+  const src = body('src/features/events/new-event-spec.ts');
+  assert.match(src, /create: 'Create event'/, 'the primary CTA does not say "Create event"');
+  assert.doesNotMatch(src, /Create occasion/);
 });
 
 test('LP-06 — event detail is a title and a hierarchy, not a status paragraph', () => {

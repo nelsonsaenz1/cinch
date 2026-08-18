@@ -262,6 +262,17 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'New Event — redesign 02',
+    [
+      ['NE-01 · answered', '/dev-ne-01-default'],
+      ['NE-02 · naming, keyboard up', '/dev-ne-02-keyboard'],
+      ['NE-03 · fresh sheet', '/dev-ne-03-empty'],
+      ['NE-04 · creating', '/dev-ne-04-loading'],
+      ['NE-05 · create failed', '/dev-ne-05-error'],
+      ['NE-06 · largest accessibility text', '/dev-ne-06-ax'],
+    ],
+  ],
+  [
     'People Search — redesign 09',
     [
       ['PS-01 · default, at rest', '/dev-ps-01-default'],

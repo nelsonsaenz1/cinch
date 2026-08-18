@@ -5,6 +5,15 @@ import { PlaceField, type PlaceSelection } from '@/components/events/place-field
 
 export type PlaceSheetProps = {
   visible: boolean;
+  /**
+   * What the caller is already holding, seeded every time the sheet opens.
+   *
+   * Empty for the N-10 gap-filling case this sheet was written for; the New
+   * Event composer passes the venue already on the row, because a sheet that
+   * opens blank over an answered field asks the user to retype an answer they
+   * have already given.
+   */
+  initialText?: string;
   /** Fired once, on Done, with whatever the field is holding. */
   onDone: (selection: PlaceSelection | null) => void;
   onClose: () => void;
@@ -24,9 +33,22 @@ export type PlaceSheetProps = {
  * everyone sees the change", which is a reason to write once and deliberately,
  * not on every character.
  */
-export function PlaceSheet({ visible, onDone, onClose }: PlaceSheetProps) {
-  const [text, setText] = useState('');
+export function PlaceSheet({ visible, initialText = '', onDone, onClose }: PlaceSheetProps) {
+  const [text, setText] = useState(initialText);
   const [selection, setSelection] = useState<PlaceSelection | null>(null);
+
+  // Re-seeded on OPEN and only then — React's own "adjusting state when a prop
+  // changes" pattern, exactly as `DateSheet` re-seats its visible month. An
+  // effect would paint one frame of the previous value first, and keying on
+  // `initialText` would yank the field out from under live typing.
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    if (visible) {
+      setText(initialText);
+      setSelection(null);
+    }
+  }
 
   const done = () => {
     // A row that was tapped wins; otherwise whatever survived in the field is
