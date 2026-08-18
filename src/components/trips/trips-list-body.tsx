@@ -138,13 +138,17 @@ export type TripsListView = {
   onPlanTrip: () => void;
   onRetry: () => void;
   /**
-   * Null until Trip Detail exists.
+   * Set now that Trip Detail exists — redesign 06.
    *
-   * The artifact draws a chevron on every shelf card. A chevron is a promise of
-   * a page, and `trips/[id]` is a separate brief that has not been built — so
-   * the cards are drawn inert and the chevron is withheld rather than shipping
-   * an affordance that dead-ends. One prop flips the whole page over when that
-   * page lands.
+   * The artifact draws a chevron on every shelf card, and this page shipped
+   * ahead of the page that chevron promises, so the cards were drawn inert and
+   * the affordance withheld rather than dead-ending. `trips/[id]` has landed and
+   * the route sets this, which turns the cards live and brings the chevron back.
+   *
+   * The prop stays NULLABLE rather than becoming required: the fixtures pose
+   * this page without a router, and null is what "no destination for a press"
+   * has to look like there. It is the seam that let the two builds ship in
+   * either order, and it costs one branch to keep.
    */
   onOpenTrip: ((id: string) => void) | null;
 };

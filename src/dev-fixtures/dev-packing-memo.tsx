@@ -220,6 +220,9 @@ export default function DevPackingMemoScreen() {
           shareMounted={false}
           shareViewRef={{ current: null }}
           onCardReady={noop}
+          // Null: a posed frame has no row behind it, so "See this trip" falls
+          // back to the shelf rather than pushing at an id that is not there.
+          tripId={null}
         />
       ) : null}
 
@@ -264,6 +267,9 @@ export default function DevPackingMemoScreen() {
           shareMounted={false}
           shareViewRef={{ current: null }}
           onCardReady={noop}
+          // Null: a posed frame has no row behind it, so "See this trip" falls
+          // back to the shelf rather than pushing at an id that is not there.
+          tripId={null}
         />
       ) : null}
 
@@ -285,6 +291,9 @@ export default function DevPackingMemoScreen() {
           shareMounted={false}
           shareViewRef={{ current: null }}
           onCardReady={noop}
+          // Null: a posed frame has no row behind it, so "See this trip" falls
+          // back to the shelf rather than pushing at an id that is not there.
+          tripId={null}
         />
       ) : null}
     </SafeAreaView>

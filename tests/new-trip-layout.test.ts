@@ -468,7 +468,31 @@ test('"Trip planned" is a fact by the time it is drawn', () => {
   // Two clear paths out, both reaching a route that resolves.
   assert.match(PLATE, /NEW_TRIP_COPY\.seeThisTrip/);
   assert.match(PLATE, /NEW_TRIP_COPY\.allTrips/);
-  assert.match(PACKING_TRIP, /onSeeThisTrip: \(\) => router\.push\('\/trips'\)/, 'the primary path dead-ends');
+  //
+  // SUPERSEDED BY REDESIGN 06, and narrowed rather than dropped.
+  //
+  // This used to pin `onSeeThisTrip: () => router.push('/trips')` — the literal
+  // line, because at the time `trips/[id]` did not resolve and landing the
+  // primary on the shelf was this build's deviation #4. That page exists now,
+  // so "See this trip" goes to the trip it names and the old literal is gone.
+  //
+  // What the rule was ever PROTECTING is unchanged and is what is asserted
+  // instead: both paths out reach a route that resolves. The primary now has a
+  // branch, because `useStartTrip` swallows its own failure and a plate can be
+  // real with no row behind it — so the fallback to the shelf is asserted too,
+  // as the thing that stops an unsaved trip pushing at a null id.
+  // `tests/trip-detail-layout.test.ts` pins the new destination from the other
+  // side.
+  assert.match(
+    PACKING_TRIP,
+    /onSeeThisTrip: \(\) =>[\s\S]{0,200}'\/trips\/\[id\]'/,
+    'the primary path no longer opens this trip',
+  );
+  assert.match(
+    PACKING_TRIP,
+    /tripId\s*\?[\s\S]{0,260}:\s*router\.push\('\/trips'\)/,
+    'the primary path dead-ends when the trip was never saved',
+  );
   assert.match(PACKING_TRIP, /onAllTrips: \(\) => router\.push\('\/trips'\)/, 'the second path dead-ends');
 });
 

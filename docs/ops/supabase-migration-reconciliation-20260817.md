@@ -746,3 +746,12 @@ repair window. The repair commands themselves are unchanged and are listed in
 "Proposed repairs" above. Nothing about the grant normalisation deployed here
 depends on that repair, and the repair is bookkeeping only — `migration repair`
 writes the tracking table and never runs or reverts SQL.
+
+## Addendum — 2026-08-18, trip_note
+
+Remote ledger records version `20260818031527` (`trip_note`, applied via MCP
+by a colliding session during the redesign-06 build and adopted). The local
+file is `supabase/migrations/20260822000000_trip_note.sql` — same statements,
+different version stamp. Same rule as the rest of this document: never
+`db push`; the remote ledger is the truth and the local file is the record
+of its statements.

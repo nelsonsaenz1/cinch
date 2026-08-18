@@ -35,6 +35,8 @@ export type SavedTrip = {
   itemIds: string[];
   memo: Json | null;
   weatherSource: 'none' | 'forecast' | 'normals';
+  /** The owner-private packing note. `''` when nothing was typed, never null. */
+  note: string;
   savedAt: string | null;
   createdAt: string;
 };
@@ -57,6 +59,7 @@ type Row = {
   item_ids: string[] | null;
   memo: Json | null;
   weather_source: string;
+  note: string | null;
   saved_at: string | null;
   created_at: string;
 };
@@ -84,6 +87,10 @@ function toTrip(row: Row): SavedTrip {
     itemIds: row.item_ids ?? [],
     memo: row.memo ?? null,
     weatherSource: (row.weather_source as SavedTrip['weatherSource']) ?? 'none',
+    // The column is `not null default ''`, but a row read by a client built
+    // before it existed can still arrive without the field. One representation
+    // of "no note" reaches the app either way.
+    note: row.note ?? '',
     savedAt: row.saved_at,
     createdAt: row.created_at,
   };
@@ -207,6 +214,45 @@ export function useAllTrips() {
   });
 }
 
+/**
+ * One trip, by id — Trip Detail (redesign 06).
+ *
+ * Here rather than in `features/trips/` for the rule at the top of this file:
+ * `.from('trips')` is defined in ONE module. The page could have filtered
+ * `useAllTrips()` in memory and saved a query, and that was the first draft —
+ * it was wrong, because opening a trip from a deep link, a notification or a
+ * cold start would then depend on the shelf's hundred-row select having already
+ * run, and the detail page would sit in a loading state waiting for ninety-nine
+ * rows it does not draw.
+ *
+ * `user_id` is in the filter as well as the id. RLS already scopes the table to
+ * the reader and this changes no outcome; it is there so that a page reached by
+ * a pasted id gets `null` — the not-found path the route already draws — rather
+ * than an error from the policy layer, and so the intent is legible at the
+ * call site rather than only in a migration.
+ */
+export function useTrip(tripId: string) {
+  return useQuery({
+    queryKey: ['trips', 'one', tripId],
+    enabled: Boolean(tripId),
+    staleTime: 60_000,
+    queryFn: async (): Promise<SavedTrip | null> => {
+      const userId = await getUserId();
+      if (!userId) return null;
+
+      const { data, error } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('id', tripId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data ? toTrip(data as Row) : null;
+    },
+  });
+}
+
 /** The most recent trip of any kind, saved or not — K-06's "your answers are saved". */
 export function useLastTrip() {
   return useQuery({
@@ -267,6 +313,96 @@ export function useStartTrip() {
 
       if (error) throw error;
       return (data as { id: string }).id;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['trips'] });
+    },
+  });
+}
+
+/**
+ * The trip note — Trip Detail's one field (redesign 06).
+ *
+ * Here rather than in `features/trips/` for the rule at the top of this file:
+ * `.from('trips')` is defined in ONE module. One statement, one column, one
+ * table — `note` is the only thing this writes, so a save from the note field
+ * can never disturb the memo, the item ids or the save timestamp beside it.
+ *
+ * ── WHY THE CACHE IS PATCHED RATHER THAN INVALIDATED ─────────────────────────
+ *
+ * An invalidate would refetch the row and, for the moment between the write
+ * landing and the refetch returning, hand the screen back the note the field
+ * used to hold — so a fast typist watching the plate would see their sentence
+ * flicker to its previous value and back. Patching the cached row in place is
+ * also what makes the field survive a navigation away and back without waiting
+ * on the network. The shelf's own queries are left alone deliberately: no list
+ * on this app draws the note, so nothing else needs telling.
+ *
+ * The cap is enforced in `normaliseNote` before the value gets here, so the
+ * column's `char_length(note) <= 2000` check is a backstop and not the thing
+ * the user meets.
+ */
+export function useUpdateTripNote() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { tripId: string; note: string }) => {
+      const userId = await getUserId();
+      if (!userId) return;
+
+      const { error } = await supabase
+        .from('trips')
+        .update({ note: input.note })
+        .eq('id', input.tripId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: (_data, input) => {
+      qc.setQueryData<SavedTrip | null>(['trips', 'one', input.tripId], (row) =>
+        row ? { ...row, note: input.note } : row,
+      );
+    },
+  });
+}
+
+/**
+ * Delete one trip — Trip Detail's quiet destructive action (redesign 06).
+ *
+ * ── THE LAW THIS FUNCTION EXISTS TO KEEP ─────────────────────────────────────
+ *
+ * DELETING A TRIP NEVER DELETES A GARMENT. The trip row holds `item_ids` and a
+ * `memo` full of ids, and the tempting "clean up after yourself" version of
+ * this mutation walks those ids and tidies the closet. That would be the app
+ * destroying photographs somebody spent an afternoon taking because they
+ * cancelled a holiday. The pieces on a packing plate are REFERENCES to the
+ * user's own wardrobe, never copies owned by the trip, so there is nothing
+ * downstream to clean up: one row goes, and the closet is untouched.
+ *
+ * That is why this is a single statement naming a single table, and why
+ * `tests/trip-detail-layout.test.ts` reads this file and asserts that the only
+ * table named on the delete path is `trips`. A test that reads source is a
+ * blunt instrument, but the thing being protected is somebody's wardrobe and
+ * the failure mode is silent and irreversible.
+ *
+ * `user_id` is in the filter beside the id for the same reason it is on the
+ * read above: RLS is the enforcement, this is the statement of intent.
+ */
+export function useDeleteTrip() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (tripId: string) => {
+      const userId = await getUserId();
+      if (!userId) return;
+
+      const { error } = await supabase
+        .from('trips')
+        .delete()
+        .eq('id', tripId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['trips'] });

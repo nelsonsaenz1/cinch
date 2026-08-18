@@ -335,6 +335,20 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    'Trip detail — the packing plate, revisited — redesign 06',
+    [
+      ['TD-01 · plan at rest', '/dev-td-01-default'],
+      ['TD-02 · checked, mid-pack', '/dev-td-02-progress'],
+      ['TD-03 · all packed', '/dev-td-03-complete'],
+      ['TD-04 · the trip note', '/dev-td-04-keyboard'],
+      ['TD-05 · no plate yet', '/dev-td-05-empty'],
+      ['TD-06 · opening', '/dev-td-06-loading'],
+      ['TD-07 · the plate didn’t load', '/dev-td-07-error'],
+      ['TD-08 · the delete confirmation', '/dev-td-08-delete'],
+      ['TD-09 · largest accessibility text', '/dev-td-09-ax'],
+    ],
+  ],
+  [
     'Earlier fixtures',
     [
       ['account', '/dev-account'],

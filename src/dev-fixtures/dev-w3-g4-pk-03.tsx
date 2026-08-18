@@ -146,6 +146,10 @@ export default function DevW3G4PK03() {
           shareMounted={false}
           shareViewRef={{ current: null }}
           onCardReady={noop}
+          // Null: a posed frame has no row behind it, and "See this trip" then
+          // falls back to the shelf rather than pushing at an id that is not
+          // there. The fixture stays openable without a session, as it must.
+          tripId={null}
         />
       </View>
     </SafeAreaView>

@@ -60,6 +60,59 @@ export type Database = {
         }
         Relationships: []
       }
+      activity_events: {
+        Row: {
+          actor_id: string | null
+          circle_id: string | null
+          created_at: string
+          dismissed_at: string | null
+          event_type: Database["public"]["Enums"]["activity_event_type"]
+          id: string
+          payload: Json
+          recipient_id: string
+          revoked_at: string | null
+          seen_at: string | null
+          subject_id: string
+          subject_type: string
+        }
+        Insert: {
+          actor_id?: string | null
+          circle_id?: string | null
+          created_at?: string
+          dismissed_at?: string | null
+          event_type: Database["public"]["Enums"]["activity_event_type"]
+          id?: string
+          payload?: Json
+          recipient_id: string
+          revoked_at?: string | null
+          seen_at?: string | null
+          subject_id: string
+          subject_type: string
+        }
+        Update: {
+          actor_id?: string | null
+          circle_id?: string | null
+          created_at?: string
+          dismissed_at?: string | null
+          event_type?: Database["public"]["Enums"]["activity_event_type"]
+          id?: string
+          payload?: Json
+          recipient_id?: string
+          revoked_at?: string | null
+          seen_at?: string | null
+          subject_id?: string
+          subject_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_events_circle_id_fkey"
+            columns: ["circle_id"]
+            isOneToOne: false
+            referencedRelation: "circles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_calls: {
         Row: {
           attempts: number | null
@@ -2121,6 +2174,65 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_looks: {
+        Row: {
+          collection_id: string | null
+          created_at: string
+          id: string
+          note: string | null
+          owner_id: string
+          snap_image_url: string | null
+          snap_saved_at: string
+          snap_source_label: string
+          snap_source_visibility: string
+          snap_title: string | null
+          source_id: string
+          source_owner_id: string | null
+          source_type: Database["public"]["Enums"]["saved_look_source"]
+          updated_at: string
+        }
+        Insert: {
+          collection_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          owner_id: string
+          snap_image_url?: string | null
+          snap_saved_at: string
+          snap_source_label: string
+          snap_source_visibility: string
+          snap_title?: string | null
+          source_id: string
+          source_owner_id?: string | null
+          source_type: Database["public"]["Enums"]["saved_look_source"]
+          updated_at?: string
+        }
+        Update: {
+          collection_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          owner_id?: string
+          snap_image_url?: string | null
+          snap_saved_at?: string
+          snap_source_label?: string
+          snap_source_visibility?: string
+          snap_title?: string | null
+          source_id?: string
+          source_owner_id?: string | null
+          source_type?: Database["public"]["Enums"]["saved_look_source"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_looks_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       style_feedback: {
         Row: {
           action: Database["public"]["Enums"]["feedback_action"]
@@ -2426,6 +2538,7 @@ export type Database = {
           longitude: number
           look_count: number | null
           memo: Json | null
+          note: string
           parts: string[]
           piece_count: number | null
           place_admin1: string
@@ -2449,6 +2562,7 @@ export type Database = {
           longitude: number
           look_count?: number | null
           memo?: Json | null
+          note?: string
           parts: string[]
           piece_count?: number | null
           place_admin1?: string
@@ -2472,6 +2586,7 @@ export type Database = {
           longitude?: number
           look_count?: number | null
           memo?: Json | null
+          note?: string
           parts?: string[]
           piece_count?: number | null
           place_admin1?: string
@@ -3091,6 +3206,68 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_looks_resolved: {
+        Row: {
+          availability: string | null
+          collection_id: string | null
+          created_at: string | null
+          id: string | null
+          note: string | null
+          owner_id: string | null
+          snap_image_url: string | null
+          snap_saved_at: string | null
+          snap_source_label: string | null
+          snap_source_visibility: string | null
+          snap_title: string | null
+          source_id: string | null
+          source_owner_id: string | null
+          source_type: Database["public"]["Enums"]["saved_look_source"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          availability?: never
+          collection_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          note?: string | null
+          owner_id?: string | null
+          snap_image_url?: string | null
+          snap_saved_at?: string | null
+          snap_source_label?: string | null
+          snap_source_visibility?: string | null
+          snap_title?: string | null
+          source_id?: string | null
+          source_owner_id?: string | null
+          source_type?: Database["public"]["Enums"]["saved_look_source"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          availability?: never
+          collection_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          note?: string | null
+          owner_id?: string | null
+          snap_image_url?: string | null
+          snap_saved_at?: string | null
+          snap_source_label?: string | null
+          snap_source_visibility?: string | null
+          snap_title?: string | null
+          source_id?: string | null
+          source_owner_id?: string | null
+          source_type?: Database["public"]["Enums"]["saved_look_source"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_looks_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_profiles: {
         Row: {
           avatar_url: string | null
@@ -3161,6 +3338,7 @@ export type Database = {
           tally: number
         }[]
       }
+      activity_has_unseen: { Args: never; Returns: boolean }
       apply_invite: {
         Args: { p_handle: string }
         Returns: {
@@ -3186,6 +3364,13 @@ export type Database = {
       }
       blocked_between: { Args: { p_a: string; p_b: string }; Returns: boolean }
       blocked_term_in: { Args: { p_text: string }; Returns: string }
+      can_save_source: {
+        Args: {
+          p_id: string
+          p_type: Database["public"]["Enums"]["saved_look_source"]
+        }
+        Returns: boolean
+      }
       can_see_circle: { Args: { p_circle: string }; Returns: boolean }
       can_see_event: { Args: { p_event: string }; Returns: boolean }
       catalog_cycle_start: {
@@ -3265,6 +3450,18 @@ export type Database = {
       effective_plan: {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["subscription_plan"]
+      }
+      emit_activity_event: {
+        Args: {
+          p_actor: string
+          p_circle: string
+          p_payload: Json
+          p_recipient: string
+          p_subject: string
+          p_subject_type: string
+          p_type: Database["public"]["Enums"]["activity_event_type"]
+        }
+        Returns: undefined
       }
       event_is_open: { Args: { p_event_id: string }; Returns: boolean }
       event_limit_for_plan: {
@@ -3346,6 +3543,7 @@ export type Database = {
         }
         Returns: string
       }
+      purge_activity_events: { Args: never; Returns: undefined }
       push_claim_borrow_requests: {
         Args: never
         Returns: {
@@ -3468,6 +3666,15 @@ export type Database = {
       }
     }
     Enums: {
+      activity_event_type:
+        | "circle.invite.received"
+        | "circle.invite.accepted"
+        | "circle.invite.declined"
+        | "circle.member.joined"
+        | "circle.member.left"
+        | "circle.self.left"
+        | "daily.reaction.received"
+        | "outfit.saved.shared"
       ai_workload:
         | "tagging"
         | "outfit_generation"
@@ -3510,6 +3717,7 @@ export type Database = {
       pattern_scale: "none" | "micro" | "small" | "medium" | "large"
       profile_visibility: "private" | "public"
       report_subject: "profile" | "item" | "outfit_post" | "comment" | "event"
+      saved_look_source: "own_outfit" | "daily_look" | "event_look"
       subscription_plan: "free" | "standard" | "pro"
       superwall_outcome:
         | "applied"
@@ -3650,6 +3858,16 @@ export const Constants = {
   },
   public: {
     Enums: {
+      activity_event_type: [
+        "circle.invite.received",
+        "circle.invite.accepted",
+        "circle.invite.declined",
+        "circle.member.joined",
+        "circle.member.left",
+        "circle.self.left",
+        "daily.reaction.received",
+        "outfit.saved.shared",
+      ],
       ai_workload: [
         "tagging",
         "outfit_generation",
@@ -3690,6 +3908,7 @@ export const Constants = {
       pattern_scale: ["none", "micro", "small", "medium", "large"],
       profile_visibility: ["private", "public"],
       report_subject: ["profile", "item", "outfit_post", "comment", "event"],
+      saved_look_source: ["own_outfit", "daily_look", "event_look"],
       subscription_plan: ["free", "standard", "pro"],
       superwall_outcome: [
         "applied",

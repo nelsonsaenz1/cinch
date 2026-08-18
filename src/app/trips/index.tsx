@@ -123,9 +123,23 @@ export default function TripsScreen() {
       // param on arrival; without it "Plan a trip" lands two taps short.
       onPlanTrip: () => router.push({ pathname: '/(tabs)/plan', params: { mode: 'packing' } }),
       onRetry: () => void trips.refetch(),
-      // Trip Detail (brief §6) is a separate build. Until it lands the cards
-      // are inert rather than promising a page that does not resolve.
-      onOpenTrip: null,
+      /**
+       * Trip Detail (brief §6) has landed, so the withheld chevron comes alive.
+       *
+       * The destination rides along as a param purely so the detail page's hero
+       * can paint its real title in the first frame — the card that was tapped
+       * already knows the place, and `trips/[id]` treats the param as a head
+       * start that its own row read immediately supersedes. Nothing about the
+       * page depends on it: a deep link with no param resolves identically, one
+       * beat later.
+       */
+      onOpenTrip: (tripId: string) => {
+        const trip = rows.find((t) => t.id === tripId);
+        router.push({
+          pathname: '/trips/[id]',
+          params: { id: tripId, destination: trip ? destinationLabel(trip.destination) : '' },
+        });
+      },
     };
   }, [rows, byId, resolve, trips, router]);
 

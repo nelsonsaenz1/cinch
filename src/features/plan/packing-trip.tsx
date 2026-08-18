@@ -722,6 +722,7 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
       shareMounted={shareMounted}
       shareViewRef={shareView}
       onCardReady={handleCardReady}
+      tripId={tripId}
     />
   );
 }
@@ -800,6 +801,7 @@ export function PackingMemo({
   shareMounted,
   shareViewRef,
   onCardReady,
+  tripId,
 }: {
   trip: Trip;
   days: number;
@@ -819,6 +821,14 @@ export function PackingMemo({
   shareMounted: boolean;
   shareViewRef: RefObject<View | null>;
   onCardReady: () => void;
+  /**
+   * The row this plate was saved onto, or null when the write never landed.
+   *
+   * Passed in rather than read here: the id is owned by `PackingTrip`'s own
+   * save effect, and a second source for it is how the plate and the save
+   * eventually disagree about which trip is on screen.
+   */
+  tripId: string | null;
 }) {
   const router = useRouter();
   const groups = groupLooksByDay(packing.looks);
@@ -885,14 +895,26 @@ export function PackingMemo({
           colophon: plannedColophon(trip.startsOn, trip.endsOn, mark),
           days: plateDays,
           /**
-           * Trip Detail (brief §6) is a separate build and `trips/[id]` does not
-           * resolve yet — `trips/index.tsx` withholds its own chevron for the
-           * same reason. Rather than ship a dead primary, "See this trip" lands
-           * on the shelf, where this trip is the hero card by construction: it
-           * is the soonest upcoming one, and `partitionTrips` puts it at the top.
-           * One line changes when that page lands. Listed as a deviation.
+           * "See this trip" lands on THIS trip — redesign 06.
+           *
+           * It used to land on the shelf, because `trips/[id]` did not resolve
+           * and a dead primary is worse than an indirect one; that was listed as
+           * redesign 05's deviation #4. The page exists now, so the primary goes
+           * where its label always claimed.
+           *
+           * The fallback survives on purpose. `tripId` is null when the row was
+           * never written — `useStartTrip` swallows its own failure so a packing
+           * run is never blocked by a write — and a plate the user is looking at
+           * is real whether or not Postgres heard about it. In that case there is
+           * no page to open, and the shelf is the honest destination.
            */
-          onSeeThisTrip: () => router.push('/trips'),
+          onSeeThisTrip: () =>
+            tripId
+              ? router.push({
+                  pathname: '/trips/[id]',
+                  params: { id: tripId, destination: trip.destination.name },
+                })
+              : router.push('/trips'),
           onAllTrips: () => router.push('/trips'),
           onSwapDay,
           onShare,
