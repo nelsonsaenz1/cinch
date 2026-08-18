@@ -28,6 +28,7 @@ it means.
 | 06-trip-detail | design-refs/redesign-2026-08/06-trip-detail/ (10 files) | d5e8d20 | OTA 01a012ee-0d0e-70a5-8f32-1ba44772ea1a · runtime 18938ff9 · 2026-08-18 | progress frame matched; checkable tiles, note, delete sheet live; trips.note migration adopted from colliding session |
 | 07-profile | design-refs/redesign-2026-08/07-profile/ (7 files) | 070b913 | OTA 01a0130e-f4fe-76fd-8f69-7252f0454591 · runtime 18938ff9 · 2026-08-18 | all six frames matched at standard and AX-XXXL; rails, marks, quiet plan door and bled closet grid live; no tab bar (Profile stays the Today form sheet) |
 | 08-friends-list | design-refs/redesign-2026-08/08-friends-list/ (29 files) | 340fe50 | OTA 01a0134e-4307-7caf-961c-78eb7605c17b · runtime 18938ff9 · 2026-08-18 | default, presence-revoked, resting, empty, loading, friends-failed and offline matched at standard; AX-XXXL matched after fixing a request-row collapse. ZERO backend change — the existing daily-social views already enforce every rule. pgTAP committed but UNEXECUTED: GitHub Actions is blocked on account billing and this machine has no Docker |
+| 16-stylist | design-refs/redesign-2026-08/16-stylist/ (37 files · 36 unique PNG hashes, all 790×1708, 37/37 byte-identical to source) | 7caca04 | OTA 01a01477-f712-7010-adae-6409d320424b · group 8a97563c-b022-447d-bad0-3832b68a407a · runtime 18938ff9 · 2026-08-18 | twenty states matched at standard and AX-XXXL on 932pt and 852pt (80 frames) — five plan openings, neutral loading, the allowance mark at its threshold, four denials, the local-fact mark, and nine conversation states through the existing fixture. ZERO backend, native, dependency and permission change, verified. The chats-left mark ships dark by design — see below |
 | 15-item-detail | design-refs/redesign-2026-08/15-item-detail/ (37 files · 36 unique PNG hashes, all 790×1708, 37/37 byte-identical to source) | d4c7692 | OTA 01a0145a-3a64-7955-beb5-102bdd165343 · group 06651fe8-3982-4bac-b59c-c4c1ee9dcaf7 · runtime 18938ff9 · 2026-08-18 | eleven decision states matched at standard and AX-XXXL on 932pt and 852pt (44 frames) — the four price/wear combinations, the three pairing modes, both destructive consequences and the lending refusal. ZERO backend, native, dependency and permission change, verified. Three gaps closed (delete did not name the wears it takes, the pairing section vanished instead of answering, the screen had no analytics). 667pt and the sheet states not captured — see below |
 | 14-closet | design-refs/redesign-2026-08/14-closet/ (33 files) | 0a57b84 | OTA 01a01440-74d7-7335-999b-3c028226a849 · group ee097ce7-39e1-4874-a825-7c48fbb4058d · runtime 18938ff9 · 2026-08-18 | eleven decision states matched at standard and AX-XXXL on 932pt and 852pt — the three tiers' ceilings, both capacity walls with their two remedies, chips with query-aware counts, selection at one/many/all, and the empty closet. ZERO backend, ZERO native, ZERO dependency change, verified. Three defects found and fixed (a swallowed delete-failure alert, a plus glyph that clipped at AX, the empty title saying a different ask from Today). 667pt not captured |
 | 13-wear-confirm | design-refs/redesign-2026-08/13-wear-confirm/ (29 files) | 4b26cd1 | OTA 01a0141d-5b1d-7b81-9038-d396a759a068 · group 15be378d-f1ac-4f55-819b-30fa028e78a2 · runtime 18938ff9 · 2026-08-18 | fifteen states matched at standard and AX-XXXL on 932pt and 852pt — default, five rating states, favourite, the override note, confirming, settled, settled-idempotent, network, offline, signed-out, rejected, long name and many garments. ZERO backend and ZERO native change, verified against production. Three simulator defects found and fixed (invisible heart, a header the frames do not have, five states no capture could reach). 667pt not captured |
@@ -53,6 +54,103 @@ accepted bundle.
 
 Pages 12–16 have no accepted artifact in the repository yet, so 17–22
 arriving before them is expected rather than a gap in this table.
+
+### 16-stylist — four doors, and one mark that ships dark on purpose
+
+**Server truth was read before anything was written, and left alone.** Free
+`stylist_chat` is `{limit: 0, period: month}`, which `claim_ai_quota` reports as
+`plan_excluded` so 402 offers an upgrade rather than "try again tomorrow" — a
+sentence that would never come true. Standard is **8/month against a promise of
+5**; Pro is **100/day, displayed as Unlimited** because that ceiling exists to
+stop a script, not to describe a product. The four denial classes already
+existed in `use-chat.ts` and already kept only transport retryable
+(`const retryable = !consent && !denial`). Zero `supabase/` files changed.
+
+**The doors.** Four image-led cards replace four full-width text rows. Each maps
+to a path that already exists:
+
+| Door | Path | Reaches a model on tap |
+|---|---|---|
+| What should I wear | questionnaire entry `dressed` | no |
+| Pack for a trip | seeds a question `parseIntent` reads as `packing` | no |
+| Make this piece work | seeds one `routeFactQuestion` reads as `compatible` | no |
+| Ask about my closet | seeds one answered from counted in-memory facts | no |
+
+Three of the four SEED THE COMPOSER rather than sending, because each needs a
+noun only the owner can supply — which trip, which piece, which question. A door
+that guessed would be inventing the very thing this screen refuses to invent,
+and it would spend a chat doing it.
+
+`EntryKey` and `buildSteps` are untouched: `event`, `surprise` and `browse` lose
+their door, not their capability. `event`'s occasions are reachable through the
+first questionnaire step, and the other two were prompts rather than doors.
+
+**THE CHATS-LEFT MARK SHIPS DARK, AND THAT IS THE HONEST OUTCOME.** It is built,
+gated on all four conditions and fully tested — confirmed Standard, nothing
+loading, remaining ≤ 2, and a count the server supplied. `stylist-chat` does not
+yet return one: `enforceAiQuota` receives `{allowed, used, limit}` from
+`claim_ai_quota` and discards it on the success path, so `successfulUsed` is
+null and the mark never draws.
+
+Counting successful replies on the device was refused deliberately. It would be
+wrong the moment somebody used a second phone, and a wrong allowance is worse
+than none — it is a promise the server will break. **The exact remedy**, for
+whoever picks this up: have the success path in
+`supabase/functions/stylist-chat/index.ts` include `{ promiseLimit: 5,
+successfulUsed: decision.used }` in the 200 body, sourced from the value
+`enforceAiQuota` already has. It was not made here because `enforceAiQuota` is
+shared by **twelve call sites across seven production edge functions**, and
+changing its signature is not a smallest-safe correction inside an otherwise
+presentation-only page. One accepted frame — `opening-standard-back-half-chats-left`
+— therefore has no shipping counterpart yet, and the fixture is what proves the
+composition is correct when the count arrives.
+
+The threshold is computed against the **promise of five, never the ceiling of
+eight**. The three-chat gap exists so five survives a failed call or two; a mark
+from eight would over-promise by three.
+
+**Analytics: two legacy events replaced by ten bounded ones.**
+`stylist_questionnaire_completed` sent `{steps, mood, entry}` — all bounded, and
+two of them still more than the contract allows: mood and entry describe what
+somebody said about their own day, where a step number answers "do people finish
+the flow". `stylist_question_answered` sent an unbounded `outfitCount`;
+`plates_shown` is capped at three at the call site, because a reply is not the
+place to describe a wardrobe.
+
+A stylist prompt is somebody describing their own life in their own words — a
+funeral, an interview, a first date, and it is the most sensitive string this app
+holds. `tests/stylist-privacy.test.ts` strips the event and builder identifiers
+and asserts no ARGUMENT anywhere on this screen touches a draft, a question, a
+message, a transcript, a reply or a brief.
+
+**One deviation carried from the artifact.** The doors are a two-column grid
+rather than four full-width cards: four full-width rows push the composer below
+the fold on a 667pt screen, and a stylist you have to scroll to talk to is a
+stylist nobody talks to. At AX-XXXL the grid becomes the single stacked column
+the directive describes — verified in the captures.
+
+**Simulator coverage, stated exactly.** 80 frames: twenty states × 932pt and
+852pt × standard and AX-XXXL. Eleven are the Page 16 decision states — five plan
+openings, neutral loading, the allowance mark, four denials and the local-fact
+mark — and nine are conversation states captured through `dev-stylist`, which
+was made deep-linkable for the purpose. The door wells are empty in the fixture
+on purpose: every well on the real screen is a signed image of a garment the
+reader owns, and a fixture that fabricated one would be checking the fixture.
+
+**Two blockers, unresolved and not worked around.** The 667pt capture could not
+be taken, for the sixth time and the same reason: a freshly created iPhone SE
+simulator's development client will not connect to Metro without a tap on its
+"Open in Cinch?" alert. The deterministic substitutes are the `composerHeight`
+and `doorColumns` assertions plus the AX-XXXL captures on a real device, where
+the grid collapses to one column and nothing clips. Reduce Motion and VoiceOver
+order are asserted rather than photographed, because neither shows in a still.
+
+GitHub Actions run **32128045805** (commit `7caca04`) reports all three jobs —
+`database`, `functions`, `check` — as `failure` with ZERO steps and no
+retrievable log. That is the account-level billing block, external to this
+change, not a code failure. The same gates ran locally and are green: typecheck,
+lint, 3031 unit tests, styling and typography smoke, and a dependency/native/
+permission diff that is empty.
 
 ### 15-item-detail — what was already right, and the three things that were not
 
