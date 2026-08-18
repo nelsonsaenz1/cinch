@@ -98,10 +98,29 @@ test('the ✕ clears everything', () => {
 // What the disclosure must not have cost
 // ---------------------------------------------------------------------------
 
-test('the committed sentence still reaches the engine, unchanged', () => {
+// ── REDESIGN 11 REPLACED THE FIELD ON TODAY ────────────────────────────────
+//
+// This file used to assert that the composer's committed sentence reached the
+// engine as `note`. It reached the engine, and the engine did NOTHING with it:
+// `StyleContext.note` is read by the naming hash and the enhancement gate and
+// by no scorer at all, so an occasion typed into the field re-rolled three
+// names and changed no outfit. The test was true and the promise was not.
+//
+// Today now asks the same question as a closed list, and the answer lands on
+// the two inputs the scorer actually reads. The assertion moves with it: the
+// question is no longer "does the sentence survive the trip" but "does the
+// chip reach the scorer", which is the thing that was broken.
+//
+// The composer itself is untouched below — it still ships, on the surfaces
+// that still mount it, and the rest of this file still guards it.
+test('the chip reaches the scorer, which the field never did', () => {
   const src = stripped(TODAY);
-  assert.match(src, /useStyleContext\(\{ note: committedNote \|\| null \}\)/);
-  assert.match(src, /const committedNote = composer\.committed/);
+  assert.match(src, /targetOccasion: engineOccasion\(context11\.occasion\)/);
+  assert.match(src, /targetFormality: engineFormality\(context11\.feel\)/);
+  // And the free-text path is gone from this route entirely: nothing typed can
+  // be sent anywhere from Today, because there is nothing to type into.
+  assert.doesNotMatch(src, /<ContextComposer/, 'the free-text field is back on Today');
+  assert.doesNotMatch(src, /committedNote/);
 });
 
 test('the field itself survives — only its permanence goes', () => {
@@ -141,8 +160,10 @@ test('no permission was added to the context', () => {
   assert.doesNotMatch(src, /expo-location|expo-calendar|requestPermission/);
 });
 
-test('the refusal state still draws no composer', () => {
+test('the refusal state still draws no context control', () => {
   // T-12 — a day the engine could not dress has a different next action, and
-  // context is not it. The gate is the one that was already there.
-  assert.match(stripped(TODAY), /<ContextComposer[\s\S]{0,120}hidden=\{nothingWorks\}/);
+  // context is not it. Same gate, new control: `nothingWorks` still decides,
+  // and offering chips over a refusal would invite somebody to restyle a
+  // morning that has nothing to restyle.
+  assert.match(stripped(TODAY), /\{!nothingWorks \? \([\s\S]{0,200}<ContextChips/);
 });

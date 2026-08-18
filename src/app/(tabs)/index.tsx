@@ -4,29 +4,61 @@ import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
   View,
   useWindowDimensions,
 } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CapacityNote } from '@/components/today/capacity-note';
 import { ClosetFloor } from '@/components/today/closet-floor';
-import { ContextComposer } from '@/components/today/context-composer';
-import { EMPTY_COMPOSER, type ComposerState } from '@/components/today/context-composer-state';
+import { ContextChips } from '@/components/today/context-chips';
+import { PlateDots, TodayPlate, WornMark } from '@/components/today/today-plate';
+import {
+  DEFAULT_CONTEXT,
+  TODAY_COPY,
+  belowActivationFloor,
+  engineFormality,
+  engineOccasion,
+  isThinWardrobe,
+  pageFromOffset,
+  piecesLine,
+  piecesRemaining,
+  positionLabel,
+  resolveWeather,
+  type ContextFacet,
+  type PlateIndex,
+  type TodayContextChoice,
+} from '@/features/today/today-spec';
+import {
+  TODAY_EVENTS,
+  closetFloorShownProps,
+  contextChoiceOf,
+  contextOpenedProps,
+  contextSetProps,
+  favoriteSetProps,
+  noViableCombinationProps,
+  outfitsSourceProps,
+  plateViewedProps,
+  ratingSetProps,
+  repeatExhaustedProps,
+  todayOpenedProps,
+  wearResultProps,
+  wearStartedProps,
+  weatherStateProps,
+} from '@/features/today/analytics';
 import { contextLines, contextRungs, feelsClause } from '@/components/today/context-label';
 import { GapCard } from '@/components/today/gap-card';
 import { InviteLine } from '@/components/today/invite-line';
 import { OccasionInterrupt } from '@/components/today/occasion-interrupt';
 import { OFFLINE_ACTIONS_REASON, OfflineNotice } from '@/components/today/offline-notice';
-import { Plate } from '@/components/today/plate';
 import { PlateSkeleton, SLOW_NOTICE_MS, SlowNotice } from '@/components/today/plate-skeleton';
 import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import { AX3_FONT_SCALE } from '@/theme/type-scale';
-import type { ReactionValue } from '@/components/today/reaction-bar';
 import { RepeatExhausted } from '@/components/today/repeat-exhausted';
 import { TasteMark } from '@/components/today/taste-mark';
 import { WeatherStrip } from '@/components/today/weather-strip';
@@ -34,7 +66,7 @@ import { WearConfirmationSheet } from '@/components/today/wear-confirmation-shee
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { Text } from '@/components/ui/text';
-import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count';
+import { rankGaps, tallyOf } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { startTagSweeper } from '@/features/ingest/upload-queue';
@@ -51,7 +83,7 @@ import {
   type WearFailureKind,
 } from '@/features/styling/wear-failure';
 import { exhaustionProgress, wearsOfCore } from '@/features/styling/repeat';
-import { canGenerate, MIN_CLOSET_FOR_OUTFITS, useStyleProfile, useWardrobe } from '@/features/styling/queries';
+import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits, type StyledOutfit } from '@/features/styling/use-outfits';
 import { nameOutfits } from '@/features/styling/outfit-names';
 import { useWornOutfits } from '@/features/styling/use-worn-outfits';
@@ -69,6 +101,14 @@ import { describeWeather, formatTemp } from '@/features/context/weather';
 import { track, trackOnce } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
+
+/**
+ * The page margin, in points — `tailwind.config.js`'s `gutter` as a number the
+ * carousel's paging maths can actually add up. The class and the constant are
+ * the same twenty; a card that snapped to a different one would come to rest
+ * between two pages, which is the drift that reads as a broken swipe.
+ */
+const GUTTER = 20;
 
 /**
  * The Repeat's local fallback naming for a "show me another" swap.
@@ -625,12 +665,22 @@ export default function TodayScreen() {
   const theme = useTheme();
   const qc = useQueryClient();
 
-  // The day's context: what is in the field, what has been committed to the
-  // engine, and whether the field is open at all (UX-03). One piece of state
-  // rather than three that could disagree; the rules live in the reducer.
-  const [composer, setComposer] = useState<ComposerState>(EMPTY_COMPOSER);
-  const committedNote = composer.committed;
-  const [reactions, setReactions] = useState<Record<string, ReactionValue>>({});
+  /**
+   * The day's context — redesign 11's three chips.
+   *
+   * This replaces the free-text composer ON THIS SCREEN, and the reason is a
+   * defect rather than a taste: `StyleContext.note` is read by the naming hash
+   * and the enhancement gate and by nothing else, so an occasion typed into
+   * the field re-rolled three names and changed no outfit. A row that appears
+   * to restyle the day has to restyle the day.
+   *
+   * Both chips ask the scorer something it already knows how to answer —
+   * `targetOccasion` through `occasionRule`, `targetFormality` through
+   * `resolveTargetFormality` — so the recomposition is real and no new scoring
+   * code was written for it.
+   */
+  const [context11, setContext11] = useState<TodayContextChoice>(DEFAULT_CONTEXT);
+  const [openFacet, setOpenFacet] = useState<ContextFacet | null>(null);
   const [wornIds, setWornIds] = useState<Set<string>>(new Set());
   // Wear, per outfit rather than per screen. `wear.isPending` is the mutation's
   // global flag, so keying off it froze and spun every plate at once when one
@@ -673,8 +723,15 @@ export default function TodayScreen() {
     requestCalendar,
     requestLocation,
     weatherFailed,
+    weatherFetchedAt,
   } =
-    useStyleContext({ note: committedNote || null });
+    useStyleContext({
+      // The chips, not a note. `engineOccasion` returns the tagger's own
+      // vocabulary and `engineFormality` a 0..1 the scorer already reads, so
+      // changing a chip changes the candidate set rather than the names.
+      targetOccasion: engineOccasion(context11.occasion),
+      targetFormality: engineFormality(context11.feel),
+    });
 
   const items = useMemo(() => wardrobe.data ?? [], [wardrobe.data]);
 
@@ -734,7 +791,9 @@ export default function TodayScreen() {
       // simply does nothing rather than repeating the same outfit under a
       // "new" label.
       if (!next) return;
-      void Haptics.selectionAsync().catch(() => {});
+      // No tick. Redesign 11 gives Today exactly one haptic and it is the
+      // committed wear — a swap is a swipe-class gesture, and buzzing for every
+      // card that changes is how a phone stops meaning anything when it buzzes.
       setShownOverride((prev) => ({ ...prev, [i]: next }));
     },
     [effectiveShown, outfits.shortlist],
@@ -790,35 +849,109 @@ export default function TodayScreen() {
   // back with the same plates in the same order, so a joined-ids key alone
   // would silently swallow the second. This is the one place the identity of a
   // set is not just its garments.
-  const viewedRef = useRef<string | null>(null);
+  /**
+   * The four truthful weather states, resolved once — redesign 11.
+   *
+   * `off` and `unavailable` are kept apart because they are different facts: a
+   * permission this reader has not given, and a reading this device could not
+   * get. Neither invents a temperature and neither blocks a morning, because
+   * the outfits are already built by the time this is asked.
+   */
+  const weatherRead = useMemo(
+    () =>
+      resolveWeather({
+        conditionLabel: context.weather ? describeWeather(context.weather, 'F') : null,
+        temperatureLabel: context.weather
+          ? formatTemp(context.weather.feelsLikeC, 'F')
+          : null,
+        fetchedAt: weatherFetchedAt ? new Date(weatherFetchedAt) : null,
+        permissionOff: usingFallbackLocation,
+        failed: weatherFailed,
+        now: new Date(),
+      }),
+    [context.weather, weatherFetchedAt, usingFallbackLocation, weatherFailed],
+  );
+
   const platesOnScreen =
     !wardrobe.isLoading && !wardrobe.isError && canGenerate(items) && effectiveShown.length > 0;
   const viewedSource = effectiveShown[0]?.source ?? null;
-  const viewedCount = effectiveShown.length;
-  const viewedKey = platesOnScreen
-    ? `${viewedSource}|${effectiveShown.map((o) => idOf(o.candidate.items)).join('/')}`
-    : null;
-  useEffect(() => {
-    if (!viewedKey || viewedRef.current === viewedKey) return;
-    viewedRef.current = viewedKey;
-    track('outfit_set_viewed', {
-      surface: 'today',
-      // The number of plates, never anything about what is on them.
-      count: viewedCount,
-      // Which engine produced the set the reader is actually looking at.
-      source: viewedSource ?? 'engine',
-      offline,
-    });
-    // `offline`, `viewedCount` and `viewedSource` are read, not depended on:
-    // all three belong to the moment the set first appeared, and every one of
-    // them is already folded into `viewedKey` or fixed by it. Adding them here
-    // would only re-run an effect the ref already blocks.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewedKey]);
 
-  // What the looks are for — the user's own words first, else the day's first
-  // calendar event. Carried into each plate's share artifact.
-  const occasion = committedNote || context.events[0]?.title || null;
+  // ── REDESIGN 11 · THE THIRTEEN EVENTS ─────────────────────────────────────
+  //
+  // `outfit_set_viewed` is GONE from this screen. It carried a COUNT of the
+  // plates on screen, and Today's contract forbids counts — the honest
+  // replacement is `plate_viewed`, which reports a POSITION (which of three a
+  // reader actually reached) and is emitted by the carousel below. The two
+  // facts it also carried survive as their own events: which engine produced
+  // the set, and whether the network was there.
+  //
+  // Every payload is built by `features/today/analytics.ts`, which imports no
+  // PostHog and therefore CAN be executed by the node suite — so the property
+  // shapes are asserted by a test rather than by a comment.
+
+  // The visit. Once per mount, not once per person: opening Today tomorrow is
+  // a new morning, which is the whole unit this screen is measured in.
+  const openedRef = useRef(false);
+  useEffect(() => {
+    if (openedRef.current) return;
+    openedRef.current = true;
+    track(TODAY_EVENTS.opened, todayOpenedProps());
+  }, []);
+
+  // WHICH ENGINE the reader is actually looking at. The screen enhances in
+  // place — the on-device set paints first and the model's re-ranked set may
+  // replace it seconds later — so both are reported, and the transition from
+  // `local` to `enhanced` is the measurement that tells us whether the paid
+  // pass was ever seen.
+  const sourceRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!platesOnScreen || !viewedSource) return;
+    const source = viewedSource === 'ai' ? 'enhanced' : 'local';
+    if (sourceRef.current === source) return;
+    sourceRef.current = source;
+    track(TODAY_EVENTS.outfitsSource, outfitsSourceProps(source));
+  }, [platesOnScreen, viewedSource]);
+
+  // WHICH OF FOUR STATES the weather read is in — never the reading, never the
+  // place. A temperature and a timestamp are a location to anybody holding
+  // enough of them, which is why only the state travels.
+  const weatherStateRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (weatherStateRef.current === weatherRead.state) return;
+    weatherStateRef.current = weatherRead.state;
+    track(TODAY_EVENTS.weatherState, weatherStateProps(weatherRead.state));
+  }, [weatherRead.state]);
+
+  // The two refusals and the floor, each observed exactly where it renders and
+  // each carrying nothing at all — that a morning had no answer is the whole
+  // fact, and any property on it would describe the wardrobe that failed.
+  const floorRef = useRef(false);
+  const belowFloor =
+    !wardrobe.isLoading && !wardrobe.isError && belowActivationFloor(items.length, canGenerate(items));
+  useEffect(() => {
+    if (!belowFloor || floorRef.current) return;
+    floorRef.current = true;
+    track(TODAY_EVENTS.closetFloorShown, closetFloorShownProps());
+  }, [belowFloor]);
+
+  // "Show another" ran out of genuinely different looks. Reported once per
+  // exhaustion rather than once per render, and carrying nothing — how many
+  // cores a wardrobe has is a count, and counts are exactly what this screen
+  // refuses to send.
+  const exhaustedRef = useRef(false);
+
+  const noViableRef = useRef(false);
+  const noViable =
+    !wardrobe.isLoading && !wardrobe.isError && canGenerate(items) && effectiveShown.length === 0;
+  useEffect(() => {
+    if (!noViable) {
+      noViableRef.current = false;
+      return;
+    }
+    if (noViableRef.current) return;
+    noViableRef.current = true;
+    track(TODAY_EVENTS.noViableCombination, noViableCombinationProps());
+  }, [noViable]);
 
   // Sign every image the shortlist could ever show, not just today's three —
   // "show me another" swaps in a candidate from further down the same list,
@@ -840,11 +973,25 @@ export default function TodayScreen() {
   // `exhaustionProgress` memo just below it.
   const wornRecords = useMemo(() => wornOutfits.data ?? [], [wornOutfits.data]);
   const currentTally = useMemo(() => tallyOf(items), [items]);
-  const totalCores = useMemo(() => countOutfits(currentTally), [currentTally]);
   const exhaustion = useMemo(
     () => exhaustionProgress(items, wornRecords),
     [items, wornRecords],
   );
+
+  // Placed with the other observers rather than at the render site, so that
+  // what is measured is the CONDITION and not whether a particular banner
+  // happened to be mounted under it.
+  const exhausted = platesOnScreen && exhaustion.exhausted;
+  useEffect(() => {
+    if (!exhausted) {
+      exhaustedRef.current = false;
+      return;
+    }
+    if (exhaustedRef.current) return;
+    exhaustedRef.current = true;
+    track(TODAY_EVENTS.repeatExhausted, repeatExhaustedProps());
+  }, [exhausted]);
+
   const topGap = useMemo(() => rankGaps(currentTally)[0] ?? null, [currentTally]);
 
   const react = useReactToOutfit();
@@ -873,45 +1020,19 @@ export default function TodayScreen() {
   // True only between an explicit pull-to-refresh and the next re-rank result.
   const userAskedRef = useRef(false);
 
-  const handleReact = useCallback(
-    (index: number, value: ReactionValue) => {
-      // `effectiveShown`, not `shown` — after a "show me another" tap the
-      // plate at this index is the swapped-in candidate, and a reaction has
-      // to be recorded against what the user is actually looking at.
-      const outfit = effectiveShown[index];
-      if (!outfit) return;
-
-      const key = idOf(outfit.candidate.items);
-
-      // Optimistic, but honest about it. The card acknowledges the tap
-      // immediately — anything slower feels broken — while carrying `pending`
-      // until the write is confirmed, and flipping to `failed` rather than
-      // silently claiming to have learned something it never received.
-      const settle = (status: 'saved' | 'failed') =>
-        setReactions((prev) => (prev[key] ? { ...prev, [key]: { ...prev[key], status } } : prev));
-
-      setReactions((prev) => ({ ...prev, [key]: { ...value, status: 'pending' } }));
-
-      react.mutate(
-        {
-          candidate: outfit.candidate,
-          // The learner needs everything that was on screen, not just this card.
-          // Passing only the reacted outfit makes the baseline equal the sample
-          // and every gradient collapses to zero — silently.
-          shownAlongside: outfits.shortlist,
-          liked: value.liked,
-          profile,
-          reason: value.reason,
-          source: 'today',
-        },
-        {
-          onSuccess: () => settle('saved'),
-          onError: () => settle('failed'),
-        },
-      );
-    },
-    [effectiveShown, profile, outfits.shortlist, react],
-  );
+  // ── THE REACTION BAR IS GONE FROM TODAY ───────────────────────────────────
+  //
+  // `handleReact` and its optimistic per-card state went with it. The accepted
+  // frames do not draw a reaction bar, and the contract's VoiceOver order —
+  // outfit, Wear this, taste mark, invite line — has no slot for one.
+  //
+  // Taste learning did NOT go with it. `useReactOutfit` is still called, from
+  // `confirmWear` below, off the rating and favourite the wear sheet collects:
+  // a four-star or a favourite still teaches the same learner the same way it
+  // always did. What changed is when Cinch asks. A bar under every card asks
+  // three times a morning about outfits nobody wore; the sheet asks once,
+  // about the one she actually put on, which is the only opinion with a day
+  // behind it.
 
   const handleWear = useCallback(
     (index: number) => {
@@ -919,6 +1040,11 @@ export default function TodayScreen() {
       if (!outfit) return;
       setWearSheetError(null);
       setWearSelection(outfit);
+      // The INTENT, not the write. Its pair with `wear_result` is what makes
+      // an abandoned confirmation legible: a `wear_started` with no result is
+      // somebody who opened the sheet and cancelled, and cancelling writes
+      // nothing anywhere — including here.
+      track(TODAY_EVENTS.wearStarted, wearStartedProps());
     },
     [effectiveShown],
   );
@@ -953,6 +1079,20 @@ export default function TodayScreen() {
               return next;
             });
             setWornIds((prev) => new Set(prev).add(key));
+            track(TODAY_EVENTS.wearResult, wearResultProps('ok'));
+            // The ONE haptic on this screen, and it fires here rather than on
+            // the tap: a tick before the server has answered is the phone
+            // congratulating somebody for a write that may still fail. Swipes,
+            // chips and the enhancement landing get nothing at all.
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+              () => {},
+            );
+            // Whether feedback was given, never which. An unrated wear is a
+            // legal wear and reports `false` rather than going unreported —
+            // "how often does anybody rate" is only answerable if both halves
+            // are counted.
+            track(TODAY_EVENTS.ratingSet, ratingSetProps(rating !== null));
+            track(TODAY_EVENTS.favoriteSet, favoriteSetProps(favorite));
             // T-14's Undo and "Add a note" both need the diary entry this
             // wear created. `wear_outfit_tx` returns its id and this is the
             // only moment it is available — nothing else on Today can find it.
@@ -982,6 +1122,10 @@ export default function TodayScreen() {
             const failure = classifyWearFailure(error);
             setWearState((prev) => ({ ...prev, [key]: failure }));
             setWearSheetError(failure);
+            // No haptic on a failure, and no kind of failure in the payload:
+            // the reason a write did not land describes the wardrobe's server
+            // trip, not the reader, and `ok | failed` is the whole question.
+            track(TODAY_EVENTS.wearResult, wearResultProps('failed'));
           },
         },
       );
@@ -999,8 +1143,48 @@ export default function TodayScreen() {
     ? feelsClause(formatTemp(context.weather.feelsLikeC, 'F'), 'F', describeWeather(context.weather, 'F'))
     : null;
 
-  const { fontScale } = useWindowDimensions();
+
+  const { fontScale, width: screenWidth } = useWindowDimensions();
   const ax = fontScale >= AX_FONT_SCALE;
+
+  // ── THE CAROUSEL'S GEOMETRY ───────────────────────────────────────────────
+  //
+  // A page is the full screen width, and the gutter lives INSIDE the page
+  // rather than on the list. That is what makes the paging honest: every card
+  // snaps to a multiple of the same number the list scrolls by, so a swipe can
+  // never come to rest between two of them. Padding the container instead
+  // would leave the page width and the snap interval disagreeing by 40pt,
+  // which is exactly the drift that reads as a broken swipe.
+  const pageWidth = screenWidth;
+  const [activePlate, setActivePlate] = useState<PlateIndex>(1);
+
+  // The first plate is an impression too, and nothing scrolls to reach it.
+  const firstPlateRef = useRef(false);
+  useEffect(() => {
+    if (firstPlateRef.current || effectiveShown.length === 0) return;
+    firstPlateRef.current = true;
+    track(TODAY_EVENTS.plateViewed, plateViewedProps(1));
+  }, [effectiveShown.length]);
+
+  // ── APPLYING A CONTEXT, STATED HONESTLY ───────────────────────────────────
+  //
+  // The on-device engine has no latency worth a spinner: `localStyledOutfit`
+  // runs inside a memo, so by the time this render exists the plates ARE the
+  // new context's plates. That is the whole reason nothing empties — there is
+  // no gap to empty into.
+  //
+  // What can still be in flight is the ENHANCED pass, and only when a chip was
+  // the thing that started it. So the line is shown for exactly that: cards
+  // that already answer the new context, above a note saying a better answer
+  // is still being looked for. It is never shown for a background re-rank
+  // nobody asked for.
+  const [contextDirty, setContextDirty] = useState(false);
+  const [seenEnhancingForContext, setSeenEnhancingForContext] = useState(outfits.isEnhancing);
+  if (outfits.isEnhancing !== seenEnhancingForContext) {
+    setSeenEnhancingForContext(outfits.isEnhancing);
+    if (!outfits.isEnhancing) setContextDirty(false);
+  }
+  const applying = contextDirty && outfits.isEnhancing && effectiveShown.length > 0;
 
   // T-02. Read from real occasions rather than the device calendar, because
   // the interrupt's single action lands on the occasion's own outfits page and
@@ -1094,7 +1278,7 @@ export default function TodayScreen() {
         {/* Inline style, not `mt-6`: NativeWind's interop is registered for the
             RN primitives only, so a className on a Reanimated component is
             silently dropped. */}
-        <Animated.View exiting={FadeOut.duration(motion.duration.fast)} style={{ marginTop: 24 }}>
+        <Animated.View exiting={FadeOut.duration(motion.duration.fast).reduceMotion(ReduceMotion.System)} style={{ marginTop: 24 }}>
           <PlateSkeleton />
         </Animated.View>
       </SafeAreaView>
@@ -1142,11 +1326,23 @@ export default function TodayScreen() {
     );
   }
 
-  if (!canGenerate(items)) {
-    // T-10 and T-11 — an empty closet and a closet under the engine's floor,
-    // told apart. Both keep the real masthead: the date, the place and the
-    // weather are known whether or not there is anything to style, and the
-    // reader is greeted either way.
+  // ── THE ACTIVATION FLOOR — TEN, NOT EIGHT ─────────────────────────────────
+  //
+  // `canGenerate` asks the ENGINE'S question: can a beam search find anything
+  // at all in this closet? Its floor is eight, and its own docblock says eight
+  // "is internal and is never used as an instruction". This branch was using it
+  // as one, and the result was a screen that opened at eight while every other
+  // sentence in the app — The Ten, the tour, the free plan — said ten.
+  //
+  // `belowActivationFloor` asks the PRODUCT'S question, and it is the union of
+  // the two: under ten pieces, or over ten but still unstylable. So the gate
+  // now matches the instruction above it, and a closet the engine cannot dress
+  // still lands here rather than falling through to a plate that is not there.
+  if (belowActivationFloor(items.length, canGenerate(items))) {
+    // T-10 and T-11 — an empty closet and a closet under the floor, told
+    // apart. Both keep the real masthead: the date, the place and the weather
+    // are known whether or not there is anything to style, and the reader is
+    // greeted either way.
     return (
       <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <Masthead city={cityLabel} name={firstName} weather={weatherClause} />
@@ -1161,19 +1357,15 @@ export default function TodayScreen() {
           contentContainerStyle={{ paddingBottom: 96 }}>
           <ClosetFloor
             items={items}
-            remaining={Math.max(0, MIN_CLOSET_FOR_OUTFITS - items.length)}
+            remaining={piecesRemaining(items.length)}
             resolveImage={resolve}
             onStart={() => {
-              void Haptics.selectionAsync().catch(() => {});
               // The Ten, "resumed at the count rather than restarted" — it
               // hydrates from the closet it finds. A closet already past the
               // free cap has no Ten left to run, and takes the chooser.
               router.push(items.length >= PLANS.free.items ? '/add-clothes' : '/the-ten');
             }}
-            onDescribe={() => {
-              void Haptics.selectionAsync().catch(() => {});
-              router.push('/walkthrough');
-            }}
+            onDescribe={() => router.push('/walkthrough')}
           />
         </ScrollView>
       </SafeAreaView>
@@ -1239,22 +1431,64 @@ export default function TodayScreen() {
             </View>
           ) : (
             <View className="mt-5">
-              {effectiveShown.map((outfit, i) => (
-                <Plate
-                  key={idOf(outfit.candidate.items)}
-                  outfit={outfit}
-                  index={i}
-                  occasion={occasion}
-                  colophon={{ city: cityLabel, feelsLikeC: null }}
-                  resolveImage={resolve}
-                  offline
-                  dated={closetDay ? `Closet as of ${closetDay}` : null}
-                  stacked={ax}
-                  actionsUnavailable={OFFLINE_ACTIONS_REASON}
-                  onWear={() => handleWear(i)}
-                  onReact={(value) => handleReact(i, value)}
-                />
-              ))}
+              {/* The same carousel, with the one control that cannot work
+                  drawn as unavailable rather than as live.
+
+                  T-09 draws the wear action live here, on the grounds that a
+                  wear "is saved and sent when you are back". There is no such
+                  queue in this app — `useWearOutfit` is a single online RPC
+                  with nothing behind it — and drawing a live control over a
+                  write that cannot happen is the one thing this lane may not
+                  do. So the button says why instead, and the sentence is
+                  true. */}
+              <FlatList
+                data={effectiveShown}
+                keyExtractor={(outfit) => idOf(outfit.candidate.items)}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(e) => {
+                  const next = pageFromOffset(e.nativeEvent.contentOffset.x, pageWidth);
+                  if (next === activePlate) return;
+                  setActivePlate(next);
+                  track(TODAY_EVENTS.plateViewed, plateViewedProps(next));
+                }}
+                renderItem={({ item: outfit, index: i }) => (
+                  <View style={{ width: pageWidth, paddingHorizontal: GUTTER }}>
+                    <TodayPlate
+                      view={{
+                        name: outfit.name,
+                        piecesLine: piecesLine(outfit.candidate.items),
+                        garments: outfit.candidate.items,
+                        // No temperature: the forecast is exactly the thing
+                        // that could not be reached, and a known-unknown is
+                        // omitted rather than shown stale.
+                        weatherMark: closetDay ? `Closet as of ${closetDay}` : null,
+                        positionLabel: positionLabel((i + 1) as PlateIndex),
+                      }}
+                      width={pageWidth - GUTTER * 2}
+                      large={ax}
+                      resolveImage={resolve}
+                    />
+                    <View style={{ paddingTop: 16 }}>
+                      <View
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: true }}
+                        accessibilityLabel={`${TODAY_COPY.wear}. ${OFFLINE_ACTIONS_REASON}`}
+                        className="items-center justify-center rounded-md bg-tray px-6"
+                        style={{ minHeight: ax ? 56 : 44 }}>
+                        <Text variant="label" className="text-muted">
+                          {TODAY_COPY.wear}
+                        </Text>
+                      </View>
+                      <Text variant="note" className="mt-2 text-muted">
+                        {OFFLINE_ACTIONS_REASON}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              />
+              <PlateDots count={effectiveShown.length} active={activePlate} />
             </View>
           )}
         </ScrollView>
@@ -1271,7 +1505,13 @@ export default function TodayScreen() {
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       {/* `style`, not `flex-1` — NativeWind classes do not reach Reanimated
           components in this project. */}
-      <Animated.View entering={FadeIn.duration(motion.duration.base)} style={{ flex: 1 }}>
+      <Animated.View // A cross-fade is already the reduced form of this transition — there is no
+        // spring, no parallax and no cascade to strip. `ReduceMotion.System` is
+        // still declared rather than assumed: the layout-animation builders do
+        // NOT inherit the setting the `spring` presets in `theme/tokens.ts` bake
+        // in, so an undeclared fade keeps playing for somebody who asked the
+        // system for less. The composition is identical either way.
+        entering={FadeIn.duration(motion.duration.base).reduceMotion(ReduceMotion.System)} style={{ flex: 1 }}>
         <ScrollView
           contentContainerClassName="pb-24"
           keyboardShouldPersistTaps="handled"
@@ -1321,7 +1561,36 @@ export default function TodayScreen() {
               that has nothing to add — which is nearly all of them.
               `hidden` on the refusal, where there is no look for context to
               change; that gate is unchanged. */}
-          <ContextComposer state={composer} onChange={setComposer} hidden={nothingWorks} />
+          {!nothingWorks ? (
+            <View className="px-gutter" style={{ paddingTop: 12 }}>
+              <ContextChips
+                view={{
+                  weatherChip: weatherRead.chip,
+                  occasion: context11.occasion,
+                  feel: context11.feel,
+                  open: openFacet,
+                  large: ax,
+                  onOpen: (facet) => {
+                    setOpenFacet(facet);
+                    if (facet) track(TODAY_EVENTS.contextOpened, contextOpenedProps(facet));
+                  },
+                  onOccasion: (id) => {
+                    setContext11((prev) => ({ ...prev, occasion: id }));
+                    setContextDirty(true);
+                    setOpenFacet(null);
+                    track(TODAY_EVENTS.contextSet, contextSetProps('occasion', contextChoiceOf(id)));
+                  },
+                  onFeel: (id) => {
+                    setContext11((prev) => ({ ...prev, feel: id }));
+                    setContextDirty(true);
+                    setOpenFacet(null);
+                    track(TODAY_EVENTS.contextSet, contextSetProps('feel', contextChoiceOf(id)));
+                  },
+                  onWeather: requestLocation,
+                }}
+              />
+            </View>
+          ) : null}
 
           {/* An explicit pull always gets an answer, even when the answer is
               that nothing changed. Two answers, because "we couldn't reach it"
@@ -1389,44 +1658,86 @@ export default function TodayScreen() {
                 ) : null}
               </>
             ) : (
-              effectiveShown.map((outfit, i) => {
-                const key = idOf(outfit.candidate.items);
-                // Real previous wears of THIS exact core — null when this is
-                // not a repeat, so the plate renders no mark at all.
-                const previousWears = wearsOfCore(
-                  wornRecords,
-                  items,
-                  outfit.candidate.items.map((g) => g.id),
-                );
-                const entryId = wornEntryIds[key];
-                return (
-                  <Plate
-                    key={key}
-                    outfit={outfit}
-                    index={i}
-                    occasion={occasion}
-                    colophon={{ city: cityLabel, feelsLikeC: context.weather?.feelsLikeC }}
-                    resolveImage={resolve}
-                    reacted={reactions[key] ?? null}
-                    worn={wornIds.has(key)}
-                    wearing={wearState[key] === 'pending'}
-                    wearFailure={wearState[key] === 'pending' ? null : wearState[key]}
-                    stacked={ax}
-                    // One accent per frame: the interrupt takes it when it is
-                    // on screen.
-                    accent={!interrupt}
-                    hideRationale={showWithoutReason}
-                    onOpenPiece={(g) => router.push(`/item/${g.id}`)}
-                    // T-14 · what the wear changed, and the 24 hours in which
-                    // it can be changed back. Only offered once the write has
-                    // actually landed and returned its diary entry — an Undo
-                    // with nothing to address is a dead control.
-                    wornBand={
-                      entryId
-                        ? {
-                            undoing: unwear.isPending,
-                            onUndo: () => {
-                              void Haptics.selectionAsync().catch(() => {});
+              /* ── THE CAROUSEL ─────────────────────────────────────────
+                 Three cards, side by side, one page at a time — not a stack
+                 with parallax. A stack hides the second and third looks behind
+                 the first and asks a reader to discover them; a paged row shows
+                 that there are three, and the dots below say which one is up.
+
+                 `FlatList` rather than a `ScrollView` of three: the paging
+                 maths, the momentum snap and the accessibility of a paged
+                 container are all things this component already gets right on
+                 iOS, and hand-rolling them is how a swipe ends up landing
+                 between two cards.
+
+                 Each page carries its own action. A single shared "Wear this"
+                 under the row would be a control whose meaning changes as you
+                 scroll, and VoiceOver — which reads the page in order and never
+                 scrolls — would announce it after whichever card it happened to
+                 be next to. */
+              <FlatList
+                data={effectiveShown}
+                keyExtractor={(outfit) => idOf(outfit.candidate.items)}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                // The reader's own position, reported as a POSITION and never
+                // as a count. Fired on settle rather than on every frame, so a
+                // swipe that passes over card two on its way to card three does
+                // not claim card two was read.
+                onMomentumScrollEnd={(e) => {
+                  const next = pageFromOffset(e.nativeEvent.contentOffset.x, pageWidth);
+                  if (next === activePlate) return;
+                  setActivePlate(next);
+                  track(TODAY_EVENTS.plateViewed, plateViewedProps(next));
+                }}
+                contentContainerStyle={{ paddingHorizontal: 0 }}
+                renderItem={({ item: outfit, index: i }) => {
+                  const key = idOf(outfit.candidate.items);
+                  // Real previous wears of THIS exact core — null when this is
+                  // not a repeat, so the card renders no mark at all.
+                  const previousWears = wearsOfCore(
+                    wornRecords,
+                    items,
+                    outfit.candidate.items.map((g) => g.id),
+                  );
+                  const entryId = wornEntryIds[key];
+                  const worn = wornIds.has(key);
+                  const wearing = wearState[key] === 'pending';
+                  const state = wearState[key];
+                  const failure = state && state !== 'pending' ? state : null;
+                  const hasAnother = outfits.shortlist.some(
+                    (c) => !effectiveShown.some((o) => idOf(o.candidate.items) === idOf(c.items)),
+                  );
+
+                  return (
+                    <View style={{ width: pageWidth, paddingHorizontal: GUTTER }}>
+                      <TodayPlate
+                        view={{
+                          name: outfit.name,
+                          piecesLine: piecesLine(outfit.candidate.items),
+                          garments: outfit.candidate.items,
+                          weatherMark: weatherRead.mark,
+                          positionLabel: positionLabel((i + 1) as PlateIndex),
+                          // Nothing empties while a new context lands: the old
+                          // card stays legible and only this line changes.
+                          applyingLabel: applying ? TODAY_COPY.applying : null,
+                        }}
+                        width={pageWidth - GUTTER * 2}
+                        large={ax}
+                        resolveImage={resolve}
+                      />
+
+                      {/* One filled action per card, directly beneath the card
+                          it belongs to — which is also the VoiceOver order the
+                          contract asks for: the outfit, then Wear this. */}
+                      <View style={{ paddingTop: 16 }}>
+                        {worn ? (
+                          <WornMark
+                            entryId={entryId ?? null}
+                            undoing={unwear.isPending}
+                            onUndo={() => {
+                              if (!entryId) return;
                               unwear.mutate(
                                 { entryId },
                                 {
@@ -1444,29 +1755,72 @@ export default function TodayScreen() {
                                   },
                                 },
                               );
-                            },
-                            onAddNote: () => router.push(`/diary/${entryId}`),
-                          }
-                        : null
-                    }
-                    onWear={() => handleWear(i)}
-                    onReact={(value) => handleReact(i, value)}
-                    repeat={
-                      previousWears.length > 0
-                        ? {
-                            previousWears,
-                            pieceCount: items.length,
-                            totalCores,
-                            onSeePlans: openRepeatUpsell,
-                            onShowAnother: () => handleShowAnother(i),
-                          }
-                        : null
-                    }
-                  />
-                );
-              })
+                            }}
+                            onAddNote={() => entryId && router.push(`/diary/${entryId}`)}
+                          />
+                        ) : (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={TODAY_COPY.wear}
+                            accessibilityState={{ busy: wearing }}
+                            disabled={wearing}
+                            onPress={() => handleWear(i)}
+                            style={{ minHeight: ax ? 56 : 44 }}
+                            className="items-center justify-center rounded-md bg-accent px-6 active:opacity-70">
+                            <Text variant="label" style={{ color: theme.canvas }}>
+                              {TODAY_COPY.wear}
+                            </Text>
+                          </Pressable>
+                        )}
+
+                        {/* A write that did not land. The card is not lost and
+                            nothing was recorded twice — the same tap retries. */}
+                        {failure ? (
+                          <View accessibilityRole="alert" style={{ paddingTop: 10 }}>
+                            <Text variant="note" className="text-muted">
+                              {wearFailureCopy(failure).body}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {/* "Show another" only while the shortlist genuinely
+                            has one left. Withholding a live control over an
+                            empty list is how a tap comes to do nothing. */}
+                        {!worn && previousWears.length > 0 && hasAnother ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Show another"
+                            onPress={() => handleShowAnother(i)}
+                            style={{ minHeight: ax ? 56 : 44 }}
+                            className="mt-2 items-center justify-center rounded-md active:opacity-70">
+                            <Text variant="label" className="text-muted">
+                              Show another
+                            </Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    </View>
+                  );
+                }}
+              />
             )}
           </View>
+
+          {/* Decorative, and hidden from VoiceOver — the card speaks its own
+              position, so a reader never has to find this row to learn where
+              she is. */}
+          {nothingWorks ? null : <PlateDots count={effectiveShown.length} active={activePlate} />}
+
+          {/* A thin wardrobe: enough for today, said plainly and with no count.
+              Not a refusal and not a floor — the plates above are real. */}
+          {!nothingWorks && isThinWardrobe(effectiveShown.length) ? (
+            <View className="px-gutter" style={{ paddingTop: 18 }}>
+              <Text variant="eyebrow">{TODAY_COPY.thinKicker}</Text>
+              <Text variant="body" className="mt-2 text-muted">
+                {TODAY_COPY.thinBody}
+              </Text>
+            </View>
+          ) : null}
 
           {/* TD-00 · the free closet, stated whole.
                  The frame the hallway hands into after MB-07 is closed: the

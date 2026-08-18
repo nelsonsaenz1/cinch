@@ -96,6 +96,20 @@ const SECTIONS: readonly (readonly [string, readonly (readonly [string, string])
     ],
   ],
   [
+    // Redesign 11 rebuilt this screen, so its frames get their own group rather
+    // than being filed among the atlas states they replace. The T-* fixtures
+    // above are kept: they still document the plate the Reveal, the Repeat and
+    // the share card draw, none of which this redesign touched.
+    'Redesign 11 · Today',
+    [
+      ['The day — 5 poses', '/dev-r11-today'],
+      ['Context and weather', '/dev-r11-context'],
+      ['Wear flow', '/dev-r11-wear'],
+      ['Refusals', '/dev-r11-refusals'],
+      ['Activation floor', '/dev-r11-floor'],
+    ],
+  ],
+  [
     'Group 3 · Closet and Intake',
     [
       ['AC-03', '/dev-w3-g3-ac-03'],

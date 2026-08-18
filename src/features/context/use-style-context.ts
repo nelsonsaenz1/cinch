@@ -134,10 +134,20 @@ export function useStyleContext({
   note,
   colorSeason,
   targetOccasion,
+  targetFormality,
 }: {
   note?: string | null;
   colorSeason?: string | null;
   targetOccasion?: string | null;
+  /**
+   * What the reader asked the day to feel like, 0..1 — redesign 11's feel chip.
+   *
+   * Threaded rather than invented: `resolveTargetFormality` already prefers an
+   * explicit target over the calendar's dressiest commitment, so passing this
+   * asks the scorer a question it has always known how to answer. Null keeps
+   * the previous behaviour exactly, which is what every other caller gets.
+   */
+  targetFormality?: number | null;
 } = {}) {
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const qc = useQueryClient();
@@ -283,7 +293,7 @@ export function useStyleContext({
       weather: weather.data ?? null,
       events: events.data ?? [],
       note: note ?? null,
-      targetFormality: null,
+      targetFormality: targetFormality ?? null,
       targetOccasion: targetOccasion ?? null,
       season: currentSeason(now, coords.latitude),
       colorSeason: colorSeason ?? null,
@@ -293,7 +303,15 @@ export function useStyleContext({
     };
     // `now` intentionally refreshes whenever any input changes; it must not be
     // a dependency of itself.
-  }, [weather.data, events.data, note, targetOccasion, colorSeason, coords.latitude]);
+  }, [
+    weather.data,
+    events.data,
+    note,
+    targetOccasion,
+    targetFormality,
+    colorSeason,
+    coords.latitude,
+  ]);
 
   /**
    * Turn location on from inside the app.
@@ -334,6 +352,16 @@ export function useStyleContext({
     usingFallbackLocation: !coords.precise,
     weatherLoading: weather.isLoading,
     weatherFailed: weather.isError,
+    /**
+     * When the reading on screen was actually taken — redesign 11's stale
+     * state. Zero until one lands, which reads as "no reading" rather than as
+     * the epoch, because every caller checks the data first.
+     *
+     * Exposed so a reading can be DATED rather than dropped: a two-hour-old
+     * "63° and grey" is not a lie a reader can see, and the honest answer is
+     * to keep the words and add the hour.
+     */
+    weatherFetchedAt: weather.dataUpdatedAt,
     calendarEnabled,
     eventsLoading: events.isLoading,
     requestCalendar,

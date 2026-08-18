@@ -5,7 +5,7 @@ import { GarmentCell } from '@/components/today/garment-cell';
 import { Text } from '@/components/ui/text';
 import { TE_01, TE_02, TE_02_CAPTION } from '@/features/examples/example-copy';
 import { missingForFirstOutfit, tallyOf } from '@/features/closet/outfit-count';
-import { PLANS } from '@/features/billing/plans';
+import { TODAY_COPY } from '@/features/today/today-spec';
 import { numberWord } from '@/features/onboarding/reveal-copy';
 import type { Garment } from '@/lib/styling';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
@@ -72,26 +72,36 @@ export function ClosetFloor({
   const empty = items.length === 0;
   const missing = missingPhrase(missingForFirstOutfit(tallyOf(items)));
 
-  const headline = empty
-    ? 'See what your closet can do.'
-    : // Both clauses open a sentence, and `numberWord` is lowercase for the
-      // mid-sentence call sites. This headline had the same fault as the body
-      // below it — "three pieces in. two more and Cinch can dress you." — and
-      // it is the more visible of the two, since it is set in the serif.
-      `${capitalise(numberWord(items.length))} pieces in. ${capitalise(numberWord(remaining))} more ${remaining === 1 ? 'piece opens' : 'pieces open'} your first outfits.`;
+  // ── REDESIGN 11 · THE ACTIVATION FLOOR IS SAID ONCE, AND IT IS TEN ────────
+  //
+  // The headline used to move with the closet — "Three pieces in. Seven more
+  // pieces open your first outfits." — which read as progress but never named
+  // the destination on the empty screen, where it said "See what your closet
+  // can do." instead. Two headlines for one state, and neither of them a
+  // number a reader could aim at.
+  //
+  // Now the instruction is fixed and it is the accepted sentence. It can be
+  // fixed because ten is finally TRUE on this screen: Today's floor moved from
+  // the engine's internal eight to `TODAY_ACTIVATION_FLOOR`, so the words and
+  // the gate agree. A screen that asks for ten and opens at eight is a screen
+  // that lied to everybody who counted.
+  //
+  // The progress a partial closet has earned is not thrown away — it leads the
+  // body, where it belongs, under a title that stays still.
+  const headline = TODAY_COPY.floorTitle;
 
   const body = empty
-    ? // `capitalise`, not a literal "Ten": the number is `PLANS.free.items`
-      // spelled out, so it moves with the free tier the way every other
-      // statement of it does. It just happens to open a sentence here, and
-      // `numberWord` returns lowercase because most of its call sites are
-      // mid-sentence — which is how "ten pieces is enough" shipped.
-      `${capitalise(numberWord(PLANS.free.items))} ${Number(PLANS.free.items) === 1 ? 'piece is' : 'pieces are'} enough to begin. Add the clothes you reach for most, and Cinch will turn them into outfits for the day ahead.`
-    : missing
-      ? `Everything here needs something to go with it. ${capitalise(missing)} is what turns this into outfits.`
-      : 'Everything here needs something to go with it.';
+    ? TODAY_COPY.floorBody
+    : // "Three pieces in. Seven more to go." — the count is the reader's own
+      // progress toward a floor she was just told about, which is the one
+      // place on Today a number is not a score.
+      `${capitalise(numberWord(items.length))} pieces in. ${capitalise(numberWord(remaining))} more ${remaining === 1 ? 'piece' : 'pieces'} to go.${missing ? ` ${capitalise(missing)} is what turns this into outfits.` : ''}`;
 
-  const primary = empty ? 'Start your closet' : missing ? `Add ${missing}` : 'Add more pieces';
+  const primary = empty
+    ? TODAY_COPY.floorAction
+    : missing
+      ? `Add ${missing}`
+      : 'Add more pieces';
 
   const example = empty ? TE_01 : TE_02;
 

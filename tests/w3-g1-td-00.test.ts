@@ -144,13 +144,22 @@ test('TR-04 — zero is quiet: the destination prints no count', () => {
 
   const floor = code('src/components/today/closet-floor.tsx');
   assert.doesNotMatch(floor, /0 pieces|items\.length\} pieces/, floor);
-  // The ten is `PLANS.free.items` through `numberWord`, never a word typed in.
-  assert.match(floor, /numberWord\(PLANS\.free\.items\)/, floor);
+  // The ten moved with redesign 11's copy, and it is still DERIVED. The
+  // accepted floor title is "Start with ten pieces", and that sentence is
+  // built from `numberWord(TODAY_ACTIVATION_FLOOR)` — which is
+  // `PLANS.free.items` — rather than quoted, so the words and the gate cannot
+  // drift apart the way they did when Today opened at eight and said ten.
+  const spec = code('src/features/today/today-spec.ts');
+  assert.match(spec, /numberWord\(TODAY_ACTIVATION_FLOOR\)/, spec);
+  assert.match(spec, /TODAY_ACTIVATION_FLOOR = PLANS\.free\.items/, spec);
 });
 
 test('TR-04 — both intake doors survive the skip, in the hallway’s order', () => {
   const floor = code('src/components/today/closet-floor.tsx');
-  const photograph = floor.indexOf('Start your closet');
+  // Redesign 11 renamed the camera door to the accepted 'Photograph your first
+  // piece'. What TR-04 guards is unchanged: both doors are on the frame, and
+  // the camera comes first.
+  const photograph = floor.indexOf('TODAY_COPY.floorAction');
   const describe = floor.indexOf('Describe it out loud instead');
   assert.ok(photograph > -1, 'the camera door is not drawn');
   assert.ok(describe > -1, 'the voice door is not drawn');

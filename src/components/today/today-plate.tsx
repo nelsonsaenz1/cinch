@@ -1,0 +1,266 @@
+import { Pressable, View } from 'react-native';
+
+import { GarmentImage } from '@/components/media/garment-image';
+import { Text } from '@/components/ui/text';
+import { TODAY_COPY } from '@/features/today/today-spec';
+import type { Garment } from '@/lib/styling';
+import { useTheme } from '@/theme/tokens';
+
+/**
+ * Today's plate — the full-bleed collage card. Redesign 11.
+ *
+ * ── WHY THIS IS NOT `plate.tsx` ─────────────────────────────────────────────
+ *
+ * `components/today/plate.tsx` is still the card the Reveal, Repeat and the
+ * share artifact draw, and all three are outside this redesign. Rewriting it
+ * would have re-cut two shipping screens and the image people send their
+ * friends in order to restyle a third. So Today gets its own card and the old
+ * one is left exactly as it is — the redesign's blast radius stops at this
+ * screen, which is what the operating contract asks for.
+ *
+ * ── ONE ELEMENT, NOT THREE ──────────────────────────────────────────────────
+ *
+ * The collage is a single accessible node labelled with the outfit's name, its
+ * pieces in order, and its position. An outfit heard as three separate garments
+ * is not an outfit, and the position lives here rather than on the dots so a
+ * reader never has to find a decorative row to learn which card they are on.
+ */
+
+/** The accepted measures. */
+export const PLATE_RADIUS = 26;
+export const COLLAGE_HEIGHT = 236;
+export const COLLAGE_HEIGHT_AX = 168;
+
+export type TodayPlateView = {
+  /** The deterministic name. Never invented at render time. */
+  name: string;
+  /** "Wool coat, linen shirt, ankle boots" — the pieces, in layout order. */
+  piecesLine: string;
+  garments: Garment[];
+  /** "63°F · Grey", or "As of 7am" when the reading is dated. Null when none. */
+  weatherMark: string | null;
+  /** Spoken position: "card 2 of 3". */
+  positionLabel: string;
+  /** Replaces the pieces line while a new context is being composed. */
+  applyingLabel?: string | null;
+};
+
+/** The neutral tile a piece with no visible photograph takes. */
+function PiecePlaceholder() {
+  return <View className="h-full w-full rounded-lg border border-rule bg-tray" />;
+}
+
+export function TodayPlate({
+  view,
+  width,
+  large = false,
+  resolveImage,
+}: {
+  view: TodayPlateView;
+  width: number;
+  large?: boolean;
+  resolveImage: (...paths: (string | null | undefined)[]) => string | undefined;
+}) {
+  const theme = useTheme();
+
+  const spoken = [view.name, view.piecesLine, view.positionLabel].filter(Boolean).join(', ');
+
+  return (
+    <View style={{ width }}>
+      <View
+        // ONE node. `accessible` collapses the collage, the name and the pieces
+        // into a single announcement so an outfit is heard as an outfit.
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={spoken}
+        className="bg-sand"
+        style={{ borderRadius: PLATE_RADIUS, overflow: 'hidden' }}>
+        <View
+          style={{
+            height: large ? COLLAGE_HEIGHT_AX : COLLAGE_HEIGHT,
+            position: 'relative',
+            justifyContent: 'center',
+          }}>
+          {/* The weather mark. It RIDES the collage at a normal type size,
+              where a chip in the corner costs nothing — and STACKS above it at
+              an accessibility size, where it does not.
+
+              At AX-XXXL the collage shrinks to 168pt and the mark grows with
+              the type, so the absolutely-positioned version covered the first
+              garment tile outright: the reader with the largest type was the
+              one shown the fewest pieces. The mark is the same words in the
+              same order either way; only its box moves.
+
+              Absent entirely when there is no reading — a known-unknown is
+              omitted, never estimated, and never shown as a dash. */}
+          {view.weatherMark ? (
+            <View
+              className="bg-canvas"
+              style={
+                large
+                  ? { alignSelf: 'flex-start', marginLeft: 14, marginBottom: 10, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 7 }
+                  : {
+                      position: 'absolute',
+                      top: 14,
+                      left: 14,
+                      zIndex: 2,
+                      borderRadius: 14,
+                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                    }
+              }>
+              <Text variant="label" style={{ color: theme.ink }}>
+                {view.weatherMark}
+              </Text>
+            </View>
+          ) : null}
+
+          <View className="flex-row items-center justify-center" style={{ gap: 6 }}>
+            {view.garments.map((garment) => {
+              const uri = resolveImage(garment.thumbPath, garment.cutoutPath, garment.platePath);
+              return (
+                <View
+                  key={garment.id}
+                  style={{
+                    width: Math.min(112, (width - 56) / Math.max(1, view.garments.length)),
+                    height: (large ? COLLAGE_HEIGHT_AX : COLLAGE_HEIGHT) - 72,
+                  }}>
+                  {/* THE SAME PLACEHOLDER FOR ALL FOUR CAUSES.
+                      A piece can be missing its photograph because it was never
+                      taken, because the file did not load, because the garment
+                      is hidden, or because this reader is not authorized to see
+                      it. They are drawn identically and deliberately: a distinct
+                      "hidden" treatment would be evidence that a hidden garment
+                      exists, which is the inference the closet refuses
+                      everywhere else.
+
+                      Drawn HERE rather than as the image's own fallback so the
+                      placeholder inherits this tile's box. Inside `GarmentImage`
+                      it had no width of its own and its border collapsed to a
+                      hairline — a card of five hairlines does not read as an
+                      outfit, and an outfit that does not look like one is the
+                      one thing this collage may not be. */}
+                  {uri ? (
+                    <GarmentImage
+                      uri={uri}
+                      contentFit="contain"
+                      style={{ flex: 1, minWidth: 0 }}
+                      fallback={<PiecePlaceholder />}
+                    />
+                  ) : (
+                    <PiecePlaceholder />
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={{ paddingHorizontal: 20, paddingBottom: 22, paddingTop: 4, gap: 6 }}>
+          <Text variant="plate" trim numberOfLines={large ? undefined : 2}>
+            {view.name}
+          </Text>
+          {/* While a context is being applied the old plate stays legible and
+              only this line changes — nothing empties, which is the contract. */}
+          <Text variant="note" numberOfLines={large ? undefined : 2}>
+            {view.applyingLabel ?? view.piecesLine}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The page dots — decorative, and hidden from VoiceOver.
+ *
+ * Position is spoken by the card itself. A reader who had to find these to
+ * learn they were on card two would be worse off than one who heard it in the
+ * outfit's own announcement.
+ */
+export function PlateDots({ count, active }: { count: number; active: number }) {
+  const theme = useTheme();
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      className="flex-row items-center justify-center"
+      style={{ gap: 6, paddingTop: 14 }}>
+      {Array.from({ length: count }, (_, i) => {
+        const on = i + 1 === active;
+        return (
+          <View
+            key={i}
+            style={{
+              width: on ? 20 : 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: on ? theme.ink : theme.ghost,
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * A settled wear — one restrained mark, and the 24 hours it can be undone in.
+ *
+ * No confetti, no score, no streak. The accepted frame gives a wear exactly
+ * this much: a word saying it landed, a sentence saying where it went, and the
+ * two things a person might actually want next. Anything louder would be
+ * celebrating a reader for getting dressed.
+ *
+ * Undo is offered only once the write has landed and returned its diary entry.
+ * An Undo with nothing to address is a dead control, and drawing one live is
+ * the same false promise as a wear button over a connection that cannot write.
+ */
+export function WornMark({
+  entryId,
+  undoing,
+  large = false,
+  onUndo,
+  onAddNote,
+}: {
+  entryId: string | null;
+  undoing: boolean;
+  large?: boolean;
+  onUndo: () => void;
+  onAddNote: () => void;
+}) {
+  return (
+    <View className="bg-tray" style={{ borderRadius: 18, padding: 16 }}>
+      <Text variant="eyebrow">{TODAY_COPY.wornKicker}</Text>
+      <Text variant="body" className="mt-2 text-muted">
+        {TODAY_COPY.wornBody}
+      </Text>
+      {entryId ? (
+        <View className="flex-row" style={{ gap: 8, paddingTop: 12 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Undo this wear"
+            accessibilityState={{ busy: undoing }}
+            disabled={undoing}
+            onPress={onUndo}
+            style={{ minHeight: large ? 56 : 44 }}
+            className="items-center justify-center rounded-md px-4 active:opacity-70">
+            <Text variant="label" className="text-muted">
+              Undo
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add a note to today’s diary entry"
+            onPress={onAddNote}
+            style={{ minHeight: large ? 56 : 44 }}
+            className="items-center justify-center rounded-md px-4 active:opacity-70">
+            <Text variant="label" className="text-muted">
+              Add a note
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
