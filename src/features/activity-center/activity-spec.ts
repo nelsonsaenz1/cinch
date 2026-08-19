@@ -117,6 +117,26 @@ export const STAMP_PLACEMENT = 'below' as const;
 export const BACK_TILE = 44;
 export const BACK_TILE_RADIUS = 14;
 
+/**
+ * The VISIBLE gap between the back tile's bottom edge and the cap of the serif
+ * title under it.
+ *
+ * Founder defect, 2026-08-18: "the serif 'Activity' title is touching the back
+ * button tile". The masthead asked for the gap with `className="mt-3"` — twelve
+ * points — and got one, because the title is `variant="display" trim` and
+ * `trim` is a NEGATIVE margin: `capTrim('instrument', 40, 52)` collapses the
+ * 52pt line box to the cap height with `marginTop: -11`. Twelve points of margin
+ * minus eleven points of trim is a single point of air, which is what the
+ * founder is looking at.
+ *
+ * So this is stated as the gap the reader SEES, and the component adds the trim
+ * back rather than a call site guessing at a number that happens to look right.
+ * Eighteen: comfortably clear at the default size, and still clear at
+ * `MAX_DISPLAY_SCALE` (1.4), where the glyph grows into the fixed trim by
+ * roughly three points and nothing else moves.
+ */
+export const MASTHEAD_TITLE_GAP = 18;
+
 /** The tinted note cards — offline, the read failure, the edit-mode explanation. */
 export const NOTE_RADIUS = 16;
 

@@ -66,6 +66,46 @@ test('at standard size both lines of a person are single-line and truncate', () 
   );
 });
 
+test('the scroll view declares its content inset exactly once', () => {
+  // THE SECOND OVERLAP, 2026-08-18, and it was not the flex bug above.
+  //
+  // The founder reported the oxblood "Share your link" row covering the text
+  // over it. The cause was two declarations of one prop:
+  // `contentContainerClassName="pb-16"` beside `contentContainerStyle={{
+  // paddingTop: 16 }}`. NativeWind compiles the className INTO
+  // `contentContainerStyle`, so the two collided with no precedence between
+  // them and one of the values was simply gone — the same hazard `text.tsx`
+  // documents for two size utilities on one element, and the same one the Today
+  // route documents for a className on a Reanimated component.
+  //
+  // The rule is the fix: one prop, both numbers, points. A regression here is
+  // somebody adding the class back for the convenience of `pb-16`.
+  assert.doesNotMatch(CODE, /contentContainerClassName/, 'the inset is declared twice again');
+  assert.match(CODE, /contentContainerStyle=\{\{ paddingTop: LIST_TOP, paddingBottom: LIST_BOTTOM \}\}/);
+});
+
+test('the two invite rows sit clear of the field above and of each other', () => {
+  // The visible half of the same defect. The spacing is the RESTING page's own,
+  // not the scroll view's inset: lowering that would push a list of names off
+  // the bottom of a small screen in every other state this view draws.
+  const resting = CODE.slice(CODE.indexOf('function RestingState'), CODE.indexOf('function RecentHeader'));
+  assert.match(resting, /paddingTop: large \? INVITE_TOP_AX : INVITE_TOP/, 'the rows sit at the top again');
+  assert.match(resting, /gap: large \? INVITE_GAP_AX : INVITE_GAP/, 'the rows have no separation');
+
+  // Real numbers, and the AX path takes MORE rather than the same. At an
+  // accessibility size both rows are taller and the subtitle is allowed to
+  // wrap, so the crowding this fixes is worse there, not better.
+  const value = (name: string): number => {
+    const found = CODE.match(new RegExp(`const ${name} = (\\d+);`));
+    assert.ok(found, `${name} is not declared`);
+    return Number(found[1]);
+  };
+  assert.ok(value('INVITE_TOP') >= 12, 'the offer is still crowding the field');
+  assert.ok(value('INVITE_GAP') >= 12, 'the two rows are still crowding each other');
+  assert.ok(value('INVITE_TOP_AX') > value('INVITE_TOP'), 'the AX path took less room, not more');
+  assert.ok(value('INVITE_GAP_AX') > value('INVITE_GAP'), 'the AX path took less room, not more');
+});
+
 test('at the accessibility sizes composition changes instead of truncating', () => {
   // The governing contract, verbatim: "In every case composition changes and
   // height is allowed. Nothing is capped, truncated, ellipsised or scaled

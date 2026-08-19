@@ -9,6 +9,7 @@ import {
   BACK_TILE_RADIUS,
   CLEAR_BAR_HEIGHT,
   CLEAR_BAR_RADIUS,
+  MASTHEAD_TITLE_GAP,
   NOTE_RADIUS,
   REMOVE_DISC,
 } from '@/features/activity-center/activity-spec';
@@ -24,7 +25,20 @@ import {
   ROW_REMOVE,
 } from '@/features/activity-center/copy';
 import { haptics } from '@/lib/haptics';
+import { capTrim, leading } from '@/theme/font-metrics';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
+
+/**
+ * What `variant="display" trim` takes off the top, in points — the same call
+ * `components/ui/text.tsx` makes to build its `TRIMS` table, read here rather
+ * than copied as a digit so the two can never drift.
+ *
+ * Negative by construction: the trim exists to collapse Instrument Serif's tall
+ * line box to the cap height. Adding it back below is what turns
+ * `MASTHEAD_TITLE_GAP` from a margin nobody can predict into the gap the reader
+ * actually sees.
+ */
+const DISPLAY_TRIM_TOP = capTrim('instrument', 40, leading('instrument', 40, 1.05)).marginTop;
 
 /**
  * The furniture of redesign 28's Activity page — everything that is not a row.
@@ -107,9 +121,16 @@ export function ActivityMasthead({
         ) : null}
       </View>
 
-      <Text variant="display" trim accessibilityRole="header" className="mt-3">
-        {NAV_TITLE}
-      </Text>
+      {/* The gap is carried by a wrapper, not by a class on the title.
+          `mt-3` on the Text itself was competing with the trim's own negative
+          `marginTop` on the same element — twelve minus eleven, one point of
+          air, and the two touched. Outside the trim, the number means what it
+          says. See `MASTHEAD_TITLE_GAP`. */}
+      <View style={{ marginTop: MASTHEAD_TITLE_GAP - DISPLAY_TRIM_TOP }}>
+        <Text variant="display" trim accessibilityRole="header">
+          {NAV_TITLE}
+        </Text>
+      </View>
     </View>
   );
 }

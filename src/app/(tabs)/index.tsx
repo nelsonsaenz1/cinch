@@ -59,6 +59,7 @@ import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import { AX3_FONT_SCALE } from '@/theme/type-scale';
 import { RepeatExhausted } from '@/components/today/repeat-exhausted';
 import { TasteMark } from '@/components/today/taste-mark';
+import { TodayUpsell } from '@/components/today/upsell-bubble';
 import { WeatherStrip } from '@/components/today/weather-strip';
 import { WearConfirmationSheet } from '@/components/today/wear-confirmation-sheet';
 import { tasteSignal } from '@/features/today/wear-confirm-spec';
@@ -1032,6 +1033,22 @@ export default function TodayScreen() {
   // flash a claim that is false for it.
   const planState = usePlan();
   const knownPlan = planState.loading || planState.unconfirmed ? null : planState.plan;
+  /**
+   * "See plans", from a prompt this screen drew.
+   *
+   * ONE CALLBACK FOR TWO PROMPTS, and `repeat_upsell` is the right placement for
+   * both. `placements.ts` describes it as the one placement offered after copy
+   * "has honestly explained why" — nothing has been refused by a server, the
+   * user is simply being shown the door — which is exactly the shape of the
+   * membership bubble as well as The Repeat's panel. Every alternative is
+   * already spoken for and would be a lie about what happened:
+   * `add_garment_over_limit` and its siblings fire after a refusal,
+   * `trial_expired` after a lapse, `reveal_complete` on the Reveal, and
+   * `membership_upgrade` is MB-09's Standard→Pro delta for somebody already
+   * paying. No new placement is created for this; an unmatched one would
+   * silently do nothing, and a duplicate would split one campaign's numbers in
+   * two.
+   */
   const openRepeatUpsell = useCallback(() => void gate.present(Placement.RepeatUpsell), [gate]);
 
   // The pull kicks off three fetches — the re-rank, the closet and the
@@ -1067,18 +1084,42 @@ export default function TodayScreen() {
   // the pill fills on the tap and settles to saved or failed when the write
   // answers. A failed write leaves the row pressable so the same tap retries,
   // which is the rule the wear action already follows two blocks down.
+  //
+  // ── AND THEY UN-TAP ───────────────────────────────────────────────────────
+  //
+  // Founder defect, 2026-08-18: the pills latched. One handler covers both
+  // directions rather than two, because setting and clearing are the same fact
+  // about the same outfit and the optimistic state they move is the same entry.
+  // A `clear` tap goes through the same mutation with the same `source`, so
+  // nothing downstream has to learn a second shape — see `retractOutfitReaction`
+  // in `features/styling/mutations.ts` for what the server does with it.
+  //
+  // A clear that FAILS settles back to `saved`, which is not a consolation
+  // state: the reaction genuinely is still recorded on the server, so a filled
+  // pill is the true drawing of that failure and the next tap retries the clear.
   const [reactions, setReactions] = useState<Record<string, TasteState>>({});
 
   const handleReact = useCallback(
-    (index: number, choice: 'love' | 'hate') => {
+    (index: number, choice: 'love' | 'hate', clear = false) => {
       const outfit = effectiveShown[index];
       if (!outfit) return;
       const key = idOf(outfit.candidate.items);
       const liked = choice === 'love';
       const settle = (status: 'saved' | 'failed') =>
         setReactions((prev) => (prev[key] ? { ...prev, [key]: { choice, status } } : prev));
+      // The entry is REMOVED rather than set to a cleared value: absence is what
+      // the row means by "no reaction", and it is what the server now holds too.
+      const forget = () =>
+        setReactions((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
 
-      setReactions((prev) => ({ ...prev, [key]: { choice, status: 'pending' } }));
+      setReactions((prev) => ({
+        ...prev,
+        [key]: { choice, status: clear ? 'clearing' : 'pending' },
+      }));
       react.mutate(
         {
           candidate: outfit.candidate,
@@ -1086,8 +1127,12 @@ export default function TodayScreen() {
           liked,
           profile,
           source: 'today',
+          clear,
         },
-        { onSuccess: () => settle('saved'), onError: () => settle('failed') },
+        {
+          onSuccess: () => (clear ? forget() : settle('saved')),
+          onError: () => settle(clear ? 'saved' : 'failed'),
+        },
       );
     },
     [effectiveShown, profile, outfits.shortlist, react],
@@ -1895,6 +1940,7 @@ export default function TodayScreen() {
                             large={ax}
                             disabled={outfits.status === 'offline'}
                             onChoose={(choice) => handleReact(i, choice)}
+                            onClear={(choice) => handleReact(i, choice, true)}
                           />
                         ) : null}
 
@@ -1979,6 +2025,28 @@ export default function TodayScreen() {
           )}
         </ScrollView>
       </Animated.View>
+      {/* The membership bubble, for an account that is not paying — founder
+          order, 2026-08-18. A sibling of the scroll view rather than a child of
+          it, so it arrives OVER the morning rather than pushing the outfit down
+          the page; `TodayUpsell` is `pointerEvents="box-none"` outside its own
+          card, so the carousel behind it still swipes.
+
+          Drawn from this state and only this one. The loading, failed and
+          under-the-floor branches return above and none of them mounts it: a
+          closet that cannot be read is not a closet anyone can be told about,
+          and an account under the activation floor has not met the product yet.
+
+          Everything it says — and whether it says anything at all — is
+          `features/billing/upsell-bubble.ts`. This site passes the plan state
+          through and nothing else. */}
+      <TodayUpsell
+        plan={planState.plan}
+        trialing={planState.trialing}
+        trialEndsAt={planState.trialEndsAt}
+        ready={!planState.loading && !planState.unconfirmed}
+        onSeePlans={openRepeatUpsell}
+      />
+
       {/* Redesign 13. The sheet is handed a PHASE rather than a boolean and a
           pre-rendered error string: the four states it draws — idle,
           confirming, settled, failed — are distinct compositions, and a

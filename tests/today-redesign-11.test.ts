@@ -302,9 +302,67 @@ test('Undo is offered only once there is a diary entry to undo', () => {
 // ---------------------------------------------------------------------------
 
 test('no paywall, gate or access chrome on Today', () => {
-  // The verified access model is a 14-day server-side trial. A reader inside
-  // it, at its boundary, or past it sees the ordinary page.
-  assert.doesNotMatch(ROUTE_CODE, /trial|paywall|locked|upgrade to/i);
+  // NARROWED 2026-08-18, by founder order, and the narrowing is the argument.
+  //
+  // This test used to refuse the WORD "trial" anywhere in the route. That was a
+  // proxy for the real rule, and it was a good proxy for as long as Today had
+  // nothing to say about membership: the verified access model is a 14-day
+  // server-side trial, and a reader inside it, at its boundary, or past it saw
+  // the ordinary page. The founder has now asked for one thing on this page that
+  // knows about it — a dismissible bubble that tells a free or trialing account
+  // what its membership actually is — so the word necessarily appears, as a prop
+  // name (`trialing={planState.trialing}`) handed to a component.
+  //
+  // What the test guarded was never the word. It was that NOTHING ON TODAY IS
+  // WITHHELD FROM ANYONE, and that survives intact and is asserted directly
+  // below. The day's outfits, the wear action, the taste row and the invite line
+  // are drawn for every account on every tier; the bubble is additive chrome
+  // over a whole page, not a lid on a partial one.
+  //
+  // 1 · No lock, no gate, no paywall document drawn by this app.
+  assert.doesNotMatch(ROUTE_CODE, /paywall|locked|\block\b|gated|blur/i);
+  // 2 · Nothing on the page is conditional on the tier. `knownPlan` reaches
+  //     exactly two places — the capacity NOTE, which is a sentence, and the
+  //     bubble — and neither of them stands between a reader and an outfit.
+  const gatedOnPlan = ROUTE_CODE.match(/(?:plan|trialing|planState)[^\n]{0,40}\?[^\n]{0,60}:/g) ?? [];
+  for (const branch of gatedOnPlan) {
+    assert.doesNotMatch(branch, /TodayPlate|TODAY_COPY\.wear|TasteRow|FlatList/, branch);
+  }
+  // 3 · The bubble's CTA opens an EXISTING placement and invents none. A new
+  //     placement string would be an unmatched campaign — a control that
+  //     silently does nothing — and is the one thing a punch-list fix may not
+  //     add to the billing surface.
+  //     Two, and the bubble added neither: `generate_outfit_over_limit` is the
+  //     re-rank's own quota refusal and predates this wave, and `repeat_upsell`
+  //     was already The Repeat's "See plans" door — the bubble shares it rather
+  //     than minting a third, because it is the same moment (nothing refused,
+  //     the user offered a door after honest copy) at a different call site.
+  const placements = ROUTE_CODE.match(/Placement\.\w+/g) ?? [];
+  assert.deepEqual(
+    [...new Set(placements)].sort(),
+    ['Placement.GenerateOutfitOverLimit', 'Placement.RepeatUpsell'],
+  );
+  assert.doesNotMatch(ROUTE_CODE, /registerPlacement|placement: '/);
+});
+
+test('the membership bubble is dismissible, and says only what plans.ts knows', () => {
+  // Founder order, 2026-08-18. The bubble itself is `components/today/
+  // upsell-bubble.tsx` and its copy is `features/billing/upsell-bubble.ts`;
+  // `tests/upsell-bubble.test.ts` holds what it SAYS. What belongs here is the
+  // half that is about Today: that it cannot become a wall.
+  const card = stripped(readFileSync('src/components/today/upsell-bubble.tsx', 'utf8'));
+  // Two ways out, one of them a word rather than a second filled control.
+  assert.match(card, /UPSELL_COPY\.dismiss/);
+  assert.match(card, /UPSELL_COPY\.close/);
+  assert.equal((card.match(/setDismissed\(true\)/g) ?? []).length, 1, 'one dismissal path');
+  // The page behind it stays live. Without `box-none` an absolutely positioned
+  // full-width overlay eats every touch across the screen, which would make a
+  // dismissible card a modal in everything but name.
+  assert.match(card, /pointerEvents="box-none"/);
+  assert.doesNotMatch(card, /accessibilityViewIsModal|<Modal|backdrop|scrim/i);
+  // No price is typed into the layout — the app has no StoreKit, and every
+  // price it has ever shown was Superwall rendering its own document.
+  assert.doesNotMatch(card, /\$\d|\/mo\b|\/yr\b|monthlyPriceHint|annualPriceHint/);
 });
 
 test('no streak, score, leaderboard or public metric', () => {
@@ -351,6 +409,68 @@ test('taste learning has BOTH its channels, and neither is the legacy bar', () =
   const TASTE_ROW = stripped(readFileSync('src/components/today/taste-row.tsx', 'utf8'));
   assert.doesNotMatch(TASTE_ROW, /expo-haptics/, 'the taste row must go through @/lib/haptics');
   assert.match(TASTE_ROW, /@\/lib\/haptics/);
+});
+
+test('the taste pills are toggles, and the clear is a real server retraction', () => {
+  // Founder defect, 2026-08-18: "Love it" and "Hate it" latched — once tapped
+  // they could not be un-tapped, and the only way out of a mis-tap was never to
+  // see that outfit again.
+  //
+  // A latch matters more here than almost anywhere else in the app because of
+  // what is on the other end of it: `apply_outfit_reaction` folds the reaction
+  // into `style_profiles.weights`, so a mis-tapped "Hate it" is not a wrong
+  // pixel — it is the learner being taught something the user does not believe,
+  // on the screen whose whole purpose is to learn what they do. So the assertion
+  // is not merely that the pill un-highlights.
+  const TASTE_ROW = stripped(readFileSync('src/components/today/taste-row.tsx', 'utf8'));
+  const MUTATIONS = stripped(readFileSync('src/features/styling/mutations.ts', 'utf8'));
+
+  // 1 · The recorded pill is a control, and pressing it clears.
+  assert.match(TASTE_ROW, /const clears = chosen && value\?\.status === 'saved'/);
+  assert.match(TASTE_ROW, /if \(clears\) onClear\(choice\);\s*\n\s*else onChoose\(choice\);/);
+  // Selected in both directions, spoken as well as drawn — the fill is never
+  // the only carrier of which one is on.
+  assert.match(TASTE_ROW, /accessibilityState=\{\{ selected: chosen, disabled: inert, busy \}\}/);
+  assert.match(TASTE_ROW, /accessibilityHint=\{clears \? 'Clears this reaction' : undefined\}/);
+
+  // 2 · A tap mid-write cannot race its own save. A clear that overtook its
+  //     insert would delete a row that is not there yet and leave the reaction
+  //     recorded under a cleared pill — silent, and unrecoverable from the UI.
+  assert.match(TASTE_ROW, /'pending' \|\| value\?\.status === 'clearing'/);
+  assert.match(TASTE_ROW, /const inert = disabled \|\| \(spent && !chosen\) \|\| busy/);
+
+  // 3 · A FAILED SAVE still retries rather than clearing: nothing was recorded,
+  //     so there is nothing to take back.
+  assert.match(ROUTE_CODE, /onError: \(\) => settle\(clear \? 'saved' : 'failed'\)/);
+
+  // 4 · The clear reaches the SERVER, through the mutation that already exists.
+  //     A local-only un-highlight would leave the training corpus asserting an
+  //     opinion the user withdrew, and every reaction row stores its own
+  //     features and baseline precisely so the model can be replayed from it.
+  assert.match(ROUTE_CODE, /onClear=\{\(choice\) => handleReact\(i, choice, true\)\}/);
+  assert.match(MUTATIONS, /clear = false/);
+  assert.match(MUTATIONS, /await retractOutfitReaction\(/);
+
+  // 5 · No new table, no new RPC, no new grant. The delete rides the owner
+  //     policy and the grant that shipped in 20260803210000 / 20260806100000,
+  //     and absence is the schema's own cleared state because
+  //     `reaction smallint not null check (reaction in (-1, 1))` has no neutral
+  //     to write — the same idiom `today_ratings_favorites` uses for a null
+  //     `wear_rating` and `useSetDailyReaction` uses for a retracted reaction.
+  assert.match(MUTATIONS, /\.from\('outfit_reactions'\)\s*\n?\s*\.delete\(\)/);
+  assert.doesNotMatch(MUTATIONS, /reaction: 0|p_reaction: 0/, 'a neutral the check constraint refuses');
+  const migration = readFileSync(
+    'supabase/migrations/20260803210000_styling_learning_social.sql',
+    'utf8',
+  );
+  assert.match(migration, /check \(reaction in \(-1, 1\)\)/, 'the constraint this design is shaped by');
+  assert.match(migration, /outfit_reactions: owner can delete/, 'the policy the clear rides');
+
+  // 6 · Both directions get the lightest intent the policy has, from the one
+  //     door onto expo-haptics. A clear is not a commit.
+  assert.match(TASTE_ROW, /haptics\.selection\(\)/);
+  assert.doesNotMatch(TASTE_ROW, /haptics\.(commit|success|warning)\(/);
+  assert.doesNotMatch(TASTE_ROW, /expo-haptics/);
 });
 
 test('the floor says the accepted sentence, and does not print a nought', () => {

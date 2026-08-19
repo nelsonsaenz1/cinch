@@ -34,6 +34,7 @@ import {
   AX_SCALE,
   BACK_TILE,
   CLEAR_BAR_HEIGHT,
+  MASTHEAD_TITLE_GAP,
   META_SIZE,
   REMOVE_DISC,
   ROW_AVATAR,
@@ -69,6 +70,15 @@ import {
 } from '../src/features/activity-center/copy.ts';
 import { AX_FONT_SCALE } from '../src/components/today/reaction-spec.ts';
 import { MIN_TAP_TARGET } from '../src/theme/metrics.ts';
+import { MAX_DISPLAY_SCALE } from '../src/theme/type-scale.ts';
+import { FACES, capTrim, leading } from '../src/theme/font-metrics.js';
+
+/**
+ * The trim the masthead compensates for, recomputed here from the same metrics
+ * the component reads — so this file checks the ARITHMETIC rather than restating
+ * a number that could drift with the font table.
+ */
+const DISPLAY_TRIM_TOP = capTrim('instrument', 40, leading('instrument', 40, 1.05)).marginTop;
 
 const code = (path: string): string => readFileSync(path, 'utf8');
 
@@ -313,6 +323,42 @@ test('every control on the page clears the 44pt floor', () => {
   assert.doesNotMatch(inline, /hitSlop/);
   // The disc is under the floor by design and compensates.
   assert.match(body(PARTS), /hitSlop=\{\(MIN_TAP_TARGET - REMOVE_DISC\) \/ 2\}/);
+});
+
+test('the serif title never touches the back tile above it', () => {
+  // Founder defect, 2026-08-18: "the serif 'Activity' title is touching the back
+  // button tile".
+  //
+  // The masthead asked for the gap with `className="mt-3"` and got ONE POINT of
+  // it, which is arithmetic rather than bad luck: the title is
+  // `variant="display" trim`, and `trim` is a NEGATIVE margin —
+  // `capTrim('instrument', 40, 52)` collapses Instrument Serif's tall line box
+  // to the cap height with `marginTop: -11`. Twelve points of class minus eleven
+  // points of trim is one point of air, on the same element, invisibly.
+  //
+  // So the two rules below are the fix, and the second is the one that keeps it
+  // fixed: the gap is stated as what the READER SEES, and the component adds the
+  // trim back from `font-metrics` rather than any call site guessing at a number
+  // that happens to look right today.
+  assert.ok(MASTHEAD_TITLE_GAP >= 16, 'the stated gap is back under a comfortable minimum');
+  const source = body(PARTS);
+  // Never on the trimmed element itself — that is the collision.
+  assert.doesNotMatch(source, /variant="display" trim[^>]*className="mt-/);
+  assert.match(source, /marginTop: MASTHEAD_TITLE_GAP - DISPLAY_TRIM_TOP/);
+  // And the compensation is READ, not typed. A literal −11 here would be a
+  // second copy of `text.tsx`'s TRIMS table, free to drift from it.
+  assert.match(source, /capTrim\('instrument', 40, leading\('instrument', 40, 1\.05\)\)\.marginTop/);
+  assert.equal(
+    DISPLAY_TRIM_TOP,
+    capTrim('instrument', 40, leading('instrument', 40, 1.05)).marginTop,
+    'the display trim moved and the masthead did not follow',
+  );
+  // The gap survives Dynamic Type. The trim is a fixed point value and does not
+  // scale, so a grown glyph eats into it — at the display cap (1.4) that is
+  // roughly the ascender's share of the growth, and the remainder must still be
+  // real air rather than a touch.
+  const eaten = 40 * (MAX_DISPLAY_SCALE - 1) * (FACES.instrument.ascent - FACES.instrument.capHeight);
+  assert.ok(MASTHEAD_TITLE_GAP - eaten > 8, 'the title closes on the tile at an accessibility size');
 });
 
 test('the AX threshold is the app’s one threshold', () => {

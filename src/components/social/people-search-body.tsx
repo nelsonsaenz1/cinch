@@ -88,6 +88,45 @@ const HEADLINE_LEADING = leading('instrument', HEADLINE_SIZE, 1.1);
 /** The row disc. Large enough to carry two initials at reading size. */
 const DISC = 52;
 
+/**
+ * ── THE SECOND OVERLAP, AND IT WAS NOT A FLEX BUG ─────────────────────────
+ *
+ * Founder defect, 2026-08-18: "the 'Share your link' oxblood row is covering
+ * the text above it". The first overlap on this page was a flex negotiation
+ * inside a row (see the header); this one was a padding that never arrived.
+ *
+ * The scroll view declared its inset TWICE — `contentContainerClassName="pb-16"`
+ * and `contentContainerStyle={{ paddingTop: 16 }}` — and NativeWind compiles
+ * `contentContainerClassName` INTO `contentContainerStyle`. Two declarations of
+ * one prop, with no precedence between them, is the same hazard this repository
+ * has already written up twice: "NativeWind gives no precedence between two size
+ * utilities on one element" (`components/ui/text.tsx`) and "a className on a
+ * Reanimated component is silently dropped" (`app/(tabs)/index.tsx`). Whichever
+ * of the two won, the other's value was gone — and the loser was the top inset,
+ * so the oxblood row came to rest hard against the search field above it.
+ *
+ * Both numbers are stated once, in one prop, as points. `pb-16` was 64.
+ */
+const LIST_TOP = 16;
+const LIST_BOTTOM = 64;
+
+/**
+ * How much further down the two invite rows sit, and how far apart.
+ *
+ * Not folded into `LIST_TOP`: that inset belongs to every state this scroll view
+ * draws — the results, the skeleton, the empty page — and lowering all of them
+ * to fix the resting page would push a list of names off the bottom of a small
+ * screen. These two numbers are the resting page's own breathing room.
+ *
+ * Larger at an accessibility size, because both rows are taller there and the
+ * subtitle is allowed to wrap: the crowding this fixes is a function of how much
+ * ink is in the row, and at AX there is more of it.
+ */
+const INVITE_TOP = 14;
+const INVITE_TOP_AX = 22;
+const INVITE_GAP = 14;
+const INVITE_GAP_AX = 18;
+
 export function PeopleSearchBody({
   view,
   large = false,
@@ -125,10 +164,10 @@ export function PeopleSearchBody({
           At the accessibility sizes, where the page is twice its own height,
           that is the difference between a usable screen and a truncated one.
           The auth screens set it for the same reason. */}
+      {/* One declaration of the content inset, not two — see `LIST_TOP`. */}
       <KeyboardAwareScrollView
         className="flex-1"
-        contentContainerClassName="pb-16"
-        contentContainerStyle={{ paddingTop: 16 }}>
+        contentContainerStyle={{ paddingTop: LIST_TOP, paddingBottom: LIST_BOTTOM }}>
         {resting ? (
           <RestingState view={view} large={large} />
         ) : !asked ? (
@@ -211,7 +250,15 @@ function Masthead({ onCancel, large }: { onCancel: () => void; large: boolean })
 function RestingState({ view, large }: { view: PeopleSearchView; large: boolean }) {
   return (
     <View>
-      <View className="px-gutter" style={{ gap: 12 }}>
+      {/* Both rows sit lower than the field above them and clear of each
+          other. The AX path takes the same treatment at its own sizes — the
+          rows grow there, so the space between them has to as well. */}
+      <View
+        className="px-gutter"
+        style={{
+          paddingTop: large ? INVITE_TOP_AX : INVITE_TOP,
+          gap: large ? INVITE_GAP_AX : INVITE_GAP,
+        }}>
         <InviteRow
           tone="primary"
           heading={COPY.shareHeading}

@@ -25,6 +25,79 @@ import {
 export type ReactionSource = 'today' | 'chat' | 'shuffle' | 'onboarding_quiz';
 
 /**
+ * Take back the last reaction this screen recorded about exactly these clothes.
+ *
+ * ── WHY A DELETE, AND NOT A THIRD VALUE ───────────────────────────────────
+ *
+ * `outfit_reactions.reaction` is `smallint not null check (reaction in (-1, 1))`
+ * (migration 20260803210000). There is no neutral to write: a zero is refused by
+ * the constraint, and inventing one would need a migration this run may not make.
+ * The schema's own idiom for "cleared" is ABSENCE — the same idiom
+ * `20260816190545_today_ratings_favorites` uses for `wear_rating` (null means
+ * unrated) and `favorited_at` (null means not favourited), and the same one
+ * `useSetDailyReaction` already uses when a daily reaction is retracted: "a
+ * 'none' reaction would be a row that exists to say nothing".
+ *
+ * The permission for it already exists and predates this change:
+ * `outfit_reactions: owner can delete` (20260803210000) plus the explicit
+ * `grant select, insert, delete on outfit_reactions to authenticated`
+ * (20260806100000). Nothing new is granted here.
+ *
+ * ── WHAT IT DOES NOT UNDO, STATED RATHER THAN GLOSSED ─────────────────────
+ *
+ * `apply_outfit_reaction` folded the reaction into `style_profiles.weights` when
+ * it was recorded, and deleting the event does not run that arithmetic backwards
+ * — nothing on the client or the server can, because the update is absolute
+ * rather than incremental. What the delete buys is a TRUTHFUL CORPUS: every
+ * reaction row stores its own `features` and `baseline` precisely so the model
+ * can be replayed from the log (see 20260804202000's own note), and a replay
+ * that still contained an opinion the user withdrew would relearn it forever. So
+ * the retraction is permanent where it counts and silent where it does not.
+ *
+ * `feedback_count` is deliberately left alone: it is the optimistic-concurrency
+ * version token, not a tally anyone reads, and decrementing it would make two
+ * clients' snapshots agree when they do not.
+ *
+ * ── THE MATCH IS EXACT, AND SCOPED TO ONE OPINION ─────────────────────────
+ *
+ * `contains` + `containedBy` on the same array is set equality in PostgREST, so
+ * this finds reactions about THIS outfit's clothes and no supersets of them; the
+ * `source` filter keeps a Today retraction from reaching into an opinion given in
+ * the stylist. Newest first, one row: taking back this morning's answer must not
+ * also erase what the same three pieces were told last week.
+ *
+ * A miss is not an error. Nothing recorded is already the state being asked for.
+ */
+async function retractOutfitReaction(
+  userId: string,
+  itemIds: string[],
+  source: ReactionSource,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('outfit_reactions')
+    .select('id')
+    // RLS already scopes this to the owner. The filter is here so single-ness
+    // does not depend on a policy staying exactly as narrow as it is today.
+    .eq('user_id', userId)
+    .eq('source', source)
+    .contains('item_ids', itemIds)
+    .containedBy('item_ids', itemIds)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) throw error;
+
+  const row = data?.[0];
+  if (!row) return;
+
+  const { error: deleteError } = await supabase
+    .from('outfit_reactions')
+    .delete()
+    .eq('id', row.id);
+  if (deleteError) throw deleteError;
+}
+
+/**
  * Record a like or dislike and fold it into the learned model.
  *
  * The learning maths runs on the client because the client is where the rest of
@@ -42,6 +115,16 @@ export type ReactionSource = 'today' | 'chat' | 'shuffle' | 'onboarding_quiz';
  * saved and failed as three different things instead of confirming the write
  * the moment the user taps. If offline reactions are ever wanted they need an
  * actual outbox; do not describe one here until it exists.
+ *
+ * ── `clear` — THE SAME SURFACE, RUN BACKWARDS ─────────────────────────────
+ *
+ * Added 2026-08-18 by founder order: Today's taste pills latched, and a control
+ * that cannot be un-tapped is a control that records a mistake permanently. The
+ * retraction is a flag on this mutation rather than a second hook because it is
+ * the same fact about the same outfit — one call site, one pending state, one
+ * failure story — and because a caller that had to choose between two hooks
+ * would eventually call the wrong one. See `retractOutfitReaction` above for what
+ * a clear does on the server and, more importantly, what it does not.
  */
 export function useReactToOutfit() {
   const qc = useQueryClient();
@@ -55,6 +138,7 @@ export function useReactToOutfit() {
       outfitId,
       reason,
       source = 'today',
+      clear = false,
     }: {
       candidate: OutfitCandidate;
       /** Every candidate that was on screen, including this one. */
@@ -64,9 +148,26 @@ export function useReactToOutfit() {
       outfitId?: string | null;
       reason?: string;
       source?: ReactionSource;
+      /**
+       * Take the reaction back rather than record one.
+       *
+       * `liked` is still read — it says WHICH pill the user tapped, which is
+       * what the caller's optimistic state is keyed on — but nothing is learned
+       * from it and no weights are computed, because there is no new opinion.
+       */
+      clear?: boolean;
     }) => {
       const userId = await getUserId();
       if (!userId) throw new Error('Not signed in.');
+
+      if (clear) {
+        await retractOutfitReaction(
+          userId,
+          candidate.items.map((g) => g.id),
+          source,
+        );
+        return { cleared: true as const };
+      }
 
       const baseline: FeatureVector = meanFeatures(
         shownAlongside.length ? shownAlongside : [candidate],
@@ -104,10 +205,17 @@ export function useReactToOutfit() {
       // refused. `applied: false` means someone beat us to it, so the local
       // vector is stale and must not be written into the cache.
       const applied = (data as { applied?: boolean } | null)?.applied !== false;
-      return { weights, affinities, summary, applied };
+      return { cleared: false as const, weights, affinities, summary, applied };
     },
 
     onSuccess: (next, vars) => {
+      // A retraction is SILENT, and deliberately so — the same rule
+      // `useSetDailyReaction` states: "a retraction measured as an event would
+      // be a record of a person changing their mind". There is also nothing to
+      // write into the profile cache, because the delete moved no weights and
+      // no version token; see `retractOutfitReaction`.
+      if (next.cleared) return;
+
       // Boolean and source only. The candidate's items, reason text and
       // feature vector are user data and stay out of analytics.
       track('outfit_reacted', { liked: vars.liked, source: vars.source ?? 'today' });
