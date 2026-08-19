@@ -121,9 +121,14 @@ const LIST_BOTTOM = 64;
  * Larger at an accessibility size, because both rows are taller there and the
  * subtitle is allowed to wrap: the crowding this fixes is a function of how much
  * ink is in the row, and at AX there is more of it.
+ *
+ * 2026-08-18, second pass: the founder looked at 14 and asked for the rows
+ * "below the search box", plural and unambiguous — the offer is a destination,
+ * not a continuation of the field. With `LIST_TOP` the first row now clears
+ * the field by 50pt.
  */
-const INVITE_TOP = 14;
-const INVITE_TOP_AX = 22;
+const INVITE_TOP = 34;
+const INVITE_TOP_AX = 44;
 const INVITE_GAP = 14;
 const INVITE_GAP_AX = 18;
 
