@@ -153,6 +153,18 @@ stopped you and what the screen said.
 
 ## 5 · Known traps
 
+- **⚠️ 2026-08-18: a Cowork agent cannot upload the files.** The browser
+  extension's `file_upload` tool is unavailable in the Cowork session — it
+  rejects both connected-folder paths and outputs-folder paths with
+  *"the client converted them before they reached the host and file_upload is
+  unavailable here."* Chrome is also tier-"read" for computer-use, so
+  drag-and-drop from Finder is blocked too. **An agent can do every step of
+  this directive except the actual upload**: it can find the version state,
+  delete the old set, verify sizes, reorder, save, and submit — but the seven
+  files must be dragged in by the founder, or by a session where `file_upload`
+  works. Plan the run so the delete happens immediately before the founder is
+  available to drag, not hours earlier.
+
 - ASC's session expires ~30 min idle. If you get bounced to sign-in
   mid-task, your saved work survives; stop and have the founder sign in again.
 - The upload spinner can sit for minutes on 8MB PNGs. Wait; do not re-drag
