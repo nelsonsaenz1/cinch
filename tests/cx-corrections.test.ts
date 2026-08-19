@@ -542,17 +542,38 @@ const ACCEPTED: Record<string, [path: string, headline: string, support: string]
   // people wore, and the masthead says so — the day's own heading, in the
   // second register every masthead in this app uses. The support line is
   // read from the spec rather than typed twice.
-  // The third column is what must appear in the ROUTE. Explore renders its
-  // support line from the spec, so the token is what the route contains and
-  // the sentence itself is asserted against the spec just below.
-  Explore: [EXPLORE, 'Explore', 'EXPLORE_COPY.support'],
+  // Explore left this table on 2026-08-18 and has its own test below, for the
+  // same reason Plan is absent: the founder withdrew its support line, so
+  // there is no third column left to assert. The table is kept — it is the
+  // shape this rule is written in, and the next accepted masthead joins it
+  // rather than growing a fourth bespoke test.
 };
 
-test('LP-06/R17 — Explore’s support line is the day’s own heading', () => {
+test('LP-06/R17 — Explore’s support line survives where it is TRUE', () => {
+  // The sentence is unchanged and still pinned. What changed is where it is
+  // drawn: it is the day heading over a group of looks, which is what it
+  // always described, and it is no longer ALSO the masthead's eyebrow.
   assert.equal(EXPLORE_COPY.support, 'What your circle wore');
   // And it is not the sentence it replaced, which described the secondary
   // section rather than the page.
   assert.notEqual(EXPLORE_COPY.support, 'New in your circle.');
+});
+
+test('LP-06 — Explore is a masthead of ONE register', () => {
+  // WITHDRAWN 2026-08-18, by founder order.
+  //
+  // "WHAT YOUR CIRCLE WORE" was drawn uppercase and tracked out directly
+  // under a 40pt serif `Explore`, and it captioned a page that captions
+  // itself: every row below it is a dated look with a friend's name on it.
+  // The rule LP-06 is really defending is that a masthead is at most two
+  // registers and never a paragraph — a masthead of one register does not
+  // violate it, which is why Plan sits in the same position two tests down.
+  const src = body(EXPLORE);
+  assert.match(src, /variant="display"[^>]*>\s*Explore\s*</, 'Explore lost its display headline');
+  assert.ok(
+    !src.includes('EXPLORE_COPY.support'),
+    'the withdrawn support eyebrow is back on the Explore masthead',
+  );
 });
 
 for (const [surface, [path, headline, support]] of Object.entries(ACCEPTED)) {

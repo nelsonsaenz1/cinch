@@ -82,8 +82,38 @@ export const CTA_MIN_HEIGHT = 56;
 export const CTA_SECONDARY_MIN_HEIGHT = 52;
 export const CTA_MIN_HEIGHT_AX = 60;
 export const CTA_RADIUS = 16;
-/** "Comments & outfit votes" — a row, not a button, so it sits a step lower. */
+/** "Table Talk & Outfit Voting" — a row, not a button, so it sits a step lower. */
 export const NAV_ROW_MIN_HEIGHT = 52;
+
+/**
+ * The tail under the un-pinned foot, ON TOP of the home indicator's own inset.
+ *
+ * The foot used to be a pinned bar and the frames drew it flush to the bottom
+ * edge; the founder's report is that it was clipped there — "Plan a look" and
+ * the door down half off the screen at the sizes the poster actually grows to.
+ * Un-pinned, the foot is the last block of the scroll, and what keeps it clear
+ * of the indicator is this plus `useSafeAreaInsets().bottom`. Written as a
+ * constant so the two numbers are never confused for each other: the inset is
+ * the hardware's, this is the design's.
+ */
+export const FOOT_PAD_BOTTOM = 24;
+
+/**
+ * How many options the chooser will ever draw.
+ *
+ * Three, which is Today's promise ("three outfits for today") and also
+ * `MAX_LOOKS_PER_BOARD` — the board's own per-member cap in
+ * `features/event-outfits/types.ts`. Restated rather than imported: this module
+ * is deliberately import-free so the node test runner can read it without
+ * bundling `@/lib/styling` through React Native's Flow source, and the two
+ * numbers mean the same thing for the same reason (a person choosing between
+ * more than three outfits is not choosing, she is shopping).
+ */
+export const LOOK_OPTION_LIMIT = 3;
+
+/** The chooser's page dots. A mark, never type — same grammar as Today's. */
+export const OPTION_DOT = 4;
+export const OPTION_DOT_ACTIVE = 18;
 
 /** The RSVP failure band. */
 export const NOTICE_RADIUS = 15;
@@ -114,7 +144,29 @@ export const EVENT_DETAIL_COPY = {
   planLook: 'Plan a look',
   emptyLookTitle: 'No look planned yet',
   noReplies: 'Nobody else has replied',
-  comments: 'Comments & outfit votes',
+  /**
+   * The one door down, renamed and merged.
+   *
+   * It used to be "Comments & outfit votes" beside a separate `Every option`
+   * board in the menu, so the conversation and the thing being talked about
+   * were two destinations. The founder's ruling collapses them: one sheet where
+   * members chat AND vote. The name is the founder's own, capitalised as they
+   * wrote it — "Table Talk" was already the app's word for this thread (it is
+   * what the board's own row called it) and this is that word finally standing
+   * where the reader can reach it.
+   */
+  comments: 'Table Talk & Outfit Voting',
+  /**
+   * The chooser's own copy. `optionEyebrow` replaces the single "Your look"
+   * label the dominant plate carried — the plate is a rail of up to three now,
+   * so the eyebrow has to say which one is being looked at.
+   */
+  shareLook: 'Share look',
+  addOption: 'Put it on the board',
+  onBoard: 'On the board',
+  suggestion: 'Suggested for this occasion',
+  optionsEmpty: 'Nothing to suggest yet',
+  posting: 'Adding…',
   rsvpErrorTitle: 'Your reply didn’t send',
   rsvpErrorBody: 'Nobody has been notified yet.',
   tryAgain: 'Try again',
@@ -242,11 +294,40 @@ export function posterLinesAx(input: {
 export type RosterChip = {
   userId: string;
   name: string;
+  /**
+   * What the chip PRINTS — "Nelson", never "Nelson Saenz".
+   *
+   * The founder's ruling, and it is a narrowing rather than a decoration: a
+   * chip row is a glance at who is coming, and a surname on it is a piece of
+   * somebody's identity spent on nothing. `name` stays full because VoiceOver
+   * reads it and because the host's own removal sheet names people properly;
+   * the drawn pill takes this.
+   */
+  firstName: string;
+  /**
+   * The photograph, when the profile row carried one. Null is not a failure —
+   * it is the initials disc the chip has always drawn, which is why this is a
+   * nullable URL rather than a flag: there is no third state to draw.
+   */
+  avatarUrl: string | null;
   /** `false` for a still-deciding guest — the quiet tray chip, host-only. */
   going: boolean;
   /** The host, so the chip can say so the way the frame does: "Theo (host)". */
   host: boolean;
 };
+
+/**
+ * "Nelson Saenz" -> "Nelson". "You" -> "You". Never empty.
+ *
+ * The first whitespace-separated word and nothing clever: a display name is
+ * whatever somebody typed, and a parser that tries to find the "real" given
+ * name in it gets Latin American double surnames and mononyms wrong in
+ * opposite directions. Hyphens and apostrophes are inside a word and stay.
+ */
+export function firstNameOf(name: string): string {
+  const first = name.trim().split(/\s+/).filter(Boolean)[0];
+  return first ?? name;
+}
 
 /** The overflow chip: a count of people, never a list of them. */
 export type RosterOverflow = { count: number; label: string };
@@ -274,6 +355,8 @@ export function rosterChips(
     role: string;
     displayName: string | null;
     username: string | null;
+    /** Optional so every existing caller and fixture still type-checks. */
+    avatarUrl?: string | null;
   }[],
   options: { isHost: boolean; me: string | null; limit?: number },
 ): { chips: RosterChip[]; overflow: RosterOverflow | null } {
@@ -281,13 +364,19 @@ export function rosterChips(
 
   const visible = members.filter((m) => m.state === 'joined' || options.isHost);
 
-  const all: RosterChip[] = visible.map((m) => ({
-    userId: m.userId,
-    name:
-      m.userId === options.me ? 'You' : (m.displayName ?? m.username ?? 'A guest'),
-    going: m.state === 'joined',
-    host: m.role === 'host',
-  }));
+  const all: RosterChip[] = visible.map((m) => {
+    const name = m.userId === options.me ? 'You' : (m.displayName ?? m.username ?? 'A guest');
+    return {
+      userId: m.userId,
+      name,
+      firstName: firstNameOf(name),
+      // Narrowing only: a photograph the query did not return is null here and
+      // this function has no way to reach for one.
+      avatarUrl: m.avatarUrl ?? null,
+      going: m.state === 'joined',
+      host: m.role === 'host',
+    };
+  });
 
   if (all.length <= limit) return { chips: all, overflow: null };
 
@@ -334,6 +423,88 @@ export function logisticsLine(input: {
     .filter((b): b is string => Boolean(b));
 
   return bits.length > 0 ? bits.join(' · ') : null;
+}
+
+// ---------------------------------------------------------------------------
+// The chooser
+// ---------------------------------------------------------------------------
+
+/**
+ * What the scorer is asked for, from the occasion the host actually named.
+ *
+ * `StyleContext.targetOccasion` is matched case-insensitively against each
+ * garment's own `occasions` tags, so the answer has to be in the TAGGER's
+ * vocabulary rather than in the host's — which is the same reason Today's
+ * `OCCASION_OPTIONS` carry lowercase single words beside their labels. This is
+ * the event-shaped half of that table: the occasion field is free text a person
+ * typed into the composer, so the common synonyms are folded onto the tokens
+ * the tagger writes and everything else is passed through lowercased.
+ *
+ * Null for an occasion nobody named. A null target is the occasion rule's
+ * neutral 0.7, which is the honest score for "no occasion stated" — never a
+ * penalty, and never a guess dressed as one.
+ */
+const OCCASION_SYNONYMS: [RegExp, string][] = [
+  [/\b(wedding|gala|black.?tie|ceremony|formal)\b/i, 'formal'],
+  [/\b(dinner|supper|restaurant|date|birthday)\b/i, 'dinner'],
+  [/\b(work|office|meeting|conference|interview)\b/i, 'work'],
+  [/\b(trip|travel|flight|holiday|vacation)\b/i, 'travel'],
+  [/\b(party|drinks|bar|club|night out)\b/i, 'party'],
+  [/\b(brunch|lunch|coffee|picnic)\b/i, 'casual'],
+];
+
+export function occasionTarget(occasion: string | null | undefined): string | null {
+  const raw = occasion?.trim();
+  if (!raw) return null;
+  for (const [pattern, token] of OCCASION_SYNONYMS) if (pattern.test(raw)) return token;
+  return raw.toLowerCase();
+}
+
+/**
+ * The formality the dress code asks for, as the 0..1 the scorer already reads.
+ *
+ * Same axis `resolveTargetFormality` and Today's FEEL chips use — not a new
+ * one. Null when the host named no dress code, which leaves the engine's own
+ * reading of the occasion in charge rather than overriding it with a number
+ * nobody asked for.
+ */
+const DRESS_CODE_FORMALITY: [RegExp, number][] = [
+  [/\b(black.?tie|white.?tie|formal|gala)\b/i, 0.95],
+  [/\b(cocktail|smart|dressy|semi.?formal)\b/i, 0.75],
+  [/\b(business|office|work)\b/i, 0.7],
+  [/\b(casual|relaxed|easy|comfortable)\b/i, 0.35],
+];
+
+export function formalityTarget(dressCode: string | null | undefined): number | null {
+  const raw = dressCode?.trim();
+  if (!raw) return null;
+  for (const [pattern, score] of DRESS_CODE_FORMALITY) if (pattern.test(raw)) return score;
+  return null;
+}
+
+/**
+ * "Option 2 of 3" — the chooser's spoken position, and its printed eyebrow.
+ *
+ * One string for both, the way Today's `positionLabel` is: a reader who cannot
+ * see the dots learns where they are from the card itself rather than from a
+ * decorative row, and a reader who can see them is told the same thing.
+ * One-based, because it is read aloud.
+ */
+export function optionPosition(index: number, total: number): string {
+  return `Option ${index + 1} of ${total}`;
+}
+
+/**
+ * How many suggestions to generate, given how many are already on the board.
+ *
+ * The board's own looks are the options that EXIST — friends can see them and
+ * vote on them — so the chooser draws those first and fills the rest of the
+ * three with the engine's suggestions. A member who has already posted three
+ * is asked to generate nothing at all, which is also the cap the composer
+ * enforces (`MAX_LOOKS_PER_BOARD`).
+ */
+export function suggestionCount(postedCount: number): number {
+  return Math.max(0, LOOK_OPTION_LIMIT - postedCount);
 }
 
 // ---------------------------------------------------------------------------

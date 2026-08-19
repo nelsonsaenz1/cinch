@@ -69,6 +69,10 @@ export default function DevW3G4PL02() {
           occasion="Sarah’s birthday dinner, 8:00 pm"
           onKeep={() => undefined}
           onTryAnother={() => undefined}
+          // The fixture poses the OPEN frame and must keep posing it, so the
+          // collapse is inert here. Required rather than optional on the
+          // component so a real mount cannot forget the tap's inverse.
+          onCollapse={() => undefined}
         />
 
         <DayRow

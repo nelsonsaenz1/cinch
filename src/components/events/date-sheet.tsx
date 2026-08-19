@@ -1,10 +1,11 @@
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { Keyboard, Modal, Pressable, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/ui/chip';
+import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
 import { Text } from '@/components/ui/text';
 import { MIN_TAP_TARGET, spring, useTheme } from '@/theme/tokens';
 
@@ -36,6 +37,19 @@ export type SheetShellProps = {
   /** The 40×4 handle. On the pickers, which are draggable-looking; not on the
    *  discard sheet, which is a question and should not look flickable away. */
   grabber?: boolean;
+  /**
+   * The sheet contains a TEXT FIELD and must ride above the keyboard.
+   *
+   * Opt-in, because it is not free and it is not always right. This shell is
+   * bottom-anchored (`justify-end` inside a transparent Modal), so when the
+   * keyboard came up the sheet stayed exactly where it was and the keyboard
+   * covered it — which is the venue bug the founder reported: tap Where, start
+   * typing, and both the field and its suggestion list are behind the keys with
+   * no way to see what you typed. The date, time and discard sheets have no
+   * input in them and must NOT lift: a picker that jumps when a keyboard opens
+   * somewhere else in the app is a picker with a bug of its own.
+   */
+  avoidKeyboard?: boolean;
   accessibilityLabel: string;
   children: React.ReactNode;
 };
@@ -44,10 +58,37 @@ export function SheetShell({
   visible,
   onRequestClose,
   grabber = false,
+  avoidKeyboard = false,
   accessibilityLabel,
   children,
 }: SheetShellProps) {
   const insets = useSafeAreaInsets();
+
+  /**
+   * Whether the keyboard is currently up, for the ONE measurement that has to
+   * change when it is: the home-indicator inset under the sheet.
+   *
+   * `KeyboardAvoidingView behavior="padding"` lifts the sheet by the keyboard's
+   * height, which puts the sheet's bottom edge exactly on the keyboard's top
+   * edge — and there is no home indicator there to clear. Keeping the 34pt
+   * inset would leave that much dead paper between the last row and the keys,
+   * which is the gap that pushes the suggestion list back off the screen at the
+   * larger type sizes. Subscribed to only when this shell is avoiding at all,
+   * so the sheets with no field in them do no work.
+   */
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    if (!avoidKeyboard) return;
+    // `WillShow`/`WillHide` rather than `DidShow`/`DidHide`: iOS fires the will
+    // pair at the START of the animation, so the padding changes in the same
+    // frames the keyboard is moving in rather than snapping after it lands.
+    const show = Keyboard.addListener('keyboardWillShow', () => setKeyboardUp(true));
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [avoidKeyboard]);
 
   const y = useSharedValue(visible ? 0 : 1);
   useEffect(() => {
@@ -66,7 +107,7 @@ export function SheetShell({
       animationType="fade"
       onRequestClose={onRequestClose}
       statusBarTranslucent>
-      <View className="flex-1 justify-end">
+      <Shell avoiding={avoidKeyboard}>
         {/* `scrim` — the one dimming value, and the token's stated job is
             exactly this: sheet backdrops. */}
         <Pressable
@@ -97,7 +138,7 @@ export function SheetShell({
               // The design's 24px floor, raised by the home indicator where
               // there is one. Adding the inset on top of the padding instead
               // would leave 58pt of dead paper under the buttons.
-              paddingBottom: Math.max(insets.bottom, 24),
+              paddingBottom: keyboardUp ? 24 : Math.max(insets.bottom, 24),
             }}>
             {grabber ? (
               <View
@@ -108,8 +149,27 @@ export function SheetShell({
             {children}
           </View>
         </Animated.View>
-      </View>
+      </Shell>
     </Modal>
+  );
+}
+
+/**
+ * The bottom-anchored column the sheet sits in — a `KeyboardAvoidingView` when
+ * the sheet has a field in it, a plain `View` when it does not.
+ *
+ * `KeyboardAvoidingScreen` is the app's one docked-composer mechanism
+ * (`behavior="padding"`, iOS-only by design) and this is the same job: the
+ * whole bottom edge lifts, because nothing inside the sheet scrolls the field
+ * into view on its own. The two mechanisms never compound — a shell that
+ * avoids does not also inset a scroll view, and the sheets that do not avoid
+ * pay nothing at all.
+ */
+function Shell({ avoiding, children }: { avoiding: boolean; children: React.ReactNode }) {
+  return avoiding ? (
+    <KeyboardAvoidingScreen className="flex-1 justify-end">{children}</KeyboardAvoidingScreen>
+  ) : (
+    <View className="flex-1 justify-end">{children}</View>
   );
 }
 

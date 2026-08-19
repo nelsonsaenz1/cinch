@@ -239,8 +239,14 @@ const poster = code(DETAIL_BODY_SRC);
 
 test('the four things above the fold appear in the brief’s order', () => {
   // The poster's order, and the artifact's: the band (name over its tinted
-  // ground), `Your look` with its Change action, the plate, then the roster.
-  const order = ['<Band', 'EVENT_DETAIL_COPY.yourLook', 'view.plate.kind', '<Roster'];
+  // ground), `Your look`, the look itself, then the roster.
+  //
+  // The third marker moved from `view.plate.kind` to `<LookChooser` and the
+  // rule did not: the ONE dominant plate became a chooser of up to three
+  // options (the founder's item 2, Today's grammar with this occasion as its
+  // context), so what sits under the eyebrow is a component rather than a
+  // switch on a plate's kind. The order it sits in is unchanged.
+  const order = ['<Band', 'EVENT_DETAIL_COPY.yourLook', '<LookChooser', '<Roster'];
   let cursor = -1;
   for (const marker of order) {
     const next = poster.indexOf(marker, cursor + 1);
@@ -293,7 +299,7 @@ test('every fact grows with Dynamic Type rather than being boxed', () => {
       line,
       // A picture box, a mark, a glyph, or a skeleton bar drawn at the measure
       // the real control will settle at — never a label that grows with type.
-      /avatar|row \* 2|large \? row|\bDOT\b|NOTICE_DOT|PLATE_ROW|\bsize\b|'100%'|\bh\b|\b(12|13)\b|CTA_MIN_HEIGHT|NAV_ROW_MIN_HEIGHT|MIN_TAP_TARGET/,
+      /avatar|row \* 2|large \? row|\bDOT\b|NOTICE_DOT|OPTION_DOT|PLATE_ROW|\bsize\b|'100%'|\bh\b|\b(12|13)\b|CTA_MIN_HEIGHT|NAV_ROW_MIN_HEIGHT|MIN_TAP_TARGET/,
       `a fixed height under something that carries type — ${line}`,
     );
   }

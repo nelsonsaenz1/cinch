@@ -160,10 +160,19 @@ test('no permission was added to the context', () => {
   assert.doesNotMatch(src, /expo-location|expo-calendar|requestPermission/);
 });
 
-test('the refusal state still draws no context control', () => {
+test('the refusal state still draws nothing in the context slot', () => {
   // T-12 — a day the engine could not dress has a different next action, and
-  // context is not it. Same gate, new control: `nothingWorks` still decides,
-  // and offering chips over a refusal would invite somebody to restyle a
-  // morning that has nothing to restyle.
-  assert.match(stripped(TODAY), /\{!nothingWorks \? \([\s\S]{0,200}<ContextChips/);
+  // context is not it. Offering a control over a refusal invites somebody to
+  // restyle a morning that has nothing to restyle.
+  //
+  // UPDATED 2026-08-18: the founder withdrew the context chips. What stands in
+  // that slot now is the trip-ahead band, drawn only when a trip actually
+  // starts inside the week (`tripAhead`, `today-spec.ts`). The RULE this test
+  // has always defended is unchanged and is what is asserted — `nothingWorks`
+  // still gates the slot, so a refusal draws nothing there — and it is now
+  // strictly harder to violate, because the slot has a second condition of its
+  // own on top of the gate.
+  assert.match(stripped(TODAY), /\{!nothingWorks && tripSoon \? \(/);
+  // And the withdrawn control has not crept back in beside it.
+  assert.doesNotMatch(stripped(TODAY), /<ContextChips/);
 });

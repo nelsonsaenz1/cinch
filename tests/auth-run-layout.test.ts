@@ -331,10 +331,22 @@ test('a new account is welcomed and a returning one is recognised', () => {
   assert.match(handoffSubline(false), /where you left it/);
 });
 
-test('the hour greeting is gone from the arrival but not from the app', () => {
-  // `greetingForHour` still serves Today, where the time of day is a fact worth
-  // having. It has no business being the first thing a new account is told.
-  assert.ok(!HANDOFF_RAW.includes('greetingForHour'));
+test('the hour greeting is what the arrival says to a new account', () => {
+  // INVERTED 2026-08-18, by founder order.
+  //
+  // Redesign 19 argued that the hour is a fact about the clock and that a
+  // brand-new account should be told it has arrived somewhere instead, so it
+  // swapped `greetingForHour` for "Welcome to Cinch" and this test guarded the
+  // swap. The founder reverted that beat: the arrival greets by the hour
+  // again, and "Welcome back" is still what a returning account gets.
+  //
+  // The test is kept rather than deleted, pointing the other way, because the
+  // thing worth pinning was never which sentence won — it was that ONE screen
+  // owns the greeting. `handoffHeadline` / `handoffSubline` remain exported
+  // and tested just below; they are simply no longer what the screen draws,
+  // and leaving them under test is what makes the swap reversible again.
+  assert.match(HANDOFF_RAW, /greetingForHour\(new Date\(\)\.getHours\(\)\)/);
+  assert.match(HANDOFF_RAW, /'Welcome back'/);
 });
 
 // ---------------------------------------------------------------------------
@@ -492,11 +504,32 @@ test('the run goes through the haptic policy rather than around it', () => {
 });
 
 test('the run adds no native module', () => {
-  // OTA compatibility is law. Skia left the handoff in this redesign; nothing
-  // arrived to replace it.
+  // OTA compatibility is law, and the rule this test exists for is "no module
+  // that is not already in the binary" — not "no Skia".
+  //
+  // Redesign 19 removed Skia from the handoff and this loop covered all four
+  // screens. On 2026-08-18 the founder reverted the handoff's visual beat to
+  // its pre-19 form, which brings back the two-stop gradient over the blurred
+  // photograph, and with it the Skia canvas. That is safe for exactly the
+  // reason it was safe before 19: Skia never left the app. `sign-in.tsx` —
+  // the welcome screen, excluded from the redesign and therefore never
+  // restyled away from it — draws with Skia today, as does
+  // `components/event-outfits/OutfitPostCard.tsx`, so the module ships in
+  // every binary the handoff can be OTA'd into.
+  //
+  // The three ASKING screens stay under the flat ban. They gained nothing
+  // native in the redesign and there is no frame that wants a canvas on them,
+  // so an import appearing there would be somebody reaching for a tool rather
+  // than restoring a decision.
+  const OTA_SAFE_NATIVE = new Set(['handoff']);
   for (const [name, raw] of RUN_SCREENS) {
+    if (OTA_SAFE_NATIVE.has(name)) continue;
     assert.ok(!raw.includes('@shopify/react-native-skia'), `${name}.tsx must stay JS-only`);
   }
+  // The exemption is only honest while the claim under it holds: if Skia ever
+  // leaves the welcome screen, the handoff's canvas stops being free and this
+  // fails here rather than in a crash on somebody's phone.
+  assert.match(SIGN_IN_RAW, /@shopify\/react-native-skia/);
 });
 
 test('reduced motion is honoured by the parts that move', () => {

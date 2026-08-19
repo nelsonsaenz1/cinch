@@ -160,8 +160,47 @@ function scrollViewTags(source: string): string[] {
 test('the event detail page scrolls against the viewport, not its content', () => {
   const body = readFileSync('src/components/events/event-detail-body.tsx', 'utf8');
   const tags = scrollViewTags(body);
-  assert.equal(tags.length, 1, 'the poster should have exactly one scrolling region');
-  assert.match(tags[0]!, /style=\{\{ flex: 1, minHeight: 0 \}\}/);
+
+  /**
+   * TWO SCROLL VIEWS NOW, AND THE SECOND ONE IS HORIZONTAL.
+   *
+   * This used to assert exactly one, and that number was standing in for the
+   * rule rather than being it: the rule is that the page's VERTICAL scrolling
+   * region measures against the viewport rather than against its own content,
+   * which is the failure that clipped LP-09's page at AX5 and is the failure
+   * the founder reported again at the foot. A rail of look options paging
+   * sideways inside that region cannot cause it — it scrolls on the other axis
+   * and states no vertical flex at all.
+   *
+   * So the assertion is now the rule: there is exactly one vertical scroll
+   * view, it carries the flex bargain, and every other one is `horizontal`.
+   */
+  const vertical = tags.filter((tag) => !/\bhorizontal\b/.test(tag));
+  assert.equal(vertical.length, 1, 'the poster should have exactly one vertical scrolling region');
+  assert.match(vertical[0]!, /style=\{\{ flex: 1, minHeight: 0 \}\}/);
+  for (const tag of tags.filter((t) => /\bhorizontal\b/.test(t))) {
+    assert.doesNotMatch(tag, /flex: 1/, 'a horizontal rail claimed the column’s flex');
+  }
+});
+
+test('the foot rides the scroll and clears the home indicator', () => {
+  // The founder's item 6: "Plan a look" and the door down were pinned under
+  // the scroll and partly cut off. A pinned bar can only be right when its
+  // height is knowable, and this one holds up to four controls whose labels
+  // grow with Dynamic Type — so it is in the scroll, and what keeps it off the
+  // home indicator is the content inset rather than a guess.
+  const body = readFileSync('src/components/events/event-detail-body.tsx', 'utf8');
+  assert.match(body, /paddingBottom: insets\.bottom \+ FOOT_PAD_BOTTOM/);
+  assert.match(body, /useSafeAreaInsets\(\)/, 'the foot guesses at the indicator');
+
+  // And the door down is drawn ONCE. It used to be drawn twice — in the pinned
+  // bar at standard sizes and in the scroll at the accessibility ones, because
+  // the bar had no room — which meant two call sites to keep in step.
+  assert.equal(
+    (body.match(/<CommentsRow /g) ?? []).length,
+    1,
+    'the door down is drawn in two places again',
+  );
 });
 
 test('the accepted frames are posed from the component the route draws', () => {

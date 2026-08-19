@@ -46,9 +46,16 @@ export function ClosetInspirationSheet({
           </View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
             <View className="px-gutter pb-2 pt-5">
-              <Text variant="eyebrow">Your closet, built out</Text>
-              <Text variant="title" trim className="mt-3">
-                Make it unmistakably yours.
+              {/* The eyebrow "Your closet, built out" was struck 2026-08-18 by
+                  founder order. It was a label for the sheet rather than a
+                  sentence to anybody: it named the surface out loud a beat
+                  before the surface said what it was for, and "built out" is
+                  a claim about a closet the reader has not filled yet. The
+                  title carries the whole top of the sheet now, so it leads
+                  rather than answers, and it is drawn at the same size — this
+                  is a deletion, not a demotion. */}
+              <Text variant="title" trim>
+                Make it unmistakably yours
               </Text>
               <Text variant="body" className="mt-4 text-muted">
                 Add the pieces you return to, shape a profile around them, and give friends a closet they can recognise at a glance.

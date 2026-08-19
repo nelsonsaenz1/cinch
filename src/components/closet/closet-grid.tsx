@@ -114,7 +114,28 @@ export function ClosetGrid({
           dense={!stacked}
           stored={stored}
           metaLine={metaFor?.(item)}
-          imageUri={resolveImage?.(item.listingPath, item.thumbPath, item.cutoutPath)}
+          // WHITE-GROUND FIRST, RAW CAMERA LAST.
+          //
+          // `resolve` is first-hit-wins over this argument order, and the
+          // order used to put `thumbPath` — the raw photograph — ahead of the
+          // cutout. A grid of three columns is the one place in the app where
+          // dozens of pieces are seen at once, so a mixed run of white-ground
+          // renders and bedroom-floor snapshots reads as a broken import
+          // rather than a wardrobe.
+          //
+          // The order now is: `listingPath` (the catalogue/stock shot, already
+          // shot on white), `platePath` (the scale-normalised render),
+          // `cutoutPath` (background removed), and only then `thumbPath`. The
+          // raw frame is kept as the final fallback because a piece with no
+          // cutout yet must still appear — an empty tile would read as a
+          // missing garment. `use-closet-screen.ts` already signs all four
+          // paths, so nothing new is fetched by asking for them in this order.
+          imageUri={resolveImage?.(
+            item.listingPath,
+            item.platePath,
+            item.cutoutPath,
+            item.thumbPath,
+          )}
         />
       )}
       ListEmptyComponent={ListEmptyComponent}

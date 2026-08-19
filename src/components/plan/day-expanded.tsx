@@ -1,14 +1,14 @@
 import { SymbolView } from 'expo-symbols';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { GarmentImage } from '@/components/media/garment-image';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { type PlannedDay } from '@/features/plan/packing';
-import { explain, type Garment } from '@/lib/styling';
+import { type Garment } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
 
-import { dayHeadLabel, outfitLine } from './day-row';
+import { dayContextLabel, dayDateLabel, dayHeadLabel, outfitLine } from './day-row';
 
 /** The atlas's 88pt well for an expanded day — one step down from WD-02's 96. */
 const WELL = 88;
@@ -60,6 +60,7 @@ export function DayExpanded({
   kept,
   onTryAnother,
   trying,
+  onCollapse,
   isLast,
   units = 'F',
   today,
@@ -73,6 +74,8 @@ export function DayExpanded({
   kept?: boolean;
   onTryAnother: () => void;
   trying?: boolean;
+  /** Close this day and return the week to its compact rhythm. See below. */
+  onCollapse: () => void;
   isLast?: boolean;
   units?: 'C' | 'F';
   today?: Date;
@@ -80,11 +83,13 @@ export function DayExpanded({
   const theme = useTheme();
   const pieces = day.outfit?.items ?? [];
 
-  // The date and weather stay in the label; the occasion joins them in oxblood
-  // and on its own <Text>, because one accent inside a longer label cannot be
-  // read as a second channel if the whole label carries it.
-  const head = dayHeadLabel(day, units, null, today);
-  const reasoning = day.outfit ? explain(day.outfit) : null;
+  // The date leads in the serif; the weather stays in the small tracked
+  // register under it; the occasion joins that register in oxblood and on its
+  // own <Text>, because one accent inside a longer label cannot be read as a
+  // second channel if the whole label carries it.
+  const date = dayDateLabel(day, today);
+  const context = dayContextLabel(day, units, null);
+  const head = dayHeadLabel(day, units, occasion, today);
 
   return (
     <View
@@ -92,44 +97,79 @@ export function DayExpanded({
  'px-gutter py-[18px]',
         isLast ? '' : 'border-b border-rule',
       ].join(' ')}>
-      <View className="flex-row flex-wrap items-baseline">
-        <Text variant="colophon">{head}</Text>
-        {occasion?.trim() ? (
-          <Text variant="colophon" style={{ color: theme.accent }}>
-            {` · ${occasion.trim()}`}
-          </Text>
-        ) : null}
-      </View>
+      {/* ── TAPPING AN OPEN DAY CLOSES IT — founder order, 2026-08-18 ───────
+          The expansion was one-way: `onPlan` set `openKey`, and the only
+          things that ever cleared it were a successful save or opening a
+          different day. A reader who opened a day just to look at it had no
+          way back to the compact week except by opening some OTHER day — the
+          control that got them in had no inverse, which is a trap however
+          shallow it is. The disclosure is a toggle now.
 
-      {/* The editorial line in the display face — the one place on the week
-          where a plan gets a headline rather than a row title. */}
-      <Text variant="plate" className="mt-2">
-        {outfitLine(pieces)}
-      </Text>
+          THE OUTFIT IS THE HIT AREA, AND THE BUTTONS ARE OUTSIDE IT. Wrapping
+          the whole row was the first shape of this and it was wrong twice
+          over: `Pressable` defaults `accessible` to true, which collapses its
+          whole subtree into ONE VoiceOver node — "Keep this plan" and "Try
+          another" would have stopped being reachable controls, which is a far
+          worse regression than the one being fixed. And a parent press behind
+          two buttons is a hit area whose behaviour depends on which pixel was
+          hit.
 
-      {reasoning ? (
-        <Text variant="body" className="mt-2 text-muted">
-          {reasoning}
+          So the toggle is the part the founder actually named — the day and
+          its outfit — and the two actions sit outside it as the peers they
+          are. It is also the same surface `DayRow` presses to OPEN, so the
+          thing you tapped to open is the thing you tap to close, in the same
+          place, which is the only mapping a reader can guess.
+
+          `accessibilityState.expanded` says so out loud, and the label names
+          the collapse rather than leaving it to be discovered. */}
+      <Pressable
+        onPress={onCollapse}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: true }}
+        accessibilityLabel={`${head}. Collapse this day.`}
+        className="active:opacity-60">
+        <Text variant="dayhead">{date}</Text>
+        <View className="flex-row flex-wrap items-baseline">
+          {context ? <Text variant="colophon" className="mt-0.5">{context}</Text> : null}
+          {occasion?.trim() ? (
+            <Text variant="colophon" className="mt-0.5" style={{ color: theme.accent }}>
+              {context ? ` · ${occasion.trim()}` : occasion.trim()}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* The editorial line in the display face — the one place on the week
+            where a plan gets a headline rather than a row title. */}
+        <Text variant="plate" className="mt-2">
+          {outfitLine(pieces)}
         </Text>
-      ) : null}
 
-      {pieces.length > 0 ? (
-        <>
-          <View className="mt-4 flex-row flex-wrap gap-2.5">
-            {pieces.map((g) => (
-              <PieceWell
-                key={g.id}
-                uri={resolveImage(g.platePath, g.cutoutPath, g.thumbPath)}
-                label={g.subcategory ?? g.category}
-              />
-            ))}
-          </View>
+        {/* THE REASON SENTENCE IS GONE — founder order, 2026-08-18, and for
+            the same argument written out in `day-row.tsx`: `explain()` is the
+            scorer's notes, and printing them as prose put machine reasoning in
+            the register the app keeps for a human voice. What an opened day
+            owes the reader is the OUTFIT in full — every piece at 88pt and
+            named — and that is what is left, unabridged. `explain()` itself is
+            untouched. */}
 
-          <Text variant="note" className="mt-3">
-            {pieceListLine(pieces)}
-          </Text>
-        </>
-      ) : null}
+        {pieces.length > 0 ? (
+          <>
+            <View className="mt-4 flex-row flex-wrap gap-2.5">
+              {pieces.map((g) => (
+                <PieceWell
+                  key={g.id}
+                  uri={resolveImage(g.platePath, g.cutoutPath, g.thumbPath)}
+                  label={g.subcategory ?? g.category}
+                />
+              ))}
+            </View>
+
+            <Text variant="note" className="mt-3">
+              {pieceListLine(pieces)}
+            </Text>
+          </>
+        ) : null}
+      </Pressable>
 
       <View className="mt-4 flex-row flex-wrap gap-2">
         <Button

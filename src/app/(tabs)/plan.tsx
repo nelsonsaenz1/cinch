@@ -109,8 +109,8 @@ function EventListSkeleton() {
 }
 
 /**
- * One segment of the pill toggle: sand track, cream label on ink for the
- * active one. The ink itself is drawn once, by the sliding pill in
+ * One segment of the pill toggle: sand track, cream label on oxblood for the
+ * active one. The oxblood itself is drawn once, by the sliding pill in
  * `SegmentedControl` — this only ever renders its label and the dot. The dot
  * is the app's entire notion of a badge — a single quiet mark when
  * invitations wait, never a number in a red circle.
@@ -136,20 +136,25 @@ function Segment({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       accessibilityLabel={showDot ? `${label}, new invitations` : label}
-      style={{ minHeight: MIN_TAP_TARGET - 8 }}
-      // The box is drawn 8 short so the pill sits inside its track; the
-      // hitSlop pays the difference back, keeping the 44pt floor.
-      hitSlop={{ top: 4, bottom: 4 }}
+      // The full 44 now, not 36-plus-slop. The track carries no padding any
+      // more (see `SegmentedControl`), so there is nothing for the box to be
+      // drawn short of — and a segment whose drawn height IS its target is one
+      // fewer place for the floor to be lost in a later edit.
+      style={{ minHeight: MIN_TAP_TARGET }}
       className="flex-1 flex-row items-center justify-center active:opacity-70">
       <Text variant="label" style={{ color: active ? theme.canvas : theme.muted }}>
         {label}
       </Text>
-      {/* Oxblood on the sand track; warm clay once the ink pill is under it —
-          the accent reads as a hole punched in ink, and the atlas swaps it
-          for `accentWarm` the moment the segment is active. */}
+      {/* Oxblood on the sand track; canvas once the oxblood thumb is under it.
+          The atlas's swap was to `accentWarm`, which was legible as a hole
+          punched in INK — on oxblood it is the same hue two steps lighter and
+          reads as a smudge. The dot's whole job is to be seen, and on the
+          accent ground the label's own colour is the one that is. The rule the
+          atlas was really stating is unchanged: one quiet mark, never a
+          number, and it inverts against whatever is under it. */}
       {showDot ? (
         <View
-          className={`ml-1.5 h-1.5 w-1.5 rounded-full ${active ? 'bg-accent-warm' : 'bg-accent'}`}
+          className={`ml-1.5 h-1.5 w-1.5 rounded-full ${active ? 'bg-canvas' : 'bg-accent'}`}
         />
       ) : null}
     </Pressable>
@@ -157,19 +162,63 @@ function Segment({
 }
 
 /**
- * The Week/Events/Packing toggle. One absolutely-positioned ink pill slides
- * under the labels rather than each segment painting its own fill — the
- * geometry iOS users read as `UISegmentedControl` every day. The pill's
- * radius is `concentric(12, 4)`, not a second `rounded-md`: the track is 12,
- * inset 4 on every side, so the pill reads as one continuous corner system
- * with its container instead of "also rounded" (tokens.ts's concentric rule).
+ * The Week/Events/Packing toggle. One absolutely-positioned pill slides under
+ * the labels rather than each segment painting its own fill — the geometry iOS
+ * users read as `UISegmentedControl` every day.
  *
- * Each segment reports its own box on mount via `onLayout` rather than the
- * pill computing thirds from the track width — this stays correct even if a
- * fourth mode or unequal segments ever show up. `spring.snappy` already
- * carries `reduceMotion: ReduceMotion.System` (tokens.ts), so the slide
- * settles instantly with Reduce Motion on; no separate gate needed here.
+ * ── WHAT THE FOUNDER CHANGED, 2026-08-18 ────────────────────────────────────
+ *
+ * THE THUMB IS OXBLOOD. It was `theme.ink`, which is the ground of every
+ * neutral confirm in the app; the accent is what the app spends on the thing
+ * that is currently true. The label under it stays `theme.canvas` — cream on
+ * oxblood is the same pairing every filled accent control in the app already
+ * uses, and it clears AA comfortably, so the contrast came for free.
+ *
+ * THE TRACK NO LONGER STICKS OUT PAST THE THUMB. This is the arithmetic bug
+ * behind the complaint, and it was a real asymmetry rather than a taste call:
+ *
+ *   - the track carried `p-1`, a 4pt inset on all four sides;
+ *   - the segments are `flex-1`, so each one's measured `x` already began
+ *     4pt in and each width was `(track − 8) / 3`;
+ *   - but the thumb was drawn `top: 0, bottom: 0` — the FULL track height,
+ *     ignoring the same padding it was obeying horizontally.
+ *
+ * So the inset was 4 at the two ends and 0 at the top and bottom, and the
+ * visible result was a sliver of sand poking past the thumb at the left and
+ * right edges of the control while it sat flush above and below. The founder's
+ * spec settles it in the other direction — equal insets, thumb width exactly a
+ * track third — and zero is the only value that makes "flush at the ends" and
+ * "equal on all four sides" true at once. The padding is gone; the thumb fills
+ * its third edge to edge; the sand shows only under the two segments that are
+ * not selected, which is what a track is for.
+ *
+ * With the inset at 0, `concentric(12, 0)` is 12 — the thumb and the track now
+ * share one radius, which is the concentric rule's own answer for a child with
+ * no inset, not an abandonment of it.
+ *
+ * PERFECT CENTRING OVER EACH WORD comes from the measurement that was already
+ * here: each segment reports its own box via `onLayout` and the thumb takes
+ * that box exactly, rather than the thumb computing thirds and hoping the
+ * flex division agreed. Three `flex-1` children of a container whose width is
+ * not divisible by three do NOT get equal widths — the remainder lands on one
+ * of them — so a computed third would be off by up to a point on most screens
+ * and the label would sit fractionally off centre in its own pill. Measuring
+ * is what makes it exact, and it stays correct if a fourth mode ever shows up.
+ *
+ * `spring.snappy` already carries `reduceMotion: ReduceMotion.System`
+ * (tokens.ts), so the slide settles instantly with Reduce Motion on.
  */
+/**
+ * The thumb's inset from the track, on every side.
+ *
+ * Zero, and named rather than deleted, because it is the number the founder's
+ * spec is ABOUT — "equal insets, thumb width = track third exactly" — and a
+ * silently-absent `p-1` reads as an oversight to the next person in this file.
+ * It is also the input `concentric` needs to keep computing the thumb's radius
+ * from the track's instead of the two being typed independently.
+ */
+const SEGMENT_INSET = 0;
+
 function SegmentedControl({
   mode,
   onChange,
@@ -213,17 +262,25 @@ function SegmentedControl({
   };
 
   return (
-    <View className="mx-gutter mb-4 flex-row rounded-md bg-sand p-1">
+    // `overflow-hidden` is the guard on the new geometry rather than
+    // decoration: the thumb is now exactly as wide as an end segment and sits
+    // hard against the track's corner, so its square corner would otherwise
+    // paint over the track's rounded one by a fraction of a point at the two
+    // ends. Clipping to the track makes the outer silhouette the thumb's too.
+    <View className="mx-gutter mb-4 flex-row overflow-hidden rounded-md bg-sand">
       {/* NativeWind className does not reach Animated.* components (the
           babel/css-interop transform only registers plain RN primitives) —
           every property that would have been `absolute bottom-0 top-0
- bg-ink` has to be inline style instead, same as the wrapper pattern
+ bg-accent` has to be inline style instead, same as the wrapper pattern
           in upload-queue-list.tsx. */}
       <Animated.View
         pointerEvents="none"
         style={[
-          { position: 'absolute', top: 0, bottom: 0, backgroundColor: theme.ink },
-          { borderRadius: concentric(12, 4) },
+          { position: 'absolute', top: 0, bottom: 0, backgroundColor: theme.accent },
+          // Inset 0 on every side now, so the thumb takes the track's own
+          // radius. `concentric` is still what computes it — the rule did not
+          // change, its input did.
+          { borderRadius: concentric(12, SEGMENT_INSET) },
           pillStyle,
         ]}
       />
@@ -867,6 +924,9 @@ export default function PlanScreen() {
                                 ...new Set([...r, ...day.outfit!.items.map((g) => g.id)]),
                               ])
                             }
+                            // The inverse of the tap that opened it. See the
+                            // toggle note on `onPlan` below.
+                            onCollapse={() => setOpenKey(null)}
                           />
                         );
                       }
@@ -880,7 +940,17 @@ export default function PlanScreen() {
                           planned={kept}
                           planning={planningKey === key}
                           isLast={isLast}
-                          onPlan={() => setOpenKey(key)}
+                          // A TOGGLE, not a one-way door — founder order,
+                          // 2026-08-18. `openKey` used to be cleared only by a
+                          // successful save or by opening some other day, so
+                          // the disclosure had no inverse and a reader who
+                          // opened a day to look at it could not put it back.
+                          // Written as a functional update rather than
+                          // `openKey === key ? null : key` because both this
+                          // row and the open row can now write the same slot,
+                          // and reading the state you are about to replace is
+                          // how two taps in one frame lose one of themselves.
+                          onPlan={() => setOpenKey((k) => (k === key ? null : key))}
                         />
                       );
                     })}

@@ -1,4 +1,4 @@
-import type { EventDetailView } from '@/components/events/event-detail-body';
+import type { EventDetailView, EventLookOption } from '@/components/events/event-detail-body';
 
 import {
   EVENT_DETAIL_COPY,
@@ -43,7 +43,6 @@ const BASE = {
   onRsvp: NOOP,
   onRetry: NOOP,
   onComments: NOOP,
-  onChangeLook: NOOP,
   onPlanLook: null,
   notice: null,
 } as const;
@@ -83,6 +82,50 @@ const REHEARSAL_LINE_INPUT = {
  */
 const TILES = [{ uri: undefined }, { uri: undefined }, { uri: undefined }];
 
+/**
+ * The chooser, posed. Redesign 03 · the founder's revision.
+ *
+ * ONE POSTED LOOK AND TWO SUGGESTIONS, which is the composition the page is
+ * built for and the one worth photographing: the option somebody has actually
+ * put on the board — with picks against it, and a `Change` — beside the two the
+ * engine offered for this occasion, each carrying the one action that turns it
+ * into something friends can vote on. A rail of three identical cards would
+ * prove nothing about the distinction the card exists to state.
+ */
+const CHOSEN: EventLookOption = {
+  id: 'post-silk-slip',
+  label: 'Silk slip dress',
+  tiles: TILES,
+  posted: true,
+  votes: 3,
+  onAdd: null,
+  onChange: NOOP,
+  onShare: NOOP,
+};
+
+const SUGGESTED: EventLookOption[] = [
+  {
+    id: 'suggestion-velvet',
+    label: 'The Velvet Hour',
+    tiles: TILES,
+    posted: false,
+    votes: null,
+    onAdd: NOOP,
+    onChange: null,
+    onShare: NOOP,
+  },
+  {
+    id: 'suggestion-quiet-black',
+    label: 'Quiet Black',
+    tiles: TILES,
+    posted: false,
+    votes: null,
+    onAdd: NOOP,
+    onChange: null,
+    onShare: NOOP,
+  },
+];
+
 const contramarChips = rosterChips(CONTRAMAR_MEMBERS, { isHost: false, me: null });
 const rehearsalChips = rosterChips(REHEARSAL_MEMBERS, { isHost: false, me: null });
 
@@ -94,7 +137,7 @@ const DEFAULT_VIEW: EventDetailView = {
   title: 'Alexandria’s birthday dinner at Contramar',
   line: posterLine(CONTRAMAR_LINE_INPUT),
   linesAx: posterLinesAx(CONTRAMAR_LINE_INPUT),
-  plate: { kind: 'ready', tiles: TILES, label: 'Silk slip dress' },
+  looks: { kind: 'ready', options: [CHOSEN, ...SUGGESTED] },
   empty: null,
   chips: contramarChips.chips,
   overflow: contramarChips.overflow,
@@ -116,10 +159,9 @@ const EMPTY_VIEW: EventDetailView = {
   title: 'Marisol & Theo’s rehearsal dinner',
   line: posterLine(REHEARSAL_LINE_INPUT),
   linesAx: posterLinesAx(REHEARSAL_LINE_INPUT),
-  plate: { kind: 'empty' },
-  // Nothing to change until there is something chosen; the foot offers the
-  // planning instead, which is where the frame moves the oxblood.
-  onChangeLook: null,
+  // A closet with nothing the engine can build from: no posted look and no
+  // suggestion either, which is the only state that still draws the outlines.
+  looks: { kind: 'empty' },
   empty: {
     title: EVENT_DETAIL_COPY.emptyLookTitle,
     body: emptyLookBody({ isMember: true, hostName: 'Theo', venueKnown: false }),
@@ -142,8 +184,7 @@ const LOADING_VIEW: EventDetailView = {
   title: 'Alexandria’s birthday dinner at Contramar',
   line: '',
   linesAx: [],
-  plate: { kind: 'loading' },
-  onChangeLook: null,
+  looks: { kind: 'loading' },
   empty: null,
   chips: [],
   overflow: null,
@@ -157,14 +198,23 @@ const LOADING_VIEW: EventDetailView = {
 /** 04 · Error — the reply didn’t send. The poster is intact behind it. */
 const ERROR_VIEW: EventDetailView = {
   ...DEFAULT_VIEW,
-  plate: { kind: 'ready', tiles: TILES, label: null },
+  looks: { kind: 'ready', options: [{ ...CHOSEN, label: null }] },
   logistics: null,
   rsvp: { standing: null, busy: false },
   failed: true,
   commentCount: null,
 };
 
-/** 06 · Largest accessibility text. The same facts; the body recomposes. */
+/**
+ * 06 · Largest accessibility text. The same facts; the body recomposes.
+ *
+ * The two long display names are kept even though the chips now print FIRST
+ * NAMES — they are what proves the rule holds where it matters. "Marisol
+ * Delgado-Whitcomb" was the name that forced the AX chips to stack full-width
+ * in the first place, and this frame is the one that shows it arriving as
+ * "Marisol" without the surname having been truncated to get there. The chip
+ * is short because the page asks for less, never because it cut something off.
+ */
 const AX_VIEW: EventDetailView = {
   ...DEFAULT_VIEW,
   chips: rosterChips(
@@ -181,7 +231,9 @@ const AX_VIEW: EventDetailView = {
     { isHost: false, me: null },
   ).chips,
   overflow: null,
-  plate: { kind: 'ready', tiles: TILES, label: null },
+  // Two options at the largest type, so the stacked action rows under each card
+  // are what the frame is walked for.
+  looks: { kind: 'ready', options: [CHOSEN, SUGGESTED[0]!] },
 };
 
 export const EVENT_DETAIL_POSES = {

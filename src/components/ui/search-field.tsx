@@ -9,11 +9,14 @@ import {
   CLEAR_FILL,
   CLEAR_HIT_SLOP,
   CLEAR_SIZE,
+  DOOR_HEIGHT,
   INPUT_FONT_SIZE,
+  INPUT_LINE_HEIGHT,
   INPUT_PADDING_Y,
   PAGE_FOCUS_BORDER,
   PAGE_HEIGHT,
   PAGE_INPUT_FONT_SIZE,
+  PAGE_INPUT_LINE_HEIGHT,
   PAGE_RADIUS,
   showsClear,
   showsFocusRing,
@@ -77,8 +80,7 @@ export function SearchField({
       style={
         page
           ? {
-              borderRadius: PAGE_RADIUS,
-              // The ring is drawn as a border that is always present and only
+              borderRadius: PAGE_RADIUS,              // The ring is drawn as a border that is always present and only
               // sometimes coloured, so the field's inner width does not jump
               // by 3pt the moment the caret lands in it.
               borderWidth: PAGE_FOCUS_BORDER,
@@ -87,7 +89,12 @@ export function SearchField({
               // field grows with its text rather than clipping it.
               minHeight: PAGE_HEIGHT,
             }
-          : undefined
+          : // The door stands 44 on its own type metrics now. Closet used to
+            // pass `min-h-[44px]` at its call site to get here, which grew the
+            // container without growing the input's text rect — the box looked
+            // right and the placeholder was still shaved. A minimum, never a
+            // fixed height: at large Dynamic Type the field grows with its text.
+            { minHeight: DOOR_HEIGHT }
       }>
       <SymbolView
         name="magnifyingglass"
@@ -124,6 +131,11 @@ export function SearchField({
           paddingVertical: INPUT_PADDING_Y,
           fontFamily: 'HelveticaNeue',
           fontSize: page ? PAGE_INPUT_FONT_SIZE : INPUT_FONT_SIZE,
+          // STATED, not inherited. Without it the door field's text rect came
+          // back as 19pt for a face whose own line box at 16 is 19.2, so the
+          // placeholder was shaved along the bottom on every screen that
+          // mounts this. See the long note in `search-field-spec.ts`.
+          lineHeight: page ? PAGE_INPUT_LINE_HEIGHT : INPUT_LINE_HEIGHT,
           color: theme.ink,
         }}
       />

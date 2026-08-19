@@ -19,6 +19,14 @@ const ROUTE = readFileSync('src/app/(tabs)/index.tsx', 'utf8');
 const PLATE = readFileSync('src/components/today/today-plate.tsx', 'utf8');
 const CHIPS = readFileSync('src/components/today/context-chips.tsx', 'utf8');
 const FLOOR = readFileSync('src/components/today/closet-floor.tsx', 'utf8');
+/**
+ * The spec, read so the retired `applying` sentence can be checked to still
+ * EXIST after the control that said it was withdrawn — see the applying test.
+ * `context-chips.tsx` is still read above and still pinned: the component is
+ * unmounted from Today, not deleted, and the Stylist's vocabulary comes from
+ * the same options table.
+ */
+const SPEC_CODE = readFileSync('src/features/today/today-spec.ts', 'utf8');
 
 /** Comments are prose about the code, not the code. Strip them before grepping. */
 const stripped = (src: string) =>
@@ -63,21 +71,40 @@ test('the outfit is one element, and it speaks its own position', () => {
 // The order VoiceOver reads the page in
 // ---------------------------------------------------------------------------
 
-test('the reading order is context, then outfit, then wear, then taste, then invite', () => {
+test('the reading order is day-ahead, outfit, wear, taste row, taste mark, invite', () => {
+  // UPDATED 2026-08-18, twice over, by founder order.
+  //
+  //   · `<ContextChips` is gone. The slot at the top of the page is the
+  //     trip-ahead band now, and `TODAY_COPY.tripAheadKicker` is the thing
+  //     that marks its position — the same role in the order the chips held:
+  //     what is true about the day, before the outfits answering it.
+  //   · `<TasteRow` is new, and it belongs BETWEEN the wear action and the
+  //     taste mark. That is the honest reading of the card: the day's
+  //     decision, then the opinion about the thing decided, then the running
+  //     summary of every opinion so far. A taste row read after the mark
+  //     would have the reader hear a total before its last term.
+  //
+  // The rule the test enforces is the one it always did — the page is read
+  // top-down in the order the frames draw it — and it now covers one more
+  // control than it did.
   const at = (needle: string) => {
     const i = ROUTE_CODE.lastIndexOf(needle);
     assert.ok(i > -1, `${needle} is not on the page`);
     return i;
   };
-  const chips = at('<ContextChips');
+  const dayAhead = at('TODAY_COPY.tripAheadKicker');
   const plate = at('<TodayPlate');
   const wear = at('TODAY_COPY.wear}');
+  const tasteRow = at('<TasteRow');
   const taste = at('<TasteMark');
   const invite = at('<InviteLine');
-  assert.ok(chips < plate, 'the context is read after the outfit');
+  assert.ok(dayAhead < plate, 'the day ahead is read after the outfit');
   assert.ok(plate < wear, 'the action is read before the outfit it acts on');
-  assert.ok(wear < taste, 'the taste mark is read before the wear action');
+  assert.ok(wear < tasteRow, 'the opinion is asked for before the decision is offered');
+  assert.ok(tasteRow < taste, 'the running mark is read before the opinion it counts');
   assert.ok(taste < invite, 'the invite line is read before the taste mark');
+  // The withdrawn control has not returned.
+  assert.doesNotMatch(ROUTE_CODE, /<ContextChips/);
 });
 
 test('the wear action sits inside the page it belongs to', () => {
@@ -195,13 +222,23 @@ test('a chip steers the scorer, which is the whole reason the field went', () =>
   assert.match(ROUTE_CODE, /targetFormality: engineFormality\(context11\.feel\)/);
 });
 
-test('changing the context never empties the plate that is already there', () => {
-  // The on-device engine has no latency worth a spinner — the plates ARE the
-  // new context's plates by the time this render exists — so `applying` only
-  // ever changes a LINE on a card that is still standing.
-  assert.match(ROUTE_CODE, /applyingLabel: applying \? TODAY_COPY\.applying : null/);
+test('a context landing could never empty the plate that is already there', () => {
+  // UPDATED 2026-08-18. With the chips withdrawn there is no longer anything
+  // that can start a user-asked context change, so `applying` was retired with
+  // them — a flag whose only cause has been removed can never be true, and
+  // keeping it would be a line that reads as behaviour and is not.
+  //
+  // The MECHANISM the rule protects is untouched and is what is still pinned:
+  // the plate falls back to its own pieces line whenever no applying label is
+  // supplied, so a future context control cannot reintroduce an empty card by
+  // forgetting to. The route is checked for passing an explicit null rather
+  // than for omitting the prop, because omitting it is how the next edit
+  // quietly changes what the fallback is.
+  assert.match(ROUTE_CODE, /applyingLabel: null/);
   assert.match(PLATE_CODE, /\{view\.applyingLabel \?\? view\.piecesLine\}/);
   assert.doesNotMatch(ROUTE_CODE, /applying \? null :/, 'the plate is emptied while a context lands');
+  // And the sentence is kept in the spec for whatever control asks next.
+  assert.match(SPEC_CODE, /applying: '/);
 });
 
 // ---------------------------------------------------------------------------
@@ -284,11 +321,36 @@ test('no price, no merchant and no shop word on the day’s screen', () => {
   assert.doesNotMatch(ROUTE_CODE, /\$\{?\d|price|checkout|\bbuy\b|merchant/i);
 });
 
-test('the reaction bar is gone, and taste learning is not', () => {
-  assert.doesNotMatch(ROUTE_CODE, /<ReactionBar|onReact=|const handleReact/);
-  // The learner is still called — from the wear sheet's rating and favourite,
-  // which is the one opinion with a day behind it.
-  assert.match(ROUTE_CODE, /const react = useReactToOutfit\(\)/);
+test('taste learning has BOTH its channels, and neither is the legacy bar', () => {
+  // REVERSED 2026-08-18, by founder order.
+  //
+  // Redesign 11 removed the reaction affordance from Today and this test
+  // guarded the removal. The founder has put it back, and the reason the
+  // reversal is right is the one redesign 11 did not weigh: a wear is one
+  // signal a day and structurally always positive, so the two cards passed
+  // over every morning — the cheapest and most numerous signal the app can
+  // collect — were teaching the learner nothing.
+  //
+  // What is pinned now is that BOTH channels reach the same learner:
+  const wear = ROUTE_CODE.indexOf('const react = useReactToOutfit()');
+  assert.ok(wear > -1, 'the learner is not called from Today at all');
+  assert.match(ROUTE_CODE, /const handleReact = useCallback/, 'the taste row writes nothing');
+  assert.match(ROUTE_CODE, /<TasteRow/, 'the taste row is not drawn');
+  // Both go through the one mutation, tagged as this screen, so nothing
+  // downstream has to tell a row tap from a sheet rating.
+  assert.equal((ROUTE_CODE.match(/source: 'today'/g) ?? []).length, 2);
+
+  // And it is NOT the legacy bar. `reaction-bar.tsx` still serves the plate the
+  // reveal and the share artifact draw, and it carries three things Today
+  // refuses: a second question after the first is answered, a duplicate wear
+  // control, and a direct `expo-haptics` import the run no longer allows.
+  assert.doesNotMatch(ROUTE_CODE, /<ReactionBar/, 'Today mounted the legacy bar');
+  // Comment-stripped: the row's own docblock NAMES `expo-haptics` in order to
+  // say it does not use it, which is the same reason `auth-run-layout` strips
+  // before grepping. Only code counts.
+  const TASTE_ROW = stripped(readFileSync('src/components/today/taste-row.tsx', 'utf8'));
+  assert.doesNotMatch(TASTE_ROW, /expo-haptics/, 'the taste row must go through @/lib/haptics');
+  assert.match(TASTE_ROW, /@\/lib\/haptics/);
 });
 
 test('the floor says the accepted sentence, and does not print a nought', () => {

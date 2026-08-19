@@ -104,6 +104,12 @@ type HeroProps = {
   onAction: () => void;
   /** True for the failed read — announced, not merely findable. */
   alert?: boolean;
+  /**
+   * Oxblood rather than ink under the hero's one control. Off by default, and
+   * taken by exactly one state: the circle with nobody in it. See
+   * `lately-button.tsx`'s `tone`.
+   */
+  accentAction?: boolean;
 };
 
 /**
@@ -115,7 +121,15 @@ type HeroProps = {
  * reason for it. The kit's claims discipline still governs which branch
  * renders it: an empty describes the data, an error refuses to.
  */
-function Hero({ glyph, title, body, actionTitle: action, onAction, alert = false }: HeroProps) {
+function Hero({
+  glyph,
+  title,
+  body,
+  actionTitle: action,
+  onAction,
+  alert = false,
+  accentAction = false,
+}: HeroProps) {
   return (
     <View accessibilityRole={alert ? 'alert' : 'summary'} className="px-gutter pt-8">
       {glyph}
@@ -128,7 +142,15 @@ function Hero({ glyph, title, body, actionTitle: action, onAction, alert = false
         {body}
       </Text>
       <View style={{ marginTop: 24 }}>
-        <LatelyButton title={action} onPress={onAction} filled height={56} fontSize={17} paddingX={24} />
+        <LatelyButton
+          title={action}
+          onPress={onAction}
+          filled
+          tone={accentAction ? 'accent' : 'ink'}
+          height={56}
+          fontSize={17}
+          paddingX={24}
+        />
       </View>
     </View>
   );
@@ -568,18 +590,24 @@ export default function ExploreScreen() {
               Explore
             </Text>
 
-            {/* The support line, in the second register every masthead in this
-                app uses. It is the day's own heading — what your circle wore —
-                because that is what the page is now. It replaced "New in your
-                circle.", a sentence about pieces added to a closet, which is
-                what the SECONDARY section below is about and where that
-                sentence went. The wrapper carries the margin rather than an
-                `mt-*` class: `Explore` is cap-trimmed, and `trim` sets a
-                negative margin as an INLINE style, which beats a NativeWind
-                class silently. */}
-            <View style={{ marginTop: 8 }}>
-              <Text variant="eyebrow">{EXPLORE_COPY.support}</Text>
-            </View>
+            {/* ── THE SUPPORT EYEBROW IS GONE ────────────────────────────────
+                Struck 2026-08-18 by founder order.
+
+                "WHAT YOUR CIRCLE WORE" was a caption for the page written
+                above the page. Everything under this masthead is already a
+                dated run of looks with a friend's name on each one, so the
+                eyebrow spent the first line of the screen restating what the
+                second line demonstrates — and it did it in the loudest
+                register the app has for a quiet role: uppercase, tracked out,
+                sitting directly under a 40pt serif. Explore now opens on
+                `Explore` and then on the looks themselves.
+
+                `EXPLORE_COPY.support` is deliberately NOT deleted. It is still
+                the day heading `features/daily-social/copy.ts` prints over a
+                day's group of looks, which is the place that sentence was
+                always true; `tests/cx-corrections.test.ts` still pins its
+                wording there. What was removed is one RENDER of it, not the
+                line. */}
           </View>
 
           <View className="flex-row items-center" style={{ marginRight: -11 }}>
@@ -656,6 +684,10 @@ export default function ExploreScreen() {
             body="Add a friend you already know and you’ll see what they wore — only if you’re both friends, and only if they’ve turned sharing on."
             actionTitle="Find a friend"
             onAction={openSearch}
+            // Oxblood, by founder order 2026-08-18. This is the only control
+            // on a page that otherwise has nothing on it, and the accent is
+            // what the app spends on an action it wants taken.
+            accentAction
           />
         ) : additions.isError ? (
           // A failed read is not an empty circle and must never be dressed as

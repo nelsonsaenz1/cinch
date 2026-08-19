@@ -26,8 +26,25 @@ const OUTLINE_EDGE = 'rgba(28,26,22,0.22)';
 export type LatelyButtonProps = {
   title: string;
   onPress: () => void;
-  /** The ink fill — hero CTAs only. Everything quieter is the outline. */
+  /** The filled ground — hero CTAs only. Everything quieter is the outline. */
   filled?: boolean;
+  /**
+   * Which ground a `filled` button takes. Ink is the default and is what every
+   * existing call site keeps.
+   *
+   * `'accent'` is oxblood, and it exists for exactly one control: the "Find a
+   * friend" way out of an Explore with nobody in it. That page is the one
+   * place in the app whose empty state is not a missing THING but a missing
+   * PERSON, and ink — the same ground every neutral confirm in the app takes —
+   * read as one more grey step rather than as the page's single invitation.
+   * Oxblood is the app's action colour and this is the app's most important
+   * single action, so it gets it.
+   *
+   * Deliberately a prop on this button rather than a change to its `filled`
+   * default: the retry on the failed-read hero is also `filled`, and a refetch
+   * is not an invitation. One control changes, by name.
+   */
+  tone?: 'ink' | 'accent';
   height?: number;
   radius?: number;
   fontSize?: number;
@@ -39,6 +56,7 @@ export function LatelyButton({
   title,
   onPress,
   filled = false,
+  tone = 'ink',
   height = 34,
   // `md`, per reference board A: every labelled control is 12. Was 9.
   radius = 12,
@@ -73,10 +91,15 @@ export function LatelyButton({
             alignItems: 'center',
             justifyContent: 'center',
           },
-          filled ? { backgroundColor: theme.ink } : { borderWidth: 1, borderColor: OUTLINE_EDGE },
+          filled
+            ? { backgroundColor: tone === 'accent' ? theme.accent : theme.ink }
+            : { borderWidth: 1, borderColor: OUTLINE_EDGE },
         ]}>
         {/* Filled and outlined differed by weight once. TY-01 removes weight
-            from the product, so the fill and the label colour carry it alone. */}
+            from the product, so the fill and the label colour carry it alone.
+            The label is `canvas` on either filled ground — cream on oxblood
+            clears AA by the same margin it clears it on ink, so the tone
+            switch costs the label nothing. */}
         <Text
           variant={filled ? 'body' : 'label'}
           style={{

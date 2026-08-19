@@ -1,6 +1,14 @@
+import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
-import type { ReactNode } from 'react';
-import { ScrollView, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import {
+  ScrollView,
+  View,
+  useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GarmentImage } from '@/components/media/garment-image';
 import { PressableSurface } from '@/components/ui/pressable-surface';
@@ -20,6 +28,7 @@ import {
   CTA_SECONDARY_MIN_HEIGHT,
   DOT,
   EVENT_DETAIL_COPY,
+  FOOT_PAD_BOTTOM,
   HERO_BUTTON,
   HERO_BUTTON_AX,
   HERO_BUTTON_RADIUS,
@@ -30,9 +39,12 @@ import {
   NAV_ROW_MIN_HEIGHT,
   NOTICE_DOT,
   NOTICE_RADIUS,
+  OPTION_DOT,
+  OPTION_DOT_ACTIVE,
   PLATE_GAP,
   PLATE_ROW,
   PLATE_ROW_AX,
+  optionPosition,
   primaryGround,
   type RosterChip,
   type RosterOverflow,
@@ -100,10 +112,40 @@ import { GUTTER, MIN_TAP_TARGET, canvasAlpha, useTheme, warningAlpha } from '@/t
  * one step darker.
  */
 
-export type EventPosterPlate =
+/**
+ * One option in the chooser.
+ *
+ * Two kinds of thing wear the same shape here, and deliberately: a look
+ * ALREADY ON THE BOARD (`posted`, which friends can see and vote on) and one
+ * the engine has suggested for this occasion (which nobody but the reader can
+ * see until she puts it there). They are drawn identically because they are the
+ * same question — "is this what I am wearing?" — and the only difference the
+ * card states is the one that matters, which is whether anybody else can see it
+ * yet.
+ */
+export type EventLookOption = {
+  id: string;
+  /** The look's own name. Null when nothing has named it. */
+  label: string | null;
+  tiles: { uri?: string }[];
+  /** On the board: published through `event_outfit_posts`, and votable. */
+  posted: boolean;
+  /** Picks so far. Null for a suggestion — a look nobody can see cannot be picked. */
+  votes: number | null;
+  /** Publish this suggestion. Null once it is on the board, or when it may not be. */
+  onAdd: (() => void) | null;
+  /** Re-compose a posted look. Null while locked, cancelled, or for a suggestion. */
+  onChange: (() => void) | null;
+  /** Out of the app — the share sheet. Null when there is nothing to send. */
+  onShare: (() => void) | null;
+  /** A publish is in flight for this option. */
+  busy?: boolean;
+};
+
+export type EventLookChooser =
   | { kind: 'loading' }
   | { kind: 'empty' }
-  | { kind: 'ready'; tiles: { uri?: string }[]; label: string | null };
+  | { kind: 'ready'; options: EventLookOption[] };
 
 /** The reader's own standing, as the foot draws it. */
 export type RsvpStanding = 'going' | 'declined' | null;
@@ -117,9 +159,8 @@ export type EventDetailView = {
   line: string;
   linesAx: string[];
 
-  plate: EventPosterPlate;
-  /** Absent when the reader may not change the look — invitee, locked, cancelled. */
-  onChangeLook: (() => void) | null;
+  /** The 1–3 chooser, in Today's grammar. */
+  looks: EventLookChooser;
   /** The empty frame's serif headline and its one supporting line. */
   empty: { title: string; body: string | null } | null;
 
@@ -401,6 +442,250 @@ function PlateSkeleton() {
 }
 
 // ---------------------------------------------------------------------------
+// The chooser
+// ---------------------------------------------------------------------------
+
+/**
+ * `Your look`, as a chooser rather than a verdict. The founder's ruling.
+ *
+ * The poster used to draw ONE dominant plate: whatever the reader had already
+ * pinned, or an outline if she had not. That is a record of a decision already
+ * made, and the page it sits on is where the decision is supposed to happen —
+ * so a reader with nothing planned was shown an empty box and asked to leave.
+ *
+ * This is Today's grammar, brought here: up to three options, paged full-width,
+ * dots beneath. Two things fill it and both come from machinery that already
+ * exists — the looks this member has PUT ON THE BOARD (`event_outfit_posts`,
+ * votable, visible to every member) and, in whatever slots are left, the
+ * on-device beam search run with THIS OCCASION as its context. No new table, no
+ * new generator, and no second opinion about what an outfit is.
+ *
+ * ── WHY A PAGING RAIL AND NOT A GRID ──────────────────────────────────────
+ *
+ * Three plates side by side at a third of the width each are three thumbnails,
+ * and the whole point of the plate is that the clothes are big enough to judge.
+ * Today settled this for the same reason and this borrows its answer, including
+ * the geometry that makes the paging honest: the page IS the screen width, so a
+ * swipe can never come to rest between two cards.
+ */
+function OptionDots({ count, active }: { count: number; active: number }) {
+  const theme = useTheme();
+  if (count <= 1) return null;
+  return (
+    <View
+      // Decorative: `optionPosition` is spoken on the card itself, so a reader
+      // who cannot see this row has already been told where they are.
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        paddingTop: 14,
+      }}>
+      {Array.from({ length: count }, (_, i) => (
+        <View
+          key={i}
+          style={{
+            width: i === active ? OPTION_DOT_ACTIVE : OPTION_DOT,
+            height: OPTION_DOT,
+            borderRadius: OPTION_DOT / 2,
+            backgroundColor: theme.ink,
+            opacity: i === active ? 1 : 0.22,
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+/** One of the chooser's own actions. Quieter than the foot's, always. */
+function OptionAction({
+  label,
+  tone,
+  large,
+  busy,
+  onPress,
+}: {
+  label: string;
+  tone: 'blush' | 'tray';
+  large: boolean;
+  busy?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <PressableSurface
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      // `commit` for the one that writes a row somebody else will see, and the
+      // policy door rather than `expo-haptics` — `tests/haptic-policy.test.ts`
+      // refuses the direct import from a product file.
+      haptic={tone === 'blush' ? 'commit' : undefined}
+      busy={busy}
+      onPress={onPress}
+      style={{
+        flex: 1,
+        minWidth: 0,
+        borderRadius: CTA_RADIUS,
+        backgroundColor: tone === 'blush' ? theme.blush : theme.tray,
+      }}
+      contentStyle={{
+        flex: 1,
+        minWidth: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: large ? CTA_MIN_HEIGHT_AX : CTA_SECONDARY_MIN_HEIGHT,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+      }}>
+      <Text
+        variant={large ? 'heading' : 'callout'}
+        style={{
+          color: tone === 'blush' ? theme.accent : theme.ink,
+          textAlign: 'center',
+          minWidth: 0,
+        }}>
+        {label}
+      </Text>
+    </PressableSurface>
+  );
+}
+
+function OptionPage({
+  option,
+  index,
+  total,
+  width,
+  large,
+}: {
+  option: EventLookOption;
+  index: number;
+  total: number;
+  width: number;
+  large: boolean;
+}) {
+  const position = optionPosition(index, total);
+  const standing = option.posted ? EVENT_DETAIL_COPY.onBoard : EVENT_DETAIL_COPY.suggestion;
+  const picks =
+    // "Zero is quiet" — the board's own rule, kept here rather than restated:
+    // a look with no votes prints no count at all, never "0 votes". The words
+    // are the board's own (`voteCountLine`) rather than a second vocabulary for
+    // the same number: the sheet this page opens is called Outfit Voting.
+    option.votes && option.votes > 0
+      ? option.votes === 1
+        ? '1 vote'
+        : `${option.votes} votes`
+      : null;
+
+  return (
+    <View style={{ width }}>
+      <Plate tiles={option.tiles} label={option.label} large={large} />
+
+      <View style={{ paddingHorizontal: GUTTER, paddingTop: 12, gap: 10, flexShrink: 0 }}>
+        <View
+          // ONE node. `accessible` collapses the position, the name, whether
+          // anybody else can see it and the tally into a single announcement —
+          // the same thing Today's plate does, and for the same reason: an
+          // option heard as four fragments is not an option.
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={[position, option.label, standing, picks]
+            .filter(Boolean)
+            .join(', ')}
+          style={{
+            flexDirection: large ? 'column' : 'row',
+            alignItems: large ? 'flex-start' : 'center',
+            justifyContent: 'space-between',
+            gap: large ? 4 : 12,
+          }}>
+          <Text variant="colophon" style={{ minWidth: 0, flexShrink: 1 }}>
+            {position}
+          </Text>
+          <Text variant="colophon" style={{ minWidth: 0, flexShrink: 1 }}>
+            {[standing, picks].filter(Boolean).join(' · ')}
+          </Text>
+        </View>
+
+        {option.onAdd || option.onChange || option.onShare ? (
+          <View style={{ flexDirection: large ? 'column' : 'row', gap: 10 }}>
+            {option.onAdd ? (
+              <OptionAction
+                label={option.busy ? EVENT_DETAIL_COPY.posting : EVENT_DETAIL_COPY.addOption}
+                tone="blush"
+                large={large}
+                busy={option.busy}
+                onPress={option.onAdd}
+              />
+            ) : null}
+            {option.onChange ? (
+              <OptionAction
+                label={EVENT_DETAIL_COPY.change}
+                tone="tray"
+                large={large}
+                onPress={option.onChange}
+              />
+            ) : null}
+            {option.onShare ? (
+              <OptionAction
+                label={EVENT_DETAIL_COPY.shareLook}
+                tone="tray"
+                large={large}
+                onPress={option.onShare}
+              />
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function LookChooser({ view, large }: { view: EventDetailView; large: boolean }) {
+  const { width } = useWindowDimensions();
+  const [active, setActive] = useState(0);
+
+  if (view.looks.kind === 'loading') return <PlateSkeleton />;
+  if (view.looks.kind === 'empty') return <EmptyPlate large={large} />;
+
+  const options = view.looks.options;
+  if (options.length === 0) return <EmptyPlate large={large} />;
+
+  const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const next = Math.round(e.nativeEvent.contentOffset.x / Math.max(width, 1));
+    if (next !== active) setActive(next);
+  };
+
+  // A single option is not a carousel: no paging, no dots, nothing to swipe.
+  if (options.length === 1) {
+    return <OptionPage option={options[0]!} index={0} total={1} width={width} large={large} />;
+  }
+
+  return (
+    <View>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onMomentumEnd}>
+        {options.map((option, i) => (
+          <OptionPage
+            key={option.id}
+            option={option}
+            index={i}
+            total={options.length}
+            width={width}
+            large={large}
+          />
+        ))}
+      </ScrollView>
+      <OptionDots count={options.length} active={active} />
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // The roster
 // ---------------------------------------------------------------------------
 
@@ -413,12 +698,21 @@ function PlateSkeleton() {
  */
 function Chip({
   initials,
+  avatarUrl = null,
   name,
   going,
   quiet,
   large,
 }: {
   initials: string | null;
+  /**
+   * The photograph, when the profile carried one. The disc is the same disc
+   * either way — same diameter, same circle, same place in the row — so a chip
+   * with a face and a chip with letters sit on one baseline. A URL that fails
+   * to decode leaves the initials showing underneath, which is why the image is
+   * drawn OVER them rather than instead of them.
+   */
+  avatarUrl?: string | null;
   name: string;
   going: boolean;
   quiet: boolean;
@@ -457,10 +751,19 @@ function Chip({
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
+            overflow: 'hidden',
           }}>
           <Text variant={large ? 'callout' : 'caption'} style={{ color: theme.ink }}>
             {initials}
           </Text>
+          {avatarUrl ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              contentFit="cover"
+              transition={120}
+              style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
+            />
+          ) : null}
         </View>
       ) : null}
       <Text
@@ -499,8 +802,13 @@ function Roster({ view, large }: { view: EventDetailView; large: boolean }) {
               {view.chips.map((chip) => (
                 <Chip
                   key={chip.userId}
+                  // Initials from the FULL name — "Nelson Saenz" is still "NS"
+                  // on the disc — while the pill prints the first name alone.
+                  // The founder's ruling is about what is READ, and a monogram
+                  // is not a name.
                   initials={initialsFor(chip.name)}
-                  name={chip.host ? `${chip.name} (host)` : chip.name}
+                  avatarUrl={chip.avatarUrl}
+                  name={chip.host ? `${chip.firstName} (host)` : chip.firstName}
                   going={chip.going}
                   quiet={!chip.going}
                   large={large}
@@ -679,10 +987,14 @@ function CommentsRow({ count, onPress }: { count: number; onPress: () => void })
 
 export function EventDetailBody({ view, large = false }: { view: EventDetailView; large?: boolean }) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   const primary = primaryGround({
     failed: view.failed,
-    hasLook: view.plate.kind === 'ready',
+    // "Has a look" now means at least one option is ON THE BOARD. A suggestion
+    // the engine produced is not a decision anybody has made, so a poster
+    // showing three of them still points its one oxblood at the planning.
+    hasLook: view.looks.kind === 'ready' && view.looks.options.some((o) => o.posted),
     canRsvp: Boolean(view.rsvp),
   });
 
@@ -720,7 +1032,19 @@ export function EventDetailBody({ view, large = false }: { view: EventDetailView
       <Band view={view} large={large} />
 
       {/*
-        The middle of the poster scrolls and the foot does not.
+        EVERYTHING BELOW THE BAND SCROLLS. The founder's report, item 6.
+
+        The foot used to be pinned: "Plan a look" and the door down sat in a
+        fixed bar under the scroll, and on a real phone they were clipped —
+        partly off the bottom edge, with nothing to scroll them into view
+        because the bar was not IN the scroll. A pinned bar only works when its
+        height is knowable, and this one's is not: it holds up to four controls
+        whose labels grow with Dynamic Type.
+
+        So the bar is gone and the foot is the last block of the page. What
+        keeps it clear of the home indicator is the content inset below —
+        `insets.bottom` for the hardware plus `FOOT_PAD_BOTTOM` for the design —
+        rather than a guess at how tall a button is.
 
         `flex: 1, minHeight: 0` is load-bearing, not decoration — the same
         hazard item detail and LP-09 both record: with no flex in a flex
@@ -731,7 +1055,7 @@ export function EventDetailBody({ view, large = false }: { view: EventDetailView
       */}
       <ScrollView
         style={{ flex: 1, minHeight: 0 }}
-        contentContainerStyle={{ paddingBottom: 8 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + FOOT_PAD_BOTTOM }}
         showsVerticalScrollIndicator={false}>
         {view.notice ? <View style={{ paddingHorizontal: GUTTER, paddingTop: 14 }}>{view.notice}</View> : null}
 
@@ -753,35 +1077,12 @@ export function EventDetailBody({ view, large = false }: { view: EventDetailView
               {EVENT_DETAIL_COPY.yourLook}
             </Text>
           )}
-          {view.onChangeLook ? (
-            <PressableSurface
-              fill
-              accessibilityRole="button"
-              accessibilityLabel={EVENT_DETAIL_COPY.change}
-              accessibilityHint={EVENT_DETAIL_COPY.yourLook}
-              onPress={view.onChangeLook}
-              style={{ flexShrink: 0 }}
-              contentStyle={{
-                flex: 1,
-                minWidth: 0,
-                minHeight: MIN_TAP_TARGET,
-                alignItems: 'flex-end',
-                justifyContent: 'center',
-              }}>
-              <Text variant={large ? 'heading' : 'callout'} style={{ color: theme.accent }}>
-                {EVENT_DETAIL_COPY.change}
-              </Text>
-            </PressableSurface>
-          ) : null}
+          {/* `Change` moved onto the option it changes. With three of them on a
+              rail, one action up here could only ever act on a card the reader
+              might not be looking at. */}
         </View>
 
-        {view.plate.kind === 'loading' ? (
-          <PlateSkeleton />
-        ) : view.plate.kind === 'empty' ? (
-          <EmptyPlate large={large} />
-        ) : (
-          <Plate tiles={view.plate.tiles} label={view.plate.label} large={large} />
-        )}
+        <LookChooser view={view} large={large} />
 
         {view.empty ? (
           <View style={{ paddingHorizontal: 22, paddingTop: 22, gap: 10, flexShrink: 0 }}>
@@ -800,30 +1101,24 @@ export function EventDetailBody({ view, large = false }: { view: EventDetailView
 
         {tail}
 
-        {/* At the accessibility sizes the door down rides the scroll rather
-            than the foot, which holds two stacked buttons and has no room
-            left. It is drawn either way — see the header. */}
-        {large && view.commentCount !== null ? (
-          <View style={{ paddingHorizontal: GUTTER, paddingTop: 14, flexShrink: 0 }}>
-            <CommentsRow count={view.commentCount} onPress={view.onComments} />
-          </View>
-        ) : null}
-      </ScrollView>
-
-      {/* ── The foot ───────────────────────────────────────────────────────
-          Pinned in every frame. One filled oxblood per state — the accent
-          budget — decided once by `primaryGround` so no two controls here can
-          both believe they are the primary. */}
-      <View
-        style={{
-          paddingHorizontal: GUTTER,
-          paddingTop: 14,
-          paddingBottom: large ? 22 : 0,
-          gap: 10,
-          flexShrink: 0,
-          borderTopWidth: large ? 1 : 0,
-          borderTopColor: theme.tray,
-        }}>
+        {/* ── The foot, in the scroll ─────────────────────────────────────
+            One filled oxblood per state — the accent budget — decided once by
+            `primaryGround` so no two controls here can both believe they are
+            the primary. The rule above it is drawn at every type size now
+            rather than only at the accessibility ones: it used to be the seam
+            between a pinned bar and the page, and it is now the seam between
+            the page's facts and its actions, which is a thing worth marking
+            whatever size the type is. */}
+        <View
+          style={{
+            paddingHorizontal: GUTTER,
+            paddingTop: 18,
+            marginTop: 18,
+            gap: 10,
+            flexShrink: 0,
+            borderTopWidth: 1,
+            borderTopColor: theme.tray,
+          }}>
         {view.loading ? (
           <>
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -888,12 +1183,18 @@ export function EventDetailBody({ view, large = false }: { view: EventDetailView
               </View>
             ) : null}
 
-            {!large && view.commentCount !== null ? (
+            {/* One door down, at every type size. It used to be drawn twice —
+                once in the pinned foot and once in the scroll for the
+                accessibility sizes, because the bar had no room for it. With
+                the foot in the scroll there is exactly one of it and no size
+                at which it is missing. */}
+            {view.commentCount !== null ? (
               <CommentsRow count={view.commentCount} onPress={view.onComments} />
             ) : null}
           </>
         )}
-      </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }

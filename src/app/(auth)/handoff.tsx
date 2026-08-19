@@ -1,64 +1,75 @@
+import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Text as RNText, View } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
+import { Text as RNText, useWindowDimensions, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { atlas, MAX_DISPLAY_SCALE, MAX_TEXT_SCALE } from '@/components/auth/chrome';
-import { RunDots } from '@/components/auth/run-parts';
-import {
-  HEADLINE_SIZE,
-  PAD,
-  SUBLINE_SIZE,
-  beatMs,
-  handoffHeadline,
-  handoffSubline,
-} from '@/features/auth/auth-run-spec';
+import { beatMs } from '@/features/auth/auth-run-spec';
+import { greetingForHour } from '@/features/auth/greeting';
 import { takePendingInvite } from '@/features/invite/pending-invite';
 import { useTourGate } from '@/features/onboarding/tour-queries';
 import { shouldShowTour } from '@/features/onboarding/tour-state';
-import { leading } from '@/theme/font-metrics';
 import { supabase } from '@/lib/supabase';
 
-const HEADLINE_LEADING = leading('instrument', HEADLINE_SIZE, 1.12);
+const HANDOFF_PHOTO = require('../../../assets/garments/cream-mohair-sweater.jpg');
 
 /**
- * Redesign 19 — the arrival. Session written, then a held beat before the app.
+ * W-14 — session written, then a held beat before the app.
  *
- * ── WHAT MOVED ──────────────────────────────────────────────────────────────
+ * ── REVERTED 2026-08-18, BY FOUNDER ORDER ───────────────────────────────────
  *
- * The blurred sweater, the Skia gradient over it, and the thin filling rule are
- * gone; the screen is one flat oxblood field with the greeting on it. The photo
- * was doing the work of saying "this is a clothes app" at the one moment the
- * user has no clothes in it yet — a stock garment nobody owns, dimmed to 14%
- * legibility under two scrims. The colour says the same thing louder, costs no
- * decode, and removes the last Skia canvas from the auth run.
+ * Redesign 19 (7ac4ed2, deviation #5) flattened this screen to a plain oxblood
+ * field with "Welcome to Cinch" / "Welcome back" on it, dropping the blurred
+ * sweater, the Skia scrim over it and the hour greeting. The founder wants the
+ * arrival back the way it was, so the VISUAL beat below is restored verbatim
+ * from 7ac4ed2^: the photograph, the two-stop gradient, `greetingForHour`, the
+ * ninety-seconds subline and the thin rule that fills left to right.
  *
- * The greeting changed with it: a brand-new account is welcomed rather than
- * told the time of day. `greetingForHour` is untouched and still serves Today,
- * where a time-of-day line is a fact worth having.
+ * ── WHAT THE REVERT DELIBERATELY DID NOT TAKE BACK ──────────────────────────
  *
- * ── WHAT DID NOT ────────────────────────────────────────────────────────────
+ * Every decision later commits made about where this screen SENDS people, and
+ * how long it holds them, is kept as it stands today:
  *
- * Every routing decision. The name resolution and its redirect to step three,
- * the two reads that gate the beat, the invite-outranks-tour ordering, the
- * `take`-once invite handle, and the deliberate refusal to write `toured_at`
- * are all exactly as they shipped — this is the single funnel every sign-in
- * path ends at, including Apple's, and none of it is presentation.
+ *   - the name resolution and its redirect to the name screen (W-13),
+ *   - the two reads that gate the beat — greeting AND tour — so a brand-new
+ *     account is never timed past the tour it is only ever offered once,
+ *   - invite-outranks-tour, and the `take`-once invite handle,
+ *   - the refusal to write `toured_at` here.
+ *
+ * The held durations are still read from `beatMs` in `auth-run-spec` rather
+ * than re-declared locally as they were at 7ac4ed2^. The numbers are identical
+ * (1900 / 1400 / 900) — redesign 19 only MOVED them — and `tests/auth-run-
+ * layout.test.ts` pins them there, so a local copy would be a second source of
+ * truth for a value that is already under guard.
+ *
+ * Skia returns with the photograph. It is not a new native module: the welcome
+ * screen (`sign-in.tsx`) and `components/event-outfits/OutfitPostCard.tsx`
+ * both draw with it today, so it is already in the binary and this file stays
+ * OTA-shippable. See the argued exemption in `tests/auth-run-layout.test.ts`.
  */
 export default function HandoffScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
+  const { width, height } = useWindowDimensions();
   const params = useLocalSearchParams<{ isNew?: string; name?: string }>();
   const isNew = params.isNew === '1';
 
-  // The name usually rides in on the route params. When it does not — the root
-  // gate routed here on the session write, an Apple sign-in whose metadata is
-  // still settling — ask the session once. A signed-in account with NO name at
-  // all is a new email account the flow hasn't finished: it belongs on the name
-  // screen, not here, so it is sent there instead of being greeted namelessly.
+  // The name usually rides in on the route params. When it does not — the
+  // root gate routed here on the session write, an Apple sign-in whose
+  // metadata is still settling — ask the session once. A signed-in account
+  // with NO name at all is a new email account the flow hasn't finished: it
+  // belongs on the name screen (W-13), not here, so it is sent there instead
+  // of being greeted namelessly. The beat below waits for this to resolve.
   const [name, setName] = useState<string | null>(params.name?.trim() || null);
   const [resolved, setResolved] = useState(Boolean(params.name?.trim()));
 
@@ -97,22 +108,30 @@ export default function HandoffScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The progress sweep: #E2B79C filling left to right, then the app. Under
+  // Reduce Motion the bar is simply full and the beat shorter — no sweep.
+  // Armed only once the greeting is resolved, so a redirect to the name
+  // screen never races the timer.
+  const progress = useSharedValue(reduced ? 1 : 0);
   useEffect(() => {
     // Two reads gate the beat, not one. The greeting has always held it; the
     // tour gate joins it because `shouldShowTour` answers false while the read
     // is still in flight — correctly, since it cannot know — and a timer that
-    // fired first would send a brand-new account straight past the tour it is
-    // only ever offered once.
+    // fires first would send a brand-new account straight past the tour it is
+    // only ever offered once. The two reads run in parallel, so waiting for
+    // both costs nothing in practice.
     if (!resolved || tourGate.status === 'loading') return;
+    const beat = beatMs(isNew, reduced);
+    if (!reduced) progress.value = withTiming(1, { duration: beat - 150 });
     const id = setTimeout(() => {
-      // An invite outranks the tour, which is the order atlas 39 states: IV-06
-      // is "shown after sign-in and before the tour". Someone who arrived
-      // through a friend's link is owed the fact that the friendship is already
-      // made before they are offered a walkthrough of a closet they have not
-      // filled yet.
+      // An invite outranks the tour, which is the order atlas 39 states:
+      // IV-06 is "shown after sign-in and before the tour". Someone who
+      // arrived through a friend's link is owed the fact that the friendship
+      // is already made before they are offered a walkthrough of a closet
+      // they have not filled yet.
       //
-      // `take` clears the slot, so the handle is spent exactly once — a second
-      // sign-in on this phone does not replay somebody else's invite.
+      // `take` clears the slot, so the handle is spent exactly once — a
+      // second sign-in on this phone does not replay somebody else's invite.
       // `toured_at` is deliberately NOT written here: the tour is still owed
       // and will be offered at the next sign-in, because skipping it is a
       // consequence of the ordering rather than a decision to withhold it.
@@ -122,26 +141,52 @@ export default function HandoffScreen() {
         return;
       }
       router.replace(shouldShowTour(tourGate) ? '/tour' : '/(tabs)');
-    }, beatMs(isNew, reduced));
+    }, beat);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolved, tourGate.status]);
+  const fillStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
+
+  const greeting = greetingForHour(new Date().getHours());
+  const headline = isNew ? greeting : 'Welcome back';
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: atlas.oxblood,
-        paddingTop: insets.top,
-        paddingHorizontal: PAD,
-        justifyContent: 'center',
-      }}>
+    <View style={{ flex: 1, backgroundColor: atlas.coverBase }}>
       <StatusBar style="light" />
+      <Image
+        source={HANDOFF_PHOTO}
+        contentFit="cover"
+        transition={0}
+        blurRadius={14}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          transform: [{ scale: 1.1 }],
+        }}
+        accessibilityIgnoresInvertColors
+      />
+      <Canvas pointerEvents="none" style={{ position: 'absolute', width, height }}>
+        <Rect x={0} y={0} width={width} height={height}>
+          <LinearGradient
+            start={vec(0, 0)}
+            end={vec(0, height)}
+            colors={['rgba(23,18,14,0.80)', 'rgba(23,18,14,0.86)']}
+          />
+        </Rect>
+      </Canvas>
+
       <View
         accessibilityLiveRegion="polite"
         style={{
-          // Until the greeting resolves this frame may yet redirect to the name
-          // screen — hold the ground, don't flash a nameless line.
+          position: 'absolute',
+          left: 34,
+          right: 34,
+          top: insets.top + 96,
+          // Until the greeting resolves this frame may yet redirect to the
+          // name screen — hold the dark ground, don't flash a nameless line.
           opacity: resolved ? 1 : 0,
         }}>
         <RNText
@@ -149,28 +194,44 @@ export default function HandoffScreen() {
           maxFontSizeMultiplier={MAX_DISPLAY_SCALE}
           style={{
             fontFamily: 'InstrumentSerif_400Regular',
-            fontSize: HEADLINE_SIZE,
-            lineHeight: HEADLINE_LEADING,
+            fontSize: 34,
+            lineHeight: 34 * 1.12,
             color: atlas.cream,
           }}>
-          {handoffHeadline(isNew, name)}
+          {headline}
+          {name ? (
+            <>
+              ,{' '}
+              <RNText
+                style={{ fontFamily: 'InstrumentSerif_400Regular_Italic', color: atlas.warm }}>
+                {name}
+              </RNText>
+            </>
+          ) : null}
+          .
         </RNText>
-        <RNText
-          maxFontSizeMultiplier={MAX_TEXT_SCALE}
+        {isNew ? (
+          <RNText
+            maxFontSizeMultiplier={MAX_TEXT_SCALE}
+            style={{
+              marginTop: 10,
+              fontFamily: 'HelveticaNeue',
+              fontSize: 14,
+              lineHeight: 21.5,
+              color: 'rgba(243,240,233,0.6)',
+            }}>
+            Your closet is empty for about ninety more seconds.
+          </RNText>
+        ) : null}
+        <View
           style={{
-            marginTop: 12,
-            fontFamily: 'HelveticaNeue',
-            fontSize: SUBLINE_SIZE,
-            lineHeight: 24,
-            color: 'rgba(243,240,233,0.72)',
+            marginTop: 24,
+            height: 2,
+            borderRadius: 2,
+            overflow: 'hidden',
+            backgroundColor: 'rgba(243,240,233,0.18)',
           }}>
-          {handoffSubline(isNew)}
-        </RNText>
-        {/* The rule that filled left-to-right is now the run's own three dots,
-            so the last screen of the flow marks time in the same vocabulary the
-            first three did. Under Reduce Motion they simply rest. */}
-        <View style={{ marginTop: 22 }}>
-          <RunDots onFill />
+          <Animated.View style={[{ height: '100%', backgroundColor: atlas.warm }, fillStyle]} />
         </View>
       </View>
     </View>

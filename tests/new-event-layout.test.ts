@@ -254,3 +254,65 @@ test('the create mutation’s contract is untouched by the guest picker', () => 
   }
   assert.doesNotMatch(input, /guest|invitee|userIds/, 'the guest list reached the create insert');
 });
+
+// ---------------------------------------------------------------------------
+// The venue field and the keyboard
+// ---------------------------------------------------------------------------
+//
+// The founder's item 10, reported from the composer: tap Where, start typing,
+// and both the field and MapKit's suggestion list are behind the keyboard —
+// you cannot see what you are typing or what it is offering.
+//
+// The cause is structural rather than a missing prop. `SheetShell` is a
+// bottom-anchored `<Modal>` (`flex-1 justify-end`), so it sits ON the bottom
+// edge of the screen and the keyboard comes up over it. Nothing inside the
+// sheet could fix that: `automaticallyAdjustKeyboardInsets` insets a scroll
+// view's content, and the problem is that the sheet's own frame never moved.
+//
+// So the fix is two things and both are pinned below: the shell lifts, and
+// what is inside it scrolls. Each is asked of the file that owns it.
+
+test('the place sheet lifts above the keyboard, and the pickers do not', () => {
+  const shell = code(readFileSync('src/components/events/date-sheet.tsx', 'utf8'));
+  const sheet = code(readFileSync('src/components/events/place-sheet.tsx', 'utf8'));
+
+  // OPT-IN, not always-on. The date, time and discard sheets have no input in
+  // them, and a picker that jumps when a keyboard opens elsewhere in the app
+  // would be a new bug traded for the old one.
+  assert.match(shell, /avoidKeyboard/, 'the shell cannot lift at all');
+  assert.match(shell, /KeyboardAvoidingScreen/, 'the shell invented its own avoidance');
+  assert.match(sheet, /avoidKeyboard/, 'the one sheet with a field in it does not lift');
+
+  const pickers = code(readFileSync('src/components/events/time-sheet.tsx', 'utf8'));
+  assert.doesNotMatch(pickers, /avoidKeyboard/, 'a sheet with no field in it lifts');
+  const discard = code(readFileSync('src/components/events/discard-sheet.tsx', 'utf8'));
+  assert.doesNotMatch(discard, /avoidKeyboard/, 'the confirmation lifts');
+});
+
+test('the lifted sheet drops the home-indicator inset it no longer needs', () => {
+  // Lifting puts the sheet's bottom edge on the keyboard's top edge, where
+  // there is no indicator to clear. Keeping the 34pt inset there leaves that
+  // much dead paper between the last suggestion and the keys — which is
+  // exactly the space the panel needs at the accessibility sizes.
+  const shell = code(readFileSync('src/components/events/date-sheet.tsx', 'utf8'));
+  assert.match(shell, /paddingBottom: keyboardUp \? 24 : Math\.max\(insets\.bottom, 24\)/);
+  // `will`, not `did`: the padding has to change in the frames the keyboard is
+  // animating in, not after it lands.
+  assert.match(shell, /keyboardWillShow/);
+  assert.match(shell, /keyboardWillHide/);
+});
+
+test('the venue results scroll, and one tap still picks a place', () => {
+  const sheet = code(readFileSync('src/components/events/place-sheet.tsx', 'utf8'));
+  assert.match(sheet, /<ScrollView/, 'the panel cannot scroll');
+  assert.match(sheet, /maxHeight: PANEL_MAX_HEIGHT/, 'the panel has no ceiling');
+
+  // THE ONE PROP THAT MAKES THE ROWS STILL WORK. Inside a scroll view the
+  // first tap on a suggestion is otherwise swallowed dismissing the keyboard,
+  // so choosing a place would take two taps and read as a dead row.
+  assert.match(sheet, /keyboardShouldPersistTaps="handled"/);
+
+  // And the two mechanisms never compound: the shell lifts OR a scroll view
+  // insets itself, never both, or the sheet moves twice.
+  assert.doesNotMatch(sheet, /automaticallyAdjustKeyboardInsets|KeyboardAwareScrollView/);
+});

@@ -5,7 +5,7 @@ import { GarmentImage } from '@/components/media/garment-image';
 import { Text } from '@/components/ui/text';
 import { describeWeather, formatTemp } from '@/features/context/weather';
 import { type PlannedDay } from '@/features/plan/packing';
-import { explain, type Garment } from '@/lib/styling';
+import { type Garment } from '@/lib/styling';
 import { useTheme } from '@/theme/tokens';
 
 const LAYOUT_ORDER: Garment['slot'][] = [
@@ -40,6 +40,49 @@ const IMAGE_COL = THUMB_W * 3 + 10;
  * prints the phrase the data actually supports, and prints nothing at all when
  * no forecast reached the day rather than borrowing another day's.
  */
+/**
+ * "Today" / "Tomorrow" / "Thu 7" — the DATE alone, and nothing else.
+ *
+ * Split out of `dayHeadLabel` on 2026-08-18, when the founder asked for the
+ * week's dates to carry more weight. They could not: the date shared a single
+ * 10pt tracked line with the temperature, the weather phrase and any occasion,
+ * so growing "the date" meant growing "THU 7 · 72° · 60% RAIN · SARAH'S
+ * DINNER" — a headline made of four unrelated facts.
+ *
+ * The line is two lines now. This is the heading; `dayContextLabel` is the
+ * data under it. `dayHeadLabel` still joins all of it for the spoken label,
+ * which is the one place the old single string was right — a screen reader
+ * should hear the day and its conditions as one utterance, not as a heading
+ * followed by an orphaned list of numbers.
+ */
+export function dayDateLabel(day: PlannedDay, today: Date = new Date()): string {
+  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  if (sameDay(day.date, today)) return 'Today';
+  if (sameDay(day.date, tomorrow)) return 'Tomorrow';
+  return `${day.date.toLocaleDateString('en-GB', { weekday: 'short' })} ${day.date.getDate()}`;
+}
+
+/**
+ * "72° · 60% RAIN · SARAH'S DINNER" — everything the day knows that is not its
+ * date. Empty when the day knows nothing, in which case nothing is drawn.
+ */
+export function dayContextLabel(
+  day: PlannedDay,
+  units: 'C' | 'F',
+  occasion?: string | null,
+): string {
+  return [
+    day.weather ? formatTemp(day.weather.feelsLikeC, units) : null,
+    day.weather ? describeWeather(day.weather, units) : null,
+    occasion?.trim() || null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 export function dayHeadLabel(
   day: PlannedDay,
   units: 'C' | 'F',
@@ -52,22 +95,9 @@ export function dayHeadLabel(
    */
   today: Date = new Date(),
 ): string {
-  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const when = sameDay(day.date, today)
-    ? 'Today'
-    : sameDay(day.date, tomorrow)
-      ? 'Tomorrow'
-      : `${day.date.toLocaleDateString('en-GB', { weekday: 'short' })} ${day.date.getDate()}`;
-
-  return [
-    when,
-    day.weather ? formatTemp(day.weather.feelsLikeC, units) : null,
-    day.weather ? describeWeather(day.weather, units) : null,
-    occasion?.trim() || null,
-  ]
+  // Composed from the two halves rather than repeating their logic, so the
+  // spoken label and the drawn ones can never describe different days.
+  return [dayDateLabel(day, today), dayContextLabel(day, units, occasion)]
     .filter(Boolean)
     .join(' · ');
 }
@@ -157,16 +187,19 @@ export function DayRow({
   // in layout order so it is top, bottom, shoe rather than whatever was first.
   const shown = pieces.slice(0, 3);
 
+  const date = dayDateLabel(day, today);
+  const context = dayContextLabel(day, units, occasion);
   const head = dayHeadLabel(day, units, occasion, today);
   const name = outfitLine(pieces);
-  const reasoning = day.outfit ? explain(day.outfit) : null;
 
   const state = planning ? 'Saving…' : planned ? 'Kept' : null;
 
+  // The reasoning is off the row (see the render below) and therefore off the
+  // spoken label too. A screen reader that hears a sentence nobody can see is
+  // being read a different screen.
   const a11yLabel = [
     head,
     day.outfit ? name : 'Nothing in your closet works for this day’s weather yet.',
-    reasoning,
     state,
     onPlan && !planned ? 'Keep this plan' : null,
   ]
@@ -193,25 +226,39 @@ export function DayRow({
       ) : null}
 
       <View className="flex-1">
-        {/* The date, the weather and the occasion, in one uppercase label.
-            Where a Cinch occasion exists it JOINS this label rather than
-            opening a second line — nothing on the row changes shape because a
+        {/* THE DATE LEADS THE ROW — founder order, 2026-08-18.
+            Serif at the heading step, ink, on its own line. It was a 10pt
+            tracked fragment sharing a line with the temperature; a week whose
+            days are the quietest thing on it is a week you have to read
+            twice. The conditions keep the small tracked register directly
+            under it, and a Cinch occasion still JOINS that line rather than
+            opening a third — nothing on the row changes shape because a
             dinner exists. */}
-        <Text variant="colophon">{head}</Text>
+        <Text variant="dayhead">{date}</Text>
+        {context ? <Text variant="colophon" className="mt-0.5">{context}</Text> : null}
 
         {day.outfit ? (
-          <>
-            {/* Two lines each, and both WRAP. `numberOfLines` is a ceiling on
-                a wrap, not a truncation to one line. */}
-            <Text variant="body" numberOfLines={2} className="mt-1.5">
-              {name}
-            </Text>
-            {reasoning ? (
-              <Text variant="note" numberOfLines={2} className="mt-1">
-                {reasoning}
-              </Text>
-            ) : null}
-          </>
+          // THE REASON LINE IS GONE — founder order, 2026-08-18.
+          //
+          // `explain()` printed the scorer's own notes as prose: "Light enough
+          // for 26 — neutral base." Two objections, and the second is the one
+          // that settles it. It is machine reasoning shown as editorial voice,
+          // in a register the app otherwise reserves for things a person
+          // wrote; and it competed for the row with the only line that tells
+          // you what you would actually be wearing. Seven of them down a
+          // scrolling week read as seven justifications for decisions nobody
+          // asked to have justified.
+          //
+          // `explain()` is untouched and still used where a reason is asked
+          // for rather than volunteered. Nothing about how outfits are SCORED
+          // changed — the notes are still computed, still ranked, and still
+          // the reason this outfit is the one on the row.
+          //
+          // The piece line keeps its two-line ceiling and still WRAPS.
+          // `numberOfLines` is a ceiling on a wrap, not a truncation to one.
+          <Text variant="body" numberOfLines={2} className="mt-1.5">
+            {name}
+          </Text>
         ) : (
           <Text variant="note" className="mt-1.5">
             Nothing in your closet works for this day&rsquo;s weather yet.
@@ -290,6 +337,8 @@ export function DayRowBuilding({
   today?: Date;
 }) {
   const head = dayHeadLabel(day, units, null, today);
+  const date = dayDateLabel(day, today);
+  const context = dayContextLabel(day, units, null);
   return (
     <View
       accessibilityLabel={`${head}. Being planned.`}
@@ -307,7 +356,11 @@ export function DayRowBuilding({
         ))}
       </View>
       <View className="flex-1">
-        <Text variant="colophon">{head}</Text>
+        {/* The date is a fact the device already has, so it is drawn at full
+            strength even while the plan is being built — the skeleton mirrors
+            the settled row exactly, which is this component's whole contract. */}
+        <Text variant="dayhead">{date}</Text>
+        {context ? <Text variant="colophon" className="mt-0.5">{context}</Text> : null}
         <View className="mt-2 h-3.5 rounded-sm bg-tray" style={{ maxWidth: 176 }} />
         <View className="mt-2 h-2.5 rounded-sm bg-tray" style={{ maxWidth: 140 }} />
       </View>
@@ -342,6 +395,8 @@ export function DayRowUnplanned({
 }) {
   const theme = useTheme();
   const head = dayHeadLabel(day, units, occasion, today);
+  const date = dayDateLabel(day, today);
+  const context = dayContextLabel(day, units, occasion);
 
   return (
     <View
@@ -351,7 +406,10 @@ export function DayRowUnplanned({
       ].join(' ')}>
       <View style={{ width: IMAGE_COL }} />
       <View className="flex-1">
-        <Text variant="colophon">{head}</Text>
+        {/* An unplanned day keeps the week's rhythm, so it keeps the week's
+            date register too — the row is empty of a plan, not of a date. */}
+        <Text variant="dayhead">{date}</Text>
+        {context ? <Text variant="colophon" className="mt-0.5">{context}</Text> : null}
         <Text variant="body" className="mt-1.5">
           Nothing planned
         </Text>

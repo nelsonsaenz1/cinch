@@ -114,3 +114,73 @@ test('D-1: an undated occasion is never closed', () => {
   assert.match(migration, /coalesce\(e\.starts_at, 'infinity'::timestamptz\)/);
   assert.match(migration, /now\(\) < coalesce/);
 });
+
+// ---------------------------------------------------------------------------
+// The merge — the founder's item 8
+// ---------------------------------------------------------------------------
+//
+// "Comments & outfit votes" became "Table Talk & Outfit Voting", and the rename
+// IS the merge: the looks and their vote controls moved onto the top of this
+// thread, and the separate board destination came off the poster's menu. One
+// sheet where members chat AND vote.
+//
+// What must not have moved is the privacy. The board's visibility semantics
+// are a decision, not a layout — it prints a bare tally and deliberately does
+// NOT print who voted, because "a rail that prints who voted for which
+// friend's clothes turns a vote into a public statement about somebody else's
+// outfit". Carrying the rail to a new surface is exactly the kind of move that
+// loses that quietly, so it is asserted here rather than assumed.
+
+const THREAD = readFileSync('src/app/event/[id]/comments.tsx', 'utf8')
+  .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/^\s*\/\/.*$/gm, '');
+
+test('the sheet carries the options and their votes, above the thread', () => {
+  assert.match(THREAD, /<OutfitVoting/, 'the merged sheet has no options in it');
+  assert.match(THREAD, /<VotePill/, 'the options carry no vote control');
+  // The board's own read and the board's own mutations — no second query and
+  // no second way to cast a pick.
+  assert.match(THREAD, /useEventPosts/);
+  assert.match(THREAD, /useCastVote/);
+  assert.match(THREAD, /useRetractVote/);
+  assert.match(THREAD, /useMyVote/);
+  assert.doesNotMatch(THREAD, /\.from\(|\.insert\(|\.delete\(/, 'the sheet wrote its own query');
+});
+
+test('the tally is a count, never a list of who picked what', () => {
+  // `voteCountLine` returns "3 votes" and returns NULL at zero, which is the
+  // "zero is quiet" rule the whole feature keeps.
+  assert.match(THREAD, /voteCountLine\(look\.votes\)/);
+  // The board's own name-joining helpers must not appear here. `pickLine` and
+  // `joinWithAnd` still exist and still have callers; what they must not have
+  // is a caller on this surface.
+  assert.doesNotMatch(THREAD, /pickLine|joinWithAnd|voterIds/, 'voter names reached the sheet');
+  // The one thing a reader learns about a person is about themselves.
+  assert.match(THREAD, /Your vote/);
+});
+
+test('the options row is the EVENT thread’s, not a look’s own', () => {
+  // A deep link to one look's thread is already about that look; printing the
+  // whole slate above it would make the sheet argue with its own title.
+  assert.match(THREAD, /postId\s*\?\s*\[\]/);
+});
+
+test('a locked occasion keeps its counts and loses its buttons', () => {
+  // The board's rule, and the server's: `assert_vote_target` refuses a pick
+  // once the occasion has started (CL002), so the control is inert rather than
+  // hidden — "the counts stay readable". `VotePill` owns that state and this
+  // surface hands it the same flag the thread already computes for the
+  // composer.
+  assert.match(THREAD, /locked=\{afterOccasion\}/);
+});
+
+test('the vote path still passes the terms gate', () => {
+  // `assert_social_terms()` raises on INSERT to `event_outfit_votes`, and that
+  // refusal is not something a user can act on from an alert — it means they
+  // reached a social surface without passing the agreement, so it raises the
+  // sheet instead. The board does this and so must this.
+  assert.match(THREAD, /useSocialTermsGate\(\)/);
+  assert.match(THREAD, /terms\.intercept\(error, run\)/);
+  assert.match(THREAD, /\{terms\.sheet\}/);
+});

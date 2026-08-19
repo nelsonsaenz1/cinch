@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import {
   CHIP_AVATAR,
   CTA_MIN_HEIGHT,
+  LOOK_OPTION_LIMIT,
   CTA_MIN_HEIGHT_AX,
   CTA_SECONDARY_MIN_HEIGHT,
   EVENT_DETAIL_COPY,
@@ -32,13 +33,18 @@ import {
   PLATE_ROW_AX,
   ROSTER_CHIP_LIMIT,
   emptyLookBody,
+  firstNameOf,
+  formalityTarget,
   heroTone,
   logisticsLine,
   moreFriendsLine,
+  occasionTarget,
+  optionPosition,
   posterLine,
   posterLinesAx,
   primaryGround,
   rosterChips,
+  suggestionCount,
 } from '../src/features/events/event-detail-spec';
 
 const RAW = readFileSync('src/components/events/event-detail-body.tsx', 'utf8');
@@ -135,7 +141,7 @@ test('no fixed height sits under anything that carries type', () => {
   for (const line of heights) {
     assert.match(
       line,
-      /avatar|row \* 2|large \? row|\bDOT\b|NOTICE_DOT|PLATE_ROW|\bsize\b|'100%'|\bh\b|\b(12|13)\b|CTA_MIN_HEIGHT|NAV_ROW_MIN_HEIGHT|MIN_TAP_TARGET/,
+      /avatar|row \* 2|large \? row|\bDOT\b|NOTICE_DOT|OPTION_DOT|PLATE_ROW|\bsize\b|'100%'|\bh\b|\b(12|13)\b|CTA_MIN_HEIGHT|NAV_ROW_MIN_HEIGHT|MIN_TAP_TARGET/,
       `a fixed height under something that carries type — ${line}`,
     );
   }
@@ -339,8 +345,6 @@ test('the destructive and organiser affordances are still reachable', () => {
     'Leave this occasion',
     'Remove someone',
     'Invite more people',
-    'Every option',
-    'Table talk',
     'Add a date',
     'Add a place',
   ]) {
@@ -350,6 +354,27 @@ test('the destructive and organiser affordances are still reachable', () => {
   assert.match(ROUTE, /HOST_CANCELLATION_FACTS/, 'the host’s confirmation lost its facts');
   assert.match(ROUTE, /CANCELLATION_FACTS/, 'the cancellation band is gone');
   assert.match(ROUTE, /destructiveButtonIndex/, 'the menu does not mark its destructive row');
+});
+
+test('the menu no longer offers a second door to the same conversation', () => {
+  /**
+   * The founder's items 7 and 8, asserted as an ABSENCE — which is the only
+   * way to assert them, because the failure they prevent is a row quietly
+   * coming back.
+   *
+   * `Table talk` opened the very thread the foot's own door opens, so the page
+   * carried two differently-named controls for one destination. `Every option`
+   * opened a separate screen for the looks and their votes, which is now the
+   * top of that same thread — "Table Talk & Outfit Voting", one sheet where
+   * members chat AND vote.
+   *
+   * The board ROUTE is deliberately not asserted gone: `/event/[id]/outfits`
+   * still exists, the composer still lands on it after a post, and a deep link
+   * still reaches it. What went is this page offering it.
+   */
+  assert.doesNotMatch(ROUTE, /label: 'Table talk'/, 'the menu offers Table talk again');
+  assert.doesNotMatch(ROUTE, /label: 'Every option'/, 'the menu offers the board again');
+  assert.doesNotMatch(ROUTE, /rows\.push\([\s\S]{0,80}\/outfits/, 'a menu row points at the board');
 });
 
 // ---------------------------------------------------------------------------
@@ -364,7 +389,9 @@ test('the copy is the artifact’s, to the character', () => {
   assert.equal(EVENT_DETAIL_COPY.planLook, 'Plan a look');
   assert.equal(EVENT_DETAIL_COPY.emptyLookTitle, 'No look planned yet');
   assert.equal(EVENT_DETAIL_COPY.noReplies, 'Nobody else has replied');
-  assert.equal(EVENT_DETAIL_COPY.comments, 'Comments & outfit votes');
+  // RENAMED BY THE FOUNDER, and the rename is the merge: one sheet where
+  // members chat and vote, so the label names both halves.
+  assert.equal(EVENT_DETAIL_COPY.comments, 'Table Talk & Outfit Voting');
   assert.equal(EVENT_DETAIL_COPY.rsvpErrorTitle, 'Your reply didn’t send');
   assert.equal(EVENT_DETAIL_COPY.rsvpErrorBody, 'Nobody has been notified yet.');
   assert.equal(EVENT_DETAIL_COPY.tryAgain, 'Try again');
@@ -425,4 +452,179 @@ test('the poster promises no count of anything it cannot count', () => {
   // and neither is a claim about who answered what.
   assert.doesNotMatch(CODE, /\b\d+ (going|coming|attending)\b/i);
   assert.doesNotMatch(SPEC, /\b\d+ (going|coming|attending)\b/i);
+});
+
+// ---------------------------------------------------------------------------
+// The chooser — the founder's items 2, 3 and 9
+// ---------------------------------------------------------------------------
+//
+// `Your look` stopped being a verdict and became a question. The poster used
+// to draw ONE dominant plate — whatever the reader had already pinned, or an
+// outline if she had not — which is a record of a decision on the page where
+// the decision is supposed to happen. It is Today's grammar now: up to three
+// options, paged, dots beneath.
+//
+// The rule these tests hold is the one the founder's brief states twice and
+// the constitution states everywhere: NO NEW BACKEND. The options come from
+// machinery that already exists — the board's own posts, and the same
+// on-device beam search Today runs — and putting one on the board goes through
+// the same mutation the three-step composer's last step calls.
+
+test('the chooser reuses the engine and the board, and invents neither', () => {
+  // The generator is Today's, given this occasion as its context rather than
+  // this morning's calendar.
+  assert.match(ROUTE, /useOutfits\(\{/, 'the page grew its own generator');
+  assert.match(ROUTE, /useStyleContext\(\{[\s\S]*?targetOccasion: occasionTarget/);
+  assert.match(ROUTE, /targetFormality: formalityTarget/);
+  // The publish is the composer's own mutation — one path from "these
+  // garments" to a row in `event_outfit_posts`.
+  assert.match(ROUTE, /useComposeAndPostLook\(\)/);
+  // And nothing here reaches for a table itself.
+  assert.doesNotMatch(ROUTE, /\.from\(|\.insert\(|\.select\(/, 'the page wrote its own query');
+});
+
+test('choosing a look publishes it without claiming it was worn', () => {
+  // `saveToLately: false` is the one argument that differs from the composer's
+  // default and it is the honest one: deciding what to wear on Saturday is not
+  // a claim to have worn it, and a wear would land in the diary and move the
+  // taste profile on the strength of a tap on a suggestion.
+  const publish = ROUTE.slice(ROUTE.indexOf('const publishSuggestion'), ROUTE.indexOf('const sendRsvp'));
+  assert.match(publish, /saveToLately: false/);
+  assert.match(publish, /itemIds: outfit\.candidate\.items\.map/);
+});
+
+test('a suggestion carries no vote count, and the board’s looks carry theirs', () => {
+  // "Zero is quiet" is the board's rule and this is not even a zero: a look
+  // nobody else can see cannot have been picked, so the absence is null rather
+  // than 0 and the card prints nothing at all.
+  assert.match(ROUTE, /posted: false,[\s\S]{0,400}?votes: null/);
+  assert.match(ROUTE, /posted: true,[\s\S]{0,200}?votes: look\.votes/);
+  // The words are the board's own, not a second vocabulary for one number.
+  assert.match(CODE, /'1 vote'/);
+  assert.doesNotMatch(CODE, /'0 votes'|`0 votes`/, 'a zero reached the card');
+});
+
+test('the options are capped at three, posted first', () => {
+  assert.equal(LOOK_OPTION_LIMIT, 3);
+  assert.equal(suggestionCount(0), 3, 'a member with nothing on the board gets three');
+  assert.equal(suggestionCount(2), 1);
+  assert.equal(suggestionCount(3), 0, 'a full board still asks the engine for more');
+  assert.equal(suggestionCount(9), 0, 'a negative number of suggestions');
+  // Order is not a ranking: a decision somebody has made and other people are
+  // voting on comes before a machine's proposal.
+  assert.match(ROUTE, /\[\.\.\.postedOptions, \.\.\.suggestedOptions\]\.slice\(0, LOOK_OPTION_LIMIT\)/);
+});
+
+test('the option position is spoken, not left to the dots', () => {
+  assert.equal(optionPosition(0, 3), 'Option 1 of 3');
+  assert.equal(optionPosition(2, 3), 'Option 3 of 3');
+  // One-based, because it is read aloud.
+  assert.doesNotMatch(optionPosition(0, 1), /Option 0/);
+  // And the dots themselves are decoration: a reader who cannot see them has
+  // already been told where they are.
+  assert.match(CODE, /accessibilityElementsHidden[\s\S]{0,120}importantForAccessibility="no-hide-descendants"/);
+});
+
+test('the occasion, not the morning, is what the engine is asked about', () => {
+  // Lowercase single words, because `targetOccasion` is matched against each
+  // garment's own `occasions` tags rather than against a label a designer
+  // wrote — the same reason Today's `OCCASION_OPTIONS` carry them.
+  assert.equal(occasionTarget('Birthday dinner'), 'dinner');
+  assert.equal(occasionTarget('Wedding'), 'formal');
+  assert.equal(occasionTarget('Team offsite'), 'team offsite');
+  // A host who named nothing gets a null target, which is the occasion rule's
+  // neutral — never a guess, and never a penalty.
+  assert.equal(occasionTarget(null), null);
+  assert.equal(occasionTarget('   '), null);
+
+  // Formality is the 0..1 the scorer already reads, not a new axis.
+  assert.equal(formalityTarget('Black tie'), 0.95);
+  assert.equal(formalityTarget('casual'), 0.35);
+  assert.equal(formalityTarget(null), null);
+  // An unrecognised dress code leaves the engine's own reading in charge
+  // rather than overriding it with a number nobody asked for.
+  assert.equal(formalityTarget('come as a pirate'), null);
+  for (const code of ['Black tie', 'cocktail', 'business', 'casual']) {
+    const score = formalityTarget(code)!;
+    assert.ok(score > 0 && score <= 1, `${code} is off the scale at ${score}`);
+  }
+});
+
+test('the share goes out through the machinery that already exists', () => {
+  // Item 9. Two paths because there are two kinds of thing to send, and each
+  // takes the one that fits it:
+  //
+  //  · a SUGGESTION is a `StyledOutfit`, so it takes the app's own composer —
+  //    `PlateCard` on its fixed 360×640 canvas, captured by `sharePlate`, the
+  //    same pair Today and the packing memo use;
+  //  · a POSTED look has garments but no `OutfitCandidate` behind it (the
+  //    board's rows carry no feature vector), so it takes the board's own
+  //    share: the sentence plus the sharer's invite link.
+  //
+  // Fabricating a candidate for the second would mean inventing scores the
+  // engine never computed, which is a lie in the one place the card is meant
+  // to be evidence.
+  assert.match(ROUTE, /<PlateCard/);
+  assert.match(ROUTE, /sharePlate\(shareView\)/);
+  assert.match(ROUTE, /lookShareMessage\(\{/);
+  // The link is the SHARER's, never the occasion's — an occasion is not
+  // linkable and is not becoming linkable.
+  assert.match(ROUTE, /url: myLink \?\? undefined/);
+  assert.doesNotMatch(ROUTE, /url: `.*event/, 'the occasion became a link');
+});
+
+// ---------------------------------------------------------------------------
+// The chips — the founder's item 5
+// ---------------------------------------------------------------------------
+
+test('a chip prints a first name and nothing after it', () => {
+  const chips = rosterChips(
+    [
+      {
+        userId: 'n',
+        state: 'joined',
+        role: 'member',
+        displayName: 'Nelson Saenz',
+        username: 'nelson',
+        avatarUrl: 'https://example.test/n.jpg',
+      },
+    ],
+    { isHost: false, me: null },
+  );
+  assert.equal(chips.chips[0]!.firstName, 'Nelson');
+  // The full name survives on the chip for VoiceOver and for the host's own
+  // removal sheet — what changed is what is DRAWN.
+  assert.equal(chips.chips[0]!.name, 'Nelson Saenz');
+  assert.match(CODE, /name=\{chip\.host \? `\$\{chip\.firstName\} \(host\)` : chip\.firstName\}/);
+
+  // A surname is dropped because the page asks for less, never because it was
+  // cut off — there is no clamp doing this work.
+  assert.equal(firstNameOf('Marisol Delgado-Whitcomb'), 'Marisol');
+  assert.equal(firstNameOf('Björk'), 'Björk', 'a mononym lost itself');
+  assert.equal(firstNameOf('You'), 'You');
+  assert.equal(firstNameOf('  Priya  Raghunathan '), 'Priya');
+  assert.equal(firstNameOf(''), '', 'an empty name threw or invented one');
+});
+
+test('the chip’s disc takes a photograph when there is one, and letters when there is not', () => {
+  const withPhoto = rosterChips(
+    [{ userId: 'a', state: 'joined', role: 'member', displayName: 'Ana', username: 'ana', avatarUrl: 'u' }],
+    { isHost: false, me: null },
+  );
+  assert.equal(withPhoto.chips[0]!.avatarUrl, 'u');
+  // Absent by design rather than by failure — `social_profiles` excludes self,
+  // and a caller that passes no avatar at all still type-checks and still
+  // draws the initials.
+  const without = rosterChips(
+    [{ userId: 'b', state: 'joined', role: 'member', displayName: 'Ben', username: 'ben' }],
+    { isHost: false, me: null },
+  );
+  assert.equal(without.chips[0]!.avatarUrl, null);
+
+  // The disc is the SAME disc either way — one diameter, one circle, one place
+  // in the row — so a chip with a face and a chip with letters sit on one
+  // baseline. The image is drawn over the initials rather than instead of
+  // them, so a URL that fails to decode leaves letters showing.
+  assert.match(CODE, /avatarUrl \? \([\s\S]{0,300}position: 'absolute'/);
+  assert.ok(CHIP_AVATAR < 44, 'the disc became the target');
 });

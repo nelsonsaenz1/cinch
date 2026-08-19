@@ -384,15 +384,19 @@ export default function ClosetScreen() {
     });
     body = (
       <Animated.View style={{ flex: 1 }} entering={FadeIn.duration(motion.duration.fast)}>
-        {/* The field occupies the masthead's own 44pt row, which is why the
-            minimum height rides here rather than inside the shared field. */}
+        {/* The field occupies the masthead's own 44pt row, and it now stands
+            that tall on its own metrics — `DOOR_HEIGHT` is 11 + 22 + 11. The
+            `min-h-[44px]` that used to ride here was the reason the
+            placeholder read as vertically cut off: it grew the container to
+            44 while leaving the input's text rect at 19pt, a point under the
+            floor Helvetica Neue needs at 16. Height and line box belong to the
+            field, not to whoever mounts it. See `search-field-spec.ts`. */}
         <View className="flex-row items-center gap-2.5 px-gutter pt-2">
           <View className="flex-1">
             <SearchField
               value={screen.query}
               onChangeText={screen.setQuery}
               autoFocus
-              className="min-h-[44px]"
               placeholder="Search your wardrobe"
             />
           </View>

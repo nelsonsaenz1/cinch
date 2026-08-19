@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CapacityNote } from '@/components/today/capacity-note';
 import { ClosetFloor } from '@/components/today/closet-floor';
-import { ContextChips } from '@/components/today/context-chips';
+import { TasteRow, type TasteState } from '@/components/today/taste-row';
 import { PlateDots, TodayPlate, WornMark } from '@/components/today/today-plate';
 import {
   DEFAULT_CONTEXT,
@@ -23,22 +23,21 @@ import {
   belowActivationFloor,
   engineFormality,
   engineOccasion,
+  daysUntilIso,
   isThinWardrobe,
   pageFromOffset,
   piecesLine,
   piecesRemaining,
   positionLabel,
   resolveWeather,
-  type ContextFacet,
+  tripAhead,
+  tripAheadLine,
   type PlateIndex,
   type TodayContextChoice,
 } from '@/features/today/today-spec';
 import {
   TODAY_EVENTS,
   closetFloorShownProps,
-  contextChoiceOf,
-  contextOpenedProps,
-  contextSetProps,
   favoriteSetProps,
   noViableCombinationProps,
   outfitsSourceProps,
@@ -76,6 +75,7 @@ import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { usePlan } from '@/features/billing/use-plan';
 import { useUnwearEntry } from '@/features/diary/mutations';
 import { useMyEvents } from '@/features/events/queries';
+import { useAllTrips } from '@/features/plan/use-trips';
 import { useReactToOutfit, useWearOutfit } from '@/features/styling/mutations';
 import {
   classifyWearFailure,
@@ -679,8 +679,14 @@ export default function TodayScreen() {
    * `resolveTargetFormality` — so the recomposition is real and no new scoring
    * code was written for it.
    */
-  const [context11, setContext11] = useState<TodayContextChoice>(DEFAULT_CONTEXT);
-  const [openFacet, setOpenFacet] = useState<ContextFacet | null>(null);
+  // A CONSTANT since the chips were withdrawn (2026-08-18), not a state.
+  //
+  // The engine is still asked for exactly what it was asked for on an ordinary
+  // morning, because `DEFAULT_CONTEXT` is where the chips RESTED and nearly
+  // every session sent it unchanged. Kept as a named binding rather than
+  // inlined so the two targets below still read as a decision Today makes,
+  // and so a future control has one place to write.
+  const context11: TodayContextChoice = DEFAULT_CONTEXT;
   const [wornIds, setWornIds] = useState<Set<string>>(new Set());
   // Wear, per outfit rather than per screen. `wear.isPending` is the mutation's
   // global flag, so keying off it froze and spun every plate at once when one
@@ -1038,19 +1044,54 @@ export default function TodayScreen() {
   // True only between an explicit pull-to-refresh and the next re-rank result.
   const userAskedRef = useRef(false);
 
-  // ── THE REACTION BAR IS GONE FROM TODAY ───────────────────────────────────
+  // ── THE TASTE ROW IS BACK ON TODAY ────────────────────────────────────────
   //
-  // `handleReact` and its optimistic per-card state went with it. The accepted
-  // frames do not draw a reaction bar, and the contract's VoiceOver order —
-  // outfit, Wear this, taste mark, invite line — has no slot for one.
+  // Founder order, 2026-08-18, reversing redesign 11's removal.
   //
-  // Taste learning did NOT go with it. `useReactOutfit` is still called, from
-  // `confirmWear` below, off the rating and favourite the wear sheet collects:
-  // a four-star or a favourite still teaches the same learner the same way it
-  // always did. What changed is when Cinch asks. A bar under every card asks
-  // three times a morning about outfits nobody wore; the sheet asks once,
-  // about the one she actually put on, which is the only opinion with a day
-  // behind it.
+  // Redesign 11's argument was that the wear sheet's stars would carry the
+  // learner instead — one opinion a day, about the outfit actually put on,
+  // rather than a bar asking three times a morning about outfits nobody wore.
+  // That is a good argument about QUALITY and it ignored VOLUME: a wear is one
+  // signal a day and structurally always a positive one, so for three months
+  // the two cards passed over every morning taught the learner nothing at all.
+  // Those are the cheapest signals the app can collect and the machinery for
+  // them — `apply_outfit_reaction`, `favorExactCores` — stayed wired up with
+  // no call site on this screen.
+  //
+  // Both channels run now. `confirmWear` below still reacts off the sheet's
+  // rating and favourite; this reacts off the row. They write through the same
+  // `react` mutation with the same `source: 'today'`, so nothing downstream
+  // can tell them apart or needs to.
+  //
+  // The state is optimistic and per-card, keyed by the outfit's own core id:
+  // the pill fills on the tap and settles to saved or failed when the write
+  // answers. A failed write leaves the row pressable so the same tap retries,
+  // which is the rule the wear action already follows two blocks down.
+  const [reactions, setReactions] = useState<Record<string, TasteState>>({});
+
+  const handleReact = useCallback(
+    (index: number, choice: 'love' | 'hate') => {
+      const outfit = effectiveShown[index];
+      if (!outfit) return;
+      const key = idOf(outfit.candidate.items);
+      const liked = choice === 'love';
+      const settle = (status: 'saved' | 'failed') =>
+        setReactions((prev) => (prev[key] ? { ...prev, [key]: { choice, status } } : prev));
+
+      setReactions((prev) => ({ ...prev, [key]: { choice, status: 'pending' } }));
+      react.mutate(
+        {
+          candidate: outfit.candidate,
+          shownAlongside: outfits.shortlist,
+          liked,
+          profile,
+          source: 'today',
+        },
+        { onSuccess: () => settle('saved'), onError: () => settle('failed') },
+      );
+    },
+    [effectiveShown, profile, outfits.shortlist, react],
+  );
 
   /**
    * The one way this sheet closes.
@@ -1230,17 +1271,30 @@ export default function TodayScreen() {
   // that already answer the new context, above a note saying a better answer
   // is still being looked for. It is never shown for a background re-rank
   // nobody asked for.
-  const [contextDirty, setContextDirty] = useState(false);
-  const [seenEnhancingForContext, setSeenEnhancingForContext] = useState(outfits.isEnhancing);
-  if (outfits.isEnhancing !== seenEnhancingForContext) {
-    setSeenEnhancingForContext(outfits.isEnhancing);
-    if (!outfits.isEnhancing) setContextDirty(false);
-  }
-  const applying = contextDirty && outfits.isEnhancing && effectiveShown.length > 0;
+  // ── RETIRED WITH THE CHIPS ────────────────────────────────────────────────
+  //
+  // `contextDirty` / `applying` existed for one cause and one only: a chip had
+  // been pressed and the enhanced pass it started had not landed yet. The
+  // comment above says so in as many words — "it is never shown for a
+  // background re-rank nobody asked for". With no chip to press there is no
+  // such moment, and a flag that can never become true is a line that reads
+  // like behaviour and is not. `TODAY_COPY.applying` is left in the spec: it
+  // is the sentence any future context control would say, and deleting a
+  // string costs nothing to keep.
 
   // T-02. Read from real occasions rather than the device calendar, because
   // the interrupt's single action lands on the occasion's own outfits page and
   // only a Cinch occasion has one. Today's, soonest first.
+  // The other half of the band that replaced the chips: the soonest trip
+  // starting inside the week. `useAllTrips` is the one module that reads the
+  // table, and it is already cached for the Plan tab — this is a read of the
+  // same query, not a second fetch.
+  const allTrips = useAllTrips();
+  const tripSoon = useMemo(
+    () => tripAhead(allTrips.data ?? [], new Date()),
+    [allTrips.data],
+  );
+
   const myEvents = useMyEvents();
   const interrupt = useMemo(() => {
     const today = new Date().toDateString();
@@ -1602,45 +1656,41 @@ export default function TodayScreen() {
             onConnectCalendar={() => void requestCalendar()}
           />
 
-          {/* THE DAY'S CONTEXT — UX-03, progressive disclosure.
-              The field is KEPT, for the reason it was always kept: it is the
-              only permission-free path the day's plans have into the engine
-              (`/event/new` writes a Cinch occasion, which `useStyleContext`
-              never reads, while this and the device calendar are the two inputs
-              it does). What goes is its permanence. A collapsed `Add context`
-              affordance opens the same field on intent, so the three plates
-              below are the first substantial thing on the screen on every visit
-              that has nothing to add — which is nearly all of them.
-              `hidden` on the refusal, where there is no look for context to
-              change; that gate is unchanged. */}
-          {!nothingWorks ? (
-            <View className="px-gutter" style={{ paddingTop: 12 }}>
-              <ContextChips
-                view={{
-                  weatherChip: weatherRead.chip,
-                  occasion: context11.occasion,
-                  feel: context11.feel,
-                  open: openFacet,
-                  large: ax,
-                  onOpen: (facet) => {
-                    setOpenFacet(facet);
-                    if (facet) track(TODAY_EVENTS.contextOpened, contextOpenedProps(facet));
-                  },
-                  onOccasion: (id) => {
-                    setContext11((prev) => ({ ...prev, occasion: id }));
-                    setContextDirty(true);
-                    setOpenFacet(null);
-                    track(TODAY_EVENTS.contextSet, contextSetProps('occasion', contextChoiceOf(id)));
-                  },
-                  onFeel: (id) => {
-                    setContext11((prev) => ({ ...prev, feel: id }));
-                    setContextDirty(true);
-                    setOpenFacet(null);
-                    track(TODAY_EVENTS.contextSet, contextSetProps('feel', contextChoiceOf(id)));
-                  },
-                  onWeather: requestLocation,
-                }}
-              />
+          {/* ── THE CONTEXT CHIPS ARE GONE, AND WHAT STANDS HERE INSTEAD ────
+              Founder order, 2026-08-18. The full argument is in
+              `today-spec.ts` over `TRIP_AHEAD_WINDOW_DAYS`; the short of it is
+              that two of the three chips were the app's own defaults drawn as
+              controls ("no plans", "easy") and the third put the temperature
+              back on a screen audit 57 had just finished removing it from.
+
+              The rule that replaced them: this space says something only when
+              the day ahead actually holds something. An occasion TODAY is
+              already stated — with its own action, and above the look it
+              competes with — by the interrupt further up, so what is left for
+              this band is the trip inside the week. When there is neither,
+              nothing renders and the plates begin higher.
+
+              `hidden` on the refusal, as the chips were: a closet that could
+              not be dressed has a different next action and T-12 owns it. */}
+          {!nothingWorks && tripSoon ? (
+            <View className="mx-gutter rounded-md bg-tray p-3.5" style={{ marginTop: 12 }}>
+              <Text variant="eyebrow">{TODAY_COPY.tripAheadKicker}</Text>
+              <Text variant="body" className="mt-1.5" numberOfLines={2}>
+                {tripAheadLine(
+                  tripSoon.destination.name,
+                  daysUntilIso(tripSoon.startsOn, new Date()),
+                )}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={TODAY_COPY.tripAheadAction}
+                onPress={() => router.push(`/trips/${tripSoon.id}`)}
+                style={{ minHeight: ax ? 56 : 44 }}
+                className="mt-1 justify-center active:opacity-60">
+                <Text variant="label" style={{ color: theme.accent }}>
+                  {TODAY_COPY.tripAheadAction}
+                </Text>
+              </Pressable>
             </View>
           ) : null}
 
@@ -1771,9 +1821,11 @@ export default function TodayScreen() {
                           garments: outfit.candidate.items,
                           weatherMark: weatherRead.mark,
                           positionLabel: positionLabel((i + 1) as PlateIndex),
-                          // Nothing empties while a new context lands: the old
-                          // card stays legible and only this line changes.
-                          applyingLabel: applying ? TODAY_COPY.applying : null,
+                          // Nothing to apply since the chips were withdrawn —
+                          // see the retirement note above `interrupt`. The
+                          // prop stays on the view type for the surfaces that
+                          // still compose a context.
+                          applyingLabel: null,
                         }}
                         width={pageWidth - GUTTER * 2}
                         large={ax}
@@ -1824,6 +1876,27 @@ export default function TodayScreen() {
                             </Text>
                           </Pressable>
                         )}
+
+                        {/* ALONGSIDE the day's decision, and under it — the
+                            founder's word is "alongside", and on a 393pt
+                            column beneath the filled pill IS alongside; two
+                            outline pills flanking an oxblood one would make
+                            three controls of equal width and no dominant
+                            action, which is the one thing every frame on this
+                            screen agrees about.
+
+                            Not drawn over a worn card. Once a look has been
+                            put on, the sheet has already asked for the opinion
+                            that counts, and a second question about the same
+                            outfit records two votes for one morning. */}
+                        {!worn ? (
+                          <TasteRow
+                            value={reactions[key] ?? null}
+                            large={ax}
+                            disabled={outfits.status === 'offline'}
+                            onChoose={(choice) => handleReact(i, choice)}
+                          />
+                        ) : null}
 
                         {/* A write that did not land. The card is not lost and
                             nothing was recorded twice — the same tap retries. */}

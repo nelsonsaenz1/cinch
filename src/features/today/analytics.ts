@@ -32,6 +32,16 @@
 export const TODAY_EVENTS = {
   opened: 'today_opened',
   plateViewed: 'plate_viewed',
+  /**
+   * DORMANT since 2026-08-18 — the founder withdrew Today's context chips, and
+   * these two fired only from them. They are kept rather than deleted for two
+   * reasons: the thirteen-event roster is a pinned contract that PostHog reads
+   * against (see `tests/today-analytics.test.ts`), and retiring a name is how
+   * a dashboard silently starts reporting zero without anybody being told the
+   * event stopped existing. The chips component itself is unmounted, not
+   * deleted, and still draws in the dev fixtures — whatever asks the day's
+   * context next reports through these.
+   */
   contextOpened: 'context_opened',
   contextSet: 'context_set',
   outfitsSource: 'outfits_source',

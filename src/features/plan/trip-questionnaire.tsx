@@ -4,6 +4,13 @@ import { useMemo, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
 import { Button, KeyboardAwareScrollView, Text } from '@/components/ui';
+import {
+  INPUT_PADDING_Y,
+  PAGE_HEIGHT,
+  PAGE_INPUT_FONT_SIZE,
+  PAGE_INPUT_LINE_HEIGHT,
+} from '@/components/ui/search-field-spec';
+import { MAX_TEXT_SCALE } from '@/theme/type-scale';
 import { ExampleTrip } from '@/components/plan/plan-examples';
 import { useFriends } from '@/features/social-graph/queries';
 import { fetchClimateBand, formatTemp, searchPlaces, type Place } from '@/features/context/weather';
@@ -206,7 +213,35 @@ function DestinationStep({
         autoFocus
         autoCorrect={false}
         returnKeyType="search"
-        className="min-h-[50px] rounded-md bg-tray px-4 py-3.5 text-ink"
+        // A raw `TextInput` does not inherit `Text`'s Dynamic Type cap, and
+        // this one never set it. Every other field in the app is capped.
+        maxFontSizeMultiplier={MAX_TEXT_SCALE}
+        className="rounded-md bg-tray px-4 text-ink"
+        // ── WHY THE TYPE IS STATED HERE AND WAS NOT BEFORE ──────────────────
+        //
+        // "Lisbon, Tokyo, Aspen…" sat visibly high in its box, and the reason
+        // is that this field named NO SIZE AT ALL: `text-ink` is a colour
+        // utility, so the input fell through to React Native's own ~14pt
+        // default and then had a 14pt padding and a 50pt minimum stacked
+        // around it. A 50pt box holding a 14pt line with 14 above and 14
+        // below leaves the glyphs sitting off the optical centre, which is
+        // exactly what the placeholder was doing.
+        //
+        // It is now drawn to the page field's own metrics — the same numbers
+        // People Search uses, from `search-field-spec.ts` — so the box is
+        // 11 + 24 + 11 = 46 of stated type inside a 50pt minimum, centred by
+        // the height rather than by a padding that was guessing. This is the
+        // fourth hand-rolled copy of that field and the spec is now the one
+        // place those numbers live; the glyph and the clear disc are still
+        // deliberately absent, because this is a step in a questionnaire and
+        // not a search page.
+        style={{
+          minHeight: PAGE_HEIGHT,
+          paddingVertical: INPUT_PADDING_Y,
+          fontFamily: 'HelveticaNeue',
+          fontSize: PAGE_INPUT_FONT_SIZE,
+          lineHeight: PAGE_INPUT_LINE_HEIGHT,
+        }}
       />
 
       {(places.data?.length ?? 0) > 0 ? (

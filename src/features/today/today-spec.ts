@@ -133,6 +133,94 @@ export function feelLabel(id: FeelId): string {
 }
 
 // ---------------------------------------------------------------------------
+// What is actually coming — the band that replaced the chips
+// ---------------------------------------------------------------------------
+
+/**
+ * ── THE CONTEXT CHIPS ARE GONE FROM TODAY ─────────────────────────────────
+ *
+ * Founder order, 2026-08-18. The row read "warm, 86°" · "no plans" · "easy"
+ * on an ordinary morning, and the second and third of those were the DEFAULTS
+ * — the app stating, in a control, that it had been told nothing. Two of the
+ * three chips were furniture, and the third repeated a temperature the
+ * masthead had already said in a sentence one line above (audit 57 spent a
+ * whole pass making the weather appear exactly once on this screen; the chip
+ * put it back).
+ *
+ * What takes the space is a rule rather than a control: something is drawn
+ * there only when there is genuinely something to say about the day ahead,
+ * and otherwise the plates start higher up the screen.
+ *
+ * The EVENT half of that rule is not served from here. An occasion today is
+ * already drawn — better, and above the look it competes with — by
+ * `OccasionInterrupt` (T-02), which carries the event's own action. Printing
+ * it a second time in this band would be the weather-chip mistake repeated.
+ * So this band is the TRIP half, and the two together are what the reader
+ * sees: an occasion today, a trip inside the week, or nothing.
+ *
+ * `OCCASION_OPTIONS` / `FEEL_OPTIONS` / `DEFAULT_CONTEXT` above are kept.
+ * They are what the engine is still asked for — `DEFAULT_CONTEXT` is what the
+ * chips sent on the overwhelming majority of mornings anyway, since it is
+ * what they rested at — and the Stylist still offers the same vocabulary.
+ */
+
+/** A trip further out than this is not news on a morning screen. */
+export const TRIP_AHEAD_WINDOW_DAYS = 7;
+
+/**
+ * Whole calendar days from `now` to an `YYYY-MM-DD` date, in local time.
+ *
+ * Calendar days, not elapsed hours: a trip that starts tomorrow morning is
+ * "tomorrow" whether it is now 9pm or 9am, and dividing a millisecond
+ * difference by 86,400,000 gets that wrong for exactly the readers who look
+ * at this screen late at night.
+ */
+export function daysUntilIso(startsOn: string, now: Date): number {
+  const [y, m, d] = startsOn.split('-').map(Number);
+  if (!y || !m || !d) return Number.NaN;
+  const start = new Date(y, m - 1, d).getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.round((start - today) / 86_400_000);
+}
+
+/**
+ * The soonest trip starting inside the window, or null.
+ *
+ * A trip already under way is deliberately EXCLUDED. This band is about
+ * packing for something that has not happened yet; somebody in Lisbon does not
+ * need Today to tell them about Lisbon, and the trip's own screens are where
+ * the wardrobe question lives once they have arrived.
+ */
+export function tripAhead<T extends { startsOn: string }>(
+  trips: readonly T[],
+  now: Date,
+  windowDays: number = TRIP_AHEAD_WINDOW_DAYS,
+): T | null {
+  let best: { trip: T; days: number } | null = null;
+  for (const trip of trips) {
+    const days = daysUntilIso(trip.startsOn, now);
+    if (!Number.isFinite(days) || days < 0 || days > windowDays) continue;
+    if (!best || days < best.days) best = { trip, days };
+  }
+  return best?.trip ?? null;
+}
+
+/**
+ * "Lisbon, in three days" — the whole line, and never a bare number.
+ *
+ * Spelt-out counts to seven for the reason `wrongCodeLine` spells them in the
+ * auth run: "in 3 days" reads as a countdown timer, and this is a sentence
+ * somebody is being told on the way to getting dressed.
+ */
+const DAY_WORDS = ['', '', 'two', 'three', 'four', 'five', 'six', 'seven'] as const;
+
+export function tripAheadLine(destination: string, days: number): string {
+  if (days <= 0) return `${destination}, today`;
+  if (days === 1) return `${destination}, tomorrow`;
+  return `${destination}, in ${DAY_WORDS[days] ?? String(days)} days`;
+}
+
+// ---------------------------------------------------------------------------
 // Weather — four truthful states, and never a fifth
 // ---------------------------------------------------------------------------
 
@@ -255,6 +343,10 @@ export const TODAY_COPY = {
 
   /** The context editor's own heading, opened in place — never a modal. */
   occasionHeading: 'What’s on today',
+  /** The trip band's eyebrow. See `tripAhead` — drawn only when there is one. */
+  tripAheadKicker: 'PACKING SOON',
+  /** Its one action, which is the trip's own screen and not a new surface. */
+  tripAheadAction: 'Open the packing list',
   weatherOff: 'Add weather',
 
   /** Applying a context: the old plate stays legible while the new one lands. */

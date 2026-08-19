@@ -117,7 +117,27 @@ export function TodayPlate({
 
           <View className="flex-row items-center justify-center" style={{ gap: 6 }}>
             {view.garments.map((garment) => {
-              const uri = resolveImage(garment.thumbPath, garment.cutoutPath, garment.platePath);
+              // WHITE-OUT FIRST. `resolve` is first-hit-wins over the order it
+              // is handed, so this argument order IS the preference.
+              //
+              // This card asked for `thumbPath` first, which is the raw camera
+              // frame — the piece on a bedroom floor, in whatever light the
+              // photograph was taken in. Set three across on one plate, three
+              // different rooms and three different white balances read as a
+              // pile rather than an outfit, and the collage's whole job is to
+              // read as an outfit.
+              //
+              // `platePath` (the scale-normalised render) and `cutoutPath`
+              // (the background removed) are both white-ground and both
+              // consistent with each other, which is why every other surface
+              // in the app — the closet grid, item detail, the stylist, the
+              // reveal, and the wear sheet THIS card opens into — already
+              // prefers them. Today was the last screen putting the thumb
+              // first, so an outfit changed appearance between the plate and
+              // the confirmation of the same outfit. The raw frame stays as
+              // the last fallback: a piece whose cutout never rendered is
+              // still better shown than not shown.
+              const uri = resolveImage(garment.platePath, garment.cutoutPath, garment.thumbPath);
               return (
                 <View
                   key={garment.id}

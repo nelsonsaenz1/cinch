@@ -20,6 +20,7 @@ type Variant =
   | 'noteSmall'
   | 'eyebrow'
   | 'colophon'
+  | 'dayhead'
   | 'stat'
   | 'statSmall'
   | 'statFigure'
@@ -100,6 +101,25 @@ const variants: Record<Variant, string> = {
   eyebrow: 'font-body text-eyebrow uppercase text-muted',
   // The data line under a plate.
   colophon: 'font-body text-colophon uppercase text-muted',
+  /**
+   * A DATE at the head of a row — the serif at the heading step, 20px, ink.
+   *
+   * Added 2026-08-18: the Plan week drew its dates in `colophon`, the app's
+   * smallest token at 10px, tracked and `muted`, with the temperature and the
+   * occasion crammed into the same line. Seven days of that read as seven
+   * captions, and the one thing a week is FOR — which day is which — was the
+   * quietest thing on the page. The founder asked for the dates to carry more
+   * weight; this is that weight, taken in size and face rather than in the
+   * `fontWeight` the app does not have (TY-01/TY-02).
+   *
+   * Identical in classes to `stat` and `door`, and named separately anyway,
+   * for exactly the reason written over those two: the alternative at the call
+   * site is `variant="heading" className="font-title"`, which puts two font
+   * utilities on one element and lets stylesheet key order decide whether the
+   * date comes out as a serif. It takes `tabular-nums` below — a date is a
+   * figure, and "Thu 7" must not shift its stem when it becomes "Thu 17".
+   */
+  dayhead: 'font-title text-heading text-ink',
   // ── The serif data figures ────────────────────────────────────────────────
   // Three sizes, because the app needs three and was getting them by stacking a
   // second `text-*` class on top of `stat` — `variant="stat" className="text-
@@ -180,7 +200,8 @@ export function Text({ variant = 'body', className = '', trim = false, style, ..
         variant === 'stat' ||
         variant === 'statSmall' ||
         variant === 'statFigure' ||
-        variant === 'colophon'
+        variant === 'colophon' ||
+        variant === 'dayhead'
           ? { fontVariant: ['tabular-nums'] }
           : null,
         trim ? TRIMS[variant] : null,

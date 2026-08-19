@@ -21,8 +21,12 @@ import {
   TODAY_ACTIVATION_FLOOR,
   TODAY_COPY,
   WEATHER_STALE_AFTER_MS,
+  TRIP_AHEAD_WINDOW_DAYS,
   asOfLabel,
   belowActivationFloor,
+  daysUntilIso,
+  tripAhead,
+  tripAheadLine,
   engineFormality,
   engineOccasion,
   exhaustedBody,
@@ -333,4 +337,70 @@ test('an untagged piece falls back to the same neutral word as everywhere else',
 
 test('an empty outfit produces an empty line rather than a crash', () => {
   assert.equal(piecesLine([]), '');
+});
+
+// ---------------------------------------------------------------------------
+// The trip band that replaced the context chips (founder order, 2026-08-18)
+// ---------------------------------------------------------------------------
+
+/** 9am on Wednesday 2026-08-19, local. Late enough in the day to matter below. */
+const TRIP_NOW = new Date(2026, 7, 19, 9, 0, 0);
+/** 11pm the same day — the hour that breaks a milliseconds-based day count. */
+const TRIP_LATE = new Date(2026, 7, 19, 23, 30, 0);
+
+test('the day count is CALENDAR days, at nine in the morning and at midnight', () => {
+  // The bug this pins: dividing a millisecond difference by 86,400,000 makes
+  // "tomorrow" become "today" for anybody looking at this screen late at
+  // night, which is exactly when somebody checks what they are packing for.
+  assert.equal(daysUntilIso('2026-08-19', TRIP_NOW), 0);
+  assert.equal(daysUntilIso('2026-08-20', TRIP_NOW), 1);
+  assert.equal(daysUntilIso('2026-08-20', TRIP_LATE), 1);
+  assert.equal(daysUntilIso('2026-08-26', TRIP_LATE), 7);
+  // Behind is negative, not zero — `tripAhead` needs to tell the two apart.
+  assert.equal(daysUntilIso('2026-08-18', TRIP_NOW), -1);
+  // A malformed date is not silently a day away.
+  assert.ok(Number.isNaN(daysUntilIso('not-a-date', TRIP_NOW)));
+});
+
+test('the band shows the SOONEST trip inside the week, and nothing else', () => {
+  const trips = [
+    { id: 'far', startsOn: '2026-09-30' },
+    { id: 'soon', startsOn: '2026-08-22' },
+    { id: 'sooner', startsOn: '2026-08-20' },
+    { id: 'past', startsOn: '2026-08-01' },
+  ];
+  assert.equal(tripAhead(trips, TRIP_NOW)?.id, 'sooner');
+  // The window is inclusive at its far edge and excludes the day after it —
+  // "within the next 7 days" is seven, not six and not eight.
+  assert.equal(TRIP_AHEAD_WINDOW_DAYS, 7);
+  assert.equal(tripAhead([{ id: 'edge', startsOn: '2026-08-26' }], TRIP_NOW)?.id, 'edge');
+  assert.equal(tripAhead([{ id: 'over', startsOn: '2026-08-27' }], TRIP_NOW), null);
+});
+
+test('a trip already under way is not news, and an empty week draws nothing', () => {
+  // Somebody in Lisbon does not need Today to tell them about Lisbon; the
+  // trip's own screens own the wardrobe question once they have arrived.
+  assert.equal(tripAhead([{ id: 'gone', startsOn: '2026-08-15' }], TRIP_NOW), null);
+  // And the whole point of the founder's rule: nothing renders when there is
+  // nothing to say.
+  assert.equal(tripAhead([], TRIP_NOW), null);
+});
+
+test('the trip line is a sentence, never a bare countdown', () => {
+  assert.equal(tripAheadLine('Lisbon', 0), 'Lisbon, today');
+  assert.equal(tripAheadLine('Lisbon', 1), 'Lisbon, tomorrow');
+  assert.equal(tripAheadLine('Tokyo', 3), 'Tokyo, in three days');
+  assert.equal(tripAheadLine('Aspen', 7), 'Aspen, in seven days');
+  // Spelt out to seven, which is the whole window — a digit never appears.
+  for (let d = 0; d <= TRIP_AHEAD_WINDOW_DAYS; d += 1) {
+    assert.doesNotMatch(tripAheadLine('Lisbon', d), /\d/, `day ${d} printed a numeral`);
+  }
+});
+
+test('the band has its own eyebrow and one action, and neither is invented', () => {
+  assert.equal(typeof TODAY_COPY.tripAheadKicker, 'string');
+  assert.ok(TODAY_COPY.tripAheadKicker.length > 0);
+  // No count, no price, no urgency — the same discipline the rest of this
+  // screen's copy is held to.
+  assert.doesNotMatch(TODAY_COPY.tripAheadAction, /\d|now|hurry|!/i);
 });
