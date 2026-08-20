@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -31,7 +31,7 @@ import { useEventInvites, useMyEvents } from '@/features/events/queries';
 import { numberWord } from '@/features/onboarding/reveal-copy';
 import { usePlanOutfit, usePlannedWeek } from '@/features/plan/mutations';
 import { PackingTab } from '@/features/plan/packing-tab';
-import { planWeek } from '@/features/plan/packing';
+import { planWeekAsync, type PlannedDay } from '@/features/plan/packing';
 import type { Trip } from '@/features/plan/trip';
 import { STALL_DEADLINE_MS, useStalled } from '@/features/plan/use-stalled';
 import { weekProgressLine, weekSubtitle } from '@/features/plan/week-lines';
@@ -80,6 +80,57 @@ function WeekSkeleton() {
           />
         </View>
       ))}
+    </View>
+  );
+}
+
+/**
+ * The members-only wall — what a free account sees where the tab's three
+ * modes would be. Set in the PackingGate's grammar (serif claim, plain body,
+ * a bulleted plate, one primary action) because it is the same kind of
+ * statement one level up: what the page does, what it costs, and a door.
+ * Inert by design — no forecast call, no closet read, no week computed for a
+ * page the reader cannot open.
+ */
+const PLAN_GATE_BULLETS = [
+  'A week of outfits, planned around your real forecast.',
+  'Occasions and invitations, dressed before they arrive.',
+  'Packing lists built from your own closet.',
+] as const;
+
+function PlanLocked({ onSeeMembership }: { onSeeMembership: () => void }) {
+  return (
+    <View className="px-gutter pt-3">
+      <Text variant="title" trim>
+        Plan the week once, then stop thinking about it.
+      </Text>
+      <Text variant="body" className="mt-5 text-muted">
+        Planning is part of Cinch membership. Members get the week, their occasions and
+        packing in one place — all of it dressed from clothes they already own.
+      </Text>
+      <View className="mt-6 overflow-hidden rounded-plate border border-rule">
+        {PLAN_GATE_BULLETS.map((line, i) => (
+          <View
+            key={line}
+            className={[
+              'flex-row gap-2.5 px-4 py-3.5',
+              i < PLAN_GATE_BULLETS.length - 1 ? 'border-b border-hairline' : '',
+            ].join(' ')}>
+            <Text variant="body">•</Text>
+            <Text variant="body" className="flex-1">
+              {line}
+            </Text>
+          </View>
+        ))}
+      </View>
+      <View className="mt-7">
+        <Button title="See membership" onPress={onSeeMembership} />
+      </View>
+      {/* What a planned week looks like, before being asked to pay for one.
+          Inert and labelled — the ExampleWeek fixture spends nothing. */}
+      <View className="mt-7">
+        <ExampleWeek weekStart={startOfToday()} />
+      </View>
     </View>
   );
 }
@@ -453,18 +504,74 @@ export default function PlanScreen() {
     return `${event.title}, ${time}`;
   };
 
-  const weekDays = useMemo(() => {
-    if (!weekForecast.data?.length || !canGenerate(items)) return [];
-    return planWeek({
-      wardrobe: items,
-      forecasts: weekForecast.data,
-      startDate: startOfToday(),
-      baseContext: context,
-      weights: profile.weights,
-      affinities: profile.affinities,
-      alreadyPlanned,
-    });
-  }, [weekForecast.data, items, context, profile.weights, profile.affinities, alreadyPlanned]);
+  /**
+   * The planned week, computed OFF the render path.
+   *
+   * This was a `useMemo` running `planWeek` — seven full generation passes —
+   * synchronously during render, which is the founder's "the plan page is
+   * frozen" (2026-08-20): several seconds of blocked JS on a real closet,
+   * during which nothing on the screen answered. Now `planWeekAsync` yields
+   * between days, the skeleton runs while it works, and a superseded run
+   * (the closet refetched, a day's pieces refused) is discarded whole rather
+   * than raced.
+   *
+   * Results are kept per run token; the token bumps whenever an input the old
+   * memo depended on changes, so the recompute cadence is unchanged — only
+   * where the work happens.
+   */
+  const weekInputsReady = Boolean(weekForecast.data?.length) && canGenerate(items);
+  /**
+   * Everything the old memo's identity dependencies said, as scalars — the
+   * query key that decides when the week is re-planned. The two `dataUpdatedAt`
+   * stamps stand in for the forecast and wardrobe identities; the context's
+   * scoring-relevant facts are named individually because its own identity
+   * re-mints `now` and would re-plan on every unrelated change.
+   */
+  const weekPlanKey = [
+    'planned-week-local',
+    dateKey(startOfToday()),
+    weekForecast.dataUpdatedAt,
+    wardrobe.dataUpdatedAt,
+    profileQuery.dataUpdatedAt,
+    [...alreadyPlanned].sort().join('.'),
+    context.colorSeason ?? '',
+    context.season ?? '',
+    (context.lifestyleOccasions ?? []).join('.'),
+  ] as const;
+
+  const plannedWeekQuery = useQuery<PlannedDay[]>({
+    queryKey: weekPlanKey,
+    enabled: weekInputsReady,
+    // The key carries every input, so a computed week never goes stale on its
+    // own — a new key is a new computation, and the old one is garbage.
+    staleTime: Infinity,
+    gcTime: 60_000,
+    // Keep the previous week on screen while its successor computes, so a
+    // refused garment re-plans under the rows rather than blanking them.
+    placeholderData: (prev) => prev,
+    queryFn: async ({ signal }) => {
+      const days = await planWeekAsync(
+        {
+          wardrobe: items,
+          forecasts: weekForecast.data ?? [],
+          startDate: startOfToday(),
+          baseContext: context,
+          weights: profile.weights,
+          affinities: profile.affinities,
+          alreadyPlanned,
+        },
+        () => signal.aborted,
+      );
+      // A superseded run resolves null; throwing lets react-query discard it
+      // without caching an empty week under this key.
+      if (!days) throw new Error('superseded');
+      return days;
+    },
+  });
+
+  const weekDays = plannedWeekQuery.data ?? [];
+  /** First computation for this closet still working — skeleton, never []. */
+  const weekPlanning = weekInputsReady && plannedWeekQuery.isPending;
 
   // Packing signs and fetches its own images — it renders the whole closet, not
   // a handful of planned outfits — so this covers the week only.
@@ -500,13 +607,68 @@ export default function PlanScreen() {
    * blocking the week on it would be the same over-claiming in reverse.
    */
   const weekFailed = wardrobe.isError || weekForecast.isError;
-  const weekLoading = wardrobe.isLoading || weekForecast.isLoading;
+  const weekLoading = wardrobe.isLoading || weekForecast.isLoading || weekPlanning;
   const weekStalled = useStalled(weekLoading, STALL_DEADLINE_MS);
 
   const retryWeek = () => {
     void wardrobe.refetch();
     void weekForecast.refetch();
   };
+
+  /**
+   * ── THE PLAN TAB IS MEMBERS-ONLY — founder directive, 2026-08-20 ─────────
+   *
+   * A hard wall, not a taste of the page: any paying plan (the 14-day trial
+   * folds into `pro` inside `usePlan`) gets the whole tab; free gets the
+   * locked plate and the door to membership. Packing keeps its own stricter
+   * Pro rule behind this one — a Standard member entering Packing still meets
+   * `usePackingAccess`'s lock, unchanged.
+   *
+   * `usePackingAccess`'s two hard-won rules carry over verbatim:
+   *   · the answer comes from the ENTITLEMENT, never from whether a paywall
+   *     appeared, so an unpublished campaign or a keyless build fails CLOSED;
+   *   · while the entitlement is UNKNOWN the page shows a skeleton, never the
+   *     lock — flashing "you have not paid" at a paying subscriber on a slow
+   *     read is the one wrong answer that costs a support ticket.
+   *
+   * The CTA routes to `/membership` — the app's own screen, deterministic end
+   * to end — rather than presenting a Superwall placement, because this gate
+   * has no server refusal behind it and a vendor modal that fails to commit a
+   * frame took the whole app down once already (see use-packing-access.ts).
+   *
+   * KNOWN TRADE, recorded rather than glossed: Events lives inside this tab,
+   * and the growth loop of a free friend accepting a dinner invitation now
+   * meets the wall too. The founder chose the hard wall; if invitations
+   * suffer, the fix is moving Events out from behind it, not softening it.
+   */
+  const planTabLoading = planState.loading || planState.unconfirmed;
+  const planTabStalled = useStalled(planTabLoading, STALL_DEADLINE_MS);
+  const planTabAllowed = planState.plan !== 'free';
+
+  if (!planTabAllowed || planTabLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+        <View className="px-gutter pb-3 pt-2">
+          <Text variant="display">Plan</Text>
+        </View>
+        {planTabLoading ? (
+          planTabStalled ? (
+            <ErrorState
+              compact
+              kicker="Couldn’t reach it"
+              title="Couldn’t check your membership"
+              body="Cinch couldn’t read your membership just now, so it won’t guess. This is a connection problem — nothing about your account has changed."
+              onRetry={() => void planState.refetch()}
+            />
+          ) : (
+            <WeekSkeleton />
+          )
+        ) : (
+          <PlanLocked onSeeMembership={() => router.push('/membership' as Href)} />
+        )}
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>

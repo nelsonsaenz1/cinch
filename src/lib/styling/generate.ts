@@ -239,12 +239,8 @@ export function generateOutfits(
   let scored = pool.map((items) => scoreOutfit(items, ctx, weights, affinities));
   scored = topBy(scored, BEAM_FINAL, (c) => c.score);
 
-  if (includeAccessories) {
-    scored = scored.map((c) => addAccessories(c, slots, ctx, weights, affinities, pinned));
-  }
-
   /**
-   * THE GUARANTEE.
+   * THE BUILT-PIECE GUARANTEE, part one.
    *
    * Everything above narrows what gets BUILT. This checks what came out, and it
    * exists because narrowing is the wrong tool for "must contain": every stage
@@ -256,16 +252,52 @@ export function generateOutfits(
    * something around this dress and these trousers" is nothing at all. Callers
    * already handle an empty list; `pinnedItemIds` is a request, not a promise
    * that a wardrobe can satisfy it.
+   *
+   * Attach-stage slots are excluded HERE and verified after the attach below:
+   * a pinned bag is not on any candidate yet, and filtering for it at this
+   * point would empty the list every time.
    */
+  const ATTACH_SLOTS: readonly Slot[] = ['bag', 'headwear', 'accessory'];
   if (pinned.length) {
-    const required = pinned.map((g) => g.id);
+    const required = pinned.filter((g) => !ATTACH_SLOTS.includes(g.slot)).map((g) => g.id);
     scored = scored.filter((c) => {
       const has = new Set(c.items.map((g) => g.id));
       return required.every((id) => has.has(id));
     });
   }
 
-  return selectDiverse(scored, count, diversity);
+  let chosen = selectDiverse(scored, count, diversity);
+
+  /**
+   * Accessories attach to the CHOSEN outfits, not the whole beam.
+   *
+   * They used to attach to all BEAM_FINAL candidates before the diverse pick,
+   * which cost a full `scoreOutfit` per accessory per candidate — on a
+   * 190-piece closet that was most of the generation pass, and seven of those
+   * passes are what froze the Plan tab (2026-08-20). An accessory changes an
+   * outfit's score by hundredths, so ranking and diversity are decided by the
+   * garments that decide them, and the attach runs `count` times instead of
+   * forty. Ordering is unchanged for the pieces that matter; the whole pass
+   * runs at roughly the pre-accessory cost.
+   */
+  if (includeAccessories) {
+    chosen = chosen.map((c) => addAccessories(c, slots, ctx, weights, affinities, pinned));
+  }
+
+  /**
+   * THE GUARANTEE, part two — every pin, attach-stage ones included, on what
+   * is actually returned. `attachPinned` makes a miss impossible today; this
+   * filter is what catches the future edit that makes it possible again.
+   */
+  if (pinned.length) {
+    const required = pinned.map((g) => g.id);
+    chosen = chosen.filter((c) => {
+      const has = new Set(c.items.map((g) => g.id));
+      return required.every((id) => has.has(id));
+    });
+  }
+
+  return chosen;
 }
 
 /**

@@ -286,47 +286,129 @@ export function planWeek({
   const days: PlannedDay[] = [];
 
   forecasts.forEach((weather, i) => {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
+    days.push(planOneDay({ wardrobe, weather, startDate, index: i, baseContext, weights, affinities, alreadyPlanned, recent }));
+  });
 
-    const exclude = new Set([...alreadyPlanned, ...recent.slice(-2).flat()]);
+  return days;
+}
 
-    const ctx: StyleContext = {
-      ...baseContext,
-      weather,
-      events: [],
-      note: null,
-      now: date.getTime(),
-    };
+/** One day of the week, sharing the running `recent` window with its siblings. */
+function planOneDay({
+  wardrobe,
+  weather,
+  startDate,
+  index,
+  baseContext,
+  weights,
+  affinities,
+  alreadyPlanned,
+  recent,
+}: {
+  wardrobe: Garment[];
+  weather: WeatherContext;
+  startDate: Date;
+  index: number;
+  baseContext: StyleContext;
+  weights: StyleWeights;
+  affinities: Affinities;
+  alreadyPlanned: Set<string>;
+  /** MUTATED: this day's structural pieces are appended for the next day. */
+  recent: string[][];
+}): PlannedDay {
+  const date = new Date(startDate);
+  date.setDate(date.getDate() + index);
 
-    let [outfit] = generateOutfits(wardrobe, ctx, {
+  const exclude = new Set([...alreadyPlanned, ...recent.slice(-2).flat()]);
+
+  const ctx: StyleContext = {
+    ...baseContext,
+    weather,
+    events: [],
+    note: null,
+    now: date.getTime(),
+  };
+
+  let [outfit] = generateOutfits(wardrobe, ctx, {
+    weights,
+    affinities,
+    count: 1,
+    diversity: 0,
+    excludeItemIds: exclude,
+  });
+
+  // A small closet can run out of eligible pieces part-way through the week.
+  // Better to repeat than to show a blank day, so drop the constraint rather
+  // than the outfit.
+  if (!outfit) {
+    [outfit] = generateOutfits(wardrobe, ctx, {
       weights,
       affinities,
       count: 1,
       diversity: 0,
-      excludeItemIds: exclude,
     });
+  }
 
-    // A small closet can run out of eligible pieces part-way through the week.
-    // Better to repeat than to show a blank day, so drop the constraint rather
-    // than the outfit.
-    if (!outfit) {
-      [outfit] = generateOutfits(wardrobe, ctx, {
-        weights,
-        affinities,
-        count: 1,
-        diversity: 0,
-      });
-    }
+  recent.push(
+    (outfit?.items ?? [])
+      .filter((g) => g.visualWeight >= 0.1)
+      .map((g) => g.id),
+  );
 
-    days.push({ date, weather, outfit: outfit ?? null });
+  return { date, weather, outfit: outfit ?? null };
+}
 
-    recent.push(
-      (outfit?.items ?? [])
-        .filter((g) => g.visualWeight >= 0.1)
-        .map((g) => g.id),
+/**
+ * The same week, one day per macrotask.
+ *
+ * `planWeek` is seven full generation passes, and running them inside a render
+ * memo is what froze the Plan tab: on a large closet the pass is a few hundred
+ * milliseconds of arithmetic on desktop and several SECONDS of blocked JS on a
+ * phone — no taps, no scroll, no tab bar, for as long as it runs. Yielding
+ * between days caps any single block at one day's pass, so the skeleton
+ * animates, the segment control answers, and a person who tapped Plan by
+ * accident can leave.
+ *
+ * Same arithmetic, same order, same `recent` window — `planOneDay` is shared
+ * with the synchronous version, which stays for the tests and for callers
+ * (packing) that already run off-screen. A stale run resolves to `null`
+ * instead of half a week: the caller keys runs and only keeps the newest.
+ */
+export async function planWeekAsync(
+  args: {
+    wardrobe: Garment[];
+    forecasts: WeatherContext[];
+    startDate: Date;
+    baseContext: StyleContext;
+    weights: StyleWeights;
+    affinities: Affinities;
+    alreadyPlanned?: Set<string>;
+  },
+  isStale?: () => boolean,
+): Promise<PlannedDay[] | null> {
+  const { alreadyPlanned = new Set<string>() } = args;
+  const recent: string[][] = [];
+  const days: PlannedDay[] = [];
+
+  for (let i = 0; i < args.forecasts.length; i++) {
+    if (isStale?.()) return null;
+    // The yield. `setTimeout(0)` rather than a microtask, because a microtask
+    // runs before paint and would yield nothing.
+    await new Promise((r) => setTimeout(r, 0));
+    if (isStale?.()) return null;
+    days.push(
+      planOneDay({
+        wardrobe: args.wardrobe,
+        weather: args.forecasts[i]!,
+        startDate: args.startDate,
+        index: i,
+        baseContext: args.baseContext,
+        weights: args.weights,
+        affinities: args.affinities,
+        alreadyPlanned,
+        recent,
+      }),
     );
-  });
+  }
 
   return days;
 }
