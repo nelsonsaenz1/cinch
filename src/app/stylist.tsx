@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
@@ -278,10 +278,17 @@ export default function StylistScreen() {
         questionnaire.start(door.action.entry);
         return;
       }
+      if (door.action.kind === 'route') {
+        // A flow whose input is a photograph, not a sentence — it lives on
+        // its own screen. Still local on the tap: the recreate screen spends
+        // its allowance only when a photo is actually submitted.
+        router.push(door.action.href as Href);
+        return;
+      }
       setDraft(door.action.seed);
       inputRef.current?.focus();
     },
-    [questionnaire, setDraft],
+    [questionnaire, setDraft, router],
   );
 
   /** Abandon the flow and hand the person the keyboard they asked for. */

@@ -281,6 +281,20 @@ export type AppEvent =
    */
   | 'style_profile_offered'
   /**
+   * "Recreate this look" opened — the denominator for the two below. Fired
+   * when the screen mounts, not when a photo is picked.
+   */
+  | 'recreate_opened'
+  /**
+   * One inspiration analysed and matched. COUNTS ONLY — `pieces`, `matched`,
+   * `gaps`, all bounded by the analysis's own eight-piece ceiling. Never a
+   * piece description, colour, or category: what somebody's saved
+   * inspiration contains is theirs.
+   */
+  | 'recreate_analyzed'
+  /** A recreated look kept. `pieces` is a count, same rule. */
+  | 'recreate_saved'
+  /**
    * The share sheet was opened for a captured card. `subject` is which
    * artifact ('outfit' | 'packing'); `has_link` is whether the sharer's own
    * invite link made it into the message, which is the difference between a

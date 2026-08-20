@@ -42,24 +42,39 @@ import {
 const KINDS: DenialKind[] = ['plan_excluded', 'quota', 'consent', 'transport'];
 
 // ---------------------------------------------------------------------------
-// Four doors, fixed order, no model call
+// Five doors, fixed order, no model call
 // ---------------------------------------------------------------------------
 
-test('there are exactly four doors, in the accepted order', () => {
-  assert.equal(DOORS.length, 4);
+test('there are exactly five doors, in the accepted order', () => {
+  // AMENDED from four with "Recreate a look": its input is a photograph, so
+  // it takes the third action kind (`route`) rather than a composer seed —
+  // a photo does not belong in a sentence. It sits second, beside the other
+  // build-me-something door, and everything the old contract held still
+  // holds: fixed order, and nothing spends on a tap.
+  assert.equal(DOORS.length, 5);
   assert.deepEqual(
     DOORS.map((d) => d.label),
-    ['What should I wear', 'Pack for a trip', 'Make this piece work', 'Ask about my closet'],
+    [
+      'What should I wear',
+      'Recreate a look',
+      'Pack for a trip',
+      'Make this piece work',
+      'Ask about my closet',
+    ],
   );
 });
 
 test('NO DOOR REACHES A MODEL', () => {
-  // Nobody can spend a chat by looking around.
+  // Nobody can spend a chat by looking around. `route` keeps the promise the
+  // same way the others do: the tap only navigates, and the recreate screen
+  // claims its own (separate) allowance when a photo is actually submitted.
   for (const d of DOORS) {
     assert.equal(doorSpendsAllowance(d), false, d.key);
     assert.ok(
-      d.action.kind === 'questionnaire' || d.action.kind === 'compose',
-      `${d.key} has a third kind of action`,
+      d.action.kind === 'questionnaire' ||
+        d.action.kind === 'compose' ||
+        d.action.kind === 'route',
+      `${d.key} has an unknown kind of action`,
     );
   }
 });
@@ -67,25 +82,28 @@ test('NO DOOR REACHES A MODEL', () => {
 test('every door maps to a path that already exists', () => {
   const wear = DOORS[0]!;
   assert.deepEqual(wear.action, { kind: 'questionnaire', entry: 'dressed' });
-  // The other three seed the composer, because each needs a noun only the
-  // owner can supply — which trip, which piece, which question.
-  for (const d of DOORS.slice(1)) {
+  const recreate = DOORS[1]!;
+  assert.deepEqual(recreate.action, { kind: 'route', href: '/recreate' });
+  // The remaining three seed the composer, because each needs a noun only
+  // the owner can supply — which trip, which piece, which question.
+  for (const d of DOORS.slice(2)) {
     assert.equal(d.action.kind, 'compose');
     assert.ok((d.action as { seed: string }).seed.length > 0, `${d.key} seeds nothing`);
   }
 });
 
 test('the closet door says outright that it costs nothing', () => {
-  const closet = DOORS[3]!;
+  const closet = DOORS[4]!;
   assert.match(closet.hint, /Costs nothing/i);
   assert.match(closet.hint, /Counted/i);
 });
 
 test('the door index is its position, and nothing else', () => {
   assert.equal(doorIndex('wear'), 1);
-  assert.equal(doorIndex('pack'), 2);
-  assert.equal(doorIndex('piece'), 3);
-  assert.equal(doorIndex('closet'), 4);
+  assert.equal(doorIndex('recreate'), 2);
+  assert.equal(doorIndex('pack'), 3);
+  assert.equal(doorIndex('piece'), 4);
+  assert.equal(doorIndex('closet'), 5);
 });
 
 test('no door label promises a purchase, a brand or a price', () => {

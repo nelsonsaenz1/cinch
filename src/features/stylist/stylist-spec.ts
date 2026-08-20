@@ -32,7 +32,7 @@ import type { EntryKey } from './questionnaire';
 // The four doors
 // ---------------------------------------------------------------------------
 
-export type DoorKey = 'wear' | 'pack' | 'piece' | 'closet';
+export type DoorKey = 'wear' | 'recreate' | 'pack' | 'piece' | 'closet';
 
 /**
  * What tapping a door does. NEVER a model call.
@@ -40,15 +40,21 @@ export type DoorKey = 'wear' | 'pack' | 'piece' | 'closet';
  *   `questionnaire` — opens the existing on-device step flow.
  *   `compose`       — seeds the composer and focuses it, so the person
  *                     finishes the sentence themselves.
+ *   `route`         — navigates to a flow that lives on its own screen,
+ *                     because its input is not a sentence at all. Recreate's
+ *                     input is a photograph, and a photograph does not
+ *                     belong in a composer.
  *
- * Both are local. The second exists because three of the four doors need a
+ * All three are local. `compose` exists because three of the doors need a
  * noun only the owner can supply — which trip, which piece, which question —
  * and a door that guessed would be inventing the very thing this screen
- * refuses to invent.
+ * refuses to invent. `route` still spends nothing on the tap itself: the
+ * screen it opens claims its own allowance only when a photo is submitted.
  */
 export type DoorAction =
   | { kind: 'questionnaire'; entry: EntryKey }
-  | { kind: 'compose'; seed: string };
+  | { kind: 'compose'; seed: string }
+  | { kind: 'route'; href: string };
 
 export type Door = {
   key: DoorKey;
@@ -80,6 +86,12 @@ export const DOORS: readonly Door[] = [
     action: { kind: 'questionnaire', entry: 'dressed' },
   },
   {
+    key: 'recreate',
+    label: 'Recreate a look',
+    hint: 'A photo you saved, rebuilt from what you own.',
+    action: { kind: 'route', href: '/recreate' },
+  },
+  {
     key: 'pack',
     label: 'Pack for a trip',
     hint: 'Say where and how long.',
@@ -108,9 +120,9 @@ export function doorSpendsAllowance(door: Door): boolean {
 }
 
 /** The door's index, 1-based, for the one bounded analytics field. */
-export function doorIndex(key: DoorKey): 1 | 2 | 3 | 4 {
+export function doorIndex(key: DoorKey): 1 | 2 | 3 | 4 | 5 {
   const i = DOORS.findIndex((d) => d.key === key);
-  return (i + 1) as 1 | 2 | 3 | 4;
+  return (i + 1) as 1 | 2 | 3 | 4 | 5;
 }
 
 // ---------------------------------------------------------------------------

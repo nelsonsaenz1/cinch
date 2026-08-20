@@ -413,3 +413,24 @@ export function parseTagRequest(raw: unknown): ValidatedTagRequest {
 
   return { itemId, force: body.force === true };
 }
+
+// ── analyze-inspiration ────────────────────────────────────────────────────
+
+/**
+ * A Storage object path inside the caller's own folder. The FUNCTION checks
+ * the `${userId}/` prefix — this validator cannot know the caller — but the
+ * shape is bounded here: one path, plain characters, no traversal.
+ */
+const MAX_STORAGE_PATH_CHARS = 300;
+const STORAGE_PATH = /^[\w-]+(\/[\w.-]+)+$/;
+
+export type ValidatedInspirationRequest = { path: string };
+
+export function parseInspirationRequest(raw: unknown): ValidatedInspirationRequest {
+  const body = asObject(raw, 'body');
+  const path = requiredString(body.path, 'path', MAX_STORAGE_PATH_CHARS);
+  if (!STORAGE_PATH.test(path) || path.includes('..')) {
+    throw new BoundsError('path must be a plain storage object path.');
+  }
+  return { path };
+}

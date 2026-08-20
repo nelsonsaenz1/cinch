@@ -431,6 +431,21 @@ export default function RootLayout() {
                     headerShown: false,
                   }}
                 />
+                {/* Recreate a look — reached through the stylist's door, so it
+                    presents in the sheet dialect for the stacking reason every
+                    sheet-reached route shares: a plain push would slide a card
+                    over the stylist sheet. Full height; the flow is an upload,
+                    a wait, and a list, and none of those want a half sheet. */}
+                <Stack.Screen
+                  name="recreate"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
                 {/* The lifestyle questionnaire — reached from Settings ("What
                     you dress for") and pushed once, ever, over the tabs at
                     onboarding. A sheet in the settings dialect both times:

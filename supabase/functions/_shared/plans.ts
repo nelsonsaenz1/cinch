@@ -48,7 +48,8 @@ export type AiQuotaKind =
   | 'tagging'
   | 'outfit_generation'
   | 'stylist_chat'
-  | 'garment_search';
+  | 'garment_search'
+  | 'inspiration';
 
 /**
  * Per-plan ceilings.
@@ -86,6 +87,11 @@ export const PLAN_LIMITS: Record<Plan, Record<AiQuotaKind, Allowance>> = {
     // fastest way to a closet that isn't empty — without a scripted account
     // turning the free tier into a web-search API. ~$0.16/month at the ceiling.
     garment_search: { limit: 20, period: 'month' },
+    // "Recreate this look" is one vision call, priced like a tagging call.
+    // Four a month is enough to feel the feature on a saved screenshot or
+    // two without opening a free image-analysis API; the door it upsells
+    // through is the same quota sheet every other kind uses.
+    inspiration: { limit: 4, period: 'month' },
   },
   standard: {
     // 150-garment closet, imported in one sitting, with room to redo ~250.
@@ -100,6 +106,9 @@ export const PLAN_LIMITS: Record<Plan, Record<AiQuotaKind, Allowance>> = {
     // of them — the realistic shape, since the first phrasing of "that navy
     // dress" often isn't the one that finds it. ~$1.60/month at the ceiling.
     garment_search: { limit: 200, period: 'month' },
+    // Two a day in the steady state, with room for a Pinterest-binge weekend.
+    // ~$0.50/month at the ceiling, priced per call like tagging.
+    inspiration: { limit: 60, period: 'month' },
   },
   pro: {
     // 1000-garment closet plus 500 re-tags in the same month.
@@ -113,6 +122,8 @@ export const PLAN_LIMITS: Record<Plan, Record<AiQuotaKind, Allowance>> = {
     // for a path nobody uses that way — a 1000-piece wardrobe is photographed
     // over months, not typed in one evening. 600 is twenty a day for a month.
     garment_search: { limit: 600, period: 'month' },
+    // Far past any real use, still ~$1.60/month of exposure at the ceiling.
+    inspiration: { limit: 200, period: 'month' },
   },
 } as const;
 

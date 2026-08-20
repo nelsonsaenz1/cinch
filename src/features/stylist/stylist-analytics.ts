@@ -33,7 +33,7 @@ export const STYLIST_EVENTS = {
 } as const;
 
 /** Which of the four doors, by POSITION. Never its label, never its intent text. */
-export type DoorIndex = 1 | 2 | 3 | 4;
+export type DoorIndex = 1 | 2 | 3 | 4 | 5;
 
 /** How far into the questionnaire. A step number, never an answer. */
 export type StepNumber = 1 | 2 | 3 | 4;
@@ -81,7 +81,7 @@ export const plateTappedProps = (): StylistProps => ({});
 export const allowanceMarkShownProps = (shown: boolean): StylistProps => ({ shown });
 
 /** Exported so the privacy test can walk every legal value rather than a sample. */
-export const DOOR_INDICES: readonly DoorIndex[] = [1, 2, 3, 4];
+export const DOOR_INDICES: readonly DoorIndex[] = [1, 2, 3, 4, 5];
 export const STEP_NUMBERS: readonly StepNumber[] = [1, 2, 3, 4];
 export const CHAT_ERROR_CAUSES: readonly ChatErrorCause[] = [
   'plan_excluded',
