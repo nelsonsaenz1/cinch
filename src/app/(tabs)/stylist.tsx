@@ -24,6 +24,7 @@ import { useGate } from '@/features/billing/use-gate';
 import { usePlan } from '@/features/billing/use-plan';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
+import { lifestyleOccasion } from '@/features/profile/lifestyle';
 import { useLifestyle } from '@/features/profile/use-lifestyle';
 import { formatTemp } from '@/features/context/weather';
 import { greeting } from '@/features/stylist/opening';
@@ -305,8 +306,18 @@ export default function StylistScreen() {
   }, [cancelQuestionnaire, clear]);
 
   const hello = useMemo(
-    () => greeting({ now: openedAt, weather: context.weather, units: UNITS }),
-    [openedAt, context.weather],
+    () =>
+      greeting({
+        now: openedAt,
+        weather: context.weather,
+        units: UNITS,
+        // Display labels in the person's own selection order — the opening
+        // can ask "Class today, or going out?" instead of the stock line.
+        lifestyleLabels: lifestyle.occasions
+          .map((key) => lifestyleOccasion(key)?.label)
+          .filter((l): l is string => Boolean(l)),
+      }),
+    [openedAt, context.weather, lifestyle.occasions],
   );
 
   const { resolve } = useSignedUrls(

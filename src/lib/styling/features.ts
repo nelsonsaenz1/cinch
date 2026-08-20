@@ -213,7 +213,15 @@ export function occasionRule(
       const hits = relevant.filter((g) =>
         g.occasions.some((o) => wanted.includes(o.toLowerCase())),
       ).length;
-      return { value: clamp(0.62 + (hits / relevant.length) * 0.16) };
+      const share = hits / relevant.length;
+      return {
+        value: clamp(0.62 + share * 0.16),
+        // SAID, not only scored — the founder's ask, 2026-08-20: the profile
+        // has to show up in the words so the person knows it listened. The
+        // clause names the profile rather than an occasion because this
+        // branch matches the whole standing set, not one tapped ask.
+        note: share >= 0.5 ? 'true to what you dress for' : undefined,
+      };
     }
     return { value: 0.7 };
   }
@@ -226,7 +234,13 @@ export function occasionRule(
     g.occasions.some((o) => o.toLowerCase() === wanted || o.toLowerCase().includes(wanted)),
   ).length;
 
-  return { value: clamp(0.4 + (hits / relevant.length) * 0.6) };
+  const share = hits / relevant.length;
+  return {
+    value: clamp(0.4 + share * 0.6),
+    // The explicit ask, named back. "dressed for office" over "matches your
+    // occasion" — the engine's notes name facts, and the fact is the tag.
+    note: share >= 0.6 ? `dressed for ${wanted}` : undefined,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -19,6 +19,9 @@ import {
   nameOutfits,
   styleContextFingerprint,
 } from './outfit-names';
+import { lifestyleSummaryLine } from '@/features/profile/lifestyle';
+import { useLifestyle } from '@/features/profile/use-lifestyle';
+
 import { shouldEnhanceWithAi } from './should-enhance';
 import { useFavoriteOutfits } from './use-favorite-outfits';
 
@@ -114,6 +117,17 @@ export function useOutfits({
   enabled?: boolean;
 }) {
   const favorites = useFavoriteOutfits();
+  /**
+   * The lifestyle profile's one sentence, appended to the taste summary the
+   * re-ranker reads — the same line, built the same way, as the stylist chat
+   * sends (`use-chat.ts`). This is half of "the profile shows up in the
+   * words": the model writing Today's reasoning knows who it is dressing, so
+   * a student's morning line can say class and mean it. The other half is
+   * the engine's own `occasionRule` note, which needs no model at all.
+   */
+  const lifestyle = useLifestyle();
+  const lifestyleLine = lifestyleSummaryLine(lifestyle.lifeStage, lifestyle.occasions);
+  const summaryLines = lifestyleLine ? [...profile.summary, lifestyleLine] : profile.summary;
   // --- Stage 1: instant, local, synchronous -------------------------------
   const shortlist = useMemo(() => {
     if (!enabled || !wardrobe.length) return [];
@@ -153,7 +167,7 @@ export function useOutfits({
       'outfit-rerank',
       shortlist.map(candidateId),
       styleContextFingerprint(context),
-      profile.summary,
+      summaryLines,
       count,
     ],
     enabled: enabled && shortlist.length > 0 && decision.enhance,
@@ -186,7 +200,7 @@ export function useOutfits({
             })),
             note: context.note,
           },
-          styleSummary: profile.summary,
+          styleSummary: summaryLines,
         },
       });
 

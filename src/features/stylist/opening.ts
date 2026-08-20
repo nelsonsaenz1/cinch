@@ -100,17 +100,45 @@ export function weatherAside(weather: WeatherContext | null, units: 'C' | 'F' = 
   return null;
 }
 
+/**
+ * The profile's own question, when there is one to ask.
+ *
+ * "Class today, or going out?" is the founder's ask made literal — the
+ * opening line naming the occasions the person picked, so the profile is
+ * visibly listened to before a single tap. Built from the FIRST TWO picks
+ * (selection order is the person's own emphasis), day slots only: the
+ * evening and night lines already ask sharper questions than a roster
+ * could, and a 1 a.m. "Game day, or class?" reads like a bot with a list.
+ */
+export function lifestyleOpeningLine(
+  slot: Slot,
+  labels: readonly string[],
+): string | null {
+  if (labels.length < 2) return null;
+  if (slot === 'evening' || slot === 'night') return null;
+  const [a, b] = labels as [string, string];
+  return `${a} today, or ${b.toLowerCase()}?`;
+}
+
 export function greeting({
   now,
   weather,
   units = 'F',
+  lifestyleLabels = [],
 }: {
   now: Date;
   weather: WeatherContext | null;
   units?: 'C' | 'F';
+  /** The picked occasions' display labels, in selection order. */
+  lifestyleLabels?: readonly string[];
 }): Greeting {
   const slot = slotFor(now.getHours());
-  const options = LINES[slot];
+  // The lifestyle line joins the rotation rather than replacing it — the
+  // same one-line-a-day cadence, one more voice in it. Joining (not
+  // leading) is deliberate: a greeting that names your occasions every
+  // single day stops reading as attention and starts reading as a template.
+  const personal = lifestyleOpeningLine(slot, lifestyleLabels);
+  const options = personal ? [...LINES[slot], personal] : LINES[slot];
   // Day of the month is enough rotation and needs no date maths.
   const line = options[now.getDate() % options.length] ?? options[0]!;
 

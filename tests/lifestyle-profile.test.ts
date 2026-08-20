@@ -23,7 +23,9 @@ import {
   shouldOfferStyleProfile,
   type LifeStageKey,
 } from '../src/features/profile/lifestyle';
+import { lifestyleOpeningLine } from '../src/features/stylist/opening';
 import { OCCASIONS, buildSteps } from '../src/features/stylist/questionnaire';
+import { occasionRule } from '../src/lib/styling';
 import { occasion as taggerOccasion } from '../src/schemas/item';
 import { garment, resetIds } from './helpers';
 
@@ -182,4 +184,37 @@ test('the offer is made exactly when nothing has been stamped or answered', () =
   // A read still in flight, or one that failed, never re-offers.
   assert.equal(shouldOfferStyleProfile({ status: 'loading' }), false);
   assert.equal(shouldOfferStyleProfile({ status: 'unavailable' }), false);
+});
+
+// ---------------------------------------------------------------------------
+// The profile, visibly listened to
+// ---------------------------------------------------------------------------
+
+test('a strong occasion fit is SAID, not only scored', () => {
+  resetIds();
+  const officeCloset = [
+    garment('base_top', 'white', { occasions: ['office'] }),
+    garment('bottom', 'charcoal', { occasions: ['office'] }),
+    garment('footwear', 'black', { occasions: ['office', 'casual'] }),
+  ];
+  // The explicit ask names the tag back.
+  const asked = occasionRule(officeCloset, 'office');
+  assert.equal(asked.note, 'dressed for office');
+  // The standing profile names the profile.
+  const standing = occasionRule(officeCloset, null, ['office']);
+  assert.equal(standing.note, 'true to what you dress for');
+  // And a weak fit says nothing — a note explaining a miss as a feature is
+  // the palette rule's own refusal, held here too.
+  const weak = occasionRule(officeCloset, 'gym');
+  assert.equal(weak.note, undefined);
+});
+
+test('the stylist opening can ask the profile’s own question — day slots only', () => {
+  assert.equal(
+    lifestyleOpeningLine('morning', ['Class', 'Going out']),
+    'Class today, or going out?',
+  );
+  assert.equal(lifestyleOpeningLine('morning', ['Class']), null);
+  assert.equal(lifestyleOpeningLine('evening', ['Class', 'Going out']), null);
+  assert.equal(lifestyleOpeningLine('night', ['Class', 'Going out']), null);
 });

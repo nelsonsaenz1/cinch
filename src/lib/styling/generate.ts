@@ -442,8 +442,11 @@ export function selectDiverse(
  * than inventing a rationale for an outfit it cannot see.
  */
 export function explain(candidate: OutfitCandidate): string {
+  // `occasion` joined the order with the lifestyle profile (2026-08-20): its
+  // notes are the visible proof the profile is heard, and a note the explain
+  // line never prints is a fact the scorer kept to itself.
   const order: (keyof OutfitCandidate['notes'])[] = [
-    'weather', 'formality', 'palette', 'proportion', 'pattern', 'freshness', 'affinity',
+    'weather', 'formality', 'occasion', 'palette', 'proportion', 'pattern', 'freshness', 'affinity',
   ];
   const parts = order
     .map((k) => candidate.notes[k])
