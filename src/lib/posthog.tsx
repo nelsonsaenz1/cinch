@@ -267,6 +267,20 @@ export type AppEvent =
   /** A guided stylist questionnaire tapped through to the end. */
   | 'stylist_questionnaire_completed'
   /**
+   * The lifestyle questionnaire saved. `stage` is the closed LIFE_STAGES key
+   * (or 'none'), `occasions` is a COUNT with a ceiling of six — never the
+   * occasion keys themselves. Which occasions somebody dresses for is a fact
+   * about their life, and the count is all any funnel needs.
+   */
+  | 'style_profile_saved'
+  /** The lifestyle questionnaire declined. `step` says how far they looked. */
+  | 'style_profile_skipped'
+  /**
+   * DENOMINATOR for both: the questionnaire genuinely on screen during
+   * onboarding. The Settings editor does not fire it — an edit is not an offer.
+   */
+  | 'style_profile_offered'
+  /**
    * The share sheet was opened for a captured card. `subject` is which
    * artifact ('outfit' | 'packing'); `has_link` is whether the sharer's own
    * invite link made it into the message, which is the difference between a

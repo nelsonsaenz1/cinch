@@ -188,8 +188,35 @@ export function weatherRule(items: Garment[], weather: WeatherContext | null): R
 // Occasion
 // ---------------------------------------------------------------------------
 
-export function occasionRule(items: Garment[], target: string | null): Rule {
-  if (!target) return { value: 0.7 };
+export function occasionRule(
+  items: Garment[],
+  target: string | null,
+  lifestyle?: string[],
+): Rule {
+  if (!target) {
+    /**
+     * No explicit ask, but a lifestyle profile — the soft branch.
+     *
+     * A college student's ordinary morning should lean toward the clothes
+     * tagged for the life she actually leads, WITHOUT the day's target rigour:
+     * the band here is 0.62..0.78 around the old flat 0.7, so the preference
+     * can break ties between otherwise-equal outfits and can never veto one.
+     * An outfit the palette and proportion rules love still wins; one that
+     * also matches the life wins by a little more. Compare the explicit
+     * branch below, whose band is nearly four times as wide — that is the
+     * difference between an instruction and a standing fact.
+     */
+    if (lifestyle?.length) {
+      const wanted = lifestyle.map((o) => o.toLowerCase());
+      const relevant = items.filter((g) => g.visualWeight >= 0.1 && g.occasions.length > 0);
+      if (!relevant.length) return { value: 0.7 };
+      const hits = relevant.filter((g) =>
+        g.occasions.some((o) => wanted.includes(o.toLowerCase())),
+      ).length;
+      return { value: clamp(0.62 + (hits / relevant.length) * 0.16) };
+    }
+    return { value: 0.7 };
+  }
   const wanted = target.toLowerCase();
 
   const relevant = items.filter((g) => g.visualWeight >= 0.1 && g.occasions.length > 0);

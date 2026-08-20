@@ -186,10 +186,21 @@ test('the tour route does not decide whether it should have been opened', () => 
   assert.ok(!HANDOFF_RAW.includes('toured_at'), 'the handoff must not write toured_at');
 });
 
-test('every exit marks toured and then replaces — nothing is pushed', () => {
+test('every exit marks toured and then replaces — the tour never rides the stack', () => {
   assert.match(ROUTE_RAW, /markToured\.mutate\(\)/);
-  assert.match(ROUTE_RAW, /router\.replace\(exitDestination\(/);
-  assert.ok(!/router\.push\(/.test(ROUTE_RAW), 'the tour must never push');
+  assert.match(ROUTE_RAW, /const destination = exitDestination\(/);
+  assert.match(ROUTE_RAW, /router\.replace\(destination\)/);
+  // AMENDED with the lifestyle profile: the law was "the tour must not sit
+  // under the app on the back stack", and the replace above is still what
+  // holds it. ONE push is now permitted — the style-profile offer, made
+  // AFTER the replace, so what sits under the sheet is the destination and
+  // never this screen. Held to exactly one so a second push cannot arrive
+  // wearing this exemption.
+  const pushes = ROUTE_RAW.match(/router\.push\(/g) ?? [];
+  assert.equal(pushes.length, 1, 'exactly one push: the style-profile offer');
+  assert.match(ROUTE_RAW, /pathname: '\/style-profile'/);
+  // And it is gated — over the tabs only, and only while the offer is owed.
+  assert.match(ROUTE_RAW, /destination === '\/\(tabs\)' && shouldOfferStyleProfile\(/);
   // The back gesture would be a fourth, silent way out — one that leaves
   // without recording that the tour was seen.
   assert.match(ROUTE_RAW, /gestureEnabled: false/);

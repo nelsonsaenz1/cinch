@@ -1967,12 +1967,14 @@ export type Database = {
           created_at: string
           deletion_requested_at: string | null
           display_name: string | null
+          dress_occasions: string[]
           follower_count: number
           following_count: number
           gender_presentation: string | null
           home_city: string | null
           invited_at: string | null
           invited_by: string | null
+          life_stage: string | null
           onboarding_complete: boolean
           preference_summary: string | null
           preference_summary_updated_at: string | null
@@ -1984,6 +1986,7 @@ export type Database = {
           stat_cost_per_wear_hidden: boolean
           stat_pieces_hidden: boolean
           stat_wears_hidden: boolean
+          style_profile_prompted_at: string | null
           style_tags: string[]
           time_zone: string | null
           toured_at: string | null
@@ -2006,12 +2009,14 @@ export type Database = {
           created_at?: string
           deletion_requested_at?: string | null
           display_name?: string | null
+          dress_occasions?: string[]
           follower_count?: number
           following_count?: number
           gender_presentation?: string | null
           home_city?: string | null
           invited_at?: string | null
           invited_by?: string | null
+          life_stage?: string | null
           onboarding_complete?: boolean
           preference_summary?: string | null
           preference_summary_updated_at?: string | null
@@ -2023,6 +2028,7 @@ export type Database = {
           stat_cost_per_wear_hidden?: boolean
           stat_pieces_hidden?: boolean
           stat_wears_hidden?: boolean
+          style_profile_prompted_at?: string | null
           style_tags?: string[]
           time_zone?: string | null
           toured_at?: string | null
@@ -2045,12 +2051,14 @@ export type Database = {
           created_at?: string
           deletion_requested_at?: string | null
           display_name?: string | null
+          dress_occasions?: string[]
           follower_count?: number
           following_count?: number
           gender_presentation?: string | null
           home_city?: string | null
           invited_at?: string | null
           invited_by?: string | null
+          life_stage?: string | null
           onboarding_complete?: boolean
           preference_summary?: string | null
           preference_summary_updated_at?: string | null
@@ -2062,6 +2070,7 @@ export type Database = {
           stat_cost_per_wear_hidden?: boolean
           stat_pieces_hidden?: boolean
           stat_wears_hidden?: boolean
+          style_profile_prompted_at?: string | null
           style_tags?: string[]
           time_zone?: string | null
           toured_at?: string | null
@@ -3698,6 +3707,7 @@ export type Database = {
         | "voice_transcription"
         | "closet_parsing"
         | "packing_brief"
+        | "inspiration"
       catalog_provider: "datafeedr" | "sovrn" | "amazon"
       circle_member_role: "owner" | "member"
       circle_member_state:
@@ -3888,6 +3898,7 @@ export const Constants = {
         "voice_transcription",
         "closet_parsing",
         "packing_brief",
+        "inspiration",
       ],
       catalog_provider: ["datafeedr", "sovrn", "amazon"],
       circle_member_role: ["owner", "member"],

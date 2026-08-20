@@ -431,6 +431,24 @@ export default function RootLayout() {
                     headerShown: false,
                   }}
                 />
+                {/* The lifestyle questionnaire — reached from Settings ("What
+                    you dress for") and pushed once, ever, over the tabs at
+                    onboarding. A sheet in the settings dialect both times:
+                    from Settings because a plain push would stack a card on a
+                    sheet, and at onboarding because a form you fill and
+                    dismiss is exactly what the formSheet grammar means here.
+                    Full height — the occasions grid is tall, and a half sheet
+                    would open already scrolled. */}
+                <Stack.Screen
+                  name="style-profile"
+                  options={{
+                    presentation: 'formSheet',
+                    sheetAllowedDetents: [1],
+                    sheetGrabberVisible: true,
+                    sheetCornerRadius: 38,
+                    headerShown: false,
+                  }}
+                />
                 {/* Privacy (consent atlas A-06) is pushed FROM the profile
                     sheet, so it presents as a sheet in the same dialect —
                     its own back chevron returns to Profile, which stays

@@ -153,7 +153,7 @@ export function scoreOutfit(
   const palette = paletteRule(items);
   const formality = formalityRule(items, targetFormality);
   const weather = weatherRule(items, ctx.weather);
-  const occasion = occasionRule(items, ctx.targetOccasion);
+  const occasion = occasionRule(items, ctx.targetOccasion, ctx.lifestyleOccasions);
   const proportion = proportionRule(items);
   const pattern = patternRule(items);
   const season = seasonRule(items, ctx.season, ctx.colorSeason);

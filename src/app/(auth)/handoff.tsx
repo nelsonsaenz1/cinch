@@ -18,6 +18,8 @@ import { greetingForHour } from '@/features/auth/greeting';
 import { takePendingInvite } from '@/features/invite/pending-invite';
 import { useTourGate } from '@/features/onboarding/tour-queries';
 import { shouldShowTour } from '@/features/onboarding/tour-state';
+import { shouldOfferStyleProfile } from '@/features/profile/lifestyle';
+import { useLifestyle } from '@/features/profile/use-lifestyle';
 import { supabase } from '@/lib/supabase';
 
 const HANDOFF_PHOTO = require('../../../assets/garments/cream-mohair-sweater.jpg');
@@ -78,6 +80,13 @@ export default function HandoffScreen() {
   // catch-all — which is what makes it the one place the tour can be offered
   // "once, ever" without a profile read in front of every cold start.
   const tourGate = useTourGate();
+  // The same read cadence as the tour gate, for the same screen — see the
+  // routing note below for the ranking. Deliberately NOT a third hold on the
+  // beat: the tour's once-ever promise needs the answer before leaving, but
+  // this offer keeps (nothing stamps it until the sheet shows), so a read
+  // still in flight when the timer fires just means the offer waits for the
+  // next sign-in rather than the beat waiting for the network.
+  const { gate: lifestyleGate } = useLifestyle();
   useEffect(() => {
     if (resolved) return;
     let cancelled = false;
@@ -140,7 +149,20 @@ export default function HandoffScreen() {
         router.replace({ pathname: '/invite-arrival', params: { handle: invite } });
         return;
       }
-      router.replace(shouldShowTour(tourGate) ? '/tour' : '/(tabs)');
+      if (shouldShowTour(tourGate)) {
+        router.replace('/tour');
+        return;
+      }
+      router.replace('/(tabs)');
+      // The lifestyle questionnaire, offered once, AFTER the tabs are under
+      // it — a sheet needs a room to be a sheet in. The tour outranks it (a
+      // brand-new account meets the tour first; its own exit makes this same
+      // offer over the tabs), and the invite outranks both. An offer whose
+      // gate is still loading or unavailable is simply not made — nothing is
+      // stamped until the sheet shows, so it keeps until the next sign-in.
+      if (shouldOfferStyleProfile(lifestyleGate)) {
+        router.push({ pathname: '/style-profile', params: { offer: '1' } });
+      }
     }, beat);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps

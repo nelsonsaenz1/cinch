@@ -12,6 +12,9 @@ import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { generateOutfits, type Garment, type OutfitCandidate, type StyleContext } from '@/lib/styling';
 import { getUserId, supabase } from '@/lib/supabase';
 
+import { lifestyleSummaryLine } from '@/features/profile/lifestyle';
+import { useLifestyle } from '@/features/profile/use-lifestyle';
+
 import type { StyleProfile } from '../styling/queries';
 import { tryFactAnswer } from './facts';
 import { closetDigest, contextForQuestion } from './intent';
@@ -147,8 +150,10 @@ export function useChat({
   profile: StyleProfile;
 }) {
   const qc = useQueryClient();
+  const lifestyle = useLifestyle();
   const gate = useGate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const lifestyleLine = lifestyleSummaryLine(lifestyle.lifeStage, lifestyle.occasions);
   const sessionRef = useRef<string | null>(null);
   /** Latest `ask`, so the paywall's retry callback can reach it without a cycle. */
   const askRef = useRef<(question: string, options?: AskOptions) => Promise<void>>(async () => {});
@@ -324,7 +329,14 @@ export function useChat({
           // on "mood: dark" rather than infer it.
           brief: options?.brief,
           digest: closetDigest(wardrobe),
-          styleSummary: profile.summary,
+          // The learned taste summary, plus one standing sentence from the
+          // lifestyle profile — the server prints each line as "They {s}.",
+          // so "are a student and mostly dress for class, going out and game
+          // day" reads as a fact beside the learned ones. Composed from the
+          // closed vocabularies only, appended last so the learned lines are
+          // never displaced, and bounded (the server admits 24 lines; the
+          // learner writes far fewer).
+          styleSummary: lifestyleLine ? [...profile.summary, lifestyleLine] : profile.summary,
           candidates: shortlist.map((c) => ({
             id: candidateId(c),
             score: c.score,

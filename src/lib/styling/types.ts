@@ -90,6 +90,15 @@ export type StyleContext = {
   /** Target formality when there are no events to infer from. */
   targetFormality: number | null;
   targetOccasion: string | null;
+  /**
+   * The engine occasion tags the owner's lifestyle profile leans toward —
+   * `engineOccasionsFor` over `profiles.dress_occasions`. A standing fact
+   * about the LIFE, not about the day, which is why it is optional and why
+   * `occasionRule` treats it as a soft preference that any explicit target or
+   * calendar event outranks. Absent means unanswered, and unanswered scores
+   * exactly as before the profile existed.
+   */
+  lifestyleOccasions?: string[];
   season: string | null;
   colorSeason: string | null;
   /** Epoch ms of "now", passed in so scoring stays pure and testable. */

@@ -10,6 +10,8 @@ import {
   nextIndex,
   type TourExit,
 } from '@/features/onboarding/tour-state';
+import { shouldOfferStyleProfile } from '@/features/profile/lifestyle';
+import { useLifestyle } from '@/features/profile/use-lifestyle';
 import { useWardrobe } from '@/features/styling/queries';
 import { haptics } from '@/lib/haptics';
 
@@ -55,6 +57,7 @@ import { haptics } from '@/lib/haptics';
 export default function TourScreen() {
   const router = useRouter();
   const markToured = useMarkToured();
+  const lifestyle = useLifestyle();
   /**
    * Read on mount, spent on the way out — see `exitDestination` for what it
    * decides. Three frames of reading is a long time for a query that is empty
@@ -103,9 +106,18 @@ export default function TourScreen() {
       // whichever of the three destinations this resolves to sits directly
       // over Today — dismissing `/capture`, or backing out of `/the-ten`,
       // lands on the page TR-03 has just described rather than back here.
-      router.replace(exitDestination(to, wardrobe.data?.length ?? null));
+      const destination = exitDestination(to, wardrobe.data?.length ?? null);
+      router.replace(destination);
+      // The lifestyle questionnaire, offered once — but ONLY over the tabs.
+      // Somebody the tour just sent to the camera is mid-promise ("start with
+      // the camera") and a sheet over the lens would break it; their offer
+      // stays pending (nothing is stamped until the sheet shows) and the next
+      // sign-in's handoff makes it instead.
+      if (destination === '/(tabs)' && shouldOfferStyleProfile(lifestyle.gate)) {
+        router.push({ pathname: '/style-profile', params: { offer: '1' } });
+      }
     },
-    [markToured, router, wardrobe.data],
+    [markToured, router, wardrobe.data, lifestyle.gate],
   );
 
   return (

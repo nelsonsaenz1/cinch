@@ -40,11 +40,14 @@ export function useQuestionnaire({
   wardrobe,
   weather,
   temperature,
+  lifestyleOccasions,
   onComplete,
 }: {
   wardrobe: Garment[];
   weather: WeatherContext | null;
   temperature: string | null;
+  /** `profiles.dress_occasions` — personalises the day question's options. */
+  lifestyleOccasions?: string[];
   onComplete: (composed: ComposedAsk, entry: EntryKey) => void;
 }) {
   const [run, setRun] = useState<Run | null>(null);
@@ -80,9 +83,9 @@ export function useQuestionnaire({
   const ctx = useMemo<QuestionnaireContext>(
     () =>
       weather && temperature
-        ? { wardrobe, weather, temperature }
-        : { wardrobe, weather: null, temperature: null },
-    [wardrobe, weather, temperature],
+        ? { wardrobe, weather, temperature, lifestyleOccasions }
+        : { wardrobe, weather: null, temperature: null, lifestyleOccasions },
+    [wardrobe, weather, temperature, lifestyleOccasions],
   );
 
   /**

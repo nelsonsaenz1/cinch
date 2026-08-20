@@ -83,6 +83,8 @@ export type SettingsBodyProps = {
   onWhereToBuy: (next: boolean) => void;
   onWhereToBuyRetry: () => void;
   onPrivacy: () => void;
+  /** Opens the lifestyle questionnaire in its Settings-editor presentation. */
+  onStyleProfile: () => void;
 
   // ── People ──────────────────────────────────────────────────────────────
   /** `cinchstyle.com/i/@handle`, or null while the profile read is in flight. */
@@ -188,6 +190,14 @@ export function SettingsBody(props: SettingsBodyProps) {
               writing={props.whereToBuyWriting}
               onChange={props.onWhereToBuy}
             />
+            <Rule tone="hairline" />
+            {/* The lifestyle questionnaire's editor door — the same screen
+                onboarding offers once, reopenable forever. Lives on the
+                styling plate because that is what the answers steer: the
+                day's scoring, the stylist's opening question, the brief. No
+                detail slot — restating six occasion labels in a row's detail
+                is a list wearing a caption's clothes. */}
+            <SettingsRow label="What you dress for" onPress={props.onStyleProfile} />
             <Rule tone="hairline" />
             {/* The doorway to Privacy & data, which owns three things that used
                 to be scattered: AI consent and its record, the data export, and

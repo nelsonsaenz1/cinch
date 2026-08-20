@@ -1,3 +1,4 @@
+import { ALL_LIFESTYLE_DAY_OPTIONS, dayOptionsFor } from '@/features/profile/lifestyle';
 import type { Garment, WeatherContext } from '@/lib/styling';
 
 /**
@@ -148,6 +149,14 @@ export type StylistBrief = {
  */
 export type QuestionnaireContext = {
   wardrobe: Garment[];
+  /**
+   * `profiles.dress_occasions`, when the owner has answered the lifestyle
+   * questionnaire. Personalises the DAY question only: a student is offered
+   * Class and Game day where a professional is offered Work and Dinner. The
+   * event path is untouched — a wedding is a wedding whoever you are — and
+   * an absent or thin profile falls back to the stock four exactly.
+   */
+  lifestyleOccasions?: string[];
 } & (
   | {
       weather: WeatherContext;
@@ -193,7 +202,12 @@ export function buildSteps(entry: EntryKey, ctx: QuestionnaireContext): Step[] {
 
   const steps: Step[] = [];
 
-  const occasions: readonly OccasionOption[] = entry === 'event' ? EVENT_OCCASIONS : OCCASIONS;
+  // The lifestyle profile rewrites the day question's options — never the
+  // event path's, and never when it is too thin to ask a better question
+  // than the stock four (`dayOptionsFor` returns null below two picks).
+  const personalised = entry === 'dressed' ? dayOptionsFor(ctx.lifestyleOccasions ?? []) : null;
+  const occasions: readonly { key: string; label: string }[] =
+    entry === 'event' ? EVENT_OCCASIONS : (personalised ?? OCCASIONS);
   steps.push({
     key: 'occasion',
     question: entry === 'event' ? 'What kind of thing is it?' : 'What is the day asking for?',
@@ -255,8 +269,23 @@ export type ComposedAsk = {
   steps: number;
 };
 
-const findOccasion = (key: string): OccasionOption | undefined =>
-  [...OCCASIONS, ...EVENT_OCCASIONS].find((o) => o.key === key);
+/**
+ * Every answer `composeAsk` might have to look up — the stock lists first so
+ * a stock key always resolves to its stock meaning, then the closed set of
+ * lifestyle day options `buildSteps` can offer. Structural rather than the
+ * tuple union, because a tapped lifestyle answer must compose exactly like a
+ * stock one: phrase into the sentence, formality and occasion into the intent.
+ */
+type AnyOccasionOption = {
+  key: string;
+  label: string;
+  phrase: string;
+  formality: number;
+  occasion: string;
+};
+
+const findOccasion = (key: string): AnyOccasionOption | undefined =>
+  [...OCCASIONS, ...EVENT_OCCASIONS, ...ALL_LIFESTYLE_DAY_OPTIONS].find((o) => o.key === key);
 
 /**
  * The two answers that need no questions.

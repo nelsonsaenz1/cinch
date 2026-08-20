@@ -24,6 +24,7 @@ import { useGate } from '@/features/billing/use-gate';
 import { usePlan } from '@/features/billing/use-plan';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
+import { useLifestyle } from '@/features/profile/use-lifestyle';
 import { formatTemp } from '@/features/context/weather';
 import { greeting } from '@/features/stylist/opening';
 import type { ComposedAsk, EntryKey } from '@/features/stylist/questionnaire';
@@ -101,6 +102,7 @@ export default function StylistScreen() {
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
   const { context } = useStyleContext();
+  const lifestyle = useLifestyle();
   const theme = useTheme();
   const gate = useGate();
 
@@ -215,6 +217,9 @@ export default function StylistScreen() {
     wardrobe: items,
     weather: context.weather,
     temperature: context.weather ? formatTemp(context.weather.feelsLikeC, UNITS) : null,
+    // The lifestyle profile's occasions, so "What is the day asking for?"
+    // offers Class or Game day to the person who actually has those days.
+    lifestyleOccasions: lifestyle.occasions,
     onComplete,
   });
 

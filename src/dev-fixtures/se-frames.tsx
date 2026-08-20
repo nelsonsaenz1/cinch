@@ -106,6 +106,7 @@ export function SeFrame(overrides: SeOverrides = {}) {
       onWhereToBuy={setWhereToBuy}
       onWhereToBuyRetry={noop}
       onPrivacy={noop}
+      onStyleProfile={noop}
       inviteLink="cinchstyle.com/i/@priyar"
       onInvite={noop}
       onFriends={noop}

@@ -199,6 +199,7 @@ export default function SettingsScreen() {
       onWhereToBuy={writeWhereToBuy}
       onWhereToBuyRetry={() => writeWhereToBuy(!shopPreferenceOn)}
       onPrivacy={() => router.push('/privacy')}
+      onStyleProfile={() => router.push('/style-profile')}
       inviteLink={inviteLink}
       onInvite={() => router.push('/invite')}
       onFriends={() => router.push('/friends')}

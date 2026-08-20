@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppState, Linking } from 'react-native';
 
 import { useSession } from '@/features/auth/use-session';
+import { useLifestyle } from '@/features/profile/use-lifestyle';
 import type { EventContext, StyleContext } from '@/lib/styling';
 
 import { fetchWeather } from './weather';
@@ -197,6 +198,14 @@ export function useStyleContext({
   // offers it once.
   const session = useSession();
 
+  // The lifestyle profile's standing preference, folded into every context
+  // this hook assembles — Today, the stylist, events — so a college student's
+  // ordinary morning quietly leans toward class-and-campus clothes without
+  // any caller opting in. Soft by design: `occasionRule` lets an explicit
+  // target or a calendar event outrank it entirely, and an unanswered
+  // profile contributes nothing.
+  const lifestyle = useLifestyle();
+
   const location = useQuery({
     queryKey: ['location'],
     enabled: Boolean(session.userId),
@@ -295,6 +304,7 @@ export function useStyleContext({
       note: note ?? null,
       targetFormality: targetFormality ?? null,
       targetOccasion: targetOccasion ?? null,
+      lifestyleOccasions: lifestyle.engineOccasions.length ? lifestyle.engineOccasions : undefined,
       season: currentSeason(now, coords.latitude),
       colorSeason: colorSeason ?? null,
       // Read once per render rather than at scoring time, so the whole pass
@@ -311,6 +321,9 @@ export function useStyleContext({
     targetFormality,
     colorSeason,
     coords.latitude,
+    // Identity-stable: useLifestyle memoizes this array, precisely so it can
+    // sit in this list without re-minting `now` every frame.
+    lifestyle.engineOccasions,
   ]);
 
   /**
