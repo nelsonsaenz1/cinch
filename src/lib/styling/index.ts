@@ -3,3 +3,4 @@ export * from './garment';
 export * from './features';
 export * from './score';
 export * from './generate';
+export * from './accessory';

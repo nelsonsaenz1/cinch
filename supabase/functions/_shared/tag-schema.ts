@@ -181,6 +181,8 @@ category is the single most important field and the one most often got wrong. Re
 - Anything carried rather than worn is bag. Totes, clutches, crossbodies, backpacks — never top.
 - top is the upper body; bottom is the lower body. A waistband, a fly, belt loops or a hem that circles the legs means bottom, whatever the fabric looks like.
 - If the subcategory you are about to write contains the word "bag", "tote", "boot", "shoe" or "loafer", the category is bag or footwear. Check that before you answer.
+- Accessories split across four categories, by where they sit: anything on the head (hat, cap, beanie, headband) is headwear; necklaces, bracelets, earrings, rings and brooches are jewelry; anything carried is bag; and everything else worn — belts, sunglasses, watches, scarves, gloves, ties — is accessory.
+- For an accessory, the subcategory must NAME THE KIND plainly — "leather belt", "aviator sunglasses", "silk scarf", "field watch" — because the styling engine reads the kind from that word. "accessory" as a subcategory says nothing twice.
 - When two garments are in frame, the most prominent one is the one filling most of the frame — not the one that is easiest to name.
 
 patternScale must be "none" whenever pattern is solid. A solid garment has no print, so it cannot have a print size. These two fields are read together and a solid with a scale is a contradiction.

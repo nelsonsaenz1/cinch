@@ -17,6 +17,12 @@
  * re-ranking the shortlist and writing the reasoning.
  */
 
+import {
+  ACCESSORY_KIND_ORDER,
+  MAX_ACCESSORIES_PER_OUTFIT,
+  accessoryKind,
+  type AccessoryKind,
+} from './accessory';
 import { targetWarmth } from './features';
 import {
   DEFAULT_WEIGHTS,
@@ -263,9 +269,20 @@ export function generateOutfits(
 }
 
 /**
- * Greedily attach a bag and one accessory, but only when they improve the
- * score. Enumerating accessories multiplies the search space for very little
+ * Greedily attach accessories, but only when they improve the score.
+ * Enumerating accessories multiplies the search space for very little
  * signal, and an accessory that hurts the outfit is worse than none.
+ *
+ * Three families, each with its own rivalry rule:
+ *
+ *   bag       — one, ever. Nobody carries two.
+ *   headwear  — one, ever, and gated harder than the rest (the bar below is
+ *               doubled): a hat redraws the whole silhouette, so it has to
+ *               EARN its place rather than sneak in on a rounding error.
+ *   accessory — one per KIND (a watch and sunglasses coexist; two belts do
+ *               not), at most MAX_ACCESSORIES_PER_OUTFIT in total, in
+ *               ACCESSORY_KIND_ORDER. See `./accessory.ts` for why the slot
+ *               is too coarse a line to draw the rivalry along.
  */
 function addAccessories(
   candidate: OutfitCandidate,
@@ -277,24 +294,57 @@ function addAccessories(
 ): OutfitCandidate {
   let best = candidate;
 
-  for (const slot of ['bag', 'accessory'] as const) {
-    // A pinned bag goes on whether or not it flatters the outfit. The score
-    // gate below is the right rule for a suggestion and the wrong one for an
-    // instruction: somebody who pinned a bag is not asking whether it works.
-    const required = pinned.filter((g) => g.slot === slot);
-    if (required.length) {
-      for (const extra of required) {
-        if (best.items.some((g) => g.id === extra.id)) continue;
-        best = scoreOutfit([...best.items, extra], ctx, weights, affinities);
-      }
-      continue;
-    }
+  /** The improvement a suggested extra must clear. */
+  const BAR = 0.004;
 
+  // A pinned accessory goes on whether or not it flatters the outfit. The
+  // score gate is the right rule for a suggestion and the wrong one for an
+  // instruction: somebody who pinned a bag is not asking whether it works.
+  const attachPinned = (slot: 'bag' | 'headwear' | 'accessory'): boolean => {
+    const required = pinned.filter((g) => g.slot === slot);
+    for (const extra of required) {
+      if (best.items.some((g) => g.id === extra.id)) continue;
+      best = scoreOutfit([...best.items, extra], ctx, weights, affinities);
+    }
+    return required.length > 0;
+  };
+
+  for (const slot of ['bag', 'headwear'] as const) {
+    if (attachPinned(slot)) continue;
+    const bar = slot === 'headwear' ? BAR * 2 : BAR;
     for (const extra of slots[slot]) {
       const next = scoreOutfit([...best.items, extra], ctx, weights, affinities);
-      if (next.score > best.score + 0.004) best = next;
+      if (next.score > best.score + bar) best = next;
     }
   }
+
+  if (attachPinned('accessory')) return best;
+
+  // One winner per kind, then the capped attach. Grouping FIRST is what makes
+  // "a watch and a necklace" reachable — the old single loop kept whichever
+  // one accessory scored best and the runner-up never got a second question.
+  const byKind = new Map<AccessoryKind, Garment[]>();
+  for (const extra of slots.accessory) {
+    const kind = accessoryKind(extra);
+    byKind.set(kind, [...(byKind.get(kind) ?? []), extra]);
+  }
+
+  let attached = 0;
+  for (const kind of ACCESSORY_KIND_ORDER) {
+    if (attached >= MAX_ACCESSORIES_PER_OUTFIT) break;
+    let bestOfKind: OutfitCandidate | null = null;
+    for (const extra of byKind.get(kind) ?? []) {
+      const next = scoreOutfit([...best.items, extra], ctx, weights, affinities);
+      if (next.score > best.score + BAR && next.score > (bestOfKind?.score ?? -Infinity)) {
+        bestOfKind = next;
+      }
+    }
+    if (bestOfKind) {
+      best = bestOfKind;
+      attached += 1;
+    }
+  }
+
   return best;
 }
 
