@@ -34,7 +34,7 @@ import {
   type StylistProps,
 } from '../src/features/stylist/stylist-analytics';
 
-const ROUTE_RAW = readFileSync('src/app/stylist.tsx', 'utf8');
+const ROUTE_RAW = readFileSync('src/app/(tabs)/stylist.tsx', 'utf8');
 const CHAT_RAW = readFileSync('src/features/stylist/use-chat.ts', 'utf8');
 const POSTHOG = readFileSync('src/lib/posthog.tsx', 'utf8');
 const stripped = (src: string) =>

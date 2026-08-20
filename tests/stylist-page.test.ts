@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 
 import { CAPACITY_HELD_COPY } from '../src/features/stylist/stylist-spec';
 
-const ROUTE_RAW = readFileSync('src/app/stylist.tsx', 'utf8');
+const ROUTE_RAW = readFileSync('src/app/(tabs)/stylist.tsx', 'utf8');
 const CHAT_RAW = readFileSync('src/features/stylist/use-chat.ts', 'utf8');
 const PARTS_RAW = readFileSync('src/components/stylist/sheet-parts.tsx', 'utf8');
 const stripped = (src: string) =>
@@ -28,10 +28,19 @@ const PARTS = stripped(PARTS_RAW);
 // Route ownership
 // ---------------------------------------------------------------------------
 
-test('the stylist is a sheet route, not a tab and not a navigator', () => {
+test('the stylist is a tab screen, not a navigator of its own', () => {
+  // AMENDED 2026-08-20: it WAS a sheet off Today, and this test held that. The
+  // founder overruled the sheet — "I barely know stylist exists" — so the
+  // route now lives under (tabs) and earns a bar slot. What survives of the
+  // old law is the half that was never about presentation: the screen owns no
+  // navigator, declares no registration of its own, and the path is still
+  // /stylist so every caller and deep link is untouched.
   assert.doesNotMatch(ROUTE, /createStackNavigator|Tabs\.Screen|<Stack\.Navigator/);
-  // And it is not under (tabs).
-  assert.ok(readFileSync('src/app/stylist.tsx', 'utf8').length > 0);
+  assert.ok(readFileSync('src/app/(tabs)/stylist.tsx', 'utf8').length > 0);
+  // The tab bar carries it, and the root stack no longer registers a sheet.
+  const bar = readFileSync('src/app/(tabs)/_layout.tsx', 'utf8');
+  assert.match(bar, /name="stylist"/);
+  assert.doesNotMatch(readFileSync('src/app/_layout.tsx', 'utf8'), /name="stylist"/);
 });
 
 // ---------------------------------------------------------------------------

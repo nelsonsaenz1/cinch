@@ -81,11 +81,10 @@ export default function HandoffScreen() {
   // "once, ever" without a profile read in front of every cold start.
   const tourGate = useTourGate();
   // The same read cadence as the tour gate, for the same screen — see the
-  // routing note below for the ranking. Deliberately NOT a third hold on the
-  // beat: the tour's once-ever promise needs the answer before leaving, but
-  // this offer keeps (nothing stamps it until the sheet shows), so a read
-  // still in flight when the timer fires just means the offer waits for the
-  // next sign-in rather than the beat waiting for the network.
+  // routing note below for the ranking. It joins the beat's holds below for
+  // the tour's own reason: the quiz is now a once-ever step of sign-up, and
+  // a timer that fires before this read lands would walk a brand-new
+  // account straight past it.
   const { gate: lifestyleGate } = useLifestyle();
   useEffect(() => {
     if (resolved) return;
@@ -129,7 +128,7 @@ export default function HandoffScreen() {
     // fires first would send a brand-new account straight past the tour it is
     // only ever offered once. The two reads run in parallel, so waiting for
     // both costs nothing in practice.
-    if (!resolved || tourGate.status === 'loading') return;
+    if (!resolved || tourGate.status === 'loading' || lifestyleGate.status === 'loading') return;
     const beat = beatMs(isNew, reduced);
     if (!reduced) progress.value = withTiming(1, { duration: beat - 150 });
     const id = setTimeout(() => {
@@ -149,24 +148,27 @@ export default function HandoffScreen() {
         router.replace({ pathname: '/invite-arrival', params: { handle: invite } });
         return;
       }
+      // The quiz OUTRANKS the tour — founder directive, 2026-08-20: the
+      // lifestyle questionnaire is a step of sign-up, not an offer the
+      // camera exit can skip. The quiz resumes this same funnel on its way
+      // out (tour if still owed, tabs otherwise), so the ordering here reads
+      // top to bottom as the run actually happens: invite, quiz, tour, app.
+      // A gate still loading or unavailable simply skips the step — nothing
+      // is stamped until the quiz shows, so it keeps until the next sign-in,
+      // where the tour's tabs exit can also still offer it as a sheet.
+      if (shouldOfferStyleProfile(lifestyleGate)) {
+        router.replace('/(auth)/quiz');
+        return;
+      }
       if (shouldShowTour(tourGate)) {
         router.replace('/tour');
         return;
       }
       router.replace('/(tabs)');
-      // The lifestyle questionnaire, offered once, AFTER the tabs are under
-      // it — a sheet needs a room to be a sheet in. The tour outranks it (a
-      // brand-new account meets the tour first; its own exit makes this same
-      // offer over the tabs), and the invite outranks both. An offer whose
-      // gate is still loading or unavailable is simply not made — nothing is
-      // stamped until the sheet shows, so it keeps until the next sign-in.
-      if (shouldOfferStyleProfile(lifestyleGate)) {
-        router.push({ pathname: '/style-profile', params: { offer: '1' } });
-      }
     }, beat);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolved, tourGate.status]);
+  }, [resolved, tourGate.status, lifestyleGate.status]);
   const fillStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
   const greeting = greetingForHour(new Date().getHours());

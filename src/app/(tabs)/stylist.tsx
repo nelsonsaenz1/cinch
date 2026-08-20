@@ -386,7 +386,7 @@ export default function StylistScreen() {
   // centres in, which is why it needs no wrapper.
   if (wardrobe.isError) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas" edges={['bottom']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
         <StylistHeader />
         <ClosetDidntLoad onRetry={() => void wardrobe.refetch()} retrying={wardrobe.isRefetching} />
       </SafeAreaView>
@@ -397,7 +397,7 @@ export default function StylistScreen() {
   // subline, and the four doors — as bars, in their own places.
   if (wardrobe.isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas" edges={['bottom']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
         <StylistHeader />
         <OpeningSkeleton />
       </SafeAreaView>
@@ -408,7 +408,7 @@ export default function StylistScreen() {
   // note above. Copy and composition are S-09's, in stylist-states.tsx.
   if (!canGenerate(items)) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas" edges={['bottom']}>
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
         <StylistHeader />
         <ClosetTooSmall onAddClothes={() => router.push('/add-clothes')} />
       </SafeAreaView>
@@ -416,7 +416,7 @@ export default function StylistScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-canvas" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
       <KeyboardAvoidingScreen className="flex-1">
         <StylistHeader onNewQuestion={messages.length > 0 ? startNewQuestion : undefined} />
 

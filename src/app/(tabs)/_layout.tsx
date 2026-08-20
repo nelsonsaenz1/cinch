@@ -17,16 +17,16 @@ import { dynamic } from '@/theme/tokens';
  * a breaking minor cannot arrive uninvited. The previous JS implementation is
  * preserved verbatim at ./_layout.js-tabs.bak — restoring it is a rename.
  *
- * Four tabs, deliberately — and the fourth was argued for, not assumed. A
- * Stylist chat tab is the generic-AI tell and duplicates Today's job; it is a
- * sheet off Today (src/app/stylist.tsx), and Profile is the avatar in Today's
- * masthead (src/app/profile.tsx). The fourth earns a place those two could not
- * because it is the only *destination* in the app whose content changes
- * without the user doing anything: what your friends have added since you last
- * looked. Buried behind the Friends screen it would be a page nobody knows
- * updated. Four is also still inside what the bar composes well — iOS allows
- * five before it collapses into "More", and each label stays a single short
- * word at 11px.
+ * Five tabs. Four was argued ("a Stylist chat tab is the generic-AI tell"),
+ * and on 2026-08-20 the founder overruled it in one sentence: "I barely know
+ * stylist exists." The argument was right about chat tabs and wrong about
+ * this one — the stylist is the app's flagship capability (the questionnaire,
+ * the recreate-a-look door, the chat) and a flagship behind a masthead glyph
+ * is a feature nobody finds. It sits centre, between the two halves it works
+ * from: what today needs and what the closet holds. Profile stays the avatar
+ * in Today's masthead (src/app/profile.tsx). Five is the ceiling — iOS
+ * collapses into "More" past it — so the bar is now full, and the next
+ * candidate has to evict something rather than join.
  *
  * On the label: **Explore**, per the Today State Atlas (docs/design/today-atlas,
  * "Rules the atlas encodes": Today / Closet / Plan / Explore, person.2). The
@@ -101,6 +101,12 @@ export default function TabsLayout() {
           sf={{ default: 'square.grid.2x2', selected: 'square.grid.2x2.fill' }}
         />
         <NativeTabs.Trigger.Label>Closet</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      {/* sparkles has no .fill variant; selection reads through tint and the
+          indicator, the same two channels the labels already use. */}
+      <NativeTabs.Trigger name="stylist">
+        <NativeTabs.Trigger.Icon sf="sparkles" />
+        <NativeTabs.Trigger.Label>Stylist</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="plan">
         <NativeTabs.Trigger.Icon sf="calendar" />

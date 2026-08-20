@@ -41,11 +41,10 @@ void SplashScreen.preventAutoHideAsync();
 
 /**
  * Anchor the root stack on the tabs. Without this, a cold-start deep link to
- * cinch://stylist or cinch://profile builds a stack containing ONLY that
- * route — the stylist sheet has no Today beneath it and nothing to pop back
- * to, and the profile modal cannot be dismissed at all. With the anchor the
- * link produces [(tabs), stylist], which is also what the sheet's 0.75 detent
- * is designed over.
+ * cinch://profile builds a stack containing ONLY that route — the profile
+ * modal cannot be dismissed at all. With the anchor the link produces
+ * [(tabs), profile]. (cinch://stylist now resolves inside the tabs group —
+ * the stylist became a tab on 2026-08-20 — so it anchors by construction.)
  */
 export const unstable_settings = { anchor: '(tabs)' };
 
@@ -192,7 +191,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       // is `[string]` — indexing [1] is a type error there though it is just
       // `undefined` at runtime. Widen once rather than switch on every shape.
       const authLeaf = (segments as string[])[1];
-      if (authLeaf === 'handoff' || authLeaf === 'name') return;
+      // `quiz` joined the allowlist with the sign-up questionnaire: like the
+      // name screen it runs signed IN by definition, and bouncing it would
+      // tear the run down mid-question. It exits via its own replace.
+      if (authLeaf === 'handoff' || authLeaf === 'name' || authLeaf === 'quiz') return;
       // Any other (auth) route with a live session goes to the handoff, not
       // straight to the tabs. This is what makes the end of the flow immune
       // to the race between a screen's own success navigation and this
@@ -376,21 +378,12 @@ export default function RootLayout() {
                   name="walkthrough/review"
                   options={{ presentation: 'fullScreenModal', headerShown: false }}
                 />
-                {/* Stylist is a sheet off Today, not a tab — a chat tab is the
-                    generic-AI tell, and it duplicates Today's job. It OPENS at
-                    0.75 so Today stays visible behind it — the conversation is
-                    an aside on the page — but a long chat can be dragged to
-                    full height. 38 is the `sheet` radius token. */}
-                <Stack.Screen
-                  name="stylist"
-                  options={{
-                    presentation: 'formSheet',
-                    sheetAllowedDetents: [0.75, 1],
-                    sheetGrabberVisible: true,
-                    sheetCornerRadius: 38,
-                    headerShown: false,
-                  }}
-                />
+                {/* The stylist moved INTO the tab bar on 2026-08-20 — the
+                    founder overruled the sheet ("I barely know stylist
+                    exists"), and a flagship capability nobody finds is worse
+                    than a chat tab cliché. The route lives at
+                    (tabs)/stylist.tsx now; the path is still /stylist, so
+                    every navigate() and deep link is untouched. */}
                 {/* Profile edit is a sheet off the closet, in the same dialect
                     as the stylist: a form you fill and dismiss, not a place
                     you go. Full height (no partial detent — the form is long

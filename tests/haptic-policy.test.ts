@@ -131,7 +131,7 @@ const DIRECT_HAPTICS_DEBT = [
   // `src/app/capture.tsx` PAID OFF by redesign 22: the shutter's tick and the
   // two doors' now fire through `@/lib/haptics`, and so do the review deck's
   // three decisions in `capture-parts.tsx`.
-  'src/app/stylist.tsx',
+  'src/app/(tabs)/stylist.tsx',
   // `src/app/tour.tsx` PAID OFF by redesign 20: both of its selection ticks
   // now fire through `@/lib/haptics`.
   'src/components/activity/ActivityRow.tsx',
