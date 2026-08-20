@@ -224,11 +224,47 @@ export const EMAIL_CTA_SENDING = 'Sending…';
 export const LEGAL_PREFIX = 'By continuing you agree to our ';
 
 // ---------------------------------------------------------------------------
+// Copy — phone
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether the welcome screen offers the phone door at all.
+ *
+ * FALSE until the Twilio provider is connected in Supabase's dashboard and the
+ * toll-free number is carrier-verified — a visible door into a flow whose
+ * texts cannot send would fail every user who chose it. The phone screens
+ * ship dark behind this flag (reachable by route, drawn nowhere), so flipping
+ * it is a one-line OTA once the provider is live.
+ */
+export const PHONE_SIGN_IN_ENABLED = false;
+
+export const PHONE_STEP: RunStep = 1;
+export const PHONE_HEADLINE = 'What’s your number?';
+export const PHONE_SUBLINE = 'We’ll text a six-digit code. Message and data rates may apply.';
+// An example the validator itself would accept — NANP forbids an exchange
+// starting with 0/1, so the film-famous (555) 123-4567 would be refused.
+export const PHONE_PLACEHOLDER = '(555) 234-5678';
+export const PHONE_FIELD_LABEL = 'Phone number';
+export const PHONE_INVALID = 'That doesn’t look like a phone number.';
+export const PHONE_CTA = 'Send code';
+export const PHONE_CTA_SENDING = 'Sending…';
+
+export function phoneSendFailedTrouble(): Trouble {
+  return {
+    tone: 'amber',
+    eyebrow: 'COULDN’T SEND THE CODE',
+    body: 'Nothing was sent to that number. Your account is fine.',
+    action: TRY_AGAIN,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Copy — code
 // ---------------------------------------------------------------------------
 
 export const CODE_HEADLINE = 'Enter the code';
 export const CODE_CHANGE = 'Change email';
+export const CODE_CHANGE_PHONE = 'Change number';
 export const CODE_RESEND_PROMPT = 'Didn’t get it?';
 export const CODE_RESEND_ACTION = 'Resend code';
 export const CODE_RESENDING = 'Sending a new code…';

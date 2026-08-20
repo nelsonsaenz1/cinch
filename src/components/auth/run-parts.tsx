@@ -1,4 +1,4 @@
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useState, type ReactNode } from 'react';
 import { Pressable, Text as RNText, TextInput, View, type TextInputProps } from 'react-native';
 import Animated, {
   Easing,
@@ -48,6 +48,27 @@ import {
 } from '@/features/auth/auth-run-spec';
 import { leading } from '@/theme/font-metrics';
 import { MIN_TAP_TARGET } from '@/theme/tokens';
+
+/**
+ * Pressed state as React state, never as a style function.
+ *
+ * Every `style={({ pressed }) => …}` in this file rendered with NO background
+ * on the running app — the label painted, the capsule did not, which left the
+ * armed "Send code" as cream text on paper and the amber card's "Try again"
+ * cream on amber (found 2026-08-19, verifying the phone run on the simulator;
+ * the email run shipped with it). These were the only function-styles in the
+ * repo, so nothing else drew the defect. Until the style-function path renders
+ * reliably under this RN version's new architecture, pressed-ness is tracked
+ * here and the style stays a plain object.
+ */
+function usePressed() {
+  const [pressed, setPressed] = useState(false);
+  return {
+    pressed,
+    onPressIn: () => setPressed(true),
+    onPressOut: () => setPressed(false),
+  } as const;
+}
 
 /**
  * Redesign 19 — the parts the four auth-run screens are assembled from.
@@ -111,6 +132,7 @@ export function RunHeader({
   onBack?: () => void;
   backDisabled?: boolean;
 }) {
+  const press = usePressed();
   return (
     <View
       style={{
@@ -127,15 +149,17 @@ export function RunHeader({
           accessibilityRole="button"
           accessibilityLabel="Back"
           accessibilityState={{ disabled: backDisabled }}
-          style={({ pressed }) => ({
+          onPressIn={press.onPressIn}
+          onPressOut={press.onPressOut}
+          style={{
             width: BACK_SIZE,
             height: BACK_SIZE,
             borderRadius: BACK_RADIUS,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: RUN.well,
-            opacity: pressed ? 0.7 : 1,
-          })}>
+            opacity: press.pressed ? 0.7 : 1,
+          }}>
           <RNText
             // The chevron is a glyph doing an icon's job, so it must not grow
             // with body text — the well is a fixed 44 and a scaled ‹ would
@@ -380,6 +404,7 @@ export function RunButton({
 }) {
   const height = large ? CTA_HEIGHT_AX : CTA_HEIGHT;
   const filled = !disabled || busy;
+  const press = usePressed();
   return (
     <Pressable
       onPress={onPress}
@@ -387,7 +412,9 @@ export function RunButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: disabled && !busy, busy }}
-      style={({ pressed }) => ({
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      style={{
         minHeight: Math.max(MIN_TAP_TARGET, height),
         borderRadius: height / 2,
         flexDirection: 'row',
@@ -397,9 +424,9 @@ export function RunButton({
         paddingHorizontal: 20,
         backgroundColor: filled ? atlas.oxblood : RUN.stepUpcoming,
         // The directive's pressed depression, on the one control that commits.
-        transform: [{ scale: pressed ? 0.98 : 1 }],
-        opacity: pressed ? 0.92 : 1,
-      })}>
+        transform: [{ scale: press.pressed ? 0.98 : 1 }],
+        opacity: press.pressed ? 0.92 : 1,
+      }}>
       {busy ? <RunDots onFill /> : null}
       <RNText
         maxFontSizeMultiplier={MAX_TEXT_SCALE}
@@ -642,6 +669,7 @@ export function RunInlineAction({
   onPress: () => void;
   disabled?: boolean;
 }) {
+  const press = usePressed();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
       {prompt ? (
@@ -663,11 +691,13 @@ export function RunInlineAction({
         accessibilityLabel={label}
         accessibilityState={{ disabled }}
         hitSlop={12}
-        style={({ pressed }) => ({
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        style={{
           minHeight: MIN_TAP_TARGET,
           justifyContent: 'center',
-          opacity: pressed ? 0.6 : 1,
-        })}>
+          opacity: press.pressed ? 0.6 : 1,
+        }}>
         <RNText
           maxFontSizeMultiplier={MAX_TEXT_SCALE}
           style={{

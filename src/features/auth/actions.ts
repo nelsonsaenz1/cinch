@@ -2,6 +2,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 
 import { isValidEmail, normalizeEmail } from '@/features/auth/email';
+import { normalizePhone } from '@/features/auth/phone';
 import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
@@ -48,7 +49,7 @@ export type SignInResult =
     }
   | { ok: false; reason: SignInFailureReason; message?: string };
 
-type AuthMethod = 'apple' | 'email';
+type AuthMethod = 'apple' | 'email' | 'phone';
 
 /**
  * Report a finished sign-in attempt, and hand the result straight back.
@@ -279,6 +280,105 @@ export async function verifyEmailCode(email: string, token: string): Promise<Sig
   };
   const name = metadata.given_name ?? metadata.full_name?.trim().split(/\s+/)[0] ?? null;
   return reportAuth('email', { ok: true, name, isNew: name == null });
+}
+
+// ---------------------------------------------------------------------------
+// Phone
+// ---------------------------------------------------------------------------
+
+/**
+ * Send a six-digit sign-in code by SMS.
+ *
+ * The same contract as `sendEmailCode`, with the channel swapped: a code to a
+ * phone, `shouldCreateUser: true` so first sign-in IS sign-up, and a fresh
+ * send invalidating any previously issued code server-side. The number must
+ * already be E.164 — `normalizePhone` is the only way in, and the screen calls
+ * it before this function ever runs.
+ *
+ * Delivery depends on the Twilio provider configured in Supabase's dashboard;
+ * until that is live this returns `failed` with Supabase's own message. The
+ * phone door on the welcome screen stays hidden until it is (see
+ * `PHONE_SIGN_IN_ENABLED` in auth-run-spec.ts), so no user can reach this in a
+ * state where it cannot work.
+ */
+export async function sendPhoneCode(phone: string): Promise<SignInResult> {
+  const number = normalizePhone(phone);
+
+  if (!number) {
+    track('auth_failed', { method: 'phone', reason: 'failed' });
+    return { ok: false, reason: 'failed', message: 'That does not look like a phone number.' };
+  }
+
+  const { error } = await supabase.auth.signInWithOtp({
+    phone: number,
+    options: { shouldCreateUser: true, channel: 'sms' },
+  });
+
+  if (error) {
+    // The same three-way reading as the email path: our sender's window,
+    // their connection, or a real bug — the screens say different things for
+    // each and the funnel needs them kept apart.
+    if (/rate limit|too many/i.test(error.message)) {
+      return reportAuth('phone', {
+        ok: false,
+        reason: 'rate-limited',
+        message: 'Too many sign-in texts just now. Try again in a few minutes.',
+      });
+    }
+    if (/network|fetch|connect|timed? ?out/i.test(error.message)) {
+      return reportAuth('phone', { ok: false, reason: 'network', message: error.message });
+    }
+    return reportAuth('phone', { ok: false, reason: 'failed', message: error.message });
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Verify a six-digit SMS code — `verifyEmailCode` with `type: 'sms'`, and the
+ * same expired-versus-wrong reading, because Supabase answers both channels
+ * with the same ambiguous sentence.
+ */
+export async function verifyPhoneCode(phone: string, token: string): Promise<SignInResult> {
+  const number = normalizePhone(phone);
+  if (!number) {
+    return reportAuth('phone', {
+      ok: false,
+      reason: 'failed',
+      message: 'That does not look like a phone number.',
+    });
+  }
+
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone: number,
+    token: token.trim(),
+    type: 'sms',
+  });
+
+  if (error) {
+    if (/expired/i.test(error.message) && !/invalid/i.test(error.message)) {
+      return reportAuth('phone', {
+        ok: false,
+        reason: 'expired-code',
+        message: 'That code has expired. Send a new one.',
+      });
+    }
+    if (/network|fetch|connect|timed? ?out/i.test(error.message)) {
+      return reportAuth('phone', { ok: false, reason: 'network', message: error.message });
+    }
+    return reportAuth('phone', {
+      ok: false,
+      reason: 'wrong-code',
+      message: 'That code was not right. Check it and try again.',
+    });
+  }
+
+  const metadata = (data.user?.user_metadata ?? {}) as {
+    given_name?: string | null;
+    full_name?: string | null;
+  };
+  const name = metadata.given_name ?? metadata.full_name?.trim().split(/\s+/)[0] ?? null;
+  return reportAuth('phone', { ok: true, name, isNew: name == null });
 }
 
 // ---------------------------------------------------------------------------

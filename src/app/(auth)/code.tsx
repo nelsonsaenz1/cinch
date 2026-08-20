@@ -25,11 +25,17 @@ import {
   type BoxTone,
 } from '@/components/auth/run-parts';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
-import { sendEmailCode, verifyEmailCode } from '@/features/auth/actions';
+import {
+  sendEmailCode,
+  sendPhoneCode,
+  verifyEmailCode,
+  verifyPhoneCode,
+} from '@/features/auth/actions';
 import {
   AX_STACK_SCALE,
   BOX_BLEED,
   CODE_CHANGE,
+  CODE_CHANGE_PHONE,
   CODE_CHECKING,
   CODE_HEADLINE,
   CODE_LENGTH,
@@ -50,6 +56,7 @@ import {
   wrongCodeLine,
   type Trouble,
 } from '@/features/auth/auth-run-spec';
+import { formatPhoneForDisplay } from '@/features/auth/phone';
 import { describeThrownSignInError } from '@/features/auth/sign-in-errors';
 import { haptics } from '@/lib/haptics';
 
@@ -77,7 +84,23 @@ export default function CodeScreen() {
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
   const { fontScale } = useWindowDimensions();
-  const { email = '' } = useLocalSearchParams<{ email?: string }>();
+  const { email = '', phone = '' } = useLocalSearchParams<{ email?: string; phone?: string }>();
+
+  // One screen serves both channels — the six boxes, the attempts, the shake
+  // and the cooldown are channel-blind, and only three sentences differ. The
+  // phone param wins when both are somehow present, because it can only have
+  // been set by the phone screen's push. `destination` is what the sublines
+  // say back; the E.164 the server needs stays in `phone` untouched.
+  const viaPhone = phone.length > 0;
+  const destination = viaPhone ? formatPhoneForDisplay(phone) : email;
+  const sendCode = useCallback(
+    () => (viaPhone ? sendPhoneCode(phone) : sendEmailCode(email)),
+    [viaPhone, phone, email],
+  );
+  const verifyCode = useCallback(
+    (code: string) => (viaPhone ? verifyPhoneCode(phone, code) : verifyEmailCode(email, code)),
+    [viaPhone, phone, email],
+  );
 
   const inputRef = useRef<TextInput>(null);
   const [value, setValue] = useState('');
@@ -121,7 +144,7 @@ export default function CodeScreen() {
     async (code: string) => {
       setVerifying(true);
       try {
-        const result = await verifyEmailCode(email, code);
+        const result = await verifyCode(code);
         if (result.ok) {
           haptics.success();
           if (result.isNew) {
@@ -157,7 +180,7 @@ export default function CodeScreen() {
         setVerifying(false);
       }
     },
-    [attemptsLeft, email, router],
+    [attemptsLeft, verifyCode, router],
   );
 
   const onChange = useCallback(
@@ -180,7 +203,7 @@ export default function CodeScreen() {
     setResending(true);
     try {
       // A fresh signInWithOtp invalidates the previous code server-side.
-      const result = await sendEmailCode(email);
+      const result = await sendCode();
       if (result.ok) {
         setValue('');
         setErrorValue('');
@@ -199,7 +222,7 @@ export default function CodeScreen() {
     } finally {
       setResending(false);
     }
-  }, [cooldown, email, resending]);
+  }, [cooldown, sendCode, resending]);
 
   const boxTone: BoxTone = wrong ? 'refused' : verifying ? 'busy' : 'active';
   const activeIndex = !errored && !exhausted && !verifying ? value.length : -1;
@@ -216,12 +239,17 @@ export default function CodeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: PAD, paddingTop: 26, paddingBottom: 40 }}>
         <RunPrompt headline={CODE_HEADLINE}>
-          <RunSubline>{cooldown != null ? resentToLine(email) : sentToLine(email)}</RunSubline>
+          <RunSubline>
+            {cooldown != null ? resentToLine(destination) : sentToLine(destination)}
+          </RunSubline>
         </RunPrompt>
 
         {canChangeEmail ? (
           <View style={{ marginTop: 2 }}>
-            <RunInlineAction label={CODE_CHANGE} onPress={() => router.back()} />
+            <RunInlineAction
+              label={viaPhone ? CODE_CHANGE_PHONE : CODE_CHANGE}
+              onPress={() => router.back()}
+            />
           </View>
         ) : null}
 
