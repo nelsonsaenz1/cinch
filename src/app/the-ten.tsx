@@ -556,6 +556,18 @@ export default function TheTenScreen() {
     imageUris[s.id] = resolve(g.platePath, g.cutoutPath, g.thumbPath);
   }
 
+  // A slot fills the moment the item ROW is written — before the cutout is
+  // uploaded, before the wardrobe refetches, before `resolve` has any path to
+  // sign. Between those two moments the tile was `wellFilled` with nothing on
+  // it: a dark block where the photograph just taken should be. The queue job
+  // that filled the slot still holds that photograph's local URI, so it stands
+  // in until the processed image arrives and takes precedence above.
+  for (const s of slots) {
+    if (s.status !== 'filled' || !s.garmentId || imageUris[s.id] !== undefined) continue;
+    const job = jobs.find((j) => j.itemId === s.garmentId);
+    if (job?.localUri) imageUris[s.id] = job.localUri;
+  }
+
   // LP-02 — the outgoing photograph stays on its tile for the whole flow. On
   // the no-room path its row is in storage and has left `useWardrobe`, so the
   // loop above found nothing for that position; without this the grid would
