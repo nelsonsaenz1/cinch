@@ -212,6 +212,15 @@ const config: ExpoConfig = {
       // sitting in "Missing Compliance" instead of reaching TestFlight.
       ITSAppUsesNonExemptEncryption: false,
 
+      // iOS caps a third-party app's CUSTOM animations (Reanimated springs,
+      // scroll-linked work, the UX-07 press compression) at 60fps on 120Hz Pro
+      // devices unless the app opts in — Core Animation requires this key.
+      // Native-driven motion already runs at 120. Cost is battery only while
+      // animations actually run. Staged in docs/ops/promotion-build-41.md
+      // until this build was cut, because this file's blob id is a
+      // fingerprint-gate input.
+      CADisableMinimumFrameDurationOnPhone: true,
+
       // iOS 27 SDK turned the long-standing "no UIScene lifecycle" runtime
       // warning into a hard crash on launch
       // (`UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`).
