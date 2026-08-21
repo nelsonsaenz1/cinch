@@ -11,6 +11,7 @@ import { enforceAiQuota } from '../_shared/quota.ts';
 import {
   parseGarmentSearchRequest,
   type ValidatedAttachRequest,
+  type ValidatedBrowseRequest,
   type ValidatedDetachRequest,
   type ValidatedImportRequest,
   type ValidatedImportBatchRequest,
@@ -43,6 +44,7 @@ import {
   summariseBatch,
 } from './import-batch.ts';
 import { parseQuery } from '../_shared/catalog-query.ts';
+import { BROWSE_TERM } from '../_shared/browse-slots.ts';
 import { openRouterWebProvider } from './provider.ts';
 
 /**
@@ -57,6 +59,10 @@ import { openRouterWebProvider } from './provider.ts';
  * FIVE ACTIONS, ONE FUNCTION
  *
  *   search   costs a model call and a web search — quota'd, consent-gated.
+ *   browse   the same licensed catalogue, entered without words: one of nine
+ *            category slots, mapped to a verified term and answered from the
+ *            shared cache. No model, no consent, no per-user quota — the input
+ *            is an enum, so there is nothing a consent could be about.
  *   resolve  reads ONE page the user pasted and returns its og:image and
  *            og:title. No model, no web search — but it is the action that
  *            turns a user-supplied string into an outbound fetch, so it is
@@ -306,6 +312,18 @@ export default {
        */
       if (request.action === 'search') {
         return await searchGarments(admin, userId, apiKey, request);
+      }
+
+      /**
+       * Browse sits beside search, above the gate, for a stronger version of
+       * the same reason: search sends TYPED WORDS to the licensed catalogue,
+       * and browse sends no words at all. The request is one of nine enum
+       * values, mapped server-side to a term this repository wrote down — so
+       * there is no user content anywhere in it for a consent to govern, and
+       * the printed disclosure holds without even needing the word "typed".
+       */
+      if (request.action === 'browse') {
+        return await browseCatalogue(admin, request);
       }
 
       // ── AI processing consent (App Store Guideline 5.1.2(i)) ──────────────
@@ -580,6 +598,81 @@ async function searchGarments(
     families,
     intentKey,
   });
+}
+
+/**
+ * The category grid — the door for somebody who cannot name what they want.
+ *
+ * ONE PATH, AND IT IS THE LICENSED ONE. The slot maps to its verified term
+ * (`BROWSE_TERM`, mirroring `gap-shop-match`'s measured `SLOT_QUERY`) and goes
+ * straight through `searchFamilies` — the same grouped, colourway-preserving
+ * answer the typed search returns, so the client's family → confirm → import
+ * machinery works on it unchanged. No web fallback is even constructed: with
+ * no catalogue configured this fails closed exactly as search does, with the
+ * same code, because "the catalogue was never asked" must never dress up as
+ * "the catalogue has nothing" (see `licensedFirst`).
+ *
+ * WHAT IS DELIBERATELY NOT HERE, and each absence is a decision:
+ *
+ *   `enforceAiQuota`  The allowance meters what a user can make US spend, and
+ *                     a browse can only ever be one of nine fixed queries —
+ *                     each answered from `catalog_lookups` for seven days once
+ *                     anybody has asked it. The worst a looping caller can do
+ *                     is warm nine cache rows; the Datafeedr ledger
+ *                     (`claimRequest`, inside the client) still meters the
+ *                     misses. Charging a monthly search unit for tapping a
+ *                     category tile would spend the user's allowance on our
+ *                     cache warming.
+ *   `recordAiCall`    No model, no tokens, no web-search fee. The catalogue
+ *                     request ledger already counts the only cost there is.
+ *   `recordDemand`    Demand rows exist to answer "what do people ASK for",
+ *                     and a browse asks for nothing — recording "shirt" once
+ *                     per tap would drown the typed signal in taps.
+ *
+ * No cron seeds this. The first browse of a slot warms the cache for everyone
+ * for seven days, which at nine slots is at most ~36 requests a month against
+ * thousands spare — the self-warming design the execution plan settles on.
+ */
+async function browseCatalogue(
+  admin: SupabaseClient<Database>,
+  request: ValidatedBrowseRequest,
+): Promise<Response> {
+  const wiring = licensedFirst(admin, null);
+
+  // Fail closed, before anything else: browse is licensed-only by
+  // construction, so an unconfigured catalogue is the whole answer.
+  if (!wiring.catalogue) {
+    return fail(
+      'catalogue_unavailable',
+      "Cinch can't reach the shop catalogue right now. Photographing the piece still works.",
+      503,
+    );
+  }
+
+  // The term the repository wrote down — never anything the caller sent. The
+  // parse is safe by shape: a single garment noun can never be read as a
+  // brand (`detectBrand` refuses a run that swallows the whole query).
+  const parsed = parseQuery(BROWSE_TERM[request.slot]);
+
+  try {
+    const grouped = await searchFamilies(wiring.catalogue, parsed);
+    return Response.json({
+      ok: true,
+      slot: request.slot,
+      families: grouped.families,
+      declined: grouped.declined,
+      // Browse expresses no intent to count an import against. Explicit null
+      // rather than absent, so the client's one response shape keeps working.
+      intentKey: null,
+    });
+  } catch (err) {
+    console.error(
+      `garment-search: browse failed for slot ${request.slot}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return fail('search_failed', 'The search did not come back. Try again in a moment.', 502);
+  }
 }
 
 /**

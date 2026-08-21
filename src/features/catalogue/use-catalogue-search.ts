@@ -88,7 +88,8 @@ function failureFor(code: string | null): CatalogueFailure {
   }
 }
 
-async function readCode(error: unknown): Promise<string | null> {
+/** Exported for `use-catalogue-browse.ts`, which fails in the same shapes. */
+export async function readCode(error: unknown): Promise<string | null> {
   if (!(error instanceof FunctionsHttpError)) return null;
   try {
     const response = (error as { context?: unknown }).context as Response | undefined;
@@ -108,7 +109,7 @@ async function readCode(error: unknown): Promise<string | null> {
  * device is the only offline that matters here. `TypeError: Network request
  * failed` is what React Native's fetch throws for it.
  */
-function looksOffline(error: unknown): boolean {
+export function looksOffline(error: unknown): boolean {
   return error instanceof TypeError && /network request failed/i.test(error.message);
 }
 

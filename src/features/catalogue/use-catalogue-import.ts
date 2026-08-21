@@ -30,7 +30,10 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { catalogueImportCompleted, catalogueImportStarted } from './analytics';
 import { tagImportedGarment } from '@/features/ingest/upload-queue';
+import { classifyImportError, GENERIC, type ImportErrorOutcome } from './import-outcome';
 import type { CatalogueColourway, CatalogueFamily } from './types';
+
+export type { CapacityRefusal } from './import-outcome';
 
 /** One colourway's outcome, mirroring the server's `ImportRowResult`. */
 export type ImportRowResult = {
@@ -41,22 +44,9 @@ export type ImportRowResult = {
   message?: string;
 };
 
-/** CPV2-11 — refused before anything was written, with the numbers. */
-export type CapacityRefusal = {
-  code: 'closet_limit_reached' | 'storage_limit_reached';
-  requested: number;
-  /** Present on `closet_limit_reached`. */
-  active?: number;
-  activeLimit?: number;
-  /** Present on `storage_limit_reached`. */
-  total?: number;
-  totalLimit?: number;
-};
-
 export type ImportOutcome =
   | { status: 'done'; results: ImportRowResult[]; added: number; alreadyAdded: number; failed: number }
-  | { status: 'refused'; refusal: CapacityRefusal }
-  | { status: 'error'; message: string };
+  | ImportErrorOutcome;
 
 type BatchResponse = {
   ok?: boolean;
@@ -75,8 +65,6 @@ async function readBody(error: unknown): Promise<Record<string, unknown> | null>
     return null;
   }
 }
-
-const GENERIC = "Those pieces couldn't be added. Try again in a moment.";
 
 export function useCatalogueImport() {
   const qc = useQueryClient();
@@ -126,24 +114,10 @@ export function useCatalogueImport() {
         });
 
         if (error) {
-          const body = await readBody(error);
-          const code = body?.error;
-          if (code === 'closet_limit_reached' || code === 'storage_limit_reached') {
-            // CPV2-11 draws the numbers, so they are carried rather than
-            // flattened into a sentence.
-            return {
-              status: 'refused',
-              refusal: {
-                code,
-                requested: Number(body?.requested ?? selected.length),
-                active: body?.active === undefined ? undefined : Number(body.active),
-                activeLimit: body?.activeLimit === undefined ? undefined : Number(body.activeLimit),
-                total: body?.total === undefined ? undefined : Number(body.total),
-                totalLimit: body?.totalLimit === undefined ? undefined : Number(body.totalLimit),
-              },
-            };
-          }
-          return { status: 'error', message: typeof body?.message === 'string' ? body.message : GENERIC };
+          // The one decision about a refusal lives in `import-outcome.ts` —
+          // capacity, the consent gate, and the generic fallback, in one place
+          // the tests can reach without a client.
+          return classifyImportError(await readBody(error), selected.length);
         }
 
         const results = data?.results ?? [];

@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getUserId } from '@/lib/supabase';
 
 import { catalogueColoursSelected, catalogueFamilyOpened } from './analytics';
+import { IMPORT_CONSENT_DECLINED } from './copy';
 import { holdSelection, readHeldSelection, releaseHeldSelection } from './held-selection';
 import {
   isSearchableQuery,
@@ -27,7 +28,10 @@ import {
   sameQuery,
   type CataloguePath,
 } from './query';
+import type { CatalogueBrowseSlot } from './browse-spec';
+import type { CatalogueBrowseState } from './browse-states';
 import type { CatalogueColourway, CatalogueFamily } from './types';
+import { useCatalogueBrowse } from './use-catalogue-browse';
 import { useCatalogueImport, type CapacityRefusal, type ImportRowResult } from './use-catalogue-import';
 import { useCatalogueSearch, type CatalogueSearchState } from './use-catalogue-search';
 
@@ -55,6 +59,16 @@ export type CatalogueFlowView = {
   // ── The answer (CPV2-04, CPV2-09, CPV2-10) ────────────────────────────────
   search: CatalogueSearchState;
 
+  // ── The category grid — the door without words ────────────────────────────
+  /** What browsing shows. Families here open through `openFamily` unchanged. */
+  browse: CatalogueBrowseState;
+  /** A tile tap. The ONLY thing that runs a browse — never an effect. */
+  browseSlot: (slot: CatalogueBrowseSlot) => void;
+  /** Back to the nine tiles, dropping whatever the last tile answered. */
+  closeBrowse: () => void;
+  /** Re-ask the slot that just failed. A tap, like everything else here. */
+  retryBrowse: () => void;
+
   // ── The family (CPV2-05) ──────────────────────────────────────────────────
   family: CatalogueFamily | null;
   openFamily: (family: CatalogueFamily, position: number) => void;
@@ -74,6 +88,19 @@ export type CatalogueFlowView = {
   /** Retry only the rows that failed. Successes are never re-sent. */
   retryFailed: () => void;
   errorMessage: string | null;
+  /**
+   * The server refused the write with `ai_consent_required`: no current
+   * AI-processing consent is on record, which a fresh account hits on its very
+   * first import. True raises the EXISTING consent sheet in the container —
+   * this hook never draws it — and `resolveConsent` is the sheet's two exits.
+   */
+  consentNeeded: boolean;
+  /**
+   * The sheet's answer. Granted clears the ask so the container can re-run
+   * `confirm` once the modal has finished leaving; declined keeps the selection
+   * where it was made and says which switch decided, never the generic failure.
+   */
+  resolveConsent: (granted: boolean) => void;
   /** The item ids CPV2-08 links to. */
   addedItemIds: readonly string[];
 
@@ -114,10 +141,12 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
   const [results, setResults] = useState<readonly ImportRowResult[]>([]);
   const [refusal, setRefusal] = useState<CapacityRefusal | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [consentNeeded, setConsentNeeded] = useState(false);
 
   const [held, setHeld] = useState<HeldSelectionOffer | null>(null);
 
   const search = useCatalogueSearch();
+  const browse = useCatalogueBrowse();
   const importer = useCatalogueImport();
 
   /**
@@ -187,8 +216,34 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
     setRefusal(null);
     setErrorMessage(null);
     setStep('search');
+    // Typed words take the page over; the browsed grid would otherwise sit
+    // under different results and read as part of the same answer.
+    browse.reset();
     void search.run(query);
-  }, [namedColours, path, search, text]);
+  }, [browse, namedColours, path, search, text]);
+
+  /**
+   * The tile tap. Cancels a typed search in flight for the same reason an
+   * edit does — whichever question was asked LAST owns the screen — and asks
+   * nothing when an import is mid-write, exactly as `canSearch` refuses then.
+   */
+  const browseSlot = useCallback(
+    (slot: CatalogueBrowseSlot) => {
+      if (importer.pending) return;
+      if (search.state.status === 'searching') search.cancel();
+      void browse.run(slot);
+    },
+    [browse, importer.pending, search],
+  );
+
+  const closeBrowse = useCallback(() => {
+    browse.reset();
+  }, [browse]);
+
+  const retryBrowse = useCallback(() => {
+    const s = browse.state;
+    if (s.status === 'failed' || s.status === 'offline') void browse.run(s.slot);
+  }, [browse]);
 
   const editSearch = useCallback(() => {
     search.cancel();
@@ -257,6 +312,7 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
       if (!family || colours.length === 0 || importer.pending) return;
       setErrorMessage(null);
       setRefusal(null);
+      setConsentNeeded(false);
       setStep('importing');
 
       // The key travels only while the results that produced it are on screen.
@@ -272,6 +328,13 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
         void getUserId().then((userId) => {
           if (userId) void holdSelection(userId, family, colours, Date.now());
         });
+        return;
+      }
+      if (outcome.status === 'consent-required') {
+        // The selection is kept exactly as a capacity refusal keeps it: the
+        // consent ask must not cost the user the work it interrupted.
+        setConsentNeeded(true);
+        setStep('confirm');
         return;
       }
       if (outcome.status === 'error') {
@@ -298,6 +361,14 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
     void importColours(selectedColours);
   }, [importColours, selectedColours]);
 
+  const resolveConsent = useCallback((granted: boolean) => {
+    setConsentNeeded(false);
+    // A decline is an answer, not a pause. The generic sentence would say
+    // "try again in a moment", which is false here — the sentence names the
+    // switch that decided instead.
+    if (!granted) setErrorMessage(IMPORT_CONSENT_DECLINED);
+  }, []);
+
   const retryFailed = useCallback(() => {
     const failedIds = new Set(results.filter((r) => r.status === 'failed').map((r) => r.externalId));
     void importColours(selectedColours.filter((c) => failedIds.has(c.externalId)));
@@ -313,6 +384,7 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
 
   const reset = useCallback(() => {
     search.reset();
+    browse.reset();
     setTextRaw(initialText);
     setStep('search');
     setFamily(null);
@@ -320,7 +392,8 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
     setResults([]);
     setRefusal(null);
     setErrorMessage(null);
-  }, [initialText, search]);
+    setConsentNeeded(false);
+  }, [browse, initialText, search]);
 
   return {
     step,
@@ -330,6 +403,10 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
     submit,
     editSearch,
     search: search.state,
+    browse: browse.state,
+    browseSlot,
+    closeBrowse,
+    retryBrowse,
     family,
     openFamily,
     closeFamily,
@@ -344,6 +421,8 @@ export function useCatalogueFlow(options: CatalogueFlowOptions): CatalogueFlowVi
     refusal,
     retryFailed,
     errorMessage,
+    consentNeeded,
+    resolveConsent,
     addedItemIds,
     reset,
     heldSelection: held,

@@ -180,6 +180,12 @@ const INERT: CatalogueFlowView = {
   submit: () => {},
   editSearch: () => {},
   search: { status: 'idle' },
+  // The tiles draw themselves from `browse-spec.ts`; idle is the grid at rest,
+  // which is what every existing pose showed before the door existed.
+  browse: { status: 'idle' },
+  browseSlot: () => {},
+  closeBrowse: () => {},
+  retryBrowse: () => {},
   family: null,
   openFamily: () => {},
   closeFamily: () => {},
@@ -194,6 +200,9 @@ const INERT: CatalogueFlowView = {
   refusal: null,
   retryFailed: () => {},
   errorMessage: null,
+  // The consent ask is a modal the CONTAINER raises; a fixture never does.
+  consentNeeded: false,
+  resolveConsent: () => {},
   addedItemIds: [],
   reset: () => {},
   // CPV2-11's hold. Null in every pose but the one that draws it — a fixture

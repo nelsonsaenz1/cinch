@@ -15,7 +15,7 @@
  * a destination.
  */
 
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
 import { CataloguePlate } from '@/components/catalogue/plate';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,20 @@ import { Rule } from '@/components/ui/rule';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import {
+  BROWSE_TILE_COLUMNS,
+  BROWSE_TILE_GAP,
+  BROWSE_TILE_HEIGHT,
+  BROWSE_TILES,
+  browseTileLabel,
+} from '@/features/catalogue/browse-spec';
+import {
   AFTER_TRANSCRIPTION,
+  BROWSE_BACK_ACTION,
+  BROWSE_EMPTY,
+  BROWSE_HEADING,
+  BROWSE_HELP,
+  BROWSE_NEAR_MISS_HEADING,
+  BROWSE_RETRY_ACTION,
   FAMILY_EXPLANATION,
   NEAR_MISS_HEADING,
   NO_MATCH,
@@ -106,6 +119,11 @@ function SearchStep({ view, transcribed, onFileWords, onPhotograph }: CatalogueB
           <Button title="Let them go" variant="ghost" onPress={view.dismissHeld} />
         </View>
       ) : null}
+
+      {/* The door without words. Drawn only while no typed answer owns the
+          page — the moment a search runs or lands, the grid yields to it, so
+          two answers to two different questions can never stack. */}
+      {search.status === 'idle' ? <BrowseSection view={view} /> : null}
 
       {search.status === 'searching' ? <ResultSkeleton /> : null}
 
@@ -213,6 +231,110 @@ function ResultSkeleton() {
           </View>
         </View>
       ))}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The category grid — browse, beside the field
+// ---------------------------------------------------------------------------
+
+/**
+ * Nine tiles under the search field, and what a tapped tile answers with.
+ *
+ * The browsed families render through the SAME `FamilyCard` and open through
+ * the same `view.openFamily`, so from the detail screen on there is no browse
+ * path at all — only the one import flow, which is the point. The near-miss
+ * group keeps its subordinate heading for the same reason it has one under a
+ * typed search: a browsed "Top" that surfaces a henley is close, not exact,
+ * and the page should say which.
+ */
+function BrowseSection({ view }: { view: CatalogueFlowView }) {
+  const theme = useTheme();
+  const browse = view.browse;
+
+  if (browse.status === 'idle') {
+    return (
+      <View className="gap-2 px-gutter">
+        <Text variant="eyebrow">{BROWSE_HEADING}</Text>
+        <Text variant="noteSmall">{BROWSE_HELP}</Text>
+        <View
+          className="flex-row flex-wrap pt-1"
+          style={{ gap: BROWSE_TILE_GAP }}>
+          {BROWSE_TILES.map((tile) => (
+            <Pressable
+              key={tile.slot}
+              accessibilityRole="button"
+              accessibilityLabel={`Browse ${tile.label}`}
+              onPress={() => view.browseSlot(tile.slot)}
+              className="items-center justify-center rounded-2xl bg-surface"
+              style={{
+                borderWidth: 1,
+                borderColor: theme.rule,
+                height: BROWSE_TILE_HEIGHT,
+                // Three across regardless of width: each tile claims a third
+                // of the row minus its share of the two gaps between tiles.
+                flexBasis: `${Math.floor(100 / BROWSE_TILE_COLUMNS) - 2}%`,
+                flexGrow: 1,
+              }}>
+              <Text variant="body">{tile.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
+  if (browse.status === 'loading') {
+    return <ResultSkeleton />;
+  }
+
+  if (browse.status === 'offline' || browse.status === 'failed') {
+    const failure = browse.status === 'offline' ? 'offline' : browse.failure;
+    return (
+      <View className="gap-4 px-gutter">
+        <Notice tone="critical" message={FAILURE_COPY[failure]} />
+        <View className="gap-2">
+          <Button title={BROWSE_RETRY_ACTION} variant="secondary" onPress={view.retryBrowse} />
+          <Button title={BROWSE_BACK_ACTION} variant="ghost" onPress={view.closeBrowse} />
+        </View>
+      </View>
+    );
+  }
+
+  const { families } = browse;
+  const total = families.exact.length + families.nearMiss.length;
+
+  return (
+    <View className="gap-2.5 px-gutter">
+      <Text variant="eyebrow">{browseTileLabel(browse.slot)}</Text>
+
+      {total === 0 ? <Text variant="body">{BROWSE_EMPTY}</Text> : null}
+
+      {families.exact.map((family, i) => (
+        <FamilyCard key={family.familyId} family={family} position={i + 1} onOpen={view.openFamily} />
+      ))}
+
+      {families.nearMiss.length > 0 ? (
+        <View className="gap-2.5 pt-4">
+          <Rule />
+          <Text variant="eyebrow" className="pt-2">
+            {BROWSE_NEAR_MISS_HEADING}
+          </Text>
+          {families.nearMiss.map((family, i) => (
+            <FamilyCard
+              key={family.familyId}
+              family={family}
+              position={families.exact.length + i + 1}
+              onOpen={view.openFamily}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      <View className="pt-4">
+        <Button title={BROWSE_BACK_ACTION} variant="ghost" onPress={view.closeBrowse} />
+      </View>
     </View>
   );
 }

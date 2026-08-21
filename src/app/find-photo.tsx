@@ -28,14 +28,16 @@
  */
 
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CatalogueBody } from '@/components/catalogue/catalogue-body';
 import { ListeningScreen } from '@/components/catalogue/listening-screen';
 import { SearchHeader } from '@/components/catalogue/search-header';
+import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { useGrantAiConsent } from '@/features/auth/use-consent';
 import { catalogueSearchOffered } from '@/features/catalogue/analytics';
 import type { CataloguePath } from '@/features/catalogue/query';
 import { useCatalogueFlow } from '@/features/catalogue/use-catalogue-flow';
@@ -91,6 +93,40 @@ export default function FindPhotoScreen() {
   );
 
   const voice = useCatalogueVoice(onTranscript);
+
+  /**
+   * The server refused the import with `ai_consent_required` — a fresh account
+   * whose first act is a catalogue import lands here. The ask is the EXISTING
+   * sheet (CN-01), raised over this screen; nothing new is drawn for it.
+   *
+   * The retry waits for `onDismissed`, not the accept tap: iOS refuses to run
+   * anything modal while this modal is still leaving (see the sheet's own
+   * header), and re-running the import under a sheet that is half on screen is
+   * the same class of race. The flag ref is what tells a dismissal that
+   * followed a grant apart from one that followed a decline.
+   */
+  const grantConsent = useGrantAiConsent();
+  const retryAfterConsent = useRef(false);
+
+  const onAcceptConsent = useCallback(async () => {
+    try {
+      await grantConsent.mutateAsync();
+    } catch {
+      // The grant did not land, so nothing was consented to. The sheet stays
+      // up with both choices live; the user can try either again.
+      return;
+    }
+    retryAfterConsent.current = true;
+    view.resolveConsent(true);
+  }, [grantConsent, view]);
+
+  const onConsentDismissed = useCallback(() => {
+    if (!retryAfterConsent.current) return;
+    retryAfterConsent.current = false;
+    // The selection is still where the refusal held it — CPV2-06. This is the
+    // same tap the user already made, re-made for them now that it can land.
+    view.confirm();
+  }, [view]);
 
   const close = useCallback(() => {
     // Leaving abandons the microphone AND the take, not just the request. A
@@ -173,6 +209,18 @@ export default function FindPhotoScreen() {
           onFileWords={close}
         />
       </View>
+
+      {/* The AI-processing ask, only ever raised by an `ai_consent_required`
+          refusal of the import. Declining resolves to CPV2-06 with the
+          selection kept and a sentence naming the switch — never the generic
+          failure. */}
+      <ConsentSheet
+        visible={view.consentNeeded}
+        busy={grantConsent.isPending}
+        onAccept={() => void onAcceptConsent()}
+        onDecline={() => view.resolveConsent(false)}
+        onDismissed={onConsentDismissed}
+      />
     </SafeAreaView>
   );
 }

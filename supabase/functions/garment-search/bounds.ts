@@ -1,4 +1,5 @@
 import { BoundsError } from '../_shared/input-bounds.ts';
+import { isBrowsableSlot, type BrowsableSlot } from '../_shared/browse-slots.ts';
 
 /**
  * Request bounds for garment-search.
@@ -57,6 +58,22 @@ export type ValidatedSearchRequest = {
   action: 'search';
   description: string;
   swatchDataUrl?: string;
+};
+
+/**
+ * The category grid's request: a slot, and NOTHING else.
+ *
+ * The slot is an enum, not a string that happens to look like one. That is the
+ * whole privacy argument for browse in a single line — a request that cannot
+ * carry words cannot leak them — so the parse refuses free text twice over:
+ * a slot value outside the nine is a 400, and a `description` riding alongside
+ * is a 400 even when the slot itself is valid, because accepting-and-ignoring
+ * typed words would leave a field on the wire that the disclosure says does
+ * not exist.
+ */
+export type ValidatedBrowseRequest = {
+  action: 'browse';
+  slot: BrowsableSlot;
 };
 
 /**
@@ -183,6 +200,7 @@ export type ValidatedDetachRequest = {
 
 export type ValidatedRequest =
   | ValidatedSearchRequest
+  | ValidatedBrowseRequest
   | ValidatedImportRequest
   | ValidatedImportBatchRequest
   | ValidatedResolveRequest
@@ -274,6 +292,21 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
     };
   }
 
+  if (action === 'browse') {
+    // Enum-only, and said with the enum's own guard rather than a string
+    // check: anything that is not one of the nine verified slots — a typo, a
+    // tenth value, a sentence somebody hoped would be searched — is refused
+    // before it can become a query.
+    if (!isBrowsableSlot(body.slot)) {
+      throw new BoundsError('slot must be one of the nine browsable categories.');
+    }
+    // No typed words may ride along. See `ValidatedBrowseRequest`.
+    if (body.description !== undefined || body.query !== undefined) {
+      throw new BoundsError('browse takes a slot, never typed words.');
+    }
+    return { action: 'browse', slot: body.slot };
+  }
+
   if (action === 'resolve') {
     return {
       action: 'resolve',
@@ -312,7 +345,7 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
 
   if (action !== 'search') {
     throw new BoundsError(
-      'action must be "search", "resolve", "import", "import-batch", "match", "attach" or "detach".',
+      'action must be "search", "browse", "resolve", "import", "import-batch", "match", "attach" or "detach".',
     );
   }
 

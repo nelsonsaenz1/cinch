@@ -34,8 +34,11 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { BROWSABLE_SLOTS } from '../supabase/functions/_shared/browse-slots.ts';
+import { parseGarmentSearchRequest } from '../supabase/functions/garment-search/bounds.ts';
 import { firstLicensed } from '../supabase/functions/garment-search/catalog-provider.ts';
 import type {
   GarmentImageProvider,
@@ -166,6 +169,71 @@ test('brand identification from your own photograph is a separate switch', () =>
     assert.equal(web.matched, 1);
     assert.deepEqual(result.brands, ['Example']);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Browse — the same promise, made without any words at all
+// ---------------------------------------------------------------------------
+
+/** `index.ts` cannot be imported here (Deno globals, `npm:` specifiers), so
+ *  the browse handler is pinned the way `catalogue-client.test.ts` pins its
+ *  files: by reading the source with the comments stripped, so the assertions
+ *  hold against code rather than against the explanation beside it. */
+function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
+
+test('browse fails closed: no catalogue secrets means catalogue_unavailable', () => {
+  // The browse action is licensed-only by construction — `licensedFirst(admin,
+  // null)` builds no fallback at all — so this pins that the handler refuses
+  // with the fail-closed code BEFORE anything could search, rather than
+  // returning an empty grid that reads as "this category has nothing".
+  const src = stripComments(
+    readFileSync('supabase/functions/garment-search/index.ts', 'utf8'),
+  );
+  const start = src.indexOf('async function browseCatalogue');
+  assert.ok(start !== -1, 'browseCatalogue is gone from index.ts');
+  const body = src.slice(start, src.indexOf('async function', start + 1));
+
+  assert.match(body, /licensedFirst\(admin,\s*null\)/, 'browse constructed a web fallback');
+  const guard = body.indexOf('catalogue_unavailable');
+  const search = body.indexOf('searchFamilies');
+  assert.ok(guard !== -1, 'browse lost its fail-closed refusal');
+  assert.ok(search !== -1 && guard < search, 'browse searches before checking the catalogue exists');
+});
+
+test('browse sends no free text: the term is the repository\'s, the slot is an enum', () => {
+  const src = stripComments(
+    readFileSync('supabase/functions/garment-search/index.ts', 'utf8'),
+  );
+  const start = src.indexOf('async function browseCatalogue');
+  const body = src.slice(start, src.indexOf('async function', start + 1));
+
+  // The only thing parsed into a query is the fixed table's word for the slot.
+  assert.match(body, /parseQuery\(BROWSE_TERM\[request\.slot\]\)/);
+  assert.ok(!/request\.description/.test(body), 'browse read typed words off the request');
+
+  // And the wire agrees: a validated browse request IS two keys, and a slot
+  // that is not one of the nine never becomes a request at all.
+  for (const slot of BROWSABLE_SLOTS) {
+    assert.deepEqual(Object.keys(parseGarmentSearchRequest({ action: 'browse', slot })).sort(), [
+      'action',
+      'slot',
+    ]);
+  }
+  // Matcher written out by hand — the repo's `assert.throws` typing takes a
+  // string second argument, per the note in `contrast.test.ts`.
+  let refused = '';
+  try {
+    parseGarmentSearchRequest({ action: 'browse', slot: 'cream mohair sweater' });
+  } catch (err) {
+    refused = err instanceof Error ? err.message : String(err);
+  }
+  assert.match(
+    refused,
+    /nine browsable categories/,
+    `free text reached the catalogue while the app prints: "${CATALOGUE_DISCLOSURE}"`,
+  );
 });
 
 test('with no fallback at all, nothing throws and nothing is invented', () => {

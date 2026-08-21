@@ -64,6 +64,30 @@ export const VOICE_DISCLOSURE =
 export const AFTER_TRANSCRIPTION =
   'The recording is already deleted. Only these words are searched.';
 
+/** The category grid's heading, under the field. A peer door, not a fallback. */
+export const BROWSE_HEADING = 'Or browse a category';
+
+/** Said under the heading, once. The privacy claim is structural — a tile
+ *  sends a category, so there are no typed words anywhere in the request. */
+export const BROWSE_HELP =
+  'Tap a category to see pieces from the licensed shop catalogue. Nothing is typed and nothing is searched on the web.';
+
+/** A category the catalogue answered with nothing. The whole answer, like
+ *  `NO_MATCH` — never drawn over a failure, which has its own notices. */
+export const BROWSE_EMPTY =
+  'The licensed shop catalogue has nothing to show here right now.';
+
+/** The browsed grid's near-miss heading. `NEAR_MISS_HEADING` names the typed
+ *  query's own garment ("Not a T-shirt, but close") and a tapped category has
+ *  no such word to put in the sentence, so it gets a generic one. */
+export const BROWSE_NEAR_MISS_HEADING = 'Close, not exact';
+
+/** The way back from a browsed grid to the nine tiles. */
+export const BROWSE_BACK_ACTION = 'All categories';
+
+/** The failed browse's own retry. */
+export const BROWSE_RETRY_ACTION = 'Try this category again';
+
 /** CPV2-04 card. */
 export const PROVENANCE_SHORT = 'Photos from the shop catalogue.';
 
@@ -120,6 +144,17 @@ export const NO_PHOTO = 'No photo in the catalogue';
 export const PHOTO_FAILED = 'Photo did not load';
 
 /**
+ * The import was refused for consent, and the ask was declined.
+ *
+ * Never the generic failure sentence: "try again in a moment" would be false —
+ * time fixes nothing here. Imported pieces go through the same AI tagging a
+ * photographed one does, which is why the server's consent gate covers them,
+ * and the sentence says which switch is the one that decides.
+ */
+export const IMPORT_CONSENT_DECLINED =
+  'Nothing was added. Filing a catalogue photo uses AI processing, which is off for your account.';
+
+/**
  * The ten words that appear nowhere in this feature, from the end of §3.
  *
  * Exported so the test does not restate them — a banned list the test owns its
@@ -160,6 +195,12 @@ export const ALL_COPY: readonly string[] = [
   TYPED_PRIVACY,
   VOICE_DISCLOSURE,
   AFTER_TRANSCRIPTION,
+  BROWSE_HEADING,
+  BROWSE_HELP,
+  BROWSE_EMPTY,
+  BROWSE_NEAR_MISS_HEADING,
+  BROWSE_BACK_ACTION,
+  BROWSE_RETRY_ACTION,
   PROVENANCE_SHORT,
   PROVENANCE_LONG,
   NEAR_MISS_HEADING,
@@ -172,4 +213,5 @@ export const ALL_COPY: readonly string[] = [
   TITLE_UNAVAILABLE,
   NO_PHOTO,
   PHOTO_FAILED,
+  IMPORT_CONSENT_DECLINED,
 ];

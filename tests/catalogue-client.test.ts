@@ -20,7 +20,13 @@ import {
   rankBucket,
   selectionBucket,
 } from '../src/features/catalogue/buckets.ts';
-import { ALL_COPY, BANNED_WORDS, TITLE_UNAVAILABLE } from '../src/features/catalogue/copy.ts';
+import {
+  ALL_COPY,
+  BANNED_WORDS,
+  IMPORT_CONSENT_DECLINED,
+  TITLE_UNAVAILABLE,
+} from '../src/features/catalogue/copy.ts';
+import { classifyImportError, GENERIC } from '../src/features/catalogue/import-outcome.ts';
 import {
   isSearchableQuery,
   normaliseCatalogueQuery,
@@ -450,4 +456,79 @@ test('an absent photograph and a failed one are different sentences', () => {
   const copy = readFileSync('src/features/catalogue/copy.ts', 'utf8');
   assert.ok(!copy.includes("PHOTO_FAILED = 'No photo"), 'the two states share one sentence');
   assert.ok(ALL_COPY.includes('Photo did not load'), 'the new sentence escapes the banned-word test');
+});
+
+// ---------------------------------------------------------------------------
+// 11 · The import's consent refusal is an ask, never the generic failure
+// ---------------------------------------------------------------------------
+
+test('ai_consent_required maps to the consent outcome, not the generic sentence', () => {
+  // The dead end this pins shut: a fresh account whose first act is a
+  // catalogue import (the browse tiles make that the likely first act) was
+  // told "Those pieces couldn't be added. Try again in a moment." — a sentence
+  // whose remedy is false. Time fixes nothing; the consent sheet does.
+  const outcome = classifyImportError({ error: 'ai_consent_required', requiredVersion: 2 }, 3);
+  assert.ok(outcome.status === 'consent-required', 'the consent gate reads as a plain failure');
+  assert.equal(outcome.requiredVersion, 2);
+  assert.ok(
+    !JSON.stringify(outcome).includes(GENERIC),
+    'the consent refusal carries the generic failure sentence',
+  );
+});
+
+test('a requiredVersion the body did not carry is null, never invented', () => {
+  const outcome = classifyImportError({ error: 'ai_consent_required' }, 1);
+  assert.ok(outcome.status === 'consent-required');
+  assert.equal(outcome.requiredVersion, null);
+});
+
+test('the consent branch changes nothing for capacity or unknown errors', () => {
+  const refused = classifyImportError(
+    { error: 'closet_limit_reached', requested: 3, active: 8, activeLimit: 10 },
+    3,
+  );
+  assert.ok(refused.status === 'refused');
+  assert.equal(refused.refusal.code, 'closet_limit_reached');
+  assert.equal(refused.refusal.active, 8);
+
+  const unknown = classifyImportError({ error: 'kaboom' }, 3);
+  assert.ok(unknown.status === 'error');
+  assert.equal(unknown.message, GENERIC);
+
+  const unreadable = classifyImportError(null, 3);
+  assert.ok(unreadable.status === 'error');
+  assert.equal(unreadable.message, GENERIC);
+});
+
+test('the importer reads its error bodies through the one classifier', () => {
+  // A second copy of the mapping in the hook is how the two drift — the hook
+  // recognising a code the classifier does not, or the reverse.
+  const src = stripComments(readFileSync('src/features/catalogue/use-catalogue-import.ts', 'utf8'));
+  assert.match(src, /classifyImportError/, 'the hook stopped using the shared classifier');
+  assert.ok(
+    !src.includes("'ai_consent_required'") && !src.includes("'closet_limit_reached'"),
+    'the hook carries its own copy of the error-code mapping',
+  );
+});
+
+test('the ask is the existing consent sheet, raised by the container', () => {
+  // The flow surfaces `consentNeeded`; the CONTAINER presents CN-01's sheet —
+  // the same component capture and add-clothes present, not a lookalike.
+  const container = readFileSync('src/app/find-photo.tsx', 'utf8');
+  assert.ok(
+    container.includes("from '@/components/ingest/consent-sheet'"),
+    'find-photo draws its own consent ask instead of the shipped sheet',
+  );
+  assert.ok(container.includes('view.consentNeeded'), 'the sheet is not driven by the flow');
+  assert.ok(
+    container.includes('useGrantAiConsent'),
+    'accepting the ask records nothing — the retry would be refused again',
+  );
+
+  // And declining says which switch decided, in a sentence the banned-word
+  // test walks like every other sentence this feature can say.
+  assert.ok(
+    ALL_COPY.includes(IMPORT_CONSENT_DECLINED),
+    'the declined sentence escapes the banned-word test',
+  );
 });
