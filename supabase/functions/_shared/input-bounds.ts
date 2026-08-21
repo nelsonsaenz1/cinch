@@ -39,15 +39,20 @@ const MAX_BODY_CHARS = 64 * 1024;
  * Shared field ceilings. Generous against real traffic, fatal to a loop.
  *
  * MAX_ID_CHARS must fit an outfit-candidate id, which the client builds by
- * joining up to four item UUIDs with '.' (`candidateId` in
- * src/features/stylist/use-chat.ts and src/features/styling/use-outfits.ts):
- * 4×36 + 3 = 147 chars. At 64 this bound silently 400'd every stylist-chat
- * and generate-outfits call the evening it shipped — the functions answered
- * in ~260ms, which looked healthy in the logs and was actually the validator
- * rejecting before the model. 160 covers the real maximum with headroom and
- * remains fatal to anything loop-shaped.
+ * joining item UUIDs with '.' (`candidateId` in
+ * src/features/stylist/use-chat.ts and src/features/styling/use-outfits.ts).
+ * At 64 this bound silently 400'd every stylist-chat and generate-outfits
+ * call the evening it shipped — the functions answered in ~260ms, which
+ * looked healthy in the logs and was actually the validator rejecting before
+ * the model. It was then raised to 160 for "up to four item UUIDs" (147
+ * chars) — and on 2026-08-20 the accessories-one-per-kind change made
+ * FIVE-piece outfits real, 184 chars, and every closet that produced one got
+ * a silent 400 again. Same bug, one garment later. The ceiling now derives
+ * from MAX_ITEMS_PER_CANDIDATE — the bound that actually owns "how many
+ * pieces can an outfit be" — so the two can never disagree again:
+ * 12×36 + 11 = 443, rounded to 448. Still fatal to anything loop-shaped.
  */
-const MAX_ID_CHARS = 160;
+const MAX_ID_CHARS = 448;
 const MAX_ITEMS_PER_CANDIDATE = 12;
 const MAX_ITEM_FIELD_CHARS = 120;
 const MAX_NOTES_PER_CANDIDATE = 8;
