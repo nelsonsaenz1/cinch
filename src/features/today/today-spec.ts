@@ -220,6 +220,20 @@ export function tripAheadLine(destination: string, days: number): string {
   return `${destination}, in ${DAY_WORDS[days] ?? String(days)} days`;
 }
 
+/**
+ * The AsyncStorage key under which ONE trip's reminder dismissal lives.
+ *
+ * Keyed per trip id, not globally: "Got it" is an answer about Tokyo, and a
+ * different trip next month is new news that must still surface. AsyncStorage
+ * rather than a column for the reasons `use-profile-coaching.ts` gives — it is
+ * the app's card-dismissal idiom, a dismissal is a property of an install, and
+ * it must resolve without a round trip so the card never flashes in after the
+ * screen. Derived here (not in the hook) so the node suite can pin the shape.
+ */
+export function tripReminderKey(tripId: string): string {
+  return `cinch.today.trip-reminder.dismissed.${tripId}`;
+}
+
 // ---------------------------------------------------------------------------
 // Weather — four truthful states, and never a fifth
 // ---------------------------------------------------------------------------
@@ -230,8 +244,21 @@ export type WeatherRead = {
   state: WeatherState;
   /** "Grey, 63°" for the chip. Null when there is no reading to state. */
   chip: string | null;
-  /** "63°F · Grey" for the plate's mark, or "As of 7am" when it is dated. */
+  /**
+   * The plate's mark: the temperature ALONE ("82°"), or "As of 7am" when the
+   * reading is dated. The condition phrase — and with it `describeWeather`'s
+   * low–high range clause — deliberately never reaches this string: the range
+   * lives in the masthead eyebrow and nowhere else (audit 57's rule, packet T).
+   */
   mark: string | null;
+  /**
+   * The SF Symbol drawn beside the mark — `weatherSymbol`'s pick, passed
+   * through untouched. Null when there is nothing current to claim: a dated
+   * reading keeps its "As of 7am" words and drops the glyph, because a sun
+   * next to a two-hour-old number is the icon claiming what the words just
+   * disclaimed.
+   */
+  symbol: string | null;
 };
 
 /**
@@ -263,6 +290,11 @@ export function resolveWeather(input: {
   /** Null when there is no reading at all. */
   conditionLabel: string | null;
   temperatureLabel: string | null;
+  /**
+   * `weatherSymbol`'s SF Symbol name for the current condition, or absent.
+   * Optional so the surfaces that only read words are untouched by its arrival.
+   */
+  symbol?: string | null;
   /** When the reading was taken. Null when there is none. */
   fetchedAt: Date | null;
   /** The reader has not granted location. */
@@ -271,18 +303,22 @@ export function resolveWeather(input: {
   failed: boolean;
   now: Date;
 }): WeatherRead {
-  if (input.permissionOff) return { state: 'off', chip: null, mark: null };
+  if (input.permissionOff) return { state: 'off', chip: null, mark: null, symbol: null };
   if (input.failed || !input.conditionLabel || !input.temperatureLabel || !input.fetchedAt) {
-    return { state: 'unavailable', chip: null, mark: null };
+    return { state: 'unavailable', chip: null, mark: null, symbol: null };
   }
   const reading = `${input.conditionLabel}, ${input.temperatureLabel}`;
-  const mark = `${input.temperatureLabel} · ${input.conditionLabel}`;
   const age = input.now.getTime() - input.fetchedAt.getTime();
   if (age > WEATHER_STALE_AFTER_MS) {
     const at = asOfLabel(input.fetchedAt);
-    return { state: 'stale', chip: `${reading} · ${at}`, mark: `As of ${at}` };
+    // A dated reading keeps its words and gains a time — and sheds the glyph,
+    // which would otherwise claim as current the condition the words just dated.
+    return { state: 'stale', chip: `${reading} · ${at}`, mark: `As of ${at}`, symbol: null };
   }
-  return { state: 'ok', chip: reading, mark };
+  // The mark is the temperature ALONE. The founder's card is "82°" plus one
+  // condition symbol; the condition PHRASE (which carries the low–high range
+  // on a swing day) is composed exactly once, in the masthead eyebrow.
+  return { state: 'ok', chip: reading, mark: input.temperatureLabel, symbol: input.symbol ?? null };
 }
 
 // ---------------------------------------------------------------------------
@@ -386,6 +422,14 @@ export const TODAY_COPY = {
   tripAheadKicker: 'PACKING SOON',
   /** Its one action, which is the trip's own screen and not a new surface. */
   tripAheadAction: 'Open the packing list',
+  /**
+   * The quiet way out. The card said "Tokyo, in five days" and until now
+   * never went away — a reminder with no acknowledgement is nagging. "Got it"
+   * because the card is a sentence somebody was told, not a task: it is held
+   * to the same taste bar as the action above it (no numeral, no urgency),
+   * and it dismisses THIS trip only — see `tripReminderKey`.
+   */
+  tripAheadDismiss: 'Got it',
   weatherOff: 'Add weather',
 
   /** Applying a context: the old plate stays legible while the new one lands. */

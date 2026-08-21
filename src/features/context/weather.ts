@@ -394,6 +394,31 @@ export function formatTemp(celsius: number, units: 'C' | 'F'): string {
   return `${Math.round(value)}°`;
 }
 
+/**
+ * The SF Symbol for the day's dominant condition — the outfit card's mark.
+ *
+ * Open-Meteo's payload carries no condition code (see `feelsClause`'s note in
+ * `context-label.ts`), so this is derived from the same three facts
+ * `describeWeather` states, in the same order of importance: rain outranks
+ * wind, wind outranks temperature. One glyph, because the card's mark is
+ * "82°" plus one symbol — a second symbol would be the range clause creeping
+ * back in pictures.
+ */
+export type WeatherSymbolName =
+  | 'cloud.rain'
+  | 'wind'
+  | 'sun.max'
+  | 'snowflake'
+  | 'cloud';
+
+export function weatherSymbol(w: WeatherContext): WeatherSymbolName {
+  if (w.precipitationChance >= 0.4) return 'cloud.rain';
+  if (w.windKph >= 25) return 'wind';
+  if (w.feelsLikeC >= 24) return 'sun.max';
+  if (w.feelsLikeC <= 8) return 'snowflake';
+  return 'cloud';
+}
+
 /** A short phrase for the weather strip — the reason, not just the number. */
 export function describeWeather(w: WeatherContext, units: 'C' | 'F'): string {
   const parts: string[] = [];

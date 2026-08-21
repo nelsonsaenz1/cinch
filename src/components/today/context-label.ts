@@ -38,6 +38,11 @@
  * does hold is precipitation chance, wind and swing, which is what
  * `describeWeather` states. An absent phrase drops the clause rather than
  * inventing one.
+ *
+ * On a swing day `describeWeather`'s phrase carries the low–high range
+ * ("64°–83° today"), and THIS clause is the only place on the screen that
+ * range may appear (packet T): the plate's mark is the temperature alone plus
+ * a condition symbol, and `resolveWeather` refuses the phrase by construction.
  */
 export function feelsClause(
   temp: string | null | undefined,

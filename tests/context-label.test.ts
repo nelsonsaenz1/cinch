@@ -85,3 +85,31 @@ test('the largest type still breaks over two lines rather than shedding', () => 
   assert.deepEqual(contextLines(PLACE, WEATHER), [PLACE, WEATHER]);
   assert.equal(contextLabel(PLACE, WEATHER), contextRungs(PLACE, WEATHER)[0]);
 });
+
+test('the swing day’s range clause composes here — and only here (packet T)', () => {
+  // `describeWeather` on a swing day returns "64°–83° today". The eyebrow is
+  // the ONE place that phrase may appear on Today: the outfit card's mark is
+  // the temperature alone plus a condition symbol (`resolveWeather` refuses
+  // the phrase by construction — pinned in today-spec.test.ts).
+  const swing = feelsClause('82°', 'F', '64°–83° today');
+  assert.equal(swing, 'Feels 82°F, 64°–83° today');
+  assert.equal(
+    contextLabel(PLACE, swing),
+    'Fri 7 Aug · Denver · Feels 82°F, 64°–83° today',
+  );
+});
+
+test('the ladder still never drops the temperature when the range clause sheds', () => {
+  // The range rides the CONDITIONS clause, which is rung 1's casualty — the
+  // "Feels 82°F" head survives on every rung, exactly the audit-57 promise.
+  const swing = feelsClause('82°', 'F', '64°–83° today');
+  const rungs = contextRungs(PLACE, swing);
+  assert.equal(rungs[0], 'Fri 7 Aug · Denver · Feels 82°F, 64°–83° today');
+  for (const rung of rungs) {
+    assert.match(rung, /Feels 82°F/, `a rung drops the temperature: ${rung}`);
+  }
+  // Sheds cleanly: the comma is `feelsClause`'s own join, so losing the
+  // clause never leaves half a range behind.
+  assert.equal(rungs[1], 'Fri 7 Aug · Denver · Feels 82°F');
+  assert.doesNotMatch(rungs[1], /–|today/);
+});

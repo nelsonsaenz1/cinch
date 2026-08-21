@@ -1,3 +1,4 @@
+import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { View } from 'react-native';
 
 import { GarmentImage } from '@/components/media/garment-image';
@@ -38,8 +39,13 @@ export type TodayPlateView = {
   /** "Wool coat, linen shirt, ankle boots" — the pieces, in layout order. */
   piecesLine: string;
   garments: Garment[];
-  /** "63°F · Grey", or "As of 7am" when the reading is dated. Null when none. */
+  /** "82°" — the temperature alone — or "As of 7am" when the reading is
+   *  dated. Null when none. The condition PHRASE (and its low–high range)
+   *  never reaches this card; it lives in the masthead eyebrow (audit 57). */
   weatherMark: string | null;
+  /** The condition's SF Symbol, drawn quietly beside the mark. Optional and
+   *  null on dated readings — `resolveWeather` owns that refusal. */
+  weatherSymbol?: string | null;
   /** Spoken position: "card 2 of 3". */
   positionLabel: string;
   /** Replaces the pieces line while a new context is being composed. */
@@ -110,9 +116,23 @@ export function TodayPlate({
                       paddingVertical: 7,
                     }
               }>
-              <Text variant="label" style={{ color: theme.ink }}>
-                {view.weatherMark}
-              </Text>
+              {/* One row: the glyph, then the number, same ink as the words —
+                  a quiet condition mark, not a second accent. The symbol is
+                  decorative (the temperature is the fact and the masthead
+                  carries the full sentence), so it adds nothing spoken. */}
+              <View className="flex-row items-center" style={{ gap: 5 }}>
+                {view.weatherSymbol ? (
+                  <SymbolView
+                    name={view.weatherSymbol as SFSymbol}
+                    size={12}
+                    tintColor={theme.ink}
+                    resizeMode="scaleAspectFit"
+                  />
+                ) : null}
+                <Text variant="label" style={{ color: theme.ink }}>
+                  {view.weatherMark}
+                </Text>
+              </View>
             </View>
           ) : null}
 

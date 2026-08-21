@@ -10,6 +10,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { PLANS } from '../src/features/billing/plans';
 import { MIN_CLOSET_FOR_OUTFITS } from '../src/features/styling/thresholds';
@@ -38,7 +39,9 @@ import {
   piecesRemaining,
   positionLabel,
   resolveWeather,
+  tripReminderKey,
 } from '../src/features/today/today-spec';
+import { weatherSymbol } from '../src/features/context/weather';
 
 // ---------------------------------------------------------------------------
 // The activation floor — ten, and the reason it is not eight
@@ -143,6 +146,7 @@ const READING = { conditionLabel: 'Grey', temperatureLabel: '63°', now: NOW };
 test('a fresh reading is ok, and says what it is', () => {
   const read = resolveWeather({
     ...READING,
+    symbol: 'cloud',
     fetchedAt: new Date(NOW.getTime() - 5 * 60 * 1000),
     permissionOff: false,
     failed: false,
@@ -150,6 +154,44 @@ test('a fresh reading is ok, and says what it is', () => {
   assert.equal(read.state, 'ok');
   assert.ok(read.chip);
   assert.ok((read.chip as string).includes('63°'));
+  // The card's mark is the temperature ALONE — the condition phrase stays off
+  // the plate (packet T: the founder's card is "82°" plus one symbol).
+  assert.equal(read.mark, '63°');
+  assert.equal(read.symbol, 'cloud');
+});
+
+test('the condition phrase — and its range clause — never reaches the mark', () => {
+  // On a swing day `describeWeather` says "64°–83° today". That clause is the
+  // masthead eyebrow's, composed by `feelsClause` and NOWHERE else; before
+  // packet T it leaked onto the card as "82° · 64°–83° today", stating the
+  // range twice on one screen.
+  const read = resolveWeather({
+    conditionLabel: '64°–83° today',
+    temperatureLabel: '82°',
+    symbol: 'sun.max',
+    fetchedAt: new Date(NOW.getTime() - 60_000),
+    permissionOff: false,
+    failed: false,
+    now: NOW,
+  });
+  assert.equal(read.mark, '82°');
+  assert.doesNotMatch(read.mark as string, /–|today/, 'the range clause reached the card');
+  // The chip (the words-only surface) still keeps the whole reading.
+  assert.match(read.chip as string, /64°–83° today/);
+});
+
+test('a dated reading sheds the glyph along with the claim of currency', () => {
+  const read = resolveWeather({
+    ...READING,
+    symbol: 'sun.max',
+    fetchedAt: new Date(NOW.getTime() - WEATHER_STALE_AFTER_MS - 1),
+    permissionOff: false,
+    failed: false,
+  });
+  assert.equal(read.state, 'stale');
+  // "As of 7am" with a sun beside it would be the icon claiming what the
+  // words just disclaimed.
+  assert.equal(read.symbol, null);
 });
 
 test('an old reading is stale, keeps its words, and gains an hour', () => {
@@ -403,4 +445,74 @@ test('the band has its own eyebrow and one action, and neither is invented', () 
   // No count, no price, no urgency — the same discipline the rest of this
   // screen's copy is held to.
   assert.doesNotMatch(TODAY_COPY.tripAheadAction, /\d|now|hurry|!/i);
+});
+
+// ---------------------------------------------------------------------------
+// The condition symbol — one glyph, derived from the same facts as the words
+// ---------------------------------------------------------------------------
+
+test('the symbol ranks rain over wind over temperature, like the words do', () => {
+  const base = { feelsLikeC: 18, highC: 20, lowC: 15, precipitationChance: 0, windKph: 5, swing: false };
+  // Same thresholds, same order of importance as `describeWeather` — the
+  // glyph and the phrase must never disagree about what the day mostly is.
+  assert.equal(weatherSymbol({ ...base, precipitationChance: 0.4, windKph: 40 }), 'cloud.rain');
+  assert.equal(weatherSymbol({ ...base, windKph: 25 }), 'wind');
+  assert.equal(weatherSymbol({ ...base, feelsLikeC: 24 }), 'sun.max');
+  assert.equal(weatherSymbol({ ...base, feelsLikeC: 8 }), 'snowflake');
+  assert.equal(weatherSymbol(base), 'cloud');
+});
+
+test('the range clause has exactly one composition path — the masthead eyebrow', () => {
+  // The card never learns about `describeWeather` at all: the plate draws
+  // whatever mark `resolveWeather` hands it, and `resolveWeather`'s ok-mark is
+  // the temperature label verbatim (pinned functionally above). What is
+  // pinned here is the other half: no `.tsx` on the card path re-imports the
+  // phrase to compose it a second time.
+  const plate = readFileSync('src/components/today/today-plate.tsx', 'utf8');
+  assert.doesNotMatch(plate, /describeWeather/, 'the card re-composes the condition phrase');
+  // And on the screen itself, the phrase reaches exactly two calls: the
+  // masthead clause (`feelsClause`) and `resolveWeather`'s conditionLabel —
+  // which the mark refuses. A third call would be a new surface for the range.
+  const route = readFileSync('src/app/(tabs)/index.tsx', 'utf8');
+  assert.equal((route.match(/describeWeather\(/g) ?? []).length, 2, 'a new describeWeather surface appeared on Today');
+  assert.match(route, /feelsClause\(formatTemp\(context\.weather\.feelsLikeC, 'F'\), 'F', describeWeather\(context\.weather, 'F'\)\)/);
+});
+
+// ---------------------------------------------------------------------------
+// The trip reminder's dismissal — per trip, and quiet about it
+// ---------------------------------------------------------------------------
+
+test('the dismissal key is derived per trip, so a later trip still surfaces', () => {
+  assert.equal(tripReminderKey('t1'), 'cinch.today.trip-reminder.dismissed.t1');
+  // Different trips derive different keys — "Got it" about Tokyo is not an
+  // opinion about Lisbon next month.
+  assert.notEqual(tripReminderKey('tokyo-oct'), tripReminderKey('lisbon-nov'));
+  // And the key is namespaced like the app's other one-shot flags
+  // (`cinch.profile.coaching.seen.v1`), so a storage sweep can find them all.
+  assert.match(tripReminderKey('t1'), /^cinch\./);
+});
+
+test('the dismiss label is held to the trip band’s own taste bar', () => {
+  assert.equal(typeof TODAY_COPY.tripAheadDismiss, 'string');
+  assert.ok(TODAY_COPY.tripAheadDismiss.length > 0);
+  // No numeral, no urgency, no exclamation — the same regex the action obeys.
+  assert.doesNotMatch(TODAY_COPY.tripAheadDismiss, /\d|now|hurry|!/i);
+});
+
+test('the hook follows the coaching idiom: keyed read, hidden start, hide-then-persist', () => {
+  // The node suite has no React renderer, so the hook's contract is pinned on
+  // its source the way `example-content.test.ts` pins the coaching card.
+  const hook = readFileSync('src/features/today/use-trip-reminder.ts', 'utf8');
+  // The key is the derived one — never a second string literal to drift.
+  assert.match(hook, /tripReminderKey\(tripId\)/);
+  assert.doesNotMatch(hook, /cinch\.today\.trip-reminder/, 'the key is typed twice');
+  // Starts hidden until the read resolves: a card that flashes in after a
+  // dismissal is the failure mode; one frame late costs nothing.
+  assert.match(hook, /show: false/);
+  // Hide first, persist after — a dismissal that failed to save still dismisses.
+  const dismissBody = hook.slice(hook.indexOf('const dismiss'));
+  assert.ok(
+    dismissBody.indexOf('show: false') < dismissBody.indexOf('setItem'),
+    'the card must hide before the write is attempted'
+  );
 });

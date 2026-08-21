@@ -170,9 +170,10 @@ test('the refusal state still draws nothing in the context slot', () => {
   // starts inside the week (`tripAhead`, `today-spec.ts`). The RULE this test
   // has always defended is unchanged and is what is asserted — `nothingWorks`
   // still gates the slot, so a refusal draws nothing there — and it is now
-  // strictly harder to violate, because the slot has a second condition of its
-  // own on top of the gate.
-  assert.match(stripped(TODAY), /\{!nothingWorks && tripSoon \? \(/);
+  // strictly harder to violate, because the slot has conditions of its
+  // own on top of the gate — the trip inside the week, and (packet T) the
+  // reader not having said "Got it" to this trip's reminder already.
+  assert.match(stripped(TODAY), /\{!nothingWorks && tripSoon && tripReminder\.show \? \(/);
   // And the withdrawn control has not crept back in beside it.
   assert.doesNotMatch(stripped(TODAY), /<ContextChips/);
 });

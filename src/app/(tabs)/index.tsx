@@ -112,7 +112,8 @@ import {
   type OutfitCandidate,
   type WeatherContext,
 } from '@/lib/styling';
-import { describeWeather, formatTemp } from '@/features/context/weather';
+import { describeWeather, formatTemp, weatherSymbol } from '@/features/context/weather';
+import { useTripReminder } from '@/features/today/use-trip-reminder';
 import { track, trackOnce } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
@@ -230,39 +231,6 @@ function useFirstName(): string | null {
 }
 
 /**
- * The stylist door, per the field guide's masthead row (§02): the ✦ glyph,
- * always reachable, in every state the screen can be in.
- *
- * Extracted so every masthead — full and reduced alike — carries it. Before
- * this it lived only inside `Masthead`, which renders exclusively on a normal
- * day with outfits on screen; every other state (loading, a failed fetch, an
- * empty closet, "nothing works", offline) fell back to `ReducedMasthead`,
- * which never had it. A founder opening the app new, or on a day the engine
- * came back empty, had no way to reach the stylist at all — not subtle,
- * simply absent. `navigate`, not `push`: a fast double-tap must not stack two
- * sheets. 34pt with 8pt of hitSlop clears the 44pt minimum tap target on
- * every side.
- */
-function StylistButton() {
-  const router = useRouter();
-  const theme = useTheme();
-
-  return (
-    <PressableSurface
-      onPress={() => router.navigate('/stylist')}
-      accessibilityRole="button"
-      accessibilityLabel="Ask the stylist"
-      hitSlop={8}
-      fill
-      style={{ width: 34, height: 34 }}
-      contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-      className="rounded-full border border-rule">
-      <SymbolView name="sparkles" size={16} tintColor={theme.accent} resizeMode="scaleAspectFit" />
-    </PressableSurface>
-  );
-}
-
-/**
  * The door to Activity, and the only badge in the app.
  *
  * AV-02 states the rule as a promise to the reader: "Requests, borrows,
@@ -332,10 +300,11 @@ function ActivityButton({ unseen: forced }: { unseen?: boolean } = {}) {
  * No rule under it. The design sets the masthead, the weather line and the
  * plans pill as one unbroken block; a hairline here cuts the day in half.
  *
- * The trailing chips are the only doors to Stylist and Profile — both lost
- * their tabs in the three-tab restructure. The stylist is the app's sparkle
- * (the same oxblood mark the stylist screen carries); the profile is the ink
- * avatar well.
+ * The trailing chips are Activity, the occasion composer and Profile. The
+ * Stylist door that used to sit among them is GONE: the Stylist got its tab
+ * back, and a masthead chip beside a tab bar entry would be two doors to one
+ * room on a single screen. Profile still has no tab, so its chip remains the
+ * only door there is.
  *
  * ── THE HEADLINE IS THE HOUR AND THE READER ───────────────────────────────
  *
@@ -540,7 +509,6 @@ export function Masthead({
         </View>
         <View className="flex-row gap-2" style={{ marginTop: 2 }}>
           <ActivityButton unseen={unseen} />
-          <StylistButton />
           {/* Correction 07: the occasion composer, restored as a 44×44
               calendar-plus at the trailing edge, opening /event/new. It sits
               inside the existing masthead height — "the 56 pt text field is
@@ -618,32 +586,23 @@ export function Masthead({
 }
 
 /**
- * The reduced masthead: the eyebrow and the section name, plus the same ✦
- * stylist door the full masthead carries.
+ * The reduced masthead: the eyebrow and the section name, nothing else.
  *
  * Shared by every state that has no morning to greet — first load, a failed
  * fetch, a brand-new user with no closet, a day the engine could not dress,
- * and offline. All of them still need a stylist to ask (the honest
- * "nothing works" card even names it as the first thing that might help), so
- * the door stays lit even when there is no greeting to put it next to. Only
- * the profile avatar drops — there is no fresh morning to attribute to
- * anyone.
+ * and offline. It used to carry the ✦ stylist door so those states still had
+ * a way to ask; the Stylist has its tab back now, reachable from every one of
+ * them through the tab bar, so the row carries no chips at all. The profile
+ * avatar stays off it too — there is no fresh morning to attribute to anyone.
  */
 export function ReducedMasthead({ eyebrow }: { eyebrow: string }) {
   return (
     <View className="px-gutter pt-2">
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="flex-1">
-          <Text variant="eyebrow">{eyebrow}</Text>
-          <View style={{ marginTop: 6 }}>
-            <Text variant="display" trim accessibilityRole="header">
-              Today
-            </Text>
-          </View>
-        </View>
-        <View style={{ marginTop: 2 }}>
-          <StylistButton />
-        </View>
+      <Text variant="eyebrow">{eyebrow}</Text>
+      <View style={{ marginTop: 6 }}>
+        <Text variant="display" trim accessibilityRole="header">
+          Today
+        </Text>
       </View>
     </View>
   );
@@ -966,6 +925,10 @@ export default function TodayScreen() {
         temperatureLabel: context.weather
           ? formatTemp(context.weather.feelsLikeC, 'F')
           : null,
+        // The card's one glyph. The condition PHRASE above still feeds the
+        // chip and the stale wording, but never the mark — the range clause
+        // it can carry belongs to the masthead eyebrow alone.
+        symbol: context.weather ? weatherSymbol(context.weather) : null,
         fetchedAt: weatherFetchedAt ? new Date(weatherFetchedAt) : null,
         permissionOff: usingFallbackLocation,
         failed: weatherFailed,
@@ -1416,6 +1379,11 @@ export default function TodayScreen() {
     () => tripAhead(allTrips.data ?? [], new Date()),
     [allTrips.data],
   );
+  // "Got it" — the reminder's acknowledgement, keyed to THIS trip's id. A
+  // dismissed trip never returns; a different later trip derives a fresh key
+  // and still surfaces. Starts hidden until the read resolves, so the card
+  // never flashes at somebody who already dismissed it.
+  const tripReminder = useTripReminder(tripSoon?.id ?? null);
 
   const myEvents = useMyEvents();
   const interrupt = useMemo(() => {
@@ -1817,7 +1785,7 @@ export default function TodayScreen() {
 
               `hidden` on the refusal, as the chips were: a closet that could
               not be dressed has a different next action and T-12 owns it. */}
-          {!nothingWorks && tripSoon ? (
+          {!nothingWorks && tripSoon && tripReminder.show ? (
             <View className="mx-gutter rounded-md bg-tray p-3.5" style={{ marginTop: 12 }}>
               <Text variant="eyebrow">{TODAY_COPY.tripAheadKicker}</Text>
               <Text variant="body" className="mt-1.5" numberOfLines={2}>
@@ -1826,18 +1794,37 @@ export default function TodayScreen() {
                   daysUntilIso(tripSoon.startsOn, new Date()),
                 )}
               </Text>
-              <PressableSurface
-                accessibilityRole="button"
-                accessibilityLabel={TODAY_COPY.tripAheadAction}
-                onPress={() => router.push(`/trips/${tripSoon.id}`)}
-                fill
-                style={{ minHeight: ax ? 56 : 44 }}
-                contentStyle={{ flex: 1, justifyContent: 'center' }}
-                className="mt-1">
-                <Text variant="label" style={{ color: theme.accent }}>
-                  {TODAY_COPY.tripAheadAction}
-                </Text>
-              </PressableSurface>
+              {/* Two answers to one reminder: the trip's own screen, or an
+                  acknowledgement. "Got it" is quiet muted ink beside the
+                  accent action — the card's accent stays on the thing that
+                  goes somewhere — and it dismisses THIS trip permanently
+                  (per-trip AsyncStorage key; see `useTripReminder`). */}
+              <View className="flex-row items-center" style={{ gap: 16 }}>
+                <PressableSurface
+                  accessibilityRole="button"
+                  accessibilityLabel={TODAY_COPY.tripAheadAction}
+                  onPress={() => router.push(`/trips/${tripSoon.id}`)}
+                  fill
+                  style={{ minHeight: ax ? 56 : 44 }}
+                  contentStyle={{ flex: 1, justifyContent: 'center' }}
+                  className="mt-1">
+                  <Text variant="label" style={{ color: theme.accent }}>
+                    {TODAY_COPY.tripAheadAction}
+                  </Text>
+                </PressableSurface>
+                <PressableSurface
+                  accessibilityRole="button"
+                  accessibilityLabel={`${TODAY_COPY.tripAheadDismiss}, hide this reminder`}
+                  onPress={tripReminder.dismiss}
+                  fill
+                  style={{ minHeight: ax ? 56 : 44, minWidth: MIN_TAP_TARGET }}
+                  contentStyle={{ justifyContent: 'center', alignItems: 'center' }}
+                  className="mt-1 px-2">
+                  <Text variant="label" className="text-muted">
+                    {TODAY_COPY.tripAheadDismiss}
+                  </Text>
+                </PressableSurface>
+              </View>
             </View>
           ) : null}
 
@@ -1967,6 +1954,7 @@ export default function TodayScreen() {
                           piecesLine: piecesLine(outfit.candidate.items),
                           garments: outfit.candidate.items,
                           weatherMark: weatherRead.mark,
+                          weatherSymbol: weatherRead.symbol,
                           positionLabel: positionLabel((i + 1) as PlateIndex),
                           // Nothing to apply since the chips were withdrawn —
                           // see the retirement note above `interrupt`. The
