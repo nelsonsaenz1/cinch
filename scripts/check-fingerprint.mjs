@@ -52,8 +52,8 @@ const PLATFORM = 'ios';
  * cannot reproduce a known-good answer is not evidence about anything, and this
  * one silently could not for a while. `--verify-control` runs it.
  */
-const CONTROL_COMMIT = 'ed2e39061ffc84c88a38925f1cff3fff4f3a2497';
-const CONTROL_HASH = '0ceedff2df25d02f8a8482e101dddbb99593caeb';
+const CONTROL_COMMIT = 'e37361daabbe8cfff5138fa5d9b700d1fd5f3376';
+const CONTROL_HASH = 'c5f007736ab062f3dcb1bc3d98459f6d0ebd7119';
 
 /**
  * WHY THIS DOES NOT HASH THE WORKING DIRECTORY.

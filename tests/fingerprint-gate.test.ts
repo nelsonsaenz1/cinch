@@ -35,14 +35,16 @@ import { test } from 'node:test';
 const script = readFileSync('scripts/check-fingerprint.mjs', 'utf8');
 const body = script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 
-// Re-taken 2026-08-21 at the cut of build 42 (the ProMotion commit) — the
-// procedure the previous ids' assertion message prescribes. The runtime was
-// computed by the script's own EAS-equivalent method (git archive + npm ci)
-// and must match what EAS stamps on build 42; compare at submission.
-const BUILD_40_COMMIT = 'ed2e39061ffc84c88a38925f1cff3fff4f3a2497';
-const BUILD_40_RUNTIME = '0ceedff2df25d02f8a8482e101dddbb99593caeb';
+// Re-taken 2026-08-21 at the cut of build 43 (ProMotion + the v1.2.0 bump
+// Apple demanded after closing the 1.1.0 train) — the procedure the previous
+// ids' assertion message prescribes. The runtime was computed by the script's
+// own EAS-equivalent method (git archive + npm ci); EAS stamped the identical
+// hash on build 42 for the ProMotion-only tree, which is the method's live
+// confirmation. Compare again at build 43's submission.
+const BUILD_40_COMMIT = 'e37361daabbe8cfff5138fa5d9b700d1fd5f3376';
+const BUILD_40_RUNTIME = 'c5f007736ab062f3dcb1bc3d98459f6d0ebd7119';
 
-test('the control is the commit Store build 42 was built from, and its EAS runtime', () => {
+test('the control is the commit Store build 43 was built from, and its EAS runtime', () => {
   assert.match(body, new RegExp(`CONTROL_COMMIT = '${BUILD_40_COMMIT}'`));
   assert.match(body, new RegExp(`CONTROL_HASH = '${BUILD_40_RUNTIME}'`));
 
@@ -144,7 +146,7 @@ test('no fingerprint input has moved since the commit build 40 was built from', 
   const AT_BUILD_40: Record<string, string> = {
     'package.json': 'b100309deb0b216591c1caff64405122d0f20d09',
     'package-lock.json': 'b4b6f7ca4cdecc8538c19fadbc627f0cd841790b',
-    'app.config.ts': 'b449783b87f1ecb1587161afc2f9945f70dfc636',
+    'app.config.ts': '50c2ee57349bee6fe84089617892522e48ce5653',
     'eas.json': 'ee59b14e9b048b9121f5dbf39ae8d2052a3641e6',
     '.easignore': '6e70ea0a25678378d28a4f9816b770010d72c8f3',
     '.gitignore': 'f43ce861f415104d72feca1b6475fc5f10fbdb37',
