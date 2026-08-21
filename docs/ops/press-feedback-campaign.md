@@ -3,6 +3,13 @@
 Goal: no `active:opacity-*` snap anywhere; every press compresses through
 `usePressFeedback` (directly, or via `PressableSurface`/`Chip`/`Button`).
 
+## State (2026-08-21, after tranche 3)
+
+Tranche 3 added the social spine: EventCard (card + both RSVP buttons),
+VotePill (vote, retry, Add-yours), OutfitPostCard (menu, comments, mini look
+card), the review deck (retry, back, category rows) and the stylist's
+message bubbles (outfit strips, retry). ~190 grep hits remain.
+
 ## State (2026-08-20, after tranches 1–2)
 
 Converted (~55 sites): all Buttons and Chips, every-screen BackButton, the

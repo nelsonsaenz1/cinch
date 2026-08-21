@@ -1,6 +1,7 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { formatTemp } from '@/features/context/weather';
 import { eventCardLabel, eventCardLines } from '@/features/events/event-lines';
@@ -85,11 +86,12 @@ export function EventCard({ event, onPress }: { event: EventSummary; onPress: ()
   const isInvited = model.state !== null;
 
   return (
-    <Pressable
+    <PressableSurface
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={eventCardLabel(model)}
-      className="mb-3 rounded-plate border border-rule bg-surface p-4 active:opacity-70">
+      fill
+      className="mb-3 rounded-plate border border-rule bg-surface p-4">
       <View className="flex-row items-baseline justify-between gap-3">
         <Text variant="plate" className="flex-1" numberOfLines={2}>
           {model.title}
@@ -161,7 +163,7 @@ export function EventCard({ event, onPress }: { event: EventSummary; onPress: ()
                 ACCEPTING is a `success` — the intent whose own doc names "an
                 invite was accepted". Declining gets the selection tick and
                 nothing more; a refusal is not congratulated. */}
-            <Pressable
+            <PressableSurface
               onPress={() => {
                 haptics.selection();
                 respond.mutate(
@@ -174,13 +176,15 @@ export function EventCard({ event, onPress }: { event: EventSummary; onPress: ()
               accessibilityRole="button"
               accessibilityLabel={`Going to ${event.title}`}
               accessibilityState={{ disabled: respond.isPending }}
+              fill
               style={{ minHeight: 40, backgroundColor: theme.ink }}
-              className="flex-1 items-center justify-center rounded-md active:opacity-70">
+              contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              className="flex-1 rounded-md">
               <Text variant="label" style={{ color: theme.canvas }}>
                 Going
               </Text>
-            </Pressable>
-            <Pressable
+            </PressableSurface>
+            <PressableSurface
               onPress={() => {
                 haptics.selection();
                 respond.mutate({ eventId: event.id, response: 'declined' });
@@ -190,10 +194,12 @@ export function EventCard({ event, onPress }: { event: EventSummary; onPress: ()
               accessibilityRole="button"
               accessibilityLabel={`Can’t make it to ${event.title}`}
               accessibilityState={{ disabled: respond.isPending }}
+              fill
               style={{ minHeight: 40 }}
-              className="flex-1 items-center justify-center rounded-md border border-rule active:opacity-60">
+              contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              className="flex-1 rounded-md border border-rule">
               <Text variant="label">Can’t make it</Text>
-            </Pressable>
+            </PressableSurface>
           </View>
           {/* The refused RSVP says so under the pair it belongs to — quiet,
               inline, announced (the audit's silent-failure note). */}
@@ -206,6 +212,6 @@ export function EventCard({ event, onPress }: { event: EventSummary; onPress: ()
           ) : null}
         </Animated.View>
       ) : null}
-    </Pressable>
+    </PressableSurface>
   );
 }

@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useState } from 'react';
-import { Dimensions, Pressable, TextInput, useWindowDimensions, View } from 'react-native';
+import { Dimensions, TextInput, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
@@ -20,6 +20,7 @@ import { Chip } from '@/components/ui/chip';
 import { Decisions } from '@/components/ingest/capture-parts';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Swatch } from '@/components/ui/swatch';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
 import { stableImageSource } from '@/features/closet/use-image-urls';
@@ -385,18 +386,18 @@ export function ReviewCard({
       </Text>
       {/* An immediate retry, as a peer rather than as an alert's only button.
           Paper with a hairline at r12 — outlined, so regular weight. */}
-      <Pressable
+      <PressableSurface
         accessibilityRole="button"
         accessibilityLabel="Send it now"
-        accessibilityState={{ disabled: unsaved.busy ?? false, busy: unsaved.busy ?? false }}
-        disabled={unsaved.busy}
+        busy={unsaved.busy ?? false}
         onPress={unsaved.onRetry}
         style={{ minHeight: MIN_TAP_TARGET, alignSelf: 'flex-start', opacity: unsaved.busy ? 0.5 : 1 }}
-        className="mt-3 items-center justify-center rounded-md border border-hairline bg-surface px-4 active:opacity-70">
+        contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        className="mt-3 rounded-md border border-hairline bg-surface px-4">
         <Text variant="body" className="text-ink" style={{ fontSize: 15 }}>
           Send it now
         </Text>
-      </Pressable>
+      </PressableSurface>
     </View>
   ) : null;
 
@@ -590,17 +591,18 @@ export function ReviewCard({
                     the title between two equal widths, and a title centred
                     against nothing drifts as the word changes. */}
                 <View className="flex-row items-center justify-between">
-                  <Pressable
+                  <PressableSurface
                     accessibilityRole="button"
                     accessibilityLabel="Back"
                     accessibilityHint="Returns to this piece with your correction kept"
                     onPress={() => setOpenEditor(null)}
+                    fill
                     style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-                    className="active:opacity-60">
+                    contentStyle={{}}>
                     <Text variant="body" className="text-muted" style={{ fontSize: 15 }}>
                       Back
                     </Text>
-                  </Pressable>
+                  </PressableSurface>
                   <Text variant="body" className="text-ink" style={{ fontSize: 15 }}>
                     Category
                   </Text>
@@ -629,7 +631,7 @@ export function ReviewCard({
                   {CATEGORY_OPTIONS.map((c) => {
                     const held = category === c.key;
                     return (
-                      <Pressable
+                      <PressableSurface
                         key={c.key}
                         accessibilityRole="button"
                         accessibilityState={{ selected: held }}
@@ -638,12 +640,14 @@ export function ReviewCard({
                           onEditCategory(c.key);
                           setOpenEditor(null);
                         }}
+                        fill
                         style={{
                           minHeight: 46,
                           borderWidth: held ? 1.5 : 1,
                           borderColor: held ? theme.ink : theme.hairline,
                         }}
-                        className={`flex-row items-center justify-between rounded-md px-4 active:opacity-70 ${
+                        contentStyle={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                        className={`rounded-md px-4 ${
                           held ? 'bg-surface' : ''
                         }`}>
                         <Text
@@ -661,7 +665,7 @@ export function ReviewCard({
                             resizeMode="scaleAspectFit"
                           />
                         ) : null}
-                      </Pressable>
+                      </PressableSurface>
                     );
                   })}
                 </View>

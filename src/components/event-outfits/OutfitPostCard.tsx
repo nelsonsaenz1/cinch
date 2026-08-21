@@ -1,7 +1,7 @@
 import { Canvas, Image as SkiaImage, Shadow, useImage } from '@shopify/react-native-skia';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import { ActionSheetIOS, Pressable, StyleSheet, Text as RNText, View } from 'react-native';
+import { ActionSheetIOS, StyleSheet, Text as RNText, View } from 'react-native';
 
 import {
   GarmentCell,
@@ -14,6 +14,7 @@ import {
 import { AddYoursPill, VotePill } from '@/components/event-outfits/VotePill';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import type { PickLine } from '@/features/event-outfits/board-logic';
 import { voteCountLine } from '@/features/event-outfits/board-copy';
@@ -417,21 +418,22 @@ export function OutfitPostCard({
             {name}
           </Text>
           {hasMenu ? (
-            <Pressable
+            <PressableSurface
               accessibilityRole="button"
               accessibilityLabel="Look options"
               accessibilityHint="Share, report, block or retire this look"
               hitSlop={10}
               onPress={openMenu}
+              fill
               style={{ minHeight: MIN_TAP_TARGET - 20, justifyContent: 'center' }}
-              className="active:opacity-60">
+              contentStyle={{}}>
               <SymbolView
                 name="ellipsis"
                 size={14}
                 tintColor={theme.faint}
                 resizeMode="scaleAspectFit"
               />
-            </Pressable>
+            </PressableSurface>
           ) : null}
         </View>
 
@@ -500,18 +502,19 @@ export function OutfitPostCard({
               onRetry={onRetryVote}
             />
           )}
-          <Pressable
+          <PressableSurface
             accessibilityRole="button"
             accessibilityLabel={
               commentCount > 0 ? `Comments, ${commentCount}` : 'Comment on this look'
             }
             onPress={onOpenComments}
             hitSlop={8}
+            fill
             style={{ minHeight: MIN_TAP_TARGET - 12 }}
-            className="flex-row items-center gap-1.5 active:opacity-60">
+            contentStyle={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <SymbolView name="text.bubble" size={14} tintColor={theme.muted} resizeMode="scaleAspectFit" />
             {commentCount > 0 ? <Text variant="label">{commentCount}</Text> : null}
-          </Pressable>
+          </PressableSurface>
         </View>
 
         {/*
@@ -562,11 +565,12 @@ export function AttendeeLookCard({
   const firstName = attendeeName?.split(/\s+/)[0] ?? 'Friend';
 
   return (
-    <Pressable
+    <PressableSurface
       accessibilityRole="button"
       accessibilityLabel={`${firstName}'s look: ${lookDescriptor(look.garments)}`}
       onPress={onPress}
-      className="rounded-plate border border-hairline bg-surface p-3 active:opacity-70">
+      fill
+      className="rounded-plate border border-hairline bg-surface p-3">
       <View className="flex-row gap-1.5">
         {keyPieces(look.garments).map((g) => (
           <View key={g.id} className="aspect-square flex-1 overflow-hidden rounded-sm bg-tray">
@@ -583,7 +587,7 @@ export function AttendeeLookCard({
       <Text variant="caption" numberOfLines={1} className="mt-1">
         {lookDescriptor(look.garments)}
       </Text>
-    </Pressable>
+    </PressableSurface>
   );
 }
 

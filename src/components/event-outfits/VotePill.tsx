@@ -1,8 +1,9 @@
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -150,24 +151,26 @@ export function VotePill({
 
   if (failed) {
     return (
-      <Pressable
+      <PressableSurface
         accessibilityRole="button"
         accessibilityLabel="Your pick didn’t go through — try again"
         onPress={onRetry}
         // Inline: the atlas's refused ring is `critical` at 45%, which has no
         // token of its own — `theme.critical` is opaque and `rule` is the
         // wrong hue for a refusal.
+        fill
         style={{ minHeight: MIN_TAP_TARGET - 8, borderColor: `${theme.critical}73` }}
-        className="flex-row items-center justify-center gap-1.5 rounded-md border px-3.5 active:opacity-70">
+        contentStyle={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+        className="rounded-md border px-3.5">
         <Text variant="label" style={{ color: theme.critical }}>
           Try again
         </Text>
-      </Pressable>
+      </PressableSurface>
     );
   }
 
   return (
-    <Pressable
+    <PressableSurface
       accessibilityRole="button"
       accessibilityLabel={shown ? `Picked, ${tally}. Take your pick back` : `Vote for this look, ${tally}`}
       accessibilityState={{ selected: shown, disabled: pending, busy: pending }}
@@ -179,9 +182,11 @@ export function VotePill({
         expiry.current = setTimeout(() => setGuess(null), GUESS_TTL);
         onToggle();
       }}
+      fill
       style={{ minHeight: MIN_TAP_TARGET - 8 }}
+      contentStyle={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
       className={[
-        'flex-row items-center justify-center gap-1.5 rounded-md px-3.5 active:opacity-70',
+        'rounded-md px-3.5',
         shown ? 'bg-ink' : 'border border-rule',
         // The dim IS the working signal, and only past the two-second floor —
         // it used to sit under a spinner that had replaced the label, so a
@@ -210,7 +215,7 @@ export function VotePill({
           {votes}
         </Text>
       ) : null}
-    </Pressable>
+    </PressableSurface>
   );
 }
 
@@ -222,15 +227,17 @@ export function VotePill({
 export function AddYoursPill({ onPress }: { onPress: () => void }) {
   const theme = useTheme();
   return (
-    <Pressable
+    <PressableSurface
       accessibilityRole="button"
       accessibilityLabel="Add your own look to the board"
       onPress={onPress}
+      fill
       style={{ minHeight: MIN_TAP_TARGET - 8 }}
-      className="flex-row items-center justify-center rounded-md border border-rule px-3.5 active:opacity-70">
+      contentStyle={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+      className="rounded-md border border-rule px-3.5">
       <Text variant="label" style={{ color: theme.ink }}>
         Add yours
       </Text>
-    </Pressable>
+    </PressableSurface>
   );
 }

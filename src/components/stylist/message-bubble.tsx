@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import type { ChatMessage } from '@/features/stylist/use-chat';
 import { oklchToHex } from '@/lib/color';
@@ -85,7 +86,7 @@ function OutfitStrip({
   const label = raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : raw;
 
   return (
-    <Pressable
+    <PressableSurface
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Outfit: ${label}`}
@@ -97,8 +98,8 @@ function OutfitStrip({
       // beat the 6pt caption sitting immediately above it or the caption would
       // read as a heading for the strip below rather than a label for the strip
       // above. Neither lands on the 8pt rhythm, hence the literals.
-      style={{ marginTop: first ? 10 : 14 }}
-      className="active:opacity-80">
+      fill
+      style={{ marginTop: first ? 10 : 14 }}>
       <View
         // The tray well is drawn at 14pt in the atlas ("The outfit strip"
         // panel, and both strips in S-05) — tighter than the 20pt `plate`,
@@ -167,7 +168,7 @@ function OutfitStrip({
       <Text variant="note" numberOfLines={2} style={{ marginTop: 6 }}>
         {label}
       </Text>
-    </Pressable>
+    </PressableSurface>
   );
 }
 
@@ -277,17 +278,19 @@ export function MessageBubble({
               dead end: the question was gone from the composer and there was
               nothing left to tap. */}
           {message.failed && message.retryable && onRetry ? (
-            <Pressable
+            <PressableSurface
               onPress={onRetry}
               accessibilityRole="button"
               accessibilityHint="Sends the same question again"
               hitSlop={12}
+              fill
+              contentStyle={{}}
               // 10pt under the bubble (S-06), not the 8 the rhythm token gives.
               // It is the same offset the first outfit strip gets, and for the
               // same reason: this is the one thing the failed turn can still
               // do, so it hangs off the bubble as part of it.
               style={{ marginTop: 10 }}
-              className="self-start active:opacity-60">
+              className="self-start">
               {/* Ink, not the `label` variant's `muted`. The atlas's span
                   (S-06) sets size, weight and underline but names no colour,
                   so it inherits the document's #1C1A16 — this is the live
@@ -299,7 +302,7 @@ export function MessageBubble({
               <Text variant="label" className="underline" style={{ color: theme.ink }}>
                 Try again
               </Text>
-            </Pressable>
+            </PressableSurface>
           ) : null}
 
           {message.outfits.map((outfit, i) => (
