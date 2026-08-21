@@ -35,10 +35,14 @@ import { test } from 'node:test';
 const script = readFileSync('scripts/check-fingerprint.mjs', 'utf8');
 const body = script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 
-const BUILD_40_COMMIT = 'ac06aec83105c0d9e0eb88a9d361ce4da1863432';
-const BUILD_40_RUNTIME = '18938ff9525bc2baed62a52ceb514ebefd438c1f';
+// Re-taken 2026-08-21 at the cut of build 42 (the ProMotion commit) — the
+// procedure the previous ids' assertion message prescribes. The runtime was
+// computed by the script's own EAS-equivalent method (git archive + npm ci)
+// and must match what EAS stamps on build 42; compare at submission.
+const BUILD_40_COMMIT = 'ed2e39061ffc84c88a38925f1cff3fff4f3a2497';
+const BUILD_40_RUNTIME = '0ceedff2df25d02f8a8482e101dddbb99593caeb';
 
-test('the control is the commit Store build 40 was built from, and its EAS runtime', () => {
+test('the control is the commit Store build 42 was built from, and its EAS runtime', () => {
   assert.match(body, new RegExp(`CONTROL_COMMIT = '${BUILD_40_COMMIT}'`));
   assert.match(body, new RegExp(`CONTROL_HASH = '${BUILD_40_RUNTIME}'`));
 
@@ -140,7 +144,7 @@ test('no fingerprint input has moved since the commit build 40 was built from', 
   const AT_BUILD_40: Record<string, string> = {
     'package.json': 'b100309deb0b216591c1caff64405122d0f20d09',
     'package-lock.json': 'b4b6f7ca4cdecc8538c19fadbc627f0cd841790b',
-    'app.config.ts': 'bfc4159311a711a7fdc3e258682d670bfcaf0756',
+    'app.config.ts': 'b449783b87f1ecb1587161afc2f9945f70dfc636',
     'eas.json': 'ee59b14e9b048b9121f5dbf39ae8d2052a3641e6',
     '.easignore': '6e70ea0a25678378d28a4f9816b770010d72c8f3',
     '.gitignore': 'f43ce861f415104d72feca1b6475fc5f10fbdb37',
