@@ -1,7 +1,9 @@
 import { useCallback } from 'react';
 import { Pressable, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
+import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { haptics } from '@/lib/haptics';
 import { useTheme } from '@/theme/tokens';
 
@@ -89,6 +91,13 @@ export function Chip({
 }: ChipProps) {
   const theme = useTheme();
   const spec = chipSpec({ tone, selected, selectedGround, size, pressable: Boolean(onPress) });
+  // The app's one press response (UX-07). A chip had NO visible pressed state
+  // at all — the haptic ticked and the pixels sat still, which on a filter
+  // rail read as a dead tap until the count changed. The compression rides an
+  // Animated.View around the drawn chip, because the ground and ring live on
+  // an inner View (NativeWind cannot paint Reanimated wrappers) and a scale
+  // on the content alone would squeeze the label inside a rigid ring.
+  const feedback = usePressFeedback(Boolean(onPress));
 
   // The selection tick every other control in the app gives a tap. A chip IS a
   // selection, so this is the one intent it can spend. Best-effort by
@@ -114,8 +123,12 @@ export function Chip({
       // in a wrapped row the slop of one line would reach into the next and
       // leave the boundary between them ambiguous.
       hitSlop={spec.hitSlop}
-      style={{ minHeight: spec.minHeight, ...(spec.borderColor ? { borderColor: spec.borderColor } : null) }}
-      className={`flex-row items-center justify-center rounded-chip ${spec.padding} ${spec.ground}`}>
+      onPressIn={feedback.onPressIn}
+      onPressOut={feedback.onPressOut}>
+      <Animated.View style={feedback.style}>
+        <View
+          style={{ minHeight: spec.minHeight, ...(spec.borderColor ? { borderColor: spec.borderColor } : null) }}
+          className={`flex-row items-center justify-center rounded-chip ${spec.padding} ${spec.ground}`}>
       {/* Inline geometry rather than a class: 9px has no spacing step, and it
           should not get one for a single dot. `mr-1.5` is the atlas's 6px gap. */}
       {swatchHex ? (
@@ -144,6 +157,8 @@ export function Chip({
           {count}
         </Text>
       ) : null}
+        </View>
+      </Animated.View>
     </Pressable>
   );
 }

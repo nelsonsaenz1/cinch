@@ -1,10 +1,12 @@
 import { SymbolView } from 'expo-symbols';
 import { ActivityIndicator, Pressable, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { useTheme } from '@/theme/tokens';
 
 import { settingsRowSpec } from './settings-row-spec';
 import { Text } from './text';
+import { usePressFeedback } from './use-press-feedback';
 
 /**
  * One settings row: label, an optional quiet value, a chevron, a tap target.
@@ -70,6 +72,7 @@ export function SettingsRow({
 }) {
   const theme = useTheme();
   const spec = settingsRowSpec({ tone, external, loading, disabled, affordance });
+  const feedback = usePressFeedback(!spec.inert);
   const iconColor = theme[spec.icon];
 
   return (
@@ -79,8 +82,19 @@ export function SettingsRow({
       accessibilityHint={spec.accessibilityHint}
       onPress={onPress}
       disabled={spec.inert}
+      onPressIn={feedback.onPressIn}
+      onPressOut={feedback.onPressOut}
       style={{ minHeight: spec.minHeight, opacity: spec.opacity }}
-      className="flex-row items-center justify-between gap-3 px-4 py-3.5 active:opacity-60">
+      className="px-4 py-3.5">
+      {/* UX-07: the interpolated compression replaces the one-frame
+          `active:opacity` snap. The row arrangement moves onto the animated
+          layer as inline style — NativeWind cannot paint Reanimated wrappers,
+          the adoption cost pressable-surface.tsx documents. */}
+      <Animated.View
+        style={[
+          feedback.style,
+          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+        ]}>
       <View className="flex-1">
         <Text variant="body" className={spec.labelClass}>
           {label}
@@ -108,6 +122,7 @@ export function SettingsRow({
           />
         ) : null}
       </View>
+      </Animated.View>
     </Pressable>
   );
 }

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, ScreenHeader, Text } from '@/components/ui';
+import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { AnswerChip } from '@/features/plan/trip-questionnaire';
 import {
   LIFE_STAGES,
@@ -47,6 +49,50 @@ import { MIN_TAP_TARGET } from '@/theme/tokens';
  * name, and the stylist's brief carries one standing sentence about who it
  * is dressing.
  */
+/**
+ * One life-stage answer — a ring card in the trip chips' grammar, with UX-07's
+ * interpolated compression rather than an `active:` snap. Its own component
+ * because `usePressFeedback` is a hook and hooks cannot live in a `.map`.
+ */
+function StageOption({
+  label,
+  hint,
+  selected,
+  onPress,
+}: {
+  label: string;
+  hint: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const feedback = usePressFeedback();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${label}. ${hint}`}
+      onPressIn={feedback.onPressIn}
+      onPressOut={feedback.onPressOut}>
+      <Animated.View style={feedback.style}>
+        <View
+          style={{ minHeight: MIN_TAP_TARGET }}
+          className={[
+            'rounded-md border px-4 py-3',
+            // The trip chips' rule: a ring, never a fill — fills are
+            // reserved for the action that commits.
+            selected ? 'border-ink' : 'border-rule',
+          ].join(' ')}>
+          <Text variant="label">{label}</Text>
+          <Text variant="note" className="mt-1 text-muted">
+            {hint}
+          </Text>
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 export function StyleProfileFlow({
   editor,
   onDone,
@@ -152,24 +198,13 @@ export function StyleProfileFlow({
 
             <View className="mt-6 gap-2">
               {LIFE_STAGES.map((s) => (
-                <Pressable
+                <StageOption
                   key={s.key}
+                  label={s.label}
+                  hint={s.hint}
+                  selected={stage === s.key}
                   onPress={() => setStageEdit(s.key)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: stage === s.key }}
-                  accessibilityLabel={`${s.label}. ${s.hint}`}
-                  style={{ minHeight: MIN_TAP_TARGET }}
-                  className={[
-                    'rounded-md border px-4 py-3 active:opacity-60',
-                    // The trip chips' rule: a ring, never a fill — fills are
-                    // reserved for the action that commits.
-                    stage === s.key ? 'border-ink' : 'border-rule',
-                  ].join(' ')}>
-                  <Text variant="label">{s.label}</Text>
-                  <Text variant="note" className="mt-1 text-muted">
-                    {s.hint}
-                  </Text>
-                </Pressable>
+                />
               ))}
             </View>
           </>

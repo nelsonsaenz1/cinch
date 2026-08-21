@@ -2,8 +2,10 @@ import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import type { ReactNode, RefObject } from 'react';
 import { Pressable, TextInput, View, useWindowDimensions } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { Chip } from '@/components/ui/chip';
+import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
@@ -129,13 +131,20 @@ const FOOTER_GAP = 18;
  * stretches full-bleed, in the answers' `flex-wrap` row it hugs its label.
  */
 function TappableRow({ label, onPress }: { label: string; onPress?: () => void }) {
+  // UX-07's interpolated compression, replacing the one-frame `active:` snap.
+  // The ring rides the animated layer so it compresses WITH the label — a
+  // rigid ring around a shrinking word reads as the word flinching.
+  const feedback = usePressFeedback(Boolean(onPress));
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      style={{ minHeight: MIN_TAP_TARGET, borderRadius: ROW_RADIUS }}
-      className="justify-center border border-rule px-4 active:opacity-60">
-      <Text variant="body">{label}</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" onPressIn={feedback.onPressIn} onPressOut={feedback.onPressOut}>
+      <Animated.View
+        style={[
+          feedback.style,
+          { minHeight: MIN_TAP_TARGET, borderRadius: ROW_RADIUS, justifyContent: 'center' },
+        ]}
+        className="border border-rule px-4">
+        <Text variant="body">{label}</Text>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -250,6 +259,7 @@ function DoorCard({
   const { width, fontScale } = useWindowDimensions();
   const ax = fontScale >= AX_STACK_SCALE;
   const columns = doorColumns(ax);
+  const feedback = usePressFeedback(Boolean(onPress));
   // The gutter is 20 either side; the gaps are between columns.
   const cardWidth = (width - 40 - DOOR_GAP * (columns - 1)) / columns;
 
@@ -260,7 +270,11 @@ function DoorCard({
       accessibilityRole="button"
       accessibilityLabel={hint ? `${label}. ${hint}` : label}
       style={{ width: cardWidth }}
-      className="active:opacity-70">
+      onPressIn={feedback.onPressIn}
+      onPressOut={feedback.onPressOut}>
+      {/* UX-07's compression instead of the `active:` snap — the whole card,
+          well and words together, the same response the closet's cards give. */}
+      <Animated.View style={feedback.style}>
       <View
         className="bg-sand overflow-hidden"
         style={{ height: doorWell(ax), borderRadius: DOOR_RADIUS }}>
@@ -269,7 +283,9 @@ function DoorCard({
             source={{ uri: imageUri }}
             style={{ width: '100%', height: '100%' }}
             contentFit="cover"
-            transition={0}
+            // 120ms, the plate tile's own fade — a well that pops from sand to
+            // photograph in one frame reads as a glitch, not an arrival.
+            transition={120}
             accessibilityIgnoresInvertColors
           />
         ) : null}
@@ -282,6 +298,7 @@ function DoorCard({
           {hint}
         </Text>
       ) : null}
+      </Animated.View>
     </Pressable>
   );
 }
@@ -599,6 +616,7 @@ export function Composer({
   inputRef,
 }: ComposerProps) {
   const theme = useTheme();
+  const sendFeedback = usePressFeedback();
 
   /**
    * The armed test, computed once and used for the guard, the fill and the
@@ -662,10 +680,20 @@ export function Composer({
         disabled={!canSend}
         accessibilityRole="button"
         accessibilityLabel="Send"
-        style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}
-        className={`items-center justify-center rounded-full active:opacity-60 ${
-          canSend ? 'bg-ink' : 'bg-tray'
-        }`}>
+        onPressIn={sendFeedback.onPressIn}
+        onPressOut={sendFeedback.onPressOut}
+        style={{ minHeight: MIN_TAP_TARGET, minWidth: MIN_TAP_TARGET }}>
+        {/* The disc compresses whole — ground and arrow together (UX-07). */}
+        <Animated.View
+          style={[
+            sendFeedback.style,
+            { width: MIN_TAP_TARGET, height: MIN_TAP_TARGET },
+          ]}>
+        <View
+          style={{ width: '100%', height: '100%' }}
+          className={`items-center justify-center rounded-full ${
+            canSend ? 'bg-ink' : 'bg-tray'
+          }`}>
         {/* Idle: `faint` on the tray ground, both straight from the atlas's
             resting composer. Active: canvas on ink. The idle arrow was `muted`,
             which read as an enabled control over a disabled one. */}
@@ -675,6 +703,8 @@ export function Composer({
           tintColor={canSend ? theme.canvas : theme.faint}
           resizeMode="scaleAspectFit"
         />
+        </View>
+        </Animated.View>
       </Pressable>
     </View>
   );

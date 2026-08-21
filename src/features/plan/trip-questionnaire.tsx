@@ -3,7 +3,10 @@ import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
+import Animated from 'react-native-reanimated';
+
 import { Button, KeyboardAwareScrollView, Text } from '@/components/ui';
+import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import {
   INPUT_PADDING_Y,
   PAGE_HEIGHT,
@@ -63,14 +66,24 @@ export function AnswerChip({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  // UX-07's interpolated compression, replacing the one-frame `active:` snap
+  // — the ring, tick and label compress together, the closet cards' response.
+  const feedback = usePressFeedback();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      onPressIn={feedback.onPressIn}
+      onPressOut={feedback.onPressOut}>
+      {/* The ring lives on an inner real View — NativeWind cannot paint a
+          Reanimated wrapper — and the animated layer carries only the
+          compression. */}
+      <Animated.View style={feedback.style}>
+      <View
       style={{ minHeight: MIN_TAP_TARGET }}
       className={[
- 'flex-row items-center justify-center gap-2 rounded-md border px-4 active:opacity-60',
+ 'flex-row items-center justify-center gap-2 rounded-md border px-4',
         // PK-02: RING, TICK AND MEDIUM WEIGHT — three channels, and no fill.
         //
         // These chips were an ink fill, which is a fourth thing the constitution
@@ -96,6 +109,8 @@ export function AnswerChip({
       <Text variant="body">
         {label}
       </Text>
+      </View>
+      </Animated.View>
     </Pressable>
   );
 }

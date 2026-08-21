@@ -342,7 +342,13 @@ export default function RootLayout() {
             <UpdateCoordinator />
             <Superwall>
               <AuthGate>
-              <Stack screenOptions={{ headerShown: false }}>
+              {/* `fullScreenGestureEnabled`: the back swipe works from anywhere
+                  on a pushed card, not only the left edge — the gesture every
+                  polished iOS app answers and the stock edge-only default does
+                  not. Sheets are untouched (they already dismiss by drag), and
+                  react-native-screens applies it to gesture-driven dismissal
+                  only, so push/pop animations are exactly as they were. */}
+              <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }}>
                 <Stack.Screen name="(auth)" />
                 <Stack.Screen name="(tabs)" />
                 {/* The Add Clothes chooser (AC-01) — the door before the
