@@ -1,5 +1,6 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import {
   describeDate,
@@ -88,31 +89,33 @@ export function RepeatMark({
         closet is what ends the repetition.
       </Text>
       <View className="mt-3 flex-row items-center gap-2.5">
-        <Pressable
+        <PressableSurface
           accessibilityRole="button"
           accessibilityLabel="See plans"
           hitSlop={8}
+          fill
           style={{ minHeight: MIN_TAP_TARGET - 12, justifyContent: 'center' }}
-          className="active:opacity-60"
+          contentStyle={{}}
           onPress={onSeePlans}>
           <Text variant="label" style={{ color: theme.accent }}>
             See plans
           </Text>
-        </Pressable>
+        </PressableSurface>
         <Text variant="label" style={{ color: theme.muted }}>
           ·
         </Text>
-        <Pressable
+        <PressableSurface
           accessibilityRole="button"
           accessibilityLabel="Show me another outfit"
           hitSlop={8}
+          fill
           style={{ minHeight: MIN_TAP_TARGET - 12, justifyContent: 'center' }}
-          className="active:opacity-60"
+          contentStyle={{}}
           onPress={onShowAnother}>
           <Text variant="label">
             Show me another
           </Text>
-        </Pressable>
+        </PressableSurface>
       </View>
     </View>
   );

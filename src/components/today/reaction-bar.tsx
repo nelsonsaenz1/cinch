@@ -1,10 +1,11 @@
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { Chip } from '@/components/ui/chip';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
@@ -94,14 +95,16 @@ function RowControl({
   const color = theme[spec.label];
 
   return (
-    <Pressable
+    <PressableSurface
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={spec.accessibilityState}
       disabled={state === 'unavailable' || !onPress}
       onPress={onPress}
+      fill
       style={{ minHeight: spec.minHeight, flexGrow: spec.flex, flexShrink: 1, flexBasis: 0 }}
-      className={`flex-row items-center justify-center gap-1.5 rounded-md px-3 active:opacity-70 ${spec.ground}`}>
+      contentStyle={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+      className={`rounded-md px-3 ${spec.ground}`}>
       {spec.tick ? (
         <SymbolView name="checkmark" size={13} tintColor={color} resizeMode="scaleAspectFit" />
       ) : null}
@@ -116,7 +119,7 @@ function RowControl({
         numberOfLines={stacked ? 2 : 1}>
         {label}
       </Text>
-    </Pressable>
+    </PressableSurface>
   );
 }
 
@@ -156,18 +159,19 @@ export function FailureBand({
         {/* PROSE (regular) — `note` is `label`'s size in the regular cut. */}
         <Text variant="note">{body}</Text>
       </View>
-      <Pressable
+      <PressableSurface
         accessibilityRole="button"
         accessibilityLabel={`${retryLabel} — ${title}`}
         onPress={onRetry}
         // 76 × 44, as drawn. The 44 is the floor, and the 76 is what keeps a
         // one-word control from reading as an afterthought beside the sentence.
         style={{ minWidth: 76, minHeight: MIN_TAP_TARGET }}
-        className="items-center justify-center rounded-md border border-rule px-3 active:opacity-70">
+        contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        className="rounded-md border border-rule px-3">
         <Text variant="label" style={{ color: theme.ink }}>
           {retryLabel}
         </Text>
-      </Pressable>
+      </PressableSurface>
     </View>
   );
 }
@@ -386,7 +390,7 @@ export function ReactionBar({
             {/* The way out. Every other exit from this chooser records a
                 dislike, so an accidental "Not for me" was unrecoverable and
                 quietly poisoned the learner. */}
-            <Pressable
+            <PressableSurface
               accessibilityRole="button"
               accessibilityLabel="Never mind, don't record anything"
               onPress={() => {
@@ -394,12 +398,14 @@ export function ReactionBar({
                 setAskingWhy(false);
               }}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              fill
               style={{ minHeight: MIN_TAP_TARGET - 12 }}
-              className="items-center justify-center rounded-md px-2 active:opacity-60">
+              contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              className="rounded-md px-2">
               <Text variant="label" className="underline">
                 Never mind
               </Text>
-            </Pressable>
+            </PressableSurface>
           </View>
         </Animated.View>
       ) : null}

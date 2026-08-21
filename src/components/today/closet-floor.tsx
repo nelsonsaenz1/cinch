@@ -1,7 +1,8 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { ExampleCard, ExampleGarments } from '@/components/examples/example-card';
 import { GarmentCell } from '@/components/today/garment-cell';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { TE_01, TE_02, TE_02_CAPTION } from '@/features/examples/example-copy';
 import { missingForFirstOutfit, tallyOf } from '@/features/closet/outfit-count';
@@ -167,31 +168,33 @@ export function ClosetFloor({
       </Text>
 
       {/* One oxblood, on the door that starts the closet. */}
-      <Pressable
+      <PressableSurface
         accessibilityRole="button"
         accessibilityLabel={primary}
         onPress={onStart}
         style={{ minHeight: 52 }}
-        className="mt-8 items-center justify-center rounded-md bg-accent px-6 active:opacity-70">
+        contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        className="mt-8 rounded-md bg-accent px-6">
         <Text variant="label" style={{ color: theme.canvas }}>
           {primary}
         </Text>
-      </Pressable>
+      </PressableSurface>
 
       {/* The second intake door, in the same order and weights the hallway
           gives it. Both doors are on the page; neither is hidden behind the
           other. */}
       {empty ? (
-        <Pressable
+        <PressableSurface
           accessibilityRole="button"
           accessibilityLabel="Describe it out loud instead"
           onPress={onDescribe}
           style={{ minHeight: MIN_TAP_TARGET }}
-          className="mt-3 items-center justify-center rounded-md border border-rule px-6 active:opacity-70">
+          contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+          className="mt-3 rounded-md border border-rule px-6">
           <Text variant="label" style={{ color: theme.ink }}>
             Describe it out loud instead
           </Text>
-        </Pressable>
+        </PressableSurface>
       ) : null}
     </View>
   );

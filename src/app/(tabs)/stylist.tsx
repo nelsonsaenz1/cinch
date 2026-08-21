@@ -1,7 +1,7 @@
 import { useRouter, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MessageBubble } from '@/components/stylist/message-bubble';
@@ -18,6 +18,7 @@ import {
 } from '@/components/stylist/sheet-parts';
 import { ClosetDidntLoad, ClosetTooSmall } from '@/components/stylist/stylist-states';
 import { KeyboardAvoidingScreen } from '@/components/ui/keyboard-aware-scroll-view';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { Placement } from '@/features/billing/placements';
 import { useGate } from '@/features/billing/use-gate';
@@ -469,17 +470,18 @@ export default function StylistScreen() {
                     <Text variant="note" style={{ flexShrink: 1 }}>
                       Stylist is part of membership.
                     </Text>
-                    <Pressable
+                    <PressableSurface
                       accessibilityRole="button"
                       accessibilityLabel="See plans"
                       onPress={() => void gate.present(Placement.OpenStylist)}
                       hitSlop={8}
+                      fill
                       style={{ minHeight: MIN_TAP_TARGET }}
-                      className="justify-center active:opacity-60">
+                      contentStyle={{ flex: 1, justifyContent: 'center' }}>
                       <Text variant="label" className="underline" style={{ color: theme.ink }}>
                         See plans
                       </Text>
-                    </Pressable>
+                    </PressableSurface>
                   </View>
                 ) : null
               }

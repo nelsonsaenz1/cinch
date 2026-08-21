@@ -1,5 +1,6 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { haptics } from '@/lib/haptics';
 import { useTheme } from '@/theme/tokens';
@@ -157,7 +158,7 @@ export function TasteRow({
         const label = chosen ? LABELS[choice].recorded : LABELS[choice].offer;
 
         return (
-          <Pressable
+          <PressableSurface
             key={choice}
             accessibilityRole="button"
             accessibilityLabel={
@@ -190,17 +191,15 @@ export function TasteRow({
               if (clears) onClear(choice);
               else onChoose(choice);
             }}
+            fill
             style={{ flex: 1, minHeight: large ? 56 : 44 }}
+            contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
             className={[
-              'items-center justify-center rounded-md px-4',
+              'rounded-md px-4',
               inert && !chosen ? 'bg-tray' : '',
               chosen && !failed ? 'bg-ink' : '',
               failed ? 'border border-accent' : '',
-              !chosen && !inert ? 'border border-rule active:opacity-70' : '',
-              // Pressable feedback on the recorded pill too. Without it the
-              // filled state reads as a label rather than a control, which is
-              // precisely how the latch went unnoticed.
-              clears ? 'active:opacity-70' : '',
+              !chosen && !inert ? 'border border-rule' : '',
             ].join(' ')}>
             <Text
               variant="label"
@@ -215,7 +214,7 @@ export function TasteRow({
               }}>
               {label}
             </Text>
-          </Pressable>
+          </PressableSurface>
         );
       })}
     </View>

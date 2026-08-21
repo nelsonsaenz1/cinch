@@ -6,8 +6,7 @@ import {
   ActionSheetIOS,
   Alert,
   Platform,
-  Pressable,
-  RefreshControl,
+    RefreshControl,
   ScrollView,
   View,
 } from 'react-native';
@@ -33,6 +32,7 @@ import { RailCard } from '@/components/closet/rail-card';
 import { SelectionBar } from '@/components/closet/selection-bar';
 import { StatRow } from '@/components/closet/stat-row';
 import { ZeroIdentityHeader } from '@/components/closet/zero-identity-header';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Avatar, Chip, EmptyState, ErrorState, SearchField, Text } from '@/components/ui';
 import {
   CLOSET_EVENTS,
@@ -400,13 +400,14 @@ export default function ClosetScreen() {
               placeholder="Search your wardrobe"
             />
           </View>
-          <Pressable
+          <PressableSurface
             onPress={screen.toggleSearch}
             accessibilityRole="button"
             accessibilityLabel="Cancel search"
             hitSlop={{ top: 14, bottom: 14, left: 12, right: 12 }}
+            fill
             style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
-            className="active:opacity-60">
+            contentStyle={{}}>
             {/* MUTED, NOT THE ACCENT. C-02 draws Cancel at 16px in the frame's
                 secondary colour: this is the way back out of a mode, not the
                 one action the frame is spending its oxblood on. Inline colour,
@@ -416,7 +417,7 @@ export default function ClosetScreen() {
             <Text variant="body" style={{ fontSize: 16, color: theme.muted }}>
               Cancel
             </Text>
-          </Pressable>
+          </PressableSurface>
         </View>
 
         <CategoryChipsRow screen={screen} />
@@ -526,12 +527,14 @@ export default function ClosetScreen() {
           menu is open: a floating add control over a selection bar is two
           primaries arguing. */}
       {selecting || menuOpen || screen.items.length === 0 ? null : (
-        <Pressable
+        <PressableSurface
           onPress={() => router.push('/add-clothes')}
           disabled={addPieceDisabled()}
           accessibilityRole="button"
           accessibilityLabel={CLOSET_COPY.addPiece}
-          className="absolute items-center justify-center bg-accent active:opacity-80"
+          fill
+          contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+          className="absolute bg-accent"
           style={{
             right: FAB_RIGHT,
             bottom: FAB_BOTTOM,
@@ -557,7 +560,7 @@ export default function ClosetScreen() {
               </Text>
             }
           />
-        </Pressable>
+        </PressableSurface>
       )}
 
       <ClosetMenu
@@ -657,16 +660,18 @@ function HeaderIcon({
 }) {
   const theme = useTheme();
   return (
-    <Pressable
+    <PressableSurface
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
       onPress={onPress}
       hitSlop={(MIN_TAP_TARGET - 34) / 2}
+      fill
       style={{ width: 34, height: 34 }}
-      className="items-center justify-center rounded-full border border-hairline active:opacity-60">
+      contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+      className="rounded-full border border-hairline">
       <SymbolView name={name} size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
-    </Pressable>
+    </PressableSurface>
   );
 }
 
@@ -742,18 +747,19 @@ function Masthead({ screen, onMenu }: { screen: ClosetScreenModel; onMenu: () =>
             keeps its full sentence for VoiceOver, the hit region is padded past
             the 44pt floor, and it stays quiet: the page spends its accent on
             the unworn numeral. */}
-        <Pressable
+        <PressableSurface
           onPress={() => screen.setEditing(true)}
           accessibilityRole="button"
           accessibilityLabel="Edit your profile"
           accessibilityHint="Change your name, handle, bio and photo"
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 8 }}
+          fill
           style={{ minHeight: 34, justifyContent: 'center' }}
-          className="active:opacity-60">
+          contentStyle={{}}>
           <Text variant="label" className="text-ink">
             Edit
           </Text>
-        </Pressable>
+        </PressableSurface>
       </View>
 
       {/* "84 active · 26 stored" — the accepted masthead line.
@@ -881,14 +887,15 @@ function SecondaryInsights({
         <Rail
           title="Latest pieces"
           aside={
-            <Pressable
+            <PressableSurface
               onPress={onSeeAll}
               accessibilityRole="button"
               accessibilityLabel="See all pieces"
               hitSlop={{ top: 14, bottom: 14, left: 12, right: 12 }}
-              className="active:opacity-60">
+              fill
+              contentStyle={{}}>
               <Text variant="caption">See all</Text>
-            </Pressable>
+            </PressableSurface>
           }>
           {screen.latestPieces.map((item) => (
             <RailCard
@@ -1003,16 +1010,17 @@ function SelectionHeader({ screen }: { screen: ClosetScreenModel }) {
   const count = screen.picked?.size ?? 0;
 
   const sideButton = (label: string, onPress: () => void) => (
-    <Pressable
+    <PressableSurface
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={{ top: 14, bottom: 14, left: 12, right: 12 }}
-      className="active:opacity-60">
+      fill
+      contentStyle={{}}>
       <Text variant="label" style={{ fontSize: 15, lineHeight: 20, color: theme.accent }}>
         {label}
       </Text>
-    </Pressable>
+    </PressableSurface>
   );
 
   return (

@@ -4,8 +4,7 @@ import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
-  Pressable,
-  RefreshControl,
+    RefreshControl,
   ScrollView,
   View,
   useWindowDimensions,
@@ -71,6 +70,7 @@ import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { startTagSweeper } from '@/features/ingest/upload-queue';
 import { Placement } from '@/features/billing/placements';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { PLANS } from '@/features/billing/plans';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { usePlan } from '@/features/billing/use-plan';
@@ -234,15 +234,17 @@ function StylistButton() {
   const theme = useTheme();
 
   return (
-    <Pressable
+    <PressableSurface
       onPress={() => router.navigate('/stylist')}
       accessibilityRole="button"
       accessibilityLabel="Ask the stylist"
       hitSlop={8}
+      fill
       style={{ width: 34, height: 34 }}
-      className="items-center justify-center rounded-full border border-rule active:opacity-60">
+      contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+      className="rounded-full border border-rule">
       <SymbolView name="sparkles" size={16} tintColor={theme.accent} resizeMode="scaleAspectFit" />
-    </Pressable>
+    </PressableSurface>
   );
 }
 
@@ -276,13 +278,15 @@ function ActivityButton({ unseen: forced }: { unseen?: boolean } = {}) {
   const unseen = forced ?? live;
 
   return (
-    <Pressable
+    <PressableSurface
       onPress={() => router.navigate('/activity')}
       accessibilityRole="button"
       accessibilityLabel={unseen ? 'Activity, something waiting' : 'Activity'}
       hitSlop={8}
+      fill
       style={{ width: 34, height: 34 }}
-      className="items-center justify-center rounded-full border border-rule active:opacity-60">
+      contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+      className="rounded-full border border-rule">
       <SymbolView name="tray.full" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
       {unseen ? (
         // Oxblood, and this is the one place it is spent on Today. It is the
@@ -303,7 +307,7 @@ function ActivityButton({ unseen: forced }: { unseen?: boolean } = {}) {
           }}
         />
       ) : null}
-    </Pressable>
+    </PressableSurface>
   );
 }
 
@@ -483,35 +487,39 @@ export function Masthead({
               reachable from Plan, so nothing is lost — unlike the profile
               door, which is the only one there is. */}
           {ax3 ? null : (
-            <Pressable
+            <PressableSurface
               onPress={() => router.navigate('/event/new')}
               accessibilityRole="button"
               accessibilityLabel="New occasion"
               hitSlop={8}
+              fill
               style={{ width: 34, height: 34 }}
-              className="items-center justify-center rounded-full border border-rule active:opacity-60">
+              contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              className="rounded-full border border-rule">
               <SymbolView
                 name="calendar.badge.plus"
                 size={15}
                 tintColor={theme.ink}
                 resizeMode="scaleAspectFit"
               />
-            </Pressable>
+            </PressableSurface>
           )}
-          <Pressable
+          <PressableSurface
             onPress={() => router.navigate('/profile')}
             accessibilityRole="button"
             accessibilityLabel="Profile"
             hitSlop={8}
+            fill
             style={{ width: 34, height: 34 }}
-            className="items-center justify-center rounded-full bg-ink active:opacity-60">
+            contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            className="rounded-full bg-ink">
             <SymbolView
               name="person.fill"
               size={15}
               tintColor={theme.canvas}
               resizeMode="scaleAspectFit"
             />
-          </Pressable>
+          </PressableSurface>
         </View>
       </View>
 
@@ -638,16 +646,17 @@ export function NothingWorks({
           overridden is not a refusal, and the engine has no below-threshold
           mode to fall back to. What remains are recoveries that lead somewhere
           real — and the closet is offered before any gap is mentioned. */}
-      <Pressable
+      <PressableSurface
         accessibilityRole="button"
         accessibilityLabel="See what you have worn before"
         onPress={onSeeWorn}
         style={{ minHeight: MIN_TAP_TARGET }}
-        className="mt-5 items-center justify-center rounded-md border border-rule px-4 active:opacity-70">
+        contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        className="mt-5 rounded-md border border-rule px-4">
         <Text variant="label">
           See what you&rsquo;ve worn before
         </Text>
-      </Pressable>
+      </PressableSurface>
     </View>
   );
 }
@@ -1726,16 +1735,18 @@ export default function TodayScreen() {
                   daysUntilIso(tripSoon.startsOn, new Date()),
                 )}
               </Text>
-              <Pressable
+              <PressableSurface
                 accessibilityRole="button"
                 accessibilityLabel={TODAY_COPY.tripAheadAction}
                 onPress={() => router.push(`/trips/${tripSoon.id}`)}
+                fill
                 style={{ minHeight: ax ? 56 : 44 }}
-                className="mt-1 justify-center active:opacity-60">
+                contentStyle={{ flex: 1, justifyContent: 'center' }}
+                className="mt-1">
                 <Text variant="label" style={{ color: theme.accent }}>
                   {TODAY_COPY.tripAheadAction}
                 </Text>
-              </Pressable>
+              </PressableSurface>
             </View>
           ) : null}
 
@@ -1908,18 +1919,19 @@ export default function TodayScreen() {
                             onAddNote={() => entryId && router.push(`/diary/${entryId}`)}
                           />
                         ) : (
-                          <Pressable
+                          <PressableSurface
                             accessibilityRole="button"
                             accessibilityLabel={TODAY_COPY.wear}
-                            accessibilityState={{ busy: wearing }}
-                            disabled={wearing}
+                            busy={wearing}
                             onPress={() => handleWear(i)}
+                            fill
                             style={{ minHeight: ax ? 56 : 44 }}
-                            className="items-center justify-center rounded-md bg-accent px-6 active:opacity-70">
+                            contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+                            className="rounded-md bg-accent px-6">
                             <Text variant="label" style={{ color: theme.canvas }}>
                               {TODAY_COPY.wear}
                             </Text>
-                          </Pressable>
+                          </PressableSurface>
                         )}
 
                         {/* ALONGSIDE the day's decision, and under it — the
@@ -1958,16 +1970,18 @@ export default function TodayScreen() {
                             has one left. Withholding a live control over an
                             empty list is how a tap comes to do nothing. */}
                         {!worn && previousWears.length > 0 && hasAnother ? (
-                          <Pressable
+                          <PressableSurface
                             accessibilityRole="button"
                             accessibilityLabel="Show another"
                             onPress={() => handleShowAnother(i)}
+                            fill
                             style={{ minHeight: ax ? 56 : 44 }}
-                            className="mt-2 items-center justify-center rounded-md active:opacity-70">
+                            contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+                            className="mt-2 rounded-md">
                             <Text variant="label" className="text-muted">
                               Show another
                             </Text>
-                          </Pressable>
+                          </PressableSurface>
                         ) : null}
                       </View>
                     </View>

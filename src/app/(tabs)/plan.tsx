@@ -17,6 +17,7 @@ import { EventCard } from '@/components/events/EventCard';
 import { DayExpanded } from '@/components/plan/day-expanded';
 import { DayRow, DayRowUnplanned } from '@/components/plan/day-row';
 import { ExampleEvents, ExampleWeek } from '@/components/plan/plan-examples';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { NoticeBand } from '@/components/ui/notice-band';
 import { Button, ErrorState, SectionHeader, Skeleton, SkeletonLead } from '@/components/ui';
 import { Text } from '@/components/ui/text';
@@ -694,16 +695,18 @@ export default function PlanScreen() {
               different, which is this page's own visual language rather than
               anything imported from the reverted design. */}
           {mode === 'packing' ? (
-            <Pressable
+            <PressableSurface
               accessibilityRole="button"
               accessibilityLabel={TRIPS_COPY.seeAll}
               onPress={() => router.push('/trips')}
               hitSlop={8}
-              className="min-h-tap shrink justify-center active:opacity-60">
+              fill
+              contentStyle={{}}
+              className="min-h-tap shrink justify-center">
               <Text variant="eyebrow" numberOfLines={1} style={{ color: theme.accent }}>
                 {TRIPS_COPY.seeAll}
               </Text>
-            </Pressable>
+            </PressableSurface>
           ) : (
             <Text variant="eyebrow" className="shrink" numberOfLines={1}>
               {weekRangeLabel}
@@ -736,12 +739,13 @@ export default function PlanScreen() {
  friends" is a quiet link beneath it, same grammar as Lately's
  "Your circle" row, rather than the two sharing one container. */}
             <View className="mx-gutter mb-5">
-              <Pressable
+              <PressableSurface
                 onPress={() => router.push('/event/new')}
                 accessibilityRole="button"
                 accessibilityLabel="New event"
                 style={{ minHeight: 52 }}
-                className="flex-row items-center gap-3 rounded-md bg-ink px-5 active:opacity-70">
+                contentStyle={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                className="rounded-md bg-ink px-5">
                 {/* The plus is its own glyph, a step larger than the label
                     and set off by a real gap — not two spaces inside the
                     string, which track with the font instead of the layout. */}
@@ -751,14 +755,16 @@ export default function PlanScreen() {
                 <Text variant="body" style={{ color: theme.canvas }}>
                   New event
                 </Text>
-              </Pressable>
-              <Pressable
+              </PressableSurface>
+              <PressableSurface
                 // The friends surface belongs to the social-graph slice; the
                 // path string is the whole coupling, same as the event routes.
                 onPress={() => router.push('/friends')}
                 accessibilityRole="button"
                 accessibilityLabel="Invite friends"
-                className="flex-row items-center gap-1.5 py-2 active:opacity-60">
+                fill
+                contentStyle={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                className="py-2">
                 <Text variant="label" className="text-muted">
                   Invite friends
                 </Text>
@@ -768,7 +774,7 @@ export default function PlanScreen() {
                   tintColor={theme.faint}
                   resizeMode="scaleAspectFit"
                 />
-              </Pressable>
+              </PressableSurface>
             </View>
 
             {myEvents.isError || invites.isError ? (

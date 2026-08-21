@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 
 import { PressableSurface } from '@/components/ui/pressable-surface';
@@ -178,12 +178,14 @@ function UpsellCard({
             {/* 28 drawn, 44 tapped — the Remove disc's arrangement, and the
                 same reason: a close control at the full target size would be
                 the largest thing on a card whose subject is a sentence. */}
-            <Pressable
+            <PressableSurface
               accessibilityRole="button"
               accessibilityLabel={UPSELL_COPY.close}
               onPress={close}
               hitSlop={(MIN_TAP_TARGET - 28) / 2}
-              className="items-center justify-center rounded-full active:opacity-60"
+              fill
+              contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              className="rounded-full"
               style={{ width: 28, height: 28, flexShrink: 0, backgroundColor: theme.canvas }}>
               <SymbolView
                 name="xmark"
@@ -191,7 +193,7 @@ function UpsellCard({
                 tintColor={theme.muted}
                 resizeMode="scaleAspectFit"
               />
-            </Pressable>
+            </PressableSurface>
           </View>
 
           <Text variant="note" style={{ color: theme.muted, lineHeight: 20 }}>
@@ -221,16 +223,16 @@ function UpsellCard({
 
             {/* The second way out. A word, not a button — a card with two
                 filled controls asks a question it has no right to ask twice. */}
-            <Pressable
+            <PressableSurface
               accessibilityRole="button"
               accessibilityLabel={UPSELL_COPY.dismiss}
               onPress={close}
-              className="items-center justify-center active:opacity-60"
+              contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
               style={{ minHeight: MIN_TAP_TARGET }}>
               <Text variant="label" style={{ color: theme.muted }}>
                 {UPSELL_COPY.dismiss}
               </Text>
-            </Pressable>
+            </PressableSurface>
           </View>
         </View>
       </Animated.View>

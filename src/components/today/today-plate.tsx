@@ -1,6 +1,7 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { GarmentImage } from '@/components/media/garment-image';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { TODAY_COPY } from '@/features/today/today-spec';
 import type { Garment } from '@/lib/styling';
@@ -257,28 +258,29 @@ export function WornMark({
       </Text>
       {entryId ? (
         <View className="flex-row" style={{ gap: 8, paddingTop: 12 }}>
-          <Pressable
+          <PressableSurface
             accessibilityRole="button"
             accessibilityLabel="Undo this wear"
-            accessibilityState={{ busy: undoing }}
-            disabled={undoing}
+            busy={undoing}
             onPress={onUndo}
             style={{ minHeight: large ? 56 : 44 }}
-            className="items-center justify-center rounded-md px-4 active:opacity-70">
+            contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            className="rounded-md px-4">
             <Text variant="label" className="text-muted">
               Undo
             </Text>
-          </Pressable>
-          <Pressable
+          </PressableSurface>
+          <PressableSurface
             accessibilityRole="button"
             accessibilityLabel="Add a note to today’s diary entry"
             onPress={onAddNote}
             style={{ minHeight: large ? 56 : 44 }}
-            className="items-center justify-center rounded-md px-4 active:opacity-70">
+            contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            className="rounded-md px-4">
             <Text variant="label" className="text-muted">
               Add a note
             </Text>
-          </Pressable>
+          </PressableSurface>
         </View>
       ) : null}
     </View>
