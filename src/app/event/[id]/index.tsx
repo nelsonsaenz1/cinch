@@ -551,7 +551,19 @@ export default function EventDetailScreen() {
     setFailedReply(null);
     respond.mutate(
       { eventId: event.id, response },
-      { onError: () => setFailedReply(response) },
+      {
+        onError: (error) => {
+          // A plan boundary is not a failed reply — the hook has already
+          // offered the paywall; this names why in the stylist's voice. An
+          // ordinary failure keeps the retry chip exactly as before.
+          const denial = socialDenialCopy(error);
+          if (denial) {
+            Alert.alert('Three events on Free', denial);
+            return;
+          }
+          setFailedReply(response);
+        },
+      },
     );
   };
 

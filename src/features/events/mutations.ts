@@ -30,7 +30,9 @@ export type SocialDenial =
   /** A rate-limit trigger fired (errcode 54000). Comes back on its own. */
   | { kind: 'rate_limited' }
   /** `enforce_event_limit()` refused the insert — a plan boundary. */
-  | { kind: 'event_limit' };
+  | { kind: 'event_limit' }
+  /** `enforce_event_join_cap()` refused the join — free's three, ever, spent. */
+  | { kind: 'event_join_limit' };
 
 /**
  * Classify an error thrown by a social write, or null when it is an ordinary
@@ -47,6 +49,7 @@ export function classifySocialDenial(error: unknown): SocialDenial | null {
   const message = 'message' in error ? String(error.message) : '';
 
   if (code === '54000' || message.includes('rate_limited')) return { kind: 'rate_limited' };
+  if (message.includes('event_join_limit_reached')) return { kind: 'event_join_limit' };
   if (message.includes('event_limit_reached')) return { kind: 'event_limit' };
   return null;
 }
@@ -55,9 +58,11 @@ export function classifySocialDenial(error: unknown): SocialDenial | null {
 export function socialDenialCopy(error: unknown): string | null {
   const denial = classifySocialDenial(error);
   if (!denial) return null;
-  return denial.kind === 'rate_limited'
-    ? 'That was a lot at once. Give it a minute and try again.'
-    : 'Your plan is hosting as many occasions as it can right now.';
+  if (denial.kind === 'rate_limited') return 'That was a lot at once. Give it a minute and try again.';
+  if (denial.kind === 'event_join_limit') {
+    return 'Free covers three events, ever — and yours are spent. Membership opens the rest.';
+  }
+  return 'Your plan is hosting as many occasions as it can right now.';
 }
 
 /**
@@ -70,6 +75,7 @@ export function socialDenialCopy(error: unknown): string | null {
  * database trigger again, so nothing is given away.
  */
 const EVENT_HOSTING_PLACEMENT: PlacementName = Placement.EventHostingOverLimit;
+const EVENT_JOIN_PLACEMENT: PlacementName = Placement.EventJoinOverLimit;
 
 // ---------------------------------------------------------------------------
 // Shared invalidation
@@ -366,6 +372,7 @@ export function useInviteMembers() {
  */
 export function useRespondToInvite() {
   const qc = useQueryClient();
+  const gate = useGate();
 
   return useMutation({
     mutationFn: async ({
@@ -385,6 +392,18 @@ export function useRespondToInvite() {
       if (error) throw error;
     },
     onSuccess: (_data, { eventId }) => invalidateEvent(qc, eventId),
+    onError: (error) => {
+      // The lifetime boundary gets the designed moment, exactly as hosting's
+      // does above: offer the paywall, and on a grant the Join button is
+      // still sitting there — the retry meets a trigger that now says yes,
+      // which keeps the server the sole authority. Everything else stays the
+      // screen's own failed-reply state.
+      if (classifySocialDenial(error)?.kind === 'event_join_limit') {
+        void gate.present(EVENT_JOIN_PLACEMENT, async () => {
+          await qc.invalidateQueries({ queryKey: ['subscription'] });
+        });
+      }
+    },
   });
 }
 

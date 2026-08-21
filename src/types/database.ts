@@ -991,6 +991,24 @@ export type Database = {
           },
         ]
       }
+      event_join_ledger: {
+        Row: {
+          event_id: string
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          event_id: string
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          event_id?: string
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       event_members: {
         Row: {
           created_at: string
@@ -3483,6 +3501,10 @@ export type Database = {
         Returns: undefined
       }
       event_is_open: { Args: { p_event_id: string }; Returns: boolean }
+      event_join_limit_for_plan: {
+        Args: { p_plan: Database["public"]["Enums"]["subscription_plan"] }
+        Returns: number
+      }
       event_limit_for_plan: {
         Args: { p_plan: Database["public"]["Enums"]["subscription_plan"] }
         Returns: number

@@ -55,6 +55,14 @@ export const Placement = {
   TrialExpired: 'trial_expired',
 
   /**
+   * Joining a fourth event, ever, on the free plan —
+   * `enforce_event_join_cap()` refusing the membership write. Lifetime, not
+   * concurrent: the ledger behind it survives leaving and event deletion, so
+   * this is the moment a free account has spent its three.
+   */
+  EventJoinOverLimit: 'event_join_over_limit',
+
+  /**
    * Hosting an occasion past the plan's ceiling (`event_limit_for_plan()`:
    * 2 / 15 / 100).
    *

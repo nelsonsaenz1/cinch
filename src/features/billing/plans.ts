@@ -67,12 +67,21 @@ export interface PlanCopy {
    * Upcoming, un-canceled events the user may HOST at once. Mirrors
    * event_limit_for_plan() in migration 20260807103000 — change one, change
    * the other (supabase/tests/06_event_boundary.sql and tests/plans.test.ts
-   * are the tripwires). Hosting is the only social act that is plan-gated:
-   * joining, posting, voting, commenting and borrowing are free on every
-   * tier, because a group feature is only as good as its weakest member's
-   * tier.
+   * are the tripwires). Posting, voting, commenting and borrowing stay free
+   * on every tier, because a group feature is only as good as its weakest
+   * member's tier.
    */
   readonly eventHosting: number;
+  /**
+   * Lifetime events a free account may ENTER — host seat or accepted invite —
+   * before membership. Null = uncapped. Founder directive 2026-08-21: "3
+   * events all-time until you get a paid account." The enforcing copy is
+   * `event_join_limit_for_plan()` + `enforce_event_join_cap()` in migration
+   * 20260826000000, counting an insert-once ledger that survives leaving and
+   * event deletion — all-time means all-time. This copy exists so screens can
+   * explain the boundary without a round trip; the trigger is the boundary.
+   */
+  readonly eventJoins: number | null;
   /** Null on free; filled from StoreKit once billing ships, not hard-coded. */
   readonly monthlyPriceHint: string | null;
   /**
@@ -107,6 +116,7 @@ export const PLANS = {
     outfitPromise: { count: 3, period: 'week' },
     stylist: 'Not included',
     eventHosting: 2,
+    eventJoins: 3,
     monthlyPriceHint: null,
     annualPriceHint: null,
   },
@@ -118,6 +128,7 @@ export const PLANS = {
     outfitPromise: { count: 1, period: 'day' },
     stylist: '5 chats a month',
     eventHosting: 15,
+    eventJoins: null,
     monthlyPriceHint: '$7.99',
     annualPriceHint: '$59',
   },
@@ -129,6 +140,7 @@ export const PLANS = {
     outfitPromise: null,
     stylist: 'Unlimited',
     eventHosting: 100,
+    eventJoins: null,
     monthlyPriceHint: '$14.99',
     annualPriceHint: '$119',
   },

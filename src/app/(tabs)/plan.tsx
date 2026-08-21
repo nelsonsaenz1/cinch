@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -81,57 +81,6 @@ function WeekSkeleton() {
           />
         </View>
       ))}
-    </View>
-  );
-}
-
-/**
- * The members-only wall — what a free account sees where the tab's three
- * modes would be. Set in the PackingGate's grammar (serif claim, plain body,
- * a bulleted plate, one primary action) because it is the same kind of
- * statement one level up: what the page does, what it costs, and a door.
- * Inert by design — no forecast call, no closet read, no week computed for a
- * page the reader cannot open.
- */
-const PLAN_GATE_BULLETS = [
-  'A week of outfits, planned around your real forecast.',
-  'Occasions and invitations, dressed before they arrive.',
-  'Packing lists built from your own closet.',
-] as const;
-
-function PlanLocked({ onSeeMembership }: { onSeeMembership: () => void }) {
-  return (
-    <View className="px-gutter pt-3">
-      <Text variant="title" trim>
-        Plan the week once, then stop thinking about it.
-      </Text>
-      <Text variant="body" className="mt-5 text-muted">
-        Planning is the members’ room. The week, your occasions, the packing — dressed
-        ahead of time, from what you already own.
-      </Text>
-      <View className="mt-6 overflow-hidden rounded-plate border border-rule">
-        {PLAN_GATE_BULLETS.map((line, i) => (
-          <View
-            key={line}
-            className={[
-              'flex-row gap-2.5 px-4 py-3.5',
-              i < PLAN_GATE_BULLETS.length - 1 ? 'border-b border-hairline' : '',
-            ].join(' ')}>
-            <Text variant="body">•</Text>
-            <Text variant="body" className="flex-1">
-              {line}
-            </Text>
-          </View>
-        ))}
-      </View>
-      <View className="mt-7">
-        <Button title="See membership" onPress={onSeeMembership} />
-      </View>
-      {/* What a planned week looks like, before being asked to pay for one.
-          Inert and labelled — the ExampleWeek fixture spends nothing. */}
-      <View className="mt-7">
-        <ExampleWeek weekStart={startOfToday()} />
-      </View>
     </View>
   );
 }
@@ -617,60 +566,26 @@ export default function PlanScreen() {
   };
 
   /**
-   * ── THE PLAN TAB IS MEMBERS-ONLY — founder directive, 2026-08-20 ─────────
+   * ── THE WALL CAME DOWN A DAY AFTER IT WENT UP — founder, 2026-08-21 ──────
    *
-   * A hard wall, not a taste of the page: any paying plan (the 14-day trial
-   * folds into `pro` inside `usePlan`) gets the whole tab; free gets the
-   * locked plate and the door to membership. Packing keeps its own stricter
-   * Pro rule behind this one — a Standard member entering Packing still meets
-   * `usePackingAccess`'s lock, unchanged.
+   * 2026-08-20: "hard paywall for premium members" put this whole tab behind
+   * a locked plate. 2026-08-21: "Events doesn't need to be behind the
+   * paywall. Only travel does." So the tab is open again — the Week and
+   * Events for everyone — and the boundary moved to where it belongs:
    *
-   * `usePackingAccess`'s two hard-won rules carry over verbatim:
-   *   · the answer comes from the ENTITLEMENT, never from whether a paywall
-   *     appeared, so an unpublished campaign or a keyless build fails CLOSED;
-   *   · while the entitlement is UNKNOWN the page shows a skeleton, never the
-   *     lock — flashing "you have not paid" at a paying subscriber on a slow
-   *     read is the one wrong answer that costs a support ticket.
+   *   · TRAVEL — Packing keeps `usePackingAccess`'s Pro lock, unchanged,
+   *     with `packing-brief` re-checking the plan server-side;
+   *   · EVENTS — free accounts get THREE, EVER, enforced by
+   *     `enforce_event_join_cap()` in the database (migration
+   *     20260826000000), not by any screen. The growth loop this file's
+   *     earlier note worried about — a free friend accepting a dinner
+   *     invitation — works again, three times, which is the funnel.
    *
-   * The CTA routes to `/membership` — the app's own screen, deterministic end
-   * to end — rather than presenting a Superwall placement, because this gate
-   * has no server refusal behind it and a vendor modal that fails to commit a
-   * frame took the whole app down once already (see use-packing-access.ts).
-   *
-   * KNOWN TRADE, recorded rather than glossed: Events lives inside this tab,
-   * and the growth loop of a free friend accepting a dinner invitation now
-   * meets the wall too. The founder chose the hard wall; if invitations
-   * suffer, the fix is moving Events out from behind it, not softening it.
+   * Nothing client-side gates this tab any more, ON PURPOSE: the 2026-08-21
+   * directive's second half was "no work-arounds for any of our hard paywall
+   * gates", and a boundary a screen enforces is a boundary a patched client
+   * skips. Every wall this tab can reach now has a server refusal behind it.
    */
-  const planTabLoading = planState.loading || planState.unconfirmed;
-  const planTabStalled = useStalled(planTabLoading, STALL_DEADLINE_MS);
-  const planTabAllowed = planState.plan !== 'free';
-
-  if (!planTabAllowed || planTabLoading) {
-    return (
-      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-        <View className="px-gutter pb-3 pt-2">
-          <Text variant="display">Plan</Text>
-        </View>
-        {planTabLoading ? (
-          planTabStalled ? (
-            <ErrorState
-              compact
-              kicker="Couldn’t reach it"
-              title="Couldn’t check your membership"
-              body="Cinch couldn’t read your membership just now, so it won’t guess. This is a connection problem — nothing about your account has changed."
-              onRetry={() => void planState.refetch()}
-            />
-          ) : (
-            <WeekSkeleton />
-          )
-        ) : (
-          <PlanLocked onSeeMembership={() => router.push('/membership' as Href)} />
-        )}
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <View className="px-gutter pb-3 pt-2">

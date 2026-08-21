@@ -69,6 +69,8 @@ export function returnLabelFor(placement: PlacementName | null): string {
       return "Back to today's outfits";
     case Placement.EventHostingOverLimit:
       return 'Back to your event';
+    case Placement.EventJoinOverLimit:
+      return 'Back to the invitation';
     case Placement.PackingAccess:
       return 'Back to the trip';
     case Placement.RepeatUpsell:

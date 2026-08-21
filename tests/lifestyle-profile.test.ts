@@ -9,6 +9,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
@@ -23,6 +24,7 @@ import {
   shouldOfferStyleProfile,
   type LifeStageKey,
 } from '../src/features/profile/lifestyle';
+import { PLANS } from '../src/features/billing/plans';
 import { lifestyleOpeningLine } from '../src/features/stylist/opening';
 import { OCCASIONS, buildSteps } from '../src/features/stylist/questionnaire';
 import { occasionRule } from '../src/lib/styling';
@@ -217,4 +219,27 @@ test('the stylist opening can ask the profile’s own question — day slots onl
   assert.equal(lifestyleOpeningLine('morning', ['Class']), null);
   assert.equal(lifestyleOpeningLine('evening', ['Class', 'Going out']), null);
   assert.equal(lifestyleOpeningLine('night', ['Class', 'Going out']), null);
+});
+
+// ---------------------------------------------------------------------------
+// The lifetime event cap — client copy pinned to the migration
+// ---------------------------------------------------------------------------
+
+test('PLANS.free.eventJoins agrees with event_join_limit_for_plan, both ways', () => {
+  // The trigger is the boundary; this copy only explains it. A drifted copy
+  // explains a boundary that does not exist, which is worse than silence.
+  const migration = readFileSync(
+    'supabase/migrations/20260826000000_event_join_lifetime_cap.sql',
+    'utf8',
+  );
+  const m = migration.match(/when 'free' then (\d+) else null end/);
+  assert.ok(m, 'the migration no longer states the free cap the expected way');
+  assert.equal(PLANS.free.eventJoins, Number(m![1]));
+  assert.equal(PLANS.standard.eventJoins, null);
+  assert.equal(PLANS.pro.eventJoins, null);
+  // And the ledger it counts is insert-once with no event FK — the two facts
+  // that make "all-time" true across leaving and event deletion.
+  assert.match(migration, /event_id uuid not null,\n/);
+  assert.doesNotMatch(migration, /event_id uuid not null references/);
+  assert.match(migration, /security definer/);
 });
