@@ -292,9 +292,12 @@ export function WearConfirmationSheet({
             {/* RATING — optional, and optional in the strong sense: null is a
                 legal answer and the CTA is live without one. */}
             <View style={{ marginTop: 24 }}>
-              <View className="flex-row items-baseline justify-between">
-                <Text variant="eyebrow">{WEAR_COPY.ratingHeading}</Text>
-                <Text variant="note" style={{ color: theme.muted, fontSize: ax ? 17 : 13 }}>
+              <View className="flex-row items-baseline justify-between gap-x-3">
+                <Text variant="eyebrow" className="flex-none">{WEAR_COPY.ratingHeading}</Text>
+                <Text
+                  variant="note"
+                  className="text-right"
+                  style={{ color: theme.muted, fontSize: ax ? 17 : 13, flexShrink: 1 }}>
                   {ratingHint(rating, cleared)}
                 </Text>
               </View>

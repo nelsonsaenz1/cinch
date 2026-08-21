@@ -105,8 +105,8 @@ function PlanLocked({ onSeeMembership }: { onSeeMembership: () => void }) {
         Plan the week once, then stop thinking about it.
       </Text>
       <Text variant="body" className="mt-5 text-muted">
-        Planning is part of Cinch membership. Members get the week, their occasions and
-        packing in one place — all of it dressed from clothes they already own.
+        Planning is the members’ room. The week, your occasions, the packing — dressed
+        ahead of time, from what you already own.
       </Text>
       <View className="mt-6 overflow-hidden rounded-plate border border-rule">
         {PLAN_GATE_BULLETS.map((line, i) => (

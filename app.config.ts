@@ -206,19 +206,6 @@ const config: ExpoConfig = {
       // minimum comes from IPHONEOS_DEPLOYMENT_TARGET, which was still 16.4.
       // It is now set for real via expo-build-properties below.
 
-      // ── STAGED FOR STORE BUILD 41 — do not uncomment before it ──────────
-      // CADisableMinimumFrameDurationOnPhone: true,
-      //
-      // ProMotion. Without this key iOS caps a third-party app's custom
-      // animations (Reanimated springs, scroll-linked work, the press
-      // compression) at 60fps on 120Hz Pro devices — Apple requires apps to
-      // opt in per the Core Animation docs. Native-driven things (the
-      // system scroll deceleration, the glass tab bar) already run at 120.
-      // COMMENTED because an Info.plist change alters the native fingerprint
-      // and would block the OTA rail against store build 40; it costs
-      // battery only while animations actually run. Uncomment with the next
-      // native build and delete this fence.
-
       // The app only ever uses HTTPS, which is exempt standard encryption.
       // Declaring it here stops App Store Connect asking the export-compliance
       // question on every single upload — and, more usefully, stops a build

@@ -380,8 +380,9 @@ function AnsweredSummary({ rows, onRevise }: { rows: SummaryRow[]; onRevise: (st
  'flex-row items-center justify-between px-4 py-3 active:opacity-60',
             i < rows.length - 1 ? 'border-b border-hairline' : '',
           ].join(' ')}>
-          <Text variant="label">{row.label}</Text>
-          <Text variant="body">{row.value}</Text>
+          <Text variant="label" className="flex-none">{row.label}</Text>
+          {/* "San Pedro de Atacama" must wrap toward its label, not under it. */}
+          <Text variant="body" className="pl-3 text-right" style={{ flexShrink: 1 }}>{row.value}</Text>
         </Pressable>
       ))}
     </View>

@@ -111,8 +111,8 @@ export default function RecreateScreen() {
               Saw a look you loved?
             </Text>
             <Text variant="body" className="mt-2 text-muted">
-              Bring in a screenshot — from anywhere — and Cinch rebuilds it from clothes you
-              already own. Where nothing in your closet comes close, it says so.
+              Screenshot it, drop it here. Cinch rebuilds the look from clothes you already
+              own — and says so, honestly, where nothing comes close.
             </Text>
 
             <View
@@ -133,8 +133,7 @@ export default function RecreateScreen() {
               <Button title="Choose a photo" onPress={() => void start()} />
             </View>
             <Text variant="note" className="mt-3 text-muted">
-              The photo is analysed to name its pieces, and the matching against your closet
-              happens on your phone.
+              Cinch names the pieces. Your phone does the matching — the closet never leaves it.
             </Text>
           </>
         ) : null}
@@ -154,7 +153,7 @@ export default function RecreateScreen() {
             </View>
             <View className="mt-6 flex-row items-center gap-3">
               <ActivityIndicator color={theme.accent} />
-              <Text variant="body" className="text-muted">
+              <Text variant="body" className="flex-1 text-muted">
                 {phase.kind === 'uploading'
                   ? 'On its way…'
                   : 'Naming each piece, then checking your closet…'}
@@ -261,7 +260,7 @@ function MatchRow({ match, url }: { match: PieceMatch; url: string | null }) {
             tintColor={theme.muted}
             resizeMode="scaleAspectFit"
           />
-          <Text variant="label" className="text-muted">
+          <Text variant="label" className="flex-1 text-muted">
             Nothing close in your closet
           </Text>
         </View>

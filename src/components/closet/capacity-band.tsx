@@ -79,9 +79,9 @@ export function CapacityBand({
       // assembling them by ear is doing work the sighted reader does not.
       accessible
       accessibilityLabel={`${planName}. ${activeLine(active, activeLimit)}. ${storedLine(archived, total, storedLimit)}.${remedy.body ? ` ${remedy.body}` : ''}`}>
-      <View className="flex-row items-baseline justify-between">
-        <Text variant="eyebrow">{planName}</Text>
-        <Text variant="label" style={{ color: theme.ink, fontSize: large ? 19 : 15 }}>
+      <View className="flex-row items-baseline justify-between gap-x-3">
+        <Text variant="eyebrow" style={{ flexShrink: 1 }}>{planName}</Text>
+        <Text variant="label" className="flex-none" style={{ color: theme.ink, fontSize: large ? 19 : 15 }}>
           {activeLine(active, activeLimit)}
         </Text>
       </View>

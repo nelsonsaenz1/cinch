@@ -1127,9 +1127,10 @@ function SavedMemoView({
                     const item = byId.get(piece.itemId);
                     const label = item ? `${item.colors[0]?.name ?? ''} ${item.subcategory ?? item.category}`.trim() : 'A packed piece';
                     return (
-                      <View key={piece.itemId} className="flex-row items-center justify-between py-2">
-                        <Text variant="body">{label}</Text>
-                        <Text variant="label">{repeatLabel(piece.looks, piece.worn)}</Text>
+                      <View key={piece.itemId} className="flex-row items-center justify-between gap-x-3 py-2">
+                        {/* A garment name wraps; the wear count never moves. */}
+                        <Text variant="body" style={{ flexShrink: 1 }}>{label}</Text>
+                        <Text variant="label" className="flex-none">{repeatLabel(piece.looks, piece.worn)}</Text>
                       </View>
                     );
                   })}

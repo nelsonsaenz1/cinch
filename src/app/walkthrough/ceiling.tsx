@@ -140,11 +140,15 @@ export default function CeilingScreen() {
                   <View
                     className="flex-row items-center justify-between"
                     style={{ paddingVertical: 16 }}>
-                    <Text variant={row.quiet ? 'note' : 'body'} style={{ fontSize: 16 }}>
+                    <Text
+                      variant={row.quiet ? 'note' : 'body'}
+                      className="pr-3"
+                      style={{ fontSize: 16, flexShrink: 1 }}>
                       {row.label}
                     </Text>
                     <Text
                       variant={row.quiet ? 'note' : 'stat'}
+                      className="flex-none"
                       style={{ fontVariant: ['tabular-nums'] }}>
                       {row.value}
                     </Text>

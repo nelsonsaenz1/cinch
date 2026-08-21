@@ -148,11 +148,14 @@ export default function WallSwapScreen() {
           className="absolute inset-x-0 bottom-0 border-t border-rule bg-surface px-gutter pb-8 pt-4"
           style={{ paddingBottom: 34 }}
           onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
-          <View className="flex-row items-baseline justify-between">
-            <Text variant="body" style={{ color: theme.muted }}>
+          <View className="flex-row items-baseline justify-between gap-x-3">
+            {/* The garment name is the user's own and can be long; the sentence
+                wraps rather than colliding with the figures (never truncated —
+                the C-01 rule), and the figures never give an inch. */}
+            <Text variant="body" style={{ color: theme.muted, flexShrink: 1 }}>
               {`${selected.piece.name} out, room for ${nounWithArticle(add)}`}
             </Text>
-            <Text variant="title" trim style={{ fontSize: 24 }}>
+            <Text variant="title" trim className="flex-none" style={{ fontSize: 24 }}>
               {`${selected.outcome.from} → ${selected.outcome.swapped}`}
             </Text>
           </View>

@@ -214,9 +214,9 @@ export default function SavedLookDetailScreen() {
                 <Text variant="body">{save.note}</Text>
               </View>
             ) : null}
-            <View className="flex-row items-center justify-between p-3">
-              <Text variant="body">{DETAIL.savedLabel}</Text>
-              <Text variant="body" className="text-muted">
+            <View className="flex-row items-center justify-between gap-x-3 p-3">
+              <Text variant="body" className="flex-none">{DETAIL.savedLabel}</Text>
+              <Text variant="body" className="text-right text-muted" style={{ flexShrink: 1 }}>
                 {savedAtLine(save.savedAt)}
               </Text>
             </View>
