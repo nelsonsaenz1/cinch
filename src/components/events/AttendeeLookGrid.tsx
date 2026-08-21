@@ -42,7 +42,7 @@ function AttendeeLookCell({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${firstName}'s look: ${lookDescriptor(look.garments)}`}
+      accessibilityLabel={`${firstName}’s look: ${lookDescriptor(look.garments)}`}
       onPress={onPress}
       className="rounded-plate border border-hairline bg-surface p-3 active:opacity-70">
       <LookPlate pieces={look.garments} width={THUMB} resolveImage={resolveImage} />

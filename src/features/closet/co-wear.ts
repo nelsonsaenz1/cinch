@@ -59,7 +59,7 @@ export function useCoWear(itemId: string | null) {
 
       const userId = await closetUserId();
       if (!userId) {
-        throw new Error("Couldn't confirm your session. Check your connection and try again.");
+        throw new Error("Couldn’t confirm your session. Check your connection and try again.");
       }
 
       const { data: appearances, error: appearancesError } = await supabase

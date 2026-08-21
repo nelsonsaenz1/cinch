@@ -127,7 +127,7 @@ export function PlateSkeleton({
         // One announcement, once. The blocks below are scenery.
         accessible
         accessibilityRole="progressbar"
-        accessibilityLabel="Building today's outfit">
+        accessibilityLabel="Building today’s outfit">
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           {/* The name, at the serif plate step's own height. */}
           <Block height={30} width="62%" style={breathing} />

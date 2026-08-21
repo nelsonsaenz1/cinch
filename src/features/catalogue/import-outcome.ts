@@ -35,7 +35,7 @@ export type ImportErrorOutcome =
   | { status: 'consent-required'; requiredVersion: number | null }
   | { status: 'error'; message: string };
 
-export const GENERIC = "Those pieces couldn't be added. Try again in a moment.";
+export const GENERIC = "Those pieces couldn’t be added. Try again in a moment.";
 
 /** Map a refused import's error body to its outcome. `body` is the parsed JSON
  *  of the HTTP error response, or null when it could not be read. */

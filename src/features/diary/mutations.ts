@@ -95,7 +95,7 @@ export function useSetEntryNote() {
   return useMutation({
     mutationFn: async ({ entryId, note }: { entryId: string; note: string }): Promise<void> => {
       const userId = await closetUserId();
-      if (!userId) throw new Error("Couldn't confirm your session.");
+      if (!userId) throw new Error("Couldn’t confirm your session.");
 
       const trimmed = note.trim();
       const { error } = await supabase

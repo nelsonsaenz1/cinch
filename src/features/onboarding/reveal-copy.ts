@@ -110,7 +110,7 @@ export function substitutionDerivation(tally: Tally, redirectedTo: CountedKind):
   const count = tally[redirectedTo];
   const other: CountedKind = redirectedTo === 'tops' ? 'bottoms' : 'tops';
   return (
-    `You swapped the dress for a ${ordinalWord(count)} ${kindWord}, so the maths changed: ` +
+    `You swapped the dress for a ${ordinalWord(count)} ${kindWord}, so the math changed: ` +
     `${numberWord(tally[redirectedTo])} ${redirectedTo} across ${numberWord(tally[other])} ${other} ` +
     `and ${numberWord(tally.shoes)} pair${tally.shoes === 1 ? '' : 's'} of shoes.`
   );

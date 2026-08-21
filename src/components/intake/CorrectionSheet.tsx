@@ -274,7 +274,7 @@ export function CorrectionSheet({
 
             <View onLayout={recordSection('colour')}>
               <Text variant="colophon" className="mb-2.5 mt-6">
-                Colour
+                Color
               </Text>
               <ColourGrid
                 value={draft.colourTerm}

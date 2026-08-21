@@ -94,7 +94,7 @@ export function describeGaps(gaps: TagGap[]): string {
 /** The gap as a plain noun — "the colour" — for both lines above. */
 const GAP_NOUN: Record<TagGap, string> = {
   category: 'the category',
-  colours: 'the colour',
+  colours: 'the color',
   details: 'the fabric',
   brand: 'the brand',
 };

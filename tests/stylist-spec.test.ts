@@ -375,8 +375,8 @@ import {
 test('the send ceiling exists, is ten seconds, and outlives the auth run’s eight', () => {
   // Long enough that a slow model turn is not called a failure; short enough
   // that a person is never left holding a greyed disc wondering.
-  assert.equal(SEND_CEILING_MS, 10_000);
-  assert.ok(SEND_CEILING_MS > 8_000, 'a model turn is honestly slower than an email send');
+  assert.equal(SEND_CEILING_MS, 45_000);
+  assert.ok(SEND_CEILING_MS > 30_000, 'the ceiling must clear the server\'s own 30s provider budget — it races hangs, not slow honest work');
 });
 
 test('the timed-out sentence never claims nothing was spent', () => {
@@ -441,12 +441,12 @@ test('the door strip appears exactly when a thread exists', () => {
   assert.equal(showsDoorStrip(50), true);
 });
 
-test('the tab-context keyboard offset hands the safe-area bottom back, exactly', () => {
-  // Inside the native tab controller the safe-area bottom inset IS the tab
-  // bar overlap; the SafeAreaView already holds the composer up by it, so the
-  // avoiding view must not pad it a second time.
-  assert.equal(stylistKeyboardOffset(83), -83);
-  assert.equal(stylistKeyboardOffset(34), -34);
+test('the tab-context keyboard offset is zero — the keyboard replaces the tab bar', () => {
+  // Measured on the simulator (2026-08-21): the padding maths already accounts
+  // for the covered tab bar because the keyboard replaces it, so zero — not the
+  // handed-back inset — is what lands the composer on the keyboard's top edge.
+  assert.equal(stylistKeyboardOffset(83), 0);
+  assert.equal(stylistKeyboardOffset(34), 0);
   assert.equal(stylistKeyboardOffset(0), 0);
   // Never positive, whatever a future inset does.
   assert.ok(stylistKeyboardOffset(-5) <= 0);

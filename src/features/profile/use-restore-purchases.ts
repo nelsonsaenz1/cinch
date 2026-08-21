@@ -71,7 +71,7 @@ function useSuperwallRestore({ onOutcome }: RestoreOptions = {}): RestorePurchas
           // options (billing/superwall.tsx) only dress the in-paywall path.
           Alert.alert(
             'No subscription found',
-            "We couldn't find a Cinch subscription on this Apple ID. If you paid on another account, sign in to that one and try again.",
+            "We couldn’t find a Cinch subscription on this Apple ID. If you paid on another account, sign in to that one and try again.",
           );
         }
       })

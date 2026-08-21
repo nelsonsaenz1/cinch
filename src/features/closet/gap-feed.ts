@@ -131,7 +131,7 @@ export function describeGap(tally: Tally, gain: Gain): string {
       if (tally.tops > 0) {
         return `${arrow}. Your ${tally.tops} ${tally.tops === 1 ? 'top works' : 'tops all work'} over it.`;
       }
-      return `${arrow}. Opens outfits your dress alone can't reach.`;
+      return `${arrow}. Opens outfits your dress alone can’t reach.`;
     }
     case 'tops': {
       if (tally.bottoms > 0) {

@@ -109,14 +109,14 @@ test('memoHeadline keeps singular pieces and looks honest', () => {
 test('K-06: "Six looks, not eight — you don\'t own anything that works for evenings."', () => {
   assert.equal(
     shortfallSentence(8, 2, 'evening'),
-    "Six looks, not eight — you don't own anything that works for evenings.",
+    "Six looks, not eight — you don’t own anything that works for evenings.",
   );
 });
 
 test('shortfallSentence with no identifiable gap still states the real numbers', () => {
   assert.equal(
     shortfallSentence(4, 4, null),
-    "Zero looks, not four — your closet doesn't have enough pieces for every look this trip needs.",
+    "Zero looks, not four — your closet doesn’t have enough pieces for every look this trip needs.",
   );
 });
 

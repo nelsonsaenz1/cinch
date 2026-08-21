@@ -62,8 +62,8 @@ export function ArrivalPage(props: ArrivalPageProps) {
     return (
       <SafeAreaView className="flex-1 bg-canvas">
         <ErrorState
-          title="Couldn't finish the invite"
-          body="The link is fine and so is your account — this device just couldn't reach Cinch. Trying again picks up exactly where it left off."
+          title="Couldn’t finish the invite"
+          body="The link is fine and so is your account — this device just couldn’t reach Cinch. Trying again picks up exactly where it left off."
           onRetry={props.onRetry}
         />
         <View className="px-gutter pb-6">
@@ -119,7 +119,7 @@ export function ArrivalPage(props: ArrivalPageProps) {
             about who sent the invite, and guessing on the first screen a new
             person ever sees is the worst possible place to be wrong. */}
         <Text variant="body" style={{ color: theme.muted, marginTop: 20 }}>
-          {`You came in from ${name}'s invite, so you are already added to each other. Their closet is on your Friends tab.`}
+          {`You came in from ${name}’s invite, so you are already added to each other. Their closet is on your Friends tab.`}
         </Text>
 
         <Card padding="lg" className="mt-6">
@@ -133,7 +133,7 @@ export function ArrivalPage(props: ArrivalPageProps) {
 
         <View className="mt-7 gap-2.5">
           <Button title="Add your first piece" variant="ink" onPress={props.onAddFirstPiece} />
-          <Button title={`See ${name}'s closet`} variant="secondary" onPress={props.onSeeCloset} />
+          <Button title={`See ${name}’s closet`} variant="secondary" onPress={props.onSeeCloset} />
         </View>
       </View>
     </SafeAreaView>

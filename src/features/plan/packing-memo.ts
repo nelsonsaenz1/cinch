@@ -236,9 +236,9 @@ export function shortfallSentence(
   const achieved = Math.max(0, requestedLooks - unfilled);
   const lead = `${cap(word(achieved))} ${achieved === 1 ? 'look' : 'looks'}, not ${word(requestedLooks)} —`;
   if (!missingPart) {
-    return `${lead} your closet doesn't have enough pieces for every look this trip needs.`;
+    return `${lead} your closet doesn’t have enough pieces for every look this trip needs.`;
   }
-  return `${lead} you don't own anything that works for ${dayPartOf(missingPart).phrase}.`;
+  return `${lead} you don’t own anything that works for ${dayPartOf(missingPart).phrase}.`;
 }
 
 // ---------------------------------------------------------------------------

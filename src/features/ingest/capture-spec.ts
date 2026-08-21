@@ -368,17 +368,17 @@ export const FILING_FOOT =
 export function celebrationTitle(count: number): string {
   return `${count} pieces in`;
 }
-export const CELEBRATION_BODY = "That's a closet Cinch can dress you from tomorrow morning.";
+export const CELEBRATION_BODY = "That’s a closet Cinch can dress you from tomorrow morning.";
 export const CELEBRATION_CTA = 'See your first outfits';
 export const CELEBRATION_SECONDARY = 'Keep photographing';
 
 /** Frame 17. */
-export const OFFLINE_EYEBROW = "You're offline";
+export const OFFLINE_EYEBROW = "You’re offline";
 export const OFFLINE_BODY =
-  "They're held on this phone and nothing has been sent yet. Filing starts again the moment you're back on a connection.";
+  "They’re held on this phone and nothing has been sent yet. Filing starts again the moment you’re back on a connection.";
 
 /** Frame 19. */
-export const ERROR_EYEBROW = "Filing didn't go through";
+export const ERROR_EYEBROW = "Filing didn’t go through";
 export const ERROR_BACK = 'Back to closet';
 
 /** Frame 18. */

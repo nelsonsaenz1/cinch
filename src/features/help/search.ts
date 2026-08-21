@@ -157,7 +157,7 @@ const DEFAULT_ASKS: readonly string[] = ['closet-size', 'who-sees-my-closet', 'w
  * HS-03's drawn copy is specific to the query "apple watch", and it is good
  * precisely because it is specific: "There is no Cinch app for Apple Watch, so
  * nothing here covers it. If that is what you were after, that is the whole
- * answer." Generalising that into "we couldn't find anything" throws away the
+ * answer." Generalising that into "we couldn’t find anything" throws away the
  * only thing on the screen worth reading. So the specificity is kept for the
  * handful of things people actually search for and we actually do not have,
  * and everything else falls back to one honest sentence.

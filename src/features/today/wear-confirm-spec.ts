@@ -289,11 +289,11 @@ export const WEAR_COPY = {
   ratingOptional: 'Optional',
   ratingCleared: 'Cleared',
 
-  favorite: 'Favourite',
+  favorite: 'Favorite',
   favoritePrivate: 'Only you can see this',
 
   /** Shown only when the favourite and the stars genuinely disagree. */
-  favoriteOverride: 'Marked a favourite — that is what taste learns from, not the two stars.',
+  favoriteOverride: 'Marked a favorite — that is what taste learns from, not the two stars.',
 
   /**
    * The boundary, stated on the sheet that collects the private things.
@@ -302,7 +302,7 @@ export const WEAR_COPY = {
    * because a reader cannot check a word and can check a list.
    */
   privacyNote:
-    'Never shared: rating, favourite, occasion, weather, notes and cost-per-wear stay on your side of the wall.',
+    'Never shared: rating, favorite, occasion, weather, notes and cost-per-wear stay on your side of the wall.',
 
   confirm: 'Log this outfit',
   confirmPending: 'Logging…',

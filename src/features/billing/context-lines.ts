@@ -126,20 +126,20 @@ export type ContextLineOpts = {
  */
 const STATIC_LINES: Partial<Record<PlacementName, string>> = {
   [Placement.OpenStylist]:
-    "You asked what to wear to the rehearsal dinner. The stylist has an answer — it's part of Standard.",
+    "You asked what to wear to the rehearsal dinner. The stylist has an answer — it’s part of Standard.",
   // Names the ceiling ONCE. The §7 sweep interpolated `PLANS.free.items` into
   // all three of §3.1's spelled-out tens, which left the line reading
   // "10 … 10 … 10" — mechanically correct and unreadable. The user has just
   // been refused at the cap, so the cap needs saying once; the second and third
   // mentions were only ever there because the prose was written around a word.
   [Placement.AddGarmentOverLimit]:
-    `${PLANS.free.items} pieces is where the free closet stops. Outfits come out of the combinations rather than the count, which is why a closet grows faster than it fills. There's a coat in your camera roll.`,
+    `${PLANS.free.items} pieces is where the free closet stops. Outfits come out of the combinations rather than the count, which is why a closet grows faster than it fills. There’s a coat in your camera roll.`,
   [Placement.GenerateOutfitOverLimit]:
-    `That's this ${PLANS.free.outfitPromise.period}'s ${PLANS.free.outfitPromise.count} outfits. Members get a new set whenever the day changes on them.`,
+    `That’s this ${PLANS.free.outfitPromise.period}’s ${PLANS.free.outfitPromise.count} outfits. Members get a new set whenever the day changes on them.`,
   [Placement.TrialExpired]:
     'Your two weeks are up. Nothing has been deleted — the closet is exactly where you left it.',
   [Placement.EventHostingOverLimit]:
-    "You can join any event you're invited to. Hosting one — and inviting the table — is Standard.",
+    "You can join any event you’re invited to. Hosting one — and inviting the table — is Standard.",
 };
 
 /**
@@ -157,11 +157,11 @@ const STANDARD_LINES: Partial<Record<PlacementName, string>> = {
   [Placement.AddGarmentOverLimit]:
     `${PLANS.standard.items} pieces is where Standard stops. Pro holds ${PLANS.pro.items.toLocaleString('en-US')} — the same closet, without the ceiling.`,
   [Placement.GenerateOutfitOverLimit]:
-    "That's today's outfits on Standard. Pro's daily ceiling is four times higher, and most days you won't find it.",
+    "That’s today’s outfits on Standard. Pro’s daily ceiling is four times higher, and most days you won’t find it.",
   [Placement.OpenStylist]:
-    `Standard's ${PLANS.standard.stylist} are spent. Pro doesn't count them.`,
+    `Standard’s ${PLANS.standard.stylist} are spent. Pro doesn’t count them.`,
   [Placement.EventHostingOverLimit]:
-    `You're hosting ${PLANS.standard.eventHosting} occasions at once, which is where Standard stops. Pro holds ${PLANS.pro.eventHosting}.`,
+    `You’re hosting ${PLANS.standard.eventHosting} occasions at once, which is where Standard stops. Pro holds ${PLANS.pro.eventHosting}.`,
 };
 
 /** §3.1's own fallback, for a packing paywall reached before any trip exists. */

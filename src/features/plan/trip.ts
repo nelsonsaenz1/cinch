@@ -124,7 +124,7 @@ export const TRIP_QUESTIONS: Record<TripStepKey, string> = {
   destination: 'Where are you going?',
   companions: 'Who is going with you?',
   dates: 'When are you there?',
-  shape: "What's the vibe? And which parts of the day?",
+  shape: "What’s the vibe? And which parts of the day?",
 };
 
 // ---------------------------------------------------------------------------
@@ -269,7 +269,7 @@ export function describeTrip(trip: Trip): string {
 
   return (
     `${tripDays(trip)} days in ${where}, ${companionOf(trip.companions).phrase}. ` +
-    `It's ${vibes}. Dressing for ${parts}.`
+    `It’s ${vibes}. Dressing for ${parts}.`
   );
 }
 

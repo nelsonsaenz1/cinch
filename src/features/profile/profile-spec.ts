@@ -127,7 +127,7 @@ export function learnedLine(input: {
   }
   if (input.feedbackCount < TASTE_THRESHOLD) {
     const remaining = TASTE_THRESHOLD - input.feedbackCount;
-    return `Still early. ${remaining} more ${remaining === 1 ? 'reaction' : 'reactions'} and Cinch will start recognising your taste.`;
+    return `Still early. ${remaining} more ${remaining === 1 ? 'reaction' : 'reactions'} and Cinch will start recognizing your taste.`;
   }
   return input.summary.length > 0
     ? `Still learning. So far you ${joinNaturally(input.summary)}. Learned from ${input.feedbackCount} reactions.`

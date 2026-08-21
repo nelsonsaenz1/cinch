@@ -70,7 +70,7 @@ export const CLOUD_OFFER: Record<SpeechFailureReason | 'unsupported_device', str
   on_device_unsupported:
     'Your phone does not have the offline language pack for this. Cinch can transcribe on its servers instead — your recording leaves the device and is deleted straight after.',
   locale_unsupported:
-    'Your phone has no offline recogniser for this language. Cinch can transcribe on its servers instead — your recording leaves the device and is deleted straight after.',
+    'Your phone has no offline recognizer for this language. Cinch can transcribe on its servers instead — your recording leaves the device and is deleted straight after.',
   unavailable:
     'Speech recognition is unavailable on this phone right now. Cinch can transcribe on its servers instead — your recording leaves the device and is deleted straight after.',
   not_authorized:

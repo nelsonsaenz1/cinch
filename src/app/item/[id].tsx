@@ -434,7 +434,7 @@ export default function ItemDetailScreen() {
     return (
       <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
         <ErrorState
-          title="Couldn't load this piece"
+          title="Couldn’t load this piece"
           body="Check your connection and try again."
           onRetry={() => void closet.refetch()}
         />

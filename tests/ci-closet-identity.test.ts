@@ -241,7 +241,7 @@ test('CI-01 — the heading is one string, shared by both variants', () => {
 
 test('CI-02 — the fallbacks are exactly the ones the correction names', () => {
   assert.equal(ZERO_NAME_FALLBACK, 'Your closet');
-  assert.equal(ZERO_BIO_CUE, 'Add your name and photo so friends recognise you.');
+  assert.equal(ZERO_BIO_CUE, 'Add your name and photo so friends recognize you.');
 
   const header = stripped(HEADER);
   // Falsy name and falsy bio both fall back; a whitespace-only bio is not a bio.

@@ -150,10 +150,10 @@ export async function enforceAiQuota(
       retryAfterSeconds: retryAfter,
       message:
         period === 'day'
-          ? "You have used today's styling allowance."
+          ? "You have used today’s styling allowance."
           : period === 'week'
-            ? "You have used this week's styling allowance."
-            : "You have used this month's styling allowance.",
+            ? "You have used this week’s styling allowance."
+            : "You have used this month’s styling allowance.",
     },
     { status: 429, headers: { 'Retry-After': String(retryAfter) } },
   );

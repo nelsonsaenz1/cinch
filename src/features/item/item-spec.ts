@@ -91,12 +91,12 @@ export function railMode(coWearCount: number, harmonyCount: number): RailMode {
  */
 export const RAIL_HEADING: Record<Exclude<RailMode, 'none'>, string> = {
   coWear: 'Wears well with',
-  harmony: 'Pairs by colour',
+  harmony: 'Pairs by color',
 };
 
 export const RAIL_QUALIFIER: Record<RailMode, string | null> = {
   coWear: 'Worn together before',
-  harmony: 'Suggested by colour — not worn together yet',
+  harmony: 'Suggested by color — not worn together yet',
   none: null,
 };
 

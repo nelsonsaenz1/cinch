@@ -114,7 +114,7 @@ export const CAMERA_MODULE_ACTION = 'How to update';
  * the destination, after the tap.
  */
 export const LOCAL_MODE_LINE =
-  'Photographs stay on this device. You’ll type the category, colour and fabric yourself.';
+  'Photographs stay on this device. You’ll type the category, color and fabric yourself.';
 export const LOCAL_MODE_ACTION = 'Change this';
 
 /**

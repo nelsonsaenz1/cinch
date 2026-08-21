@@ -99,6 +99,13 @@ const FABRIC_OPTIONS = [
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
+ * What the user READS for a stored colour name. Stored values stay exactly as
+ * the tagger writes them ('grey' matches `items.colors` downstream); only the
+ * printed label takes the American spelling.
+ */
+const displayColourName = (s: string) => cap(s.replace(/grey/g, 'gray'));
+
+/**
  * The sand pill beside the local item's photo: a 6pt oxblood dot and the
  * tracked "On this phone". A fact, not a warning — the one persistent trace
  * that this photograph never left the device.
@@ -166,7 +173,7 @@ export function ManualTagSections({
       </View>
 
       <View className="mt-6">
-        <SectionHeader title="Colour" className="mb-3" />
+        <SectionHeader title="Color" className="mb-3" />
         <View className="flex-row flex-wrap items-center" style={{ gap: 10 }}>
           {colours.map((swatch) => {
             const picked = value.colors.some((c) => c.name === swatch.name);
@@ -176,10 +183,10 @@ export function ManualTagSections({
                 key={swatch.name}
                 onPress={() => toggleColour(swatch)}
                 accessibilityRole="button"
-                accessibilityLabel={cap(swatch.name)}
+                accessibilityLabel={displayColourName(swatch.name)}
                 accessibilityState={{ selected: picked, disabled: full }}
                 accessibilityHint={
-                  picked ? 'Removes this colour' : `Adds this colour. Up to ${MAX_COLOURS}.`
+                  picked ? 'Removes this color' : `Adds this color. Up to ${MAX_COLOURS}.`
                 }
                 // 30pt circle, 44pt target — the difference is hitSlop.
                 hitSlop={7}
@@ -193,7 +200,7 @@ export function ManualTagSections({
             <Pressable
               onPress={() => setShowAllColours(true)}
               accessibilityRole="button"
-              accessibilityLabel="More colours"
+              accessibilityLabel="More colors"
               hitSlop={8}
               style={{ minHeight: MIN_TAP_TARGET, justifyContent: 'center' }}
               className="active:opacity-60">
@@ -205,7 +212,7 @@ export function ManualTagSections({
         </View>
         {value.colors.length > 0 ? (
           <Text variant="label" className="mt-2.5">
-            {value.colors.map((c) => cap(c.name)).join(' · ')}
+            {value.colors.map((c) => displayColourName(c.name)).join(' · ')}
           </Text>
         ) : null}
       </View>

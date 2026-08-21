@@ -18,7 +18,7 @@
 
 /** CPV2-01. The helper line under the route name, above the field. */
 export const FIELD_HELP =
-  'Name a piece you own — brand, kind, colour if you know it. Cinch looks it up in a licensed shop catalogue and shows you the photographs.';
+  'Name a piece you own — brand, kind, color if you know it. Cinch looks it up in a licensed shop catalog and shows you the photographs.';
 
 /** CPV2-01. The field's own label, and its placeholder. */
 export const FIELD_LABEL = 'What is it?';
@@ -42,7 +42,7 @@ export const TRANSCRIPT_EDIT_HELP = 'Edit the words if that is not quite it.';
 /** CPV2-V02. The extracted words, with the utterance quoted beneath them. */
 export const FROM_YOUR_WORDS = 'From your words';
 export function saidLine(utterance: string): string {
-  return `You said "${utterance}". Cinch searches the garment words and keeps your colours ready to select.`;
+  return `You said "${utterance}". Cinch searches the garment words and keeps your colors ready to select.`;
 }
 
 /** CPV2-V02. The tray heading over the held-walkthrough sentence. */
@@ -50,15 +50,15 @@ export const HELD_WALKTHROUGH_HEADING = 'Your walkthrough is held';
 
 /** CPV2-V02's own privacy line — the recording is already gone by then. */
 export const WALKTHROUGH_PRIVACY =
-  'These words go to Cinch and the licensed shop catalogue. The recording from the walkthrough was already deleted.';
+  'These words go to Cinch and the licensed shop catalog. The recording from the walkthrough was already deleted.';
 
 /** CPV2-01, CPV2-V02. The typed-path privacy line. */
 export const TYPED_PRIVACY =
-  'What you type goes to Cinch and to the licensed shop catalogue so it can be matched. It is not a web search and it is not sent to an AI model.';
+  'What you type goes to Cinch and to the licensed shop catalog so it can be matched. It is not a web search and it is not sent to an AI model.';
 
 /** CPV2-02. Said while the microphone is live. */
 export const VOICE_DISCLOSURE =
-  "Your voice is turned into words by Cinch's voice processor, then the recording is deleted. Only the words are used to search the shop catalogue.";
+  "Your voice is turned into words by Cinch’s voice processor, then the recording is deleted. Only the words are used to search the shop catalog.";
 
 /** CPV2-03. Said once the transcript is in the field. */
 export const AFTER_TRANSCRIPTION =
@@ -70,12 +70,12 @@ export const BROWSE_HEADING = 'Or browse a category';
 /** Said under the heading, once. The privacy claim is structural — a tile
  *  sends a category, so there are no typed words anywhere in the request. */
 export const BROWSE_HELP =
-  'Tap a category to see pieces from the licensed shop catalogue. Nothing is typed and nothing is searched on the web.';
+  'Tap a category to see pieces from the licensed shop catalog. Nothing is typed and nothing is searched on the web.';
 
 /** A category the catalogue answered with nothing. The whole answer, like
  *  `NO_MATCH` — never drawn over a failure, which has its own notices. */
 export const BROWSE_EMPTY =
-  'The licensed shop catalogue has nothing to show here right now.';
+  'The licensed shop catalog has nothing to show here right now.';
 
 /** The browsed grid's near-miss heading. `NEAR_MISS_HEADING` names the typed
  *  query's own garment ("Not a T-shirt, but close") and a tapped category has
@@ -89,11 +89,11 @@ export const BROWSE_BACK_ACTION = 'All categories';
 export const BROWSE_RETRY_ACTION = 'Try this category again';
 
 /** CPV2-04 card. */
-export const PROVENANCE_SHORT = 'Photos from the shop catalogue.';
+export const PROVENANCE_SHORT = 'Photos from the shop catalog.';
 
 /** CPV2-05 detail. */
 export const PROVENANCE_LONG =
-  'Photograph and details come from the licensed shop catalogue. Cinch files it as a piece you own.';
+  'Photograph and details come from the licensed shop catalog. Cinch files it as a piece you own.';
 
 /** CPV2-04. The subordinate group's heading. */
 export const NEAR_MISS_HEADING = 'Not a T-shirt, but close';
@@ -103,16 +103,16 @@ export const PRE_WRITE_REASSURANCE = 'You will see the pieces before anything is
 
 /** CPV2-08. Why three pieces are one family. */
 export const FAMILY_EXPLANATION =
-  'All three came from one product family, so Cinch treats them as the same shirt in three colours when it plans a look.';
+  'All three came from one product family, so Cinch treats them as the same shirt in three colors when it plans a look.';
 
 /** CPV2-09. The whole answer, and it says so. */
 export const NO_MATCH =
-  'The licensed shop catalogue has no James Perse tee right now. Cinch does not search the open web, so this is the whole answer.';
+  'The licensed shop catalog has no James Perse tee right now. Cinch does not search the open web, so this is the whole answer.';
 
 /** CPV2-V01. The walkthrough's quiet ask. */
 export const WALKTHROUGH_ACTION = 'Find its product photo';
 export const WALKTHROUGH_EXPLANATION =
-  'Looks up this one piece in the licensed shop catalogue. The rest of your list is not searched.';
+  'Looks up this one piece in the licensed shop catalog. The rest of your list is not searched.';
 
 /** CPV2-V02. What the walkthrough promises while you are away from it. */
 export const HELD_WALKTHROUGH =
@@ -127,10 +127,10 @@ export const HELD_WALKTHROUGH =
  * is correct — inventing a shorter name would be inventing a product. When what
  * survives is still not a name, the card says this instead of printing junk.
  */
-export const TITLE_UNAVAILABLE = 'Catalogue name unavailable';
+export const TITLE_UNAVAILABLE = 'Catalog name unavailable';
 
 /** §6. The pictureless colourway announces its own absence. */
-export const NO_PHOTO = 'No photo in the catalogue';
+export const NO_PHOTO = 'No photo in the catalog';
 
 /**
  * A photograph that exists and did not arrive.
@@ -152,7 +152,7 @@ export const PHOTO_FAILED = 'Photo did not load';
  * and the sentence says which switch is the one that decides.
  */
 export const IMPORT_CONSENT_DECLINED =
-  'Nothing was added. Filing a catalogue photo uses AI processing, which is off for your account.';
+  'Nothing was added. Filing a catalog photo uses AI processing, which is off for your account.';
 
 /**
  * The ten words that appear nowhere in this feature, from the end of §3.

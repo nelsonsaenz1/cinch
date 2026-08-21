@@ -323,7 +323,7 @@ export function OutfitPostCard({
 }) {
   const theme = useTheme();
   const name = lookName(look.garments, look.caption);
-  const a11y = `${posterName ?? 'A friend'}'s look: ${lookDescriptor(look.garments)}`;
+  const a11y = `${posterName ?? 'A friend'}’s look: ${lookDescriptor(look.garments)}`;
   const firstName = posterName?.split(/\s+/)[0];
 
   /**
@@ -567,7 +567,7 @@ export function AttendeeLookCard({
   return (
     <PressableSurface
       accessibilityRole="button"
-      accessibilityLabel={`${firstName}'s look: ${lookDescriptor(look.garments)}`}
+      accessibilityLabel={`${firstName}’s look: ${lookDescriptor(look.garments)}`}
       onPress={onPress}
       fill
       className="rounded-plate border border-hairline bg-surface p-3">

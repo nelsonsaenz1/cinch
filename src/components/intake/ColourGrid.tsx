@@ -81,7 +81,11 @@ if (__DEV__) {
 type ColourSwatch = { term: string; label: string; hex: string; family: HueFamily };
 
 function labelFor(term: string): string {
-  return term.charAt(0).toUpperCase() + term.slice(1);
+  // The stored TERM keeps the lexicon's spelling ('grey' is what
+  // `resolveSpokenColour` and `intake_drafts.colour_term` know); only the
+  // printed label takes the American spelling.
+  const shown = term.replace(/grey/g, 'gray');
+  return shown.charAt(0).toUpperCase() + shown.slice(1);
 }
 
 function buildSwatches(): ColourSwatch[] {

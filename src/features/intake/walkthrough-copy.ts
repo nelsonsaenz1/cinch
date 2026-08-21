@@ -40,7 +40,7 @@ export const WALKTHROUGH_INVITATION = {
    * Promoted from footnote to specimen: a ruled block at reading size, which is
    * what the frame is teaching, rather than three leftovers under a paragraph.
    */
-  examples: ['“white linen shirt”', '“those brown loafers”', '“a heavy grey coat”'],
+  examples: ['“white linen shirt”', '“those brown loafers”', '“a heavy gray coat”'],
   /**
    * The consent clause, above the button, naming what happens to the audio.
    *

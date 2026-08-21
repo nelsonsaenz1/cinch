@@ -237,7 +237,7 @@ export const SEND_UNAVAILABLE_FULL = 'Send invitations, unavailable, this group 
  * alone. That is the sentence kept as a property rather than as a paragraph.
  */
 export const COLOUR_INDEPENDENCE_RULE =
-  'Every unavailable row states its reason on the row itself. Nothing is hidden and nothing is explained by colour alone.';
+  'Every unavailable row states its reason on the row itself. Nothing is hidden and nothing is explained by color alone.';
 
 /**
  * Why a row cannot be chosen — PC-03's three and PC-10's fourth, verbatim.

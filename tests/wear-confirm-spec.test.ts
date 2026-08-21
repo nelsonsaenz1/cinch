@@ -261,10 +261,10 @@ test('no failure surfaces a raw service message or an error code', () => {
 
 test('the favourite is described as owner-private wherever it appears', () => {
   assert.equal(WEAR_COPY.favoritePrivate, 'Only you can see this');
-  assert.match(WEAR_COPY.privacyNote, /rating, favourite/);
+  assert.match(WEAR_COPY.privacyNote, /rating, favorite/);
   // The note names each field rather than saying "private", because a reader
   // cannot check a word and can check a list.
-  for (const field of ['rating', 'favourite', 'occasion', 'weather', 'notes', 'cost-per-wear']) {
+  for (const field of ['rating', 'favorite', 'occasion', 'weather', 'notes', 'cost-per-wear']) {
     assert.ok(WEAR_COPY.privacyNote.includes(field), `${field} is not named`);
   }
 });

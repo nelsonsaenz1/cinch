@@ -30,7 +30,7 @@ export const ZERO_NAME_FALLBACK = 'Your closet';
  * the reason to fill them. Written out here rather than composed, because CI-01
  * specifies this sentence exactly and a composed version would drift.
  */
-export const ZERO_BIO_CUE = 'Add your name and photo so friends recognise you.';
+export const ZERO_BIO_CUE = 'Add your name and photo so friends recognize you.';
 
 /** The one control in the block, named for what it opens. */
 export const EDIT_PROFILE_LABEL = 'Edit profile';

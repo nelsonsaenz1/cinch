@@ -53,7 +53,7 @@ test('declined is the one already-invited row that stays selectable', () => {
     [friend('1', 'Sena Ruiz')],
     [{ userId: '1', state: 'declined' }],
   );
-  assert.equal(rows[0]!.standing, "Can't make it");
+  assert.equal(rows[0]!.standing, "Can’t make it");
   assert.equal(rows[0]!.selectable, true);
   assert.equal(rows[0]!.alreadyInvited, true);
 });

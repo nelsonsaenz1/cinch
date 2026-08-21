@@ -261,7 +261,7 @@ test('search matches material, not only the name', () => {
 test('the search scope line names what is being searched and where', () => {
   assert.equal(
     searchScopeLine('Dresses', 'linen'),
-    'Searching dresses for “linen” — name, colour and material.',
+    'Searching dresses for “linen” — name, color and material.',
   );
   assert.match(searchScopeLine('All', 'linen'), /^Searching your closet/);
 });

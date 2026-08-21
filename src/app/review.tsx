@@ -419,7 +419,7 @@ export default function ReviewScreen() {
           <Button title="Close" variant="ghost" onPress={() => router.back()} />
         </View>
         <ErrorState
-          title="The queue didn't load."
+          title="The queue didn’t load."
           body="Whatever is waiting for review is still waiting — this is a connection problem, not an empty queue."
           onRetry={() => void query.refetch()}
           retrying={query.isRefetching}

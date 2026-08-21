@@ -13,6 +13,7 @@ import { useStyleContext } from '@/features/context/use-style-context';
 import {
   fetchForecastRange,
   fetchSeasonalNormals,
+  formatTemp,
   hasForecastFor,
 } from '@/features/context/weather';
 import { CARD_H, CARD_W, sharePlate } from '@/features/share/capture-plate';
@@ -127,7 +128,7 @@ export function ForecastHorizonFailure({
         ) : (
           <Text variant="body" className="mt-4 text-muted">
             {normalsLine ??
- `There's no real forecast yet for ${placeName} in ${monthName}, and Cinch has nothing to base normals on either.`}
+ `There’s no real forecast yet for ${placeName} in ${monthName}, and Cinch has nothing to base normals on either.`}
             {' '}Cinch will revise the list closer to the day.
           </Text>
         )}
@@ -1149,7 +1150,7 @@ function SavedMemoView({
                     title={fromIsoDate(day.date).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric' })}
                     trailing={
                       <Text variant="label">
-                        {[day.tempC != null ? `${Math.round(day.tempC)}°` : null, day.travelDay ? 'travel day' : null]
+                        {[day.tempC != null ? formatTemp(day.tempC, 'F') : null, day.travelDay ? 'travel day' : null]
                           .filter(Boolean)
                           .join(' · ')}
                       </Text>

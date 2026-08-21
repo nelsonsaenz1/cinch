@@ -98,18 +98,18 @@ export class ParseClosetError extends Error {
 function describeFailure(failure: ParseFailure): string {
   switch (failure.kind) {
     case 'no_transcript':
-      return "Cinch hasn't heard anything for this walkthrough yet.";
+      return "Cinch hasn’t heard anything for this walkthrough yet.";
     case 'not_found':
-      return "Cinch couldn't find that walkthrough.";
+      return "Cinch couldn’t find that walkthrough.";
     case 'parse_failed':
-      return failure.message ?? "I heard you, but couldn't read it back. Your words are still here.";
+      return failure.message ?? "I heard you, but couldn’t read it back. Your words are still here.";
     case 'quota_upgrade_required':
     case 'quota_exceeded':
       return failure.message;
     case 'drafts_unwritable':
-      return "That parse didn't save. Try again.";
+      return "That parse didn’t save. Try again.";
     case 'offline':
-      return "I can't reach Cinch right now. Your words are still here.";
+      return "I can’t reach Cinch right now. Your words are still here.";
     case 'service_error':
       return failure.message ?? 'Something went wrong. Your words are still here.';
   }
@@ -182,7 +182,7 @@ function classify(status: number | null, body: ParseErrorBody | null): ParseFail
     case 'ai_quota_exceeded':
       return {
         kind: 'quota_exceeded',
-        message: body?.message ?? "You've used this period's allowance.",
+        message: body?.message ?? "You’ve used this period’s allowance.",
         retryAfterSeconds: body?.retryAfterSeconds ?? 60,
       };
     case 'drafts_unwritable':

@@ -467,7 +467,7 @@ export const TODAY_COPY = {
   cancel: 'Cancel',
   ratingHeading: 'How did it feel?',
   ratingOptional: 'You don’t have to rate it.',
-  favorite: 'Keep as a favourite',
+  favorite: 'Keep as a favorite',
   save: 'Save',
 
   /** A settled wear. One restrained mark — no confetti and no score. */

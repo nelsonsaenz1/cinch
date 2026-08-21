@@ -200,7 +200,7 @@ export default {
             // The same bounded fact a success carries, so the client can show
             // the allowance on the screen that refused it.
             allowance: reservation.allowance,
-            message: "You have used this month's stylist chats.",
+            message: "You have used this month’s stylist chats.",
           },
           { status: 429 },
         );
@@ -379,7 +379,7 @@ export default {
             plan,
             period: 'month',
             allowance: settlement.allowance,
-            message: "You have used this month's stylist chats.",
+            message: "You have used this month’s stylist chats.",
           },
           { status: 429 },
         );

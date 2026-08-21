@@ -115,20 +115,20 @@ export class TranscriptionError extends Error {
 export function describeFailure(failure: TranscriptionFailure): string {
   switch (failure.kind) {
     case 'silent':
-      return "I didn't catch anything.";
+      return "I didn’t catch anything.";
     case 'too_long':
       return `That recording ran past ${failure.maxMinutes} minutes.`;
     case 'too_large':
       return 'That recording was too large to send.';
     case 'no_audio':
-      return "Cinch couldn't find the recording to send.";
+      return "Cinch couldn’t find the recording to send.";
     case 'transcription_failed':
-      return "I can't reach the transcriber. Your recording is safe.";
+      return "I can’t reach the transcriber. Your recording is safe.";
     case 'quota_upgrade_required':
     case 'quota_exceeded':
       return failure.message;
     case 'offline':
-      return "I can't reach the transcriber. Your recording is safe.";
+      return "I can’t reach the transcriber. Your recording is safe.";
     case 'service_error':
       return failure.message ?? 'Something went wrong. Your recording is safe.';
   }
@@ -223,7 +223,7 @@ export function classify(status: number | null, body: TranscribeErrorBody | null
     case 'ai_quota_exceeded':
       return {
         kind: 'quota_exceeded',
-        message: body?.message ?? "You've used this period's allowance.",
+        message: body?.message ?? "You’ve used this period’s allowance.",
         retryAfterSeconds: body?.retryAfterSeconds ?? 60,
       };
     default:

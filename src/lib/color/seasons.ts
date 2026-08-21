@@ -75,7 +75,7 @@ export const SEASONS: Record<Season, SeasonProfile> = {
   light_summer: {
     warmth: -0.4, L: [0.7, 0.93], C: [0.04, 0.12],
     label: 'Light Summer',
-    blurb: 'Cool and soft — powder blue, rose, soft grey, cool ivory.',
+    blurb: 'Cool and soft — powder blue, rose, soft gray, cool ivory.',
   },
   cool_summer: {
     warmth: -0.85, L: [0.5, 0.8], C: [0.07, 0.16],

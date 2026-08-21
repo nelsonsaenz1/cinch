@@ -134,7 +134,7 @@ test('the catalogue route is named for what it fetches', () => {
 });
 
 test('the disclosure travels with the control, on every surface that offers it', () => {
-  assert.match(CATALOGUE_DISCLOSURE, /licensed shop catalogue/);
+  assert.match(CATALOGUE_DISCLOSURE, /licensed shop catalog/);
   assert.match(CATALOGUE_DISCLOSURE, /not a web search/);
   assert.match(CATALOGUE_DISCLOSURE, /nothing you type is sent to an AI model/);
   assert.match(
@@ -150,7 +150,7 @@ test('the disclosure travels with the control, on every surface that offers it',
    * about a route the reader had not chosen yet.
    */
   const sheet = code('src/components/ingest/garment-search-sheet.tsx');
-  assert.match(sheet, /licensed shop catalogue/);
+  assert.match(sheet, /licensed shop catalog/);
   assert.match(sheet, /not a web search/);
   assert.match(sheet, /not sent to an AI model/);
 });

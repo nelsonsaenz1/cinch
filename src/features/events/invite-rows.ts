@@ -34,7 +34,7 @@ export interface InviteRow {
   username: string | null;
   /** The word printed where a checkbox would be, or null when this row takes
    *  a checkbox instead. Never both — "a word or a checkbox, never both". */
-  standing: 'Hosting' | 'Going' | 'Still deciding' | "Can't make it" | null;
+  standing: 'Hosting' | 'Going' | 'Still deciding' | "Can’t make it" | null;
   /** True when the row ends in a checkbox: a plain friend, or someone who
    *  declined (re-invitable once, the decline stated on their own row). */
   selectable: boolean;
@@ -47,7 +47,7 @@ const STANDING: Record<InviteRosterState, InviteRow['standing']> = {
   host: 'Hosting',
   joined: 'Going',
   invited: 'Still deciding',
-  declined: "Can't make it",
+  declined: "Can’t make it",
 };
 
 /** One friend + their roster row (if any) → the row the sheet draws for them. */
@@ -113,7 +113,7 @@ export function everyoneAlreadyInvited(rows: readonly InviteRow[]): boolean {
 export function standingSummary(rows: readonly InviteRow[]): string {
   const going = rows.filter((r) => r.standing === 'Going').length;
   const deciding = rows.filter((r) => r.standing === 'Still deciding').length;
-  const declined = rows.filter((r) => r.standing === "Can't make it").length;
+  const declined = rows.filter((r) => r.standing === "Can’t make it").length;
 
   const numWord = (n: number): string =>
     (['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][n] ?? String(n))!;

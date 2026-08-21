@@ -329,14 +329,14 @@ export function describeWeights(weights: StyleWeights): string[] {
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 
   const phrases: Record<FeatureKey, [string, string]> = {
-    palette: ['cares a lot about colour', 'is relaxed about colour'],
+    palette: ['cares a lot about color', 'is relaxed about color'],
     formality: ['dresses to the occasion', 'ignores dress codes'],
     weather: ['dresses for the forecast', 'does not dress for weather'],
     occasion: ['matches clothes to activities', 'wears the same things everywhere'],
     proportion: ['notices silhouette', 'is not fussy about fit balance'],
     pattern: ['is deliberate about prints', 'is easy-going about prints'],
     season: ['sticks to seasonal pieces', 'wears things year-round'],
-    freshness: ['likes variety', 'happily repeats favourites'],
+    freshness: ['likes variety', 'happily repeats favorites'],
     affinity: ['has strong personal combinations', 'is open to new combinations'],
   };
 

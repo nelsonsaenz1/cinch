@@ -113,7 +113,7 @@ function SearchStep({ view, transcribed, onFileWords, onPhotograph }: CatalogueB
         <View className="mx-gutter mb-4 gap-2 rounded-2xl bg-tray p-4">
           <Text variant="eyebrow">Still held</Text>
           <Text variant="body">
-            {`${view.heldSelection.colours.length} colours of ${presentedTitle(view.heldSelection.family)}, from when your closet was full.`}
+            {`${view.heldSelection.colours.length} colors of ${presentedTitle(view.heldSelection.family)}, from when your closet was full.`}
           </Text>
           <Button title="Pick them up" variant="secondary" onPress={view.restoreHeld} />
           <Button title="Let them go" variant="ghost" onPress={view.dismissHeld} />
@@ -201,10 +201,10 @@ function SearchStep({ view, transcribed, onFileWords, onPhotograph }: CatalogueB
  * "must never become a paywall".
  */
 const FAILURE_COPY: Record<string, string> = {
-  offline: 'You are offline, so the catalogue could not be reached. The words are still here.',
-  timeout: 'The catalogue is taking longer than usual.',
-  quota: "You've used this month's catalogue searches.",
-  partner_unavailable: 'The shop catalogue is unavailable right now.',
+  offline: 'You are offline, so the catalog could not be reached. The words are still here.',
+  timeout: 'The catalog is taking longer than usual.',
+  quota: "You’ve used this month’s catalog searches.",
+  partner_unavailable: 'The shop catalog is unavailable right now.',
 };
 
 /**
@@ -217,7 +217,7 @@ const FAILURE_COPY: Record<string, string> = {
 function ResultSkeleton() {
   const theme = useTheme();
   return (
-    <View accessibilityLabel="Searching the catalogue" className="gap-2.5 px-gutter">
+    <View accessibilityLabel="Searching the catalog" className="gap-2.5 px-gutter">
       {[0, 1, 2].map((i) => (
         <View
           key={i}
@@ -400,8 +400,8 @@ function DetailStep({ view, large }: CatalogueBodyProps) {
         style={{ borderTopColor: theme.rule }}>
         {large ? null : <Text variant="noteSmall">{PRE_WRITE_REASSURANCE}</Text>}
         <Button
-          title={n === 0 ? 'Choose a colour' : `Add ${n} to closet`}
-          accessibilityLabel={n === 0 ? 'Choose a colour' : `Add ${n} to closet`}
+          title={n === 0 ? 'Choose a color' : `Add ${n} to closet`}
+          accessibilityLabel={n === 0 ? 'Choose a color' : `Add ${n} to closet`}
           disabled={n === 0}
           onPress={view.review}
         />
@@ -455,7 +455,7 @@ function ConfirmStep({ view }: CatalogueBodyProps) {
             <View className="gap-1.5 rounded-2xl bg-tray p-4">
               <Text variant="body">{capacitySentence(view.refusal)}</Text>
               <Text variant="noteSmall">
-                Your {n === 1 ? 'colour is' : `${n} colours are`} still selected.
+                Your {n === 1 ? 'color is' : `${n} colors are`} still selected.
               </Text>
             </View>
           </View>
@@ -477,7 +477,7 @@ function ConfirmStep({ view }: CatalogueBodyProps) {
           disabled={view.importing || Boolean(view.refusal)}
           onPress={view.confirm}
         />
-        <Button title="Change colours" variant="ghost" onPress={view.backToDetail} />
+        <Button title="Change colors" variant="ghost" onPress={view.backToDetail} />
       </View>
     </View>
   );

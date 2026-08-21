@@ -96,7 +96,7 @@ export function useDiary() {
       // `[]` here would hand a network hiccup straight to "The record starts
       // today" — telling someone with two years of wears that they have none.
       if (!userId) {
-        throw new Error("Couldn't confirm your session. Check your connection and try again.");
+        throw new Error("Couldn’t confirm your session. Check your connection and try again.");
       }
 
       const { data: wears, error: wearsError } = await supabase

@@ -115,7 +115,7 @@ export function useSavedLooks() {
       // with fourteen saved looks how to make their first — the failure
       // `useCloset` documents at length and answers the same way.
       if (!userId) {
-        throw new Error("Couldn't confirm your session. Check your connection and try again.");
+        throw new Error("Couldn’t confirm your session. Check your connection and try again.");
       }
 
       const { data, error } = await savedLooksDb()

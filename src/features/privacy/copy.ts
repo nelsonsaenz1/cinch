@@ -124,7 +124,7 @@ export const PRIVACY_TOPICS: readonly PrivacyTopic[] = [
     // (Appendix A.1, row 3); naming only two is the same mistake one door on.
     // Sells/advertises: `docs/design/system-safety-contract.md §3` lists
     // "We never sell it or advertise against it" as a claim Cinch controls.
-    body: 'Kept on Cinch’s servers so they load on any device. A photo leaves this phone in three cases: when a piece is tagged, when you ask Cinch to match a piece against a product listing, and when you attach one to show the true colour of something you are describing. Cinch never sells them and never advertises against them.',
+    body: 'Kept on Cinch’s servers so they load on any device. A photo leaves this phone in three cases: when a piece is tagged, when you ask Cinch to match a piece against a product listing, and when you attach one to show the true color of something you are describing. Cinch never sells them and never advertises against them.',
   },
   {
     title: 'Wears and plans',
@@ -168,7 +168,7 @@ export const PRIVACY_TOPICS: readonly PrivacyTopic[] = [
     // TITLE is then sent up with the outfit request
     // (`src/features/styling/use-outfits.ts:133-137`). That is a category of
     // personal data leaving the phone that nothing in the app discloses today.
-    body: 'If you allow it, Cinch reads your location to fetch the local forecast — rounded to about a kilometre before it is sent, never stored on our servers, never in the background. If you allow it, Cinch also reads today’s calendar entries to judge how dressy the day is; the title of an event goes to our AI partner with the outfit request, so leave the permission off if that is not something you want sent.',
+    body: 'If you allow it, Cinch reads your location to fetch the local forecast — rounded to about half a mile before it is sent, never stored on our servers, never in the background. If you allow it, Cinch also reads today’s calendar entries to judge how dressy the day is; the title of an event goes to our AI partner with the outfit request, so leave the permission off if that is not something you want sent.',
   },
   {
     title: 'Account details',
@@ -437,19 +437,19 @@ export const CONSENT_FACTS: readonly ConsentFact[] = [
   ...SHEET_CONSENT_FACTS,
   {
     lead: 'Three doors, not one.',
-    rest: ' A photo leaves this phone when a piece is tagged, when you ask Cinch to match a piece against a product listing, and when you attach one to show the true colour of a piece you are describing. Nothing else in the app sends a photograph.',
+    rest: ' A photo leaves this phone when a piece is tagged, when you ask Cinch to match a piece against a product listing, and when you attach one to show the true color of a piece you are describing. Nothing else in the app sends a photograph.',
   },
   {
     lead: 'And some words, without a photo.',
     rest: ' When Cinch writes about an outfit it sends a description of the pieces, and — if you have given it your calendar — the titles of today’s events, so the note can mention what you are dressing for. The stylist chat sends your question and that same description. No photograph goes with either.',
   },
   {
-    lead: 'Describing a piece asks a catalogue, not the open web.',
+    lead: 'Describing a piece asks a catalog, not the open web.',
     rest: ' When you type what a garment is, those words go to Datafeedr, a company that licenses product listings from shops, and the pictures that come back are the shops’ own — supplied by them for this purpose. No web search runs, and no AI model sees those words. And while you are choosing from the results, your phone loads each picture from the shop itself, so those shops see a request from your device.',
   },
   {
     lead: 'Photographing a piece to name its brand still runs a web search, and the rule above does not cover it.',
-    rest: ' Reading a brand off your own photograph is something a catalogue cannot do, so that one search is carried out by Exa rather than by our AI partner. The routing rule — only models that are not allowed to learn from what they receive — covers the model and not the search, so what that search is made of is handled under Exa’s policy rather than anything Cinch can hold anyone to for you.',
+    rest: ' Reading a brand off your own photograph is something a catalog cannot do, so that one search is carried out by Exa rather than by our AI partner. The routing rule — only models that are not allowed to learn from what they receive — covers the model and not the search, so what that search is made of is handled under Exa’s policy rather than anything Cinch can hold anyone to for you.',
   },
 ];
 
@@ -469,7 +469,7 @@ export const WITHDRAW_CONSEQUENCE =
 
 /** PD-03 · the confirmation sheet, in the present tense. */
 export const WITHDRAW_SHEET_BODY =
-  'Tagging and listing matches stop straight away. Adding a piece will ask you for colour, cut and fabric instead. Nothing already in your closet changes or disappears.';
+  'Tagging and listing matches stop straight away. Adding a piece will ask you for color, cut and fabric instead. Nothing already in your closet changes or disappears.';
 
 /**
  * PD-02 · the not-granted state, which the atlas does not draw.
@@ -479,7 +479,7 @@ export const WITHDRAW_SHEET_BODY =
  * in full, with the disclosure in front of the user, or it is not consent".
  */
 export const WITHOUT_CONSENT =
-  'Nothing is being sent. Adding a piece asks you for its colour, cut and fabric, and the stylist chat is off. Outfit suggestions keep working — Cinch builds those on your phone.';
+  'Nothing is being sent. Adding a piece asks you for its color, cut and fabric, and the stylist chat is off. Outfit suggestions keep working — Cinch builds those on your phone.';
 
 /**
  * CN-02 · the declined path, drawn as a configuration rather than a punishment.
@@ -515,7 +515,7 @@ export const WITHOUT_CONSENT_WORKS =
   'Photographing a piece, cutting it out of its background, describing it in words, outfits, the diary, the plan, packing and everything social. Cinch asks you for the two things it would otherwise have guessed.';
 
 export const WITHOUT_CONSENT_LOST =
-  'Guessed names, colour and fabric; finding a piece from a product link; and the stylist chat.';
+  'Guessed names, color and fabric; finding a piece from a product link; and the stylist chat.';
 
 // ---------------------------------------------------------------------------
 // PD-04 · Export your data

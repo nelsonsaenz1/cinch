@@ -684,7 +684,7 @@ export default function PlanScreen() {
               <ErrorState
                 compact
                 kicker="Couldn’t reach it"
-                title="Couldn't load your plans"
+                title="Couldn’t load your plans"
                 body="Something went wrong reaching your events. Check your connection and try again."
                 onRetry={() => {
                   void myEvents.refetch();
@@ -901,7 +901,7 @@ export default function PlanScreen() {
                 {weekDays.length === 0 ? (
                   <ErrorState
                     compact
-                    title="Couldn't plan this week"
+                    title="Couldn’t plan this week"
                     body="The forecast came back without enough to work with, so nothing in your closet could be matched to the days ahead."
                     onRetry={retryWeek}
                     retrying={wardrobe.isRefetching || weekForecast.isRefetching}

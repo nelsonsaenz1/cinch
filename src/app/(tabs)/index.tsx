@@ -627,18 +627,18 @@ export function nothingWorksReason(items: Garment[], weather: WeatherContext | n
   // once `canGenerate` has already passed, so without this a wardrobe of
   // jumpers and trousers would land here and be told it has no top at all.
   if (!has('base_top') && !has('mid_layer') && !has('dress')) {
-    return "Your closet doesn't have a top or a dress in it yet — every outfit needs one of the two.";
+    return "Your closet doesn’t have a top or a dress in it yet — every outfit needs one of the two.";
   }
   if (!has('bottom') && !has('dress')) {
-    return "Your closet doesn't have bottoms or a dress in it yet — every outfit needs one of the two.";
+    return "Your closet doesn’t have bottoms or a dress in it yet — every outfit needs one of the two.";
   }
 
   const target = weather ? targetWarmth(weather.feelsLikeC, weather.windKph) : null;
   if (target !== null && target >= 9 && !has('outerwear') && !has('mid_layer')) {
-    return "Today calls for real warmth, and there's no coat or heavy layer in your closet yet.";
+    return "Today calls for real warmth, and there’s no coat or heavy layer in your closet yet.";
   }
 
-  return "Cinch couldn't build an outfit that holds together from what's in your closet right now. One more layer, or a pair of shoes, usually fixes it.";
+  return "Cinch couldn’t build an outfit that holds together from what’s in your closet right now. One more layer, or a pair of shoes, usually fixes it.";
 }
 
 /**

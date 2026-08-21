@@ -42,7 +42,7 @@ test('R-04: the dress redirected to a fourth top', () => {
   assert.equal(headline(10, t), 'Ten pieces. Sixteen outfits.');
   assert.equal(
     substitutionDerivation(t, 'tops'),
-    'You swapped the dress for a fourth top, so the maths changed: four tops across two bottoms and two pairs of shoes.',
+    'You swapped the dress for a fourth top, so the math changed: four tops across two bottoms and two pairs of shoes.',
   );
   assert.deepEqual(compositionChips(t, true, true), ['4 tops', '2 bottoms', '2 shoes', '1 coat', '1 bag']);
 });

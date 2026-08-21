@@ -41,7 +41,7 @@ export function TasteMark({
     ? summary
       ? `Learning from ${feedbackCount} reactions — it thinks you ${summary}.`
       : `Learning from ${feedbackCount} reactions.`
-    : `${THRESHOLD - feedbackCount} more reactions and Cinch will start recognising your taste.`;
+    : `${THRESHOLD - feedbackCount} more reactions and Cinch will start recognizing your taste.`;
 
   const figure = learning
     ? summary

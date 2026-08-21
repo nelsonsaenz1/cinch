@@ -16,14 +16,14 @@ import { Placement } from '../src/features/billing/placements';
 test('open_stylist names the question the user actually asked', () => {
   assert.equal(
     contextLineFor(Placement.OpenStylist),
-    "You asked what to wear to the rehearsal dinner. The stylist has an answer — it's part of Standard.",
+    "You asked what to wear to the rehearsal dinner. The stylist has an answer — it’s part of Standard.",
   );
 });
 
 test('add_garment_over_limit is the free closet, not fifty', () => {
   assert.equal(
     contextLineFor(Placement.AddGarmentOverLimit),
-    `${PLANS.free.items} pieces is where the free closet stops. Outfits come out of the combinations rather than the count, which is why a closet grows faster than it fills. There's a coat in your camera roll.`,
+    `${PLANS.free.items} pieces is where the free closet stops. Outfits come out of the combinations rather than the count, which is why a closet grows faster than it fills. There’s a coat in your camera roll.`,
   );
 });
 
@@ -52,7 +52,7 @@ test('add_garment_over_limit does not publish an outfit count as a duration', ()
 test('generate_outfit_over_limit is this week, not today', () => {
   assert.equal(
     contextLineFor(Placement.GenerateOutfitOverLimit),
-    `That's this week's ${PLANS.free.outfitPromise.count} outfits. Members get a new set whenever the day changes on them.`,
+    `That’s this week’s ${PLANS.free.outfitPromise.count} outfits. Members get a new set whenever the day changes on them.`,
   );
 });
 
@@ -80,7 +80,7 @@ test('trial_expired reassures nothing was deleted', () => {
 test('event_hosting_over_limit names Standard, not Pro', () => {
   assert.equal(
     contextLineFor(Placement.EventHostingOverLimit),
-    "You can join any event you're invited to. Hosting one — and inviting the table — is Standard.",
+    "You can join any event you’re invited to. Hosting one — and inviting the table — is Standard.",
   );
 });
 

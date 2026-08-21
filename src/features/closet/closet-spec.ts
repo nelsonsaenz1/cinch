@@ -341,10 +341,10 @@ export const CLOSET_COPY = {
   offlineRetry: 'Retry',
 
   searchPlaceholder: 'Search your closet',
-  searchFooter: 'Search names, colours and materials.',
+  searchFooter: 'Search names, colors and materials.',
 
   mostWorn: 'Most worn',
-  favoriteOutfits: 'Favourite outfits',
+  favoriteOutfits: 'Favorite outfits',
 
   recategorise: 'Recategorise',
   store: 'Store',
@@ -372,5 +372,5 @@ export const CLOSET_COPY = {
 /** "Searching dresses for “linen” — name, colour and material." */
 export function searchScopeLine(category: string, query: string): string {
   const where = category === 'All' ? 'your closet' : category.toLowerCase();
-  return `Searching ${where} for “${query}” — name, colour and material.`;
+  return `Searching ${where} for “${query}” — name, color and material.`;
 }

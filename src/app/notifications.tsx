@@ -91,7 +91,7 @@ export default function NotificationsScreen() {
           </View>
         ) : prefs.isError ? (
           <ErrorState
-            title="Your notification settings didn't load"
+            title="Your notification settings didn’t load"
             body="Nothing has changed — whatever you had switched on is still switched on. This is only the screen failing to read it."
             onRetry={() => void prefs.refetch()}
             retrying={prefs.isRefetching}
@@ -115,7 +115,7 @@ export default function NotificationsScreen() {
               <Notice
                 className="mt-4"
                 tone="critical"
-                message="That didn't save — your settings are unchanged. Try the switch again."
+                message="That didn’t save — your settings are unchanged. Try the switch again."
               />
             ) : null}
           </>

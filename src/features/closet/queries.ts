@@ -126,7 +126,7 @@ export function useCloset() {
       // background refetch leaves yesterday's real closet on screen rather
       // than replacing it with a "successful" empty read.
       if (!userId) {
-        throw new Error("Couldn't confirm your session. Check your connection and try again.");
+        throw new Error("Couldn’t confirm your session. Check your connection and try again.");
       }
 
       const { data, error } = await supabase

@@ -172,7 +172,7 @@ export function Superwall({ children }: { children: React.ReactNode }) {
           restoreFailed: {
             title: 'No subscription found',
             message:
-              "We couldn't find a Cinch subscription on this Apple ID. If you paid on another account, sign in to that one and try again.",
+              "We couldn’t find a Cinch subscription on this Apple ID. If you paid on another account, sign in to that one and try again.",
             closeButtonTitle: 'OK',
           },
         },

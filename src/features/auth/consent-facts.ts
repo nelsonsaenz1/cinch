@@ -37,7 +37,7 @@ export type ConsentFact = {
 export const CONSENT_FACTS: readonly ConsentFact[] = [
   {
     lead: 'The photo goes to our AI partner,',
-    rest: ' which returns a category, colour and fabric.',
+    rest: ' which returns a category, color and fabric.',
   },
   {
     // WAS: "It goes to one AI partner and comes straight back. We don't send

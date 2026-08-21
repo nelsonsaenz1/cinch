@@ -262,7 +262,7 @@ export default function ClosetScreen() {
       <>
         <EyebrowHeader />
         <ErrorState
-          title="Couldn't read your closet"
+          title="Couldn’t read your closet"
           body="Check your connection and try again."
           retrying={screen.refreshing}
           onRetry={screen.refresh}
@@ -446,7 +446,7 @@ export default function ClosetScreen() {
           ListEmptyComponent={<EmptySearch query={screen.query} category={screen.category} />}
           ListFooterComponent={
             <Text variant="noteSmall" className="px-1.5 pt-4" style={{ fontSize: 12, lineHeight: 17 }}>
-              Searching matches name, colour and fabric — nothing you don’t own.
+              Searching matches name, color and fabric — nothing you don’t own.
             </Text>
           }
         />
@@ -1053,7 +1053,7 @@ function EmptySearch({ query, category }: { query: string; category: CategoryFil
   const filtered = category !== 'All';
   const title = query || filtered ? 'Nothing matches' : 'An empty rail';
   const body = query
-    ? 'No pieces match that search. Try a colour, a brand, or the kind of garment.'
+    ? 'No pieces match that search. Try a color, a brand, or the kind of garment.'
     : filtered
       ? `Nothing filed under ${category.toLowerCase()} yet.`
       : 'Add a few pieces and your whole wardrobe becomes searchable here.';

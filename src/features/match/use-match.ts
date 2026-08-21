@@ -129,15 +129,15 @@ async function readErrorBody(error: unknown): Promise<ErrorBody | null> {
  */
 const MESSAGES: Record<string, string> = {
   ai_consent_required: 'Searching needs your OK on AI features — you can give it in Profile.',
-  ai_quota_exceeded: "You've used this month's searches.",
-  quota_unavailable: "Cinch couldn't check your allowance. Try again shortly.",
+  ai_quota_exceeded: "You’ve used this month’s searches.",
+  quota_unavailable: "Cinch couldn’t check your allowance. Try again shortly.",
   plan_upgrade_required: 'Searching the shops is part of Standard and Pro.',
   search_disabled: 'Search is unavailable right now. Your photo stays.',
-  search_failed: "The search didn't come back. Try again in a moment.",
-  match_failed: "The search didn't come back. Try again in a moment.",
-  image_rejected: "That picture couldn't be saved. Try another one.",
-  image_unreachable: "That picture couldn't be reached. Try another one.",
-  attach_failed: "That photo couldn't be saved to this piece. Your own photo stays.",
+  search_failed: "The search didn’t come back. Try again in a moment.",
+  match_failed: "The search didn’t come back. Try again in a moment.",
+  image_rejected: "That picture couldn’t be saved. Try another one.",
+  image_unreachable: "That picture couldn’t be reached. Try another one.",
+  attach_failed: "That photo couldn’t be saved to this piece. Your own photo stays.",
 };
 
 const FALLBACK_MESSAGE = 'Something went wrong. Try again in a moment.';

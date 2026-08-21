@@ -29,7 +29,7 @@ import {
 export const DISLIKE_REASONS = [
   { label: 'Too formal', reason: 'too_formal' },
   { label: 'Too casual', reason: 'too_casual' },
-  { label: 'Not my colours', reason: 'palette' },
+  { label: 'Not my colors', reason: 'palette' },
   { label: 'Bad combination', reason: 'combination' },
   { label: 'Wrong for the weather', reason: 'weather' },
   { label: 'Worn too recently', reason: 'freshness' },
@@ -392,7 +392,7 @@ export function ReactionBar({
                 quietly poisoned the learner. */}
             <PressableSurface
               accessibilityRole="button"
-              accessibilityLabel="Never mind, don't record anything"
+              accessibilityLabel="Never mind, don’t record anything"
               onPress={() => {
                 tap(Haptics.ImpactFeedbackStyle.Light);
                 setAskingWhy(false);

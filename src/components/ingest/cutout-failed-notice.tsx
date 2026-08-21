@@ -71,7 +71,7 @@ export function CutoutFailedNotice({
           title={CUTOUT_ACCEPT_ACTION}
           variant="ghost"
           onPress={() => acceptFullPhoto(jobId)}
-          accessibilityHint="Keeps the full photograph as this piece's image. The piece is already in your closet."
+          accessibilityHint="Keeps the full photograph as this piece’s image. The piece is already in your closet."
         />
       </View>
     </View>

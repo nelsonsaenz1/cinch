@@ -157,7 +157,7 @@ export function tenRouteName(route: IntakeRoute): string {
  * travels with the control".
  */
 export const CATALOGUE_DISCLOSURE =
-  'Product search reads a licensed shop catalogue only. It is not a web search, and nothing you type is sent to an AI model.';
+  'Product search reads a licensed shop catalog only. It is not a web search, and nothing you type is sent to an AI model.';
 
 /**
  * Phrases an intake surface may never carry.

@@ -80,7 +80,7 @@ export const TOUR_FRAMES: readonly TourFrame[] = [
     eyebrow: 'Two · The camera',
     headline: 'Photograph it once.',
     body:
-      'Lay a piece flat, take one picture, and Cinch cuts it out, names the colour and files it. ' +
+      'Lay a piece flat, take one picture, and Cinch cuts it out, names the color and files it. ' +
       `${cap(numberWord(TOUR_CLOSET_TARGET))} pieces is enough to start; the rest can come slowly.`,
     ground: 'canvas',
     plate: 'transformation',
@@ -125,7 +125,7 @@ export const TOUR_FRAMES: readonly TourFrame[] = [
  */
 export const TOUR_SAMPLE_WEEKDAY = 'Wednesday';
 export const TOUR_SAMPLE_FEELS_C = 17;
-export const TOUR_SAMPLE_SKY = 'Grey';
+export const TOUR_SAMPLE_SKY = 'Gray';
 /** The app's units. Same constant, same value, as `stylist.tsx`. */
 export const TOUR_UNITS = 'F' as const;
 

@@ -366,7 +366,7 @@ export default {
         if (!licensedFirst(db, null).catalogue) {
           return fail(
             'catalogue_unavailable',
-            "Cinch can't reach the shop catalogue right now. Photographing the piece still works.",
+            "Cinch can’t reach the shop catalog right now. Photographing the piece still works.",
             503,
           );
         }
@@ -466,7 +466,7 @@ async function searchGarments(
   if (!wiring.canSearch) {
     return fail(
       'catalogue_unavailable',
-      "Cinch can't reach the shop catalogue right now. Photographing the piece still works.",
+      "Cinch can’t reach the shop catalog right now. Photographing the piece still works.",
       503,
     );
   }
@@ -644,7 +644,7 @@ async function browseCatalogue(
   if (!wiring.catalogue) {
     return fail(
       'catalogue_unavailable',
-      "Cinch can't reach the shop catalogue right now. Photographing the piece still works.",
+      "Cinch can’t reach the shop catalog right now. Photographing the piece still works.",
       503,
     );
   }
@@ -684,7 +684,7 @@ async function browseCatalogue(
  * from inside an Edge Function with an eight-second budget and no browser.
  */
 const UNREADABLE_MESSAGE =
-  "Cinch couldn't find the picture on that page — photograph the item instead.";
+  "Cinch couldn’t find the picture on that page — photograph the item instead.";
 
 /**
  * Turn a pasted product link into a preview: one picture, one name, one shop.
@@ -755,7 +755,7 @@ async function resolveLink(
     await record(false, 'unsafe: pre-check');
     return fail(
       'link_rejected',
-      "Cinch can't open that link. Paste the product page from the shop's own site.",
+      "Cinch can’t open that link. Paste the product page from the shop’s own site.",
       400,
     );
   }
@@ -781,14 +781,14 @@ async function resolveLink(
       // one it was is only useful to somebody probing the guard.
       return fail(
         'link_rejected',
-        "Cinch can't open that link. Paste the product page from the shop's own site.",
+        "Cinch can’t open that link. Paste the product page from the shop’s own site.",
         400,
       );
     }
     await record(false, 'unreachable');
     return fail(
       'link_unreachable',
-      "That page didn't answer. Check the link, or photograph the item instead.",
+      "That page didn’t answer. Check the link, or photograph the item instead.",
       502,
     );
   }
@@ -797,7 +797,7 @@ async function resolveLink(
     await record(false, `status ${page.status}`);
     return fail(
       'link_unreachable',
-      "That page didn't answer. Check the link, or photograph the item instead.",
+      "That page didn’t answer. Check the link, or photograph the item instead.",
       502,
     );
   }
@@ -828,7 +828,7 @@ async function resolveLink(
     await record(false, `content-type ${contentType || 'unknown'}`);
     return fail(
       'link_not_a_page',
-      "That link isn't a product page. Open the item on the shop's site and copy that link.",
+      "That link isn’t a product page. Open the item on the shop’s site and copy that link.",
       415,
     );
   }
@@ -988,7 +988,7 @@ async function fetchListingImage(
   try {
     image = assertSafeUrl(imageUrl);
   } catch {
-    return no('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+    return no('image_rejected', "That picture couldn’t be saved. Try another one.", 400);
   }
 
   const imageVerdict = await admitSource(image);
@@ -1004,7 +1004,7 @@ async function fetchListingImage(
     } catch {
       return no(
         'link_rejected',
-        "Cinch can't open that link. Paste the product page from the shop's own site.",
+        "Cinch can’t open that link. Paste the product page from the shop’s own site.",
         400,
       );
     }
@@ -1021,13 +1021,13 @@ async function fetchListingImage(
     });
   } catch (err) {
     if (err instanceof UnsafeUrlError) {
-      return no('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+      return no('image_rejected', "That picture couldn’t be saved. Try another one.", 400);
     }
-    return no('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
+    return no('image_unreachable', "That picture couldn’t be reached. Try another one.", 502);
   }
 
   if (downloaded.status !== 200) {
-    return no('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
+    return no('image_unreachable', "That picture couldn’t be reached. Try another one.", 502);
   }
 
   // The response's own directive, which for an image host is usually the only
@@ -1039,7 +1039,7 @@ async function fetchListingImage(
   const contentType = downloaded.contentType.split(';')[0].trim();
   const extension = IMAGE_EXTENSIONS[contentType];
   if (!extension || !looksLikeImage(downloaded.body)) {
-    return no('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+    return no('image_rejected', "That picture couldn’t be saved. Try another one.", 400);
   }
 
   return {
@@ -1154,7 +1154,7 @@ async function storeListingAsGarment(
     if (insertError?.code === '23505') {
       return fail_('already_imported', 'That piece is already in your closet.', 409);
     }
-    return fail_('import_failed', "That garment couldn't be added. Try again.", 500);
+    return fail_('import_failed', "That garment couldn’t be added. Try again.", 500);
   }
 
   const path = `${userId}/${item.id}/original.${image.extension}`;
@@ -1165,7 +1165,7 @@ async function storeListingAsGarment(
 
   if (uploadError) {
     await db.from('items').delete().eq('id', item.id);
-    return fail_('import_failed', "That garment couldn't be added. Try again.", 500);
+    return fail_('import_failed', "That garment couldn’t be added. Try again.", 500);
   }
 
   // `thumb_path` points at the same object rather than a resize. There is no
@@ -1180,7 +1180,7 @@ async function storeListingAsGarment(
 
   if (updateError) {
     await db.from('items').delete().eq('id', item.id);
-    return fail_('import_failed', "That garment couldn't be added. Try again.", 500);
+    return fail_('import_failed', "That garment couldn’t be added. Try again.", 500);
   }
 
   return { ok: true, itemId: item.id };
@@ -1274,7 +1274,7 @@ async function importCatalogueBatch(
     .in('catalog_external_id', request.imports.map((r) => r.externalId));
 
   if (existingError) {
-    return fail('import_failed', "Cinch couldn't check your closet. Try again.", 500);
+    return fail('import_failed', "Cinch couldn’t check your closet. Try again.", 500);
   }
 
   const heldBy = new Map<string, string>();
@@ -1469,12 +1469,12 @@ async function matchListing(
     .maybeSingle();
 
   if (!item) {
-    return fail('item_not_found', "That garment isn't in your closet.", 404);
+    return fail('item_not_found', "That garment isn’t in your closet.", 404);
   }
 
   const imagePath = item.cutout_path ?? item.thumb_path ?? item.image_path;
   if (!imagePath) {
-    return fail('item_no_image', "That garment doesn't have a photo yet.", 409);
+    return fail('item_no_image', "That garment doesn’t have a photo yet.", 409);
   }
 
   // ── Model config, read at call time so a model swap is a DB update ────────
@@ -1511,7 +1511,7 @@ async function matchListing(
   // an empty result without this branch would read as "no listings for your
   // garment" when the truth is that nobody looked.
   if (!wiring.canMatch) {
-    return fail('match_unavailable', "Cinch can't look this one up right now. Try again later.", 503);
+    return fail('match_unavailable', "Cinch can’t look this one up right now. Try again later.", 503);
   }
 
   const provider = wiring.provider;
@@ -1525,7 +1525,7 @@ async function matchListing(
     .createSignedUrl(imagePath, SIGNED_URL_TTL_SECONDS);
 
   if (signError || !signed?.signedUrl) {
-    return fail('item_image_unreadable', "That garment's photo couldn't be read.", 500);
+    return fail('item_image_unreadable', "That garment’s photo couldn’t be read.", 500);
   }
 
   const quotaResponse = await enforceAiQuota(admin, userId, 'garment_search');
@@ -1702,7 +1702,7 @@ async function attachListing(
     .maybeSingle();
 
   if (!item) {
-    return fail('item_not_found', "That garment isn't in your closet.", 404);
+    return fail('item_not_found', "That garment isn’t in your closet.", 404);
   }
 
   // The page URL is stored, not fetched — but a stored URL the app will render
@@ -1713,7 +1713,7 @@ async function attachListing(
   } catch {
     return fail(
       'link_rejected',
-      "Cinch can't open that link. Paste the product page from the shop's own site.",
+      "Cinch can’t open that link. Paste the product page from the shop’s own site.",
       400,
     );
   }
@@ -1728,7 +1728,7 @@ async function attachListing(
   try {
     image = assertSafeUrl(request.imageUrl);
   } catch {
-    return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+    return fail('image_rejected', "That picture couldn’t be saved. Try another one.", 400);
   }
 
   const imageVerdict = await admitSource(image);
@@ -1745,13 +1745,13 @@ async function attachListing(
     });
   } catch (err) {
     if (err instanceof UnsafeUrlError) {
-      return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+      return fail('image_rejected', "That picture couldn’t be saved. Try another one.", 400);
     }
-    return fail('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
+    return fail('image_unreachable', "That picture couldn’t be reached. Try another one.", 502);
   }
 
   if (downloaded.status !== 200) {
-    return fail('image_unreachable', "That picture couldn't be reached. Try another one.", 502);
+    return fail('image_unreachable', "That picture couldn’t be reached. Try another one.", 502);
   }
 
   const contentVerdict = admitContent(downloaded.headers);
@@ -1761,7 +1761,7 @@ async function attachListing(
   const contentType = downloaded.contentType.split(';')[0].trim();
   const extension = IMAGE_EXTENSIONS[contentType];
   if (!extension || !looksLikeImage(downloaded.body)) {
-    return fail('image_rejected', "That picture couldn't be saved. Try another one.", 400);
+    return fail('image_rejected', "That picture couldn’t be saved. Try another one.", 400);
   }
 
   // Inside the `{user_id}/{item_id}/` prefix the bucket policy authorizes on,
@@ -1774,7 +1774,7 @@ async function attachListing(
     .upload(path, downloaded.body, { contentType, upsert: true });
 
   if (uploadError) {
-    return fail('attach_failed', "That listing couldn't be saved. Try again.", 500);
+    return fail('attach_failed', "That listing couldn’t be saved. Try again.", 500);
   }
 
   const confirmedAt = new Date().toISOString();
@@ -1802,7 +1802,7 @@ async function attachListing(
     if (item.listing_path !== path) {
       await admin.storage.from(BUCKET).remove([path]);
     }
-    return fail('attach_failed', "That listing couldn't be saved. Try again.", 500);
+    return fail('attach_failed', "That listing couldn’t be saved. Try again.", 500);
   }
 
   // Best-effort, after the row is safely updated: a previous listing at a
@@ -1847,7 +1847,7 @@ async function detachListing(
     .maybeSingle();
 
   if (!item) {
-    return fail('item_not_found', "That garment isn't in your closet.", 404);
+    return fail('item_not_found', "That garment isn’t in your closet.", 404);
   }
 
   // Already bare. Not an error: two taps on a slow connection should read as
@@ -1868,7 +1868,7 @@ async function detachListing(
     .select('id');
 
   if (updateError || !updated || updated.length !== 1) {
-    return fail('detach_failed', "That listing photo couldn't be removed. Try again.", 500);
+    return fail('detach_failed', "That listing photo couldn’t be removed. Try again.", 500);
   }
 
   await admin.storage.from(BUCKET).remove([item.listing_path]);

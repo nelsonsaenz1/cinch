@@ -56,7 +56,7 @@ export function FamilyCard({ family, position, onOpen }: FamilyCardProps) {
   const label = [
     title,
     family.brand ? `${family.brand}${spokenCut}.` : null,
-    `${count} ${count === 1 ? 'colour' : 'colours'} available.`,
+    `${count} ${count === 1 ? 'color' : 'colors'} available.`,
     PROVENANCE_SHORT,
   ]
     .filter(Boolean)

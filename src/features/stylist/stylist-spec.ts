@@ -338,8 +338,15 @@ export const CAPACITY_HELD_COPY = {
  * the server and settle a chat there. That is why the timed-out sentence
  * promises nothing about what was spent — unlike the transport copy, it
  * cannot honestly say the request never arrived.
+ *
+ * 45 seconds, not 10. The first cut said 10 and the very first live turn
+ * proved it wrong: a real reply landed in 25.4s (measured 2026-08-21 against
+ * production) while the client had already called it dead — a paid answer
+ * thrown away. The server's own provider budget is CHAT_TIMEOUT_MS = 30s, so
+ * the client ceiling sits above it with network headroom: this races HANGS,
+ * never slow honest work.
  */
-export const SEND_CEILING_MS = 10_000;
+export const SEND_CEILING_MS = 45_000;
 
 /** The sentinel the race rejects with, so the catch can tell it apart. */
 export const SEND_TIMED_OUT = 'stylist_send_timed_out';
@@ -500,10 +507,14 @@ export function composerHeight(ax: boolean): number {
  * same fact, and it is already the number the layout is built on.
  */
 export function stylistKeyboardOffset(safeAreaBottom: number): number {
-  const overlap = Math.max(0, safeAreaBottom);
-  // Spelled out to dodge `-0`, which is what `-Math.max(0, 0)` returns and
-  // what a strict equality test rightly refuses to call zero.
-  return overlap === 0 ? 0 : -overlap;
+  // Measured on the simulator (2026-08-21, iPhone 17 Pro): handing the safe
+  // area back as a negative sank the composer fully BEHIND the keyboard —
+  // the padding maths already accounts for the covered tab bar because the
+  // keyboard replaces it. Zero is the offset that puts the composer on the
+  // keyboard's top edge. The parameter stays so the next tuning session
+  // doesn't have to rediscover where the knob is.
+  void safeAreaBottom;
+  return 0;
 }
 
 // ---------------------------------------------------------------------------

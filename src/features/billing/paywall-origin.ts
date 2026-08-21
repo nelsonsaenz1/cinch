@@ -66,7 +66,7 @@ export function returnLabelFor(placement: PlacementName | null): string {
     case Placement.AddGarmentOverLimit:
       return 'Back to your closet';
     case Placement.GenerateOutfitOverLimit:
-      return "Back to today's outfits";
+      return "Back to today’s outfits";
     case Placement.EventHostingOverLimit:
       return 'Back to your event';
     case Placement.EventJoinOverLimit:
@@ -74,7 +74,7 @@ export function returnLabelFor(placement: PlacementName | null): string {
     case Placement.PackingAccess:
       return 'Back to the trip';
     case Placement.RepeatUpsell:
-      return "Back to today's outfit";
+      return "Back to today’s outfit";
     case Placement.RevealComplete:
       // The Reveal is still underneath — `router.back()` returns to it with
       // the count and the first plate exactly as they were, which is the

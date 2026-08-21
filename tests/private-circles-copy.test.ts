@@ -567,7 +567,7 @@ test('PC-10 is transcribed exactly, reasons included', () => {
   // user. `private-circles-ax.test.ts` enforces it against the components.
   assert.equal(
     COLOUR_INDEPENDENCE_RULE,
-    'Every unavailable row states its reason on the row itself. Nothing is hidden and nothing is explained by colour alone.',
+    'Every unavailable row states its reason on the row itself. Nothing is hidden and nothing is explained by color alone.',
   );
 });
 

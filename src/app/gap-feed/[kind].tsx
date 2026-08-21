@@ -224,7 +224,7 @@ export default function GapDetailScreen() {
             : gapLabelLower(model.tally, kind)
         }
         title={`Your closet holds ${model.capacity.limit}. This would be the ${ordinal(model.capacity.limit + 1)}.`}
-        body="Two ways forward, and neither loses anything you've photographed."
+        body="Two ways forward, and neither loses anything you’ve photographed."
         onSeePlans={seePlans}
         seePlansBusy={gatePresenting}
         secondaryLabel="Swap a piece out instead"

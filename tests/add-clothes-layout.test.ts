@@ -76,7 +76,7 @@ test('every sentence matches the artifact’s copy table', () => {
   assert.equal(CAMERA_MODULE_ACTION, 'How to update');
   assert.equal(
     LOCAL_MODE_LINE,
-    'Photographs stay on this device. You’ll type the category, colour and fabric yourself.',
+    'Photographs stay on this device. You’ll type the category, color and fabric yourself.',
   );
   assert.equal(LOCAL_MODE_ACTION, 'Change this');
   // The four door names and lines come from the shared intake table, which is
@@ -93,7 +93,7 @@ test('every sentence matches the artifact’s copy table', () => {
   assert.equal(byKey.voice.line, 'Say it out loud instead of typing');
   assert.equal(
     CATALOGUE_DISCLOSURE,
-    'Product search reads a licensed shop catalogue only. It is not a web search, and nothing you type is sent to an AI model.',
+    'Product search reads a licensed shop catalog only. It is not a web search, and nothing you type is sent to an AI model.',
   );
 });
 

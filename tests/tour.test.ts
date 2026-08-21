@@ -88,7 +88,7 @@ test('TR-02 — the camera, and the ten is the free closet, not a typed number',
   assert.equal(f.headline, 'Photograph it once.');
   assert.equal(
     f.body,
-    'Lay a piece flat, take one picture, and Cinch cuts it out, names the colour and files it. Ten pieces is enough to start; the rest can come slowly.',
+    'Lay a piece flat, take one picture, and Cinch cuts it out, names the color and files it. Ten pieces is enough to start; the rest can come slowly.',
   );
   // The sentence is derived. If the free tier ever moves, the word moves with
   // it rather than the copy quietly going wrong.
@@ -116,7 +116,7 @@ test('the sample data on the plates is sample data, and says so', () => {
   assert.equal(TOUR_SAMPLE_WEEKDAY, 'Wednesday');
   // "and grey" until the header split it off the temperature. It opens its own
   // phrase now, so it is capitalised.
-  assert.equal(TOUR_SAMPLE_SKY, 'Grey');
+  assert.equal(TOUR_SAMPLE_SKY, 'Gray');
   assert.equal(TOUR_UNITS, 'F');
   assert.equal(TOUR_SAMPLE_LOOK, 'Blouse, skirt, loafers');
   assert.equal(TOUR_SAMPLE_LAST_WORN, 'Last worn Friday');

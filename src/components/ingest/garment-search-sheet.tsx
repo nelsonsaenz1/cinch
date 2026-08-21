@@ -272,7 +272,7 @@ export function GarmentSearchSheetBody({
             reason the route was renamed — a control that reaches a licensed
             product feed should say so on itself. */}
         <Text variant="body" className="text-muted">
-          Cinch searches a licensed shop catalogue.
+          Cinch searches a licensed shop catalog.
         </Text>
         <Text variant="noteSmall" className="mt-2">
           Results are product photographs the shops supply. This is not a web search, and what you
@@ -376,7 +376,7 @@ export function GarmentSearchSheetBody({
               </Text>
             </View>
             <Text variant="note" className="mt-1.5">
-              Cinch will read the name, colour and picture from the page and file it as yours. It
+              Cinch will read the name, color and picture from the page and file it as yours. It
               does not order anything and does not follow the retailer{'’'}s link.
             </Text>
           </View>
@@ -396,11 +396,11 @@ export function GarmentSearchSheetBody({
               accessibilityIgnoresInvertColors
             />
             <Text variant="label" className="flex-1">
-              Colour photo attached
+              Color photo attached
             </Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Remove colour photo"
+              accessibilityLabel="Remove color photo"
               hitSlop={12}
               onPress={flow.clearSwatch}
               className="active:opacity-60">
@@ -410,12 +410,12 @@ export function GarmentSearchSheetBody({
         ) : (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Add a photo of the colour"
+            accessibilityLabel="Add a photo of the color"
             onPress={() => void flow.attachSwatch()}
             style={{ minHeight: MIN_TAP_TARGET }}
             className="mt-2 flex-row items-center gap-2 active:opacity-70">
             <SymbolView name="camera" size={15} tintColor={theme.muted} resizeMode="scaleAspectFit" />
-            <Text variant="label">Add a photo of the colour</Text>
+            <Text variant="label">Add a photo of the color</Text>
           </Pressable>
         )}
 
@@ -606,7 +606,7 @@ export function GarmentSearchSheetBody({
           </Text>
         ) : footer === 'link' ? (
           <Text variant="caption" className="pt-6" style={{ marginTop: 'auto' }}>
-            The colour-photo row is gone: there is nothing for a colour reference to settle when
+            The color-photo row is gone: there is nothing for a color reference to settle when
             the shop{'’'}s own photograph is the answer.
           </Text>
         ) : null}

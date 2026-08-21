@@ -63,7 +63,7 @@ import {
  * whether existing consents survive the change.
  */
 const FROZEN_RECORD = [
-  ['The photo goes to our AI partner,', ' which returns a category, colour and fabric.'],
+  ['The photo goes to our AI partner,', ' which returns a category, color and fabric.'],
   [
     'It only goes to models that are not allowed to learn from it,',
     ' and comes straight back. Your name and your email never go with it.',

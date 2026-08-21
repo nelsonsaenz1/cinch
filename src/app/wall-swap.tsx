@@ -51,7 +51,7 @@ export default function WallSwapScreen() {
         onSuccess: () => router.back(),
         onError: (err) =>
           Alert.alert(
-            "Couldn't store that piece",
+            "Couldn’t store that piece",
             err instanceof Error ? err.message : 'Something went wrong. Try again.',
           ),
         onSettled: () => setBusyId(null),
@@ -64,7 +64,7 @@ export default function WallSwapScreen() {
   if (model.error) {
     body = (
       <ErrorState
-        title="Couldn't read your closet"
+        title="Couldn’t read your closet"
         body="Check your connection and try again."
       />
     );
@@ -79,7 +79,7 @@ export default function WallSwapScreen() {
       <EmptyState
         symbol="archivebox"
         title="Nothing to store"
-        body="There's nothing in your closet that would make room right now."
+        body="There’s nothing in your closet that would make room right now."
       />
     );
   } else {

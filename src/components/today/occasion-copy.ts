@@ -76,7 +76,7 @@ export function occasionInterruptCopy(
       occasion.memberCount > 1
         ? `${WORDS[occasion.memberCount] ?? occasion.memberCount} going.`
         : null,
-    body: "Today's look is built for the day; the occasion has its own.",
+    body: "Today’s look is built for the day; the occasion has its own.",
     action: `Dress for ${occasion.occasion ? `the ${occasion.occasion}` : 'the occasion'} instead`,
   };
 }

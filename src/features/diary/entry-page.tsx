@@ -215,7 +215,7 @@ export function EntryPage(props: EntryPageProps) {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Undo this wear"
-              accessibilityHint="Deletes this wear and puts the pieces' wear counts back"
+              accessibilityHint="Deletes this wear and puts the pieces’ wear counts back"
               accessibilityState={{
                 busy: props.removing,
                 disabled: props.removing,

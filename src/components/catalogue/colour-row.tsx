@@ -40,7 +40,7 @@ export function ColourRow({ colour, selected, familyTitle, onToggle, large = fal
     colour.label,
     colour.imageUrl ? null : NO_PHOTO,
     selected ? 'Selected' : 'Not selected',
-    `Colour of ${familyTitle}`,
+    `Color of ${familyTitle}`,
   ]
     .filter(Boolean)
     .join('. ');

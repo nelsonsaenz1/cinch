@@ -714,7 +714,7 @@ export function ReviewCard({
                   // Full-width ruled rows: label left, value right.
                   <View>
                     <AxFieldRow label="Category" value={categoryValue} hedged={isUncategorised} />
-                    <AxFieldRow label="Colour" value={coloursValue} swatchHex={colours[0]?.hex ?? null} />
+                    <AxFieldRow label="Color" value={coloursValue} swatchHex={colours[0]?.hex ?? null} />
                     <AxFieldRow label="Fabric" value={detailsValue} />
                   </View>
                 ) : (
@@ -737,7 +737,7 @@ export function ReviewCard({
                         wrong." */}
                     <View className="flex-1">
                       <FieldRow label="Category" value={categoryValue} hedged={isUncategorised} />
-                      <FieldRow label="Colour" value={coloursValue} swatchHex={colours[0]?.hex ?? null} />
+                      <FieldRow label="Color" value={coloursValue} swatchHex={colours[0]?.hex ?? null} />
                       <FieldRow label="Fabric" value={detailsValue} last />
                     </View>
                   </View>

@@ -123,7 +123,7 @@ test('neither means the no-data state, not a hidden section', () => {
 
 test('the heading changes with the claim', () => {
   assert.equal(RAIL_HEADING.coWear, 'Wears well with');
-  assert.equal(RAIL_HEADING.harmony, 'Pairs by colour');
+  assert.equal(RAIL_HEADING.harmony, 'Pairs by color');
   assert.notEqual(RAIL_HEADING.coWear, RAIL_HEADING.harmony);
 });
 

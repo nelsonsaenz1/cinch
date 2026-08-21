@@ -72,34 +72,34 @@ async function readErrorBody(error: unknown): Promise<ErrorBody | null> {
 /** Sentences in the app's voice, keyed by the server's stable codes. */
 const MESSAGES: Record<string, string> = {
   ai_consent_required: 'Searching needs your OK on AI features — you can give it in Profile.',
-  ai_quota_exceeded: "You've used this month's searches.",
-  quota_unavailable: "Cinch couldn't check your allowance. Try again shortly.",
+  ai_quota_exceeded: "You’ve used this month’s searches.",
+  quota_unavailable: "Cinch couldn’t check your allowance. Try again shortly.",
   plan_upgrade_required: 'Searching by description is part of Standard and Pro.',
   closet_limit_reached: 'Your closet is full on this plan.',
   search_disabled: 'Search is unavailable right now. Photographs still work.',
-  search_failed: "The search didn't come back. Try again in a moment.",
-  image_rejected: "That picture couldn't be saved. Try another one.",
-  image_unreachable: "That picture couldn't be reached. Try another one.",
-  import_failed: "That garment couldn't be added. Try again.",
+  search_failed: "The search didn’t come back. Try again in a moment.",
+  image_rejected: "That picture couldn’t be saved. Try another one.",
+  image_unreachable: "That picture couldn’t be reached. Try another one.",
+  import_failed: "That garment couldn’t be added. Try again.",
 
   // ── Filing typed words (DS-03/04/05). `storage_limit_reached` is the second
   //    ceiling: the closet is full AND the archive is too, which the import
   //    path never had to say because it could not reach a full archive. ──────
   storage_limit_reached: 'Your closet and its archive are both full on this plan.',
   not_signed_in: 'Sign in again to add a piece.',
-  file_failed: "Those words couldn't be filed. Try again.",
+  file_failed: "Those words couldn’t be filed. Try again.",
 
   // ── The link path. Four distinct failures, four distinct sentences: which
   //    one a person hits decides what they should do next, and a single
   //    "couldn't import that link" would hide all four differences. ──────────
   /** The URL guard refused it — not https, a private address, a redirect loop. */
-  link_rejected: "Cinch can't open that link. Paste the product page from the shop's own site.",
+  link_rejected: "Cinch can’t open that link. Paste the product page from the shop’s own site.",
   /** We got there and it did not answer, or answered with an error. */
-  link_unreachable: "That page didn't answer. Check the link, or photograph the item instead.",
+  link_unreachable: "That page didn’t answer. Check the link, or photograph the item instead.",
   /** A PDF, a JSON endpoint, a download — reachable, but not a page. */
-  link_not_a_page: "That link isn't a product page. Open the item on the shop's site and copy that link.",
+  link_not_a_page: "That link isn’t a product page. Open the item on the shop’s site and copy that link.",
   /** Read it, found no picture. The common one: a JavaScript-rendered shop. */
-  link_no_image: "Cinch couldn't find the picture on that page — photograph the item instead.",
+  link_no_image: "Cinch couldn’t find the picture on that page — photograph the item instead.",
 };
 
 const FALLBACK_MESSAGE = 'Something went wrong. Try again in a moment.';

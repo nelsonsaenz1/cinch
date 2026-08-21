@@ -139,7 +139,7 @@ const LISTING_OFFER_DISMISSED_KEY = 'cinch.listing-offer.dismissed.v1';
 
 /** The three consequences, verbatim from frame A-04. */
 const DECLINE_ROWS = [
- 'You’ll type the category, colour and fabric yourself. Four taps an item, roughly.',
+ 'You’ll type the category, color and fabric yourself. Four taps an item, roughly.',
  'Search still works, on the words you wrote. “Something warm for Thursday” won’t.',
  'Outfits, wear counts, cost per wear and lending to friends are unaffected.',
 ] as const;
@@ -1294,7 +1294,7 @@ function CaptureScreen() {
             />
             <FallbackDoor
               title="Describe it instead"
-              body="Colour and kind is enough to file a piece."
+              body="Color and kind is enough to file a piece."
               onPress={() => start('describe')}
             />
           </View>
@@ -1460,7 +1460,7 @@ function CaptureScreen() {
           const tally = tallyOf(wardrobe.data ?? []);
           const today = countOutfits(tally);
           const plural = (heldCapture?.assets.length ?? 1) > 1;
-          return `Your ${capacity.used} pieces make ${today} outfits today. What ${plural ? 'these would' : 'this would'} add depends on what ${plural ? 'they are' : 'it is'} — Cinch can't say until ${plural ? "they're" : "it's"} tagged. ${plural ? "They're" : "It's"} saved on your phone either way — nothing here deletes a photograph.`;
+          return `Your ${capacity.used} pieces make ${today} outfits today. What ${plural ? 'these would' : 'this would'} add depends on what ${plural ? 'they are' : 'it is'} — Cinch can’t say until ${plural ? "they’re" : "it’s"} tagged. ${plural ? "They’re" : "It’s"} saved on your phone either way — nothing here deletes a photograph.`;
         })()}
         onSeePlans={seePlansForHeldCapture}
         seePlansBusy={gatePresenting}

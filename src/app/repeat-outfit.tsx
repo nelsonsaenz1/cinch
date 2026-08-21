@@ -210,7 +210,7 @@ export default function RepeatOutfitScreen() {
 
           <View className="mt-4 flex-row gap-2.5">
             <View style={{ flex: 1 }}>
-              <Button title="I'll wear it again" onPress={handleWearAgain} loading={wear.isPending} />
+              <Button title="I’ll wear it again" onPress={handleWearAgain} loading={wear.isPending} />
             </View>
             <Button title="Show another" variant="secondary" onPress={() => router.replace('/')} />
           </View>

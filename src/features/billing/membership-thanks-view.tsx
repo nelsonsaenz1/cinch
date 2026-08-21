@@ -78,7 +78,7 @@ export function MembershipThanksView({
           ? 'Confirming with the App Store…'
           : planKnown
             ? `${planName} is active.`
-            : "Your purchase went through — Cinch is still confirming the plan on our side. It'll be here in a moment."}
+            : "Your purchase went through — Cinch is still confirming the plan on our side. It’ll be here in a moment."}
       </Text>
 
       {planKnown ? (

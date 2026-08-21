@@ -55,7 +55,7 @@ export function gapBody(gap: ClosetGap): string {
       // outfits really are assembled only from clothes the closet already has,
       // which is the claim worth keeping; "ever" is the part that stopped
       // being true.
-      return "Photograph your wardrobe once and I'll build outfits from your real clothes each morning. Your closet first — shopping only when something is genuinely missing.";
+      return "Photograph your wardrobe once and I’ll build outfits from your real clothes each morning. Your closet first — shopping only when something is genuinely missing.";
     case 'both':
       return 'Once you add a top and a bottom — or a dress — we can begin styling you.';
     case 'top':
