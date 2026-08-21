@@ -137,13 +137,15 @@ function TappableRow({ label, onPress }: { label: string; onPress?: () => void }
   const feedback = usePressFeedback(Boolean(onPress));
   return (
     <Pressable onPress={onPress} accessibilityRole="button" onPressIn={feedback.onPressIn} onPressOut={feedback.onPressOut}>
-      <Animated.View
-        style={[
-          feedback.style,
-          { minHeight: MIN_TAP_TARGET, borderRadius: ROW_RADIUS, justifyContent: 'center' },
-        ]}
-        className="border border-rule px-4">
-        <Text variant="body">{label}</Text>
+      {/* The ring and padding live on a REAL View — NativeWind cannot paint a
+          Reanimated wrapper (tokens.ts documents the Button bug that proved
+          it); the animated layer carries only the compression. */}
+      <Animated.View style={feedback.style}>
+        <View
+          style={{ minHeight: MIN_TAP_TARGET, borderRadius: ROW_RADIUS, justifyContent: 'center' }}
+          className="border border-rule px-4">
+          <Text variant="body">{label}</Text>
+        </View>
       </Animated.View>
     </Pressable>
   );

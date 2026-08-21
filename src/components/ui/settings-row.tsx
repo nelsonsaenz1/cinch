@@ -85,7 +85,7 @@ export function SettingsRow({
       onPressIn={feedback.onPressIn}
       onPressOut={feedback.onPressOut}
       style={{ minHeight: spec.minHeight, opacity: spec.opacity }}
-      className="px-4 py-3.5">
+      className="justify-center px-4 py-3.5">
       {/* UX-07: the interpolated compression replaces the one-frame
           `active:opacity` snap. The row arrangement moves onto the animated
           layer as inline style — NativeWind cannot paint Reanimated wrappers,

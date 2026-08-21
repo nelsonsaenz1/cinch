@@ -25,6 +25,7 @@ import {
 } from '@/features/styling/wear-failure';
 import { RepeatMark } from '@/components/today/repeat-mark';
 import { Swatch } from '@/components/ui/swatch';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 
 import { GRID_GAP, plateGrid, ROW_RATIO } from './plate-grid';
@@ -203,7 +204,8 @@ function ComposedLook({
                   shadowRadius: CONTACT.blur,
                   shadowOffset: { width: CONTACT.dx, height: CONTACT.dy },
                 }}>
-                <Pressable
+                <PressableSurface
+                  fill
                   disabled={!onOpenPiece}
                   onPress={onOpenPiece ? () => onOpenPiece(garment) : undefined}
                   accessibilityRole={onOpenPiece ? 'button' : 'image'}
@@ -212,13 +214,13 @@ function ComposedLook({
                   // The hairline is load-bearing, not trim: "a pale garment on
                   // the warm plate ground still reads as a bounded object at
                   // low contrast".
-                  className="h-full w-full overflow-hidden border border-hairline active:opacity-70"
+                  className="h-full w-full overflow-hidden border border-hairline"
                   style={{ borderRadius: TILE_RADIUS, backgroundColor: theme.tray }}>
                   <GarmentCell
                     garment={garment}
                     uri={resolveImage(garment.platePath, garment.cutoutPath, garment.thumbPath)}
                   />
-                </Pressable>
+                </PressableSurface>
             </Landing>
           ))}
         </View>
@@ -309,32 +311,34 @@ function WornBand({
       {onUndo || onAddNote ? (
         <View className="mt-2.5 flex-row items-center gap-2">
           {onUndo ? (
-            <Pressable
+            <PressableSurface
               accessibilityRole="button"
               accessibilityLabel="Undo — take today off the record"
               accessibilityState={{ disabled: Boolean(undoing), busy: Boolean(undoing) }}
               disabled={undoing}
               onPress={onUndo}
               style={{ minHeight: MIN_TAP_TARGET, minWidth: 76 }}
-              className={`items-center justify-center rounded-md border border-rule px-3 active:opacity-70 ${
+              contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              className={`rounded-md border border-rule px-3 ${
                 undoing ? 'opacity-40' : ''
               }`}>
               <Text variant="label" style={{ color: theme.ink }}>
                 Undo
               </Text>
-            </Pressable>
+            </PressableSurface>
           ) : null}
           {onAddNote ? (
-            <Pressable
+            <PressableSurface
               accessibilityRole="button"
               accessibilityLabel="Add a note to the diary"
               onPress={onAddNote}
               style={{ minHeight: MIN_TAP_TARGET }}
-              className="flex-1 items-center justify-center rounded-md border border-rule px-3 active:opacity-70">
+              contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              className="flex-1 rounded-md border border-rule px-3">
               <Text variant="label" style={{ color: theme.ink }}>
                 Add a note to the diary
               </Text>
-            </Pressable>
+            </PressableSurface>
           ) : null}
         </View>
       ) : null}

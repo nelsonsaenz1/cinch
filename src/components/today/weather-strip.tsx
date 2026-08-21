@@ -1,6 +1,7 @@
 import { SymbolView } from 'expo-symbols';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { describeWeather, formatTemp } from '@/features/context/weather';
 import type { EventContext, WeatherContext } from '@/lib/styling';
@@ -92,12 +93,14 @@ export function WeatherStrip({
           without a way back the forecast is silently someone else's city
           forever. Says which city it fell back to, and offers the fix. */}
       {usingFallbackLocation && onEnableLocation ? (
-        <Pressable
+        <PressableSurface
           onPress={onEnableLocation}
           hitSlop={8}
+          fill
           accessibilityRole="button"
           accessibilityLabel={`Using ${city}. Turn on location to use where you are.`}
-          className="mt-1.5 flex-row items-center gap-1.5 active:opacity-60">
+          contentStyle={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+          className="mt-1.5">
           <SymbolView
             name="location.slash"
             size={13}
@@ -113,7 +116,7 @@ export function WeatherStrip({
           <Text variant="label" className="flex-1" style={{ color: theme.ink }}>
             Using {city} — turn on location for where you are
           </Text>
-        </Pressable>
+        </PressableSurface>
       ) : null}
 
       {events.length > 0 ? (
@@ -134,11 +137,13 @@ export function WeatherStrip({
       ) : onConnectCalendar ? (
         // Not a modal on mount. Asking for the calendar before the user has
         // seen a single outfit is how permission prompts get declined.
-        <Pressable
+        <PressableSurface
           onPress={onConnectCalendar}
           hitSlop={8}
+          fill
           accessibilityRole="button"
-          className="mt-1.5 flex-row items-center gap-1.5 active:opacity-60">
+          contentStyle={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+          className="mt-1.5">
           <SymbolView
             name="calendar"
             size={13}
@@ -150,7 +155,7 @@ export function WeatherStrip({
           <Text variant="label" className="flex-1" style={{ color: theme.ink }}>
             Use today&rsquo;s plans to sharpen these
           </Text>
-        </Pressable>
+        </PressableSurface>
       ) : null}
     </View>
   );

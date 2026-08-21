@@ -1,8 +1,10 @@
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
+import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -19,6 +21,10 @@ import { useTheme } from '@/theme/tokens';
 export function BackButton({ onPress, label = 'Back' }: { onPress?: () => void; label?: string }) {
   const theme = useTheme();
   const router = useRouter();
+  // UX-07's interpolated compression — this disc is on every screen, so it is
+  // the single highest-traffic press in the app. The ring rides the animated
+  // layer so disc and chevron compress together.
+  const feedback = usePressFeedback();
 
   return (
     <Pressable
@@ -26,8 +32,13 @@ export function BackButton({ onPress, label = 'Back' }: { onPress?: () => void; 
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={8}
-      className="h-9 w-9 items-center justify-center rounded-full border border-rule active:opacity-60">
-      <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
+      onPressIn={feedback.onPressIn}
+      onPressOut={feedback.onPressOut}>
+      <Animated.View style={feedback.style}>
+        <View className="h-9 w-9 items-center justify-center rounded-full border border-rule">
+          <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
+        </View>
+      </Animated.View>
     </Pressable>
   );
 }

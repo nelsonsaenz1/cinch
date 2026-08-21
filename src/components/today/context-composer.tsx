@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import { Pressable, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 
 import {
   ADD_CONTEXT_HINT,
@@ -11,6 +11,7 @@ import {
   openComposer,
   type ComposerState,
 } from '@/components/today/context-composer-state';
+import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
 import { useTheme } from '@/theme/tokens';
 
@@ -87,33 +88,35 @@ export function ContextComposer({
         {/* The sentence is the way back IN. Re-opening seeds the field with
             what is committed, so changing "dinner at 7" to "dinner at 8" is an
             edit rather than a retype. */}
-        <Pressable
+        <PressableSurface
           onPress={() => onChange(openComposer(state))}
           accessibilityRole="button"
           accessibilityLabel={`Styling for ${state.committed}`}
           accessibilityHint="Edit your plans for today"
           hitSlop={{ top: 12, bottom: 12 }}
-          style={{ flex: 1, minHeight: 34, justifyContent: 'center' }}
-          className="active:opacity-60">
+          fill
+          style={{ flex: 1, minHeight: 34 }}
+          contentStyle={{ flex: 1, justifyContent: 'center' }}>
           <Text variant="note" numberOfLines={2}>
             {appliedLine(state.committed)}
           </Text>
-        </Pressable>
-        <Pressable
+        </PressableSurface>
+        <PressableSurface
           onPress={() => onChange(clearComposer())}
           hitSlop={14}
+          fill
+          contentStyle={{}}
           accessibilityRole="button"
-          accessibilityLabel="Clear your plans for today"
-          className="active:opacity-60">
+          accessibilityLabel="Clear your plans for today">
           <SymbolView name="xmark" size={11} tintColor={theme.muted} resizeMode="scaleAspectFit" />
-        </Pressable>
+        </PressableSurface>
       </View>
     );
   }
 
   // `add` — the resting state, and the one nearly every visit sees.
   return (
-    <Pressable
+    <PressableSurface
       onPress={() => onChange(openComposer(state))}
       accessibilityRole="button"
       accessibilityLabel={ADD_CONTEXT_LABEL}
@@ -121,12 +124,14 @@ export function ContextComposer({
       hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
       // 34pt drawn, padded past the 44pt floor by the hit slop — the same
       // arithmetic every other quiet control on these screens uses.
+      fill
       style={{ minHeight: 34 }}
-      className="mx-gutter mt-3 flex-row items-center gap-2 self-start active:opacity-60">
+      contentStyle={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+      className="mx-gutter mt-3 self-start">
       <SymbolView name="plus" size={13} tintColor={theme.accentWarm} resizeMode="scaleAspectFit" />
       <Text variant="label" className="text-ink">
         {ADD_CONTEXT_LABEL}
       </Text>
-    </Pressable>
+    </PressableSurface>
   );
 }
