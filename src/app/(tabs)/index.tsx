@@ -9,7 +9,18 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
+import Animated, {
+  Extrapolation,
+  FadeIn,
+  FadeOut,
+  ReduceMotion,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CapacityNote } from '@/components/today/capacity-note';
@@ -24,6 +35,9 @@ import {
   engineOccasion,
   daysUntilIso,
   isThinWardrobe,
+  MASTHEAD_COLLAPSE_DISTANCE,
+  MASTHEAD_GREETING_FADE_TO,
+  MASTHEAD_GREETING_RISE,
   pageFromOffset,
   piecesLine,
   piecesRemaining,
@@ -390,6 +404,17 @@ export function Masthead({
    * lands relative to the shutter.
    */
   unseen,
+  /**
+   * The page's scroll offset, shared straight off the UI thread — passed ONLY
+   * by the happy-path ScrollView, which is the one surface with content long
+   * enough to scroll under a greeting. When present, the greeting block (and
+   * only the greeting block) steps back as the page rises; the eyebrow row —
+   * date, place, weather, every control — holds still, and the `onTextLayout`
+   * rung ladder above is never touched: it is a measurement, not a motion.
+   * The loading, offline, floor and reduced states pass nothing and keep the
+   * masthead exactly as it was. PROTOTYPE — packet 3, awaiting a taste call.
+   */
+  collapse,
 }: {
   city: string;
   /**
@@ -403,6 +428,7 @@ export function Masthead({
   stacked?: boolean;
   now?: Date;
   unseen?: boolean;
+  collapse?: SharedValue<number>;
 }) {
   const router = useRouter();
   const theme = useTheme();
@@ -412,6 +438,44 @@ export function Masthead({
   // reflow; `ax3` decides whether the calendar chip is there at all.
   const ax = stacked ?? fontScale >= AX_FONT_SCALE;
   const ax3 = stacked ?? fontScale >= AX3_FONT_SCALE;
+
+  // ── THE GREETING'S COLLAPSE (prototype) ──────────────────────────────────
+  //
+  // Reduce Motion is HAND-GATED here, not inherited: `useAnimatedStyle` has no
+  // `ReduceMotion.System` the way the `spring` presets do, and a scroll-linked
+  // interpolation is exactly the parallax the setting exists to refuse
+  // (`the-ten.tsx` names this as the classic omission). Under the setting —
+  // or on any state that passed no scroll value — the style collapses to the
+  // static masthead: fully visible, nowhere to go.
+  //
+  // The interpolation reads the shared value on the UI thread; no React state
+  // is written per frame, so the `onTextLayout` rung ladder above never
+  // re-runs for a scroll.
+  const reducedMotion = useReducedMotion();
+  const greetingStyle = useAnimatedStyle(() => {
+    if (!collapse || reducedMotion) {
+      return { opacity: 1, transform: [{ translateY: 0 }] };
+    }
+    const y = collapse.value;
+    return {
+      opacity: interpolate(
+        y,
+        [0, MASTHEAD_COLLAPSE_DISTANCE],
+        [1, MASTHEAD_GREETING_FADE_TO],
+        Extrapolation.CLAMP,
+      ),
+      transform: [
+        {
+          translateY: interpolate(
+            y,
+            [0, MASTHEAD_COLLAPSE_DISTANCE],
+            [0, -MASTHEAD_GREETING_RISE],
+            Extrapolation.CLAMP,
+          ),
+        },
+      ],
+    };
+  }, [collapse, reducedMotion]);
 
   const place = dayLine(city, now);
 
@@ -533,8 +597,12 @@ export function Masthead({
 
           Both wrappers use `marginTop` rather than an `mt-*` class, because
           the greeting is cap-trimmed below AX and a margin utility on the
-          sibling fights the trim's negative optical margin. */}
-      <View style={{ marginTop: 12 }}>
+          sibling fights the trim's negative optical margin — and because this
+          wrapper is now a Reanimated view, which NativeWind classes do not
+          reach anyway. The support line rides inside the same wrapper on
+          purpose: it fades and rises WITH the greeting, one block stepping
+          back, never a sentence orphaned under a vanished H1. */}
+      <Animated.View style={[{ marginTop: 12 }, greetingStyle]}>
         <Text
           variant={width >= WIDE_DEVICE ? 'greetingWide' : 'greeting'}
           trim={!ax}
@@ -544,7 +612,7 @@ export function Masthead({
         <View style={{ marginTop: 6 }}>
           <Text variant="note">What’s next for you.</Text>
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -1424,6 +1492,20 @@ export default function TodayScreen() {
     });
   }, [outfits.aiError, gate]);
 
+  // ── THE HAPPY PATH'S SCROLL, SHARED WITH THE MASTHEAD (prototype) ────────
+  //
+  // The repo's first `useAnimatedScrollHandler` — the offset lives on the UI
+  // thread and is read there by the masthead's greeting interpolation, so a
+  // scroll never causes a React render. Declared here, above the early
+  // returns, because hooks must run in every state; only the happy-path
+  // ScrollView below actually drives it, and only that ScrollView's masthead
+  // is handed the value. The loading, floor, failed and offline states keep
+  // their static mastheads: none of them has a page long enough to earn a
+  // collapse.
+  const scrollY = useSharedValue(0);
+  const onHappyPathScroll = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+  });
 
   // --- States --------------------------------------------------------------
 
@@ -1672,17 +1754,26 @@ export default function TodayScreen() {
         // in, so an undeclared fade keeps playing for somebody who asked the
         // system for less. The composition is identical either way.
         entering={FadeIn.duration(motion.duration.base).reduceMotion(ReduceMotion.System)} style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerClassName="pb-24"
+        {/* `Animated.ScrollView`, because a plain one cannot feed a worklet —
+            and `contentContainerStyle` rather than the `pb-24` class it
+            replaces, for the standing reason: NativeWind classes do not reach
+            Reanimated components in this project. Same 96 (24 × 4). */}
+        <Animated.ScrollView
+          contentContainerStyle={{ paddingBottom: 96 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
+          onScroll={onHappyPathScroll}
+          scrollEventThrottle={16}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
           }>
           {/* One masthead in every state: one context label carrying date,
               place and temperature, one greeting, the action pair at the
-              trailing edge. Capped at 96 pt (audit 56). */}
-          <Masthead city={cityLabel} name={firstName} weather={weatherClause} />
+              trailing edge. Capped at 96 pt — `MASTHEAD_CAP`, finally a
+              constant (audit 56). `collapse` is the prototype: this call
+              site alone hands the scroll over, so every other state's
+              masthead stands still. */}
+          <Masthead city={cityLabel} name={firstName} weather={weatherClause} collapse={scrollY} />
 
           {/* T-02 · the occasion interrupt. Above the look it competes with,
               exactly one action, and it takes the frame's oxblood while it is
@@ -2037,7 +2128,7 @@ export default function TodayScreen() {
               <InviteLine onInvite={() => router.push('/invite')} />
             </View>
           )}
-        </ScrollView>
+        </Animated.ScrollView>
       </Animated.View>
       {/* The membership bubble, for an account that is not paying — founder
           order, 2026-08-18. A sibling of the scroll view rather than a child of

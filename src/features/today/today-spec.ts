@@ -286,6 +286,45 @@ export function resolveWeather(input: {
 }
 
 // ---------------------------------------------------------------------------
+// The masthead collapse — a prototype, and it says so
+// ---------------------------------------------------------------------------
+
+/**
+ * The masthead's height budget, in points — audit 56's "capped at 96 pt",
+ * which until now existed only as prose in a comment above the `<Masthead>`
+ * call site. Encoded so the collapse below can be reasoned about against a
+ * number the repo actually states, not a number somebody remembers.
+ */
+export const MASTHEAD_CAP = 96;
+
+/**
+ * How far the page scrolls before the greeting has fully stepped back, in
+ * points. Roughly twice the greeting block's own height (a 30/32 pt serif
+ * line plus its support line is ~60 pt): by the time the fade completes, two
+ * greeting-heights of content have moved past and the plates have plainly
+ * taken the page — the H1 never vanishes ahead of the thing replacing it.
+ */
+export const MASTHEAD_COLLAPSE_DISTANCE = 120;
+
+/**
+ * Where the greeting's opacity lands at full collapse. Zero, because the
+ * eyebrow row above it does not move and keeps the page anchored — a greeting
+ * held at some ghost opacity under real content would read as a rendering
+ * bug, not restraint. The linear ramp from 1 means it is still clearly
+ * legible past the halfway point of the distance.
+ */
+export const MASTHEAD_GREETING_FADE_TO = 0;
+
+/**
+ * How far the greeting rises as it fades, in points. Twelve — the same 12 pt
+ * that separates the greeting from the eyebrow row, so at full collapse it
+ * has drifted exactly the gap it was given and no further. A slight lean
+ * into the scroll, not a parallax stunt; anything larger starts colliding
+ * with the eyebrow it is supposed to leave behind.
+ */
+export const MASTHEAD_GREETING_RISE = 12;
+
+// ---------------------------------------------------------------------------
 // The carousel
 // ---------------------------------------------------------------------------
 
