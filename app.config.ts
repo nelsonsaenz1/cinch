@@ -148,7 +148,7 @@ const config: ExpoConfig = {
   // to the production channel at d9cb8c3b…. A fresh OTA has to be published
   // against the new runtime after the build, or 1.1 ships with only its
   // embedded bundle.
-  version: '1.1.0',
+  version: '1.2.0',
   orientation: 'portrait',
   // Light only. Cinch is a print lookbook, and a print object has one
   // appearance — this pins the app to light regardless of the system setting,
