@@ -126,6 +126,14 @@ const LIST_BOTTOM = 64;
  * "below the search box", plural and unambiguous — the offer is a destination,
  * not a continuation of the field. With `LIST_TOP` the first row now clears
  * the field by 50pt.
+ *
+ * 2026-08-21, third pass — the cards move BELOW the results. With the field
+ * autofocused and the keyboard up, the two cards filled the visible viewport
+ * and the founder read it as "covering everything I wanna see". So the field
+ * and the RECENT list own the top of the page, and the two ways out sit under
+ * them. `INVITE_TOP` now measures the cards' clearance from whatever is above
+ * them — the RECENT list usually, or the field itself when there is nothing
+ * recent to show (fine: with no list there is nothing for the cards to cover).
  */
 const INVITE_TOP = 34;
 const INVITE_TOP_AX = 44;
@@ -251,13 +259,24 @@ function Masthead({ onCancel, large }: { onCancel: () => void; large: boolean })
   );
 }
 
-/** The page at rest: two ways out, then who you looked for last. */
+/** The page at rest: who you looked for last, then two ways out. */
 function RestingState({ view, large }: { view: PeopleSearchView; large: boolean }) {
   return (
     <View>
-      {/* Both rows sit lower than the field above them and clear of each
-          other. The AX path takes the same treatment at its own sizes — the
-          rows grow there, so the space between them has to as well. */}
+      {/* RECENT first — see the 2026-08-21 note on `INVITE_TOP`. With the
+          keyboard up the visible viewport is short, and the list is what the
+          founder opens this page to see. */}
+      {view.recent.length > 0 ? (
+        <View>
+          <RecentHeader large={large} />
+          <PeopleList rows={view.recent} view={view} large={large} />
+        </View>
+      ) : null}
+
+      {/* Both rows sit clear of whatever is above them — the list, or the
+          field itself when nothing is recent — and clear of each other. The
+          AX path takes the same treatment at its own sizes: the rows grow
+          there, so the space between them has to as well. */}
       <View
         className="px-gutter"
         style={{
@@ -281,13 +300,6 @@ function RestingState({ view, large }: { view: PeopleSearchView; large: boolean 
           large={large}
         />
       </View>
-
-      {view.recent.length > 0 ? (
-        <View style={{ marginTop: 30 }}>
-          <RecentHeader large={large} />
-          <PeopleList rows={view.recent} view={view} large={large} />
-        </View>
-      ) : null}
     </View>
   );
 }

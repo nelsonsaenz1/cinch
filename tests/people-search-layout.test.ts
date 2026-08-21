@@ -84,12 +84,21 @@ test('the scroll view declares its content inset exactly once', () => {
   assert.match(CODE, /contentContainerStyle=\{\{ paddingTop: LIST_TOP, paddingBottom: LIST_BOTTOM \}\}/);
 });
 
-test('the two invite rows sit clear of the field above and of each other', () => {
-  // The visible half of the same defect. The spacing is the RESTING page's own,
-  // not the scroll view's inset: lowering that would push a list of names off
-  // the bottom of a small screen in every other state this view draws.
+test('the two invite rows sit BELOW the recent list, clear of it and of each other', () => {
+  // The visible half of the same defect — and, 2026-08-21, the order flipped.
+  // With the field autofocused and the keyboard up, the two cards at the top
+  // filled the visible viewport ("covering everything I wanna see"), so the
+  // resting page draws RECENT first and the offer underneath it. The spacing
+  // is the RESTING page's own, not the scroll view's inset: lowering that
+  // would push a list of names off the bottom of a small screen in every
+  // other state this view draws.
   const resting = CODE.slice(CODE.indexOf('function RestingState'), CODE.indexOf('function RecentHeader'));
-  assert.match(resting, /paddingTop: large \? INVITE_TOP_AX : INVITE_TOP/, 'the rows sit at the top again');
+  assert.ok(
+    resting.indexOf('<RecentHeader') !== -1 &&
+      resting.indexOf('<RecentHeader') < resting.indexOf('<InviteRow'),
+    'the invite rows are above the recent list again',
+  );
+  assert.match(resting, /paddingTop: large \? INVITE_TOP_AX : INVITE_TOP/, 'the rows crowd what sits above them');
   assert.match(resting, /gap: large \? INVITE_GAP_AX : INVITE_GAP/, 'the rows have no separation');
 
   // Real numbers, and the AX path takes MORE rather than the same. At an
