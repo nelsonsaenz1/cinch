@@ -29,7 +29,7 @@ import type { EntryKey } from './questionnaire';
  */
 
 // ---------------------------------------------------------------------------
-// The four doors
+// The five doors
 // ---------------------------------------------------------------------------
 
 export type DoorKey = 'wear' | 'recreate' | 'pack' | 'piece' | 'closet';
@@ -65,12 +65,15 @@ export type Door = {
 };
 
 /**
- * The four doors, in fixed order.
+ * The five doors, in fixed order.
  *
  * Each maps to a path that already exists and already works:
  *
- *   WEAR   → the questionnaire's `dressed` entry, which is the whole existing
- *            step flow and composes its own ask.
+ *   WEAR     → the questionnaire's `dressed` entry, which is the whole existing
+ *              step flow and composes its own ask.
+ *   RECREATE → the /recreate screen, whose input is a photograph. This list is
+ *              that flow's ONLY app-wide entry, which is why the doors must
+ *              stay reachable after the first chat (see `showsDoorStrip`).
  *   PACK   → a seeded question whose `parseIntent` sets `packing`, which
  *            `contextForQuestion` already reads.
  *   PIECE  → a seeded question that `routeFactQuestion` recognises as the
@@ -110,6 +113,20 @@ export const DOORS: readonly Door[] = [
     action: { kind: 'compose', seed: 'How many ' },
   },
 ] as const;
+
+/**
+ * Whether the compact door strip is drawn.
+ *
+ * The opening grid renders only while the thread is empty, which used to make
+ * the five doors — and with them /recreate's only app-wide entry — vanish
+ * forever after the first-ever chat. Once a thread exists the strip carries
+ * the same five doors as small pills, so every door stays one tap away for
+ * the life of the conversation. An empty thread keeps the full grid instead;
+ * the strip is a continuation, never a replacement.
+ */
+export function showsDoorStrip(messageCount: number): boolean {
+  return messageCount > 0;
+}
 
 /** Whether a door reaches the model on tap. It never does. */
 export function doorSpendsAllowance(door: Door): boolean {
@@ -305,6 +322,93 @@ export const CAPACITY_HELD_COPY = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// The send ceiling
+// ---------------------------------------------------------------------------
+
+/**
+ * The most a send may sit open before it is called a failure.
+ *
+ * `supabase.functions.invoke` carries no timeout of its own, so on a flaky
+ * network a send used to pend FOREVER — a greyed disc, no failed turn, no
+ * retry, no feedback at all. The auth run already races its own send against
+ * an 8s ceiling (src/app/(auth)/email.tsx); this is the same pattern with two
+ * more seconds, because a model turn legitimately takes longer than an email.
+ *
+ * The race abandons the WAIT, not the request: the invoke may still land on
+ * the server and settle a chat there. That is why the timed-out sentence
+ * promises nothing about what was spent — unlike the transport copy, it
+ * cannot honestly say the request never arrived.
+ */
+export const SEND_CEILING_MS = 10_000;
+
+/** The sentinel the race rejects with, so the catch can tell it apart. */
+export const SEND_TIMED_OUT = 'stylist_send_timed_out';
+
+/**
+ * A send that outlived the ceiling. Retryable — the likeliest cause is the
+ * network this phone is on right now, and waiting out a better moment is
+ * exactly the remedy.
+ */
+export const SEND_TIMED_OUT_COPY = {
+  title: 'Still nothing back',
+  body: 'The stylist is taking longer than it should. Your question is still here — try again in a moment.',
+} as const;
+
+// ---------------------------------------------------------------------------
+// The 503s, read by code
+// ---------------------------------------------------------------------------
+
+/**
+ * What the server's 503 says when the stylist workload itself is switched off
+ * in `ai_config`. The body carries this sentence in its `error` field rather
+ * than a bounded code — the server is another packet's to fix — so the client
+ * matches it exactly and says something honest instead of falling through to
+ * the generic "could not be reached", which misdescribes a deliberate off
+ * switch as an outage.
+ */
+export const WORKLOAD_DISABLED_503 = 'The stylist is unavailable.';
+
+export const WORKLOAD_DISABLED_COPY = {
+  title: 'The stylist is off for a moment',
+  body: 'The stylist is switched off right now, not broken. Nothing was spent, and your outfits on the Today tab still work — they are built on your phone.',
+} as const;
+
+// ---------------------------------------------------------------------------
+// History hygiene
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether a restored row earns a bubble at all.
+ *
+ * A stored row with empty text and no resolvable outfits draws an empty
+ * bubble — and worse, its empty string travels back up in `history`, where
+ * the server's `requiredString` 400s the WHOLE request. One bad row poisoned
+ * every later send in the session with a fake "could not be reached" and a
+ * retry that could never work. So it is dropped at restore, the same way a
+ * deleted garment drops out of a plate.
+ */
+export function keepsRestoredRow(text: string, outfitCount: number): boolean {
+  return text.trim().length > 0 || outfitCount > 0;
+}
+
+/**
+ * The prior turns a send may carry — and the second fence behind
+ * `keepsRestoredRow`. Belt and braces on purpose: the restore filter keeps
+ * ghosts out of the transcript, and this keeps ANY empty-text turn (a plate
+ * with no prose, a row that predates the filter) off the wire, so one bad
+ * row can never block composing. Pending and failed turns are excluded for
+ * the reason they always were: neither is a thing the model said or heard.
+ */
+export function sendableHistory<
+  T extends { role: 'user' | 'assistant'; text: string; pending?: boolean; failed?: boolean },
+>(messages: readonly T[]): { role: 'user' | 'assistant'; text: string }[] {
+  return messages
+    .filter((m) => !m.pending && !m.failed && m.text.trim().length > 0)
+    .slice(-8)
+    .map((m) => ({ role: m.role, text: m.text }));
+}
+
+// ---------------------------------------------------------------------------
 // Local facts
 // ---------------------------------------------------------------------------
 
@@ -376,6 +480,30 @@ export function doorWell(ax: boolean): number {
 
 export function composerHeight(ax: boolean): number {
   return ax ? COMPOSER_HEIGHT_AX : COMPOSER_HEIGHT;
+}
+
+/**
+ * The KeyboardAvoidingView offset for the one docked composer inside the tab
+ * navigator.
+ *
+ * The screen became a TAB on 2026-08-20 and kept its sheet-era offset of 0,
+ * which left the composer floating a tab-bar height above the keyboard: the
+ * SafeAreaView's bottom inset — which inside the native tab controller IS the
+ * tab bar's overlap — holds the composer up, and the avoiding view then pads
+ * the full keyboard height on top of it. The two add. Handing the inset back
+ * as a negative offset is what lands the composer flush on the keyboard.
+ *
+ * Derived from the safe-area inset rather than a hook because there is no
+ * hook: expo-router's `useBottomTabBarHeight` reads a context only the JS
+ * bottom-tabs navigator provides, and the native-tabs docs say outright that
+ * the bar "cannot be measured" yet. The inset is UIKit's own report of the
+ * same fact, and it is already the number the layout is built on.
+ */
+export function stylistKeyboardOffset(safeAreaBottom: number): number {
+  const overlap = Math.max(0, safeAreaBottom);
+  // Spelled out to dodge `-0`, which is what `-Math.max(0, 0)` returns and
+  // what a strict equality test rightly refuses to call zero.
+  return overlap === 0 ? 0 : -overlap;
 }
 
 // ---------------------------------------------------------------------------

@@ -230,3 +230,76 @@ test('the trial is server-owned — no client timer anywhere', () => {
   // The screen reads `trialing` from the verified plan and nothing else.
   assert.match(ROUTE, /planState\.trialing/);
 });
+
+// ---------------------------------------------------------------------------
+// Packet S — the ceiling, the strip, the keyboard, the fifth bar
+// ---------------------------------------------------------------------------
+
+test('THE SEND HAS A CEILING — no turn may pend forever', () => {
+  // `invoke` carries no timeout of its own; without the race, a flaky network
+  // was an infinite greyed disc with no failed turn and no retry.
+  assert.match(CHAT, /Promise\.race\(\[/);
+  assert.match(CHAT, /setTimeout\(\(\) => reject\(new Error\(SEND_TIMED_OUT\)\), SEND_CEILING_MS\)/);
+  // And the race wraps the one send rather than adding a second one.
+  assert.equal((CHAT.match(/functions\.invoke\(/g) ?? []).length, 1);
+});
+
+test('a timeout settles as a RETRYABLE failed turn with its own honest sentence', () => {
+  // The sentinel is read in the catch, where `retryable = !consent && !denial`
+  // already classifies it as transport — the only retryable kind.
+  assert.match(CHAT, /err\.message === SEND_TIMED_OUT/);
+  assert.match(CHAT, /\? SEND_TIMED_OUT_COPY\.body/);
+  assert.match(CHAT, /const retryable = !consent && !denial;/);
+});
+
+test('restored history is filtered before it can reach the wire, twice', () => {
+  // Once at restore — an empty row draws no ghost bubble — and once in the
+  // history builder, so a bad row that slips past can still never block
+  // composing. The server 400s the whole request over one empty string.
+  assert.match(CHAT, /restored\.filter\(\(m\) => keepsRestoredRow\(m\.text, m\.outfits\.length\)\)/);
+  assert.match(CHAT, /const priorTurns = sendableHistory\(messages\);/);
+});
+
+test('a disabled workload is read at 503 and does not fall to the outage line', () => {
+  assert.match(CHAT, /read503\(error\)\) === WORKLOAD_DISABLED_503/);
+  assert.match(CHAT, /\? WORKLOAD_DISABLED_COPY\.body/);
+  // Ordered after the two allowance 503s, so neither is shadowed.
+  assert.match(CHAT, /!unavailable && !held && \(await isWorkloadDisabled\(err\)\)/);
+});
+
+test('THE DOORS SURVIVE THE FIRST CHAT — a strip renders whenever a thread exists', () => {
+  // The opening grid renders only for an empty thread, which used to bury all
+  // five doors — /recreate’s only app-wide entry among them — forever after
+  // the first-ever chat.
+  assert.match(ROUTE, /showsDoorStrip\(messages\.length\) \? <DoorStrip doors=\{DOORS\} onOpen=\{openDoor\} \/> : null/);
+  // Through the SAME handler, so a pill tap fires the same doorTapped index
+  // and reaches no model — the openDoor test above already holds that body.
+  assert.match(PARTS, /export function DoorStrip/);
+  assert.doesNotMatch(PARTS.slice(PARTS.indexOf('function DoorStrip')), /supabase|fetch\(|track\(/);
+});
+
+test('the opening skeleton draws one bar per door, counted off the spec', () => {
+  // Four hard-coded bars resolved into five doors — a skeleton that grows a
+  // row on arrival reads as a bug, which is what it was.
+  const at = PARTS.indexOf('export function OpeningSkeleton');
+  const body = PARTS.slice(at, at + 800);
+  assert.match(body, /DOORS\.map\(\(door\) =>/);
+  assert.doesNotMatch(body, /\[0, 1, 2, 3\]/);
+});
+
+test('the tab screen hands the keyboard back and offsets for the bar it sits over', () => {
+  // Drag-to-dismiss on the transcript, taps kept for the retry buttons and
+  // plates, and the avoiding view corrected for the tab context — the
+  // sheet-era offset of 0 left the composer floating a tab-bar height above
+  // the keyboard.
+  assert.match(ROUTE, /keyboardDismissMode="interactive"/);
+  assert.match(ROUTE, /keyboardShouldPersistTaps="handled"/);
+  assert.match(ROUTE, /keyboardVerticalOffset=\{stylistKeyboardOffset\(insets\.bottom\)\}/);
+});
+
+test('a send while one is pending is refused with feedback, never swallowed', () => {
+  const at = ROUTE.indexOf('const submit');
+  const body = ROUTE.slice(at, at + 900);
+  assert.match(body, /if \(isSending\) \{/);
+  assert.match(body, /Haptics\.selectionAsync/);
+});

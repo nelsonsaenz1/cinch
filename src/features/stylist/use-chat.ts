@@ -5,7 +5,17 @@ import {
   STYLIST_EVENTS,
   chatReplyOkProps,
 } from './stylist-analytics';
-import { CAPACITY_HELD_COPY, STANDARD_PROMISE } from './stylist-spec';
+import {
+  CAPACITY_HELD_COPY,
+  SEND_CEILING_MS,
+  SEND_TIMED_OUT,
+  SEND_TIMED_OUT_COPY,
+  STANDARD_PROMISE,
+  WORKLOAD_DISABLED_503,
+  WORKLOAD_DISABLED_COPY,
+  keepsRestoredRow,
+  sendableHistory,
+} from './stylist-spec';
 import { track } from '@/lib/posthog';
 import { Placement } from '@/features/billing/placements';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
@@ -78,7 +88,22 @@ function readAllowance(raw: unknown): StylistAllowance | null {
  * to read as a billing problem.
  */
 async function isAllowanceUnavailable(error: unknown): Promise<boolean> {
-  return (await read503(error)) === 'allowance_unavailable';
+  if ((await read503(error)) === 'allowance_unavailable') return true;
+  // `enforceAiQuota`'s own unreachable counter answers the same fact under a
+  // different code, and it deserves the same honest sentence rather than the
+  // generic outage copy.
+  return (await read503(error)) === 'quota_unavailable';
+}
+
+/**
+ * Whether the 503 was the stylist workload being switched off in `ai_config`.
+ *
+ * A deliberate off switch, not an outage — falling through to "could not be
+ * reached" here told the user their network was at fault for a decision made
+ * in a dashboard.
+ */
+async function isWorkloadDisabled(error: unknown): Promise<boolean> {
+  return (await read503(error)) === WORKLOAD_DISABLED_503;
 }
 
 /**
@@ -231,7 +256,11 @@ export function useChat({
         };
       });
 
-      return restored;
+      // A row with no text and no surviving outfits is dropped, not drawn:
+      // an empty bubble is a ghost, and its empty string would ride back up
+      // in `history` where the server's `requiredString` 400s the whole send
+      // — one bad row used to poison every request for the session.
+      return restored.filter((m) => keepsRestoredRow(m.text, m.outfits.length));
     },
   });
 
@@ -314,13 +343,22 @@ export function useChat({
         diversity: 0.5,
       });
 
-      const priorTurns = messages
-        .filter((m) => !m.pending && !m.failed)
-        .slice(-8)
-        .map((m) => ({ role: m.role, text: m.text }));
+      // The second fence behind the restore filter: no empty-text turn may
+      // reach the wire, because the server 400s the whole request over one.
+      const priorTurns = sendableHistory(messages);
 
-      const { data, error } = await supabase.functions.invoke('stylist-chat', {
-        body: {
+      // ── THE CEILING ─────────────────────────────────────────────────────
+      //
+      // `invoke` carries no timeout of its own, so a flaky network used to
+      // mean an INFINITE pending turn — greyed disc, no failure, no retry.
+      // The same race the auth run holds its send to (email.tsx, 8s), two
+      // seconds longer because a model turn is honestly slower. Rejecting
+      // (rather than resolving a shape) keeps the loser out of the success
+      // path entirely: the catch below reads the sentinel and the turn
+      // settles as a retryable failure.
+      const { data, error } = await Promise.race([
+        supabase.functions.invoke('stylist-chat', {
+          body: {
           message: question,
           history: priorTurns,
           // Only present when the person tapped through the questionnaire. The
@@ -356,8 +394,12 @@ export function useChat({
                 },
               }
             : undefined,
-        },
-      });
+          },
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(SEND_TIMED_OUT)), SEND_CEILING_MS),
+        ),
+      ]);
 
       if (error) throw error;
       if (data?.error === 'ai_consent_required') throw new Error('ai_consent_required');
@@ -440,6 +482,11 @@ export function useChat({
       } catch (err) {
         const consent = err instanceof Error && err.message === 'ai_consent_required';
 
+        // The race's own sentinel. Not a refusal and not proof the request
+        // never arrived — only that the wait outlived the ceiling — so it
+        // gets its own sentence and the ordinary transport retry.
+        const timedOut = err instanceof Error && err.message === SEND_TIMED_OUT;
+
         // A refusal is not an outage, and saying "could not be reached" when the
         // real answer is "this is part of Standard" both misleads the user and
         // throws away the one moment they are most likely to upgrade.
@@ -454,6 +501,15 @@ export function useChat({
         // its own sentence rather than borrowing one that would misdescribe it.
         const unavailable = !consent && !denial && (await isAllowanceUnavailable(err));
         const held = !consent && !denial && !unavailable && (await isCapacityHeld(err));
+
+        // ── 503 · THE WORKLOAD IS SWITCHED OFF ────────────────────────────
+        //
+        // A disabled `ai_config` row used to fall through to the generic
+        // "could not be reached" — blaming the network for a dashboard
+        // decision. Still retryable: the switch flips back, and a retry then
+        // simply works.
+        const disabled =
+          !consent && !denial && !unavailable && !held && (await isWorkloadDisabled(err));
 
         // A refusal that carried the allowance fact updates the mark, so the
         // screen that says no also says how many are left. Both the exhausted
@@ -481,6 +537,14 @@ export function useChat({
                   // are on record, and the mark beside this still says so.
                   // Nothing about another device, or that one exists.
                   ? CAPACITY_HELD_COPY.body
+                : disabled
+                  ? WORKLOAD_DISABLED_COPY.body
+                : timedOut
+                  // Deliberately NOT "nothing was spent": the race abandoned
+                  // the wait, not the request, and the reply may still have
+                  // landed on the server. The transport line below can say
+                  // more because a failed invoke really did not arrive.
+                  ? SEND_TIMED_OUT_COPY.body
                 : 'The stylist could not be reached. Your outfits on the Today tab still work — they are built on your phone.';
 
         // Only a transport failure earns a retry affordance; a refusal would

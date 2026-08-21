@@ -2,12 +2,13 @@ import { useRouter, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MessageBubble } from '@/components/stylist/message-bubble';
 import {
   AnswerGrid,
   Composer,
+  DoorStrip,
   OPENING_TOP,
   OpeningSkeleton,
   RefinementRow,
@@ -48,6 +49,8 @@ import {
   allowanceMarkLabel,
   doorIndex,
   showsAllowanceMark,
+  showsDoorStrip,
+  stylistKeyboardOffset,
   type Door,
 } from '@/features/stylist/stylist-spec';
 import { useChat, type ChatMessage } from '@/features/stylist/use-chat';
@@ -70,11 +73,14 @@ const scriptTurn = (id: string, role: ChatMessage['role'], text: string): ChatMe
 });
 
 /**
- * Stylist — conversational styling, presented as a sheet off Today.
+ * Stylist — conversational styling, as a tab since 2026-08-20.
  *
- * Deliberately not a tab: a chat tab is the generic-AI tell, and it duplicates
- * Today's job. As a sheet at 0.75 detent the conversation is an aside laid
- * over the day's edit, not a destination competing with it.
+ * It opened as a sheet off Today ("a chat tab is the generic-AI tell"), and
+ * the founder overruled that in one sentence — "I barely know stylist exists"
+ * — so it now holds the centre slot of the bar (see (tabs)/_layout.tsx for
+ * the full argument). Being a tab has consequences a sheet never had: the
+ * keyboard offset must account for the tab bar, and the transcript must hand
+ * the keyboard back on a drag or a tap so the bar underneath stays reachable.
  *
  * The model never receives the closet. Each question is parsed on-device into a
  * styling context, the beam search assembles real outfits for it, and only a
@@ -84,11 +90,13 @@ const scriptTurn = (id: string, role: ChatMessage['role'], text: string): ChatMe
  *
  * OPENING WITH A QUESTION, NOT A BOX. An empty text field asks the person to
  * name what they want, which is the job they opened the stylist to hand over.
- * So the sheet opens with a greeting that already knows the hour and the
- * forecast, four doors, and — behind them — a scripted questionnaire that runs
+ * So the screen opens with a greeting that already knows the hour and the
+ * forecast, five doors, and — behind them — a scripted questionnaire that runs
  * entirely on device. Three or four taps, no model call between them, and the
  * one request that does go up carries a brief instead of a shrug. Typing is
- * still there, at every step, for the people who already know.
+ * still there, at every step, for the people who already know. Once a thread
+ * exists the doors move to a compact strip under the header, so none of them
+ * — /recreate's only app-wide entry included — is ever out of reach.
  */
 export default function StylistScreen() {
   const router = useRouter();
@@ -103,6 +111,7 @@ export default function StylistScreen() {
 
   const wardrobe = useWardrobe();
   const profileQuery = useStyleProfile();
+  const insets = useSafeAreaInsets();
   const { context } = useStyleContext();
   const lifestyle = useLifestyle();
   const theme = useTheme();
@@ -171,7 +180,15 @@ export default function StylistScreen() {
 
   const submit = useCallback(
     (text: string) => {
-      if (!text.trim() || isSending) return;
+      if (!text.trim()) return;
+      if (isSending) {
+        // Not silence: the disc is already grey, and this tick says "heard,
+        // still working". The refusal is honest now — the send ceiling in
+        // use-chat.ts guarantees a pending turn RESOLVES, so this state can
+        // no longer be entered forever.
+        void Haptics.selectionAsync().catch(() => {});
+        return;
+      }
       void Haptics.selectionAsync().catch(() => {});
       // THAT a question was sent. Never the question — a stylist prompt is
       // somebody describing their own life in their own words, and it is the
@@ -429,8 +446,23 @@ export default function StylistScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
-      <KeyboardAvoidingScreen className="flex-1">
+      {/* The offset hands back the safe-area bottom the SafeAreaView already
+          spent — inside the native tab controller that inset IS the tab bar's
+          overlap, and without this the composer floated a full tab-bar height
+          above the keyboard. See `stylistKeyboardOffset` for the whole story;
+          this is the app's only docked composer inside the tab navigator. */}
+      <KeyboardAvoidingScreen
+        className="flex-1"
+        keyboardVerticalOffset={stylistKeyboardOffset(insets.bottom)}>
         <StylistHeader onNewQuestion={messages.length > 0 ? startNewQuestion : undefined} />
+
+        {/* The five doors, still one tap away once a thread exists — the
+            opening grid below renders only while the thread is empty, which
+            used to bury every door (and /recreate's only app-wide entry)
+            behind "New question" forever after the first chat. Same
+            `openDoor`, so a pill tap fires the same doorTapped index and the
+            same local-only actions as its full-size door. */}
+        {showsDoorStrip(messages.length) ? <DoorStrip doors={DOORS} onOpen={openDoor} /> : null}
 
         <ScrollView
           ref={scrollRef}
@@ -444,6 +476,11 @@ export default function StylistScreen() {
           // these two set different edges.
           contentContainerStyle={{ paddingTop: showOpening ? OPENING_TOP : TRANSCRIPT_TOP }}
           keyboardShouldPersistTaps="handled"
+          // A tab screen must always hand the keyboard back — the bar under
+          // it is unreachable until it goes. Drag dismisses interactively
+          // (the sheet era never needed this; the tab does), and `handled`
+          // above already lets a tap on the transcript's dead space dismiss.
+          keyboardDismissMode="interactive"
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
           {showOpening ? (
             <StylistOpening

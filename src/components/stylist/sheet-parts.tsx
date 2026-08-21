@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import type { ReactNode, RefObject } from 'react';
-import { Pressable, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { Chip } from '@/components/ui/chip';
@@ -9,7 +9,7 @@ import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
-import { DOOR_RADIUS, doorColumns, doorWell } from '@/features/stylist/stylist-spec';
+import { DOORS, DOOR_RADIUS, doorColumns, doorWell } from '@/features/stylist/stylist-spec';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -316,7 +316,7 @@ export function StylistOpening<K extends string>({
   salutation: string;
   /** The sentence under it, which already knows the hour and the forecast. */
   line: string;
-  /** The four doors, in order. */
+  /** The five doors, in order. */
   starts: readonly { key: K; label: string; hint?: string; imageUri?: string }[];
   /** Absent on the fixture, which draws the doors without opening one. */
   onStart?: (key: K) => void;
@@ -357,10 +357,10 @@ export function StylistOpening<K extends string>({
         {line}
       </Text>
 
-      {/* ── FOUR IMAGE-LED DOORS, NOT TEXT ROWS — redesign 16 ─────────────
-          They were four full-width rows of a label and a chevron, which is a
-          menu. A menu asks somebody to READ four options and pick one; a desk
-          of four cards lets them recognise the one they came for. On a screen
+      {/* ── FIVE IMAGE-LED DOORS, NOT TEXT ROWS — redesign 16 ─────────────
+          They were full-width rows of a label and a chevron, which is a
+          menu. A menu asks somebody to READ the options and pick one; a desk
+          of cards lets them recognise the one they came for. On a screen
           whose whole promise is "answers from clothes you already own", a door
           with a garment in it says that before any sentence does.
 
@@ -435,8 +435,12 @@ export function OpeningSkeleton() {
       <Skeleton className="h-6 w-44 rounded-chip" />
       <Skeleton className="h-3.5 w-4/5" style={{ marginTop: 18, borderRadius: 7 }} />
       <View className="mt-7 gap-2">
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-12" style={{ borderRadius: 10 }} />
+        {/* One bar per door — counted off the spec, because the skeleton drew
+            four bars for a year after the fifth door landed, and a skeleton
+            that resolves into MORE rows than it promised is exactly the jump
+            this component exists to prevent. */}
+        {DOORS.map((door) => (
+          <Skeleton key={door.key} className="h-12" style={{ borderRadius: 10 }} />
         ))}
       </View>
     </View>
@@ -770,5 +774,51 @@ export function RefinementRow({ onRefine }: { onRefine?: (message: string) => vo
         <Chip key={r.label} label={r.label} onPress={() => onRefine?.(r.message)} />
       ))}
     </View>
+  );
+}
+
+// ── The door strip ──────────────────────────────────────────────────────────
+
+/**
+ * The five doors as one quiet row of pills, for the screen that already holds
+ * a thread.
+ *
+ * The opening grid renders only while the thread is empty, which made the
+ * doors — and with them /recreate's ONLY app-wide entry — vanish forever
+ * after the first-ever chat, with "New question" as the sole way back. The
+ * strip keeps every door one tap away under the header, in the same fixed
+ * order and through the same callback the grid uses, so a tap here is
+ * indistinguishable from a tap there: same action, same analytics, same
+ * nothing-sent-to-a-model contract.
+ *
+ * Pills are the shared `Chip` — the same drawing the refinement row reaches
+ * for, because these are the same kind of object: a small labelled way to ask
+ * something without typing it. Horizontal scroll rather than wrapping: five
+ * labels wrapped would rebuild the grid this row exists to be smaller than.
+ *
+ * `onOpen` is optional on the fixture rule: absent, the pills still press and
+ * dim and open nothing.
+ */
+export function DoorStrip<K extends string>({
+  doors,
+  onOpen,
+}: {
+  /** The five doors, in the spec's order — key and label only. */
+  doors: readonly { key: K; label: string }[];
+  onOpen?: (key: K) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      // Never a flex participant: the transcript below owns `flex-1`, and a
+      // strip that grew would eat it.
+      style={{ flexGrow: 0 }}
+      contentContainerClassName="flex-row gap-2 px-gutter py-2">
+      {doors.map((door) => (
+        <Chip key={door.key} label={door.label} onPress={onOpen ? () => onOpen(door.key) : undefined} />
+      ))}
+    </ScrollView>
   );
 }

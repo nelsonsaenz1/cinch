@@ -354,3 +354,100 @@ test('no copy on this screen quotes a price or a purchase', () => {
   const words = Object.values(STYLIST_COPY).join(' ');
   assert.doesNotMatch(words, /\$|£|€|buy|shop|purchase|checkout/i, words);
 });
+
+// ---------------------------------------------------------------------------
+// The send ceiling, the strip, history hygiene, the tab-context keyboard —
+// overnight build 2026-08-21, Packet S
+// ---------------------------------------------------------------------------
+
+import {
+  SEND_CEILING_MS,
+  SEND_TIMED_OUT,
+  SEND_TIMED_OUT_COPY,
+  WORKLOAD_DISABLED_503,
+  WORKLOAD_DISABLED_COPY,
+  keepsRestoredRow,
+  sendableHistory,
+  showsDoorStrip,
+  stylistKeyboardOffset,
+} from '../src/features/stylist/stylist-spec';
+
+test('the send ceiling exists, is ten seconds, and outlives the auth run’s eight', () => {
+  // Long enough that a slow model turn is not called a failure; short enough
+  // that a person is never left holding a greyed disc wondering.
+  assert.equal(SEND_CEILING_MS, 10_000);
+  assert.ok(SEND_CEILING_MS > 8_000, 'a model turn is honestly slower than an email send');
+});
+
+test('the timed-out sentence never claims nothing was spent', () => {
+  // The race abandons the WAIT, not the request — the reply may still land on
+  // the server and settle a chat there. Only the transport line, whose
+  // request truly never arrived, may promise that.
+  assert.doesNotMatch(SEND_TIMED_OUT_COPY.body, /nothing was spent|no successful chat|not.*used/i);
+  assert.match(SEND_TIMED_OUT_COPY.body, /try again/i);
+  // And the sentinel cannot collide with a server code by accident.
+  assert.doesNotMatch(SEND_TIMED_OUT, /^ai_|_unavailable$|_held$/);
+});
+
+test('a disabled workload says something honest, not an outage', () => {
+  // The server's 503 for a switched-off ai_config row carries this exact
+  // sentence in its error field (stylist-chat/index.ts). Matching it is what
+  // stops a dashboard decision reading as a network failure.
+  assert.equal(WORKLOAD_DISABLED_503, 'The stylist is unavailable.');
+  assert.doesNotMatch(WORKLOAD_DISABLED_COPY.body, /could not be reached|network|connection/i);
+  assert.match(WORKLOAD_DISABLED_COPY.body, /Nothing was spent/);
+  // And it neither sells nor blames: no upgrade, no allowance claim.
+  assert.doesNotMatch(WORKLOAD_DISABLED_COPY.body, /upgrade|plan|allowance|month/i);
+});
+
+test('AN EMPTY RESTORED ROW IS DROPPED — one bad row must never poison the wire', () => {
+  assert.equal(keepsRestoredRow('', 0), false);
+  assert.equal(keepsRestoredRow('   ', 0), false);
+  // A plate with no prose is still a turn the person got.
+  assert.equal(keepsRestoredRow('', 2), true);
+  assert.equal(keepsRestoredRow('What should I wear', 0), true);
+});
+
+test('sendable history carries no empty, pending or failed turn, and at most eight', () => {
+  const turn = (text: string, extra?: { pending?: boolean; failed?: boolean }) => ({
+    role: 'user' as const,
+    text,
+    ...extra,
+  });
+  const cleaned = sendableHistory([
+    turn('first'),
+    turn(''), // the poison row: server-side requiredString 400s the whole send
+    turn('  '),
+    turn('mid', { pending: true }),
+    turn('lost', { failed: true }),
+    turn('last'),
+  ]);
+  assert.deepEqual(cleaned, [
+    { role: 'user', text: 'first' },
+    { role: 'user', text: 'last' },
+  ]);
+  // The window is eight AFTER cleaning, so a run of ghosts cannot starve it.
+  const many = sendableHistory(Array.from({ length: 20 }, (_, i) => turn(`q${i}`)));
+  assert.equal(many.length, 8);
+  assert.equal(many[0]!.text, 'q12');
+});
+
+test('the door strip appears exactly when a thread exists', () => {
+  // Empty thread keeps the full opening grid; the strip is a continuation,
+  // never a replacement — and it is what keeps /recreate reachable after the
+  // first-ever chat.
+  assert.equal(showsDoorStrip(0), false);
+  assert.equal(showsDoorStrip(1), true);
+  assert.equal(showsDoorStrip(50), true);
+});
+
+test('the tab-context keyboard offset hands the safe-area bottom back, exactly', () => {
+  // Inside the native tab controller the safe-area bottom inset IS the tab
+  // bar overlap; the SafeAreaView already holds the composer up by it, so the
+  // avoiding view must not pad it a second time.
+  assert.equal(stylistKeyboardOffset(83), -83);
+  assert.equal(stylistKeyboardOffset(34), -34);
+  assert.equal(stylistKeyboardOffset(0), 0);
+  // Never positive, whatever a future inset does.
+  assert.ok(stylistKeyboardOffset(-5) <= 0);
+});
