@@ -244,43 +244,66 @@ export function heroTone(input: {
 }
 
 /**
- * The small line beneath the name — "Contramar · Sat 12 Sep · 8:30 pm".
+ * The structured header block beneath the band's buttons.
+ *
+ * FOUNDER ASK, 2026-08-21 — supersedes the 03-event-detail brief's single
+ * squeezed poster line ("Venue · Date", ellipsised at one line). What replaced
+ * `posterLine`/`posterLinesAx` is a tidy stack: the occasion as an eyebrow
+ * above the serif name, then the date-and-time line, the venue with its
+ * address beneath it, and the dress code and party size as quiet marks. One
+ * composition at every type size — each fact already owns its line, so there
+ * is nothing left to split at AX.
  *
  * §7.1 lives here, in the `coarse` flag, rather than being assembled twice at
  * the call site: someone who has only been invited gets the DAY and nothing
- * else — no venue, no time — and the venue segment is absent rather than
- * replaced by a missing-state, because an honest missing-state for a fact that
- * exists and is being withheld would be a lie.
+ * else — no eyebrow, no venue, no address, no marks — and each withheld fact
+ * is absent rather than replaced by a missing-state, because an honest
+ * missing-state for a fact that exists and is being withheld would be a lie.
  *
  * Takes the already-composed date string rather than the Dates, so that this
- * function and `dateTimeLine` can never disagree about what "Sat 12 Sep · 8:30
+ * block and `dateTimeLine` can never disagree about what "Sat 12 Sep · 8:30
  * pm" is.
  */
-export function posterLine(input: {
-  venueName: string | null;
+export type EventHeaderBlock = {
+  /** The occasion, above the name. Null when the host named none, or coarse. */
+  eyebrow: string | null;
+  /** "Sat 12 Sep · 8:30 pm" — already coarse-aware upstream. */
   dateLine: string;
-  coarse?: boolean;
-}): string {
-  if (input.coarse) return input.dateLine;
-  return [input.venueName || EVENT_DETAIL_COPY.venueTbc, input.dateLine].join(' · ');
+  /** The venue's name, or `venueTbc` for a member. Null only when coarse. */
+  venue: string | null;
+  /** The street address, its own quiet line under the venue. */
+  address: string | null;
+  /** Dress code and party size as one quiet marks line, or nothing. */
+  marks: string | null;
+};
+
+/** "Party of 6" — the header's word for the table, spelled once. */
+export function partyLine(n: number): string {
+  return `Party of ${n}`;
 }
 
-/**
- * The same line, recomposed for the accessibility sizes: the venue on its own
- * line, the date beneath it.
- *
- * A COMPOSITION change, which is the governing clause — "in every case
- * composition changes and height is allowed; nothing is capped, truncated,
- * ellipsised or scaled below its documented size". The dot separator is what
- * goes, not a word.
- */
-export function posterLinesAx(input: {
+export function headerBlock(input: {
+  occasion?: string | null;
   venueName: string | null;
+  venueAddress?: string | null;
   dateLine: string;
+  dressCode?: string | null;
+  partySize?: number | null;
   coarse?: boolean;
-}): string[] {
-  if (input.coarse) return [input.dateLine];
-  return [input.venueName || EVENT_DETAIL_COPY.venueTbc, input.dateLine];
+}): EventHeaderBlock {
+  if (input.coarse) {
+    return { eyebrow: null, dateLine: input.dateLine, venue: null, address: null, marks: null };
+  }
+  const marks = [input.dressCode?.trim() || null, input.partySize ? partyLine(input.partySize) : null]
+    .filter((b): b is string => Boolean(b))
+    .join(' · ');
+  return {
+    eyebrow: input.occasion?.trim() || null,
+    dateLine: input.dateLine,
+    venue: input.venueName || EVENT_DETAIL_COPY.venueTbc,
+    address: input.venueAddress?.trim() || null,
+    marks: marks || null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -401,6 +424,12 @@ export function rosterChips(
  * loading state that never finishes.
  *
  * Member-only at the call site, the same as the rest of the precise half.
+ *
+ * 2026-08-21 — the address, occasion, party size and dress code moved UP into
+ * `headerBlock`, so the route now hands this only the note and the weather.
+ * The wider signature stays: the function's order is still the artifact's,
+ * and narrowing it would force every fixture that poses an older frame to
+ * change for no drawn difference.
  */
 export function logisticsLine(input: {
   venueAddress?: string | null;

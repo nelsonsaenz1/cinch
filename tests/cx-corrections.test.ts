@@ -685,13 +685,16 @@ test('LP-06 — event detail is a title and a hierarchy, not a status paragraph'
   assert.match(drawn, /variant="display"[\s\S]{0,160}\{view\.title\}/);
   assert.match(drawn, /accessibilityRole="header"/, 'the occasion’s name is not the page heading');
 
-  // When and Where survive as facts in a fixed order — the venue, then the
-  // date — composed by one function so they cannot be spelled twice.
-  assert.ok(route.includes('posterLine('), 'the when/where line is gone');
+  // When and Where survive as facts, composed by one function so they cannot
+  // be spelled twice. 2026-08-21 — the founder superseded the single squeezed
+  // poster line with `headerBlock`'s structured stack (date, then venue and
+  // address, then quiet marks); the missing venue is still stated in the
+  // invitation's own words rather than left blank.
+  assert.ok(route.includes('headerBlock('), 'the when/where facts are gone');
   assert.match(
     body('src/features/events/event-detail-spec.ts'),
-    /\[input\.venueName \|\| EVENT_DETAIL_COPY\.venueTbc, input\.dateLine\]/,
-    'the venue must precede the date',
+    /input\.venueName \|\| EVENT_DETAIL_COPY\.venueTbc/,
+    'a member’s missing venue must be stated, not blank',
   );
 
   // The status and readiness sentences the correction removed stay removed.

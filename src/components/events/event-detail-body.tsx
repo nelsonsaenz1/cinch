@@ -46,6 +46,7 @@ import {
   PLATE_ROW_AX,
   optionPosition,
   primaryGround,
+  type EventHeaderBlock,
   type RosterChip,
   type RosterOverflow,
 } from '@/features/events/event-detail-spec';
@@ -155,9 +156,14 @@ export type EventDetailView = {
   loading: boolean;
   tone: 'accent' | 'clay';
   title: string;
-  /** `posterLine` at standard sizes; `posterLinesAx` above the threshold. */
-  line: string;
-  linesAx: string[];
+  /** The structured header stack — `headerBlock`'s output, composed upstream. */
+  header: EventHeaderBlock;
+  /**
+   * Opens the reservation, when there is one to open — the same URL the
+   * overflow menu offers. Makes the band's venue line tappable; null leaves
+   * it plain type.
+   */
+  onReservation: (() => void) | null;
 
   /** The 1–3 chooser, in Today's grammar. */
   looks: EventLookChooser;
@@ -275,7 +281,24 @@ function Band({ view, large }: { view: EventDetailView; large: boolean }) {
         )}
       </View>
 
+      {/*
+        THE STRUCTURED HEADER — founder ask, 2026-08-21, superseding the
+        03-event-detail brief's flat band with its one squeezed poster line.
+        The occasion sits as an eyebrow above the serif name; beneath the name
+        a tidy stack: the date-and-time line, the venue (tappable when there
+        is a reservation behind it) with its address on the next line, and
+        the dress code and party size as quiet marks. The tinted band, its
+        `heroTone` logic and the back/ellipsis row are untouched — this is a
+        reorganisation inside the existing design system. Place imagery is
+        deliberately absent: no image exists in the schema, and maps or place
+        photos are native-module territory (deferred; see BUILD-LEDGER).
+      */}
       <View style={{ paddingHorizontal: HERO_TEXT_INSET, gap: 10 }}>
+        {view.header.eyebrow ? (
+          <Text variant="eyebrow" numberOfLines={large ? undefined : 1} style={{ color: canvasAlpha(0.7) }}>
+            {view.header.eyebrow}
+          </Text>
+        ) : null}
         {/*
           NO `trim`. The poster's name WRAPS — it does so at the default size in
           the accepted frame, over two lines — and `trim` is single-line
@@ -294,20 +317,47 @@ function Band({ view, large }: { view: EventDetailView; large: boolean }) {
 
         {view.loading ? (
           <Skeleton style={{ height: 13, width: '58%', borderRadius: 7 }} />
-        ) : large ? (
-          // The composition change: the venue takes its own line rather than
-          // the pair being squeezed onto one and ellipsised.
-          <View style={{ gap: 2 }}>
-            {view.linesAx.map((line) => (
-              <Text key={line} variant="callout" style={{ color: canvasAlpha(0.7) }}>
-                {line}
-              </Text>
-            ))}
-          </View>
         ) : (
-          <Text variant="label" style={{ color: canvasAlpha(0.7) }}>
-            {view.line}
-          </Text>
+          // One composition at every size — each fact owns its line already,
+          // so large type changes the variant, never the arrangement.
+          <View style={{ gap: large ? 4 : 2 }}>
+            <Text variant={large ? 'callout' : 'label'} style={{ color: canvasAlpha(0.7) }}>
+              {view.header.dateLine}
+            </Text>
+            {view.header.venue ? (
+              view.onReservation ? (
+                <PressableSurface
+                  fill
+                  accessibilityRole="link"
+                  accessibilityLabel={view.header.venue}
+                  accessibilityHint="Opens the reservation"
+                  onPress={view.onReservation}
+                  hitSlop={8}
+                  style={{ alignSelf: 'flex-start' }}
+                  contentStyle={{ minHeight: MIN_TAP_TARGET, minWidth: 0, justifyContent: 'center' }}>
+                  <Text
+                    variant={large ? 'callout' : 'label'}
+                    style={{ color: theme.canvas, textDecorationLine: 'underline' }}>
+                    {view.header.venue}
+                  </Text>
+                </PressableSurface>
+              ) : (
+                <Text variant={large ? 'callout' : 'label'} style={{ color: canvasAlpha(0.7) }}>
+                  {view.header.venue}
+                </Text>
+              )
+            ) : null}
+            {view.header.address ? (
+              <Text variant={large ? 'callout' : 'label'} style={{ color: canvasAlpha(0.7) }}>
+                {view.header.address}
+              </Text>
+            ) : null}
+            {view.header.marks ? (
+              <Text variant={large ? 'callout' : 'label'} style={{ color: canvasAlpha(0.7) }}>
+                {view.header.marks}
+              </Text>
+            ) : null}
+          </View>
         )}
       </View>
     </View>

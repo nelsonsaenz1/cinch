@@ -3,10 +3,9 @@ import type { EventDetailView, EventLookOption } from '@/components/events/event
 import {
   EVENT_DETAIL_COPY,
   emptyLookBody,
+  headerBlock,
   heroTone,
   logisticsLine,
-  posterLine,
-  posterLinesAx,
   rosterChips,
 } from './event-detail-spec';
 
@@ -29,7 +28,7 @@ import {
  *
  * ── WHAT IS NOT FAKED ─────────────────────────────────────────────────────
  *
- * The lines. `posterLine`, `logisticsLine`, `rosterChips` and `emptyLookBody`
+ * The lines. `headerBlock`, `logisticsLine`, `rosterChips` and `emptyLookBody`
  * are the REAL functions the route calls, given the artifact's inputs — so a
  * frame cannot drift from the product by having its sentences typed out here.
  * If the spec changes, these six pictures change with it.
@@ -44,6 +43,7 @@ const BASE = {
   onRetry: NOOP,
   onComments: NOOP,
   onPlanLook: null,
+  onReservation: null,
   notice: null,
 } as const;
 
@@ -62,9 +62,17 @@ const REHEARSAL_MEMBERS = [
   { userId: 'u-theo', state: 'joined', role: 'host', displayName: 'Theo', username: 'theo' },
 ] as const;
 
+/**
+ * The header inputs (founder's 2026-08-21 structure): the occasion becomes
+ * the eyebrow, the address moves up from the quiet line, and the party of six
+ * — the artifact's clay "6" — becomes a quiet mark.
+ */
 const CONTRAMAR_LINE_INPUT = {
+  occasion: 'Birthday dinner',
   venueName: 'Contramar',
+  venueAddress: 'Calle Durango 200',
   dateLine: 'Sat 12 Sep · 8:30 pm',
+  partySize: 6,
 };
 
 const REHEARSAL_LINE_INPUT = {
@@ -135,15 +143,14 @@ const DEFAULT_VIEW: EventDetailView = {
   loading: false,
   tone: heroTone(CONTRAMAR_LINE_INPUT),
   title: 'Alexandria’s birthday dinner at Contramar',
-  line: posterLine(CONTRAMAR_LINE_INPUT),
-  linesAx: posterLinesAx(CONTRAMAR_LINE_INPUT),
+  header: headerBlock(CONTRAMAR_LINE_INPUT),
   looks: { kind: 'ready', options: [CHOSEN, ...SUGGESTED] },
   empty: null,
   chips: contramarChips.chips,
   overflow: contramarChips.overflow,
   noReplies: false,
+  // The address is the header's now (2026-08-21); the quiet line keeps the note.
   logistics: logisticsLine({
-    venueAddress: 'Calle Durango 200',
     note: 'table under Priya · bringing the gift',
   }),
   rsvp: { standing: 'going', busy: false },
@@ -157,8 +164,7 @@ const EMPTY_VIEW: EventDetailView = {
   loading: false,
   tone: heroTone(REHEARSAL_LINE_INPUT),
   title: 'Marisol & Theo’s rehearsal dinner',
-  line: posterLine(REHEARSAL_LINE_INPUT),
-  linesAx: posterLinesAx(REHEARSAL_LINE_INPUT),
+  header: headerBlock(REHEARSAL_LINE_INPUT),
   // A closet with nothing the engine can build from: no posted look and no
   // suggestion either, which is the only state that still draws the outlines.
   looks: { kind: 'empty' },
@@ -182,8 +188,7 @@ const LOADING_VIEW: EventDetailView = {
   loading: true,
   tone: 'accent',
   title: 'Alexandria’s birthday dinner at Contramar',
-  line: '',
-  linesAx: [],
+  header: { eyebrow: null, dateLine: '', venue: null, address: null, marks: null },
   looks: { kind: 'loading' },
   empty: null,
   chips: [],

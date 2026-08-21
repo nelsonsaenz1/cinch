@@ -266,9 +266,10 @@ test('the sentence-shaped status lines are gone from the page', () => {
 
 test('the venue is printed once on the detail page', () => {
   assert.doesNotMatch(detailBody, /<VenueCard/, 'the venue card is back');
-  // Once, in the line under the name. The ADDRESS is a different fact and
-  // belongs to the one quiet line; the name belongs to the poster line.
-  assert.match(detailBody, /posterLine\(/);
+  // Once, in the structured header under the name (2026-08-21 — the founder
+  // superseded the single poster line; the address moved up beside it, out of
+  // the quiet line). The route composes; the body only draws.
+  assert.match(detailBody, /headerBlock\(\{/);
   assert.doesNotMatch(poster, /venueName/, 'the body composes a venue line of its own');
   // Its one unique fact survived the poster losing the row it sat on: the
   // reservation is in the overflow menu, spelled by the same helper.

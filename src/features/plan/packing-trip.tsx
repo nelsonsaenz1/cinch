@@ -703,14 +703,20 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
   }
 
   if (closetTooThin) {
+    // The sibling states' scroll idiom — this was the one return here without
+    // it, so anything below the fold was unreachable (founder's "can't
+    // scroll"). `flex-grow` keeps EmptyState's own `flex-1` centring alive
+    // inside the scroll container.
     return (
-      <View className="px-gutter pt-2">
-        <EmptyState
-          symbol="tshirt"
-          title="Nothing to pack yet"
-          body="Your closet is empty, so there is nothing for Cinch to pack. Add a few pieces from the Closet tab and come back to this trip."
-        />
-      </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="flex-grow pb-16">
+        <View className="flex-1 px-gutter pt-2">
+          <EmptyState
+            symbol="tshirt"
+            title="Nothing to pack yet"
+            body="Your closet is empty, so there is nothing for Cinch to pack. Add a few pieces from the Closet tab and come back to this trip."
+          />
+        </View>
+      </ScrollView>
     );
   }
 

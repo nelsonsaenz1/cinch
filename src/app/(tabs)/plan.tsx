@@ -36,7 +36,6 @@ import { planWeekAsync, type PlannedDay } from '@/features/plan/packing';
 import type { Trip } from '@/features/plan/trip';
 import { STALL_DEADLINE_MS, useStalled } from '@/features/plan/use-stalled';
 import { weekProgressLine, weekSubtitle } from '@/features/plan/week-lines';
-import { TRIPS_COPY } from '@/features/trips/trips-list-spec';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { dateKey } from '@/lib/date';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
@@ -601,28 +600,17 @@ export default function PlanScreen() {
               grows past the gutter instead of the text yielding. On a 320pt
               width, or with Dynamic Type pushing both sides up, the side that
               must give way is the date range rather than the title. */}
-          {/* Redesign 04's first entry point, kept through the revert of
-              redesign 01. On PACKING the trailing slot carries the door to the
-              trips list instead of a week range, which is the one register
-              that reads as a date on a mode that has nothing to do with this
-              week's calendar. Week and Events keep the range exactly as it
-              was — the same slot, the same `eyebrow` size, one word
-              different, which is this page's own visual language rather than
-              anything imported from the reverted design. */}
-          {mode === 'packing' ? (
-            <PressableSurface
-              accessibilityRole="button"
-              accessibilityLabel={TRIPS_COPY.seeAll}
-              onPress={() => router.push('/trips')}
-              hitSlop={8}
-              fill
-              contentStyle={{}}
-              className="min-h-tap shrink justify-center">
-              <Text variant="eyebrow" numberOfLines={1} style={{ color: theme.accent }}>
-                {TRIPS_COPY.seeAll}
-              </Text>
-            </PressableSurface>
-          ) : (
+          {/* THE MASTHEAD IS ONE HEIGHT IN ALL THREE MODES — that is the bug
+              this slot fixes (founder, 2026-08-21: "the indicator bar shifts
+              down" on Packing). The "See all trips" door that used to sit here
+              carried `min-h-tap`, so its 44pt floor inflated this baseline row
+              in Packing mode only and the segmented control below moved. The
+              door is deleted rather than restyled: /trips stays reachable
+              through Today's trip card and the packing memo's own foot links.
+              Week and Events keep their eyebrow date range; Packing's trailing
+              slot is simply empty — the display title alone sets the row's
+              height either way, so the header no longer moves between modes. */}
+          {mode === 'packing' ? null : (
             <Text variant="eyebrow" className="shrink" numberOfLines={1}>
               {weekRangeLabel}
             </Text>

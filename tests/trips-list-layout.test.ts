@@ -139,8 +139,9 @@ test('every control on the shelf clears the 44pt floor', () => {
   assert.ok(CTA_MIN_HEIGHT >= 44, 'the pinned action is below the tap floor');
   // The back button, the plan pill, the cards and the past rows each state it.
   assert.ok((CODE.match(/MIN_TAP_TARGET/g) ?? []).length >= 5, 'a control on the shelf has no 44pt floor');
-  // The two entry points are targets too, not bare text.
-  assert.match(PLAN, /min-h-tap[\s\S]{0,200}TRIPS_COPY\.seeAll|TRIPS_COPY\.seeAll[\s\S]{0,200}min-h-tap/, 'Plan’s door to the list is under the floor');
+  // The memo's entry point is a target too, not bare text. Plan's masthead
+  // door is GONE (2026-08-21): its `min-h-tap` floor was what inflated the
+  // header in Packing mode only — the founder's "indicator bar shifts down".
   // RESTORED 2026-08-18. Redesign 05 promoted the memo's door to a 52pt fill on
   // its completion plate, and this assertion moved to that plate's constant.
   // The founder reverted that build: the door is an underlined link in the
@@ -462,12 +463,16 @@ test('the serif sets the place and only the place', () => {
 // The two entry points
 // ---------------------------------------------------------------------------
 
-test('both surfaces the brief names carry the door to the list', () => {
-  // Plan's Packing mode header — and ONLY Packing: Events keeps its week range,
-  // which is the trailing slot's original job.
-  assert.match(PLAN, /mode === 'packing' \?[\s\S]{0,400}TRIPS_COPY\.seeAll/, 'Packing’s header lost its door');
-  assert.match(PLAN, /router\.push\('\/trips'\)/, 'Plan does not route to the list');
-  assert.match(PLAN, /weekRangeLabel/, 'the week range was removed rather than moved aside');
+test('the memo carries the door to the list; Plan’s masthead no longer does', () => {
+  // DELETED 2026-08-21. The masthead's "See all trips" button was the only
+  // control in the `items-baseline` title row, and its `min-h-tap` 44pt floor
+  // inflated the row in Packing mode alone — the founder's "indicator bar
+  // shifts down". The header must be ONE height across Week, Events and
+  // Packing, so Packing's trailing slot is empty and the door is gone; the
+  // list stays reachable through Today's trip card and the memo's foot below.
+  assert.doesNotMatch(PLAN, /TRIPS_COPY\.seeAll/, 'the masthead door is back, and so is the shifted header');
+  assert.doesNotMatch(PLAN, /min-h-tap[\s\S]{0,200}weekRangeLabel/, 'a tap floor reached the masthead row');
+  assert.match(PLAN, /weekRangeLabel/, 'the week range was removed rather than left in place');
 
   // The post-planning success screen — the packing memo, restored 2026-08-18.
   //

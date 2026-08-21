@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { ExampleTrip } from '@/components/plan/plan-examples';
 import { Button, ErrorState, ListSkeleton, Text } from '@/components/ui';
@@ -108,8 +108,13 @@ export function PackingGate({
 }) {
   const unavailable = unlockState === 'unavailable';
 
+  // A ScrollView, not a bare View — the founder's "can't scroll". The gate's
+  // column (bullets, history, the example trip, the membership CTA) runs past
+  // the fold on every phone, and this was the one Packing state without the
+  // scroll idiom its siblings in `packing-trip.tsx` already carry. `pb-16` is
+  // theirs too.
   return (
-    <View className="px-gutter pt-3">
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-gutter pt-3 pb-16">
       <Text variant="title" trim>
         Pack the trip, not every possibility.
       </Text>
@@ -185,7 +190,7 @@ export function PackingGate({
           className="mt-4 self-stretch"
         />
       )}
-    </View>
+    </ScrollView>
   );
 }
 

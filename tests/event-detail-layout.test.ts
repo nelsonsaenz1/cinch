@@ -35,13 +35,12 @@ import {
   emptyLookBody,
   firstNameOf,
   formalityTarget,
+  headerBlock,
   heroTone,
   logisticsLine,
   moreFriendsLine,
   occasionTarget,
   optionPosition,
-  posterLine,
-  posterLinesAx,
   primaryGround,
   rosterChips,
   suggestionCount,
@@ -109,15 +108,41 @@ test('at the accessibility sizes the poster recomposes rather than shrinking', (
   // Four composition changes, each drawn in the accepted AX frame.
   assert.match(CODE, /flexDirection: large \? 'column' : 'row'/, 'the chips stop wrapping and stack');
   assert.match(CODE, /flexDirection: large \? 'column' : 'row', gap: 10/, 'the RSVP buttons stack');
-  assert.match(CODE, /view\.linesAx\.map/, 'the venue does not take its own line');
   assert.match(CODE, /\{large \? null : well\(/, 'the plate keeps its third well at large type');
 
-  // And the poster line itself splits rather than being squeezed.
-  const input = { venueName: 'Contramar', dateLine: 'Sat 12 Sep · 8:30 pm' };
-  assert.equal(posterLine(input), 'Contramar · Sat 12 Sep · 8:30 pm');
-  assert.deepEqual(posterLinesAx(input), ['Contramar', 'Sat 12 Sep · 8:30 pm']);
-  // Nothing was lost in the split — the same words, differently arranged.
-  assert.equal(posterLinesAx(input).join(' · '), posterLine(input));
+  // The header (founder, 2026-08-21) is ONE composition at every size — each
+  // fact already owns its line, so there is nothing left to split at AX; the
+  // band only swaps the variant.
+  assert.match(CODE, /variant=\{large \? 'callout' : 'label'\}/, 'the header stack lost its AX variant');
+});
+
+test('the header block is the founder’s structure, fact by fact', () => {
+  // 2026-08-21, superseding the 03 brief's single squeezed poster line: the
+  // occasion as an eyebrow, then the date, the venue with its address, and
+  // the dress code and party size as quiet marks.
+  const block = headerBlock({
+    occasion: 'Birthday dinner',
+    venueName: 'Contramar',
+    venueAddress: 'Calle Durango 200',
+    dateLine: 'Sat 12 Sep · 8:30 pm',
+    dressCode: 'Cocktail attire',
+    partySize: 6,
+  });
+  assert.deepEqual(block, {
+    eyebrow: 'Birthday dinner',
+    dateLine: 'Sat 12 Sep · 8:30 pm',
+    venue: 'Contramar',
+    address: 'Calle Durango 200',
+    marks: 'Cocktail attire · Party of 6',
+  });
+
+  // A member's missing venue is stated, never blank — the invitation's word.
+  assert.equal(headerBlock({ venueName: null, dateLine: 'Fri 26 Sep' }).venue, 'Venue to be confirmed');
+  // Absences stay absences: no host note, no invented marks, no empty eyebrow.
+  const bare = headerBlock({ venueName: 'Contramar', dateLine: 'Fri 26 Sep', occasion: '  ', dressCode: '' });
+  assert.equal(bare.eyebrow, null);
+  assert.equal(bare.address, null);
+  assert.equal(bare.marks, null);
 });
 
 test('nothing on this page answers large type by shrinking text', () => {
@@ -307,11 +332,21 @@ test('the overflow chip is a count of people and never a list of them', () => {
 });
 
 test('an invitee’s poster carries no venue, no address and no thread', () => {
-  // §7.1, at the two places the poster could leak it.
-  assert.equal(posterLine({ venueName: 'Contramar', dateLine: 'Sat 12 Sep', coarse: true }), 'Sat 12 Sep');
-  assert.deepEqual(posterLinesAx({ venueName: 'Contramar', dateLine: 'Sat 12 Sep', coarse: true }), [
-    'Sat 12 Sep',
-  ]);
+  // §7.1, at the one place the header could leak it: `coarse` keeps the day
+  // and withholds every other fact — no eyebrow, no venue, no address, no
+  // marks — as absences rather than missing-states.
+  assert.deepEqual(
+    headerBlock({
+      occasion: 'Birthday dinner',
+      venueName: 'Contramar',
+      venueAddress: 'Calle Durango 200',
+      dateLine: 'Sat 12 Sep',
+      dressCode: 'Cocktail attire',
+      partySize: 6,
+      coarse: true,
+    }),
+    { eyebrow: null, dateLine: 'Sat 12 Sep', venue: null, address: null, marks: null },
+  );
   // The route withholds rather than the line inventing a missing-state.
   assert.match(ROUTE, /venueName: isMember \? event\.venueName : null/);
   assert.match(ROUTE, /commentCount: isMember \? openComments : null/);

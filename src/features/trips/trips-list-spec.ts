@@ -58,7 +58,12 @@ export const TRIPS_COPY = {
   offlineBodyEmpty: 'Nothing is saved on this device yet.',
   cached: 'Saved on this device',
   tryAgain: 'Try again',
-  /** The two entry points, worded identically on both surfaces. */
+  /**
+   * The packing memo's door to the list. It USED to render in Plan's masthead
+   * too; that button was deleted 2026-08-21 — its 44pt `min-h-tap` floor was
+   * what shifted the segmented control down in Packing mode only — so the
+   * memo's foot is now the one surface that spells this.
+   */
   seeAll: 'See all trips',
   /**
    * The packing memo's third door: this trip's own detail page.

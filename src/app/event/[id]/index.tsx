@@ -44,11 +44,10 @@ import {
   LOOK_OPTION_LIMIT,
   emptyLookBody,
   formalityTarget,
+  headerBlock,
   heroTone,
   logisticsLine,
   occasionTarget,
-  posterLine,
-  posterLinesAx,
   rosterChips,
   suggestionCount,
 } from '@/features/events/event-detail-spec';
@@ -93,10 +92,12 @@ import { useReportFlow } from '@/features/social-graph/use-report-flow';
  * The poster prints far fewer rows than LP-04's page did. None of the
  * capabilities went with them:
  *
- * · WHEN and WHERE — the two labelled fact rows — are the small line under the
- *   name (`posterLine`) and, for the address, the one quiet line behind the
- *   clay bead (`logisticsLine`). The host's repair actions for a missing date
- *   or place are in the overflow menu and open the SAME three sheets.
+ * · WHEN and WHERE — the two labelled fact rows — are the structured header
+ *   stack under the name (`headerBlock`, founder ask 2026-08-21: occasion
+ *   eyebrow, date line, venue with its address, dress code and party size as
+ *   quiet marks), leaving `logisticsLine` the note and the weather. The
+ *   host's repair actions for a missing date or place are in the overflow
+ *   menu and open the SAME three sheets.
  * · `Every option`, `Table talk`, the reservation link, `Invite more people`
  *   and the page's one destructive line are the overflow menu. The artifact
  *   puts the menu in the band and says so ("report lives in the header menu").
@@ -107,7 +108,7 @@ import { useReportFlow } from '@/features/social-graph/use-report-flow';
  *
  * Every membership and privacy gate, and every data contract. §7.1 still
  * withholds time, venue and weather from someone who has only been invited —
- * carried by `dateTimeLine`'s and `posterLine`'s `coarse` flag. The roster
+ * carried by `dateTimeLine`'s and `headerBlock`'s `coarse` flag. The roster
  * chips are drawn from the same `useEventMembers` rows the page always drew,
  * narrowed by the same `joined || isHost` rule, now inside `rosterChips` where
  * it can be tested. The board is still gated on MEMBERSHIP rather than on the
@@ -572,7 +573,17 @@ export default function EventDetailScreen() {
   const chips = rosterChips(roster, { isHost: event.isHost, me });
 
   const dateLine = dateTimeLine(event.startsAt, event.endsAt, { coarse: !isMember });
-  const posterInput = { venueName: isMember ? event.venueName : null, dateLine, coarse: !isMember };
+
+  // The same URL the overflow menu offers, so the band's venue line and the
+  // menu row can never open two different reservations.
+  const openReservation =
+    isMember && event.reservationUrl
+      ? () => {
+          void Linking.openURL(event.reservationUrl!).catch(() => {
+            // A dead or malformed link is the platform's business, not a crash.
+          });
+        }
+      : null;
 
   const tilesFor = (garments: { platePath: string | null; cutoutPath: string | null; thumbPath: string | null }[]) =>
     garments.slice(0, 3).map((g) => ({ uri: resolve(g.platePath, g.cutoutPath, g.thumbPath) }));
@@ -626,8 +637,18 @@ export default function EventDetailScreen() {
     loading: false,
     tone: heroTone({ venueName: event.venueName, coarse: !isMember }),
     title: event.title,
-    line: posterLine(posterInput),
-    linesAx: posterLinesAx(posterInput),
+    // The structured header (founder ask 2026-08-21). `coarse` withholds
+    // everything but the day from someone who has only been invited — §7.1.
+    header: headerBlock({
+      occasion: event.occasion,
+      venueName: isMember ? event.venueName : null,
+      venueAddress: event.venueAddress,
+      dateLine,
+      dressCode: event.dressCode,
+      partySize: event.partySize,
+      coarse: !isMember,
+    }),
+    onReservation: openReservation,
 
     looks: !isMember
       ? // An invitee's board read never fired, so there is nothing to wait
@@ -658,12 +679,11 @@ export default function EventDetailScreen() {
     // chip and letting the reader wonder whether the rest failed to load.
     noReplies: !members.isLoading && !members.isError && chips.chips.length <= 1,
 
+    // The address, occasion, party size and dress code moved up into the
+    // header block (2026-08-21); the quiet line keeps what is left — the
+    // host's note and the forecast.
     logistics: isMember
       ? logisticsLine({
-          venueAddress: event.venueAddress,
-          occasion: event.occasion,
-          partySize: event.partySize,
-          dressCode: event.dressCode,
           note: event.note,
           weather: weather ? weatherLineFor(weather) : null,
         })
@@ -841,8 +861,8 @@ function loadingView(onBack: () => void): EventDetailView {
     loading: true,
     tone: 'accent',
     title: 'Event',
-    line: '',
-    linesAx: [],
+    header: { eyebrow: null, dateLine: '', venue: null, address: null, marks: null },
+    onReservation: null,
     looks: { kind: 'loading' },
     empty: null,
     chips: [],
