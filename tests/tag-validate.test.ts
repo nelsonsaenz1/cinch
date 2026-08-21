@@ -53,13 +53,40 @@ const fails = (t: Partial<TagResult>) => {
 };
 
 // ---------------------------------------------------------------------------
-// 1 · Category and subcategory must agree
+// 1 · Category and subcategory must agree — and a lone disagreement is
+//     salvaged, not fatal
+//
+// 2026-08-21: four real uploads in one day failed
+// `validator_rejected:category_subcategory_conflict`, each burning an
+// attempt over a compound subcategory tripping a keyword marker. The
+// category is the load-bearing field (slots, gap feed and browse key off
+// it); the subcategory is a retypeable detail. So a conflict standing
+// alone keeps the category, drops the subcategory, and says so.
 // ---------------------------------------------------------------------------
 
-test('a tote filed as a top is rejected, not corrected', () => {
-  assert.deepEqual(fails({ category: 'top', subcategory: 'leather tote' }), [
-    'category_subcategory_conflict',
-  ]);
+test('a lone category/subcategory conflict is salvaged: category kept, subcategory dropped', () => {
+  const r = ok({ category: 'top', subcategory: 'leather tote' });
+  assert.equal(r.tags.category, 'top');
+  assert.equal(r.tags.subcategory, null);
+  assert.deepEqual(r.salvaged, ['category_subcategory_conflict']);
+});
+
+test('a salvaged tag describes itself by category, never by the dropped word', () => {
+  const r = ok({ category: 'top', subcategory: 'leather tote' });
+  assert.ok(!r.tags.description.includes('tote'), 'the conflicting word survived');
+  assert.match(r.tags.description, /\btop\b/);
+});
+
+test('a clean tag reports nothing salvaged', () => {
+  const r = ok({});
+  assert.deepEqual(r.salvaged, []);
+  assert.equal(r.tags.subcategory, 'oxford shirt');
+});
+
+test('a conflict in company with another failure still rejects, and is reported', () => {
+  const f = fails({ category: 'top', subcategory: 'leather tote', formalityScore: 9 });
+  assert.ok(f.includes('category_subcategory_conflict'));
+  assert.ok(f.includes('score_out_of_range'));
 });
 
 test('every marker word settles its category', () => {
@@ -310,6 +337,17 @@ test('the rescue model is used only on the escalated attempt', () => {
   assert.match(
     src,
     /model_id: rescued && settings\.rescueModelId \? settings\.rescueModelId : config\.model_id/,
+  );
+});
+
+test('a salvage lands as a success with a ledger footnote, not a rejection', () => {
+  const src = handler();
+  // The tag is written (checked.ok, so `tags` is set and the item becomes
+  // `tagged`), while the ai_calls error column carries `salvaged:…` so a
+  // repaired answer stays distinguishable from a clean one.
+  assert.match(
+    src,
+    /failure = checked\.salvaged\.length \? `salvaged:\$\{checked\.salvaged\.join\(','\)\}` : null;/,
   );
 });
 

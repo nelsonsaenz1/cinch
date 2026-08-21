@@ -129,8 +129,34 @@ export type ValidationFailure =
   | 'score_out_of_range'
   | 'empty_subcategory';
 
+/**
+ * What comes out the other side. Identical to `TagResult` except that the
+ * subcategory can be null — dropped by a salvage — where the model's raw answer
+ * always carries one. The `items.subcategory` column is nullable and the client
+ * already renders a null as "unnamed", so this is the shape the database and
+ * the UI were built for.
+ */
+export type ValidatedTags = Omit<TagResult, 'subcategory'> & {
+  subcategory: string | null;
+};
+
 export type ValidationOutcome =
-  | { ok: true; tags: TagResult; brandEvidence: BrandEvidence | null }
+  | {
+      ok: true;
+      tags: ValidatedTags;
+      brandEvidence: BrandEvidence | null;
+      /**
+       * Rules that were satisfied by REPAIR rather than by the answer itself.
+       *
+       * Today that is only `category_subcategory_conflict`: the category (the
+       * load-bearing field — slots, the gap feed and browse all key off it) is
+       * kept and the free-text subcategory (a cosmetic detail the user can
+       * retype in one tap) is dropped. Empty when nothing needed salvaging.
+       * Callers record it — `salvaged:…` in the ai_calls error column — so a
+       * repaired answer is distinguishable from a clean one in the ledger.
+       */
+      salvaged: ValidationFailure[];
+    }
   | { ok: false; failures: ValidationFailure[] };
 
 const isSolid = (pattern: string | null): boolean =>
@@ -203,10 +229,17 @@ export function validateTags(raw: TagResult, ctx: ValidationContext = {}): Valid
     }
   }
 
-  // The one the prompt spends a paragraph on. A subcategory that names a boot
-  // while the category says top is not a near miss.
+  // The one the prompt spends a paragraph on — and, per the 2026-08-21
+  // production ledger, the one that failed four real uploads in a day. The
+  // markers are regexes over free text, and free text composes: "boot cut
+  // jeans" names a boot without being one. When the two fields disagree,
+  // the constrained enum the prompt drills hardest is the better witness
+  // than a keyword match inside a compound noun — so the conflict is
+  // SALVAGED (category kept, subcategory dropped, see below) rather than
+  // failing the whole tag, unless something else is also wrong, in which
+  // case the answer is incoherent and the conflict is reported with the rest.
   const implied = categoryFromSubcategory(subcategory);
-  if (implied && implied !== raw.category) failures.push('category_subcategory_conflict');
+  const conflict = implied !== null && implied !== raw.category;
 
   // A solid garment has no print, so it cannot have a print size.
   if (isSolid(raw.pattern) && raw.patternScale !== 'none') {
@@ -224,19 +257,34 @@ export function validateTags(raw: TagResult, ctx: ValidationContext = {}): Valid
     if (!supported || contradicted) failures.push('water_resistance_unsupported');
   }
 
+  // Salvage decision, made last so it can see whether the conflict stood
+  // alone. Alone, it is one slipped field on an otherwise coherent answer:
+  // keep the category, drop the subcategory, and say so. In company, the
+  // answer was not read off the photograph and repair would be invention.
+  // (Water resistance above was judged against the ORIGINAL subcategory —
+  // "rain jacket" is evidence about the garment even when the word "jacket"
+  // is what put the field in conflict.)
+  const salvaged: ValidationFailure[] = [];
+  if (conflict) {
+    if (failures.length) failures.push('category_subcategory_conflict');
+    else salvaged.push('category_subcategory_conflict');
+  }
+
   if (failures.length) return { ok: false, failures: [...new Set(failures)] };
 
+  const finalSubcategory = salvaged.length ? null : subcategory;
   const { brand, evidence } = resolveBrand(raw.brand, ctx);
 
   return {
     ok: true,
     brandEvidence: evidence,
+    salvaged,
     tags: {
       ...raw,
-      subcategory,
+      subcategory: finalSubcategory,
       brand,
       // Written here, from what survived. See `describeGarment`.
-      description: describeGarment({ ...raw, subcategory, brand }),
+      description: describeGarment({ ...raw, subcategory: finalSubcategory, brand }),
     },
   };
 }
@@ -267,15 +315,20 @@ const cap = (s: string) => (s.length ? s.charAt(0).toUpperCase() + s.slice(1) : 
  * corresponds to a validated field. A field that is absent removes its clause
  * rather than being filled in.
  */
-export function describeGarment(tags: TagResult): string {
+export function describeGarment(tags: ValidatedTags): string {
   const parts: string[] = [];
 
   const colour = tags.colorNames?.[0]?.trim();
   const pattern = isSolid(tags.pattern) ? null : tags.pattern?.trim();
   const material = tags.material?.trim();
 
+  // A salvage can leave the subcategory null; the category is then the most
+  // specific true word left. "top" reads fine as a noun; "other" does not.
+  const kind =
+    tags.subcategory?.trim() || (tags.category === 'other' ? 'piece' : tags.category);
+
   // "Navy striped wool blazer" — colour, print, material, thing.
-  const noun = [colour, pattern, material, tags.subcategory.trim()]
+  const noun = [colour, pattern, material, kind]
     .filter(Boolean)
     .join(' ');
   parts.push(cap(noun));

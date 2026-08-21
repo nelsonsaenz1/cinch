@@ -6,7 +6,7 @@ import type { Database } from '../_shared/database.types.ts';
 
 import { recordAiCall } from '../_shared/ai-calls.ts';
 import { loadAiSettings } from '../_shared/ai-config.ts';
-import { validateTags } from '../_shared/tag-validate.ts';
+import { validateTags, type ValidatedTags } from '../_shared/tag-validate.ts';
 
 import {
   completeStructured,
@@ -247,7 +247,7 @@ export default {
         { type: 'text', text: 'Catalogue this garment.' },
       ];
 
-      let tags: TagResult | null = null;
+      let tags: ValidatedTags | null = null;
       let failure: string | null = null;
       let promptTokens: number | null = null;
       let completionTokens: number | null = null;
@@ -321,7 +321,13 @@ export default {
 
           if (checked.ok) {
             tags = checked.tags;
-            failure = null;
+            // A salvage is a success with a footnote: the tag landed, but one
+            // field was repaired rather than accepted (today, a conflicting
+            // subcategory dropped in favour of the category). The ledger row
+            // records it as `salvaged:…` with succeeded=true — previously
+            // these four-a-day cases burnt an attempt and surfaced as
+            // `validator_rejected:category_subcategory_conflict` failures.
+            failure = checked.salvaged.length ? `salvaged:${checked.salvaged.join(',')}` : null;
             break;
           }
 
