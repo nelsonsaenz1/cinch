@@ -89,6 +89,21 @@ export type UploadJob = {
    * no failure to report and no retry that could change it.
    */
   cutoutFailed?: boolean;
+  /**
+   * The settled garment may carry the look-alike offer — "Find a cleaner
+   * photo" on The Ten's slot card and the review surface.
+   *
+   * Written exactly once, by the tagging loop at the moment the tag settles,
+   * from facts the pipeline already holds (`match-eligibility.ts`): the tag
+   * produced a category, a cutout or thumbnail reached the server, consent is
+   * current, and the job is not local. On the job rather than derived at
+   * render time because the render-time version would need the consent cache
+   * and the tag outcome re-joined on every frame — and because absence has a
+   * meaning: a job rescued by the sweep, or persisted before this flag
+   * existed, simply never offers, which is the conservative reading of a fact
+   * nobody recorded.
+   */
+  matchEligible?: boolean;
   /** 0–1, only meaningful during `uploading`. */
   progress: number;
 };

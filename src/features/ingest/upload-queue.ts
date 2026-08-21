@@ -11,6 +11,7 @@ import { queryClient } from '@/lib/query-client';
 import { supabase, getUserId } from '@/lib/supabase';
 
 import { deleteLocalPhoto, getLocalPhoto, saveLocalPhoto } from './local-photos';
+import { deriveMatchEligible } from './match-eligibility';
 import { useQueueStore, type UploadJob } from './queue-store';
 
 /**
@@ -344,7 +345,17 @@ async function requestTag(itemId: string): Promise<TagOutcome> {
 async function driveTagging(
   jobId: string,
   itemId: string,
-  opts: { path: string; onSettled?: () => Promise<void> },
+  opts: {
+    path: string;
+    /**
+     * What the pipeline put on the server for this garment, for the look-alike
+     * derivation below. Stated by each caller rather than re-read here: the
+     * caller just did the uploading and holds the truth, and a read to confirm
+     * it would be a round trip inside a loop that must make none of its own.
+     */
+    artifacts: { hasCutout: boolean; hasThumb: boolean };
+    onSettled?: () => Promise<void>;
+  },
 ): Promise<void> {
   const { update } = useQueueStore.getState();
   // A described import is tagged OUTSIDE the drain loop, so a photo batch
@@ -364,7 +375,24 @@ async function driveTagging(
 
       if (outcome.kind === 'settled') {
         await opts.onSettled?.();
-        update(jobId, { stage: 'done', error: undefined, label: outcome.label });
+        // Whether this garment may carry the look-alike offer ("Find a cleaner
+        // photo"). A PURE derivation over facts already in hand — the tag's
+        // answer, the caller's artifacts, and the consent version off the
+        // query cache. Nothing is fetched and no vision pass runs here: the
+        // whole design of the offer is that the metered match call is spent
+        // only when somebody taps it (§2.4, offer-then-run). An uncached
+        // consent read derives to ineligible rather than to a request.
+        const consent = queryClient.getQueryData<{ version: number | null }>(['ai-consent']);
+        const matchEligible = deriveMatchEligible({
+          local: useQueueStore.getState().jobs.find((j) => j.id === jobId)?.local,
+          tagSettled: true,
+          category: outcome.label ?? null,
+          hasCutout: opts.artifacts.hasCutout,
+          hasThumb: opts.artifacts.hasThumb,
+          consentVersion: consent?.version ?? null,
+          currentConsentVersion: CURRENT_CONSENT_VERSION,
+        });
+        update(jobId, { stage: 'done', error: undefined, label: outcome.label, matchEligible });
         invalidateAfterItemSettled();
         // After the durable write, so a crash between tag and track loses the
         // event rather than fabricating one for an item that never landed.
@@ -437,7 +465,12 @@ export async function tagImportedGarment(itemId: string, previewUri: string): Pr
   // store also refuses a duplicate id outright.
   const jobId = `import-${itemId}`;
   useQueueStore.getState().enqueueTagging({ id: jobId, localUri: previewUri, itemId });
-  await driveTagging(jobId, itemId, { path: 'describe' });
+  // No cutout exists for a described garment — the Edge Function fetched the
+  // product picture and wrote the row itself, which is the "thumb" half.
+  await driveTagging(jobId, itemId, {
+    path: 'describe',
+    artifacts: { hasCutout: false, hasThumb: true },
+  });
 }
 
 /** Move every queue job pointing at this item to a stage, with an explanation. */
@@ -782,6 +815,9 @@ async function processJob(job: UploadJob): Promise<void> {
   const measured = cutout.colors;
   await driveTagging(job.id, taggedItemId, {
     path: 'queue',
+    // The row write above just recorded exactly these paths, so this is the
+    // same fact said to the tagging loop rather than a second opinion.
+    artifacts: { hasCutout: Boolean(cutout.cutoutUri), hasThumb: true },
     // Before the job settles, so the closet's refetch already sees real hex
     // rather than showing model-named swatches for a beat and then swapping.
     onSettled: measured ? () => reapplyMeasuredColors(taggedItemId, measured) : undefined,
@@ -1179,13 +1215,24 @@ export async function startBackfill(): Promise<{ enqueued: number }> {
 
         // The server holds the photo now; the local copy has done its job.
         await deleteLocalPhoto(row.id);
-        await driveTagging(jobId, row.id, { path: 'backfill' });
+        // A backfill uploads the original and the thumbnail only — the cutout
+        // objects, if any, stayed local-mode-shaped and were never rendered.
+        await driveTagging(jobId, row.id, {
+          path: 'backfill',
+          artifacts: { hasCutout: false, hasThumb: true },
+        });
         enqueued += 1;
         continue;
       }
 
       // Uploaded but never (successfully) tagged — re-drive the tag alone.
-      await driveTagging(`backfill-${row.id}`, row.id, { path: 'backfill' });
+      // `image_path` is set (the branch condition), so the thumb half is real;
+      // whether a cutout ever landed is not knowable from here without a read,
+      // and the derivation only needs one of the two.
+      await driveTagging(`backfill-${row.id}`, row.id, {
+        path: 'backfill',
+        artifacts: { hasCutout: false, hasThumb: true },
+      });
       enqueued += 1;
     }
 

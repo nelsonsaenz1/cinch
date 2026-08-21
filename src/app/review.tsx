@@ -15,6 +15,8 @@ import { ReviewCard } from '@/components/review/review-card';
 import { useReviewQueue } from '@/features/closet/queries';
 import { useUnverifyItem, useVerifyItem } from '@/features/closet/mutations';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import { MATCH_OFFER_ACTION, matchOfferJob } from '@/features/ingest/match-eligibility';
+import { useQueueStore } from '@/features/ingest/queue-store';
 import {
   describeGaps,
   gapsFor,
@@ -70,6 +72,10 @@ export default function ReviewScreen() {
   } as const;
 
   const items = useMemo(() => query.data ?? [], [query.data]);
+
+  // This sitting's upload jobs, for the look-alike offer on the top card —
+  // subscribed here, above the early returns, because it is a hook.
+  const queueJobs = useQueueStore((s) => s.jobs);
 
   /**
    * Storage paths -> signed URLs, for the WHOLE queue in one request.
@@ -457,6 +463,18 @@ export default function ReviewScreen() {
     ? `Cinch wasn’t sure about ${describeGaps(askable)} — set it below, or skip.`
     : null;
 
+  /**
+   * The look-alike offer for the card on top, or undefined.
+   *
+   * Read off the upload queue, not the item: `matchEligible` is written by the
+   * pipeline at the moment THIS sitting's tag settled, so the offer appears
+   * exactly for the pieces the reader just uploaded and never for a deck
+   * refilled from another device. The derivation already folded in consent and
+   * the artifacts (`match-eligibility.ts`); nothing is fetched here and the
+   * metered match call runs only on the far side of the tap.
+   */
+  const offerJob = matchOfferJob(queueJobs, top?.id);
+
   // Everything still in the deck that the tagger answered in full — the pieces
   // there is no honest question to ask about.
   const settled = deck.filter(isFullyTagged);
@@ -545,6 +563,34 @@ export default function ReviewScreen() {
       {!done && gapLine ? (
         <View className="px-gutter pb-1 pt-1">
           <Text variant="caption">{gapLine}</Text>
+        </View>
+      ) : null}
+
+      {/*
+        The look-alike offer, as one quiet line about the card it sits over.
+
+        A ghost control on purpose — the deck's whole job is confirm-or-correct
+        and this must not compete with it, which is also why it is a line here
+        rather than M-03's oxblood card (that card speaks once, for a batch of
+        one, on capture). The tap opens the same match flow item detail's row
+        opens, via the same `?match=1` route capture's offer uses; backing out
+        of it lands back on this deck with the card untouched. Nothing about
+        the piece is written by the tap, and the label's promise is small in
+        both directions: the found photo accompanies the reader's own, never
+        replaces it.
+      */}
+      {!done && top && offerJob ? (
+        <View className="px-gutter pb-1 pt-1">
+          <Button
+            title={MATCH_OFFER_ACTION}
+            variant="ghost"
+            className="self-start px-0"
+            onPress={() => {
+              track('garment_search_used', { stage: 'listing_offer_opened', door: 'review' });
+              router.push(`/item/${top.id}?match=1`);
+            }}
+            accessibilityHint="Opens the listing-photo search for this piece. Your photograph stays."
+          />
         </View>
       ) : null}
 

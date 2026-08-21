@@ -21,6 +21,7 @@ import { useRemoveItems } from '@/features/closet/mutations';
 import { useArchiveItems, useRestoreItems } from '@/features/closet/storage';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
+import { matchOfferJob } from '@/features/ingest/match-eligibility';
 import { selectActiveCount, useQueueStore } from '@/features/ingest/queue-store';
 import { useCameraAccess } from '@/features/ingest/use-camera-access';
 import { useUnfinishedWalkthrough } from '@/features/intake/queries';
@@ -48,7 +49,7 @@ import {
   type TenSlot,
 } from '@/features/onboarding/ten-slots';
 import { canGenerate, useWardrobe } from '@/features/styling/queries';
-import { trackOnce } from '@/lib/posthog';
+import { track, trackOnce } from '@/lib/posthog';
 import type { Garment } from '@/lib/styling';
 
 /**
@@ -839,6 +840,23 @@ export default function TheTenScreen() {
             dispatchReplace({ type: 'cancel' });
             router.push(`/item/${garmentId}` as Href);
           }}
+          // The look-alike offer, only while the just-settled job for THIS
+          // piece says it may be made (`match-eligibility.ts` — tag settled
+          // with a category, an image on the server, consent current). The
+          // route is capture's own M-03 routing, `?match=1`, so the sheet that
+          // opens is the same one item detail's row opens — one flow, three
+          // doors. The `door` property is what tells this door apart in the
+          // one `garment_search_used` funnel.
+          onFindPhoto={
+            matchOfferJob(jobs, replace.outgoingId)
+              ? () => {
+                  const garmentId = replace.outgoingId;
+                  dispatchReplace({ type: 'cancel' });
+                  track('garment_search_used', { stage: 'listing_offer_opened', door: 'ten' });
+                  router.push(`/item/${garmentId}?match=1` as Href);
+                }
+              : undefined
+          }
           onCancel={() => dispatchReplace({ type: 'cancel' })}
         />
       ) : null}

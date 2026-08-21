@@ -20,6 +20,7 @@
  */
 
 import type { CountedKind } from '@/features/closet/outfit-count';
+import { MATCH_OFFER_ACTION } from '@/features/ingest/match-eligibility';
 import { numberWord, ordinalWord, articleFor } from '@/features/onboarding/reveal-copy';
 import type { StarterReadiness, StarterSuggestion } from '@/features/onboarding/starter-readiness';
 
@@ -501,6 +502,14 @@ export type ReplaceSheetCopy = {
   retake: string;
   library: string;
   edit: string;
+  /**
+   * The look-alike offer's quiet verb, drawn only when the piece's own upload
+   * job says it is eligible (`match-eligibility.ts`) — a conditional fifth
+   * action, never a fifth peer. The string is the shared constant, imported
+   * rather than retyped, so The Ten and the review surface cannot drift into
+   * two spellings of one offer.
+   */
+  findPhoto: string;
   cancel: string;
   /** Spoken when the sheet opens — the slot and the piece, in that order. */
   announcement: string;
@@ -532,6 +541,7 @@ export function replaceSheetCopy(slotId: number, name: string | null): ReplaceSh
     retake: 'Retake photo',
     library: 'Choose from library',
     edit: 'Edit details',
+    findPhoto: MATCH_OFFER_ACTION,
     cancel: 'Cancel',
     announcement: `Slot ${slotId}, ${piece}. Replace this photograph.`,
   };

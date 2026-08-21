@@ -20,6 +20,12 @@ import { useTheme } from '@/theme/tokens';
  * always done, kept third so nobody loses the path they already had; Cancel is
  * last and closes without touching anything.
  *
+ * ONE CONDITIONAL GUEST between Edit details and Cancel: the look-alike offer
+ * ("Find a cleaner photo"), drawn only when the piece's just-settled upload
+ * job derived eligible. It is a ghost row like the two around it — a quiet
+ * offer about the photograph, not a fifth peer — and when the job says
+ * nothing, the sheet is exactly the four actions it has always been.
+ *
  * DYNAMIC TYPE. Nothing here is a fixed-height text container and nothing is
  * clipped to one line — the title takes two if the piece has a long name at
  * AX5, the plate grows, and the four actions keep their own minimum heights.
@@ -32,6 +38,7 @@ export function TenReplaceSheetBody({
   onRetake,
   onLibrary,
   onEditDetails,
+  onFindPhoto,
   onCancel,
 }: {
   slotId: number;
@@ -42,6 +49,15 @@ export function TenReplaceSheetBody({
   onLibrary: () => void;
   /** Opens `/item/{garmentId}`. Mutates NOTHING — not the slot, not the count. */
   onEditDetails: () => void;
+  /**
+   * The look-alike offer — opens the existing match flow for this piece, where
+   * a shop's own shot can be attached ALONGSIDE the photograph (never in place
+   * of it). Present only when the piece's settled upload job derived eligible
+   * (`match-eligibility.ts`); absent, the row is simply not drawn, because a
+   * quiet offer that cannot be honoured is a button built to disappoint.
+   * Mutates nothing here — the sheet on the far side runs only when asked.
+   */
+  onFindPhoto?: () => void;
   onCancel: () => void;
 }) {
   const theme = useTheme();
@@ -120,6 +136,16 @@ export function TenReplaceSheetBody({
           className="self-stretch"
           accessibilityLabel={`${copy.edit}, slot ${slotId}`}
         />
+        {onFindPhoto ? (
+          <Button
+            title={copy.findPhoto}
+            variant="ghost"
+            onPress={onFindPhoto}
+            className="self-stretch"
+            accessibilityLabel={`${copy.findPhoto}, slot ${slotId}`}
+            accessibilityHint="Opens the listing-photo search for this piece. Your photograph stays."
+          />
+        ) : null}
         <Button title={copy.cancel} variant="ghost" onPress={onCancel} className="self-stretch" />
       </View>
     </View>
@@ -134,6 +160,7 @@ export function TenReplaceSheet({
   onRetake,
   onLibrary,
   onEditDetails,
+  onFindPhoto,
   onCancel,
 }: {
   visible: boolean;
@@ -143,6 +170,7 @@ export function TenReplaceSheet({
   onRetake: () => void;
   onLibrary: () => void;
   onEditDetails: () => void;
+  onFindPhoto?: () => void;
   onCancel: () => void;
 }) {
   const theme = useTheme();
@@ -158,6 +186,7 @@ export function TenReplaceSheet({
             onRetake={onRetake}
             onLibrary={onLibrary}
             onEditDetails={onEditDetails}
+            onFindPhoto={onFindPhoto}
             onCancel={onCancel}
           />
         </SafeAreaView>
