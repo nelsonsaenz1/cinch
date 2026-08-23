@@ -13,7 +13,7 @@
 -- there is no counter left to drift.
 
 begin;
-select plan(28);
+select plan(30);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                         email_confirmed_at, created_at, updated_at)
@@ -56,10 +56,13 @@ select is(
     '11111111-1111-1111-1111-111111111111', 5) ->> 'changed')::boolean,
   false, 'a DUPLICATE release changes nothing'
 );
+-- Since 20260824020000, `used` reports COMPLETED successes only (none yet), so
+-- the reopened-slot check is the row itself: a duplicate release finds the
+-- reservation already `released` and leaves it that way.
 select is(
   (public.release_stylist_chat((select id from ids where label='b'),
-    '11111111-1111-1111-1111-111111111111', 5) ->> 'used')::int,
-  1, 'a duplicate release cannot reopen a slot — the old bug'
+    '11111111-1111-1111-1111-111111111111', 5) ->> 'state'),
+  'released', 'a duplicate release cannot reopen a slot — the old bug'
 );
 
 -- ── 2. DUPLICATE COMPLETION IS A NO-OP ─────────────────────────────────────

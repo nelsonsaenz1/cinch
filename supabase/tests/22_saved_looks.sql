@@ -289,8 +289,11 @@ select is((select count(*)::int from public.saved_looks), 0,
 select set_config('request.jwt.claims',
   '{"sub":"51515151-5151-4151-8151-515151515151","role":"authenticated"}', true);
 
+-- `count(*) over ()` would count the one row the WHERE clause kept, not Ren's
+-- shelf — the scalar subquery counts everything Ren can see.
 select is(
-  (select note || '|' || count(*) over () from public.saved_looks
+  (select note || '|' || (select count(*) from public.saved_looks)
+     from public.saved_looks
     where id = 'd1d1d1d1-d1d1-41d1-81d1-d1d1d1d1d1d1'),
   'Loved the boot pairing.|3',
   '15 · so the stranger''s update and delete both did nothing — three rows, note unchanged');
@@ -328,6 +331,10 @@ select is(
 
 -- The other half of the same rule: a source that has gone away cannot be saved
 -- afresh. Unavailable is a state a save ARRIVES at, never one it is born in.
+-- The INSERT policy's WITH CHECK is evaluated before the unique index is ever
+-- reached, so a re-save of a revoked source dies at the gate (42501) rather
+-- than at the duplicate (23505) — assertion 8 is where the duplicate error
+-- lives, back when the source was still visible.
 select throws_ok(
   $$insert into public.saved_looks
       (owner_id, source_type, source_id, snap_source_label,
@@ -335,8 +342,8 @@ select throws_ok(
     values ('51515151-5151-4151-8151-515151515151', 'daily_look',
             'b5b5b5b5-b5b5-45b5-85b5-b5b5b5b5b5b5',
             'Ada''s Daily look', 'Visible to your Circle', now())$$,
-  '23505', null,
-  '19 · and the row that already exists is what a re-save meets — never a second, unauthorised one');
+  '42501', null,
+  '19 · and a re-save of a revoked source is refused at the gate — never a second, unauthorised row');
 
 -- ---------------------------------------------------------------------------
 -- 20-22 · The row cannot be re-pointed
