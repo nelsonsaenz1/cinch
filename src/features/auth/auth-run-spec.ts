@@ -240,7 +240,10 @@ export const PHONE_SIGN_IN_ENABLED = false;
 
 export const PHONE_STEP: RunStep = 1;
 export const PHONE_HEADLINE = 'What’s your number?';
-export const PHONE_SUBLINE = 'We’ll text a six-digit code. Message and data rates may apply.';
+// Twilio toll-free verification requires the opt-in screen to carry the full
+// consent disclosure: brand name, message purpose, frequency, rates, HELP/STOP.
+export const PHONE_SUBLINE =
+  'Cinch will text a one-time six-digit sign-in code to this number. Message frequency varies by sign-in. Message and data rates may apply. Reply HELP for help or STOP to opt out.';
 // An example the validator itself would accept — NANP forbids an exchange
 // starting with 0/1, so the film-famous (555) 123-4567 would be refused.
 export const PHONE_PLACEHOLDER = '(555) 234-5678';
