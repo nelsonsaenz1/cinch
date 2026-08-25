@@ -151,10 +151,27 @@ export function PeopleSearchBody({
   const asked = isSearching(view.query);
 
   return (
-    <View className="flex-1 bg-canvas">
+    /**
+     * ── THE THIRD OVERLAP, AND IT WAS NOT IN THIS FILE'S LAYOUT AT ALL ──────
+     *
+     * Founder defect, 2026-08-24: the oxblood row over the title again, and the
+     * field nowhere — while every onLayout and measureInWindow in this tree
+     * reported the geometry written here. The disagreement was native:
+     * react-native-screens gives a `formSheet` special treatment when it finds
+     * a ScrollView among its container's subviews, and RN's view flattening had
+     * dissolved these wrappers so the sheet saw NINE subviews where it tolerates
+     * two — its own warning says "apply `collapsable: false` on your header",
+     * and without it the ScrollView was seated over the masthead. Both wrappers
+     * below are therefore pinned as real native views: the outer one so the
+     * sheet sees a single subview, the masthead so it survives as the "header"
+     * if the outer one is ever unwrapped. Fast refresh does not rebuild the
+     * native subview structure, so judge any edit here from a cold open of the
+     * sheet, not a hot reload.
+     */
+    <View className="flex-1 bg-canvas" collapsable={false}>
       {/* The masthead does not scroll. The field is the page's subject and
           stays put while its answers move underneath it. */}
-      <View className="px-gutter pt-1.5">
+      <View className="px-gutter pt-1.5" collapsable={false}>
         <Masthead onCancel={view.onCancel} large={large} />
         <View style={{ marginTop: large ? 12 : 8 }}>
           <SearchField
