@@ -160,9 +160,11 @@ export const PIP_HEIGHT = 6;
 export const PIP_GAP = 3;
 export const PIP_RADIUS = 3;
 
-export const TITLE_SIZE = 36;
-export const TITLE_SIZE_AX = 38;
-export const TITLE_SIZE_SHORT = 30;
+// Each a 15% step down from 36/38/30 — the 2026-08-24 founder call that
+// resized every page-title masthead together.
+export const TITLE_SIZE = 31;
+export const TITLE_SIZE_AX = 32;
+export const TITLE_SIZE_SHORT = 26;
 export const TITLE_LEADING_RATIO = 1.06;
 
 export const SUB_SIZE = 15;

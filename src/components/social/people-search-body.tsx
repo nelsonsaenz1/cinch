@@ -80,7 +80,9 @@ export type PeopleSearchView = {
   autoFocus?: boolean;
 };
 
-const TITLE_SIZE = 36;
+// 31, down from 36 — the 2026-08-24 founder call that stepped every page-title
+// masthead back 15% (the `display` token moved 40 → 34 in the same pass).
+const TITLE_SIZE = 31;
 const TITLE_LEADING = leading('instrument', TITLE_SIZE, 1.05);
 const HEADLINE_SIZE = 31;
 const HEADLINE_LEADING = leading('instrument', HEADLINE_SIZE, 1.1);

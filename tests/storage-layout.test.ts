@@ -416,8 +416,10 @@ test('the measurements are the artifact’s', () => {
   assert.equal(CONTROL.radius, 14);
 
   assert.equal(NOTICE.radius, 14);
-  assert.equal(TYPE.title, 36);
-  assert.equal(TYPE.titleAx, 32);
+  // 31/27 since the 2026-08-24 founder call: every page-title masthead
+  // stepped back 15% from the artifact's 36/32.
+  assert.equal(TYPE.title, 31);
+  assert.equal(TYPE.titleAx, 27);
   assert.equal(TYPE.capacity, 12.5);
 });
 

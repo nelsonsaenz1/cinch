@@ -89,9 +89,10 @@ export const GUEST_NAMES_SHOWN = 2;
 export const CTA_MIN_HEIGHT = 56;
 export const CTA_RADIUS = 16;
 
-/** The serif title: 40 while it is the prompt, 34 once it is somebody's name. */
-export const TITLE_SIZE_PROMPT = 40;
-export const TITLE_SIZE_NAMED = 34;
+/** The serif title: 34 while it is the prompt, 29 once it is somebody's name.
+ *  Was 40/34 — the 2026-08-24 founder call stepped every masthead back 15%. */
+export const TITLE_SIZE_PROMPT = 34;
+export const TITLE_SIZE_NAMED = 29;
 
 /** The name cap. 60, not the schema's 80 — mirrored in `mutations.ts`, which
  *  is the boundary that actually enforces it. */

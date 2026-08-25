@@ -150,7 +150,11 @@ module.exports = {
         // `leading()` clamps up to the face's floor anyway, so the tighter
         // ratio cannot clip a glyph.
         spread: [`56px`, { lineHeight: `${leading('instrument', 56, 1.04)}px`, letterSpacing: '-0.5px' }],
-        display: [`40px`, { lineHeight: `${leading('instrument', 40, 1.05)}px`, letterSpacing: '-0.3px' }],
+        // 34, down from 40 — founder call, 2026-08-24: every page-title
+        // masthead steps back 15%. The tracking follows at the same em ratio
+        // (-0.0075em), for the reason `font-metrics.js` gives: kern is
+        // absolute points, so a value tuned at 40 is too tight at 34.
+        display: [`34px`, { lineHeight: `${leading('instrument', 34, 1.05)}px`, letterSpacing: '-0.25px' }],
         // ── The Today greeting — TM-01 and TM-02 ───────────────────────────
         //
         // Two steps, not one, and neither of them is `display`. The masthead

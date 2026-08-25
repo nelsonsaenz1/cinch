@@ -417,9 +417,11 @@ export const NOTICE = {
 } as const;
 
 export const TYPE = {
-  title: 36,
-  titleLineHeight: 41,
-  titleAx: 32,
+  // 31/35/27, each a 15% step down from 36/41/32 — the 2026-08-24 founder
+  // call that resized every page-title masthead together.
+  title: 31,
+  titleLineHeight: 35,
+  titleAx: 27,
   /** The clay capacity line — uppercase, tracked, 12.5. */
   capacity: 12.5,
   capacityAx: 15,

@@ -982,11 +982,12 @@ export default function ItemDetailScreen() {
         />
 
         <View className="px-gutter pt-5">
-          {/* 36px, between the 40px `display` and 28px `title` steps. The size is
-              the atlas's; it moves inline rather than into the scale because one
- screen's hero is not a new token. Colour and family stay with the
-              variant — see the precedence hazard in ui/text.tsx. */}
-          <Text variant="display" style={{ fontSize: 36, lineHeight: 47 }}>
+          {/* Between the `display` and `title` steps — the atlas's 36, carried
+              through the 2026-08-24 15% masthead step-down alongside them. It
+              stays inline rather than in the scale because one screen's hero is
+              not a new token. Colour and family stay with the variant — see the
+              precedence hazard in ui/text.tsx. */}
+          <Text variant="display" style={{ fontSize: 31, lineHeight: 41 }}>
             {pieceName(item)}
           </Text>
 

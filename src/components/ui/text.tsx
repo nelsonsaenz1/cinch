@@ -161,7 +161,7 @@ const variants: Record<Variant, string> = {
 const TRIMS: Partial<Record<Variant, { marginTop: number; marginBottom: number }>> = {
   wordmark: capTrim('instrument', 64, leading('instrument', 64, 1.05)),
   spread: capTrim('instrument', 56, leading('instrument', 56, 1.04)),
-  display: capTrim('instrument', 40, leading('instrument', 40, 1.05)),
+  display: capTrim('instrument', 34, leading('instrument', 34, 1.05)),
   greeting: capTrim('instrument', 30, leading('instrument', 30, 1.05)),
   greetingWide: capTrim('instrument', 32, leading('instrument', 32, 1.05)),
   title: capTrim('instrument', 28, leading('instrument', 28, 1.08)),

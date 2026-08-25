@@ -140,7 +140,7 @@ export function StorageHeader({
         trim
         accessibilityRole="header"
         className="mt-3"
-        style={{ fontSize: ax ? TYPE.titleAx : TYPE.title, lineHeight: ax ? 37 : TYPE.titleLineHeight }}>
+        style={{ fontSize: ax ? TYPE.titleAx : TYPE.title, lineHeight: ax ? 31 : TYPE.titleLineHeight }}>
         {STORAGE_COPY.title}
       </Text>
 
