@@ -258,8 +258,12 @@ async function ingestFeed(
   url: string,
   token: string,
 ): Promise<{ written: number; truncated: boolean }> {
+  // No Accept header. `application/jsonl` is not a registered media type and
+  // Awin's server answers it with a bare 406 rather than ignoring it —
+  // observed live 2026-08-25 on the first CICYBELL fetch; removing the header
+  // is what fixed it. The `.jsonl` path extension already names the format.
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/jsonl' },
+    headers: { Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
   });
 
