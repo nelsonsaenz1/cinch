@@ -1,20 +1,35 @@
 # `sync-feeds` is dormant, on purpose
 
-*Audit item 18. Written 2026-08-11.*
+*Audit item 18. Written 2026-08-11. **Activated 2026-08-25** — see Status.*
 
 ## Status
 
-**Deployed, unscheduled, and reading nothing.** `sync-feeds` runs only when
-something calls it, and nothing does — there is no `cron.schedule` entry for it
-and there will not be one until the condition below is met.
+**ACTIVE since 2026-08-25** (awin-joined-programmes-directive.md, prompted by
+the CICYBELL invitation). What changed:
 
-| Object | Kind | Rows | State |
-| --- | --- | --- | --- |
-| `sync-feeds` | edge function | — | deployed, no schedule |
-| `catalog_merchants` | table | 0 | empty |
-| `catalog_products` | table | 0 | empty |
-| `AWIN_API_TOKEN` | secret | — | set |
-| `AWIN_PUBLISHER_ID` | secret | — | set (3030871) |
+- The function gained **phase 0**: every run reads Awin's
+  `GET /publishers/3030871/programmes?relationship=joined` and reconciles
+  `commerce_joined_programmes` from that answer alone — upserting reported
+  programmes, deactivating vanished ones, and inserting missing
+  `catalog_merchants` rows (`retail-en_US` default, insert-only so operator
+  edits survive). The joined list is never hand-maintained.
+- `cron.job` **`cinch-feed-sync`**, daily at 08:25 UTC, via
+  `feed_sync_invoke()` (migration `20260825120000`, vault secrets
+  `feed_sync_url` / `feed_sync_secret`, gate header `x-cinch-feed-sync`,
+  `verify_jwt = false` in config.toml like send-push).
+- The "fails on every tick" objection below no longer applies: a run with
+  zero joined programmes does phase 0's real work and fetches zero feeds.
+  First run 2026-08-25: `{"programmes":{"joined":0,"deactivated":0},
+  "merchants":0}` — Awin honestly reports nothing joined until the CICYBELL
+  acceptance is clicked in the dashboard; the day it is, the next tick
+  ingests with no further engineering.
+
+The original rationale below is kept as written — it explains why the
+function existed dormant for two weeks and what it deliberately does not gate.
+
+Historical state (2026-08-11 – 2026-08-24): deployed, unscheduled;
+`catalog_merchants` and `catalog_products` empty; `AWIN_API_TOKEN` and
+`AWIN_PUBLISHER_ID` (3030871) set.
 
 ## Why it is not deleted
 

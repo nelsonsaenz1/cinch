@@ -61,14 +61,11 @@ export class CommerceConfigError extends Error {
   }
 }
 
-/** Read publisher ids from the environment. Absent is a valid state — a
- *  network we have not been approved on yet simply yields no links. */
-export function publisherIdsFromEnv(): PublisherIds {
-  return {
-    awinPublisherId: Deno.env.get('AWIN_PUBLISHER_ID') ?? undefined,
-    rakutenTrackingId: Deno.env.get('RAKUTEN_TRACKING_ID') ?? undefined,
-  };
-}
+// `publisherIdsFromEnv` lives in `commerce-env.ts`, not here. This module is
+// deliberately free of the `Deno` global so the node test suite can execute
+// `trackingUrl` and inspect a real generated link — the only honest way to
+// prove refusal 7 (`tests/awin-link-construction.test.ts`), since reading the
+// builder proves what it says, not what it does.
 
 /**
  * Build the tracking URL for one product.

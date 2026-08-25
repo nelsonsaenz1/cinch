@@ -3,22 +3,29 @@ import { createClient } from 'npm:@supabase/supabase-js@^2';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
+import { parseJoinedProgrammes } from '../_shared/joined-programmes.ts';
 
 /**
- * sync-feeds — pull approved merchants' product feeds into `catalog_products`.
+ * sync-feeds — maintain the joined-programmes ledger, then pull approved
+ * merchants' product feeds into `catalog_products`.
  *
- * DORMANT ON PURPOSE. See `docs/commerce/sync-feeds-dormant.md`.
+ * ACTIVATED 2026-08-25 (awin-joined-programmes-directive.md) after two weeks
+ * dormant — `docs/commerce/sync-feeds-dormant.md` records both states. The
+ * objection that kept it unscheduled ("a job that fails on every tick") no
+ * longer applies: phase 0 below always has real work — reading Awin's answer
+ * to "which programmes is publisher 3030871 joined to" — and a run with zero
+ * joined programmes simply fetches zero feeds and succeeds.
  *
- * Deployed, unscheduled, and reading nothing: `catalog_merchants` and
- * `catalog_products` are both empty, because an Awin feed is per-advertiser and
- * requires an approved partnership, and `commerce_joined_programmes` holds zero
- * active rows. A scheduled job that fails on every tick is worse than an
- * unscheduled one — it trains people to ignore the logs and it would trip the
- * `provider_failing` alert that now exists for real failures.
+ * PHASE 0 IS THE SOURCE OF TRUTH for `commerce_joined_programmes`. That table
+ * is the only thing that may label a link `Paid link`, and it is written from
+ * the API read alone — never by hand — so the label can only claim a
+ * membership Awin itself reports. A programme that disappears from the answer
+ * is deactivated the same day, because a lapsed approval stops paying without
+ * telling anyone, and `Paid link` on an unpaid link is the disclosure being
+ * wrong in the direction that matters.
  *
- * It is not dead code. It is the second supplier: Datafeedr is breadth without
- * approvals and a hard 10,000-request monthly ceiling, Awin is depth with
- * approvals and no ceiling. Cinch's commerce surfaces run on one supplier today.
+ * It is the second supplier: Datafeedr is breadth without approvals and a hard
+ * 10,000-request monthly ceiling, Awin is depth with approvals and no ceiling.
  *
  * AND IT GATES NOTHING. Shop suggestions (`gap-shop-match`) and listing
  * photographs (`garment-search`) both read Datafeedr and work now. Believing
@@ -65,6 +72,9 @@ const BATCH = 500;
 
 /** Feeds are big and slow; this is generous on purpose. */
 const FEED_TIMEOUT_MS = 120_000;
+
+/** The programmes read is one small JSON document. */
+const PROGRAMMES_TIMEOUT_MS = 30_000;
 
 /** Google's taxonomy is a `>`-delimited path. Cinch needs one of ten slots.
  *  Order matters: the first match wins, so the most specific terms lead. */
@@ -150,6 +160,89 @@ function rowFrom(merchantId: string, line: Record<string, unknown>): ProductRow 
     slot: slotFor(category, title),
     updated_at: new Date().toISOString(),
   };
+}
+
+/**
+ * Phase 0 — reconcile `commerce_joined_programmes` against Awin's own answer.
+ *
+ * Three writes, in an order chosen so a failure part-way leaves the safe
+ * state behind:
+ *
+ *  1. Upsert every reported programme as active. `joined_at` is deliberately
+ *     not in the payload, so the insert default records first sight and a
+ *     re-upsert does not rewrite history.
+ *  2. Deactivate Awin rows the answer no longer contains (never Rakuten's —
+ *     that network's memberships are not this API's to assert). Deactivation
+ *     before feed ingest, so a revoked merchant's links stop reading `paid`
+ *     on the same run that notices.
+ *  3. Insert missing `catalog_merchants` rows with the default feed id
+ *     (`retail-en_US`, the vertical-locale Awin's US retail feeds use), so a
+ *     new approval starts feeding on the next run with no engineering.
+ *     INSERT-ONLY (`ignoreDuplicates`): an operator's hand-set locale or a
+ *     deliberate `active = false` must survive every future sync.
+ */
+async function syncJoinedProgrammes(
+  admin: SupabaseClient<Database>,
+  publisherId: string,
+  token: string,
+): Promise<{ joined: number; deactivated: number }> {
+  const response = await fetch(
+    `https://api.awin.com/publishers/${encodeURIComponent(publisherId)}/programmes?relationship=joined`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(PROGRAMMES_TIMEOUT_MS),
+    },
+  );
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`programmes ${response.status}: ${body.slice(0, 200)}`);
+  }
+
+  const joined = parseJoinedProgrammes(await response.json());
+
+  if (joined.length > 0) {
+    const { error } = await admin.from('commerce_joined_programmes').upsert(
+      joined.map((p) => ({
+        network: 'awin',
+        merchant_id: p.id,
+        merchant_name: p.name,
+        active: true,
+      })),
+      { onConflict: 'network,merchant_id' },
+    );
+    if (error) throw new Error(`programmes upsert failed: ${error.message}`);
+  }
+
+  // Ids are digits-only by the parser's own check, so the `in`-filter list is
+  // safe to assemble. An empty answer deactivates every Awin row, which is
+  // exactly what "Awin reports no memberships" has to mean.
+  let deactivate = admin
+    .from('commerce_joined_programmes')
+    .update({ active: false }, { count: 'exact' })
+    .eq('network', 'awin')
+    .eq('active', true);
+  if (joined.length > 0) {
+    deactivate = deactivate.not('merchant_id', 'in', `(${joined.map((p) => p.id).join(',')})`);
+  }
+  const { count: deactivated, error: deactivateError } = await deactivate;
+  if (deactivateError) {
+    throw new Error(`programmes deactivate failed: ${deactivateError.message}`);
+  }
+
+  if (joined.length > 0) {
+    const { error } = await admin.from('catalog_merchants').upsert(
+      joined.map((p) => ({
+        network: 'awin',
+        external_id: p.id,
+        name: p.name,
+        feed_locale: 'retail-en_US',
+      })),
+      { onConflict: 'network,external_id', ignoreDuplicates: true },
+    );
+    if (error) throw new Error(`catalog_merchants insert failed: ${error.message}`);
+  }
+
+  return { joined: joined.length, deactivated: deactivated ?? 0 };
 }
 
 /**
@@ -253,6 +346,19 @@ export default {
       { auth: { persistSession: false } },
     ) as SupabaseClient<Database>;
 
+    // Phase 0 first, so this run's feed list already reflects this run's
+    // memberships. A failure here is reported and does NOT abort the feeds:
+    // yesterday's joined list going one day stale is a smaller wrong than
+    // skipping an ingest that was about to work.
+    let programmes: { joined: number; deactivated: number } | { error: string };
+    try {
+      programmes = await syncJoinedProgrammes(admin, publisherId, token);
+    } catch (err) {
+      const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error(`sync-feeds: joined-programmes sync failed: ${message}`);
+      programmes = { error: message.slice(0, 200) };
+    }
+
     const { data: merchants, error } = await admin
       .from('catalog_merchants')
       .select('id, external_id, name, feed_locale')
@@ -304,6 +410,6 @@ export default {
       }
     }
 
-    return Response.json({ merchants: report.length, report });
+    return Response.json({ programmes, merchants: report.length, report });
   },
 };

@@ -442,3 +442,14 @@ verify_jwt = false
 # ---------------------------------------------------------------------------
 [functions.commerce-health]
 verify_jwt = false
+
+# ---------------------------------------------------------------------------
+# sync-feeds is called by pg_cron through pg_net once a day. Same reasoning as
+# send-push directly above, and the same gate shape: a shared secret in
+# `x-cinch-feed-sync`, read from Vault by `feed_sync_invoke`
+# (20260825 migration) and from the environment by the function. It fails
+# closed when the secret is unset, so an unconfigured deploy ingests nothing
+# rather than accepting anything.
+# ---------------------------------------------------------------------------
+[functions.sync-feeds]
+verify_jwt = false
