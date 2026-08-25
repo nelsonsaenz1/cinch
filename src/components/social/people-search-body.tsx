@@ -175,7 +175,9 @@ export function PeopleSearchBody({
           stays put while its answers move underneath it. */}
       <View className="px-gutter pt-1.5" collapsable={false}>
         <Masthead onCancel={view.onCancel} large={large} />
-        <View style={{ marginTop: large ? 12 : 8 }}>
+        {/* 20/24, up from 8/12 — founder call, 2026-08-24: with the title a
+            step smaller the field crowded it, so it drops to clear air. */}
+        <View style={{ marginTop: large ? 24 : 20 }}>
           <SearchField
             size="page"
             inputRef={view.inputRef}

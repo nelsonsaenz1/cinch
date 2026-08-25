@@ -167,8 +167,11 @@ module.exports = {
         // `display`'s 40 could not do that at either width. It is why the
         // greeting clipped, and it is why this is a size rather than a smaller
         // container.
-        greeting: [`30px`, { lineHeight: `${leading('instrument', 30, 1.05)}px`, letterSpacing: '-0.2px' }],
-        'greeting-wide': [`32px`, { lineHeight: `${leading('instrument', 32, 1.05)}px`, letterSpacing: '-0.25px' }],
+        // 26/27, down from 30/32 — the founder extended the 2026-08-24 15%
+        // masthead step-down to the greeting as well. The headroom argument
+        // above only gets safer at the smaller size.
+        greeting: [`26px`, { lineHeight: `${leading('instrument', 26, 1.05)}px`, letterSpacing: '-0.17px' }],
+        'greeting-wide': [`27px`, { lineHeight: `${leading('instrument', 27, 1.05)}px`, letterSpacing: '-0.21px' }],
         title: [`28px`, { lineHeight: `${leading('instrument', 28, 1.08)}px`, letterSpacing: '-0.15px' }],
         // The plate title — the serif at a compact size.
         plate: [`24px`, { lineHeight: `${leading('instrument', 24, 1.08)}px`, letterSpacing: '-0.1px' }],
