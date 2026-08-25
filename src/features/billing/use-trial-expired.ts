@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect } from 'react';
 
 import { Placement } from './placements';
+import { evaluateTrialExpired } from './trial-expired-core';
 import { useGate } from './use-gate';
 import { usePlan } from './use-plan';
 
@@ -25,8 +26,6 @@ import { usePlan } from './use-plan';
  * decide frequency would also work, but then a mis-configured campaign nags on
  * every launch; this keeps the guarantee in the app.
  */
-const FIRED_KEY = 'cinch.trialExpiredFiredFor';
-
 export function useTrialExpiredPlacement(): void {
   const { plan, trialing, trialEndsAt, loading } = usePlan();
   const gate = useGate();
@@ -38,23 +37,22 @@ export function useTrialExpiredPlacement(): void {
   const marker = trialEndsAt?.toISOString() ?? null;
 
   useEffect(() => {
-    // A past `trialEndsAt` with `trialing` false is the lapse signal. A user
-    // with no trial timestamp at all never lapsed (they predate trials or
-    // already subscribed) and is never interrupted.
-    if (loading || trialing || plan !== 'free' || !marker) return;
     let cancelled = false;
 
-    void AsyncStorage.getItem(FIRED_KEY).then((fired) => {
-      if (cancelled || fired === marker) return;
-      // Write BEFORE presenting. If the write happened after, a crash or kill
-      // mid-paywall would re-interrupt on next launch — the failure mode this
-      // hook exists to prevent. The cost of the other ordering (a write that
-      // succeeds but a present that never happens) is one missed interruption,
-      // which is the better wrong.
-      void AsyncStorage.setItem(FIRED_KEY, marker).then(() => {
-        if (!cancelled) void gate.present(Placement.TrialExpired);
-      });
-    });
+    // The whole decision — the lapse guard, the read-check-write ordering
+    // (write BEFORE present, so a crash mid-paywall cannot re-interrupt), and
+    // the once-per-lapse guarantee — lives in `evaluateTrialExpired`, where
+    // the node suite exercises every branch. This effect only supplies the
+    // real storage, the real gate, and the unmount flag.
+    void evaluateTrialExpired(
+      { loading, trialing, plan, marker },
+      {
+        getItem: (key) => AsyncStorage.getItem(key),
+        setItem: (key, value) => AsyncStorage.setItem(key, value),
+        present: () => void gate.present(Placement.TrialExpired),
+        cancelled: () => cancelled,
+      },
+    );
 
     return () => {
       cancelled = true;
