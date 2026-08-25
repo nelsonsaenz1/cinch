@@ -453,3 +453,8 @@ verify_jwt = false
 # ---------------------------------------------------------------------------
 [functions.sync-feeds]
 verify_jwt = false
+
+# Cron-only, no user in the path; the x-cinch-intake-reap shared secret is the
+# gate, same shape as sync-feeds.
+[functions.reap-intake-audio]
+verify_jwt = false
