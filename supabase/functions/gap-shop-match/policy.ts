@@ -207,6 +207,21 @@ export type Deps = {
   itemShoppable: (itemId: string) => Promise<boolean | null>;
   /** The licensed catalogue. Throws or returns [] when it cannot answer. */
   search: (query: string, brand: string | null) => Promise<CatalogProduct[]>;
+  /**
+   * The OWNED catalogue — `catalog_products`, the rows `sync-feeds` ingests
+   * from programmes Cinch is actually joined to. Second source, same shape,
+   * three deliberate differences from `search`:
+   *
+   *   it is free (a local read, no metered request, no quota claim);
+   *   its merchants are admitted by PROGRAMME MEMBERSHIP, not the Datafeedr
+   *   allowlist — every row descends from an invitation the founder accepted
+   *   in the Awin dashboard, which is the same "we choose the shops" property
+   *   the allowlist exists for, enforced one step earlier (2026-08-25
+   *   decision; merchant-allowlist.md records the split);
+   *   its `merchantId` is the NETWORK's advertiser id, so the joined check
+   *   and the `Paid link` label work exactly as they do everywhere else.
+   */
+  searchOwned: (slot: CatalogSlot, hints: Hints) => Promise<CatalogProduct[]>;
   /** Confirmed joined programmes, as `network:merchant_id`. */
   joined: () => Promise<Set<string>>;
   /** Fire-and-forget health counters. */
@@ -274,13 +289,37 @@ export async function decide(
 
   const query = `${input.hints.colour ?? ''} ${recipe.word}`.trim();
 
-  let rows: CatalogProduct[];
-  try {
-    rows = await deps.search(query, input.hints.brand ?? null);
-  } catch {
-    deps.note('provider_failure', 'catalogue_lookup_threw');
+  // Two sources, asked together and allowed to fail separately. Datafeedr
+  // being down must not hide the owned catalogue (it is our own table), and an
+  // owned-read failure must not waste the metered request that just succeeded.
+  // Only both failing is a provider failure.
+  //
+  // LICENSED ROWS FIRST, and the order is load-bearing: `sort` is stable, so
+  // on an equal fit score the earlier row wins the merchant slot. Owned rows
+  // are the ones that can be `paid`, and a tie broken toward them would be
+  // commission choosing the order — the thing §0 forbids. The incumbent
+  // source keeps ties; an owned row has to EARN its place on fit.
+  const [licensed, owned] = await Promise.allSettled([
+    deps.search(query, input.hints.brand ?? null),
+    deps.searchOwned(input.slot, input.hints),
+  ]);
+  if (licensed.status === 'rejected') deps.note('provider_failure', 'catalogue_lookup_threw');
+  if (owned.status === 'rejected') deps.note('provider_failure', 'owned_catalogue_threw');
+  if (licensed.status === 'rejected' && owned.status === 'rejected') {
     return EMPTY('provider_failed');
   }
+  // With one source down, an empty final answer must still read as a provider
+  // failure — the counter's whole job is telling "nobody sells this" from "we
+  // did not hear everyone", and absence can only be claimed by a full house.
+  // A NON-empty answer from the surviving source still ships: partial results
+  // are real results.
+  const sourceFailed = licensed.status === 'rejected' || owned.status === 'rejected';
+  const emptyRefusal = sourceFailed ? ('provider_failed' as const) : ('nothing_relevant' as const);
+
+  const rows: CatalogProduct[] = [
+    ...(licensed.status === 'fulfilled' ? licensed.value : []),
+    ...(owned.status === 'fulfilled' ? owned.value : []),
+  ];
 
   // ── Is each row actually the garment asked for? ─────────────────────────
   //
@@ -341,7 +380,7 @@ export async function decide(
     });
   }
 
-  if (products.length === 0) return EMPTY('nothing_relevant');
+  if (products.length === 0) return EMPTY(emptyRefusal);
 
   deps.note('suggestions_served', input.slot);
   const paidCount = products.filter((p) => p.paid).length;

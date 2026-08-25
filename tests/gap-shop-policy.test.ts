@@ -58,10 +58,10 @@ function product(over: Partial<CatalogProduct> = {}): CatalogProduct {
   } as CatalogProduct;
 }
 
-type Calls = { searches: string[]; notes: string[] };
+type Calls = { searches: string[]; ownedSearches: string[]; notes: string[] };
 
 function deps(over: Partial<Deps> = {}): { deps: Deps; calls: Calls } {
-  const calls: Calls = { searches: [], notes: [] };
+  const calls: Calls = { searches: [], ownedSearches: [], notes: [] };
   const base: Deps = {
     showWhereToBuy: async () => true,
     itemShoppable: async () => true,
@@ -69,21 +69,47 @@ function deps(over: Partial<Deps> = {}): { deps: Deps; calls: Calls } {
       calls.searches.push(query);
       return [product()];
     },
+    // Empty by default: the owned catalogue holds nothing until a test says
+    // so, which keeps every pre-existing assertion meaning what it meant.
+    searchOwned: async () => [],
     joined: async () => new Set<string>(),
     note: (metric) => calls.notes.push(metric),
     ...over,
   };
-  // Wrap whatever `search` ended up being so every test records its calls —
-  // several of these assert that NO catalogue request was made at all.
+  // Wrap whatever `search`/`searchOwned` ended up being so every test records
+  // its calls — several of these assert that NO catalogue read was made at all.
   const wrapped: Deps = {
     ...base,
     search: async (q, b) => {
       calls.searches.push(q);
       return await base.search(q, b);
     },
+    searchOwned: async (slot, hints) => {
+      calls.ownedSearches.push(slot);
+      return await base.searchOwned(slot, hints);
+    },
   };
   if (over.search === undefined) wrapped.search = base.search;
   return { deps: wrapped, calls };
+}
+
+/** An owned-catalogue row, as index.ts maps `catalog_products`: the network's
+ *  own advertiser id in `merchantId`, a derived awin1 link, source 310. */
+function ownedProduct(over: Partial<CatalogProduct> = {}): CatalogProduct {
+  return product({
+    externalId: 'awinfeed:124976:sku-1',
+    title: 'CICYBELL Long Coat In Black, Wool',
+    brand: 'CICYBELL',
+    colour: 'black',
+    merchant: 'CICYBELL',
+    merchantId: '124976',
+    sourceId: 310,
+    linkUrl:
+      'https://www.awin1.com/cread.php?awinmid=124976&awinaffid=3030871&ued=https%3A%2F%2Fcicybell.example%2Fwrap-coat',
+    directUrl: 'https://cicybell.example/wrap-coat',
+    monetised: true,
+    ...over,
+  });
 }
 
 const BLACK_COAT = { slot: 'outerwear' as const, hints: { colour: 'black' } };
@@ -353,4 +379,132 @@ test('both callers run the same code', async () => {
   const gapFeed = await decide(BLACK_COAT, deps().deps);
   const friendItem = await decide({ ...BLACK_COAT, itemId: 'item-1' }, deps().deps);
   assert.deepEqual(gapFeed.products, friendItem.products);
+});
+
+// ---------------------------------------------------------------------------
+// The owned catalogue — the second source (2026-08-25)
+// ---------------------------------------------------------------------------
+
+test('an owned-catalogue row from a joined programme surfaces as a paid tracked link', async () => {
+  const { deps: d } = deps({
+    search: async () => [],
+    searchOwned: async () => [ownedProduct()],
+    joined: async () => new Set(['awin:124976']),
+  });
+  const out = await decide(BLACK_COAT, d);
+
+  assert.equal(out.products.length, 1);
+  assert.equal(out.products[0].merchantName, 'CICYBELL');
+  assert.equal(out.products[0].paid, true);
+  assert.ok(out.products[0].url.includes('awin1.com'));
+  assert.ok(out.products[0].url.includes('awinmid=124976'));
+});
+
+test('an owned row whose programme lapsed goes direct and unpaid', async () => {
+  // catalog_merchants keeps a deactivated programme's products; the joined set
+  // no longer contains it, and that alone must strip both the label and the
+  // network hop.
+  const { deps: d } = deps({
+    search: async () => [],
+    searchOwned: async () => [ownedProduct()],
+    joined: async () => new Set<string>(),
+  });
+  const out = await decide(BLACK_COAT, d);
+
+  assert.equal(out.products[0].paid, false);
+  assert.equal(out.products[0].url, 'https://cicybell.example/wrap-coat');
+  assert.ok(!out.products[0].url.includes('awin1.com'), 'an unpaid click must not be routed');
+});
+
+test('the licensed catalogue failing does not hide the owned one', async () => {
+  const { deps: d, calls } = deps({
+    search: async () => {
+      throw new Error('datafeedr down');
+    },
+    searchOwned: async () => [ownedProduct()],
+    joined: async () => new Set(['awin:124976']),
+  });
+  const out = await decide(BLACK_COAT, d);
+
+  assert.equal(out.refusal, undefined);
+  assert.equal(out.products.length, 1);
+  assert.equal(out.products[0].merchantName, 'CICYBELL');
+  assert.ok(calls.notes.includes('provider_failure'), 'the failure is still counted');
+});
+
+test('the owned read failing does not waste the licensed answer', async () => {
+  const { deps: d, calls } = deps({
+    searchOwned: async () => {
+      throw new Error('table unreadable');
+    },
+  });
+  const out = await decide(BLACK_COAT, d);
+
+  assert.equal(out.refusal, undefined);
+  assert.equal(out.products[0].merchantName, 'Everlane');
+  assert.ok(calls.notes.includes('provider_failure'));
+});
+
+test('both sources failing is a provider failure', async () => {
+  const { deps: d } = deps({
+    search: async () => {
+      throw new Error('down');
+    },
+    searchOwned: async () => {
+      throw new Error('also down');
+    },
+  });
+  const out = await decide(BLACK_COAT, d);
+
+  assert.deepEqual(out.products, []);
+  assert.equal(out.refusal, 'provider_failed');
+});
+
+test('owned rows pass the same relevance gate as licensed ones', async () => {
+  // "Black Coated Skinny Jean" satisfies a `black coat` query exactly and is
+  // not a coat — the 2026-08-11 failure shape. A second source must not become
+  // a second way for it to ship.
+  const { deps: d } = deps({
+    search: async () => [],
+    searchOwned: async () => [
+      ownedProduct({ title: 'CICYBELL Black Coated Skinny Jean', externalId: 'awinfeed:124976:junk' }),
+    ],
+    joined: async () => new Set(['awin:124976']),
+  });
+  const out = await decide(BLACK_COAT, d);
+
+  assert.deepEqual(out.products, []);
+  assert.equal(out.refusal, 'nothing_relevant');
+});
+
+test('an owned paid row does not outrank a better-fitting licensed one', async () => {
+  const { deps: d } = deps({
+    searchOwned: async () => [ownedProduct({ colour: 'brown', title: 'CICYBELL Long Coat In Brown, Wool' })],
+    joined: async () => new Set(['awin:124976']),
+  });
+  const out = await decide(BLACK_COAT, d);
+
+  assert.equal(out.products[0].merchantName, 'Everlane', 'fit decides, not payment');
+  assert.equal(out.products[0].paid, false);
+});
+
+test('an equal fit breaks toward the licensed row, never the paid one', async () => {
+  // Identical titles and colours, so score() ties exactly. The stable sort
+  // must leave the licensed row first — a tie broken toward the owned source
+  // would be commission choosing the order.
+  const { deps: d } = deps({
+    searchOwned: async () => [
+      ownedProduct({ title: 'Everlane Mac Coat In Black, Size Medium, Cotton', brand: 'Everlane', merchant: 'CICYBELL' }),
+    ],
+    joined: async () => new Set(['awin:124976']),
+  });
+  const out = await decide(BLACK_COAT, d);
+
+  assert.equal(out.products[0].merchantName, 'Everlane');
+});
+
+test('a refused viewer costs no owned read either', async () => {
+  const { deps: d, calls } = deps({ showWhereToBuy: async () => false });
+  await decide(BLACK_COAT, d);
+  assert.deepEqual(calls.ownedSearches, [], 'consent comes before every read, free or metered');
 });

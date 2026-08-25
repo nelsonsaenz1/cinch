@@ -48,11 +48,29 @@ repository where it can be read and argued with.
 
 | Path | Allowlist | Why |
 | --- | --- | --- |
-| `gap-shop-match` | **yes** | "Suggest what I am missing" — we choose the shops |
+| `gap-shop-match`, Datafeedr source | **yes** | "Suggest what I am missing" — we choose the shops |
+| `gap-shop-match`, owned-feed source | **no — membership gates it instead** | see below |
 | `garment-search` | **no** | "Find me this specific garment I own" — the user named it, and a narrow set would just fail to find it. Measured coverage 93%. |
 
 The allowlist is part of the catalogue cache key, so the two paths cannot share
 a cached row and leak into each other.
+
+### The owned-feed source (added 2026-08-25, founder-directed)
+
+`gap-shop-match` also reads `catalog_products` — the rows `sync-feeds` ingests
+from Awin programmes Cinch is joined to. Those merchants are not on this list
+and do not need to be: every one of them descends from an invitation the
+founder accepted by hand in the Awin dashboard, which is the same "we choose
+the shops" property this list enforces for Datafeedr's 44,000-merchant pool,
+applied one step earlier. Datafeedr needs an allowlist because its pool is
+somebody else's roster; the owned catalogue IS a founder decision, row by row.
+
+The rules downstream do not bend for it: owned rows pass the same relevance
+gate, are ranked by the same fit-only `score()`, and a tie on fit breaks
+toward the licensed row — never toward the one that pays
+(`tests/gap-shop-policy.test.ts`, "The owned catalogue" block). Deactivating a
+programme (or `catalog_merchants.active = false`) removes its rows from the
+source on the next read.
 
 ## Membership is not monetisation
 

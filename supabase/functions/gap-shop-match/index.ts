@@ -3,8 +3,10 @@ import { withSupabase } from 'npm:@supabase/server@^1';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2';
 
 import type { Database } from '../_shared/database.types.ts';
-import { searchCatalogue } from '../_shared/catalog.ts';
+import { searchCatalogue, type CatalogProduct } from '../_shared/catalog.ts';
 import { catalogOptsFromEnv } from '../_shared/catalog-store.ts';
+import { trackingUrl } from '../_shared/commerce.ts';
+import { publisherIdsFromEnv } from '../_shared/commerce-env.ts';
 import { ALLOWED_MERCHANT_IDS } from '../_shared/merchants.ts';
 
 import { CATALOG_SLOTS, decide, isCatalogSlot, readHints, type Deps } from './policy.ts';
@@ -136,6 +138,96 @@ export default {
             duplicates: 'variants',
             availability: 'in-stock-only',
           });
+        },
+
+        searchOwned: async (slot, hints) => {
+          // The OWNED catalogue: rows `sync-feeds` ingested from programmes
+          // Cinch is joined to (2026-08-25 decision — merchant-allowlist.md
+          // records why membership, founder-accepted per invitation, is this
+          // source's admission rule where Datafeedr's is the allowlist).
+          //
+          // `admin` on purpose: the catalogue tables are server-only, RLS with
+          // no policies. Nothing user-specific is in the query — a slot and a
+          // colour word — so the service role reads exactly what any caller
+          // would get.
+          //
+          // Hint text is embedded in a PostgREST `or()` filter, whose syntax
+          // travels in the value, so it is reduced to word characters first.
+          // Dropping a strange hint means fewer rows, never a broken query.
+          const clean = (v?: string) =>
+            v
+              ?.toLowerCase()
+              .replace(/[^a-z0-9 -]/g, '')
+              .trim() || undefined;
+          const colour = clean(hints.colour);
+          const brand = clean(hints.brand);
+
+          let query = admin
+            .from('catalog_products')
+            .select(
+              'external_id, title, brand, colour, price_cents, currency, image_url, product_url, google_category, catalog_merchants!inner(external_id, name, network, active)',
+            )
+            .eq('slot', slot)
+            .eq('availability', 'in_stock')
+            .eq('catalog_merchants.network', 'awin')
+            .eq('catalog_merchants.active', true)
+            .limit(100);
+          if (colour) query = query.or(`colour.ilike.%${colour}%,title.ilike.%${colour}%`);
+          if (brand) query = query.ilike('brand', `%${brand}%`);
+
+          const { data, error } = await query;
+          if (error) throw new Error(`owned catalogue: ${error.message}`);
+
+          const ids = publisherIdsFromEnv();
+          const out: CatalogProduct[] = [];
+          for (const row of data ?? []) {
+            const merchant = row.catalog_merchants;
+            let sourceHost: string;
+            try {
+              sourceHost = new URL(row.product_url).hostname;
+            } catch {
+              continue;
+            }
+            // The tracking link is derived here, at read time, like every
+            // other affiliate URL (commerce.ts). A build failure — publisher
+            // id unset — degrades to the plain link with `monetised: false`,
+            // which the policy then correctly refuses to call paid.
+            let linkUrl = row.product_url;
+            let monetised = false;
+            try {
+              linkUrl = trackingUrl('awin', merchant.external_id, row.product_url, ids);
+              monetised = true;
+            } catch {
+              // The direct link still works and still says so.
+            }
+            out.push({
+              title: row.title,
+              brand: row.brand,
+              merchant: merchant.name,
+              sourceHost,
+              imageUrl: row.image_url,
+              thumbnailUrl: null,
+              linkUrl,
+              monetised,
+              priceMinor: row.price_cents ?? 0,
+              currency: row.currency ?? 'USD',
+              identifier: null,
+              // Prefixed so it can never collide with a Datafeedr row id in a
+              // React key or a dedupe set.
+              externalId: `awinfeed:${merchant.external_id}:${row.external_id}`,
+              // THE NETWORK'S OWN advertiser id — unlike Datafeedr rows, where
+              // `merchantId` is Datafeedr's. This is what makes the joined
+              // check (`awin:124976`) and the `Paid link` label line up with
+              // `commerce_joined_programmes` with no translation table.
+              merchantId: merchant.external_id,
+              sourceId: 310, // Awin US — networkFamily() reads this as 'awin'.
+              directUrl: row.product_url,
+              colour: row.colour,
+              category: row.google_category,
+              gender: null,
+            });
+          }
+          return out;
         },
 
         joined: async () => {
