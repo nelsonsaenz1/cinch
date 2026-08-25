@@ -62,6 +62,7 @@ import { useExploreVisit } from '@/features/explore/use-explore-unseen';
 import { useMutedIds } from '@/features/social-graph/muted';
 import { useFriends } from '@/features/social-graph/queries';
 import { track } from '@/lib/posthog';
+import { useTabVisited } from '@/lib/use-tab-visited';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -325,9 +326,12 @@ export default function ExploreScreen() {
 
   // Analytics, once the reads have settled — a state reported while loading is
   // a state nobody was ever in. No id of any kind goes with these (§5.6).
+  // Gated on FOCUS as well: NativeTabs mounts this screen at launch, and
+  // "opened" must mean somebody arrived (see use-tab-visited.ts).
+  const visited = useTabVisited();
   const dailyReported = useRef<DailySocialState | null>(null);
   useEffect(() => {
-    if (!showsDaily || dailyLoading) return;
+    if (!visited || !showsDaily || dailyLoading) return;
 
     const reported = ANALYTICS_STATE[dailyState];
     if (dailyReported.current === reported) return;
@@ -340,7 +344,7 @@ export default function ExploreScreen() {
 
     const reason = EMPTY_REASON[dailyState];
     if (reason) track(DAILY_SOCIAL_EVENTS.empty, dailySocialEmptyProps(reason));
-  }, [showsDaily, dailyLoading, dailyState, looks.length]);
+  }, [visited, showsDaily, dailyLoading, dailyState, looks.length]);
 
   useEffect(() => {
     if (!dailyEndSeen || looks.length === 0) return;

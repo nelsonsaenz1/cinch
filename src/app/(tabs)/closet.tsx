@@ -66,6 +66,7 @@ import {
 import { EditProfileSheet } from '@/features/profile/edit-profile-sheet';
 import type { Item } from '@/schemas/item';
 import { track } from '@/lib/posthog';
+import { useTabVisited } from '@/lib/use-tab-visited';
 import { GUTTER, MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
 /**
@@ -830,12 +831,15 @@ function ClosetRails({ screen }: { screen: ClosetScreenModel }) {
     screen.mostWornRail.length > 0,
     (favorites.data?.length ?? 0) > 0,
   );
+  // Gated on FOCUS: NativeTabs mounts this screen at launch, and "viewed"
+  // must mean somebody looked (see use-tab-visited.ts).
+  const visited = useTabVisited();
   const reported = useRef<string | null>(null);
   useEffect(() => {
-    if (reported.current === rails) return;
+    if (!visited || reported.current === rails) return;
     reported.current = rails;
     track(CLOSET_EVENTS.viewed, closetViewedProps(rails));
-  }, [rails]);
+  }, [visited, rails]);
 
   if (rails === 'none') return null;
 
@@ -1128,12 +1132,14 @@ function CapacityBandRow({ large }: { large: boolean }) {
   });
 
   // Which of three walls, and nothing about the ceiling or the usage — a
-  // wardrobe size is a wealth proxy and a near-unique number.
+  // wardrobe size is a wealth proxy and a near-unique number. Gated on FOCUS
+  // like every other closet observation (see use-tab-visited.ts).
+  const visited = useTabVisited();
   useEffect(() => {
-    if (capacity.loading || reported.current === state) return;
+    if (!visited || capacity.loading || reported.current === state) return;
     reported.current = state;
     track(CLOSET_EVENTS.capacityState, closetCapacityProps(state));
-  }, [capacity.loading, state]);
+  }, [visited, capacity.loading, state]);
 
   if (capacity.loading) return null;
 

@@ -116,6 +116,7 @@ import { describeWeather, formatTemp, weatherSymbol } from '@/features/context/w
 import { useTripReminder } from '@/features/today/use-trip-reminder';
 import { track, trackOnce } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
+import { useTabVisited } from '@/lib/use-tab-visited';
 import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
 /**
@@ -954,14 +955,18 @@ export default function TodayScreen() {
   // PostHog and therefore CAN be executed by the node suite — so the property
   // shapes are asserted by a test rather than by a comment.
 
-  // The visit. Once per mount, not once per person: opening Today tomorrow is
-  // a new morning, which is the whole unit this screen is measured in.
+  // The visit — gated on FOCUS, not mount, because NativeTabs mounts all five
+  // tabs at launch and a mount effect here fired for people who never arrived
+  // (see use-tab-visited.ts). Once per visit-session, not once per person:
+  // opening Today tomorrow is a new morning, which is the whole unit this
+  // screen is measured in.
+  const visited = useTabVisited();
   const openedRef = useRef(false);
   useEffect(() => {
-    if (openedRef.current) return;
+    if (!visited || openedRef.current) return;
     openedRef.current = true;
     track(TODAY_EVENTS.opened, todayOpenedProps());
-  }, []);
+  }, [visited]);
 
   // WHICH ENGINE the reader is actually looking at. The screen enhances in
   // place — the on-device set paints first and the model's re-ranked set may
@@ -970,22 +975,22 @@ export default function TodayScreen() {
   // pass was ever seen.
   const sourceRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!platesOnScreen || !viewedSource) return;
+    if (!visited || !platesOnScreen || !viewedSource) return;
     const source = viewedSource === 'ai' ? 'enhanced' : 'local';
     if (sourceRef.current === source) return;
     sourceRef.current = source;
     track(TODAY_EVENTS.outfitsSource, outfitsSourceProps(source));
-  }, [platesOnScreen, viewedSource]);
+  }, [visited, platesOnScreen, viewedSource]);
 
   // WHICH OF FOUR STATES the weather read is in — never the reading, never the
   // place. A temperature and a timestamp are a location to anybody holding
   // enough of them, which is why only the state travels.
   const weatherStateRef = useRef<string | null>(null);
   useEffect(() => {
-    if (weatherStateRef.current === weatherRead.state) return;
+    if (!visited || weatherStateRef.current === weatherRead.state) return;
     weatherStateRef.current = weatherRead.state;
     track(TODAY_EVENTS.weatherState, weatherStateProps(weatherRead.state));
-  }, [weatherRead.state]);
+  }, [visited, weatherRead.state]);
 
   // The two refusals and the floor, each observed exactly where it renders and
   // each carrying nothing at all — that a morning had no answer is the whole
@@ -994,10 +999,10 @@ export default function TodayScreen() {
   const belowFloor =
     !wardrobe.isLoading && !wardrobe.isError && belowActivationFloor(items.length, canGenerate(items));
   useEffect(() => {
-    if (!belowFloor || floorRef.current) return;
+    if (!visited || !belowFloor || floorRef.current) return;
     floorRef.current = true;
     track(TODAY_EVENTS.closetFloorShown, closetFloorShownProps());
-  }, [belowFloor]);
+  }, [visited, belowFloor]);
 
   // "Show another" ran out of genuinely different looks. Reported once per
   // exhaustion rather than once per render, and carrying nothing — how many
@@ -1013,10 +1018,10 @@ export default function TodayScreen() {
       noViableRef.current = false;
       return;
     }
-    if (noViableRef.current) return;
+    if (!visited || noViableRef.current) return;
     noViableRef.current = true;
     track(TODAY_EVENTS.noViableCombination, noViableCombinationProps());
-  }, [noViable]);
+  }, [visited, noViable]);
 
   // Sign every image the shortlist could ever show, not just today's three —
   // "show me another" swaps in a candidate from further down the same list,
@@ -1052,10 +1057,10 @@ export default function TodayScreen() {
       exhaustedRef.current = false;
       return;
     }
-    if (exhaustedRef.current) return;
+    if (!visited || exhaustedRef.current) return;
     exhaustedRef.current = true;
     track(TODAY_EVENTS.repeatExhausted, repeatExhaustedProps());
-  }, [exhausted]);
+  }, [visited, exhausted]);
 
   const topGap = useMemo(() => rankGaps(currentTally)[0] ?? null, [currentTally]);
 
@@ -1339,10 +1344,10 @@ export default function TodayScreen() {
   // The first plate is an impression too, and nothing scrolls to reach it.
   const firstPlateRef = useRef(false);
   useEffect(() => {
-    if (firstPlateRef.current || effectiveShown.length === 0) return;
+    if (!visited || firstPlateRef.current || effectiveShown.length === 0) return;
     firstPlateRef.current = true;
     track(TODAY_EVENTS.plateViewed, plateViewedProps(1));
-  }, [effectiveShown.length]);
+  }, [visited, effectiveShown.length]);
 
   // ── APPLYING A CONTEXT, STATED HONESTLY ───────────────────────────────────
   //

@@ -57,6 +57,7 @@ import { useChat, type ChatMessage } from '@/features/stylist/use-chat';
 import { useQuestionnaire } from '@/features/stylist/use-questionnaire';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { track } from '@/lib/posthog';
+import { useTabVisited } from '@/lib/use-tab-visited';
 import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -251,23 +252,28 @@ export default function StylistScreen() {
    * which question — and a door that guessed would be inventing the very thing
    * this screen refuses to invent.
    */
-  // The desk was opened. Nothing about the person or their closet travels.
+  // The desk was opened — gated on FOCUS, not mount, because NativeTabs
+  // mounts every tab at launch and this used to fire for people who never
+  // left Today (see use-tab-visited.ts). Nothing about the person or their
+  // closet travels.
+  const visited = useTabVisited();
   const platesReported = useRef(new Set<string>());
   const openedOnce = useRef(false);
   useEffect(() => {
-    if (openedOnce.current) return;
+    if (!visited || openedOnce.current) return;
     openedOnce.current = true;
     track(STYLIST_EVENTS.opened, openedProps());
-  }, []);
+  }, [visited]);
 
   // WHETHER the mark was on screen — never the number behind it, which is an
-  // account fact rather than a screen fact.
+  // account fact rather than a screen fact. "On screen" now means what it
+  // says: nothing is reported until the tab has actually been seen.
   const markReported = useRef<boolean | null>(null);
   useEffect(() => {
-    if (markReported.current === markVisible) return;
+    if (!visited || markReported.current === markVisible) return;
     markReported.current = markVisible;
     track(STYLIST_EVENTS.allowanceMarkShown, allowanceMarkShownProps(markVisible));
-  }, [markVisible]);
+  }, [visited, markVisible]);
 
   /**
    * How many plates a settled reply drew.

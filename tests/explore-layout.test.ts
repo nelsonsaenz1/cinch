@@ -383,6 +383,9 @@ test('the redesign added no query, no table and no edge function', () => {
     'useWornSharing',
     'useSignedUrls',
     'useExploreVisit',
+    // Not a read: observes tab focus so "opened" analytics fire on a visit
+    // rather than on NativeTabs' launch-time mount (lib/use-tab-visited.ts).
+    'useTabVisited',
   ];
   const hooks = [...src.matchAll(/\buse[A-Z]\w*/g)].map((m) => m[0]);
   for (const hook of new Set(hooks)) {
