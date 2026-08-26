@@ -138,6 +138,18 @@ export default {
     }
 
     const rawBody = await req.text();
+
+    // Arrival log, BEFORE verification — handoff 2026-08-26. "No rows in
+    // `superwall_events`" used to collapse four failures (never sent, sent and
+    // rejected, sent and crashed, sent and suppressed) into one silent symptom;
+    // this line splits "never arrived" from everything else. Headers only —
+    // no body, no secret: the svix-id is Svix's own message id and the event
+    // type is a fixed enum, so nothing user-authored is written.
+    console.log(
+      `superwall-webhook arrival: svix-id=${req.headers.get('svix-id') ?? 'none'} ` +
+        `timestamp=${req.headers.get('svix-timestamp') ?? 'none'} bytes=${rawBody.length}`,
+    );
+
     const verified = await verifySignature(rawBody, req.headers, secret);
     if (!verified.ok) {
       console.warn('Rejected Superwall webhook:', verified.reason);

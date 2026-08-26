@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useSession } from '@/features/auth/use-session';
 import { supabase } from '@/lib/supabase';
 
+import { foldPlan } from './plan-fold';
 import { PLANS, type Plan, type PlanCopy } from './plans';
+import { useSdkPlan } from './use-sdk-plan';
 
 export interface PlanState {
   /** The plan in force right now, trial folded in. */
@@ -67,6 +69,11 @@ export interface PlanState {
 export function usePlan(): PlanState {
   const session = useSession();
   const userId = session.userId;
+  // StoreKit's own answer, via the Superwall SDK — folded in below so a
+  // purchase is honoured the moment it exists, and across a relaunch, even
+  // while the webhook that writes `subscriptions.plan` is still on its way.
+  // It can only ever RAISE the plan (see plan-fold.ts).
+  const sdkPlan = useSdkPlan();
 
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['subscription', userId],
@@ -113,7 +120,7 @@ export function usePlan(): PlanState {
   const trialEndsAt = data?.trialEndsAt ? new Date(data.trialEndsAt) : null;
   const currentPeriodEnd = data?.currentPeriodEnd ? new Date(data.currentPeriodEnd) : null;
   const trialing = data?.trialing ?? false;
-  const plan: Plan = trialing ? 'pro' : (data?.plan ?? 'free');
+  const plan: Plan = foldPlan(trialing ? 'pro' : (data?.plan ?? 'free'), sdkPlan);
 
   return {
     plan,
