@@ -114,6 +114,7 @@ import {
 } from '@/lib/styling';
 import { describeWeather, formatTemp, weatherSymbol } from '@/features/context/weather';
 import { useTripReminder } from '@/features/today/use-trip-reminder';
+import { askForRatingAfterWear } from '@/features/rating/ask-for-rating';
 import { track, trackOnce } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 import { useTabVisited } from '@/lib/use-tab-visited';
@@ -2185,7 +2186,13 @@ export default function TodayScreen() {
           closeWearSheet();
           router.push('/(auth)/sign-in');
         }}
-        onDone={closeWearSheet}
+        onDone={() => {
+          closeWearSheet();
+          // The settled sheet's Done is the app's happiest moment — a wear
+          // just became history — and the ONLY place the App Store rating
+          // sheet may be requested from (features/rating/rating-ask-core.ts).
+          askForRatingAfterWear();
+        }}
       />
     </SafeAreaView>
   );

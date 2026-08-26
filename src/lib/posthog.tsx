@@ -728,6 +728,12 @@ export type AppEvent =
   | 'wear_result'
   /** Whether a rating was given at all — never which one. */
   | 'rating_set'
+  /**
+   * `StoreReview.requestReview()` was CALLED after a settled wear — iOS never
+   * says whether a card appeared, so this counts asks, not ratings. No
+   * properties: the wear it followed is its own event.
+   */
+  | 'rating_prompt_requested'
   /** Whether the look was kept — never which look. */
   | 'favorite_set'
   /** Show another ran out of genuinely different looks and said so. */
