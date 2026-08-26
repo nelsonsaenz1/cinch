@@ -167,5 +167,19 @@ Founder order: stop waiting on Superwall's dispatcher. The pipeline is now
   minutes" ✓ (hourly check + Apple's own redelivery pressure on non-200s);
   "production initial_purchase moves the plan end to end" — armed on both
   pipelines, awaiting the first genuine event.
+- **End-to-end proof landed 2026-08-26 (evening):** a dedicated ASC API key
+  ("Cinch Server Ops", `L5FX967PC6`, App Manager, `.p8` in
+  `~/.appstoreconnect/private_keys/`) let us call Apple's
+  `POST /inApps/v1/notifications/test` on BOTH hosts. Apple reported
+  `firstSendAttemptResult: SUCCESS` for each, and both genuine, Apple-signed
+  TEST notifications verified, forwarded to Superwall, and landed in
+  `asc_notifications` (`06dc4140…` Sandbox, `f461800a…` Production, outcome
+  `no_change` — TEST carries no transaction). The full chain — Apple's real
+  certificate chain against the pinned root, the forward, the ledger — is
+  proven live in both environments; the only step a TEST cannot exercise is the
+  `subscriptions` write, which the verdict table covers in tests. Re-run any
+  time with `scratchpad/asc-test-notification.mjs` (rewrite from this doc if
+  the scratchpad is gone: ES256 JWT, kid `L5FX967PC6`, iss = the Issuer ID
+  above, aud `appstoreconnect-v1`, bid `com.nelsonsaenz.cinch`).
 - `superwall-webhook` stays deployed: if Superwall's dispatcher ever wakes, both
   writers converge through the shared product table and staleness rule.
