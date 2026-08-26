@@ -458,3 +458,9 @@ verify_jwt = false
 # gate, same shape as sync-feeds.
 [functions.reap-intake-audio]
 verify_jwt = false
+
+# Apple posts App Store Server Notifications here with no Supabase session;
+# authentication is the payload's own x5c chain against the pinned Apple root,
+# verified inside the function — same shape as superwall-webhook's Svix check.
+[functions.asc-notifications]
+verify_jwt = false

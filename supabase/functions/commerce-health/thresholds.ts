@@ -40,6 +40,20 @@ export type Report = {
     total_hits: number;
   };
   monetisation: { joined_programmes: number; networks: string[] };
+  /**
+   * The App Store revenue seam — `asc_notifications`, written by the
+   * `asc-notifications` function that receives Apple's server notifications
+   * first-hand (handoff task 5). Nullable because the SQL function ships in the
+   * same migration as the table: a report taken by an older deploy simply has
+   * no section, and no alert fires on absence.
+   */
+  revenue?: {
+    events_7d: number;
+    unattributed_7d: number;
+    unmapped_7d: number;
+    write_failed_7d: number;
+    last_event_at: string | null;
+  } | null;
   counters: Record<string, { value: number; last_at: string | null; last_detail: string | null }>;
   provider: {
     datafeedr_configured: boolean;
@@ -234,6 +248,46 @@ export function evaluate(report: Report): Alert[] {
         'in gap-shop-match.',
       cooldownHours: 1,
     });
+  }
+
+  // ── A purchase that did not become a plan ────────────────────────────────
+  //
+  // The handoff's task 5, finally buildable now that Apple's notifications land
+  // in our own ledger. All three outcomes are money the app took (or a refund
+  // it owes) with no matching `subscriptions` write: `unattributed` has no user
+  // to credit, `write_failed` found one and could not write, `unmapped` is a
+  // product PRODUCT_PLANS has never heard of. Every one of them is a paying
+  // customer on the wrong tier until a human acts, which is why the first two
+  // are critical.
+  const revenue = report.revenue;
+  if (revenue) {
+    if (revenue.unattributed_7d > 0 || revenue.write_failed_7d > 0) {
+      alerts.push({
+        key: 'revenue_event_unapplied',
+        severity: 'critical',
+        title: 'A revenue event did not reach subscriptions.plan',
+        detail:
+          `In the last 7 days: ${revenue.unattributed_7d} notification(s) with no ` +
+          `usable appAccountToken and ${revenue.write_failed_7d} failed plan ` +
+          'write(s). Each is a real App Store event whose user is on the wrong ' +
+          'tier. Query asc_notifications for outcome in ' +
+          "('unattributed','write_failed') and reconcile by hand — the ledger " +
+          'row carries the originalTransactionId.',
+        cooldownHours: 6,
+      });
+    }
+    if (revenue.unmapped_7d > 0) {
+      alerts.push({
+        key: 'revenue_product_unmapped',
+        severity: 'warning',
+        title: `${revenue.unmapped_7d} revenue event(s) name a product PRODUCT_PLANS does not`,
+        detail:
+          'A granting notification arrived for a productId missing from ' +
+          '_shared/superwall-plan.ts. Apple is redelivering it (422) until the ' +
+          'mapping is added and the function redeployed.',
+        cooldownHours: 12,
+      });
+    }
   }
 
   return alerts;

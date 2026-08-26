@@ -118,6 +118,54 @@ never read as organic revenue (same status as the Aug-7 `demo@cinch.app` pro row
 sees member UI on every device the entitlement reaches, including across relaunches. The server
 row remains the authority for AI spend.
 
-**Task 5 (commerce-health alarm) — still open.** The server can only see Superwall revenue
-through the webhook that is the broken pipe, and the org's ClickHouse warehouse currently has
-no tables to query. Revisit when Superwall answers the feedback ticket.
+**Task 5 (commerce-health alarm) — closed by the rearrangement below.**
+
+---
+
+## Addendum — 2026-08-26 (Event Forwarding shipped)
+
+Founder order: stop waiting on Superwall's dispatcher. The pipeline is now
+
+    Apple ──ASSN V2──▶ asc-notifications (ours) ──raw body──▶ Superwall
+                              │
+                              ├─ verifies the signedPayload x5c chain against a
+                              │  pinned Apple Root CA - G3 (byte-equal root,
+                              │  full chain signature walk, leaf verifies JWS,
+                              │  nested signedTransactionInfo verified too)
+                              ├─ ledger: public.asc_notifications
+                              │  (idempotent on notificationUUID)
+                              └─ writes subscriptions.plan directly —
+                                 appAccountToken IS the Supabase user id,
+                                 same PRODUCT_PLANS table, same isStale rule
+                                 as superwall-webhook
+
+- **ASC updated via the API** (`PATCH /v1/apps/6798479578`): both Production and
+  Sandbox server-notification URLs now point at
+  `https://dugizuswuebrmcmvinmi.supabase.co/functions/v1/asc-notifications`, V2.
+  Read back and confirmed 2026-08-26.
+- **Forwarding**: raw bytes to Superwall's documented intake
+  (`integrations.superwall.com/...app-store-connect/webhook?pk=…`), verified
+  BEFORE forwarding (their "forward first" is a latency note, not a security
+  design — an open relay under our key was not acceptable), 500 on forward
+  failure so Apple redelivers. Superwall's Revenue Tracking keeps working; their
+  broken dispatcher no longer matters to us.
+- **Verification without Apple's help**: the deployed function was probed with a
+  forged JWS whose x5c chain is the pinned root itself — it walked the pin
+  check, validity windows, issuer matching and chain signatures, and rejected at
+  exactly the forged-signature step. (The first probe caught the edge runtime's
+  `X509Certificate.checkIssued` being unimplemented — ERR_NOT_IMPLEMENTED — so
+  chain verification uses `@peculiar/x509` on WebCrypto instead of node:crypto.)
+  Apple offers no reachable test-notification endpoint through the ASC API, so
+  the first true end-to-end proof will be the next real sandbox/production
+  event; everything short of Apple's genuine signature is proven live.
+- **Task 5 delivered**: `commerce_health_report()` now carries a `revenue`
+  section from the ledger, and thresholds.ts raises `revenue_event_unapplied`
+  (critical — `unattributed`/`write_failed`) and `revenue_product_unmapped`
+  (warning) on the existing hourly check. Confirmed flowing in a live report.
+- **Acceptance criteria status**: "rejected vs never-arrived visible in logs" ✓
+  (both functions log arrivals pre-verification); "mismatch surfaces within 15
+  minutes" ✓ (hourly check + Apple's own redelivery pressure on non-200s);
+  "production initial_purchase moves the plan end to end" — armed on both
+  pipelines, awaiting the first genuine event.
+- `superwall-webhook` stays deployed: if Superwall's dispatcher ever wakes, both
+  writers converge through the shared product table and staleness rule.
