@@ -158,12 +158,12 @@ test('no share string shouts', () => {
   }
 });
 
-test('the invite message is first person and carries no URL of its own', () => {
+test('the invite message is one natural sentence and carries no URL of its own', () => {
   // The URL rides the share sheet's `url` slot on this one, so that Messages
   // raises the preview card whose headline is `shareTitle()`. A URL in the text
   // as well would arrive twice.
   assert.doesNotMatch(shareMessage(), /cinchstyle\.com/);
-  assert.match(shareMessage(), /^I’m on Cinch/);
+  assert.equal(shareMessage(), 'Come join your friends on Cinch.');
 });
 
 test('a captured card carries the sharer’s link inside the message', () => {

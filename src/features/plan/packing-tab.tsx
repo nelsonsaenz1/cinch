@@ -28,12 +28,6 @@ import { useLastPackedTrip, useStartTrip, type SavedTrip } from './use-trips';
 /** The fields K-01's history line actually reads — not a full `SavedTrip`. */
 type LastTripSummary = Pick<SavedTrip, 'destination' | 'startsOn' | 'endsOn' | 'pieceCount' | 'lookCount'>;
 
-const GATE_BULLETS = [
- 'Four questions, then destination weather for your actual dates.',
- 'A look for every day part — not a pile of clothes.',
- 'Repeats counted, so the bag stays small.',
-];
-
 /**
  * Spelled out, matching the atlas ("four days in Lisbon", "eleven pieces and
  * nine looks") and `packing-math.ts`'s own private `word()` table — that
@@ -109,37 +103,19 @@ export function PackingGate({
   const unavailable = unlockState === 'unavailable';
 
   // A ScrollView, not a bare View — the founder's "can't scroll". The gate's
-  // column (bullets, history, the example trip, the membership CTA) runs past
-  // the fold on every phone, and this was the one Packing state without the
-  // scroll idiom its siblings in `packing-trip.tsx` already carry. `pb-16` is
-  // theirs too.
+  // column (history, the example trip, the membership CTA) runs past the fold
+  // on smaller phones, and this was the one Packing state without the scroll
+  // idiom its siblings in `packing-trip.tsx` already carry. `pb-24` clears the
+  // tab bar this tab sits under (SafeAreaView takes only the top edge), so the
+  // CTA at the foot is reachable rather than parked beneath it — founder,
+  // 2026-08-26. The explanatory paragraph and the three-bullet feature list
+  // that used to sit between the title and the example are gone by the same
+  // order: the example trip below SHOWS everything they said.
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-gutter pt-3 pb-16">
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-gutter pt-3 pb-24">
       <Text variant="title" trim>
         Pack the trip, not every possibility.
       </Text>
-
-      <Text variant="body" className="mt-5 text-muted">
-        Tell Cinch where you’re going, when, and what the days will ask of you.
-        It builds the bag from your own closet, finding more than one way to wear
-        the pieces worth bringing.
-      </Text>
-
-      <View className="mt-6 overflow-hidden rounded-plate border border-rule">
-        {GATE_BULLETS.map((line, i) => (
-          <View
-            key={line}
-            className={[
- 'flex-row gap-2.5 px-4 py-3.5',
-              i < GATE_BULLETS.length - 1 ? 'border-b border-hairline' : '',
-            ].join(' ')}>
-            <Text variant="body">•</Text>
-            <Text variant="body" className="flex-1">
-              {line}
-            </Text>
-          </View>
-        ))}
-      </View>
 
       {/* A first-time user gets no line at all — never an invented Lisbon. */}
       {lastTrip ? (

@@ -10,7 +10,6 @@ import {
   Composer,
   OPENING_TOP,
   OpeningSkeleton,
-  RefinementRow,
   StepFooter,
   StylistHeader,
   StylistOpening,
@@ -345,7 +344,7 @@ const STATES = [
   { id: 'S-02', title: 'Question 1 of 4 — no Back yet' },
   { id: 'S-03', title: 'Mid-flow — transcript, Back, weather step' },
   { id: 'S-04', title: 'Composed — one request, pending' },
-  { id: 'S-05', title: 'Answered — outfit strips and refinements' },
+  { id: 'S-05', title: 'Answered — outfit strips' },
   { id: 'S-06', title: 'Failed turn — retryable' },
   { id: 'S-07', title: 'The three refusals — not outages' },
   { id: 'S-08', title: 'Reading your wardrobe' },
@@ -442,16 +441,6 @@ export default function DevStylistScreen() {
    * S-07's refusals count as a thread because they are turns in one.
    */
   const hasThread = state === 'S-04' || state === 'S-05' || state === 'S-06' || state === 'S-07';
-  /**
-   * The atlas puts the refinement row under an ANSWER, not under any thread:
-   * S-05 and S-06 draw it, S-04's pending turn does not. That is the screen's
-   * own rule now too — `stylist.tsx` gates the row on a settled, non-pending
-   * assistant turn, where it used to gate on `messages.length > 0` and so drew
-   * over S-04's pending bubble. This fixture had the atlas's answer before the
-   * screen did, so the enumeration stands unchanged.
-   */
-  const hasRefinements = state === 'S-05' || state === 'S-06';
-
   const selected = STATES.find((s) => s.id === state)!;
 
   return (
@@ -628,9 +617,6 @@ export default function DevStylistScreen() {
           </ScrollView>
         ) : null}
 
-        {/* No `onRefine`: the chips draw and press and send nothing, per the
-            shared parts' convention for an always-drawn control. */}
-        {hasRefinements ? <RefinementRow /> : null}
         {/* No `onSend`: the field takes text and the send button repaints, and
             nothing is posted anywhere. That is the shared `Composer`'s own
             behaviour for an absent callback rather than a fixture-only variant

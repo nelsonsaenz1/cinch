@@ -91,14 +91,14 @@ export function shareTitle(displayName: string): string {
  * carries "Cinch is a closet you actually use" already, and a message that says
  * it too reads as an advertisement rather than as a person.
  *
- * Both clauses are provable. `apply_invite()` writes both `follows` rows on the
- * tap — "the invite is already accepted", `20260810120100_invite_links.sql` —
- * so there is genuinely nothing to approve afterwards. That detail is the whole
- * reason to say anything at all: it is the one thing about this link a
- * recipient could not guess.
+ * One natural sentence — founder, 2026-08-26. The earlier version explained
+ * the mutual-follow mechanics ("this link adds us both, with nothing to
+ * accept"); true, but it read like documentation in a message bubble. The
+ * preview card under the URL still carries the app's own description, so the
+ * human line above it only has to sound like a person.
  */
 export function shareMessage(): string {
-  return 'I’m on Cinch — a closet you actually use. This link adds us both, with nothing to accept.';
+  return 'Come join your friends on Cinch.';
 }
 
 /**

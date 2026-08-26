@@ -11,7 +11,6 @@ import {
   DoorStrip,
   OPENING_TOP,
   OpeningSkeleton,
-  RefinementRow,
   StepFooter,
   StylistHeader,
   StylistOpening,
@@ -102,6 +101,9 @@ const scriptTurn = (id: string, role: ChatMessage['role'], text: string): ChatMe
 export default function StylistScreen() {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
+  // False until the transcript has settled at its foot once with real turns in
+  // it — the first landing is a jump, everything after is an animation.
+  const settledAtFoot = useRef(false);
   const inputRef = useRef<TextInput>(null);
   const [draft, setDraft] = useState('');
 
@@ -377,37 +379,6 @@ export default function StylistScreen() {
 
   const showOpening = messages.length === 0 && !questionnaire.active;
 
-  /**
-   * Whether there is an answer on screen for the refinement chips to refine.
-   *
-   * "Something warmer" is a follow-up, so it needs something to follow. The row
-   * used to be gated on `messages.length > 0 && !questionnaire.active`, and
-   * both halves of that were wrong:
-   *
-   *   - `messages.length > 0` counts the pending placeholder. Finishing the
-   *     questionnaire mounts the user's composed sentence AND an empty pending
-   *     bubble in one go, so the length is 2 the instant the request goes up and
-   *     the chips drew over S-04 — which the atlas draws with no chip row at
-   *     all, correctly: the chips would be offering to adjust an answer that
-   *     does not exist yet, and tapping one would fire a second request behind
-   *     the first.
-   *   - `!questionnaire.active` looked like the guard against exactly that and
-   *     was not, because `useQuestionnaire.answer` calls `commit(null)` BEFORE
-   * `onComplete`, deliberately (so the last chip row cannot render over the
-   *     message it produced). `active` is therefore already false by the time
-   * `ask()` mounts those two bubbles. It is also redundant now: a flow can
-   *     only be started from the opening, which requires an empty thread.
-   *
-   * So the test is a settled assistant turn — pending is the only state that
-   * has nothing to refine. A FAILED turn deliberately still counts: S-06 draws
-   * the chip row under the failure bubble, and it is right to, because the chips
-   * are the other way to ask again beside "Try again" — an outage the retry did
-   * not clear may still answer a differently-worded question. That is why this
-   * is `!m.pending` and not the narrower "resolved" test of `!m.pending &&
-   * !m.failed`, which would have blanked the row in S-06.
-   */
-  const hasSettledAnswer = messages.some((m) => m.role === 'assistant' && !m.pending);
-
   // A failed wardrobe fetch is NOT an empty closet. Without this branch the
   // screen fell through to "add about ten pieces first" — telling a user with
   // a full wardrobe to start photographing it again. Hence the order: this
@@ -487,7 +458,17 @@ export default function StylistScreen() {
           // (the sheet era never needed this; the tab does), and `handled`
           // above already lets a tap on the transcript's dead space dismiss.
           keyboardDismissMode="interactive"
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
+          onContentSizeChange={() => {
+            // The designed opening reads from the top; only a transcript
+            // follows its own foot.
+            if (showOpening) return;
+            // An existing thread OPENS at its foot rather than animating down
+            // to it — the reader left mid-conversation and should land where
+            // they left, not watch the app catch up (founder, 2026-08-26).
+            // After that first settle, growth animates as it always did.
+            scrollRef.current?.scrollToEnd({ animated: settledAtFoot.current });
+            if (messages.length > 0) settledAtFoot.current = true;
+          }}>
           {showOpening ? (
             <StylistOpening
               salutation={hello.salutation}
@@ -597,12 +578,6 @@ export default function StylistScreen() {
             </View>
           ) : null}
         </ScrollView>
-
-        {/* On the gate: see `hasSettledAnswer` above — S-04 draws no chip row,
-            S-05 and S-06 both do. The row's own geometry, and the fact that a
- chip's label and the sentence it sends are different strings, live
-            in `RefinementRow`. */}
-        {hasSettledAnswer ? <RefinementRow onRefine={submit} /> : null}
 
         <Composer
           value={draft}

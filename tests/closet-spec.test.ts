@@ -114,12 +114,13 @@ test('a paid plan at the active wall is sent to storing, not to a price', () => 
   }
 });
 
-test('free at the active wall names storing FIRST, then the larger closet', () => {
+test('free at the active wall gets the plans door and no lecture', () => {
   const r = capacityRemedy('active_full', 'free');
   assert.equal(r.door, 'plans');
-  // Not upsell dressed as help: the sentence opens on the free remedy.
-  assert.match(r.body!, /^Store a piece to free a slot/);
-  assert.ok(r.body!.indexOf('Store a piece') < r.body!.indexOf('larger closet'));
+  assert.equal(r.action, 'See plans');
+  // Founder, 2026-08-26: the band's numbers already say the closet is full —
+  // no "store a piece to free a slot" sentence in front of the door.
+  assert.equal(r.body, null);
 });
 
 test('room offers no remedy and no door', () => {

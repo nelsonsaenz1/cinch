@@ -120,13 +120,25 @@ export function CapacityBand({
       ) : null}
 
       {remedy.action && remedy.door ? (
+        // A centred oxblood bubble rather than a left-aligned accent label —
+        // founder, 2026-08-26. The band is the one place the app states the
+        // closet's ceiling, so its one action reads as a real door: filled,
+        // centred, canvas type on accent ground.
         <Pressable
           onPress={() => onDoor(remedy.door!)}
           accessibilityRole="button"
           accessibilityLabel={remedy.action}
-          style={{ minHeight: large ? 56 : 44, justifyContent: 'center' }}
-          className="active:opacity-60">
-          <Text variant="label" style={{ color: theme.accent }}>
+          style={{
+            alignSelf: 'center',
+            marginTop: large ? 16 : 12,
+            minHeight: large ? 56 : 44,
+            justifyContent: 'center',
+            backgroundColor: theme.accent,
+            borderRadius: 12,
+            paddingHorizontal: 24,
+          }}
+          className="active:opacity-80">
+          <Text variant="label" style={{ color: theme.canvas }}>
             {remedy.action}
           </Text>
         </Pressable>

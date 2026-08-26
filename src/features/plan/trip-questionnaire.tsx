@@ -409,7 +409,7 @@ export function TripQuestionnaire({
 
   return (
     <KeyboardAwareScrollView
-      contentContainerClassName="px-gutter pb-16 pt-2"
+      contentContainerClassName="px-gutter pb-24 pt-2"
       showsVerticalScrollIndicator={false}>
       <Text variant="eyebrow">
         Packing · {q.position} of {q.total}

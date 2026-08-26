@@ -709,7 +709,7 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
     // scroll"). `flex-grow` keeps EmptyState's own `flex-1` centring alive
     // inside the scroll container.
     return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="flex-grow pb-16">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="flex-grow pb-24">
         <View className="flex-1 px-gutter pt-2">
           <EmptyState
             symbol="tshirt"
@@ -723,7 +723,7 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
 
   if (!withinHorizon && !packAnyway) {
     return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-16">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-24">
         {membershipUnconfirmed ? (
           <View className="px-gutter pt-2">
             <MembershipUnconfirmedBanner
@@ -753,7 +753,7 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
 
   if (researching) {
     return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-16">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-24">
         {membershipUnconfirmed ? (
           <View className="px-gutter">
             <MembershipUnconfirmedBanner
@@ -773,7 +773,7 @@ export function PackingTrip({ trip, onStartAgain }: { trip: Trip; onStartAgain: 
 
   if (packingResult.unfilled > 0 && !acknowledgedShortfall) {
     return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-16">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-24">
         {membershipUnconfirmed ? (
           <View className="px-gutter pt-2">
             <MembershipUnconfirmedBanner
@@ -900,7 +900,7 @@ export function PackingMemo({
   const bagProse = bagProseLine(packing.items.filter((p) => !p.worn && p.looks <= 1));
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-gutter pb-16 pt-2">
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-gutter pb-24 pt-2">
       {membershipUnconfirmed ? (
         <MembershipUnconfirmedBanner
           onOpenLastList={onOpenLastList}
@@ -1095,7 +1095,7 @@ function SavedMemoView({
   onBack: () => void;
 }) {
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-gutter pb-16 pt-2">
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="px-gutter pb-24 pt-2">
       <Pressable onPress={onBack} accessibilityRole="button" className="mb-4 self-start active:opacity-60">
         <Text variant="label" className="underline">
           Back

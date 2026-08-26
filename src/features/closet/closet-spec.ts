@@ -67,9 +67,10 @@ export type CapacityRemedy = {
  * active is a closet somebody has actually built, and storing genuinely is the
  * right move: it keeps the piece and frees the slot.
  *
- * So free names both options and opens the plans door; paid names storing and
- * opens the store flow. Neither is upsell dressed as help — the free line says
- * "store a piece to free a slot" first, before it mentions a larger closet.
+ * So free opens the plans door with no sentence in front of it — the band's
+ * own numbers already state the fact, and the action is the remedy — while
+ * paid names storing and opens the store flow, because storing is genuinely
+ * the paid tier's right move.
  */
 export function capacityRemedy(state: CapacityState, plan: Plan): CapacityRemedy {
   if (state === 'room') return { body: null, action: null, door: null };
@@ -86,7 +87,10 @@ export function capacityRemedy(state: CapacityState, plan: Plan): CapacityRemedy
 
   return plan === 'free'
     ? {
-        body: 'Store a piece to free a slot, or see what a larger closet holds.',
+        // No sentence — founder, 2026-08-26: the band's own numbers already
+        // say the closet is full, and "store a piece to free a slot" read as
+        // homework in front of the door. The action alone carries the remedy.
+        body: null,
         action: 'See plans',
         door: 'plans',
       }

@@ -4,7 +4,6 @@ import type { ReactNode, RefObject } from 'react';
 import { Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { Chip } from '@/components/ui/chip';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -486,18 +485,28 @@ export function StylistHeader({ onNewQuestion }: { onNewQuestion?: () => void })
           Hence the affordance being gated on the callback rather than on a
           separate flag: a screen with nowhere to go back to cannot pass one. */}
       {onNewQuestion ? (
+        // An oxblood bubble rather than a bare muted label — founder,
+        // 2026-08-26: the one way back to the designed opening was the
+        // quietest thing on the screen. The fill is inline for the same
+        // reason the promise line's colour is: a class here would be one
+        // more stacked-utility tie for NativeWind to break by key order.
         <Pressable
           onPress={onNewQuestion}
           accessibilityRole="button"
           accessibilityLabel="Start a new question"
-          hitSlop={12}
-          className="active:opacity-60">
-          {/* No colour class: `label` already carries `text-muted` (#6B665C),
-              which is exactly what S-05 sets this at. The `text-muted` that used
-              to be repeated here was the same stacked-`text-*` pattern the
-              promise line above had to be rescued from — harmless only because
-              both classes named the same colour. */}
-          <Text variant="label">New question</Text>
+          hitSlop={8}
+          style={{
+            backgroundColor: theme.accent,
+            borderRadius: 12,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+            minHeight: 36,
+            justifyContent: 'center',
+          }}
+          className="active:opacity-80">
+          <Text variant="label" style={{ color: theme.canvas }}>
+            New question
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -698,11 +707,13 @@ export function Composer({
         <View
           style={{ width: '100%', height: '100%' }}
           className={`items-center justify-center rounded-full ${
-            canSend ? 'bg-ink' : 'bg-tray'
+            canSend ? 'bg-accent' : 'bg-tray'
           }`}>
         {/* Idle: `faint` on the tray ground, both straight from the atlas's
-            resting composer. Active: canvas on ink. The idle arrow was `muted`,
-            which read as an enabled control over a disabled one. */}
+            resting composer. Active: canvas on OXBLOOD — founder, 2026-08-26;
+            the armed send is now this screen's second accent beside the
+            header's sparkle, deliberately, because it is the one control that
+            spends anything. */}
         <SymbolView
           name="arrow.up"
           size={17}
@@ -742,40 +753,10 @@ export function Composer({
 export const TRANSCRIPT_TOP = 20;
 export const OPENING_TOP = 16;
 
-/**
- * The three refinement chips under a settled answer.
- *
- * The labels and the sentences they send are not the same strings — "Dressier"
- * submits "A bit dressier", because the chip is a label and the message is
- * speech, and the parser downstream reads the latter. That mapping is the
- * reason this is a part rather than three `Chip`s at each call site: it is the
- * kind of detail a hand copy gets subtly wrong.
- *
- * `onRefine` receives the sentence to send, not the label. Absent, the chips
- * draw and press and say nothing, which is what the fixture wants.
- *
- * S-05 draws the row at `padding:0 20px 10px` — 10 below, so the chips sit a
- * shade clear of the composer's hairline instead of tucking under it. The chips
- * themselves stay `Chip` at its own 12pt corner: the atlas draws them as 17pt
- * capsules, and that is the one atlas value on this screen refused outright
- * rather than adapted, because tailwind.config.js reserves `full` for "CIRCLES
- * AND GLASS CHROME ONLY — never a labelled capsule", and these carry labels.
- */
-const REFINEMENTS: { label: string; message: string }[] = [
-  { label: 'Something warmer', message: 'Something warmer' },
-  { label: 'Dressier', message: 'A bit dressier' },
-  { label: 'More casual', message: 'More casual' },
-];
-
-export function RefinementRow({ onRefine }: { onRefine?: (message: string) => void }) {
-  return (
-    <View className="flex-row flex-wrap gap-2 px-gutter pb-2.5">
-      {REFINEMENTS.map((r) => (
-        <Chip key={r.label} label={r.label} onPress={() => onRefine?.(r.message)} />
-      ))}
-    </View>
-  );
-}
+// The refinement chip row that used to sit here — three `Chip`s between the
+// transcript and the composer — is gone by founder order (2026-08-26): the
+// buttons immediately above the text box crowded the one control the screen is
+// named after. "Something warmer" is still one short typed sentence away.
 
 // ── The door strip ──────────────────────────────────────────────────────────
 
@@ -791,13 +772,15 @@ export function RefinementRow({ onRefine }: { onRefine?: (message: string) => vo
  * indistinguishable from a tap there: same action, same analytics, same
  * nothing-sent-to-a-model contract.
  *
- * Pills are the shared `Chip` — the same drawing the refinement row reaches
- * for, because these are the same kind of object: a small labelled way to ask
- * something without typing it. Horizontal scroll rather than wrapping: five
- * labels wrapped would rebuild the grid this row exists to be smaller than.
+ * Full-height oxblood buttons rather than quiet chips — founder, 2026-08-26:
+ * the suggested topics are the fastest way to a good question, and a row of
+ * hairline pills read as filters rather than as doors. 44pt of real geometry
+ * (the app's tap-target floor), filled in accent, labels in canvas.
+ * Horizontal scroll rather than wrapping: five labels wrapped would rebuild
+ * the grid this row exists to be smaller than.
  *
- * `onOpen` is optional on the fixture rule: absent, the pills still press and
- * dim and open nothing.
+ * `onOpen` is optional on the fixture rule: absent, the buttons still press
+ * and dim and open nothing.
  */
 export function DoorStrip<K extends string>({
   doors,
@@ -807,6 +790,7 @@ export function DoorStrip<K extends string>({
   doors: readonly { key: K; label: string }[];
   onOpen?: (key: K) => void;
 }) {
+  const theme = useTheme();
   return (
     <ScrollView
       horizontal
@@ -817,7 +801,23 @@ export function DoorStrip<K extends string>({
       style={{ flexGrow: 0 }}
       contentContainerClassName="flex-row gap-2 px-gutter py-2">
       {doors.map((door) => (
-        <Chip key={door.key} label={door.label} onPress={onOpen ? () => onOpen(door.key) : undefined} />
+        <Pressable
+          key={door.key}
+          onPress={onOpen ? () => onOpen(door.key) : undefined}
+          accessibilityRole="button"
+          accessibilityLabel={door.label}
+          style={{
+            minHeight: MIN_TAP_TARGET,
+            borderRadius: ROW_RADIUS,
+            backgroundColor: theme.accent,
+            paddingHorizontal: 16,
+            justifyContent: 'center',
+          }}
+          className="active:opacity-80">
+          <Text variant="label" style={{ color: theme.canvas }}>
+            {door.label}
+          </Text>
+        </Pressable>
       ))}
     </ScrollView>
   );
