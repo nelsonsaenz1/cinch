@@ -333,14 +333,20 @@ export default function RootLayout() {
             hole at its most important step.
           */}
           <Analytics>
-            {/*
-              Inside the query provider, because it reads `usePlan` and
-              `useCapacity` — see the file for why this is a component rather
-              than a call inside `useAnalyticsIdentity` above.
-            */}
-            <AnalyticsProperties />
             <UpdateCoordinator />
             <Superwall>
+              {/*
+                Inside the query provider because it reads `usePlan` and
+                `useCapacity` (see the file for why it is a component, not a
+                call inside `useAnalyticsIdentity` above) — and inside
+                `Superwall` because `usePlan` folds in `useSdkPlan`, whose
+                enabled branch calls `useSuperwall` and THROWS with no provider
+                above it. The keyless dev checkout runs the disabled branch, so
+                only a keyed (production) bundle crashes when this drifts
+                upward: exactly the outage of 2026-08-26. Pinned by
+                tests/provider-order.test.ts.
+              */}
+              <AnalyticsProperties />
               <AuthGate>
               {/* `fullScreenGestureEnabled`: the back swipe works from anywhere
                   on a pushed card, not only the left edge — the gesture every
