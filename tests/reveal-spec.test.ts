@@ -33,6 +33,7 @@ import {
   partialDerivation,
   piecesToFirstOutfit,
   untaggedChip,
+  unreadBodyLine,
   usesFigures,
   zeroBodyLine,
   type RevealPhase,
@@ -297,6 +298,28 @@ test('the rows are things a person could photograph, not a table', () => {
 test('a dress needs only shoes — no bottom row nobody’s outfit needs', () => {
   const needs = missingPhrases(tally(0, 0, 2, 0));
   assert.deepEqual(needs, ['A pair of shoes']);
+});
+
+// ---------------------------------------------------------------------------
+// The unread zero — pieces exist, but nothing has read them
+// ---------------------------------------------------------------------------
+
+test('the unread body names waiting when tagging may run, and the blocker when it may not', () => {
+  // Consented: transient, and the sentence says so — never the consent door.
+  const reading = unreadBodyLine(11, true);
+  assert.match(reading, /Eleven pieces are still being read\./);
+  assert.doesNotMatch(reading, /allowed/);
+
+  // Not consented: the blocker, named — never "being read" while nothing is.
+  const blocked = unreadBodyLine(11, false);
+  assert.match(blocked, /Eleven pieces are photographed but unread/);
+  assert.match(blocked, /hasn’t been allowed to look at/);
+  assert.doesNotMatch(blocked, /being read/);
+});
+
+test('the unread body agrees with itself at one piece', () => {
+  assert.match(unreadBodyLine(1, true), /One piece is still being read\./);
+  assert.match(unreadBodyLine(1, false), /One piece is photographed but unread/);
 });
 
 test('a closet that already works asks for nothing', () => {

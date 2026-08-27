@@ -18,9 +18,13 @@ import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import { Plate } from '@/components/today/plate';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { ConsentSheet } from '@/components/ingest/consent-sheet';
+import { useAiConsent, useGrantAiConsent } from '@/features/auth/use-consent';
 import { Placement } from '@/features/billing/placements';
 import { useGate } from '@/features/billing/use-gate';
 import { usePlan } from '@/features/billing/use-plan';
+import { DECLINED_KEY, writeFlag } from '@/features/ingest/consent-mode';
+import { sweepAfterConsent } from '@/features/ingest/upload-queue';
 import { countOutfits, tallyOf, type CountedKind } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
@@ -53,6 +57,7 @@ import {
   partialDerivation,
   piecesToFirstOutfit,
   untaggedChip,
+  unreadBodyLine,
   zeroBodyLine,
 } from '@/features/onboarding/reveal-spec';
 import { useRevealSequence } from '@/features/onboarding/use-reveal-sequence';
@@ -97,6 +102,11 @@ export default function RevealScreen() {
   const plan = usePlan();
   const wardrobe = useWardrobe();
   const untagged = useUntaggedCount();
+  // For the UNREAD zero only — pieces at `pending_tag` with tagging never
+  // allowed to run. Everything else on this screen is consent-blind.
+  const consent = useAiConsent();
+  const grantConsent = useGrantAiConsent();
+  const [consentVisible, setConsentVisible] = useState(false);
   const reduced = useReducedMotion();
   const { fontScale } = useWindowDimensions();
   const ax = fontScale >= AX_FONT_SCALE;
@@ -397,6 +407,70 @@ export default function RevealScreen() {
   // called here, and not anywhere else. Charging at the moment the arithmetic
   // came back nothing would be charging for the failure.
   if (sequence.phase === 'zero') {
+    // ── THE UNREAD ZERO ─────────────────────────────────────────────────────
+    //
+    // Pieces exist at `pending_tag`, so the arithmetic had nothing to count
+    // YET — a different fact from a closet that cannot pair, and one the
+    // repair copy must not misdiagnose: telling this reader to photograph
+    // again is telling them to redo the thing they just did.
+    //
+    // Two causes, one fact apart. Tagging mid-flight resolves itself — the
+    // sequence leaves `zero` on its own the moment the count turns real (see
+    // use-reveal-sequence), so "Check again" is only a manual poke at the
+    // wardrobe query. Tagging never ALLOWED to run is the case this branch
+    // really exists for: the fix is the consent door, asked with the same
+    // sheet and the same two live choices as everywhere else, and an accept
+    // sweeps the stuck pieces immediately (`sweepAfterConsent`) rather than up
+    // to half an hour later. The reader then watches this same screen turn
+    // into the count-up as the tags land.
+    //
+    // A decline is recorded exactly as capture records it — but A-04's
+    // explainer is NOT shown here, deliberately: its first sentence is "Done.
+    // Nothing was sent.", and for pieces already sitting in Storage that
+    // sentence would be false. The full account still arrives at the moment
+    // it is true, on the next capture surface.
+    if (untagged.count > 0) {
+      const consented = consent.data?.granted === true;
+      return (
+        <RevealStage>
+          <RevealEmpty
+            headline={REVEAL_COPY.zeroUnreadTitle}
+            body={unreadBodyLine(untagged.count, consented)}
+            // Nothing is "needed" — the pieces are here, unread. Listing kinds
+            // to photograph would be the exact misdiagnosis above.
+            needs={[]}
+            fix={consented ? REVEAL_COPY.zeroUnreadCheck : REVEAL_COPY.zeroUnreadConsent}
+            onFix={() => {
+              if (consented) {
+                void wardrobe.refetch();
+              } else {
+                setConsentVisible(true);
+              }
+            }}
+            onOpenToday={() => {
+              exit('zero_open_today');
+              router.replace('/(tabs)');
+            }}
+          />
+          <ConsentSheet
+            visible={consentVisible}
+            busy={grantConsent.isPending}
+            onAccept={() =>
+              void grantConsent.mutateAsync().then(() => {
+                setConsentVisible(false);
+                writeFlag(DECLINED_KEY, false);
+                sweepAfterConsent();
+              })
+            }
+            onDecline={() => {
+              setConsentVisible(false);
+              writeFlag(DECLINED_KEY, true);
+            }}
+          />
+        </RevealStage>
+      );
+    }
+
     return (
       <RevealStage>
         <RevealEmpty

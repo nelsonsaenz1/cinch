@@ -276,6 +276,19 @@ export const REVEAL_COPY = {
   zeroRepair: 'Photograph them instead',
   zeroOpenToday: 'Open Today anyway',
 
+  /**
+   * The unread zero — pieces exist but have not been read, so the arithmetic
+   * had nothing to count YET. A different fact from the honest zero above:
+   * that closet cannot make an outfit, this one merely has not been looked at,
+   * and telling its owner to photograph again — the thing they just did — is
+   * the misdiagnosis this state exists to avoid.
+   */
+  zeroUnreadTitle: 'Not read yet.',
+  /** Tagging is running — the fix is a fresh look, not another photograph. */
+  zeroUnreadCheck: 'Check again',
+  /** Tagging has never been allowed to run — the fix is the consent door. */
+  zeroUnreadConsent: 'Turn on AI tagging',
+
   /** Cinch-owned context above the vendor sheet. Never a price, never a term. */
   memberContextTrialing: 'The trial has everything open; membership keeps it that way.',
   memberContextFree: 'Everything you just saw stays yours on the free tier.',
@@ -311,6 +324,24 @@ export function zeroBodyLine(pieceCount: number, tally: Tally, missing: number):
     ? `${cap(numberWord(tally[dominant]))} ${dominant} make ${numberWord(tally[dominant])} ${dominant}.`
     : `${cap(numberWord(pieceCount))} piece${pieceCount === 1 ? '' : 's'} cannot pair with ${pieceCount === 1 ? 'itself' : 'each other'}.`;
   return `${shape} ${cap(numberWord(missing))} more piece${missing === 1 ? '' : 's'} and this page fills up.`;
+}
+
+/**
+ * The unread zero's body. Two sentences, chosen by the one fact that decides
+ * what happens next: whether the tagger is allowed to run at all.
+ *
+ * With consent, the state is transient and the sentence says so. Without it,
+ * the sentence names the actual blocker — the pieces are photographed and
+ * cannot be read — because a reader shown "still being read" while nothing is
+ * reading them would be being lied to by omission.
+ */
+export function unreadBodyLine(pending: number, consented: boolean): string {
+  const n = cap(numberWord(pending));
+  const p = pending === 1 ? 'piece' : 'pieces';
+  const is = pending === 1 ? 'is' : 'are';
+  return consented
+    ? `${n} ${p} ${is} still being read. The count settles the moment they finish.`
+    : `${n} ${p} ${is} photographed but unread — Cinch can’t pair what it hasn’t been allowed to look at.`;
 }
 
 /** Whichever kind this closet has most of — the one the sentence is about. */

@@ -97,6 +97,23 @@ export function useRevealSequence({
     }
   }
 
+  // Zero is terminal for a closet that cannot pair — but not for one that had
+  // simply not been READ yet. When pieces finish tagging under the unread-zero
+  // screen (the sweep after a consent grant, or a tagger that was mid-pass),
+  // the wardrobe query refreshes, the count turns real, and the sequence picks
+  // up exactly where a fast closet would have: the count-up. Guarded on
+  // `count > 0`, never on `!zero` — `zero` also flips false while a refetch is
+  // merely in flight, and a screen that abandoned its result because the
+  // reader asked it to check again would be worse than one that waited.
+  if (phase === 'zero' && countReady && count > 0) {
+    if (reduced) {
+      setProgress(1);
+      setPhase('settled');
+    } else {
+      setPhase('counting');
+    }
+  }
+
   // The count-up. A finite, non-looping ramp toward a value that already
   // exists — every frame is an interpolation, never a guess.
   const startedAt = useRef<number | null>(null);

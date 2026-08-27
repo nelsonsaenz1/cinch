@@ -1119,6 +1119,23 @@ export async function sweepPendingTags(): Promise<void> {
   }
 }
 
+/**
+ * Sweep NOW, because consent was just granted.
+ *
+ * The backoff being cleared is the point, not a convenience: the launch sweep
+ * on a consent-less account exits through the `hasAiConsent` gate and parks
+ * `nextSweepAt` half an hour out, so a grant made a minute later would
+ * otherwise leave every `pending_tag` piece sitting exactly where it was —
+ * on the one screen (the Reveal's unread zero) where the user was just told
+ * granting is what unsticks them. The same reset `retryJob` performs, for the
+ * same reason: the pace was set by refusals that no longer describe the world.
+ */
+export function sweepAfterConsent(): void {
+  nextSweepAt = 0;
+  sweepInterval = SWEEP_MIN_INTERVAL_MS;
+  void sweepPendingTags();
+}
+
 // ---------------------------------------------------------------------------
 // Backfill — the explicit way back from local mode
 // ---------------------------------------------------------------------------
