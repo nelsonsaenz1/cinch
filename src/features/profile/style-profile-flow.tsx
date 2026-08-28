@@ -9,8 +9,12 @@ import { AnswerChip } from '@/features/plan/trip-questionnaire';
 import {
   LIFE_STAGES,
   MAX_DRESS_OCCASIONS,
+  MAX_STYLE_GOALS,
+  STYLE_ADVENTURES,
+  STYLE_GOALS,
   lifestyleOccasion,
   occasionOrderFor,
+  type StyleAdventureKey,
   type LifeStageKey,
 } from '@/features/profile/lifestyle';
 import {
@@ -22,7 +26,7 @@ import { track } from '@/lib/posthog';
 import { MIN_TAP_TARGET } from '@/theme/tokens';
 
 /**
- * The lifestyle questionnaire's whole body — two steps, both closed
+ * The lifestyle questionnaire's whole body — four steps, all closed
  * vocabularies, shared by its three containers:
  *
  *   (auth)/quiz.tsx     — the SIGN-UP step. Every new account meets it right
@@ -38,7 +42,7 @@ import { MIN_TAP_TARGET } from '@/theme/tokens';
  * and closes on a promise the founder asked for in words: "You can change
  * these anytime in Settings." Both exits stamp the once-ever mark.
  *
- * Set in the trip questionnaire's dialect: eyebrow with the honest "1 of 2",
+ * Set in the trip questionnaire's dialect: an honest four-part progress bar,
  * one serif question, `AnswerChip`s (44pt of real geometry), one primary
  * button. Keys, never prose — nothing typed here, nothing free-text on the
  * wire.
@@ -93,6 +97,31 @@ function StageOption({
   );
 }
 
+const STEPS = ['stage', 'occasions', 'goals', 'adventure'] as const;
+type Step = (typeof STEPS)[number];
+
+function QuestionProgress({ step }: { step: Step }) {
+  const current = STEPS.indexOf(step) + 1;
+  return (
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={`Question ${current} of ${STEPS.length}`}
+      accessibilityValue={{ min: 1, max: STEPS.length, now: current }}
+      className="flex-row gap-2">
+      {STEPS.map((item, index) => (
+        <View
+          key={item}
+          className={[
+            'h-1 flex-1 rounded-full',
+            index < current ? 'bg-accent' : 'bg-sand',
+          ].join(' ')}
+        />
+      ))}
+    </View>
+  );
+}
+
 export function StyleProfileFlow({
   editor,
   onDone,
@@ -106,7 +135,7 @@ export function StyleProfileFlow({
   const save = useSaveLifestyle();
   const markPrompted = useMarkStyleProfilePrompted();
 
-  const [step, setStep] = useState<'stage' | 'occasions'>('stage');
+  const [step, setStep] = useState<Step>('stage');
   /**
    * Edits ride OVER the saved answers rather than replacing them — `undefined`
    * means "not touched yet", so the editor opens seeded with what is saved the
@@ -116,9 +145,18 @@ export function StyleProfileFlow({
    */
   const [stageEdit, setStageEdit] = useState<LifeStageKey | null | undefined>(undefined);
   const [occasionsEdit, setOccasionsEdit] = useState<string[] | undefined>(undefined);
+  const [goalsEdit, setGoalsEdit] = useState<string[] | undefined>(undefined);
+  const [adventureEdit, setAdventureEdit] = useState<StyleAdventureKey | null | undefined>(
+    undefined,
+  );
   const stage =
     stageEdit !== undefined ? stageEdit : ((lifestyle.lifeStage as LifeStageKey | null) ?? null);
   const occasions = occasionsEdit ?? lifestyle.occasions;
+  const goals = goalsEdit ?? lifestyle.goals;
+  const adventure =
+    adventureEdit !== undefined
+      ? adventureEdit
+      : ((lifestyle.adventure as StyleAdventureKey | null) ?? null);
 
   // The denominator: the questionnaire genuinely on screen as an onboarding
   // ask. The Settings editor is not an offer, so it stays silent.
@@ -138,11 +176,15 @@ export function StyleProfileFlow({
   };
 
   const onSave = () => {
-    save.mutate({ lifeStage: stage, occasions });
-    // WHAT IS MEASURED: which stage key and HOW MANY occasions — bounded, a
-    // closed enum and a count with a ceiling of six. Never the occasion list
-    // itself; which occasions somebody dresses for is theirs.
-    track('style_profile_saved', { stage: stage ?? 'none', occasions: occasions.length });
+    save.mutate({ lifeStage: stage, occasions, goals, adventure });
+    // WHAT IS MEASURED: closed stage/adventure enums and bounded counts. Never
+    // the selected occasion or goal lists themselves; those facts are theirs.
+    track('style_profile_saved', {
+      stage: stage ?? 'none',
+      occasions: occasions.length,
+      goals: goals.length,
+      adventure: adventure ?? 'none',
+    });
     onDone();
   };
 
@@ -158,12 +200,30 @@ export function StyleProfileFlow({
   };
 
   const atCap = occasions.length >= MAX_DRESS_OCCASIONS;
+  const goalsAtCap = goals.length >= MAX_STYLE_GOALS;
+
+  const toggleGoal = (key: string) => {
+    const prev = goals;
+    setGoalsEdit(
+      prev.includes(key)
+        ? prev.filter((goal) => goal !== key)
+        : prev.length >= MAX_STYLE_GOALS
+          ? prev
+          : [...prev, key],
+    );
+  };
+
+  const onBack = () => {
+    const index = STEPS.indexOf(step);
+    if (index > 0) setStep(STEPS[index - 1]!);
+    else if (editor) onDone();
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
       <ScreenHeader
         title="Your style"
-        onBack={editor ? onDone : undefined}
+        onBack={editor || step !== 'stage' ? onBack : undefined}
         trailing={
           !editor ? (
             <Pressable
@@ -183,13 +243,13 @@ export function StyleProfileFlow({
 
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-gutter pb-10 pt-4"
+        contentContainerClassName="px-gutter pb-10 pt-8"
         showsVerticalScrollIndicator={false}>
-        <Text variant="eyebrow">{step === 'stage' ? '1 of 2' : '2 of 2'}</Text>
+        <QuestionProgress step={step} />
 
         {step === 'stage' ? (
           <>
-            <Text variant="title" trim className="mt-3">
+            <Text variant="title" trim className="mt-8">
               Where is life right now?
             </Text>
             <Text variant="body" className="mt-2 text-muted">
@@ -208,9 +268,9 @@ export function StyleProfileFlow({
               ))}
             </View>
           </>
-        ) : (
+        ) : step === 'occasions' ? (
           <>
-            <Text variant="title" trim className="mt-3">
+            <Text variant="title" trim className="mt-8">
               What do you dress for?
             </Text>
             <Text variant="body" className="mt-2 text-muted">
@@ -239,17 +299,73 @@ export function StyleProfileFlow({
               </Text>
             ) : null}
           </>
+        ) : step === 'goals' ? (
+          <>
+            <Text variant="title" trim className="mt-8">
+              What should getting dressed do for you?
+            </Text>
+            <Text variant="body" className="mt-2 text-muted">
+              Pick up to {MAX_STYLE_GOALS}. Cinch will use these as priorities, not just labels.
+            </Text>
+
+            <View className="mt-6 gap-2">
+              {STYLE_GOALS.map((goal) => (
+                <StageOption
+                  key={goal.key}
+                  label={goal.label}
+                  hint={goal.hint}
+                  selected={goals.includes(goal.key)}
+                  onPress={() => toggleGoal(goal.key)}
+                />
+              ))}
+            </View>
+
+            {goalsAtCap ? (
+              <Text variant="note" className="mt-3 text-muted">
+                Two priorities keep the stylist focused — deselect one to swap it.
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <Text variant="title" trim className="mt-8">
+              How far should Cinch push your style?
+            </Text>
+            <Text variant="body" className="mt-2 text-muted">
+              Choose the amount of novelty you want in everyday recommendations.
+            </Text>
+
+            <View className="mt-6 gap-2">
+              {STYLE_ADVENTURES.map((option) => (
+                <StageOption
+                  key={option.key}
+                  label={option.label}
+                  hint={option.hint}
+                  selected={adventure === option.key}
+                  onPress={() => setAdventureEdit(option.key)}
+                />
+              ))}
+            </View>
+          </>
         )}
       </ScrollView>
 
       <View className="px-gutter pb-2">
         {step === 'stage' ? (
           <Button title="Continue" disabled={stage === null} onPress={() => setStep('occasions')} />
+        ) : step === 'occasions' ? (
+          <Button
+            title="Continue"
+            disabled={occasions.length === 0}
+            onPress={() => setStep('goals')}
+          />
+        ) : step === 'goals' ? (
+          <Button title="Continue" disabled={goals.length === 0} onPress={() => setStep('adventure')} />
         ) : (
           <>
             <Button
               title={editor ? 'Save' : 'Save and continue'}
-              disabled={occasions.length === 0}
+              disabled={adventure === null}
               loading={save.isPending}
               onPress={onSave}
             />

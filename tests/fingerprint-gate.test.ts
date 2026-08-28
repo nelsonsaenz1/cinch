@@ -35,16 +35,15 @@ import { test } from 'node:test';
 const script = readFileSync('scripts/check-fingerprint.mjs', 'utf8');
 const body = script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 
-// Re-taken 2026-08-21 at the cut of build 43 (ProMotion + the v1.2.0 bump
-// Apple demanded after closing the 1.1.0 train) — the procedure the previous
-// ids' assertion message prescribes. The runtime was computed by the script's
-// own EAS-equivalent method (git archive + npm ci); EAS stamped the identical
-// hash on build 42 for the ProMotion-only tree, which is the method's live
-// confirmation. Compare again at build 43's submission.
-const BUILD_40_COMMIT = 'e37361daabbe8cfff5138fa5d9b700d1fd5f3376';
-const BUILD_40_RUNTIME = 'c5f007736ab062f3dcb1bc3d98459f6d0ebd7119';
+// Re-taken 2026-08-28 at the cut of the 1.2.1 train (the ASO rename — the
+// version string is a fingerprint input, so the bump alone moves the runtime).
+// The runtime was computed by the script's own EAS-equivalent method
+// (git archive + npm ci), which EAS has confirmed identically on builds 42
+// and 43. Compare again against the EAS stamp at 1.2.1's submission.
+const BUILD_40_COMMIT = '215a132c31a50cec301e1df92ab85387de81bffe';
+const BUILD_40_RUNTIME = '813c6d3413ced400fea427cbf693e9f737c4ca29';
 
-test('the control is the commit Store build 43 was built from, and its EAS runtime', () => {
+test('the control is the commit the 1.2.1 store build was cut from, and its runtime', () => {
   assert.match(body, new RegExp(`CONTROL_COMMIT = '${BUILD_40_COMMIT}'`));
   assert.match(body, new RegExp(`CONTROL_HASH = '${BUILD_40_RUNTIME}'`));
 

@@ -1,5 +1,5 @@
 /**
- * The lifestyle profile — who this closet dresses, in two answers.
+ * The lifestyle profile — who this closet dresses, in four answers.
  *
  * A life stage and a handful of occasions, tapped once during onboarding and
  * editable forever in Settings. This module is the CLOSED VOCABULARY for both
@@ -14,9 +14,9 @@
  *     dressing without being handed a form.
  *
  * EVERYTHING HERE IS KEYS, NEVER PROSE — the questionnaire's own rule. The
- * answers live in `profiles.life_stage` / `profiles.dress_occasions` as plain
- * text (the `style_tags` idiom: permissive columns, closed UI), so a value
- * that drifts out of this list still loads; it simply stops unlocking things.
+ * answers live in four permissive `profiles` columns with a closed UI, so a
+ * value that drifts out of these lists still loads; it simply stops unlocking
+ * things.
  *
  * Pure and import-free below the type layer, so `tests/lifestyle-profile.
  * test.ts` can hold every mapping without mounting anything.
@@ -65,6 +65,95 @@ export const LIFE_STAGES: readonly LifeStage[] = [
 
 export const lifeStageLabel = (key: string): string | null =>
   LIFE_STAGES.find((s) => s.key === key)?.label ?? null;
+
+// ---------------------------------------------------------------------------
+// Getting-dressed goals
+// ---------------------------------------------------------------------------
+
+export type StyleGoalKey = 'comfortable' | 'polished' | 'expressive' | 'fresh' | 'fast';
+
+export type StyleGoal = {
+  key: StyleGoalKey;
+  label: string;
+  hint: string;
+  /** Third-person phrase for the stylist brief. */
+  phrase: string;
+};
+
+export const STYLE_GOALS: readonly StyleGoal[] = [
+  {
+    key: 'comfortable',
+    label: 'Feel comfortable',
+    hint: 'Easy to wear from morning through whatever comes next.',
+    phrase: 'feel comfortable',
+  },
+  {
+    key: 'polished',
+    label: 'Look polished',
+    hint: 'Put-together without looking overworked.',
+    phrase: 'look polished',
+  },
+  {
+    key: 'expressive',
+    label: 'Show personality',
+    hint: 'More of you in every outfit.',
+    phrase: 'show their personality',
+  },
+  {
+    key: 'fresh',
+    label: 'Find new combinations',
+    hint: 'Use what you own in ways you have not tried.',
+    phrase: 'find new combinations',
+  },
+  {
+    key: 'fast',
+    label: 'Get ready faster',
+    hint: 'Fewer decisions, a quicker yes.',
+    phrase: 'get ready faster',
+  },
+] as const;
+
+export const MAX_STYLE_GOALS = 2;
+
+export const styleGoal = (key: string): StyleGoal | undefined =>
+  STYLE_GOALS.find((goal) => goal.key === key);
+
+// ---------------------------------------------------------------------------
+// Style adventure
+// ---------------------------------------------------------------------------
+
+export type StyleAdventureKey = 'familiar' | 'balanced' | 'adventurous';
+
+export type StyleAdventure = {
+  key: StyleAdventureKey;
+  label: string;
+  hint: string;
+  phrase: string;
+};
+
+export const STYLE_ADVENTURES: readonly StyleAdventure[] = [
+  {
+    key: 'familiar',
+    label: 'Keep it familiar',
+    hint: 'Stay close to combinations you already trust.',
+    phrase: 'prefer familiar combinations',
+  },
+  {
+    key: 'balanced',
+    label: 'Mix in something new',
+    hint: 'Mostly familiar, with one fresh move.',
+    phrase: 'like one fresh move in a familiar look',
+  },
+  {
+    key: 'adventurous',
+    label: 'Surprise me',
+    hint: 'Push further when the pieces support it.',
+    phrase: 'welcome adventurous combinations',
+  },
+] as const;
+
+export const styleAdventure = (key: string): StyleAdventure | undefined =>
+  STYLE_ADVENTURES.find((option) => option.key === key);
 
 // ---------------------------------------------------------------------------
 // Occasions
@@ -238,6 +327,8 @@ export const ALL_LIFESTYLE_DAY_OPTIONS: readonly DayOption[] = LIFESTYLE_OCCASIO
 export function lifestyleSummaryLine(
   stage: string | null,
   selected: readonly string[],
+  goals: readonly string[] = [],
+  adventure: string | null = null,
 ): string | null {
   const labels = selected
     .map((key) => lifestyleOccasion(key)?.label.toLowerCase())
@@ -253,16 +344,31 @@ export function lifestyleSummaryLine(
           ? 'are a parent'
           : null;
 
-  if (!labels.length) return stageClause ? `${stageClause}` : null;
-
-  const list =
+  const occasionList =
     labels.length === 1
       ? labels[0]!
       : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]!}`;
+  const goalPhrases = goals
+    .map((key) => styleGoal(key)?.phrase)
+    .filter((phrase): phrase is string => Boolean(phrase))
+    .slice(0, MAX_STYLE_GOALS);
+  const goalList =
+    goalPhrases.length === 1
+      ? goalPhrases[0]!
+      : goalPhrases.length > 1
+        ? `${goalPhrases[0]} and ${goalPhrases[1]}`
+        : null;
+  const standingClause =
+    stageClause && labels.length
+      ? `${stageClause} and mostly dress for ${occasionList}`
+      : stageClause ?? (labels.length ? `mostly dress for ${occasionList}` : null);
+  const clauses = [
+    standingClause,
+    goalList ? `want outfits that ${goalList}` : null,
+    styleAdventure(adventure ?? '')?.phrase ?? null,
+  ].filter((clause): clause is string => Boolean(clause));
 
-  return stageClause
-    ? `${stageClause} and mostly dress for ${list}`
-    : `mostly dress for ${list}`;
+  return clauses.length ? clauses.join(', ') : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -282,6 +388,8 @@ export type StyleProfileGate =
       promptedAt: string | null;
       lifeStage: string | null;
       occasions: string[];
+      goals?: string[];
+      adventure?: string | null;
     };
 
 /**
@@ -297,6 +405,8 @@ export function shouldOfferStyleProfile(gate: StyleProfileGate): boolean {
     gate.status === 'ready' &&
     gate.promptedAt === null &&
     gate.lifeStage === null &&
-    gate.occasions.length === 0
+    gate.occasions.length === 0 &&
+    (gate.goals?.length ?? 0) === 0 &&
+    (gate.adventure ?? null) === null
   );
 }

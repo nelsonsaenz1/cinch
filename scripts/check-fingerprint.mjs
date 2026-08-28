@@ -47,13 +47,15 @@ const baselinePath = join(root, 'fingerprint.json');
 const PLATFORM = 'ios';
 
 /**
- * The commit Store build 40 (1.1.0) was built from, and the runtime EAS
- * stamped on it. Together they are the CONTROL for this script: a method that
- * cannot reproduce a known-good answer is not evidence about anything, and this
- * one silently could not for a while. `--verify-control` runs it.
+ * The commit the 1.2.1 store build (the ASO-rename train, 2026-08-28) was cut
+ * from, and the runtime this script computed over it. Together they are the
+ * CONTROL for this script: a method that cannot reproduce a known-good answer
+ * is not evidence about anything, and this one silently could not for a
+ * while. `--verify-control` runs it. Compare against the EAS-stamped runtime
+ * when the build finishes — every prior re-take has matched.
  */
-const CONTROL_COMMIT = 'e37361daabbe8cfff5138fa5d9b700d1fd5f3376';
-const CONTROL_HASH = 'c5f007736ab062f3dcb1bc3d98459f6d0ebd7119';
+const CONTROL_COMMIT = '215a132c31a50cec301e1df92ab85387de81bffe';
+const CONTROL_HASH = '813c6d3413ced400fea427cbf693e9f737c4ca29';
 
 /**
  * WHY THIS DOES NOT HASH THE WORKING DIRECTORY.

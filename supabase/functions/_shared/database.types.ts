@@ -2004,6 +2004,8 @@ export type Database = {
           stat_cost_per_wear_hidden: boolean
           stat_pieces_hidden: boolean
           stat_wears_hidden: boolean
+          style_adventure: string | null
+          style_goals: string[]
           style_profile_prompted_at: string | null
           style_tags: string[]
           time_zone: string | null
@@ -2046,6 +2048,8 @@ export type Database = {
           stat_cost_per_wear_hidden?: boolean
           stat_pieces_hidden?: boolean
           stat_wears_hidden?: boolean
+          style_adventure?: string | null
+          style_goals?: string[]
           style_profile_prompted_at?: string | null
           style_tags?: string[]
           time_zone?: string | null
@@ -2088,6 +2092,8 @@ export type Database = {
           stat_cost_per_wear_hidden?: boolean
           stat_pieces_hidden?: boolean
           stat_wears_hidden?: boolean
+          style_adventure?: string | null
+          style_goals?: string[]
           style_profile_prompted_at?: string | null
           style_tags?: string[]
           time_zone?: string | null

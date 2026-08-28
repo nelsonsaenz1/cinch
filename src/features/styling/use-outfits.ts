@@ -126,7 +126,12 @@ export function useOutfits({
    * the engine's own `occasionRule` note, which needs no model at all.
    */
   const lifestyle = useLifestyle();
-  const lifestyleLine = lifestyleSummaryLine(lifestyle.lifeStage, lifestyle.occasions);
+  const lifestyleLine = lifestyleSummaryLine(
+    lifestyle.lifeStage,
+    lifestyle.occasions,
+    lifestyle.goals,
+    lifestyle.adventure,
+  );
   const summaryLines = lifestyleLine ? [...profile.summary, lifestyleLine] : profile.summary;
   // --- Stage 1: instant, local, synchronous -------------------------------
   const shortlist = useMemo(() => {

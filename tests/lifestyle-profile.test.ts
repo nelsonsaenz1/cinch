@@ -17,6 +17,9 @@ import {
   LIFE_STAGES,
   LIFESTYLE_OCCASIONS,
   MAX_DRESS_OCCASIONS,
+  MAX_STYLE_GOALS,
+  STYLE_ADVENTURES,
+  STYLE_GOALS,
   dayOptionsFor,
   engineOccasionsFor,
   lifestyleSummaryLine,
@@ -69,6 +72,17 @@ test('engineOccasionsFor dedupes across the fan-out and keeps selection order', 
   // Unknown keys (a value that drifted out of the vocabulary) contribute
   // nothing rather than throwing — the column is permissive by design.
   assert.deepEqual(engineOccasionsFor(['scuba']), []);
+});
+
+test('the new preference vocabularies are closed, unique, and deliberately small', () => {
+  assert.equal(new Set(STYLE_GOALS.map((goal) => goal.key)).size, STYLE_GOALS.length);
+  assert.equal(new Set(STYLE_ADVENTURES.map((option) => option.key)).size, STYLE_ADVENTURES.length);
+  assert.equal(MAX_STYLE_GOALS, 2);
+  assert.deepEqual(STYLE_ADVENTURES.map((option) => option.key), [
+    'familiar',
+    'balanced',
+    'adventurous',
+  ]);
 });
 
 // ---------------------------------------------------------------------------
@@ -158,6 +172,18 @@ test('the summary line reads as a fact and never lists past the cap', () => {
   const commas = (line.match(/,/g) ?? []).length;
   assert.ok(commas <= MAX_DRESS_OCCASIONS - 2, line);
   assert.ok(line.length <= 240, 'over the server line ceiling');
+
+  const complete = lifestyleSummaryLine(
+    'college',
+    ['class', 'going_out'],
+    ['comfortable', 'fresh'],
+    'balanced',
+  )!;
+  assert.equal(
+    complete,
+    'are a student and mostly dress for class and going out, want outfits that feel comfortable and find new combinations, like one fresh move in a familiar look',
+  );
+  assert.ok(complete.length <= 240, 'complete profile exceeds the server line ceiling');
 });
 
 // ---------------------------------------------------------------------------
@@ -183,9 +209,29 @@ test('the offer is made exactly when nothing has been stamped or answered', () =
     shouldOfferStyleProfile({ status: 'ready', promptedAt: null, lifeStage: null, occasions: ['work'] }),
     false,
   );
+  assert.equal(
+    shouldOfferStyleProfile({
+      status: 'ready',
+      promptedAt: null,
+      lifeStage: null,
+      occasions: [],
+      goals: ['polished'],
+      adventure: null,
+    }),
+    false,
+  );
   // A read still in flight, or one that failed, never re-offers.
   assert.equal(shouldOfferStyleProfile({ status: 'loading' }), false);
   assert.equal(shouldOfferStyleProfile({ status: 'unavailable' }), false);
+});
+
+test('the questionnaire renders four accessible oxblood progress segments', () => {
+  const source = readFileSync('src/features/profile/style-profile-flow.tsx', 'utf8');
+  assert.match(source, /const STEPS = \['stage', 'occasions', 'goals', 'adventure'\]/);
+  assert.match(source, /accessibilityRole="progressbar"/);
+  assert.match(source, /accessibilityValue=\{\{ min: 1, max: STEPS\.length, now: current \}\}/);
+  assert.match(source, /index < current \? 'bg-accent' : 'bg-sand'/);
+  assert.doesNotMatch(source, /1 of 2|2 of 2/);
 });
 
 // ---------------------------------------------------------------------------

@@ -32,6 +32,8 @@ type LifestyleRow =
       promptedAt: string | null;
       lifeStage: string | null;
       occasions: string[];
+      goals: string[];
+      adventure: string | null;
     };
 
 async function readLifestyle(signal: AbortSignal): Promise<LifestyleRow> {
@@ -40,7 +42,7 @@ async function readLifestyle(signal: AbortSignal): Promise<LifestyleRow> {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('style_profile_prompted_at, life_stage, dress_occasions')
+    .select('style_profile_prompted_at, life_stage, dress_occasions, style_goals, style_adventure')
     .eq('user_id', userId)
     .abortSignal(signal)
     .maybeSingle();
@@ -53,6 +55,8 @@ async function readLifestyle(signal: AbortSignal): Promise<LifestyleRow> {
     promptedAt: data?.style_profile_prompted_at ?? null,
     lifeStage: data?.life_stage ?? null,
     occasions: data?.dress_occasions ?? [],
+    goals: data?.style_goals ?? [],
+    adventure: data?.style_adventure ?? null,
   };
 }
 
@@ -61,6 +65,10 @@ export type Lifestyle = {
   lifeStage: string | null;
   /** The tapped occasion keys, in selection order. Empty until answered. */
   occasions: string[];
+  /** The one or two outcomes getting dressed should optimize for. */
+  goals: string[];
+  /** How much novelty recommendations should introduce. */
+  adventure: string | null;
   /** The engine's occasion tags those keys reach — for `StyleContext`. */
   engineOccasions: string[];
 };
@@ -82,6 +90,8 @@ export function useLifestyle(): Lifestyle {
           promptedAt: query.data.promptedAt,
           lifeStage: query.data.lifeStage,
           occasions: query.data.occasions,
+          goals: query.data.goals,
+          adventure: query.data.adventure,
         };
 
   const ready = gate.status === 'ready';
@@ -91,11 +101,14 @@ export function useLifestyle(): Lifestyle {
   // input's identity changes — a fresh array here would rebuild the context
   // every frame.
   const occasions = ready ? gate.occasions : EMPTY;
+  const goals = ready ? (gate.goals ?? EMPTY) : EMPTY;
   const engineOccasions = useMemo(() => engineOccasionsFor(occasions), [occasions]);
   return {
     gate,
     lifeStage: ready ? gate.lifeStage : null,
     occasions,
+    goals,
+    adventure: ready ? (gate.adventure ?? null) : null,
     engineOccasions,
   };
 }
@@ -113,7 +126,12 @@ export function useSaveLifestyle() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (vars: { lifeStage: string | null; occasions: string[] }) => {
+    mutationFn: async (vars: {
+      lifeStage: string | null;
+      occasions: string[];
+      goals: string[];
+      adventure: string | null;
+    }) => {
       const userId = await getUserId();
       if (!userId) return;
       const { error } = await supabase
@@ -121,6 +139,8 @@ export function useSaveLifestyle() {
         .update({
           life_stage: vars.lifeStage,
           dress_occasions: vars.occasions,
+          style_goals: vars.goals,
+          style_adventure: vars.adventure,
           style_profile_prompted_at: new Date().toISOString(),
         })
         .eq('user_id', userId);
@@ -132,6 +152,8 @@ export function useSaveLifestyle() {
         promptedAt: new Date().toISOString(),
         lifeStage: vars.lifeStage,
         occasions: vars.occasions,
+        goals: vars.goals,
+        adventure: vars.adventure,
       };
       qc.setQueryData<LifestyleRow>(LIFESTYLE_KEY, next);
     },
@@ -159,6 +181,8 @@ export function useMarkStyleProfilePrompted() {
         promptedAt: new Date().toISOString(),
         lifeStage: prior && 'lifeStage' in prior ? prior.lifeStage : null,
         occasions: prior && 'occasions' in prior ? prior.occasions : [],
+        goals: prior && 'goals' in prior ? prior.goals : [],
+        adventure: prior && 'adventure' in prior ? prior.adventure : null,
       };
       qc.setQueryData<LifestyleRow>(LIFESTYLE_KEY, next);
     },

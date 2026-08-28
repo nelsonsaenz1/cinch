@@ -178,7 +178,12 @@ export function useChat({
   const lifestyle = useLifestyle();
   const gate = useGate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const lifestyleLine = lifestyleSummaryLine(lifestyle.lifeStage, lifestyle.occasions);
+  const lifestyleLine = lifestyleSummaryLine(
+    lifestyle.lifeStage,
+    lifestyle.occasions,
+    lifestyle.goals,
+    lifestyle.adventure,
+  );
   const sessionRef = useRef<string | null>(null);
   /** Latest `ask`, so the paywall's retry callback can reach it without a cycle. */
   const askRef = useRef<(question: string, options?: AskOptions) => Promise<void>>(async () => {});
