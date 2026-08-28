@@ -115,7 +115,10 @@ export const PLANS = {
     // Three a week, against an enforced five — see the field's own note.
     outfitPromise: { count: 3, period: 'week' },
     stylist: 'Not included',
-    eventHosting: 2,
+    // One at a time on free (founder directive 2026-08-28, was 2). Mirrors
+    // `event_limit_for_plan()` — migration 20260828170000 is the enforcing
+    // copy; this one only writes the sentence.
+    eventHosting: 1,
     eventJoins: 3,
     monthlyPriceHint: null,
     annualPriceHint: null,

@@ -734,6 +734,14 @@ export type AppEvent =
    * properties: the wear it followed is its own event.
    */
   | 'rating_prompt_requested'
+  /**
+   * Cinch's own recurring review card appeared (components/rating/
+   * review-prompt.tsx) — distinct from `rating_prompt_requested`, which is
+   * the OS card. No properties.
+   */
+  | 'review_prompt_shown'
+  /** How the card was answered: rate | already | later. Nothing else. */
+  | 'review_prompt_action'
   /** Whether the look was kept — never which look. */
   | 'favorite_set'
   /** Show another ran out of genuinely different looks and said so. */

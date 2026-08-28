@@ -13,6 +13,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Text } from '@/components/ui/text';
 import { ToastHost } from '@/components/ui/toast-host';
+import { ReviewPrompt } from '@/components/rating/review-prompt';
 import { AnalyticsProperties } from '@/features/analytics/analytics-properties';
 import { isoWeek } from '@/features/analytics/signup-week';
 import { useDeepLinkAuth } from '@/features/auth/use-deep-link-auth';
@@ -347,6 +348,11 @@ export default function RootLayout() {
                 tests/provider-order.test.ts.
               */}
               <AnalyticsProperties />
+              {/* The recurring review ask (founder directive 8/28). Same
+                  import discipline as AnalyticsProperties: storage, router
+                  pathname and PostHog only — no billing or Superwall hooks,
+                  so it can never re-open the 8/26 provider-order wound. */}
+              <ReviewPrompt />
               <AuthGate>
               {/* `fullScreenGestureEnabled`: the back swipe works from anywhere
                   on a pushed card, not only the left edge — the gesture every
