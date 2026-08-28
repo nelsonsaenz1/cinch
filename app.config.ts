@@ -148,7 +148,11 @@ const config: ExpoConfig = {
   // to the production channel at d9cb8c3b…. A fresh OTA has to be published
   // against the new runtime after the build, or 1.1 ships with only its
   // embedded bundle.
-  version: '1.2.0',
+  // 1.2.1 exists to carry the ASO rename (docs/app-store-listing.md identity
+  // block) — App Name and Subtitle are version-scoped once released, and 1.2.0
+  // shipped, so the new title needs a fresh version and therefore a fresh
+  // build. JS rides along at whatever HEAD builds it.
+  version: '1.2.1',
   orientation: 'portrait',
   // Light only. Cinch is a print lookbook, and a print object has one
   // appearance — this pins the app to light regardless of the system setting,
