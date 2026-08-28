@@ -152,7 +152,7 @@ const config: ExpoConfig = {
   // block) — App Name and Subtitle are version-scoped once released, and 1.2.0
   // shipped, so the new title needs a fresh version and therefore a fresh
   // build. JS rides along at whatever HEAD builds it.
-  version: '1.2.1',
+  version: '1.2.0',
   orientation: 'portrait',
   // Light only. Cinch is a print lookbook, and a print object has one
   // appearance — this pins the app to light regardless of the system setting,
