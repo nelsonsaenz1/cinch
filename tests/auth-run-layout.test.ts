@@ -42,6 +42,7 @@ import {
   RUN,
   RUN_STEPS,
   beatMs,
+  codeDigits,
   codeColumns,
   cooldownLine,
   expiredTrouble,
@@ -159,11 +160,24 @@ test('the code screen still submits on the sixth digit and has no button', () =>
 test('one hidden field still drives the boxes, so one-time-code autofill lands', () => {
   assert.match(CODE_RAW, /textContentType="oneTimeCode"/);
   assert.match(CODE_RAW, /autoComplete="one-time-code"/);
-  assert.match(CODE_RAW, /maxLength={CODE_LENGTH}/);
+  assert.doesNotMatch(CODE_RAW, /maxLength=/);
   // Exactly one TextInput: six real fields would break autofill and the paste.
   // `<TextInput\s` — the JSX open tag. `useRef<TextInput>(null)` is a type
   // argument, not a second field, and matching it would make this vacuous.
   assert.equal((CODE_RAW.match(/<TextInput\s/g) ?? []).length, 1);
+});
+
+test('a native paste action accepts formatted six-digit codes without clipboard permission', () => {
+  assert.equal(codeDigits('123456'), '123456');
+  assert.equal(codeDigits('123 456'), '123456');
+  assert.equal(codeDigits('Your code is 123-456.'), '123456');
+  assert.equal(codeDigits('123456789'), '123456');
+  assert.equal(codeDigits('not a code'), '');
+
+  assert.match(CODE_RAW, /Clipboard\.isPasteButtonAvailable/);
+  assert.match(CODE_RAW, /<Clipboard\.ClipboardPasteButton/);
+  assert.match(CODE_RAW, /acceptedContentTypes={\['plain-text'\]}/);
+  assert.match(CODE_RAW, /data\.type === 'text'\) onChange\(data\.text\)/);
 });
 
 test('a resend still resets the attempt count and starts the cooldown', () => {

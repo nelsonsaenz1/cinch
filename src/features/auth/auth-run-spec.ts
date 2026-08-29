@@ -206,6 +206,15 @@ export { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
 export const CODE_LENGTH = 6;
 export const CODE_ROW_COLUMNS = 3;
 
+/**
+ * Email and SMS clients commonly copy codes with spaces, punctuation or a
+ * short label attached. Normalise before applying the six-digit ceiling so a
+ * paste such as `123 456` does not lose its final digit.
+ */
+export function codeDigits(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, CODE_LENGTH);
+}
+
 export function codeColumns(large: boolean): number {
   return large ? CODE_ROW_COLUMNS : CODE_LENGTH;
 }

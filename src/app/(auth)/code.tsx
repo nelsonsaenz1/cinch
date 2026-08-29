@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -46,6 +47,7 @@ import {
   MAX_ATTEMPTS,
   PAD,
   RESEND_COOLDOWN_S,
+  codeDigits,
   codeColumns,
   cooldownLine,
   expiredTrouble,
@@ -186,7 +188,7 @@ export default function CodeScreen() {
   const onChange = useCallback(
     (raw: string) => {
       if (verifying || exhausted) return;
-      const digits = raw.replace(/\D/g, '').slice(0, CODE_LENGTH);
+      const digits = codeDigits(raw);
       // The keystroke after a miss clears the whole field — the hidden input was
       // already emptied, so whatever arrives simply starts fresh.
       if (wrong) setWrong(false);
@@ -268,7 +270,23 @@ export default function CodeScreen() {
           />
         </Animated.View>
 
-        {/* One hidden field drives the boxes, so oneTimeCode autofill works. */}
+        {Clipboard.isPasteButtonAvailable && !verifying && !exhausted ? (
+          <Clipboard.ClipboardPasteButton
+            acceptedContentTypes={['plain-text']}
+            backgroundColor={atlas.oxblood}
+            foregroundColor={atlas.paper}
+            cornerStyle="capsule"
+            displayMode="iconAndLabel"
+            style={{ width: 116, height: 44, alignSelf: 'center', marginTop: 14 }}
+            onPress={(data) => {
+              if (data.type === 'text') onChange(data.text);
+            }}
+          />
+        ) : null}
+
+        {/* One hidden field drives the boxes, so oneTimeCode autofill works.
+            The native control above supplies the visible, permission-safe
+            paste target; no raw-length cap may truncate formatted codes. */}
         <TextInput
           ref={inputRef}
           value={value}
@@ -278,7 +296,6 @@ export default function CodeScreen() {
           keyboardType="number-pad"
           textContentType="oneTimeCode"
           autoComplete="one-time-code"
-          maxLength={CODE_LENGTH}
           caretHidden
           accessibilityLabel="Six-digit code"
           style={{ position: 'absolute', opacity: 0, height: 1, width: 1, left: PAD, top: 0 }}
