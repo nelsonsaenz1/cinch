@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 
 import { isValidEmail, normalizeEmail } from '@/features/auth/email';
 import { normalizePhone } from '@/features/auth/phone';
+import { appleFailureCode } from '@/features/auth/sign-in-errors';
 import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
@@ -47,7 +48,18 @@ export type SignInResult =
       /** Whether this sign-in appears to have created the account. */
       isNew?: boolean;
     }
-  | { ok: false; reason: SignInFailureReason; message?: string };
+  | {
+      ok: false;
+      reason: SignInFailureReason;
+      message?: string;
+      /**
+       * A bounded diagnostic code from a CLOSED set — never a sentence, so it
+       * is the one part of a failure `reportAuth` may forward to analytics.
+       * Today only the Apple path sets it (see `appleFailureCode`); the email
+       * and phone paths already say everything with `reason` alone.
+       */
+      code?: string;
+    };
 
 type AuthMethod = 'apple' | 'email' | 'phone';
 
@@ -77,7 +89,10 @@ type AuthMethod = 'apple' | 'email' | 'phone';
  */
 function reportAuth(method: AuthMethod, result: SignInResult): SignInResult {
   if (result.ok) track('auth_completed', { method });
-  else track('auth_failed', { method, reason: result.reason });
+  // `code` rides along where a path set one: it is from a closed set by the
+  // type's own contract, which is what makes it — unlike `message` — safe
+  // for the vendor. Absent stays absent rather than becoming a sentinel.
+  else track('auth_failed', { method, reason: result.reason, ...(result.code ? { code: result.code } : {}) });
   return result;
 }
 
@@ -103,6 +118,7 @@ export async function signInWithApple(): Promise<SignInResult> {
         ok: false,
         reason: 'failed',
         message: 'Apple did not return an identity token.',
+        code: 'no_identity_token',
       });
     }
 
@@ -111,7 +127,14 @@ export async function signInWithApple(): Promise<SignInResult> {
       token: credential.identityToken,
     });
     if (error) {
-      return reportAuth('apple', { ok: false, reason: 'failed', message: error.message });
+      // The status is a number Supabase assigned, not text anyone wrote —
+      // bounded the way the whole `code` contract requires.
+      return reportAuth('apple', {
+        ok: false,
+        reason: 'failed',
+        message: error.message,
+        code: `supabase_${error.status ?? 'x'}`,
+      });
     }
 
     // Persist the name right now — it is only in `credential.fullName` on this
@@ -162,6 +185,7 @@ export async function signInWithApple(): Promise<SignInResult> {
       ok: false,
       reason: 'failed',
       message: err instanceof Error ? err.message : String(err),
+      code: appleFailureCode(err),
     });
   }
 }

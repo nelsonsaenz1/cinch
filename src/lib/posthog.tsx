@@ -569,6 +569,12 @@ export type AppEvent =
    * tokens. `canceled` lives here rather than in its own event: dismissing the
    * Apple sheet is the single most common outcome, and splitting it out makes
    * the funnel harder to read, not easier.
+   *
+   * `code` (Apple path only, since 2026-08-30) is a bounded diagnostic from
+   * the CLOSED set in `sign-in-errors.ts` — the module's own ERR_* enum,
+   * `no_identity_token`, or `supabase_<status>` — added because nine users
+   * were locked out over ten days and `reason: 'failed'` could not say why.
+   * Still never a sentence.
    */
   | 'auth_failed'
   // ── Daily Social (docs/design/daily-social-contract.md §5.6) ──────────────

@@ -61,6 +61,10 @@ const WORDMARK_LEADING = leading('instrument', WORDMARK_SIZE, 1.05);
 
 /** The W-03 toast's copy — one sentence, whatever Apple's error was. */
 const TOAST_DID_NOT_FINISH = 'Sign-in didn’t finish. Nothing was sent.';
+// After the second real Apple failure — never for a cancel. Names the way
+// forward instead of implying one more tap will differ.
+const TOAST_APPLE_KEEPS_FAILING =
+  'Apple sign-in isn’t finishing on this phone. Use email instead — a six-digit code, no password.';
 
 type Toast = { message: string; retry: boolean } | null;
 
@@ -124,6 +128,12 @@ export default function SignInScreen() {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Real (non-cancel) Apple failures this visit. A ref because nothing
+   * renders from the number itself — it only decides which sentence the next
+   * failure gets.
+   */
+  const appleFailures = useRef(0);
 
   /**
    * Whether Sign in with Apple can actually run in THIS build. `Platform.OS`
@@ -196,7 +206,18 @@ export default function SignInScreen() {
           break;
         default:
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-          showToast(TOAST_DID_NOT_FINISH, true);
+          // The second real failure changes the sentence. The 2026-08 funnel
+          // showed people hitting this wall four to seven times and leaving
+          // without ever finding the other door — the same toast on every
+          // attempt reads as "try again", and for a device where Apple's
+          // sheet is genuinely broken (all nine lockouts were iOS 26.6.1),
+          // "again" can never work. Email can. A count, not a flag, so one
+          // transient blip still reads as a blip.
+          appleFailures.current += 1;
+          showToast(
+            appleFailures.current >= 2 ? TOAST_APPLE_KEEPS_FAILING : TOAST_DID_NOT_FINISH,
+            true,
+          );
           break;
       }
     } catch (err) {
