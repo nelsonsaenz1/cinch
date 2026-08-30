@@ -295,6 +295,12 @@ export type AppEvent =
   /** A recreated look kept. `pieces` is a count, same rule. */
   | 'recreate_saved'
   /**
+   * A hand-composed outfit settled — the /compose screen, born of the app's
+   * first support email. `pieces` is a count; `worn` says which of the two
+   * doors was taken. Never the pieces.
+   */
+  | 'own_outfit_composed'
+  /**
    * A Pinterest OAuth attempt settled. `outcome` is one of the closed
    * connect codes (connected | canceled | denied | failed | not_configured).
    * Nothing about the Pinterest account: no username, no board, no token —

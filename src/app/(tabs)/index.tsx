@@ -1,5 +1,5 @@
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -2111,6 +2111,25 @@ export default function TodayScreen() {
               position, so a reader never has to find this row to learn where
               she is. */}
           {nothingWorks ? null : <PlateDots count={effectiveShown.length} active={activePlate} />}
+
+          {/* The composer's door — the app's first support email, verbatim:
+              "if I'm already wearing something or I don't like what the app
+              suggested I can add my outfit to my calendar anyway." Quiet, the
+              Show-another register, because it is the day's escape hatch, not
+              a competitor to the plates above it. Always drawn: wearing your
+              own clothes needs no precondition. */}
+          <PressableSurface
+            accessibilityRole="button"
+            accessibilityLabel="Compose your own outfit"
+            onPress={() => router.push('/compose' as Href)}
+            fill
+            style={{ minHeight: ax ? 56 : 44 }}
+            contentStyle={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            className="mt-1 rounded-md">
+            <Text variant="label" className="text-muted">
+              Wearing something else? Compose your own
+            </Text>
+          </PressableSurface>
 
           {/* A thin wardrobe: enough for today, said plainly and with no count.
               Not a refusal and not a floor — the plates above are real. */}
