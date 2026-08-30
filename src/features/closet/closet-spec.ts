@@ -303,6 +303,17 @@ export const GRID_COLUMNS = 3;
 export const GRID_COLUMNS_AX = 1;
 export const GRID_GUTTER = 2;
 
+/**
+ * Rows part further than columns, because rows end in words. The 2pt gutter
+ * is right BETWEEN wells — image against image, where the frames do the
+ * separating — but a card's bottom edge is its caption ("Never worn",
+ * "Worn 2 times"), and 2pt put that line nearly touching the next row's
+ * photograph: text sandwiched between images, reading as annotation of the
+ * wrong card (founder screenshot, 2026-08-30). Twelve gives the caption its
+ * own band without loosening the columns.
+ */
+export const GRID_ROW_GAP = 12;
+
 export function gridColumns(ax: boolean): number {
   return ax ? GRID_COLUMNS_AX : GRID_COLUMNS;
 }

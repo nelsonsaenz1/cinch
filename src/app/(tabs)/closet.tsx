@@ -949,7 +949,18 @@ function Rail({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: GUTTER, gap: RAIL_GAP, paddingTop: 12 }}>
+        // `paddingBottom` exists because the cards END in a 10pt caption:
+        // without it the "2 wears" line sat flush on whatever rendered next —
+        // in C-01's case the grid's first row of photographs, which read as
+        // the caption being sandwiched between images (founder screenshot,
+        // 2026-08-30). 12 under matches the 12 above, so the rail's text sits
+        // in its own band rather than annotating its neighbours.
+        contentContainerStyle={{
+          paddingHorizontal: GUTTER,
+          gap: RAIL_GAP,
+          paddingTop: 12,
+          paddingBottom: 12,
+        }}>
         {children}
       </ScrollView>
     </View>

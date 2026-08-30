@@ -346,11 +346,21 @@ export default function StylistScreen() {
     [openedAt, context.weather, lifestyle.occasions],
   );
 
-  const { resolve } = useSignedUrls(
-    messages.flatMap((m) =>
+  const { resolve } = useSignedUrls([
+    // The door garments FIRST — the opening renders with zero messages, and
+    // signing only the transcript's outfits left `resolve` empty-handed for
+    // every door on every fresh visit: five sand wells where the reader's own
+    // clothes belong (founder screenshot, 2026-08-30). One path set per door,
+    // the same five pieces `doorCards` below reads.
+    ...DOORS.flatMap((_, i) => [
+      items[i]?.platePath,
+      items[i]?.cutoutPath,
+      items[i]?.thumbPath,
+    ]),
+    ...messages.flatMap((m) =>
       m.outfits.flatMap((o) => o.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath])),
     ),
-  );
+  ]);
 
   /**
    * The doors, each wearing a piece the reader already owns.

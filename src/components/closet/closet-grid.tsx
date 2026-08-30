@@ -2,7 +2,7 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useWindowDimensions, View } from 'react-native';
 
 import { ItemCard } from '@/components/closet/item-card';
-import { GRID_GUTTER, gridColumns } from '@/features/closet/closet-spec';
+import { GRID_ROW_GAP, gridColumns } from '@/features/closet/closet-spec';
 import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
 import type { Item } from '@/schemas/item';
 import { GUTTER } from '@/theme/tokens';
@@ -146,10 +146,11 @@ export function ClosetGrid({
       // bottom padding, and nothing errors. `GUTTER` is the same measure
       // `px-gutter` gives every other page; 96 = pb-24.
       contentContainerStyle={{ paddingHorizontal: GUTTER, paddingBottom: 96 }}
-      // Minimal gutters: the wells do the separating, and a generous gap
-      // between tiles at three columns spends on air what the grid wants to
-      // spend on pieces.
-      ItemSeparatorComponent={() => <View style={{ height: stacked ? 8 : GRID_GUTTER }} />}
+      // Columns stay minimal — the wells do the separating there — but ROWS
+      // part at GRID_ROW_GAP, because a row ends in its captions and 2pt put
+      // "Never worn" nearly touching the photograph below it. See the
+      // constant's note in closet-spec.ts.
+      ItemSeparatorComponent={() => <View style={{ height: stacked ? 8 : GRID_ROW_GAP }} />}
       refreshControl={refreshControl}
       showsVerticalScrollIndicator={false}
       // Search mode puts a live text field directly above this grid; scrolling
