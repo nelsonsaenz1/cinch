@@ -25,6 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CapacityNote } from '@/components/today/capacity-note';
 import { ClosetFloor } from '@/components/today/closet-floor';
+import { RevealDoor } from '@/components/today/reveal-door';
 import { TasteRow, type TasteState } from '@/components/today/taste-row';
 import { PlateDots, TodayPlate, WornMark } from '@/components/today/today-plate';
 import {
@@ -51,6 +52,7 @@ import {
 import {
   TODAY_EVENTS,
   closetFloorShownProps,
+  revealDoorShownProps,
   favoriteSetProps,
   noViableCombinationProps,
   outfitsSourceProps,
@@ -79,7 +81,7 @@ import { tasteSignal } from '@/features/today/wear-confirm-spec';
 import { Button } from '@/components/ui/button';
 import { Notice } from '@/components/ui/notice';
 import { Text } from '@/components/ui/text';
-import { rankGaps, tallyOf } from '@/features/closet/outfit-count';
+import { countOutfits, rankGaps, tallyOf } from '@/features/closet/outfit-count';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useStyleContext } from '@/features/context/use-style-context';
 import { startTagSweeper } from '@/features/ingest/upload-queue';
@@ -98,6 +100,7 @@ import {
   type WearFailureKind,
 } from '@/features/styling/wear-failure';
 import { exhaustionProgress, wearsOfCore } from '@/features/styling/repeat';
+import { useRevealNeverSeen } from '@/features/onboarding/reveal-seen';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits, type StyledOutfit } from '@/features/styling/use-outfits';
 import { nameOutfits } from '@/features/styling/outfit-names';
@@ -996,6 +999,19 @@ export default function TodayScreen() {
   // The two refusals and the floor, each observed exactly where it renders and
   // each carrying nothing at all — that a morning had no answer is the whole
   // fact, and any property on it would describe the wardrobe that failed.
+  // The reveal door's eligibility, computed once beside the floor's. Strict
+  // by construction: `useRevealNeverSeen` answers true only on a settled read
+  // that says never-seen, so loading and error cannot flash the card in.
+  const revealNeverSeen = useRevealNeverSeen();
+  const revealDoor =
+    revealNeverSeen && !wardrobe.isLoading && !wardrobe.isError && canGenerate(items);
+  const revealDoorRef = useRef(false);
+  useEffect(() => {
+    if (!visited || !revealDoor || revealDoorRef.current) return;
+    revealDoorRef.current = true;
+    track(TODAY_EVENTS.revealDoorShown, revealDoorShownProps());
+  }, [visited, revealDoor]);
+
   const floorRef = useRef(false);
   const belowFloor =
     !wardrobe.isLoading && !wardrobe.isError && belowActivationFloor(items.length, canGenerate(items));
@@ -1756,6 +1772,21 @@ export default function TodayScreen() {
             <OccasionInterrupt
               occasion={interrupt}
               onDress={() => router.push(`/event/${interrupt.id}/outfits`)}
+            />
+          ) : null}
+
+          {/* The reveal door — once per account, and only for a closet the
+              engine can already dress. Exists because the Reveal was the
+              Ten's finish line and nothing else's: an account that filled
+              its closet through capture or import never met the proof
+              moment, and the reveal_complete paywall placement behind it
+              never fired (production walk, 2026-08-30 — zero reveal_phase
+              events from any account after 08-21). Below the interrupt when
+              both appear: today's occasion outranks a standing invitation. */}
+          {revealDoor ? (
+            <RevealDoor
+              outfitCount={countOutfits(tallyOf(items))}
+              onOpen={() => router.push('/reveal')}
             />
           ) : null}
 

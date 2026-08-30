@@ -16,6 +16,7 @@ import {
   CONTEXT_CHOICES,
   TODAY_EVENTS,
   closetFloorShownProps,
+  revealDoorShownProps,
   contextChoiceOf,
   contextOpenedProps,
   contextSetProps,
@@ -68,6 +69,7 @@ const EVERY_PAYLOAD: [string, TodayProps][] = [
   [TODAY_EVENTS.repeatExhausted, repeatExhaustedProps()],
   [TODAY_EVENTS.noViableCombination, noViableCombinationProps()],
   [TODAY_EVENTS.closetFloorShown, closetFloorShownProps()],
+  [TODAY_EVENTS.revealDoorShown, revealDoorShownProps()],
 ];
 
 // ---------------------------------------------------------------------------
@@ -75,7 +77,12 @@ const EVERY_PAYLOAD: [string, TodayProps][] = [
 // ---------------------------------------------------------------------------
 
 test('thirteen events, no more and no fewer', () => {
-  assert.equal(Object.keys(TODAY_EVENTS).length, 13);
+  // AMENDED 2026-08-30, fourteen: `reveal_door_shown` joins — the standing
+  // reveal invitation for a generating closet whose account never saw the
+  // Reveal (the proof moment was the Ten's finish line and nothing else's,
+  // and the capture/import paths bypassed it for every account after 08-21).
+  // Carries nothing, once per account, the floor's own discipline.
+  assert.equal(Object.keys(TODAY_EVENTS).length, 14);
 });
 
 test('the thirteen are the thirteen that were agreed', () => {
@@ -93,6 +100,7 @@ test('the thirteen are the thirteen that were agreed', () => {
     'repeat_exhausted',
     'no_viable_combination',
     'closet_floor_shown',
+    'reveal_door_shown',
   ]));
 });
 

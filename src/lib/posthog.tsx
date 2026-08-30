@@ -772,6 +772,12 @@ export type AppEvent =
   | 'no_viable_combination'
   /** The activation floor was shown: "Start with ten pieces." */
   | 'closet_floor_shown'
+  /**
+   * Today's standing reveal invitation was drawn — a generating closet whose
+   * account has never seen the Reveal. Once per account by construction
+   * (`reveal_seen_at` closes it), carrying nothing, the floor's rule.
+   */
+  | 'reveal_door_shown'
 
   // ── Redesign 12 · The Reveal ──────────────────────────────────────────────
   //

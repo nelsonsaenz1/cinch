@@ -53,6 +53,7 @@ export const TODAY_EVENTS = {
   repeatExhausted: 'repeat_exhausted',
   noViableCombination: 'no_viable_combination',
   closetFloorShown: 'closet_floor_shown',
+  revealDoorShown: 'reveal_door_shown',
 } as const;
 
 /** Which of the three plates is on screen. Never how many exist. */
@@ -122,6 +123,8 @@ export const repeatExhaustedProps = (): TodayProps => ({});
 export const noViableCombinationProps = (): TodayProps => ({});
 
 export const closetFloorShownProps = (): TodayProps => ({});
+/** The standing reveal invitation drawn — carrying nothing, the floor's rule. */
+export const revealDoorShownProps = (): TodayProps => ({});
 
 /**
  * The closed list of choices, for the mapper and for the test.

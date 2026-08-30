@@ -15,6 +15,7 @@ import { RevealComputing, RevealCount } from '@/components/reveal/reveal-count';
 import { RevealEmpty } from '@/components/reveal/reveal-empty';
 import { RevealStage } from '@/components/reveal/reveal-stage';
 import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
+import { useMarkRevealSeen } from '@/features/onboarding/reveal-seen';
 import { Plate } from '@/components/today/plate';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -158,6 +159,22 @@ export default function RevealScreen() {
     platesAvailable: plates.length,
     reduced,
   });
+
+  // ── Seen, for good ───────────────────────────────────────────────────────
+  //
+  // Arriving IS seeing it: the stamp lands on mount, not on completion, so a
+  // person who backgrounds mid-count is not offered the moment again as if it
+  // never happened. Once per mount, fire-and-forget — the sequence must not
+  // wait on a write, and the mutation's own optimistic cache close means
+  // Today's door is already gone when the exit lands back there.
+  const markSeen = useMarkRevealSeen();
+  const stamped = useRef(false);
+  useEffect(() => {
+    if (stamped.current) return;
+    stamped.current = true;
+    markSeen.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── The beats, reported as beats ─────────────────────────────────────────
   //
