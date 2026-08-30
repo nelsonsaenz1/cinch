@@ -79,3 +79,28 @@ This documentation reconciliation does not mutate or re-submit anything in App S
 - Re-read live App Store Connect status before any submission, expedited-review, or publication action.
 
 No application change is authorized or performed by this ledger reconciliation.
+
+## 2026-08-31 · OTA to 1.2.1 build 45 — runtime 813c6d34
+
+Update `01a05513-1b78-7b26-90b3-20ece33f5cbb`, channel `production`, published
+via the gated rail at `82815c1` (main == origin/main). Carries, in one batch:
+stylist doors signing fix (wells wear real garments), closet rail/grid caption
+spacing, Today's reveal door (+ `profiles.reveal_seen_at`, applied to prod),
+Apple sign-in bounded `code` + second-failure email steer, OTP paste control,
+`/compose` (compose-your-own + wear_outfit_tx), Explore doors row + the
+C-03-gated shop shelf.
+
+Two honest notes. (1) The keyed-Release sim boot gate was NOT run — this
+session cannot attach a simulator; the founder ordered the release regardless.
+No change in the batch touches bootstrap or provider order (the 8/26 outage
+class). Watch `update_id` adoption + crash-free in PostHog. (2) A first publish
+attempt landed on runtime `92a3035b` and was refused by the rail post-publish:
+the working directory's node_modules had been silently converted to a deno
+symlink layout (12:19 that day), which added ~60 phantom native dirs to the
+fingerprint. That update is an inert orphan — no binary carries that runtime —
+and the fix was `rm -rf node_modules && npm ci`, after which the workdir
+reproduced `813c6d34`/168 sources exactly. If fingerprints ever drift again,
+check `node_modules/.deno` first.
+
+Rollback: `eas update:republish` the prior good update on `production`, or
+`eas update:rollback`. Prior update on this runtime predates 2026-08-30.
