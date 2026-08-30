@@ -386,6 +386,14 @@ test('the redesign added no query, no table and no edge function', () => {
     // Not a read: observes tab focus so "opened" analytics fire on a visit
     // rather than on NativeTabs' launch-time mount (lib/use-tab-visited.ts).
     'useTabVisited',
+    // AMENDED 2026-08-30, the founder-ordered shop shelf: the person's own
+    // C-03 switch, the closet the derivation reads, and the shelf's one
+    // query hook (whose browse bodies carry a fixed enum and nothing else —
+    // tests/explore-shop-feed.test.ts pins that wire). The direct-invoke ban
+    // below still holds for the ROUTE; the invoke lives in the hook.
+    'useShowWhereToBuy',
+    'useWardrobe',
+    'useShopFeed',
   ];
   const hooks = [...src.matchAll(/\buse[A-Z]\w*/g)].map((m) => m[0]);
   for (const hook of new Set(hooks)) {

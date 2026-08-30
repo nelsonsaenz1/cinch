@@ -19,6 +19,8 @@ import {
 } from '@/components/explore';
 import { Card } from '@/components/ui/card';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
+import { ExploreDoors } from '@/components/explore/explore-doors';
+import { ShopFeedSection } from '@/components/explore/shop-feed-section';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -60,6 +62,9 @@ import { groupByDay } from '@/features/explore/timeline';
 import { unseenBoundaryIndex } from '@/features/explore/unseen';
 import { useExploreVisit } from '@/features/explore/use-explore-unseen';
 import { useMutedIds } from '@/features/social-graph/muted';
+import { useShowWhereToBuy } from '@/features/commerce/queries';
+import { useWardrobe } from '@/features/styling/queries';
+import { useShopFeed } from '@/features/explore/use-shop-feed';
 import { useFriends } from '@/features/social-graph/queries';
 import { track } from '@/lib/posthog';
 import { useTabVisited } from '@/lib/use-tab-visited';
@@ -217,6 +222,14 @@ export default function ExploreScreen() {
   // Read-only, and only so the circle sheet can say "Off" beside the door to
   // the switch. Nothing on this page writes it.
   const sharing = useWornSharing();
+
+  // The shelf at the end — partner clothing like what this closet holds.
+  // Gated on C-03, the person's own "Show where to buy" switch: off means
+  // this section is absent the way every other shop surface is. The wardrobe
+  // read is the page's own; the browse bodies carry only fixed enum slots.
+  const showWhereToBuy = useShowWhereToBuy();
+  const wardrobeForFeed = useWardrobe();
+  const shopFeed = useShopFeed(wardrobeForFeed.data ?? [], showWhereToBuy.data === true);
 
   // Variant A plus the device-local mute, both at the read edge — before the
   // day grouping and the signed-URL work, so a hidden row simply never exists
@@ -664,6 +677,15 @@ export default function ExploreScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
         }>
+        {/* The features, on the page — founder order 2026-08-30. The sheet
+            behind the ellipsis remains the management surface; these are the
+            three doors a visit most often came for. */}
+        <ExploreDoors
+          onFindPeople={openSearch}
+          onFriends={() => router.push('/friends')}
+          onInvite={() => router.push('/invite')}
+        />
+
         {/* UX-10 — the rule between what is new and what you have already seen,
             over the looks. It draws above the FIRST card, which is where the
             accepted frame puts it, and only when `unseen.ts` has proven a
@@ -784,6 +806,11 @@ export default function ExploreScreen() {
             ) : null}
           </View>
         )}
+
+        {/* The shop shelf — last on purpose: the page is the circle, and the
+            shops follow it. Absent entirely for a person who turned "Show
+            where to buy" off, or whose closet holds nothing to be like. */}
+        {showWhereToBuy.data === true ? <ShopFeedSection cards={shopFeed.data ?? []} /> : null}
 
         {/* THE ENDING — one page, one full stop, and it belongs to the week.
             It prints under everything, over a page that actually loaded and

@@ -301,6 +301,14 @@ export type AppEvent =
    */
   | 'own_outfit_composed'
   /**
+   * Explore's shop shelf settled a load. `cards` and `kinds` are counts —
+   * even the slot NAMES stay out, since which kinds a closet holds is the
+   * closest thing this feature knows to closet content.
+   */
+  | 'explore_shop_feed_loaded'
+  /** A shelf item opened the merchant's page. Carries nothing at all. */
+  | 'explore_shop_product_opened'
+  /**
    * A Pinterest OAuth attempt settled. `outcome` is one of the closed
    * connect codes (connected | canceled | denied | failed | not_configured).
    * Nothing about the Pinterest account: no username, no board, no token —
