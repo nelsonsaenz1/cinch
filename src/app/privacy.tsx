@@ -6,6 +6,7 @@ import { useSetShoppable } from '@/features/commerce/mutations';
 import { useShoppable } from '@/features/commerce/queries';
 import { DEFERRED_LINKS_AVAILABLE } from '@/features/invite/native';
 import { fullDate } from '@/features/privacy/format';
+import { usePinterestConnection } from '@/features/recreate/pinterest';
 
 /**
  * PD-01 — Privacy & data, the index.
@@ -24,6 +25,7 @@ import { fullDate } from '@/features/privacy/format';
 export default function PrivacyScreen() {
   const router = useRouter();
   const consent = useAiConsent();
+  const pinterest = usePinterestConnection();
   const shoppable = useShoppable();
   const setShoppable = useSetShoppable();
 
@@ -46,9 +48,21 @@ export default function PrivacyScreen() {
           ? `Not given · withdrawn ${fullDate(revokedAt)}`
           : 'Not given';
 
+  // Same honesty rule as the consent line, one connection over: the loading
+  // answer says it is loading, and every settled answer is the row's fact.
+  const pinterestDetail =
+    pinterest.data === undefined
+      ? 'Checking…'
+      : pinterest.data === null
+        ? 'Not connected'
+        : pinterest.data.status === 'connected'
+          ? `Connected ${fullDate(pinterest.data.connectedAt)} · boards read live, nothing stored`
+          : 'Connection lapsed · reconnect to keep using your boards';
+
   return (
     <PrivacyIndexPage
       consentDetail={consentDetail}
+      pinterestDetail={pinterestDetail}
       // A fact about the binary, resolved once at module scope. The row is
       // drawn only on a build that actually has the attribution module — a
       // disclosure of something the app does not do is exactly as wrong as
@@ -61,6 +75,7 @@ export default function PrivacyScreen() {
       shoppablePending={setShoppable.isPending}
       onBack={() => router.back()}
       onOpenConsent={() => router.push('/privacy/ai')}
+      onOpenPinterest={() => router.push('/privacy/pinterest')}
       onOpenVisibility={() => router.push('/privacy/visibility')}
       onOpenExport={() => router.push('/privacy/export')}
       onOpenDelete={() => router.push('/privacy/delete')}

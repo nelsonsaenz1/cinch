@@ -1,8 +1,9 @@
 import { Image } from 'expo-image';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Linking, View } from 'react-native';
 
 import { PressableSurface } from '@/components/ui/pressable-surface';
 import { Text } from '@/components/ui/text';
+import type { PinReference } from '@/features/stylist/inspiration';
 import type { ChatMessage } from '@/features/stylist/use-chat';
 import { oklchToHex } from '@/lib/color';
 import type { Garment, OutfitCandidate } from '@/lib/styling';
@@ -172,6 +173,68 @@ function OutfitStrip({
   );
 }
 
+/**
+ * The inspiration behind an answer — one compact, attributed reference.
+ *
+ * Evidence, never the product: the card stays small, the closet answer below
+ * it stays dominant, and nothing here borrows Pinterest's grid, red, or
+ * controls (the plan's trade-dress rule). The whole card opens the Pin at
+ * its source, which is what attribution owes; the image is uncropped within
+ * its window and captioned even when it fails to load, so the credit line
+ * exists whether or not the picture does.
+ */
+function PinCard({ pin, first }: { pin: PinReference; first?: boolean }) {
+  const theme = useTheme();
+  return (
+    <PressableSurface
+      onPress={() => void Linking.openURL(pin.pinUrl)}
+      accessibilityRole="link"
+      accessibilityLabel={`Inspiration from Pinterest, board ${pin.boardName}. Opens the original Pin.`}
+      fill
+      // The first-strip offset (10) for the same reason the outfit strip uses
+      // it: the card is part of the reply above, not the next thought.
+      style={{ marginTop: first ? 10 : 14 }}
+      className="self-start">
+      <View
+        className="max-w-[85%] flex-row items-center gap-3 rounded-md border border-rule bg-canvas px-3"
+        // 44pt floor comes from the image window plus padding; minHeight makes
+        // it explicit rather than emergent.
+        style={{ minHeight: 44, paddingVertical: 8 }}>
+        <View
+          className="items-center justify-center overflow-hidden rounded-sm bg-tray"
+          style={{ width: 48, height: 64 }}>
+          {pin.imageUrl ? (
+            <Image
+              source={{ uri: pin.imageUrl }}
+              style={{ width: 48, height: 64 }}
+              contentFit="cover"
+              cachePolicy="none"
+              accessibilityIgnoresInvertColors
+            />
+          ) : null}
+        </View>
+        <View className="flex-1">
+          {pin.title ? (
+            <Text variant="label" numberOfLines={2}>
+              {pin.title}
+            </Text>
+          ) : null}
+          {/* The credit is the card's one non-negotiable line: provider named,
+              board named, destination underlined. `muted` because it is a
+              caption; underline on the tail because that is the app's quiet
+              link grammar (the "Try again" span below uses the same). */}
+          <Text variant="note" numberOfLines={1} style={{ marginTop: pin.title ? 2 : 0 }}>
+            From Pinterest · {pin.boardName}
+          </Text>
+          <Text variant="note" className="underline" style={{ color: theme.ink, marginTop: 2 }}>
+            Open the original Pin
+          </Text>
+        </View>
+      </View>
+    </PressableSurface>
+  );
+}
+
 export function MessageBubble({
   message,
   resolveImage,
@@ -305,13 +368,15 @@ export function MessageBubble({
             </PressableSurface>
           ) : null}
 
+          {message.pin ? <PinCard pin={message.pin} first /> : null}
+
           {message.outfits.map((outfit, i) => (
             <OutfitStrip
               key={`${message.id}-${i}`}
               outfit={outfit}
               resolveImage={resolveImage}
               onPress={() => onPressOutfit?.(outfit)}
-              first={i === 0}
+              first={i === 0 && !message.pin}
             />
           ))}
 

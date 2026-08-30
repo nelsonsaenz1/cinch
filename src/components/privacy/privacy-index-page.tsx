@@ -236,6 +236,8 @@ function ToggleRow({
 export type PrivacyIndexPageProps = {
   /** "Given 12 March 2026" / "Not given" — the real state, never a placeholder. */
   consentDetail: string;
+  /** The Pinterest row's one-line state — "Not connected", "Connected …". */
+  pinterestDetail: string;
   /**
    * Whether the binary can attribute a cold install to an invite.
    *
@@ -260,6 +262,8 @@ export type PrivacyIndexPageProps = {
   initialOpen?: string;
   onBack: () => void;
   onOpenConsent: () => void;
+  /** Opens PD-05, the Pinterest connection page. */
+  onOpenPinterest: () => void;
   onOpenVisibility: () => void;
   onOpenExport: () => void;
   onOpenDelete: () => void;
@@ -267,6 +271,7 @@ export type PrivacyIndexPageProps = {
 
 export function PrivacyIndexPage({
   consentDetail,
+  pinterestDetail,
   deferredLinksAvailable,
   shoppable,
   onToggleShoppable,
@@ -274,6 +279,7 @@ export function PrivacyIndexPage({
   initialOpen,
   onBack,
   onOpenConsent,
+  onOpenPinterest,
   onOpenVisibility,
   onOpenExport,
   onOpenDelete,
@@ -316,6 +322,15 @@ export function PrivacyIndexPage({
           gist={consentDetail}
           first={false}
           onPress={onOpenConsent}
+        />
+        {/* Beside AI partners because both rows describe an outside service
+            the person can grant and withdraw — the gist carries the standing
+            state the same way. The wiring route owns the live detail line. */}
+        <PageRow
+          title="Pinterest inspiration"
+          gist={pinterestDetail}
+          first={false}
+          onPress={onOpenPinterest}
         />
         {/* Above the export and the deletion because it is the one row here
             that changes what another person can see, rather than what leaves

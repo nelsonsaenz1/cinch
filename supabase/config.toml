@@ -464,3 +464,15 @@ verify_jwt = false
 # verified inside the function — same shape as superwall-webhook's Svix check.
 [functions.asc-notifications]
 verify_jwt = false
+
+# ---------------------------------------------------------------------------
+# pinterest-oauth's /callback route is Pinterest's browser redirect, which
+# carries no Supabase session — superwall-webhook's reasoning exactly. The
+# route authenticates with the OAuth state parameter instead: random,
+# ten-minute, user-bound, consumed atomically, proven single-use in
+# supabase/tests/26_pinterest_connection.sql. The /start and /disconnect
+# routes do their own bearer authentication (build-export's arrangement), so
+# nothing on this function is open in the sense that matters.
+# ---------------------------------------------------------------------------
+[functions.pinterest-oauth]
+verify_jwt = false

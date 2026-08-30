@@ -200,10 +200,12 @@ export default function DevPrivacyScreen() {
       {state === 'PD-01' || state === 'PD-01b' ? (
         <PrivacyIndexPage
           consentDetail="Given 12 March 2026 · describing and matching"
+          pinterestDetail="Not connected"
           deferredLinksAvailable={state === 'PD-01b'}
           shoppable={false}
           onToggleShoppable={() => {}}
           onBack={back}
+          onOpenPinterest={() => {}}
           onOpenConsent={() => setState('PD-02')}
           onOpenVisibility={() => {}}
           onOpenExport={() => setState('PD-04')}

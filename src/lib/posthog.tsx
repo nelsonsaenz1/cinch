@@ -295,6 +295,22 @@ export type AppEvent =
   /** A recreated look kept. `pieces` is a count, same rule. */
   | 'recreate_saved'
   /**
+   * A Pinterest OAuth attempt settled. `outcome` is one of the closed
+   * connect codes (connected | canceled | denied | failed | not_configured).
+   * Nothing about the Pinterest account: no username, no board, no token —
+   * the connection's existence is the only fact recorded.
+   */
+  | 'pinterest_connect_settled'
+  /** The person disconnected Pinterest. The event is the whole payload. */
+  | 'pinterest_disconnected'
+  /**
+   * A board-led inspiration turn settled. `outcome` is 'ok' or a
+   * bounded failure code; `relevant` and `outfits` ride along on success.
+   * NEVER the question, the board, or anything about a Pin — the same
+   * counts-only rule as `recreate_analyzed`, for the same reason.
+   */
+  | 'stylist_inspiration'
+  /**
    * The share sheet was opened for a captured card. `subject` is which
    * artifact ('outfit' | 'packing'); `has_link` is whether the sharer's own
    * invite link made it into the message, which is the difference between a

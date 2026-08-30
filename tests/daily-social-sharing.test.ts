@@ -276,10 +276,17 @@ test('DS-07 adds no route of its own', () => {
   // Contract §5.2: a new route is a contract change, not an implementation
   // detail. This is a row beside the four flags, which answer the same question
   // about the same audience.
+  //
+  // AMENDED 2026-08-30: `pinterest.tsx` joined the directory as PD-05, the
+  // Pinterest-connection page — a contract change made on purpose by the
+  // Style Inspiration work (docs/design/pinterest-style-inspiration-plan.md),
+  // not a DS-07 drift. The DS-07 claim itself is unchanged: worn-sharing is
+  // still a row on the index, not a route.
   assert.deepEqual(readdirSync('src/app/privacy').sort(), [
     'ai.tsx',
     'delete.tsx',
     'export.tsx',
+    'pinterest.tsx',
     'visibility.tsx',
   ]);
 });

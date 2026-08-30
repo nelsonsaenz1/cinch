@@ -50,10 +50,12 @@ export default function DevW3G4Pv01() {
   return (
     <PrivacyIndexPage
       consentDetail={CONSENT_DETAIL_GRANTED}
+      pinterestDetail="Not connected"
       deferredLinksAvailable={false}
       shoppable={false}
       onToggleShoppable={() => {}}
       onBack={() => {}}
+      onOpenPinterest={() => {}}
       onOpenConsent={() => {}}
       onOpenVisibility={() => {}}
       onOpenExport={() => {}}

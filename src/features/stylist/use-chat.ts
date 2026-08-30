@@ -25,8 +25,23 @@ import { getUserId, supabase } from '@/lib/supabase';
 import { lifestyleSummaryLine } from '@/features/profile/lifestyle';
 import { useLifestyle } from '@/features/profile/use-lifestyle';
 
+import {
+  fetchAllBoards,
+  fetchPins,
+  PinterestRequestError,
+} from '@/features/recreate/pinterest';
+
 import type { StyleProfile } from '../styling/queries';
 import { tryFactAnswer } from './facts';
+import {
+  chooseBoard,
+  inspirationFailureText,
+  inspirationReplyText,
+  parseInspirationAsk,
+  pinRelevant,
+  rankPins,
+  type PinReference,
+} from './inspiration';
 import { closetDigest, contextForQuestion } from './intent';
 import type { BriefIntent, StylistBrief } from './questionnaire';
 
@@ -150,6 +165,14 @@ export type ChatMessage = {
   /** Outfits the stylist pointed at, resolved back to real candidates. */
   outfits: OutfitCandidate[];
   followUp: string | null;
+  /**
+   * The attributed Pin behind an inspiration turn. EPHEMERAL BY DESIGN:
+   * never written into `StoredContent`, because a Pin's name, link, and
+   * image are Pinterest API content and the no-storage rule keeps those out
+   * of every table. A reloaded thread keeps the sentence and the outfit —
+   * both genuinely ours — and lets the reference card go.
+   */
+  pin?: PinReference | null;
   pending?: boolean;
   failed?: boolean;
   /**
@@ -337,6 +360,88 @@ export function useChat({
         };
       }
 
+      /**
+       * A board-led ask is answered like a fact: on device, deterministically,
+       * spending nothing. The board and Pin listings come through the
+       * `pinterest-api` proxy live; choosing among them is arithmetic
+       * (`inspiration.ts`); the outfit is the same engine as every other
+       * turn. No model is called, so no allowance is claimed and no paywall
+       * can open — and no Pin content travels anywhere except back to this
+       * screen. Failures return as ordinary sentences rather than failed
+       * turns: "connect Pinterest first" is an answer, not an outage.
+       */
+      const inspiration = parseInspirationAsk(question);
+      if (inspiration) {
+        const empty = { outfits: [], followUp: null, source: 'closet' as const };
+        try {
+          const boards = await fetchAllBoards();
+          if (!boards.length) {
+            return { reply: inspirationFailureText('no_boards', null), ...empty };
+          }
+          const board = inspiration.boardPhrase
+            ? chooseBoard(boards, inspiration.boardPhrase)
+            : boards.length === 1
+              ? boards[0]!
+              : null;
+          if (!board) {
+            return {
+              reply: inspirationFailureText('no_board_match', inspiration.boardPhrase),
+              ...empty,
+            };
+          }
+          const pins = rankPins(await fetchPins(board.id), question);
+          const pin = pins[0];
+          if (!pin) {
+            return { reply: inspirationFailureText('board_empty', null), ...empty };
+          }
+
+          const askContext = contextForQuestion(context, question, options?.intent);
+          const outfits = generateOutfits(wardrobe, askContext, {
+            weights: profile.weights,
+            affinities: profile.affinities,
+            count: 2,
+            diversity: 0.7,
+          });
+
+          const relevant = pinRelevant(pin, question);
+
+          // COUNTS AND CODES ONLY — which door, whether the Pin met the ask,
+          // how many outfits. Never the board, the Pin, or the question.
+          track('stylist_inspiration', {
+            outcome: 'ok',
+            relevant,
+            outfits: outfits.length,
+          });
+
+          return {
+            reply: inspirationReplyText(inspiration.boardPhrase, relevant, outfits.length),
+            outfits,
+            followUp: null,
+            source: 'closet' as const,
+            pin: {
+              boardName: board.name,
+              title: pin.title,
+              pinUrl: pin.pinUrl,
+              imageUrl: pin.imageUrl,
+            } satisfies PinReference,
+          };
+        } catch (err) {
+          const code = err instanceof PinterestRequestError ? err.code : 'offline';
+          track('stylist_inspiration', { outcome: code });
+          const cause =
+            code === 'not_connected'
+              ? ('not_connected' as const)
+              : code === 'unauthorized' || code === 'forbidden'
+                ? ('reconnect' as const)
+                : code === 'rate_limited'
+                  ? ('rate_limited' as const)
+                  : code === 'provider_down' || code === 'not_found'
+                    ? ('provider_down' as const)
+                    : ('offline' as const);
+          return { reply: inspirationFailureText(cause, inspiration.boardPhrase), ...empty };
+        }
+      }
+
       // Generate against a context built from the question, not from today.
       // Asking "what do I pack for Rome in July" must not be ranked against a
       // February forecast.
@@ -465,6 +570,9 @@ export function useChat({
                   text: result.reply,
                   outfits: result.outfits,
                   followUp: result.followUp,
+                  // Present only on an inspiration turn, and never persisted —
+                  // see the field's note on ChatMessage.
+                  pin: 'pin' in result ? (result.pin ?? null) : null,
                   pending: false,
                   failed: false,
                   retryable: false,
