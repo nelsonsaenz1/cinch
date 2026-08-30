@@ -261,6 +261,70 @@ Pinterest developer application (a legal agreement Cinch's operator must
 accept) and the written processing authorization. Everything buildable without
 them has been built.
 
+#### Phase 0 update — 2026-08-30: the application exists
+
+The founder created the Pinterest developer app in-session (the form was
+prepared by the agent; the founder completed the reCAPTCHA and pressed
+Submit, which is where the Developer Agreement binds):
+
+- **App id (OAuth client id): `1606419`**, name "Cinch", company Cinch.
+- Submitted with: Consumer experience → Pinner App → Pinners →
+  **reads "Yes, mine"** (the authenticated user's own boards/pins only),
+  privacy policy `https://cinchstyle.com/privacy`.
+- **Status: Trial access pending** — Pinterest reviews connect requests. The
+  app secret shows "Unavailable while trial access pending", and even
+  dashboard-generated Production Limited tokens answer
+  `{"code":3,"message":"Your application consumer type is not supported"}`
+  (verified live 2026-08-30). Nothing on Cinch's side can accelerate this.
+- Redirect URI registered and DOM-verified exact:
+  `https://dugizuswuebrmcmvinmi.supabase.co/functions/v1/pinterest-oauth/callback`
+
+#### Phases 2–3 status — BUILT AND DEPLOYED 2026-08-30 (commit `7b90c11`)
+
+- Migration `20260830120000_pinterest_connection` applied to production;
+  its 14 pgTAP assertions re-proven against the live schema via rolled-back
+  DO blocks (local Docker cannot run on this machine — recorded limitation).
+- `pinterest-oauth` (verify_jwt off; /start·/callback·/disconnect) and
+  `pinterest-api` deployed via the brew CLI `--use-api` rail. Production
+  readbacks: bogus-state callback → 302 `cinch://pinterest-callback?error=expired`;
+  unauthenticated /start and pinterest-api → 401.
+- Secrets set: `PINTEREST_TOKEN_KEY` (fresh 32-byte AES key),
+  `PINTEREST_CLIENT_ID=1606419`. **`PINTEREST_CLIENT_SECRET` is absent** —
+  it does not exist until Pinterest grants trial access; until then /start
+  answers 503 `not_configured` and the app says the source isn't available.
+- Client: connection lifecycle + live fetchers (`features/recreate/pinterest.ts`),
+  deterministic board/Pin selection (`features/stylist/inspiration.ts`),
+  a zero-spend stylist turn with an EPHEMERAL attributed Pin card (Pin
+  content never enters chat_messages — the persisted sentence may echo only
+  the person's own words), PD-05 Privacy & data → Pinterest inspiration,
+  `pinterest-callback` deep-link route.
+- Privacy policy at cinchstyle.com/privacy updated and DEPLOYED (live
+  readback: "Last updated 30 August 2026", Pinterest section + processor-table
+  row) — disclosure published before any first transfer, per Phase 0.
+- The analysis gate stays closed: no Pin imagery touches OpenRouter anywhere;
+  the closet version comes from the deterministic engine. The connected-board
+  flow therefore does not claim parity with the vision analyzer.
+
+#### Release picture — corrected 2026-08-30
+
+Build 45 (1.2.1) was **released by the founder on 2026-08-28 21:36 UTC** and
+is live (iTunes lookup readback). The hold recorded above is moot. The
+feature ships in the NEXT version; it must not be OTA'd into 1.2.1 (App
+Review 2.5.2 / this plan's own rule), even though the fingerprint (813c6d34)
+would technically reach it.
+
+#### What still gates the release
+
+1. **Pinterest trial approval** (Pinterest's own review; nothing to do here).
+2. Then: read the app secret from the dashboard → `supabase secrets set
+   PINTEREST_CLIENT_SECRET` → real OAuth round trip with a test account.
+3. Sim QA from an ATTENDED session: keyed Release boot, standard + AX-XXXL
+   screenshots, VoiceOver order, Reduce Motion.
+4. Version bump (1.3.0 — material feature), store build, submit with updated
+   review notes + privacy answers (Pinterest as a data source is disclosed;
+   no new "collected" category — board/Pin content is not collected, the
+   connection credential is server-side), App Review, release.
+
 ### Phase 1 — provider-neutral product foundation
 
 - Refactor the existing recreate feature behind a source-neutral contract.

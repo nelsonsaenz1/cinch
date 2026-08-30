@@ -1,0 +1,7 @@
+# The Vercel project's root directory is `web/` (see .vercel/project.json +
+# the dashboard setting), but the CLI uploads from the repo root — 30k files,
+# including an Xcode framework symlink the archiver refuses. Only the site
+# ever deploys, so only the site uploads.
+*
+!/web
+!/web/**
