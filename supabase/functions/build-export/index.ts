@@ -135,26 +135,36 @@ export default {
     const db = admin as unknown as SupabaseClient;
 
     // ── 1. Who is calling ───────────────────────────────────────────────────
-    const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    //
+    // The sweep header is examined FIRST. The cron invocation (pg_net, every
+    // ten minutes) carries the anon key as its bearer, and handing that to
+    // `auth.getUser` made GoTrue log `403: invalid claim: missing sub claim`
+    // like clockwork, six times an hour, forever — noise that buried the
+    // 2026-08-30 Apple sign-in investigation under a false signal. A caller
+    // that identifies itself as the sweep never needs a user lookup at all.
+    const sweepSecret = Deno.env.get('EXPORT_SWEEP_SECRET');
+    const sweepPresented = req.headers.get('x-cinch-export-sweep') ?? '';
+    let sweeping = false;
     let userId: string | null = null;
 
-    if (bearer) {
-      const { data } = await admin.auth.getUser(bearer);
-      userId = data?.user?.id ?? null;
-    }
-
-    let sweeping = false;
-    if (!userId) {
-      const secret = Deno.env.get('EXPORT_SWEEP_SECRET');
-      const presented = req.headers.get('x-cinch-export-sweep') ?? '';
-      if (!secret) {
+    if (sweepPresented) {
+      if (!sweepSecret) {
         console.error('EXPORT_SWEEP_SECRET is unset; refusing every sweep.');
         return fail('You need to be signed in to do that.', 'unauthorized', 401);
       }
-      if (!constantTimeEqual(presented, secret)) {
+      if (!constantTimeEqual(sweepPresented, sweepSecret)) {
         return fail('You need to be signed in to do that.', 'unauthorized', 401);
       }
       sweeping = true;
+    } else {
+      const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+      if (bearer) {
+        const { data } = await admin.auth.getUser(bearer);
+        userId = data?.user?.id ?? null;
+      }
+      if (!userId) {
+        return fail('You need to be signed in to do that.', 'unauthorized', 401);
+      }
     }
 
     // ── 2. What is being asked ──────────────────────────────────────────────
