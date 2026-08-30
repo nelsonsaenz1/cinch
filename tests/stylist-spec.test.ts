@@ -46,17 +46,22 @@ const KINDS: DenialKind[] = ['plan_excluded', 'quota', 'consent', 'transport'];
 // ---------------------------------------------------------------------------
 
 test('there are exactly five doors, in the accepted order', () => {
-  // AMENDED from four with "Recreate a look": its input is a photograph, so
+  // AMENDED from four with the photograph door: its input is a photograph, so
   // it takes the third action kind (`route`) rather than a composer seed —
   // a photo does not belong in a sentence. It sits second, beside the other
   // build-me-something door, and everything the old contract held still
   // holds: fixed order, and nothing spends on a tap.
+  //
+  // RE-LABELLED from "Recreate a look" to "Style inspiration": the door is
+  // named for its purpose rather than its one current source, so a second
+  // source joins it instead of crowding the strip with a sixth door. The key
+  // and the route are still `recreate`.
   assert.equal(DOORS.length, 5);
   assert.deepEqual(
     DOORS.map((d) => d.label),
     [
       'What should I wear',
-      'Recreate a look',
+      'Style inspiration',
       'Pack for a trip',
       'Make this piece work',
       'Ask about my closet',

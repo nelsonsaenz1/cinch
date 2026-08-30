@@ -52,6 +52,10 @@ const FAILURE_COPY: Record<RecreateFailure, { title: string; body: string }> = {
     title: 'Could not read that one',
     body: 'A clearer, closer shot of the outfit works best. Screenshots are fine.',
   },
+  unauthorized_source: {
+    title: 'That one can’t be read',
+    body: 'Cinch doesn’t have permission to send this picture for analysis. A photo from your own library works.',
+  },
 };
 
 export default function RecreateScreen() {
@@ -98,7 +102,7 @@ export default function RecreateScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top', 'bottom']}>
-      <ScreenHeader title="Recreate a look" onBack={() => router.back()} />
+      <ScreenHeader title="Style inspiration" onBack={() => router.back()} />
 
       <ScrollView
         className="flex-1"
@@ -145,7 +149,7 @@ export default function RecreateScreen() {
             </Text>
             <View className="mt-4 overflow-hidden rounded-lg border border-rule">
               <Image
-                source={{ uri: phase.imageUri }}
+                source={{ uri: phase.candidate.imageUri }}
                 style={{ width: '100%', height: 320 }}
                 contentFit="cover"
                 accessibilityIgnoresInvertColors
@@ -198,7 +202,7 @@ export default function RecreateScreen() {
             <View className="flex-row items-center gap-4">
               <View className="overflow-hidden rounded-md border border-rule">
                 <Image
-                  source={{ uri: phase.imageUri }}
+                  source={{ uri: phase.candidate.imageUri }}
                   style={{ width: 88, height: 118 }}
                   contentFit="cover"
                   accessibilityIgnoresInvertColors

@@ -90,7 +90,11 @@ export const DOORS: readonly Door[] = [
   },
   {
     key: 'recreate',
-    label: 'Recreate a look',
+    // Named for what the door is FOR rather than for the one source it has
+    // today, so a second inspiration source joins it without a second door.
+    // The key and the route stay `recreate`: renaming those would break a
+    // registered screen and a deep link to buy nothing.
+    label: 'Style inspiration',
     hint: 'A photo you saved, rebuilt from what you own.',
     action: { kind: 'route', href: '/recreate' },
   },
