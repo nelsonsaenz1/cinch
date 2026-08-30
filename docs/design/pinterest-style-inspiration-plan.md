@@ -221,14 +221,45 @@ Baseline gates at this commit, for whoever resumes:
   `Auth · a native paste target for the code screen…`; `expo-clipboard@57.0.1`
   was already a direct dependency, so it moves no fingerprint.
 
-**Nothing downstream of Phase 0 has been built.** Phase 1 was deliberately not
-started: a source-neutral refactor whose only selectable source is the existing
-saved photo would add a one-option chooser to a shipped flow, degrading it for
-no user gain while the second source stays legally gated. Build it when Phase 0
-clears, not before.
-
 Release position: **build 45 stays held.** It does not contain this feature and
 must not be released as a proxy for it.
+
+#### Phase 1 status — SHIPPED to `main` 2026-08-30 (commit `15050a5`)
+
+The founder overrode the initial judgment call and directed the foundation to
+be built ahead of the credential. What landed, all green
+(`tsc` clean, 3603 node tests, fingerprint unmoved at `813c6d34`):
+
+- `src/features/recreate/sources.ts` — the provider-neutral source contract.
+  The candidate union splits on **custody** (`local` = a file Cinch holds and
+  may analyze; `remote` = a provider's picture: displayable and linkable,
+  never copied, uploaded, or sent to a model). Attribution is orthogonal to
+  custody. `PROVIDER_ANALYSIS_AUTHORIZED` is false for every provider;
+  `tests/recreate-sources.test.ts` fails if that flips without an
+  authorization on file, and separately fails if a provider source is ever
+  offerable while uncleared for processing.
+- `src/features/recreate/pick-inspiration.ts` — the picker half, keeping
+  native imports out of the tested rules.
+- `use-recreate.ts` — phases carry the full candidate; `mayAnalyze` narrows
+  before the upload so a remote picture cannot reach Storage; new bounded
+  failure `unauthorized_source`. `recreate_analyzed` gains `source`, a
+  provider name from a closed set (still counts-only).
+- Pinterest sits in the registry as `unavailable: 'not_configured'` — a fact,
+  not a flag — so `sourceChoiceNeeded()` is false and **no chooser is drawn**;
+  the shipped saved-photo flow is behaviourally unchanged.
+- The stylist door is re-labelled `Recreate a look` → `Style inspiration`
+  (key/route stay `recreate`).
+
+Phase 1 remainder that stays open: no runtime render verification (standard /
+AX-XXXL screenshots, VoiceOver pass) — this session cannot attach a simulator;
+run the sim QA pass from an attended session before any release carrying the
+re-label. No OTA was published for the same reason
+(`cinch-keyed-release-boot-check`: keyed Release sim boot before every OTA).
+
+**Phases 2–5 remain blocked on the Phase 0 founder action above** — the
+Pinterest developer application (a legal agreement Cinch's operator must
+accept) and the written processing authorization. Everything buildable without
+them has been built.
 
 ### Phase 1 — provider-neutral product foundation
 
