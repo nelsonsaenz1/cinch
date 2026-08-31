@@ -148,11 +148,12 @@ const config: ExpoConfig = {
   // to the production channel at d9cb8c3b…. A fresh OTA has to be published
   // against the new runtime after the build, or 1.1 ships with only its
   // embedded bundle.
-  // 1.2.1 exists to carry the ASO rename (docs/app-store-listing.md identity
-  // block) — App Name and Subtitle are version-scoped once released, and 1.2.0
-  // shipped, so the new title needs a fresh version and therefore a fresh
-  // build. JS rides along at whatever HEAD builds it.
-  version: '1.2.1',
+  // 1.2.2 embeds the 2026-08-31 OTA batch natively, because a NEW install
+  // runs the embedded bundle for its whole first session and only picks up an
+  // OTA on relaunch — and first sessions are exactly where the Apple sign-in
+  // fix and the reveal door earn their keep. Founder order 2026-08-31, ahead
+  // of the featuring window.
+  version: '1.2.2',
   orientation: 'portrait',
   // Light only. Cinch is a print lookbook, and a print object has one
   // appearance — this pins the app to light regardless of the system setting,
