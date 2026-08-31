@@ -104,3 +104,18 @@ check `node_modules/.deno` first.
 
 Rollback: `eas update:republish` the prior good update on `production`, or
 `eas update:rollback`. Prior update on this runtime predates 2026-08-30.
+
+## 2026-08-31 · 1.2.2 build 46 — submitted, waiting for review
+
+EAS build 48ef276b (commit `5b3b2ba`, fingerprint/runtime `ccfa8345`,
+recorded in fingerprint.json at `875235c`). Embeds the full 08-31 OTA batch
+natively so a NEW install's first session runs the fixed code (an OTA only
+lands on relaunch — the Apple sign-in steer and the reveal door are
+first-session features). ASC: version b58dc5c3, build 67c76709 attached,
+review submission bdda1528 WAITING_FOR_REVIEW since 01:18Z, releaseType
+AFTER_APPROVAL. Metadata pushed via eas metadata:push: review notes rewritten
+for this build's contents (Pinterest paragraph held for 1.3.0 — the flow is
+dark until their trial clears), Sep-1 prices, first releaseNotes, v3
+screenshot set (5, all COMPLETE). OTA channel for the 1.2.1 fleet remains
+`813c6d34` / update 01a05513; future OTAs after 46 goes live must target
+`ccfa8345`.
