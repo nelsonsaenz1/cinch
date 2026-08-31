@@ -142,27 +142,30 @@ export function ReviewPrompt() {
         accessibilityLabel="Dismiss"
         accessibilityRole="button">
         <Pressable onPress={() => undefined} accessibilityRole="none">
-          <SafeAreaView edges={['bottom']} className="rounded-t-3xl bg-canvas px-gutter pb-4 pt-7">
-            <View className="flex-row justify-center gap-1.5" accessibilityElementsHidden>
+          {/* Founder note 8/29: the card breathes — generous top padding, a
+              wide gap between the stars and the title, and air around every
+              block, so the sheet reads as a moment rather than a toast. */}
+          <SafeAreaView edges={['bottom']} className="rounded-t-3xl bg-canvas px-gutter pb-8 pt-12">
+            <View className="flex-row justify-center gap-2" accessibilityElementsHidden>
               {[0, 1, 2, 3, 4].map((i) => (
-                <SymbolView key={i} name="star.fill" size={22} tintColor={theme.accent} />
+                <SymbolView key={i} name="star.fill" size={24} tintColor={theme.accent} />
               ))}
             </View>
-            <Text variant="title" trim className="mt-5 text-center">
+            <Text variant="title" trim className="mt-10 text-center">
               Enjoying Cinch?
             </Text>
-            <Text variant="body" className="mt-3 text-center" style={{ color: theme.muted }}>
+            <Text variant="body" className="mt-6 text-center" style={{ color: theme.muted }}>
               Ratings are how small apps get found. Twenty seconds — stars count, a
               sentence counts double.
             </Text>
             <Button
               title="Rate Cinch"
               variant="primary"
-              className="mt-6 self-stretch"
+              className="mt-10 self-stretch"
               onPress={rate}
               accessibilityHint="Opens the App Store review page"
             />
-            <View className="mt-1 flex-row">
+            <View className="mt-3 flex-row">
               <Button title="I already have" variant="ghost" className="flex-1" onPress={already} />
               <Button title="Not now" variant="ghost" className="flex-1" onPress={later} />
             </View>
