@@ -25,6 +25,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CapacityNote } from '@/components/today/capacity-note';
 import { ClosetFloor } from '@/components/today/closet-floor';
+import { PendingConsentFloor } from '@/components/today/pending-consent-floor';
+import { ConsentSheet } from '@/components/ingest/consent-sheet';
+import { useAiConsent, useGrantAiConsent } from '@/features/auth/use-consent';
+import { useCloset } from '@/features/closet/queries';
+import { sweepAfterConsent } from '@/features/ingest/upload-queue';
 import { RevealDoor } from '@/components/today/reveal-door';
 import { TasteRow, type TasteState } from '@/components/today/taste-row';
 import { PlateDots, TodayPlate, WornMark } from '@/components/today/today-plate';
@@ -999,6 +1004,20 @@ export default function TodayScreen() {
   // The two refusals and the floor, each observed exactly where it renders and
   // each carrying nothing at all — that a morning had no answer is the whole
   // fact, and any property on it would describe the wardrobe that failed.
+  // T-10b's facts: the WHOLE closet (every status — `items` above holds only
+  // classified pieces), and whether AI processing was ever allowed. Together
+  // they tell the floor's misdiagnosis apart: a closet that is thin, versus a
+  // closet that is DONE and stuck at `pending_tag` behind the consent it was
+  // never asked for again. Production showed two such closets floored for ten
+  // days with "start with ten pieces" — aimed at people who already had.
+  const closetAll = useCloset();
+  const consent = useAiConsent();
+  const grantConsent = useGrantAiConsent();
+  const [consentSheetOpen, setConsentSheetOpen] = useState(false);
+  const pendingCount = (closetAll.data ?? []).filter((i) => i.status === 'pending_tag').length;
+  const pendingConsentFloor =
+    pendingCount > 0 && consent.data !== undefined && !(consent.data?.granted ?? false);
+
   // The reveal door's eligibility, computed once beside the floor's. Strict
   // by construction: `useRevealNeverSeen` answers true only on a settled read
   // that says never-seen, so loading and error cannot flash the card in.
@@ -1587,17 +1606,42 @@ export default function TodayScreen() {
           // branch's primary action, which is the whole reason the state
           // exists.
           contentContainerStyle={{ paddingBottom: 96 }}>
-          <ClosetFloor
-            items={items}
-            remaining={piecesRemaining(items.length)}
-            resolveImage={resolve}
-            onStart={() => {
-              // The Ten, "resumed at the count rather than restarted" — it
-              // hydrates from the closet it finds. A closet already past the
-              // free cap has no Ten left to run, and takes the chooser.
-              router.push(items.length >= PLANS.free.items ? '/add-clothes' : '/the-ten');
-            }}
-            onDescribe={() => router.push('/walkthrough')}
+          {pendingConsentFloor ? (
+            // T-10b outranks the activation floor: pieces exist and are
+            // stuck, so "add more" would be a misdiagnosis. The sheet and the
+            // sweep are the Reveal zero-path's own pair, reused verbatim.
+            <PendingConsentFloor
+              pendingCount={pendingCount}
+              onOpenConsent={() => setConsentSheetOpen(true)}
+            />
+          ) : (
+            <ClosetFloor
+              items={items}
+              remaining={piecesRemaining(items.length)}
+              resolveImage={resolve}
+              onStart={() => {
+                // The Ten, "resumed at the count rather than restarted" — it
+                // hydrates from the closet it finds. A closet already past the
+                // free cap has no Ten left to run, and takes the chooser.
+                router.push(items.length >= PLANS.free.items ? '/add-clothes' : '/the-ten');
+              }}
+              onDescribe={() => router.push('/walkthrough')}
+            />
+          )}
+          <ConsentSheet
+            visible={consentSheetOpen}
+            busy={grantConsent.isPending}
+            onAccept={() =>
+              void grantConsent.mutateAsync().then(() => {
+                setConsentSheetOpen(false);
+                // The stuck pieces tag NOW rather than on the next half-hour
+                // sweep; the floor above resolves itself as the tags land.
+                sweepAfterConsent();
+                void closetAll.refetch();
+                void wardrobe.refetch();
+              })
+            }
+            onDecline={() => setConsentSheetOpen(false)}
           />
         </ScrollView>
       </SafeAreaView>

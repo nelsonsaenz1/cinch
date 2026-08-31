@@ -46,7 +46,18 @@ export function appleFailureCode(err: unknown): string {
 export function describeThrownSignInError(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   const isStorageFailure = /secure ?store|keychain|entitlement|storage/i.test(message);
-  return isStorageFailure
-    ? 'Cinch couldn’t store your sign-in securely on this device, so no code was sent. Restart the app and try again — if it keeps happening, this build can’t reach the device’s keychain.'
-    : message || 'Please try again.';
+  if (isStorageFailure) {
+    return 'Cinch couldn’t store your sign-in securely on this device, so no code was sent. Restart the app and try again — if it keeps happening, this build can’t reach the device’s keychain.';
+  }
+  // BOUNDED, since 2026-08-31. This used to fall through to the raw
+  // `err.message` — provider text on the welcome screen, in whatever words a
+  // network stack or Supabase happened to throw, sometimes with the email
+  // address embedded. The classifier keeps the two honest distinctions a
+  // reader can act on; everything else gets one sentence in the app's own
+  // voice. The raw text still reaches developers through the error-tracking
+  // capture, which is where sentences like that belong.
+  if (/network|fetch|timeout|connection|internet|offline/i.test(message)) {
+    return 'Cinch couldn’t reach the sign-in service. Check your connection and try again.';
+  }
+  return 'Sign-in hit a snag on this device. Nothing was sent — try again in a moment.';
 }

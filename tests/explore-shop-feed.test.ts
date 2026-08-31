@@ -15,6 +15,7 @@ import { test } from 'node:test';
 import {
   FAMILIES_PER_SLOT,
   FEED_SLOT_CAP,
+  closetColourNames,
   feedCards,
   feedSlots,
 } from '../src/features/explore/shop-feed';
@@ -114,6 +115,59 @@ test('kinds interleave and each is bounded', () => {
     cards.slice(0, 4).map((c) => c.slot),
     ['top', 'footwear', 'top', 'footwear'],
   );
+});
+
+// ---------------------------------------------------------------------------
+// Colour affinity
+// ---------------------------------------------------------------------------
+
+test('the closet palette is counted, canonical, and deterministic', () => {
+  const g = (name: string) => ({ colors: [{ name }] }) as never;
+  assert.deepEqual(
+    closetColourNames([g('Navy'), g('navy'), g('gray'), g('grey'), g('grey'), g('white')]),
+    ['grey', 'navy', 'white'],
+  );
+  assert.deepEqual(closetColourNames([]), []);
+});
+
+test('families speaking the closet’s colours rank first, label over title', () => {
+  const coloured = (id: string, label: string, title: string) =>
+    family(id, { title, colours: [{ ...family(id).colours[0]!, label }] });
+  const cards = feedCards(
+    [
+      {
+        slot: 'top',
+        families: {
+          exact: [
+            coloured('plain', 'Red', 'Linen Shirt'),
+            coloured('title-hit', 'Multi', 'Navy Oxford Shirt'),
+            coloured('label-hit', 'Navy', 'Oxford Shirt'),
+          ],
+          nearMiss: [],
+        },
+      },
+    ],
+    ['navy'],
+  );
+  assert.deepEqual(
+    cards.map((c) => c.key),
+    ['top:label-hit', 'top:title-hit', 'top:plain'],
+  );
+});
+
+test('an empty palette degrades to the server’s own order', () => {
+  const cards = feedCards(
+    [{ slot: 'top', families: { exact: [family('a'), family('b')], nearMiss: [] } }],
+    [],
+  );
+  assert.deepEqual(cards.map((c) => c.key), ['top:a', 'top:b']);
+});
+
+test('a colour word never fires inside a longer word', () => {
+  const tan = family('t', { title: 'Titanium Frame Jacket', colours: [{ ...family('t').colours[0]!, label: 'Titanium' }] });
+  const real = family('r', { title: 'Tan Suede Jacket', colours: [{ ...family('r').colours[0]!, label: 'Tan' }] });
+  const cards = feedCards([{ slot: 'top', families: { exact: [tan, real], nearMiss: [] } }], ['tan']);
+  assert.equal(cards[0]?.key, 'top:r');
 });
 
 // ---------------------------------------------------------------------------

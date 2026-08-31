@@ -4,7 +4,7 @@ import type { CatalogueFamilies } from '@/features/catalogue/types';
 import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
-import { feedCards, feedSlots, type ShopFeedCard, type ShopFeedSlot } from './shop-feed';
+import { closetColourNames, feedCards, feedSlots, type ShopFeedCard, type ShopFeedSlot } from './shop-feed';
 
 /**
  * The shop feed's one read: a browse per owned kind, merged into a grid.
@@ -38,18 +38,23 @@ async function browseSlot(slot: ShopFeedSlot): Promise<{ slot: ShopFeedSlot; fam
 }
 
 export function useShopFeed(
-  wardrobe: readonly { slot: Parameters<typeof feedSlots>[0][number]['slot'] }[],
+  wardrobe: readonly Parameters<typeof closetColourNames>[0][number][] &
+    readonly Parameters<typeof feedSlots>[0][number][],
   enabled: boolean,
 ) {
   const slots = feedSlots(wardrobe);
+  // The closet's palette rides into the RANKING only — never the wire. Top
+  // six names is plenty of signal without letting one giant closet turn the
+  // scorer into a regex farm.
+  const palette = closetColourNames(wardrobe).slice(0, 6);
 
   return useQuery({
-    queryKey: ['explore-shop-feed', slots],
+    queryKey: ['explore-shop-feed', slots, palette],
     enabled: enabled && slots.length > 0,
     staleTime: STALE_MS,
     queryFn: async (): Promise<ShopFeedCard[]> => {
       const settled = await Promise.all(slots.map(browseSlot));
-      const cards = feedCards(settled.filter((s): s is NonNullable<typeof s> => s !== null));
+      const cards = feedCards(settled.filter((s): s is NonNullable<typeof s> => s !== null), palette);
       // A COUNT and a slot count. Which kinds this closet holds is the
       // closest thing this feature knows to closet content, so even the slot
       // NAMES stay out of analytics.

@@ -42,7 +42,11 @@ import { useTheme } from '@/theme/tokens';
  * standing reason a root-layout component keeps its imports boring.
  */
 
-const TAB_PATHS = new Set(['/', '/closet', '/stylist', '/plan', '/explore']);
+// '/stylist' is deliberately absent since 2026-08-31: the stylist ROOT is
+// the conversation itself, and the founder's screenshot showed this card
+// landing on top of a live reply — exactly the ask-over-a-task the docblock
+// above forbids. Four surfaces remain, which is plenty of cadence.
+const TAB_PATHS = new Set(['/', '/closet', '/plan', '/explore']);
 
 const io: ReviewPromptIo = {
   read(key) {
@@ -148,8 +152,8 @@ export function ReviewPrompt() {
               Enjoying Cinch?
             </Text>
             <Text variant="body" className="mt-3 text-center" style={{ color: theme.muted }}>
-              A rating is the single biggest thing that helps a small app get found. Twenty
-              seconds on the App Store — stars alone count, a sentence counts double.
+              Ratings are how small apps get found. Twenty seconds — stars count, a
+              sentence counts double.
             </Text>
             <Button
               title="Rate Cinch"

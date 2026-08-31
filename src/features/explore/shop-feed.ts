@@ -115,18 +115,80 @@ function cardOf(slot: ShopFeedSlot, family: CatalogueFamily): ShopFeedCard | nul
   };
 }
 
+// ---------------------------------------------------------------------------
+// Colour affinity
+// ---------------------------------------------------------------------------
+
+/**
+ * The closet's own palette, as the words the tagger wrote: every garment's
+ * first colour name, counted, most-worn-of first. A tiny alias table folds
+ * the one spelling split that actually occurs in merchant copy; anything
+ * cleverer than that is a colour model this ranking does not need — the
+ * catalogue is being SORTED, not filtered, so a missed synonym costs one
+ * card a rank, never its place.
+ */
+const COLOUR_ALIASES: Record<string, string> = { gray: 'grey' };
+
+const canonColour = (word: string): string => COLOUR_ALIASES[word] ?? word;
+
+export function closetColourNames(
+  wardrobe: readonly Pick<Garment, 'colors'>[],
+): string[] {
+  const counts = new Map<string, number>();
+  for (const g of wardrobe) {
+    const name = g.colors[0]?.name?.toLowerCase().trim();
+    if (!name) continue;
+    const canon = canonColour(name);
+    counts.set(canon, (counts.get(canon) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([name]) => name);
+}
+
+/**
+ * How strongly one family speaks the closet's colours. The merchant's own
+ * colourway label is the strong signal (it names the actual variant on the
+ * card); the title is the weak one. Deterministic, word-boundary matched so
+ * "tan" never fires inside "titanium".
+ */
+function colourScore(family: CatalogueFamily, palette: readonly string[]): number {
+  if (!palette.length) return 0;
+  // The same canon the palette went through, applied to the merchant's text,
+  // so "gray" meets "grey" on equal terms.
+  const norm = (s: string) => s.toLowerCase().replace(/\bgray\b/g, 'grey');
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const label = norm(family.colours[0]?.label ?? '');
+  const title = norm(family.title);
+  let score = 0;
+  for (const colour of palette) {
+    const re = new RegExp(`\\b${escape(colour)}\\b`);
+    if (re.test(label)) score += 2;
+    else if (re.test(title)) score += 1;
+  }
+  return score;
+}
+
 /**
  * Flatten per-slot responses into one grid, round-robin across slots so the
  * mix survives however many families each kind returned. Exact families
  * only — a near-miss is the catalogue disagreeing about what the thing IS,
  * which is a fine nuance for a deliberate search and noise in a feed.
+ *
+ * Within each slot, families that speak the closet's own colours rank
+ * first — "like your closet" down to the palette, not just the kind. The
+ * sort is stable (score, then the server's own order), so an empty palette
+ * or an all-zero slot degrades to exactly the old behaviour.
  */
 export function feedCards(
   responses: readonly { slot: ShopFeedSlot; families: CatalogueFamilies }[],
+  palette: readonly string[] = [],
 ): ShopFeedCard[] {
   const perSlot = responses.map(({ slot, families }) =>
     families.exact
-      .map((f) => cardOf(slot, f))
+      .map((f, i) => ({ f, i, score: colourScore(f, palette) }))
+      .sort((a, b) => b.score - a.score || a.i - b.i)
+      .map(({ f }) => cardOf(slot, f))
       .filter((c): c is ShopFeedCard => c !== null)
       .slice(0, FAMILIES_PER_SLOT),
   );

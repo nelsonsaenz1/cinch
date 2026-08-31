@@ -69,3 +69,14 @@ test('the second real apple failure names the email door', () => {
   );
   assert.doesNotMatch(cancelBranch, /appleFailures/);
 });
+
+test('a thrown sign-in failure never shows provider text to the user', () => {
+  const { describeThrownSignInError } = require('../src/features/auth/sign-in-errors');
+  // The two honest classifications keep their sentences…
+  assert.match(describeThrownSignInError(new Error('SecureStore unavailable')), /keychain/);
+  assert.match(describeThrownSignInError(new Error('Network request failed')), /connection/);
+  // …and everything else collapses to the app's own voice, never the throw's.
+  const weird = describeThrownSignInError(new Error('duplicate key value violates unique constraint "users_email_key" for user@example.com'));
+  assert.doesNotMatch(weird, /user@example|duplicate key|constraint/);
+  assert.match(weird, /Nothing was sent/);
+});

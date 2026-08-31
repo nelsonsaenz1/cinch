@@ -40,18 +40,21 @@ const body = script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 // The runtime was computed by the script's own EAS-equivalent method
 // (git archive + npm ci), which EAS has confirmed identically on builds 42
 // and 43. Compare again against the EAS stamp at 1.2.1's submission.
-const BUILD_40_COMMIT = '215a132c31a50cec301e1df92ab85387de81bffe';
-const BUILD_40_RUNTIME = '813c6d3413ced400fea427cbf693e9f737c4ca29';
+const CONTROL_COMMIT = '5b3b2ba35f3dfc5c7048b7568f0b27cc7fb14f2c';
+const CONTROL_RUNTIME = 'ccfa8345632631f8eaeb548313840d587bb3d177';
 
-test('the control is the commit the 1.2.1 store build was cut from, and its runtime', () => {
-  assert.match(body, new RegExp(`CONTROL_COMMIT = '${BUILD_40_COMMIT}'`));
-  assert.match(body, new RegExp(`CONTROL_HASH = '${BUILD_40_RUNTIME}'`));
+// RE-TAKEN 2026-08-31 at the cut of 1.2.2 build 46 (commit 5b3b2ba): the EAS
+// stamp and the archive-method computation both read ccfa8345, so the method
+// stands live-confirmed for a third train.
+test('the control is the commit the 1.2.2 store build was cut from, and its runtime', () => {
+  assert.match(body, new RegExp(`CONTROL_COMMIT = '${CONTROL_COMMIT}'`));
+  assert.match(body, new RegExp(`CONTROL_HASH = '${CONTROL_RUNTIME}'`));
 
   // And the recorded baseline is that same runtime, so "unchanged" means
   // "still what the store binary carries" rather than "still what some earlier
   // local run happened to produce".
   const baseline = JSON.parse(readFileSync('fingerprint.json', 'utf8'));
-  assert.equal(baseline.hash, BUILD_40_RUNTIME);
+  assert.equal(baseline.hash, CONTROL_RUNTIME);
   assert.equal(baseline.platform, 'ios');
 });
 
@@ -145,8 +148,9 @@ test('no fingerprint input has moved since the commit build 40 was built from', 
   const AT_BUILD_40: Record<string, string> = {
     'package.json': 'b100309deb0b216591c1caff64405122d0f20d09',
     'package-lock.json': 'b4b6f7ca4cdecc8538c19fadbc627f0cd841790b',
-    // Re-taken 2026-08-28: the 1.2.1 version bump for the ASO-rename train.
-    'app.config.ts': '82edddada1f6d5a71d001f6e4d0384d6b6ff75be',
+    // Re-taken 2026-08-31: the 1.2.2 version bump (build 46, the embedded
+    // OTA-batch train).
+    'app.config.ts': '96c3d9fe50f69dad783d27f1db1e9a7068818a4f',
     'eas.json': 'ee59b14e9b048b9121f5dbf39ae8d2052a3641e6',
     '.easignore': '6e70ea0a25678378d28a4f9816b770010d72c8f3',
     '.gitignore': 'f43ce861f415104d72feca1b6475fc5f10fbdb37',
@@ -184,6 +188,6 @@ test(
     assert.match(out, /HEAD carries that same runtime/);
     const hashes = [...out.matchAll(/\b([0-9a-f]{40})\b/g)].map((m) => m[1]);
     assert.ok(hashes.length >= 3);
-    for (const h of hashes) assert.equal(h, BUILD_40_RUNTIME);
+    for (const h of hashes) assert.equal(h, CONTROL_RUNTIME);
   },
 );

@@ -63,10 +63,15 @@ test('the doors come from the spec, in its order', () => {
 });
 
 test('door wells use the owner’s own garments, never stock artwork', () => {
-  const at = ROUTE.indexOf('const doorCards');
-  const body = ROUTE.slice(at, at + 700);
+  // From doorPieces, which now precedes doorCards and carries the ranking.
+  const at = ROUTE.indexOf('const doorPieces');
+  const body = ROUTE.slice(at, at + 1300);
   assert.match(body, /resolve\(/);
-  assert.match(body, /items\[i\]\?\.platePath/);
+  // AMENDED 2026-08-31: the wells wear the five MOST-WORN image-bearing
+  // pieces (`doorPieces`), not the first five wardrobe rows — same owner-only
+  // guarantee, truer introduction.
+  assert.match(body, /doorPieces\[i\]\?\.platePath/);
+  assert.match(body, /b\.wearCount - a\.wearCount/);
   // No bundled illustration, no remote asset, no product shot.
   assert.doesNotMatch(ROUTE, /require\('\.\.\/.*assets|unsplash|placeholder\.com/i);
 });

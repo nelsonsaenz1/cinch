@@ -353,9 +353,9 @@ export default function StylistScreen() {
     // clothes belong (founder screenshot, 2026-08-30). One path set per door,
     // the same five pieces `doorCards` below reads.
     ...DOORS.flatMap((_, i) => [
-      items[i]?.platePath,
-      items[i]?.cutoutPath,
-      items[i]?.thumbPath,
+      doorPieces[i]?.platePath,
+      doorPieces[i]?.cutoutPath,
+      doorPieces[i]?.thumbPath,
     ]),
     ...messages.flatMap((m) =>
       m.outfits.flatMap((o) => o.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath])),
@@ -371,6 +371,19 @@ export default function StylistScreen() {
    * promise before you tap anything. With too few pieces the wells are simply
    * empty, which is the same neutral ground every unresolvable image takes.
    */
+  // The five MOST-WORN image-bearing pieces, one per door — not the first
+  // five rows of the wardrobe query (created_at order, i.e. whatever was
+  // photographed last). The doors are the stylist introducing itself with
+  // the reader's own clothes; the clothes they actually reach for make that
+  // introduction true. Deterministic tiebreak by id so the doors don't
+  // reshuffle between visits.
+  // A plain expression, not a useMemo: the React Compiler memoizes this
+  // itself, and a manual memo here made it skip the whole component.
+  const doorPieces = [...items]
+    .filter((g) => g.platePath || g.cutoutPath || g.thumbPath)
+    .sort((a, b) => b.wearCount - a.wearCount || a.id.localeCompare(b.id))
+    .slice(0, DOORS.length);
+
   const doorCards = useMemo(
     () =>
       DOORS.map((door, i) => ({
@@ -378,12 +391,12 @@ export default function StylistScreen() {
         label: door.label,
         hint: door.hint,
         imageUri: resolve(
-          items[i]?.platePath,
-          items[i]?.cutoutPath,
-          items[i]?.thumbPath,
+          doorPieces[i]?.platePath,
+          doorPieces[i]?.cutoutPath,
+          doorPieces[i]?.thumbPath,
         ),
       })),
-    [items, resolve],
+    [doorPieces, resolve],
   );
 
 
