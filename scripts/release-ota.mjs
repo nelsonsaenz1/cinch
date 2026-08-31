@@ -10,7 +10,7 @@
  * fingerprint. expo-updates then enforces that runtime on-device.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -45,6 +45,43 @@ function regexEscape(value) {
 }
 
 if (!message) fail('pass a release message, for example `npm run release:ota -- "Profile polish"`.');
+
+// ── The deno-poisoned node_modules gate (2026-08-31) ────────────────────────
+//
+// `eas update` computes the runtime fingerprint from THIS working directory,
+// and @expo/fingerprint hashes every native-module directory it can find. A
+// stray `deno install` anywhere in the repo can silently rewrite node_modules
+// into deno's symlink layout — real packages under `node_modules/.deno/`,
+// symlinks at the top — which adds dozens of phantom native dirs to the hash.
+// That is exactly how the first 2026-08-31 publish landed on an orphan
+// runtime no binary carries. The check is cheap and the remediation is one
+// command, so this fails fast with it instead of publishing an update nobody
+// can receive.
+if (existsSyncSafe(join(root, 'node_modules', '.deno'))) {
+  fail(
+    'node_modules/.deno exists — a deno install has rewritten node_modules ' +
+      'into its symlink layout, which poisons the runtime fingerprint.\n' +
+      '  Fix: rm -rf node_modules && npm ci',
+  );
+}
+try {
+  if (lstatSync(join(root, 'node_modules', 'expo')).isSymbolicLink()) {
+    fail(
+      'node_modules/expo is a symlink — node_modules is not the npm ci layout ' +
+        'the store build was fingerprinted from.\n  Fix: rm -rf node_modules && npm ci',
+    );
+  }
+} catch {
+  fail('node_modules/expo is missing — run npm ci first.');
+}
+function existsSyncSafe(path) {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const dirty = run('git', ['status', '--porcelain=v1'])
   .split('\n')
