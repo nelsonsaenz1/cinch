@@ -55,6 +55,7 @@ this app *are* garment names.
 | `stylist_questionnaire_completed` | Guided brief tapped through | — |
 | `outfit_shared` | Share sheet opened for an outfit card | — |
 | `paywall_presented` | Server refused, upgrade offered | `placement` |
+| `paywall_converted` | Real purchase or restore through a paywall | `placement`, `result` |
 
 Plus PostHog's own `Application Opened` / `Application Backgrounded` /
 `Application Updated` from `captureAppLifecycleEvents`, and `$screen` from
@@ -83,9 +84,15 @@ sensitive.
    but nothing records that an outfit was *seen*. So we can measure absolute
    likes and never a **like rate** — and the like rate is the direct read on
    whether the styling engine is any good.
-3. **No purchase event in PostHog.** Superwall knows about purchases; PostHog
-   doesn't. So `paywall_presented → subscribed` cannot be measured, and question
-   #3 has no bottom half. Fix belongs in the webhook (see §7), not the app.
+3. **No purchase event in PostHog.** ~~Superwall knows about purchases; PostHog
+   doesn't.~~ *Half closed 2026-08-31:* the client now emits `paywall_converted`
+   (`placement`, `result: purchased|restored`) from the same `use-gate.ts`
+   branch that earns the thanks screen — the one moment that knows both the
+   purchase and the door it came through, which the webhook never will. So
+   `paywall_presented → paywall_converted` by `placement` — revenue per paywall
+   view, not merely purchase rate — is measurable client-side. Reconciled
+   *revenue amounts* still belong to the webhook (see §7); this event carries
+   attribution, not money.
 4. **No sign-up funnel.** Magic-link sign-in has no events, so a drop between
    "opened app" and "has an account" is invisible.
 5. **`outfit_worn` carries no properties.** Fixed by (1) — once plan and closet

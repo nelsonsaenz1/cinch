@@ -446,6 +446,25 @@ export type AppEvent =
    */
   | 'paywall_unavailable'
   /**
+   * A REAL purchase or restore completed through a paywall — the funnel's
+   * bottom, and the only event in the trio that names money changing hands.
+   *
+   * Fired from the same branch of `use-gate.ts`'s `settle()` that routes to
+   * MB-06, which is the one place a genuine `purchased`/`restored` result is
+   * distinguishable from a non-gated dismissal or a campaign skip (both also
+   * settle `granted`, neither sets `purchase`). So this can never overcount:
+   * it fires exactly when the thanks screen is earned.
+   *
+   * WHY CLIENT-SIDE WHEN §2.3 OF docs/analytics.md SENDS REVENUE THROUGH THE
+   * WEBHOOK: the webhook knows the money but not the moment — Superwall's
+   * server event has no idea which placement raised the sheet. Only the
+   * client holds both at once. Reconciled revenue stays webhook-truth; this
+   * carries the attribution (`placement`, plus `result`:
+   * 'purchased' | 'restored') that turns `paywall_presented` into revenue
+   * per paywall view instead of a bare impression count.
+   */
+  | 'paywall_converted'
+  /**
    * A garment import that never reached `done` — the terminal failure of an
    * upload-queue job, and the counterweight to `clothes_import_selected`.
    * Without it the activation funnel could only say that people stopped
