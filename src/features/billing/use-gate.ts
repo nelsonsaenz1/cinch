@@ -338,6 +338,10 @@ function useSuperwallGate(): Gate {
         // settles 'granted' but never sets `purchase`, and takes the caller
         // straight back to `onGranted` with no interruption, same as today.
         recordPaywallOrigin({ placement: target.placement, route: target.route });
+        // The one client-side moment that knows both the money and the door it
+        // came through — the webhook reconciles the revenue but never learns
+        // the placement. `result` is the SDK's own bounded pair.
+        track('paywall_converted', { placement: target.placement, result: target.purchase });
         router.push('/membership-thanks');
       }
 
