@@ -346,22 +346,6 @@ export default function StylistScreen() {
     [openedAt, context.weather, lifestyle.occasions],
   );
 
-  const { resolve } = useSignedUrls([
-    // The door garments FIRST — the opening renders with zero messages, and
-    // signing only the transcript's outfits left `resolve` empty-handed for
-    // every door on every fresh visit: five sand wells where the reader's own
-    // clothes belong (founder screenshot, 2026-08-30). One path set per door,
-    // the same five pieces `doorCards` below reads.
-    ...DOORS.flatMap((_, i) => [
-      doorPieces[i]?.platePath,
-      doorPieces[i]?.cutoutPath,
-      doorPieces[i]?.thumbPath,
-    ]),
-    ...messages.flatMap((m) =>
-      m.outfits.flatMap((o) => o.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath])),
-    ),
-  ]);
-
   /**
    * The doors, each wearing a piece the reader already owns.
    *
@@ -379,10 +363,34 @@ export default function StylistScreen() {
   // reshuffle between visits.
   // A plain expression, not a useMemo: the React Compiler memoizes this
   // itself, and a manual memo here made it skip the whole component.
+  //
+  // DECLARED ABOVE `useSignedUrls`, and that ordering is load-bearing
+  // (incident 2026-08-31, second boot-crash of the day): it used to sit
+  // below, referenced early from inside the signing list's flatMap closure —
+  // a TDZ hole tsc cannot flag through a closure. The compiled bundle read
+  // the not-yet-filled memo slot as undefined, and `undefined[i]` is Hermes'
+  // "Cannot convert undefined value to object", fatally, on every keyed
+  // Release boot. The keyed-sim boot gate is what caught it.
   const doorPieces = [...items]
     .filter((g) => g.platePath || g.cutoutPath || g.thumbPath)
     .sort((a, b) => b.wearCount - a.wearCount || a.id.localeCompare(b.id))
     .slice(0, DOORS.length);
+
+  const { resolve } = useSignedUrls([
+    // The door garments FIRST — the opening renders with zero messages, and
+    // signing only the transcript's outfits left `resolve` empty-handed for
+    // every door on every fresh visit: five sand wells where the reader's own
+    // clothes belong (founder screenshot, 2026-08-30). One path set per door,
+    // the same five pieces `doorCards` below reads.
+    ...DOORS.flatMap((_, i) => [
+      doorPieces[i]?.platePath,
+      doorPieces[i]?.cutoutPath,
+      doorPieces[i]?.thumbPath,
+    ]),
+    ...messages.flatMap((m) =>
+      m.outfits.flatMap((o) => o.items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath])),
+    ),
+  ]);
 
   const doorCards = useMemo(
     () =>
