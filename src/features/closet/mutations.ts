@@ -1,6 +1,12 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import {
+  buildItemUpdate,
+  commitItemUpdate,
+  isEmptyUpdate,
+  type ItemPatch,
+} from '@/features/closet/item-write';
 import { withDeadline } from '@/features/closet/session';
 import { deleteLocalPhoto } from '@/features/ingest/local-photos';
 import { track } from '@/lib/posthog';
@@ -56,21 +62,12 @@ export function useVerifyItem() {
       verify = true,
     }: {
       id: string;
-      patch?: Partial<
-        Pick<
-          Item,
-          | 'category'
-          | 'subcategory'
-          | 'occasions'
-          | 'seasons'
-          | 'purchasePrice'
-          // The manual-tagging pair — a local item's colours are hand-picked
-          // and its fabric hand-chosen, written to the same columns the tagger
-          // fills for everything else.
-          | 'colors'
-          | 'material'
-        >
-      >;
+      /**
+       * The correctable fields. The list and the camelCase → column mapping
+       * live in `features/closet/item-write.ts`, so what a save actually sends
+       * can be read — and tested — without a client, a cache or a session.
+       */
+      patch?: ItemPatch;
       /**
        * Whether this write also means "a human confirmed the tags".
        *
@@ -85,29 +82,29 @@ export function useVerifyItem() {
       const userId = await getUserId();
       if (!userId) throw new Error('Not signed in.');
 
-      const update: ItemUpdate = verify ? { user_verified: true, status: 'verified' } : {};
-      if (patch?.category !== undefined) update.category = patch.category;
-      if (patch?.subcategory !== undefined) update.subcategory = patch.subcategory;
-      if (patch?.occasions !== undefined) update.occasions = patch.occasions;
-      if (patch?.seasons !== undefined) update.seasons = patch.seasons;
-      // Null is a real value here — "I don't know what this cost" — so this
-      // checks for `undefined` (field absent from the patch) rather than
-      // truthiness, which would make clearing a price impossible.
-      if (patch?.purchasePrice !== undefined) update.purchase_price = patch.purchasePrice;
-      // The `colors` column is jsonb and the generated type says only `Json`;
-      // the app's `[{name, hex?}]` is a valid shape of it, the same one
-      // `tag-item` writes, so the cast records intent rather than papering
-      // over a mismatch.
-      if (patch?.colors !== undefined) update.colors = patch.colors as ItemUpdate['colors'];
-      // Same undefined-vs-null distinction as price: null clears the fabric.
-      if (patch?.material !== undefined) update.material = patch.material;
+      const update = buildItemUpdate({ patch, verify });
 
       // Nothing to say. A `verify: false` call whose patch turned out to be
       // empty is a no-op, not an empty UPDATE for PostgREST to reject.
-      if (Object.keys(update).length === 0) return { id };
+      if (isEmptyUpdate(update)) return { id };
 
-      const { error } = await supabase.from('items').update(update).eq('id', id);
-      if (error) throw error;
+      /**
+       * SCOPED AND READ BACK, for the reason `useUnverifyItem` already gives.
+       *
+       * The owner policy scopes UPDATE to `auth.uid() = user_id`, so a row this
+       * session cannot see matches nothing and PostgREST answers 200 with zero
+       * rows and no error. This used to send `.eq('id', id)` alone and inspect
+       * only `error` — which meant a correction that changed nothing closed the
+       * sheet, invalidated the queries and recorded an `item_tag_corrected`
+       * event, indistinguishable from one that landed. The 2026-08-31 funnel
+       * run lost a category change that way and it had to be repaired by hand.
+       *
+       * `user_id` joins the filter so the miss is honest arithmetic rather than
+       * a policy rejection, and `select('id')` is the receipt.
+       */
+      await commitItemUpdate(() =>
+        supabase.from('items').update(update).eq('id', id).eq('user_id', userId).select('id'),
+      );
 
       /**
        * The correction rate — the number the tagger is actually judged on.
