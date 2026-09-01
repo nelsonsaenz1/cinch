@@ -16,6 +16,7 @@ import { admitSource, type Declined } from './policy.ts';
 import { type CatalogProduct, type DatafeedrOpts, searchCatalogue } from '../_shared/catalog.ts';
 import { ladderFor, type ParsedQuery } from '../_shared/catalog-query.ts';
 import { groupFamilies, rankFamilies, type FamilyResult } from './families.ts';
+import { boundTitle } from './title-bound.ts';
 import type {
   GarmentCandidate,
   GarmentImageProvider,
@@ -56,12 +57,22 @@ async function admitRows(
   return { admitted, declined };
 }
 
-function toCandidate(p: CatalogProduct, confidence: number): GarmentCandidate {
+/**
+ * Exported for the round-trip test, which has no way to reach it otherwise:
+ * the only other door is `datafeedrProvider`, and that one costs a metered
+ * Datafeedr call. See `tests/catalog-title-bound.test.ts`.
+ */
+export function toCandidate(p: CatalogProduct, confidence: number): GarmentCandidate {
   return {
     imageUrl: p.imageUrl,
-    title: p.brand && !p.title.toLowerCase().startsWith(p.brand.toLowerCase())
-      ? `${p.brand} ${p.title}`.slice(0, 200)
-      : p.title,
+    // Bounded, not sliced at 200: this title comes straight back as the `title`
+    // of an import, and the import refuses anything over `MAX_TITLE_CHARS`. A
+    // tile the user can tap but never add is the defect this prevents.
+    title: boundTitle(
+      p.brand && !p.title.toLowerCase().startsWith(p.brand.toLowerCase())
+        ? `${p.brand} ${p.title}`
+        : p.title,
+    ),
     source: p.sourceHost,
     confidence,
   };
