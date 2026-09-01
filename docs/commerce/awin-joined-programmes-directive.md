@@ -85,3 +85,35 @@ API read confirms it. Commit same day.
 - Adding any merchant to the allowlist without Nelson's explicit approval.
 - Rakuten work — separate track, nothing has changed there.
 - Emailing merchants back.
+
+---
+
+## 4 · Completion audit — 2026-09-01 23:4xZ (cinch-c2)
+
+The state audit found §1 already live from the 2026-08-25 build; tonight closed
+the BONHEUR gap and verified every step against production:
+
+1. **API read / reconciliation** — `feed_sync_invoke()` triggered manually
+   (BONHEUR was accepted after the day's 08:25Z tick). Phase 0 reconciled it:
+   `commerce_joined_programmes` now holds CICYBELL (active, 08-25) and
+   **BONHEUR (active, joined_at 2026-09-01 23:45:57Z)**. Nothing hand-written.
+2. **Feed sync** — same run: CICYBELL re-synced (15,994 products, no error);
+   **BONHEUR synced 299 products at 23:46:19Z, no error**. The pipeline took
+   its second programme with zero engineering, which is what §1 exists to prove.
+3. **Link construction** — `tests/awin-link-construction.test.ts` inspects a
+   generated link: asserts `awinaffid=3030871` and refuses every click-level
+   identifier family (clickref/clickref2–6, SubID, pref, u1, sid, ref,
+   publisher-ref). Green in the full suite tonight.
+4. **Allowlist sovereignty** — neither 124976 nor 90759 appears in
+   `_shared/merchants.ts`; `ALLOWLIST_REVIEWED_ON` untouched (2026-08-11).
+   Per §0, BONHEUR must also stay out of the owned-feed source, so the
+   documented operator edit was applied: **`catalog_merchants.active = false`
+   for 90759** — `searchOwned` inner-joins on `active = true`, so its 299 rows
+   can never surface; sync-feeds' insert-only phase 0 preserves the edit. The
+   rows stay ingested for optionality; flip `active` back if a jewelry slot
+   ever exists (that flip also resumes its daily feed refresh).
+5. **Health** — `commerce_health_report().monetisation` reads
+   `{"networks":["awin"],"joined_programmes":2}`; feed counters moving.
+
+Ledger updated the same night. The four off-category invitations remain
+untouched in the dashboard, as directed.

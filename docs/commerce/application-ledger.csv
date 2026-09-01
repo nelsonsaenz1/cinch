@@ -4,4 +4,4 @@ date,network,advertiser_id,advertiser_name,tranche,status,status_date,follow_up_
 2026-08-21,awin,124976,CICYBELL,INBOUND,approved,2026-08-25,,womens apparel; 18% commission; only apparel invite; accepted in dashboard 2026-08-25 and confirmed by API read same day (first feed sync: 15608 products)
 2026-08-24,awin,129093,brkox,INBOUND,invited-declined: off-category,2026-08-25,,LEGO display frames
 2026-08-25,awin,78182,TideWe,INBOUND,invited-declined: off-category,2026-08-25,,hunting/fishing gear
-2026-08-27,awin,90759,BONHEUR JEWELRY,INBOUND,approved,2026-09-01,,jewelry (single-slot); invitation accepted by agent 2026-09-01; JOINED; do not allowlist
+2026-08-27,awin,90759,BONHEUR JEWELRY,INBOUND,approved,2026-09-01,,"jewelry (single-slot); accepted 2026-09-01; API read confirmed joined 23:45Z; feed synced 299 products 23:46Z; catalog_merchants.active=false same night so it never enters gap-shop-match output (per directive §0); do not allowlist"
