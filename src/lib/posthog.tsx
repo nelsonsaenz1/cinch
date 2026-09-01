@@ -469,7 +469,11 @@ export type AppEvent =
    * `present-promo.ts` every time it runs its qualification checks, before any
    * sheet exists, with `placement`, `eligible`, and a bounded `reason` saying
    * which check decided it (a frequency cap, an existing entitlement, a
-   * cooldown — never free text).
+   * cooldown — never free text). `use-gate.ts` is the second emitter: it fires
+   * this with `eligible: false, reason: 'import_failure_grace'` when the
+   * garment-limit placement is suppressed inside the ten-minute window after a
+   * failed import (`import-failure-grace.ts`), for the same denominator
+   * reason.
    *
    * THE DENOMINATOR THE FUNNEL HAS ALWAYS LACKED. `paywall_presented` counts
    * sheets that appeared; nothing counted the moments one was considered.
@@ -546,7 +550,11 @@ export type AppEvent =
    * `analyticsFailureReason` in `upload-queue.ts`, never `job.error` itself,
    * which is free text written for a human-readable banner. `retryable` says
    * whether the queue will offer another go, which separates "we lost it" from
-   * "we paused on it".
+   * "we paused on it". For `reason: 'row_write_failed'` — and only that
+   * classification — `code` carries the Postgres/PostgREST error code
+   * (`23505`, `PGRST301`, `no_code`): a fixed vocabulary, not free text, added
+   * after 2026-09-01 spent a day theorising about a defect whose SQLSTATE the
+   * client had discarded (CMO ledger A15).
    *
    * TERMINAL ONLY. The drain loop re-queues a job that has attempts left, and
    * that transition writes no event: an import that fails twice and then

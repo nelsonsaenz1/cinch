@@ -6,6 +6,7 @@ import { CURRENT_CONSENT_VERSION } from '@/features/auth/use-consent';
 import { backgroundRemover, type Swatch } from '@/lib/bg-removal';
 import { nearestColorName } from '@/lib/color';
 import { prepareForUpload, prepareThumbnail } from '@/lib/image';
+import { recordImportFailure } from '@/features/billing/import-failure-grace';
 import { track } from '@/lib/posthog';
 import { queryClient } from '@/lib/query-client';
 import { supabase, getUserId } from '@/lib/supabase';
@@ -170,6 +171,56 @@ function analyticsFailureReason(error: string | undefined): string {
   if (raw.includes('Not signed in')) return 'not_signed_in';
 
   return 'unknown';
+}
+
+/**
+ * The database's own word for WHY a row write failed, as a bounded property.
+ *
+ * `row_write_failed` spent 2026-09-01 as a black box: twenty failures from one
+ * user, and the event carried only the classification, so a day went to
+ * theorising about runtimes when the Postgres error had been in `job.error`
+ * the whole time (CMO ledger A15). The four `Could not create item` /
+ * `Could not record upload` throw sites now embed the SQLSTATE in brackets —
+ * `[23505]`, `[PGRST301]`, `[no_code]` — and this extracts exactly that token
+ * and nothing else.
+ *
+ * SQLSTATE and PostgREST codes are a fixed vocabulary, which is what makes
+ * this sendable where the message itself is not: the privacy line in
+ * `lib/posthog.tsx` refuses free text, and a code is not free text. Returned
+ * only for the row-write classification so no other failure's message can
+ * smuggle a bracketed token into analytics.
+ */
+function analyticsFailureCode(error: string | undefined): string | undefined {
+  const raw = error ?? '';
+  if (!/Could not create item|Could not record upload/i.test(raw)) return undefined;
+  const match = /\[([0-9A-Za-z_]{1,12})\]/.exec(raw);
+  return match ? match[1] : 'no_code';
+}
+
+/**
+ * The one door every TERMINAL import failure leaves through.
+ *
+ * Emits `clothes_import_failed` with the bounded reason and (for row writes)
+ * the Postgres code, and opens the ten-minute grace window during which
+ * `add_garment_over_limit` will not present (`import-failure-grace.ts` — a
+ * paywall two minutes after a failed import is ledger item A16). Routing both
+ * through one helper is what keeps them in lockstep: a failure that counts is
+ * a failure that suppresses, with no site able to do one and forget the other.
+ */
+function trackImportFailed(props: {
+  stage: string;
+  error: string | undefined;
+  retryable: boolean;
+  attempts?: number;
+}): void {
+  recordImportFailure();
+  track('clothes_import_failed', {
+    stage: props.stage,
+    reason: analyticsFailureReason(props.error),
+    code: analyticsFailureCode(props.error),
+    retryable: props.retryable,
+    attempts: props.attempts,
+  });
 }
 
 let running = 0;
@@ -411,11 +462,7 @@ async function driveTagging(
         // this stops here and says why — the garment is in the closet either way.
         update(jobId, { stage: 'failed', error: outcome.message, retryable: outcome.retryable });
         invalidateAfterItemSettled();
-        track('clothes_import_failed', {
-          stage: 'tagging',
-          reason: analyticsFailureReason(outcome.message),
-          retryable: outcome.retryable,
-        });
+        trackImportFailed({ stage: 'tagging', error: outcome.message, retryable: outcome.retryable });
         return;
       }
 
@@ -442,12 +489,7 @@ async function driveTagging(
     // last transient message, which is usually 'unknown' — the interesting
     // property here is `attempts`, because a queue exhausting its retries is a
     // different fault from one being told no on the first call.
-    track('clothes_import_failed', {
-      stage: 'tagging',
-      reason: analyticsFailureReason(lastMessage),
-      retryable: true,
-      attempts: MAX_TAG_ATTEMPTS,
-    });
+    trackImportFailed({ stage: 'tagging', error: lastMessage, retryable: true, attempts: MAX_TAG_ATTEMPTS });
   } finally {
     driving.delete(jobId);
   }
@@ -703,7 +745,8 @@ async function processLocalJob(job: UploadJob, userId: string): Promise<void> {
       })
       .select('id')
       .single();
-    if (error || !data) throw new Error(`Could not create item: ${error?.message}`);
+    if (error || !data)
+      throw new Error(`Could not create item [${error?.code ?? 'no_code'}]: ${error?.message}`);
     itemId = data.id;
     update(job.id, { itemId });
   }
@@ -755,7 +798,8 @@ async function processJob(job: UploadJob): Promise<void> {
       .insert({ user_id: userId, status: 'pending_upload' })
       .select('id')
       .single();
-    if (error || !data) throw new Error(`Could not create item: ${error?.message}`);
+    if (error || !data)
+      throw new Error(`Could not create item [${error?.code ?? 'no_code'}]: ${error?.message}`);
     itemId = data.id;
     update(job.id, { itemId });
   }
@@ -803,7 +847,7 @@ async function processJob(job: UploadJob): Promise<void> {
       status: 'pending_tag',
     })
     .eq('id', itemId);
-  if (updateError) throw new Error(`Could not record upload: ${updateError.message}`);
+  if (updateError) throw new Error(`Could not record upload [${updateError.code ?? 'no_code'}]: ${updateError.message}`);
 
   // CP-05. Set here rather than beside the Vision call for the same reason as
   // the local path: the row is now written, so "the piece is filed" is true.
@@ -886,12 +930,7 @@ export async function drainQueue(): Promise<void> {
           // turn the import failure rate into a measure of network weather
           // rather than of garments lost.
           if (exhausted) {
-            track('clothes_import_failed', {
-              stage: diedAt,
-              reason: analyticsFailureReason(message),
-              retryable: true,
-              attempts,
-            });
+            trackImportFailed({ stage: diedAt, error: message, retryable: true, attempts });
           }
         })
         .finally(() => {
@@ -949,12 +988,7 @@ async function resumeStalledTagging(): Promise<void> {
       // spent. It is being failed here rather than retried, so it is terminal
       // and counts once, on this launch — the launch that killed it never got
       // to emit anything.
-      track('clothes_import_failed', {
-        stage: 'tagging',
-        reason: analyticsFailureReason(job.error),
-        retryable: true,
-        attempts: job.tagAttempts,
-      });
+      trackImportFailed({ stage: 'tagging', error: job.error, retryable: true, attempts: job.tagAttempts });
       continue;
     }
 
@@ -981,12 +1015,7 @@ async function resumeStalledTagging(): Promise<void> {
     // settles, fails visibly, or is handed on with its attempts spent, and this
     // is the failure arm of it. Reached for a `retry` outcome as well as a
     // `blocked` one, because a resumed job gets one attempt and no loop.
-    track('clothes_import_failed', {
-      stage: 'tagging',
-      reason: analyticsFailureReason(outcome.message),
-      retryable,
-      attempts: job.tagAttempts + 1,
-    });
+    trackImportFailed({ stage: 'tagging', error: outcome.message, retryable, attempts: job.tagAttempts + 1 });
   }
 }
 
@@ -1094,11 +1123,7 @@ export async function sweepPendingTags(): Promise<void> {
         // message onto the job and leaves the stage alone for the next pass,
         // so it is not a failure yet and emits nothing — the same rule the
         // drain loop's re-queue branch follows.
-        track('clothes_import_failed', {
-          stage: 'tagging',
-          reason: analyticsFailureReason(outcome.message),
-          retryable: outcome.retryable,
-        });
+        trackImportFailed({ stage: 'tagging', error: outcome.message, retryable: outcome.retryable });
         // An account-wide refusal — consent withdrawn, session unverifiable,
         // allowance spent — refuses the rest of this batch identically. Stop
         // rather than work through fifty guaranteed failures.
@@ -1218,7 +1243,7 @@ export async function startBackfill(): Promise<{ enqueued: number }> {
               status: 'pending_tag',
             })
             .eq('id', row.id);
-          if (updateError) throw new Error(`Could not record upload: ${updateError.message}`);
+          if (updateError) throw new Error(`Could not record upload [${updateError.code ?? 'no_code'}]: ${updateError.message}`);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           useQueueStore
@@ -1228,11 +1253,7 @@ export async function startBackfill(): Promise<{ enqueued: number }> {
           // job's own stage because this try block IS the upload — the two
           // `uploadObject` calls and the row write that records them — and
           // there is no other step it could have died at.
-          track('clothes_import_failed', {
-            stage: 'uploading',
-            reason: analyticsFailureReason(message),
-            retryable: true,
-          });
+          trackImportFailed({ stage: 'uploading', error: message, retryable: true });
           continue;
         }
 
@@ -1323,12 +1344,7 @@ export async function retryJob(jobId: string): Promise<void> {
   // terminal failure — `attempts` is what separates it from the first one, and
   // a garment that fails three retries produces three events, which is the
   // honest account of three imports that did not land.
-  track('clothes_import_failed', {
-    stage: 'tagging',
-    reason: analyticsFailureReason(outcome.message),
-    retryable,
-    attempts: job.tagAttempts + 1,
-  });
+  trackImportFailed({ stage: 'tagging', error: outcome.message, retryable, attempts: job.tagAttempts + 1 });
 }
 
 /** Every failed job worth another go, in one tap. */
