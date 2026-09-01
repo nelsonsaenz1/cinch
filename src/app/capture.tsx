@@ -81,6 +81,7 @@ import {
 import { useCapture, type CapturedAsset } from '@/features/ingest/use-capture';
 import { useWardrobe } from '@/features/styling/queries';
 import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
+import { bypassesCameraGate, captureEntryFrom } from '@/features/ingest/capture-entry';
 import { cutoutFailures } from '@/features/ingest/cutout-failure';
 import {
   useQueueStore,
@@ -259,7 +260,16 @@ type Surface = 'stage' | 'batch';
  */
 export default function CaptureRoute() {
   const router = useRouter();
-  if (!CAMERA_AVAILABLE) {
+  // Read before the guard below, not inside `CaptureScreen`: the guard has to
+  // know the door the reader tapped BEFORE deciding whether to draw over it.
+  // See `capture-entry.ts` for the bug this closes — a library entry used to
+  // hit this notice on any binary with `!CAMERA_AVAILABLE` regardless of
+  // `?start=`, and the notice's own "Use the photo library" bounced back to
+  // `/add-clothes?door=library`, which immediately re-opens this exact route
+  // and the exact same guard: a loop with no way to the picker.
+  const { start } = useLocalSearchParams<{ start?: string }>();
+  const entry = captureEntryFrom(start);
+  if (!CAMERA_AVAILABLE && !bypassesCameraGate(entry)) {
     // Frame 03, drawn here rather than redirected to `/camera-unavailable`:
     // this route was reached directly — a deep link, a notification, a restored
     // session — and bouncing somebody to a second route would lose the close
@@ -654,6 +664,12 @@ function CaptureScreen() {
    */
   const params = useLocalSearchParams<{ start?: string; from?: string }>();
   const autoStart = params.start;
+  // The same door `CaptureRoute` already read above it — see `capture-
+  // entry.ts`. Used below so the camera gate's `unasked` and `blocked`
+  // full-screen states cannot intercept a library entry either: both used to
+  // paint camera UI in front of a picker that was about to open anyway,
+  // resolving only after the 450ms deferred auto-start below fired.
+  const entry = captureEntryFrom(autoStart);
   const autoStarted = useRef(false);
   const guardedRef = useRef(guarded);
   useEffect(() => {
@@ -1240,7 +1256,7 @@ function CaptureScreen() {
         celebrationPage
       ) : surface === 'batch' ? (
         batchPage
-      ) : access === 'unasked' ? (
+      ) : access === 'unasked' && !bypassesCameraGate(entry) ? (
         /*
           Frame 01 — the ask, before the system sheet.
 
@@ -1264,7 +1280,7 @@ function CaptureScreen() {
             onDescribe={() => start('describe')}
           />
         </SafeAreaView>
-      ) : access === 'blocked' ? (
+      ) : access === 'blocked' && !bypassesCameraGate(entry) ? (
         /*
           Frame 02 — refused, and every fallback still open.
 
