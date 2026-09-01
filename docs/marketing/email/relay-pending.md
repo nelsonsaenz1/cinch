@@ -1,4 +1,22 @@
-# Apple Private Email Relay — blocked, and who is owed the Dispatch
+# Apple Private Email Relay — RESOLVED 2026-09-01 23:39Z
+
+**Registration done and delivery PROVEN the same night.** Both domains
+(`mail.cinchstyle.com`, `cinchstyle.com`) were registered in the Developer
+portal at ~23:26Z (via Nelson's signed-in Chrome session). A post-registration
+seed to a relay address DELIVERED at 23:30Z, and all 13 owed Dispatch copies
+were redelivered (personalized one-offs) at 23:39Z — Zainab's spot-checked
+`delivered`. All 14 contacts are back in their main segments.
+
+**One residue:** Apple's dashboard shows a red SPF indicator on both domains
+because neither `cinchstyle.com` nor `mail.cinchstyle.com` carries its own
+SPF TXT (Resend's SPF lives on the `send.` subdomains; delivery passes on
+DKIM). Adding `v=spf1 include:amazonses.com ~all` as TXT on both names in
+Cloudflare would clear it — the agent was permission-blocked from editing DNS,
+so this one line is Nelson's if he wants the indicator green.
+
+---
+
+## Original incident record (2026-09-01 23:14Z)
 
 **Discovered 2026-09-01 23:14Z by A17's seed test.** Two seed sends to
 `@privaterelay.appleid.com` addresses (one active-cohort, one no-closet) both
