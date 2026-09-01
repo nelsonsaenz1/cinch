@@ -148,9 +148,8 @@ test('no fingerprint input has moved since the commit build 40 was built from', 
   const AT_BUILD_40: Record<string, string> = {
     'package.json': 'b100309deb0b216591c1caff64405122d0f20d09',
     'package-lock.json': 'b4b6f7ca4cdecc8538c19fadbc627f0cd841790b',
-    // Re-taken 2026-08-31: the 1.2.2 version bump (build 46, the embedded
-    // OTA-batch train).
-    'app.config.ts': '96c3d9fe50f69dad783d27f1db1e9a7068818a4f',
+    // Re-taken 2026-08-31: the 1.2.3 version bump (the funnel-fix train).
+    'app.config.ts': '9725ae35a6833bf7abf9506f1c5a65848fa04010',
     'eas.json': 'ee59b14e9b048b9121f5dbf39ae8d2052a3641e6',
     '.easignore': '6e70ea0a25678378d28a4f9816b770010d72c8f3',
     '.gitignore': 'f43ce861f415104d72feca1b6475fc5f10fbdb37',
