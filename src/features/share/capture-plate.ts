@@ -5,6 +5,7 @@ import { PixelRatio, Share, type View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import { myInviteUrl } from '@/features/invite/my-link';
+import { TOUCHPOINT_KEY, touchedRecently, touchpointStamp } from '@/features/rating/rating-touchpoint-core';
 import { track } from '@/lib/posthog';
 
 import { plateShareMessage, type ShareSubject } from './share-copy';
@@ -170,15 +171,25 @@ export async function sharePlate(
  * iOS said nothing about whether anything was sent. `Share.share` reports
  * `sharedAction`, so the prompt now follows an actual send — and the flag is
  * still set before the ask, so a throw cannot cause repeat prompts.
+ *
+ * SHARED TOUCHPOINT (Issue 6, 2026-08-31): a first share can land in the same
+ * window as the settled-wear native ask or the review card firing — sharing
+ * an outfit right after logging its wear is a normal path through the app.
+ * Before requesting, this also checks the shared touchpoint
+ * (`rating-touchpoint-core.ts`) that every rating surface reads and writes,
+ * and stands down if one already fired. The touchpoint is written before the
+ * request, same order and same reasoning as `REVIEW_PROMPTED_KEY`.
  */
 async function maybeRequestReview(): Promise<void> {
   try {
     if (await AsyncStorage.getItem(REVIEW_PROMPTED_KEY)) return;
+    if (touchedRecently(new Date(), await AsyncStorage.getItem(TOUCHPOINT_KEY))) return;
     // hasAction first: if StoreKit can't show anything right now, the one
-    // shot isn't burned — the next share gets to try again. The flag is set
-    // before requestReview so a throw can't cause repeat asks.
+    // shot isn't burned — the next share gets to try again. The flags are
+    // set before requestReview so a throw can't cause repeat asks.
     if (await StoreReview.hasAction()) {
       await AsyncStorage.setItem(REVIEW_PROMPTED_KEY, '1');
+      await AsyncStorage.setItem(TOUCHPOINT_KEY, touchpointStamp(new Date()));
       await StoreReview.requestReview();
     }
   } catch {
