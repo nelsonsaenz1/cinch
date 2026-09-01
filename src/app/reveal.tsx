@@ -16,6 +16,12 @@ import { RevealEmpty } from '@/components/reveal/reveal-empty';
 import { RevealStage } from '@/components/reveal/reveal-stage';
 import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import { useMarkRevealSeen } from '@/features/onboarding/reveal-seen';
+import {
+  classifyZero,
+  mayStampSeen,
+  type SeenMoment,
+  type ZeroReason,
+} from '@/features/onboarding/reveal-zero-core';
 import { Plate } from '@/components/today/plate';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -131,8 +137,14 @@ export default function RevealScreen() {
   const count = countOutfits(tally);
 
   // The arithmetic has landed. Until this is true the sequence stays on words:
-  // a settled query is the ONLY thing that turns a digit on.
-  const countReady = !wardrobe.isLoading && !wardrobe.isFetching;
+  // a settled query is the ONLY thing that turns a digit on. A FAILED query is
+  // never "landed" — an errored read hands back an empty list, an empty list
+  // counts to zero, and the zero screen would then explain a closet nobody
+  // actually read (incident 2026-08-31's latent class-4 masquerade). The
+  // failure gets its own frame below instead, with the retry that can turn it
+  // back into arithmetic.
+  const readFailed = wardrobe.isError;
+  const countReady = !wardrobe.isLoading && !wardrobe.isFetching && !readFailed;
 
   const { resolve } = useSignedUrls(items.flatMap((g) => [g.platePath, g.cutoutPath, g.thumbPath]));
 
@@ -160,21 +172,41 @@ export default function RevealScreen() {
     reduced,
   });
 
-  // ── Seen, for good ───────────────────────────────────────────────────────
+  /**
+   * Which zero this is, from the settled facts — null anywhere but a zero.
+   * `queryFailed` is structurally false here because a failed read never
+   * reaches `countReady`; the field exists so the core's vocabulary is whole.
+   */
+  const consented = consent.data?.granted === true;
+  const zeroReason: ZeroReason | null =
+    countReady && count === 0
+      ? classifyZero({ queryFailed: false, untagged: untagged.count, consented })
+      : null;
+
+  // ── Seen, only when something was DELIVERED ──────────────────────────────
   //
-  // Arriving IS seeing it: the stamp lands on mount, not on completion, so a
-  // person who backgrounds mid-count is not offered the moment again as if it
-  // never happened. Once per mount, fire-and-forget — the sequence must not
-  // wait on a write, and the mutation's own optimistic cache close means
-  // Today's door is already gone when the exit lands back there.
+  // The stamp closes Today's reveal door for good, so it must mean "the
+  // moment happened", not "the route mounted". It lands at exactly two kinds
+  // of moment — the completed sequence, and a deliberate exit from the HONEST
+  // zero — and never on the unread, consent-blocked, failed or interrupted
+  // states, so the path back survives every screen that delivered nothing
+  // (incident 2026-08-31; the decision table is reveal-zero-core.ts). A
+  // person who backgrounds mid-count is offered the moment again, which is
+  // now the intent rather than the accident. Fire-and-forget as before.
   const markSeen = useMarkRevealSeen();
   const stamped = useRef(false);
-  useEffect(() => {
-    if (stamped.current) return;
+  const stampSeen = (moment: SeenMoment) => {
+    if (stamped.current || !mayStampSeen(moment, zeroReason)) return;
     stamped.current = true;
     markSeen.mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
+  const stampSeenRef = useRef(stampSeen);
+  useEffect(() => {
+    stampSeenRef.current = stampSeen;
+  });
+  useEffect(() => {
+    if (sequence.complete) stampSeenRef.current('complete');
+  }, [sequence.complete]);
 
   // ── The beats, reported as beats ─────────────────────────────────────────
   //
@@ -186,7 +218,13 @@ export default function RevealScreen() {
     const name = sequence.phase === 'plating' ? 'settled' : (sequence.phase as RevealPhaseName);
     if (seenPhases.current.has(name)) return;
     seenPhases.current.add(name);
-    track(REVEAL_EVENTS.phase, revealPhaseProps(name));
+    // The zero carries WHICH zero (a bounded word from reveal-zero-core), so
+    // the next incident is one query instead of a three-system join.
+    track(
+      REVEAL_EVENTS.phase,
+      revealPhaseProps(name, name === 'zero' ? (zeroReason ?? undefined) : undefined),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sequence.phase]);
 
   // The count, as a BUCKET. The exact number is a deterministic function of one
@@ -373,6 +411,49 @@ export default function RevealScreen() {
     );
   }
 
+  // ── READ FAILED · recoverable, and never a zero ──────────────────────────
+  //
+  // The wardrobe query errored, so there is no arithmetic to reveal — only a
+  // network fact. Said as exactly that, with the retry that can turn it back
+  // into a closet. This frame can only exist while the sequence is still on
+  // words (`countReady` refuses errored reads, so the machine cannot pass
+  // `computing` without a settled result); a count already on screen is never
+  // yanked by a later refetch failing. NO PLACEMENT on this path, no digit,
+  // no "cannot pair" copy over a closet nobody read, and no seen-stamp — the
+  // door back on Today survives a screen that delivered nothing.
+  if (readFailed && (sequence.phase === 'arriving' || sequence.phase === 'computing')) {
+    return (
+      <RevealStage>
+        <View className="flex-1 justify-center">
+          <Text variant="wordmark" trim accessibilityRole="header" style={{ fontSize: 46 }}>
+            Couldn’t read your closet.
+          </Text>
+          <Text variant="note" style={{ marginTop: 14, fontSize: 17, lineHeight: 26 }}>
+            Nothing was counted — the pieces wouldn’t load just now. They’re all still yours;
+            this page just can’t see them yet.
+          </Text>
+        </View>
+        <View style={{ paddingBottom: 20 }}>
+          <Button
+            title="Try again"
+            variant="ink"
+            className="self-stretch"
+            onPress={() => void wardrobe.refetch()}
+          />
+          <Button
+            title={REVEAL_COPY.zeroOpenToday}
+            variant="ghost"
+            className="self-stretch"
+            onPress={() => {
+              exit('read_failed');
+              router.replace('/(tabs)');
+            }}
+          />
+        </View>
+      </RevealStage>
+    );
+  }
+
   // ── ARRIVING · beat one ─────────────────────────────────────────────────
   if (sequence.phase === 'arriving') {
     return (
@@ -447,7 +528,6 @@ export default function RevealScreen() {
     // sentence would be false. The full account still arrives at the moment
     // it is true, on the next capture surface.
     if (untagged.count > 0) {
-      const consented = consent.data?.granted === true;
       return (
         <RevealStage>
           <RevealEmpty
@@ -497,11 +577,16 @@ export default function RevealScreen() {
           fix={smallestFix(tally) ? REVEAL_COPY.zeroRepair : null}
           // The repair loop. `?door=photograph` so The Ten opens on the grid
           // rather than asking a reader mid-repair which door they want.
+          // Both exits stamp `reveal_seen_at` — this is the HONEST zero, the
+          // reader saw the true arithmetic and answered it (see
+          // reveal-zero-core.ts for why only this zero may stamp).
           onFix={() => {
+            stampSeen('zero_repair');
             exit('zero_repair');
             router.replace('/the-ten?door=photograph');
           }}
           onOpenToday={() => {
+            stampSeen('zero_open_today');
             exit('zero_open_today');
             router.replace('/(tabs)');
           }}

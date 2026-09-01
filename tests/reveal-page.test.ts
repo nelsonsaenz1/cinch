@@ -301,3 +301,42 @@ test('the sequence owns timing and phase, and no arithmetic or billing', () => {
   assert.doesNotMatch(SEQ, /countOutfits|tallyOf|gate|Placement|usePlan|supabase/);
   assert.match(SEQ, /countReady/);
 });
+
+// ---------------------------------------------------------------------------
+// Incident 2026-08-31 — a failed read is never a zero, and seen means delivered
+// ---------------------------------------------------------------------------
+
+test('a failed wardrobe read never reaches the arithmetic', () => {
+  // `countReady` refuses errored reads, so the machine cannot mint a zero out
+  // of an empty error result, and the failed frame renders in words instead.
+  assert.match(ROUTE, /const readFailed = wardrobe\.isError/);
+  assert.match(ROUTE, /!wardrobe\.isLoading && !wardrobe\.isFetching && !readFailed/);
+  assert.match(ROUTE, /readFailed && \(sequence\.phase === 'arriving' \|\| sequence\.phase === 'computing'\)/);
+});
+
+test('the failed frame carries a retry and no placement, digit, or stamp', () => {
+  const failed = ROUTE.slice(ROUTE.indexOf("Couldn’t read your closet"), ROUTE.indexOf("if (sequence.phase === 'arriving')"));
+  assert.match(failed, /wardrobe\.refetch\(\)/);
+  assert.match(failed, /exit\('read_failed'\)/);
+  assert.doesNotMatch(failed, /gate\.present|Placement\.|stampSeen|showNumber/);
+});
+
+test('reveal_seen_at stamps only at delivery moments, never on mount', () => {
+  // The mount-time stamp is gone; every write is gated by the decision table
+  // in reveal-zero-core (complete, or an exit from the honest zero).
+  assert.doesNotMatch(ROUTE, /useEffect\(\(\) => \{\s*if \(stamped\.current\) return;/);
+  assert.match(ROUTE, /mayStampSeen\(moment, zeroReason\)/);
+  assert.match(ROUTE, /if \(sequence\.complete\) stampSeenRef\.current\('complete'\)/);
+  assert.match(ROUTE, /stampSeen\('zero_repair'\)/);
+  assert.match(ROUTE, /stampSeen\('zero_open_today'\)/);
+});
+
+test('the zero phase event carries its bounded reason', () => {
+  assert.match(ROUTE, /revealPhaseProps\(name, name === 'zero' \? \(zeroReason \?\? undefined\) : undefined\)/);
+  assert.match(ROUTE, /classifyZero\(\{ queryFailed: false, untagged: untagged\.count, consented \}\)/);
+});
+
+test('a settled tag refreshes the unread counter alongside the wardrobe', () => {
+  const QUEUE = readFileSync('src/features/ingest/upload-queue.ts', 'utf8');
+  assert.match(QUEUE, /invalidateQueries\(\{ queryKey: \['untagged-count'\] \}\)/);
+});

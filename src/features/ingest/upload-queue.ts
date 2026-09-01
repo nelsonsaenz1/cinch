@@ -28,6 +28,12 @@ function invalidateAfterItemSettled(): void {
   void queryClient.invalidateQueries({ queryKey: ['wardrobe'] });
   void queryClient.invalidateQueries({ queryKey: ['review-queue'] });
   void queryClient.invalidateQueries({ queryKey: ['closet-count'] });
+  // The Reveal's unread-zero counts pieces still at pending_tag. A tag
+  // settling IS that number changing, and a mounted Reveal resumes its
+  // count-up off exactly this pair of refreshes — the wardrobe above, and
+  // this. Omitting it left the "still being read" sentence stale until the
+  // query's own refetch cycle happened by.
+  void queryClient.invalidateQueries({ queryKey: ['untagged-count'] });
 }
 
 /**

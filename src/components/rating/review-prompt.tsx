@@ -66,54 +66,60 @@ const io: ReviewPromptIo = {
 };
 
 // Once per LAUNCH, not per mount — fast refresh and a remounting root layout
-// must not multiply sessions.
-let sessionNumber: number | null = null;
-let shownThisSession = false;
+// must not multiply sessions. The cache lives in a module function so the
+// component only ever CALLS it; the React Compiler forbids a render mutating
+// module state directly, and it is right to — this way the write happens in
+// exactly one place with one guard.
+let sessionNumberCache: number | null = null;
+function sessionThisLaunch(): number {
+  if (sessionNumberCache === null) sessionNumberCache = recordSession(io);
+  return sessionNumberCache;
+}
 
 export function ReviewPrompt() {
   const theme = useTheme();
   const pathname = usePathname();
-  const [visible, setVisible] = useState(false);
+  const [sessionNumber] = useState(sessionThisLaunch);
+  /**
+   * waiting → showing → spent, once per mount — and this component mounts
+   * once, in the root layout, so per mount IS per session. The transition
+   * into `showing` happens as an adjust-during-render (the same pattern
+   * use-reveal-sequence documents); the analytics event fires from the
+   * Modal's own `onShow`, which is the first honest moment the card exists.
+   */
+  const [stage, setStage] = useState<'waiting' | 'showing' | 'spent'>('waiting');
 
-  if (sessionNumber === null) sessionNumber = recordSession(io);
+  const eligible = stage === 'waiting' && promptEligible(sessionNumber, io);
 
-  const eligible = !shownThisSession && promptEligible(sessionNumber, io);
-
-  // The two settle-in clocks: page moves, counted whenever the path changes
-  // while the ask is still owed, and a dwell timer armed once on mount.
-  const moves = useRef(0);
+  // The two settle-in clocks — both as STATE, because both are read during
+  // render to decide `due`: page moves, counted when the path changes, and a
+  // dwell timer armed once on mount.
+  const [moves, setMoves] = useState(0);
+  const [dwelled, setDwelled] = useState(false);
   const lastPath = useRef(pathname);
-  const dwellElapsed = useRef(false);
-  const [, forceCheck] = useState(0);
 
   useEffect(() => {
-    if (!eligible) return;
-    const t = setTimeout(() => {
-      dwellElapsed.current = true;
-      forceCheck((n) => n + 1);
-    }, 30_000);
+    if (pathname !== lastPath.current) {
+      lastPath.current = pathname;
+      setMoves((n) => n + 1);
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDwelled(true), 30_000);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (pathname !== lastPath.current) {
-    lastPath.current = pathname;
-    moves.current += 1;
+  const due = eligible && settledIn(dwelled ? 30_000 : 0, moves);
+
+  // Only over a tab root — if the reader is mid-flow, the next path change
+  // lands somewhere calm and this adjusts then.
+  if (stage === 'waiting' && due && TAB_PATHS.has(pathname)) {
+    setStage('showing');
   }
 
-  const due = eligible && settledIn(dwellElapsed.current ? 30_000 : 0, moves.current);
-
-  useEffect(() => {
-    if (!due || visible || shownThisSession) return;
-    // Only over a tab root — if the reader is mid-flow, wait for the next
-    // path change or render to land somewhere calm.
-    if (!TAB_PATHS.has(pathname)) return;
-    shownThisSession = true;
-    setVisible(true);
-    track('review_prompt_shown');
-  }, [due, visible, pathname]);
-
-  const close = () => setVisible(false);
+  const visible = stage === 'showing';
+  const close = () => setStage('spent');
 
   const rate = () => {
     markDone(io);
@@ -134,7 +140,12 @@ export function ReviewPrompt() {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={later}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={later}
+      onShow={() => track('review_prompt_shown')}>
       {/* The scrim dismisses — this ask must never trap anyone. */}
       <Pressable
         className="flex-1 justify-end bg-black/40"
