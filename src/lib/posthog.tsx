@@ -465,6 +465,28 @@ export type AppEvent =
    */
   | 'paywall_converted'
   /**
+   * A qualified promotional path was EVALUATED — shown or not. Fired by
+   * `present-promo.ts` every time it runs its qualification checks, before any
+   * sheet exists, with `placement`, `eligible`, and a bounded `reason` saying
+   * which check decided it (a frequency cap, an existing entitlement, a
+   * cooldown — never free text). `use-gate.ts` is the second emitter: it fires
+   * this with `eligible: false, reason: 'import_failure_grace'` when the
+   * garment-limit placement is suppressed inside the ten-minute window after a
+   * failed import (`import-failure-grace.ts`), for the same denominator
+   * reason.
+   *
+   * THE DENOMINATOR THE FUNNEL HAS ALWAYS LACKED. `paywall_presented` counts
+   * sheets that appeared; nothing counted the moments one was considered.
+   * Without this, a frequency cap that suppresses nine in ten promotional
+   * opportunities is indistinguishable from a placement nobody reaches — the
+   * presented count falls and no chart can say whether that is the cap doing
+   * its job or the trigger going dark. `paywall_eligible` (eligible: true) →
+   * `paywall_presented` should track 1:1; a gap between them is a presentation
+   * failure, and the `eligible: false` share by `reason` is the read on
+   * whether the caps are tuned or strangling the funnel.
+   */
+  | 'paywall_eligible'
+  /**
    * A garment import that never reached `done` — the terminal failure of an
    * upload-queue job, and the counterweight to `clothes_import_selected`.
    * Without it the activation funnel could only say that people stopped
@@ -475,7 +497,11 @@ export type AppEvent =
    * `analyticsFailureReason` in `upload-queue.ts`, never `job.error` itself,
    * which is free text written for a human-readable banner. `retryable` says
    * whether the queue will offer another go, which separates "we lost it" from
-   * "we paused on it".
+   * "we paused on it". For `reason: 'row_write_failed'` — and only that
+   * classification — `code` carries the Postgres/PostgREST error code
+   * (`23505`, `PGRST301`, `no_code`): a fixed vocabulary, not free text, added
+   * after 2026-09-01 spent a day theorising about a defect whose SQLSTATE the
+   * client had discarded (CMO ledger A15).
    *
    * TERMINAL ONLY. The drain loop re-queues a job that has attempts left, and
    * that transition writes no event: an import that fails twice and then
