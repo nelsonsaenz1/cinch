@@ -103,6 +103,56 @@ Prefer Supabase denominators over PostHog for population questions (`profiles`, 
 per user). Instrumentation undercounts: `clothes_import_completed` showed 12 importers
 where the `items` table showed 15.
 
+## Review devices now browse — the auth-only CTE under-excludes (2026-09-01)
+
+**Standing correction.** The §1 CTE above missed **16 of 16** Apple review passes on
+2026-09-01, because review devices no longer only attempt auth — they fire `$screen`,
+`today_opened`, `weather_state` and more, so the `countIf(event NOT IN (…)) = 0` test
+fails and they survive the filter. Taken at face value they read as "17 people could not
+sign in", a leak the same size as the real first-item leak. There was one real person.
+
+**Use this signature instead** (it caught all 16 and kept the one genuine failure):
+
+```sql
+select person_id from events where timestamp > now() - interval 14 day
+group by person_id
+having has(groupArray(properties['$app_build']), '1')            -- dev / harness
+    or ( countIf(event = 'auth_completed') = 0
+         and countIf(event = 'auth_started') >= 2
+         and dateDiff('second', min(timestamp), max(timestamp)) < 600
+         and anyIf(properties['$geoip_city_name'],
+                   properties['$geoip_city_name'] != '')
+             in ('Cupertino','Sunnyvale','') )
+```
+
+The tell is the shape, not the geography: **7–12 `auth_started` inside a 100–250-second
+window, 30–50 total events, and exactly one `$app_build` per historical build number**
+(32, 34, 36, 41, 44, 45, 46, 47 — one review pass each). Sunnyvale is Apple too.
+
+A person who fails auth over a *long* span, or only a handful of times, is a customer:
+`ab374450` (Stuart FL, build 46, 3 attempts in 23 seconds, 2026-08-31) is the only real
+sign-in failure in fourteen days.
+
+## Internal accounts are not signups (2026-09-01)
+
+Supabase `profiles` includes ~10–11 internal accounts. Exclude them from **every**
+population number, not just funnel ones:
+
+```sql
+where u.email not like '%@cinchstyle.com'
+  and u.email <> 'demo@cinch.app'
+  and u.email not in ('lisa.2wxrklc.paid@icloud.com','lisa.2wxrkclc.paid@icloud.com')
+```
+
+On 2026-09-01, **three of the four profiles created that day were QA accounts and two of
+them held ≥10 items**. Reading the day's first-item rate off the raw table gives 75%; the
+real figure is one signup. The canonical list of internal accounts lives in
+`docs/marketing/email/PROGRAM.md` §2 and should be kept in sync.
+
+Also: `style_profiles` has one row per profile and is **created by a trigger on signup**.
+It is *not* evidence that anyone completed onboarding — 47 of 48 rows have an empty
+`summary`. Use `style_profile_saved` in PostHog for that.
+
 ## Other standing gotchas
 
 - `reveal_complete` is a Superwall placement, not a PostHog event; the
@@ -111,3 +161,50 @@ where the `items` table showed 15.
 - Superwall data reads through `superwall query` (ClickHouse, `sw.events_rep`,
   timestamp column is `ts`); the CLI session usually outlives the dashboard
   session — probe `superwall whoami` before declaring it logged out.
+
+## ASC Analytics is 410 Gone — stop calling it "logged out" (2026-09-01, nightly)
+
+**Standing correction.** Three briefings (08-30, 08-31, 09-01-od) recorded impressions,
+page views and App Units as unread because "the ASC session was logged out." That
+diagnosis was wrong every time. The session is fine. The **endpoint** is dead:
+
+```
+POST https://appstoreconnect.apple.com/analytics/api/v1/data/time-series
+→ 410  "This URL is deprecated. To access data outside of the App Store Connect web
+        dashboard, please refer to the Analytics Reports API."
+```
+
+What still works from a logged-in ASC tab, and should be used every night:
+
+```js
+// versions + store state
+GET /iris/v1/apps/6798479578/appStoreVersions?limit=5
+    &fields[appStoreVersions]=versionString,appStoreState,createdDate,releaseType
+// review text AND whether a developer reply exists (relationships.response.data === null)
+GET /iris/v1/apps/6798479578/customerReviews?limit=20&include=response&sort=-createdDate
+// promo text / keywords in force
+GET /iris/v1/appStoreVersions/<versionId>/appStoreVersionLocalizations
+    ?fields[appStoreVersionLocalizations]=locale,promotionalText,keywords,whatsNew
+```
+
+Also useful and unauthenticated: `itunes.apple.com/lookup?id=6798479578&country=us` gives
+live version, `currentVersionReleaseDate` (the exact moment a build went live), rating and
+rating count; `itunes.apple.com/search?term=…&entity=software` gives competitor ratings
+without a session.
+
+**Impressions, PPV, App Units and source/campaign attribution remain unreadable until an
+App Store Connect API key exists** (Users and Access → Integrations → App Store Connect
+API). That is ledger row A21. Until it lands, write *unread — no API key*, and never write
+*logged out* again.
+
+## `closet_floor_shown` is not an empty-closet event (2026-09-01, nightly)
+
+It fires on the closet surface generally — persons with **123** and **51** garments have
+fired it, and on 09-01 it fired 0.8s after `today_opened` alongside a `$screen`, the
+NativeTabs mount pattern. Do **not** use `closet_floor_shown → clothes_import_selected`
+as a step conversion; the 09-01-od briefing did and had to downgrade the claim to a
+hypothesis the same night.
+
+For "did this signup ever add a garment", use Supabase: real `profiles` in the window
+versus `count(distinct user_id)` in `items`. That denominator needs no instrumentation and
+has agreed with PostHog's `auth_completed` to within one on three consecutive nights.
