@@ -56,6 +56,25 @@ type BatchResponse = {
   failed?: number;
 };
 
+/**
+ * Mirrors `MAX_TITLE_CHARS` in `supabase/functions/garment-search/title-bound.ts`,
+ * in the same spirit as `features/commerce/copy.ts` mirrors the paid-link label:
+ * app code cannot import a Deno module, so the number is repeated with the
+ * reason beside it.
+ *
+ * The server is the one that cuts, and after `title-bound.ts` every title it
+ * emits already fits. This is the belt: a phone running a newer build against
+ * an edge function that has not been redeployed yet would otherwise post the
+ * old, unbounded title and lose the WHOLE batch to a 400 — every colourway,
+ * for a merchant's long product name the user never chose and cannot edit.
+ * Truncating here costs a few words off a card; not truncating costs the
+ * import.
+ */
+const MAX_TITLE_CHARS = 120;
+
+const boundedTitle = (title: string): string =>
+  title.length <= MAX_TITLE_CHARS ? title : title.slice(0, MAX_TITLE_CHARS).trimEnd();
+
 async function readBody(error: unknown): Promise<Record<string, unknown> | null> {
   if (!(error instanceof FunctionsHttpError)) return null;
   try {
@@ -107,7 +126,7 @@ export function useCatalogueImport() {
               imageUrl: colour.imageUrl ?? '',
               // The provenance fix. See the header.
               pageUrl: colour.pageUrl ?? undefined,
-              title: family.title,
+              title: boundedTitle(family.title),
               colourLabel: colour.label,
             })),
           },

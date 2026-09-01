@@ -1,5 +1,8 @@
 import { BoundsError } from '../_shared/input-bounds.ts';
 import { isBrowsableSlot, type BrowsableSlot } from '../_shared/browse-slots.ts';
+// The title ceiling lives beside the truncation that respects it, so the
+// validator and every producer cannot disagree about the number.
+import { MAX_TITLE_CHARS } from './title-bound.ts';
 
 /**
  * Request bounds for garment-search.
@@ -24,7 +27,6 @@ const MAX_DESCRIPTION_CHARS = 240;
 const MIN_DESCRIPTION_CHARS = 3;
 const MAX_SWATCH_CHARS = 40_000;
 const MAX_URL_CHARS = 2_048;
-const MAX_TITLE_CHARS = 120;
 /** "Comme des Garçons Comme des Garçons" fits; a smuggled paragraph does not. */
 const MAX_BRAND_CHARS = 80;
 /** Datafeedr's ids are numeric; this is a bound, not a shape. */

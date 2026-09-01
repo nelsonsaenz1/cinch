@@ -22,6 +22,11 @@
  * is usually a banner.
  */
 
+// The rule this file already stated — a title it emits must be one the import
+// endpoint would accept back — now comes from the file that owns the bound,
+// rather than a copy of the number that could drift away from it.
+import { boundTitle } from './title-bound.ts';
+
 /** A product page is HTML; anything past this is analytics, not markup. */
 export const PAGE_MAX_BYTES = 768 * 1024;
 /** Long enough for a slow retailer, short enough that a hung host is not a hang. */
@@ -29,10 +34,6 @@ export const PAGE_TIMEOUT_MS = 8_000;
 
 /** The `accept` header both callers send. Kept here so they cannot disagree. */
 export const PAGE_ACCEPT = 'text/html,application/xhtml+xml';
-
-/** Mirrors `MAX_TITLE_CHARS` in bounds.ts — a title this file emits must be one
- *  the import endpoint would accept back. */
-const MAX_TITLE_CHARS = 120;
 
 const ENTITIES: Record<string, string> = {
   '&amp;': '&',
@@ -157,5 +158,5 @@ export function extractTitle(html: string, pageUrl: URL): string | null {
   const trimmed = stripSiteSuffix(collapsed, pageUrl).trim();
   if (!trimmed) return null;
 
-  return trimmed.length > MAX_TITLE_CHARS ? trimmed.slice(0, MAX_TITLE_CHARS).trim() : trimmed;
+  return boundTitle(trimmed);
 }

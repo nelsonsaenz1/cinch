@@ -55,6 +55,7 @@ import {
   headNoun,
   SIZE_SET,
 } from '../_shared/garment-lexicon.ts';
+import { boundTitle } from './title-bound.ts';
 
 // ---------------------------------------------------------------------------
 // The contract
@@ -397,7 +398,7 @@ export function displayTitle(
   // stripping starts. Otherwise "Heather Grey XL" is eroded to "Heather" — a
   // fragment, which is worse than the odd-but-honest name the shop gave it.
   const allWords = title.split(/\s+/).filter(Boolean);
-  if (allWords.length > 0 && allWords.every(isVariantWord)) return title;
+  if (allWords.length > 0 && allWords.every(isVariantWord)) return boundTitle(title);
 
   // Trailing SEGMENTS. Split keeping the delimiters so the survivors can be
   // rejoined exactly as the merchant punctuated them.
@@ -438,7 +439,14 @@ export function displayTitle(
     .trim();
   // A name made entirely of variant words keeps the merchant's own, because a
   // blank card is worse than an odd one.
-  return cleaned || rawTitle.trim();
+  //
+  // Bounded on the way out, at every exit. The stripping above removes a
+  // variant suffix, which is not a length rule and cannot be relied on to
+  // produce one: a merchant who writes a 170-character product name and no
+  // trailing colour leaves the whole thing intact. This title is posted back
+  // verbatim as an import's `title`, so a value the import would refuse must
+  // never leave here — the user cannot shorten a name that was never theirs.
+  return boundTitle(cleaned || rawTitle.trim());
 }
 
 /** The garment class a title claims, by its longest matching noun. */
