@@ -138,7 +138,16 @@ export function ItemEditSheet({
       animationType="slide"
       onRequestClose={busy ? undefined : onCancel}
       presentationStyle="pageSheet">
-      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
+      {/* collapsable={false} through the sheet's chrome, exactly as
+          people-search-body.tsx does for its formSheet: the platform sheet
+          flattens "decorative" Views out of the native tree, and a flattened
+          ancestor takes its descendants' touchability with it — the category
+          chips sat dead under a reader's finger while the header's own
+          Pressables (outside the flattened branch) kept working. Verified from
+          a cold open of the sheet on 2026-08-31; fast refresh does not rebuild
+          the native subview structure, so judge any edit here from a cold
+          open. */}
+      <SafeAreaView className="flex-1 bg-canvas" edges={['top']} collapsable={false}>
         {/* The bar. Cancel is muted, the title is ink, and Save is the ONE
             oxblood on the screen — text, because a filled accent bar button
             would outweigh the document. Three colours, no weights. */}
@@ -202,12 +211,12 @@ export function ItemEditSheet({
             />
           </Field>
 
-          <View className="mt-4">
+          <View className="mt-4" collapsable={false}>
             <FieldLabel>Category</FieldLabel>
             {/* Chips, not a picker: a correction is one tap in this app. r12,
                 and the held one takes INK — the oxblood on this frame is spent
                 on Save alone. */}
-            <View className="mt-2 flex-row flex-wrap gap-2">
+            <View className="mt-2 flex-row flex-wrap gap-2" collapsable={false}>
               {CATEGORY_CHOICES.map((c) => (
                 <Chip
                   key={c.key}

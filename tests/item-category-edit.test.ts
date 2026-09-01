@@ -222,3 +222,21 @@ test('the sync is identity-stable, because it runs during render', () => {
   const closed = syncDraftState(edited, { visible: false, initial: ROW });
   assert.equal(syncDraftState(closed, { visible: false, initial: ROW }), closed);
 });
+
+/**
+ * The half of the funnel defect the draft machine could not see: the category
+ * chips were never receiving the tap at all. The platform sheet flattens
+ * "decorative" Views out of the native tree, and a flattened ancestor takes
+ * its descendants' touchability with it — people-search-body.tsx documents the
+ * same class for its formSheet. These assertions pin the sheet's chrome as
+ * unflattenable so the chips keep their native view.
+ */
+import { readFileSync } from 'node:fs';
+
+test('the edit sheet pins its chrome against native view flattening', () => {
+  const sheet = readFileSync('src/components/item/item-edit-sheet.tsx', 'utf8');
+  const container = sheet.match(/<SafeAreaView[^>]*collapsable=\{false\}/s);
+  assert.ok(container, 'the sheet container must carry collapsable={false}');
+  const chipRow = sheet.match(/flex-row flex-wrap gap-2" collapsable=\{false\}/);
+  assert.ok(chipRow, 'the category chip row must carry collapsable={false}');
+});
