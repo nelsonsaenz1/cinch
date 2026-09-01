@@ -124,8 +124,18 @@ export function Chip({
       // leave the boundary between them ambiguous.
       hitSlop={spec.hitSlop}
       onPressIn={feedback.onPressIn}
-      onPressOut={feedback.onPressOut}>
-      <Animated.View style={feedback.style}>
+      onPressOut={feedback.onPressOut}
+      // The Pressable carries its own height, exactly as Button does. The
+      // 2026-08-20 compression pass (dc26774) moved every style onto the
+      // inner View and left this Pressable bare, and a bare Pressable whose
+      // only child is a Reanimated wrapper stopped receiving presses at all —
+      // production `closet_filter` events stop within hours of that OTA, and
+      // the 2026-08-31 funnel run's "category stayed top" was this same dead
+      // row under the item editor's chips. Button never lost its presses, and
+      // the one structural difference was this line plus the wrapper's
+      // pointerEvents below.
+      style={{ minHeight: spec.minHeight }}>
+      <Animated.View style={feedback.style} pointerEvents="none">
         <View
           style={{ minHeight: spec.minHeight, ...(spec.borderColor ? { borderColor: spec.borderColor } : null) }}
           className={`flex-row items-center justify-center rounded-chip ${spec.padding} ${spec.ground}`}>

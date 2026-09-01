@@ -434,7 +434,11 @@ export function PrimaryAction({
       disabled={inert}
       onPress={onPress}
       onPressIn={press.onPressIn}
-      onPressOut={press.onPressOut}>
+      onPressOut={press.onPressOut}
+      // The Pressable carries its own height — chip.tsx documents the
+      // dead-press shape this avoids (a bare Pressable whose only child is a
+      // Reanimated wrapper).
+      style={{ minHeight: MIN_TAP_TARGET }}>
       <Animated.View
         style={[
           press.style,
@@ -471,7 +475,11 @@ export function SecondaryAction({ label, onPress }: { label: string; onPress: ()
       accessibilityLabel={label}
       onPress={onPress}
       onPressIn={press.onPressIn}
-      onPressOut={press.onPressOut}>
+      onPressOut={press.onPressOut}
+      // The Pressable carries its own height — chip.tsx documents the
+      // dead-press shape this avoids (a bare Pressable whose only child is a
+      // Reanimated wrapper).
+      style={{ minHeight: MIN_TAP_TARGET }}>
       <Animated.View
         style={[
           press.style,

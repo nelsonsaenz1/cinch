@@ -135,11 +135,19 @@ function TappableRow({ label, onPress }: { label: string; onPress?: () => void }
   // rigid ring around a shrinking word reads as the word flinching.
   const feedback = usePressFeedback(Boolean(onPress));
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" onPressIn={feedback.onPressIn} onPressOut={feedback.onPressOut}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      onPressIn={feedback.onPressIn}
+      onPressOut={feedback.onPressOut}
+      // The Pressable carries its own height and the wrapper stays out of
+      // hit-testing — chip.tsx documents the dead-press shape this avoids
+      // (a bare Pressable whose only child is a Reanimated wrapper).
+      style={{ minHeight: MIN_TAP_TARGET }}>
       {/* The ring and padding live on a REAL View — NativeWind cannot paint a
           Reanimated wrapper (tokens.ts documents the Button bug that proved
           it); the animated layer carries only the compression. */}
-      <Animated.View style={feedback.style}>
+      <Animated.View style={feedback.style} pointerEvents="none">
         <View
           style={{ minHeight: MIN_TAP_TARGET, borderRadius: ROW_RADIUS, justifyContent: 'center' }}
           className="border border-rule px-4">

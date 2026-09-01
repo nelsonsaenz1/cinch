@@ -199,7 +199,11 @@ export function MembershipPlate({
         accessibilityLabel={[row.label, row.value].filter(Boolean).join('. ')}
         onPress={onOpen}
         onPressIn={press.onPressIn}
-        onPressOut={press.onPressOut}>
+        onPressOut={press.onPressOut}
+        // The Pressable carries its own height — chip.tsx documents the
+        // dead-press shape this avoids (a bare Pressable whose only child is a
+        // Reanimated wrapper).
+        style={{ minHeight: MIN_TAP_TARGET }}>
         <Animated.View style={press.style}>
           <SettingsPlate tone="blush">
             <View

@@ -3,7 +3,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
-import { motion, shadow, useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, motion, shadow, useTheme } from '@/theme/tokens';
 
 /**
  * C-03 — the ellipsis menu, as an anchored popover.
@@ -71,7 +71,11 @@ function MenuRow({
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       accessibilityRole="button"
-      accessibilityLabel={badge !== undefined ? `${label}, ${badge} pending` : label}>
+      accessibilityLabel={badge !== undefined ? `${label}, ${badge} pending` : label}
+      // The Pressable carries its own height — chip.tsx documents the
+      // dead-press shape this avoids (a bare Pressable whose only child is a
+      // Reanimated wrapper).
+      style={{ minHeight: MIN_TAP_TARGET }}>
       <Animated.View
         style={[
           style,

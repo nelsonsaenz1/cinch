@@ -5,7 +5,7 @@ import Animated from 'react-native-reanimated';
 
 import { Text } from '@/components/ui/text';
 import { usePressFeedback } from '@/components/ui/use-press-feedback';
-import { useTheme } from '@/theme/tokens';
+import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
  * The circular back button, on its own.
@@ -33,7 +33,11 @@ export function BackButton({ onPress, label = 'Back' }: { onPress?: () => void; 
       accessibilityLabel={label}
       hitSlop={8}
       onPressIn={feedback.onPressIn}
-      onPressOut={feedback.onPressOut}>
+      onPressOut={feedback.onPressOut}
+      // The Pressable carries its own height — chip.tsx documents the
+      // dead-press shape this avoids (a bare Pressable whose only child is a
+      // Reanimated wrapper).
+      style={{ minHeight: MIN_TAP_TARGET }}>
       <Animated.View style={feedback.style}>
         <View className="h-9 w-9 items-center justify-center rounded-full border border-rule">
           <SymbolView name="chevron.left" size={15} tintColor={theme.ink} resizeMode="scaleAspectFit" />
