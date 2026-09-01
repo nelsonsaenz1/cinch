@@ -16,11 +16,19 @@ is not implied. The five, with disposition already decided:
 
 | Advertiser | Awin ID | Catalogue | Disposition |
 |---|---|---|---|
-| **CICYBELL** | **124976** | Women's workwear, dresses, casual (18% comm.) | **ACCEPT — the only apparel merchant** |
+| **CICYBELL** | **124976** | Women's workwear, dresses, casual (18% comm.) | **ACCEPT — the only multi-slot apparel merchant** |
+| **BONHEUR JEWELRY** | **90759** | Jewelry (single-slot) | **ACCEPT** per Nelson 2026-09-01 — but jewelry maps to no gap slot; join for optionality, do NOT allowlist |
 | TideWe | 78182 | Hunting/fishing gear | Decline / ignore |
 | Piscifun | 89509 | Fishing rods & reels | Decline / ignore |
 | SAILO, INC | 92667 | Boat rentals | Decline / ignore |
 | brkox | 129093 | LEGO display frames | Decline / ignore |
+
+**2026-09-01 additions:** BONHEUR JEWELRY invitation arrived Aug 27. Separately, a
+merchant onboarding email "Welcome to the CICYBELL affiliate program" arrived Aug 25 —
+possibly a premature merchant blast, possibly evidence the membership is already
+active. **Treat the API joined-programmes read as the only truth for membership
+status**, not merchant emails. Awin dashboard session is currently logged out;
+acceptance clicks are pending Nelson's sign-in.
 
 Accepting an invitation happens in the Awin dashboard (Nelson or the Cowork
 browser agent — not this session). **Your work is everything after acceptance.**
