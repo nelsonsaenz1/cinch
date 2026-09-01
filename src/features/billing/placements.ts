@@ -59,6 +59,9 @@ export const Placement = {
    * `enforce_event_join_cap()` refusing the membership write. Lifetime, not
    * concurrent: the ledger behind it survives leaving and event deletion, so
    * this is the moment a free account has spent its three.
+   *
+   * Campaign: **105039** (created 2026-08-31), audience "pro inactive", 100%
+   * to paywall 254200.
    */
   EventJoinOverLimit: 'event_join_over_limit',
 
@@ -67,10 +70,9 @@ export const Placement = {
    * 2 / 15 / 100).
    *
    * Same shape as the three above — the database trigger has already refused
-   * the insert, so this only decides what to show. Note the Superwall campaign
-   * for this one does not exist yet: an unmatched placement proceeds without a
-   * paywall, and the retry meets the trigger again, so nothing is given away.
-   * The moment is simply undesigned until the campaign is created.
+   * the insert, so this only decides what to show; its campaign is live in the
+   * dashboard (as of 2026-08-31). Were it ever unmatched, nothing is given
+   * away: the retry meets the trigger again.
    */
   EventHostingOverLimit: 'event_hosting_over_limit',
 
@@ -86,10 +88,11 @@ export const Placement = {
    * free account, and this placement is the conversion surface offered at that
    * moment.
    *
-   * IT MUST FAIL CLOSED. An unmatched placement proceeds silently, and there is
-   * currently no `packing_access` campaign in the dashboard — so if the lock
-   * lived in Superwall, every free user would simply walk through. The lock
-   * lives in the app; the paywall is what we show them once they are stopped.
+   * IT MUST FAIL CLOSED. An unmatched placement proceeds silently — so if the
+   * lock lived in Superwall, one campaign misconfiguration would let every
+   * free user simply walk through. The lock lives in the app (the
+   * `packing_access` campaign is live as of 2026-08-31, but the lock must not
+   * depend on it); the paywall is what we show them once they are stopped.
    * The server backs this up independently: `packing-brief` claims the
    * `stylist_chat` allowance, which free is excluded from, so even a patched
    * client gets a 402 rather than a brief.
@@ -147,11 +150,10 @@ export const Placement = {
    * Campaign: **"Reveal complete" (101136)**, created 2026-08-10, audience
    * "no active Pro entitlement", 100% to paywall 254200 — the same audience
    * and the same document as the other three campaigns, so this cannot become
-   * the one door that behaves differently. Note the document is still
-   * unpublished (`published_at: null`), which is the standing revenue blocker
-   * in docs/design/paywall-publish-runbook.md and not specific to this
-   * placement: until it is published every placement here resolves to a sheet
-   * that never commits a frame, and the fail-safe in use-gate.ts tears it down.
+   * the one door that behaves differently. The document is published (since
+   * 2026-08-17 — docs/design/paywall-publish-runbook.md is satisfied), so the
+   * sheet commits frames everywhere; the fail-safe in use-gate.ts remains for
+   * genuine load failures.
    */
   RevealComplete: 'reveal_complete',
 
@@ -181,12 +183,10 @@ export const Placement = {
    * upgrade door is not the one door that behaves differently — 100% to
    * paywall 254200.
    *
-   * IT INHERITS THE PUBLISH BLOCKER. 254200 is still `published_at: null`, so
-   * this placement resolves to a sheet that never commits a frame and
-   * `use-gate.ts`'s fail-safe tears it down — exactly as every other placement
-   * does today. That is not silent here: MB-09 branches on `unavailable` and
-   * says so, rather than leaving a button that appears to do nothing. See
-   * docs/design/paywall-publish-runbook.md.
+   * 254200 is published (since 2026-08-17), so the sheet loads normally.
+   * Should it ever fail to, that is not silent here: MB-09 branches on
+   * `unavailable` and says so, rather than leaving a button that appears to
+   * do nothing.
    */
   MembershipUpgrade: 'membership_upgrade',
 } as const;
