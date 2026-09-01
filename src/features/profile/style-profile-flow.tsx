@@ -77,8 +77,12 @@ function StageOption({
       accessibilityState={{ selected }}
       accessibilityLabel={`${label}. ${hint}`}
       onPressIn={feedback.onPressIn}
-      onPressOut={feedback.onPressOut}>
-      <Animated.View style={feedback.style}>
+      onPressOut={feedback.onPressOut}
+      // The Pressable carries its own height and the wrapper stays out of
+      // hit-testing — chip.tsx documents the dead-press shape this avoids
+      // (a bare Pressable whose only child is a Reanimated wrapper).
+      style={{ minHeight: MIN_TAP_TARGET }}>
+      <Animated.View style={feedback.style} pointerEvents="none">
         <View
           style={{ minHeight: MIN_TAP_TARGET }}
           className={[

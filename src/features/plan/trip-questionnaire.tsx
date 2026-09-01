@@ -75,11 +75,15 @@ export function AnswerChip({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPressIn={feedback.onPressIn}
-      onPressOut={feedback.onPressOut}>
+      onPressOut={feedback.onPressOut}
+      // The Pressable carries its own height and the wrapper stays out of
+      // hit-testing — chip.tsx documents the dead-press shape this avoids
+      // (a bare Pressable whose only child is a Reanimated wrapper).
+      style={{ minHeight: MIN_TAP_TARGET }}>
       {/* The ring lives on an inner real View — NativeWind cannot paint a
           Reanimated wrapper — and the animated layer carries only the
           compression. */}
-      <Animated.View style={feedback.style}>
+      <Animated.View style={feedback.style} pointerEvents="none">
       <View
       style={{ minHeight: MIN_TAP_TARGET }}
       className={[
