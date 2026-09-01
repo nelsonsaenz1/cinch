@@ -20,7 +20,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(15);
 
 -- ---------------------------------------------------------------------------
 -- 1. No anonymous DML anywhere in public. Not on the 13 tables that used to
@@ -137,23 +137,109 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- 9. The trial is fourteen days, in the function that actually writes it.
+-- 9. The server grants NO trial. The trial is StoreKit's now
+--    (20260901000000): a 7-day introductory offer on cinch.standard.annual,
+--    reported through the webhook like any purchase. This section used to
+--    assert the opposite — that handle_new_subscription wrote interval
+--    '14 days' — and is inverted on purpose: a restored pre-transition
+--    definition must fail the suite, because a silent server trial on top of
+--    a StoreKit trial is a double grant.
 --
---    20260810150000_trial_is_twenty_one_days was written, never applied and
---    deleted; production has written interval '14 days' since 5 August. This
---    asserts the live definition rather than any document about it, so that
---    restoring the 21-day migration fails the suite instead of shipping.
+--    Asserted functionally, on a real signup, rather than by grepping the
+--    definition: the requirement is the row that gets written, not the words
+--    used to write it.
 -- ---------------------------------------------------------------------------
+insert into auth.users (id, email)
+values ('a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0', 'grant-matrix@example.test');
+
 select is(
-  (select count(*)::int
-     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.proname = 'handle_new_subscription'
-      and pg_get_functiondef(p.oid) like '%14 days%'
-      and pg_get_functiondef(p.oid) not like '%21 days%'),
+  (select count(*)::int from subscriptions
+    where user_id = 'a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0'
+      and plan = 'free' and trial_ends_at is null),
   1,
-  'handle_new_subscription grants a 14-day trial and mentions no 21-day one'
+  'a new account starts free with NO server trial — the trial is StoreKit''s to grant'
 );
+
+-- ---------------------------------------------------------------------------
+-- 10. effective_plan precedence: a paid row beats a live trial.
+--
+--     The pre-transition fold let ANY live trial_ends_at read as `pro`,
+--     which masked a paid Standard purchase for the rest of the trial
+--     window. Now a paid plan wins outright, and a live trial lifts only a
+--     'free' row — legacy promotional access, honoured to its recorded
+--     expiry and no further.
+-- ---------------------------------------------------------------------------
+update subscriptions
+   set plan = 'standard', trial_ends_at = now() + interval '10 days'
+ where user_id = 'a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0';
+
+select is(
+  effective_plan('a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0'),
+  'standard'::subscription_plan,
+  'a paid plan row wins over a live trial — a purchase takes effect the moment it lands'
+);
+
+update subscriptions
+   set plan = 'free', trial_ends_at = now() + interval '10 days'
+ where user_id = 'a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0';
+
+select is(
+  effective_plan('a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0'),
+  'pro'::subscription_plan,
+  'a live trial still lifts a free row to pro — legacy promotional access is honoured'
+);
+
+update subscriptions
+   set plan = 'free', trial_ends_at = now() - interval '1 day'
+ where user_id = 'a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0';
+
+select is(
+  effective_plan('a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0'),
+  'free'::subscription_plan,
+  'an expired legacy trial lifts nothing'
+);
+
+-- ---------------------------------------------------------------------------
+-- 11. paywall_impressions is owner-only, insert and select, nothing else.
+--     The table is the reinstall-proof memory behind the client-side paywall
+--     frequency caps; a user who could write another user''s impressions
+--     could silence — or spam — their paywalls.
+-- ---------------------------------------------------------------------------
+insert into auth.users (id, email)
+values ('b1b1b1b1-b1b1-4b1b-8b1b-b1b1b1b1b1b1', 'impressions-other@example.test');
+
+-- A row the second user owns, to prove the first cannot see it.
+insert into paywall_impressions (user_id, placement)
+values ('b1b1b1b1-b1b1-4b1b-8b1b-b1b1b1b1b1b1', 'general_promo');
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0","role":"authenticated"}',
+  true
+);
+
+select lives_ok(
+  $$insert into paywall_impressions (user_id, placement)
+    values ('a0a0a0a0-a0a0-4a0a-8a0a-a0a0a0a0a0a0', 'general_promo')$$,
+  'an account can record its own paywall impression'
+);
+
+select throws_ok(
+  $$insert into paywall_impressions (user_id, placement)
+    values ('b1b1b1b1-b1b1-4b1b-8b1b-b1b1b1b1b1b1', 'general_promo')$$,
+  '42501',
+  null,
+  'and cannot record an impression against anybody else'
+);
+
+select is(
+  (select count(*)::int from paywall_impressions),
+  1,
+  'select shows only the caller''s own impressions'
+);
+
+reset role;
 
 select * from finish();
 rollback;

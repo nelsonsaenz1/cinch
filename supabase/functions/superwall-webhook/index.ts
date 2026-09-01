@@ -118,7 +118,10 @@ interface SuperwallEvent {
     productId?: string;
     originalAppUserId?: string;
     expirationAt?: number;
+    /** TRIAL | INTRO | NORMAL, per Superwall's webhook contract. */
     periodType?: string;
+    /** True on the `renewal` that converts an intro-offer trial to a paid period. */
+    isTrialConversion?: boolean;
     originalTransactionId?: string;
   };
 }
@@ -200,14 +203,27 @@ export default {
     // handler asked for. See `claim_superwall_event`.
     const expirationAt = data.expirationAt ? new Date(data.expirationAt).toISOString() : null;
 
-    const { data: firstDelivery, error: claimError } = await admin.rpc('claim_superwall_event', {
+    // `p_period_type` and `p_is_trial_conversion` are what make the StoreKit
+    // trial legible from the ledger: a trial arrives as `initial_purchase`
+    // with periodType TRIAL, and its conversion as `renewal` with
+    // isTrialConversion true. Neither changes the verdict — they are recorded
+    // facts, not decisions. The two fields postdate the generated
+    // database.types.ts; regenerate it after 20260901000000 applies and drop
+    // the assertion below.
+    const claimArgs = {
       p_svix_id: svixId,
       p_event_type: type,
       p_app_user_id: userId,
       p_product_id: data.productId ?? undefined,
       p_original_transaction_id: data.originalTransactionId ?? undefined,
       p_expiration_at: expirationAt ?? undefined,
-    });
+      p_period_type: data.periodType ?? undefined,
+      p_is_trial_conversion: data.isTrialConversion ?? undefined,
+    };
+    const { data: firstDelivery, error: claimError } = await admin.rpc(
+      'claim_superwall_event',
+      claimArgs as Database['public']['Functions']['claim_superwall_event']['Args'],
+    );
 
     if (claimError) {
       // 500, so Svix retries. Losing the ledger row is worse than a redelivery:
@@ -337,10 +353,11 @@ export default {
 
     await note('applied', plan);
 
-    // Note for the operator: `effective_plan()` reports `pro` for the whole
-    // 14-day trial window regardless of what is written here, so a Standard
-    // purchase made mid-trial takes visible effect on day 15. Correct, but
-    // surprising the first time you watch a webhook land and nothing change.
+    // Note for the operator: since 20260901000000 a PAID plan written here
+    // wins in `effective_plan()` outright — a legacy promotional trial
+    // (plan 'free' with a live trial_ends_at) lifts only free rows to `pro`,
+    // so a Standard purchase takes visible effect the moment this write
+    // lands, trial or no trial.
     return Response.json({ ok: true, applied: true, plan, periodType: data.periodType ?? null });
   },
 };

@@ -24,7 +24,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(18);
+select plan(21);
 
 insert into auth.users (id, email)
 values ('88888888-8888-4888-8888-888888888888', 'wren@example.test'),
@@ -62,6 +62,30 @@ select is(
   claim_superwall_event('msg_bbb', 'subscription_start', 'user_1', 'cinch.pro.monthly'),
   true,
   'a different svix id carrying the same facts is a different delivery'
+);
+
+-- 20260901000000: the ledger records what KIND of period was delivered.
+-- A StoreKit intro-offer trial arrives as initial_purchase with periodType
+-- TRIAL, and its conversion as a renewal flagged isTrialConversion — without
+-- these two columns the trial transition cannot be measured from the ledger.
+select is(
+  claim_superwall_event(
+    'msg_trial', 'initial_purchase', 'user_2', 'cinch.standard.annual',
+    p_period_type => 'TRIAL', p_is_trial_conversion => false),
+  true,
+  'a claim carrying a period type is accepted'
+);
+
+select is(
+  (select period_type from superwall_events where svix_id = 'msg_trial'),
+  'TRIAL',
+  'and the period type is stored verbatim'
+);
+
+select is(
+  (select period_type from superwall_events where svix_id = 'msg_bbb'),
+  null,
+  'a claim made without one stores null — absence recorded as absence'
 );
 
 -- ---------------------------------------------------------------------------

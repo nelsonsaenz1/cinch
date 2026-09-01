@@ -464,12 +464,14 @@ select is(
 -- are filled by exactly the two rows below and the third insert is the probe.
 -- ---------------------------------------------------------------------------
 
--- Sasha's trial has to be expired first, or she is not on the free tier at all:
--- `handle_new_subscription()` gives every new account a live trial and
--- `effective_plan()` folds a live trial into `pro`, so her real cap would be
--- 100 and the probe below would never fire. Same pattern, same reason, as
--- 10_intake_boundary.sql:239. The update runs as postgres because
--- `subscriptions` has no client UPDATE policy — a plan is not self-serve.
+-- Pin Sasha to the free tier explicitly. Since 20260901000000 a new account
+-- gets no server trial (plan 'free', trial_ends_at null), so she is free
+-- already and this update is belt-and-braces — but the probe below depends on
+-- her cap being the free tier's, and asserting that on a default rather than
+-- a written value would let a future signup-path change silently move the cap
+-- to 100 and blunt the test. Same pattern as 10_intake_boundary.sql:239. The
+-- update runs as postgres because `subscriptions` has no client UPDATE
+-- policy — a plan is not self-serve.
 reset role;
 update subscriptions
    set plan = 'free', trial_ends_at = null
