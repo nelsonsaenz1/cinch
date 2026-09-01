@@ -40,8 +40,8 @@ const body = script.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 // The runtime was computed by the script's own EAS-equivalent method
 // (git archive + npm ci), which EAS has confirmed identically on builds 42
 // and 43. Compare again against the EAS stamp at 1.2.1's submission.
-const CONTROL_COMMIT = '5b3b2ba35f3dfc5c7048b7568f0b27cc7fb14f2c';
-const CONTROL_RUNTIME = 'ccfa8345632631f8eaeb548313840d587bb3d177';
+const CONTROL_COMMIT = 'f3c1e7d0ae38547177958400e6c728896549e270';
+const CONTROL_RUNTIME = '4e646ba0ddb42338ba8d721fcfccf9be26576ea4';
 
 // RE-TAKEN 2026-08-31 at the cut of 1.2.2 build 46 (commit 5b3b2ba): the EAS
 // stamp and the archive-method computation both read ccfa8345, so the method

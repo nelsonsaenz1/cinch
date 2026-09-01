@@ -54,8 +54,8 @@ const PLATFORM = 'ios';
  * while. `--verify-control` runs it. Compare against the EAS-stamped runtime
  * when the build finishes — every prior re-take has matched.
  */
-const CONTROL_COMMIT = '5b3b2ba35f3dfc5c7048b7568f0b27cc7fb14f2c';
-const CONTROL_HASH = 'ccfa8345632631f8eaeb548313840d587bb3d177';
+const CONTROL_COMMIT = 'f3c1e7d0ae38547177958400e6c728896549e270';
+const CONTROL_HASH = '4e646ba0ddb42338ba8d721fcfccf9be26576ea4';
 
 /**
  * WHY THIS DOES NOT HASH THE WORKING DIRECTORY.
