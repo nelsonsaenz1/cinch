@@ -146,7 +146,11 @@ test('the hook delegates to the tested core and registers Placement.TrialExpired
   const hook = src('features/billing/use-trial-expired.ts');
   assert.match(hook, /evaluateTrialExpired\(/, 'the hook must run the flow these tests prove');
   assert.match(hook, /from '\.\/trial-expired-core'/);
-  assert.match(hook, /gate\.present\(Placement\.TrialExpired\)/);
+  // Through presentPromo, never the bare gate: trial_expired is one of the
+  // four general promos, so the qualification, the frequency caps and the
+  // paywall_eligible/dismissed events all belong to that one function.
+  assert.match(hook, /presentPromo\(gate, Placement\.TrialExpired/);
+  assert.doesNotMatch(hook, /gate\.present\(/);
   assert.doesNotMatch(
     hook,
     /getItem\(\s*['"`]/,

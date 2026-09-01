@@ -85,15 +85,20 @@ export interface PlanCopy {
   /** Null on free; filled from StoreKit once billing ships, not hard-coded. */
   readonly monthlyPriceHint: string | null;
   /**
-   * The yearly price, for surfaces that quote both — K-01's gate says
-   * "$14.99/mo · $119/yr" exactly as the atlas draws it.
+   * The yearly price, for surfaces that quote both — K-01's gate quotes the
+   * pair ("$9.99/mo · $79.99/yr") exactly as the atlas draws it.
    *
    * A HINT, like the monthly one, and for the same reason: the paywall itself
    * reads StoreKit and formats in the device locale, because a price typed
    * into a layout is wrong in every country but one. These two exist so a
-   * screen can name the tier without a round trip. Verified against the
-   * Superwall products on 2026-08-09 — cinch.pro.annual $119.00,
-   * cinch.standard.annual $59.00.
+   * screen can name the tier without a round trip. The approved 2026-08-31
+   * repricing: Standard $4.99 / $39.99, Pro $9.99 / $79.99 — change these only
+   * alongside the App Store Connect products, or the hint quotes a price the
+   * purchase sheet contradicts.
+   *
+   * NO TRIAL WORDING may ever join these hints (correction 06): in-app copy
+   * never states a trial duration as a constant — the paywall document reads
+   * the live StoreKit offer, which is the only copy that cannot go stale.
    */
   readonly annualPriceHint: string | null;
 }
@@ -132,8 +137,8 @@ export const PLANS = {
     stylist: '5 chats a month',
     eventHosting: 15,
     eventJoins: null,
-    monthlyPriceHint: '$7.99',
-    annualPriceHint: '$59',
+    monthlyPriceHint: '$4.99',
+    annualPriceHint: '$39.99',
   },
   pro: {
     name: 'Pro',
@@ -144,7 +149,7 @@ export const PLANS = {
     stylist: 'Unlimited',
     eventHosting: 100,
     eventJoins: null,
-    monthlyPriceHint: '$14.99',
-    annualPriceHint: '$119',
+    monthlyPriceHint: '$9.99',
+    annualPriceHint: '$79.99',
   },
 } as const satisfies Record<Plan, PlanCopy>;

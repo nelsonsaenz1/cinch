@@ -95,6 +95,7 @@ import { PressableSurface } from '@/components/ui/pressable-surface';
 import { PLANS } from '@/features/billing/plans';
 import { classifyDenial, useGate } from '@/features/billing/use-gate';
 import { usePlan } from '@/features/billing/use-plan';
+import { useReturningFree } from '@/features/billing/use-returning-free';
 import { useUnwearEntry } from '@/features/diary/mutations';
 import { useMyEvents } from '@/features/events/queries';
 import { useAllTrips } from '@/features/plan/use-trips';
@@ -1114,6 +1115,11 @@ export default function TodayScreen() {
   // flash a claim that is false for it.
   const planState = usePlan();
   const knownPlan = planState.loading || planState.unconfirmed ? null : planState.plan;
+  // The day-3 / day-7 return ask, for a free account whose closet already made
+  // a number. Everything about it — the schedule, the once-per-open latch, the
+  // caps — lives in the hook and behind `presentPromo`; Today only hands over
+  // the count it already computes, and the render never depends on it.
+  useReturningFree(countOutfits(currentTally));
   /**
    * "See plans", from a prompt this screen drew.
    *

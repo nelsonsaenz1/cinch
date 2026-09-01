@@ -15,8 +15,10 @@ import { TenReplaceSheet } from '@/components/onboarding/ten-replace-sheet';
 import { TenStopSheet } from '@/components/onboarding/ten-stop-sheet';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Placement } from '@/features/billing/placements';
+import { presentPromo } from '@/features/billing/present-promo';
 import { useCapacity } from '@/features/billing/use-capacity';
 import { useGate } from '@/features/billing/use-gate';
+import { usePlan } from '@/features/billing/use-plan';
 import { useRemoveItems } from '@/features/closet/mutations';
 import { useArchiveItems, useRestoreItems } from '@/features/closet/storage';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -263,9 +265,13 @@ export default function TheTenScreen() {
   const chromeMeasure = tenMeasure({ fontScale: window.fontScale, height: window.height });
 
   const capacity = useCapacity();
-  // Only ever used by the no-room plate's "See plans", whose placement is the
-  // one whose whole contract is a closet the server has already refused.
+  // The no-room plate's "See plans" (a server refusal, straight to the gate)
+  // and the finish beat's `ten_completed` promo (app-initiated, so it goes
+  // through `presentPromo` and its caps instead) share this one gate.
   const gate = useGate();
+  // For `presentPromo`'s qualification only — plan and trial state are read at
+  // the call site by that function's own contract (present-promo.ts).
+  const plan = usePlan();
   const archive = useArchiveItems();
   const restore = useRestoreItems();
   const discard = useRemoveItems();
@@ -734,6 +740,45 @@ export default function TheTenScreen() {
     );
   }
 
+  /**
+   * The ONE route to the Reveal — both exits (the tray's capsule and the stop
+   * sheet's first action) come through here, so the destination and the beat
+   * before it cannot drift apart.
+   *
+   * THE BEAT: `ten_completed` is the moment between the closet becoming real
+   * and the Reveal starting, and the one general promo allowed to sit there
+   * (placements.ts). It goes through `presentPromo`, never `gate.present` —
+   * the qualification (free-only, not trialing), the frequency caps, and the
+   * eligibility events are all that function's, and 'ineligible' or
+   * 'unavailable' resolve instantly so the fast path stays fast.
+   *
+   * THE REVEAL IS UNBLOCKABLE. `presentPromo` promises to never throw, and the
+   * route still runs from a `finally` because a promise about someone else's
+   * code is not a guarantee (the same brace present-promo.ts wears itself).
+   * Every outcome routes — 'granted' included: a subscriber, or a buyer who
+   * just purchased off this very sheet, still gets the Reveal they were
+   * promised, and nothing here branches on the result.
+   *
+   * NO REPAIR-LOOP CARVE-OUT, considered and declined. The Reveal's repair
+   * loop re-enters via `?door=photograph`, but so do the Walkthrough's
+   * "Photograph them instead" and every V-13 fork — first-run readers who
+   * must not lose the beat — so the param cannot tell a repair apart. What
+   * actually protects the repair-loop reader is the caps: one general ask per
+   * rolling day means a second pass through this line inside the same day
+   * resolves 'ineligible' before Superwall is ever involved.
+   */
+  const finishToReveal = async () => {
+    setStopDismissed(true);
+    try {
+      await presentPromo(gate, Placement.TenCompleted, {
+        plan: plan.plan,
+        trialing: plan.trialing,
+      });
+    } finally {
+      router.replace('/reveal');
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <TenBody
@@ -769,14 +814,12 @@ export default function TheTenScreen() {
         }}
         onPhotograph={(id) => openCamera(id, 'camera')}
         onLibrary={(id) => openCamera(id, 'library')}
-        // The complete tray's capsule. The SAME destination the stop sheet's
+        // The complete tray's capsule. The SAME handler the stop sheet's
         // first action has, deliberately: a reader who waved the sheet away
         // still has the one exit this flow was counting down to, and there is
-        // exactly one route to the reveal rather than two that could drift.
-        onFinish={() => {
-          setStopDismissed(true);
-          router.replace('/reveal');
-        }}
+        // exactly one route to the reveal rather than two that could drift —
+        // including the `ten_completed` beat that now precedes it.
+        onFinish={() => void finishToReveal()}
         // And its quiet one. `/add-clothes` owns the capacity question — there
         // is no eleventh well here to fill, so this is a door out rather than a
         // second picker.
@@ -867,10 +910,7 @@ export default function TheTenScreen() {
         // It used to be `plannedTally` — arithmetic over a template's plan,
         // which could quote fourteen outfits to a closet that made none.
         count={readiness.outfits}
-        onSeeOutfits={() => {
-          setStopDismissed(true);
-          router.replace('/reveal');
-        }}
+        onSeeOutfits={() => void finishToReveal()}
         // "Back to the grid" — the sheet closes and nothing else happens. It
         // used to route to The Wall's swap flow, which promised a replacement
         // this sheet never offered; the atlas's own second action is smaller

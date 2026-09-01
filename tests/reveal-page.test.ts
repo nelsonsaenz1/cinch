@@ -139,9 +139,14 @@ test('no price, product, term or vendor layout is drawn here', () => {
   assert.doesNotMatch(ROUTE, /\b\d+[- ]day (free )?trial\b/i);
 });
 
-test('the placement is the existing one, with no new campaign invented', () => {
-  assert.match(ROUTE, /Placement\.RevealComplete/);
-  assert.equal((ROUTE.match(/gate\.present\(/g) ?? []).length, 1);
+test('the placement is the existing one, offered through the promo path', () => {
+  assert.match(ROUTE, /presentPromo\(gate, Placement\.RevealComplete/);
+  // Through presentPromo, never the bare gate: reveal_complete is a general
+  // promo, so the free-only/not-trialing qualification, the frequency caps
+  // (including the no-consecutive rule against ten_completed) and the
+  // paywall_eligible/dismissed events all live in that one function.
+  assert.equal((ROUTE.match(/presentPromo\(/g) ?? []).length, 1);
+  assert.equal((ROUTE.match(/gate\.present\(/g) ?? []).length, 0);
 });
 
 // ---------------------------------------------------------------------------
@@ -150,13 +155,13 @@ test('the placement is the existing one, with no new campaign invented', () => {
 
 test('the zero branch returns before anything can present', () => {
   const zeroAt = ROUTE.indexOf("sequence.phase === 'zero'");
-  const presentAt = ROUTE.indexOf('gate.present(');
+  const presentAt = ROUTE.indexOf('presentPromo(');
   assert.ok(zeroAt > -1, 'the zero branch is gone');
   assert.ok(presentAt > -1);
-  // `goToToday` is the only caller of present(), and the zero screen's two
-  // actions are wired to router.replace directly rather than to it.
+  // `goToToday` is the only caller of presentPromo(), and the zero screen's
+  // two actions are wired to router.replace directly rather than to it.
   const zeroBlock = ROUTE.slice(zeroAt, ROUTE.indexOf('COUNTING', zeroAt) + 1 || zeroAt + 2000);
-  assert.doesNotMatch(zeroBlock, /goToToday|gate\.present/, zeroBlock);
+  assert.doesNotMatch(zeroBlock, /goToToday|gate\.present|presentPromo/, zeroBlock);
 });
 
 test('the zero offers both accepted doors', () => {

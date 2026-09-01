@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect } from 'react';
 
 import { Placement } from './placements';
+import { presentPromo } from './present-promo';
 import { evaluateTrialExpired } from './trial-expired-core';
 import { useGate } from './use-gate';
 import { usePlan } from './use-plan';
@@ -49,7 +50,14 @@ export function useTrialExpiredPlacement(): void {
       {
         getItem: (key) => AsyncStorage.getItem(key),
         setItem: (key, value) => AsyncStorage.setItem(key, value),
-        present: () => void gate.present(Placement.TrialExpired),
+        // Through the promo path, not the bare gate: `trial_expired` is a
+        // general promotional ask, so it spends the frequency allowance and
+        // is itself refused when the account was already asked today. The
+        // once-per-lapse marker above still applies first — a capped ask
+        // consumes the marker, deliberately: the lapse was noticed, and
+        // repeating it tomorrow because a different promo showed today is
+        // the nagging this hook exists to prevent.
+        present: () => void presentPromo(gate, Placement.TrialExpired, { plan, trialing }),
         cancelled: () => cancelled,
       },
     );

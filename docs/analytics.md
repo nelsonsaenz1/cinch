@@ -93,10 +93,76 @@ sensitive.
    view, not merely purchase rate — is measurable client-side. Reconciled
    *revenue amounts* still belong to the webhook (see §7); this event carries
    attribution, not money.
+   *Extended 2026-09-01:* the split is now a contract, not a gap. The
+   **server-side subscription lifecycle** — trial started / converted /
+   expired, purchase completed, subscription renewed / canceled / expired,
+   entitlement activated — lives in the `superwall_events` ledger (the
+   `period_type` column distinguishes trial from normal periods) and is
+   reconciled via SQL. These are deliberately **not** client events: the
+   client cannot witness a renewal (the app may not be running), a trial
+   conversion (Apple bills with no UI), or an expiration (the app may be
+   deleted) — a client event for any of them would be wrong by construction,
+   missing exactly the cases that matter. The webhook receives each with
+   svix-id idempotency; the join back to client events is the Supabase user
+   id. See §2b for the full journey.
 4. **No sign-up funnel.** Magic-link sign-in has no events, so a drop between
    "opened app" and "has an account" is invisible.
 5. **`outfit_worn` carries no properties.** Fixed by (1) — once plan and closet
    size are person properties, the event doesn't need them.
+
+### 2b. Funnel event contract (2026-09-01)
+
+The production contract for the money funnel, written down once so every chart
+draws the same journey. This lands alongside the real StoreKit 7-day trial on
+`cinch.standard.annual` (replacing the server-side silent trial) and the
+qualified promotional paywall paths with frequency caps.
+
+**The journey, end to end:**
+
+```
+auth_completed
+  → closet_ready              (activation: The Ten completed / canGenerate())
+  → reveal_phase (complete)   (the first outfit, witnessed)
+  → plate_viewed / outfit_set_viewed   (daily engagement denominator)
+  → outfit_worn               (the single number, §6)
+  → paywall_eligible          (a promotional path was EVALUATED — shown or not)
+  → paywall_presented         (a sheet actually appeared)
+  → paywall_converted         (purchased | restored — the client's last word)
+  → server ledger             (trial started/converted/expired, purchase,
+                               renewal — superwall_events, period_type)
+```
+
+Every step through `paywall_converted` is a client event in the closed union
+in `src/lib/posthog.tsx`; everything after it is webhook truth in Supabase.
+`paywall_dismissed` (a visibly-presented paywall resolved 'declined') and
+`paywall_unavailable` (the client fail-safe) are the two non-converting exits
+from `paywall_presented`, and `trial_eligibility`
+(`eligible|ineligible|unknown`) is the StoreKit answer recorded before any
+trial is promised.
+
+**Identity.** Client events are keyed to the identified person — PostHog's
+distinct id, which `identifyUser` sets to the Supabase user UUID (anonymous
+pre-auth events are aliased in on `identify`, so `auth_started` still joins).
+The server ledger is keyed to `user_id`. **The join key is the Supabase user
+id**, on both sides, always. Any query that spans the wire joins on it and on
+nothing else.
+
+**Deduplication.** Two mechanisms, one per side:
+
+- `closet_ready` fires through `trackOnce` — a storage-backed once-per-person
+  guard (user-scoped plus anonymous key), so activation is counted exactly
+  once however many surfaces observe the crossing.
+- Ledger writes are idempotent on the **svix-id** of the webhook delivery, so
+  a redelivered Superwall event cannot double-count a trial, purchase or
+  renewal.
+
+**The `legacy_promotional_access` exclusion rule.** Rows in `subscriptions`
+with `plan = 'free'` AND `trial_ends_at NOT NULL` are the old server-side
+silent trial — legacy promotional access, not StoreKit trials. They are
+**excluded from every StoreKit trial metric** (trial starts, trial→paid
+conversion, trial expiry). Counting them would blend two different offers
+with two different mechanics into one conversion rate, and the blended number
+would describe neither.
 
 ---
 

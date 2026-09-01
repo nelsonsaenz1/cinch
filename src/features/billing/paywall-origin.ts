@@ -87,7 +87,14 @@ export function returnLabelFor(placement: PlacementName | null): string {
       // what is on it rather than for "membership", which would be ambiguous
       // with the page one further back.
       return 'Back to the comparison';
+    case Placement.TenCompleted:
+      // The Reveal has not happened yet — this ask sits in the beat after The
+      // Ten completes, and whatever the outcome the next thing is the number
+      // their ten pieces make. Forward-looking on purpose: "back" would name
+      // a capture flow that is finished.
+      return 'Continue to your reveal';
     case Placement.TrialExpired:
+    case Placement.ReturningFree:
     case null:
       // Not tied to a single interrupted action — see placements.ts's own
       // note on `TrialExpired` firing on app open rather than on a refusal.

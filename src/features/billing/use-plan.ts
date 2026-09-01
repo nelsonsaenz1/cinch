@@ -17,6 +17,24 @@ export interface PlanState {
   /** When the trial ends, if one is running. */
   readonly trialEndsAt: Date | null;
   /**
+   * Where a running trial CAME FROM — 'legacy_promotional' whenever `trialing`
+   * is true, null otherwise.
+   *
+   * Every server trial is legacy by definition now: the 14-day grant that
+   * `handle_new_subscription()` wrote for new accounts is being discontinued,
+   * and the rows still carrying a live `trial_ends_at` are existing accounts
+   * riding it out as promotional access. Surfaces that talk about ACQUISITION
+   * (present-promo.ts's qualification, any "start your trial" copy) need to
+   * know the trial they see is a grant, not a StoreKit intro offer — someone
+   * inside a grant is not a person to pitch a trial to.
+   *
+   * `trialing` itself is untouched and keeps its exact semantics —
+   * context-lines.ts branches on it for the Reveal's one line, and that copy
+   * is correct for a promotional grant too (the access is real, whatever it
+   * is called). This field is the annotation, not a replacement.
+   */
+  readonly trialSource: 'legacy_promotional' | null;
+  /**
    * When the current billing period renews — MB-06's Renews row.
    *
    * NULL UNTIL THE WEBHOOK FILLS IT (`supabase/functions/superwall-webhook`),
@@ -127,6 +145,11 @@ export function usePlan(): PlanState {
     copy: PLANS[plan],
     trialing,
     trialEndsAt,
+    // Unconditional on `trialing` because there is only one kind of server
+    // trial left — see the field's own note. When (if) StoreKit intro offers
+    // ever write trials of their own, this is the line that learns to tell
+    // them apart.
+    trialSource: trialing ? 'legacy_promotional' : null,
     currentPeriodEnd,
     loading: isPending && Boolean(userId),
     unconfirmed: isError,

@@ -28,6 +28,7 @@ import { Text } from '@/components/ui/text';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { useAiConsent, useGrantAiConsent } from '@/features/auth/use-consent';
 import { Placement } from '@/features/billing/placements';
+import { presentPromo } from '@/features/billing/present-promo';
 import { useGate } from '@/features/billing/use-gate';
 import { usePlan } from '@/features/billing/use-plan';
 import { DECLINED_KEY, writeFlag } from '@/features/ingest/consent-mode';
@@ -369,19 +370,33 @@ export default function RevealScreen() {
     if (!skipSheet) setPresenting(true);
     const outcome = skipSheet
       ? null
-      : // `outfitCount` is the only field the line needs; plan and trial state
-        // are read inside the hook and override anything passed from here.
-        await gate.present(Placement.RevealComplete, undefined, { outfitCount: count });
+      : // Through `presentPromo`, never the bare gate: `reveal_complete` is a
+        // GENERAL promo (promo-caps.ts), so the qualification (free-only, not
+        // trialing), the frequency caps — including the no-consecutive rule
+        // that forbids it within a day of a shown `ten_completed`, so the two
+        // asks can never bracket one Reveal — and the paywall_eligible /
+        // paywall_dismissed events all live in that one function. It resolves
+        // on every path ('ineligible' instantly), so this await cannot block
+        // the exit. `outfitCount` is the only field the context line needs;
+        // plan and trial state are passed for qualification and re-read by
+        // use-gate.ts for the line itself.
+        await presentPromo(gate, Placement.RevealComplete, {
+          plan: plan.plan,
+          trialing: plan.trialing,
+          contextOpts: { outfitCount: count },
+        });
 
     // Reported, never acted on. `granted` on a non-gated campaign is what a
     // DISMISSAL looks like, which is exactly why the navigation below does not
-    // read it.
+    // read it. 'ineligible' — the ask withheld before Superwall was involved —
+    // reports as 'unavailable': no sheet reached the reader either way, and
+    // paywall_eligible already carries the precise reason.
     exit(
       skipSheet
         ? paying
           ? 'open_today'
           : 'unavailable'
-        : outcome === 'unavailable'
+        : outcome === 'unavailable' || outcome === 'ineligible'
           ? 'unavailable'
           : 'dismissed',
     );

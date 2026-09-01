@@ -465,6 +465,77 @@ export type AppEvent =
    */
   | 'paywall_converted'
   /**
+   * A qualified promotional path was EVALUATED — shown or not. Fired by
+   * `present-promo.ts` every time it runs its qualification checks, before any
+   * sheet exists, with `placement`, `eligible`, and a bounded `reason` saying
+   * which check decided it (a frequency cap, an existing entitlement, a
+   * cooldown — never free text).
+   *
+   * THE DENOMINATOR THE FUNNEL HAS ALWAYS LACKED. `paywall_presented` counts
+   * sheets that appeared; nothing counted the moments one was considered.
+   * Without this, a frequency cap that suppresses nine in ten promotional
+   * opportunities is indistinguishable from a placement nobody reaches — the
+   * presented count falls and no chart can say whether that is the cap doing
+   * its job or the trigger going dark. `paywall_eligible` (eligible: true) →
+   * `paywall_presented` should track 1:1; a gap between them is a presentation
+   * failure, and the `eligible: false` share by `reason` is the read on
+   * whether the caps are tuned or strangling the funnel.
+   */
+  | 'paywall_eligible'
+  /**
+   * A visibly-presented paywall resolved 'declined' — the reader saw the offer
+   * and closed it. Carries `placement` only.
+   *
+   * The missing middle outcome. `paywall_presented` opens the trio and
+   * `paywall_converted` closes the happy path, but a presentation that ends in
+   * neither a conversion nor a `paywall_unavailable` fail-safe was, until now,
+   * inferred by subtraction — and subtraction cannot survive an event that
+   * drops or a session that dies mid-sheet. VISIBLY-PRESENTED is the bound:
+   * a campaign skip or a silent render never fires this, because a decline
+   * means a human declined, and that is the number the paywall's design is
+   * judged on.
+   */
+  | 'paywall_dismissed'
+  /**
+   * The StoreKit trial-eligibility check returned. Fired on evaluation by
+   * `trial-eligibility.ts`, with a single bounded `state`:
+   * 'eligible' | 'ineligible' | 'unknown'.
+   *
+   * The 7-day trial on cinch.standard.annual is a REAL StoreKit introductory
+   * offer (replacing the old server-side silent trial), which means Apple —
+   * not our ledger — decides who may have it: one introductory offer per
+   * Apple ID per subscription group, ever. A paywall that promises "7 days
+   * free" to somebody StoreKit will charge immediately is a broken promise at
+   * the worst possible moment, so the check runs before the promise is made,
+   * and this event is the measure of how often each answer comes back.
+   * `unknown` is a real state, not a failure bucket: StoreKit can decline to
+   * answer (offline, products not yet loaded), and the share of `unknown`
+   * decides whether trial copy may ever be shown optimistically.
+   */
+  | 'trial_eligibility'
+  //
+  // ── The server-side subscription lifecycle — deliberately NOT here ────────
+  //
+  // Trial started / trial converted / trial expired, purchase completed,
+  // subscription renewed / canceled / expired, entitlement activated: these
+  // are SERVER facts, recorded in the `superwall_events` ledger (the
+  // `period_type` column carries trial vs normal) and reconciled via SQL —
+  // see docs/analytics.md §2a.3 and §7.
+  //
+  // They are kept out of this union on purpose, and the reason is the same
+  // one that makes `paywall_converted` client-side: each side of the wire
+  // knows one half. The client knows the moment and the placement; the server
+  // knows the money and the truth. A client cannot be trusted to report that
+  // a renewal happened (the app may not be running), that a trial converted
+  // (Apple bills with no UI involved), or that a subscription expired (the
+  // person may have deleted the app) — a client event for any of these would
+  // be a number that is wrong by construction, missing exactly the cases that
+  // matter. The webhook receives every one of them with svix-id idempotency,
+  // the ledger keeps them, and the join back to these client events is the
+  // Supabase user id. Adding a client-side `trial_started` to this union
+  // would fork the truth into two names, one of which lies.
+  //
+  /**
    * A garment import that never reached `done` — the terminal failure of an
    * upload-queue job, and the counterweight to `clothes_import_selected`.
    * Without it the activation funnel could only say that people stopped

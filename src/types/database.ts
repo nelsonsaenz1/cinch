@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -221,6 +221,51 @@ export type Database = {
           period?: string
           period_start?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      asc_notifications: {
+        Row: {
+          app_account_token: string | null
+          environment: string
+          expires_at: string | null
+          notification_type: string
+          notification_uuid: string
+          original_transaction_id: string | null
+          outcome: string
+          plan: string | null
+          product_id: string | null
+          received_at: string
+          signed_date: string | null
+          subtype: string | null
+        }
+        Insert: {
+          app_account_token?: string | null
+          environment: string
+          expires_at?: string | null
+          notification_type: string
+          notification_uuid: string
+          original_transaction_id?: string | null
+          outcome: string
+          plan?: string | null
+          product_id?: string | null
+          received_at?: string
+          signed_date?: string | null
+          subtype?: string | null
+        }
+        Update: {
+          app_account_token?: string | null
+          environment?: string
+          expires_at?: string | null
+          notification_type?: string
+          notification_uuid?: string
+          original_transaction_id?: string | null
+          outcome?: string
+          plan?: string | null
+          product_id?: string | null
+          received_at?: string
+          signed_date?: string | null
+          subtype?: string | null
         }
         Relationships: []
       }
@@ -1972,6 +2017,84 @@ export type Database = {
           },
         ]
       }
+      paywall_impressions: {
+        Row: {
+          placement: string
+          shown_at: string
+          user_id: string
+        }
+        Insert: {
+          placement: string
+          shown_at?: string
+          user_id: string
+        }
+        Update: {
+          placement?: string
+          shown_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pinterest_connections: {
+        Row: {
+          access_expires_at: string
+          access_token_enc: string
+          connected_at: string
+          refresh_expires_at: string | null
+          refresh_token_enc: string | null
+          scopes: string[]
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_expires_at: string
+          access_token_enc: string
+          connected_at?: string
+          refresh_expires_at?: string | null
+          refresh_token_enc?: string | null
+          scopes?: string[]
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_expires_at?: string
+          access_token_enc?: string
+          connected_at?: string
+          refresh_expires_at?: string | null
+          refresh_token_enc?: string | null
+          scopes?: string[]
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pinterest_oauth_states: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          state: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          state: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          state?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           activity_seen_at: string | null
@@ -1996,6 +2119,7 @@ export type Database = {
           onboarding_complete: boolean
           preference_summary: string | null
           preference_summary_updated_at: string | null
+          reveal_seen_at: string | null
           shoppable: boolean
           show_where_to_buy: boolean
           sizes: Json
@@ -2040,6 +2164,7 @@ export type Database = {
           onboarding_complete?: boolean
           preference_summary?: string | null
           preference_summary_updated_at?: string | null
+          reveal_seen_at?: string | null
           shoppable?: boolean
           show_where_to_buy?: boolean
           sizes?: Json
@@ -2084,6 +2209,7 @@ export type Database = {
           onboarding_complete?: boolean
           preference_summary?: string | null
           preference_summary_updated_at?: string | null
+          reveal_seen_at?: string | null
           shoppable?: boolean
           show_where_to_buy?: boolean
           sizes?: Json
@@ -2443,9 +2569,11 @@ export type Database = {
           delivery_count: number
           event_type: string
           expiration_at: string | null
+          is_trial_conversion: boolean | null
           last_delivery_at: string
           original_transaction_id: string | null
           outcome: Database["public"]["Enums"]["superwall_outcome"]
+          period_type: string | null
           plan: string | null
           product_id: string | null
           received_at: string
@@ -2458,9 +2586,11 @@ export type Database = {
           delivery_count?: number
           event_type: string
           expiration_at?: string | null
+          is_trial_conversion?: boolean | null
           last_delivery_at?: string
           original_transaction_id?: string | null
           outcome: Database["public"]["Enums"]["superwall_outcome"]
+          period_type?: string | null
           plan?: string | null
           product_id?: string | null
           received_at?: string
@@ -2473,9 +2603,11 @@ export type Database = {
           delivery_count?: number
           event_type?: string
           expiration_at?: string | null
+          is_trial_conversion?: boolean | null
           last_delivery_at?: string
           original_transaction_id?: string | null
           outcome?: Database["public"]["Enums"]["superwall_outcome"]
+          period_type?: string | null
           plan?: string | null
           product_id?: string | null
           received_at?: string
@@ -3462,7 +3594,9 @@ export type Database = {
           p_app_user_id: string
           p_event_type: string
           p_expiration_at?: string
+          p_is_trial_conversion?: boolean
           p_original_transaction_id?: string
+          p_period_type?: string
           p_product_id?: string
           p_svix_id: string
         }
@@ -3516,6 +3650,7 @@ export type Database = {
         Returns: number
       }
       export_invoke: { Args: never; Returns: number }
+      feed_sync_invoke: { Args: never; Returns: number }
       friends_sharing_worn_outfits_count: { Args: never; Returns: number }
       has_accepted_social_terms: { Args: never; Returns: boolean }
       import_capacity: {
@@ -3531,6 +3666,7 @@ export type Database = {
         Args: { p_slot: string }
         Returns: Database["public"]["Enums"]["item_category"]
       }
+      intake_reap_invoke: { Args: never; Returns: number }
       invite_arrivals: {
         Args: never
         Returns: {
@@ -3658,7 +3794,6 @@ export type Database = {
           products: Json
         }[]
       }
-      reap_intake_audio: { Args: never; Returns: number }
       record_catalogue_demand: {
         Args: {
           p_audience: string
@@ -3694,6 +3829,7 @@ export type Database = {
       }
       request_data_export: { Args: never; Returns: string }
       squeeze_for_moderation: { Args: { p_text: string }; Returns: string }
+      stale_intake_audio: { Args: never; Returns: string[] }
       stylist_reservation_window: { Args: never; Returns: string }
       sweep_catalog_cache: { Args: never; Returns: number }
       unwear_outfit_tx: {

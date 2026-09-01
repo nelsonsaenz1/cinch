@@ -189,6 +189,44 @@ export const Placement = {
    * do nothing.
    */
   MembershipUpgrade: 'membership_upgrade',
+
+  /**
+   * The Ten has just completed — the moment the closet became real and BEFORE
+   * the Reveal starts, independent of it. A dismissible Standard-trial offer:
+   * the person has done the work, the number is coming, and this is the one
+   * beat between the two where an ask does not interrupt anything.
+   *
+   * NOTHING HAS BEEN REFUSED HERE, same family as `reveal_complete`, so the
+   * same rules bind it: it must stay dismissible, and dismissal continues
+   * straight into the Reveal — the ten-pieces-free promise is the wedge, and
+   * the Reveal is what was promised. A paywall failure must NEVER block the
+   * Reveal either: the integrator goes through `presentPromo()`
+   * (present-promo.ts), which resolves on every path — `unavailable`, a
+   * thrown SDK error, a cap refusal — so the Reveal proceeds whatever
+   * Superwall did or did not draw.
+   *
+   * A GENERAL PROMO, so `promo-caps.ts` counts it: at most one general ask per
+   * rolling day, three per rolling week, and specifically never this and
+   * `reveal_complete` back to back — two asks bracketing the Reveal would read
+   * as a toll booth on both ends of the same road.
+   */
+  TenCompleted: 'ten_completed',
+
+  /**
+   * A qualified return offer — around day 3 and day 7 — for a free account
+   * that never started a trial and already holds at least one valid outfit
+   * result. Both qualifications are the point: someone who has seen their own
+   * closet make a number knows what the product does, and someone who never
+   * trialed has not already told us no.
+   *
+   * NOT A REFUSAL EITHER — nothing was denied on day 3; the app chose the
+   * moment. Which is exactly why it goes through `presentPromo()` and its
+   * caps rather than bare `gate.present()`: an offer the app initiates is the
+   * kind that becomes nagging, and the caps are the difference. The day-3 /
+   * day-7 scheduling itself lives at the call site (it needs the account's
+   * clock); this placement is the door, `promo-caps.ts` is the restraint.
+   */
+  ReturningFree: 'returning_free',
 } as const;
 
 export type PlacementName = (typeof Placement)[keyof typeof Placement];

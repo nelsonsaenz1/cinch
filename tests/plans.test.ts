@@ -67,6 +67,34 @@ test('Pro promises no outfit number, because its copy says Unlimited', () => {
   assert.equal(PLANS.pro.outfits, 'Unlimited');
 });
 
+test('price hints carry the approved 2026-08-31 prices, and free carries none', () => {
+  // Hints, not truth — the paywall reads StoreKit live and formats per locale
+  // (plans.ts spells this out). But a stale hint quotes a price the purchase
+  // sheet then contradicts, which reads as a bait-and-switch rather than a
+  // typo. These literals are the approved repricing: Standard $4.99/$39.99,
+  // Pro $9.99/$79.99. Change them only alongside the App Store Connect
+  // products.
+  assert.equal(PLANS.standard.monthlyPriceHint, '$4.99');
+  assert.equal(PLANS.standard.annualPriceHint, '$39.99');
+  assert.equal(PLANS.pro.monthlyPriceHint, '$9.99');
+  assert.equal(PLANS.pro.annualPriceHint, '$79.99');
+  assert.equal(PLANS.free.monthlyPriceHint, null);
+  assert.equal(PLANS.free.annualPriceHint, null);
+});
+
+test('no price hint smuggles trial wording in beside the number', () => {
+  // Correction 06: in-app copy never states a trial duration as a constant —
+  // the paywall document reads the live StoreKit offer. A hint that grew
+  // "…with 7-day trial" would go stale the day the offer changed.
+  for (const plan of ['free', 'standard', 'pro'] as const) {
+    for (const hint of [PLANS[plan].monthlyPriceHint, PLANS[plan].annualPriceHint]) {
+      if (hint === null) continue;
+      assert.match(hint, /^\$\d+(\.\d{2})?$/, `${plan}: "${hint}" must be a bare price`);
+      assert.doesNotMatch(hint, /trial|free|day/i, `${plan}: "${hint}" must not mention a trial`);
+    }
+  }
+});
+
 test('the total ceiling leaves real room above the active one', () => {
   // The two exist to do different jobs. If they were ever set equal, storing a
   // piece would stop making room and The Wall's non-payment exit would quietly
