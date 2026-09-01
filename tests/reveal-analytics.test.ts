@@ -168,7 +168,7 @@ test('dismissed and unavailable stay apart', () => {
   // A refusal and a campaign outage are different facts, even though both land
   // on the same Today with the same free tier intact.
   assert.notEqual(revealExitProps('dismissed').exit, revealExitProps('unavailable').exit);
-  assert.equal(REVEAL_EXITS.length, 6);
+  assert.equal(REVEAL_EXITS.length, 7);
 });
 
 test('every exit is reported, including the two off the zero screen', () => {

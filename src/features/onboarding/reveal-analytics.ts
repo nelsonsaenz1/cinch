@@ -55,7 +55,24 @@ export type RevealExit =
   | 'unavailable'
   | 'purchase'
   | 'zero_repair'
-  | 'zero_open_today';
+  | 'zero_open_today'
+  /** Left from the read-failed frame — the wardrobe query never settled. */
+  | 'read_failed';
+
+/**
+ * WHICH zero a zero was — the closed vocabulary the zero phase may carry.
+ * Declared here (the allowlist) so the builders keep their zero-dependency
+ * contract; the decision logic that produces one lives in reveal-zero-core.
+ */
+export type ZeroReason = 'unpairable' | 'unread' | 'no_consent' | 'query_failed';
+
+/** Exported so the privacy test walks every legal value rather than a sample. */
+export const ZERO_REASONS: readonly ZeroReason[] = [
+  'unpairable',
+  'unread',
+  'no_consent',
+  'query_failed',
+];
 
 /** The five buckets the count is allowed to travel as. */
 export type CountBucket = '0' | '1' | '2-9' | '10-49' | '50+';
@@ -80,7 +97,20 @@ export function countBucket(count: number): CountBucket {
   return '50+';
 }
 
-export const revealPhaseProps = (phase: RevealPhaseName): RevealProps => ({ phase });
+/**
+ * The phase, and — on `zero` alone — WHICH zero, from the closed vocabulary in
+ * reveal-zero-core.ts. A word, never a count: "unread" travels, "eleven
+ * unread" does not, for the same reason the outfit count travels as a bucket.
+ * The 8/31 incident was classified by joining three systems by hand; this one
+ * bounded word is what makes the next classification a single query.
+ */
+export const revealPhaseProps = (
+  phase: RevealPhaseName,
+  zeroReason?: ZeroReason,
+): RevealProps => ({
+  phase,
+  ...(phase === 'zero' && zeroReason ? { zero_reason: zeroReason } : {}),
+});
 
 export const revealExitProps = (exit: RevealExit): RevealProps => ({ exit });
 
@@ -120,4 +150,5 @@ export const REVEAL_EXITS: readonly RevealExit[] = [
   'purchase',
   'zero_repair',
   'zero_open_today',
+  'read_failed',
 ];
