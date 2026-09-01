@@ -119,3 +119,61 @@ dark until their trial clears), Sep-1 prices, first releaseNotes, v3
 screenshot set (5, all COMPLETE). OTA channel for the 1.2.1 fleet remains
 `813c6d34` / update 01a05513; future OTAs after 46 goes live must target
 `ccfa8345`.
+
+## 2026-09-01 · The funnel-fix train — six defects, one discovery, three rails, 1.2.3 submitted
+
+The 2026-08-31 controlled funnel run's six product defects, each reproduced
+before repair and fixed in an isolated worktree by its own subagent, reviewed
+and integrated as `8d49df6..9a2004f` (plus docs/pins). Baseline suite was
+green before integration (3698) and after (3745/0 fail); typecheck, lint,
+deno check clean.
+
+1. **Catalogue title bound** (`8d49df6`): `title-bound.ts` owns MAX_TITLE_CHARS=120;
+   `families.ts`/`catalog-provider.ts` emit round-trippable titles; client belt in
+   `use-catalogue-import.ts`. garment-search **v49 deployed**.
+2. **Library door** (`b610332`): `capture-entry.ts` — a `start=library` entry bypasses
+   all three camera gates. Verified live on the keyed Release sim: picker opens directly.
+3. **Category edit** (`cdb640b` + `26cf198` + `9a2004f`): three layers — verified item
+   write (`item-write.ts`, zero-row update now errors), draft state machine, and the real
+   root cause: **the dead-press shape**. dc26774 (8/20) left ~10 Pressables bare with a
+   Reanimated wrapper as their only child; that shape receives NO presses (chips, closet
+   menu, settings/storage rows, stylist answer row, trip/style-profile cards). Production
+   `closet_filter` events stop within hours of that OTA. Repaired app-wide; banned by
+   `tests/pressable-shape.test.ts`. Category edit verified end-to-end on sim (DB readback).
+4. **sim-test deliverability** (`9300489`): cinchstyle.com has NO MX — all @cinchstyle.com
+   mail is structurally undeliverable; QA reads OTPs from Resend sent-mail. Founder options
+   documented in docs/email-templates/README.md.
+5. **Post-wear offline flash** (`9ff9233`): `enhancement-status.ts` — 'offline' must be
+   claimed by an error; an unanswered re-rank is 'enhancing'; empty enrichment is 'local'.
+   Verified live: reactions stay enabled through a wear.
+6. **Rating cadence** (`d7e1b4c`): shared touchpoint key across the three surfaces
+   (settled-wear native, review card, post-share native); one ask per window. Verified
+   live: single system sheet after wear, no card stacking.
+
+**Device funnel** (keyed Release sim, fresh install, controlled account
+simtestf31@…/aa6359d8): boot gate PASS → OTP auth via Resend read-back → Ten seeded →
+Reveal "Five outfits from ten pieces" → post-Reveal paywall presented (keyed, live
+campaign) → wear logged (rating 5, favorite, wear_counts+1, reveal_seen_at stamped) →
+all fix verifications above. No purchase attempted (sim cannot complete sandbox
+purchases; physical-device proof gate unchanged from the 8/31 record).
+
+**Ships:** OTA `01a05b05-858d-71be-a19d-aa687a7e7213` → runtime ccfa8345 (1.2.2 fleet).
+Side-cut `ota/813c-funnel-fixes` (from ota/813c-review-card-spacing, de92a48 FOLDED —
+the owed paywall_converted debt is paid) → OTA `01a05b0d-dc96-723a-bdef-23035a8f771d`,
+runtime 813c6d34 (1.2.1 fleet). CAUTION LEARNED: a symlinked node_modules in a worktree
+poisons the EAS fingerprint (hashes the link) — two inert orphan updates landed on
+phantom runtime 949dcb58 before a real `npm ci` fixed the cut; no binary carries that
+runtime.
+
+**1.2.3 / build 47:** version bump `f3c1e7d`, runtime
+`4e646ba0ddb42338ba8d721fcfccf9be26576ea4` (168 sources, version-only move), pins
+retaken (`1c43fdf`, `4be8b50`), EAS build `ba85169e` stamped the identical hash (fifth
+live confirmation). Delivered via auto-submit, ASC build `6eca2cda` VALID, version
+`11258636` created with What's New, build attached, review submission `c87aaded`
+**WAITING_FOR_REVIEW since 2026-09-01T04:08Z**, releaseType AFTER_APPROVAL. (1.2.2/build
+46 went READY_FOR_SALE earlier the same day, opening the train.)
+
+**Rollback:** OTAs — `eas update:republish` group 9e581328 (ccfa8345) / 19f2cdfc (813c),
+or `eas update:rollback`; edge — redeploy garment-search from `b0817c7`; binary — 1.2.2
+remains the store version until 1.2.3 releases; the review submission can be cancelled
+from ASC before Apple picks it up.
