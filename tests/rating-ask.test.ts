@@ -9,6 +9,7 @@ import {
   type RatingAskIo,
   type RatingAskOutcome,
 } from '../src/features/rating/rating-ask-core';
+import { TOUCHPOINT_KEY } from '../src/features/rating/rating-touchpoint-core';
 
 /**
  * The App Store rating ask: one moment, one cool-down, write-before-request.
@@ -51,7 +52,13 @@ test('a device that never asked asks, and stamps the moment first', async () => 
   const { outcome, writes, requests } = await run();
   assert.equal(outcome, 'requested');
   assert.equal(requests.length, 1);
-  assert.deepEqual(writes, [[ASKED_KEY, NOW.toISOString()]]);
+  // Both its own cadence marker and the shared cross-surface touchpoint are
+  // stamped — the latter is Issue 6's fix, so the review card and the
+  // post-share ask both see that this surface just fired.
+  assert.deepEqual(writes, [
+    [ASKED_KEY, NOW.toISOString()],
+    [TOUCHPOINT_KEY, NOW.toISOString()],
+  ]);
 });
 
 test('inside the cool-down nothing is asked and nothing is written', async () => {
@@ -72,7 +79,10 @@ test('the day the cool-down lapses, it asks again', async () => {
 test('a garbled marker reads as never-asked and is overwritten with a real one', async () => {
   const { outcome, writes } = await run({ stored: 'not-a-date' });
   assert.equal(outcome, 'requested');
-  assert.deepEqual(writes, [[ASKED_KEY, NOW.toISOString()]]);
+  assert.deepEqual(writes, [
+    [ASKED_KEY, NOW.toISOString()],
+    [TOUCHPOINT_KEY, NOW.toISOString()],
+  ]);
 });
 
 test('cancelled before the read-back: nothing written, nothing asked', async () => {
@@ -90,7 +100,10 @@ test('cancelled between write and request: the marker survives, the ask does not
     cancelled: () => ++calls > 1,
   });
   assert.equal(outcome, 'marked_only');
-  assert.equal(writes.length, 1);
+  // Both markers are written before the second cancellation check — this
+  // surface's own cadence marker and the shared touchpoint together, same
+  // write-before-request ordering as before.
+  assert.equal(writes.length, 2);
   assert.equal(requests.length, 0);
 });
 
@@ -105,7 +118,15 @@ test('the self-cap fits inside Apple display budget by construction', () => {
 
 const read = (p: string) => readFileSync(p, 'utf8');
 
-test('the wear sheet Done is the only call site', () => {
+test('the wear sheet Done is the only call site for THIS surface', () => {
+  // "Only call site" is about the settled-wear ask (surface A) specifically.
+  // A second, legitimate native `requestReview` caller exists deliberately —
+  // the post-share ask in `features/share/capture-plate.ts` (surface C) — and
+  // is not a violation of this pin: `tests/rating-touchpoint.test.ts` is what
+  // keeps that assertion honest, by (1) grepping that no THIRD caller has
+  // appeared anywhere in the app and (2) proving A and C both defer to each
+  // other, and to the review card, through the shared touchpoint rather than
+  // firing independently. Read this test together with that one.
   const today = read('src/app/(tabs)/index.tsx');
   assert.equal(
     (today.match(/askForRatingAfterWear\(\)/g) ?? []).length,
@@ -116,7 +137,8 @@ test('the wear sheet Done is the only call site', () => {
   // onError, not an effect.
   assert.match(today, /onDone=\{\(\) => \{\s*closeWearSheet\(\);[\s\S]{0,400}askForRatingAfterWear\(\);/);
 
-  // No other screen asks.
+  // No other screen asks — not even the known second surface (C), which lives
+  // in `features/share/capture-plate.ts`, not in a screen.
   for (const file of [
     'src/app/(tabs)/closet.tsx',
     'src/app/(tabs)/stylist.tsx',

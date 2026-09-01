@@ -24,7 +24,20 @@
  * whichever comes first. It returns every session until the reader either
  * taps through to the store or says they already rated; both of those end it
  * permanently. "Not now" ends it for the session only.
+ *
+ * SHARED TOUCHPOINT (Issue 6, 2026-08-31)
+ *
+ * The settled-wear native ask (`rating-ask-core.ts`) can land in the same
+ * navigation window as this card's own settle-in threshold — a wear
+ * completion racks up both the pathname moves this card counts and the
+ * 700ms timer the native ask runs on. Before showing, this card also checks
+ * {@link TOUCHPOINT_KEY} and defers if another surface fired inside the
+ * shared window; see `rating-touchpoint-core.ts`. This adds a guard, it does
+ * not replace the per-session cadence above — a deferred session is not a
+ * spent one, and the card is still due again next session as designed.
  */
+
+import { TOUCHPOINT_KEY, touchedRecently, touchpointStamp } from './rating-touchpoint-core';
 
 /** One row per launch — how many times this install has been opened. */
 export const SESSION_COUNT_KEY = 'cinch.review.sessionCount.v1';
@@ -89,4 +102,17 @@ export function settledIn(elapsedMs: number, moves: number): boolean {
 /** The reader acted — the ask never returns. */
 export function markDone(io: ReviewPromptIo): void {
   io.write(DONE_KEY, 'true');
+}
+
+/** True if another rating surface (the settled-wear native ask, or the
+ *  post-share native ask) fired within the shared touchpoint window — this
+ *  card must defer, even though it is otherwise due. */
+export function blockedByOtherSurface(now: Date, io: ReviewPromptIo): boolean {
+  return touchedRecently(now, io.read(TOUCHPOINT_KEY));
+}
+
+/** Stamp the shared touchpoint the moment the card actually shows — never on
+ *  a mere eligibility check, only on the real appearance. */
+export function markTouchpoint(now: Date, io: ReviewPromptIo): void {
+  io.write(TOUCHPOINT_KEY, touchpointStamp(now));
 }

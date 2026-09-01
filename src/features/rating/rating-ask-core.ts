@@ -23,7 +23,21 @@
  * app's heaviest week. One ask per {@link MIN_DAYS_BETWEEN_ASKS} keeps the
  * calls at most three a year BY CONSTRUCTION, so each one lands with the
  * budget intact.
+ *
+ * SHARED TOUCHPOINT (Issue 6, 2026-08-31)
+ *
+ * This is not the only surface that can ask — the review card
+ * (`review-prompt-core.ts`) and the post-share native ask
+ * (`features/share/capture-plate.ts`) are the other two. A wear completion
+ * can land inside the same window as the card's own cadence, so before this
+ * asks it also checks {@link TOUCHPOINT_KEY} — the fact "did ANY rating
+ * surface just fire" — and stands down if one did. See
+ * `rating-touchpoint-core.ts` for why the window is short. This does not
+ * replace the 122-day self-cap above; it adds a second, independent reason
+ * to refuse.
  */
+
+import { TOUCHPOINT_KEY, touchedRecently, touchpointStamp } from './rating-touchpoint-core';
 
 /** Storage key. A timestamp rather than a boolean so the cool-down is a fact
  *  about the last ask, not a flag somebody has to remember to reset. */
@@ -50,6 +64,9 @@ export interface RatingAskIo {
 export type RatingAskOutcome =
   /** Asked within the window already — the common case for a daily user. */
   | 'too_soon'
+  /** Another rating surface (the review card, or the post-share ask) fired
+   *  inside the shared touchpoint window — this surface stands down. */
+  | 'blocked_by_other_surface'
   /** Screen went away before the marker was read back. Nothing written. */
   | 'cancelled'
   /** Marker written, then gone before requesting — the deliberate "better
@@ -76,10 +93,22 @@ export async function evaluateRatingAsk(
     return 'too_soon';
   }
 
+  // Second, independent guard: has ANY rating surface — this one, the
+  // review card, or the post-share ask — fired inside the shared touchpoint
+  // window? If so, this is the exact collision Issue 6 found and the
+  // surface stands down without touching its own cadence marker. No
+  // additional cancellation check here — the existing checks either side of
+  // the write below are the only two points that matter.
+  const otherTouch = await io.getItem(TOUCHPOINT_KEY);
+  if (touchedRecently(now, otherTouch)) return 'blocked_by_other_surface';
+
   // Write BEFORE requesting, exactly like the trial-expiry marker: if the
   // process dies between these two lines the cost is one quiet cool-down,
-  // where the other order could ask again tomorrow.
+  // where the other order could ask again tomorrow. Both this surface's own
+  // marker and the shared touchpoint are written before the request, in the
+  // same order, for the same reason.
   await io.setItem(ASKED_KEY, now.toISOString());
+  await io.setItem(TOUCHPOINT_KEY, touchpointStamp(now));
   if (io.cancelled()) return 'marked_only';
 
   io.request();

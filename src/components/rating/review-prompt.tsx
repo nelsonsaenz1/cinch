@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import {
   WRITE_REVIEW_URL,
+  blockedByOtherSurface,
   markDone,
+  markTouchpoint,
   promptEligible,
   recordSession,
   settledIn,
@@ -113,8 +115,13 @@ export function ReviewPrompt() {
   const due = eligible && settledIn(dwelled ? 30_000 : 0, moves);
 
   // Only over a tab root — if the reader is mid-flow, the next path change
-  // lands somewhere calm and this adjusts then.
-  if (stage === 'waiting' && due && TAB_PATHS.has(pathname)) {
+  // lands somewhere calm and this adjusts then. Also deferred (Issue 6,
+  // 2026-08-31) if the settled-wear native ask or the post-share native ask
+  // fired inside the shared touchpoint window — this is the exact collision
+  // that let the card and the system sheet appear together. A deferral is
+  // not a spend: the card is still due next session, unchanged.
+  if (stage === 'waiting' && due && TAB_PATHS.has(pathname) && !blockedByOtherSurface(new Date(), io)) {
+    markTouchpoint(new Date(), io);
     setStage('showing');
   }
 
