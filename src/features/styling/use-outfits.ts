@@ -22,6 +22,7 @@ import {
 import { lifestyleSummaryLine } from '@/features/profile/lifestyle';
 import { useLifestyle } from '@/features/profile/use-lifestyle';
 
+import { enhancementStatus } from './enhancement-status';
 import { shouldEnhanceWithAi } from './should-enhance';
 import { useFavoriteOutfits } from './use-favorite-outfits';
 
@@ -227,21 +228,32 @@ export function useOutfits({
 
   // --- Merge ---------------------------------------------------------------
   const { outfits, status } = useMemo(() => {
-    if (ai.data?.error === 'ai_consent_required') {
-      return { outfits: base, status: 'consent_required' as StylingStatus };
-    }
     // A transport error never reaches the function, so it can only be an
     // outage — the timeout is something the function itself reports back.
-    if (ai.isError) return { outfits: base, status: 'offline' as StylingStatus };
-    // Nothing was asked, so nothing is missing. The outfits are complete.
-    if (!decision.enhance) return { outfits: base, status: 'local' as StylingStatus };
-    if (!ai.data?.ok || !ai.data.picks?.length) {
-      const failed = ai.data?.reason === 'styling_timeout' ? 'timeout' : 'offline';
-      return {
-        outfits: base,
-        status: (ai.isFetching ? 'enhancing' : failed) as StylingStatus,
-      };
-    }
+    const failed: StylingStatus =
+      ai.data?.reason === 'styling_timeout' ? 'timeout' : 'offline';
+    /**
+     * Everything decidable before the merge, in `enhancement-status.ts`.
+     *
+     * It was four inline branches, and the last of them was a fall-through
+     * onto `'offline'` — which is the status that disables Today's reaction
+     * controls. A re-rank that had not answered YET fell through it. See that
+     * file for the wear-invalidation sequence that made it visible.
+     */
+    const early = enhancementStatus({
+      consentRequired: ai.data?.error === 'ai_consent_required',
+      requested: decision.enhance,
+      errored: ai.isError,
+      // Presence, not truthiness: `{ ok: false }` is an answer.
+      answered: ai.data !== undefined,
+      usable: Boolean(ai.data?.ok && ai.data.picks?.length),
+      fetching: ai.isFetching,
+      failed,
+    });
+    if (early) return { outfits: base, status: early };
+    // `early === null` means the answer carried usable picks — this reads the
+    // same array that decided `usable`, and the fallback is unreachable.
+    const picks = ai.data?.picks ?? [];
 
     /**
      * PROSE ONLY. The late response may not move a garment.
@@ -259,7 +271,7 @@ export function useOutfits({
      * An enhancement that names nothing visible leaves the screen exactly as
      * it was.
      */
-    const words = new Map(ai.data.picks.map((p) => [p.candidateId, p]));
+    const words = new Map(picks.map((p) => [p.candidateId, p]));
     let enriched = 0;
     const usedNames = new Set<string>();
     const merged: StyledOutfit[] = base.map((outfit) => {
@@ -279,9 +291,19 @@ export function useOutfits({
       };
     });
 
+    /**
+     * A round trip that landed and named nothing visible is NOT an outage.
+     *
+     * This used to report `'offline'`, which is the status Today disables the
+     * reaction controls on — so a successful re-rank whose picks happened to
+     * miss every visible candidate greyed out the taste row and offered the
+     * "unavailable without a connection" reason over a working connection.
+     * What is on screen in that case is the engine's own complete list, which
+     * is exactly what `'local'` already means.
+     */
     return enriched
       ? { outfits: merged, status: 'ai' as StylingStatus }
-      : { outfits: base, status: 'offline' as StylingStatus };
+      : { outfits: base, status: 'local' as StylingStatus };
   }, [ai.data, ai.isError, ai.isFetching, base, context, decision.enhance]);
 
   return {

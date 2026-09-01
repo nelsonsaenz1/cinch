@@ -17,6 +17,10 @@ import {
   isNearTie,
   shouldEnhanceWithAi,
 } from '../src/features/styling/should-enhance.ts';
+import {
+  enhancementStatus,
+  type EnhancementPhase,
+} from '../src/features/styling/enhancement-status.ts';
 import type { OutfitCandidate, StyleContext } from '../src/lib/styling/types.ts';
 
 function candidate(score: number, id: string): OutfitCandidate {
@@ -184,14 +188,14 @@ test('a failed or empty enhancement leaves the same complete outfits', () => {
   // Every branch that is not a successful enrichment returns `base`, which is
   // the engine's full list — never a partial one and never an empty one.
   for (const branch of [
-    /if \(ai\.isError\) return \{ outfits: base/,
-    /if \(!decision\.enhance\) return \{ outfits: base/,
-    // `failed` rather than a literal: the function distinguishes a model that
-    // ran out of time from one that could not be reached, and this branch now
-    // carries that through. Still `base`, still `enhancing` while in flight —
-    // which is all this test is about. The split itself is pinned in
-    // tests/openrouter-timeout-classification.test.ts.
-    /outfits: base,\s*status: \(ai\.isFetching \? 'enhancing' : failed\)/,
+    // Every pre-merge outcome — error, un-asked, unanswered, empty answer —
+    // is one classifier call and one return, and that return is `base`: the
+    // engine's full list, never a partial one and never an empty one. The
+    // classification itself is `src/features/styling/enhancement-status.ts`,
+    // asserted case by case in section 4; the timeout/outage split is pinned
+    // in tests/openrouter-timeout-classification.test.ts.
+    /const early = enhancementStatus\(\{/,
+    /if \(early\) return \{ outfits: base, status: early \};/,
     /enriched\s*\?\s*\{ outfits: merged[\s\S]{0,80}\{ outfits: base/,
   ]) {
     assert.match(src, branch);
@@ -204,4 +208,99 @@ test('a failed or empty enhancement leaves the same complete outfits', () => {
 test('a local-only morning is not reported as offline', () => {
   const src = stripComments(hookSource());
   assert.match(src, /status: 'local'/, 'the ordinary morning still claims to be offline');
+});
+
+// ---------------------------------------------------------------------------
+// 4 · Issue 5 — a question in flight is not a network verdict
+// ---------------------------------------------------------------------------
+//
+// After a successful wear the reaction controls flashed "unavailable without a
+// connection" on a working connection. `disabled={outfits.status === 'offline'}`
+// is the switch, and the merge was reaching `'offline'` by fall-through: a
+// re-rank query that had simply not answered yet looked exactly like one that
+// had failed. The wear is what changes the key — the worn garments leave the
+// shortlist, the shortlist is IN the key, and a fresh key has no cache.
+
+/** One instant of the re-rank query, healthy and answered, as a baseline. */
+const ANSWERED: EnhancementPhase = {
+  consentRequired: false,
+  requested: true,
+  errored: false,
+  answered: true,
+  usable: true,
+  fetching: false,
+  failed: 'offline',
+};
+
+test('an asked-but-unanswered enhancement is enhancing, not offline', () => {
+  // The exact frame after a wear: new key, nothing cached, the fetch not yet
+  // flagged in flight. No error has occurred and nothing has been reported.
+  const status = enhancementStatus({
+    ...ANSWERED,
+    answered: false,
+    usable: false,
+    fetching: false,
+  });
+  assert.notEqual(status, 'offline', 'a query that has not answered yet reads as an outage');
+  assert.equal(status, 'enhancing');
+});
+
+test('the post-wear sequence never passes through offline', () => {
+  // Healthy → wear → key changes → fetch starts → answer lands. Every frame.
+  const sequence: [string, EnhancementPhase][] = [
+    ['settled on a good answer', ANSWERED],
+    // Key changed. No data for it, and `isFetching` has not turned over yet.
+    ['fresh key, not yet fetching', { ...ANSWERED, answered: false, usable: false }],
+    // Fetch in flight against the new key.
+    ['fresh key, fetching', { ...ANSWERED, answered: false, usable: false, fetching: true }],
+    // Answer lands.
+    ['answered again', ANSWERED],
+  ];
+
+  for (const [label, phase] of sequence) {
+    const status = enhancementStatus(phase);
+    assert.notEqual(status, 'offline', `${label} disabled the reaction controls`);
+    assert.notEqual(status, 'timeout', `${label} claimed the model ran long`);
+  }
+});
+
+test('offline is claimed, never fallen into', () => {
+  // A transport error is the one unprompted outage signal.
+  assert.equal(enhancementStatus({ ...ANSWERED, errored: true }), 'offline');
+  // And a response that says so itself.
+  assert.equal(enhancementStatus({ ...ANSWERED, usable: false, failed: 'offline' }), 'offline');
+  // The timeout still reads as its own thing rather than as an outage.
+  assert.equal(enhancementStatus({ ...ANSWERED, usable: false, failed: 'timeout' }), 'timeout');
+  // A refetch over a stale empty answer is still work in progress.
+  assert.equal(
+    enhancementStatus({ ...ANSWERED, usable: false, fetching: true, failed: 'offline' }),
+    'enhancing',
+  );
+  // Consent outranks everything: it is not a network condition.
+  assert.equal(
+    enhancementStatus({ ...ANSWERED, consentRequired: true, errored: true }),
+    'consent_required',
+  );
+  // Nothing asked, nothing missing.
+  assert.equal(enhancementStatus({ ...ANSWERED, requested: false, usable: false }), 'local');
+  // A usable answer is the merge's business, not this function's.
+  assert.equal(enhancementStatus(ANSWERED), null);
+});
+
+test('an enhancement that enriched nothing is not an outage either', () => {
+  const src = stripComments(hookSource());
+  // A response that landed, parsed and simply named no visible candidate leaves
+  // the engine's own complete outfits on screen. That is `'local'` — the same
+  // state as a morning that asked nothing — and reporting it as `'offline'`
+  // greyed out the taste controls over a successful round trip.
+  assert.match(src, /enriched\s*\?\s*\{ outfits: merged, status: 'ai'[\s\S]{0,80}status: 'local'/);
+});
+
+test('the merge routes its status through the classifier', () => {
+  const src = stripComments(hookSource());
+  assert.match(src, /enhancementStatus\(\{/, 'the merge still decides status inline');
+  // The timeout/outage split is still made from the response the function sent.
+  assert.match(src, /ai\.data\?\.reason === 'styling_timeout' \? 'timeout' : 'offline'/);
+  // `answered` must be the presence of data, not a truthiness test on it.
+  assert.match(src, /answered: ai\.data !== undefined/);
 });
