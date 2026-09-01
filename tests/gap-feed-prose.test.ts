@@ -108,14 +108,16 @@ test('no sentence anywhere prints a bare delta, for any closet or any kind', () 
 });
 
 test('a gain of zero is printed as a zero with both endpoints, never omitted', () => {
-  // A closet with no shoes makes nothing, and one more top still makes nothing.
+  // Since shoes multiply rather than gate (2026-09-01), the honest zero-gain
+  // case is the FIRST pair of shoes: sixteen outfits stand without it, and
+  // ×max(shoes, 1) makes one pair a no-op on the count.
   const noShoes = closet(4, 4, 0, 0);
-  const gain = gainFrom(noShoes, 'tops');
+  const gain = gainFrom(noShoes, 'shoes');
   assert.equal(gain.gain, 0);
 
   const sentence = gainSentence(noShoes, gain);
   assert.match(sentence, /no new outfit cores/);
-  assert.match(sentence, /stay at 0/);
+  assert.match(sentence, /stay at 16/);
 });
 
 test('the unit gloss admits dresses when the closet holds one, and not otherwise', () => {

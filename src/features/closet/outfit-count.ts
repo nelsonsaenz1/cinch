@@ -13,9 +13,19 @@
  *
  * ── What is counted ────────────────────────────────────────────────────────
  *
- * Distinct outfit CORES: a top with a bottom and shoes, or a dress with shoes.
+ * Distinct outfit CORES: a top with a bottom, or a dress — shod when the
+ * closet has shoes, honest without them (founder decision, 2026-09-01).
  *
- *     cores = tops × bottoms × shoes  +  dresses × shoes
+ *     outfits = (tops × bottoms + dresses) × max(shoes, 1)
+ *
+ * Shoes MULTIPLY; they no longer GATE. This is exactly the generator's own
+ * shape — `generate.ts` Stage B multiplies every core by every shoe when
+ * shoes exist and passes cores through unshod when none do — so the change
+ * RESTORES the divergence rule below rather than bending it: before it, a
+ * shoeless closet was told "0" by this file while the engine happily built
+ * plates (both real Reveal zeros of 2026-08-31: 108 pieces and 10 pieces,
+ * no shoes, told zero). For a closet with any shoes the number is unchanged:
+ * (t×b + d) × s is algebraically the old t×b×s + d×s.
  *
  * Coats, bags and accessories are deliberately absent. The Gap Feed states it:
  * "Layers and bags dress an outfit; they don't create one. Never ranked as a
@@ -112,9 +122,9 @@ export function tallyOf(wardrobe: readonly Pick<Garment, 'slot'>[]): Tally {
   return out;
 }
 
-/** The headline number. */
+/** The headline number. See the header: shoes multiply, never gate. */
 export function countOutfits(t: Tally): number {
-  return t.tops * t.bottoms * t.shoes + t.dresses * t.shoes;
+  return (t.tops * t.bottoms + t.dresses) * Math.max(t.shoes, 1);
 }
 
 /** The same tally with one more piece of `kind` in it. */
@@ -142,9 +152,11 @@ export function gainFrom(t: Tally, kind: CountedKind): Gain {
  * Ranked by computed gain and never reshuffled for conversion — the Gap Feed is
  * explicit that a paying user sees this identical ranking, and that the free
  * tier withholds the ability to act rather than the quality of the advice. Ties
- * break on COUNTED_KINDS order, which puts shoes first: shoes multiply the dress
- * as well as the separates, so they win on merit at the canonical ten and the
- * tiebreak only decides genuinely equal cases.
+ * break on COUNTED_KINDS order, which puts shoes first among equals. Since the
+ * 2026-09-01 change the FIRST shoe honestly gains zero (an outfit stands
+ * without it; ×max(shoes,1) makes one shoe a no-op on the count) — the second
+ * shoe is where multiplication starts, and the ranking now says so instead of
+ * over-recommending footwear to a shoeless closet.
  */
 export function rankGaps(t: Tally): Gain[] {
   return COUNTED_KINDS.map((kind) => gainFrom(t, kind)).sort((a, b) => b.gain - a.gain);
@@ -161,12 +173,11 @@ export function rankGaps(t: Tally): Gain[] {
 export function missingForFirstOutfit(t: Tally): CountedKind[] {
   if (countOutfits(t) > 0) return [];
 
+  // Shoes never appear here any more: since 2026-09-01 an outfit stands
+  // without them, so the only reachable zero is a closet with no dress and a
+  // missing half of the separates pair.
   const missing: CountedKind[] = [];
-  if (t.shoes === 0) missing.push('shoes');
-  // A dress needs only shoes; separates need both halves.
-  if (t.dresses === 0) {
-    if (t.tops === 0) missing.push('tops');
-    if (t.bottoms === 0) missing.push('bottoms');
-  }
+  if (t.tops === 0) missing.push('tops');
+  if (t.bottoms === 0) missing.push('bottoms');
   return missing;
 }

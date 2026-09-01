@@ -367,18 +367,16 @@ function dominantKind(tally: Tally): 'tops' | 'bottoms' | 'dresses' | 'shoes' | 
  * nothing, and a table asks them to do the arithmetic again to work out what
  * to do. A phrase is already the instruction.
  *
- * "A SECOND pair of shoes" rather than "shoes" when the closet has one pair
- * that is not helping: naming what they already own is the difference between
- * the screen understanding their closet and reciting a checklist at it.
+ * Shoes left this list on 2026-09-01, with the arithmetic: an outfit stands
+ * without them now, so the only reachable zero is a closet with no dress and
+ * a missing half of the separates pair — and those two halves are the only
+ * honest rows.
  */
 export function missingPhrases(tally: Tally): string[] {
+  if (countOutfits(tally) > 0) return [];
   const out: string[] = [];
-  if (tally.shoes === 0) out.push('A pair of shoes');
-  else if (countOutfits(tally) === 0 && tally.shoes > 0) out.push('A second pair of shoes');
-  if (tally.dresses === 0) {
-    if (tally.tops === 0) out.push('A top');
-    if (tally.bottoms === 0) out.push('A pair of trousers or a skirt');
-  }
+  if (tally.tops === 0) out.push('A top');
+  if (tally.bottoms === 0) out.push('A pair of trousers or a skirt');
   return out;
 }
 

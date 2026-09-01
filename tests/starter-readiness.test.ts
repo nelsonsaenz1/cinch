@@ -110,14 +110,17 @@ test('ten tops is NOT READY', () => {
   assert.ok(r.missing.includes('core'));
 });
 
-test('tops and bottoms with no footwear is NOT READY', () => {
+test('tops and bottoms with no footwear counts, but The Ten still asks for shoes', () => {
+  // Shoes multiply, never gate (2026-09-01): the closet honestly makes 25.
+  // Readiness still names footwear first — the guided ten teaches a complete
+  // look, and that is pedagogy, not arithmetic.
   const r = starterReadiness([...repeat('base_top', 5), ...repeat('bottom', 5)]);
   assert.equal(r.pieces, 10);
   assert.ok(r.hasCore, 'the shape is there…');
   assert.ok(!r.hasFootwear);
-  assert.equal(r.outfits, 0, '…and it still makes nothing');
+  assert.equal(r.outfits, 25, '…and it already counts barefoot');
   assert.ok(!r.ready);
-  assert.equal(r.missing[0], 'footwear', 'the cause is named before the symptom');
+  assert.equal(r.missing[0], 'footwear', 'the guidance is named first');
 });
 
 test('shape and footwear are not enough — four cores is the fourth condition', () => {
@@ -164,7 +167,8 @@ test('an empty closet is invited, never instructed', () => {
   const s = starterSuggestion(starterReadiness([]))!;
   assert.equal(s.gap, 'start');
   assert.equal(s.kind, null);
-  assert.deepEqual(s.alsoNeeds, ['shoes', 'tops', 'bottoms']);
+  // Shoes left this list 2026-09-01 — an outfit stands without them.
+  assert.deepEqual(s.alsoNeeds, ['tops', 'bottoms']);
 });
 
 test('a suggestion never promises a gain it cannot deliver', () => {
@@ -174,16 +178,18 @@ test('a suggestion never promises a gain it cannot deliver', () => {
   const stuck = starterSuggestion(starterReadiness(repeat('base_top', 10)))!;
   assert.equal(stuck.gap, 'footwear');
   assert.equal(stuck.projected, 0, 'shoes alone still make nothing here');
-  assert.deepEqual(stuck.alsoNeeds, ['shoes', 'bottoms']);
+  assert.deepEqual(stuck.alsoNeeds, ['bottoms']);
 
-  // …whereas the same gap on a closet that only lacks shoes DOES gain, and the
-  // projection is real.
+  // …and since 2026-09-01 the first pair of shoes on a standing closet gains
+  // nothing either — 25 outfits barefoot, 25 with one pair (×max(shoes, 1)).
+  // The suggestion still names footwear (pedagogy), the projection stays
+  // honest, and nothing is missing for a first outfit.
   const almost = starterSuggestion(
     starterReadiness([...repeat('base_top', 5), ...repeat('bottom', 5)]),
   )!;
   assert.equal(almost.gap, 'footwear');
   assert.equal(almost.projected, 25);
-  assert.deepEqual(almost.alsoNeeds, ['shoes']);
+  assert.deepEqual(almost.alsoNeeds, []);
 });
 
 test('the suggestion names the cause, not the symptom', () => {

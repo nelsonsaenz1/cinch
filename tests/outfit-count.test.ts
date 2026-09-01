@@ -128,8 +128,10 @@ test('an unbalanced closet: one gap dominates', () => {
 });
 
 test('nothing to build with names exactly what is missing', () => {
-  assert.deepEqual(missingForFirstOutfit(closet(10, 0, 0, 0)), ['shoes', 'bottoms']);
-  assert.deepEqual(missingForFirstOutfit(closet(0, 0, 1, 0)), ['shoes']);
+  // Shoes left this list on 2026-09-01: an outfit stands without them.
+  assert.deepEqual(missingForFirstOutfit(closet(10, 0, 0, 0)), ['bottoms']);
+  // A lone dress IS an outfit now — nothing missing.
+  assert.deepEqual(missingForFirstOutfit(closet(0, 0, 1, 0)), []);
   assert.deepEqual(missingForFirstOutfit(THE_TEN), []);
 });
 

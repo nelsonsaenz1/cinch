@@ -372,14 +372,21 @@ export function starterCardCopy(
   const gains = s.projected > r.outfits;
 
   if (s.gap === 'footwear') {
+    // Shoes multiply, never gate (outfit-count.ts, 2026-09-01): a shoeless
+    // closet with a pairable core already makes outfits, so the card frames
+    // the pair as FINISHING what stands rather than unlocking it — the old
+    // "nothing makes one yet" line became false the day the arithmetic
+    // changed. A closet at zero here is missing a core half, and the honest
+    // list (`alsoNeeds`, from missingForFirstOutfit) no longer names shoes.
     return {
       eyebrow,
       title: 'Add a pair of shoes.',
-      body: gains
-        ? 'Every outfit Cinch builds finishes on a pair, so nothing you have filed makes one yet. ' +
-          `One pair takes this closet to ${plural(s.projected, 'outfit')}.`
-        : 'Every outfit Cinch builds finishes on a pair. ' +
-          `This closet still needs ${nounList(s.alsoNeeds)} before there is an outfit in it.`,
+      body:
+        r.outfits > 0
+          ? `Your ${plural(r.outfits, 'outfit')} stand on their own — a pair of shoes finishes ` +
+            'every one of them, and a second pair multiplies them.'
+          : 'Shoes finish an outfit; they don’t start one. ' +
+            `This closet still needs ${nounList(s.alsoNeeds)} before there is an outfit in it.`,
     };
   }
 

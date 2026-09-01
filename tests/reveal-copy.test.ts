@@ -48,34 +48,36 @@ test('R-04: the dress redirected to a fourth top', () => {
 });
 
 test('R-05: ten tops and nothing else', () => {
+  // Shoes multiply, never gate (2026-09-01): ten tops now lack exactly one
+  // thing — a bottom — and the rows, fix and body all say only that.
   const t = closet(10, 0, 0, 0);
   assert.equal(zeroHeadline(10), 'Ten pieces. No outfits yet.');
   assert.deepEqual(missingRows(t), [
     { label: 'Tops', value: '10', needed: false },
     { label: 'Bottoms', value: '0 — needed', needed: true },
-    { label: 'Shoes', value: '0 — needed', needed: true },
   ]);
-  assert.equal(smallestFix(t), 'Swap two tops for a bottom and shoes');
+  assert.equal(smallestFix(t), 'Swap one top for a bottom');
   assert.equal(
     zeroBody(t),
-    'Nothing you photographed goes anywhere. Cinch won’t put a look together without something to wear with it — a bottom and shoes is all it needs.',
+    'Nothing you photographed goes anywhere. Cinch won’t put a look together without something to wear with it — a bottom is all it needs.',
   );
 });
 
 test('R-05 generalises past the ten-tops example — a lone missing kind names only itself', () => {
-  // Everything but shoes: the body and the fix both name shoes alone, never
-  // the ten-tops closet's two-item list.
-  const t = closet(3, 2, 1, 0);
+  // Everything but tops: the body and the fix both name a top alone, never
+  // the ten-tops closet's list. (The old exemplar — everything but shoes —
+  // stopped being a zero on 2026-09-01: 3 tops, 2 bottoms and a dress make
+  // seven outfits barefoot.)
+  const t = closet(0, 2, 0, 3);
   assert.deepEqual(missingRows(t), [
-    { label: 'Tops', value: '3', needed: false },
-    { label: 'Dresses', value: '1', needed: false },
+    { label: 'Tops', value: '0 — needed', needed: true },
     { label: 'Bottoms', value: '2', needed: false },
-    { label: 'Shoes', value: '0 — needed', needed: true },
+    { label: 'Shoes', value: '3', needed: false },
   ]);
-  assert.equal(smallestFix(t), 'Add shoes to build your first outfit');
+  assert.equal(smallestFix(t), 'Add a top to build your first outfit');
   assert.equal(
     zeroBody(t),
-    'Nothing you photographed goes anywhere. Cinch won’t put a look together without something to wear with it — shoes is all it needs.',
+    'Nothing you photographed goes anywhere. Cinch won’t put a look together without something to wear with it — a top is all it needs.',
   );
 });
 

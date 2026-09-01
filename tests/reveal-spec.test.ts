@@ -273,7 +273,9 @@ test('the zero names the shape of the failure, not its size', () => {
   assert.equal(countOutfits(t), 0);
   const body = zeroBodyLine(10, t, piecesToFirstOutfit(t));
   assert.match(body, /Ten tops make ten tops\./);
-  assert.match(body, /Two more pieces and this page fills up\./);
+  // One piece, since 2026-09-01: a bottom alone completes a core — shoes no
+  // longer gate the count.
+  assert.match(body, /One more piece and this page fills up\./);
 });
 
 test('the promised number of pieces equals the rows actually listed', () => {
@@ -291,13 +293,16 @@ test('the promised number of pieces equals the rows actually listed', () => {
 
 test('the rows are things a person could photograph, not a table', () => {
   const needs = missingPhrases(tally(10, 0, 0, 0));
-  assert.deepEqual(needs, ['A pair of shoes', 'A pair of trousers or a skirt']);
+  assert.deepEqual(needs, ['A pair of trousers or a skirt']);
   for (const n of needs) assert.doesNotMatch(n, /needed|\b0\b/, n);
 });
 
-test('a dress needs only shoes — no bottom row nobody’s outfit needs', () => {
-  const needs = missingPhrases(tally(0, 0, 2, 0));
-  assert.deepEqual(needs, ['A pair of shoes']);
+test('a dress alone already counts — no row at all', () => {
+  // The old rule ("a dress needs only shoes") ended 2026-09-01: a dress IS
+  // an outfit, so two dresses and nothing else is not a zero.
+  const t = tally(0, 0, 2, 0);
+  assert.equal(countOutfits(t), 2);
+  assert.deepEqual(missingPhrases(t), []);
 });
 
 // ---------------------------------------------------------------------------

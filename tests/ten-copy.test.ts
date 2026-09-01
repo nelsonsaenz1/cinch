@@ -89,7 +89,8 @@ test('the card never quotes a projection that has not moved', () => {
   // instead of printing "takes this closet to 0 outfits".
   const copy = card(...repeat('accessory', 10));
   assert.equal(copy.title, 'Add a pair of shoes.');
-  assert.match(copy.body, /still needs a pair of shoes, a top and a bottom/);
+  assert.match(copy.body, /still needs a top and a bottom/);
+  assert.doesNotMatch(copy.body, /needs a pair of shoes/);
   assert.doesNotMatch(copy.body, /\b0 outfits?\b/);
   assert.doesNotMatch(copy.body, /takes (this closet|it) to/);
 });
