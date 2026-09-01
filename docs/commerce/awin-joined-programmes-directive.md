@@ -23,12 +23,20 @@ is not implied. The five, with disposition already decided:
 | SAILO, INC | 92667 | Boat rentals | Decline / ignore |
 | brkox | 129093 | LEGO display frames | Decline / ignore |
 
-**2026-09-01 additions:** BONHEUR JEWELRY invitation arrived Aug 27. Separately, a
-merchant onboarding email "Welcome to the CICYBELL affiliate program" arrived Aug 25 —
-possibly a premature merchant blast, possibly evidence the membership is already
-active. **Treat the API joined-programmes read as the only truth for membership
-status**, not merchant emails. Awin dashboard session is currently logged out;
-acceptance clicks are pending Nelson's sign-in.
+**2026-09-01 status — both acceptances are DONE. This directive is now live, not
+anticipatory.** The Awin dashboard shows **Your Programs (2): CICYBELL and BONHEUR
+JEWELRY.** CICYBELL was accepted 2026-08-25 (ledger notes an API read confirmed it and
+a first feed sync pulled **15,608 products** — evidence some pipeline pieces already
+ran). BONHEUR was accepted 2026-09-01 by the Cowork agent on Nelson's instruction.
+The four off-category invitations (TideWe, Piscifun, SAILO, brkox) remain pending in
+the dashboard, deliberately untouched.
+
+**Therefore: begin with a state audit, not a build.** Something has already read the
+joined list and synced CICYBELL's feed. Establish what exists before writing anything:
+check `commerce_joined_programmes` rows, `sync-feeds` schedule/last-run, and
+`commerce_health_report()`. Then close only the genuine gaps in §1 — and §1's steps
+now include BONHEUR: its feed should sync (it has a product feed), but per §0 it maps
+to no gap slot, so it must NOT enter the allowlist or `gap-shop-match` output.
 
 Accepting an invitation happens in the Awin dashboard (Nelson or the Cowork
 browser agent — not this session). **Your work is everything after acceptance.**
