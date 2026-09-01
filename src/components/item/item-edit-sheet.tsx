@@ -3,20 +3,19 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  editDraft,
+  initialDraftState,
+  syncDraftState,
+  type ItemEditDraft,
+} from '@/components/item/item-edit-draft';
 import { Chip } from '@/components/ui/chip';
 import { Text } from '@/components/ui/text';
 import { stableImageSource } from '@/features/closet/use-image-urls';
 import type { ItemCategory } from '@/schemas/item';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
-export type ItemEditDraft = {
-  /** The specific word for the garment — writes to `subcategory`. */
-  name: string;
-  /** Raw text, parsed by the caller. Empty string clears the price. */
-  price: string;
-  /** The shelf the piece is filed under. */
-  category: ItemCategory;
-};
+export type { ItemEditDraft };
 
 export type ItemEditSheetProps = {
   visible: boolean;
@@ -104,26 +103,26 @@ export function ItemEditSheet({
 }: ItemEditSheetProps) {
   const theme = useTheme();
 
-  const [draft, setDraft] = useState<ItemEditDraft>(initial);
-
   /**
-   * Re-seed from the row every time the sheet OPENS, and only then.
+   * Re-seed from the row when the sheet opens onto a row it is not already
+   * holding — and never over an answer the reader has given.
    *
    * Adjusted during render rather than in an effect — React's own "adjusting
    * state when a prop changes" pattern. An effect would set state after a
    * committed paint, which is both a cascading render and a visible frame of
    * the previous item's values; it also trips `react-hooks/set-state-in-effect`.
    *
-   * The trigger is `visible`, deliberately NOT `initial`: `initial` is a fresh
-   * object literal on every render of the page, so keying on it would reset the
-   * field under the user's cursor — and this screen re-renders on every
-   * keystroke of the price field.
+   * The rule itself lives in `item-edit-draft.ts`, where it can be read and
+   * tested as the state machine it is; the docblock there is the account of why
+   * `visible` alone was not enough to state it. `syncDraftState` returns the
+   * same object when nothing changes, so this settles in one extra render.
    */
-  const [wasVisible, setWasVisible] = useState(visible);
-  if (visible !== wasVisible) {
-    setWasVisible(visible);
-    if (visible) setDraft(initial);
-  }
+  const [state, setState] = useState(() => initialDraftState(initial, visible));
+  const synced = syncDraftState(state, { visible, initial });
+  if (synced !== state) setState(synced);
+
+  const draft = synced.draft;
+  const edit = (change: Partial<ItemEditDraft>) => setState((s) => editDraft(s, change));
 
   // NOTE: the spring that used to run on this sheet's own translate is gone
   // with the sheet. A document is presented by the platform; a card rising over
@@ -189,7 +188,7 @@ export function ItemEditSheet({
           <Field label="Name">
             <TextInput
               value={draft.name}
-              onChangeText={(name) => setDraft((d) => ({ ...d, name }))}
+              onChangeText={(name) => edit({ name })}
               placeholder="Untitled piece"
               // IT-03 sets every value and every explanation in the regular
               // cut at the frame's secondary colour; `faint` is refused as
@@ -216,7 +215,7 @@ export function ItemEditSheet({
                   size="tap"
                   selected={draft.category === c.key}
                   selectedGround="ink"
-                  onPress={() => setDraft((d) => ({ ...d, category: c.key }))}
+                  onPress={() => edit({ category: c.key })}
                 />
               ))}
             </View>
@@ -228,7 +227,7 @@ export function ItemEditSheet({
             </Text>
             <TextInput
               value={draft.price}
-              onChangeText={(price) => setDraft((d) => ({ ...d, price }))}
+              onChangeText={(price) => edit({ price })}
               keyboardType="decimal-pad"
               inputMode="decimal"
               placeholder="0"
