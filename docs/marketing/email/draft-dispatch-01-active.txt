@@ -1,0 +1,28 @@
+Cinch — The Dispatch · No. 01 — September 2026
+
+You asked for this one.
+
+Hi {{{FIRST_NAME|there}}} — two things changed in Cinch this week. The first exists because someone reading this wrote in and asked for it.
+
+NEW
+Compose your own outfit.
+A Cinch user emailed to say she wanted to wear something she had picked herself and still have it count. She was right that there was no way to do it. There is now: on the Today tab, pick any pieces from your closet and either wear them today or save them for later. It lands on your diary and counts your wears, exactly like a suggested look.
+
+FIXED
+Your outfit count probably just went up.
+Cinch used to require shoes before it would count a single outfit, which meant a closet without a pair in it was told there was nothing to wear. That was our arithmetic being wrong, not your closet. Shoes now finish an outfit instead of gating it — so open the app and look at the number again.
+
+Open Cinch: https://apps.apple.com/app/id6798479578
+
+PASS IT ON
+Know someone who stands in front of a full closet and says they have nothing to wear? Open Cinch, tap Invite, and send them your link. Cinch is better when your friends are in it — you can see each other’s closets and borrow.
+Invite a friend: https://apps.apple.com/app/id6798479578
+
+CINCH PRO
+Cinch Pro adds unlimited outfits, the full stylist, packing lists and events. Seven days free, then $39.99 for the year.
+Start 7 days free: https://apps.apple.com/app/id6798479578
+
+--
+Cinch · Outfits from clothes you already own
+You are getting this because you have a Cinch account.
+Unsubscribe and these stop — your account and closet are untouched: {{{RESEND_UNSUBSCRIBE_URL}}}

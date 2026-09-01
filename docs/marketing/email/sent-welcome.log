@@ -1,0 +1,45 @@
+# Welcome email suppression log
+#
+# Authoritative record of who has received the day-1 welcome.
+# The daily task MUST read this before sending and append after every send.
+# If this file is missing, the task aborts rather than assuming nobody was emailed.
+#
+# Seeded 2026-09-01 with every account existing at program start, so that no
+# established user can ever receive a welcome email.
+#
+2026-09-01T00:00Z  4jwddtsvkt@privaterelay.appleid.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  6fcm9sz87c@privaterelay.appleid.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  7kpm45ch2j@privaterelay.appleid.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  anettehoechner@icloud.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  avasaenz06@gmail.com  backfill  items=21  id=none-program-start
+2026-09-01T00:00Z  aysha2006192@gmail.com  backfill  items=18  id=none-program-start
+2026-09-01T00:00Z  colesaenz5@gmail.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  d9fvr4g8zc@privaterelay.appleid.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  elcinaydmr@gmail.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  ellisashley25@gmail.com  backfill  items=9  id=none-program-start
+2026-09-01T00:00Z  emilychapman1221@yahoo.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  gracie.kirk03@gmail.com  backfill  items=6  id=none-program-start
+2026-09-01T00:00Z  ife4adedugba@gmail.com  backfill  items=51  id=none-program-start
+2026-09-01T00:00Z  jaysaenz99@yahoo.com  backfill  items=12  id=none-program-start
+2026-09-01T00:00Z  jfy7gv85hc@privaterelay.appleid.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  karencsaenz@yahoo.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  kelsikoo1209@gmail.com  backfill  items=10  id=none-program-start
+2026-09-01T00:00Z  koribuchanan@gmail.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  koribuchanan@icloud.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  mererow@icloud.com  backfill  items=10  id=none-program-start
+2026-09-01T00:00Z  mkhudson84@gmail.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  nelsonsaenz1@yahoo.com  backfill  items=10  id=none-program-start
+2026-09-01T00:00Z  nrp5rfvcrn@privaterelay.appleid.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  omaramara1905@icloud.com  backfill  items=19  id=none-program-start
+2026-09-01T00:00Z  p5868shsrs@privaterelay.appleid.com  backfill  items=12  id=none-program-start
+2026-09-01T00:00Z  s8tty2bfwz@privaterelay.appleid.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  sadielemkau@icloud.com  backfill  items=9  id=none-program-start
+2026-09-01T00:00Z  savannahswanson76@gmail.com  backfill  items=108  id=none-program-start
+2026-09-01T00:00Z  staciemontero@gmail.com  backfill  items=3  id=none-program-start
+2026-09-01T00:00Z  sydneyshack1@gmail.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  t5p8cw987n@privaterelay.appleid.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  tessharper52904@gmail.com  backfill  items=0  id=none-program-start
+2026-09-01T00:00Z  v75yd49c9j@privaterelay.appleid.com  backfill  items=11  id=none-program-start
+2026-09-01T00:00Z  wjy4c2ntnd@privaterelay.appleid.com  backfill  items=1  id=none-program-start
+2026-09-01T00:00Z  y6z5k7vhgb@privaterelay.appleid.com  backfill  items=2  id=none-program-start
+2026-09-01T00:00Z  yg4ktpnkwb@privaterelay.appleid.com  backfill  items=0  id=none-program-start
