@@ -50,6 +50,41 @@ export type PromoIneligibleReason =
  */
 export type PromoOutcome = GateOutcome | 'ineligible';
 
+/**
+ * How long the caps read may take before the ask is abandoned.
+ *
+ * THE GUARANTEE ABOVE IS NOT FREE. `fetchRecentImpressions()` is a network
+ * call with no timeout of its own, and the failure that matters is not an
+ * error — it is a HANG: a captive portal or a dead-but-open socket leaves the
+ * promise pending forever. An unresolved promise here would strand
+ * `presentPromo`, and with it the `finally` that routes The Ten to the Reveal.
+ * That is the exact thing this module promises cannot happen, so the read is
+ * raced against a clock and a timeout is treated like any other unreadable
+ * ledger: stay quiet, let the caller move on.
+ *
+ * Three seconds because this runs inside a transition the user is already
+ * waiting through — long enough for a slow-but-alive network, short enough
+ * that nobody watches a spinner for it.
+ */
+const CAPS_READ_TIMEOUT_MS = 3000;
+
+/** Reject with `caps_read_timeout` if `work` has not settled within `ms`. */
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('caps_read_timeout')), ms);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 export interface PresentPromoOpts {
   /** From `usePlan()` at the call site — the folded plan in force. */
   readonly plan: Plan;
@@ -112,7 +147,7 @@ export async function presentPromo(
       try {
         const verdict = evaluatePromoCaps(
           new Date().toISOString(),
-          await fetchRecentImpressions(),
+          await withTimeout(fetchRecentImpressions(), CAPS_READ_TIMEOUT_MS),
           placement,
         );
         eligible = verdict.allowed;

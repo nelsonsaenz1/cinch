@@ -255,3 +255,21 @@ test('the promo placements exist in placements.ts under their contracted names',
   assert.match(placements, /TenCompleted: 'ten_completed'/);
   assert.match(placements, /ReturningFree: 'returning_free'/);
 });
+
+test('the caps read is raced against a clock — a hung network cannot strand the Reveal', () => {
+  const promo = src('features/billing/present-promo.ts');
+  // The failure this pins is a HANG, not an error: promo-caps-io's fetch has
+  // no timeout of its own, and an unresolved promise here would strand the
+  // `finally` that routes The Ten to the Reveal.
+  assert.match(
+    promo,
+    /await withTimeout\(fetchRecentImpressions\(\), CAPS_READ_TIMEOUT_MS\)/,
+    'the ledger read must be bounded before it is awaited',
+  );
+  assert.match(promo, /const CAPS_READ_TIMEOUT_MS = \d+;/, 'the bound is a named constant');
+  assert.match(
+    promo,
+    /clearTimeout\(timer\)/,
+    'the timer is cleared on both settle paths, so no handle outlives the race',
+  );
+});
