@@ -82,3 +82,68 @@ open docs/email-templates/newsletter.html
 
 The merge tags render as literal text in a browser, which is expected — both
 Supabase and Resend have their own preview with test data.
+
+---
+
+## QA mailbox deliverability — `cinchstyle.com` has no MX (structural, 2026-08-31)
+
+**Root cause.** The apex domain `cinchstyle.com` — the domain behind every
+`sim-test@cinchstyle.com` / `sim-test+alias@cinchstyle.com` QA account — carries
+**no MX record**. Verified independently 2026-08-31:
+
+```
+$ dig @1.1.1.1 MX cinchstyle.com +short
+(empty)
+$ dig @1.1.1.1 A cinchstyle.com +short
+216.150.1.193
+216.150.16.193
+```
+
+A record present, MX absent. There is nowhere for inbound SMTP to `cinchstyle.com`
+to go — not a propagation lag, not a Resend outage, not a per-message fluke.
+**Every** message to any `@cinchstyle.com` address is structurally undeliverable,
+and this has been true since before the CMO briefings started flagging it
+(`docs/marketing/cmo-briefings/2026-08-25.md`, `2026-08-26.md`, `2026-08-28.md`:
+Resend showing `sim-test@cinchstyle.com` first delayed, then bouncing, worsening
+night over night — consistent with SES/Resend retrying against a domain that
+will never accept the message and eventually giving up).
+
+**The "immediate" plus-alias was an illusion.** On 2026-08-31, Resend showed
+`sim-test@cinchstyle.com` and `sim-test+j00@cinchstyle.com` as `delivery_delayed`,
+while `sim-test+ja@cinchstyle.com` showed `sent`. `sent` means Resend accepted
+the message *for delivery* — it is not `delivered`. Since MX resolution fails
+for the whole domain, `sent` was never going to become `delivered`; the alias
+just hadn't been retried into `delivery_delayed` yet at read time. There is no
+alias-specific behavior here — it is a race against the same dead MX lookup.
+
+**QA rule.** Never wait on mailbox delivery for a `@cinchstyle.com` test
+account, aliased or not. The account still authenticates fine — Resend accepts
+and logs the send regardless of downstream deliverability. Read the OTP straight
+from Resend's sent-mail record (Resend MCP `list-emails` / `get-email`, or the
+dashboard), keyed on the exact recipient address used for that signup. This is
+the flow already proven in `docs/ops/strike-evidence-20260901.md` §3b
+(`sim-test+jNN@cinchstyle.com`, OTP read from Resend) and referenced in
+`docs/app-store/handoff.md`. It is unaffected by this defect and remains the
+correct QA path — do not switch to waiting on an inbox.
+
+**Founder-level remediation options** (not executed here — DNS/production
+config is out of scope for this fix):
+1. Add an MX record (and, if support replies matter, inbound routing) for
+   `cinchstyle.com` itself — the pattern `docs/ops/inbound-email-directive.md`
+   already lays out for the `mail.cinchstyle.com` subdomain, extended to the
+   apex.
+2. Move QA/sim-test accounts to a domain that already accepts mail, so
+   inbox-based testing becomes possible again without touching the primary
+   marketing domain.
+
+**Docs-vs-code sender-domain drift (separate, noted here for visibility).**
+This README's wiring instructions (above) say to verify a subdomain like
+`mail.cinch.app` and send from `hello@mail.cinch.app`. The deployed code sends
+from a different domain: `supabase/functions/support-mail/mail.ts:28-29` sets
+`FROM = 'Cinch <hello@mail.cinchstyle.com>'` and `SUPPORT_INBOX =
+'hello@mail.cinchstyle.com'`; `supabase/functions/build-export/mail.ts:30` and
+`supabase/functions/commerce-health/mail.ts:90` do the same. Whether this is
+intentional (docs stale) or accidental (code drifted) is a founder call — flagged
+here, not changed. It is a distinct issue from the apex-domain MX gap above:
+`mail.cinchstyle.com` sends today, and its *inbound* gap is already tracked
+separately in `docs/ops/inbound-email-directive.md`.
