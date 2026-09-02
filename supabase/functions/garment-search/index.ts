@@ -705,8 +705,25 @@ type PartnerFeedItem = {
   slot: string | null;
 };
 
-/** How many products each joined programme may put on the shelf per read. */
-const PARTNER_FEED_PER_MERCHANT = 8;
+/**
+ * The shelf's own curated shops — FASHION BRANDS ONLY (founder's third ruling,
+ * 2026-09-02: "only fashion brands. cut the gear brands"). Joining still gets
+ * a programme synced and ledgered; appearing HERE takes a founder edit to this
+ * set, the same contract as gap-shop-match's OWNED_GAP_MERCHANT_IDS and
+ * merchants.ts. TideWe, Piscifun, brkox, SAILO and Giftlab are joined and
+ * deliberately absent — their hunting jackets and fishing gear are wearable
+ * but not fashion. BONHEUR is listed for the day its feed stocks anything the
+ * garment slots admit; today that is nothing, and the slot gate holds anyway.
+ */
+const PARTNER_FEED_MERCHANT_IDS = ['124976', '90759'];
+
+/**
+ * Per-merchant fetch and the shelf's total, separately bounded: with one
+ * fashion house carrying the shelf today the per-merchant ceiling IS the
+ * shelf, and when more join, the round-robin rebalances under the same total.
+ */
+const PARTNER_FEED_PER_MERCHANT = 24;
+const PARTNER_FEED_TOTAL = 24;
 
 /**
  * The kinds the shelf may show — clothes, and nothing else (founder order
@@ -723,14 +740,13 @@ const PARTNER_FEED_SLOTS = ['top', 'bottom', 'dress', 'outerwear', 'footwear', '
  * programme, round-robined so no single feed drowns the rest (CICYBELL alone
  * holds ~16k rows; a naive "latest 50" would be one shop wearing five names).
  *
- * Founder order 2026-09-02: every joined partner's products, images and links
- * wired into Explore — then, same day, the second ruling that bounds it:
- * ONLY CLOTHES (`PARTNER_FEED_SLOTS`). The admission rule for merchants is
- * membership, founder-accepted per invitation; the admission rule for rows is
- * the garment-slot set, so a gear or jewelry feed is joined, synced, and
- * silent here until it stocks something wearable. gap-shop-match's own owned
- * source stays pinned to its curated apparel merchants; this shelf does not
- * widen that one.
+ * Founder orders 2026-09-02, three rulings same day, each narrower: (1) every
+ * joined partner wired into Explore; (2) only clothes; (3) only FASHION
+ * brands. The final shape: merchants are admitted by the curated
+ * `PARTNER_FEED_MERCHANT_IDS` set (founder-edited, like every shop list in
+ * this codebase), and rows by the garment-slot set `PARTNER_FEED_SLOTS` —
+ * membership alone earns a programme syncing and bookkeeping, never a card.
+ * gap-shop-match's own owned source stays pinned separately.
  *
  * EVERY LINK IS BUILT BY `trackingUrl` — publisher 3030871, no clickref under
  * any name (commerce-directive §6 refusal 7, pinned by
@@ -745,6 +761,8 @@ async function partnerFeed(admin: SupabaseClient<Database>): Promise<Response> {
     .select('id, external_id, name')
     .eq('network', 'awin')
     .eq('active', true)
+    // Fashion brands only — see PARTNER_FEED_MERCHANT_IDS.
+    .in('external_id', PARTNER_FEED_MERCHANT_IDS)
     .order('external_id');
   if (merchantsError) {
     console.error(`garment-search: partner-feed merchants read failed: ${merchantsError.message}`);
@@ -805,10 +823,12 @@ async function partnerFeed(admin: SupabaseClient<Database>): Promise<Response> {
     if (items.length) perMerchant.push(items);
   }
 
-  // Round-robin across shops so the grid reads as a market, not a monologue.
+  // Round-robin across shops so the grid reads as a market, not a monologue,
+  // bounded by the shelf's total however many shops contribute.
   const merged: PartnerFeedItem[] = [];
-  for (let i = 0; i < PARTNER_FEED_PER_MERCHANT; i++) {
+  for (let i = 0; i < PARTNER_FEED_PER_MERCHANT && merged.length < PARTNER_FEED_TOTAL; i++) {
     for (const items of perMerchant) {
+      if (merged.length >= PARTNER_FEED_TOTAL) break;
       if (items[i]) merged.push(items[i]!);
     }
   }

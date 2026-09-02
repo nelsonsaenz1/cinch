@@ -51,6 +51,19 @@ test('the shelf shows clothes and nothing else — the slot set is closed and je
   assert.ok(fn.includes(".in('slot', PARTNER_FEED_SLOTS)"));
 });
 
+test('the shelf names fashion brands only — gear brands are joined but absent by founder edit', () => {
+  const setLine = search.slice(
+    search.indexOf('const PARTNER_FEED_MERCHANT_IDS'),
+    search.indexOf(';', search.indexOf('const PARTNER_FEED_MERCHANT_IDS')),
+  );
+  assert.ok(setLine.includes("'124976'"), 'CICYBELL is the shelf');
+  for (const gear of ['78182', '89509', '129093', '92667', '95201']) {
+    assert.ok(!setLine.includes(`'${gear}'`), `gear brand on the fashion shelf: ${gear}`);
+  }
+  const fn = search.slice(search.indexOf('async function partnerFeed'));
+  assert.ok(fn.includes(".in('external_id', PARTNER_FEED_MERCHANT_IDS)"));
+});
+
 test('the ingest slot mapper matches whole words — Captain is not a cap, Spring is not a ring', () => {
   // The rules live in a Deno module the node suite cannot import, so they are
   // read out of the source and EXECUTED here — the same "inspect the product,
