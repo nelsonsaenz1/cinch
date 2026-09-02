@@ -12,6 +12,14 @@ import { ALLOWED_MERCHANT_IDS } from '../_shared/merchants.ts';
 import { CATALOG_SLOTS, decide, isCatalogSlot, readHints, type Deps } from './policy.ts';
 
 /**
+ * The owned-feed source's own curated set — Awin advertiser ids whose rows the
+ * GAP surface may name. See the pin comment at the query below; CICYBELL is
+ * the one joined programme that is an apparel catalogue a gap suggestion can
+ * honestly draw from.
+ */
+const OWNED_GAP_MERCHANT_IDS = ['124976'];
+
+/**
  * gap-shop-match — commerce-directive.md §2/§3, C-01/C-02/C-04's server half.
  *
  * ONE FUNCTION, TWO CALLERS: the Gap Feed matching a computed gap (C-01) and a
@@ -171,6 +179,15 @@ export default {
             .eq('availability', 'in_stock')
             .eq('catalog_merchants.network', 'awin')
             .eq('catalog_merchants.active', true)
+            // PINNED (2026-09-02). Membership stopped implying apparel the day
+            // the founder accepted TideWe, Piscifun, SAILO, brkox and Giftlab
+            // for Explore's partner shelf — joined programmes now include gear
+            // and jewelry feeds this curated surface must not inherit. The gap
+            // suggestions stay apparel-only via this explicit set; widening it
+            // is a founder edit here, the same way merchants.ts is for the
+            // Datafeedr source. Explore's `partner-feed` (garment-search) is
+            // the surface that carries every joined programme.
+            .in('catalog_merchants.external_id', OWNED_GAP_MERCHANT_IDS)
             .limit(100);
           if (colour) query = query.or(`colour.ilike.%${colour}%,title.ilike.%${colour}%`);
           if (brand) query = query.ilike('brand', `%${brand}%`);

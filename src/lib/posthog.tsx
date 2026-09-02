@@ -306,7 +306,12 @@ export type AppEvent =
    * closest thing this feature knows to closet content.
    */
   | 'explore_shop_feed_loaded'
-  /** A shelf item opened the merchant's page. Carries nothing at all. */
+  /**
+   * A shelf item opened the merchant's page. Carries at most `shelf`, a
+   * two-value enum ('partner' from the partner shelf; absent from the
+   * closet-similarity feed) — never the merchant, kind or title. Both load
+   * events share the same bound: counts and the shelf word, nothing else.
+   */
   | 'explore_shop_product_opened'
   /**
    * A Pinterest OAuth attempt settled. `outcome` is one of the closed

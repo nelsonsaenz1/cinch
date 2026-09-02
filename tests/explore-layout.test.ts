@@ -394,6 +394,10 @@ test('the redesign added no query, no table and no edge function', () => {
     'useShowWhereToBuy',
     'useWardrobe',
     'useShopFeed',
+    // AMENDED 2026-09-02, the founder-ordered partner shelf: one more query
+    // hook on the same C-03 gate, whose request carries no parameters at all
+    // (tests/partner-shop-shelf.test.ts pins the wire and the disclosure).
+    'usePartnerFeed',
   ];
   const hooks = [...src.matchAll(/\buse[A-Z]\w*/g)].map((m) => m[0]);
   for (const hook of new Set(hooks)) {

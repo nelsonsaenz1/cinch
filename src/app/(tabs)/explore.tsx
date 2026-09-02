@@ -21,6 +21,7 @@ import { Card } from '@/components/ui/card';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ExploreDoors } from '@/components/explore/explore-doors';
 import { ShopFeedSection } from '@/components/explore/shop-feed-section';
+import { PartnerShopSection } from '@/components/explore/partner-shop-section';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -65,6 +66,7 @@ import { useMutedIds } from '@/features/social-graph/muted';
 import { useShowWhereToBuy } from '@/features/commerce/queries';
 import { useWardrobe } from '@/features/styling/queries';
 import { useShopFeed } from '@/features/explore/use-shop-feed';
+import { usePartnerFeed } from '@/features/explore/use-partner-feed';
 import { useFriends } from '@/features/social-graph/queries';
 import { track } from '@/lib/posthog';
 import { useTabVisited } from '@/lib/use-tab-visited';
@@ -230,6 +232,10 @@ export default function ExploreScreen() {
   const showWhereToBuy = useShowWhereToBuy();
   const wardrobeForFeed = useWardrobe();
   const shopFeed = useShopFeed(wardrobeForFeed.data ?? [], showWhereToBuy.data === true);
+  // The partner shelf rides the same C-03 gate and needs no closet at all —
+  // it is the joined programmes' own stock (founder order 2026-09-02), served
+  // by a parameterless read; see use-partner-feed.ts.
+  const partnerFeed = usePartnerFeed(showWhereToBuy.data === true);
 
   // Variant A plus the device-local mute, both at the read edge — before the
   // day grouping and the signed-URL work, so a hidden row simply never exists
@@ -811,6 +817,12 @@ export default function ExploreScreen() {
             shops follow it. Absent entirely for a person who turned "Show
             where to buy" off, or whose closet holds nothing to be like. */}
         {showWhereToBuy.data === true ? <ShopFeedSection cards={shopFeed.data ?? []} /> : null}
+
+        {/* The partner shelf — every joined programme, disclosed as paid.
+            Below the closet-similarity feed on purpose: "like your closet"
+            answers the person; this one presents the partners. Same C-03
+            gate; absent when the switch is off or nothing is stocked. */}
+        {showWhereToBuy.data === true ? <PartnerShopSection items={partnerFeed.data ?? []} /> : null}
 
         {/* THE ENDING — one page, one full stop, and it belongs to the week.
             It prints under everything, over a page that actually loaded and

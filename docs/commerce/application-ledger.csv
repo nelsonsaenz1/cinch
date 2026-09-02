@@ -1,7 +1,8 @@
 date,network,advertiser_id,advertiser_name,tranche,status,status_date,follow_up_due,notes
-2026-08-11,awin,92667,"SAILO, INC",INBOUND,invited-declined: off-category,2026-08-25,,boat rentals
-2026-08-19,awin,89509,Piscifun,INBOUND,invited-declined: off-category,2026-08-25,,fishing rods/reels
+2026-08-11,awin,92667,"SAILO, INC",INBOUND,approved,2026-09-02,,"boat rentals; founder reversed the off-category decline and accepted 2026-09-02; JOINED per API; product feed 404s (rentals, likely no feed) — 0 products, nothing to surface"
+2026-08-19,awin,89509,Piscifun,INBOUND,approved,2026-09-02,,"fishing rods/reels; founder reversed the decline and accepted 2026-09-02; JOINED per API; feed synced 710 products; Explore partner shelf only — NOT in gap-shop-match (owned source pinned to 124976)"
 2026-08-21,awin,124976,CICYBELL,INBOUND,approved,2026-08-25,,womens apparel; 18% commission; only apparel invite; accepted in dashboard 2026-08-25 and confirmed by API read same day (first feed sync: 15608 products)
-2026-08-24,awin,129093,brkox,INBOUND,invited-declined: off-category,2026-08-25,,LEGO display frames
-2026-08-25,awin,78182,TideWe,INBOUND,invited-declined: off-category,2026-08-25,,hunting/fishing gear
+2026-08-24,awin,129093,brkox,INBOUND,approved,2026-09-02,,"LEGO display frames; founder reversed the decline and accepted 2026-09-02; JOINED per API; feed synced 297 products; Explore partner shelf only"
+2026-08-25,awin,78182,TideWe,INBOUND,approved,2026-09-02,,"hunting/fishing gear incl. apparel; founder reversed the decline and accepted 2026-09-02; JOINED per API; feed synced 2476 products; Explore partner shelf only"
 2026-08-27,awin,90759,BONHEUR JEWELRY,INBOUND,approved,2026-09-01,,"jewelry (single-slot); accepted 2026-09-01; API read confirmed joined 23:45Z; feed synced 299 products 23:46Z; catalog_merchants.active=false same night so it never enters gap-shop-match output (per directive §0); do not allowlist"
+2026-09-02,awin,95201,Giftlab,INBOUND,approved,2026-09-02,,"catalogue unknown; accepted by founder 2026-09-02; JOINED per API; product feed 404s — 0 products, nothing to surface yet"

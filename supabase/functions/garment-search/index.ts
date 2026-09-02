@@ -38,6 +38,8 @@ import {
 import { licensedFirst } from './catalog-wiring.ts';
 import { searchFamilies } from './catalog-provider.ts';
 import { recordDemand } from '../_shared/demand.ts';
+import { trackingUrl, CommerceConfigError } from '../_shared/commerce.ts';
+import { publisherIdsFromEnv } from '../_shared/commerce-env.ts';
 import {
   type ImportRowResult,
   planCatalogueBatch,
@@ -324,6 +326,18 @@ export default {
        */
       if (request.action === 'browse') {
         return await browseCatalogue(admin, request);
+      }
+
+      /**
+       * The partner shelf sits beside browse and above the consent gate for
+       * the same reason taken further: the request carries nothing at all —
+       * not even an enum — and the answer is the same for every caller. What
+       * it reads is the OWNED catalogue (`sync-feeds` rows from programmes the
+       * founder accepted), never a metered provider, so there is no quota to
+       * claim and no per-user anything anywhere in it.
+       */
+      if (request.action === 'partner-feed') {
+        return await partnerFeed(admin);
       }
 
       // ── AI processing consent (App Store Guideline 5.1.2(i)) ──────────────
@@ -673,6 +687,122 @@ async function browseCatalogue(
     );
     return fail('search_failed', 'The search did not come back. Try again in a moment.', 502);
   }
+}
+
+/** One card on Explore's partner shelf. Every URL in it is server-built. */
+type PartnerFeedItem = {
+  /** `merchantExternalId:productExternalId` — unique across the shelf. */
+  key: string;
+  title: string;
+  brand: string | null;
+  merchant: string;
+  imageUrl: string;
+  /** The Awin tracking URL (publisher 3030871, no click identifiers). */
+  pageUrl: string;
+  priceCents: number | null;
+  currency: string | null;
+  /** The ingest's slot mapping, when the product is a garment kind. */
+  slot: string | null;
+};
+
+/** How many products each joined programme may put on the shelf per read. */
+const PARTNER_FEED_PER_MERCHANT = 8;
+
+/**
+ * Explore's partner shelf: the owned catalogue, every active joined
+ * programme, round-robined so no single feed drowns the rest (CICYBELL alone
+ * holds ~16k rows; a naive "latest 50" would be one shop wearing five names).
+ *
+ * Founder order 2026-09-02: every joined partner's products, images and links
+ * wired into Explore. The admission rule here is the same as the owned-feed
+ * source in gap-shop-match — membership, which is founder-accepted per
+ * invitation — but unlike gap-shop-match this surface is NOT slot-gated:
+ * whatever a joined feed stocks may appear, garment slots ranked first so a
+ * fashion app's shelf leads with clothes. gap-shop-match's own owned source
+ * stays pinned to its curated apparel merchants; this shelf widening does not
+ * widen that one.
+ *
+ * EVERY LINK IS BUILT BY `trackingUrl` — publisher 3030871, no clickref under
+ * any name (commerce-directive §6 refusal 7, pinned by
+ * tests/awin-link-construction.test.ts). A missing publisher id fails the
+ * whole shelf closed rather than ever emitting an untracked link: an empty
+ * shelf costs a sale; an untracked link is a disclosure ("Paid link") that
+ * has become a lie.
+ */
+async function partnerFeed(admin: SupabaseClient<Database>): Promise<Response> {
+  const { data: merchants, error: merchantsError } = await admin
+    .from('catalog_merchants')
+    .select('id, external_id, name')
+    .eq('network', 'awin')
+    .eq('active', true)
+    .order('external_id');
+  if (merchantsError) {
+    console.error(`garment-search: partner-feed merchants read failed: ${merchantsError.message}`);
+    return fail('search_failed', 'The shelf did not come back. Try again in a moment.', 502);
+  }
+
+  const ids = publisherIdsFromEnv();
+  if (!ids.awinPublisherId) {
+    // Fail the shelf closed rather than ever emitting an untracked link.
+    console.error('garment-search: partner-feed disabled — AWIN_PUBLISHER_ID is not configured.');
+    return Response.json({ ok: true, items: [] });
+  }
+
+  const perMerchant: PartnerFeedItem[][] = [];
+  for (const merchant of merchants ?? []) {
+    const { data: rows, error } = await admin
+      .from('catalog_products')
+      .select('external_id, title, brand, price_cents, currency, image_url, product_url, slot')
+      .eq('merchant_id', merchant.id)
+      .eq('availability', 'in_stock')
+      .not('image_url', 'is', null)
+      .not('product_url', 'is', null)
+      // Garment kinds first — the ingest's own slot mapping decides, so a
+      // jewelry or gear feed still shows but never leads the shelf.
+      .order('slot', { nullsFirst: false })
+      .order('updated_at', { ascending: false })
+      .limit(PARTNER_FEED_PER_MERCHANT);
+    if (error) {
+      // One feed's read failing removes one shop from the shelf, not the shelf.
+      console.error(`garment-search: partner-feed read failed for ${merchant.external_id}: ${error.message}`);
+      continue;
+    }
+
+    const items: PartnerFeedItem[] = [];
+    for (const row of rows ?? []) {
+      if (!row.image_url || !row.product_url || !row.title) continue;
+      let pageUrl: string;
+      try {
+        pageUrl = trackingUrl('awin', merchant.external_id, row.product_url, ids);
+      } catch (err) {
+        // An implausible id or non-https destination: skip the row, never
+        // fall back to the bare URL — see the fail-closed note above.
+        if (!(err instanceof CommerceConfigError)) throw err;
+        continue;
+      }
+      items.push({
+        key: `${merchant.external_id}:${row.external_id}`,
+        title: row.title,
+        brand: row.brand,
+        merchant: merchant.name,
+        imageUrl: row.image_url,
+        pageUrl,
+        priceCents: row.price_cents,
+        currency: row.currency,
+        slot: row.slot,
+      });
+    }
+    if (items.length) perMerchant.push(items);
+  }
+
+  // Round-robin across shops so the grid reads as a market, not a monologue.
+  const merged: PartnerFeedItem[] = [];
+  for (let i = 0; i < PARTNER_FEED_PER_MERCHANT; i++) {
+    for (const items of perMerchant) {
+      if (items[i]) merged.push(items[i]!);
+    }
+  }
+  return Response.json({ ok: true, items: merged });
 }
 
 /**

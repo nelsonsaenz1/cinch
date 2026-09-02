@@ -79,6 +79,18 @@ export type ValidatedBrowseRequest = {
 };
 
 /**
+ * Explore's partner shelf: no parameters at all.
+ *
+ * The same privacy argument as browse, taken to its end — this request cannot
+ * even carry an enum. It asks one fixed question ("what do the joined
+ * programmes stock?") whose answer is identical for every caller, so any field
+ * riding along is refused for the same reason browse refuses typed words.
+ */
+export type ValidatedPartnerFeedRequest = {
+  action: 'partner-feed';
+};
+
+/**
  * The chosen picture, on its way to becoming a garment.
  *
  * `pageUrl` is optional and should not be: the product page is what makes an
@@ -203,6 +215,7 @@ export type ValidatedDetachRequest = {
 export type ValidatedRequest =
   | ValidatedSearchRequest
   | ValidatedBrowseRequest
+  | ValidatedPartnerFeedRequest
   | ValidatedImportRequest
   | ValidatedImportBatchRequest
   | ValidatedResolveRequest
@@ -309,6 +322,15 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
     return { action: 'browse', slot: body.slot };
   }
 
+  if (action === 'partner-feed') {
+    // Zero-field on purpose — see `ValidatedPartnerFeedRequest`. Anything that
+    // could look like user content is refused rather than ignored.
+    if (body.description !== undefined || body.query !== undefined || body.slot !== undefined) {
+      throw new BoundsError('partner-feed takes no parameters.');
+    }
+    return { action: 'partner-feed' };
+  }
+
   if (action === 'resolve') {
     return {
       action: 'resolve',
@@ -347,7 +369,7 @@ export function parseGarmentSearchRequest(raw: unknown): ValidatedRequest {
 
   if (action !== 'search') {
     throw new BoundsError(
-      'action must be "search", "browse", "resolve", "import", "import-batch", "match", "attach" or "detach".',
+      'action must be "search", "browse", "partner-feed", "resolve", "import", "import-batch", "match", "attach" or "detach".',
     );
   }
 
