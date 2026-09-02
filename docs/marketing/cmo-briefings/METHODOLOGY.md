@@ -208,3 +208,48 @@ hypothesis the same night.
 For "did this signup ever add a garment", use Supabase: real `profiles` in the window
 versus `count(distinct user_id)` in `items`. That denominator needs no instrumentation and
 has agreed with PostHog's `auth_completed` to within one on three consecutive nights.
+
+## The internal-account filter was wrong for a month (2026-09-02)
+
+**Standing correction.** The filter in §"Internal accounts are not signups" uses
+`email not like '%@cinchstyle.com'`, which **does not match `@mail.cinchstyle.com`** —
+the `@` is not adjacent to `cinchstyle.com` in a subdomain address. Two probe accounts
+(`launch-probe@mail.cinchstyle.com`, `hello@mail.cinchstyle.com`) were counted as real
+users in every briefing that quoted a "real profiles" number.
+
+**Use this instead** (drop the `@`, so subdomains are caught):
+
+```sql
+where lower(coalesce(u.email,'')) not like '%cinchstyle.com'
+  and lower(coalesce(u.email,'')) <> 'demo@cinch.app'
+  and lower(coalesce(u.email,'')) not in
+      ('lisa.2wxrklc.paid@icloud.com','lisa.2wxrkclc.paid@icloud.com')
+```
+
+Full list of accounts the old filter missed: `qa-closet-recut-verify@`, `sim-test@`,
+`launch-probe@mail.`, `hello@mail.`, `fixture-ada@`, `sim-test+j00@`, `simtestf31@`,
+`sim-test+ja@` — all `cinchstyle.com`.
+
+**Also pending a founder ruling: five `%saenz%` accounts** (`nelsonsaenz1@`, `jaysaenz99@`,
+`avasaenz06@`, `karencsaenz@`, `colesaenz5@`) hold **57 items**, wrote **one of the two
+5★ App Store reviews** ("Saenz AE"), and supplied **the only response to Dispatch No. 01**.
+Until ruled on, print family-included and family-excluded figures wherever the split
+changes a verdict — on 09-02 the 14-day first-item rate was 17/33 (52%) including them and
+15/30 (50%) excluding them, and the Dispatch response rate was 1/23 versus 0/22.
+
+## `paywall_eligible` is a denominator, not a success (2026-09-02)
+
+`presentPromo` fires `paywall_eligible` on **every** call, offered or not
+(`present-promo.ts`). Read the `eligible` boolean and `reason` before concluding anything:
+
+- `eligible: true, reason: 'ok'` → the ask was made; expect `paywall_presented` to follow.
+- `eligible: false, reason: 'not_free'` → **the user is inside a trial.** The trial fold in
+  `use-gate.ts` raises a trialing account above `'free'`, so a row reading `plan='free'`
+  with a future `trial_ends_at` is silently unaskable. This is the cause of
+  install→paid = 0% (see 2026-09-02 §8.1, ledger A27).
+- `reason: 'trialing' | 'caps_unknown' | cap reasons` → deliberate suppressions.
+- `reason: 'import_failure_grace'` → A16's ten-minute window.
+
+**Never count `paywall_eligible` as an impression**, and never infer a broken Superwall
+campaign from "eligible fired, presented did not" without checking the `eligible` flag —
+on 09-02 that would have blamed the campaign layer for a trial-state suppression.
