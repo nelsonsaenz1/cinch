@@ -14,3 +14,4 @@ Format: `YYYY-MM-DD  <what>  <status>`
 2026-09-01  Apple Private Email Relay registered (both domains) — post-reg seed DELIVERED; incident resolved
 2026-09-01  Dispatch No. 01 relay redelivery — 13 personalized one-offs SENT 23:39Z (Madison had the seed); Zainab spot-checked delivered; all 14 contacts restored to segments
 2026-09-02  A7 never-charged trial note — 21 emails SCHEDULED for 14:00Z (10am ET), per-person expiry dates, covers the full Sep-11 cliff cohort incl. relay users
+2026-09-02  A27 CONVERSION: 21 scheduled never-charged notes CANCELLED; 29 amended conversion notes queued for 14:00Z (Sep-3 wind-down + membership offer); all live gifted trials shortened to <= 2026-09-03T14:00Z in subscriptions
