@@ -709,17 +709,27 @@ type PartnerFeedItem = {
 const PARTNER_FEED_PER_MERCHANT = 8;
 
 /**
+ * The kinds the shelf may show — clothes, and nothing else (founder order
+ * 2026-09-02, second ruling: "only clothes... no jewelry and bags and
+ * stuff"). The ingest's own google_category→slot mapping is the instrument:
+ * a row whose slot is absent from this set — jewelry, bag, accessory, or the
+ * null every fishing rod and display frame maps to — never reaches the wire,
+ * however many of them a joined feed stocks.
+ */
+const PARTNER_FEED_SLOTS = ['top', 'bottom', 'dress', 'outerwear', 'footwear', 'headwear'];
+
+/**
  * Explore's partner shelf: the owned catalogue, every active joined
  * programme, round-robined so no single feed drowns the rest (CICYBELL alone
  * holds ~16k rows; a naive "latest 50" would be one shop wearing five names).
  *
  * Founder order 2026-09-02: every joined partner's products, images and links
- * wired into Explore. The admission rule here is the same as the owned-feed
- * source in gap-shop-match — membership, which is founder-accepted per
- * invitation — but unlike gap-shop-match this surface is NOT slot-gated:
- * whatever a joined feed stocks may appear, garment slots ranked first so a
- * fashion app's shelf leads with clothes. gap-shop-match's own owned source
- * stays pinned to its curated apparel merchants; this shelf widening does not
+ * wired into Explore — then, same day, the second ruling that bounds it:
+ * ONLY CLOTHES (`PARTNER_FEED_SLOTS`). The admission rule for merchants is
+ * membership, founder-accepted per invitation; the admission rule for rows is
+ * the garment-slot set, so a gear or jewelry feed is joined, synced, and
+ * silent here until it stocks something wearable. gap-shop-match's own owned
+ * source stays pinned to its curated apparel merchants; this shelf does not
  * widen that one.
  *
  * EVERY LINK IS BUILT BY `trackingUrl` — publisher 3030871, no clickref under
@@ -757,9 +767,9 @@ async function partnerFeed(admin: SupabaseClient<Database>): Promise<Response> {
       .eq('availability', 'in_stock')
       .not('image_url', 'is', null)
       .not('product_url', 'is', null)
-      // Garment kinds first — the ingest's own slot mapping decides, so a
-      // jewelry or gear feed still shows but never leads the shelf.
-      .order('slot', { nullsFirst: false })
+      // Clothes only — see PARTNER_FEED_SLOTS. A merchant whose whole feed
+      // is outside the set simply contributes nothing.
+      .in('slot', PARTNER_FEED_SLOTS)
       .order('updated_at', { ascending: false })
       .limit(PARTNER_FEED_PER_MERCHANT);
     if (error) {

@@ -77,17 +77,24 @@ const FEED_TIMEOUT_MS = 120_000;
 const PROGRAMMES_TIMEOUT_MS = 30_000;
 
 /** Google's taxonomy is a `>`-delimited path. Cinch needs one of ten slots.
- *  Order matters: the first match wins, so the most specific terms lead. */
+ *  Order matters: the first match wins, so the most specific terms lead.
+ *
+ *  EVERY ALTERNATIVE IS BOUNDED ON BOTH SIDES, with plurals spelled out.
+ *  The first edition bounded only the left, and `cap` inside "Captain Jack
+ *  Sparrow's Pirate Ship" put sixteen LEGO wall frames on the partner shelf
+ *  as headwear (found 2026-09-02, the day the shelf went clothes-only);
+ *  `ring\b` would have done the same to every "Spring" title. A word either
+ *  IS one of these terms or it is not — prefixes never count. */
 const SLOT_RULES: ReadonlyArray<readonly [RegExp, string]> = [
-  [/\b(shoe|sneaker|boot|loafer|sandal|heel|footwear|pump|clog)/i, 'footwear'],
-  [/\b(handbag|tote|clutch|backpack|purse|satchel|luggage|bag)/i, 'bag'],
-  [/\b(hat|cap|beanie|headwear|headband|beret)/i, 'headwear'],
-  [/\b(jewelry|jewellery|necklace|bracelet|earring|ring\b|brooch)/i, 'jewelry'],
-  [/\b(coat|jacket|outerwear|parka|blazer|overcoat|anorak)/i, 'outerwear'],
-  [/\b(dress|gown|jumpsuit|romper)/i, 'dress'],
-  [/\b(pant|trouser|jean|short|skirt|legging|chino|bottom)/i, 'bottom'],
-  [/\b(shirt|top\b|blouse|sweater|jumper|hoodie|tee|t-shirt|cardigan|knitwear)/i, 'top'],
-  [/\b(scarf|belt|glove|sunglass|tie\b|accessor)/i, 'accessory'],
+  [/\b(shoes?|sneakers?|boots?|loafers?|sandals?|heels?|footwear|pumps?|clogs?)\b/i, 'footwear'],
+  [/\b(handbags?|totes?|clutch(?:es)?|backpacks?|purses?|satchels?|luggage|bags?)\b/i, 'bag'],
+  [/\b(hats?|caps?|beanies?|headwear|headbands?|berets?)\b/i, 'headwear'],
+  [/\b(jewelry|jewellery|necklaces?|bracelets?|earrings?|rings?|brooch(?:es)?)\b/i, 'jewelry'],
+  [/\b(coats?|jackets?|outerwear|parkas?|blazers?|overcoats?|anoraks?)\b/i, 'outerwear'],
+  [/\b(dress(?:es)?|gowns?|jumpsuits?|rompers?)\b/i, 'dress'],
+  [/\b(pants?|trousers?|jeans?|shorts?|skirts?|leggings?|chinos?|bottoms?)\b/i, 'bottom'],
+  [/\b(shirts?|tops?|blouses?|sweaters?|jumpers?|hoodies?|tees?|t-shirts?|cardigans?|knitwear)\b/i, 'top'],
+  [/\b(scar(?:f|ves)|belts?|gloves?|sunglass(?:es)?|ties?|accessor(?:y|ies))\b/i, 'accessory'],
 ];
 
 function slotFor(category: string | null | undefined, title: string): string | null {

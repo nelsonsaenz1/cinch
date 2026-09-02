@@ -37,6 +37,44 @@ test('every shelf link is built by trackingUrl, and a missing publisher id fails
   assert.ok(fn.includes('if (!(err instanceof CommerceConfigError)) throw err;'));
 });
 
+test('the shelf shows clothes and nothing else — the slot set is closed and jewelry/bag/accessory are outside it', () => {
+  const fn = search.slice(search.indexOf('const PARTNER_FEED_SLOTS'));
+  const setLine = fn.slice(0, fn.indexOf(';'));
+  for (const kind of ['top', 'bottom', 'dress', 'outerwear', 'footwear', 'headwear']) {
+    assert.ok(setLine.includes(`'${kind}'`), `clothes kind missing: ${kind}`);
+  }
+  for (const banned of ['jewelry', 'bag', 'accessory']) {
+    assert.ok(!setLine.includes(`'${banned}'`), `banned kind present: ${banned}`);
+  }
+  // And the query actually applies the set — a NULL slot (every fishing rod
+  // and display frame) cannot pass an IN filter.
+  assert.ok(fn.includes(".in('slot', PARTNER_FEED_SLOTS)"));
+});
+
+test('the ingest slot mapper matches whole words — Captain is not a cap, Spring is not a ring', () => {
+  // The rules live in a Deno module the node suite cannot import, so they are
+  // read out of the source and EXECUTED here — the same "inspect the product,
+  // not the builder" stance the link test takes.
+  const sync = readFileSync('supabase/functions/sync-feeds/index.ts', 'utf8');
+  const block = sync.slice(sync.indexOf('const SLOT_RULES'), sync.indexOf('];', sync.indexOf('const SLOT_RULES')));
+  const rules = [...block.matchAll(/\[\/(.+)\/i, '(\w+)'\]/g)].map(
+    ([, pattern, slot]) => [new RegExp(pattern, 'i'), slot] as const,
+  );
+  assert.ok(rules.length >= 9, `expected the full rule table, parsed ${rules.length}`);
+  const slotFor = (title: string) => rules.find(([re]) => re.test(title))?.[1] ?? null;
+
+  // The live regression, verbatim from the brkox feed.
+  assert.equal(slotFor("Wall Display Frame for LEGO® Icons Captain Jack Sparrow's Pirate Ship 10365"), null);
+  // Prefix traps that must stay dead.
+  assert.equal(slotFor('Spring Garden Party Invitation'), null);
+  assert.equal(slotFor('Teen Vogue Poster'), null);
+  // And the words themselves must still land, plurals included.
+  assert.equal(slotFor('Wool Baseball Cap'), 'headwear');
+  assert.equal(slotFor('Spring Midi Dress'), 'dress');
+  assert.equal(slotFor('Leather Boots'), 'footwear');
+  assert.equal(slotFor('Linen Shirts Two-Pack'), 'top');
+});
+
 test('gap-shop-match did not inherit the gear feeds — its owned source is pinned', () => {
   assert.ok(gap.includes("const OWNED_GAP_MERCHANT_IDS = ['124976']"));
   assert.ok(gap.includes(".in('catalog_merchants.external_id', OWNED_GAP_MERCHANT_IDS)"));
