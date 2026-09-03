@@ -1814,6 +1814,22 @@ export default function TodayScreen() {
               masthead stands still. */}
           <Masthead city={cityLabel} name={firstName} weather={weatherClause} collapse={scrollY} />
 
+          {/* Directive #35 — above `AX_FONT_SCALE` the membership card stops
+              floating and takes a place in the flow, under the masthead and
+              over the outfit rather than on top of it. Only one of the two
+              sites is ever mounted, so the once-per-open latch in
+              `upsell-bubble.ts` is still claimed exactly once. */}
+          {ax ? (
+            <TodayUpsell
+              placement="inline"
+              plan={planState.plan}
+              trialing={planState.trialing}
+              trialEndsAt={planState.trialEndsAt}
+              ready={!planState.loading && !planState.unconfirmed}
+              onSeePlans={openRepeatUpsell}
+            />
+          ) : null}
+
           {/* T-02 · the occasion interrupt. Above the look it competes with,
               exactly one action, and it takes the frame's oxblood while it is
               there — the plate's wear action falls back to ink below. */}
@@ -2237,13 +2253,15 @@ export default function TodayScreen() {
           Everything it says — and whether it says anything at all — is
           `features/billing/upsell-bubble.ts`. This site passes the plan state
           through and nothing else. */}
-      <TodayUpsell
-        plan={planState.plan}
-        trialing={planState.trialing}
-        trialEndsAt={planState.trialEndsAt}
-        ready={!planState.loading && !planState.unconfirmed}
-        onSeePlans={openRepeatUpsell}
-      />
+      {ax ? null : (
+        <TodayUpsell
+          plan={planState.plan}
+          trialing={planState.trialing}
+          trialEndsAt={planState.trialEndsAt}
+          ready={!planState.loading && !planState.unconfirmed}
+          onSeePlans={openRepeatUpsell}
+        />
+      )}
 
       {/* Redesign 13. The sheet is handed a PHASE rather than a boolean and a
           pre-rendered error string: the four states it draws — idle,

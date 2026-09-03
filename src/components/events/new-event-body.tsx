@@ -129,6 +129,37 @@ export function NewEventBody({ view, large = false }: { view: NewEventView; larg
   const guests = guestSummary(view.guestNames);
   const note = view.note.trim() || null;
 
+  /**
+   * The error sentence and the one action, as one block.
+   *
+   * Extracted so the same markup can be a docked footer at the standard sizes
+   * and the end of the page at the accessibility ones — see the two sites
+   * below. `paddingTop`, the 26 pt floor and the rule are the artifact's, and
+   * they do not change between the two: what changes is what holds the block.
+   */
+  const footer = (
+    <View
+      className="bg-canvas px-gutter"
+      style={{
+        paddingTop: 16,
+        // The artifact's 26pt floor under the CTA, raised by the home
+        // indicator where there is one rather than added on top of it.
+        paddingBottom: Math.max(insets.bottom, 26),
+        gap: 14,
+        // The rule appears only where content actually runs under the
+        // footer, which at standard sizes it does not.
+        ...(large ? { borderTopWidth: 1, borderTopColor: theme.tray } : null),
+      }}>
+      {view.error ? <ErrorNotice sentence={view.error} /> : null}
+      <CreateButton
+        label={view.error ? COPY.tryAgain : COPY.create}
+        enabled={live}
+        pending={view.pending}
+        onPress={view.onCreate}
+      />
+    </View>
+  );
+
   return (
     <View className="flex-1 bg-canvas">
       {/* Cancel, the chrome mark, and a spacer holding the mark centred. The
@@ -249,34 +280,25 @@ export function NewEventBody({ view, large = false }: { view: NewEventView; larg
             tone="quiet"
           />
         </View>
+
+        {/* Directive #37 — "Event's fields and fixed Create area dominate the
+            screen". At the accessibility sizes the six rows are each two or
+            three lines tall and the docked footer is a rule, a 56 pt-plus
+            button and 26 points of floor; between them the page had almost no
+            middle left. Above the threshold the Create area stops being fixed
+            and rides at the end of the composer instead, which is where the
+            reader arrives at it anyway once the last row is answered, and the
+            `KeyboardAwareScrollView` around it is the keyboard-aware content
+            inset the directive asks for — the button lifts with the keys
+            because the scroll does. */}
+        {large ? footer : null}
       </KeyboardAwareScrollView>
 
       {/* `KeyboardAvoidingScreen` wraps the footer ALONE so the CTA rides above
           the keyboard and stays tappable — the accepted keyboard frame — while
           the scroll above keeps insetting itself. Two mechanisms, one thing
           each, never compounding. */}
-      <KeyboardAvoidingScreen>
-      <View
-        className="bg-canvas px-gutter"
-        style={{
-          paddingTop: 16,
-          // The artifact's 26pt floor under the CTA, raised by the home
-          // indicator where there is one rather than added on top of it.
-          paddingBottom: Math.max(insets.bottom, 26),
-          gap: 14,
-          // The rule appears only where content actually runs under the
-          // footer, which at standard sizes it does not.
-          ...(large ? { borderTopWidth: 1, borderTopColor: theme.tray } : null),
-        }}>
-        {view.error ? <ErrorNotice sentence={view.error} /> : null}
-        <CreateButton
-          label={view.error ? COPY.tryAgain : COPY.create}
-          enabled={live}
-          pending={view.pending}
-          onPress={view.onCreate}
-        />
-      </View>
-      </KeyboardAvoidingScreen>
+      {large ? null : <KeyboardAvoidingScreen>{footer}</KeyboardAvoidingScreen>}
     </View>
   );
 }

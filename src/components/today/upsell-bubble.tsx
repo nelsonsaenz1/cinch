@@ -15,6 +15,9 @@ import type { Plan } from '@/features/billing/plans';
 import { haptics } from '@/lib/haptics';
 import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
 
+/** Where the card sits: over the page, or in its scroll flow. */
+export type UpsellPlacement = 'floating' | 'inline';
+
 /**
  * The membership bubble Today opens with, for an account that is not paying.
  *
@@ -37,6 +40,24 @@ import { MIN_TAP_TARGET, motion, useTheme } from '@/theme/tokens';
  * It sits above the tab bar's own 96 points (the same clearance the page's
  * `pb-24` content inset uses), which is what keeps the dismiss control off the
  * glass.
+ *
+ * ── AND AT THE ACCESSIBILITY SIZES IT STOPS FLOATING ──────────────────────
+ *
+ * Directive #35: "Today's membership card covers recommendations and the tab
+ * bar." Both are true above `AX_FONT_SCALE` and neither is fixable by a taller
+ * clearance. An eyebrow, a serif headline, a four-line note and two 44 pt
+ * controls come to roughly a third of an iPhone SE at the standard sizes and
+ * to most of one at the accessibility sizes; anchored 96 points off the bottom
+ * it then sits squarely on the outfit it is talking about, and the native
+ * Liquid Glass bar is itself taller there than the 96 this file assumed.
+ *
+ * So `placement="inline"` — the card in the scroll flow, directly under the
+ * masthead, at whatever height it needs. It pushes the morning's outfit down
+ * the page, which is exactly what the floating version exists to avoid; that
+ * trade is only worth making where the alternative is covering the outfit
+ * entirely, so the float is kept below the threshold and nothing about the
+ * default composition moves. Inline, the card also cannot cover the tab bar,
+ * because the page's own `pb-24` is now the thing keeping it clear.
  *
  * ── ONE OXBLOOD, AND THE DISMISS IS QUIET ─────────────────────────────────
  *
@@ -62,12 +83,19 @@ export function TodayUpsell({
    */
   ready,
   onSeePlans,
+  /**
+   * `floating` is the overlay this card was designed as. `inline` drops the
+   * absolute wrapper so the card can sit in a scroll's content flow — the
+   * accessibility-size arrangement; see the docblock.
+   */
+  placement = 'floating',
 }: {
   plan: Plan;
   trialing: boolean;
   trialEndsAt: Date | null;
   ready: boolean;
   onSeePlans: () => void;
+  placement?: UpsellPlacement;
 }) {
   /**
    * THE GATE IS A SEPARATE COMPONENT ON PURPOSE, and it is the whole reason
@@ -91,6 +119,7 @@ export function TodayUpsell({
       trialing={trialing}
       trialEndsAt={trialEndsAt}
       onSeePlans={onSeePlans}
+      placement={placement}
     />
   );
 }
@@ -100,11 +129,13 @@ function UpsellCard({
   trialing,
   trialEndsAt,
   onSeePlans,
+  placement,
 }: {
   plan: Plan;
   trialing: boolean;
   trialEndsAt: Date | null;
   onSeePlans: () => void;
+  placement: UpsellPlacement;
 }) {
   const theme = useTheme();
 
@@ -139,17 +170,17 @@ function UpsellCard({
     setDismissed(true);
   };
 
-  return (
-    <View
-      // Everything outside the card is still the page. See the docblock.
-      pointerEvents="box-none"
-      style={{ position: 'absolute', left: 0, right: 0, bottom: 96 }}>
+  const floating = placement === 'floating';
+
+  const card = (
       <Animated.View
         entering={FadeIn.duration(motion.duration.base).reduceMotion(ReduceMotion.System)}
         exiting={FadeOut.duration(motion.duration.fast).reduceMotion(ReduceMotion.System)}
         // Inline, not a className: NativeWind's interop is registered for the
         // RN primitives only, so a class on a Reanimated component is dropped.
-        style={{ marginHorizontal: 20 }}>
+        // The 20 pt margin is the page gutter either way, so the card lines up
+        // with the masthead above it in both placements.
+        style={{ marginHorizontal: 20, marginTop: floating ? 0 : 16 }}>
         <View
           accessibilityRole="summary"
           className="rounded-lg"
@@ -236,6 +267,18 @@ function UpsellCard({
           </View>
         </View>
       </Animated.View>
+  );
+
+  // Inline is the card and nothing else: no absolute wrapper, no
+  // `pointerEvents` opt-out, because there is nothing underneath it to reach.
+  if (!floating) return card;
+
+  return (
+    <View
+      // Everything outside the card is still the page. See the docblock.
+      pointerEvents="box-none"
+      style={{ position: 'absolute', left: 0, right: 0, bottom: 96 }}>
+      {card}
     </View>
   );
 }

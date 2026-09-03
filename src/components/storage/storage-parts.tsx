@@ -132,14 +132,34 @@ export function StorageHeader({
   const ax = useAx();
 
   return (
-    <View className="px-gutter">
+    /**
+     * ── DIRECTIVE #47: THE SAME HEADER BASELINE AS EVERY OTHER UTILITY PAGE ──
+     *
+     * "Storage's boxed back button crowds the 'Storage' title vertically. Use
+     * the same header baseline and top inset as other utility screens."
+     *
+     * Two separate departures were doing it. The first was the top inset:
+     * every other page in the app opens on `ScreenHeader`, whose row is
+     * `px-gutter pt-2`, and this one had no top padding at all — so its back
+     * control started at the safe-area edge, a full 8 points higher than the
+     * same control everywhere else, and the whole header sat proud of the
+     * app's baseline. The second was the 12 pt gap under it: at the app's
+     * standard 36 pt disc that gap reads as air, and under a 44 pt filled box
+     * it reads as the box resting on the title.
+     *
+     * `pt-2` restores the baseline; `mt-5` gives the title back the clearance
+     * the larger control took. The box itself stays — it is the artifact's own
+     * control on the artifact's own page, and swapping it for the circular
+     * disc is a call for the founder rather than a defect to fix in passing.
+     */
+    <View className="px-gutter pt-2">
       <BackDisc onPress={onBack} />
 
       <Text
         variant="display"
         trim
         accessibilityRole="header"
-        className="mt-3"
+        className="mt-5"
         style={{ fontSize: ax ? TYPE.titleAx : TYPE.title, lineHeight: ax ? 31 : TYPE.titleLineHeight }}>
         {STORAGE_COPY.title}
       </Text>

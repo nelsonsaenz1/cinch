@@ -134,6 +134,7 @@ export function PickerFooterTray({
   onCompose,
   refused = false,
   ax = false,
+  showAction = true,
 }: {
   stack: Garment[];
   resolveImage: ResolveImage;
@@ -142,6 +143,17 @@ export function PickerFooterTray({
   /** A seventh tap happened. Printed where the count lives, per correction 27. */
   refused?: boolean;
   ax?: boolean;
+  /**
+   * Whether the tray carries its own Compose control.
+   *
+   * True on the board wizard, where Compose is the step-nav and the tray is
+   * the only place it lives. False on `compose.tsx`, whose own "Wear it today"
+   * IS composing — two filled primaries a thumb apart, saying different words
+   * for the same act, is the collision directive #36 names. With it off the
+   * tray keeps the job only it does: the count, the bounds before they are
+   * hit, and the refusal.
+   */
+  showAction?: boolean;
 }) {
   const theme = useTheme();
 
@@ -166,7 +178,22 @@ export function PickerFooterTray({
       // jumps when the first piece is chosen" (SL-02). A bar that grew on the
       // first tap would move the grid under the finger that just tapped it.
       className="border-t border-hairline bg-canvas"
-      style={{ height: ax ? SELECTION_BAR_HEIGHT_AX : SELECTION_BAR_HEIGHT, paddingTop: 12 }}>
+      // `minHeight`, not `height`. The documented figures are the bar's
+      // RESERVED height — what keeps three grid rows on screen and stops the
+      // bar jumping when the first piece is picked (SL-02) — and at every size
+      // the atlas drew, the content fits inside them, so nothing moves. A hard
+      // `height` also made them a ceiling, which at AX5 cropped the status
+      // line and the Compose ground off the bottom of their own bar. Text is
+      // never given a fixed box; the bar grows past its reserve instead.
+      style={{
+        minHeight: ax ? SELECTION_BAR_HEIGHT_AX : SELECTION_BAR_HEIGHT,
+        paddingTop: 12,
+        // Only above the threshold, where the bar can now outgrow its reserve
+        // and would otherwise set text on its own bottom edge. At default size
+        // the reserve already leaves slack, so adding padding there would move
+        // a bar the atlas pins at 88.
+        paddingBottom: ax ? 12 : 0,
+      }}>
       {/* SL-01 / AX drops the thumbnail strip entirely: "the count and the
           order statement carry the information the thumbnails carried." */}
       {!ax ? (
@@ -184,8 +211,13 @@ export function PickerFooterTray({
         </View>
       ) : null}
 
-      <View className="mt-2 flex-row items-center" style={{ gap: 12 }}>
-        <View className="flex-1">
+      {/* Above the threshold the sentence and the action stop sharing a row.
+          A status line that can run to four lines at AX5 beside a 56 pt
+          button squeezes the button to a sliver of its own row and sets the
+          sentence in a two-word column; stacked, both keep their full width
+          and the reading order is unchanged. */}
+      <View className={ax ? 'mt-2' : 'mt-2 flex-row items-center'} style={{ gap: 12 }}>
+        <View className={ax ? undefined : 'flex-1'}>
           <Text
             variant="label"
             accessibilityLiveRegion="polite"
@@ -206,27 +238,29 @@ export function PickerFooterTray({
           the repeated tap. Below the floor it is paper with a hairline; at or
           above it, the filled action.
         */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Compose"
-          accessibilityHint={canCompose ? undefined : pieceBoundsLine()}
-          accessibilityState={{ disabled: !canCompose }}
-          disabled={!canCompose}
-          onPress={onCompose}
-          style={{
-            minHeight: ax ? 56 : 44,
-            paddingHorizontal: 20,
-            backgroundColor: canCompose ? theme.ink : theme.surface,
-            borderWidth: canCompose ? 0 : 1,
-            borderColor: theme.hairline,
-          }}
-          className="items-center justify-center rounded-md active:opacity-80">
-          {/* Enabled and disabled differ by ground and label colour, never by
-              weight — TY-01. */}
-          <Text variant="body" style={{ color: canCompose ? theme.canvas : theme.muted }}>
-            Compose
-          </Text>
-        </Pressable>
+        {showAction ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Compose"
+            accessibilityHint={canCompose ? undefined : pieceBoundsLine()}
+            accessibilityState={{ disabled: !canCompose }}
+            disabled={!canCompose}
+            onPress={onCompose}
+            style={{
+              minHeight: ax ? 56 : 44,
+              paddingHorizontal: 20,
+              backgroundColor: canCompose ? theme.ink : theme.surface,
+              borderWidth: canCompose ? 0 : 1,
+              borderColor: theme.hairline,
+            }}
+            className="items-center justify-center rounded-md active:opacity-80">
+            {/* Enabled and disabled differ by ground and label colour, never by
+                weight — TY-01. */}
+            <Text variant="body" style={{ color: canCompose ? theme.canvas : theme.muted }}>
+              Compose
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -287,7 +321,13 @@ function PieceCell({
           </View>
         ) : null}
       </View>
-      <Text variant="caption" numberOfLines={1} className="mt-1.5">
+      {/* One line is a tidy default at a tidy type size. Above the threshold
+          it is a truncation: "Charcoal wool trousers" at AX5 in a half-width
+          column is "Charc…", and the caption is the only place the garment's
+          name is printed. Two columns buy the width; letting the caption wrap
+          buys the rest. Nothing here is height-capped, so a taller caption
+          makes a taller cell rather than a cut one. */}
+      <Text variant="caption" numberOfLines={ax ? undefined : 1} className="mt-1.5">
         {garmentDisplayName(garment)}
       </Text>
     </Pressable>

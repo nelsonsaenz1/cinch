@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { Button } from '@/components/ui/button';
@@ -143,10 +143,29 @@ function AtlasState({
   const theme = useTheme();
 
   return (
-    <View
+    /**
+     * Directive #35. The composition is unchanged — centred column, same four
+     * gaps — but the box it centres in is a scroll now. `flex-1 items-center
+     * justify-center` on a View overflows at both ends once its content is
+     * taller than the screen, and at the accessibility sizes both of these
+     * frames are: a serif title, a three-line body at 1.8x and a 44 pt button
+     * come to more than an iPhone SE holds, and the button was the half that
+     * went under the tab bar. `flexGrow: 1` keeps the centring while it fits
+     * and scrolls when it does not; `paddingBottom` is the tab bar's 96, which
+     * this screen owes because it is a tab and `Composer` is not on these
+     * branches to hold the space.
+     */
+    <ScrollView
       accessibilityRole={role}
-      className="flex-1 items-center justify-center"
-      style={{ paddingHorizontal: FRAME_PADDING_X }}>
+      className="flex-1"
+      contentContainerStyle={{
+        flexGrow: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: FRAME_PADDING_X,
+        paddingTop: 24,
+        paddingBottom: 96,
+      }}>
       {glyph}
 
       {/* The title's own box is wrapped rather than given a margin directly,
@@ -211,7 +230,7 @@ function AtlasState({
         // haptic, and the label-colour fix.
         className="mt-5 self-center"
       />
-    </View>
+    </ScrollView>
   );
 }
 

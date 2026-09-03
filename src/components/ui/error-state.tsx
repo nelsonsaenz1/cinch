@@ -1,5 +1,5 @@
 import { SymbolView, type SFSymbol } from 'expo-symbols';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -67,12 +67,8 @@ export function ErrorState({
 }: ErrorStateProps) {
   const theme = useTheme();
 
-  return (
-    <View
-      // `alert` over `summary`: a failure that appears after a wait should be
-      // announced, not merely findable by swiping to it.
-      accessibilityRole="alert"
-      className={compact ? 'px-gutter py-6' : 'flex-1 justify-center px-gutter'}>
+  const content = (
+    <>
       {kicker ? (
         <Text variant="eyebrow" style={{ color: theme.accent }}>
           {kicker}
@@ -112,6 +108,44 @@ export function ErrorState({
           className={compact ? 'mt-6 self-start px-6' : 'mt-8 self-stretch'}
         />
       ) : null}
-    </View>
+    </>
+  );
+
+  if (compact) {
+    return (
+      // `alert` over `summary`: a failure that appears after a wait should be
+      // announced, not merely findable by swiping to it.
+      <View accessibilityRole="alert" className="px-gutter py-6">
+        {content}
+      </View>
+    );
+  }
+
+  /**
+   * Directive #35 — "Plan's error text runs behind navigation".
+   *
+   * The full-screen variant was a `flex-1 justify-center` View. Centring is
+   * right and stays; the View was not. A flex child centred in a box smaller
+   * than itself overflows at BOTH ends and cannot be scrolled to, so at the
+   * accessibility sizes Plan's week failure — a kicker, a serif line, a
+   * four-sentence body and a full-width retry — pushed "Try again" off the
+   * bottom of the screen and under the tab bar's glass, with no gesture that
+   * would bring it back. An error state whose only exit is unreachable is the
+   * one thing this component exists to prevent.
+   *
+   * `flexGrow: 1` with `justifyContent: 'center'` is the same composition
+   * while the content fits — the container still fills its parent and the
+   * block still sits on the vertical centre — and becomes a scroll the moment
+   * it does not. Callers on a tab screen still owe it their own tab-bar
+   * clearance; the component cannot know it is on one.
+   */
+  return (
+    <ScrollView
+      accessibilityRole="alert"
+      className="flex-1"
+      contentContainerClassName="px-gutter"
+      contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 24 }}>
+      {content}
+    </ScrollView>
   );
 }

@@ -1,5 +1,6 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 
+import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import { Text } from '@/components/ui/text';
 import type { Plan } from '@/features/billing/plans';
 import {
@@ -67,6 +68,8 @@ export function CapacityBand({
   onDoor: (door: 'plans' | 'store') => void;
 }) {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const ax = fontScale >= AX_FONT_SCALE;
   const remedy = capacityRemedy(state, plan);
   const track = capacityTrack({ active, stored: total, storedLimit });
 
@@ -79,9 +82,20 @@ export function CapacityBand({
       // assembling them by ear is doing work the sighted reader does not.
       accessible
       accessibilityLabel={`${planName}. ${activeLine(active, activeLimit)}. ${storedLine(archived, total, storedLimit)}.${remedy.body ? ` ${remedy.body}` : ''}`}>
-      <View className="flex-row items-baseline justify-between gap-x-3">
+      {/* Directive #35 — the plan name and the count share a line until they
+          cannot. "Standard" beside "84 of 150 active" is 350 pt of type at 1.8×
+          in a 335 pt band, so the eyebrow's `flexShrink` starts breaking the
+          plan name across two lines while the figures hold their baseline —
+          the shape the audit calls content clipping. Above the threshold they
+          stack, each at full measure, in the same reading order. */}
+      <View
+        className={ax ? undefined : 'flex-row items-baseline justify-between gap-x-3'}
+        style={ax ? { gap: 4 } : undefined}>
         <Text variant="eyebrow" style={{ flexShrink: 1 }}>{planName}</Text>
-        <Text variant="label" className="flex-none" style={{ color: theme.ink, fontSize: large ? 19 : 15 }}>
+        <Text
+          variant="label"
+          className={ax ? undefined : 'flex-none'}
+          style={{ color: theme.ink, fontSize: large ? 19 : 15 }}>
           {activeLine(active, activeLimit)}
         </Text>
       </View>
