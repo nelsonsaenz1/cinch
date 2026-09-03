@@ -7,6 +7,10 @@
           {
             "/": "/i/*",
             "comment": "Invite links only. Everything else on this domain stays in the browser."
+          },
+          {
+            "/": "/closet",
+            "comment": "The email doorway. /closet is a real app route, so the tap lands on the Closet tab; web/api/open.js answers for anyone without the app."
           }
         ]
       }

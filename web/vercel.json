@@ -6,6 +6,10 @@
     {
       "source": "/i/:handle",
       "destination": "/api/invite?handle=:handle"
+    },
+    {
+      "source": "/closet",
+      "destination": "/api/open"
     }
   ],
   "headers": [
