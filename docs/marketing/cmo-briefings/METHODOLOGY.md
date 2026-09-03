@@ -237,6 +237,54 @@ Until ruled on, print family-included and family-excluded figures wherever the s
 changes a verdict — on 09-02 the 14-day first-item rate was 17/33 (52%) including them and
 15/30 (50%) excluding them, and the Dispatch response rate was 1/23 versus 0/22.
 
+## Email engagement: a plain-text send cannot report opens (2026-09-02, nightly)
+
+The 29 conversion notes of 2026-09-02 were sent **plain text**. A plain-text email carries
+no tracking pixel, so Resend's `opened` / `open_rate` are not merely undercounted — they
+are **structurally incapable of being non-zero**. The 09-02 midday briefing hedged this as
+"the pixel is measurably blinder than the product analytics"; that was too weak.
+
+- For text batches, **do not print open rate at all.** Write *unreadable — text send*.
+- Judge every send by **in-app events keyed on the recipients' `distinct_id`s**, which is
+  also the only measure that survives Gmail/Yahoo image proxying on HTML sends.
+- `delivered` is still meaningful and should still be printed.
+
+## Read the message before diagnosing the response (2026-09-02, nightly)
+
+0 of 29 recipients opened the app in 11 hours. Before reaching for any behavioural
+explanation, I opened the delivered message via `get-email`. **It contains no link** — no
+button, no universal link, not even an App Store link; the call to action is the sentence
+"inside the app under Membership." All three HTML templates in `docs/marketing/email/`
+point their CTA at `apps.apple.com/app/id6798479578`, a store page for people who already
+have the app.
+
+The rule this generalises to: **an outbound result is not a user signal until the artefact
+has been read.** Before attributing a campaign result to audience behaviour, fetch the
+thing that was actually sent and check that acting on it was possible. Note also that the
+causal claim ("the missing link caused the zero") remains a HYPOTHESIS — 11 hours is short
+and cold email to lapsed free users is low-yield regardless. What is a fact is that the
+offer shipped with no way to accept it.
+
+## Count the fleets before writing "all fleets" (2026-09-02, nightly)
+
+Every ledger row from 09-01 onward said OTA fixes shipped "to all three fleets."
+There are **four** with active users. `Application Opened`, 14d, excluding
+`$app_build='1'`, by `update_id` runtime:
+
+| runtime | builds | persons / returning | last open |
+|---|---|---|---|
+| `813c6d34` | 45 (1.2.1) | 22 / 11 | 09-02 |
+| **`c5f00773`** | **43–44 (1.2.0)** | **21 / 10** | **09-02** |
+| `18938ff9` | 40–41 | 11 / 10 | 08-27 (stale) |
+| `ccfa8345` | 46 (1.2.2) | 6 / 2 | 09-01 |
+| `4e646ba0` | 47 (1.2.3, store-current) | 5 / 2 | 09-02 |
+
+`c5f00773` is frozen at OTA `01a049c3` (8/31) and received neither A15 nor A16. **The
+store-current fleet is the *smallest*.** Enumerate runtimes from the data before claiming
+coverage, and verify each via a `u.expo.dev` manifest fetch *and* a production
+`Application Opened` carrying the new update id. Persons whose `update_id` does not start
+`01a0…` are running the embedded bundle (first-launch-only installs) — not an OTA failure.
+
 ## `paywall_eligible` is a denominator, not a success (2026-09-02)
 
 `presentPromo` fires `paywall_eligible` on **every** call, offered or not
