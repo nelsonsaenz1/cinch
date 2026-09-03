@@ -106,7 +106,7 @@ test('the shelf obeys C-03 and discloses paid links', () => {
   // and the C-03 switch still decides whether any of it renders. What changed
   // is how much of it is on the first screen.
   assert.ok(
-    explore.includes('partnerShelfCards(partnerFeed.data ?? [])'),
+    explore.includes('partnerShelfCards(partnerFeed.data ?? [], feedProfile)'),
     'the partner shelf no longer reaches Explore',
   );
   assert.ok(explore.includes('showWhereToBuy.data === true ? ('), 'the C-03 gate moved off the shelf');

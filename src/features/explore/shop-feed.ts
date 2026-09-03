@@ -1,4 +1,6 @@
 import type { CatalogueFamilies, CatalogueFamily } from '@/features/catalogue/types';
+
+import { affinity, NEUTRAL_PROFILE, rankByAffinity, type ClosetProfile } from './closet-affinity';
 import { isUsableTitle, representativeColour } from '@/features/catalogue/types';
 import type { Garment, Slot } from '@/lib/styling';
 
@@ -654,28 +656,6 @@ export function closetColourNames(
     .map(([name]) => name);
 }
 
-/**
- * How strongly one family speaks the closet's colours. The merchant's own
- * colourway label is the strong signal (it names the actual variant on the
- * card); the title is the weak one. Deterministic, word-boundary matched so
- * "tan" never fires inside "titanium".
- */
-function colourScore(family: CatalogueFamily, palette: readonly string[]): number {
-  if (!palette.length) return 0;
-  // The same canon the palette went through, applied to the merchant's text,
-  // so "gray" meets "grey" on equal terms.
-  const norm = (s: string) => s.toLowerCase().replace(/\bgray\b/g, 'grey');
-  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const label = norm(family.colours[0]?.label ?? '');
-  const title = norm(family.title);
-  let score = 0;
-  for (const colour of palette) {
-    const re = new RegExp(`\\b${escape(colour)}\\b`);
-    if (re.test(label)) score += 2;
-    else if (re.test(title)) score += 1;
-  }
-  return score;
-}
 
 /**
  * Flatten per-slot responses into one grid, round-robin across slots so the
@@ -690,17 +670,28 @@ function colourScore(family: CatalogueFamily, palette: readonly string[]): numbe
  */
 export function feedCards(
   responses: readonly { slot: ShopFeedSlot; families: CatalogueFamilies }[],
-  palette: readonly string[] = [],
+  profileOrPalette: ClosetProfile | readonly string[] = NEUTRAL_PROFILE,
 ): ShopFeedCard[] {
+  // A bare palette is the pre-2026-09-03 signature; it becomes a profile
+  // that knows only colours, so the old ranking is a special case of the new.
+  const profile: ClosetProfile = Array.isArray(profileOrPalette)
+    ? { ...NEUTRAL_PROFILE, palette: profileOrPalette as readonly string[] }
+    : (profileOrPalette as ClosetProfile);
   const perSlot = responses.map(({ slot, families }) =>
-    families.exact
-      // The category gate, before anything is ranked or drawn: a row that
-      // cannot be proven to be clothing of this kind is not a low-ranked card,
-      // it is not a card (P0 #16).
-      .filter((f) => isConfidentFashion(f, slot))
-      .map((f, i) => ({ f, i, score: colourScore(f, palette) }))
-      .sort((a, b) => b.score - a.score || a.i - b.i)
-      .map(({ f }) => cardOf(slot, f))
+    rankByAffinity(
+      families.exact
+        // The category gate, before anything is ranked or drawn: a row that
+        // cannot be proven to be clothing of this kind is not a low-ranked
+        // card, it is not a card (P0 #16).
+        .filter((f) => isConfidentFashion(f, slot))
+        .map((f) => ({ ...f, colourLabel: f.colours[0]?.label ?? null })),
+      profile,
+    )
+      // "Like your closet" — department, formality, palette, fabric, prints
+      // and brand, on the device, from words the merchant wrote
+      // (closet-affinity.ts). A confident department mismatch is dropped;
+      // everything else is an order.
+      .map((f) => cardOf(slot, f))
       .filter((c): c is ShopFeedCard => c !== null)
       .slice(0, FAMILIES_PER_SLOT),
   );
@@ -783,9 +774,15 @@ type PartnerLike = {
  * keyword dump is replaced by the row's own slot label, and a row that has
  * neither a usable title nor a known slot is suppressed rather than titled.
  */
-export function partnerShelfCards(items: readonly PartnerLike[]): ShelfCard[] {
+export function partnerShelfCards(
+  items: readonly PartnerLike[],
+  profile: ClosetProfile = NEUTRAL_PROFILE,
+): ShelfCard[] {
   const cards: ShelfCard[] = [];
-  for (const item of items) {
+  // The partner stock is the founder's curated merchants, so it is not put
+  // through the fashion gate — but it IS ranked like the closet shelf, and a
+  // confident department mismatch is dropped here too.
+  for (const item of rankByAffinity(items, profile)) {
     if (!item.imageUrl || !item.pageUrl) continue;
     const slot = (item.slot ?? '') as ShopFeedSlot;
     const label = SLOT_LABEL[slot] ?? null;

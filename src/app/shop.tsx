@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Text } from '@/components/ui/text';
 import { useShowWhereToBuy } from '@/features/commerce/queries';
+import { closetProfile, rankByAffinity } from '@/features/explore/closet-affinity';
 import { usePartnerFeed } from '@/features/explore/use-partner-feed';
 import { useShopFeed } from '@/features/explore/use-shop-feed';
 import { useWardrobe } from '@/features/styling/queries';
@@ -42,7 +43,9 @@ export default function ShopScreen() {
   const partnerFeed = usePartnerFeed(enabled);
 
   const closet = shopFeed.data ?? [];
-  const partner = partnerFeed.data ?? [];
+  // Ranked like the closet shelf — department, formality, palette — and a
+  // confident department mismatch dropped (closet-affinity.ts).
+  const partner = rankByAffinity(partnerFeed.data ?? [], closetProfile(wardrobe.data ?? []));
   const settled = !showWhereToBuy.isLoading && !shopFeed.isLoading && !partnerFeed.isLoading;
   const nothing = settled && closet.length === 0 && partner.length === 0;
 

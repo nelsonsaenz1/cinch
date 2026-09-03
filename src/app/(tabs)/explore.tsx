@@ -66,6 +66,7 @@ import { useShowWhereToBuy } from '@/features/commerce/queries';
 import { useWardrobe } from '@/features/styling/queries';
 import { useShopFeed } from '@/features/explore/use-shop-feed';
 import { usePartnerFeed } from '@/features/explore/use-partner-feed';
+import { closetProfile } from '@/features/explore/closet-affinity';
 import { exploreShelf, partnerShelfCards } from '@/features/explore/shop-feed';
 import { useFriends } from '@/features/social-graph/queries';
 import { track } from '@/lib/posthog';
@@ -293,9 +294,10 @@ export default function ExploreScreen() {
   // cards — closet-similarity first, partner stock filling — and `/shop` holds
   // both shelves in full for anyone who taps through. Every card keeps its own
   // disclosure: `paid` rides on the card, never on the block.
+  const feedProfile = useMemo(() => closetProfile(wardrobeForFeed.data ?? []), [wardrobeForFeed.data]);
   const shelf = useMemo(
-    () => exploreShelf(shopFeed.data ?? [], partnerShelfCards(partnerFeed.data ?? [])),
-    [shopFeed.data, partnerFeed.data],
+    () => exploreShelf(shopFeed.data ?? [], partnerShelfCards(partnerFeed.data ?? [], feedProfile)),
+    [shopFeed.data, partnerFeed.data, feedProfile],
   );
 
   // Variant A plus the device-local mute, both at the read edge — before the

@@ -4,6 +4,7 @@ import type { CatalogueFamilies } from '@/features/catalogue/types';
 import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
+import { closetProfile, profileKey } from './closet-affinity';
 import {
   closetColourNames,
   confidentShelf,
@@ -45,18 +46,21 @@ async function browseSlot(slot: ShopFeedSlot): Promise<{ slot: ShopFeedSlot; fam
 }
 
 export function useShopFeed(
-  wardrobe: readonly Parameters<typeof closetColourNames>[0][number][] &
+  wardrobe: readonly Parameters<typeof closetProfile>[0][number][] &
+    readonly Parameters<typeof closetColourNames>[0][number][] &
     readonly Parameters<typeof feedSlots>[0][number][],
   enabled: boolean,
 ) {
   const slots = feedSlots(wardrobe);
-  // The closet's palette rides into the RANKING only — never the wire. Top
-  // six names is plenty of signal without letting one giant closet turn the
-  // scorer into a regex farm.
-  const palette = closetColourNames(wardrobe).slice(0, 6);
+  // The closet's profile — department, formality, palette, fabrics, prints,
+  // brands — rides into the RANKING only, never the wire (closet-affinity.ts).
+  // The key is a short bounded string of it, so a closet that changes
+  // department or palette re-ranks and one that does not is served from cache.
+  const profile = closetProfile(wardrobe);
+  const signature = profileKey(profile);
 
   return useQuery({
-    queryKey: ['explore-shop-feed', slots, palette],
+    queryKey: ['explore-shop-feed', slots, signature],
     enabled: enabled && slots.length > 0,
     staleTime: STALE_MS,
     queryFn: async (): Promise<ShopFeedCard[]> => {
@@ -66,7 +70,7 @@ export function useShopFeed(
       // was mostly not clothing, and the honest shelf for that is none at all
       // (`shop-feed.ts`, MIN_CONFIDENT_CARDS).
       const cards = confidentShelf(
-        feedCards(settled.filter((s): s is NonNullable<typeof s> => s !== null), palette),
+        feedCards(settled.filter((s): s is NonNullable<typeof s> => s !== null), profile),
       );
       // A COUNT and a slot count. Which kinds this closet holds is the
       // closest thing this feature knows to closet content, so even the slot
