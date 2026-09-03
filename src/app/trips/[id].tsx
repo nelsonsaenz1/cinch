@@ -33,6 +33,7 @@ import {
 } from '@/features/trips/trip-detail-spec';
 import { useTripChecks } from '@/features/trips/use-trip-checks';
 import { haptics } from '@/lib/haptics';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import { tripDatesLine } from '@/features/plan/new-trip-spec';
 
 /**
@@ -97,6 +98,23 @@ export default function TripDetailScreen() {
   const [draftNote, setDraftNote] = useState<string | null>(null);
 
   const row = trip.data ?? null;
+
+  /**
+   * UX #59 — the trip's skeleton is bounded now.
+   *
+   * The finding names trip detail: a full-page placeholder that ran for as long
+   * as `useTrip` stayed pending, with nothing said about how long that had
+   * been. The frames' own error composition already carried both ways forward
+   * (Try again, All trips), so the bound simply routes into it with the
+   * timeout's words instead of "Offline", which would be a diagnosis this
+   * screen has not made.
+   */
+  const load = useBoundedLoad({
+    loading: trip.isLoading,
+    error: trip.isError,
+    retrying: trip.isRefetching,
+    onRetry: () => void trip.refetch(),
+  });
   const items = useMemo(() => closet.data ?? [], [closet.data]);
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
@@ -185,15 +203,16 @@ export default function TripDetailScreen() {
     // Loading covers the not-found row too: a deep link to a trip that was
     // deleted on another device resolves to `null`, and the honest thing to
     // show is the offline frame's "couldn't load", not an invented empty trip.
-    if (trip.isLoading) return { state: 'loading', destination: heroName };
+    if (load.state === 'skeleton') return { state: 'loading', destination: heroName };
 
-    if (trip.isError || !row) {
+    if (load.failed || !row) {
       return {
         state: 'error',
         destination: heroName,
         dates,
         ticked: checks.checked.length,
-        onRetry: () => void trip.refetch(),
+        timedOut: load.timedOut,
+        onRetry: load.retry,
         onAllTrips: () => router.replace('/trips'),
       };
     }
@@ -222,6 +241,9 @@ export default function TripDetailScreen() {
           name: pieceLabel(item) ?? '',
           // The preference order every other garment well in the app uses.
           uri: item ? resolve(item.platePath, item.cutoutPath, item.thumbPath) : undefined,
+          // UX #62 — the tint a pictureless tile takes. The reader's own
+          // colour, or nothing; never a stand-in.
+          color: item?.colors[0] ?? null,
           checked: checks.checked.includes(pieceId),
         };
       }),
@@ -255,7 +277,7 @@ export default function TripDetailScreen() {
   }, [
     row,
     destination,
-    trip,
+    load,
     groups,
     days,
     byId,

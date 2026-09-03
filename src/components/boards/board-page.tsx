@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PlateCard, PlateCardSkeleton } from '@/components/boards/plate-card';
 import { Button, ErrorState, ScreenHeader, Text } from '@/components/ui';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
 import { boardDetailLine } from '@/features/boards/board-lines';
 import type { Board, KeptPlate } from '@/features/boards/types';
 import { GUTTER, MIN_TAP_TARGET } from '@/theme/tokens';
@@ -29,6 +30,13 @@ export type BoardPageProps = {
   plates: KeptPlate[];
   loading: boolean;
   error: boolean;
+  /**
+   * The bounded contract's timeout — the skeleton outran its window and the
+   * read is still out. Drawn as an error because it needs the same retry and
+   * the same way back, but never in the error's words: "couldn’t reach it" is
+   * a claim about a request that came back, and this one has not.
+   */
+  timedOut?: boolean;
   retrying?: boolean;
   onRetry?: () => void;
   imageUrisFor: (plate: KeptPlate) => readonly (string | undefined)[];
@@ -56,6 +64,7 @@ export function BoardPage({
   plates,
   loading,
   error,
+  timedOut = false,
   retrying = false,
   onRetry,
   imageUrisFor,
@@ -115,12 +124,16 @@ export function BoardPage({
           </Text>
         </View>
 
-        {error ? (
+        {error || timedOut ? (
           <View className="pt-4">
             <ErrorState
-              kicker="Couldn’t reach it"
-              title="Couldn’t read this board"
-              body="Cinch couldn’t reach the plates on this board just now. Nothing has moved — this is a connection problem."
+              {...(timedOut
+                ? BOUNDED_TIMEOUT_COPY
+                : {
+                    kicker: 'Couldn’t reach it',
+                    title: 'Couldn’t read this board',
+                    body: 'Cinch couldn’t reach the plates on this board just now. Nothing has moved — this is a connection problem.',
+                  })}
               onRetry={onRetry}
               retrying={retrying}
             />
@@ -157,7 +170,7 @@ export function BoardPage({
           </View>
         )}
 
-        {error ? null : (
+        {error || timedOut ? null : (
           <View className="flex-row flex-wrap gap-2 px-gutter pt-5">
             {onSendToPacking ? (
               <Button

@@ -12,6 +12,7 @@ import {
 } from '@/features/diary/entry';
 import { useDiary, usePlannedDays } from '@/features/diary/queries';
 import type { DiaryPiece } from '@/features/diary/types';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 
 /**
  * The Wear diary — WD-01, WD-03, and the loading and empty cuts.
@@ -86,6 +87,25 @@ export default function DiaryScreen() {
   );
   const resolveImage = (piece: DiaryPiece) => resolve(...piece.imagePaths);
 
+  /**
+   * UX #30 — the diary's skeleton is bounded now.
+   *
+   * "Saved Looks and Wear Diary can remain in skeleton states long enough to
+   * look like an unfinished page." `DiarySkeleton` ran for as long as the query
+   * did; now it runs for as long as a slow read plausibly needs and then says
+   * so, with the same retry the failure branch already had.
+   *
+   * `empty` is computed here rather than at the call site: the machine is the
+   * one place that knows an absence may only be claimed about a settled read.
+   */
+  const load = useBoundedLoad({
+    loading: diary.isLoading,
+    error: diary.isError,
+    empty: entries.length === 0,
+    retrying: diary.isRefetching,
+    onRetry: () => void diary.refetch(),
+  });
+
   return (
     <DiaryPage
       months={months}
@@ -94,13 +114,16 @@ export default function DiaryScreen() {
       selectedChip={chip}
       onSelectChip={setChip}
       undoneNotice={typeof undone === 'string' && undone.trim() ? undone : null}
-      loading={diary.isLoading}
-      error={diary.isError}
-      retrying={diary.isRefetching}
-      onRetry={() => void diary.refetch()}
+      loading={load.state === 'skeleton'}
+      error={load.state === 'error'}
+      timedOut={load.timedOut}
+      retrying={load.retrying}
+      onRetry={load.retry}
       // An empty design makes a claim about the data. Only once the read has
-      // actually succeeded is "nothing recorded yet" a thing the app knows.
-      showEmpty={!diary.isLoading && !diary.isError && entries.length === 0}
+      // actually succeeded is "nothing recorded yet" a thing the app knows —
+      // which is exactly what `boundedState` computes, so the claim is now made
+      // in one place rather than re-derived here.
+      showEmpty={load.state === 'empty'}
       onPlanToday={() => router.replace('/(tabs)/plan')}
       onOpenEntry={(id) => router.push(`/diary/${id}`)}
       onBack={() => router.back()}

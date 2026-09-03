@@ -1,4 +1,8 @@
-import type { EventDetailView, EventLookOption } from '@/components/events/event-detail-body';
+import type {
+  EventDetailView,
+  EventLookOption,
+  EventLookTile,
+} from '@/components/events/event-detail-body';
 
 import {
   EVENT_DETAIL_COPY,
@@ -84,11 +88,18 @@ const REHEARSAL_LINE_INPUT = {
  * The plate's three wells, with no photographs behind them.
  *
  * `uri: undefined` is not a shortcut — it is what `GarmentImage` is handed for
- * a garment whose picture has not been signed yet, and it draws the same warm
- * grey the artifact's placeholder tiles do. So the fixture photographs the
- * real empty-well treatment rather than an imitation of it.
+ * a garment whose picture has not been signed yet. Since UX #62 that is no
+ * longer a warm grey rectangle: the well draws the piece's name on its own
+ * colour, so the fixture carries a real name and a real colour per tile and
+ * photographs the treatment a pictureless look actually gets.
  */
-const TILES = [{ uri: undefined }, { uri: undefined }, { uri: undefined }];
+const TILES: EventLookTile[] = [
+  { uri: undefined, label: 'Silk slip dress', color: { oklch: { L: 0.34, C: 0.06, h: 320 } } },
+  { uri: undefined, label: 'Velvet coat', color: { oklch: { L: 0.28, C: 0.05, h: 20 } } },
+  // An untagged piece: no colour resolved, so the well keeps the tray ground
+  // and says the word alone. Posed on purpose — it is the honest third case.
+  { uri: undefined, label: 'Untagged piece', color: null },
+];
 
 /**
  * The chooser, posed. Redesign 03 · the founder's revision.

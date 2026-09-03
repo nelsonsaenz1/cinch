@@ -12,6 +12,7 @@ import {
   UnavailableNotice,
 } from '@/components/saved-looks';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
@@ -33,6 +34,7 @@ import { useSavedLook } from '@/features/saved-looks/queries';
 import { canPlan, resolveSavedDetailState } from '@/features/saved-looks/states';
 import { haptics } from '@/lib/haptics';
 import { track } from '@/lib/posthog';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -73,14 +75,30 @@ export default function SavedLookDetailScreen() {
 
   const [confirming, setConfirming] = useState(false);
 
+  /**
+   * UX #59 / #30 — the detail's skeleton is bounded now.
+   *
+   * A saved-look detail opened over a dead connection drew three placeholder
+   * blocks for as long as the query stayed pending, which is indefinitely.
+   * The bound is fed to `resolveSavedDetailState` as its `loading`, so the
+   * existing state machine is untouched and simply stops being told to wait
+   * forever.
+   */
+  const load = useBoundedLoad({
+    loading: query.isLoading,
+    error: query.isError,
+    retrying: query.isRefetching,
+    onRetry: () => void query.refetch(),
+  });
+
   const state = useMemo(
     () =>
       resolveSavedDetailState({
-        loading: query.isLoading,
-        failed: query.isError,
+        loading: load.state === 'skeleton',
+        failed: load.failed,
         save: query.data ?? null,
       }),
-    [query.isLoading, query.isError, query.data],
+    [load.state, load.failed, query.data],
   );
 
   const save = state.kind === 'available' || state.kind === 'unavailable' ? state.save : null;
@@ -159,7 +177,7 @@ export default function SavedLookDetailScreen() {
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScreenHeader title={SAVED_TITLE} align="leading" onBack={back} backLabel={SAVED_TITLE} />
 
-      {state.kind === 'loading' || state.kind === 'missing' ? (
+      {state.kind === 'loading' ? (
         <View className="gap-4 px-gutter pt-4" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           {/* 360, not 300 — the Hero's own height for a save with an image,
               which is nearly all of them. Anything shorter drops the title and
@@ -169,7 +187,24 @@ export default function SavedLookDetailScreen() {
           <Skeleton className="h-[60px] w-full rounded-md" />
         </View>
       ) : state.kind === 'error' ? (
-        <SavedErrorState onRetry={() => void query.refetch()} retrying={query.isRefetching} />
+        <SavedErrorState onRetry={load.retry} retrying={load.retrying} timedOut={load.timedOut} />
+      ) : state.kind === 'missing' ? (
+        /*
+         * UX #30 — this used to draw the SKELETON.
+         *
+         * `missing` is a settled read that came back with no save: the look was
+         * removed, here or on another device, or the link is stale. Drawing
+         * placeholders for it meant a deleted look showed three shimmering
+         * blocks forever, which is the "unfinished page" the finding names —
+         * and the one state where waiting longer could never help.
+         */
+        <EmptyState
+          symbol="bookmark.slash"
+          title="That look is gone"
+          body="It was removed from your saves, here or on another device. Everything else you kept is still on the shelf."
+          actionTitle={SAVED_TITLE}
+          onAction={back}
+        />
       ) : save ? (
         <ScrollView contentContainerClassName="px-gutter pb-16">
           <Hero imageUrl={save.imageUrl} unavailable={save.availability === 'unavailable'} />

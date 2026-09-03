@@ -10,6 +10,8 @@ import { ErrorState } from '@/components/ui/error-state';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SectionHeader } from '@/components/ui/section-header';
 import { ListSkeleton } from '@/components/ui/skeleton';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import { Text } from '@/components/ui/text';
 import { activityActionProps, ACTIVITY_EVENTS } from '@/features/activity-center/analytics';
 import {
@@ -105,6 +107,21 @@ export default function ReactionDetailScreen() {
   });
 
   const loading = event.isLoading;
+
+  /**
+   * UX #59 — the activity detail's skeleton is bounded now.
+   *
+   * The header and the retry were already here; the wait was not. A read that
+   * never settles left three placeholder rows shimmering under "Loading your
+   * activity…" with nothing to press, which is the finding's "no progress or
+   * timeout signal" exactly.
+   */
+  const load = useBoundedLoad({
+    loading,
+    error: event.isError,
+    retrying: event.isRefetching,
+    onRetry: () => void event.refetch(),
+  });
   const revoked = !loading && (!event.data || Boolean(event.data.revokedAt));
   const word = reactionLabel(event.data?.payload.reaction);
 
@@ -119,14 +136,20 @@ export default function ReactionDetailScreen() {
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
       <ScreenHeader title={REACTION_TITLE} align="center" onBack={back} backLabel={NAV_TITLE} />
 
-      {loading ? (
+      {load.state === 'skeleton' ? (
         <ListSkeleton count={3} label="Loading your activity…" />
-      ) : event.isError ? (
+      ) : load.failed ? (
         // A failed READ is not a revoked event. Rendering the revoked state
         // here asserted "no longer available" over a connection problem
-        // (2026-09-02 audit); this says only that the read failed, and offers it again.
+        // (2026-09-02 audit); this says only that the read failed, and offers it
+        // again. UX #59 adds the second half: a read that never returns now ends
+        // here too, in the timeout's own words, rather than shimmering forever.
         <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
-          <ErrorState onRetry={() => void event.refetch()} retrying={event.isRefetching} />
+          <ErrorState
+            {...(load.timedOut ? BOUNDED_TIMEOUT_COPY : {})}
+            onRetry={load.retry}
+            retrying={load.retrying}
+          />
         </View>
       ) : revoked ? (
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20 }}>

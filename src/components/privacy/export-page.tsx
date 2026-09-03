@@ -1,7 +1,17 @@
 import { ActivityIndicator, View } from 'react-native';
 
 import { PrivacyPage } from '@/components/privacy/privacy-page';
-import { Button, Card, ErrorState, Rule, SectionHeader, Skeleton, Text } from '@/components/ui';
+import {
+  Button,
+  Card,
+  ErrorState,
+  Rule,
+  SectionHeader,
+  Skeleton,
+  SkeletonLead,
+  Text,
+} from '@/components/ui';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
 import {
   EXPORT_CONTENTS_LINE,
   EXPORT_LIMIT_NOTE,
@@ -70,6 +80,12 @@ function ManifestRow({ name, body, first }: { name: string; body: string; first:
 export type ExportPageProps = {
   loading: boolean;
   error: boolean;
+  /**
+   * The bounded contract's timeout. Same frame and same retry as `error`, with
+   * the timeout's words: the read is still out rather than having failed, and
+   * on a page about a record of requests that difference matters.
+   */
+  timedOut?: boolean;
   onRetry: () => void;
 
   /** Newest first. The page is a rendering of this list and nothing else. */
@@ -98,6 +114,7 @@ export type ExportPageProps = {
 export function ExportPage({
   loading,
   error,
+  timedOut = false,
   onRetry,
   exports,
   email,
@@ -133,15 +150,43 @@ export function ExportPage({
       intro={pending ? undefined : `${EXPORT_CONTENTS_LINE} Emailed to ${destination}.`}
       onBack={onBack}>
       {loading ? (
-        <View className="mt-6 gap-3 px-gutter">
-          <Skeleton className="h-24 w-full rounded-plate" />
-          <Skeleton className="h-24 w-full rounded-plate" />
+        /*
+         * UX #52 — this was "two large unlabeled skeleton blocks with no visible
+         * progress, retry, or explanation."
+         *
+         * Two things were wrong and only one of them was the drawing. The
+         * blocks said nothing about WHAT was being read, so a reader who
+         * arrived expecting their archive to be assembled reasonably concluded
+         * that this was the assembly, silently making no progress. And they
+         * were unbounded: the query could stay pending forever and the page
+         * would keep shimmering.
+         *
+         * `SkeletonLead` names the read in words — this is the history of what
+         * has been asked for, not the archive being built — and the sentence
+         * under it says what is safe to do while it happens, which is
+         * everything, because nothing on this screen has been started yet. The
+         * bound is upstream in `privacy/export.tsx`.
+         */
+        <View className="mt-2">
+          <SkeletonLead label="Reading your export history…" />
+          <Text variant="callout" className="px-gutter pb-1" style={{ color: theme.muted }}>
+            Nothing is being assembled yet. This is the record of what you have already asked for —
+            you can leave this screen and come back to it.
+          </Text>
+          <View className="mt-4 gap-3 px-gutter">
+            <Skeleton className="h-24 w-full rounded-plate" />
+            <Skeleton className="h-24 w-full rounded-plate" delay={120} />
+          </View>
         </View>
-      ) : error ? (
+      ) : error || timedOut ? (
         <ErrorState
           compact
-          title="Couldn’t read your exports."
-          body="Cinch couldn’t reach the record of what you have asked for. Nothing has changed — no request was lost and none was made."
+          {...(timedOut
+            ? BOUNDED_TIMEOUT_COPY
+            : {
+                title: 'Couldn’t read your exports.',
+                body: 'Cinch couldn’t reach the record of what you have asked for. Nothing has changed — no request was lost and none was made.',
+              })}
           onRetry={onRetry}
         />
       ) : (

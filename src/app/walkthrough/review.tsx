@@ -7,13 +7,14 @@ import { CorrectionSheet, type CorrectionDraft, type CorrectionField } from '@/c
 import { CountStepper } from '@/components/intake/CountStepper';
 import { GarmentCard } from '@/components/intake/GarmentCard';
 import { WalkthroughChrome } from '@/components/intake/walkthrough-parts';
-import { Button, ErrorState, Skeleton, Text } from '@/components/ui';
+import { Button, RouteState, Skeleton, Text } from '@/components/ui';
 import { PLANS } from '@/features/billing/plans';
 import { commitIntake } from '@/features/intake/actions';
 import { intakeCardEdited } from '@/features/intake/analytics';
 import { positionLabel } from '@/features/intake/procession';
 import { useDrafts, resumeCursor, type IntakeDraftRow } from '@/features/intake/queries';
 import { useProcession } from '@/features/intake/use-procession';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 
 /**
  * The procession — V-06, V-07, V-09, V-10, then out to the Reveal.
@@ -30,6 +31,35 @@ import { useProcession } from '@/features/intake/use-procession';
  * against the draft count, which matters because a session can be resumed after
  * the ceiling trimmed the drafts underneath it.
  */
+
+/**
+ * The wait, shaped like the card it becomes.
+ *
+ * The old one was `<Skeleton />` with no class, which Yoga lays out at zero
+ * height — the screen was blank, not shimmering. This reserves the garment
+ * card's own anatomy (the position line, the big name, the attribute rows, the
+ * two answers at the thumb) so the page does not jump when the first draft
+ * lands, and so the wait itself says what is coming.
+ */
+function ReviewSkeleton() {
+  return (
+    <View className="flex-1 px-gutter pt-6" accessibilityLabel="Reading what you said">
+      <Skeleton className="h-3 w-24 rounded-chip" />
+      <Skeleton className="mt-6 h-9 w-4/5 rounded-sm" delay={80} />
+      <Skeleton className="mt-3 h-9 w-3/5 rounded-sm" delay={160} />
+      <View className="mt-10 gap-3">
+        <Skeleton className="h-4 w-2/3 rounded-chip" delay={240} />
+        <Skeleton className="h-4 w-1/2 rounded-chip" delay={320} />
+        <Skeleton className="h-4 w-3/5 rounded-chip" delay={400} />
+      </View>
+      <View className="mt-auto gap-3 pb-6">
+        <Skeleton className="h-12 w-full rounded-chip" delay={480} />
+        <Skeleton className="h-12 w-full rounded-chip" delay={560} />
+      </View>
+    </View>
+  );
+}
+
 export default function WalkthroughReviewScreen() {
   const router = useRouter();
   const { session } = useLocalSearchParams<{ session?: string }>();
@@ -39,6 +69,29 @@ export default function WalkthroughReviewScreen() {
   const rows = useMemo(() => drafts.data ?? [], [drafts.data]);
 
   const procession = useProcession(sessionId, rows, resumeCursor(0, rows.length));
+
+  /**
+   * The bound. `empty` is deliberately NOT set: a session whose drafts came
+   * back as an empty list is the procession's own "nothing kept" ending, and
+   * `procession.finished` already draws it with the count and the way on. An
+   * empty state here would replace a designed ending with an apology.
+   */
+  const load = useBoundedLoad({
+    loading: drafts.isPending,
+    error: drafts.isError,
+    retrying: drafts.isRefetching,
+    onRetry: () => void drafts.refetch(),
+  });
+
+  /**
+   * Deep-linkable, so `back()` is not guaranteed to have anywhere to go. The
+   * fallback is the walkthrough's own start rather than the tab bar: somebody
+   * who cannot review what they spoke wants to speak it again.
+   */
+  const leave = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/walkthrough');
+  }, [router]);
 
   const [correcting, setCorrecting] = useState<CorrectionField | null | undefined>(undefined);
   const [committing, setCommitting] = useState(false);
@@ -90,9 +143,54 @@ export default function WalkthroughReviewScreen() {
     }
   }, [sessionId, router, procession.confirmed]);
 
-  if (!sessionId) return <ErrorState title="No walkthrough to review" />;
-  if (drafts.isPending) return <Skeleton />;
-  if (drafts.isError) return <ErrorState title="Couldn’t load what you said" />;
+  /**
+   * UX #38 — this screen's three route-level states were full-screen traps.
+   *
+   * They were three one-liners: an `ErrorState` with a title and nothing else,
+   * a bare `<Skeleton />` (which, with no className, is a zero-height view —
+   * a genuinely blank screen), and a second title-only `ErrorState`. None of
+   * them had a way back, none had a retry, and the middle one had no bound:
+   * a `useDrafts` that never settled left a person who had just spoken their
+   * whole wardrobe looking at an empty canvas with no exit.
+   *
+   * `RouteState` supplies the way back at all three, `useBoundedLoad` supplies
+   * the bound, and the skeleton below is card-shaped so the wait says what is
+   * coming.
+   */
+  if (!sessionId) {
+    return (
+      <RouteState
+        state="error"
+        title="Walkthrough"
+        onBack={leave}
+        backLabel="Back to the walkthrough"
+        // No retry: there is no session id to read, so a second read of
+        // nothing would fail identically. The way out is the whole recovery.
+        errorCopy={{
+          title: 'There’s no walkthrough to review',
+          body: 'This screen was opened without a walkthrough behind it. Nothing was lost — start one and the pieces you speak will land here.',
+        }}
+      />
+    );
+  }
+
+  if (load.state !== 'content') {
+    return (
+      <RouteState
+        state={load.state}
+        title="Walkthrough"
+        onBack={leave}
+        backLabel="Back to the walkthrough"
+        skeleton={<ReviewSkeleton />}
+        errorCopy={{
+          title: 'Couldn’t read what you said',
+          body: 'Cinch couldn’t reach the pieces from this walkthrough just now. They are still saved — this is a connection problem, not lost work.',
+        }}
+        onRetry={load.retry}
+        retrying={load.retrying}
+      />
+    );
+  }
 
   // ── After the last card ────────────────────────────────────────────────
   if (procession.finished) {

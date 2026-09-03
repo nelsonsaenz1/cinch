@@ -5,17 +5,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DeleteCollectionDialog } from '@/components/saved-looks';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { Notice } from '@/components/ui/notice';
+import { RouteState } from '@/components/ui/route-state';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { COLLECTIONS, DELETE_COLLECTION, collectionCountLine } from '@/features/saved-looks/copy';
+import {
+  COLLECTIONS,
+  DELETE_COLLECTION,
+  SAVED_TITLE,
+  collectionCountLine,
+} from '@/features/saved-looks/copy';
 import { classifySavedError } from '@/features/saved-looks/errors';
 import { useDeleteCollection, useRenameCollection } from '@/features/saved-looks/mutations';
 import { useSavedCollections, useSavedLooks } from '@/features/saved-looks/queries';
 import { collectionCounts } from '@/features/saved-looks/states';
 import { COLLECTION_NAME_MAX } from '@/features/saved-looks/types';
 import { haptics } from '@/lib/haptics';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -92,6 +101,16 @@ export default function EditCollectionScreen() {
     else router.replace('/saved-looks/collections');
   }, [router]);
 
+  const load = useBoundedLoad({
+    loading: collections.isLoading,
+    error: collections.isError,
+    // The read settled and this shelf was not in it: deleted, or a stale link.
+    // An absence, so it takes the empty grammar rather than an apology.
+    empty: collection === null,
+    retrying: collections.isRefetching,
+    onRetry: () => void collections.refetch(),
+  });
+
   const submit = useCallback(() => {
     if (!collectionId || !changed || rename.isPending) return;
     setNote(null);
@@ -134,6 +153,49 @@ export default function EditCollectionScreen() {
       },
     );
   }, [collectionId, memberCount, remove, close]);
+
+  /**
+   * UX #59 — the shelf's own read, bounded.
+   *
+   * This screen has no skeleton, which is why it looked fine and was not: while
+   * the collections list was in flight it drew a live-looking form with an
+   * empty field and two dead buttons, and if the read failed or never returned
+   * it stayed that way. Three states now say what is going on instead — a
+   * waiting form, a failure with a retry, and the shelf that is genuinely gone
+   * — and each of them keeps the header's way back.
+   */
+  if (load.state !== 'content') {
+    return (
+      <RouteState
+        state={load.state}
+        title={COLLECTIONS.renameTitle}
+        onBack={close}
+        backLabel={COLLECTIONS.cancel}
+        skeleton={
+          <View className="gap-5 px-gutter pt-6" accessibilityLabel="Reading this collection">
+            <Skeleton className="h-9 w-3/5 rounded-sm" />
+            <Skeleton className="h-11 w-full rounded-sm" delay={120} />
+            <Skeleton className="h-4 w-4/5 rounded-chip" delay={240} />
+          </View>
+        }
+        empty={
+          <EmptyState
+            symbol="tray"
+            title="That collection is gone"
+            body="It was deleted, here or on another device. The looks that were on it are still saved — they went back to All."
+            actionTitle={SAVED_TITLE}
+            onAction={close}
+          />
+        }
+        errorCopy={{
+          title: 'Couldn’t read this collection',
+          body: 'Cinch couldn’t reach your shelves just now. Nothing has been renamed and nothing has been lost.',
+        }}
+        onRetry={load.retry}
+        retrying={load.retrying}
+      />
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>

@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 
+import { GarmentFallback } from '@/components/media/garment-fallback';
 import { Text } from '@/components/ui/text';
 import { QUADRANT_CELLS } from '@/features/boards/board-lines';
 import { useTheme } from '@/theme/tokens';
@@ -54,11 +55,28 @@ export type QuadrantPlateProps = {
    * `imagePaths` alone cannot tell you.
    */
   pieceCount: number;
+  /**
+   * What each cell says when it has a piece and no photograph — `plate.cells`,
+   * index-aligned with `imageUris`.
+   *
+   * UX #62 upgrades the silhouette this file already argued for. The
+   * silhouette was right about the DISTINCTION — "a garment, pictureless"
+   * rather than "an image that failed" — and wrong about the identity: every
+   * pictureless cell in the lookbook drew the same outline in the same `rule`,
+   * so a three-piece look with no cutouts was three copies of one shape, and
+   * the audit's "grids of indistinguishable beige blocks" is exactly what that
+   * produced at grid scale. The piece's own word on the piece's own colour
+   * keeps the distinction and adds the identity.
+   *
+   * Optional so a caller that has not read the columns (a fixture, an older
+   * projection) falls back to the silhouette rather than to a blank.
+   */
+  cells?: readonly { label: string | null; color: { hex?: string | null; name?: string | null } | null }[];
   /** Side length in points. Everything inside is derived from it. */
   size: number;
 };
 
-export function QuadrantPlate({ imageUris, pieceCount, size }: QuadrantPlateProps) {
+export function QuadrantPlate({ imageUris, pieceCount, size, cells }: QuadrantPlateProps) {
   const theme = useTheme();
 
   // Exactly four cells, always, in the top-left order the look was built in.
@@ -87,6 +105,7 @@ export function QuadrantPlate({ imageUris, pieceCount, size }: QuadrantPlateProp
           size={cell}
           uri={imageUris[i] ?? null}
           hasPiece={i < pieceCount}
+          cell={cells?.[i] ?? null}
           // The count goes in the FIRST empty cell and nowhere else — one
           // statement per tile. A three-piece look has one empty cell anyway; a
           // two-piece look gets the count in the third and a plain sand cell in
@@ -108,11 +127,13 @@ function Cell({
   uri,
   hasPiece,
   countLabel,
+  cell,
 }: {
   size: number;
   uri: string | null;
   hasPiece: boolean;
   countLabel: string | null;
+  cell: { label: string | null; color: { hex?: string | null; name?: string | null } | null } | null;
 }) {
   const theme = useTheme();
 
@@ -131,8 +152,22 @@ function Cell({
     );
   }
 
-  // A piece whose photograph is not there. A SILHOUETTE, which says "a garment,
-  // pictureless" — where a blank well would say "an image that failed".
+  // A piece whose photograph is not there. Its own word on its own colour —
+  // UX #62 — which says "a shearling coat, pictureless" where the silhouette
+  // said only "a garment, pictureless" and a blank well would have said "an
+  // image that failed".
+  if (hasPiece && (cell?.label || cell?.color)) {
+    return (
+      <View style={{ width: size, height: size }}>
+        <GarmentFallback label={cell.label} color={cell.color} />
+      </View>
+    );
+  }
+
+  // A piece whose photograph is not there AND that the tagger left with neither
+  // a word nor a colour. The silhouette still stands for it: it is the drawing
+  // that distinguishes "a garment, pictureless" from a failure, and it is what
+  // remains true when there is nothing else to say.
   if (hasPiece) {
     return (
       <View

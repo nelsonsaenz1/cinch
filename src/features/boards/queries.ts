@@ -31,11 +31,24 @@ import type { Board, KeptPlate } from './types';
 export const savedPlatesKey = ['saved-plates'] as const;
 export const boardsKey = ['boards'] as const;
 
-/** One garment's paths as the join returns them, best render first. */
+/**
+ * One garment as the join returns it: the three renders, best first, plus the
+ * two facts a pictureless cell needs — UX #62.
+ *
+ * The tagger's word and the piece's first colour are what the quadrant draws
+ * INSTEAD of a photograph. They come down on the same join rather than from a
+ * second read: the row is already being selected for its paths, and three more
+ * columns on a query that runs once per Saved visit is cheaper than a screen
+ * whose tiles cannot be told apart.
+ */
 type ItemPaths = {
   plate_path: string | null;
   cutout_path: string | null;
   thumb_path: string | null;
+  category: string | null;
+  subcategory: string | null;
+  /** `items.colors` — `[{ hex, name }]`, jsonb, so it arrives as unknown. */
+  colors: unknown;
 };
 
 type PlateRow = {
@@ -53,6 +66,31 @@ type PlateRow = {
  */
 const bestPath = (item: ItemPaths | null): string | null =>
   item?.plate_path ?? item?.cutout_path ?? item?.thumb_path ?? null;
+
+/**
+ * The first colour off a jsonb `colors` array, read structurally.
+ *
+ * `items.colors` is `Json`, so nothing about its shape is guaranteed by the
+ * type — it is read defensively and returns null on anything unexpected rather
+ * than throwing inside a list projection. A missing colour is an ordinary
+ * outcome (an untagged piece has none) and the cell falls back to its ground.
+ */
+function firstColor(colors: unknown): { hex: string | null; name: string | null } | null {
+  if (!Array.isArray(colors) || colors.length === 0) return null;
+  const first = colors[0] as { hex?: unknown; name?: unknown } | null;
+  if (!first || typeof first !== 'object') return null;
+  const hex = typeof first.hex === 'string' ? first.hex : null;
+  const name = typeof first.name === 'string' ? first.name : null;
+  return hex || name ? { hex, name } : null;
+}
+
+/** What a pictureless cell says: the tagger's word, or the bucket, or nothing. */
+function pieceLabelOf(item: ItemPaths | null): string | null {
+  if (!item) return null;
+  const kind = item.subcategory?.trim() || (item.category === 'other' ? '' : (item.category ?? ''));
+  if (!kind) return null;
+  return kind.charAt(0).toUpperCase() + kind.slice(1);
+}
 
 /**
  * Exported for the shape's sake: everything that turns a wire row into a
@@ -73,6 +111,13 @@ export function toKeptPlate(row: PlateRow, wornCount: number): KeptPlate {
     pieces[i] ? bestPath(pieces[i]!.items) : null,
   );
 
+  // The same four cells, said in words and colour — UX #62. Aligned with
+  // `imagePaths` index for index, so the tile never has to correlate two lists.
+  const cells: KeptPlate['cells'] = [0, 1, 2, 3].map((i) => {
+    const item = pieces[i]?.items ?? null;
+    return { label: pieceLabelOf(item), color: firstColor(item?.colors) };
+  });
+
   return {
     id: row.id,
     name: row.name,
@@ -82,6 +127,7 @@ export function toKeptPlate(row: PlateRow, wornCount: number): KeptPlate {
     wornCount,
     itemIds: pieces.map((p) => p.item_id),
     imagePaths,
+    cells,
   };
 }
 
@@ -103,7 +149,7 @@ export function useSavedPlates() {
       const { data, error } = await supabase
         .from('outfits')
         .select(
-          'id, name, occasion, saved_at, board_id, outfit_items(item_id, position, items(plate_path, cutout_path, thumb_path))',
+          'id, name, occasion, saved_at, board_id, outfit_items(item_id, position, items(plate_path, cutout_path, thumb_path, category, subcategory, colors))',
         )
         .eq('user_id', userId)
         .not('saved_at', 'is', null)

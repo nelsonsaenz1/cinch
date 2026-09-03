@@ -31,6 +31,8 @@ import {
 } from '@/features/social-graph/queries';
 import { profileName, type FriendItem, type SocialProfile } from '@/features/social-graph/types';
 import { leading } from '@/theme/font-metrics';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import { GUTTER, MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -99,6 +101,8 @@ export type FriendClosetViewProps = {
   /** The three headline counts, or null when the block is absent entirely. */
   stats: FriendClosetStats | null;
   status: FriendClosetStatus;
+  /** The bounded contract's timeout — drawn as the error frame, worded as a wait. */
+  timedOut?: boolean;
   items: FriendItem[];
   resolveImage: (item: FriendItem) => string | undefined;
   onBack: () => void;
@@ -260,7 +264,22 @@ function FriendClosetSkeleton({ name }: { name: string }) {
  * page lives here: an empty closet is her choice and a hidden one is her
  * setting, and neither is a thing to try again.
  */
-function ErrorBody({ name, onRetry, onBack }: { name: string; onRetry: () => void; onBack: () => void }) {
+function ErrorBody({
+  name,
+  onRetry,
+  onBack,
+  timedOut = false,
+}: {
+  name: string;
+  onRetry: () => void;
+  onBack: () => void;
+  /**
+   * The bounded contract's timeout. Same frame — the ring, the retry, the way
+   * back — and a different sentence, because "didn’t load" is a claim about a
+   * request that came back and this one has not. See `@/lib/bounded-load`.
+   */
+  timedOut?: boolean;
+}) {
   const theme = useTheme();
   return (
     <View className="flex-1 items-center justify-center px-[34px] pb-16">
@@ -274,10 +293,12 @@ function ErrorBody({ name, onRetry, onBack }: { name: string; onRetry: () => voi
         </Text>
       </View>
       <Text variant="title" className="mt-4 text-center" accessibilityRole="header">
-        {name}’s closet didn’t load
+        {timedOut ? BOUNDED_TIMEOUT_COPY.title : `${name}’s closet didn’t load`}
       </Text>
       <Text variant="body" className="mt-2.5 text-center text-muted">
-        This is on us, not on them. Everything is still there.
+        {timedOut
+          ? BOUNDED_TIMEOUT_COPY.body
+          : 'This is on us, not on them. Everything is still there.'}
       </Text>
       {/* Ink, per the atlas — the accent is not spent on recovering from our
           own failure. */}
@@ -362,6 +383,7 @@ export function FriendClosetView({
   bio,
   stats,
   status,
+  timedOut = false,
   items,
   resolveImage,
   onBack,
@@ -451,7 +473,7 @@ export function FriendClosetView({
         {status === 'loading' ? (
           <FriendClosetSkeleton name={name} />
         ) : status === 'error' ? (
-          <ErrorBody name={name} onRetry={onRetry} onBack={onBack} />
+          <ErrorBody name={name} onRetry={onRetry} onBack={onBack} timedOut={timedOut} />
         ) : (
           <QuietBody status={status} name={name} />
         )}
@@ -517,10 +539,29 @@ export default function FriendClosetScreen() {
   // Exactly one of the atlas's six frames. Privacy first: the meta row
   // answers before the grid is believed, so a hidden closet cannot flash and
   // a lapsed friendship is not mistaken for an empty wardrobe.
+  /**
+   * UX #59 — the friend closet's skeleton is bounded now.
+   *
+   * The finding names this route: a full-page skeleton that ran for as long as
+   * two queries stayed pending, with no progress and no timeout signal. The
+   * bound turns "still loading, indefinitely" into the atlas's own error frame
+   * — which already carried a retry AND a Back to Friends — wearing the
+   * timeout's words rather than the failure's.
+   */
+  const load = useBoundedLoad({
+    loading: closet.isLoading || meta.isLoading,
+    error: closet.isError || meta.isError,
+    retrying: closet.isRefetching || meta.isRefetching,
+    onRetry: () => {
+      void closet.refetch();
+      void meta.refetch();
+    },
+  });
+
   const status: FriendClosetStatus =
-    closet.isError || meta.isError
+    load.failed
       ? 'error'
-      : closet.isLoading || meta.isLoading
+      : load.state === 'skeleton'
         ? 'loading'
         : meta.data == null
           ? 'lapsed'
@@ -757,15 +798,13 @@ export default function FriendClosetScreen() {
         bio={bio}
         stats={stats}
         status={status}
+        timedOut={load.timedOut}
         items={items}
         resolveImage={(item) => resolve(item.thumbPath, item.cutoutPath)}
         onBack={() => router.back()}
         onOverflow={() => setOverflowOpen(true)}
         onItemPress={setOpenItem}
-        onRetry={() => {
-          void closet.refetch();
-          void meta.refetch();
-        }}
+        onRetry={load.retry}
         refreshing={closet.isRefetching}
         onRefresh={() => {
           void closet.refetch();

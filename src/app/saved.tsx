@@ -8,6 +8,7 @@ import { plateTitle } from '@/features/boards/board-lines';
 import { useCreateBoard, useDeletePlate, useKeepPlate } from '@/features/boards/mutations';
 import type { KeptPlate } from '@/features/boards/types';
 import { useLookbook } from '@/features/boards/use-lookbook';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 
 /**
  * Saved — KP-01, KP-02 and KP-05.
@@ -40,6 +41,21 @@ export default function SavedScreen() {
    */
   const [moving, setMoving] = useState<{ plate: KeptPlate; boardId: string | null } | null>(null);
 
+  /**
+   * UX #30 — Saved's grid of placeholders is bounded now.
+   *
+   * The finding: "Saved Looks and Wear Diary can remain in skeleton states long
+   * enough to look like an unfinished page." Two queries behind one `loading`
+   * flag and no clock on either. The bound gives the wait an end, a retry and
+   * the page's own way back.
+   */
+  const load = useBoundedLoad({
+    loading: lookbook.loading,
+    error: lookbook.error,
+    retrying: lookbook.retrying,
+    onRetry: lookbook.refetch,
+  });
+
   const close = () => setMoving(null);
 
   const confirmRemove = (plate: KeptPlate) => {
@@ -61,10 +77,11 @@ export default function SavedScreen() {
   return (
     <>
       <SavedPage
-        loading={lookbook.loading}
-        error={lookbook.error}
-        retrying={lookbook.retrying}
-        onRetry={lookbook.refetch}
+        loading={load.state === 'skeleton'}
+        error={load.state === 'error'}
+        timedOut={load.timedOut}
+        retrying={load.retrying}
+        onRetry={load.retry}
         plates={lookbook.plates}
         boards={lookbook.boards}
         imageUrisFor={lookbook.imageUrisFor}

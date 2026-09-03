@@ -16,6 +16,7 @@ import {
   EventDetailBody,
   type EventDetailView,
   type EventLookOption,
+  type EventLookTile,
 } from '@/components/events/event-detail-body';
 import { PlateCard } from '@/components/share/plate-card';
 import { daysFromToday, weatherLineFor } from '@/components/events/EventCard';
@@ -23,10 +24,10 @@ import { DateSheet } from '@/components/events/date-sheet';
 import { PlaceSheet } from '@/components/events/place-sheet';
 import { DEFAULT_TIME_MINUTES, TimeSheet } from '@/components/events/time-sheet';
 import { ReportFlowSheets } from '@/components/report/ReportFlowSheets';
-import { ErrorState } from '@/components/ui/error-state';
+import { garmentKindLabel } from '@/components/media/garment-fallback';
+import { EmptyState } from '@/components/ui/empty-state';
+import { RouteState } from '@/components/ui/route-state';
 import { NoticeBand } from '@/components/ui/notice-band';
-import { ScreenHeader } from '@/components/ui/screen-header';
-import { Text } from '@/components/ui/text';
 import { useSession } from '@/features/auth/use-session';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
@@ -57,8 +58,9 @@ import { useInviteLink } from '@/features/invite/queries';
 import { useComposeAndPostLook } from '@/features/share-look/mutations';
 import { canGenerate, useStyleProfile, useWardrobe } from '@/features/styling/queries';
 import { useOutfits, type StyledOutfit } from '@/features/styling/use-outfits';
-import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES } from '@/lib/styling';
+import { DEFAULT_WEIGHTS, EMPTY_AFFINITIES, type Garment } from '@/lib/styling';
 import { track } from '@/lib/posthog';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import { dateTimeLine } from '@/features/events/event-lines';
 import { lookName } from '@/features/events/look-copy';
 import {
@@ -161,6 +163,24 @@ export default function EventDetailScreen() {
 
   const event = eventQuery.data ?? null;
   const isMember = Boolean(event && (event.isHost || event.myState === 'joined'));
+
+  /**
+   * The route's one way out, used by all three of its non-content states.
+   * This page is deep-linkable from an invite, so `back()` can have nowhere to
+   * go; the fallback is the occasions list rather than the tab bar, because
+   * somebody who cannot open one occasion wants the others.
+   */
+  const goBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)/plan');
+  }, [router]);
+
+  const eventLoad = useBoundedLoad({
+    loading: eventQuery.isLoading,
+    error: eventQuery.isError,
+    retrying: eventQuery.isRefetching,
+    onRetry: () => void eventQuery.refetch(),
+  });
 
   // The board. Gated on MEMBERSHIP, not on `id`: event-social-contract.md §3 —
   // "the gate is membership, not the route." An invitee's page fires no board
@@ -308,37 +328,62 @@ export default function EventDetailScreen() {
   const writeFailed = (title: string) => (error: unknown) =>
     Alert.alert(title, socialDenialCopy(error) ?? 'Check your connection and try again.');
 
-  if (eventQuery.isLoading) {
+  /**
+   * UX #59 — the poster skeleton is bounded now.
+   *
+   * The frame-03 skeleton is the right drawing and it stays; what it lacked
+   * was an end. `useBoundedLoad` keeps it for as long as a slow read
+   * plausibly needs and then replaces it with a state that has a retry and a
+   * way back, rather than letting a hung request own the whole route
+   * indefinitely with no signal at all.
+   */
+  if (eventLoad.state === 'skeleton') {
     // The band paints from nothing yet, so the whole poster is the skeleton
     // frame — which is what frame 03 draws.
     return (
       <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-        <EventDetailBody large={large} view={loadingView(() => router.back())} />
+        <EventDetailBody large={large} view={loadingView(goBack)} />
       </SafeAreaView>
     );
   }
 
-  if (eventQuery.isError) {
+  if (eventLoad.failed) {
     return (
-      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-        <ScreenHeader align="leading" title="Event" />
-        <ErrorState
-          title="This occasion didn’t load"
-          body="It’s still there — the connection dropped on the way. Try again in a moment."
-          onRetry={() => void eventQuery.refetch()}
-        />
-      </SafeAreaView>
+      <RouteState
+        state={eventLoad.state}
+        title="Event"
+        onBack={goBack}
+        backLabel="Back to your occasions"
+        errorCopy={{
+          title: 'This occasion didn’t load',
+          body: 'It’s still there — the connection dropped on the way. Nothing about the occasion has changed.',
+        }}
+        onRetry={eventLoad.retry}
+        retrying={eventLoad.retrying}
+      />
     );
   }
 
   if (!event) {
+    // The read settled and this occasion was not in it — an absence, not a
+    // failure, so it takes the empty grammar and a real way out. It used to be
+    // one grey sentence centred in a blank screen with nothing to press.
     return (
-      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-        <ScreenHeader align="leading" title="Event" />
-        <View className="flex-1 items-center justify-center px-gutter">
-          <Text variant="body">This occasion isn’t available.</Text>
-        </View>
-      </SafeAreaView>
+      <RouteState
+        state="empty"
+        title="Event"
+        onBack={goBack}
+        backLabel="Back to your occasions"
+        empty={
+          <EmptyState
+            symbol="calendar"
+            title="That occasion is gone"
+            body="It was canceled or deleted, here or by whoever made it. Anything you posted to it stays saved in your own looks."
+            actionTitle="Back to your occasions"
+            onAction={goBack}
+          />
+        }
+      />
     );
   }
 
@@ -585,8 +630,22 @@ export default function EventDetailScreen() {
         }
       : null;
 
-  const tilesFor = (garments: { platePath: string | null; cutoutPath: string | null; thumbPath: string | null }[]) =>
-    garments.slice(0, 3).map((g) => ({ uri: resolve(g.platePath, g.cutoutPath, g.thumbPath) }));
+  /**
+   * UX #62 — a tile now carries what the piece IS, not only where its picture
+   * would be.
+   *
+   * "Event boards… become grids of indistinguishable beige blocks." The plate
+   * drew three wells and handed `GarmentImage` a `<View />` for the fallback,
+   * so a look whose garments have no cutouts was three empty sand rectangles
+   * and every look on the board was the same picture. The word and the colour
+   * are both already on the `Garment` the plate is built from.
+   */
+  const tilesFor = (garments: Garment[]): EventLookTile[] =>
+    garments.slice(0, 3).map((g) => ({
+      uri: resolve(g.platePath, g.cutoutPath, g.thumbPath),
+      label: garmentKindLabel(g),
+      color: g.colors[0] ? { oklch: g.colors[0].oklch } : null,
+    }));
 
   /**
    * The 1–3 options, posted first and suggestions after.

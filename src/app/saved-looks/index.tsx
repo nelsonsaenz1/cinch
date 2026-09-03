@@ -36,6 +36,7 @@ import {
 } from '@/features/saved-looks/states';
 import { haptics } from '@/lib/haptics';
 import { track } from '@/lib/posthog';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
 /**
@@ -98,11 +99,33 @@ export default function SavedLooksScreen() {
 
   const rows = useMemo(() => saves.data ?? [], [saves.data]);
 
+  /**
+   * UX #30 — the saved grid's skeleton is bounded now.
+   *
+   * The finding names this screen by name: "Saved Looks and Wear Diary can
+   * remain in skeleton states long enough to look like an unfinished page."
+   * `resolveSavedListState` had no clock — `loading: saves.isLoading` was true
+   * for as long as the query was, which for a request that never returns is
+   * the whole session. The bound is fed in as `loading`, so the existing state
+   * machine keeps deciding everything else and simply stops being told to wait
+   * forever; a timeout arrives as `failed`, wearing the timeout's own words.
+   */
+  const load = useBoundedLoad({
+    loading: saves.isLoading,
+    error: saves.isError,
+    retrying: saves.isRefetching,
+    onRetry: () => {
+      track(SAVED_EVENTS.retryTapped, retryTappedProps());
+      void saves.refetch();
+      void collections.refetch();
+    },
+  });
+
   const state = useMemo(
     () =>
       resolveSavedListState({
-        loading: saves.isLoading,
-        failed: saves.isError,
+        loading: load.state === 'skeleton',
+        failed: load.failed,
         // Offline only counts as offline once the read has actually failed or
         // is empty; a successful read over a connection the device believes is
         // down is still a successful read, and banners it does not need are
@@ -110,7 +133,7 @@ export default function SavedLooksScreen() {
         offline: !online && (saves.isError || rows.length > 0),
         saves: rows,
       }),
-    [saves.isLoading, saves.isError, online, rows],
+    [load.state, load.failed, saves.isError, online, rows],
   );
 
   const counts = useMemo(() => collectionCounts(rows), [rows]);
@@ -165,11 +188,6 @@ export default function SavedLooksScreen() {
     void saves.refetch();
     void collections.refetch();
   }, [saves, collections]);
-
-  const retry = useCallback(() => {
-    track(SAVED_EVENTS.retryTapped, retryTappedProps());
-    refresh();
-  }, [refresh]);
 
   const choose = useCallback((next: SavedFilter) => {
     // A chip toggled is exactly what `selection()` is reserved for — a value
@@ -243,7 +261,7 @@ export default function SavedLooksScreen() {
         {state.kind === 'loading' ? (
           <SavedGridSkeleton stacked={stacked} />
         ) : state.kind === 'error' ? (
-          <SavedErrorState onRetry={retry} retrying={saves.isRefetching} />
+          <SavedErrorState onRetry={load.retry} retrying={load.retrying} timedOut={load.timedOut} />
         ) : state.kind === 'empty' ? (
           <SavedEmptyState />
         ) : (

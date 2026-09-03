@@ -4,11 +4,12 @@ import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { WalkthroughChrome } from '@/components/intake/walkthrough-parts';
-import { Button, Chip, ErrorState, Rule, Skeleton, Text } from '@/components/ui';
+import { Button, Chip, RouteState, Rule, Skeleton, Text } from '@/components/ui';
 import { PLANS } from '@/features/billing/plans';
 import { resolveIntakeCeiling } from '@/features/intake/actions';
 import { defaultKeptDraftIds, totalQuantity } from '@/features/intake/ceiling';
 import { useDrafts } from '@/features/intake/queries';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import { ceilingCopy, ceilingRows } from '@/features/intake/walkthrough-copy';
 import { CARD } from '@/features/intake/walkthrough-spec';
 import { useTheme } from '@/theme/tokens';
@@ -102,9 +103,84 @@ export default function CeilingScreen() {
    */
   const exit = { label: 'Back', onPress: () => router.back(), hint: 'Returns to your review. Nothing is saved yet.' };
 
-  if (!sessionId) return <ErrorState title="No walkthrough to resolve" />;
-  if (drafts.isPending) return <Skeleton />;
-  if (drafts.isError) return <ErrorState title="Couldn’t load what you said" />;
+  /**
+   * The same way out for the three route-level states below, which are reached
+   * before the phases and cannot use `WalkthroughChrome`. Deep-linkable, so
+   * `back()` may have nowhere to go; the fallback is the walkthrough's own
+   * start rather than the tab bar.
+   */
+  const leave = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/walkthrough');
+  };
+
+  const load = useBoundedLoad({
+    loading: drafts.isPending,
+    error: drafts.isError,
+    retrying: drafts.isRefetching,
+    onRetry: () => void drafts.refetch(),
+  });
+
+  /**
+   * UX #38 / #59 — the same three traps `walkthrough/review.tsx` carried.
+   *
+   * The `exit` above was added for the two PHASES of this screen and never
+   * reached these three route-level states: they were a title-only
+   * `ErrorState`, a bare `<Skeleton />` (no className, so Yoga lays it out at
+   * zero height — a blank canvas), and a second title-only `ErrorState`. No way
+   * back from any of them, no retry, and no end to the middle one.
+   *
+   * `RouteState` carries the way out; `useBoundedLoad` carries the bound. The
+   * skeleton is shaped like the ceiling's own list so the page does not jump
+   * when the drafts land.
+   */
+  if (!sessionId) {
+    return (
+      <RouteState
+        state="error"
+        title="Walkthrough"
+        onBack={leave}
+        backLabel="Back to the walkthrough"
+        // Nothing to re-read: without a session id a second attempt fails
+        // identically. The way out is the whole recovery.
+        errorCopy={{
+          title: 'There’s no walkthrough to resolve',
+          body: 'This screen was opened without a walkthrough behind it. Nothing was lost — start one and the pieces you speak will land here.',
+        }}
+      />
+    );
+  }
+
+  if (load.state !== 'content') {
+    return (
+      <RouteState
+        state={load.state}
+        title="Walkthrough"
+        onBack={leave}
+        backLabel="Back to the walkthrough"
+        skeleton={
+          <View className="flex-1 px-gutter pt-6" accessibilityLabel="Reading what you said">
+            <Skeleton className="h-3 w-28 rounded-chip" />
+            <Skeleton className="mt-5 h-9 w-4/5 rounded-sm" delay={80} />
+            <View className="mt-8 gap-3">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-11 w-full rounded-chip" delay={160 + i * 80} />
+              ))}
+            </View>
+            <View className="mt-auto pb-6">
+              <Skeleton className="h-12 w-full rounded-chip" delay={600} />
+            </View>
+          </View>
+        }
+        errorCopy={{
+          title: 'Couldn’t read what you said',
+          body: 'Cinch couldn’t reach the pieces from this walkthrough just now. They are still saved — this is a connection problem, not lost work.',
+        }}
+        onRetry={load.retry}
+        retrying={load.retrying}
+      />
+    );
+  }
 
   const total = totalQuantity(confirmed);
   // No outfit total is printed here, deliberately: the arithmetic belongs to

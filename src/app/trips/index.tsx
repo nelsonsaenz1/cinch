@@ -9,6 +9,7 @@ import {
   type TripCardView,
   type TripsListView,
 } from '@/components/trips/trips-list-body';
+import { garmentKindLabel } from '@/components/media/garment-fallback';
 import { useCloset } from '@/features/closet/queries';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { useAllTrips, type SavedTrip } from '@/features/plan/use-trips';
@@ -23,6 +24,7 @@ import {
   pastDatesLine,
   tripDatesLine,
 } from '@/features/trips/trips-list-spec';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 
 /**
  * Trips — the list. Redesign 04, and the founder's explicit ask: after planning
@@ -81,12 +83,34 @@ export default function TripsScreen() {
 
   const { resolve } = useSignedUrls(paths);
 
+  /**
+   * UX #59 — the shelf's skeleton is bounded now.
+   *
+   * `WaitingBody` ran for as long as `useTrips` stayed pending. The frames'
+   * offline composition already carried the cached rows and a Try again, so the
+   * bound routes into it and swaps the kicker: "Offline" is a diagnosis, and a
+   * read that has merely not come back yet has not diagnosed anything.
+   */
+  const load = useBoundedLoad({
+    loading: trips.isLoading,
+    error: trips.isError,
+    retrying: trips.isRefetching,
+    onRetry: () => void trips.refetch(),
+  });
+
   const view: TripsListView = useMemo(() => {
     const tilesFor = (trip: SavedTrip, limit: number) =>
       bagItemIds(trip.memo, trip.itemIds, limit).map((id) => {
         const item = byId.get(id);
-        // The preference order every other garment well in the app uses.
-        return { uri: item ? resolve(item.platePath, item.cutoutPath, item.thumbPath) : undefined };
+        return {
+          // The preference order every other garment well in the app uses.
+          uri: item ? resolve(item.platePath, item.cutoutPath, item.thumbPath) : undefined,
+          // UX #62 — what the well says when there is no photograph. The
+          // reader's own row, or nothing: a piece that is not in the closet
+          // read gets no invented name.
+          label: item ? garmentKindLabel(item) : undefined,
+          color: item?.colors[0] ?? null,
+        };
       });
 
     const toCard = (trip: SavedTrip, limit: number): TripCardView => ({
@@ -112,8 +136,9 @@ export default function TripsScreen() {
     const [next, ...rest] = upcoming;
 
     return {
-      loading: trips.isLoading,
-      offline: trips.isError,
+      loading: load.state === 'skeleton',
+      offline: load.failed,
+      timedOut: load.timedOut,
       next: next ? toCard(next, HERO_TILES) : null,
       upcoming: rest.map((trip) => toCard(trip, CARD_TILES)),
       past: past.map(toPast),
@@ -122,7 +147,7 @@ export default function TripsScreen() {
       // Straight into Packing, not onto the week calendar. The tab reads the
       // param on arrival; without it "Plan a trip" lands two taps short.
       onPlanTrip: () => router.push({ pathname: '/(tabs)/plan', params: { mode: 'packing' } }),
-      onRetry: () => void trips.refetch(),
+      onRetry: load.retry,
       /**
        * Trip Detail (brief §6) has landed, so the withheld chevron comes alive.
        *
@@ -141,7 +166,7 @@ export default function TripsScreen() {
         });
       },
     };
-  }, [rows, byId, resolve, trips, router]);
+  }, [rows, byId, resolve, load, router]);
 
   // Both edges, not just the top: this is a pushed page and its foot is pinned,
   // so on a device with a home indicator the empty state's CTA and the offline

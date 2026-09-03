@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { BOUNDED_TIMEOUT_COPY } from '@/lib/bounded-load';
 import {
   EMPTY,
   ERROR,
@@ -95,15 +96,23 @@ export function SavedEmptyState() {
 export function SavedErrorState({
   onRetry,
   retrying = false,
+  timedOut = false,
 }: {
   onRetry: () => void;
   retrying?: boolean;
+  /**
+   * The bounded contract's timeout. Same frame, same retry, different sentence:
+   * "Cinch couldn’t reach your saved looks" is a claim about a request that
+   * came back, and a timeout's has not — it is still out there and may yet
+   * land. See `@/lib/bounded-load`.
+   */
+  timedOut?: boolean;
 }) {
   return (
     <ErrorState
-      title={ERROR.title}
-      body={ERROR.body}
-      retryTitle={ERROR.retry}
+      {...(timedOut
+        ? BOUNDED_TIMEOUT_COPY
+        : { title: ERROR.title, body: ERROR.body, retryTitle: ERROR.retry })}
       onRetry={onRetry}
       retrying={retrying}
     />

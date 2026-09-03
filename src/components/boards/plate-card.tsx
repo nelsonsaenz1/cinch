@@ -60,7 +60,13 @@ export function PlateCard({
             and not from the image array, because "no piece here" and "this
             piece has no photograph" are different facts and are drawn
             differently. See quadrant-plate.tsx. */}
-        <QuadrantPlate imageUris={imageUris} pieceCount={plate.itemIds.length} size={size} />
+        <QuadrantPlate
+          imageUris={imageUris}
+          pieceCount={plate.itemIds.length}
+          // UX #62 — what each cell says when its photograph is not there.
+          cells={plate.cells}
+          size={size}
+        />
       </View>
 
       <View className="px-3 pb-3 pt-2.5">

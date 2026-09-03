@@ -1,9 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ErrorState } from '@/components/ui/error-state';
+import { RouteState } from '@/components/ui/route-state';
 import { KeepSheet } from '@/components/boards/keep-sheet';
 import { useCreateBoard, useKeepPlate } from '@/features/boards/mutations';
 import { useLookbook } from '@/features/boards/use-lookbook';
@@ -22,6 +21,7 @@ import {
 import { useSetEntryNote, useUnwearEntry, useWearAgain } from '@/features/diary/mutations';
 import { NoteSheet } from '@/features/diary/note-sheet';
 import { useDiary } from '@/features/diary/queries';
+import { useBoundedLoad } from '@/lib/use-bounded-load';
 import type { DiaryPiece } from '@/features/diary/types';
 
 /**
@@ -84,21 +84,45 @@ export default function DiaryEntryScreen() {
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/diary'));
 
-  if (diary.isLoading) return <EntrySkeleton onBack={goBack} />;
+  /**
+   * UX #59 — the day's skeleton is bounded now.
+   *
+   * `empty` stays unset on purpose: "this day is not in the record" is
+   * `EntryMissing`'s designed page, with its own copy and its own way back, and
+   * it is reached below once the read has settled. A generic empty state here
+   * would replace a written answer with a shrug.
+   */
+  const load = useBoundedLoad({
+    loading: diary.isLoading,
+    error: diary.isError,
+    retrying: diary.isRefetching,
+    onRetry: () => void diary.refetch(),
+  });
 
-  if (diary.isError) {
+  if (load.state === 'skeleton') return <EntrySkeleton onBack={goBack} />;
+
+  if (load.failed) {
     // A failed read is not a removed entry. Falling through to `EntryMissing`
     // would tell someone their day had been corrected away over a dropped
     // connection that never touched it.
+    //
+    // UX #38: this branch used to be an `ErrorState` alone inside a
+    // `SafeAreaView` — no header, no back button, no way off the route except
+    // the system swipe. `RouteState` carries the way out, and the timeout it
+    // now also covers borrows the retry rather than the failure's words.
     return (
-      <SafeAreaView className="flex-1 bg-canvas" edges={['top']}>
-        <ErrorState
-          title="Couldn’t read this day."
-          body="Cinch couldn’t reach your record just now. Nothing you wore has changed."
-          onRetry={() => void diary.refetch()}
-          retrying={diary.isRefetching}
-        />
-      </SafeAreaView>
+      <RouteState
+        state={load.state}
+        title="Your day"
+        onBack={goBack}
+        backLabel="Back to the diary"
+        errorCopy={{
+          title: 'Couldn’t read this day.',
+          body: 'Cinch couldn’t reach your record just now. Nothing you wore has changed.',
+        }}
+        onRetry={load.retry}
+        retrying={load.retrying}
+      />
     );
   }
 
