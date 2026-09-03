@@ -137,11 +137,17 @@ export const OFFLINE_BODY =
   'Your link never changes, so it’s safe to share from here. Who came in is hidden until you’re ' +
   'back on a connection — it may have changed since.';
 
-/** There is no link until there is a handle, because the handle IS the link. */
+/**
+ * There is no link until there is a handle, because the handle IS the link.
+ *
+ * AUDIT 100 #32 shortened the body. The shipped sentence restated the title
+ * across two more clauses — "so it needs one before it can be shared" says
+ * "choose a handle first" again, and the reassurance about permanence is the
+ * profile screen's to make, where the handle is actually claimed. What is
+ * left is the one new fact: why a handle is the ask at all.
+ */
 export const NO_HANDLE_TITLE = 'Choose a handle first';
-export const NO_HANDLE_BODY =
-  'Your invitation is built from your handle, so it needs one before it can be shared. It takes ' +
-  'a moment and you keep it permanently.';
+export const NO_HANDLE_BODY = 'Your invitation link is built from your handle.';
 export const NO_HANDLE_ACTION = 'Choose a handle';
 
 /**

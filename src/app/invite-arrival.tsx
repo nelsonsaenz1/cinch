@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { ArrivalPage, type ArrivalPageState } from '@/components/invite/arrival-page';
+import { useCapacity } from '@/features/billing/use-capacity';
 import { bareHandle } from '@/features/invite/link';
 import { useApplyInvite } from '@/features/invite/mutations';
 
@@ -30,6 +31,12 @@ export default function InviteArrivalScreen() {
   const handle = params.handle ? bareHandle(params.handle) : '';
 
   const apply = useApplyInvite();
+  // AUDIT 100 #56 — the signal the `unavailable` branch uses to tell a
+  // genuinely new account from an established one tapping a stale invite
+  // mid-session. `used` is the active closet, the same count Capacity and the
+  // Gap Feed already read; `loading` defaults to the new-account CTA for the
+  // brief instant before it settles, which is what shipped before this pass.
+  const capacity = useCapacity();
 
   // Fired once per handle. `mutate` is stable but the effect is not: without
   // the guard, any re-render that changes params identity would re-run a write
@@ -58,6 +65,19 @@ export default function InviteArrivalScreen() {
    */
   const toCloset = useCallback(() => router.replace('/(tabs)'), [router]);
   const toCapture = useCallback(() => router.replace('/capture'), [router]);
+  /**
+   * AUDIT 100 #56 — the established-closet recovery off `unavailable`.
+   *
+   * The same two-step `onSeeCloset` already uses below: the tabs go
+   * underneath first so Friends' own back chevron has somewhere to land,
+   * then Friends is pushed on top. Real, normal navigation, where the
+   * screen used to hand an established account nothing but an onboarding
+   * CTA that did not apply to them.
+   */
+  const toFriends = useCallback(() => {
+    router.replace('/(tabs)');
+    router.push('/friends');
+  }, [router]);
 
   const state: ArrivalPageState = !handle
     ? 'unavailable'
@@ -79,6 +99,7 @@ export default function InviteArrivalScreen() {
     <ArrivalPage
       state={state}
       inviterName={inviterName}
+      hasClosetItems={capacity.used > 0}
       onAddFirstPiece={toCapture}
       onSeeCloset={() => {
         const userId = apply.data?.inviterId;
@@ -94,6 +115,7 @@ export default function InviteArrivalScreen() {
       }}
       onRetry={retry}
       onContinue={toCloset}
+      onGoToFriends={toFriends}
     />
   );
 }

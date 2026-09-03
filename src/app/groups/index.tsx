@@ -179,23 +179,30 @@ export default function GroupsScreen() {
       <ScreenHeader
         backLabel="Back"
         trailing={
-          // THE WAY IN, MOVED TO THE CHROME. Every populated frame of redesign
-          // 27 carries it here, and the reason is that the shipped foot link
-          // sat below the list: somebody with five groups had to scroll past
-          // all of them to make a sixth. The word is `NO_GROUPS.action`, which
-          // is the same offer the empty state makes — an invitation to start
-          // something, never the create screen's own commit.
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={NO_GROUPS.action}
-            onPress={() => router.push('/groups/create')}
-            hitSlop={8}
-            style={{ minHeight: MIN_TAP_TARGET }}
-            className="justify-center px-2 active:opacity-60">
-            <Text variant="label" style={{ color: theme.accent }}>
-              {NO_GROUPS.action}
-            </Text>
-          </Pressable>
+          // THE WAY IN, MOVED TO THE CHROME — but only once the chrome is the
+          // only place it lives. Every populated frame of redesign 27 carries
+          // it here, and the reason is that the shipped foot link sat below
+          // the list: somebody with five groups had to scroll past all of
+          // them to make a sixth. `no_groups` is the one state with nothing
+          // to scroll past and its own dominant Create button already on
+          // screen (`NoGroupsState`), so this control stands down there
+          // rather than printing the same offer twice. The word is
+          // `NO_GROUPS.action`, which is the same offer the empty state
+          // makes — an invitation to start something, never the create
+          // screen's own commit.
+          state.kind === 'no_groups' ? undefined : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={NO_GROUPS.action}
+              onPress={() => router.push('/groups/create')}
+              hitSlop={8}
+              style={{ minHeight: MIN_TAP_TARGET }}
+              className="justify-center px-2 active:opacity-60">
+              <Text variant="label" style={{ color: theme.accent }}>
+                {NO_GROUPS.action}
+              </Text>
+            </Pressable>
+          )
         }
       />
 

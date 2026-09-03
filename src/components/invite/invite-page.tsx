@@ -333,26 +333,29 @@ function Actions(props: InvitePageProps) {
   );
 }
 
-/** No handle, so no link. The action goes where one is claimed. */
+/**
+ * No handle, so no link. The action goes where one is claimed.
+ *
+ * AUDIT 100 #32. This used to open with a 214pt tray plate (150pt at AX) —
+ * the exact footprint of the LINK plate it stands in for — holding one
+ * giant "@" in the display face, then explained the missing handle twice
+ * more below it (see `NO_HANDLE_BODY`'s note). That is most of the screen's
+ * first fold spent on a placeholder for a state that has nothing to show.
+ * The glyph shrinks to the size every other icon-led empty state in the app
+ * uses; what is freed goes to reaching the one actual task — choosing a
+ * handle — sooner rather than after a hero.
+ */
 function NoHandle({ onChooseHandle, large }: { onChooseHandle: () => void; large: boolean }) {
+  const theme = useTheme();
+
   return (
-    <View style={{ marginTop: 8, gap: 12 }}>
-      <View
-        className="items-center justify-center bg-tray"
-        style={{
-          minHeight: large ? PLATE_HEIGHT_AX : PLATE_HEIGHT,
-          borderRadius: PLATE_RADIUS,
-          paddingHorizontal: 20,
-        }}>
-        <Text variant="display" trim style={{ textAlign: 'center' }}>
-          @
-        </Text>
-      </View>
-      <Text variant="body" accessibilityRole="header">
+    <View style={{ marginTop: 20, gap: 12 }}>
+      <SymbolView name="at" size={28} tintColor={theme.muted} resizeMode="scaleAspectFit" />
+      <Text variant="title" trim accessibilityRole="header">
         {NO_HANDLE_TITLE}
       </Text>
       <Text variant="note">{NO_HANDLE_BODY}</Text>
-      <View style={{ minHeight: large ? PRIMARY_HEIGHT_AX : PRIMARY_HEIGHT }}>
+      <View style={{ minHeight: large ? PRIMARY_HEIGHT_AX : PRIMARY_HEIGHT, marginTop: 4 }}>
         <Button
           title={NO_HANDLE_ACTION}
           variant="primary"

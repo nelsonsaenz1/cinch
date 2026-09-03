@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { Toast } from '@/components/ui/toast';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
+import { HERO_GLYPH_INK, TwoPersonGlyph } from '@/features/explore/glyphs';
 import {
   firstName,
   garmentNoun,
@@ -221,23 +222,13 @@ export default function BorrowScreen() {
           </View>
         ) : (
           // Borrowing needs people before it needs pieces, so this one routes
-          // to Friends. The dashed well is the not-yet shape, not content.
+          // to Friends. The two-person mark is the same glyph Friends' own
+          // empty state and the Lately tab use — a purposeful hero, not a
+          // dashed placeholder that reads as a failed image load.
           <View className="flex-1 items-center justify-center px-8">
-            <View
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              // Spacing lives here, not on the trimmed title below: `trim` sets
-              // its own negative margins via the style prop, and a stacked
-              // `mt-*` utility resolves against them by merge order, not intent.
-              className="mb-5 w-full bg-tray"
-              style={{
-                height: 120,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderStyle: 'dashed',
-                borderColor: theme.rule,
-              }}
-            />
+            <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" className="mb-5">
+              <TwoPersonGlyph size={40} color={HERO_GLYPH_INK} />
+            </View>
             <Text variant="title" trim className="text-center" accessibilityRole="header">
               Nothing is out on loan
             </Text>

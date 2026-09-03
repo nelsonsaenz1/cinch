@@ -354,10 +354,18 @@ export default function EventCommentsScreen() {
         {/*
           ── Redesign 03 · the accepted frame's masthead ────────────────────
 
-          A serif word and the audience, on one baseline. The back chevron went
-          with the push: the route is a sheet now (see `event/_layout.tsx`) and
-          a sheet's way out is its grabber and its swipe, so a header row whose
-          only content was a duplicate dismissal is a row of nothing.
+          A serif word and the audience, no longer sharing one baseline.
+          AUDIT 100 #60: the title and the full-width "ONLY THE INVITED CAN
+          READ THIS" eyebrow used to sit in the same `flex-row`, each fighting
+          the other for width — a long look name, or Dynamic Type on either
+          string, collides them. The title now takes its own row in full, the
+          way a navigation title would if this sheet drew one (it does not —
+          see below); the privacy line drops to a compact subline directly
+          under it, free to wrap on its own line without taking the title's
+          space. The back chevron went with the push: the route is a sheet now
+          (see `event/_layout.tsx`) and a sheet's way out is its grabber and
+          its swipe, so a header row whose only content was a duplicate
+          dismissal is a row of nothing.
 
           Audit 94 is unchanged and is the reason the scope is UP here rather
           than under the field: the closed thread has no composer, so a line
@@ -371,14 +379,14 @@ export default function EventCommentsScreen() {
           `audienceScopeLine` says the true thing and `comments-column.test.ts`
           pins the words; the frame's typography is kept and its claim is not.
         */}
-        <View className="flex-row items-baseline justify-between gap-3 px-gutter pt-4 pb-3">
-          <Text variant="title" trim numberOfLines={1} className="min-w-0 flex-shrink">
+        <View className="px-gutter pt-4">
+          <Text variant="title" trim numberOfLines={1}>
             {title}
           </Text>
-          <Text variant="eyebrow" style={{ flexShrink: 0 }}>
-            {audienceScopeLine}
-          </Text>
         </View>
+        <Text variant="eyebrow" className="px-gutter pb-3 pt-1.5">
+          {audienceScopeLine}
+        </Text>
         {visibleCount > 0 ? (
           <Text variant="note" className="px-gutter pb-2">
             {commentCountLine(visibleCount)}

@@ -365,14 +365,17 @@ function DevInviteInner() {
         ) : null}
 
         {active === 'IF-06' ? (
+          // AUDIT 100 #58 — one reason, one recovery. See the live screen
+          // (src/app/event/[id]/invite.tsx) for the full reasoning: the
+          // duplicate "Share your username" action and the contacts/link
+          // footer are gone rather than redrawn here.
           <Frame title="IF-06 · No friends to invite">
             <View className="items-center px-10 py-10">
               <Text variant="title" trim className="text-center">
                 Nobody to invite yet
               </Text>
               <Text variant="body" className="mt-2.5 text-center" style={{ color: theme.muted }}>
-                Invitations go to friends on Cinch. Add someone by their username, and once they
-                add you back you can put them on the list.
+                Invitations go to friends on Cinch.
               </Text>
               <View
                 style={{ minHeight: 44, backgroundColor: theme.ink }}
@@ -381,12 +384,6 @@ function DevInviteInner() {
                   Add a friend
                 </Text>
               </View>
-              <Text variant="label" className="mt-3.5" style={{ color: theme.accent }}>
-                Share your username
-              </Text>
-              <Text variant="caption" className="mt-6 text-center">
-                Cinch doesn’t read your contacts, and an occasion can’t be shared as a link.
-              </Text>
             </View>
           </Frame>
         ) : null}

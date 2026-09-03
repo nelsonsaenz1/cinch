@@ -38,11 +38,30 @@ export type ArrivalPageProps = {
   state: ArrivalPageState;
   /** The inviter's display name. Ignored unless `state` is `ready`. */
   inviterName: string;
+  /**
+   * Whether this account already has pieces in its closet.
+   *
+   * AUDIT 100 #56. Read only by the `unavailable` branch, to decide which
+   * recovery reads as true: "Add your first piece" is the right invitation
+   * to a genuinely new account (this screen sits before capture in the
+   * sign-up funnel — see `handoff.tsx`), and the wrong one to somebody who
+   * tapped a stale or blocked invite mid-session with a closet already full
+   * of pieces. `apply_invite` requires a session either way, so both are
+   * "signed-in users" in the founder's sense — the closet is what tells them
+   * apart.
+   */
+  hasClosetItems: boolean;
   onAddFirstPiece: () => void;
   onSeeCloset: () => void;
   onRetry: () => void;
   /** The way past this screen when there is nobody at the other end. */
   onContinue: () => void;
+  /**
+   * AUDIT 100 #56 — the `unavailable` branch's recovery for an established
+   * closet: back to Friends, restoring normal tab navigation instead of the
+   * dead end this screen was.
+   */
+  onGoToFriends: () => void;
 };
 
 export function ArrivalPage(props: ArrivalPageProps) {
@@ -74,6 +93,16 @@ export function ArrivalPage(props: ArrivalPageProps) {
   }
 
   if (props.state === 'unavailable') {
+    // AUDIT 100 #56. This branch used to offer one recovery regardless of who
+    // landed on it: "Add your first piece", which reads as onboarding — the
+    // right invitation for the genuinely new account this screen sits in
+    // front of during sign-up, and a non sequitur for somebody with an
+    // established closet who tapped a stale or blocked invite mid-session.
+    // `hasClosetItems` tells the two apart; the recovery now matches the
+    // account it is actually offered to, and either way it is a real
+    // destination rather than the dead end this screen used to be.
+    const established = props.hasClosetItems;
+
     return (
       <SafeAreaView className="flex-1 bg-canvas">
         <View className="flex-1 justify-center px-gutter">
@@ -90,7 +119,11 @@ export function ArrivalPage(props: ArrivalPageProps) {
           </Text>
 
           <View className="mt-7 gap-2.5">
-            <Button title="Add your first piece" variant="ink" onPress={props.onAddFirstPiece} />
+            {established ? (
+              <Button title="Go to Friends" variant="ink" onPress={props.onGoToFriends} />
+            ) : (
+              <Button title="Add your first piece" variant="ink" onPress={props.onAddFirstPiece} />
+            )}
             <Button title="Skip for now" variant="secondary" onPress={props.onContinue} />
           </View>
         </View>

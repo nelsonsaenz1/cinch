@@ -133,10 +133,16 @@ export default function DevInviteLinkScreen() {
         <ArrivalPage
           state={arrivalState}
           inviterName={DISPLAY_NAME}
+          // AUDIT 100 #56. `false` here poses the new-account recovery
+          // ("Add your first piece"); production reads the real closet count
+          // instead (`invite-arrival.tsx`), which this static fixture has no
+          // session to derive.
+          hasClosetItems={false}
           onAddFirstPiece={() => setState('IV-01')}
           onSeeCloset={() => setState('IV-01')}
           onRetry={() => setState('IV-06')}
           onContinue={() => setState('IV-01')}
+          onGoToFriends={() => setState('IV-01')}
         />
       ) : (
         <InvitePage
