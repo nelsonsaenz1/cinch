@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
 const BUCKET = 'garments';
@@ -46,11 +47,19 @@ export function useSignedUrls(paths: (string | null | undefined)[]) {
       if (error) throw error;
 
       const map: Record<string, string> = {};
+      let failed = 0;
       for (const entry of data ?? []) {
         // `createSignedUrls` reports per-path failures inline instead of
         // throwing, so one deleted object cannot take down the whole grid.
         if (entry.signedUrl && entry.path) map[entry.path] = entry.signedUrl;
+        else failed += 1;
       }
+      // COUNTS ONLY — a signed URL is a credential and a path names a person's
+      // garment, so neither travels. This exists because a wholesale signing
+      // refusal (2026-09-03: a QA closet whose rows pointed at another user's
+      // storage prefix) was invisible everywhere except a screenshot; a
+      // number turns it into something a briefing can read.
+      if (failed > 0) track('image_sign_failed', { requested: unique.length, failed });
       return map;
     },
   });

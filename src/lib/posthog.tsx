@@ -576,6 +576,13 @@ export type AppEvent =
    */
   | 'clothes_import_failed'
   /**
+   * A batch of garment-image signings came back with refusals. `requested`
+   * and `failed` are COUNTS — never a path, never a URL. Fires once per
+   * batch that had any failure. Added 2026-09-03 after a closet rendered
+   * blank on every surface with nothing in analytics to show for it.
+   */
+  | 'image_sign_failed'
+  /**
    * THE WALKTHROUGH — voice intake (docs/design/voice-intake-directive.md §9).
    *
    * These ten answer one question the rest of the union cannot: whether talking
