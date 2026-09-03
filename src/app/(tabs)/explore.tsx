@@ -20,8 +20,7 @@ import {
 import { Card } from '@/components/ui/card';
 import { KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { ExploreDoors } from '@/components/explore/explore-doors';
-import { ShopFeedSection } from '@/components/explore/shop-feed-section';
-import { PartnerShopSection } from '@/components/explore/partner-shop-section';
+import { ShopShelf } from '@/components/explore/shop-shelf';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { useSignedUrls } from '@/features/closet/use-image-urls';
@@ -67,6 +66,7 @@ import { useShowWhereToBuy } from '@/features/commerce/queries';
 import { useWardrobe } from '@/features/styling/queries';
 import { useShopFeed } from '@/features/explore/use-shop-feed';
 import { usePartnerFeed } from '@/features/explore/use-partner-feed';
+import { exploreShelf, partnerShelfCards } from '@/features/explore/shop-feed';
 import { useFriends } from '@/features/social-graph/queries';
 import { track } from '@/lib/posthog';
 import { useTabVisited } from '@/lib/use-tab-visited';
@@ -118,6 +118,13 @@ type HeroProps = {
    * `lately-button.tsx`'s `tone`.
    */
   accentAction?: boolean;
+  /**
+   * The qualifying sentence, behind a disclosure. The hero body says the
+   * consequence in one line; anything that narrows it lives here rather than
+   * growing the paragraph a reader meets before they have done anything.
+   */
+  detail?: string;
+  detailLabel?: string;
 };
 
 /**
@@ -137,7 +144,11 @@ function Hero({
   onAction,
   alert = false,
   accentAction = false,
+  detail,
+  detailLabel,
 }: HeroProps) {
+  const [detailOpen, setDetailOpen] = useState(false);
+
   return (
     <View accessibilityRole={alert ? 'alert' : 'summary'} className="px-gutter pt-8">
       {glyph}
@@ -149,6 +160,33 @@ function Hero({
       <Text className="mt-3.5 text-muted" style={{ fontSize: 17, lineHeight: 26 }}>
         {body}
       </Text>
+
+      {/* The conditions, one tap down. Text-only and quiet: it must not read
+          as a second action beside the one control this page wants used. The
+          expanded state is announced (`accessibilityState.expanded`) and the
+          detail is a plain line under it, never a modal. */}
+      {detail ? (
+        <View className="mt-3">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={detailLabel ?? 'More'}
+            accessibilityState={{ expanded: detailOpen }}
+            accessibilityHint={detailOpen ? 'Double-tap to collapse' : 'Double-tap to expand'}
+            onPress={() => setDetailOpen((was) => !was)}
+            style={{ minHeight: MIN_TAP_TARGET }}
+            className="flex-row items-center active:opacity-60">
+            <Text variant="label" className="text-muted">
+              {detailLabel ?? 'More'}
+            </Text>
+          </Pressable>
+          {detailOpen ? (
+            <Text className="text-muted" style={{ fontSize: 15, lineHeight: 23 }}>
+              {detail}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <View style={{ marginTop: 24 }}>
         <LatelyButton
           title={action}
@@ -248,6 +286,17 @@ export default function ExploreScreen() {
   // it is the joined programmes' own stock (founder order 2026-09-02), served
   // by a parameterless read; see use-partner-feed.ts.
   const partnerFeed = usePartnerFeed(visited && showWhereToBuy.data === true);
+
+  // ONE compact grid, and a door to the rest (P1 #18). The two shelves used to
+  // render whole, one under the other, which turned the back half of a private
+  // social page into a merchant feed. What is composed here is at most six
+  // cards — closet-similarity first, partner stock filling — and `/shop` holds
+  // both shelves in full for anyone who taps through. Every card keeps its own
+  // disclosure: `paid` rides on the card, never on the block.
+  const shelf = useMemo(
+    () => exploreShelf(shopFeed.data ?? [], partnerShelfCards(partnerFeed.data ?? [])),
+    [shopFeed.data, partnerFeed.data],
+  );
 
   // Variant A plus the device-local mute, both at the read edge — before the
   // day grouping and the signed-URL work, so a hidden row simply never exists
@@ -696,12 +745,28 @@ export default function ExploreScreen() {
         }>
         {/* The features, on the page — founder order 2026-08-30. The sheet
             behind the ellipsis remains the management surface; these are the
-            three doors a visit most often came for. */}
-        <ExploreDoors
-          onFindPeople={openSearch}
-          onFriends={() => router.push('/friends')}
-          onInvite={() => router.push('/invite')}
-        />
+            three doors a visit most often came for.
+
+            ── ABSENT ON THE EMPTY CIRCLE (P2 #19, 2026-09-02) ───────────────
+            With no circle, "Find people" here and "Find a friend" in the hero
+            below were the same action, twice, twenty points apart — and the
+            row's other two doors lead to a circle that does not exist and an
+            invite the hero is already making. S-1a gets ONE control, and it
+            is the accented one in the hero. The doors come back the moment
+            there is a circle for them to be about; the ellipsis sheet holds
+            all three for anyone who wants them meanwhile.
+
+            Gated on `hasFriends` alone rather than on "not loading and no
+            friends": drawing the row while the circle read is still open
+            would flash the duplicate control onto the exact screen this
+            correction is about, and the hero below waits for the same read. */}
+        {hasFriends ? (
+          <ExploreDoors
+            onFindPeople={openSearch}
+            onFriends={() => router.push('/friends')}
+            onInvite={() => router.push('/invite')}
+          />
+        ) : null}
 
         {/* UX-10 — the rule between what is new and what you have already seen,
             over the looks. It draws above the FIRST card, which is where the
@@ -724,7 +789,9 @@ export default function ExploreScreen() {
           <Hero
             glyph={<TwoPersonGlyph size={40} color={HERO_GLYPH_INK} />}
             title="Explore is just your people"
-            body="Add a friend you already know and you’ll see what they wore — only if you’re both friends, and only while sharing is on for them."
+            body="Add a friend you already know and you’ll see what they wore."
+            detail="Only if you’re both friends, and only while sharing is on for them."
+            detailLabel="What you’ll see"
             actionTitle="Find a friend"
             onAction={openSearch}
             // Oxblood, by founder order 2026-08-18. This is the only control
@@ -824,16 +891,18 @@ export default function ExploreScreen() {
           </View>
         )}
 
-        {/* The shop shelf — last on purpose: the page is the circle, and the
-            shops follow it. Absent entirely for a person who turned "Show
-            where to buy" off, or whose closet holds nothing to be like. */}
-        {showWhereToBuy.data === true ? <ShopFeedSection cards={shopFeed.data ?? []} /> : null}
-
-        {/* The partner shelf — every joined programme, disclosed as paid.
-            Below the closet-similarity feed on purpose: "like your closet"
-            answers the person; this one presents the partners. Same C-03
-            gate; absent when the switch is off or nothing is stocked. */}
-        {showWhereToBuy.data === true ? <PartnerShopSection items={partnerFeed.data ?? []} /> : null}
+        {/* The shop shelf — last on purpose, compact by rule, and never above
+            a single piece of circle content. Absent entirely for a person who
+            turned "Show where to buy" off, whose closet holds nothing to be
+            like, or whose browse came back without four cards the category
+            gate would vouch for (`shop-feed.ts`, MIN_CONFIDENT_CARDS). */}
+        {showWhereToBuy.data === true ? (
+          <ShopShelf
+            cards={shelf.cards}
+            total={shelf.total}
+            onSeeMore={() => router.push('/shop')}
+          />
+        ) : null}
 
         {/* THE ENDING — one page, one full stop, and it belongs to the week.
             It prints under everything, over a page that actually loaded and

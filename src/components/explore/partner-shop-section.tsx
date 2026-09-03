@@ -8,7 +8,14 @@ import { track } from '@/lib/posthog';
 
 /**
  * The partner shelf — every shop Cinch has a paid arrangement with, shown as
- * such. Sits under the closet-similarity feed and follows its grammar (paper
+ * such.
+ *
+ * Draws in full on `/shop` since 2026-09-02 (P1 #18); the six-card grid on
+ * Explore is `shop-shelf.tsx`, where these rows arrive already marked `paid`
+ * so the disclosure rides each card rather than a block that would be false
+ * for the closet-similarity cards beside them.
+ *
+ * Sits under the closet-similarity feed and follows its grammar (paper
  * ground, bordered wells, no urgency), with the one difference the law and
  * the help article both care about: THESE ARE PAID LINKS AND THE SHELF SAYS
  * SO, once, plainly, above the grid — the same disclosure rule the gap rows

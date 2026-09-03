@@ -252,7 +252,23 @@ export const NO_CIRCLE = {
    * friendship, then that friend's own sharing switch.
    */
   title: 'Explore is just your people',
-  body: 'Add a friend you already know and you’ll see what they wore — only if you’re both friends, and only while sharing is on for them.',
+  /**
+   * ── 2026-09-02, P2 #19: ONE LINE, AND THE CONDITIONS BEHIND A DISCLOSURE ──
+   *
+   * The rewritten line above was correct and four lines long — a paragraph of
+   * conditions read by somebody who has not yet done the one thing the screen
+   * is asking for. The consequence leads now, and the two conditions that
+   * qualify it sit in `detail`, one tap away under "What you'll see", where a
+   * reader who wants them finds them in the same words as before.
+   *
+   * Nothing was softened: both conditions are still stated, still in the order
+   * they bind (mutual friendship, then that friend's own sharing switch), and
+   * `tests/daily-social-copy.test.ts` still scans every line of this state.
+   */
+  body: 'Add a friend you already know and you’ll see what they wore.',
+  detail: 'Only if you’re both friends, and only while sharing is on for them.',
+  /** The word on the disclosure that holds `detail`. */
+  detailLabel: 'What you’ll see',
   action: 'Find a friend',
 } as const;
 

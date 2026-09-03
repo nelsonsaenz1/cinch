@@ -94,14 +94,37 @@ test('gap-shop-match did not inherit the gear feeds — its owned source is pinn
 });
 
 test('the shelf obeys C-03 and discloses paid links', () => {
-  // Same gate expression the shop feed uses, applied to the partner shelf.
+  // ── AMENDED 2026-09-02 (P1 #18) ──────────────────────────────────────────
+  //
+  // The partner shelf used to render whole on Explore, under a second whole
+  // shelf, which is how a private social page became a merchant feed. It now
+  // reaches Explore through the ONE compact grid (`ShopShelf`, at most six
+  // cards) and renders whole on `/shop`, behind that grid's "See more".
+  //
+  // What the founder's order of 2026-09-02 actually asked for is untouched:
+  // every joined partner's clothes, images and tracked links are on Explore,
+  // and the C-03 switch still decides whether any of it renders. What changed
+  // is how much of it is on the first screen.
   assert.ok(
-    explore.includes(
-      "showWhereToBuy.data === true ? <PartnerShopSection items={partnerFeed.data ?? []} /> : null",
-    ),
+    explore.includes('partnerShelfCards(partnerFeed.data ?? [])'),
+    'the partner shelf no longer reaches Explore',
   );
+  assert.ok(explore.includes('showWhereToBuy.data === true ? ('), 'the C-03 gate moved off the shelf');
+  assert.ok(explore.includes('<ShopShelf'), 'Explore lost its compact shelf');
+
+  const full = readFileSync('src/app/shop.tsx', 'utf8');
+  assert.ok(full.includes('<PartnerShopSection'), 'the full partner shelf has nowhere to live');
+  assert.ok(full.includes('useShowWhereToBuy()'), 'the full shelf escaped C-03');
+
+  // The disclosure follows the cards, per row, in both places.
   assert.ok(section.includes('Paid link'), 'the disclosure is on the shelf, in words');
   assert.ok(section.includes('paid arrangement'), 'and said plainly above the grid');
+  const compact = readFileSync('src/components/explore/shop-shelf.tsx', 'utf8');
+  assert.ok(compact.includes('PAID_LINK_LABEL'), 'the compact grid dropped the paid marker');
+  // The compact grid mixes paid and unpaid cards, so the marker must be
+  // per-card there — a block sentence would be false for half of it
+  // (tests/commerce-disclosure.test.ts owns that rule).
+  assert.ok(/card\.paid/.test(compact), 'the marker is not conditioned on the card');
 });
 
 test('analytics carry counts and the shelf word, never a product or merchant', () => {
