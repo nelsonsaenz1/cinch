@@ -88,6 +88,9 @@ const ALL_COPY = [
   UNNAMED_LOOK,
   NO_CIRCLE.title,
   NO_CIRCLE.body,
+  // The conditions and the word on the disclosure that holds them (P2 #19).
+  NO_CIRCLE.detail,
+  NO_CIRCLE.detailLabel,
   NO_CIRCLE.action,
   NOBODY_SHARING.title,
   NOBODY_SHARING.body,
@@ -125,7 +128,7 @@ const ALL_COPY = [
 
 test('S-1a, S-1b and S-2 share no sentence at all', () => {
   const states = {
-    'S-1a': [NO_CIRCLE.title, NO_CIRCLE.body, NO_CIRCLE.action],
+    'S-1a': [NO_CIRCLE.title, NO_CIRCLE.body, NO_CIRCLE.detail, NO_CIRCLE.action],
     'S-1b': [NOBODY_SHARING.title, NOBODY_SHARING.body, NOBODY_SHARING.action],
     'S-2': [QUIET_DAY.title, QUIET_DAY.body],
   };
@@ -152,7 +155,11 @@ test('each of the three names a different action, and S-1b’s is about the read
 });
 
 test('S-1a never suggests a stranger', () => {
-  const all = `${NO_CIRCLE.title} ${NO_CIRCLE.body} ${NO_CIRCLE.action}`;
+  // AMENDED 2026-09-02 (P2 #19): the two conditions moved out of the body and
+  // into `detail`, behind a disclosure, so the empty state leads with one line
+  // instead of a four-line paragraph. Both conditions are still shipped and
+  // still scanned — the state's copy is now four strings rather than three.
+  const all = `${NO_CIRCLE.title} ${NO_CIRCLE.body} ${NO_CIRCLE.detail} ${NO_CIRCLE.action}`;
   assert.doesNotMatch(all, /people you may know|suggested|discover|popular|nearby|browse/i);
   // It names the mutual condition instead, which is the only way anyone gets
   // in. Redesign 17 says it as "only if you’re both friends" where the shipped
@@ -171,7 +178,13 @@ test('S-1a is the copy the page actually ships, not a second version of it', () 
   // answer than either. `NO_CIRCLE` is a transcript kept testable — so it has
   // to still BE the transcript.
   const src = body(NO_CIRCLE.source);
-  for (const line of [NO_CIRCLE.title, NO_CIRCLE.body, NO_CIRCLE.action]) {
+  for (const line of [
+    NO_CIRCLE.title,
+    NO_CIRCLE.body,
+    NO_CIRCLE.detail,
+    NO_CIRCLE.detailLabel,
+    NO_CIRCLE.action,
+  ]) {
     assert.ok(src.includes(line), `${NO_CIRCLE.source} no longer says "${line}"`);
   }
 });

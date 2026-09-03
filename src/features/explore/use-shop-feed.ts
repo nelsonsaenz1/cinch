@@ -4,7 +4,14 @@ import type { CatalogueFamilies } from '@/features/catalogue/types';
 import { track } from '@/lib/posthog';
 import { supabase } from '@/lib/supabase';
 
-import { closetColourNames, feedCards, feedSlots, type ShopFeedCard, type ShopFeedSlot } from './shop-feed';
+import {
+  closetColourNames,
+  confidentShelf,
+  feedCards,
+  feedSlots,
+  type ShopFeedCard,
+  type ShopFeedSlot,
+} from './shop-feed';
 
 /**
  * The shop feed's one read: a browse per owned kind, merged into a grid.
@@ -54,7 +61,13 @@ export function useShopFeed(
     staleTime: STALE_MS,
     queryFn: async (): Promise<ShopFeedCard[]> => {
       const settled = await Promise.all(slots.map(browseSlot));
-      const cards = feedCards(settled.filter((s): s is NonNullable<typeof s> => s !== null), palette);
+      // `confidentShelf` is the shelf-level half of the category gate: a run
+      // that survives it with fewer than four cards is a catalogue answer that
+      // was mostly not clothing, and the honest shelf for that is none at all
+      // (`shop-feed.ts`, MIN_CONFIDENT_CARDS).
+      const cards = confidentShelf(
+        feedCards(settled.filter((s): s is NonNullable<typeof s> => s !== null), palette),
+      );
       // A COUNT and a slot count. Which kinds this closet holds is the
       // closest thing this feature knows to closet content, so even the slot
       // NAMES stay out of analytics.

@@ -7,10 +7,15 @@ import type { ShopFeedCard } from '@/features/explore/shop-feed';
 import { track } from '@/lib/posthog';
 
 /**
- * The shelf at the end of Explore — partner clothing like what you own.
+ * The full closet-similarity shelf — partner clothing like what you own.
  *
- * Explore's page is the circle; this section is deliberately LAST and
- * deliberately quiet about it. Cinch's own grammar, not a shop's: paper
+ * ── IT MOVED, IT DID NOT SHRINK (2026-09-02, P1 #18) ───────────────────────
+ * This used to render whole at the end of Explore. Explore now carries ONE
+ * compact grid of six (`shop-shelf.tsx`) and this section draws in full on
+ * `/shop`, behind that grid's "See more" — the page is the circle, and a
+ * merchant feed under it was slowly making it something else.
+ *
+ * Cinch's own grammar, not a shop's: paper
  * ground, bordered wells, serif nothing — no masonry, no badges, no urgency.
  * Every card opens the merchant's own page and says so; Cinch still has no
  * cart and no checkout, and the choosing happened on the phone before any

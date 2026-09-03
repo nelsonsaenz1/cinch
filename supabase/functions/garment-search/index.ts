@@ -47,6 +47,7 @@ import {
 } from './import-batch.ts';
 import { parseQuery } from '../_shared/catalog-query.ts';
 import { BROWSE_TERM } from '../_shared/browse-slots.ts';
+import { isFashionFamily } from './fashion-gate.ts';
 import { openRouterWebProvider } from './provider.ts';
 
 /**
@@ -670,10 +671,22 @@ async function browseCatalogue(
 
   try {
     const grouped = await searchFamilies(wiring.catalogue, parsed);
+    // THE CATEGORY GATE (2026-09-02, P0 #16). A browse asks for one noun and
+    // the catalogue answers with everything that noun appears in — including a
+    // hat RACK and a shoe CABINET, whose titles classify as garments because
+    // the garment word is in them. Families that cannot be proven to be
+    // clothing of this kind are dropped here, before the answer is cached for
+    // everybody and before any client draws it. `fashion-gate.ts` argues the
+    // rule; the client runs the identical refusal, because a shipped binary
+    // cannot wait on a deploy.
+    const families = {
+      exact: grouped.families.exact.filter((f) => isFashionFamily(f, request.slot)),
+      nearMiss: grouped.families.nearMiss.filter((f) => isFashionFamily(f, request.slot)),
+    };
     return Response.json({
       ok: true,
       slot: request.slot,
-      families: grouped.families,
+      families,
       declined: grouped.declined,
       // Browse expresses no intent to count an import against. Explicit null
       // rather than absent, so the client's one response shape keeps working.
