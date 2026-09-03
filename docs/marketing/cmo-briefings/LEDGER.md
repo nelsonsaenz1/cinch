@@ -38,6 +38,51 @@ Lane: OTA (ships in minutes) · BINARY (Apple review) · ASC (metadata/config) �
 | **A24** | 09-01n | Gate or seed Daily Social so nobody opens an empty screen | ~~OTA~~ → **FOUNDER** | `daily_social_empty` / `daily_social_opened` < 1.0 | **REFRAMED 09-02n — this is not a defect** | audit F-DATA-6: every `daily_social_empty` carries `reason=nobody_sharing`; **1 of 50 profiles has sharing on, 6 follow rows, 0 reactions.** The surface already renders a "go first" hero. The only lever is the sharing DEFAULT, which the privacy constitution puts OFF. **Recommendation: do not flip it** — hide the Day section until ≥1 friend shares, and stop counting `nobody_sharing` as a defect |
 | **A34** | 09-02n | **`explore_shop_feed_loaded` fires ungated inside a react-query `queryFn`** (`use-shop-feed.ts:61`, `use-partner-feed.ts:48`) — gate on visit | OTA | The event counts shelf visits, not launches and refetches | **new — A29's baseline is contaminated by it** | audit F-AN-1. I used this event three times on 09-02 (40 → 24 → 24) as the shelf's verification instrument; it was a valid *sim* check of the wire, never evidence anyone looked |
 
+## Audit ship 2026-09-03 (engineering session, read after the 09-02 nightly)
+
+Commit `200388c` on main. Reports: `docs/eng/audit-2026-09-02/` (FINDINGS.md, ten agent
+reports, three verification passes). Published to **all four** live runtimes and
+manifest-verified at u.expo.dev:
+
+| runtime | fleet | OTA | branch |
+|---|---|---|---|
+| 4e646ba0 | 1.2.3 / b47 (store) | `01a06505-3926-75d7-a6ea-48a1ef0a490e` | main |
+| c5f00773 | 1.2.0 / b43-44 (largest active, had never received A15/A16) | `01a06507-0ab4-7b18-ade9-42254ebea54f` | ota/c5f00773-audit |
+| 813c6d34 | 1.2.1 / b45 | `01a06508-e96f-79e1-84ef-3e137c1abe05` | ota/813c-audit |
+| ccfa8345 | 1.2.2 / b46 | `01a0650a-7c89-7c33-a902-ed2177fce407` | ota/ccfa8345-audit |
+
+Device receipt is NOT yet proven: no production `Application Opened` carried these ids at
+publish time (03:2xZ). The next briefing should look for them before crediting anything.
+
+Rows moved:
+- **A28 ✅ shipped** — batch admitted by count (`batch-capacity.ts`); first refusal parks
+  the job and everything behind it as `held` (one `clothes_import_failed` with `held: n`,
+  `reason: closet_limit_reached|storage_limit_reached`, `stage: writing`); released only
+  when the client's picture of room has changed since the refusal. Effect metric:
+  `clothes_import_failed` per person per batch ≤ MAX_CONCURRENCY (3), never 46.
+- **A16 ✅ reverted in code** (the nightly killed the row; the code followed).
+- **A9 ✅ shipped** — `reaction-ranking.ts`: thumbs change ranking (±0.06, 45-day
+  half-life, core-keyed) in ONE sort with the favourite bonus. Effect metric: a disliked
+  core drops out of the top three on the next generation.
+- **A31 ✅ shipped** — `focusManager` wired to AppState; subscription query refetches on
+  foreground; client fold mirrors `effective_plan` (paid > trial; lapsed paid = free).
+- **A33 ✅ shipped** — four fleets, see table.
+- **A34 ✅ shipped** — shelf reads wait for an Explore visit.
+- **NEW A35 ✅ shipped (billing)** — `isStale` compared ISO strings in two spellings, so a
+  tie was unreachable and every expiry would have been dropped as stale; now compares
+  instants, revocations at a tie apply, plan changes at a tie apply. `effective_plan`
+  honours `current_period_end + 3d`. `asc-notifications` claims its ledger row first.
+  Never fired in production (no purchases) — fixed ahead of the first one.
+- **NEW A36 ✅ applied (DB)** — `authenticated` held TRUNCATE/TRIGGER/REFERENCES on 19
+  public tables (RLS does not govern TRUNCATE). Revoked; pgTAP plan 15→17 pins it.
+- **Styling** — shoeless closets get cores in The Repeat (12/25 live closets); knit-only
+  closets dress in heat; solid garments lose a phantom pattern scale.
+
+Founder decisions surfaced, not made: A24 (sharing default), A27b (one trial holder
+outside the clamp), the heat gate for knit cores when shirts exist (taste), the Ten's
+"Filing three pieces" masthead over an all-parked batch (taste), Plan showing one outfit
+for four days on the QA closet (worth a look, not diagnosed).
+
 ## Predictions being scored
 
 | id | made | prediction | falsifier | due | verdict |
