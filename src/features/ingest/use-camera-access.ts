@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { AppState, Linking } from 'react-native';
 
 /**
@@ -46,18 +46,8 @@ const useCameraPermissions: PermissionsHook =
     : () => [null, async () => null, async () => null];
 
 /**
- * Camera permission, asked for at the door.
- *
- * ASKED ON ARRIVAL, NOT ON THE SHUTTER. The capture stage is a live viewfinder;
- * a viewfinder with no camera permission is a black rectangle, and a black
- * rectangle is what the screen used to show — silently, until the shutter was
- * tapped and iOS finally asked. The founder's report of "a blank camera that
- * only asks after I click take-a-picture" is exactly that ordering, so the
- * request moves to mount: by the time anyone looks at the stage, iOS has either
- * put its alert over it or the preview is already running.
- *
- * The three states this returns are the three the stage has to draw, and they
- * are deliberately not the same as the four `PermissionResponse` can be in:
+ * The three states a camera-permission-gated stage has to draw, deliberately
+ * not the same as the four `PermissionResponse` can be in:
  *
  * - `checking` — we have not read the status yet, OR it is undetermined and the
  *   OS alert is up. Both are "don't claim anything yet": drawing the blocked
@@ -68,6 +58,18 @@ const useCameraPermissions: PermissionsHook =
  *   is final (`canAskAgain` goes false), so this state must offer Settings
  *   rather than another prompt. Apple rejects apps whose core screens dead-end
  *   on a declined permission, and this is a core screen.
+ *
+ * This used to be paired with a hook (`useCameraAccess`, removed) that fired
+ * the system request from an effect on mount — ASKED ON ARRIVAL, NOT ON THE
+ * SHUTTER, because a viewfinder with no permission is a silent black rectangle
+ * otherwise. That fixed a real bug (the founder's report of "a blank camera
+ * that only asks after I click take-a-picture") but traded it for a different
+ * one: the alert firing before any in-product rationale was on screen. `The
+ * Ten` and `TenCamera` were its last two callers; both now read this same
+ * three-state fact through `useCameraGate` below and raise the request from
+ * an explicit tap, behind `CameraAsk` — the same pre-permission moment CP-02
+ * gave the capture stage. `useCameraStatus` still reads this type read-only,
+ * for doors that only need to know the door's condition, never to knock on it.
  */
 export type CameraAccess = 'checking' | 'granted' | 'blocked';
 
@@ -120,21 +122,21 @@ function accessOf(permission: ReturnType<typeof useCameraPermissions>[0]): Camer
 /**
  * CP-02 — the pre-prompt, and the four states it needs to tell apart.
  *
- * `useCameraAccess` folds "never asked" into `checking` and fires the system
- * request from an effect on mount. That is right for the surfaces that call it
- * (`the-ten`, `ten-camera`) and it is exactly what CP-02 replaces on the
- * capture stage: "The ask states what the permission is for, that the following
- * prompt belongs to the system, and where the photograph goes... The second
- * action is a real alternative rather than a decline, so refusing does not end
- * the intake."
+ * The retired `useCameraAccess` folded "never asked" into `checking` and fired
+ * the system request from an effect on mount. That was CP-02's original
+ * exception: a pre-prompt is impossible if the system alert has already gone
+ * up by itself, so this hook asks for NOTHING on mount and hands the request
+ * back as a function instead. `unasked` is the state CP-02 draws — over
+ * `CameraAsk` (`src/components/ingest/camera-ask.tsx`), which states what the
+ * permission is for, that the following prompt belongs to the system, and
+ * where the photograph goes, with a real second door (never a decline) so
+ * refusing does not end the intake. The other three states are unchanged.
  *
- * A pre-prompt is impossible if the system alert has already gone up by itself,
- * so this hook asks for NOTHING on mount and hands the request back as a
- * function. `unasked` is the state CP-02 draws; the other three are unchanged.
- *
- * A separate hook rather than a flag on the old one, deliberately: the two
- * onboarding surfaces are outside this lane and must keep the behaviour they
- * were written against.
+ * Every surface that opens a live viewfinder uses this hook now — the capture
+ * stage first, and since the 2026-09-02 audit's P1 #33, The Ten's guided
+ * capture (`the-ten.tsx`, `ten-camera.tsx`) too: deep entry into onboarding
+ * used to fire the system dialog on arrival, before any of this screen's own
+ * rationale was ever read.
  */
 export type CameraGate = 'unasked' | 'checking' | 'granted' | 'blocked';
 
@@ -173,51 +175,4 @@ export function useCameraGate(): {
         : 'blocked';
 
   return { access, request, openSettings };
-}
-
-export function useCameraAccess(): { access: CameraAccess; openSettings: () => void } {
-  // Default behaviour of the permission hook is `get` on mount and no request —
-  // so this reads the status without prompting, and the effect below decides
-  // whether a prompt is owed.
-  const [permission, requestPermission, refreshPermission] = useCameraPermissions();
-
-  // One prompt per visit. `status` stays `undetermined` for as long as the
-  // alert is on screen, so without this guard any re-render during that window
-  // (the queue store ticks constantly during an import) would fire a second
-  // request at a permission the user is still looking at.
-  const asked = useRef(false);
-
-  useEffect(() => {
-    if (!permission || permission.granted || asked.current) return;
-    // Answered already — `denied` here means Settings is the only route, and
-    // re-requesting resolves instantly with no alert, which would just look
-    // like a tap that did nothing.
-    if (permission.status !== 'undetermined') return;
-    asked.current = true;
-    void requestPermission();
-  }, [permission, requestPermission]);
-
-  /**
-   * Re-read on foreground.
-   *
-   * The permission hook reads once and then only updates on a request it made
-   * itself, so a grant given anywhere else — most obviously in Settings, via
-   * the affordance the blocked state offers — would never reach this screen and
-   * the stage would stay blocked behind a permission that is now on. iOS
-   * usually terminates the app when a permission is toggled in Settings, which
-   * makes this belt-and-braces rather than the main path, but "usually" is not
-   * a thing to leave a black viewfinder resting on.
-   */
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refreshPermission();
-    });
-    return () => sub.remove();
-  }, [refreshPermission]);
-
-  const openSettings = useCallback(() => {
-    void Linking.openSettings();
-  }, []);
-
-  return { access: accessOf(permission), openSettings };
 }

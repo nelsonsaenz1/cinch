@@ -1,16 +1,20 @@
+import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // The exact A-04 component capture renders, so the two surfaces cannot drift —
 // add-clothes.tsx imports it the same way.
 import { DeclineExplainer } from '@/app/capture';
+import { CameraAsk } from '@/components/ingest/camera-ask';
+import { CloseDisc } from '@/components/ingest/capture-parts';
 import { ConsentSheet } from '@/components/ingest/consent-sheet';
 import { DeferredCameraView, type CameraViewHandle } from '@/components/ingest/lazy-camera-view';
 import { TenCameraChrome } from '@/components/onboarding/ten-camera-chrome';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useAiConsent, useGrantAiConsent } from '@/features/auth/use-consent';
 import { DECLINED_KEY, EXPLAINER_SEEN_KEY, readFlag, writeFlag } from '@/features/ingest/consent-mode';
-import { useCameraAccess } from '@/features/ingest/use-camera-access';
+import { useCameraGate } from '@/features/ingest/use-camera-access';
 import { useCapture, type CapturedAsset } from '@/features/ingest/use-capture';
 // Aliased: `track` below is this screen's job-tracking helper, and the two
 // would otherwise shadow each other.
@@ -42,6 +46,18 @@ import type { TenSlot } from '@/features/onboarding/ten-slots';
  * upload as before, declined commits ride the local pipeline (`local: true`),
  * the same working mode A-04 promises everywhere else. Only the never-answered
  * account sees the sheet, once, over the shot it is about.
+ *
+ * ── THE CAMERA PERMISSION ASK (2026-09-02 audit, P1 #33) ────────────────────
+ *
+ * Also now asks at the moment it is needed rather than on mount: an
+ * `access === 'unasked'` reader sees `CameraAsk` — capture.tsx's Frame 01,
+ * imported rather than re-described — before the live stage below ever
+ * renders, and the system dialog only fires from that card's own button. This
+ * component used to call `useCameraAccess`, which fired the system dialog
+ * from an effect the instant this component mounted; for `The Ten` that meant
+ * the very first photograph slot a brand-new account ever tapped, with no
+ * rationale of any kind on screen first. `start === 'library'` is unaffected
+ * — it never opens the stage this ask guards.
  */
 export function TenCamera({
   slot,
@@ -63,7 +79,7 @@ export function TenCamera({
   onFilled: (itemId: string) => void;
   onCancel: () => void;
 }) {
-  const { access, openSettings } = useCameraAccess();
+  const { access, request: askForCamera, openSettings } = useCameraGate();
   /**
    * Acquiring and committing are two steps (see the header of use-capture.ts).
    * The Ten commits immediately: the tenth slot IS the free ceiling, so a
@@ -243,6 +259,30 @@ export function TenCamera({
           setConsentVisible(true);
         }}
       />
+    );
+  }
+
+  // ── CP-02 inside The Ten (2026-09-02 audit, P1 #33) ───────────────────────
+  //
+  // The exact ask capture.tsx's Frame 01 raises, over the exact same live
+  // stage this component is a beat away from opening: the shared component so
+  // the sentence a reader gets here cannot drift from the one they would get
+  // on any other capture surface. On canvas, not the ink stage below — there
+  // is no preview yet to float an ask over, and a dark rectangle behind a
+  // permission ask is the black viewfinder this fix exists to stop showing.
+  //
+  // `start === 'library'` never reaches here: the effect above auto-picks the
+  // library on mount and this component never opens a viewfinder for that
+  // door, so there is nothing to ask permission for.
+  if (access === 'unasked' && start !== 'library') {
+    return (
+      <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-canvas">
+        <StatusBar style="dark" />
+        <View className="flex-row items-center justify-start px-gutter pt-2">
+          <CloseDisc tone="canvas" onPress={onCancel} />
+        </View>
+        <CameraAsk onAsk={askForCamera} onLibrary={library} />
+      </SafeAreaView>
     );
   }
 

@@ -25,7 +25,7 @@ import { useSignedUrls } from '@/features/closet/use-image-urls';
 import { CAMERA_AVAILABLE } from '@/features/ingest/camera-availability';
 import { matchOfferJob } from '@/features/ingest/match-eligibility';
 import { selectActiveCount, useQueueStore } from '@/features/ingest/queue-store';
-import { useCameraAccess } from '@/features/ingest/use-camera-access';
+import { useCameraGate } from '@/features/ingest/use-camera-access';
 import { useUnfinishedWalkthrough } from '@/features/intake/queries';
 import { starterReadiness } from '@/features/onboarding/starter-readiness';
 import {
@@ -112,7 +112,14 @@ import type { Garment } from '@/lib/styling';
 export default function TheTenScreen() {
   const router = useRouter();
   const wardrobe = useWardrobe();
-  const camera = useCameraAccess();
+  // CP-02, since the 2026-09-02 audit's P1 #33: this used to be
+  // `useCameraAccess`, which fired the system dialog from an effect the
+  // instant this screen mounted — before a first-run reader had seen any of
+  // this route's own rationale for the camera, and often before they had
+  // even chosen the photograph door over TR-05's other three. `useCameraGate`
+  // reads the same fact without asking; the actual request now happens where
+  // `TenCamera` raises `CameraAsk`, from the explicit tap that opens it.
+  const camera = useCameraGate();
   /** TR-06's card, or null. Read on mount so the doors never swap under a
    *  reader who is already looking at them. */
   const unfinished = useUnfinishedWalkthrough();
