@@ -814,13 +814,21 @@ export default function PlanScreen() {
           entering={FadeIn.duration(motion.duration.fast)}
           exiting={FadeOut.duration(motion.duration.fast)}>
           {weekFailed || weekStalled ? (
-            <ErrorState
-              kicker="Couldn’t reach it"
-              title="Couldn’t lay out your week"
-              body="Cinch couldn’t read everything the days ahead need — your closet, or this week’s weather. That’s a connection problem, not a change to your things: nothing in your wardrobe has moved."
-              onRetry={retryWeek}
-              retrying={wardrobe.isRefetching || weekForecast.isRefetching}
-            />
+            // `pb-24` for the same reason the empty branch below carries its
+            // own clearance: this is the other Week branch that does not
+            // scroll inside a padded container, so the tab bar's 96 points are
+            // this wrapper's to give. `ErrorState` now scrolls when its own
+            // content outgrows the screen (directive #35), and the padding is
+            // what keeps the retry clear of the glass once it does.
+            <View className="flex-1 pb-24">
+              <ErrorState
+                kicker="Couldn’t reach it"
+                title="Couldn’t lay out your week"
+                body="Cinch couldn’t read everything the days ahead need — your closet, or this week’s weather. That’s a connection problem, not a change to your things: nothing in your wardrobe has moved."
+                onRetry={retryWeek}
+                retrying={wardrobe.isRefetching || weekForecast.isRefetching}
+              />
+            </View>
           ) : weekLoading ? (
             <Animated.View key="week-loading" exiting={FadeOut.duration(motion.duration.fast)}>
               <WeekSkeleton />

@@ -84,6 +84,24 @@ export type PeopleSearchView = {
 // masthead back 15% (the `display` token moved 40 → 34 in the same pass).
 const TITLE_SIZE = 31;
 const TITLE_LEADING = leading('instrument', TITLE_SIZE, 1.05);
+
+/**
+ * The compact navigation title, above `PEOPLE_SEARCH_STACK_SCALE`.
+ *
+ * Directive #37: this page "technically scrolls at large text but loses usable
+ * viewport and hierarchy — People Search puts Cancel below the enlarged
+ * title", and the remedy it names is a compact navigation bar.
+ *
+ * 22 is chosen so that the title AS DRAWN at the accessibility sizes — 22 ×
+ * `MAX_DISPLAY_SCALE` — lands on 31, exactly the size the standard-size page
+ * draws. The bar is then the same height at every setting, which is what
+ * "compact" has to mean for a masthead that sits above a keyboard: this is a
+ * `formSheet` with a focused field, so every point the title takes is a point
+ * of the answer list, and the enlarged title was spending four of them on two
+ * words the reader already knows.
+ */
+const TITLE_SIZE_COMPACT = 22;
+const TITLE_LEADING_COMPACT = leading('instrument', TITLE_SIZE_COMPACT, 1.05);
 const HEADLINE_SIZE = 31;
 const HEADLINE_LEADING = leading('instrument', HEADLINE_SIZE, 1.1);
 
@@ -176,8 +194,11 @@ export function PeopleSearchBody({
       <View className="px-gutter pt-1.5" collapsable={false}>
         <Masthead onCancel={view.onCancel} large={large} />
         {/* 20/24, up from 8/12 — founder call, 2026-08-24: with the title a
-            step smaller the field crowded it, so it drops to clear air. */}
-        <View style={{ marginTop: large ? 24 : 20 }}>
+            step smaller the field crowded it, so it drops to clear air. The
+            large-type value is now 20 as well: the 24 bought clear air under a
+            43 pt title that no longer exists, and #37's complaint is about
+            viewport, so the four points go back to the list. */}
+        <View style={{ marginTop: 20 }}>
           <SearchField
             size="page"
             inputRef={view.inputRef}
@@ -224,12 +245,29 @@ export function PeopleSearchBody({
 }
 
 /**
- * Title and Cancel. At large type Cancel takes its own line rather than
- * fighting the title for the measure — the frame's answer, and the honest
- * one: two things that cannot both fit are not laid out side by side.
+ * Title and Cancel, on one row at every size.
+ *
+ * ── WHY CANCEL CAME BACK UP ───────────────────────────────────────────────
+ *
+ * This used to drop Cancel onto its own line above the accessibility
+ * threshold, on the argument that "two things that cannot both fit are not
+ * laid out side by side". The premise was the part that was wrong: they cannot
+ * both fit only if the title insists on being 43 points tall. Directive #37
+ * names the result — "People Search puts Cancel below the enlarged title" —
+ * under the heading of pages that scroll at large text but lose hierarchy, and
+ * the loss is real: the way out of a sheet stopped being where the way out of
+ * every other sheet in the app is, and a page whose whole job is one field
+ * spent two lines on its own name.
+ *
+ * So the title goes compact instead (`TITLE_SIZE_COMPACT`) and the row holds.
+ * The measure still gives; the title still shortens rather than pushing Cancel
+ * off its edge, because `minWidth: 0` is still what does that.
  */
 function Masthead({ onCancel, large }: { onCancel: () => void; large: boolean }) {
   const theme = useTheme();
+
+  const titleSize = large ? TITLE_SIZE_COMPACT : TITLE_SIZE;
+  const titleLeading = large ? TITLE_LEADING_COMPACT : TITLE_LEADING;
 
   const title = (
     <Text
@@ -239,9 +277,9 @@ function Masthead({ onCancel, large }: { onCancel: () => void; large: boolean })
       // `trim` reads the VARIANT's table, which is set for 40 — so the cap
       // trim for the size actually drawn is computed here instead.
       style={{
-        fontSize: TITLE_SIZE,
-        lineHeight: TITLE_LEADING,
-        ...capTrim('instrument', TITLE_SIZE, TITLE_LEADING),
+        fontSize: titleSize,
+        lineHeight: titleLeading,
+        ...capTrim('instrument', titleSize, titleLeading),
       }}>
       {COPY.title}
     </Text>
@@ -260,15 +298,6 @@ function Masthead({ onCancel, large }: { onCancel: () => void; large: boolean })
       </Text>
     </Pressable>
   );
-
-  if (large) {
-    return (
-      <View style={{ gap: 4 }}>
-        {title}
-        <View className="self-start">{cancel}</View>
-      </View>
-    );
-  }
 
   return (
     <View className="flex-row items-end justify-between gap-3">

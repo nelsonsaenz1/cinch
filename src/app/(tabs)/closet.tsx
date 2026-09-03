@@ -8,11 +8,13 @@ import {
   Platform,
     RefreshControl,
   ScrollView,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import { CapacityBand } from '@/components/closet/capacity-band';
 import { ClosetGrid } from '@/components/closet/closet-grid';
 import { ClosetInspirationSheet } from '@/components/closet/closet-inspiration-sheet';
@@ -262,12 +264,16 @@ export default function ClosetScreen() {
     body = (
       <>
         <EyebrowHeader />
-        <ErrorState
-          title="Couldn’t read your closet"
-          body="Check your connection and try again."
-          retrying={screen.refreshing}
-          onRetry={screen.refresh}
-        />
+        {/* The tab bar's 96 is this branch's to give: `ErrorState` fills and
+            now scrolls (directive #35), but it cannot know it is on a tab. */}
+        <View className="flex-1 pb-24">
+          <ErrorState
+            title="Couldn’t read your closet"
+            body="Check your connection and try again."
+            retrying={screen.refreshing}
+            onRetry={screen.refresh}
+          />
+        </View>
       </>
     );
   } else if (screen.items.length === 0) {
@@ -988,6 +994,55 @@ function Rail({
  * exists to apologise for a rail that ends flush, and this one does not.
  */
 function CategoryChipsRow({ screen }: { screen: ClosetScreenModel }) {
+  const { fontScale } = useWindowDimensions();
+  const ax = fontScale >= AX_FONT_SCALE;
+
+  const chips = screen.categories.map(({ category, count }) => (
+    <Chip
+      key={category}
+      label={category}
+      count={count}
+      selected={screen.category === category}
+      // C-01's active chip is ink, not the accent — oxblood on this screen
+      // is reserved for the unworn figure and the never-worn flags.
+      selectedGround="ink"
+      onPress={() => screen.setCategory(category)}
+    />
+  ));
+
+  /**
+   * Directives #9 and #35 — the rail wraps above `AX_FONT_SCALE` rather than
+   * scrolling.
+   *
+   * C-03's argument for a bare rail is that "a rail that is padded honestly
+   * does not need" a fade, and at the standard sizes that holds: five or six
+   * chips at 32 pt fit inside a 353 pt measure with the trailing gutter
+   * visible, so the row reads as complete. At the accessibility sizes it does
+   * not hold and cannot be made to: an "Outerwear · 12" chip at 1.8× is most
+   * of the measure on its own, so the row becomes a two-chip window with a cut
+   * third chip at the edge and eight categories the reader has no way to know
+   * are there. That is the "visibly clips the rightmost chip" the audit names,
+   * and the audit's own third option — a wrapping strategy — is the one that
+   * removes the cut instead of decorating it.
+   *
+   * Wrapped, there is no horizontal scroll, no partial chip, and every
+   * category is on screen at once. The atlas's no-fade rule is untouched,
+   * because below the threshold this is still exactly the rail C-03 drew.
+   */
+  if (ax) {
+    return (
+      <View
+        className="flex-row flex-wrap"
+        style={{
+          gap: CHIP_GAP,
+          paddingHorizontal: GUTTER,
+          paddingVertical: CHIP_ROW_PAD_Y,
+        }}>
+        {chips}
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       horizontal
@@ -1003,18 +1058,7 @@ function CategoryChipsRow({ screen }: { screen: ClosetScreenModel }) {
         minHeight: CHIP_ROW_HEIGHT,
         alignItems: 'center',
       }}>
-      {screen.categories.map(({ category, count }) => (
-        <Chip
-          key={category}
-          label={category}
-          count={count}
-          selected={screen.category === category}
-          // C-01's active chip is ink, not the accent — oxblood on this screen
-          // is reserved for the unworn figure and the never-worn flags.
-          selectedGround="ink"
-          onPress={() => screen.setCategory(category)}
-        />
-      ))}
+      {chips}
     </ScrollView>
   );
 }

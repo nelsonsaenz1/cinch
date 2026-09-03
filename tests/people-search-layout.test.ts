@@ -122,7 +122,42 @@ test('at the accessibility sizes composition changes instead of truncating', () 
   // lines stop truncating and are allowed to wrap.
   assert.match(CODE, /alignSelf: large \? 'stretch' : 'auto'/, 'the control goes full width');
   assert.match(CODE, /large \? 'column' : 'row'/, 'rows stack');
-  assert.match(CODE, /if \(large\)/, 'the masthead drops Cancel onto its own line');
+
+  /**
+   * ── CHANGED 2026-09-02, DIRECTIVE #37 ──────────────────────────────────
+   *
+   * This line used to read:
+   *
+   *   assert.match(CODE, /if \(large\)/, 'the masthead drops Cancel onto its
+   *   own line');
+   *
+   * and pinned the masthead's own two-line arrangement at large type. The
+   * founder's audit names that arrangement as the defect rather than the fix
+   * — "People Search puts Cancel below the enlarged title", filed under pages
+   * that scroll at large text but lose usable viewport and hierarchy — and
+   * prescribes a compact navigation bar instead.
+   *
+   * The contract this test is named for is untouched: nothing is truncated,
+   * and nothing is drawn below its documented size. `TITLE_SIZE_COMPACT` × the
+   * display ceiling is 22 × 1.4 = 30.8, so the title AS RENDERED at the
+   * accessibility sizes is the same 31 the standard-size page renders. What
+   * changed is that the bar stops growing, not that the type shrank.
+   */
+  assert.match(
+    CODE,
+    /const TITLE_SIZE_COMPACT = 22;/,
+    'the masthead has no compact title to fall back to',
+  );
+  assert.match(
+    CODE,
+    /const titleSize = large \? TITLE_SIZE_COMPACT : TITLE_SIZE;/,
+    'the large-type masthead is not compact',
+  );
+  assert.doesNotMatch(
+    CODE,
+    /if \(large\) \{\s*return \(\s*<View style=\{\{ gap: 4 \}\}>/,
+    'Cancel is back below the title',
+  );
 });
 
 test('every control on the page clears the 44pt floor', () => {

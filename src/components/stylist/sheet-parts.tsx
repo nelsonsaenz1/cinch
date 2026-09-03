@@ -8,6 +8,7 @@ import { usePressFeedback } from '@/components/ui/use-press-feedback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { AX_STACK_SCALE } from '@/features/closet/dynamic-type';
+import { MAX_TEXT_SCALE } from '@/theme/type-scale';
 import { DOORS, DOOR_RADIUS, doorColumns, doorWell } from '@/features/stylist/stylist-spec';
 import { MIN_TAP_TARGET, useTheme } from '@/theme/tokens';
 
@@ -476,16 +477,38 @@ export function OpeningSkeleton() {
  */
 export function StylistHeader({ onNewQuestion }: { onNewQuestion?: () => void }) {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const ax = fontScale >= AX_STACK_SCALE;
 
   return (
-    <View className="flex-row items-center gap-3 border-b border-hairline px-gutter pb-3 pt-5">
-      <View className="h-9 w-9 items-center justify-center rounded-full bg-accent-light">
-        <SymbolView name="sparkles" size={15} tintColor={theme.accent} resizeMode="scaleAspectFit" />
-      </View>
-      <View className="flex-1">
-        <Text variant="plate" trim accessibilityRole="header">
-          Stylist
-        </Text>
+    <View
+      // Directive #35 — the mark, the name and the way out share a row until
+      // "New question" at 1.8x is 150 pt of it. Above the threshold the row
+      // becomes a column: mark and name on the first line, the escape on its
+      // own beneath, at full measure and still the same 44 pt target.
+      className={
+        ax
+          ? 'border-b border-hairline px-gutter pb-3 pt-5'
+          : 'flex-row items-center gap-3 border-b border-hairline px-gutter pb-3 pt-5'
+      }
+      style={ax ? { gap: 10 } : undefined}>
+      {/* Mark and name are one unit in both arrangements — `flex-1` inside a
+          row so the escape still sits at the trailing edge at the default
+          size, and a plain row on its own line above it at the large ones. */}
+      <View className="flex-1 flex-row items-center gap-3">
+        <View className="h-9 w-9 items-center justify-center rounded-full bg-accent-light">
+          <SymbolView
+            name="sparkles"
+            size={15}
+            tintColor={theme.accent}
+            resizeMode="scaleAspectFit"
+          />
+        </View>
+        <View className="flex-1">
+          <Text variant="plate" trim accessibilityRole="header">
+            Stylist
+          </Text>
+        </View>
       </View>
       {/* Reachable only once there is a thread to leave — the designed opening
           (greeting, four doors, questionnaire) was otherwise reachable exactly
@@ -508,8 +531,12 @@ export function StylistHeader({ onNewQuestion }: { onNewQuestion?: () => void })
             borderRadius: 12,
             paddingHorizontal: 14,
             paddingVertical: 8,
-            minHeight: 36,
+            // 36 is the disc's height beside it. On its own line it takes the
+            // HIG's floor instead, because nothing is holding the row open.
+            minHeight: ax ? MIN_TAP_TARGET : 36,
             justifyContent: 'center',
+            alignItems: ax ? 'center' : undefined,
+            alignSelf: ax ? 'stretch' : undefined,
           }}
           className="active:opacity-80">
           <Text variant="label" style={{ color: theme.canvas }}>
@@ -640,6 +667,7 @@ export function Composer({
 }: ComposerProps) {
   const theme = useTheme();
   const sendFeedback = usePressFeedback();
+  const { fontScale } = useWindowDimensions();
 
   /**
    * The armed test, computed once and used for the guard, the fill and the
@@ -686,7 +714,24 @@ export function Composer({
         // (src/app/event/[id]/comments.tsx:255-256); this follows that
         // precedent. `maxHeight` is unchanged — the field grows with a long
         // question, to a point.
-        style={{ minHeight: MIN_TAP_TARGET, maxHeight: 110 }}
+        // Directive #35, "Stylist's prompt/input typography overwhelms the
+        // viewport". A `TextInput` is not a `Text`: `ui/text.tsx` applies the
+        // house ceilings for every label on the screen, and this field, being a
+        // raw RN primitive, scaled past them — at AX5 a 17 pt callout became a
+        // 53 pt line, so a docked composer three lines high was most of an
+        // iPhone SE and the question being typed could not be read against the
+        // answer above it. `MAX_TEXT_SCALE` is the same 1.8 every sentence on
+        // this screen already obeys, and `type-scale.ts` names a `TextInput`
+        // as exactly the case for setting it by hand.
+        maxFontSizeMultiplier={MAX_TEXT_SCALE}
+        // The 110 pt ceiling was three lines at the default size and one and a
+        // half at the largest. Scaled by the same multiplier the text is, it
+        // stays three lines at every setting — which is what "the field grows
+        // with a long question, to a point" meant.
+        style={{
+          minHeight: MIN_TAP_TARGET,
+          maxHeight: 110 * Math.min(fontScale, MAX_TEXT_SCALE),
+        }}
         // `font-body text-callout` — the same computed, floor-safe line
         // height every other field carries (src/theme/font-metrics.js).
         // The bare `text-ink` this used to carry set colour only, leaving

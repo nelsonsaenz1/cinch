@@ -108,14 +108,21 @@ export default function PinterestConnectionScreen() {
 
   return (
     <PrivacyPage parent="Privacy and data" title="Pinterest inspiration" intro={INTRO} onBack={() => router.back()}>
-      <View className="rounded-md border border-rule px-4 py-3">
+      {/* `PrivacyPage` gutters its own title and intro and hands the rest of
+          the page raw — every other page built on it (the index, Delete)
+          carries `px-gutter`/`mx-gutter` on each block it passes in. This one
+          did not, so the status card and both buttons ran edge to edge while
+          the sentences above and below them sat on the gutter: the hierarchy
+          loss directive #37 files this screen under, visible at every type
+          size and worst at the largest, where the card is tallest. */}
+      <View className="mx-gutter rounded-md border border-rule px-4 py-3">
         <Text variant="eyebrow">Status</Text>
         <Text variant="body" className="mt-1">
           {statusLine}
         </Text>
       </View>
 
-      <View className="mt-6">
+      <View className="mt-6 px-gutter">
         {status === 'connected' ? (
           <Button
             title="Disconnect Pinterest"
@@ -135,15 +142,16 @@ export default function PinterestConnectionScreen() {
       {/* P2 #53 — three scannable bullets rather than three paragraphs of
           OAuth, storage and AI-handling prose. Nothing here is new: each
           bullet is one sentence off the paragraph it replaces, and the full
-          wording is one tap away, unchanged. */}
-      <View className="mt-8 gap-3">
+          wording is one tap away, unchanged. Gutter-inset like every other
+          PrivacyPage child (#37). */}
+      <View className="mt-8 gap-3 px-gutter">
         <Text variant="eyebrow">What this does — and doesn’t</Text>
         <BulletLine>Read-only access to your boards and Pins — approved on Pinterest’s own page, never your password.</BulletLine>
         <BulletLine>Fetched live each time you ask, credited, and let go — never copied, stored or sent to an AI model.</BulletLine>
         <BulletLine>The connection is held encrypted. Disconnecting, or deleting your account, deletes it.</BulletLine>
       </View>
 
-      <Disclosure label="Learn more" variant="link" className="mt-4">
+      <Disclosure label="Learn more" variant="link" className="mt-4 px-gutter">
         <View className="gap-4">
           <Text variant="body" className="text-muted">
             Cinch asks Pinterest for read-only access to your boards and Pins, nothing more. You

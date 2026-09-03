@@ -1,7 +1,8 @@
 import { SymbolView } from 'expo-symbols';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, useWindowDimensions, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
+import { AX_FONT_SCALE } from '@/components/today/reaction-spec';
 import { useTheme } from '@/theme/tokens';
 
 import { settingsRowSpec } from './settings-row-spec';
@@ -71,6 +72,8 @@ export function SettingsRow({
   affordance?: 'chevron' | 'none';
 }) {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const ax = fontScale >= AX_FONT_SCALE;
   const spec = settingsRowSpec({ tone, external, loading, disabled, affordance });
   const feedback = usePressFeedback(!spec.inert);
   const iconColor = theme[spec.icon];
@@ -104,9 +107,24 @@ export function SettingsRow({
             {sublabel}
           </Text>
         ) : null}
+        {/* Directive #37 — the row's own rule, applied where it finally
+            bites. This component already states it: "a value which cannot
+            share the line goes underneath", which is the whole reason
+            `sublabel` exists. `detail` is the short trailing kind — "2
+            waiting", "On" — and at the standard sizes it shares the line
+            comfortably. At the accessibility sizes it is 90 points of
+            unshrinkable type (`flex-none`) taken off a label column that then
+            breaks "Notifications" across two lines to make room for a number.
+            So above the threshold the value takes the position the rule
+            already names for it, and the label gets the measure back. */}
+        {detail && ax ? (
+          <Text variant="caption" className="mt-1 text-muted">
+            {detail}
+          </Text>
+        ) : null}
       </View>
       <View className="flex-none flex-row items-center gap-2">
-        {detail ? (
+        {detail && !ax ? (
           <Text variant="caption" className="text-muted">
             {detail}
           </Text>
