@@ -28,8 +28,14 @@ export const CAMERA_UNAVAILABLE_TITLE = 'This build of Cinch cannot open the cam
  * apology: a user did nothing wrong by installing the app before a feature
  * existed.
  */
+/**
+ * P2 #55 — "the other three still work" assumed the reader was holding a
+ * mental count of four entry methods. Named instead: the two doors this same
+ * screen offers as buttons, so the sentence and the buttons agree rather than
+ * asking the reader to remember a number.
+ */
 export const CAMERA_UNAVAILABLE_BODY =
-  'The app was installed before the camera was part of it. Updating restores the door; until then the other three still work and nothing you have filed is affected.';
+  'The app was installed before the camera was part of it. Updating restores the door — until then you can still add clothes from your photo library or by describing them, and nothing you have filed is affected.';
 
 /** Both are real doors into the same queue, so both are actions, not advice. */
 export const CAMERA_UNAVAILABLE_LIBRARY = 'Use the photo library';

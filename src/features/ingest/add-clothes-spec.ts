@@ -128,8 +128,14 @@ export const LOCAL_MODE_ACTION = 'Change this';
  * notice geometry. Recorded as a deviation.
  */
 export const SHELF_FULL_TITLE = 'The active shelf is full';
+/**
+ * P2 #43 — shortened from three sentences to one. Four self-explanatory door
+ * choices already sit above this notice; what a reader needs here is the one
+ * consequence (nothing is lost) and the one fact worth knowing (a stored
+ * piece keeps its history), not a restatement of how storing works.
+ */
 export const SHELF_FULL_BODY =
-  'Adding still starts normally. Once the new photograph or description exists, Cinch asks you to store a piece you are not reaching for — nothing you just added is lost while you decide. Stored pieces keep their photographs, wear history and price.';
+  'Adding still works. Cinch will ask you to store a piece you are not reaching for once the new one exists — nothing is lost, and a stored piece keeps its photo, wear history and price.';
 export const SHELF_FULL_ACTION = 'See stored';
 
 /**

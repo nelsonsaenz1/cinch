@@ -1,8 +1,13 @@
 import { View } from 'react-native';
 
 import { PrivacyPage } from '@/components/privacy/privacy-page';
-import { Button, Text } from '@/components/ui';
-import { DELETION_HORIZONS, EXPORT_FIRST_NOTE } from '@/features/privacy/copy';
+import { Button, Disclosure, Text } from '@/components/ui';
+import {
+  DELETE_SUMMARY_REMAINS,
+  DELETE_SUMMARY_WHAT,
+  DELETION_HORIZONS,
+  EXPORT_FIRST_NOTE,
+} from '@/features/privacy/copy';
 import { useTheme } from '@/theme/tokens';
 
 /**
@@ -68,23 +73,47 @@ export function DeleteAccountPage({
       title="Delete your closet and account"
       intro="Here is exactly what happens, before you decide."
       onBack={onBack}>
-      {/* Rules, not a card: the sections are one list, the same treatment the
-          index uses. Body at 17px in `muted` — the group's floor is that no
-          legal sentence is set below 15 pt, and every sentence here is one. */}
-      <View className="mt-6">
-        {DELETION_HORIZONS.map((horizon, index) => (
-          <View
-            key={horizon.title}
-            className={`px-gutter py-4 ${index === 0 ? '' : 'border-t border-hairline'}`}>
-            <Text variant="body">
-              {horizon.title}
-            </Text>
-            <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
-              {horizon.body}
-            </Text>
-          </View>
-        ))}
+      {/* P1 #51 — two short lines rather than an engineering explanation.
+          "Cascades through every table", "moderation records", "an AI-cost
+          accounting ledger" are accurate and belong one tap down, not here:
+          what is deleted, what legally must remain. Irreversibility is the
+          tray panel just below, unchanged. Body at 17px in `muted` — the
+          group's floor is that no legal sentence is set below 15 pt. */}
+      <View className="mt-6 gap-4 px-gutter">
+        <View>
+          <Text variant="body">What&rsquo;s deleted</Text>
+          <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
+            {DELETE_SUMMARY_WHAT}
+          </Text>
+        </View>
+        <View>
+          <Text variant="body">What must remain</Text>
+          <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
+            {DELETE_SUMMARY_REMAINS}
+          </Text>
+        </View>
       </View>
+
+      <Disclosure
+        label="Learn more"
+        variant="link"
+        className="mt-4 mx-gutter"
+        summary="The exact detail, table by table.">
+        {/* Rules, not a card: the sections are one list, the same treatment
+            the index uses — unchanged from what shipped before this pass. */}
+        <View className="border-t border-hairline">
+          {DELETION_HORIZONS.map((horizon, index) => (
+            <View key={horizon.title} className={`py-4 ${index === 0 ? '' : 'border-t border-hairline'}`}>
+              <Text variant="body">
+                {horizon.title}
+              </Text>
+              <Text variant="body" className="mt-1" style={{ color: theme.muted }}>
+                {horizon.body}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </Disclosure>
 
       <View className="mx-gutter mt-5 rounded-lg bg-tray p-4">
         <Text variant="body" style={{ color: theme.muted }}>

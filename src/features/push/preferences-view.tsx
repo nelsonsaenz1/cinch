@@ -185,21 +185,21 @@ export function NotificationPreferencesView({
           out of counts, names and event titles, and no branch of it can reach
           an image. The 30 days is `RETENTION_DAYS`, which is itself the
           `interval '30 days'` in `20260810100100_activity_feed.sql:116`. */}
+      {/* P2 #25 — one concise line rather than a stack of them. Every fact
+          this page's own switches don't already carry, said once: nothing is
+          lost by turning things off, no photograph ever rides in a
+          notification, and quiet hours are the phone's, not a second setting
+          here. */}
       {denied ? (
         <Text variant="note" className="mt-5">
           Everything in Cinch still works. Requests, invitations and comments wait for you in
           Activity, for the same {RETENTION_DAYS} days either way.
         </Text>
       ) : (
-        <>
-          <Text variant="note" className="mt-5">
-            A notification never contains a garment photograph. Turning everything off leaves Cinch
-            fully usable; Activity keeps the same {RETENTION_DAYS} days either way.
-          </Text>
-          <Text variant="note" className="mt-2.5">
-            Quiet hours follow your phone&rsquo;s Do Not Disturb. Cinch adds none of its own.
-          </Text>
-        </>
+        <Text variant="note" className="mt-5">
+          A notification never contains a garment photograph, and quiet hours follow your phone
+          &rsquo;s Do Not Disturb. Turning everything off leaves Cinch fully usable.
+        </Text>
       )}
     </>
   );

@@ -49,12 +49,17 @@ test('the probe does not import the package it is deciding about', () => {
   assert.match(src, /requireOptionalNativeModule/);
 });
 
-test('the copy is the atlas’s, verbatim', () => {
+test('the copy names the alternatives rather than counting them', () => {
+  // 2026-09-02 copy-reduction pass, P2 #55: "the other three still work"
+  // assumed the reader was holding a count of four entry methods in their
+  // head. The body now names the two doors this same screen draws as
+  // buttons, so the sentence and the buttons agree.
   assert.equal(CAMERA_UNAVAILABLE_TITLE, 'This build of Cinch cannot open the camera.');
   assert.equal(
     CAMERA_UNAVAILABLE_BODY,
-    'The app was installed before the camera was part of it. Updating restores the door; until then the other three still work and nothing you have filed is affected.',
+    'The app was installed before the camera was part of it. Updating restores the door — until then you can still add clothes from your photo library or by describing them, and nothing you have filed is affected.',
   );
+  assert.doesNotMatch(CAMERA_UNAVAILABLE_BODY, /the other three/);
   assert.equal(CAMERA_UNAVAILABLE_LIBRARY, 'Use the photo library');
   assert.equal(CAMERA_UNAVAILABLE_DESCRIBE, 'Describe it instead');
   assert.equal(CAMERA_UNAVAILABLE_HELP, 'How to update Cinch');

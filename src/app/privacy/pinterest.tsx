@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Alert, View } from 'react-native';
 
-import { Button, Text } from '@/components/ui';
+import { Button, Disclosure, Text } from '@/components/ui';
 import { PrivacyPage } from '@/components/privacy/privacy-page';
 import { useToast } from '@/components/ui/toast-host';
 import { fullDate } from '@/features/privacy/format';
@@ -10,6 +10,29 @@ import {
   useDisconnectPinterest,
   usePinterestConnection,
 } from '@/features/recreate/pinterest';
+import { useTheme } from '@/theme/tokens';
+
+/**
+ * One scannable fact, dot-led — the same aria-hidden-dot shape
+ * `closet-visibility-page.tsx`'s scope list uses, so a screen reader hears one
+ * sentence rather than a bullet character followed by one.
+ */
+function BulletLine({ children }: { children: string }) {
+  const theme = useTheme();
+  return (
+    <View className="flex-row gap-2.5" accessible>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        className="mt-2 h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: theme.ghost }}
+      />
+      <Text variant="body" className="min-w-0 flex-1 text-muted">
+        {children}
+      </Text>
+    </View>
+  );
+}
 
 /**
  * PD-05 — Pinterest inspiration: connect, status, disconnect, and the
@@ -109,22 +132,34 @@ export default function PinterestConnectionScreen() {
         )}
       </View>
 
-      <View className="mt-8 gap-4">
+      {/* P2 #53 — three scannable bullets rather than three paragraphs of
+          OAuth, storage and AI-handling prose. Nothing here is new: each
+          bullet is one sentence off the paragraph it replaces, and the full
+          wording is one tap away, unchanged. */}
+      <View className="mt-8 gap-3">
         <Text variant="eyebrow">What this does — and doesn’t</Text>
-        <Text variant="body" className="text-muted">
-          Cinch asks Pinterest for read-only access to your boards and Pins, nothing more. You
-          approve it on Pinterest’s own sign-in page; Cinch never sees your Pinterest password.
-        </Text>
-        <Text variant="body" className="text-muted">
-          Boards and Pins are fetched live each time you ask, shown with credit and a link back to
-          Pinterest, and let go. Cinch doesn’t copy them, store them, or send them to an AI model —
-          your closet version is built on your phone, from your own clothes.
-        </Text>
-        <Text variant="body" className="text-muted">
-          The connection itself is held server-side, encrypted. Disconnecting deletes it; deleting
-          your account deletes it too.
-        </Text>
+        <BulletLine>Read-only access to your boards and Pins — approved on Pinterest’s own page, never your password.</BulletLine>
+        <BulletLine>Fetched live each time you ask, credited, and let go — never copied, stored or sent to an AI model.</BulletLine>
+        <BulletLine>The connection is held encrypted. Disconnecting, or deleting your account, deletes it.</BulletLine>
       </View>
+
+      <Disclosure label="Learn more" variant="link" className="mt-4">
+        <View className="gap-4">
+          <Text variant="body" className="text-muted">
+            Cinch asks Pinterest for read-only access to your boards and Pins, nothing more. You
+            approve it on Pinterest’s own sign-in page; Cinch never sees your Pinterest password.
+          </Text>
+          <Text variant="body" className="text-muted">
+            Boards and Pins are fetched live each time you ask, shown with credit and a link back to
+            Pinterest, and let go. Cinch doesn’t copy them, store them, or send them to an AI model —
+            your closet version is built on your phone, from your own clothes.
+          </Text>
+          <Text variant="body" className="text-muted">
+            The connection itself is held server-side, encrypted. Disconnecting deletes it; deleting
+            your account deletes it too.
+          </Text>
+        </View>
+      </Disclosure>
     </PrivacyPage>
   );
 }

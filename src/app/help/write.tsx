@@ -9,6 +9,7 @@ import { DiagnosticsPanel } from '@/components/help/diagnostics-panel';
 import { HelpSentView } from '@/components/help/sent-view';
 import { SUPPORT_ADDRESS } from '@/components/help/contact-card';
 import { Chip } from '@/components/ui/chip';
+import { Disclosure } from '@/components/ui/disclosure';
 import { KeyboardAvoidingScreen, KeyboardAwareScrollView } from '@/components/ui/keyboard-aware-scroll-view';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
@@ -163,6 +164,14 @@ export default function WriteToUsScreen() {
           <Text variant="title" trim accessibilityRole="header">
             Write to us
           </Text>
+          {/* P2 #54 — lead with the one thing worth knowing before writing:
+              how soon an answer comes. Same promise `HelpSentView` prints
+              after sending, said here too so nobody has to send a note to
+              find it out. */}
+          <Text variant="note" className="mt-3">
+            We usually answer within a day.
+          </Text>
+
           {/* The headcount is the founder's, confirmed 2026-08-10, and it is
               the atlas's original line restored. It was briefly softened to
               "a person reads it" because no code can prove how many people
@@ -174,11 +183,16 @@ export default function WriteToUsScreen() {
 
               It also has to STAY sourced. If the inbox ever grows a third
               reader or shrinks to one, this sentence is wrong and nothing in
-              the build will notice. */}
-          <Text variant="note" className="mt-3">
-            This goes to {SUPPORT_ADDRESS}. Two of us read that inbox, and you will hear back from
-            one of them. There is no ticket system behind it and no number to quote back at you.
-          </Text>
+              the build will notice. Demoted to the disclosure rather than
+              deleted — internal process, not the primary thing a person
+              writing in needs to know. */}
+          <Disclosure label="How this works" variant="link" className="mt-2">
+            <Text variant="note">
+              This goes to {SUPPORT_ADDRESS}. Two of us read that inbox, and you will hear back
+              from one of them. There is no ticket system behind it and no number to quote back at
+              you.
+            </Text>
+          </Disclosure>
 
           {/* What the note is already carrying, said plainly and early —
               the same principle as the diagnostics panel, applied to context. */}

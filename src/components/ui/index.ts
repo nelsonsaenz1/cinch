@@ -17,6 +17,7 @@ export {
   DoorPlate,
   type DoorPlateProps,
 } from '@/components/ui/door-plate';
+export { Disclosure, type DisclosureProps } from '@/components/ui/disclosure';
 export { EditorialFrame } from '@/components/ui/editorial-frame';
 export { EmptyState, type EmptyStateProps } from '@/components/ui/empty-state';
 export { ErrorState, type ErrorStateProps } from '@/components/ui/error-state';
