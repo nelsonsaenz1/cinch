@@ -474,3 +474,28 @@ test('the client gate and the Edge Function gate hold the same words', () => {
   assert.match(index, /exact\.filter\(\(f\) => isFashionFamily\(f, request\.slot\)\)/);
   assert.match(index, /nearMiss\.filter\(\(f\) => isFashionFamily\(f, request\.slot\)\)/);
 });
+
+test('a title that names a garment must be that garment — the head noun rules', () => {
+  // Found live 2026-09-03: a shoe rack on the shelf, labelled "Shoes" because
+  // its category said shoes and its title's veto word was not in the list.
+  for (const title of [
+    'Rotating Shoe Rack Tower',
+    'Shoe Care Kit',
+    'Sock Ornaments Set',
+    'Canvas Tote for Laptop',
+  ]) {
+    assert.equal(
+      isConfidentFashion({ title, productClass: 'footwear', category: 'Shoes' }, 'footwear'),
+      false,
+      title,
+    );
+  }
+  // …while trailing colours, sizes and pack words are not the head noun.
+  for (const title of ['Chelsea Boot Black', 'Silk Blouse in Navy', 'Merino Sweater - Oatmeal, M']) {
+    assert.equal(
+      isConfidentFashion({ title, productClass: 'footwear', category: 'Shoes' }, 'footwear'),
+      true,
+      title,
+    );
+  }
+});

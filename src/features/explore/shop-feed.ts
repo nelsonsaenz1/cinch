@@ -470,22 +470,41 @@ const containsWord = (haystack: string, phrase: string): boolean =>
   haystack.includes(` ${phrase}es `);
 
 /**
- * The last word of a title that is not a pack or quantity word — the noun the
- * thing IS. "Wooden Coat Hanger Set" is a hanger; "Beach Towels 2-Pack" is towels.
+ * Words a title may END with that are not the thing itself: colours, sizes
+ * and pack/quantity words. The head noun is the last word past these.
  */
-const TAIL_QUALIFIERS: ReadonlySet<string> = new Set([
+const TRAILING_WORDS: ReadonlySet<string> = new Set([
   'set', 'sets', 'pack', 'packs', 'bundle', 'kit', 'piece', 'pieces', 'pc', 'pcs',
-  'pair', 'pairs', 'count', 'lot', 'of', 'x',
+  'pair', 'pairs', 'count', 'lot', 'of', 'x', 'in', 'with', 'for', 'and',
+  'xs', 's', 'm', 'l', 'xl', 'xxl', 'xxxl', 'small', 'medium', 'large', 'petite',
+  'tall', 'regular', 'plus', 'size', 'sizes', 'women', 'womens', 'men', 'mens',
+  'kids', 'unisex', 'new', 'sale',
+  'black', 'white', 'navy', 'blue', 'red', 'green', 'olive', 'tan', 'beige', 'cream',
+  'ivory', 'grey', 'gray', 'charcoal', 'brown', 'camel', 'khaki', 'pink', 'blush',
+  'burgundy', 'oxblood', 'wine', 'maroon', 'purple', 'lilac', 'lavender', 'yellow',
+  'mustard', 'gold', 'silver', 'orange', 'rust', 'copper', 'teal', 'turquoise',
+  'aqua', 'mint', 'sage', 'forest', 'emerald', 'coral', 'peach', 'nude', 'taupe',
+  'sand', 'stone', 'ecru', 'oatmeal', 'chocolate', 'espresso', 'indigo', 'cobalt',
+  'magenta', 'fuchsia', 'plum', 'multi', 'print', 'printed', 'stripe', 'striped',
+  'floral', 'check', 'checked', 'plaid', 'solid',
 ]);
+
+/** The last word of a title that is not a colour, size or pack word — the noun the thing IS. */
 const headWord = (title: string): string => {
   const words = wordsOf(title).trim().split(' ').filter(Boolean);
   for (let i = words.length - 1; i >= 0; i -= 1) {
     const w = words[i]!;
-    if (TAIL_QUALIFIERS.has(w) || /^\d+$/.test(w)) continue;
+    if (TRAILING_WORDS.has(w) || /^\d+$/.test(w)) continue;
     return w;
   }
   return '';
 };
+
+/** Whether a word is one of the garment nouns the labels table knows. */
+const isGarmentWord = (word: string): boolean =>
+  word in FASHION_CATEGORY_LABELS ||
+  (word.endsWith('s') && word.slice(0, -1) in FASHION_CATEGORY_LABELS) ||
+  (word.endsWith('es') && word.slice(0, -2) in FASHION_CATEGORY_LABELS);
 
 export type CategoryVerdict = 'fashion' | 'non-fashion' | 'unknown';
 
@@ -550,6 +569,11 @@ export function isConfidentFashion(
   const titleNamesGarment = Object.keys(FASHION_CATEGORY_LABELS).some((word) =>
     containsWord(title, word),
   );
+  // A title that names a garment must BE that garment: "Rotating Shoe Rack
+  // Tower" names shoes and is a tower. The head noun — past colours, sizes
+  // and pack words — has to be a garment word (found live 2026-09-03, a shoe
+  // rack on the shelf labelled "Shoes").
+  if (titleNamesGarment && !isGarmentWord(head)) return false;
   for (const word of NON_APPAREL_TITLE_WORDS) {
     const hit = head === word || head === `${word}s` || head === `${word}es`;
     if (hit || (!titleNamesGarment && containsWord(title, word))) return false;
